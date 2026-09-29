@@ -22,7 +22,9 @@
 #include "esp_lcd_touch_ft5x06.h"
 #include "esp_lcd_sh8601.h"
 #include "esp_log.h"
+#include "esp_pm.h"
 #include "esp_timer.h"
+#include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
@@ -61,7 +63,11 @@ static const char *TAG = "BoardSupport";
 #define BOARD_LVGL_BUF_HEIGHT 24
 #define BOARD_LVGL_BUF_PIXELS (BOARD_LCD_H_RES * BOARD_LVGL_BUF_HEIGHT)
 #define BOARD_UI_ROTATION LV_DISP_ROT_270
-#define BOARD_LVGL_TICK_PERIOD_MS 2
+#define BOARD_LVGL_TICK_PERIOD_MS 10
+// SH8601 brightness, 0x00-0xFF. Far below full scale: this panel is readable
+// indoors well under maximum, and current tracks the register.
+#define BOARD_DISPLAY_BRIGHTNESS_ACTIVE 0x70
+#define BOARD_DISPLAY_BRIGHTNESS_DIM 0x28
 #define BOARD_LVGL_TASK_STACK_SIZE (4 * 1024)
 #define BOARD_BUTTON_LONG_PRESS_US 700000
 #define BOARD_TOUCH_SWIPE_DISTANCE 60
@@ -87,6 +93,13 @@ typedef struct {
     lv_color_t *buf2;
     lv_color_t *rotate_buf;
     bool display_awake;
+    esp_lcd_panel_io_handle_t panel_io;
+    esp_timer_handle_t lvgl_tick;
+    bool lvgl_tick_running;
+    uint8_t brightness;
+    SemaphoreHandle_t audio_lock;
+    int audio_users;
+    bool audio_active;
     i2c_master_bus_handle_t i2c_bus;
     esp_lcd_panel_io_handle_t touch_io;
     esp_lcd_touch_handle_t touch_handle;
@@ -120,7 +133,7 @@ static const sh8601_lcd_init_cmd_t s_lcd_init_cmds[] = {
     {0x2B, (uint8_t[]){0x00, 0x00, 0x01, 0xBF}, 4, 0},
     {0x51, (uint8_t[]){0x00}, 1, 10},
     {0x29, (uint8_t[]){0x00}, 0, 10},
-    {0x51, (uint8_t[]){0xFF}, 1, 0},
+    {0x51, (uint8_t[]){BOARD_DISPLAY_BRIGHTNESS_ACTIVE}, 1, 0},
 };
 
 static bool board_lock(int timeout_ms) {
@@ -130,6 +143,8 @@ static bool board_lock(int timeout_ms) {
     const TickType_t timeout_ticks = timeout_ms < 0 ? portMAX_DELAY : pdMS_TO_TICKS(timeout_ms);
     return xSemaphoreTake(s_runtime.lvgl_mutex, timeout_ticks) == pdTRUE;
 }
+
+static bool board_audio_ready(const board_support_t *board);
 
 static void board_unlock(void) {
     if (s_runtime.lvgl_mutex != NULL) {
@@ -284,6 +299,48 @@ static esp_err_t board_audio_open_codec(uint32_t sample_rate_hz, uint8_t channel
     s_runtime.audio_format.channels = channels;
     s_runtime.audio_format.bits_per_sample = bits_per_sample;
     return ESP_OK;
+}
+
+// Codec and I2S stay up only while a capture or playback holds them. Closing
+// the codec drops the ES8311 and its amp, and disabling I2S releases the
+// clock lock that would otherwise block light sleep.
+static esp_err_t board_audio_ensure_active_locked(void) {
+    if (s_runtime.codec_handle == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (s_runtime.audio_active) {
+        return ESP_OK;
+    }
+    const esp_err_t err = board_audio_open_codec(BOARD_AUDIO_SAMPLE_RATE, BOARD_AUDIO_CHANNELS, 16);
+    if (err != ESP_OK) {
+        return err;
+    }
+    s_runtime.audio_active = true;
+    ESP_LOGI(TAG, "audio on");
+    return ESP_OK;
+}
+
+static void board_audio_power_down_locked(void) {
+    if (s_runtime.codec_handle == NULL || !s_runtime.audio_active || s_runtime.audio_users > 0) {
+        return;
+    }
+    esp_codec_dev_close(s_runtime.codec_handle);
+    memset(&s_runtime.audio_format, 0, sizeof(s_runtime.audio_format));
+    s_runtime.audio_active = false;
+    ESP_LOGI(TAG, "audio off");
+}
+
+static void board_audio_release_user(void) {
+    if (s_runtime.audio_lock == NULL) {
+        return;
+    }
+    if (xSemaphoreTake(s_runtime.audio_lock, pdMS_TO_TICKS(200)) != pdTRUE) {
+        return;
+    }
+    if (s_runtime.audio_users > 0) {
+        s_runtime.audio_users -= 1;
+    }
+    xSemaphoreGive(s_runtime.audio_lock);
 }
 
 // Initialize cached PMU device handle on I2C bus
@@ -572,6 +629,8 @@ static esp_err_t board_audio_init_codec(void) {
         err = ESP_FAIL;
         goto cleanup;
     }
+    s_runtime.audio_active = true;
+    board_audio_power_down_locked();
     return ESP_OK;
 
 cleanup:
@@ -671,6 +730,7 @@ esp_err_t board_support_init(board_support_t *board) {
         &s_runtime.disp_drv
     );
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)BOARD_LCD_HOST, &io_config, &io_handle));
+    s_runtime.panel_io = io_handle;
 
     const sh8601_vendor_config_t vendor_config = {
         .init_cmds = s_lcd_init_cmds,
@@ -690,6 +750,7 @@ esp_err_t board_support_init(board_support_t *board) {
     ESP_ERROR_CHECK(esp_lcd_panel_init(s_runtime.panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(s_runtime.panel_handle, true));
     s_runtime.display_awake = true;
+    s_runtime.brightness = BOARD_DISPLAY_BRIGHTNESS_ACTIVE;
 
     esp_lcd_panel_io_i2c_config_t touch_io_config = ESP_LCD_TOUCH_IO_I2C_FT5x06_CONFIG();
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_i2c(s_runtime.i2c_bus, &touch_io_config, &s_runtime.touch_io));
@@ -737,9 +798,9 @@ esp_err_t board_support_init(board_support_t *board) {
         .callback = board_increase_lvgl_tick,
         .name = "neo_lvgl_tick",
     };
-    esp_timer_handle_t tick_timer = NULL;
-    ESP_ERROR_CHECK(esp_timer_create(&timer_args, &tick_timer));
-    ESP_ERROR_CHECK(esp_timer_start_periodic(tick_timer, BOARD_LVGL_TICK_PERIOD_MS * 1000));
+    ESP_ERROR_CHECK(esp_timer_create(&timer_args, &s_runtime.lvgl_tick));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(s_runtime.lvgl_tick, BOARD_LVGL_TICK_PERIOD_MS * 1000));
+    s_runtime.lvgl_tick_running = true;
 
     s_runtime.lvgl_mutex = xSemaphoreCreateMutex();
     assert(s_runtime.lvgl_mutex != NULL);
@@ -750,6 +811,8 @@ esp_err_t board_support_init(board_support_t *board) {
         board_unlock();
     }
 
+    s_runtime.audio_lock = xSemaphoreCreateMutex();
+    assert(s_runtime.audio_lock != NULL);
     s_runtime.initialized = true;
     esp_err_t audio_err = board_audio_init_codec();
     if (audio_err != ESP_OK) {
@@ -763,8 +826,41 @@ esp_err_t board_support_init(board_support_t *board) {
     board->display_ready = true;
     board->touch_ready = s_runtime.touch_handle != NULL;
     board->audio_ready = audio_err == ESP_OK;
+#if CONFIG_PM_ENABLE
+    const esp_pm_config_t pm_config = {
+        .max_freq_mhz = 240,
+        .min_freq_mhz = 80,
+        .light_sleep_enable = true,
+    };
+    const esp_err_t pm_err = esp_pm_configure(&pm_config);
+    if (pm_err != ESP_OK) {
+        ESP_LOGW(TAG, "light sleep not enabled: %s", esp_err_to_name(pm_err));
+    }
+#endif
     ESP_LOGI(TAG, "display initialized; touch_ready=%d audio_ready=%d", board->touch_ready, board->audio_ready);
     return ESP_OK;
+}
+
+static void board_set_lvgl_tick_running(bool running) {
+    if (s_runtime.lvgl_tick == NULL || s_runtime.lvgl_tick_running == running) {
+        return;
+    }
+    const esp_err_t err = running
+        ? esp_timer_start_periodic(s_runtime.lvgl_tick, BOARD_LVGL_TICK_PERIOD_MS * 1000)
+        : esp_timer_stop(s_runtime.lvgl_tick);
+    if (err == ESP_OK) {
+        s_runtime.lvgl_tick_running = running;
+    }
+}
+
+static void board_apply_brightness(uint8_t level) {
+    if (s_runtime.panel_io == NULL || s_runtime.brightness == level) {
+        return;
+    }
+    const uint8_t param = level;
+    if (esp_lcd_panel_io_tx_param(s_runtime.panel_io, 0x51, &param, 1) == ESP_OK) {
+        s_runtime.brightness = level;
+    }
 }
 
 esp_err_t board_support_set_chrome(board_support_t *board, const neoagent_status_chrome_t *status, const char *time_text) {
@@ -794,11 +890,49 @@ esp_err_t board_support_set_display_awake(board_support_t *board, bool awake) {
     if (err == ESP_OK) {
         s_runtime.display_awake = awake;
         if (awake) {
+            board_apply_brightness(BOARD_DISPLAY_BRIGHTNESS_ACTIVE);
+            board_set_lvgl_tick_running(true);
             // Rendering paused while dark; redraw what changed meanwhile.
             lv_obj_invalidate(lv_scr_act());
+        } else {
+            // A 10ms tick would wake the CPU for the whole standby.
+            board_set_lvgl_tick_running(false);
         }
     }
     board_unlock();
+    return err;
+}
+
+esp_err_t board_support_set_display_dimmed(board_support_t *board, bool dimmed) {
+    if (board == NULL || !s_runtime.initialized || !s_runtime.display_awake) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    const uint8_t level = dimmed ? BOARD_DISPLAY_BRIGHTNESS_DIM : BOARD_DISPLAY_BRIGHTNESS_ACTIVE;
+    if (s_runtime.brightness == level) {
+        return ESP_OK;
+    }
+    if (!board_lock(50)) {
+        return ESP_ERR_TIMEOUT;
+    }
+    board_apply_brightness(level);
+    board_unlock();
+    return ESP_OK;
+}
+
+esp_err_t board_support_audio_set_active(board_support_t *board, bool active) {
+    if (!board_audio_ready(board) || s_runtime.audio_lock == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (xSemaphoreTake(s_runtime.audio_lock, pdMS_TO_TICKS(200)) != pdTRUE) {
+        return ESP_ERR_TIMEOUT;
+    }
+    esp_err_t err = ESP_OK;
+    if (active) {
+        err = board_audio_ensure_active_locked();
+    } else {
+        board_audio_power_down_locked();
+    }
+    xSemaphoreGive(s_runtime.audio_lock);
     return err;
 }
 
@@ -1017,24 +1151,46 @@ esp_err_t board_support_audio_read(board_support_t *board, void *buffer, size_t 
         return ESP_ERR_INVALID_ARG;
     }
     *bytes_read = 0;
-    if (s_runtime.i2s_rx_chan == NULL) {
+    if (s_runtime.i2s_rx_chan == NULL || s_runtime.audio_lock == NULL) {
         return ESP_ERR_INVALID_STATE;
     }
-    return i2s_channel_read(
+    if (xSemaphoreTake(s_runtime.audio_lock, pdMS_TO_TICKS(200)) != pdTRUE) {
+        return ESP_ERR_TIMEOUT;
+    }
+    s_runtime.audio_users += 1;
+    const esp_err_t open_err = board_audio_ensure_active_locked();
+    xSemaphoreGive(s_runtime.audio_lock);
+    if (open_err != ESP_OK) {
+        board_audio_release_user();
+        return open_err;
+    }
+    const esp_err_t err = i2s_channel_read(
         s_runtime.i2s_rx_chan,
         buffer,
         buffer_size,
         bytes_read,
         timeout_ms < 0 ? portMAX_DELAY : pdMS_TO_TICKS(timeout_ms)
     );
+    board_audio_release_user();
+    return err;
 }
 
 esp_err_t board_support_audio_write(board_support_t *board, const void *pcm, size_t length, int timeout_ms) {
     if (!board_audio_ready(board) || pcm == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-    if (s_runtime.i2s_tx_chan == NULL) {
+    if (s_runtime.i2s_tx_chan == NULL || s_runtime.audio_lock == NULL) {
         return ESP_ERR_INVALID_STATE;
+    }
+    if (xSemaphoreTake(s_runtime.audio_lock, pdMS_TO_TICKS(200)) != pdTRUE) {
+        return ESP_ERR_TIMEOUT;
+    }
+    s_runtime.audio_users += 1;
+    const esp_err_t open_err = board_audio_ensure_active_locked();
+    xSemaphoreGive(s_runtime.audio_lock);
+    if (open_err != ESP_OK) {
+        board_audio_release_user();
+        return open_err;
     }
     const uint8_t *bytes = (const uint8_t *)pcm;
     size_t offset = 0;
@@ -1048,13 +1204,16 @@ esp_err_t board_support_audio_write(board_support_t *board, const void *pcm, siz
             timeout_ms < 0 ? portMAX_DELAY : pdMS_TO_TICKS(timeout_ms)
         );
         if (err != ESP_OK) {
+            board_audio_release_user();
             return err;
         }
         if (written == 0) {
+            board_audio_release_user();
             return ESP_ERR_TIMEOUT;
         }
         offset += written;
     }
+    board_audio_release_user();
     return ESP_OK;
 }
 

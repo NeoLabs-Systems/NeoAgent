@@ -2,25 +2,26 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 class HealthBridge {
   static const MethodChannel _channel = MethodChannel('neoagent/health');
 
   Future<HealthBridgeStatus> getStatus() async {
     if (!_isAndroid) {
-      return const HealthBridgeStatus(
+      return HealthBridgeStatus(
         available: false,
         permissionsGranted: false,
-        message: 'Health sync is available on Android only.',
+        message: appStrings.healthSyncIsAvailableOnAndroid,
       );
     }
 
     final result = await _channel.invokeMapMethod<String, dynamic>('status');
     if (result == null) {
-      return const HealthBridgeStatus(
+      return HealthBridgeStatus(
         available: false,
         permissionsGranted: false,
-        message: 'Health status is unavailable.',
+        message: appStrings.healthStatusIsUnavailable,
       );
     }
 
@@ -48,8 +49,8 @@ class HealthBridge {
     required DateTime windowEnd,
   }) async {
     if (!_isAndroid) {
-      throw const HealthBridgeException(
-        'Health sync is available on Android only.',
+      throw HealthBridgeException(
+        appStrings.healthSyncIsAvailableOnAndroid,
       );
     }
     final raw = await _channel
@@ -58,7 +59,7 @@ class HealthBridge {
           'windowEnd': windowEnd.toUtc().toIso8601String(),
         });
     if (raw == null || raw.isEmpty) {
-      throw const HealthBridgeException('No health data payload returned.');
+      throw HealthBridgeException(appStrings.noHealthDataPayloadReturned);
     }
     return jsonDecode(raw) as Map<String, dynamic>;
   }

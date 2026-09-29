@@ -173,21 +173,21 @@ class _ToolsPanelState extends State<ToolsPanel> {
               _PageTitle(
                 title: 'Tools',
                 subtitle:
-                    'Everything the agent can use: official integrations, MCP servers, and skills.',
+                    appStrings.everythingTheAgentCanUseOfficial,
                 trailing: _ToolsAddMenu(controller: controller),
               ),
               TextField(
                 controller: _searchController,
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
-                  hintText: 'Search tools, integrations, and skills',
-                  prefixIcon: const Icon(Icons.search_rounded),
+                  hintText: appStrings.searchToolsIntegrationsAndSkills,
+                  prefixIcon: Icon(Icons.search_rounded),
                   suffixIcon: _searchController.text.isEmpty
                       ? null
                       : IconButton(
-                          tooltip: 'Clear search',
+                          tooltip: appStrings.clearSearch,
                           onPressed: _searchController.clear,
-                          icon: const Icon(Icons.close_rounded),
+                          icon: Icon(Icons.close_rounded),
                         ),
                 ),
               ),
@@ -234,7 +234,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
       filters.add(
         _ToolsFilterMenu(
           icon: Icons.tune_rounded,
-          label: 'Status',
+          label: appStrings.status,
           value: _skillStatus,
           options: const <String>['all', 'active', 'draft', 'disabled'],
           onSelected: (value) => setState(() => _skillStatus = value),
@@ -243,7 +243,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
       filters.add(
         _ToolsFilterMenu(
           icon: Icons.source_outlined,
-          label: 'Source',
+          label: appStrings.source,
           value: _skillSource,
           options: const <String>[
             'all',
@@ -264,7 +264,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
       filters.add(
         _ToolsFilterMenu(
           icon: Icons.grid_view_rounded,
-          label: 'Category',
+          label: appStrings.category,
           value: _storeCategory,
           options: categories,
           onSelected: (value) => setState(() => _storeCategory = value),
@@ -298,7 +298,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
       if (discover.isNotEmpty) {
         children.add(
           _ToolsSectionHeader(
-            title: 'Discover',
+            title: appStrings.discover,
             count: discover.length,
             onSeeAll: () => _selectSegment(_ToolsSegment.store),
           ),
@@ -326,8 +326,8 @@ class _ToolsPanelState extends State<ToolsPanel> {
         segment: _ToolsSegment.integrations,
         title: 'Integrations',
         emptyMessage: _query.isEmpty
-            ? 'No official integrations are available yet.'
-            : 'No integrations match this search.',
+            ? appStrings.noOfficialIntegrationsAreAvailableYet
+            : appStrings.noIntegrationsMatchThisSearch,
         overview: overview,
         tiles: integrations
             .map((item) => _IntegrationTile(controller: controller, item: item))
@@ -337,10 +337,10 @@ class _ToolsPanelState extends State<ToolsPanel> {
     children.addAll(
       _buildGroup(
         segment: _ToolsSegment.mcp,
-        title: 'MCP servers',
+        title: appStrings.mcpServers,
         emptyMessage: _query.isEmpty
-            ? 'No MCP servers configured yet. Add one to expose its tools.'
-            : 'No MCP servers match this search.',
+            ? appStrings.noMcpServersConfiguredYetAddOne
+            : appStrings.noMcpServersMatchThisSearch,
         overview: overview,
         tiles: servers
             .map(
@@ -357,7 +357,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
         emptyMessage:
             _query.isEmpty && _skillStatus == 'all' && _skillSource == 'all'
             ? 'No skills installed yet. Install one from the store or write your own.'
-            : 'No skills match these filters.',
+            : appStrings.noSkillsMatchTheseFilters,
         overview: overview,
         tiles: skills
             .map((skill) => _SkillTile(controller: controller, skill: skill))
@@ -371,7 +371,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
         _buildGroup(
           segment: _ToolsSegment.store,
           title: 'Store',
-          emptyMessage: 'No store skills match this search.',
+          emptyMessage: appStrings.noStoreSkillsMatchThisSearch,
           overview: overview,
           tiles: storeSkills
               .map(
@@ -385,10 +385,10 @@ class _ToolsPanelState extends State<ToolsPanel> {
     if (children.isEmpty) {
       children.add(
         _EmptyCard(
-          title: 'Nothing found',
+          title: appStrings.nothingFound,
           subtitle: _query.isEmpty
-              ? 'Add an MCP server or install a skill to get started.'
-              : 'No tool matches "${_searchController.text.trim()}".',
+              ? appStrings.addAnMcpServerOrInstallA
+              : appStrings.noToolMatchesArg1(_searchController.text.trim()),
         ),
       );
     }
@@ -413,7 +413,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
       }
       return <Widget>[
         _ToolsSectionHeader(title: title, count: 0),
-        _EmptyCard(title: 'Nothing here yet', subtitle: emptyMessage),
+        _EmptyCard(title: appStrings.nothingHereYet2, subtitle: emptyMessage),
       ];
     }
     final shown = overview && tiles.length > _toolsOverviewLimit
@@ -448,19 +448,19 @@ class _ToolsAddMenu extends StatelessWidget {
         onPressed: () => menuController.isOpen
             ? menuController.close()
             : menuController.open(),
-        icon: const Icon(Icons.add_rounded, size: 18),
-        label: const Text('Add'),
+        icon: Icon(Icons.add_rounded, size: 18),
+        label: Text(appStrings.add),
       ),
       menuChildren: <Widget>[
         MenuItemButton(
-          leadingIcon: const Icon(Icons.dns_outlined, size: 18),
+          leadingIcon: Icon(Icons.dns_outlined, size: 18),
           onPressed: () => _openMcpEditor(context, controller),
-          child: const Text('Add MCP server'),
+          child: Text(appStrings.addMcpServer),
         ),
         MenuItemButton(
-          leadingIcon: const Icon(Icons.auto_awesome_outlined, size: 18),
+          leadingIcon: Icon(Icons.auto_awesome_outlined, size: 18),
           onPressed: () => _openCreateSkill(context, controller),
-          child: const Text('New skill'),
+          child: Text(appStrings.newSkill),
         ),
       ],
     );
@@ -582,7 +582,7 @@ class _ToolsFilterMenu extends StatelessWidget {
   final ValueChanged<String> onSelected;
 
   static String _optionLabel(String option) {
-    if (option == 'all') return 'All';
+    if (option == 'all') return appStrings.all;
     return option[0].toUpperCase() + option.substring(1);
   }
 
@@ -616,7 +616,7 @@ class _ToolsFilterMenu extends StatelessWidget {
             Icon(icon, size: 15, color: _textSecondary),
             const SizedBox(width: 8),
             Text(
-              '$label: ${_optionLabel(value)}',
+              appStrings.arg1Arg24(label, _optionLabel(value)),
               style: TextStyle(
                 color: value == 'all' ? _textSecondary : _accent,
                 fontWeight: FontWeight.w600,
@@ -668,7 +668,7 @@ class _ToolsSectionHeader extends StatelessWidget {
           ),
           const Spacer(),
           if (onSeeAll != null)
-            TextButton(onPressed: onSeeAll, child: const Text('See all')),
+            TextButton(onPressed: onSeeAll, child: Text(appStrings.seeAll)),
         ],
       ),
     );
@@ -866,14 +866,14 @@ class _IntegrationTile extends StatelessWidget {
           : _textMuted,
       meta: <String>[
         item.statusLabel,
-        '${item.availableToolCount} tools',
-        '${item.connection.accountCount} accounts',
+        appStrings.arg1Tools(item.availableToolCount),
+        appStrings.arg1Accounts(item.connection.accountCount),
       ],
       trailing: _ToolActionButton(
         label: item.isConnected
             ? 'Manage'
             : needsSetup && item.env.setupMode != 'user'
-            ? 'Set up'
+            ? appStrings.setUp
             : 'Connect',
         primary: !item.isConnected,
         onPressed: () => _openIntegrationDetail(context, controller, item),
@@ -892,7 +892,7 @@ void _openIntegrationDetail(
     context,
     icon: _OfficialIntegrationIcon(item: item),
     title: item.label,
-    subtitle: 'Official integration',
+    subtitle: appStrings.officialIntegration,
     child: IntegrationDetailView(controller: controller, providerId: item.id),
   );
 }
@@ -917,7 +917,7 @@ class _McpServerTile extends StatelessWidget {
     return _ToolTile(
       icon: icon,
       title: server.name,
-      subtitle: server.command.ifEmpty('No server URL set'),
+      subtitle: server.command.ifEmpty(appStrings.noServerUrlSet),
       statusColor: running
           ? _success
           : server.hasError
@@ -929,7 +929,7 @@ class _McpServerTile extends StatelessWidget {
             : server.hasError
             ? 'Error'
             : 'Stopped',
-        '${server.toolCount} tools',
+        appStrings.arg1Tools(server.toolCount),
         server.authMethodLabel,
       ],
       trailing: _ToolActionButton(
@@ -943,7 +943,7 @@ class _McpServerTile extends StatelessWidget {
         context,
         icon: icon,
         title: server.name,
-        subtitle: 'MCP server',
+        subtitle: appStrings.mcpServer,
         child: McpServerDetailView(controller: controller, serverId: server.id),
       ),
     );
@@ -973,7 +973,7 @@ class _SkillTile extends StatelessWidget {
     return _ToolTile(
       icon: icon,
       title: skill.name,
-      subtitle: skill.description.ifEmpty('No description'),
+      subtitle: skill.description.ifEmpty(appStrings.noDescription),
       statusColor: skill.enabled ? _success : _textMuted,
       meta: <String>[
         skill.enabled ? 'Enabled' : 'Disabled',
@@ -989,7 +989,7 @@ class _SkillTile extends StatelessWidget {
         context,
         icon: icon,
         title: skill.name,
-        subtitle: 'Skill',
+        subtitle: appStrings.skill,
         child: SkillDetailView(controller: controller, skillName: skill.name),
       ),
     );
@@ -1127,7 +1127,7 @@ void _openStoreSkillDetail(
     context,
     icon: icon,
     title: item.name,
-    subtitle: 'Store skill',
+    subtitle: appStrings.storeSkill,
     child: StoreSkillDetailView(controller: controller, skillId: item.id),
   );
 }
@@ -1199,7 +1199,7 @@ Future<void> _showToolDetail(
                   IconButton(
                     tooltip: 'Close',
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
+                    icon: Icon(Icons.close_rounded),
                   ),
                 ],
               ),
@@ -1280,10 +1280,10 @@ class _SettingsWorkspacePanelState extends State<SettingsWorkspacePanel> {
       padding: _pagePadding(context),
       child: Column(
         children: <Widget>[
-          const _PageTitle(
+          _PageTitle(
             title: 'Settings',
             subtitle:
-                'Workspace configuration and account security in one place.',
+                appStrings.workspaceConfigurationAndAccountSecurityIn,
           ),
           const SizedBox(height: 12),
           Expanded(
@@ -1372,29 +1372,29 @@ class _SettingsWorkspaceNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = <_SettingsWorkspaceNavItem>[
-      const _SettingsWorkspaceNavItem(
+      _SettingsWorkspaceNavItem(
         section: _SettingsWorkspaceSection.app,
         icon: Icons.tune,
-        label: 'General',
-        description: 'Models, behavior, voice, and workspace',
+        label: appStrings.general,
+        description: appStrings.modelsBehaviorVoiceAndWorkspace,
       ),
-      const _SettingsWorkspaceNavItem(
+      _SettingsWorkspaceNavItem(
         section: _SettingsWorkspaceSection.account,
         icon: Icons.person_outline,
         label: 'Account',
-        description: 'Profile, email, and personal data',
+        description: appStrings.profileEmailAndPersonalData,
       ),
-      const _SettingsWorkspaceNavItem(
+      _SettingsWorkspaceNavItem(
         section: _SettingsWorkspaceSection.usage,
         icon: Icons.data_usage_outlined,
-        label: 'Usage & limits',
-        description: 'Plan usage and allowance details',
+        label: appStrings.usageLimits2,
+        description: appStrings.planUsageAndAllowanceDetails,
       ),
-      const _SettingsWorkspaceNavItem(
+      _SettingsWorkspaceNavItem(
         section: _SettingsWorkspaceSection.security,
         icon: Icons.security_outlined,
-        label: 'Security',
-        description: 'Password, 2FA, and active sessions',
+        label: appStrings.security,
+        description: appStrings.password2faAndActiveSessions,
       ),
     ];
     if (compact) {
@@ -1402,8 +1402,8 @@ class _SettingsWorkspaceNav extends StatelessWidget {
         key: ValueKey<_SettingsWorkspaceSection>(selected),
         initialValue: selected,
         isExpanded: true,
-        decoration: const InputDecoration(
-          labelText: 'Settings area',
+        decoration: InputDecoration(
+          labelText: appStrings.settingsArea,
           prefixIcon: Icon(Icons.settings_outlined),
         ),
         items: items
@@ -1432,7 +1432,7 @@ class _SettingsWorkspaceNav extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 4, 8, 10),
             child: Text(
-              'Settings areas',
+              appStrings.settingsAreas,
               style: TextStyle(
                 color: _textSecondary,
                 fontSize: 12,

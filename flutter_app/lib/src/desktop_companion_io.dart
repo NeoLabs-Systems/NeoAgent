@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'desktop_companion_actions.dart';
 import 'desktop_companion_health.dart';
 import 'desktop_screen_capture.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 const String desktopCompanionEnabledPrefsKey = 'desktop.companion.enabled';
 const String desktopCompanionLabelPrefsKey = 'desktop.companion.label';
@@ -27,7 +28,7 @@ class LocalComputerPermissionException implements Exception {
   final String capability;
 
   @override
-  String toString() => 'Permission required: $capability';
+  String toString() => appStrings.permissionRequiredArg1(capability);
 }
 
 class DesktopCompanionManager extends ChangeNotifier {
@@ -152,7 +153,7 @@ class DesktopCompanionManager extends ChangeNotifier {
       throw ArgumentError.value(
         capability,
         'capability',
-        'Unknown local computer permission.',
+        appStrings.unknownLocalComputerPermission,
       );
     }
     if (remember) {
@@ -389,7 +390,7 @@ class DesktopCompanionManager extends ChangeNotifier {
   Future<void> openPermissionSettings(String permissionKey) async {
     if (kIsWeb) {
       throw UnsupportedError(
-        'Desktop companion permission settings are unavailable on web.',
+        appStrings.desktopCompanionPermissionSettingsAreUnavailable,
       );
     }
     final key = permissionKey.trim().toLowerCase();
@@ -404,7 +405,7 @@ class DesktopCompanionManager extends ChangeNotifier {
       case TargetPlatform.iOS:
       case TargetPlatform.fuchsia:
         throw UnsupportedError(
-          'Desktop companion permission settings are unavailable on this platform.',
+          appStrings.desktopCompanionPermissionSettingsAreUnavailable2,
         );
     }
   }
@@ -475,7 +476,7 @@ class DesktopCompanionManager extends ChangeNotifier {
             _connected) {
           return;
         }
-        _errorMessage = 'Desktop companion handshake timed out.';
+        _errorMessage = appStrings.desktopCompanionHandshakeTimedOut;
         _handleSocketClosed(socket, generation);
       });
     } catch (error) {
@@ -511,7 +512,7 @@ class DesktopCompanionManager extends ChangeNotifier {
         } catch (_) {}
       }());
       throw TimeoutException(
-        'Desktop companion connection timed out.',
+        appStrings.desktopCompanionConnectionTimedOut,
         const Duration(seconds: 15),
       );
     }
@@ -538,7 +539,7 @@ class DesktopCompanionManager extends ChangeNotifier {
         if (!ok) {
           _connected = false;
           _errorMessage =
-              message['error']?.toString() ?? 'Desktop companion rejected.';
+              message['error']?.toString() ?? appStrings.desktopCompanionRejected;
           _notify();
           _handleSocketClosed(source, generation);
           return;
@@ -578,11 +579,11 @@ class DesktopCompanionManager extends ChangeNotifier {
         unawaited(_handleCommand(commandMessage, source, generation));
       }
     } on FormatException catch (error) {
-      _errorMessage = 'Ignored malformed desktop companion message: $error';
+      _errorMessage = appStrings.ignoredMalformedDesktopCompanionMessageArg1(error);
       _notify();
       return;
     } catch (error) {
-      _errorMessage = 'Desktop companion message handling failed: $error';
+      _errorMessage = appStrings.desktopCompanionMessageHandlingFailedArg1(error);
       _notify();
       return;
     }
@@ -631,7 +632,7 @@ class DesktopCompanionManager extends ChangeNotifier {
           'id': id,
           'ok': false,
           'code': 'COMMAND_CANCELLED',
-          'error': 'Desktop companion command was cancelled.',
+          'error': appStrings.desktopCompanionCommandWasCancelled,
         });
         return;
       }
@@ -650,7 +651,7 @@ class DesktopCompanionManager extends ChangeNotifier {
           'id': id,
           'ok': false,
           'code': 'COMMAND_CANCELLED',
-          'error': 'Desktop companion command was cancelled.',
+          'error': appStrings.desktopCompanionCommandWasCancelled,
         });
         return;
       }
@@ -663,7 +664,7 @@ class DesktopCompanionManager extends ChangeNotifier {
           'id': id,
           'ok': false,
           'code': 'COMMAND_CANCELLED',
-          'error': 'Desktop companion command was cancelled.',
+          'error': appStrings.desktopCompanionCommandWasCancelled,
         });
         return;
       }
@@ -736,7 +737,7 @@ class DesktopCompanionManager extends ChangeNotifier {
     try {
       source.add(jsonEncode(message));
     } catch (error) {
-      _errorMessage = 'Desktop companion response failed: $error';
+      _errorMessage = appStrings.desktopCompanionResponseFailedArg1(error);
       _handleSocketClosed(source, generation);
     }
   }
@@ -779,14 +780,14 @@ class DesktopCompanionManager extends ChangeNotifier {
       final responseText = await utf8.decoder.bind(uploadResponse).join();
       if (uploadResponse.statusCode < 200 || uploadResponse.statusCode >= 300) {
         throw HttpException(
-          'Command output upload failed (${uploadResponse.statusCode}): $responseText',
+          appStrings.commandOutputUploadFailedArg1Arg2(uploadResponse.statusCode, responseText),
         );
       }
       final decoded = jsonDecode(responseText);
       final outputArtifact = decoded is Map ? decoded['outputArtifact'] : null;
       if (outputArtifact is! Map) {
-        throw const FormatException(
-          'Command output upload omitted artifact metadata.',
+        throw FormatException(
+          appStrings.commandOutputUploadOmittedArtifactMetadata,
         );
       }
       return <String, Object?>{
@@ -825,7 +826,7 @@ class DesktopCompanionManager extends ChangeNotifier {
 
   void _abortOutputUpload(String commandId) {
     _outputUploadRequests[commandId]?.abort(
-      const HttpException('Desktop command output upload cancelled.'),
+      HttpException(appStrings.desktopCommandOutputUploadCancelled),
     );
   }
 
@@ -838,7 +839,7 @@ class DesktopCompanionManager extends ChangeNotifier {
         command != 'getStatus' &&
         command != 'pauseControl' &&
         command != 'cancelCommand') {
-      throw Exception('Desktop companion is paused locally.');
+      throw Exception(appStrings.desktopCompanionIsPausedLocally);
     }
     switch (command) {
       case 'getStatus':
@@ -944,7 +945,7 @@ class DesktopCompanionManager extends ChangeNotifier {
           displayId,
         );
         if (!persisted) {
-          throw StateError('Unable to persist the selected desktop display.');
+          throw StateError(appStrings.unableToPersistTheSelectedDesktop);
         }
         _activeDisplayId = displayId;
         _status = <String, Object?>{..._status, 'activeDisplayId': displayId};
@@ -987,14 +988,14 @@ class DesktopCompanionManager extends ChangeNotifier {
       case 'ping':
         return <String, Object?>{'pong': true};
       default:
-        throw Exception('Unsupported desktop companion command: $command');
+        throw Exception(appStrings.unsupportedDesktopCompanionCommandArg1(command));
     }
   }
 
   int _requiredCoordinate(Map<String, Object?> payload, String key) {
     final value = payload[key];
     if (value is! num || !value.isFinite) {
-      throw FormatException('$key must be a finite number.');
+      throw FormatException(appStrings.arg1MustBeAFiniteNumber(key));
     }
     return value.round();
   }
@@ -1210,7 +1211,7 @@ class DesktopCompanionManager extends ChangeNotifier {
       frame.setRange(10, frame.length, jpeg);
       socket.add(frame);
     } catch (error) {
-      _errorMessage = 'Desktop stream capture failed: $error';
+      _errorMessage = appStrings.desktopStreamCaptureFailedArg1(error);
       _notify();
     } finally {
       _streamCaptureInFlight = false;
@@ -1261,7 +1262,7 @@ class DesktopCompanionManager extends ChangeNotifier {
       }
     }
     throw Exception(
-      'Could not open Linux settings automatically.${lastError != null ? ' $lastError' : ''}',
+      appStrings.couldNotOpenLinuxSettingsAutomatically(lastError != null ? ' $lastError' : ''),
     );
   }
 
@@ -1272,8 +1273,8 @@ class DesktopCompanionManager extends ChangeNotifier {
       final stdout = result.stdout?.toString().trim();
       final details = stderr?.isNotEmpty == true
           ? stderr
-          : (stdout?.isNotEmpty == true ? stdout : 'unknown error');
-      throw Exception('Command failed ($command): $details');
+          : (stdout?.isNotEmpty == true ? stdout : appStrings.unknownError);
+      throw Exception(appStrings.commandFailedArg1Arg2(command, details));
     }
   }
 }
@@ -1303,7 +1304,7 @@ Uri _desktopCommandOutputUri(String backendUrl) {
 String _defaultLabel() {
   final host = Platform.localHostname.trim();
   if (host.isNotEmpty) return host;
-  return '${defaultTargetPlatform.name} desktop';
+  return appStrings.arg1Desktop(defaultTargetPlatform.name);
 }
 
 String _randomId() {

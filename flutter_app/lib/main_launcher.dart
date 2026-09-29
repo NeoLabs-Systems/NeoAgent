@@ -64,14 +64,14 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
   Future<void> _openWifiSettings() async {
     final opened = await _launcherBridge.openWifiSettings();
     if (!opened) {
-      _showLauncherActionError('Unable to open Wi-Fi settings on this build.');
+      _showLauncherActionError(appStrings.unableToOpenWiFiSettings);
     }
   }
 
   Future<void> _openTimeSettings() async {
     final opened = await _launcherBridge.openTimeSettings();
     if (!opened) {
-      _showLauncherActionError('Unable to open time settings on this build.');
+      _showLauncherActionError(appStrings.unableToOpenTimeSettingsOn);
     }
   }
 
@@ -81,9 +81,7 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
   Future<void> _startQrLoginApproval() async {
     final controller = widget.controller;
     if (!controller.isAuthenticated) {
-      _showLauncherActionError(
-        'Sign in to this NeoAgent server before scanning a pairing QR code.',
-      );
+      _showLauncherActionError(appStrings.signInToThisNeoagentServer);
       return;
     }
 
@@ -98,9 +96,7 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
 
     final payload = QrLoginScanPayload.tryParse(scanned);
     if (payload == null) {
-      _showLauncherActionError(
-        'That QR code is not a NeoAgent pairing request.',
-      );
+      _showLauncherActionError(appStrings.thatQrCodeIsNotA2);
       return;
     }
 
@@ -110,7 +106,7 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
     );
     if (scannedBackend != currentBackend) {
       _showLauncherActionError(
-        'This code belongs to a different NeoAgent server: ${payload.backendUrl}',
+        appStrings.thisCodeBelongsToADifferent(payload.backendUrl),
       );
       return;
     }
@@ -139,7 +135,7 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Approved pairing for ${preview.requestedDevice.label}.',
+            appStrings.approvedPairingForArg1(preview.requestedDevice.label),
           ),
         ),
       );
@@ -148,7 +144,7 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
         return;
       }
       _showLauncherActionError(
-        controller.errorMessage ?? 'Could not approve QR pairing.',
+        controller.errorMessage ?? appStrings.couldNotApproveQrPairing,
       );
     }
   }
@@ -272,9 +268,8 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
       padding: _pagePadding(context),
       children: <Widget>[
         _PageTitle(
-          title: 'Device Settings',
-          subtitle:
-              'Adjust speaker volume, review hardware button defaults, and manage this launcher session.',
+          title: appStrings.deviceSettings,
+          subtitle: appStrings.adjustSpeakerVolumeReviewHardwareButton,
         ),
         if (_supportsQrLoginApproval) ...<Widget>[
           Card(
@@ -285,13 +280,16 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
                 children: <Widget>[
                   Row(
                     children: <Widget>[
-                      const Expanded(child: _SectionTitle('QR Pairing')),
-                      _StatusPill(label: 'Android only', color: _accent),
+                      Expanded(child: _SectionTitle(appStrings.qrPairing)),
+                      _StatusPill(
+                        label: appStrings.androidOnly,
+                        color: _accent,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Scan a NeoAgent pairing QR from another device and approve it from this launcher session.',
+                    appStrings.scanANeoagentPairingQrFrom,
                     style: TextStyle(color: _textSecondary, height: 1.45),
                   ),
                   const SizedBox(height: 16),
@@ -307,17 +305,17 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
                               color: Colors.white,
                             ),
                           )
-                        : const Icon(Icons.qr_code_scanner_outlined),
+                        : Icon(Icons.qr_code_scanner_outlined),
                     label: Text(
                       controller.isApprovingQrLogin
-                          ? 'Opening scanner...'
-                          : 'Scan pairing QR',
+                          ? appStrings.openingScanner
+                          : appStrings.scanPairingQr,
                     ),
                   ),
                   if (!controller.isAuthenticated) ...<Widget>[
                     const SizedBox(height: 10),
                     Text(
-                      'This requires an authenticated session on the same NeoAgent server.',
+                      appStrings.thisRequiresAnAuthenticatedSessionOn,
                       style: TextStyle(color: _textMuted, height: 1.4),
                     ),
                   ],
@@ -333,10 +331,10 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const _SectionTitle('Volume'),
+                _SectionTitle(appStrings.sectionVolume),
                 const SizedBox(height: 10),
                 Text(
-                  'Adjust the speaker volume here.',
+                  appStrings.adjustTheSpeakerVolumeHere,
                   style: TextStyle(color: _textSecondary, height: 1.45),
                 ),
                 const SizedBox(height: 16),
@@ -352,7 +350,7 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
                         height: 40,
                       ),
                       padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.remove_circle_outline),
+                      icon: Icon(Icons.remove_circle_outline),
                     ),
                     Expanded(
                       child: Slider(
@@ -370,13 +368,17 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
                         height: 40,
                       ),
                       padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.add_circle_outline),
+                      icon: Icon(Icons.add_circle_outline),
                     ),
                   ],
                 ),
                 if (volumeState != null)
                   Text(
-                    'Level ${volumeState.current}/${volumeState.max}${volumeState.muted ? ' • muted' : ''}',
+                    appStrings.levelArg1Arg2Arg3(
+                      volumeState.current,
+                      volumeState.max,
+                      volumeState.muted ? appStrings.muted : '',
+                    ),
                     style: TextStyle(color: _textSecondary),
                   ),
                 const SizedBox(height: 14),
@@ -384,16 +386,16 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
                   onPressed: _launcherBridge.supported
                       ? _openWifiSettings
                       : null,
-                  icon: const Icon(Icons.wifi_outlined),
-                  label: const Text('Open Wi-Fi settings'),
+                  icon: Icon(Icons.wifi_outlined),
+                  label: Text(appStrings.openWiFiSettings),
                 ),
                 const SizedBox(height: 10),
                 OutlinedButton.icon(
                   onPressed: _launcherBridge.supported
                       ? _openTimeSettings
                       : null,
-                  icon: const Icon(Icons.schedule_outlined),
-                  label: const Text('Open time settings'),
+                  icon: Icon(Icons.schedule_outlined),
+                  label: Text(appStrings.openTimeSettings),
                 ),
               ],
             ),
@@ -406,10 +408,10 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const _SectionTitle('Extra Buttons'),
+                _SectionTitle(appStrings.extraButtons),
                 const SizedBox(height: 10),
                 Text(
-                  'Hold button 131 for the assistant.',
+                  appStrings.holdButton131ForTheAssistant,
                   style: TextStyle(color: _textSecondary, height: 1.45),
                 ),
                 const SizedBox(height: 16),
@@ -417,9 +419,9 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
                   spacing: 10,
                   runSpacing: 10,
                   children: <Widget>[
-                    const _MetaPill(
+                    _MetaPill(
                       icon: Icons.keyboard_voice_outlined,
-                      label: 'Assistant key 131',
+                      label: appStrings.assistantKey131,
                     ),
                   ],
                 ),
@@ -434,32 +436,32 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const _SectionTitle('App Updates'),
+                _SectionTitle(appStrings.appUpdates),
                 const SizedBox(height: 10),
                 Text(
-                  'Keep this launcher up to date.',
+                  appStrings.keepThisLauncherUpToDate,
                   style: TextStyle(color: _textSecondary, height: 1.45),
                 ),
                 const SizedBox(height: 16),
                 if (!controller.appUpdaterConfigured)
                   Text(
-                    'Updates are not configured for this build.',
+                    appStrings.updatesAreNotConfiguredForThis,
                     style: TextStyle(color: _textSecondary),
                   )
                 else ...<Widget>[
                   DropdownButtonFormField<String>(
                     initialValue: controller.appUpdateChannel,
-                    decoration: const InputDecoration(
-                      labelText: 'Release channel',
+                    decoration: InputDecoration(
+                      labelText: appStrings.releaseChannel,
                     ),
-                    items: const <DropdownMenuItem<String>>[
+                    items: <DropdownMenuItem<String>>[
                       DropdownMenuItem<String>(
                         value: 'stable',
-                        child: Text('Stable'),
+                        child: Text(appStrings.stable),
                       ),
                       DropdownMenuItem<String>(
                         value: 'beta',
-                        child: Text('Beta'),
+                        child: Text(appStrings.beta),
                       ),
                     ],
                     onChanged: (value) {
@@ -472,11 +474,14 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
                   SwitchListTile.adaptive(
                     value: controller.appUpdateAutoCheckEnabled,
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Check automatically on launch'),
+                    title: Text(appStrings.checkAutomaticallyOnLaunch),
                     onChanged: controller.setAppUpdateAutoCheckEnabled,
                   ),
                   Text(
-                    'Installed: ${controller.installedAppVersion ?? 'Unknown'} • Last checked: ${controller.appUpdateLastCheckedLabel}',
+                    appStrings.installedArg1LastCheckedArg2(
+                      controller.installedAppVersion ?? 'Unknown',
+                      controller.appUpdateLastCheckedLabel,
+                    ),
                     style: TextStyle(color: _textSecondary, height: 1.4),
                   ),
                   const SizedBox(height: 14),
@@ -496,11 +501,11 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Icon(Icons.sync),
+                            : Icon(Icons.sync),
                         label: Text(
                           controller.isCheckingAppUpdate
                               ? 'Checking...'
-                              : 'Check now',
+                              : appStrings.checkNow,
                         ),
                       ),
                       OutlinedButton.icon(
@@ -516,11 +521,11 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Icon(Icons.system_update_alt),
+                            : Icon(Icons.system_update_alt),
                         label: Text(
                           controller.isOpeningAppUpdate
                               ? 'Opening...'
-                              : 'Download update',
+                              : appStrings.downloadUpdate,
                         ),
                       ),
                     ],
@@ -549,7 +554,7 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
                             runSpacing: 10,
                             children: <Widget>[
                               _StatusPill(
-                                label: 'Update ${release.version}',
+                                label: appStrings.updateArg1(release.version),
                                 color: release.channel == 'beta'
                                     ? _warning
                                     : _accent,
@@ -586,7 +591,7 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const _SectionTitle('Session'),
+                _SectionTitle(appStrings.sectionSession),
                 const SizedBox(height: 10),
                 Text(
                   controller.backendUrl,
@@ -598,8 +603,8 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
                   onPressed: controller.logout,
-                  icon: const Icon(Icons.logout),
-                  label: const Text('Sign out'),
+                  icon: Icon(Icons.logout),
+                  label: Text(appStrings.signOut),
                 ),
               ],
             ),
@@ -685,10 +690,10 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
           labelBehavior: compactNav
               ? NavigationDestinationLabelBehavior.onlyShowSelected
               : NavigationDestinationLabelBehavior.alwaysShow,
-          destinations: const <NavigationDestination>[
+          destinations: <NavigationDestination>[
             NavigationDestination(
               icon: Icon(Icons.keyboard_voice_outlined),
-              label: 'Assistant',
+              label: appStrings.assistant,
             ),
             NavigationDestination(
               icon: Icon(Icons.tune_outlined),

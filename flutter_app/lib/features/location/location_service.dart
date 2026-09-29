@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../src/backend_client.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 class LocationService {
   static final LocationService _instance = LocationService._internal();
@@ -42,15 +43,15 @@ class LocationService {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
-            title: const Text('Background Location Needed'),
-            content: const Text(
-              'NeoAgent uses your approximate background location to trigger geofence reminders (e.g. "Remind me to buy milk when I walk past the supermarket").\n\n'
-              'Your location is never tracked continuously or stored on our servers. We only use it locally to check against your active tasks.',
+            title: Text(appStrings.backgroundLocationNeeded),
+            content: Text(
+              appStrings.neoagentUsesYourApproximateBackgroundLocation +
+              appStrings.yourLocationIsNeverTrackedContinuously,
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Not Now'),
+                child: Text(appStrings.notNow2),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -59,7 +60,7 @@ class LocationService {
                   ),
                 ),
                 onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Allow'),
+                child: Text(appStrings.allow),
               ),
             ],
           ),
@@ -130,7 +131,7 @@ class LocationService {
           }
         }
       } catch (e) {
-        debugPrint('Geofence tracking error: $e');
+        debugPrint(appStrings.geofenceTrackingErrorArg1(e));
       }
 
       await Future<void>.delayed(const Duration(minutes: 5));

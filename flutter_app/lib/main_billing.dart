@@ -27,8 +27,8 @@ String _fmtPrice(int minorUnits, String currency, {String? interval}) {
       : amount.toStringAsFixed(2);
   final symbol = _currencySymbols[code];
   final str = symbol == null ? '$formatted $code' : '$symbol$formatted';
-  if (interval == null || interval.isEmpty) return '$str forever';
-  return '$str / $interval';
+  if (interval == null || interval.isEmpty) return appStrings.arg1Forever(str);
+  return appStrings.arg1Arg29(str, interval);
 }
 
 String _fmtTs(int? ts) {
@@ -96,11 +96,11 @@ class _BillingPanelState extends State<BillingPanel> {
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Text('Billing & subscription',
+                      Text(appStrings.billingSubscription,
                           style: _displayTitleStyle(26)),
                       const SizedBox(height: 8),
                       Text(
-                        'Manage your plan, track usage, update payment, and review invoices.',
+                        appStrings.manageYourPlanTrackUsageUpdate,
                         style: TextStyle(color: _textSecondary, height: 1.5),
                       ),
                       if (planName.isNotEmpty) ...<Widget>[
@@ -116,14 +116,14 @@ class _BillingPanelState extends State<BillingPanel> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                            Text('Billing & subscription',
+                            Text(appStrings.billingSubscription,
                                 style: _displayTitleStyle(32)),
                             const SizedBox(height: 10),
                             ConstrainedBox(
                               constraints:
                                   const BoxConstraints(maxWidth: 640),
                               child: Text(
-                                'Manage your plan, track usage, update payment, and review invoices — all in one place.',
+                                appStrings.manageYourPlanTrackUsageUpdate2,
                                 style: TextStyle(
                                     color: _textSecondary, height: 1.5),
                               ),
@@ -207,7 +207,7 @@ class _BillingStatusPill extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(
-            '$plan · $status',
+            appStrings.arg1Arg22(plan, status),
             style: GoogleFonts.geist(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -246,7 +246,7 @@ class _BillingTabBar extends StatelessWidget {
         children: <Widget>[
           _tab(_BillingTab.overview, 'Overview', null),
           _tab(_BillingTab.plans, 'Plans', null),
-          _tab(_BillingTab.history, 'Billing history',
+          _tab(_BillingTab.history, appStrings.billingHistory,
               invoiceCount > 0 ? '$invoiceCount' : null),
         ],
       ),
@@ -333,21 +333,21 @@ class _BillingOverviewTabState extends State<_BillingOverviewTab> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: _bgCard,
-        title: Text('Cancel subscription',
+        title: Text(appStrings.cancelSubscription,
             style: TextStyle(color: _textPrimary, fontWeight: FontWeight.w700)),
         content: Text(
-          'Your subscription will remain active until the end of the billing period.',
+          appStrings.yourSubscriptionWillRemainActiveUntil,
           style: TextStyle(color: _textSecondary),
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('Keep plan',
+            child: Text(appStrings.keepPlan,
                 style: TextStyle(color: _textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('Cancel subscription',
+            child: Text(appStrings.cancelSubscription,
                 style: TextStyle(color: _danger)),
           ),
         ],
@@ -417,7 +417,7 @@ class _BillingOverviewTabState extends State<_BillingOverviewTab> {
         // ── Usage this period ────────────────────────────────────────────
         Row(
           children: <Widget>[
-            Text('Usage this period',
+            Text(appStrings.usageThisPeriod,
                 style: GoogleFonts.geist(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -437,7 +437,7 @@ class _BillingOverviewTabState extends State<_BillingOverviewTab> {
                   children: <Widget>[
                     Icon(Icons.refresh, size: 12, color: _textMuted),
                     const SizedBox(width: 5),
-                    Text('Resets ${_formatIsoDate(periodEnd)}',
+                    Text(appStrings.resetsArg1(_formatIsoDate(periodEnd)),
                         style: TextStyle(fontSize: 12, color: _textMuted)),
                   ],
                 ),
@@ -465,7 +465,7 @@ class _BillingOverviewTabState extends State<_BillingOverviewTab> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
-          'CURRENT PLAN',
+          appStrings.currentPlan2,
           style: GoogleFonts.geistMono(
             fontSize: 10,
             fontWeight: FontWeight.w600,
@@ -499,11 +499,11 @@ class _BillingOverviewTabState extends State<_BillingOverviewTab> {
         const SizedBox(height: 6),
         Text(
           isTrialing
-              ? 'Trial ends ${_formatIsoDate(trialEnds)}'
+              ? appStrings.trialEndsArg1(_formatIsoDate(trialEnds))
               : cancelAtEnd
-                  ? 'Cancels at end of period · ${_formatIsoDate(periodEnd)}'
+                  ? appStrings.cancelsAtEndOfPeriodArg1(_formatIsoDate(periodEnd))
                   : periodEnd != null
-                      ? 'Renews ${_formatIsoDate(periodEnd)}'
+                      ? appStrings.renewsArg1(_formatIsoDate(periodEnd))
                       : status,
           style: TextStyle(fontSize: 13, color: _textMuted),
         ),
@@ -518,8 +518,8 @@ class _BillingOverviewTabState extends State<_BillingOverviewTab> {
       children: <Widget>[
         FilledButton.icon(
           onPressed: widget.onChangePlan,
-          icon: const Icon(Icons.swap_horiz_outlined, size: 16),
-          label: const Text('Change plan'),
+          icon: Icon(Icons.swap_horiz_outlined, size: 16),
+          label: Text(appStrings.changePlan),
           style: FilledButton.styleFrom(
             backgroundColor: _accent,
             foregroundColor: _bgPrimary,
@@ -534,8 +534,8 @@ class _BillingOverviewTabState extends State<_BillingOverviewTab> {
                   dimension: 14,
                   child: CircularProgressIndicator(strokeWidth: 1.5),
                 )
-              : const Icon(Icons.cancel_outlined, size: 16),
-          label: const Text('Cancel subscription'),
+              : Icon(Icons.cancel_outlined, size: 16),
+          label: Text(appStrings.cancelSubscription),
           style: OutlinedButton.styleFrom(
             foregroundColor: _danger,
             side: BorderSide(color: _danger.withValues(alpha: 0.4)),
@@ -545,8 +545,8 @@ class _BillingOverviewTabState extends State<_BillingOverviewTab> {
         const SizedBox(height: 8),
         TextButton.icon(
           onPressed: _openPortal,
-          icon: const Icon(Icons.open_in_new_outlined, size: 14),
-          label: const Text('Manage payment'),
+          icon: Icon(Icons.open_in_new_outlined, size: 14),
+          label: Text(appStrings.managePayment),
           style: TextButton.styleFrom(
             foregroundColor: _textMuted,
             textStyle: const TextStyle(fontSize: 12),
@@ -576,13 +576,13 @@ class _NoSubscriptionCard extends StatelessWidget {
         children: <Widget>[
           Icon(Icons.credit_card_off_outlined, size: 40, color: _textMuted),
           const SizedBox(height: 16),
-          Text('No active subscription',
+          Text(appStrings.noActiveSubscription,
               style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: _textPrimary)),
           const SizedBox(height: 8),
-          Text('Choose a plan to get started.',
+          Text(appStrings.chooseAPlanToGetStarted,
               style: TextStyle(fontSize: 13, color: _textMuted)),
           const SizedBox(height: 20),
           FilledButton(
@@ -591,7 +591,7 @@ class _NoSubscriptionCard extends StatelessWidget {
               backgroundColor: _accent,
               foregroundColor: _bgPrimary,
             ),
-            child: const Text('View plans'),
+            child: Text(appStrings.viewPlans),
           ),
         ],
       ),
@@ -615,14 +615,14 @@ class _UsageGrid extends StatelessWidget {
     final cards = <_UsageCardData>[
       _UsageCardData(
         icon: Icons.bolt_outlined,
-        label: 'Agent runs (7d)',
+        label: appStrings.agentRuns7d,
         value: usage?.last7DaysRuns ?? 0,
         max: null,
         display: usage != null ? '${usage.last7DaysRuns}' : '—',
       ),
       _UsageCardData(
         icon: Icons.token_outlined,
-        label: 'Weekly tokens',
+        label: appStrings.weeklyTokens,
         value: usageLimits?.weeklyUsage ?? usage?.last7DaysTokens ?? 0,
         max: usageLimits?.weeklyLimit,
         display: _fmtTokenCount(
@@ -630,14 +630,14 @@ class _UsageGrid extends StatelessWidget {
       ),
       _UsageCardData(
         icon: Icons.timer_outlined,
-        label: '4h token window',
+        label: appStrings.n4hTokenWindow,
         value: usageLimits?.fourHourUsage ?? 0,
         max: usageLimits?.fourHourLimit,
         display: _fmtTokenCount(usageLimits?.fourHourUsage ?? 0),
       ),
       _UsageCardData(
         icon: Icons.memory_outlined,
-        label: 'Total runs',
+        label: appStrings.totalRuns,
         value: usage?.totalRuns ?? 0,
         max: null,
         display: usage != null ? _fmtTokenCount(usage.totalRuns) : '—',
@@ -795,7 +795,7 @@ class _BillingPlansTabState extends State<_BillingPlansTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _c.errorMessage ?? 'Could not start checkout. Check Stripe configuration.',
+            _c.errorMessage ?? appStrings.couldNotStartCheckoutCheckStripe,
           ),
           backgroundColor: _danger,
         ),
@@ -810,7 +810,7 @@ class _BillingPlansTabState extends State<_BillingPlansTab> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(40),
-          child: Text('No plans configured yet.',
+          child: Text(appStrings.noPlansConfiguredYet,
               style: TextStyle(color: _textMuted)),
         ),
       );
@@ -859,7 +859,7 @@ class _BillingPlansTabState extends State<_BillingPlansTab> {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  'Save up to $savingsPct% yearly',
+                  appStrings.saveUpToArg1Yearly(savingsPct),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -1090,7 +1090,7 @@ class _PlanCard extends StatelessWidget {
                             side: BorderSide(color: _border),
                             foregroundColor: _textMuted,
                           ),
-                          child: const Text('Current plan'),
+                          child: Text(appStrings.currentPlan),
                         )
                       : FilledButton(
                           onPressed: loading ? null : onSelect,
@@ -1107,8 +1107,8 @@ class _PlanCard extends StatelessWidget {
                                 )
                               : Text(
                                   priceCents == 0
-                                      ? 'Get started'
-                                      : 'Choose $name'),
+                                      ? appStrings.getStarted
+                                      : appStrings.chooseArg1(name)),
                         ),
                 ),
               ],
@@ -1134,7 +1134,7 @@ class _PlanCard extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  'RECOMMENDED',
+                  appStrings.recommended,
                   style: GoogleFonts.geistMono(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
@@ -1211,14 +1211,14 @@ class _BillingHistoryTabState extends State<_BillingHistoryTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text('Payment method',
+                    Text(appStrings.paymentMethod,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: _textPrimary,
                         )),
                     const SizedBox(height: 2),
-                    Text('Manage via Stripe Customer Portal',
+                    Text(appStrings.manageViaStripeCustomerPortal,
                         style: TextStyle(fontSize: 12, color: _textMuted)),
                   ],
                 ),
@@ -1231,8 +1231,8 @@ class _BillingHistoryTabState extends State<_BillingHistoryTab> {
                         dimension: 14,
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       )
-                    : const Icon(Icons.open_in_new_outlined, size: 14),
-                label: const Text('Update'),
+                    : Icon(Icons.open_in_new_outlined, size: 14),
+                label: Text(appStrings.update),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: _textSecondary,
                   side: BorderSide(color: _borderLight),
@@ -1248,7 +1248,7 @@ class _BillingHistoryTabState extends State<_BillingHistoryTab> {
         // ── Billing history ──────────────────────────────────────────────
         Row(
           children: <Widget>[
-            Text('Billing history',
+            Text(appStrings.billingHistory,
                 style: GoogleFonts.geist(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -1258,8 +1258,8 @@ class _BillingHistoryTabState extends State<_BillingHistoryTab> {
             if (invoices.isNotEmpty)
               TextButton.icon(
                 onPressed: _openPortal,
-                icon: const Icon(Icons.download_outlined, size: 14),
-                label: const Text('Export all'),
+                icon: Icon(Icons.download_outlined, size: 14),
+                label: Text(appStrings.exportAll),
                 style: TextButton.styleFrom(
                   foregroundColor: _textMuted,
                   textStyle: const TextStyle(fontSize: 12),
@@ -1278,7 +1278,7 @@ class _BillingHistoryTabState extends State<_BillingHistoryTab> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(
-              child: Text('No invoices yet.',
+              child: Text(appStrings.noInvoicesYet,
                   style: TextStyle(color: _textMuted, fontSize: 13)),
             ),
           )
@@ -1437,10 +1437,10 @@ class _InvoiceRow extends StatelessWidget {
             SizedBox(
               width: 36,
               child: IconButton(
-                icon: const Icon(Icons.download_outlined, size: 16),
+                icon: Icon(Icons.download_outlined, size: 16),
                 color: _textMuted,
                 padding: EdgeInsets.zero,
-                tooltip: 'Download PDF',
+                tooltip: appStrings.downloadPdf,
                 onPressed: pdfUrl != null
                     ? () => _openUrl(pdfUrl)
                     : hostedUrl != null

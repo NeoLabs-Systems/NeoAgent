@@ -160,9 +160,12 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     _trayMenu = Menu(
       items: <MenuItem>[
         MenuItem(key: 'open', label: 'Open'),
-        MenuItem(key: 'open_voice_assistant', label: 'Open voice assistant'),
+        MenuItem(
+          key: 'open_voice_assistant',
+          label: appStrings.openVoiceAssistant,
+        ),
         MenuItem.separator(),
-        MenuItem(key: 'quit', label: 'Quit'),
+        MenuItem(key: 'quit', label: appStrings.quit),
       ],
     );
     await trayManager.setContextMenu(_trayMenu!);
@@ -335,7 +338,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
         _desktopAssistantPopupWindowMode = true;
       });
     }
-    await windowManager.setTitle('NeoAgent Assistant');
+    await windowManager.setTitle(appStrings.neoagentAssistant);
     await windowManager.setBackgroundColor(Colors.transparent);
     await windowManager.setTitleBarStyle(
       TitleBarStyle.hidden,
@@ -410,13 +413,13 @@ class _NeoAgentAppState extends State<NeoAgentApp>
         // Do not include isRefreshing here — remounting MaterialApp on every
         // refresh tears down onboarding (and other root surfaces) mid-login.
         final rootStateSignature =
-            'boot:${_controller.isBooting}'
-            '|backend:${_controller.requiresBackendUrlSetup}'
-            '|auth:${_controller.isAuthenticated}'
-            '|onboarding:${_controller.showOnboarding}'
-            '|section:${_controller.selectedSection.name}'
-            '|assistantPopupMode:$_desktopAssistantPopupWindowMode'
-            '|assistantPttActive:${_controller.isLiveVoiceCaptureActive}'
+            'boot:${_controller.isBooting}' +
+            '|backend:${_controller.requiresBackendUrlSetup}' +
+            '|auth:${_controller.isAuthenticated}' +
+            '|onboarding:${_controller.showOnboarding}' +
+            '|section:${_controller.selectedSection.name}' +
+            '|assistantPopupMode:$_desktopAssistantPopupWindowMode' +
+            '|assistantPttActive:${_controller.isLiveVoiceCaptureActive}' +
             '|assistantPttStarting:${_controller.isLiveVoiceCaptureStarting}';
         if (_navigatorScopeSignature != rootStateSignature) {
           _navigatorScopeSignature = rootStateSignature;
@@ -428,6 +431,9 @@ class _NeoAgentAppState extends State<NeoAgentApp>
           title: widget.mode == NeoAgentAppMode.launcher
               ? 'NeoAgent Launcher'
               : 'NeoAgent',
+          locale: _controller.language.locale,
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
           debugShowCheckedModeBanner: false,
           theme: _buildNeoAgentTheme(_lightPalette, Brightness.light),
           darkTheme: _buildNeoAgentTheme(_darkPalette, Brightness.dark),
@@ -554,7 +560,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
             builder: (context, setDialogState) {
               return AlertDialog(
                 backgroundColor: _bgCard,
-                title: Text('Keep NeoAgent running?'),
+                title: Text(appStrings.keepNeoagentRunning),
                 content: SizedBox(
                   width: 440,
                   child: Column(
@@ -562,7 +568,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        'Closing the window can either keep NeoAgent running in the background with tray access, or fully quit the desktop runtime.',
+                        appStrings.closingTheWindowCanEitherKeep,
                         style: TextStyle(color: _textSecondary, height: 1.45),
                       ),
                       const SizedBox(height: 16),
@@ -574,7 +580,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
                             rememberChoice = value == true;
                           });
                         },
-                        title: Text('Remember this choice'),
+                        title: Text(appStrings.rememberThisChoice),
                         controlAffinity: ListTileControlAffinity.leading,
                       ),
                     ],
@@ -588,7 +594,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
                         rememberChoice: rememberChoice,
                       ),
                     ),
-                    child: Text('Quit'),
+                    child: Text(appStrings.quit),
                   ),
                   FilledButton(
                     onPressed: () => Navigator.of(context).pop(
@@ -597,7 +603,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
                         rememberChoice: rememberChoice,
                       ),
                     ),
-                    child: Text('Keep running'),
+                    child: Text(appStrings.keepRunning),
                   ),
                 ],
               );

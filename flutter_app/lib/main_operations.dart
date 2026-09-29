@@ -285,7 +285,7 @@ class _LogsPanelState extends State<LogsPanel> {
           .toList(),
     };
 
-    return ['NeoAgent debug info', _prettyJson(snapshot)].join('\n\n');
+    return [appStrings.neoagentDebugInfo, _prettyJson(snapshot)].join('\n\n');
   }
 
   Future<void> _copyLogs() async {
@@ -301,7 +301,7 @@ class _LogsPanelState extends State<LogsPanel> {
 
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Copied logs')));
+    ).showSnackBar(SnackBar(content: Text(appStrings.copiedLogs)));
   }
 
   Future<void> _copyDebugInfo() async {
@@ -312,7 +312,7 @@ class _LogsPanelState extends State<LogsPanel> {
 
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Copied debug info')));
+    ).showSnackBar(SnackBar(content: Text(appStrings.copiedDebugInfo)));
   }
 
   Future<void> _exportRecentMessages() async {
@@ -327,7 +327,7 @@ class _LogsPanelState extends State<LogsPanel> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Copied export for the last 5 messages')),
+        SnackBar(content: Text(appStrings.copiedExportForTheLast5)),
       );
     } catch (error) {
       if (!mounted) {
@@ -336,7 +336,7 @@ class _LogsPanelState extends State<LogsPanel> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Export failed: ${widget.controller.friendlyErrorMessage(error)}',
+            appStrings.exportFailedArg1(widget.controller.friendlyErrorMessage(error)),
           ),
         ),
       );
@@ -354,9 +354,9 @@ class _LogsPanelState extends State<LogsPanel> {
       children: <Widget>[
         if (!widget.embedded)
           _PageTitle(
-            title: 'Logs',
+            title: appStrings.logs,
             subtitle:
-                'Merged server and Flutter runtime logs for this app session.',
+                appStrings.mergedServerAndFlutterRuntimeLogs,
             trailing: Wrap(
               spacing: 12,
               runSpacing: 12,
@@ -371,22 +371,22 @@ class _LogsPanelState extends State<LogsPanel> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : Icon(Icons.ios_share_outlined),
-                  label: Text('Export last 5 messages'),
+                  label: Text(appStrings.exportLast5Messages),
                 ),
                 OutlinedButton.icon(
                   onPressed: _copyDebugInfo,
                   icon: Icon(Icons.bug_report_outlined),
-                  label: Text('Copy debug info'),
+                  label: Text(appStrings.copyDebugInfo),
                 ),
                 OutlinedButton.icon(
                   onPressed: widget.controller.logs.isEmpty ? null : _copyLogs,
                   icon: Icon(Icons.copy_all_outlined),
-                  label: Text('Copy logs'),
+                  label: Text(appStrings.copyLogs),
                 ),
                 OutlinedButton.icon(
                   onPressed: widget.controller.clearLogs,
                   icon: Icon(Icons.clear_all),
-                  label: Text('Clear'),
+                  label: Text(appStrings.clear),
                 ),
               ],
             ),
@@ -409,25 +409,25 @@ class _LogsPanelState extends State<LogsPanel> {
                             dimension: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.ios_share_outlined),
-                    label: const Text('Export last 5 messages'),
+                        : Icon(Icons.ios_share_outlined),
+                    label: Text(appStrings.exportLast5Messages),
                   ),
                   OutlinedButton.icon(
                     onPressed: _copyDebugInfo,
-                    icon: const Icon(Icons.bug_report_outlined),
-                    label: const Text('Copy debug info'),
+                    icon: Icon(Icons.bug_report_outlined),
+                    label: Text(appStrings.copyDebugInfo),
                   ),
                   OutlinedButton.icon(
                     onPressed: widget.controller.logs.isEmpty
                         ? null
                         : _copyLogs,
-                    icon: const Icon(Icons.copy_all_outlined),
-                    label: const Text('Copy logs'),
+                    icon: Icon(Icons.copy_all_outlined),
+                    label: Text(appStrings.copyLogs),
                   ),
                   OutlinedButton.icon(
                     onPressed: widget.controller.clearLogs,
-                    icon: const Icon(Icons.clear_all),
-                    label: const Text('Clear'),
+                    icon: Icon(Icons.clear_all),
+                    label: Text(appStrings.clear),
                   ),
                 ],
               ),
@@ -438,7 +438,7 @@ class _LogsPanelState extends State<LogsPanel> {
             padding: const EdgeInsets.all(16),
             child: widget.controller.logs.isEmpty
                 ? Text(
-                    'Waiting for server or Flutter log output…',
+                    appStrings.waitingForServerOrFlutterLog,
                     style: TextStyle(color: _textSecondary),
                   )
                 : Column(
@@ -503,7 +503,7 @@ class SkillDetailView extends StatelessWidget {
             .firstOrNull;
         if (skill == null) {
           return Text(
-            'This skill is no longer installed.',
+            appStrings.thisSkillIsNoLongerInstalled,
             style: TextStyle(color: _textSecondary),
           );
         }
@@ -511,7 +511,7 @@ class SkillDetailView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
-              skill.description.ifEmpty('No description'),
+              skill.description.ifEmpty(appStrings.noDescription),
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 14),
@@ -522,8 +522,8 @@ class SkillDetailView extends StatelessWidget {
                 _MetaPill(label: skill.category, icon: Icons.folder_outlined),
                 _MetaPill(label: skill.source, icon: Icons.source_outlined),
                 if (skill.draft)
-                  const _MetaPill(
-                    label: 'Draft',
+                  _MetaPill(
+                    label: appStrings.draft,
                     icon: Icons.edit_note_outlined,
                   ),
               ],
@@ -532,11 +532,11 @@ class SkillDetailView extends StatelessWidget {
             SwitchListTile(
               value: skill.enabled,
               contentPadding: EdgeInsets.zero,
-              title: const Text('Available to the agent'),
+              title: Text(appStrings.availableToTheAgent),
               subtitle: Text(
                 skill.enabled
-                    ? 'The agent can use this skill.'
-                    : 'The agent will ignore this skill.',
+                    ? appStrings.theAgentCanUseThisSkill
+                    : appStrings.theAgentWillIgnoreThisSkill,
                 style: TextStyle(color: _textSecondary),
               ),
               onChanged: (value) =>
@@ -550,8 +550,8 @@ class SkillDetailView extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: () =>
                       _openSkillEditor(context, controller, skill.name),
-                  icon: const Icon(Icons.description_outlined),
-                  label: const Text('Edit instructions'),
+                  icon: Icon(Icons.description_outlined),
+                  label: Text(appStrings.editInstructions),
                 ),
                 OutlinedButton.icon(
                   onPressed: () async {
@@ -564,7 +564,7 @@ class SkillDetailView extends StatelessWidget {
                     }
                   },
                   icon: Icon(Icons.delete_outline, color: _danger),
-                  label: Text('Delete', style: TextStyle(color: _danger)),
+                  label: Text(appStrings.delete, style: TextStyle(color: _danger)),
                 ),
               ],
             ),
@@ -596,7 +596,7 @@ class StoreSkillDetailView extends StatelessWidget {
             .firstOrNull;
         if (item == null) {
           return Text(
-            'This skill is no longer in the store.',
+            appStrings.thisSkillIsNoLongerIn,
             style: TextStyle(color: _textSecondary),
           );
         }
@@ -613,13 +613,13 @@ class StoreSkillDetailView extends StatelessWidget {
             item.installed
                 ? OutlinedButton.icon(
                     onPressed: () => controller.uninstallStoreSkill(item.id),
-                    icon: const Icon(Icons.delete_outline),
-                    label: const Text('Remove'),
+                    icon: Icon(Icons.delete_outline),
+                    label: Text(appStrings.remove),
                   )
                 : FilledButton.icon(
                     onPressed: () => controller.installStoreSkill(item.id),
-                    icon: const Icon(Icons.download_rounded),
-                    label: const Text('Install'),
+                    icon: Icon(Icons.download_rounded),
+                    label: Text(appStrings.install),
                   ),
           ],
         );
@@ -650,13 +650,13 @@ Future<void> _openSkillEditor(
             controller: contentController,
             minLines: 16,
             maxLines: 24,
-            decoration: const InputDecoration(labelText: 'Skill Content'),
+            decoration: InputDecoration(labelText: appStrings.skillContent),
           ),
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancel'),
+            child: Text(appStrings.cancel),
           ),
           FilledButton(
             onPressed: () async {
@@ -674,7 +674,7 @@ Future<void> _openSkillEditor(
                 Navigator.of(context).pop();
               }
             },
-            child: Text('Save'),
+            child: Text(appStrings.save),
           ),
         ],
       );
@@ -688,12 +688,7 @@ Future<void> _openCreateSkill(
 ) async {
   final nameController = TextEditingController();
   final contentController = TextEditingController(
-    text: '''---
-name: New Skill
-description: Describe what this skill does
----
-Write the instructions for this skill here.
-''',
+    text: appStrings.nameNewSkillDescriptionDescribeWhat,
   );
 
   await showDialog<void>(
@@ -701,7 +696,7 @@ Write the instructions for this skill here.
     builder: (context) {
       return AlertDialog(
         backgroundColor: _bgCard,
-        title: Text('New Skill'),
+        title: Text(appStrings.newSkill2),
         content: SizedBox(
           width: 720,
           child: SingleChildScrollView(
@@ -710,14 +705,14 @@ Write the instructions for this skill here.
               children: <Widget>[
                 TextField(
                   controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Filename'),
+                  decoration: InputDecoration(labelText: appStrings.filename),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: contentController,
                   minLines: 16,
                   maxLines: 24,
-                  decoration: const InputDecoration(labelText: 'Content'),
+                  decoration: InputDecoration(labelText: appStrings.content),
                 ),
               ],
             ),
@@ -726,13 +721,13 @@ Write the instructions for this skill here.
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancel'),
+            child: Text(appStrings.cancel),
           ),
           FilledButton(
             onPressed: () async {
               final filename = nameController.text.trim();
               if (filename.isEmpty) {
-                _showFormError(context, 'Please enter a filename.');
+                _showFormError(context, appStrings.pleaseEnterAFilename);
                 return;
               }
               try {
@@ -749,7 +744,7 @@ Write the instructions for this skill here.
                 Navigator.of(context).pop();
               }
             },
-            child: Text('Create'),
+            child: Text(appStrings.create),
           ),
         ],
       );
@@ -767,17 +762,17 @@ Future<void> _confirmDeleteSkill(
     builder: (context) {
       return AlertDialog(
         backgroundColor: _bgCard,
-        title: Text('Delete skill?'),
-        content: Text('"$name" will be removed permanently.'),
+        title: Text(appStrings.deleteSkill),
+        content: Text(appStrings.arg1WillBeRemovedPermanently(name)),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text('Cancel'),
+            child: Text(appStrings.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: _danger),
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text('Delete'),
+            child: Text(appStrings.delete),
           ),
         ],
       );
@@ -795,14 +790,14 @@ Future<void> _confirmDeleteSkill(
     }
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text('Deleted "$name".')));
+    ).showSnackBar(SnackBar(content: Text(appStrings.deletedArg1(name))));
   } catch (error) {
     if (!context.mounted) {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Failed to delete "$name": ${_formatCaughtError(error)}'),
+        content: Text(appStrings.failedToDeleteArg1Arg2(name, _formatCaughtError(error))),
       ),
     );
   }
@@ -861,7 +856,7 @@ class _MemoryPanelState extends State<MemoryPanel>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Failed to generate prompt: ${_formatCaughtError(error)}',
+            appStrings.failedToGeneratePromptArg1(_formatCaughtError(error)),
           ),
         ),
       );
@@ -877,7 +872,7 @@ class _MemoryPanelState extends State<MemoryPanel>
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Prompt copied.')));
+    ).showSnackBar(SnackBar(content: Text(appStrings.promptCopied)));
   }
 
   Future<void> _importLlmMemories(NeoAgentController controller) async {
@@ -888,24 +883,24 @@ class _MemoryPanelState extends State<MemoryPanel>
       context: context,
       builder: (context) {
         final applyTargets = <String>[
-          if (_llmApplyBehaviorNotes) 'behavior notes',
-          if (_llmApplyCoreMemory) 'core memory',
+          if (_llmApplyBehaviorNotes) appStrings.behaviorNotes,
+          if (_llmApplyCoreMemory) appStrings.coreMemory,
           'memories',
         ];
         return AlertDialog(
           backgroundColor: _bgCard,
-          title: Text('Import memory transfer?'),
+          title: Text(appStrings.importMemoryTransfer),
           content: Text(
-            'This will import the response into ${applyTargets.join(', ')}.',
+            appStrings.thisWillImportTheResponseInto(applyTargets.join(', ')),
           ),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: Text('Cancel'),
+              child: Text(appStrings.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: Text('Import'),
+              child: Text(appStrings.import),
             ),
           ],
         );
@@ -927,9 +922,9 @@ class _MemoryPanelState extends State<MemoryPanel>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Imported ${result.importedCount} memories, '
-            '${result.coreUpdatedCount} core entries.'
-            '${result.behaviorNotesUpdated ? ' Behavior notes updated.' : ''}'
+            appStrings.importedArg1Memories(result.importedCount) +
+            appStrings.arg1CoreEntries(result.coreUpdatedCount) +
+            '${result.behaviorNotesUpdated ? ' Behavior notes updated.' : ''}' +
             '$warningText',
           ),
         ),
@@ -937,7 +932,7 @@ class _MemoryPanelState extends State<MemoryPanel>
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Import failed: ${_formatCaughtError(error)}')),
+        SnackBar(content: Text(appStrings.importFailedArg1(_formatCaughtError(error)))),
       );
     } finally {
       if (mounted) setState(() => _llmImporting = false);
@@ -1072,7 +1067,7 @@ class _MemoryPanelState extends State<MemoryPanel>
       children: <Widget>[
         _PageTitle(
           title: 'Memory',
-          subtitle: 'Long-term recall, structured facts, and knowledge graph.',
+          subtitle: appStrings.longTermRecallStructuredFactsAnd,
           trailing: Wrap(
             spacing: 10,
             runSpacing: 10,
@@ -1080,12 +1075,12 @@ class _MemoryPanelState extends State<MemoryPanel>
               OutlinedButton.icon(
                 onPressed: () => _openRetrievalInspector(context, controller),
                 icon: Icon(Icons.bug_report_outlined),
-                label: Text('Inspect'),
+                label: Text(appStrings.inspect),
               ),
               FilledButton.icon(
                 onPressed: () => _openMemoryCreator(context, controller),
                 icon: Icon(Icons.add),
-                label: Text('Add Memory'),
+                label: Text(appStrings.addMemory),
               ),
             ],
           ),
@@ -1132,7 +1127,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                         ),
                         _MemoryStatChip(
                           label: stats.averageImportance.toStringAsFixed(1),
-                          caption: 'Avg imp.',
+                          caption: appStrings.avgImp,
                           icon: Icons.priority_high_outlined,
                         ),
                       ],
@@ -1157,19 +1152,19 @@ class _MemoryPanelState extends State<MemoryPanel>
                   children: <Widget>[
                     Row(
                       children: <Widget>[
-                        Expanded(child: const _SectionTitle('Knowledge Graph')),
+                        Expanded(child: _SectionTitle(appStrings.knowledgeGraph)),
                         if (_entityFilter != null)
                           TextButton.icon(
                             onPressed: () =>
                                 setState(() => _entityFilter = null),
                             icon: Icon(Icons.close, size: 16),
-                            label: Text('Clear filter'),
+                            label: Text(appStrings.clearFilter),
                           ),
                       ],
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Tap an entity to filter memories by it.',
+                      appStrings.tapAnEntityToFilterMemories,
                       style: TextStyle(color: _textSecondary, fontSize: 12),
                     ),
                     const SizedBox(height: 14),
@@ -1215,7 +1210,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                         children: <Widget>[
                           Icon(Icons.psychology_outlined, size: 16),
                           const SizedBox(width: 6),
-                          Text('Memories'),
+                          Text(appStrings.memories),
                         ],
                       ),
                     ),
@@ -1225,7 +1220,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                         children: <Widget>[
                           Icon(Icons.push_pin_outlined, size: 16),
                           const SizedBox(width: 6),
-                          Text('Core'),
+                          Text(appStrings.core),
                         ],
                       ),
                     ),
@@ -1235,7 +1230,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                         children: <Widget>[
                           Icon(Icons.swap_horiz_outlined, size: 16),
                           const SizedBox(width: 6),
-                          Text('Transfer'),
+                          Text(appStrings.transfer),
                         ],
                       ),
                     ),
@@ -1258,8 +1253,8 @@ class _MemoryPanelState extends State<MemoryPanel>
                                   Expanded(
                                     child: TextField(
                                       controller: _searchController,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Search memory',
+                                      decoration: InputDecoration(
+                                        labelText: appStrings.searchMemory,
                                         prefixIcon: Icon(
                                           Icons.search,
                                           size: 18,
@@ -1273,7 +1268,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                   FilledButton(
                                     onPressed: () =>
                                         _runMemorySearch(controller),
-                                    child: Text('Search'),
+                                    child: Text(appStrings.search),
                                   ),
                                   if (showingSearchResults ||
                                       _entityFilter != null) ...<Widget>[
@@ -1281,7 +1276,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                     OutlinedButton(
                                       onPressed: () =>
                                           _resetMemorySearch(controller),
-                                      child: Text('Reset'),
+                                      child: Text(appStrings.reset),
                                     ),
                                   ],
                                 ],
@@ -1292,7 +1287,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                   spacing: 8,
                                   children: <Widget>[
                                     _MetaPill(
-                                      label: 'Entity: $_entityFilter',
+                                      label: appStrings.entityArg1(_entityFilter),
                                       icon: Icons.filter_alt_outlined,
                                       color: _accent,
                                     ),
@@ -1320,8 +1315,8 @@ class _MemoryPanelState extends State<MemoryPanel>
                                       ),
                                       label: Text(
                                         allVisibleSelected
-                                            ? 'All Selected'
-                                            : 'Select All',
+                                            ? appStrings.allSelected
+                                            : appStrings.selectAll2,
                                       ),
                                     ),
                                     if (selectedCount > 0) ...<Widget>[
@@ -1333,16 +1328,16 @@ class _MemoryPanelState extends State<MemoryPanel>
                                           Icons.deselect_outlined,
                                           size: 16,
                                         ),
-                                        label: Text('Clear'),
+                                        label: Text(appStrings.clear),
                                       ),
                                       FilledButton.icon(
                                         onPressed: _bulkActionInFlight
                                             ? null
                                             : () => _runBulkMemoryAction(
                                                 title:
-                                                    'Archive selected memories?',
+                                                    appStrings.archiveSelectedMemories,
                                                 message:
-                                                    'Archive $selectedCount ${selectedCount == 1 ? 'memory' : 'memories'}?',
+                                                    appStrings.archiveArg1Arg2(selectedCount, selectedCount == 1 ? 'memory' : 'memories'),
                                                 confirmLabel: 'Archive',
                                                 onConfirm:
                                                     controller.archiveMemories,
@@ -1351,16 +1346,16 @@ class _MemoryPanelState extends State<MemoryPanel>
                                           Icons.archive_outlined,
                                           size: 16,
                                         ),
-                                        label: Text('Archive ($selectedCount)'),
+                                        label: Text(appStrings.archiveArg1(selectedCount)),
                                       ),
                                       OutlinedButton.icon(
                                         onPressed: _bulkActionInFlight
                                             ? null
                                             : () => _runBulkMemoryAction(
                                                 title:
-                                                    'Delete selected memories?',
+                                                    appStrings.deleteSelectedMemories,
                                                 message:
-                                                    'Delete $selectedCount ${selectedCount == 1 ? 'memory' : 'memories'} permanently?',
+                                                    appStrings.deleteArg1Arg2Permanently(selectedCount, selectedCount == 1 ? 'memory' : 'memories'),
                                                 confirmLabel: 'Delete',
                                                 onConfirm:
                                                     controller.deleteMemories,
@@ -1369,7 +1364,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                           Icons.delete_sweep_outlined,
                                           size: 16,
                                         ),
-                                        label: Text('Delete ($selectedCount)'),
+                                        label: Text(appStrings.deleteArg12(selectedCount)),
                                       ),
                                     ],
                                   ],
@@ -1379,8 +1374,8 @@ class _MemoryPanelState extends State<MemoryPanel>
                               if (memoriesToShow.isEmpty)
                                 Text(
                                   _entityFilter != null
-                                      ? 'No memories linked to "$_entityFilter".'
-                                      : 'No memory entries found.',
+                                      ? appStrings.noMemoriesLinkedToArg1(_entityFilter)
+                                      : appStrings.noMemoryEntriesFound,
                                   style: TextStyle(color: _textSecondary),
                                 )
                               else
@@ -1403,9 +1398,9 @@ class _MemoryPanelState extends State<MemoryPanel>
                                         ? null
                                         : () => _confirmDelete(
                                             context,
-                                            title: 'Delete memory?',
+                                            title: appStrings.deleteMemory,
                                             message:
-                                                'This memory will be removed permanently.',
+                                                appStrings.thisMemoryWillBeRemovedPermanently,
                                             onConfirm: () =>
                                                 _deleteSingleMemory(
                                                   controller,
@@ -1428,7 +1423,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                 children: <Widget>[
                                   Expanded(
                                     child: Text(
-                                      'Key-value pairs that persist across conversations.',
+                                      appStrings.keyValuePairsThatPersistAcross,
                                       style: TextStyle(color: _textSecondary),
                                     ),
                                   ),
@@ -1438,14 +1433,14 @@ class _MemoryPanelState extends State<MemoryPanel>
                                       controller,
                                     ),
                                     icon: Icon(Icons.add),
-                                    label: Text('Add Entry'),
+                                    label: Text(appStrings.addEntry),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 10),
                               if (controller.memoryOverview.coreEntries.isEmpty)
                                 Text(
-                                  'No core memory entries yet.',
+                                  appStrings.noCoreMemoryEntriesYet,
                                   style: TextStyle(color: _textSecondary),
                                 )
                               else
@@ -1498,9 +1493,9 @@ class _MemoryPanelState extends State<MemoryPanel>
                                               onPressed: () => _confirmDelete(
                                                 context,
                                                 title:
-                                                    'Delete core memory entry?',
+                                                    appStrings.deleteCoreMemoryEntry,
                                                 message:
-                                                    'Remove "${entry.key}" from core memory.',
+                                                    appStrings.removeArg1FromCoreMemory(entry.key),
                                                 onConfirm: () =>
                                                     controller.deleteCoreMemory(
                                                       entry.key,
@@ -1523,7 +1518,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
                               Text(
-                                'Generate a prompt for another AI, paste the response here to import memories.',
+                                appStrings.generateAPromptForAnotherAi,
                                 style: TextStyle(color: _textSecondary),
                               ),
                               const SizedBox(height: 12),
@@ -1539,7 +1534,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                     label: Text(
                                       _llmPromptLoading
                                           ? 'Generating...'
-                                          : 'Generate Prompt',
+                                          : appStrings.generatePrompt,
                                     ),
                                   ),
                                   OutlinedButton.icon(
@@ -1548,7 +1543,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                         ? null
                                         : _copyLlmPrompt,
                                     icon: Icon(Icons.copy_all_outlined),
-                                    label: Text('Copy Prompt'),
+                                    label: Text(appStrings.copyPrompt),
                                   ),
                                 ],
                               ),
@@ -1558,8 +1553,8 @@ class _MemoryPanelState extends State<MemoryPanel>
                                 minLines: 4,
                                 maxLines: 8,
                                 readOnly: true,
-                                decoration: const InputDecoration(
-                                  labelText: 'Prompt to paste into another AI',
+                                decoration: InputDecoration(
+                                  labelText: appStrings.promptToPasteIntoAnotherAi,
                                 ),
                               ),
                               const SizedBox(height: 16),
@@ -1571,9 +1566,9 @@ class _MemoryPanelState extends State<MemoryPanel>
                                     : (value) => setState(
                                         () => _llmApplyBehaviorNotes = value,
                                       ),
-                                title: Text('Apply behavior notes'),
+                                title: Text(appStrings.applyBehaviorNotes),
                                 subtitle: Text(
-                                  'Overwrite behavior notes from the import.',
+                                  appStrings.overwriteBehaviorNotesFromTheImport,
                                 ),
                               ),
                               SwitchListTile.adaptive(
@@ -1584,9 +1579,9 @@ class _MemoryPanelState extends State<MemoryPanel>
                                     : (value) => setState(
                                         () => _llmApplyCoreMemory = value,
                                       ),
-                                title: Text('Apply core memory'),
+                                title: Text(appStrings.applyCoreMemory),
                                 subtitle: Text(
-                                  'Update core memory entries from the import.',
+                                  appStrings.updateCoreMemoryEntriesFromThe,
                                 ),
                               ),
                               const SizedBox(height: 12),
@@ -1594,8 +1589,8 @@ class _MemoryPanelState extends State<MemoryPanel>
                                 controller: _llmImportController,
                                 minLines: 4,
                                 maxLines: 10,
-                                decoration: const InputDecoration(
-                                  labelText: 'LLM memory export response',
+                                decoration: InputDecoration(
+                                  labelText: appStrings.llmMemoryExportResponse,
                                 ),
                               ),
                               const SizedBox(height: 12),
@@ -1636,7 +1631,7 @@ class _MemoryPanelState extends State<MemoryPanel>
       builder: (context) {
         return AlertDialog(
           backgroundColor: _bgCard,
-          title: Text('Add Memory'),
+          title: Text(appStrings.addMemory),
           content: SizedBox(
             width: 620,
             child: Column(
@@ -1662,7 +1657,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                       child: Text('personality'),
                     ),
                   ],
-                  decoration: const InputDecoration(labelText: 'Category'),
+                  decoration: InputDecoration(labelText: appStrings.category),
                   onChanged: (value) {
                     if (value != null) category = value;
                   },
@@ -1670,14 +1665,14 @@ class _MemoryPanelState extends State<MemoryPanel>
                 const SizedBox(height: 12),
                 TextField(
                   controller: importanceController,
-                  decoration: const InputDecoration(labelText: 'Importance'),
+                  decoration: InputDecoration(labelText: appStrings.importance),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: contentController,
                   minLines: 6,
                   maxLines: 10,
-                  decoration: const InputDecoration(labelText: 'Content'),
+                  decoration: InputDecoration(labelText: appStrings.content),
                 ),
               ],
             ),
@@ -1685,13 +1680,13 @@ class _MemoryPanelState extends State<MemoryPanel>
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel'),
+              child: Text(appStrings.cancel),
             ),
             FilledButton(
               onPressed: () async {
                 final content = contentController.text.trim();
                 if (content.isEmpty) {
-                  _showFormError(context, 'Please enter the memory content.');
+                  _showFormError(context, appStrings.pleaseEnterTheMemoryContent);
                   return;
                 }
                 try {
@@ -1711,7 +1706,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                 }
                 if (context.mounted) Navigator.of(context).pop();
               },
-              child: Text('Save'),
+              child: Text(appStrings.save),
             ),
           ],
         );
@@ -1735,8 +1730,8 @@ class _MemoryPanelState extends State<MemoryPanel>
           backgroundColor: _bgCard,
           title: Text(
             keyValue == null
-                ? 'Add Core Memory Entry'
-                : 'Edit Core Memory Entry',
+                ? appStrings.addCoreMemoryEntry
+                : appStrings.editCoreMemoryEntry,
           ),
           content: SizedBox(
             width: 620,
@@ -1745,14 +1740,14 @@ class _MemoryPanelState extends State<MemoryPanel>
               children: <Widget>[
                 TextField(
                   controller: keyController,
-                  decoration: const InputDecoration(labelText: 'Key'),
+                  decoration: InputDecoration(labelText: appStrings.key),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: valueController,
                   minLines: 3,
                   maxLines: 8,
-                  decoration: const InputDecoration(labelText: 'Value'),
+                  decoration: InputDecoration(labelText: appStrings.value),
                 ),
               ],
             ),
@@ -1760,13 +1755,13 @@ class _MemoryPanelState extends State<MemoryPanel>
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel'),
+              child: Text(appStrings.cancel),
             ),
             FilledButton(
               onPressed: () async {
                 final key = keyController.text.trim();
                 if (key.isEmpty) {
-                  _showFormError(context, 'Please enter a key.');
+                  _showFormError(context, appStrings.pleaseEnterAKey);
                   return;
                 }
                 try {
@@ -1784,7 +1779,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                 }
                 if (context.mounted) Navigator.of(context).pop();
               },
-              child: Text('Save'),
+              child: Text(appStrings.save),
             ),
           ],
         );
@@ -2058,7 +2053,7 @@ class _MemoryRow extends StatelessWidget {
                                   icon: Icons.label_outline,
                                 ),
                                 _MetaPill(
-                                  label: 'Imp ${memory.importance}',
+                                  label: appStrings.impArg1(memory.importance),
                                   icon: Icons.priority_high_outlined,
                                 ),
                                 _MetaPill(
@@ -2467,7 +2462,7 @@ String _manualRunButtonLabel(String label, int remainingSeconds) {
   if (remainingSeconds <= 0) {
     return label;
   }
-  return '$label (${remainingSeconds}s)';
+  return appStrings.arg1Arg2S(label, remainingSeconds);
 }
 
 class _TaskTriggerOption {
@@ -2504,35 +2499,35 @@ class _TaskTriggerOption {
   final bool requiresConnection;
 }
 
-const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
+List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
   _TaskTriggerOption(
     type: 'manual',
-    section: 'On Demand',
-    label: 'Manual Trigger',
-    description: 'Runs only when you press Run Now.',
+    section: appStrings.onDemand,
+    label: appStrings.manualTrigger,
+    description: appStrings.runsOnlyWhenYouPressRun,
     icon: Icons.play_circle_outline_rounded,
   ),
   _TaskTriggerOption(
     type: 'schedule',
-    section: 'Time',
-    label: 'Schedule',
-    description: 'Cron-based recurring runs and one-time timed execution.',
+    section: appStrings.time,
+    label: appStrings.schedule,
+    description: appStrings.cronBasedRecurringRunsAndOne,
     icon: Icons.schedule_rounded,
   ),
   _TaskTriggerOption(
     type: 'gmail_message_received',
-    section: 'Email',
-    label: 'Gmail Message Received',
-    description: 'Run when a matching Gmail message arrives.',
+    section: appStrings.email,
+    label: appStrings.gmailMessageReceived,
+    description: appStrings.runWhenAMatchingGmailMessage,
     icon: Icons.mail_rounded,
     providerKey: 'google_workspace',
     appKey: 'gmail',
   ),
   _TaskTriggerOption(
     type: 'outlook_email_received',
-    section: 'Email',
-    label: 'Outlook Email Received',
-    description: 'Run when a matching Outlook email arrives.',
+    section: appStrings.email,
+    label: appStrings.outlookEmailReceived,
+    description: appStrings.runWhenAMatchingOutlookEmail,
     icon: Icons.markunread_rounded,
     providerKey: 'microsoft_365',
     appKey: 'outlook',
@@ -2540,8 +2535,8 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
   _TaskTriggerOption(
     type: 'slack_message_received',
     section: 'Messaging',
-    label: 'Slack Message Received',
-    description: 'Run when a Slack message matches the selected scope.',
+    label: appStrings.slackMessageReceived,
+    description: appStrings.runWhenASlackMessageMatches,
     icon: Icons.forum_rounded,
     providerKey: 'slack',
     appKey: 'slack',
@@ -2549,8 +2544,8 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
   _TaskTriggerOption(
     type: 'teams_message_received',
     section: 'Messaging',
-    label: 'Teams Message Received',
-    description: 'Run when a Teams chat message matches the selected scope.',
+    label: appStrings.teamsMessageReceived,
+    description: appStrings.runWhenATeamsChatMessage,
     icon: Icons.groups_rounded,
     providerKey: 'microsoft_365',
     appKey: 'teams',
@@ -2558,9 +2553,9 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
   _TaskTriggerOption(
     type: 'github_issue_opened',
     section: 'Developer',
-    label: 'GitHub Issue Opened',
+    label: appStrings.githubIssueOpened,
     description:
-        'Run when a new issue matching your filters is opened in a repository.',
+        appStrings.runWhenANewIssueMatching,
     icon: Icons.bug_report_rounded,
     providerKey: 'github',
     appKey: 'repos',
@@ -2568,10 +2563,10 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
   ),
   _TaskTriggerOption(
     type: 'weather_event',
-    section: 'Environment',
-    label: 'Weather Event',
+    section: appStrings.environment,
+    label: appStrings.weatherEvent,
     description:
-        'Run when configured weather events are forecast for a location.',
+        appStrings.runWhenConfiguredWeatherEventsAre,
     icon: Icons.cloudy_snowing,
     providerKey: 'weather',
     appKey: 'forecast',
@@ -2579,8 +2574,8 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
   _TaskTriggerOption(
     type: 'whatsapp_personal_message_received',
     section: 'Messaging',
-    label: 'WhatsApp Personal Message Received',
-    description: 'Run on inbound personal WhatsApp messages.',
+    label: appStrings.whatsappPersonalMessageReceived,
+    description: appStrings.runOnInboundPersonalWhatsappMessages,
     icon: Icons.chat_bubble_rounded,
     providerKey: 'whatsapp_personal',
     appKey: 'personal',
@@ -2588,8 +2583,8 @@ const List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
   _TaskTriggerOption(
     type: 'android_notification_received',
     section: 'System',
-    label: 'Android Notification Received',
-    description: 'Run when a notification arrives on your device.',
+    label: appStrings.androidNotificationReceived,
+    description: appStrings.runWhenANotificationArrivesOn,
     icon: Icons.notifications_active_rounded,
   ),
 ];
@@ -2615,53 +2610,53 @@ class _TaskSchedulePreset {
   final IconData icon;
 }
 
-const List<_TaskSchedulePreset> _taskSchedulePresets = <_TaskSchedulePreset>[
+List<_TaskSchedulePreset> _taskSchedulePresets = <_TaskSchedulePreset>[
   _TaskSchedulePreset(
     id: 'every_15_minutes',
-    label: 'Every 15 minutes',
-    description: 'Runs four times per hour.',
+    label: appStrings.every15Minutes,
+    description: appStrings.runsFourTimesPerHour,
     icon: Icons.timer_outlined,
   ),
   _TaskSchedulePreset(
     id: 'every_30_minutes',
-    label: 'Every 30 minutes',
-    description: 'Runs twice per hour.',
+    label: appStrings.every30Minutes,
+    description: appStrings.runsTwicePerHour,
     icon: Icons.timelapse_rounded,
   ),
   _TaskSchedulePreset(
     id: 'hourly',
-    label: 'Hourly',
-    description: 'Runs once per hour.',
+    label: appStrings.hourly,
+    description: appStrings.runsOncePerHour,
     icon: Icons.schedule_rounded,
   ),
   _TaskSchedulePreset(
     id: 'daily',
-    label: 'Daily',
-    description: 'Runs every day at the selected time.',
+    label: appStrings.daily,
+    description: appStrings.runsEveryDayAtTheSelected,
     icon: Icons.today_rounded,
   ),
   _TaskSchedulePreset(
     id: 'weekdays',
-    label: 'Weekdays',
-    description: 'Runs Monday through Friday.',
+    label: appStrings.weekdays,
+    description: appStrings.runsMondayThroughFriday,
     icon: Icons.work_outline_rounded,
   ),
   _TaskSchedulePreset(
     id: 'weekly',
-    label: 'Weekly',
-    description: 'Runs on selected weekdays.',
+    label: appStrings.weekly,
+    description: appStrings.runsOnSelectedWeekdays,
     icon: Icons.view_week_rounded,
   ),
   _TaskSchedulePreset(
     id: 'monthly',
-    label: 'Monthly',
-    description: 'Runs once per month on the selected day.',
+    label: appStrings.monthly,
+    description: appStrings.runsOncePerMonthOnThe,
     icon: Icons.calendar_month_rounded,
   ),
   _TaskSchedulePreset(
     id: 'custom',
-    label: 'Custom Cron',
-    description: 'Advanced manual schedule for special cases.',
+    label: appStrings.customCron,
+    description: appStrings.advancedManualScheduleForSpecialCases,
     icon: Icons.tune_rounded,
   ),
 ];
@@ -2751,28 +2746,28 @@ class _TaskScheduleDraft {
       'every_15_minutes' => '*/15 * * * *',
       'every_30_minutes' => '*/30 * * * *',
       'hourly' => '0 * * * *',
-      'daily' => '$minute $hour * * *',
-      'weekdays' => '$minute $hour * * 1-5',
-      'weekly' => '$minute $hour * * ${_cronWeekdays(weekdays)}',
-      'monthly' => '$minute $hour $monthDay * *',
+      'daily' => appStrings.arg1Arg210(minute, hour),
+      'weekdays' => appStrings.arg1Arg215(minute, hour),
+      'weekly' => appStrings.arg1Arg2Arg34(minute, hour, _cronWeekdays(weekdays)),
+      'monthly' => appStrings.arg1Arg2Arg35(minute, hour, monthDay),
       'custom' => customCronExpression,
       _ => '*/30 * * * *',
     };
   }
 
   String get summary {
-    if (mode == 'one_time') return 'One-time run';
-    if (presetId == 'custom') return 'Custom Cron';
+    if (mode == 'one_time') return appStrings.oneTimeRun;
+    if (presetId == 'custom') return appStrings.customCron;
     final preset = _taskSchedulePresetForId(presetId);
     if (!usesTime) return preset.label;
     final timeLabel = _formatTaskScheduleTime(time);
     if (presetId == 'weekly') {
-      return '${preset.label} ${_formatTaskWeekdays(weekdays)} at $timeLabel';
+      return appStrings.arg1Arg2AtArg3(preset.label, _formatTaskWeekdays(weekdays), timeLabel);
     }
     if (presetId == 'monthly') {
-      return '${preset.label} on day $monthDay at $timeLabel';
+      return appStrings.arg1OnDayArg2AtArg3(preset.label, monthDay, timeLabel);
     }
-    return '${preset.label} at $timeLabel';
+    return appStrings.arg1AtArg2(preset.label, timeLabel);
   }
 }
 
@@ -2843,14 +2838,14 @@ _TaskScheduleDraft? _parseCronExpression(String cron) {
 }
 
 String _formatTaskDuration(int seconds) {
-  if (seconds < 60) return '$seconds sec';
+  if (seconds < 60) return appStrings.arg1Sec(seconds);
   final minutes = seconds ~/ 60;
   final remainder = seconds % 60;
-  if (minutes < 60 && remainder != 0) return '$minutes min $remainder sec';
-  if (minutes < 60) return '$minutes min';
+  if (minutes < 60 && remainder != 0) return appStrings.arg1MinArg2Sec(minutes, remainder);
+  if (minutes < 60) return appStrings.arg1Min(minutes);
   final hours = minutes ~/ 60;
   final leftoverMinutes = minutes % 60;
-  return leftoverMinutes == 0 ? '$hours h' : '$hours h $leftoverMinutes min';
+  return leftoverMinutes == 0 ? '$hours h' : appStrings.arg1HArg2Min(hours, leftoverMinutes);
 }
 
 bool _looksLikeCronExpression(String cron) {
@@ -2951,12 +2946,12 @@ Future<String?> _pickTaskTriggerType(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'Select Trigger',
+                  appStrings.selectTrigger,
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Choose how this task should start. Manual runs only on Run Now. Schedule is time-based. Integration triggers fire from connected official apps.',
+                  appStrings.chooseHowThisTaskShouldStart,
                   style: TextStyle(color: _textSecondary, height: 1.45),
                 ),
                 const SizedBox(height: 18),
@@ -3094,7 +3089,7 @@ Future<String?> _pickTaskTriggerType(
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Cancel'),
+                    child: Text(appStrings.cancel),
                   ),
                 ),
               ],
@@ -3136,7 +3131,7 @@ TaskDeliveryTarget? _taskDeliveryTargetFromTask(TaskItem? task) {
     platformLabel: _taskDeliveryPlatformLabel(platform),
     to: to,
     label: to,
-    subtitle: 'Saved delivery destination',
+    subtitle: appStrings.savedDeliveryDestination,
     source: 'manual',
     connected: true,
     supportsDelivery: true,
@@ -3153,10 +3148,10 @@ List<_ModelPickerOption> _taskModelOverrideOptions({
 }) {
   final availableModels = models.where((model) => model.available).toList();
   final options = <_ModelPickerOption>[
-    const _ModelPickerOption(
+    _ModelPickerOption(
       value: 'default',
       label: 'Default',
-      subtitle: 'Uses the chat model configured in Settings',
+      subtitle: appStrings.usesTheChatModelConfiguredIn,
       icon: Icons.tune_rounded,
     ),
     ..._modelPickerOptions(
@@ -3170,7 +3165,7 @@ List<_ModelPickerOption> _taskModelOverrideOptions({
     options.add(
       _ModelPickerOption(
         value: selectedModel,
-        label: '${saved?.label ?? selectedModel} (unavailable saved override)',
+        label: appStrings.arg1UnavailableSavedOverride(saved?.label ?? selectedModel),
         icon: Icons.history_rounded,
       ),
     );
@@ -3287,7 +3282,7 @@ class _TaskDeliveryTargetPickerSheetState
         platformLabel: _taskDeliveryPlatformLabel(platform),
         to: to,
         label: to,
-        subtitle: 'Manual destination',
+        subtitle: appStrings.manualDestination,
         source: 'manual',
         connected: true,
         supportsDelivery: true,
@@ -3316,7 +3311,7 @@ class _TaskDeliveryTargetPickerSheetState
         style: const TextStyle(fontWeight: FontWeight.w700),
       ),
       subtitle: Text(
-        '${target.platformLabel} · ${target.subtitle.ifEmpty(target.to)}',
+        appStrings.arg1Arg22(target.platformLabel, target.subtitle.ifEmpty(target.to)),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
       ),
@@ -3361,7 +3356,7 @@ class _TaskDeliveryTargetPickerSheetState
                     children: <Widget>[
                       Expanded(
                         child: Text(
-                          'Result Delivery',
+                          appStrings.resultDelivery,
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
@@ -3381,23 +3376,23 @@ class _TaskDeliveryTargetPickerSheetState
                             supportsDelivery: true,
                           ),
                         ),
-                        icon: const Icon(Icons.auto_mode_rounded),
-                        label: const Text('Use default'),
+                        icon: Icon(Icons.auto_mode_rounded),
+                        label: Text(appStrings.useDefault),
                       ),
                     ],
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Search discovered messaging channels, contacts, groups, and recent conversations.',
+                    appStrings.searchDiscoveredMessagingChannelsContactsGroups,
                     style: TextStyle(color: _textSecondary),
                   ),
                   const SizedBox(height: 14),
                   TextField(
                     controller: _queryController,
                     onChanged: (_) => _scheduleSearch(),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       prefixIcon: Icon(Icons.search_rounded),
-                      labelText: 'Search channels',
+                      labelText: appStrings.searchChannels,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -3408,7 +3403,7 @@ class _TaskDeliveryTargetPickerSheetState
                         Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: ChoiceChip(
-                            label: const Text('All'),
+                            label: Text(appStrings.all),
                             selected: _platformFilter == null,
                             onSelected: (_) {
                               _platformFilter = null;
@@ -3447,21 +3442,21 @@ class _TaskDeliveryTargetPickerSheetState
                   else if (snapshot.hasError)
                     _TaskDeliveryNotice(
                       icon: Icons.warning_amber_rounded,
-                      title: 'Discovery failed',
+                      title: appStrings.discoveryFailed,
                       detail: _formatCaughtError(snapshot.error!),
                     )
                   else if (targets.isEmpty)
                     _TaskDeliveryNotice(
                       icon: Icons.search_off_rounded,
-                      title: 'No channels found',
+                      title: appStrings.noChannelsFound,
                       detail:
-                          'Try another search, connect a messaging platform, or enter a destination ID manually.',
+                          appStrings.tryAnotherSearchConnectAMessaging,
                     )
                   else
                     ...targets.take(40).map(_buildTargetTile),
                   const Divider(height: 28),
                   Text(
-                    'Manual destination',
+                    appStrings.manualDestination,
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 8),
@@ -3471,8 +3466,8 @@ class _TaskDeliveryTargetPickerSheetState
                         flex: 2,
                         child: DropdownButtonFormField<String>(
                           initialValue: _manualPlatform,
-                          decoration: const InputDecoration(
-                            labelText: 'Platform',
+                          decoration: InputDecoration(
+                            labelText: appStrings.platform,
                           ),
                           items: platformIds
                               .map(
@@ -3493,17 +3488,17 @@ class _TaskDeliveryTargetPickerSheetState
                         flex: 3,
                         child: TextField(
                           controller: _manualController,
-                          decoration: const InputDecoration(
-                            labelText: 'Destination ID',
+                          decoration: InputDecoration(
+                            labelText: appStrings.destinationId,
                           ),
                           onSubmitted: (_) => _submitManual(),
                         ),
                       ),
                       const SizedBox(width: 8),
                       IconButton(
-                        tooltip: 'Use manual destination',
+                        tooltip: appStrings.useManualDestination,
                         onPressed: _submitManual,
-                        icon: const Icon(Icons.check_rounded),
+                        icon: Icon(Icons.check_rounded),
                       ),
                     ],
                   ),
@@ -3580,8 +3575,8 @@ class _TaskRecommendationsGallery extends StatelessWidget {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            '${recommendation.title} added. Edit it any time to change the '
-            'prompt or schedule.',
+            appStrings.arg1AddedEditItAnyTime(recommendation.title) +
+            appStrings.promptOrSchedule,
           ),
         ),
       );
@@ -3618,7 +3613,7 @@ class _TaskRecommendationsGallery extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
-                          'Start with a recommended task',
+                          appStrings.startWithARecommendedTask,
                           style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
@@ -3626,8 +3621,8 @@ class _TaskRecommendationsGallery extends StatelessWidget {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          'Tasks run on their own and message you with the '
-                          'result. One click adds one; you can edit it later.',
+                          appStrings.tasksRunOnTheirOwnAnd +
+                          appStrings.resultOneClickAddsOneYou,
                           style: TextStyle(color: _textSecondary, height: 1.4),
                         ),
                       ],
@@ -3670,8 +3665,8 @@ class _TaskRecommendationsGallery extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
                   onPressed: onCreateCustom,
-                  icon: const Icon(Icons.edit_note_rounded, size: 18),
-                  label: const Text('Or build your own task'),
+                  icon: Icon(Icons.edit_note_rounded, size: 18),
+                  label: Text(appStrings.orBuildYourOwnTask),
                 ),
               ),
             ],
@@ -3738,7 +3733,7 @@ class _TasksPanelState extends State<TasksPanel> {
                         color: detail.run.statusColor,
                       ),
                       _StatusPill(
-                        label: '${detail.steps.length} steps',
+                        label: appStrings.arg1Steps(detail.steps.length),
                         color: _textSecondary,
                       ),
                     ],
@@ -3755,7 +3750,7 @@ class _TasksPanelState extends State<TasksPanel> {
                       detail.run.error.trim().isEmpty) ...<Widget>[
                     const SizedBox(height: 16),
                     Text(
-                      'This run did not produce a user-facing response.',
+                      appStrings.thisRunDidNotProduceA,
                       style: TextStyle(color: _textSecondary),
                     ),
                   ],
@@ -3766,7 +3761,7 @@ class _TasksPanelState extends State<TasksPanel> {
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Close'),
+              child: Text(appStrings.close),
             ),
           ],
         ),
@@ -3805,14 +3800,14 @@ class _TasksPanelState extends State<TasksPanel> {
         _PageTitle(
           title: 'Tasks',
           subtitle:
-              'Premium automation with schedule and integration triggers.',
+              appStrings.premiumAutomationWithScheduleAndIntegration,
           trailing: FilledButton.icon(
             onPressed: () => _openTaskEditor(
               context,
               defaultAgentId: _agentFilterId ?? controller.selectedAgentId,
             ),
             icon: Icon(Icons.add),
-            label: Text('Add Task'),
+            label: Text(appStrings.addTask),
           ),
         ),
         if (controller.agentProfiles.isNotEmpty) ...<Widget>[
@@ -3823,7 +3818,7 @@ class _TasksPanelState extends State<TasksPanel> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Assigned agent',
+                    appStrings.assignedAgent,
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 10),
@@ -3833,7 +3828,7 @@ class _TasksPanelState extends State<TasksPanel> {
                     children: <Widget>[
                       ChoiceChip(
                         label: Text(
-                          'All agents (${controller.taskItems.length})',
+                          appStrings.allAgentsArg1(controller.taskItems.length),
                         ),
                         selected: _agentFilterId == null,
                         onSelected: (_) =>
@@ -3844,7 +3839,7 @@ class _TasksPanelState extends State<TasksPanel> {
                             .where((task) => task.agentId == agent.id)
                             .length;
                         return ChoiceChip(
-                          label: Text('${agent.displayName} ($count)'),
+                          label: Text(appStrings.arg1Arg2(agent.displayName, count)),
                           selected: _agentFilterId == agent.id,
                           onSelected: (_) =>
                               setState(() => _agentFilterId = agent.id),
@@ -3868,8 +3863,8 @@ class _TasksPanelState extends State<TasksPanel> {
           )
         else if (filteredTasks.isEmpty)
           _EmptyCard(
-            title: 'No tasks for $selectedAgentLabel',
-            subtitle: 'Create a task while this agent is selected.',
+            title: appStrings.noTasksForArg1(selectedAgentLabel),
+            subtitle: appStrings.createATaskWhileThisAgent,
           )
         else
           ...filteredTasks.map(_buildTaskCard),
@@ -3904,12 +3899,12 @@ class _TasksPanelState extends State<TasksPanel> {
                   ),
                   if (task.loopPaused) ...<Widget>[
                     const SizedBox(width: 8),
-                    _StatusPill(label: 'Loop paused', color: _warning),
+                    _StatusPill(label: appStrings.loopPaused, color: _warning),
                   ],
                   if (task.hasLastRunStatus) ...<Widget>[
                     const SizedBox(width: 8),
                     _StatusPill(
-                      label: 'Last: ${task.lastRunStatusLabel}',
+                      label: appStrings.lastArg12(task.lastRunStatusLabel),
                       color: _taskRunStatusColor(task.lastRunStatus),
                     ),
                   ],
@@ -3926,13 +3921,13 @@ class _TasksPanelState extends State<TasksPanel> {
               if (task.hasModelOverride) ...<Widget>[
                 const SizedBox(height: 8),
                 Text(
-                  'Model: ${_modelLabelForValue(task.model, controller.supportedModels)}',
+                  appStrings.modelArg1(_modelLabelForValue(task.model, controller.supportedModels)),
                   style: TextStyle(color: _textSecondary),
                 ),
               ],
               const SizedBox(height: 8),
               Text(
-                'Assigned agent: ${controller.agentLabelFor(task.agentId)}',
+                appStrings.assignedAgentArg1(controller.agentLabelFor(task.agentId)),
                 style: TextStyle(color: _textSecondary),
               ),
               const SizedBox(height: 8),
@@ -3940,7 +3935,7 @@ class _TasksPanelState extends State<TasksPanel> {
               if (task.lastRunLabel.isNotEmpty) ...<Widget>[
                 const SizedBox(height: 8),
                 Text(
-                  'Last run: ${task.lastRunLabel}',
+                  appStrings.lastRunArg1(task.lastRunLabel),
                   style: TextStyle(color: _textSecondary),
                 ),
               ],
@@ -3956,7 +3951,7 @@ class _TasksPanelState extends State<TasksPanel> {
                 children: <Widget>[
                   OutlinedButton(
                     onPressed: () => _openTaskEditor(context, task: task),
-                    child: Text('Edit'),
+                    child: Text(appStrings.edit),
                   ),
                   OutlinedButton(
                     onPressed: () => controller.toggleTask(task),
@@ -3966,21 +3961,21 @@ class _TasksPanelState extends State<TasksPanel> {
                     onPressed: remaining > 0
                         ? null
                         : () => controller.runTaskNow(task.id),
-                    child: Text(_manualRunButtonLabel('Run Now', remaining)),
+                    child: Text(_manualRunButtonLabel(appStrings.runNow, remaining)),
                   ),
                   if (task.lastRunId.trim().isNotEmpty)
                     OutlinedButton(
                       onPressed: () => _showLastRun(task),
-                      child: const Text('View last run'),
+                      child: Text(appStrings.viewLastRun),
                     ),
                   OutlinedButton(
                     onPressed: () => _confirmDelete(
                       context,
-                      title: 'Delete task?',
-                      message: 'This will remove "${task.name}".',
+                      title: appStrings.deleteTask,
+                      message: appStrings.thisWillRemoveArg1(task.name),
                       onConfirm: () => controller.deleteTask(task.id),
                     ),
-                    child: Text('Delete'),
+                    child: Text(appStrings.delete),
                   ),
                 ],
               ),
@@ -4027,9 +4022,9 @@ class _TasksPanelState extends State<TasksPanel> {
       return TextField(
         controller: fallbackController,
         keyboardType: TextInputType.number,
-        decoration: const InputDecoration(
-          labelText: 'Connection ID',
-          helperText: 'Connect this integration first to pick an account.',
+        decoration: InputDecoration(
+          labelText: appStrings.connectionId,
+          helperText: appStrings.connectThisIntegrationFirstToPick,
         ),
       );
     }
@@ -4043,7 +4038,7 @@ class _TasksPanelState extends State<TasksPanel> {
           .map(
             (account) => DropdownMenuItem<int>(
               value: account.id,
-              child: Text(account.accountEmail ?? 'Account #${account.id}'),
+              child: Text(account.accountEmail ?? appStrings.accountArg1(account.id)),
             ),
           )
           .toList(),
@@ -4059,20 +4054,20 @@ class _TasksPanelState extends State<TasksPanel> {
   }) {
     final String subtitle;
     if (!scheduleDraft.finishOnTime) {
-      subtitle = 'The run starts at the scheduled time.';
+      subtitle = appStrings.theRunStartsAtTheScheduled;
     } else if (averageRunSeconds == null) {
       subtitle =
-          'This task has no completed run yet, so it still starts at the '
-          'scheduled time. Once runs are measured it will start earlier.';
+          appStrings.thisTaskHasNoCompletedRun +
+          appStrings.scheduledTimeOnceRunsAreMeasured;
     } else {
       subtitle =
-          'Recent runs take about ${_formatTaskDuration(averageRunSeconds)}, '
-          'so the run starts that much earlier.';
+          appStrings.recentRunsTakeAboutArg1(_formatTaskDuration(averageRunSeconds)) +
+          appStrings.soTheRunStartsThatMuch;
     }
     return SwitchListTile(
       value: scheduleDraft.finishOnTime,
       contentPadding: EdgeInsets.zero,
-      title: const Text('Finish at the scheduled time'),
+      title: Text(appStrings.finishAtTheScheduledTime),
       subtitle: Text(
         subtitle,
         style: TextStyle(color: _textSecondary, fontSize: 12),
@@ -4120,7 +4115,7 @@ class _TasksPanelState extends State<TasksPanel> {
           return raw.map((entry) => entry.toString()).join(', ');
         }
         return task?.triggerConfig['eventTypes']?.toString() ??
-            'rain_start, wind_alert';
+            appStrings.rainStartWindAlert;
       })(),
     );
     final channelController = TextEditingController(
@@ -4198,7 +4193,7 @@ class _TasksPanelState extends State<TasksPanel> {
           builder: (context, setLocalState) {
             return AlertDialog(
               backgroundColor: _bgCard,
-              title: Text(task == null ? 'Add Task' : 'Edit Task'),
+              title: Text(task == null ? 'Add Task' : appStrings.editTask),
               content: SizedBox(
                 width: 680,
                 child: SingleChildScrollView(
@@ -4207,7 +4202,7 @@ class _TasksPanelState extends State<TasksPanel> {
                     children: <Widget>[
                       TextField(
                         controller: nameController,
-                        decoration: const InputDecoration(labelText: 'Name'),
+                        decoration: InputDecoration(labelText: appStrings.name),
                       ),
                       const SizedBox(height: 12),
                       ValueListenableBuilder<String>(
@@ -4235,8 +4230,8 @@ class _TasksPanelState extends State<TasksPanel> {
                               }
                             },
                             child: InputDecorator(
-                              decoration: const InputDecoration(
-                                labelText: 'Trigger Type',
+                              decoration: InputDecoration(
+                                labelText: appStrings.triggerType,
                               ),
                               child: Row(
                                 children: <Widget>[
@@ -4322,7 +4317,7 @@ class _TasksPanelState extends State<TasksPanel> {
                             return Align(
                               alignment: Alignment.centerLeft,
                               child: Text(
-                                'This task will only run when you press Run Now.',
+                                appStrings.thisTaskWillOnlyRunWhen,
                                 style: TextStyle(color: _textSecondary),
                               ),
                             );
@@ -4331,16 +4326,16 @@ class _TasksPanelState extends State<TasksPanel> {
                             return Column(
                               children: <Widget>[
                                 SegmentedButton<String>(
-                                  segments: const <ButtonSegment<String>>[
+                                  segments: <ButtonSegment<String>>[
                                     ButtonSegment<String>(
                                       value: 'recurring',
                                       icon: Icon(Icons.repeat_rounded),
-                                      label: Text('Recurring'),
+                                      label: Text(appStrings.recurring),
                                     ),
                                     ButtonSegment<String>(
                                       value: 'one_time',
                                       icon: Icon(Icons.event_rounded),
-                                      label: Text('Once'),
+                                      label: Text(appStrings.once),
                                     ),
                                   ],
                                   selected: <String>{scheduleDraft.mode},
@@ -4357,10 +4352,10 @@ class _TasksPanelState extends State<TasksPanel> {
                                 if (scheduleDraft.mode == 'one_time')
                                   TextField(
                                     controller: runAtController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Run At',
+                                    decoration: InputDecoration(
+                                      labelText: appStrings.runAt,
                                       helperText:
-                                          'Use a date and time, for example 2026-07-03T09:00:00.',
+                                          appStrings.useADateAndTimeFor,
                                     ),
                                   )
                                 else ...<Widget>[
@@ -4370,8 +4365,8 @@ class _TasksPanelState extends State<TasksPanel> {
                                     ),
                                     initialValue: scheduleDraft.presetId,
                                     isExpanded: true,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Repeat',
+                                    decoration: InputDecoration(
+                                      labelText: appStrings.repeat,
                                     ),
                                     items: <DropdownMenuItem<String>>[
                                       ..._taskSchedulePresets.map(
@@ -4407,10 +4402,10 @@ class _TasksPanelState extends State<TasksPanel> {
                                       onChanged: (value) =>
                                           scheduleDraft.customCronExpression =
                                               value,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Cron expression',
+                                      decoration: InputDecoration(
+                                        labelText: appStrings.cronExpression,
                                         helperText:
-                                            'Advanced: minute hour day month weekday.',
+                                            appStrings.advancedMinuteHourDayMonthWeekday,
                                       ),
                                     ),
                                     const SizedBox(height: 12),
@@ -4438,12 +4433,12 @@ class _TasksPanelState extends State<TasksPanel> {
                                         });
                                       },
                                       child: InputDecorator(
-                                        decoration: const InputDecoration(
-                                          labelText: 'Time',
+                                        decoration: InputDecoration(
+                                          labelText: appStrings.time,
                                         ),
                                         child: Row(
                                           children: <Widget>[
-                                            const Icon(
+                                            Icon(
                                               Icons.access_time_rounded,
                                             ),
                                             const SizedBox(width: 12),
@@ -4510,15 +4505,15 @@ class _TasksPanelState extends State<TasksPanel> {
                                       'monthly') ...<Widget>[
                                     DropdownButtonFormField<int>(
                                       initialValue: scheduleDraft.monthDay,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Day of month',
+                                      decoration: InputDecoration(
+                                        labelText: appStrings.dayOfMonth,
                                       ),
                                       items:
                                           List<DropdownMenuItem<int>>.generate(
                                             31,
                                             (index) => DropdownMenuItem<int>(
                                               value: index + 1,
-                                              child: Text('Day ${index + 1}'),
+                                              child: Text(appStrings.dayArg1(index + 1)),
                                             ),
                                           ),
                                       onChanged: (value) {
@@ -4531,8 +4526,8 @@ class _TasksPanelState extends State<TasksPanel> {
                                     const SizedBox(height: 12),
                                   ],
                                   InputDecorator(
-                                    decoration: const InputDecoration(
-                                      labelText: 'Schedule',
+                                    decoration: InputDecoration(
+                                      labelText: appStrings.schedule,
                                     ),
                                     child: Builder(
                                       builder: (context) {
@@ -4604,18 +4599,18 @@ class _TasksPanelState extends State<TasksPanel> {
                                   'weather_event') ...<Widget>[
                                 TextField(
                                   controller: queryController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Location (city or place)',
-                                    helperText: 'Required. Example: Berlin, DE',
+                                  decoration: InputDecoration(
+                                    labelText: appStrings.locationCityOrPlace,
+                                    helperText: appStrings.requiredExampleBerlinDe,
                                   ),
                                 ),
                                 const SizedBox(height: 12),
                                 TextField(
                                   controller: weatherEventTypesController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Event Types (comma separated)',
+                                  decoration: InputDecoration(
+                                    labelText: appStrings.eventTypesCommaSeparated,
                                     helperText:
-                                        'Supported: rain_start, snow_start, wind_alert, temperature_above, temperature_below',
+                                        appStrings.supportedRainStartSnowStartWind,
                                   ),
                                 ),
                               ],
@@ -4625,15 +4620,15 @@ class _TasksPanelState extends State<TasksPanel> {
                                       'outlook_email_received') ...<Widget>[
                                 TextField(
                                   controller: queryController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Query / Filter',
+                                  decoration: InputDecoration(
+                                    labelText: appStrings.queryFilter,
                                   ),
                                 ),
                                 const SizedBox(height: 12),
                                 SwitchListTile(
                                   value: unreadOnly,
                                   contentPadding: EdgeInsets.zero,
-                                  title: const Text('Unread Only'),
+                                  title: Text(appStrings.unreadOnly),
                                   onChanged: (value) =>
                                       setLocalState(() => unreadOnly = value),
                                 ),
@@ -4642,8 +4637,8 @@ class _TasksPanelState extends State<TasksPanel> {
                                   'outlook_email_received') ...<Widget>[
                                 TextField(
                                   controller: channelController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Folder ID (optional)',
+                                  decoration: InputDecoration(
+                                    labelText: appStrings.folderIdOptional,
                                   ),
                                 ),
                                 const SizedBox(height: 12),
@@ -4662,15 +4657,15 @@ class _TasksPanelState extends State<TasksPanel> {
                                     labelText:
                                         selectedTriggerType ==
                                             'slack_message_received'
-                                        ? 'Channel ID'
-                                        : 'Chat ID',
+                                        ? appStrings.channelId
+                                        : appStrings.chatId,
                                   ),
                                 ),
                                 const SizedBox(height: 12),
                                 TextField(
                                   controller: senderController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Sender Filter (optional)',
+                                  decoration: InputDecoration(
+                                    labelText: appStrings.senderFilterOptional,
                                   ),
                                 ),
                               ],
@@ -4678,43 +4673,43 @@ class _TasksPanelState extends State<TasksPanel> {
                                   'github_issue_opened') ...<Widget>[
                                 TextField(
                                   controller: repoController,
-                                  decoration: const InputDecoration(
+                                  decoration: InputDecoration(
                                     labelText: 'Repository',
-                                    helperText: 'Required. Format: owner/repo',
+                                    helperText: appStrings.requiredFormatOwnerRepo,
                                   ),
                                 ),
                                 const SizedBox(height: 12),
                                 TextField(
                                   controller: authorController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Author (optional)',
+                                  decoration: InputDecoration(
+                                    labelText: appStrings.authorOptional,
                                     helperText:
-                                        'GitHub username that opened the issue',
+                                        appStrings.githubUsernameThatOpenedTheIssue,
                                   ),
                                 ),
                                 const SizedBox(height: 12),
                                 TextField(
                                   controller: assigneeController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Assignee (optional)',
+                                  decoration: InputDecoration(
+                                    labelText: appStrings.assigneeOptional,
                                   ),
                                 ),
                                 const SizedBox(height: 12),
                                 TextField(
                                   controller: labelsController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Labels (optional)',
+                                  decoration: InputDecoration(
+                                    labelText: appStrings.labelsOptional,
                                     helperText:
-                                        'Comma separated. The issue must have all of them.',
+                                        appStrings.commaSeparatedTheIssueMustHave,
                                   ),
                                 ),
                                 const SizedBox(height: 12),
                                 TextField(
                                   controller: queryController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Contains Text (optional)',
+                                  decoration: InputDecoration(
+                                    labelText: appStrings.containsTextOptional,
                                     helperText:
-                                        'Matched against title and body',
+                                        appStrings.matchedAgainstTitleAndBody,
                                   ),
                                 ),
                               ],
@@ -4726,7 +4721,7 @@ class _TasksPanelState extends State<TasksPanel> {
                                 SwitchListTile(
                                   value: ignoreGroups,
                                   contentPadding: EdgeInsets.zero,
-                                  title: const Text('Ignore Groups'),
+                                  title: Text(appStrings.ignoreGroups),
                                   onChanged: (value) =>
                                       setLocalState(() => ignoreGroups = value),
                                 ),
@@ -4786,8 +4781,8 @@ class _TasksPanelState extends State<TasksPanel> {
                                   picked.platform.isEmpty ? null : picked;
                             },
                             child: InputDecorator(
-                              decoration: const InputDecoration(
-                                labelText: 'Result Delivery',
+                              decoration: InputDecoration(
+                                labelText: appStrings.resultDelivery,
                               ),
                               child: Row(
                                 children: <Widget>[
@@ -4816,7 +4811,7 @@ class _TasksPanelState extends State<TasksPanel> {
                                       children: <Widget>[
                                         Text(
                                           deliveryTarget == null
-                                              ? 'Use default channel'
+                                              ? appStrings.useDefaultChannel
                                               : deliveryTarget.label,
                                           style: const TextStyle(
                                             fontWeight: FontWeight.w700,
@@ -4825,8 +4820,8 @@ class _TasksPanelState extends State<TasksPanel> {
                                         const SizedBox(height: 4),
                                         Text(
                                           deliveryTarget == null
-                                              ? 'AI-created and unspecified tasks use the current default.'
-                                              : '${deliveryTarget.platformLabel} · ${deliveryTarget.to}',
+                                              ? appStrings.aiCreatedAndUnspecifiedTasksUseThe
+                                              : appStrings.arg1Arg22(deliveryTarget.platformLabel, deliveryTarget.to),
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
@@ -4839,10 +4834,10 @@ class _TasksPanelState extends State<TasksPanel> {
                                   ),
                                   if (deliveryTarget != null)
                                     IconButton(
-                                      tooltip: 'Use default channel',
+                                      tooltip: appStrings.useDefaultChannel,
                                       onPressed: () =>
                                           selectedDeliveryTarget.value = null,
-                                      icon: const Icon(
+                                      icon: Icon(
                                         Icons.close_rounded,
                                         size: 18,
                                       ),
@@ -4860,7 +4855,7 @@ class _TasksPanelState extends State<TasksPanel> {
                       ),
                       const SizedBox(height: 12),
                       _RoutingSelectCard(
-                        label: 'Model Override',
+                        label: appStrings.modelOverride,
                         icon: Icons.memory_rounded,
                         value: selectedModel,
                         options: _taskModelOverrideOptions(
@@ -4893,7 +4888,7 @@ class _TasksPanelState extends State<TasksPanel> {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'Loop execution',
+                                  appStrings.loopExecution,
                                   style: TextStyle(
                                     fontWeight: FontWeight.w700,
                                     color: _textPrimary,
@@ -4905,9 +4900,9 @@ class _TasksPanelState extends State<TasksPanel> {
                             SwitchListTile(
                               value: loopPaused,
                               contentPadding: EdgeInsets.zero,
-                              title: const Text('Pause task loop'),
-                              subtitle: const Text(
-                                'Skip this task before it calls the model.',
+                              title: Text(appStrings.pauseTaskLoop),
+                              subtitle: Text(
+                                appStrings.skipThisTaskBeforeItCalls,
                               ),
                               onChanged: (value) =>
                                   setLocalState(() => loopPaused = value),
@@ -4920,8 +4915,8 @@ class _TasksPanelState extends State<TasksPanel> {
                         DropdownButtonFormField<String>(
                           initialValue: selectedAgentId,
                           isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Assigned Agent',
+                          decoration: InputDecoration(
+                            labelText: appStrings.assignedAgent2,
                           ),
                           items: controller.agentProfiles
                               .map(
@@ -4946,7 +4941,7 @@ class _TasksPanelState extends State<TasksPanel> {
                       SwitchListTile(
                         value: enabled,
                         contentPadding: EdgeInsets.zero,
-                        title: Text('Enabled'),
+                        title: Text(appStrings.enabled),
                         onChanged: (value) =>
                             setLocalState(() => enabled = value),
                       ),
@@ -4957,18 +4952,18 @@ class _TasksPanelState extends State<TasksPanel> {
               actions: <Widget>[
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: Text('Cancel'),
+                  child: Text(appStrings.cancel),
                 ),
                 FilledButton(
                   onPressed: () async {
                     final name = nameController.text.trim();
                     final prompt = promptController.text.trim();
                     if (name.isEmpty) {
-                      _showFormError(context, 'Please enter a task name.');
+                      _showFormError(context, appStrings.pleaseEnterATaskName);
                       return;
                     }
                     if (prompt.isEmpty) {
-                      _showFormError(context, 'Please enter a prompt.');
+                      _showFormError(context, appStrings.pleaseEnterAPrompt);
                       return;
                     }
                     final selectedTriggerType = triggerType.value;
@@ -4985,8 +4980,8 @@ class _TasksPanelState extends State<TasksPanel> {
                             .trim();
                         if (cronExpression.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please choose a schedule.'),
+                            SnackBar(
+                              content: Text(appStrings.pleaseChooseASchedule),
                               backgroundColor: Colors.red,
                             ),
                           );
@@ -4995,8 +4990,8 @@ class _TasksPanelState extends State<TasksPanel> {
                         if (scheduleDraft.presetId == 'custom' &&
                             !_looksLikeCronExpression(cronExpression)) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Custom Cron must have 5 fields.'),
+                            SnackBar(
+                              content: Text(appStrings.customCronMustHave5Fields),
                               backgroundColor: Colors.red,
                             ),
                           );
@@ -5008,9 +5003,9 @@ class _TasksPanelState extends State<TasksPanel> {
                       } else {
                         if (runAt.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text(
-                                'Please enter when the task should run.',
+                                appStrings.pleaseEnterWhenTheTaskShould,
                               ),
                               backgroundColor: Colors.red,
                             ),
@@ -5026,9 +5021,9 @@ class _TasksPanelState extends State<TasksPanel> {
                       if (parsedConnectionId == null ||
                           parsedConnectionId <= 0) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
+                          SnackBar(
                             content: Text(
-                              'Please select an account or enter a valid connection ID.',
+                              appStrings.pleaseSelectAnAccountOrEnter,
                             ),
                             backgroundColor: Colors.red,
                           ),
@@ -5039,9 +5034,9 @@ class _TasksPanelState extends State<TasksPanel> {
                       if (selectedTriggerType == 'weather_event') {
                         if (queryController.text.trim().isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text(
-                                'Location is required for weather event triggers',
+                                appStrings.locationIsRequiredForWeatherEvent,
                               ),
                               backgroundColor: Colors.red,
                             ),
@@ -5076,9 +5071,9 @@ class _TasksPanelState extends State<TasksPanel> {
                         final repo = repoController.text.trim();
                         if (!RegExp(r'^[\w.-]+/[\w.-]+$').hasMatch(repo)) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text(
-                                'Repository must be in the format owner/repo.',
+                                appStrings.repositoryMustBeInTheFormat,
                               ),
                               backgroundColor: Colors.red,
                             ),
@@ -5150,7 +5145,7 @@ class _TasksPanelState extends State<TasksPanel> {
                       Navigator.of(context).pop();
                     }
                   },
-                  child: Text('Save'),
+                  child: Text(appStrings.save),
                 ),
               ],
             );

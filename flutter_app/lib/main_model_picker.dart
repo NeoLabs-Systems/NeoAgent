@@ -78,23 +78,23 @@ IconData _providerPickerIcon(String provider) {
 }
 
 String _providerPickerLabel(String id) {
-  const Map<String, String> labels = <String, String>{
+  Map<String, String> labels = <String, String>{
     'anthropic': 'Anthropic',
     'openai': 'OpenAI',
-    'openai-compatible': 'Custom OpenAI-compatible',
+    'openai-compatible': appStrings.customOpenaiCompatible,
     'google': 'Google',
     'gemini': 'Google',
     'meta': 'Meta',
     'mistral': 'Mistral',
     'grok': 'xAI',
-    'grok-oauth': 'xAI (OAuth)',
+    'grok-oauth': appStrings.xaiOauth,
     'xai': 'xAI',
     'ollama': 'Ollama',
-    'github-copilot': 'GitHub Copilot',
-    'openai-codex': 'OpenAI Codex',
-    'claude-code': 'Claude Code',
+    'github-copilot': appStrings.githubCopilot,
+    'openai-codex': appStrings.openaiCodex,
+    'claude-code': appStrings.claudeCode,
     'openrouter': 'OpenRouter',
-    'nvidia': 'NVIDIA NIM',
+    'nvidia': appStrings.nvidiaNim,
     'minimax': 'MiniMax',
     'deepgram': 'Deepgram',
   };
@@ -109,10 +109,10 @@ List<_ModelPickerOption> _modelPickerOptions(
 }) {
   return <_ModelPickerOption>[
     if (allowAuto)
-      const _ModelPickerOption(
+      _ModelPickerOption(
         value: 'auto',
-        label: 'Smart Selector',
-        subtitle: 'Auto-routes to the best available model',
+        label: appStrings.smartSelector2,
+        subtitle: appStrings.autoRoutesToTheBestAvailable,
         icon: Icons.auto_awesome_outlined,
         isAuto: true,
       ),
@@ -388,7 +388,7 @@ class _ModelPickerDialogState extends State<_ModelPickerDialog> {
                             setState(() => _query = v.trim()),
                         style: TextStyle(color: _textPrimary, fontSize: 14),
                         decoration: InputDecoration(
-                          hintText: 'Search…',
+                          hintText: appStrings.search2,
                           hintStyle: TextStyle(color: _textMuted, fontSize: 14),
                           prefixIcon: Icon(
                             Icons.search_rounded,
@@ -447,7 +447,7 @@ class _ModelPickerDialogState extends State<_ModelPickerDialog> {
                                   ),
                                   const SizedBox(height: 12),
                                   Text(
-                                    'No results for "$_query"',
+                                    appStrings.noResultsForArg1(_query),
                                     style: TextStyle(
                                       color: _textSecondary,
                                       fontSize: 14,
@@ -558,7 +558,7 @@ class _ByokChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(5),
         border: Border.all(color: color.withValues(alpha: 0.35), width: 0.8),
       ),
-      child: const Text(
+      child: Text(
         'BYOK',
         style: TextStyle(
           fontSize: 10,

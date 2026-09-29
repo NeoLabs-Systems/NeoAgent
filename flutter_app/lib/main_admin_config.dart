@@ -6,18 +6,18 @@ part of 'main.dart';
 
 // ── Shared pieces ─────────────────────────────────────────────────────────────
 
-const Map<String, String> _adminCfgFieldLabels = <String, String>{
-  'clientId': 'Client ID',
-  'clientSecret': 'Client secret',
-  'redirectUri': 'Redirect URI',
-  'tenantId': 'Tenant ID',
-  'apiKey': 'API key',
+Map<String, String> _adminCfgFieldLabels = <String, String>{
+  'clientId': appStrings.clientId,
+  'clientSecret': appStrings.clientSecret,
+  'redirectUri': appStrings.redirectUri,
+  'tenantId': appStrings.tenantId,
+  'apiKey': appStrings.apiKey,
 };
 
 /// What the server falls back to when an optional integration field is blank.
-const Map<String, String> _adminCfgFieldHints = <String, String>{
-  'redirectUri': 'Blank uses the default callback',
-  'tenantId': 'Blank uses "common"',
+Map<String, String> _adminCfgFieldHints = <String, String>{
+  'redirectUri': appStrings.blankUsesTheDefaultCallback,
+  'tenantId': appStrings.blankUsesCommon,
 };
 
 const List<String> _adminCfgLiveVoiceFields = <String>[
@@ -36,7 +36,7 @@ String? _adminCfgUrlProblem(String text, String label) {
       uri != null &&
       (uri.scheme == 'http' || uri.scheme == 'https') &&
       uri.host.isNotEmpty;
-  return isHttp ? null : '$label must be an http:// or https:// address.';
+  return isHttp ? null : appStrings.arg1MustBeAnHttpOr(label);
 }
 
 /// Checks a comma-separated origin list entry by entry.
@@ -80,11 +80,11 @@ class _AdminCfgSecretFieldState extends State<_AdminCfgSecretField> {
   Widget build(BuildContext context) {
     final String helper;
     if (!widget.stored) {
-      helper = 'Nothing stored yet.';
+      helper = appStrings.nothingStoredYet;
     } else if (widget.storedHint.isEmpty) {
-      helper = 'A value is stored.';
+      helper = appStrings.aValueIsStored;
     } else {
-      helper = 'Stored: ${widget.storedHint}';
+      helper = appStrings.storedArg1(widget.storedHint);
     }
     return TextField(
       controller: widget.controller,
@@ -95,7 +95,7 @@ class _AdminCfgSecretFieldState extends State<_AdminCfgSecretField> {
       decoration: InputDecoration(
         labelText: widget.label,
         hintText: widget.stored
-            ? 'Leave blank to keep the stored value'
+            ? appStrings.leaveBlankToKeepTheStoredValue
             : widget.placeholder,
         helperText: helper,
         suffixIcon: IconButton(
@@ -137,16 +137,16 @@ class _AdminCfgDirtyBar extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: <Widget>[
         if (leading != null) leading,
-        if (dirty) _StatusPill(label: 'Unsaved changes', color: _warning),
+        if (dirty) _StatusPill(label: appStrings.unsavedChanges, color: _warning),
         if (dirty)
           TextButton(
             onPressed: saving ? null : onDiscard,
-            child: const Text('Discard'),
+            child: Text(appStrings.discard),
           ),
         _SaveButton(
           saving: saving,
           onPressed: dirty ? onSave : null,
-          label: 'Save changes',
+          label: appStrings.saveChanges,
         ),
       ],
     );
@@ -223,18 +223,18 @@ class _AdminProvidersTabState extends State<_AdminProvidersTab>
       ),
     );
     if (saved == true && mounted) {
-      await _runSave(_fetch, '${provider.label} saved.');
+      await _runSave(_fetch, appStrings.arg1Saved(provider.label));
     }
   }
 
   Future<void> _clear(_AdminCfgProvider provider) {
     return _confirmDelete(
       context,
-      title: 'Clear ${provider.label}?',
+      title: appStrings.clearArg1(provider.label),
       message: provider.isUrl
-          ? 'This removes the address for every account on this server.'
-          : 'Every account on this server loses this shared key. Accounts '
-                'that added their own key keep using it.',
+          ? appStrings.thisRemovesTheAddressForEveryAccount
+          : appStrings.everyAccountOnThisServerLoses +
+                appStrings.thatAddedTheirOwnKeyKeep,
       confirmLabel: 'Clear',
       onConfirm: () async {
         await _runSave(() async {
@@ -244,7 +244,7 @@ class _AdminProvidersTabState extends State<_AdminProvidersTab>
             value: '',
           );
           await _fetch();
-        }, '${provider.label} cleared.');
+        }, appStrings.arg1Cleared(provider.label));
       },
     );
   }
@@ -255,11 +255,11 @@ class _AdminProvidersTabState extends State<_AdminProvidersTab>
     if (gate != null) return gate;
     final configured = _providers.where((p) => p.configured).length;
     return _SectionCard(
-      title: 'Server provider credentials',
+      title: appStrings.serverProviderCredentials,
       description:
-          'API keys and endpoints for AI, search and voice providers. They '
-          'are shared by every account on this server; accounts can still '
-          'add their own keys in Settings.',
+          appStrings.apiKeysAndEndpointsForAi +
+          appStrings.areSharedByEveryAccountOn +
+          appStrings.addTheirOwnKeysInSettings,
       trailing: _RefreshButton(
         busy: _loading,
         onPressed: _saving ? null : () => _runLoad(_fetch),
@@ -269,13 +269,13 @@ class _AdminProvidersTabState extends State<_AdminProvidersTab>
         children: <Widget>[
           _MetaPill(
             icon: Icons.vpn_key_outlined,
-            label: '$configured of ${_providers.length} set',
+            label: appStrings.arg1OfArg2Set(configured, _providers.length),
             color: configured > 0 ? _success : _textMuted,
           ),
           _saveFeedback(),
           const SizedBox(height: 14),
           if (_providers.isEmpty)
-            const _EmptyText('This server reports no provider settings.')
+            _EmptyText(appStrings.thisServerReportsNoProviderSettings)
           else
             for (final provider in _providers)
               Padding(
@@ -307,8 +307,8 @@ class _AdminCfgProviderRow extends StatelessWidget {
   final VoidCallback onClear;
 
   String get _editLabel {
-    if (provider.isUrl) return provider.configured ? 'Change' : 'Set URL';
-    return provider.configured ? 'Replace' : 'Add key';
+    if (provider.isUrl) return provider.configured ? 'Change' : appStrings.setUrl;
+    return provider.configured ? 'Replace' : appStrings.addKey;
   }
 
   @override
@@ -320,9 +320,9 @@ class _AdminCfgProviderRow extends StatelessWidget {
         children: <Widget>[
           _RowHeader(
             title: provider.label,
-            subtitle: provider.isUrl ? 'Endpoint URL' : 'API key',
+            subtitle: provider.isUrl ? 'Endpoint URL' : appStrings.apiKey,
             trailing: _StatusPill(
-              label: configured ? 'Set' : 'Not set',
+              label: configured ? 'Set' : appStrings.notSet,
               color: configured ? _success : _textMuted,
             ),
           ),
@@ -352,8 +352,8 @@ class _AdminCfgProviderRow extends StatelessWidget {
                 TextButton.icon(
                   onPressed: busy ? null : onClear,
                   style: TextButton.styleFrom(foregroundColor: _danger),
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text('Clear'),
+                  icon: Icon(Icons.delete_outline, size: 18),
+                  label: Text(appStrings.clear),
                 ),
             ],
           ),
@@ -400,9 +400,9 @@ class _AdminCfgProviderDialogState extends State<_AdminCfgProviderDialog> {
     final value = _value.text.trim();
     String? problem;
     if (value.isEmpty) {
-      problem = provider.isUrl ? 'Enter an address.' : 'Paste a key.';
+      problem = provider.isUrl ? 'Enter an address.' : appStrings.pasteAKey;
     } else if (provider.isUrl) {
-      problem = _adminCfgUrlProblem(value, 'The address');
+      problem = _adminCfgUrlProblem(value, appStrings.theAddress);
     }
     if (problem != null) {
       setState(() => _error = problem);
@@ -436,9 +436,9 @@ class _AdminCfgProviderDialogState extends State<_AdminCfgProviderDialog> {
     if (provider.isUrl) {
       hint = 'https://…';
     } else if (provider.configured) {
-      hint = 'Paste a new key to replace ${provider.hint}';
+      hint = appStrings.pasteANewKeyToReplace(provider.hint);
     } else {
-      hint = 'Paste the key';
+      hint = appStrings.pasteTheKey;
     }
     return AlertDialog(
       backgroundColor: _bgCard,
@@ -451,10 +451,10 @@ class _AdminCfgProviderDialogState extends State<_AdminCfgProviderDialog> {
           children: <Widget>[
             Text(
               provider.isUrl
-                  ? 'Every account on this server uses this address for '
+                  ? appStrings.everyAccountOnThisServerUses +
                         '${provider.label}.'
-                  : 'Used by every account on this server that has no key '
-                        'of its own. It is never shown again after saving.',
+                  : appStrings.usedByEveryAccountOnThis +
+                        appStrings.ofItsOwnItIsNever,
               style: TextStyle(color: _textSecondary, height: 1.4),
             ),
             const SizedBox(height: 16),
@@ -471,7 +471,7 @@ class _AdminCfgProviderDialogState extends State<_AdminCfgProviderDialog> {
                 if (!_saving) _save();
               },
               decoration: InputDecoration(
-                labelText: provider.isUrl ? 'URL' : 'API key',
+                labelText: provider.isUrl ? 'URL' : appStrings.apiKey,
                 hintText: hint,
                 suffixIcon: provider.isUrl
                     ? null
@@ -496,7 +496,7 @@ class _AdminCfgProviderDialogState extends State<_AdminCfgProviderDialog> {
       actions: <Widget>[
         TextButton(
           onPressed: _saving ? null : () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
+          child: Text(appStrings.cancel),
         ),
         _SaveButton(saving: _saving, onPressed: _save),
       ],
@@ -556,7 +556,7 @@ List<_AdminCfgModel> _adminCfgParseModels(Map<String, dynamic> data) {
 }
 
 String _adminCfgModelPrice(double? perMillion) {
-  if (perMillion == null) return 'Price unknown';
+  if (perMillion == null) return appStrings.priceUnknown;
   if (perMillion == 0) return 'Free';
   var digits = 2;
   if (perMillion < 0.01) {
@@ -564,7 +564,7 @@ String _adminCfgModelPrice(double? perMillion) {
   } else if (perMillion < 1) {
     digits = 3;
   }
-  return '\$${perMillion.toStringAsFixed(digits)} / 1M input';
+  return appStrings.arg11mInput(perMillion.toStringAsFixed(digits));
 }
 
 Color _adminCfgTierColor(String tier) {
@@ -658,7 +658,7 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
         _disabled.toList()..sort(),
       );
       _resetDisabled(_jsonStringList(data['disabledModels']).toSet());
-    }, 'Model availability saved.');
+    }, appStrings.modelAvailabilitySaved);
   }
 
   @override
@@ -685,7 +685,7 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
       onSave: _save,
       leading: _MetaPill(
         icon: Icons.toggle_on_outlined,
-        label: '$enabledCount of ${_models.length} enabled',
+        label: appStrings.arg1OfArg2Enabled(enabledCount, _models.length),
         color: _accent,
       ),
     );
@@ -694,11 +694,11 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
       children: <Widget>[
         _AdminJevCard(controller: widget.controller),
         _SectionCard(
-          title: 'Model availability',
+          title: appStrings.modelAvailability,
           description:
-              'Choose which models every account on this server can pick and '
-              'run. While any model is switched off, models that providers add '
-              'later start switched off too.',
+              appStrings.chooseWhichModelsEveryAccountOn +
+              appStrings.runWhileAnyModelIsSwitched +
+              appStrings.laterStartSwitchedOffToo,
           trailing: _RefreshButton(
             busy: _loading,
             onPressed: _saving ? null : () => _runLoad(_fetch),
@@ -708,7 +708,7 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
             children: <Widget>[
               _SearchField(
                 controller: _search,
-                hintText: 'Search models or providers',
+                hintText: appStrings.searchModelsOrProviders,
                 onChanged: (_) => setState(() {}),
                 onClear: () => setState(_search.clear),
               ),
@@ -719,16 +719,16 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
           ),
         ),
         if (_models.isEmpty)
-          const _EmptyCard(
-            title: 'No models yet',
+          _EmptyCard(
+            title: appStrings.noModelsYet,
             subtitle:
-                'Add a provider credential first. Its models show up here once '
-                'the provider answers.',
+                appStrings.addAProviderCredentialFirstIts +
+                appStrings.theProviderAnswers,
           )
         else if (visible.isEmpty)
           _EmptyCard(
-            title: 'No matches',
-            subtitle: 'No model matches "${_search.text.trim()}".',
+            title: appStrings.noMatches,
+            subtitle: appStrings.noModelMatchesArg1(_search.text.trim()),
           )
         else
           for (final entry in groups.entries)
@@ -787,9 +787,9 @@ class _AdminJevCardState extends State<_AdminJevCard>
         _policy = _jevPolicyFrom(data['policy']);
       },
       switch (policy) {
-        'on' => 'Jev is on for every agent.',
-        'off' => 'Jev is off on this server.',
-        _ => 'Each agent now decides in its own settings.',
+        'on' => appStrings.jevIsOnForEveryAgent,
+        'off' => appStrings.jevIsOffOnThisServer,
+        _ => appStrings.eachAgentNowDecidesInIts,
       },
     );
     if (!saved && mounted) setState(() => _policy = previous);
@@ -798,35 +798,35 @@ class _AdminJevCardState extends State<_AdminJevCard>
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
-      title: 'Jev decisions',
+      title: appStrings.jevDecisions,
       description:
-          'Jev is a decision model that makes the behind-the-scenes calls in '
-          'a fraction of a second: routing, tool and skill choice, memory '
-          'ranking, group-chat turn-taking, research sources, answer checks, '
-          'and browser steps. '
-          'It cuts waiting and model cost; every reply is still written by '
-          'the agent\'s chat model. Jev runs through OpenRouter.',
-      trailing: _StatusPill(label: 'Highly recommended', color: _accent),
+          appStrings.jevIsADecisionModelThat +
+          appStrings.aFractionOfASecondRouting +
+          appStrings.rankingGroupChatTurnTakingResearch +
+          appStrings.andBrowserSteps +
+          appStrings.itCutsWaitingAndModelCost +
+          appStrings.theAgentSChatModelJev,
+      trailing: _StatusPill(label: appStrings.highlyRecommended, color: _accent),
       child:
           _loadGate(_fetch) ??
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               SegmentedButton<String>(
-                segments: const <ButtonSegment<String>>[
+                segments: <ButtonSegment<String>>[
                   ButtonSegment<String>(
                     value: 'agent',
-                    label: Text('Each agent decides'),
+                    label: Text(appStrings.eachAgentDecides),
                     icon: Icon(Icons.tune),
                   ),
                   ButtonSegment<String>(
                     value: 'on',
-                    label: Text('On for everyone'),
+                    label: Text(appStrings.onForEveryone),
                     icon: Icon(Icons.bolt),
                   ),
                   ButtonSegment<String>(
                     value: 'off',
-                    label: Text('Off'),
+                    label: Text(appStrings.off),
                     icon: Icon(Icons.block_outlined),
                   ),
                 ],
@@ -839,23 +839,23 @@ class _AdminJevCardState extends State<_AdminJevCard>
               const SizedBox(height: 12),
               Text(switch (_policy) {
                 'on' =>
-                  'Every agent uses Jev. Agents can no longer switch it off '
-                      'in their settings.',
+                  appStrings.everyAgentUsesJevAgentsCan +
+                      appStrings.inTheirSettings,
                 'off' =>
-                  'Jev is off for every agent, and its switch is hidden in '
-                      'their settings.',
+                  appStrings.jevIsOffForEveryAgent +
+                      appStrings.theirSettings,
                 _ =>
-                  'Each agent switches Jev on under Settings › Models. It '
-                      'starts off.',
+                  appStrings.eachAgentSwitchesJevOnUnder +
+                      appStrings.startsOff,
               }, style: TextStyle(color: _textSecondary, height: 1.45)),
               if (!_serverKey && _policy != 'off') ...<Widget>[
                 const SizedBox(height: 12),
                 _InfoChip(
                   icon: Icons.key_outlined,
                   label:
-                      'No server OpenRouter key yet. Add one under Providers, '
-                      'or agents can use their own key under Advanced › Bring '
-                      'your own key.',
+                      appStrings.noServerOpenrouterKeyYetAdd +
+                      appStrings.orAgentsCanUseTheirOwn +
+                      appStrings.yourOwnKey,
                 ),
               ],
               _saveFeedback(),
@@ -892,7 +892,7 @@ class _AdminCfgModelGroup extends StatelessWidget {
     return _SectionCard(
       title: models.first.providerLabel,
       description:
-          '$enabledCount of ${models.length} enabled'
+          appStrings.arg1OfArg2Enabled(enabledCount, models.length) +
           '${filtered ? ' (search results)' : ''}',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -904,11 +904,11 @@ class _AdminCfgModelGroup extends StatelessWidget {
                 onPressed: enabledCount == models.length
                     ? null
                     : () => onSetAll(true),
-                child: Text(filtered ? 'Enable shown' : 'Enable all'),
+                child: Text(filtered ? 'Enable shown' : appStrings.enableAll),
               ),
               TextButton(
                 onPressed: enabledCount == 0 ? null : () => onSetAll(false),
-                child: Text(filtered ? 'Disable shown' : 'Disable all'),
+                child: Text(filtered ? 'Disable shown' : appStrings.disableAll),
               ),
             ],
           ),
@@ -1167,7 +1167,7 @@ class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
       if (!_loaded.containsKey(key) || !_changed(key)) continue;
       final problem = _adminCfgUrlProblem(
         _input(key).text,
-        '${integration.label} redirect URI',
+        appStrings.arg1RedirectUri(integration.label),
       );
       if (problem != null) return problem;
     }
@@ -1185,7 +1185,7 @@ class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
     await _runSave(() async {
       await _client.saveAdminConfig(_baseUrl, 'integrations', changes);
       await _fetch();
-    }, 'Integration settings saved.');
+    }, appStrings.integrationSettingsSaved);
   }
 
   @override
@@ -1202,21 +1202,21 @@ class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
     return _SectionStack(
       children: <Widget>[
         _SectionCard(
-          title: 'Integration apps',
+          title: appStrings.integrationApps,
           description:
-              'OAuth app credentials that let accounts connect Google, '
-              'Microsoft, Slack and the other integrations. They apply to '
-              'every account on this server. Secrets are write-only: leave '
-              'one blank to keep what is stored.',
+              appStrings.oauthAppCredentialsThatLetAccounts +
+              appStrings.microsoftSlackAndTheOtherIntegrations +
+              appStrings.everyAccountOnThisServerSecrets +
+              appStrings.oneBlankToKeepWhatIs,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              const _InlineNote(
+              _InlineNote(
                 icon: Icons.link_rounded,
                 message:
-                    'Leave a Redirect URI blank to use <public URL>/api/'
-                    'integrations/oauth/callback, and register that same '
-                    'address with the provider.',
+                    appStrings.leaveARedirectUriBlankTo +
+                    appStrings.integrationsOauthCallbackAndRegisterThat +
+                    appStrings.addressWithTheProvider,
               ),
               const SizedBox(height: 14),
               saveBar,
@@ -1236,7 +1236,7 @@ class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
     return _SectionCard(
       title: integration.label,
       trailing: _StatusPill(
-        label: integration.configured ? 'Configured' : 'Not set',
+        label: integration.configured ? 'Configured' : appStrings.notSet,
         color: integration.configured ? _success : _textMuted,
       ),
       child: _FieldGrid(
@@ -1277,12 +1277,12 @@ class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
       orElse: () => const <String, dynamic>{},
     );
     return _SectionCard(
-      title: 'Live voice',
+      title: appStrings.liveVoice,
       description:
-          'Server defaults for in-app voice calls. Calls run on a live '
-          'speech-to-speech model using the OpenAI or Google key under '
-          'Providers; each account can still pick its own model in Settings. '
-          'Blank values use the provider defaults.',
+          appStrings.serverDefaultsForInAppVoice +
+          appStrings.speechToSpeechModelUsingThe +
+          appStrings.providersEachAccountCanStillPick +
+          appStrings.blankValuesUseTheProviderDefaults,
       child: _FieldGrid(
         children: <Widget>[
           DropdownButtonFormField<String>(
@@ -1290,9 +1290,9 @@ class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
             initialValue: selected,
             decoration: const InputDecoration(labelText: 'Provider'),
             items: <DropdownMenuItem<String>>[
-              const DropdownMenuItem(
+              DropdownMenuItem(
                 value: '',
-                child: Text('Default (OpenAI)'),
+                child: Text(appStrings.defaultOpenai),
               ),
               for (final item in _liveVoiceProviders)
                 DropdownMenuItem(
@@ -1307,13 +1307,13 @@ class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
           ),
           _FormTextField(
             controller: _input('liveVoice.model'),
-            label: 'Model',
+            label: appStrings.model,
             hint: provider['defaultModel']?.toString(),
             onChanged: (_) => _edited(),
           ),
           _FormTextField(
             controller: _input('liveVoice.voice'),
-            label: 'Voice',
+            label: appStrings.voice,
             hint: provider['defaultVoice']?.toString(),
             onChanged: (_) => _edited(),
           ),
@@ -1383,25 +1383,25 @@ class _AdminCfgAccessCardState extends State<_AdminCfgAccessCard>
     final saved = await _runSave(() async {
       final data = await _client.setAdminSignupEnabled(_baseUrl, enabled);
       _signupEnabled = data['signupEnabled'] != false;
-    }, enabled ? 'Sign-up is open.' : 'Sign-up is closed.');
+    }, enabled ? 'Sign-up is open.' : appStrings.signUpIsClosed);
     if (!saved && mounted) setState(() => _signupEnabled = previous);
   }
 
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
-      title: 'Access',
+      title: appStrings.access,
       child:
           _loadGate(_fetch) ??
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               _SettingToggle(
-                title: 'Allow new sign-ups',
+                title: appStrings.allowNewSignUps,
                 subtitle:
-                    'When off, only existing accounts can sign in. A '
-                    'server with no accounts yet always lets the first '
-                    'one register.',
+                    appStrings.whenOffOnlyExistingAccountsCan +
+                    appStrings.serverWithNoAccountsYetAlways +
+                    appStrings.oneRegister,
                 value: _signupEnabled,
                 onChanged: _setSignup,
               ),
@@ -1459,10 +1459,10 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
 
   Future<void> _save() async {
     final interval = _parseBoundedInt(_ingestionInterval.text, min: 1000);
-    var problem = _adminCfgUrlProblem(_publicUrl.text, 'Public URL');
+    var problem = _adminCfgUrlProblem(_publicUrl.text, appStrings.publicUrl);
     problem ??= _adminCfgOriginsProblem(_allowedOrigins.text);
     if (problem == null && interval == null) {
-      problem = 'Memory ingestion interval must be at least 1000 ms.';
+      problem = appStrings.memoryIngestionIntervalMustBeAt;
     }
     if (problem != null) {
       _rejectSave(problem);
@@ -1476,15 +1476,15 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
         'meshtasticEnabled': _meshtasticEnabled,
         'memoryIngestionIntervalMs': interval,
       }),
-      'General settings saved.',
+      appStrings.generalSettingsSaved,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
-      title: 'General',
-      description: 'How this server is reached, plus server-wide switches.',
+      title: appStrings.general,
+      description: appStrings.howThisServerIsReachedPlus,
       child: _loadGate(_fetch) ?? _form(),
     );
   }
@@ -1498,29 +1498,29 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
             _WideField(
               _FormTextField(
                 controller: _publicUrl,
-                label: 'Public URL',
+                label: appStrings.publicUrl,
                 hint: 'https://agent.example.com',
                 helper:
-                    'The address people and OAuth providers use to reach '
-                    'this server.',
+                    appStrings.theAddressPeopleAndOauthProviders +
+                    appStrings.thisServer,
                 keyboardType: TextInputType.url,
                 onChanged: (_) => _onEdited(),
               ),
             ),
             _FormTextField(
               controller: _allowedOrigins,
-              label: 'Allowed origins',
+              label: appStrings.allowedOrigins,
               hint: 'https://app.example.com, https://…',
               helper:
-                  'Exact web origins allowed to make cross-origin requests, '
+                  appStrings.exactWebOriginsAllowedToMake +
                   'comma-separated.',
               keyboardType: TextInputType.url,
               onChanged: (_) => _onEdited(),
             ),
             _FormTextField(
               controller: _ingestionInterval,
-              label: 'Memory ingestion interval (ms)',
-              helper: 'At least 1000. Applies after a server restart.',
+              label: appStrings.memoryIngestionIntervalMs,
+              helper: appStrings.atLeast1000AppliesAfterA,
               wholeNumber: true,
               onChanged: (_) => _onEdited(),
             ),
@@ -1528,9 +1528,9 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
         ),
         const SizedBox(height: 8),
         _SettingToggle(
-          title: 'Secure cookies',
+          title: appStrings.secureCookies,
           subtitle:
-              'Required behind HTTPS or a TLS proxy. Applies after a server '
+              appStrings.requiredBehindHttpsOrATls +
               'restart.',
           value: _secureCookies,
           onChanged: (value) => setState(() {
@@ -1540,7 +1540,7 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
         ),
         _SettingToggle(
           title: 'Meshtastic',
-          subtitle: 'Let accounts connect Meshtastic radios.',
+          subtitle: appStrings.letAccountsConnectMeshtasticRadios,
           value: _meshtasticEnabled,
           onChanged: (value) => setState(() {
             _meshtasticEnabled = value;
@@ -1551,7 +1551,7 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
         _SaveButton(
           saving: _saving,
           onPressed: _save,
-          label: 'Save general settings',
+          label: appStrings.saveGeneralSettings,
         ),
         _saveFeedback(),
       ],
@@ -1605,12 +1605,12 @@ class _AdminCfgVmCardState extends State<_AdminCfgVmCard>
   Future<void> _save() async {
     final memoryMb = _parseBoundedInt(_memoryMb.text, min: 512);
     final cpus = _parseBoundedInt(_cpus.text, min: 1);
-    var problem = _adminCfgUrlProblem(_baseImageUrl.text, 'Base image URL');
+    var problem = _adminCfgUrlProblem(_baseImageUrl.text, appStrings.baseImageUrl);
     if (problem == null && memoryMb == null) {
-      problem = 'Memory must be at least 512 MB.';
+      problem = appStrings.memoryMustBeAtLeast512;
     }
     if (problem == null && cpus == null) {
-      problem = 'Use at least 1 vCPU.';
+      problem = appStrings.useAtLeast1Vcpu;
     }
     if (problem != null) {
       _rejectSave(problem);
@@ -1623,17 +1623,17 @@ class _AdminCfgVmCardState extends State<_AdminCfgVmCard>
         'vmMemoryMb': memoryMb,
         'vmCpus': cpus,
       }),
-      'Cloud computer settings saved. Restart the server to apply them.',
+      appStrings.cloudComputerSettingsSavedRestartThe,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
-      title: 'Cloud computers',
+      title: appStrings.cloudComputers,
       description:
-          'Base image and size of the QEMU virtual machines that run '
-          'accounts’ cloud computers. Changes apply after a server '
+          appStrings.baseImageAndSizeOfThe +
+          appStrings.accountsCloudComputersChangesApplyAfter +
           'restart.',
       child: _loadGate(_fetch) ?? _form(),
     );
@@ -1648,7 +1648,7 @@ class _AdminCfgVmCardState extends State<_AdminCfgVmCard>
             _WideField(
               _FormTextField(
                 controller: _baseImageUrl,
-                label: 'Base image URL',
+                label: appStrings.baseImageUrl,
                 hint: 'https://cloud-images.ubuntu.com/…',
                 keyboardType: TextInputType.url,
                 onChanged: (_) => _onEdited(),
@@ -1657,23 +1657,23 @@ class _AdminCfgVmCardState extends State<_AdminCfgVmCard>
             _WideField(
               _FormTextField(
                 controller: _baseImagePath,
-                label: 'Local base image path',
+                label: appStrings.localBaseImagePath,
                 hint: '/path/to/base.img',
-                helper: 'Optional. When set, it is used instead of the URL.',
+                helper: appStrings.optionalWhenSetItIsUsed,
                 onChanged: (_) => _onEdited(),
               ),
             ),
             _FormTextField(
               controller: _memoryMb,
-              label: 'Memory (MB)',
-              helper: 'At least 512.',
+              label: appStrings.memoryMb,
+              helper: appStrings.atLeast512,
               wholeNumber: true,
               onChanged: (_) => _onEdited(),
             ),
             _FormTextField(
               controller: _cpus,
               label: 'vCPUs',
-              helper: 'At least 1.',
+              helper: appStrings.atLeast1,
               wholeNumber: true,
               onChanged: (_) => _onEdited(),
             ),
@@ -1683,7 +1683,7 @@ class _AdminCfgVmCardState extends State<_AdminCfgVmCard>
         _SaveButton(
           saving: _saving,
           onPressed: _save,
-          label: 'Save cloud computer settings',
+          label: appStrings.saveCloudComputerSettings,
         ),
         _saveFeedback(),
       ],
@@ -1693,41 +1693,41 @@ class _AdminCfgVmCardState extends State<_AdminCfgVmCard>
 
 typedef _AdminCfgEmailToggle = ({String key, String title, String subtitle});
 
-const List<_AdminCfgEmailToggle> _adminCfgEmailToggles = <_AdminCfgEmailToggle>[
+List<_AdminCfgEmailToggle> _adminCfgEmailToggles = <_AdminCfgEmailToggle>[
   (
     key: 'smtpSecure',
-    title: 'Implicit TLS',
-    subtitle: 'Use TLS from the start of the connection, usually on port 465.',
+    title: appStrings.implicitTls,
+    subtitle: appStrings.useTlsFromTheStartOf,
   ),
   (
     key: 'smtpRequireTls',
-    title: 'Require STARTTLS',
-    subtitle: 'Refuse to send unless the connection upgrades to TLS.',
+    title: appStrings.requireStarttls,
+    subtitle: appStrings.refuseToSendUnlessTheConnection,
   ),
   (
     key: 'smtpRejectUnauthorized',
-    title: 'Reject invalid TLS certificates',
-    subtitle: 'Turn off only for a mail server with a self-signed certificate.',
+    title: appStrings.rejectInvalidTlsCertificates,
+    subtitle: appStrings.turnOffOnlyForAMail,
   ),
   (
     key: 'requireSignupConfirmation',
-    title: 'Confirm new sign-ups',
-    subtitle: 'New accounts confirm their email address before signing in.',
+    title: appStrings.confirmNewSignUps,
+    subtitle: appStrings.newAccountsConfirmTheirEmailAddress,
   ),
   (
     key: 'requireEmailChangeConfirmation',
-    title: 'Confirm email changes',
-    subtitle: 'A changed email address is confirmed before it is used.',
+    title: appStrings.confirmEmailChanges,
+    subtitle: appStrings.aChangedEmailAddressIsConfirmed,
   ),
   (
     key: 'notifyUnusualLogin',
-    title: 'Unusual sign-in alerts',
-    subtitle: 'Email account owners about sign-ins that look unusual.',
+    title: appStrings.unusualSignInAlerts,
+    subtitle: appStrings.emailAccountOwnersAboutSignIns,
   ),
   (
     key: 'notifyAccountChanges',
-    title: 'Account change alerts',
-    subtitle: 'Email account owners when their account details change.',
+    title: appStrings.accountChangeAlerts,
+    subtitle: appStrings.emailAccountOwnersWhenTheirAccount,
   ),
 ];
 
@@ -1812,15 +1812,15 @@ class _AdminCfgEmailCardState extends State<_AdminCfgEmailCard>
     final ttl = _parseBoundedInt(_tokenTtlHours.text, min: 1, max: 8760);
     String? problem;
     if (port == null) {
-      problem = 'SMTP port must be a whole number from 1 to 65535.';
+      problem = appStrings.smtpPortMustBeAWhole;
     } else if (ttl == null) {
-      problem = 'Link lifetime must be from 1 to 8760 hours.';
+      problem = appStrings.linkLifetimeMustBeFrom1;
     }
     problem ??= _adminCfgUrlProblem(
       _field('publicUrl').text,
-      'Public URL override',
+      appStrings.publicUrlOverride,
     );
-    problem ??= _adminCfgUrlProblem(_field('supportUrl').text, 'Support URL');
+    problem ??= _adminCfgUrlProblem(_field('supportUrl').text, appStrings.supportUrl);
     if (problem != null) {
       _rejectSave(problem);
       return;
@@ -1835,16 +1835,16 @@ class _AdminCfgEmailCardState extends State<_AdminCfgEmailCard>
     };
     await _runSave(() async {
       _apply(await _client.saveAdminConfig(_baseUrl, 'email', payload));
-    }, clearPassword ? 'SMTP password removed.' : 'Email settings saved.');
+    }, clearPassword ? 'SMTP password removed.' : appStrings.emailSettingsSaved);
   }
 
   Future<void> _removePassword() {
     return _confirmDelete(
       context,
-      title: 'Remove the SMTP password?',
+      title: appStrings.removeTheSmtpPassword,
       message:
-          'Mail servers that need a password will refuse to send until a new '
-          'one is saved. Other changes in this form are saved too.',
+          appStrings.mailServersThatNeedAPassword +
+          appStrings.oneIsSavedOtherChangesIn,
       confirmLabel: 'Remove',
       onConfirm: () => _save(clearPassword: true),
     );
@@ -1854,13 +1854,13 @@ class _AdminCfgEmailCardState extends State<_AdminCfgEmailCard>
   Widget build(BuildContext context) {
     final loaded = !_loading && _loadError == null;
     return _SectionCard(
-      title: 'Service email',
+      title: appStrings.serviceEmail,
       description:
-          'The mail account NeoAgent sends sign-up confirmations, sign-in '
-          'alerts and other account email from.',
+          appStrings.theMailAccountNeoagentSendsSign +
+          appStrings.alertsAndOtherAccountEmailFrom,
       trailing: loaded
           ? _StatusPill(
-              label: _configured ? 'Ready' : 'Not configured',
+              label: _configured ? 'Ready' : appStrings.notConfigured,
               color: _configured ? _success : _warning,
             )
           : null,
@@ -1877,7 +1877,7 @@ class _AdminCfgEmailCardState extends State<_AdminCfgEmailCard>
             icon: Icons.warning_amber_rounded,
             color: _warning,
             message:
-                'Account email is off until these are set: '
+                appStrings.accountEmailIsOffUntilThese +
                 '${_missing.join(', ')}.',
           ),
           const SizedBox(height: 16),
@@ -1887,66 +1887,66 @@ class _AdminCfgEmailCardState extends State<_AdminCfgEmailCard>
             _WideField(
               _FormTextField(
                 controller: _field('from'),
-                label: 'Sender address',
-                hint: 'NeoAgent <no-reply@example.com>',
+                label: appStrings.senderAddress,
+                hint: appStrings.neoagentNoReplyExampleCom,
                 keyboardType: TextInputType.emailAddress,
                 onChanged: (_) => _onEdited(),
               ),
             ),
             _FormTextField(
               controller: _field('smtpHost'),
-              label: 'SMTP host',
+              label: appStrings.smtpHost,
               hint: 'smtp.example.com',
               keyboardType: TextInputType.url,
               onChanged: (_) => _onEdited(),
             ),
             _FormTextField(
               controller: _smtpPort,
-              label: 'SMTP port',
+              label: appStrings.smtpPort,
               hint: '587',
               wholeNumber: true,
               onChanged: (_) => _onEdited(),
             ),
             _FormTextField(
               controller: _field('smtpUser'),
-              label: 'SMTP username',
+              label: appStrings.smtpUsername,
               onChanged: (_) => _onEdited(),
             ),
             _AdminCfgSecretField(
               controller: _smtpPassword,
-              label: 'SMTP password',
+              label: appStrings.smtpPassword,
               stored: _passwordStored,
               onChanged: (_) => _onEdited(),
             ),
             _FormTextField(
               controller: _field('replyTo'),
-              label: 'Reply-To address',
+              label: appStrings.replyToAddress,
               keyboardType: TextInputType.emailAddress,
               onChanged: (_) => _onEdited(),
             ),
             _FormTextField(
               controller: _field('brandName'),
-              label: 'Brand name',
+              label: appStrings.brandName,
               hint: 'NeoAgent',
               onChanged: (_) => _onEdited(),
             ),
             _FormTextField(
               controller: _field('publicUrl'),
-              label: 'Public URL override',
-              helper: 'For links in emails. Blank uses the server public URL.',
+              label: appStrings.publicUrlOverride,
+              helper: appStrings.forLinksInEmailsBlankUses,
               keyboardType: TextInputType.url,
               onChanged: (_) => _onEdited(),
             ),
             _FormTextField(
               controller: _field('supportUrl'),
-              label: 'Support URL',
+              label: appStrings.supportUrl,
               keyboardType: TextInputType.url,
               onChanged: (_) => _onEdited(),
             ),
             _FormTextField(
               controller: _tokenTtlHours,
-              label: 'Link lifetime (hours)',
-              helper: 'How long confirmation links stay valid.',
+              label: appStrings.linkLifetimeHours,
+              helper: appStrings.howLongConfirmationLinksStayValid,
               wholeNumber: true,
               onChanged: (_) => _onEdited(),
             ),
@@ -1975,14 +1975,14 @@ class _AdminCfgEmailCardState extends State<_AdminCfgEmailCard>
             _SaveButton(
               saving: _saving,
               onPressed: _save,
-              label: 'Save email settings',
+              label: appStrings.saveEmailSettings,
             ),
             if (_passwordStored)
               TextButton.icon(
                 onPressed: _saving ? null : _removePassword,
                 style: TextButton.styleFrom(foregroundColor: _danger),
-                icon: const Icon(Icons.delete_outline, size: 18),
-                label: const Text('Remove SMTP password'),
+                icon: Icon(Icons.delete_outline, size: 18),
+                label: Text(appStrings.removeSmtpPassword),
               ),
           ],
         ),
@@ -2014,11 +2014,11 @@ class _AdminBillingTabState extends State<_AdminBillingTab> {
           _AdminCfgPlansCard(controller: controller),
           _AdminCfgSubscriptionsCard(controller: controller),
         ] else
-          const _EmptyCard(
-            title: 'Billing is off',
+          _EmptyCard(
+            title: appStrings.billingIsOff,
             subtitle:
-                'Plans and subscriptions show up here once billing is turned '
-                'on and the server has restarted.',
+                appStrings.plansAndSubscriptionsShowUpHere +
+                appStrings.onAndTheServerHasRestarted,
           ),
       ],
     );
@@ -2081,7 +2081,7 @@ class _AdminCfgStripeCardState extends State<_AdminCfgStripeCard>
   Future<void> _save() async {
     final trialDays = _parseBoundedInt(_trialDays.text, min: 0);
     if (trialDays == null) {
-      _rejectSave('Free trial must be a whole number of days (0 or more).');
+      _rejectSave(appStrings.freeTrialMustBeAWhole);
       return;
     }
     final secretKey = _secretKey.text.trim();
@@ -2096,18 +2096,18 @@ class _AdminCfgStripeCardState extends State<_AdminCfgStripeCard>
     await _runSave(() async {
       await _client.saveAdminConfig(_baseUrl, 'billing-setup', payload);
       await _fetch();
-    }, 'Billing setup saved.');
+    }, appStrings.billingSetupSaved);
   }
 
   @override
   Widget build(BuildContext context) {
     final running = widget.controller.showBillingSection;
     return _SectionCard(
-      title: 'Stripe billing',
+      title: appStrings.stripeBilling,
       description:
-          'Stripe keys for paid plans. Point a Stripe webhook at '
-          '<public URL>/api/billing/webhook and paste its signing secret '
-          'here. Secrets are write-only: leave one blank to keep it.',
+          appStrings.stripeKeysForPaidPlansPoint +
+          appStrings.publicUrlApiBillingWebhookAnd +
+          appStrings.hereSecretsAreWriteOnlyLeave,
       trailing: _StatusPill(
         label: running ? 'Running' : 'Off',
         color: running ? _success : _textMuted,
@@ -2125,18 +2125,18 @@ class _AdminCfgStripeCardState extends State<_AdminCfgStripeCard>
             icon: Icons.restart_alt_rounded,
             color: _warning,
             message: _savedBillingEnabled
-                ? 'Billing is turned on but not running yet. Restart the '
-                      'server to start it.'
-                : 'Billing is turned off but still running. Restart the '
-                      'server to stop it.',
+                ? appStrings.billingIsTurnedOnButNot +
+                      appStrings.serverToStartIt
+                : appStrings.billingIsTurnedOffButStill +
+                      appStrings.serverToStopIt,
           ),
           const SizedBox(height: 12),
         ],
         _SettingToggle(
-          title: 'Billing enabled',
+          title: appStrings.billingEnabled,
           subtitle:
-              'Offer subscription plans through Stripe. Turning this on or '
-              'off takes effect after a server restart.',
+              appStrings.offerSubscriptionPlansThroughStripeTurning +
+              appStrings.offTakesEffectAfterAServer,
           value: _billingEnabled,
           onChanged: (value) => setState(() {
             _billingEnabled = value;
@@ -2148,13 +2148,13 @@ class _AdminCfgStripeCardState extends State<_AdminCfgStripeCard>
           children: <Widget>[
             _FormTextField(
               controller: _publishableKey,
-              label: 'Publishable key',
+              label: appStrings.publishableKey,
               hint: 'pk_live_…',
               onChanged: (_) => _onEdited(),
             ),
             _AdminCfgSecretField(
               controller: _secretKey,
-              label: 'Secret key',
+              label: appStrings.secretKey,
               stored: _secretKeyStored,
               storedHint: _secretKeyHint,
               placeholder: 'sk_live_…',
@@ -2162,15 +2162,15 @@ class _AdminCfgStripeCardState extends State<_AdminCfgStripeCard>
             ),
             _AdminCfgSecretField(
               controller: _webhookSecret,
-              label: 'Webhook signing secret',
+              label: appStrings.webhookSigningSecret,
               stored: _webhookSecretStored,
               placeholder: 'whsec_…',
               onChanged: (_) => _onEdited(),
             ),
             _FormTextField(
               controller: _trialDays,
-              label: 'Free trial (days)',
-              helper: '0 turns trials off.',
+              label: appStrings.freeTrialDays,
+              helper: appStrings.n0TurnsTrialsOff,
               wholeNumber: true,
               onChanged: (_) => _onEdited(),
             ),
@@ -2180,7 +2180,7 @@ class _AdminCfgStripeCardState extends State<_AdminCfgStripeCard>
         _SaveButton(
           saving: _saving,
           onPressed: _save,
-          label: 'Save billing setup',
+          label: appStrings.saveBillingSetup,
         ),
         _saveFeedback(),
       ],
@@ -2253,8 +2253,8 @@ class _BillingPlan {
 }
 
 String _adminCfgLimitLabel(String window, int? limit) {
-  if (limit == null) return '$window: default';
-  return '$window: ${_formatTokenCount(limit)} tokens';
+  if (limit == null) return appStrings.arg1Default(window);
+  return appStrings.arg1Arg2Tokens2(window, _formatTokenCount(limit));
 }
 
 class _AdminCfgPlansCard extends StatefulWidget {
@@ -2295,7 +2295,7 @@ class _AdminCfgPlansCardState extends State<_AdminCfgPlansCard>
     if (saved == true && mounted) {
       await _runSave(
         _fetch,
-        plan == null ? 'Plan created.' : '${plan.name} saved.',
+        plan == null ? 'Plan created.' : appStrings.arg1Saved(plan.name),
       );
     }
   }
@@ -2303,16 +2303,16 @@ class _AdminCfgPlansCardState extends State<_AdminCfgPlansCard>
   Future<void> _deactivate(_BillingPlan plan) {
     return _confirmDelete(
       context,
-      title: 'Deactivate ${plan.name}?',
+      title: appStrings.deactivateArg1(plan.name),
       message:
-          'The plan stops being offered. It is kept, not erased, and '
-          'existing subscribers keep access until their period ends.',
+          appStrings.thePlanStopsBeingOfferedIt +
+          appStrings.existingSubscribersKeepAccessUntilTheir,
       confirmLabel: 'Deactivate',
       onConfirm: () async {
         await _runSave(() async {
           await _client.deleteAdminBillingPlan(_baseUrl, plan.id);
           await _fetch();
-        }, '${plan.name} deactivated.');
+        }, appStrings.arg1Deactivated(plan.name));
       },
     );
   }
@@ -2320,8 +2320,8 @@ class _AdminCfgPlansCardState extends State<_AdminCfgPlansCard>
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
-      title: 'Plans',
-      description: 'The subscription plans people can choose from.',
+      title: appStrings.plans,
+      description: appStrings.theSubscriptionPlansPeopleCanChoose,
       trailing: _RefreshButton(
         busy: _loading,
         onPressed: _saving ? null : () => _runLoad(_fetch),
@@ -2336,13 +2336,13 @@ class _AdminCfgPlansCardState extends State<_AdminCfgPlansCard>
       children: <Widget>[
         FilledButton.icon(
           onPressed: _saving ? null : () => _openEditor(),
-          icon: const Icon(Icons.add_rounded, size: 18),
-          label: const Text('New plan'),
+          icon: Icon(Icons.add_rounded, size: 18),
+          label: Text(appStrings.newPlan),
         ),
         _saveFeedback(),
         const SizedBox(height: 14),
         if (_plans.isEmpty)
-          const _EmptyText('No plans yet.')
+          _EmptyText(appStrings.noPlansYet)
         else
           for (final plan in _plans)
             Padding(
@@ -2406,11 +2406,11 @@ class _AdminCfgPlanRow extends StatelessWidget {
               _Tag(_adminCfgLimitLabel('Weekly', plan.tokenLimitWeekly)),
               _Tag(
                 modelCount == 0
-                    ? 'All models'
-                    : '$modelCount model${modelCount == 1 ? '' : 's'}',
+                    ? appStrings.allModels
+                    : appStrings.arg1ModelArg2(modelCount, modelCount == 1 ? '' : 's'),
               ),
               if (featureCount > 0)
-                _Tag('$featureCount feature${featureCount == 1 ? '' : 's'}'),
+                _Tag(appStrings.arg1FeatureArg2(featureCount, featureCount == 1 ? '' : 's')),
               if (plan.stripePriceId.isNotEmpty) _Tag(plan.stripePriceId),
             ],
           ),
@@ -2421,15 +2421,15 @@ class _AdminCfgPlanRow extends StatelessWidget {
             children: <Widget>[
               OutlinedButton.icon(
                 onPressed: busy ? null : onEdit,
-                icon: const Icon(Icons.edit_outlined, size: 18),
-                label: const Text('Edit'),
+                icon: Icon(Icons.edit_outlined, size: 18),
+                label: Text(appStrings.edit),
               ),
               if (plan.isActive)
                 TextButton.icon(
                   onPressed: busy ? null : onDeactivate,
                   style: TextButton.styleFrom(foregroundColor: _danger),
-                  icon: const Icon(Icons.block_rounded, size: 18),
-                  label: const Text('Deactivate'),
+                  icon: Icon(Icons.block_rounded, size: 18),
+                  label: Text(appStrings.deactivate),
                 ),
             ],
           ),
@@ -2552,21 +2552,21 @@ class _AdminCfgPlanDialogState extends State<_AdminCfgPlanDialog> {
   String? _problem() {
     final id = _id.text.trim();
     if (_isNew && id.isNotEmpty && !_planIdPattern.hasMatch(id)) {
-      return 'Plan ID may only use letters, numbers, underscores and hyphens.';
+      return appStrings.planIdMayOnlyUseLetters;
     }
-    if (_name.text.trim().isEmpty) return 'Give the plan a name.';
+    if (_name.text.trim().isEmpty) return appStrings.giveThePlanAName;
     if (_parseBoundedInt(_price.text, min: 0) == null) {
-      return 'Price must be a whole number of cents (0 or more).';
+      return appStrings.priceMustBeAWholeNumber;
     }
     if (!_currencyPattern.hasMatch(_currency.text.trim())) {
-      return 'Currency must be a 3-letter code such as usd.';
+      return appStrings.currencyMustBeA3Letter;
     }
     if (!_isOptionalWholeNumber(_sortOrder)) {
-      return 'Sort order must be a whole number.';
+      return appStrings.sortOrderMustBeAWhole;
     }
     if (!_isOptionalWholeNumber(_limit4h) ||
         !_isOptionalWholeNumber(_limitWeekly)) {
-      return 'Token limits must be whole numbers, or blank for the default.';
+      return appStrings.tokenLimitsMustBeWholeNumbers;
     }
     return null;
   }
@@ -2649,7 +2649,7 @@ class _AdminCfgPlanDialogState extends State<_AdminCfgPlanDialog> {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 22, 24, 10),
               child: Text(
-                plan == null ? 'New plan' : 'Edit ${plan.displayName}',
+                plan == null ? 'New plan' : appStrings.editArg1(plan.displayName),
                 style: TextStyle(
                   color: _textPrimary,
                   fontSize: 18,
@@ -2677,13 +2677,13 @@ class _AdminCfgPlanDialogState extends State<_AdminCfgPlanDialog> {
                     onPressed: _saving
                         ? null
                         : () => Navigator.of(context).pop(false),
-                    child: const Text('Cancel'),
+                    child: Text(appStrings.cancel),
                   ),
                   const SizedBox(width: 8),
                   _SaveButton(
                     saving: _saving,
                     onPressed: _save,
-                    label: _isNew ? 'Create plan' : 'Save plan',
+                    label: _isNew ? 'Create plan' : appStrings.savePlan,
                   ),
                 ],
               ),
@@ -2702,69 +2702,69 @@ class _AdminCfgPlanDialogState extends State<_AdminCfgPlanDialog> {
           children: <Widget>[
             _FormTextField(
               controller: _id,
-              label: 'Plan ID',
+              label: appStrings.planId,
               hint: 'plan_pro',
               helper: _isNew
-                  ? 'Optional and permanent. Blank generates one.'
-                  : 'A plan’s ID can’t change.',
+                  ? appStrings.optionalAndPermanentBlankGeneratesOne
+                  : appStrings.aPlanSIdCanT,
               enabled: _isNew,
             ),
-            _FormTextField(controller: _name, label: 'Name', hint: 'Pro'),
+            _FormTextField(controller: _name, label: appStrings.name, hint: 'Pro'),
             _WideField(
-              _FormTextField(controller: _description, label: 'Description'),
+              _FormTextField(controller: _description, label: appStrings.description),
             ),
             _FormTextField(
               controller: _price,
-              label: 'Price in cents',
-              helper: 'Smallest currency unit: 1900 is 19.00.',
+              label: appStrings.priceInCents,
+              helper: appStrings.smallestCurrencyUnit1900Is19,
               wholeNumber: true,
             ),
             _FormTextField(
               controller: _currency,
-              label: 'Currency',
+              label: appStrings.currency,
               hint: 'usd',
             ),
             DropdownButtonFormField<String>(
               initialValue: _interval,
-              decoration: const InputDecoration(labelText: 'Billing interval'),
-              items: const <DropdownMenuItem<String>>[
-                DropdownMenuItem(value: 'month', child: Text('Monthly')),
-                DropdownMenuItem(value: 'year', child: Text('Yearly')),
-                DropdownMenuItem(value: '', child: Text('One-time / free')),
+              decoration: InputDecoration(labelText: appStrings.billingInterval),
+              items: <DropdownMenuItem<String>>[
+                DropdownMenuItem(value: 'month', child: Text(appStrings.monthly)),
+                DropdownMenuItem(value: 'year', child: Text(appStrings.yearly)),
+                DropdownMenuItem(value: '', child: Text(appStrings.oneTimeFree)),
               ],
               onChanged: (value) =>
                   setState(() => _interval = value ?? 'month'),
             ),
             _FormTextField(
               controller: _sortOrder,
-              label: 'Sort order',
-              helper: 'Lower numbers are listed first.',
+              label: appStrings.sortOrder,
+              helper: appStrings.lowerNumbersAreListedFirst,
               wholeNumber: true,
             ),
             _WideField(
               _FormTextField(
                 controller: _stripePriceId,
-                label: 'Stripe price ID',
+                label: appStrings.stripePriceId,
                 hint: 'price_…',
               ),
             ),
             _FormTextField(
               controller: _limit4h,
-              label: '4-hour token limit',
-              helper: 'Blank uses the server default.',
+              label: appStrings.n4HourTokenLimit,
+              helper: appStrings.blankUsesTheServerDefault,
               wholeNumber: true,
             ),
             _FormTextField(
               controller: _limitWeekly,
-              label: 'Weekly token limit',
-              helper: 'Blank uses the server default.',
+              label: appStrings.weeklyTokenLimit,
+              helper: appStrings.blankUsesTheServerDefault,
               wholeNumber: true,
             ),
             _WideField(
               _FormTextField(
                 controller: _features,
-                label: 'Features',
-                helper: 'One per line, shown on the pricing page.',
+                label: appStrings.features,
+                helper: appStrings.onePerLineShownOnThe,
                 maxLines: 5,
               ),
             ),
@@ -2772,13 +2772,13 @@ class _AdminCfgPlanDialogState extends State<_AdminCfgPlanDialog> {
         ),
         const SizedBox(height: 18),
         Text(
-          'Allowed models',
+          appStrings.allowedModels,
           style: TextStyle(color: _textPrimary, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 4),
         Text(
-          'Tick the models this plan may use. Leave all unticked to allow '
-          'every model.',
+          appStrings.tickTheModelsThisPlanMay +
+          appStrings.everyModel,
           style: TextStyle(color: _textSecondary, fontSize: 12.5),
         ),
         const SizedBox(height: 10),
@@ -2786,7 +2786,7 @@ class _AdminCfgPlanDialogState extends State<_AdminCfgPlanDialog> {
         const SizedBox(height: 8),
         _SettingToggle(
           title: 'Active',
-          subtitle: 'Offered to people choosing a plan.',
+          subtitle: appStrings.offeredToPeopleChoosingAPlan,
           value: _active,
           onChanged: (value) => setState(() => _active = value),
         ),
@@ -2799,15 +2799,15 @@ class _AdminCfgPlanDialogState extends State<_AdminCfgPlanDialog> {
     if (_modelsFailed) {
       return _FormTextField(
         controller: _modelIds,
-        label: 'Model IDs',
+        label: appStrings.modelIds,
         helper:
-            'The model list could not be loaded. Enter model IDs separated by '
-            'commas, or leave blank for every model.',
+            appStrings.theModelListCouldNotBe +
+            appStrings.commasOrLeaveBlankForEvery,
       );
     }
     if (models == null) return const _LoadingPlaceholder();
     if (models.isEmpty) {
-      return const _EmptyText('No models are available yet.');
+      return _EmptyText(appStrings.noModelsAreAvailableYet);
     }
     return _AdminCfgModelPicker(
       models: models,
@@ -2859,15 +2859,15 @@ class _AdminCfgModelPickerState extends State<_AdminCfgModelPicker> {
         TextField(
           controller: _search,
           onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(
-            hintText: 'Search models',
+          decoration: InputDecoration(
+            hintText: appStrings.searchModels,
             prefixIcon: Icon(Icons.search_rounded),
             isDense: true,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          '${widget.selected.length} selected',
+          appStrings.arg1Selected(widget.selected.length),
           style: TextStyle(color: _textMuted, fontSize: 12),
         ),
         const SizedBox(height: 6),
@@ -2881,7 +2881,7 @@ class _AdminCfgModelPickerState extends State<_AdminCfgModelPicker> {
           child: visible.isEmpty
               ? Center(
                   child: Text(
-                    'No matches',
+                    appStrings.noMatches,
                     style: TextStyle(color: _textSecondary),
                   ),
                 )
@@ -2901,7 +2901,7 @@ class _AdminCfgModelPickerState extends State<_AdminCfgModelPicker> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       subtitle: Text(
-                        '${model.providerLabel} · ${model.id}',
+                        appStrings.arg1Arg22(model.providerLabel, model.id),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -2941,12 +2941,12 @@ class _BillingSubscription {
     return _BillingSubscription(
       userId: userId,
       username: username,
-      userName: displayName.isEmpty ? 'User #$userId' : displayName,
+      userName: displayName.isEmpty ? appStrings.userArg1(userId) : displayName,
       email: _asText(json['email'], fallback: ''),
       planId: _asText(json['plan_id'] ?? plan['id'], fallback: ''),
       planName: _asText(
         json['plan_name'] ?? plan['name'],
-        fallback: 'Unknown plan',
+        fallback: appStrings.unknownPlan,
       ),
       priceLabel: plan.isEmpty ? '' : _BillingPlan.fromJson(plan).priceLabel,
       status: _asText(json['status'], fallback: 'active'),
@@ -2989,11 +2989,11 @@ class _BillingSubscription {
   bool get cancelable => !billedByStripe && status != 'canceled';
 }
 
-const Map<String, String> _adminCfgSubscriptionFilters = <String, String>{
+Map<String, String> _adminCfgSubscriptionFilters = <String, String>{
   '': 'All',
   'active': 'Active',
   'trialing': 'Trialing',
-  'past_due': 'Past due',
+  'past_due': appStrings.pastDue,
   'canceled': 'Canceled',
 };
 
@@ -3059,10 +3059,10 @@ class _AdminCfgSubscriptionsCardState extends State<_AdminCfgSubscriptionsCard>
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
-      title: 'Subscriptions',
+      title: appStrings.subscriptions,
       description:
-          'Every account’s subscription, most recently changed first. '
-          'Override assigns a plan without going through Stripe.',
+          appStrings.everyAccountSSubscriptionMostRecently +
+          appStrings.overrideAssignsAPlanWithoutGoing,
       trailing: _RefreshButton(
         busy: _loading,
         onPressed: () => _runLoad(_fetch),
@@ -3096,8 +3096,8 @@ class _AdminCfgSubscriptionsCardState extends State<_AdminCfgSubscriptionsCard>
       final filter = _adminCfgSubscriptionFilters[_status] ?? _status;
       return _EmptyText(
         _status.isEmpty
-            ? 'No subscriptions yet.'
-            : 'No ${filter.toLowerCase()} subscriptions.',
+            ? appStrings.noSubscriptionsYet
+            : appStrings.noArg1Subscriptions(filter.toLowerCase()),
       );
     }
     final last = _offset + _rows.length;
@@ -3116,23 +3116,23 @@ class _AdminCfgSubscriptionsCardState extends State<_AdminCfgSubscriptionsCard>
           children: <Widget>[
             Expanded(
               child: Text(
-                '${_offset + 1}–$last of $_total',
+                appStrings.arg1Arg2OfArg3(_offset + 1, last, _total),
                 style: TextStyle(color: _textMuted, fontSize: 12.5),
               ),
             ),
             IconButton(
-              tooltip: 'Previous page',
+              tooltip: appStrings.previousPage,
               onPressed: _offset == 0
                   ? null
                   : () => _showPage(offset: math.max(0, _offset - _pageSize)),
-              icon: const Icon(Icons.chevron_left_rounded),
+              icon: Icon(Icons.chevron_left_rounded),
             ),
             IconButton(
-              tooltip: 'Next page',
+              tooltip: appStrings.nextPage,
               onPressed: last >= _total
                   ? null
                   : () => _showPage(offset: _offset + _pageSize),
-              icon: const Icon(Icons.chevron_right_rounded),
+              icon: Icon(Icons.chevron_right_rounded),
             ),
           ],
         ),
@@ -3172,16 +3172,16 @@ class _AdminCfgSubscriptionRow extends StatelessWidget {
             children: <Widget>[
               _Tag(subscription.planName, color: _accent),
               if (subscription.periodEnd.isNotEmpty)
-                _Tag('Period ends ${_formatIsoDate(subscription.periodEnd)}'),
+                _Tag(appStrings.periodEndsArg1(_formatIsoDate(subscription.periodEnd))),
               if (subscription.cancelAtPeriodEnd)
-                _Tag('Cancels at period end', color: _warning),
+                _Tag(appStrings.cancelsAtPeriodEnd, color: _warning),
             ],
           ),
           const SizedBox(height: 6),
           TextButton.icon(
             onPressed: onOverride,
-            icon: const Icon(Icons.swap_horiz_rounded, size: 16),
-            label: const Text('Override plan'),
+            icon: Icon(Icons.swap_horiz_rounded, size: 16),
+            label: Text(appStrings.overridePlan),
           ),
         ],
       ),

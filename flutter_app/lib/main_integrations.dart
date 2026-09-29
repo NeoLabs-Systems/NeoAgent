@@ -37,7 +37,7 @@ class IntegrationDetailView extends StatelessWidget {
             .firstOrNull;
         if (item == null) {
           return Text(
-            'This integration is no longer available.',
+            appStrings.thisIntegrationIsNoLongerAvailable,
             style: TextStyle(color: _textSecondary),
           );
         }
@@ -64,21 +64,21 @@ class IntegrationDetailView extends StatelessWidget {
                       : _warning,
                 ),
                 _MetaPill(
-                  label: '${item.connection.accountCount} accounts',
+                  label: appStrings.arg1Accounts(item.connection.accountCount),
                   icon: Icons.alternate_email_rounded,
                 ),
                 _MetaPill(
-                  label: '${item.connection.appCount} apps active',
+                  label: appStrings.arg1AppsActive(item.connection.appCount),
                   icon: Icons.apps_rounded,
                 ),
                 _MetaPill(
-                  label: '${item.availableToolCount} tools',
+                  label: appStrings.arg1Tools(item.availableToolCount),
                   icon: Icons.build_outlined,
                 ),
                 _MetaPill(
                   label: item.memoryCoverage.supported
                       ? 'Memory ${item.memoryCoverage.statusLabel}'
-                      : 'No memory sync',
+                      : appStrings.noMemorySync,
                   icon: Icons.psychology_alt_outlined,
                 ),
               ],
@@ -112,19 +112,19 @@ String _integrationGuidance(OfficialIntegrationItem item) {
   }
   if (item.hasExpiredAccounts) {
     return item.id == 'google_workspace'
-        ? 'One or more accounts expired. Reconnect to restore access. If this keeps happening, your Google Cloud OAuth app may be in Testing mode — publish it to Production in Google Cloud Console to get long-lived tokens.'
-        : 'One or more accounts expired. Reconnect the affected account to restore tool access.';
+        ? appStrings.oneOrMoreAccountsExpiredReconnectTo
+        : appStrings.oneOrMoreAccountsExpiredReconnect;
   }
   if (!item.supportsMultipleAccounts && item.isConnected) {
-    return 'This integration currently supports one connected account per agent. Re-open setup to replace it.';
+    return appStrings.thisIntegrationCurrentlySupportsOneConnected;
   }
   if (item.isConnected) {
-    return 'Connect as many accounts as you want. Each app can use a different account.';
+    return appStrings.connectAsManyAccountsAsYou;
   }
   final prompt = (item.connectPrompt ?? '').trim();
   return prompt.isNotEmpty
       ? prompt
-      : 'Connect app accounts individually so the AI can use the right account for each official integration.';
+      : appStrings.connectAppAccountsIndividuallySoThe;
 }
 
 void _openOfficialIntegrationSetupDialog(
@@ -143,26 +143,26 @@ void _openOfficialIntegrationSetupDialog(
       _showOfficialIntegrationUrlSetupDialog(
         context,
         controller,
-        config: const _OfficialIntegrationUrlSetupConfig(
+        config: _OfficialIntegrationUrlSetupConfig(
           providerId: 'neorecall',
           appId: 'recall',
-          title: 'NeoRecall Setup',
+          title: appStrings.neorecallSetup,
           description:
-              'Connect your self-hosted NeoRecall server. NeoAgent receives read-only access to local search, memories, and transcript evidence after you approve the OAuth screen.',
+              appStrings.connectYourSelfHostedNeorecallServer,
           extraDescription:
-              'Use a NeoRecall URL the NeoAgent server can reach. NeoAgent\'s PUBLIC_URL must also be reachable from this browser for the OAuth callback.',
-          connectionMethodLabel: 'OAuth with PKCE',
-          accountLabel: 'Connected NeoRecall User',
-          urlLabel: 'NeoRecall Backend URL',
+              appStrings.useANeorecallUrlTheNeoagent,
+          connectionMethodLabel: appStrings.oauthWithPkce,
+          accountLabel: appStrings.connectedNeorecallUser,
+          urlLabel: appStrings.neorecallBackendUrl,
           urlHint: 'https://recall.example.com',
           urlHelperText:
-              'Local and private-network URLs are supported when the NeoAgent server can reach them. Audio is never exposed to NeoAgent.',
-          urlRequiredMessage: 'NeoRecall backend URL is required.',
-          saveErrorFallback: 'Could not save NeoRecall setup.',
-          disconnectTitle: 'Disconnect NeoRecall?',
+              appStrings.localAndPrivateNetworkUrlsAre,
+          urlRequiredMessage: appStrings.neorecallBackendUrlIsRequired,
+          saveErrorFallback: appStrings.couldNotSaveNeorecallSetup,
+          disconnectTitle: appStrings.disconnectNeorecall,
           disconnectBody:
-              'This removes the NeoRecall backend URL and all connected NeoRecall accounts for this agent.',
-          disconnectErrorFallback: 'Could not disconnect NeoRecall.',
+              appStrings.thisRemovesTheNeorecallBackendUrl,
+          disconnectErrorFallback: appStrings.couldNotDisconnectNeorecall,
           supportsMultipleAccounts: true,
         ),
       );
@@ -171,26 +171,26 @@ void _openOfficialIntegrationSetupDialog(
       _showOfficialIntegrationUrlSetupDialog(
         context,
         controller,
-        config: const _OfficialIntegrationUrlSetupConfig(
+        config: _OfficialIntegrationUrlSetupConfig(
           providerId: 'nextcloud',
           appId: 'files',
-          title: 'Nextcloud Setup',
+          title: appStrings.nextcloudSetup,
           description:
-              'Connect your Nextcloud instance, including self-hosted servers. NeoAgent opens Nextcloud\'s own login page so you can sign in with password, SSO, or 2FA.',
+              appStrings.connectYourNextcloudInstanceIncludingSelf,
           extraDescription:
-              'Use a Nextcloud URL the NeoAgent server can reach, for example https://cloud.example.com.',
-          connectionMethodLabel: 'Nextcloud Login Flow',
-          accountLabel: 'Connected Nextcloud User',
-          urlLabel: 'Nextcloud URL',
+              appStrings.useANextcloudUrlTheNeoagent,
+          connectionMethodLabel: appStrings.nextcloudLoginFlow,
+          accountLabel: appStrings.connectedNextcloudUser,
+          urlLabel: appStrings.nextcloudUrl,
           urlHint: 'https://cloud.example.com',
           urlHelperText:
-              'Cloud and self-hosted instances are supported. Local and private-network URLs work when NeoAgent can reach them.',
-          urlRequiredMessage: 'Nextcloud URL is required.',
-          saveErrorFallback: 'Could not save Nextcloud setup.',
-          disconnectTitle: 'Disconnect Nextcloud?',
+              appStrings.cloudAndSelfHostedInstancesAre,
+          urlRequiredMessage: appStrings.nextcloudUrlIsRequired,
+          saveErrorFallback: appStrings.couldNotSaveNextcloudSetup,
+          disconnectTitle: appStrings.disconnectNextcloud,
           disconnectBody:
-              'This removes the Nextcloud URL and all connected Nextcloud accounts for this agent.',
-          disconnectErrorFallback: 'Could not disconnect Nextcloud.',
+              appStrings.thisRemovesTheNextcloudUrlAnd,
+          disconnectErrorFallback: appStrings.couldNotDisconnectNextcloud,
           supportsMultipleAccounts: true,
         ),
       );
@@ -245,19 +245,19 @@ Future<void> _showBitwardenBindingDialog(
                 field['id']?.toString().isNotEmpty == true
                     ? field['id'].toString()
                     : field['name'].toString(),
-                field['name']?.toString() ?? 'Custom field',
+                field['name']?.toString() ?? appStrings.customField,
               ),
             )
             .toList();
         final secretOptions = <(String, String)>[
-          ('login.password', 'Login password'),
+          ('login.password', appStrings.loginPassword),
           ...customFields,
         ];
         if (!secretOptions.any((entry) => entry.$1 == secretField)) {
           secretField = secretOptions.first.$1;
         }
         return AlertDialog(
-          title: const Text('Add credential binding'),
+          title: Text(appStrings.addCredentialBinding),
           content: SizedBox(
             width: 520,
             child: SingleChildScrollView(
@@ -266,8 +266,8 @@ Future<void> _showBitwardenBindingDialog(
                 children: <Widget>[
                   DropdownButtonFormField<String>(
                     initialValue: itemId,
-                    decoration: const InputDecoration(
-                      labelText: 'Bitwarden item',
+                    decoration: InputDecoration(
+                      labelText: appStrings.bitwardenItem,
                       border: OutlineInputBorder(),
                     ),
                     items: items
@@ -295,27 +295,27 @@ Future<void> _showBitwardenBindingDialog(
                   const SizedBox(height: 12),
                   TextField(
                     controller: aliasController,
-                    decoration: const InputDecoration(
-                      labelText: 'Agent-visible name',
-                      hintText: 'Work account',
+                    decoration: InputDecoration(
+                      labelText: appStrings.agentVisibleName,
+                      hintText: appStrings.workAccount,
                       border: OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     initialValue: usageType,
-                    decoration: const InputDecoration(
-                      labelText: 'Use for',
+                    decoration: InputDecoration(
+                      labelText: appStrings.useFor,
                       border: OutlineInputBorder(),
                     ),
-                    items: const [
+                    items: [
                       DropdownMenuItem(
                         value: 'browser',
-                        child: Text('Browser login'),
+                        child: Text(appStrings.browserLogin),
                       ),
                       DropdownMenuItem(
                         value: 'http',
-                        child: Text('API request'),
+                        child: Text(appStrings.apiRequest),
                       ),
                     ],
                     onChanged: saving
@@ -330,7 +330,7 @@ Future<void> _showBitwardenBindingDialog(
                     decoration: InputDecoration(
                       labelText: usageType == 'browser'
                           ? 'Allowed HTTPS origin'
-                          : 'API HTTPS origin',
+                          : appStrings.apiHttpsOrigin,
                       border: const OutlineInputBorder(),
                     ),
                   ),
@@ -338,30 +338,30 @@ Future<void> _showBitwardenBindingDialog(
                     const SizedBox(height: 12),
                     TextField(
                       controller: pathController,
-                      decoration: const InputDecoration(
-                        labelText: 'Allowed path prefix',
+                      decoration: InputDecoration(
+                        labelText: appStrings.allowedPathPrefix,
                         border: OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       initialValue: authType,
-                      decoration: const InputDecoration(
-                        labelText: 'Authentication',
+                      decoration: InputDecoration(
+                        labelText: appStrings.authentication,
                         border: OutlineInputBorder(),
                       ),
-                      items: const [
+                      items: [
                         DropdownMenuItem(
                           value: 'bearer',
-                          child: Text('Bearer token'),
+                          child: Text(appStrings.bearerToken),
                         ),
                         DropdownMenuItem(
                           value: 'basic',
-                          child: Text('Basic authentication'),
+                          child: Text(appStrings.basicAuthentication),
                         ),
                         DropdownMenuItem(
                           value: 'header',
-                          child: Text('Custom header'),
+                          child: Text(appStrings.customHeader),
                         ),
                       ],
                       onChanged: saving
@@ -372,8 +372,8 @@ Future<void> _showBitwardenBindingDialog(
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       initialValue: secretField,
-                      decoration: const InputDecoration(
-                        labelText: 'Secret field',
+                      decoration: InputDecoration(
+                        labelText: appStrings.secretField,
                         border: OutlineInputBorder(),
                       ),
                       items: secretOptions
@@ -394,8 +394,8 @@ Future<void> _showBitwardenBindingDialog(
                       const SizedBox(height: 12),
                       TextField(
                         controller: headerController,
-                        decoration: const InputDecoration(
-                          labelText: 'Header name',
+                        decoration: InputDecoration(
+                          labelText: appStrings.headerName,
                           border: OutlineInputBorder(),
                         ),
                       ),
@@ -414,7 +414,7 @@ Future<void> _showBitwardenBindingDialog(
               onPressed: saving
                   ? null
                   : () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
+              child: Text(appStrings.cancel),
             ),
             FilledButton(
               onPressed: saving
@@ -459,12 +459,12 @@ Future<void> _showBitwardenBindingDialog(
                         setState(() {
                           errorText =
                               controller.errorMessage ??
-                              'Could not create binding.';
+                              appStrings.couldNotCreateBinding;
                           saving = false;
                         });
                       }
                     },
-              child: Text(saving ? 'Adding...' : 'Add binding'),
+              child: Text(saving ? 'Adding...' : appStrings.addBinding),
             ),
           ],
         );
@@ -511,7 +511,7 @@ Future<void> _showBitwardenSetupDialog(
     barrierDismissible: false,
     builder: (dialogContext) => StatefulBuilder(
       builder: (dialogContext, setState) => AlertDialog(
-        title: const Text('Bitwarden credential broker'),
+        title: Text(appStrings.bitwardenCredentialBroker),
         content: SizedBox(
           width: 600,
           child: SingleChildScrollView(
@@ -520,14 +520,14 @@ Future<void> _showBitwardenSetupDialog(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Sign in with the same email and master password you use in Bitwarden. The master password and two-step code are used only for sign-in and are never stored or sent to the AI.',
+                  appStrings.signInWithTheSameEmail,
                   style: TextStyle(color: _textSecondary),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: serverController,
-                  decoration: const InputDecoration(
-                    labelText: 'Bitwarden server',
+                  decoration: InputDecoration(
+                    labelText: appStrings.bitwardenServer,
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -535,8 +535,8 @@ Future<void> _showBitwardenSetupDialog(
                 TextField(
                   controller: emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Account email',
+                  decoration: InputDecoration(
+                    labelText: appStrings.accountEmail,
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -544,9 +544,9 @@ Future<void> _showBitwardenSetupDialog(
                 Text(
                   unlocked
                       ? config['persistent'] == true
-                            ? 'Vault connected and available after restart'
-                            : 'Vault connected for this session'
-                      : 'Vault locked',
+                            ? appStrings.vaultConnectedAndAvailableAfterRestart
+                            : appStrings.vaultConnectedForThisSession
+                      : appStrings.vaultLocked,
                   style: TextStyle(color: unlocked ? _success : _textSecondary),
                 ),
                 const SizedBox(height: 8),
@@ -557,8 +557,8 @@ Future<void> _showBitwardenSetupDialog(
                         controller: masterPasswordController,
                         obscureText: true,
                         enabled: !busy && !unlocked,
-                        decoration: const InputDecoration(
-                          labelText: 'Master password',
+                        decoration: InputDecoration(
+                          labelText: appStrings.masterPassword,
                           border: OutlineInputBorder(),
                         ),
                       ),
@@ -603,7 +603,7 @@ Future<void> _showBitwardenSetupDialog(
                                 setState(
                                   () => errorText =
                                       controller.errorMessage ??
-                                      'Vault operation failed.',
+                                      appStrings.vaultOperationFailed,
                                 );
                               } finally {
                                 setState(() => busy = false);
@@ -617,26 +617,26 @@ Future<void> _showBitwardenSetupDialog(
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     initialValue: twoStepMethod,
-                    decoration: const InputDecoration(
-                      labelText: 'Two-step login (only if enabled)',
+                    decoration: InputDecoration(
+                      labelText: appStrings.twoStepLoginOnlyIfEnabled,
                       border: OutlineInputBorder(),
                     ),
-                    items: const <DropdownMenuItem<String>>[
+                    items: <DropdownMenuItem<String>>[
                       DropdownMenuItem<String>(
                         value: '',
-                        child: Text('Not needed'),
+                        child: Text(appStrings.notNeeded),
                       ),
                       DropdownMenuItem<String>(
                         value: '0',
-                        child: Text('Authenticator app'),
+                        child: Text(appStrings.authenticatorApp),
                       ),
                       DropdownMenuItem<String>(
                         value: '1',
-                        child: Text('Email code'),
+                        child: Text(appStrings.emailCode),
                       ),
                       DropdownMenuItem<String>(
                         value: '3',
-                        child: Text('YubiKey OTP'),
+                        child: Text(appStrings.yubikeyOtp),
                       ),
                     ],
                     onChanged: busy
@@ -650,8 +650,8 @@ Future<void> _showBitwardenSetupDialog(
                       controller: twoStepCodeController,
                       enabled: !busy,
                       obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Current two-step login code',
+                      decoration: InputDecoration(
+                        labelText: appStrings.currentTwoStepLoginCode,
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -664,9 +664,9 @@ Future<void> _showBitwardenSetupDialog(
                         ? null
                         : (value) =>
                               setState(() => persistSession = value ?? true),
-                    title: const Text('Keep the vault available'),
-                    subtitle: const Text(
-                      'Stores only the Bitwarden session key encrypted on this server, so connections survive restarts. You can lock it at any time.',
+                    title: Text(appStrings.keepTheVaultAvailable),
+                    subtitle: Text(
+                      appStrings.storesOnlyTheBitwardenSessionKey,
                     ),
                     controlAffinity: ListTileControlAffinity.leading,
                   ),
@@ -674,9 +674,9 @@ Future<void> _showBitwardenSetupDialog(
                 const SizedBox(height: 20),
                 Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Credential bindings',
+                        appStrings.credentialBindings,
                         style: TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -695,8 +695,8 @@ Future<void> _showBitwardenSetupDialog(
                                   .fetchCredentialBindings();
                               setState(() {});
                             },
-                      icon: const Icon(Icons.add_rounded),
-                      label: const Text('Add'),
+                      icon: Icon(Icons.add_rounded),
+                      label: Text(appStrings.add),
                     ),
                   ],
                 ),
@@ -704,7 +704,7 @@ Future<void> _showBitwardenSetupDialog(
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      'No bindings yet.',
+                      appStrings.noBindingsYet,
                       style: TextStyle(color: _textSecondary),
                     ),
                   )
@@ -715,8 +715,8 @@ Future<void> _showBitwardenSetupDialog(
                       title: Text(binding['alias']?.toString() ?? 'Credential'),
                       subtitle: Text(binding['usageType']?.toString() ?? ''),
                       trailing: IconButton(
-                        tooltip: 'Delete binding',
-                        icon: const Icon(Icons.delete_outline_rounded),
+                        tooltip: appStrings.deleteBinding,
+                        icon: Icon(Icons.delete_outline_rounded),
                         onPressed: busy
                             ? null
                             : () async {
@@ -757,16 +757,16 @@ Future<void> _showBitwardenSetupDialog(
                         setState(() {
                           errorText =
                               controller.errorMessage ??
-                              'Could not disconnect Bitwarden.';
+                              appStrings.couldNotDisconnectBitwarden;
                           busy = false;
                         });
                       }
                     },
-              child: const Text('Disconnect'),
+              child: Text(appStrings.disconnect),
             ),
           TextButton(
             onPressed: busy ? null : () => Navigator.of(dialogContext).pop(),
-            child: const Text('Close'),
+            child: Text(appStrings.close),
           ),
           FilledButton(
             onPressed: busy
@@ -792,13 +792,13 @@ Future<void> _showBitwardenSetupDialog(
                       setState(
                         () => errorText =
                             controller.errorMessage ??
-                            'Could not save Bitwarden setup.',
+                            appStrings.couldNotSaveBitwardenSetup,
                       );
                     } finally {
                       setState(() => busy = false);
                     }
                   },
-            child: Text(busy ? 'Saving...' : 'Save account'),
+            child: Text(busy ? appStrings.saving : appStrings.saveAccount),
           ),
         ],
       ),
@@ -936,7 +936,7 @@ Future<void> _showOfficialIntegrationUrlSetupDialog(
               ],
               const SizedBox(height: 16),
               _IntegrationSetupStatusItem(
-                label: 'Connection Method',
+                label: appStrings.connectionMethod,
                 status: config.connectionMethodLabel,
                 isConnected: true,
               ),
@@ -945,7 +945,7 @@ Future<void> _showOfficialIntegrationUrlSetupDialog(
                 label: config.accountLabel,
                 status: connected
                     ? '$accountCount ${accountCount == 1 ? 'connected user' : 'connected users'}'
-                    : 'Not connected',
+                    : appStrings.notConnected,
                 isConnected: connected,
               ),
               const SizedBox(height: 12),
@@ -986,12 +986,12 @@ Future<void> _showOfficialIntegrationUrlSetupDialog(
                                 TextButton(
                                   onPressed: () =>
                                       Navigator.of(context).pop(false),
-                                  child: const Text('Cancel'),
+                                  child: Text(appStrings.cancel),
                                 ),
                                 FilledButton(
                                   onPressed: () =>
                                       Navigator.of(context).pop(true),
-                                  child: const Text('Disconnect'),
+                                  child: Text(appStrings.disconnect),
                                 ),
                               ],
                             ),
@@ -1018,18 +1018,18 @@ Future<void> _showOfficialIntegrationUrlSetupDialog(
                         });
                       }
                     },
-              child: const Text('Disconnect'),
+              child: Text(appStrings.disconnect),
             ),
           TextButton(
             onPressed: busy ? null : () => Navigator.of(dialogContext).pop(),
-            child: const Text('Close'),
+            child: Text(appStrings.close),
           ),
           if (config.supportsMultipleAccounts || !connected)
             TextButton(
               onPressed: busy
                   ? null
                   : () => save(setState, dialogContext, connect: false),
-              child: const Text('Save Only'),
+              child: Text(appStrings.saveOnly),
             ),
           FilledButton(
             onPressed: busy
@@ -1044,9 +1044,9 @@ Future<void> _showOfficialIntegrationUrlSetupDialog(
                   ? 'Working...'
                   : connected
                   ? (config.supportsMultipleAccounts
-                        ? 'Connect Another Account'
-                        : 'Update Setup')
-                  : 'Save & Connect',
+                        ? appStrings.connectAnotherAccount
+                        : appStrings.updateSetup)
+                  : appStrings.saveConnect,
             ),
           ),
         ],
@@ -1089,7 +1089,7 @@ Future<void> _showHomeAssistantSetupDialog(
       return StatefulBuilder(
         builder: (dialogContext, setState) {
           return AlertDialog(
-            title: const Text('Home Assistant Setup'),
+            title: Text(appStrings.homeAssistantSetup),
             content: SizedBox(
               width: 520,
               child: Column(
@@ -1097,23 +1097,23 @@ Future<void> _showHomeAssistantSetupDialog(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Connect a public HTTPS Home Assistant endpoint with a Long-Lived Access Token. Local, loopback, and private network addresses are blocked by the server.',
+                    appStrings.connectAPublicHttpsHomeAssistant,
                     style: TextStyle(color: _textSecondary),
                   ),
                   const SizedBox(height: 16),
                   _IntegrationSetupStatusItem(
-                    label: 'Endpoint',
+                    label: appStrings.endpoint,
                     status: savedBaseUrl.trim().isNotEmpty
                         ? 'Configured'
-                        : 'Not configured',
+                        : appStrings.notConfigured,
                     isConnected: savedBaseUrl.trim().isNotEmpty,
                   ),
                   const SizedBox(height: 12),
                   _IntegrationSetupStatusItem(
-                    label: 'Connected Instance',
+                    label: appStrings.connectedInstance,
                     status: hasConnectedAccount
                         ? '$accountCount ${accountCount == 1 ? 'instance' : 'instances'} connected'
-                        : 'Not connected',
+                        : appStrings.notConnected,
                     isConnected: hasConnectedAccount,
                   ),
                   const SizedBox(height: 12),
@@ -1121,8 +1121,8 @@ Future<void> _showHomeAssistantSetupDialog(
                     controller: baseUrlController,
                     onChanged: (_) => setState(() {}),
                     keyboardType: TextInputType.url,
-                    decoration: const InputDecoration(
-                      labelText: 'Home Assistant URL',
+                    decoration: InputDecoration(
+                      labelText: appStrings.homeAssistantUrl,
                       hintText: 'https://your-instance.example.com',
                       border: OutlineInputBorder(),
                     ),
@@ -1134,15 +1134,15 @@ Future<void> _showHomeAssistantSetupDialog(
                     obscureText: true,
                     decoration: InputDecoration(
                       labelText: hasToken
-                          ? 'Paste replacement Long-Lived Access Token'
-                          : 'Long-Lived Access Token',
+                          ? appStrings.pasteReplacementLongLivedAccessToken
+                          : appStrings.longLivedAccessToken,
                       border: const OutlineInputBorder(),
                     ),
                   ),
                   if (hasToken) ...<Widget>[
                     const SizedBox(height: 8),
                     Text(
-                      'Leave the token empty to keep the currently stored token.',
+                      appStrings.leaveTheTokenEmptyToKeep,
                       style: TextStyle(color: _textSecondary, fontSize: 12),
                     ),
                   ],
@@ -1177,22 +1177,22 @@ Future<void> _showHomeAssistantSetupDialog(
                                 context: dialogContext,
                                 builder: (context) {
                                   return AlertDialog(
-                                    title: const Text(
-                                      'Disconnect Home Assistant?',
+                                    title: Text(
+                                      appStrings.disconnectHomeAssistant,
                                     ),
-                                    content: const Text(
-                                      'This removes the Home Assistant setup and connected instance for this agent.',
+                                    content: Text(
+                                      appStrings.thisRemovesTheHomeAssistantSetup,
                                     ),
                                     actions: [
                                       TextButton(
                                         onPressed: () =>
                                             Navigator.of(context).pop(false),
-                                        child: const Text('Cancel'),
+                                        child: Text(appStrings.cancel),
                                       ),
                                       FilledButton(
                                         onPressed: () =>
                                             Navigator.of(context).pop(true),
-                                        child: const Text('Disconnect'),
+                                        child: Text(appStrings.disconnect),
                                       ),
                                     ],
                                   );
@@ -1217,18 +1217,18 @@ Future<void> _showHomeAssistantSetupDialog(
                             setState(() {
                               formError =
                                   controller.errorMessage ??
-                                  'Could not disconnect Home Assistant.';
+                                  appStrings.couldNotDisconnectHomeAssistant;
                               saving = false;
                             });
                           }
                         },
-                  child: const Text('Disconnect'),
+                  child: Text(appStrings.disconnect),
                 ),
               TextButton(
                 onPressed: saving
                     ? null
                     : () => Navigator.of(dialogContext).pop(),
-                child: const Text('Close'),
+                child: Text(appStrings.close),
               ),
               FilledButton(
                 onPressed: saving
@@ -1243,7 +1243,7 @@ Future<void> _showHomeAssistantSetupDialog(
                           final token = tokenController.text.trim();
                           if (baseUrl.isEmpty) {
                             setState(() {
-                              formError = 'Home Assistant URL is required.';
+                              formError = appStrings.homeAssistantUrlIsRequired;
                               saving = false;
                             });
                             return;
@@ -1251,7 +1251,7 @@ Future<void> _showHomeAssistantSetupDialog(
                           if (token.isEmpty && !hasToken) {
                             setState(() {
                               formError =
-                                  'Home Assistant Long-Lived Access Token is required.';
+                                  appStrings.homeAssistantLongLivedAccessToken;
                               saving = false;
                             });
                             return;
@@ -1270,17 +1270,17 @@ Future<void> _showHomeAssistantSetupDialog(
                           setState(() {
                             formError =
                                 controller.errorMessage ??
-                                'Could not save Home Assistant setup.';
+                                appStrings.couldNotSaveHomeAssistantSetup;
                             saving = false;
                           });
                         }
                       },
                 child: Text(
                   saving
-                      ? 'Saving...'
+                      ? appStrings.saving
                       : hasConnectedAccount
-                      ? 'Update Instance'
-                      : 'Connect Instance',
+                      ? appStrings.updateInstance
+                      : appStrings.connectInstance,
                 ),
               ),
             ],
@@ -1329,7 +1329,7 @@ Future<void> _showTrelloSetupDialog(
       return StatefulBuilder(
         builder: (dialogContext, setState) {
           return AlertDialog(
-            title: const Text('Trello Setup'),
+            title: Text(appStrings.trelloSetup),
             content: SizedBox(
               width: 520,
               child: Column(
@@ -1337,27 +1337,27 @@ Future<void> _showTrelloSetupDialog(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Save a Trello API key for this agent, then connect one Trello account securely. The account token is stored on the server and used only for this agent.',
+                    appStrings.saveATrelloApiKeyFor,
                     style: TextStyle(color: _textSecondary),
                   ),
                   const SizedBox(height: 16),
                   _IntegrationSetupStatusItem(
-                    label: 'API Key',
-                    status: apiKeyConfigured ? 'Configured' : 'Not configured',
+                    label: appStrings.apiKey3,
+                    status: apiKeyConfigured ? 'Configured' : appStrings.notConfigured,
                     isConnected: apiKeyConfigured,
                   ),
                   const SizedBox(height: 12),
                   _IntegrationSetupStatusItem(
-                    label: 'Connected Account',
+                    label: appStrings.connectedAccount,
                     status: hasConnectedAccount
                         ? '$accountCount ${accountCount == 1 ? 'connected account' : 'connected accounts'}'
-                        : 'Not connected',
+                        : appStrings.notConnected,
                     isConnected: hasConnectedAccount,
                   ),
                   if (apiKeyManagedByServer) ...<Widget>[
                     const SizedBox(height: 12),
                     Text(
-                      'This agent is using a server-managed Trello API key. You only need to authorize an account token below.',
+                      appStrings.thisAgentIsUsingAServer,
                       style: TextStyle(color: _textSecondary),
                     ),
                   ] else ...<Widget>[
@@ -1366,8 +1366,8 @@ Future<void> _showTrelloSetupDialog(
                       controller: apiKeyController,
                       onChanged: (_) => setState(() {}),
                       obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Trello API Key',
+                      decoration: InputDecoration(
+                        labelText: appStrings.trelloApiKey,
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -1382,8 +1382,8 @@ Future<void> _showTrelloSetupDialog(
                       obscureText: true,
                       decoration: InputDecoration(
                         labelText: hasConnectedAccount
-                            ? 'Paste a replacement token'
-                            : 'Paste your account token',
+                            ? appStrings.pasteAReplacementToken
+                            : appStrings.pasteYourAccountToken,
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -1419,20 +1419,20 @@ Future<void> _showTrelloSetupDialog(
                                 context: dialogContext,
                                 builder: (context) {
                                   return AlertDialog(
-                                    title: const Text('Disconnect Trello?'),
-                                    content: const Text(
-                                      'This removes the Trello setup and connected accounts for this agent.',
+                                    title: Text(appStrings.disconnectTrello),
+                                    content: Text(
+                                      appStrings.thisRemovesTheTrelloSetupAnd,
                                     ),
                                     actions: [
                                       TextButton(
                                         onPressed: () =>
                                             Navigator.of(context).pop(false),
-                                        child: const Text('Cancel'),
+                                        child: Text(appStrings.cancel),
                                       ),
                                       FilledButton(
                                         onPressed: () =>
                                             Navigator.of(context).pop(true),
-                                        child: const Text('Disconnect'),
+                                        child: Text(appStrings.disconnect),
                                       ),
                                     ],
                                   );
@@ -1457,18 +1457,18 @@ Future<void> _showTrelloSetupDialog(
                             setState(() {
                               formError =
                                   controller.errorMessage ??
-                                  'Could not disconnect Trello.';
+                                  appStrings.couldNotDisconnectTrello;
                               connecting = false;
                             });
                           }
                         },
-                  child: const Text('Disconnect'),
+                  child: Text(appStrings.disconnect),
                 ),
               TextButton(
                 onPressed: connecting
                     ? null
                     : () => Navigator.of(dialogContext).pop(),
-                child: const Text('Close'),
+                child: Text(appStrings.close),
               ),
               if (authorizeUrl.isNotEmpty ||
                   apiKeyManagedByServer ||
@@ -1488,7 +1488,7 @@ Future<void> _showTrelloSetupDialog(
                             if (!apiKeyManagedByServer &&
                                 effectiveApiKey.isEmpty) {
                               setState(() {
-                                formError = 'Trello API Key is required.';
+                                formError = appStrings.trelloApiKeyIsRequired;
                                 connecting = false;
                               });
                               return;
@@ -1502,7 +1502,7 @@ Future<void> _showTrelloSetupDialog(
                               setState(() {
                                 formError =
                                     result.error ??
-                                    'Could not open Trello in your browser.';
+                                    appStrings.couldNotOpenTrelloInYour;
                                 connecting = false;
                               });
                             } else {
@@ -1519,8 +1519,8 @@ Future<void> _showTrelloSetupDialog(
                             });
                           }
                         },
-                  icon: const Icon(Icons.open_in_browser_rounded),
-                  label: Text(connecting ? 'Opening...' : 'Open Trello'),
+                  icon: Icon(Icons.open_in_browser_rounded),
+                  label: Text(connecting ? 'Opening...' : appStrings.openTrello),
                 ),
               FilledButton(
                 onPressed: connecting
@@ -1535,7 +1535,7 @@ Future<void> _showTrelloSetupDialog(
                           final token = tokenInputController.text.trim();
                           if (!apiKeyManagedByServer && apiKey.isEmpty) {
                             setState(() {
-                              formError = 'Trello API Key is required.';
+                              formError = appStrings.trelloApiKeyIsRequired;
                               connecting = false;
                             });
                             return;
@@ -1568,19 +1568,19 @@ Future<void> _showTrelloSetupDialog(
                           setState(() {
                             formError =
                                 controller.errorMessage ??
-                                'Could not save Trello setup.';
+                                appStrings.couldNotSaveTrelloSetup;
                             connecting = false;
                           });
                         }
                       },
                 child: Text(
                   connecting
-                      ? 'Saving...'
+                      ? appStrings.saving
                       : tokenInputController.text.trim().isNotEmpty
                       ? hasConnectedAccount
-                            ? 'Replace Account'
-                            : 'Connect Account'
-                      : 'Save Setup',
+                            ? appStrings.replaceAccount
+                            : appStrings.connectAccount
+                      : appStrings.saveSetup,
                 ),
               ),
             ],
@@ -1722,17 +1722,17 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                           runSpacing: 8,
                           children: <Widget>[
                             _MetaPill(
-                              label: '${app.accounts.length} accounts',
+                              label: appStrings.arg1Accounts(app.accounts.length),
                               icon: Icons.account_circle_outlined,
                             ),
                             _MetaPill(
-                              label: '${app.availableToolCount} tools',
+                              label: appStrings.arg1Tools(app.availableToolCount),
                               icon: Icons.build_circle_outlined,
                             ),
                             _MetaPill(
                               label: app.memoryCoverage.supported
                                   ? 'Memory ${app.memoryCoverage.statusLabel}'
-                                  : 'No memory sync',
+                                  : appStrings.noMemorySync,
                               icon: Icons.psychology_alt_outlined,
                             ),
                           ],
@@ -1752,7 +1752,7 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
           const SizedBox(height: 12),
           if (app.accounts.isEmpty)
             Text(
-              'No accounts connected yet.',
+              appStrings.noAccountsConnectedYet,
               style: TextStyle(color: _textSecondary),
             )
           else
@@ -1781,23 +1781,23 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        account.accountEmail ?? 'Unknown account',
+                        account.accountEmail ?? appStrings.unknownAccount,
                         style: TextStyle(fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Connection #${account.id}',
+                        appStrings.connectionArg1(account.id),
                         style: TextStyle(color: _textSecondary),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Access: ${account.accessModeLabel}',
+                        appStrings.accessArg1(account.accessModeLabel),
                         style: TextStyle(color: _textSecondary),
                       ),
                       if (account.memoryCoverage.supported) ...<Widget>[
                         const SizedBox(height: 4),
                         Text(
-                          'Memory: ${account.memoryCoverage.statusLabel}',
+                          appStrings.memoryArg1(account.memoryCoverage.statusLabel),
                           style: TextStyle(color: _textSecondary),
                         ),
                       ],
@@ -1809,7 +1809,7 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                         children: <Widget>[
                           PopupMenuButton<String>(
                             enabled: !accessBusy,
-                            tooltip: 'Access mode',
+                            tooltip: appStrings.accessMode,
                             onSelected: (value) {
                               if (value == account.accessMode) return;
                               controller.setOfficialIntegrationAccessMode(
@@ -1819,14 +1819,14 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                               );
                             },
                             itemBuilder: (context) =>
-                                const <PopupMenuEntry<String>>[
+                                <PopupMenuEntry<String>>[
                                   PopupMenuItem<String>(
                                     value: 'read_write',
-                                    child: Text('Read / Write'),
+                                    child: Text(appStrings.readWrite),
                                   ),
                                   PopupMenuItem<String>(
                                     value: 'read_only',
-                                    child: Text('Read Only'),
+                                    child: Text(appStrings.readOnly),
                                   ),
                                 ],
                             child: Container(
@@ -1849,7 +1849,7 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                                   const SizedBox(width: 6),
                                   Text(
                                     accessBusy
-                                        ? 'Saving...'
+                                        ? appStrings.saving
                                         : account.accessModeLabel,
                                     style: TextStyle(color: _textSecondary),
                                   ),
@@ -1879,7 +1879,7 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                                         if (!context.mounted) return;
                                         final message =
                                             result['message']?.toString() ??
-                                            '${provider.label} is connected and responding.';
+                                            appStrings.arg1IsConnectedAndResponding(provider.label);
                                         ScaffoldMessenger.of(
                                           context,
                                         ).showSnackBar(
@@ -1893,15 +1893,15 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                                           SnackBar(
                                             content: Text(
                                               controller.errorMessage ??
-                                                  'The connection test failed.',
+                                                  appStrings.theConnectionTestFailed,
                                             ),
                                           ),
                                         );
                                       }
                                     },
-                              icon: const Icon(Icons.network_check_rounded),
+                              icon: Icon(Icons.network_check_rounded),
                               label: Text(
-                                testBusy ? 'Testing...' : 'Test Connection',
+                                testBusy ? 'Testing...' : appStrings.testConnection2,
                               ),
                             ),
                           OutlinedButton.icon(
@@ -1937,9 +1937,9 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
           controller,
           provider.id,
         ),
-        icon: const Icon(Icons.settings_rounded),
+        icon: Icon(Icons.settings_rounded),
         label: Text(
-          provider.env.configured ? 'Manage Setup' : 'Complete Setup',
+          provider.env.configured ? 'Manage Setup' : appStrings.completeSetup,
         ),
       );
     }
@@ -1952,13 +1952,13 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                 controller,
                 provider.id,
               ),
-              icon: const Icon(Icons.settings_rounded),
-              label: const Text('Configure'),
+              icon: Icon(Icons.settings_rounded),
+              label: Text(appStrings.configure),
             )
           : OutlinedButton.icon(
               onPressed: null,
-              icon: const Icon(Icons.settings_suggest_outlined),
-              label: const Text('Setup Required'),
+              icon: Icon(Icons.settings_suggest_outlined),
+              label: Text(appStrings.setupRequired),
             );
     }
 
@@ -1969,13 +1969,13 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
               provider.id,
               appId: app.id,
             ),
-      icon: const Icon(Icons.link_rounded),
+      icon: Icon(Icons.link_rounded),
       label: Text(
         connectBusy
             ? 'Connecting...'
             : provider.supportsMultipleAccounts && app.isConnected
-            ? 'Add Account'
-            : 'Connect Account',
+            ? appStrings.addAccount
+            : appStrings.connectAccount,
       ),
     );
   }

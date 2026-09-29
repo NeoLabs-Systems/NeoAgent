@@ -9,12 +9,12 @@ menu "NeoAgent Wearable Configuration"
 
     config NEOAGENT_DISPLAY_TIMEOUT_SECONDS
         int "Display standby timeout in seconds"
-        range 10 300
-        default 30
+        range 5 300
+        default 10
         help
             Turn off the AMOLED after this period without touch or button input.
-            A reply playing, a push-to-talk hold or a call being placed keeps the
-            display awake; an open hands-free call keeps running with the display
+            Talking, a reply playing, a call being placed, or a task still running
+            keeps the display awake. The panel dims a few seconds before it turns
             off. Networking remains connected so the wearable wakes without a
             full reboot.
 

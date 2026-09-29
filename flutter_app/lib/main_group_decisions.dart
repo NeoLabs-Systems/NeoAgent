@@ -70,11 +70,11 @@ class _GroupDecisionsDialogState extends State<_GroupDecisionsDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'Recent group decisions',
+                  appStrings.recentGroupDecisions,
                   style: TextStyle(fontWeight: FontWeight.w800),
                 ),
                 Text(
-                  'Why ${widget.agentName} replied or stayed quiet in ${platform.label} groups.',
+                  appStrings.whyArg1RepliedOrStayedQuiet(widget.agentName, platform.label),
                   style: TextStyle(
                     color: _textSecondary,
                     fontSize: 13,
@@ -103,18 +103,18 @@ class _GroupDecisionsDialogState extends State<_GroupDecisionsDialog> {
             if (snapshot.hasError) {
               return _GroupDecisionsMessage(
                 icon: Icons.error_outline_rounded,
-                title: 'Could not load decisions',
+                title: appStrings.couldNotLoadDecisions,
                 body: formatCaughtError(snapshot.error!),
-                action: TextButton(onPressed: _refresh, child: Text('Retry')),
+                action: TextButton(onPressed: _refresh, child: Text(appStrings.retry)),
               );
             }
             final entries = snapshot.data ?? const <BehaviorDecisionEntry>[];
             if (entries.isEmpty) {
               return _GroupDecisionsMessage(
                 icon: Icons.forum_outlined,
-                title: 'No group messages yet',
+                title: appStrings.noGroupMessagesYet,
                 body:
-                    'Decisions show up here as ${widget.agentName} reads approved ${platform.label} groups. Only the latest 30 are kept, and they reset when the server restarts.',
+                    appStrings.decisionsShowUpHereAsArg1(widget.agentName, platform.label),
               );
             }
             return Column(
@@ -140,7 +140,7 @@ class _GroupDecisionsDialogState extends State<_GroupDecisionsDialog> {
       actions: <Widget>[
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('Close'),
+          child: Text(appStrings.close),
         ),
       ],
     );
@@ -163,24 +163,24 @@ class _GroupDecisionsSummary extends StatelessWidget {
       children: <Widget>[
         _DecisionPill(
           icon: Icons.reply_rounded,
-          label: '$replied replied',
+          label: appStrings.arg1Replied(replied),
           color: _success,
         ),
         _DecisionPill(
           icon: Icons.volume_off_rounded,
-          label: '${entries.length - replied} stayed quiet',
+          label: appStrings.arg1StayedQuiet(entries.length - replied),
           color: _textMuted,
         ),
         if (byJev > 0)
           _DecisionPill(
             icon: Icons.bolt_rounded,
-            label: '$byJev scored by JEV',
+            label: appStrings.arg1ScoredByJev(byJev),
             color: _info,
           ),
         if (byLlm > 0)
           _DecisionPill(
             icon: Icons.psychology_outlined,
-            label: '$byLlm judged by LLM',
+            label: appStrings.arg1JudgedByLlm(byLlm),
             color: _warning,
           ),
       ],
@@ -235,7 +235,7 @@ class _GroupDecisionTile extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                entry.spoke ? 'Replied' : 'Stayed quiet',
+                entry.spoke ? 'Replied' : appStrings.stayedQuiet,
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
                   color: statusColor,
@@ -307,7 +307,7 @@ class _DecisionJudgePill extends StatelessWidget {
   Widget build(BuildContext context) {
     if (entry.judgedByJev) {
       return Tooltip(
-        message: 'JEV scored this message directly. No language model ran.',
+        message: appStrings.jevScoredThisMessageDirectlyNo,
         child: _DecisionPill(
           icon: Icons.bolt_rounded,
           label: 'JEV',
@@ -317,7 +317,7 @@ class _DecisionJudgePill extends StatelessWidget {
     }
     if (entry.judgedByLlm) {
       return Tooltip(
-        message: 'A language model judged this message because JEV is off.',
+        message: appStrings.aLanguageModelJudgedThisMessage,
         child: _DecisionPill(
           icon: Icons.psychology_outlined,
           label: 'LLM',
@@ -327,7 +327,7 @@ class _DecisionJudgePill extends StatelessWidget {
     }
     return _DecisionPill(
       icon: Icons.rule_rounded,
-      label: 'Rule',
+      label: appStrings.rule,
       color: _textSecondary,
     );
   }
@@ -349,18 +349,18 @@ class _JevScores extends StatelessWidget {
       runSpacing: 10,
       children: <Widget>[
         _ScoreMeter(
-          label: 'Wanted a reply from $agentName',
+          label: appStrings.wantedAReplyFromArg1(agentName),
           value: entry.jevSpeak!,
         ),
         if (entry.jevForSomeoneElse != null)
           _ScoreMeter(
-            label: 'Meant for someone else',
+            label: appStrings.meantForSomeoneElse,
             value: entry.jevForSomeoneElse!,
           ),
         _ScoreMeter(
           label: threshold == null
-              ? 'Need to reply'
-              : 'Need to reply · ${(threshold * 100).round()}% to speak',
+              ? appStrings.needToReply
+              : appStrings.needToReplyArg1ToSpeak((threshold * 100).round()),
           value: entry.needScore,
           marker: threshold,
           color: entry.spoke ? _success : _textMuted,
@@ -526,37 +526,37 @@ class _GroupDecisionsMessage extends StatelessWidget {
 String _decisionReasonLabel(String code, String agentName) {
   switch (code) {
     case 'untagged_disabled_for_shared_space':
-      return 'Joining is off here';
+      return appStrings.joiningIsOffHere;
     case 'behavior_disabled':
-      return 'Social behavior off';
+      return appStrings.socialBehaviorOff;
     case 'turn_taking_disabled':
-      return 'Turn-taking off';
+      return appStrings.turnTakingOff;
     case 'reply_to_agent':
-      return 'Reply to $agentName';
+      return appStrings.replyToArg1(agentName);
     case 'addressed':
       return 'Tagged';
     case 'addressed_by_name':
-      return 'Called by name';
+      return appStrings.calledByName;
     case 'participation_always':
-      return 'Always joins';
+      return appStrings.alwaysJoins;
     case 'mention_only':
-      return 'Tags only';
+      return appStrings.tagsOnly;
     case 'agent_can_help':
-      return 'Could help';
+      return appStrings.couldHelp;
     case 'hold_back':
-      return 'Held back';
+      return appStrings.heldBack;
     case 'meant_for_someone_else':
-      return 'Meant for someone else';
+      return appStrings.meantForSomeoneElse;
     case 'below_need_threshold':
-      return 'Not needed enough';
+      return appStrings.notNeededEnough;
     case 'prefer_hold_back':
-      return 'Unclear who it was for';
+      return appStrings.unclearWhoItWasFor;
     case 'model_unavailable':
-      return 'AI unavailable';
+      return appStrings.aiUnavailable;
     case 'jev_unavailable':
-      return 'JEV unavailable';
+      return appStrings.jevUnavailable;
     case 'parse_fallback':
-      return 'AI answer unreadable';
+      return appStrings.aiAnswerUnreadable;
     default:
       return code.replaceAll('_', ' ');
   }

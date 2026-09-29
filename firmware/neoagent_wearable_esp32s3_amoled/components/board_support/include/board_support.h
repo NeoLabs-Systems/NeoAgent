@@ -97,6 +97,12 @@ typedef struct {
 
 esp_err_t board_support_init(board_support_t *board);
 esp_err_t board_support_set_display_awake(board_support_t *board, bool awake);
+// Lowers the panel current while the UI is up but idle. Waking the display
+// restores full (already reduced) brightness.
+esp_err_t board_support_set_display_dimmed(board_support_t *board, bool dimmed);
+// Powers the codec and I2S clocks. Idle time leaves both off; a capture or
+// playback turns them back on.
+esp_err_t board_support_audio_set_active(board_support_t *board, bool active);
 esp_err_t board_support_set_chrome(board_support_t *board, const neoagent_status_chrome_t *status, const char *time_text);
 esp_err_t board_support_show_message(board_support_t *board, mascot_mood_t mood, const char *title, const char *line1, const char *line2);
 esp_err_t board_support_show_qr(board_support_t *board, const char *title, const char *subtitle, const char *qr_payload);

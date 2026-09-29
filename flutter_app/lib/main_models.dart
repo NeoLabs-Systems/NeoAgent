@@ -1,11 +1,10 @@
 part of 'main.dart';
 
-const List<MessagingPlatformDescriptor>
-messagingPlatforms = <MessagingPlatformDescriptor>[
+final messagingPlatforms = <MessagingPlatformDescriptor>[
   MessagingPlatformDescriptor(
     id: 'whatsapp',
     label: 'WhatsApp',
-    subtitle: 'QR-based phone linking',
+    subtitle: appStrings.qrBasedPhoneLinking,
     accent: Color(0xFF25D366),
     connectMethod: MessagingConnectMethod.qr,
     icon: Icons.chat_bubble,
@@ -13,15 +12,15 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
   MessagingPlatformDescriptor(
     id: 'telegram',
     label: 'Telegram',
-    subtitle: 'Bot token and approved chats',
+    subtitle: appStrings.botTokenAndApprovedChats,
     accent: Color(0xFF2AABEE),
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.send_rounded,
     configFields: <MessagingConfigField>[
       MessagingConfigField(
         key: 'botToken',
-        label: 'Bot token',
-        hint: 'From BotFather after you create the bot.',
+        label: appStrings.botToken,
+        hint: appStrings.fromBotfatherAfterYouCreateThe,
         obscure: true,
       ),
     ],
@@ -29,15 +28,15 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
   MessagingPlatformDescriptor(
     id: 'discord',
     label: 'Discord',
-    subtitle: 'Bot token and server/channel access',
+    subtitle: appStrings.botTokenAndServerChannelAccess,
     accent: Color(0xFF5865F2),
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.sports_esports_rounded,
     configFields: <MessagingConfigField>[
       MessagingConfigField(
         key: 'token',
-        label: 'Bot token',
-        hint: 'From the Discord Developer Portal, under your bot.',
+        label: appStrings.botToken,
+        hint: appStrings.fromTheDiscordDeveloperPortalUnder,
         obscure: true,
       ),
     ],
@@ -45,113 +44,113 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
   MessagingPlatformDescriptor(
     id: 'slack',
     label: 'Slack',
-    subtitle: 'Bot token, Events API, and channel access',
+    subtitle: appStrings.botTokenEventsApiAndChannel,
     accent: Color(0xFF36C5F0),
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.tag_rounded,
     configFields: <MessagingConfigField>[
       MessagingConfigField(
         key: 'botToken',
-        label: 'Bot token',
-        hint: 'Starts with xoxb-. From your Slack app credentials.',
+        label: appStrings.botToken,
+        hint: appStrings.startsWithXoxbFromYourSlack,
         obscure: true,
       ),
       MessagingConfigField(
         key: 'signingSecret',
-        label: 'Signing secret',
-        hint: 'Used to verify that incoming Slack events are genuine.',
+        label: appStrings.signingSecret,
+        hint: appStrings.usedToVerifyThatIncomingSlack,
         obscure: true,
       ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Webhook secret',
-        hint: 'Optional extra secret if you protect the inbound webhook.',
+        label: appStrings.webhookSecret,
+        hint: appStrings.optionalExtraSecretIfYouProtect,
         obscure: true,
       ),
     ],
   ),
   MessagingPlatformDescriptor(
     id: 'google_chat',
-    label: 'Google Chat',
-    subtitle: 'Space webhook and app callback support',
+    label: appStrings.googleChat,
+    subtitle: appStrings.spaceWebhookAndAppCallbackSupport,
     accent: Color(0xFF34A853),
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.forum_rounded,
     configFields: <MessagingConfigField>[
       MessagingConfigField(
         key: 'webhookUrl',
-        label: 'Outgoing webhook URL',
-        hint: 'The Google Chat space webhook this agent should post to.',
+        label: appStrings.outgoingWebhookUrl,
+        hint: appStrings.theGoogleChatSpaceWebhookThis,
         obscure: true,
       ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Webhook secret',
-        hint: 'Optional secret to verify incoming Chat events.',
+        label: appStrings.webhookSecret,
+        hint: appStrings.optionalSecretToVerifyIncomingChat,
         obscure: true,
       ),
       MessagingConfigField(
         key: 'defaultTo',
-        label: 'Default space',
-        hint: 'Space or chat ID used when this agent starts a conversation.',
+        label: appStrings.defaultSpace,
+        hint: appStrings.spaceOrChatIdUsedWhen,
       ),
     ],
   ),
   MessagingPlatformDescriptor(
     id: 'teams',
-    label: 'Microsoft Teams',
-    subtitle: 'Incoming webhook and outgoing callback support',
+    label: appStrings.microsoftTeams,
+    subtitle: appStrings.incomingWebhookAndOutgoingCallbackSupport,
     accent: Color(0xFF6264A7),
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.groups_rounded,
     configFields: <MessagingConfigField>[
       MessagingConfigField(
         key: 'webhookUrl',
-        label: 'Outgoing webhook URL',
-        hint: 'The Teams incoming webhook this agent should post to.',
+        label: appStrings.outgoingWebhookUrl,
+        hint: appStrings.theTeamsIncomingWebhookThisAgent,
         obscure: true,
       ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Webhook secret',
-        hint: 'Optional secret to verify incoming Teams events.',
+        label: appStrings.webhookSecret,
+        hint: appStrings.optionalSecretToVerifyIncomingTeams,
         obscure: true,
       ),
       MessagingConfigField(
         key: 'defaultTo',
-        label: 'Default conversation',
-        hint: 'Conversation ID used when this agent starts a chat.',
+        label: appStrings.defaultConversation,
+        hint: appStrings.conversationIdUsedWhenThisAgent,
       ),
     ],
   ),
   MessagingPlatformDescriptor(
     id: 'matrix',
     label: 'Matrix',
-    subtitle: 'Homeserver token with room polling',
+    subtitle: appStrings.homeserverTokenWithRoomPolling,
     accent: Color(0xFF0DBD8B),
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.grid_view_rounded,
     configFields: <MessagingConfigField>[
       MessagingConfigField(
         key: 'homeserver',
-        label: 'Homeserver URL',
-        hint: 'For example https://matrix.org',
+        label: appStrings.homeserverUrl,
+        hint: appStrings.forExampleHttpsMatrixOrg,
       ),
       MessagingConfigField(
         key: 'accessToken',
-        label: 'Access token',
-        hint: 'From the Matrix client or bot account.',
+        label: appStrings.accessToken2,
+        hint: appStrings.fromTheMatrixClientOrBot,
         obscure: true,
       ),
       MessagingConfigField(
         key: 'userId',
-        label: 'Bot user ID',
-        hint: 'Usually looks like @bot:matrix.org',
+        label: appStrings.botUserId,
+        hint: appStrings.usuallyLooksLikeBotMatrixOrg,
       ),
       MessagingConfigField(
         key: 'pollIntervalMs',
-        label: 'Check for messages every (ms)',
-        hint: 'How often this agent looks for new room messages.',
+        label: appStrings.checkForMessagesEveryMs,
+        hint: appStrings.howOftenThisAgentLooksFor,
         defaultValue: '5000',
       ),
     ],
@@ -159,31 +158,31 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
   MessagingPlatformDescriptor(
     id: 'signal',
     label: 'Signal',
-    subtitle: 'signal-cli REST API bridge',
+    subtitle: appStrings.signalCliRestApiBridge,
     accent: Color(0xFF3A76F0),
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.lock_rounded,
     configFields: <MessagingConfigField>[
       MessagingConfigField(
         key: 'restUrl',
-        label: 'signal-cli server URL',
-        hint: 'The REST endpoint for your signal-cli instance.',
+        label: appStrings.signalCliServerUrl,
+        hint: appStrings.theRestEndpointForYourSignal,
       ),
       MessagingConfigField(
         key: 'account',
-        label: 'Account number',
-        hint: 'The Signal phone number this bot uses.',
+        label: appStrings.accountNumber,
+        hint: appStrings.theSignalPhoneNumberThisBot,
       ),
       MessagingConfigField(
         key: 'pollEnabled',
-        label: 'Check for new messages automatically',
-        hint: 'Turn on if Signal should keep looking for incoming chats.',
+        label: appStrings.checkForNewMessagesAutomatically,
+        hint: appStrings.turnOnIfSignalShouldKeep,
         kind: MessagingConfigFieldKind.boolean,
       ),
       MessagingConfigField(
         key: 'pollIntervalMs',
-        label: 'Check for messages every (ms)',
-        hint: 'How often this agent looks for new Signal messages.',
+        label: appStrings.checkForMessagesEveryMs,
+        hint: appStrings.howOftenThisAgentLooksFor2,
         defaultValue: '10000',
       ),
     ],
@@ -191,32 +190,32 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
   MessagingPlatformDescriptor(
     id: 'imessage',
     label: 'iMessage',
-    subtitle: 'BlueBubbles-compatible bridge',
+    subtitle: appStrings.bluebubblesCompatibleBridge,
     accent: Color(0xFF007AFF),
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.sms_rounded,
     configFields: <MessagingConfigField>[
       MessagingConfigField(
         key: 'serverUrl',
-        label: 'BlueBubbles server URL',
-        hint: 'The address of your BlueBubbles server.',
+        label: appStrings.bluebubblesServerUrl,
+        hint: appStrings.theAddressOfYourBluebubblesServer,
       ),
       MessagingConfigField(
         key: 'password',
-        label: 'Password or API key',
-        hint: 'The password you set in BlueBubbles.',
+        label: appStrings.passwordOrApiKey,
+        hint: appStrings.thePasswordYouSetInBluebubbles,
         obscure: true,
       ),
       MessagingConfigField(
         key: 'sendPath',
-        label: 'Send path',
-        hint: 'Leave as the default unless you customized BlueBubbles.',
+        label: appStrings.sendPath,
+        hint: appStrings.leaveAsTheDefaultUnlessYou,
         defaultValue: '/api/v1/message/text',
       ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Webhook secret',
-        hint: 'Optional secret to verify incoming iMessage events.',
+        label: appStrings.webhookSecret,
+        hint: appStrings.optionalSecretToVerifyIncomingImessage,
         obscure: true,
       ),
     ],
@@ -224,32 +223,32 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
   MessagingPlatformDescriptor(
     id: 'bluebubbles',
     label: 'BlueBubbles',
-    subtitle: 'Direct BlueBubbles iMessage bridge',
+    subtitle: appStrings.directBluebubblesImessageBridge,
     accent: Color(0xFF0A84FF),
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.bubble_chart_rounded,
     configFields: <MessagingConfigField>[
       MessagingConfigField(
         key: 'serverUrl',
-        label: 'BlueBubbles server URL',
-        hint: 'The address of your BlueBubbles server.',
+        label: appStrings.bluebubblesServerUrl,
+        hint: appStrings.theAddressOfYourBluebubblesServer,
       ),
       MessagingConfigField(
         key: 'password',
-        label: 'Password or API key',
-        hint: 'The password you set in BlueBubbles.',
+        label: appStrings.passwordOrApiKey,
+        hint: appStrings.thePasswordYouSetInBluebubbles,
         obscure: true,
       ),
       MessagingConfigField(
         key: 'sendPath',
-        label: 'Send path',
-        hint: 'Leave as the default unless you customized BlueBubbles.',
+        label: appStrings.sendPath,
+        hint: appStrings.leaveAsTheDefaultUnlessYou,
         defaultValue: '/api/v1/message/text',
       ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Webhook secret',
-        hint: 'Optional secret to verify incoming iMessage events.',
+        label: appStrings.webhookSecret,
+        hint: appStrings.optionalSecretToVerifyIncomingImessage,
         obscure: true,
       ),
     ],
@@ -257,7 +256,7 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
   MessagingPlatformDescriptor(
     id: 'irc',
     label: 'IRC',
-    subtitle: 'Server, nick, channel, and optional TLS',
+    subtitle: appStrings.serverNickChannelAndOptionalTls,
     accent: Color(0xFF7E57C2),
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.terminal_rounded,
@@ -265,19 +264,19 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
       MessagingConfigField(
         key: 'server',
         label: 'Server',
-        hint: 'Hostname of the IRC network, for example irc.libera.chat',
+        hint: appStrings.hostnameOfTheIrcNetworkFor,
       ),
-      MessagingConfigField(key: 'port', label: 'Port', defaultValue: '6667'),
-      MessagingConfigField(key: 'nick', label: 'Nickname'),
-      MessagingConfigField(key: 'password', label: 'Password', obscure: true),
+      MessagingConfigField(key: 'port', label: appStrings.port, defaultValue: '6667'),
+      MessagingConfigField(key: 'nick', label: appStrings.nickname),
+      MessagingConfigField(key: 'password', label: appStrings.password, obscure: true),
       MessagingConfigField(
         key: 'channels',
-        label: 'Channels',
-        hint: 'Comma-separated, for example #general, #help',
+        label: appStrings.channels,
+        hint: appStrings.commaSeparatedForExampleGeneralHelp,
       ),
       MessagingConfigField(
         key: 'tls',
-        label: 'Use a secure connection (TLS)',
+        label: appStrings.useASecureConnectionTls,
         kind: MessagingConfigFieldKind.boolean,
       ),
     ],
@@ -285,43 +284,43 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
   MessagingPlatformDescriptor(
     id: 'twitch',
     label: 'Twitch',
-    subtitle: 'Twitch chat over IRC',
+    subtitle: appStrings.twitchChatOverIrc,
     accent: Color(0xFF9146FF),
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.live_tv_rounded,
     configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'nick', label: 'Bot username'),
+      MessagingConfigField(key: 'nick', label: appStrings.botUsername),
       MessagingConfigField(
         key: 'oauthToken',
-        label: 'OAuth token',
-        hint: 'From twitchapps.com/tmi or your Twitch developer app.',
+        label: appStrings.oauthToken,
+        hint: appStrings.fromTwitchappsComTmiOrYour,
         obscure: true,
       ),
       MessagingConfigField(
         key: 'channels',
-        label: 'Channels',
-        hint: 'Comma-separated channel names, without the #.',
+        label: appStrings.channels,
+        hint: appStrings.commaSeparatedChannelNamesWithoutThe,
       ),
     ],
   ),
   MessagingPlatformDescriptor(
     id: 'line',
     label: 'LINE',
-    subtitle: 'Messaging API push and webhook events',
+    subtitle: appStrings.messagingApiPushAndWebhookEvents,
     accent: Color(0xFF06C755),
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.chat_rounded,
     configFields: <MessagingConfigField>[
       MessagingConfigField(
         key: 'channelAccessToken',
-        label: 'Channel access token',
-        hint: 'From the LINE Developers Console.',
+        label: appStrings.channelAccessToken,
+        hint: appStrings.fromTheLineDevelopersConsole,
         obscure: true,
       ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Webhook secret',
-        hint: 'Optional secret to verify incoming LINE events.',
+        label: appStrings.webhookSecret,
+        hint: appStrings.optionalSecretToVerifyIncomingLine,
         obscure: true,
       ),
     ],
@@ -329,32 +328,32 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
   MessagingPlatformDescriptor(
     id: 'mattermost',
     label: 'Mattermost',
-    subtitle: 'Webhook or REST channel posting',
+    subtitle: appStrings.webhookOrRestChannelPosting,
     accent: Color(0xFF0058CC),
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.forum_outlined,
     configFields: <MessagingConfigField>[
       MessagingConfigField(
         key: 'webhookUrl',
-        label: 'Outgoing webhook URL',
-        hint: 'The Mattermost incoming webhook this agent should post to.',
+        label: appStrings.outgoingWebhookUrl,
+        hint: appStrings.theMattermostIncomingWebhookThisAgent,
         obscure: true,
       ),
       MessagingConfigField(
         key: 'baseUrl',
-        label: 'Server URL',
-        hint: 'Your Mattermost site URL, if you use the REST API.',
+        label: appStrings.serverUrl,
+        hint: appStrings.yourMattermostSiteUrlIfYou,
       ),
       MessagingConfigField(
         key: 'token',
-        label: 'Access token',
-        hint: 'Personal access token for the Mattermost bot.',
+        label: appStrings.accessToken2,
+        hint: appStrings.personalAccessTokenForTheMattermost,
         obscure: true,
       ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Webhook secret',
-        hint: 'Optional secret to verify incoming Mattermost events.',
+        label: appStrings.webhookSecret,
+        hint: appStrings.optionalSecretToVerifyIncomingMattermost,
         obscure: true,
       ),
     ],
@@ -362,20 +361,20 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
   MessagingPlatformDescriptor(
     id: 'meshtastic',
     label: 'Meshtastic',
-    subtitle: 'TCP bridge to a local device channel',
+    subtitle: appStrings.tcpBridgeToALocalDevice,
     accent: Color(0xFF2E7D32),
     connectMethod: MessagingConnectMethod.config,
     icon: Icons.router_rounded,
     configFields: <MessagingConfigField>[
       MessagingConfigField(
         key: 'host',
-        label: 'Device IP address',
-        hint: 'The local IP of the Meshtastic device.',
+        label: appStrings.deviceIpAddress,
+        hint: appStrings.theLocalIpOfTheMeshtastic,
       ),
       MessagingConfigField(
         key: 'channel',
-        label: 'Channel number',
-        hint: 'Usually 0 for the primary channel.',
+        label: appStrings.channelNumber,
+        hint: appStrings.usually0ForThePrimaryChannel,
         defaultValue: '0',
       ),
     ],
@@ -383,7 +382,7 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
   MessagingPlatformDescriptor(
     id: 'github',
     label: 'GitHub',
-    subtitle: 'Answers @mentions on issues and pull requests',
+    subtitle: appStrings.answersMentionsOnIssuesAndPull,
     accent: Color(0xFF8B949E),
     connectMethod: MessagingConnectMethod.integration,
     icon: Icons.code_rounded,
@@ -393,12 +392,12 @@ messagingPlatforms = <MessagingPlatformDescriptor>[
   ...longTailMessagingPlatforms,
 ];
 
-const List<MessagingPlatformDescriptor> longTailMessagingPlatforms =
+List<MessagingPlatformDescriptor> longTailMessagingPlatforms =
     <MessagingPlatformDescriptor>[
       MessagingPlatformDescriptor(
         id: 'feishu',
         label: 'Feishu',
-        subtitle: 'Configurable webhook bridge',
+        subtitle: appStrings.configurableWebhookBridge,
         accent: Color(0xFF3370FF),
         connectMethod: MessagingConnectMethod.config,
         icon: Icons.webhook_rounded,
@@ -406,8 +405,8 @@ const List<MessagingPlatformDescriptor> longTailMessagingPlatforms =
       ),
       MessagingPlatformDescriptor(
         id: 'nextcloud_talk',
-        label: 'Nextcloud Talk',
-        subtitle: 'Configurable Talk webhook bridge',
+        label: appStrings.nextcloudTalk,
+        subtitle: appStrings.configurableTalkWebhookBridge,
         accent: Color(0xFF0082C9),
         connectMethod: MessagingConnectMethod.config,
         icon: Icons.cloud_rounded,
@@ -416,7 +415,7 @@ const List<MessagingPlatformDescriptor> longTailMessagingPlatforms =
       MessagingPlatformDescriptor(
         id: 'nostr',
         label: 'Nostr',
-        subtitle: 'Configurable relay or webhook bridge',
+        subtitle: appStrings.configurableRelayOrWebhookBridge,
         accent: Color(0xFF9C27B0),
         connectMethod: MessagingConnectMethod.config,
         icon: Icons.hub_rounded,
@@ -424,8 +423,8 @@ const List<MessagingPlatformDescriptor> longTailMessagingPlatforms =
       ),
       MessagingPlatformDescriptor(
         id: 'synology_chat',
-        label: 'Synology Chat',
-        subtitle: 'Configurable webhook bridge',
+        label: appStrings.synologyChat,
+        subtitle: appStrings.configurableWebhookBridge,
         accent: Color(0xFF1E88E5),
         connectMethod: MessagingConnectMethod.config,
         icon: Icons.storage_rounded,
@@ -434,7 +433,7 @@ const List<MessagingPlatformDescriptor> longTailMessagingPlatforms =
       MessagingPlatformDescriptor(
         id: 'tlon',
         label: 'Tlon',
-        subtitle: 'Configurable webhook bridge',
+        subtitle: appStrings.configurableWebhookBridge,
         accent: Color(0xFF111111),
         connectMethod: MessagingConnectMethod.config,
         icon: Icons.blur_on_rounded,
@@ -443,7 +442,7 @@ const List<MessagingPlatformDescriptor> longTailMessagingPlatforms =
       MessagingPlatformDescriptor(
         id: 'zalo',
         label: 'Zalo',
-        subtitle: 'Configurable webhook bridge',
+        subtitle: appStrings.configurableWebhookBridge,
         accent: Color(0xFF0068FF),
         connectMethod: MessagingConnectMethod.config,
         icon: Icons.message_rounded,
@@ -451,8 +450,8 @@ const List<MessagingPlatformDescriptor> longTailMessagingPlatforms =
       ),
       MessagingPlatformDescriptor(
         id: 'zalo_personal',
-        label: 'Zalo Personal',
-        subtitle: 'Configurable personal webhook bridge',
+        label: appStrings.zaloPersonal,
+        subtitle: appStrings.configurablePersonalWebhookBridge,
         accent: Color(0xFF0288D1),
         connectMethod: MessagingConnectMethod.config,
         icon: Icons.person_pin_circle_rounded,
@@ -461,7 +460,7 @@ const List<MessagingPlatformDescriptor> longTailMessagingPlatforms =
       MessagingPlatformDescriptor(
         id: 'wechat',
         label: 'WeChat',
-        subtitle: 'Configurable webhook bridge',
+        subtitle: appStrings.configurableWebhookBridge,
         accent: Color(0xFF07C160),
         connectMethod: MessagingConnectMethod.config,
         icon: Icons.chat_bubble_outline_rounded,
@@ -470,7 +469,7 @@ const List<MessagingPlatformDescriptor> longTailMessagingPlatforms =
       MessagingPlatformDescriptor(
         id: 'webchat',
         label: 'WebChat',
-        subtitle: 'Configurable web inbox bridge',
+        subtitle: appStrings.configurableWebInboxBridge,
         accent: Color(0xFF00A1F1),
         connectMethod: MessagingConnectMethod.config,
         icon: Icons.public_rounded,
@@ -478,53 +477,53 @@ const List<MessagingPlatformDescriptor> longTailMessagingPlatforms =
       ),
     ];
 
-const List<MessagingConfigField> genericWebhookConfigFields =
+List<MessagingConfigField> genericWebhookConfigFields =
     <MessagingConfigField>[
       MessagingConfigField(
         key: 'webhookUrl',
-        label: 'Outgoing webhook URL',
-        hint: 'Where this agent should send replies.',
+        label: appStrings.outgoingWebhookUrl,
+        hint: appStrings.whereThisAgentShouldSendReplies,
         obscure: true,
       ),
       MessagingConfigField(
         key: 'outboundUrl',
-        label: 'Custom outgoing URL',
-        hint: 'Optional override if the webhook URL is not enough.',
+        label: appStrings.customOutgoingUrl,
+        hint: appStrings.optionalOverrideIfTheWebhookUrl,
         obscure: true,
       ),
       MessagingConfigField(
         key: 'token',
-        label: 'Access token',
-        hint: 'If the service requires a token on outgoing requests.',
+        label: appStrings.accessToken2,
+        hint: appStrings.ifTheServiceRequiresAToken,
         obscure: true,
       ),
       MessagingConfigField(
         key: 'inboundSecret',
-        label: 'Webhook secret',
-        hint: 'Optional secret to verify incoming events.',
+        label: appStrings.webhookSecret,
+        hint: appStrings.optionalSecretToVerifyIncomingEvents,
         obscure: true,
       ),
       MessagingConfigField(
         key: 'contentField',
-        label: 'Message text field',
-        hint: 'JSON field that contains the message text. Usually text.',
+        label: appStrings.messageTextField,
+        hint: appStrings.jsonFieldThatContainsTheMessage,
         defaultValue: 'text',
       ),
       MessagingConfigField(
         key: 'recipientField',
-        label: 'Recipient field',
-        hint: 'JSON field that identifies who the message is for.',
+        label: appStrings.recipientField,
+        hint: appStrings.jsonFieldThatIdentifiesWhoThe,
       ),
       MessagingConfigField(
         key: 'headers',
-        label: 'Custom headers (JSON)',
-        hint: 'Only needed if the service asks for extra HTTP headers.',
+        label: appStrings.customHeadersJson,
+        hint: appStrings.onlyNeededIfTheServiceAsks,
         kind: MessagingConfigFieldKind.multiline,
       ),
       MessagingConfigField(
         key: 'bodyTemplate',
-        label: 'Message body template (JSON)',
-        hint: 'Only needed if you want to reshape the outgoing payload.',
+        label: appStrings.messageBodyTemplateJson,
+        hint: appStrings.onlyNeededIfYouWantTo,
         kind: MessagingConfigFieldKind.multiline,
       ),
     ];
@@ -652,9 +651,9 @@ class MessagingPlatformStatus {
       }
     }
     if (lastConnected != null) {
-      return 'Last seen ${_formatTimestamp(lastConnected!)}';
+      return appStrings.lastSeenArg1(_formatTimestamp(lastConnected!));
     }
-    return 'Not connected';
+    return appStrings.notConnected;
   }
 
   Color get badgeColor {
@@ -733,11 +732,11 @@ class MessagingMessage {
 
   factory MessagingMessage.fromBlockedNotice(BlockedSenderNotice notice) {
     final summary = <String>[
-      'Blocked incoming message from ${notice.senderLabel}.',
+      appStrings.blockedIncomingMessageFromArg1(notice.senderLabel),
       if (notice.meta.isNotEmpty) notice.meta,
       if (notice.suggestions.isNotEmpty)
-        'Suggestions: ${notice.suggestions.map((item) => item.label).join(', ')}',
-      'Update the access list to allow replies.',
+        appStrings.suggestionsArg1(notice.suggestions.map((item) => item.label).join(', ')),
+      appStrings.updateTheAccessListToAllow,
     ].join('\n');
 
     return MessagingMessage(
@@ -765,7 +764,7 @@ class MessagingMessage {
 
   String get senderLabel {
     if (outgoing) {
-      return target?.ifEmpty('Outgoing message') ?? 'Outgoing message';
+      return target?.ifEmpty(appStrings.outgoingMessage) ?? appStrings.outgoingMessage;
     }
     return senderName?.ifEmpty(sender ?? platform.toUpperCase()) ??
         sender?.ifEmpty(platform.toUpperCase()) ??
@@ -817,7 +816,7 @@ class TaskDeliveryTarget {
   String get sourceLabel {
     switch (source) {
       case 'default':
-        return 'Default';
+        return appStrings.default2;
       case 'recent':
         return 'Recent';
       case 'manual':
@@ -988,9 +987,9 @@ class MessagingAccessRule {
       case 'phone_number':
         return 'Number';
       case 'server':
-        return 'Server';
+        return appStrings.server;
       case 'channel':
-        return 'Channel';
+        return appStrings.channel;
       case 'group':
         return 'Group';
       case 'room':
@@ -1002,7 +1001,7 @@ class MessagingAccessRule {
       case 'user':
         return 'User';
       default:
-        return 'Chat';
+        return appStrings.chat;
     }
   }
 }
@@ -1396,7 +1395,7 @@ class MessagingAccessCatalog {
       ),
       discoveredTargets: parseTargets(json['discoveredTargets']),
       suggestedTargets: parseTargets(json['suggestedTargets']),
-      summary: json['summary']?.toString() ?? 'Who can message',
+      summary: json['summary']?.toString() ?? appStrings.whoCanMessage,
     );
   }
 
@@ -1407,7 +1406,7 @@ class MessagingAccessCatalog {
       capabilities: const MessagingAccessCapabilities(),
       discoveredTargets: const <MessagingAccessTarget>[],
       suggestedTargets: const <MessagingAccessTarget>[],
-      summary: 'Who can message',
+      summary: appStrings.whoCanMessage,
     );
   }
 
@@ -1425,43 +1424,43 @@ class MessagingAccessCatalog {
         : direct;
     if (direct == 'disabled' &&
         (!capabilities.supportsSharedPolicy || shared == 'disabled')) {
-      return 'No one can message';
+      return appStrings.noOneCanMessage;
     }
     if (direct == 'open' &&
         (!capabilities.supportsSharedPolicy || shared == 'open')) {
-      return 'Open to anyone';
+      return appStrings.openToAnyone;
     }
     if (direct == 'allowlist' &&
         (!capabilities.supportsSharedPolicy || shared == 'allowlist')) {
       return policy.totalRuleCount == 0
-          ? 'Add who can message'
-          : 'Approved people only';
+          ? appStrings.addWhoCanMessage
+          : appStrings.approvedPeopleOnly;
     }
-    return 'Custom access';
+    return appStrings.customAccess;
   }
 
   String accessHeadline({String? agentName}) {
     final name = messagingSubjectName(agentName);
     if (!capabilities.supportsSharedPolicy) {
-      return 'Private chats: ${messagingAccessModeLabel(policy.directPolicy).toLowerCase()}';
+      return appStrings.privateChatsArg1(messagingAccessModeLabel(policy.directPolicy).toLowerCase());
     }
     if (!capabilities.supportsDirectPolicy) {
-      return 'Groups: ${messagingAccessModeLabel(policy.sharedPolicy).toLowerCase()}';
+      return appStrings.groupsArg1(messagingAccessModeLabel(policy.sharedPolicy).toLowerCase());
     }
     final sameMode = policy.directPolicy == policy.sharedPolicy;
     if (sameMode) {
       switch (policy.directPolicy) {
         case 'open':
-          return 'Anyone on this platform can message $name';
+          return appStrings.anyoneOnThisPlatformCanMessage(name);
         case 'disabled':
-          return '$name will not reply on this platform';
+          return appStrings.arg1WillNotReplyOnThis(name);
         default:
           return policy.totalRuleCount == 0
-              ? 'Add the people and groups $name should talk to'
-              : '$name only talks to people and groups you approve';
+              ? appStrings.addThePeopleAndGroupsArg1Should(name)
+              : appStrings.arg1OnlyTalksToPeopleAnd(name);
       }
     }
-    return 'Private chats ${messagingAccessModeLabel(policy.directPolicy).toLowerCase()} · groups ${messagingAccessModeLabel(policy.sharedPolicy).toLowerCase()}';
+    return appStrings.privateChatsArg1GroupsArg2(messagingAccessModeLabel(policy.directPolicy).toLowerCase(), messagingAccessModeLabel(policy.sharedPolicy).toLowerCase());
   }
 
   String accessHint({String? agentName}) {
@@ -1469,35 +1468,35 @@ class MessagingAccessCatalog {
     if (policy.directPolicy == 'allowlist' ||
         (capabilities.supportsSharedPolicy &&
             policy.sharedPolicy == 'allowlist')) {
-      return 'When you choose approved only, add people or groups below.';
+      return appStrings.whenYouChooseApprovedOnlyAdd;
     }
     if (policy.directPolicy == 'open' &&
         (!capabilities.supportsSharedPolicy || policy.sharedPolicy == 'open')) {
-      return 'Anyone who can reach this account can talk to $name.';
+      return appStrings.anyoneWhoCanReachThisAccount(name);
     }
-    return 'Choose who can reach $name, then save your changes.';
+    return appStrings.chooseWhoCanReachArg1Then(name);
   }
 
   List<String> get accessDetailChips {
     final details = <String>[];
     if (capabilities.supportsDirectPolicy) {
       details.add(
-        'Private chats: ${messagingAccessModeLabel(policy.directPolicy)}',
+        appStrings.privateChatsArg1(messagingAccessModeLabel(policy.directPolicy)),
       );
     }
     if (capabilities.supportsSharedPolicy) {
-      details.add('Groups: ${messagingAccessModeLabel(policy.sharedPolicy)}');
+      details.add(appStrings.groupsArg1(messagingAccessModeLabel(policy.sharedPolicy)));
       if (capabilities.supportsUntaggedGroupToggle) {
         if (!policy.defaultAllowUntaggedInShared) {
-          details.add('Replies when tagged');
+          details.add(appStrings.repliesWhenTagged);
         } else {
           final taggedOnly = policy.sharedParticipationRules
               .where((rule) => !rule.allowUntagged)
               .length;
           details.add(
             taggedOnly == 0
-                ? 'Joins group conversations'
-                : '$taggedOnly groups tagged-only',
+                ? appStrings.joinsGroupConversations
+                : appStrings.arg1GroupsTaggedOnly(taggedOnly),
           );
         }
       }
@@ -1505,8 +1504,8 @@ class MessagingAccessCatalog {
     if (policy.totalRuleCount > 0) {
       details.add(
         policy.totalRuleCount == 1
-            ? '1 person or group added'
-            : '${policy.totalRuleCount} people or groups added',
+            ? appStrings.label1PersonOrGroupAdded
+            : appStrings.arg1PeopleOrGroupsAdded(policy.totalRuleCount),
       );
     }
     return details;
@@ -1586,15 +1585,15 @@ class QuickAllowSuggestion {
         ? MessagingAccessRule.fromJson(ruleJson)
         : _ruleFromPrefixedEntry(platform, prefixedId);
     if (parsedRule == null) {
-      return const QuickAllowSuggestion(
-        label: 'Allow sender',
+      return QuickAllowSuggestion(
+        label: appStrings.allowSender,
         bucket: 'sharedActorRules',
         rule: MessagingAccessRule(scope: 'chat', value: ''),
       );
     }
     return QuickAllowSuggestion(
       label:
-          json['label']?.toString().ifEmpty('Allow sender') ?? 'Allow sender',
+          json['label']?.toString().ifEmpty(appStrings.allowSender) ?? appStrings.allowSender,
       bucket:
           json['bucket']?.toString().ifEmpty('sharedActorRules') ??
           'sharedActorRules',
@@ -1720,6 +1719,16 @@ class VoiceAssistantLiveState {
   bool get isConnecting => state == 'connecting' || state == 'reconnecting';
   bool get hasActiveTask => activeRunId.trim().isNotEmpty;
 
+  /// A handed-off task is still running and the assistant is not speaking,
+  /// so the call would otherwise sit in silence.
+  bool get isWorkingSilently =>
+      hasActiveSession &&
+      hasActiveTask &&
+      !isSpeaking &&
+      !isConnecting &&
+      transportState == 'connected' &&
+      (error == null || error!.trim().isEmpty);
+
   String _latest(String role, {bool? finalOnly}) {
     for (final item in timeline.reversed) {
       if (item.role != role) continue;
@@ -1802,7 +1811,7 @@ class RunDetailSnapshot {
   int get failedTools => steps.where((step) => step.status == 'failed').length;
 
   int get helperCount => steps.where((step) {
-    final label = '${step.type} ${step.toolName}'.toLowerCase();
+    final label = appStrings.arg1Arg23(step.type, step.toolName).toLowerCase();
     return label.contains('subagent') || label.contains('helper');
   }).length;
 
@@ -1907,7 +1916,7 @@ class RunPromptSnapshot {
 
   String get plainText => sections
       .map(
-        (section) => '### ${section.label} (${section.role})\n${section.text}',
+        (section) => appStrings.arg1Arg2Arg310(section.label, section.role, section.text),
       )
       .join('\n\n');
 }
@@ -1989,37 +1998,37 @@ class RunEventItem {
   String get title {
     switch (eventType) {
       case 'deliverable_workflow_selected':
-        return 'Deliverable selected';
+        return appStrings.deliverableSelected;
       case 'deliverable_execution_started':
-        return 'Deliverable execution started';
+        return appStrings.deliverableExecutionStarted;
       case 'deliverable_artifact_produced':
-        return 'Deliverable artifact produced';
+        return appStrings.deliverableArtifactProduced;
       case 'deliverable_validation_started':
-        return 'Deliverable validation started';
+        return appStrings.deliverableValidationStarted;
       case 'deliverable_validation_failed':
-        return 'Deliverable validation failed';
+        return appStrings.deliverableValidationFailed;
       case 'deliverable_completed':
-        return 'Deliverable completed';
+        return appStrings.deliverableCompleted;
       case 'run_started':
-        return 'Run started';
+        return appStrings.runStarted;
       case 'memory_injected':
-        return 'Memory injected';
+        return appStrings.memoryInjected;
       case 'model_turn_started':
-        return 'Model turn started';
+        return appStrings.modelTurnStarted;
       case 'model_turn_completed':
-        return 'Model turn completed';
+        return appStrings.modelTurnCompleted;
       case 'tool_started':
-        return 'Tool started';
+        return appStrings.toolStarted;
       case 'tool_completed':
-        return 'Tool completed';
+        return appStrings.toolCompleted;
       case 'tool_failed':
-        return 'Tool failed';
+        return appStrings.toolFailed;
       case 'run_completed':
-        return 'Run completed';
+        return appStrings.runCompleted;
       case 'run_failed':
-        return 'Run failed';
+        return appStrings.runFailed;
       case 'run_stopped':
-        return 'Run stopped';
+        return appStrings.runStopped;
       default:
         return _titleCase(eventType.replaceAll('_', ' '));
     }
@@ -2127,44 +2136,44 @@ class RunStepItem {
     if (resultText.trim().isNotEmpty) {
       return resultText;
     }
-    return description.ifEmpty('No details captured.');
+    return description.ifEmpty(appStrings.noDetailsCaptured);
   }
 
   String get compactSummary => _condenseRunText(summary, maxLength: 140);
 
   String get laneLabel {
     if (isPlanningRelated) {
-      return 'Planning';
+      return appStrings.planning;
     }
     if (isHelperRelated) {
-      return 'Helper';
+      return appStrings.helper;
     }
     if (isWebRelated) {
-      return 'Web';
+      return appStrings.web;
     }
     if (type == 'verification') {
-      return 'Verification';
+      return appStrings.verification;
     }
-    return 'Execution';
+    return appStrings.execution;
   }
 
   bool get isPlanningRelated =>
       type == 'analysis' || type == 'planning' || toolName == 'analysis';
 
   bool get isHelperRelated {
-    final label = '${type.toLowerCase()} ${toolName.toLowerCase()}';
+    final label = appStrings.arg1Arg23(type.toLowerCase(), toolName.toLowerCase());
     return label.contains('subagent') || label.contains('helper');
   }
 
   bool get isBrowserRelated {
-    final label = '${type.toLowerCase()} ${toolName.toLowerCase()}';
+    final label = appStrings.arg1Arg23(type.toLowerCase(), toolName.toLowerCase());
     return label.contains('browser') ||
         label.contains('page') ||
         label.contains('screenshot');
   }
 
   bool get isMessagingRelated {
-    final label = '${type.toLowerCase()} ${toolName.toLowerCase()}';
+    final label = appStrings.arg1Arg23(type.toLowerCase(), toolName.toLowerCase());
     return label.contains('message') ||
         label.contains('telegram') ||
         label.contains('discord') ||
@@ -2382,9 +2391,9 @@ class AgentProfile {
 
   factory AgentProfile.fromJson(Map<dynamic, dynamic> json) {
     final displayName =
-        json['displayName']?.toString().ifEmpty('Agent') ??
-        json['display_name']?.toString().ifEmpty('Agent') ??
-        'Agent';
+        json['displayName']?.toString().ifEmpty(appStrings.agent) ??
+        json['display_name']?.toString().ifEmpty(appStrings.agent) ??
+        appStrings.agent;
     return AgentProfile(
       id: json['id']?.toString() ?? '',
       slug:
@@ -2433,7 +2442,7 @@ class AgentProfile {
 
   bool get isMain => slug == 'main';
   bool get isArchived => status == 'archived';
-  String get label => isDefault ? '$displayName (default)' : displayName;
+  String get label => isDefault ? appStrings.arg1Default2(displayName) : displayName;
   bool get delegatesToAnyEligibleAgent =>
       canDelegate && delegateTargets.isEmpty;
 }
@@ -2597,12 +2606,12 @@ class AiProviderMeta {
 
   String get modelSummary {
     if (modelCount == 0) {
-      return 'No models discovered yet';
+      return appStrings.noModelsDiscoveredYet;
     }
     if (availableModelCount == modelCount) {
-      return '$modelCount models ready';
+      return appStrings.arg1ModelsReady(modelCount);
     }
-    return '$availableModelCount of $modelCount models ready';
+    return appStrings.arg1OfArg2ModelsReady(availableModelCount, modelCount);
   }
 }
 
@@ -2683,12 +2692,12 @@ class RunSummary {
 
   String get triggerLabel => triggerSource.ifEmpty('web');
 
-  String get modelLabel => model.ifEmpty('Model pending');
+  String get modelLabel => model.ifEmpty(appStrings.modelPending);
 
   Duration? get duration => completedAt?.difference(createdAt);
 
   String get durationLabel =>
-      completedAt == null ? 'In progress' : _formatElapsed(duration!);
+      completedAt == null ? appStrings.inProgress : _formatElapsed(duration!);
 
   Color get statusColor {
     switch (status) {
@@ -2858,7 +2867,7 @@ class UpdateStatusSnapshot {
     return UpdateStatusSnapshot(
       state: json['state']?.toString() ?? 'idle',
       progress: _asInt(json['progress']).clamp(0, 100),
-      message: json['message']?.toString() ?? 'No update running',
+      message: json['message']?.toString() ?? appStrings.noUpdateRunning,
       releaseChannel: json['releaseChannel']?.toString() ?? 'stable',
       allowSelfUpdate: json['allowSelfUpdate'] != false,
       deploymentMode: json['deploymentMode']?.toString() ?? 'self_hosted',
@@ -2903,13 +2912,13 @@ class UpdateStatusSnapshot {
   String get badgeLabel {
     switch (state) {
       case 'running':
-        return 'Running';
+        return appStrings.running;
       case 'completed':
-        return 'Completed';
+        return appStrings.completed;
       case 'failed':
-        return 'Failed';
+        return appStrings.failed;
       default:
-        return 'Idle';
+        return appStrings.idle;
     }
   }
 
@@ -2930,7 +2939,7 @@ class UpdateStatusSnapshot {
       releaseChannel.toLowerCase() == 'beta' ? 'Beta' : 'Stable';
 
   String get runtimeValidationLabel =>
-      runtimeValidationReady ? 'Runtime ready' : 'Runtime setup required';
+      runtimeValidationReady ? appStrings.runtimeReady : appStrings.runtimeSetupRequired;
 
   Color get runtimeValidationColor =>
       runtimeValidationReady ? _success : _danger;
@@ -2938,19 +2947,19 @@ class UpdateStatusSnapshot {
   String get versionLine {
     final before = versionBefore?.ifEmpty('—') ?? '—';
     final after = versionAfter?.ifEmpty('—') ?? '—';
-    final updateVersion = after == '—' ? before : '$before -> $after';
+    final updateVersion = after == '—' ? before : appStrings.arg1Arg211(before, after);
     final branch = targetBranch?.trim().isNotEmpty == true
-        ? ' | Branch: $targetBranch'
+        ? appStrings.branchArg1(targetBranch)
         : '';
     final installed = installedVersion == null
         ? ''
-        : ' | Installed: $installedVersion';
-    final backend = backendVersion == null ? '' : ' | Runtime: $backendVersion';
-    return 'Channel: $releaseChannelLabel$branch | Update Version: $updateVersion$installed$backend';
+        : appStrings.installedArg1(installedVersion);
+    final backend = backendVersion == null ? '' : appStrings.runtimeArg12(backendVersion);
+    return appStrings.channelArg1Arg2UpdateVersionArg3(releaseChannelLabel, branch, updateVersion, installed, backend);
   }
 
   String get logsText =>
-      logs.isEmpty ? 'Waiting for update job output…' : logs.join('\n');
+      logs.isEmpty ? appStrings.waitingForUpdateJobOutput : logs.join('\n');
 }
 
 class LogEntry {
@@ -2977,7 +2986,7 @@ class LogEntry {
 
   String get timeLabel => _formatTimeOnly(timestamp);
 
-  String get clipboardLine => '[$timeLabel][$source] $message';
+  String get clipboardLine => appStrings.arg1Arg2Arg311(timeLabel, source, message);
 
   Color get color {
     switch (type) {
@@ -2998,7 +3007,7 @@ class LogEntry {
         return 'Flutter';
       case 'server':
       default:
-        return 'Server';
+        return appStrings.server;
     }
   }
 }
@@ -3015,7 +3024,7 @@ class SkillItem {
 
   factory SkillItem.fromJson(Map<dynamic, dynamic> json) {
     return SkillItem(
-      name: json['name']?.toString() ?? 'Skill',
+      name: json['name']?.toString() ?? appStrings.skill,
       description: json['description']?.toString() ?? '',
       enabled: json['enabled'] != false,
       draft: json['draft'] == true,
@@ -3045,7 +3054,7 @@ class StoreSkillItem {
   factory StoreSkillItem.fromJson(Map<dynamic, dynamic> json) {
     return StoreSkillItem(
       id: json['id']?.toString() ?? '',
-      name: json['name']?.toString() ?? 'Skill',
+      name: json['name']?.toString() ?? appStrings.skill,
       description: json['description']?.toString() ?? '',
       category: json['category']?.toString().ifEmpty('general') ?? 'general',
       icon: json['icon']?.toString().ifEmpty('🧩') ?? '🧩',
@@ -3178,9 +3187,9 @@ class OfficialIntegrationConnectionStatus {
   String get statusLabel {
     switch (status) {
       case 'env_not_configured':
-        return 'Setup Required';
+        return appStrings.setupRequired;
       case 'not_connected':
-        return 'Not Connected';
+        return appStrings.notConnected2;
       case 'expired':
         return 'Expired';
       default:
@@ -3279,9 +3288,9 @@ class OfficialIntegrationAccountItem {
   String get accessModeLabel {
     switch (accessMode) {
       case 'read_only':
-        return 'Read Only';
+        return appStrings.readOnly;
       default:
-        return 'Read / Write';
+        return appStrings.readWrite;
     }
   }
 }
@@ -3306,7 +3315,7 @@ class OfficialIntegrationItem {
     final appsRaw = json['apps'];
     return OfficialIntegrationItem(
       id: json['id']?.toString() ?? '',
-      label: json['label']?.toString() ?? 'Integration',
+      label: json['label']?.toString() ?? appStrings.integration,
       description: json['description']?.toString() ?? '',
       icon: json['icon']?.toString() ?? '',
       apps: appsRaw is List
@@ -3358,7 +3367,7 @@ class SkillDocument {
 
   factory SkillDocument.fromJson(Map<dynamic, dynamic> json) {
     return SkillDocument(
-      name: json['name']?.toString() ?? 'Skill',
+      name: json['name']?.toString() ?? appStrings.skill,
       content: json['content']?.toString() ?? '',
     );
   }
@@ -3498,8 +3507,8 @@ class KnowledgeViewItem {
   factory KnowledgeViewItem.fromJson(Map<dynamic, dynamic> json) {
     return KnowledgeViewItem(
       title:
-          json['title']?.toString().ifEmpty('Knowledge view') ??
-          'Knowledge view',
+          json['title']?.toString().ifEmpty(appStrings.knowledgeView) ??
+          appStrings.knowledgeView,
       viewType: json['viewType']?.toString().ifEmpty('view') ?? 'view',
       summary: json['summary']?.toString() ?? '',
     );
@@ -3589,8 +3598,8 @@ class ConversationItem {
         '';
     return ConversationItem(
       title:
-          json['title']?.toString().ifEmpty('Conversation') ?? 'Conversation',
-      preview: raw.ifEmpty('No summary available.'),
+          json['title']?.toString().ifEmpty(appStrings.conversation) ?? appStrings.conversation,
+      preview: raw.ifEmpty(appStrings.noSummaryAvailable),
     );
   }
 
@@ -3647,7 +3656,7 @@ class TaskItem {
       name: json['name']?.toString() ?? 'Task',
       triggerType: json['triggerType']?.toString() ?? 'schedule',
       triggerSummary: triggerSummary.trim().isEmpty
-          ? 'Task trigger'
+          ? appStrings.taskTrigger
           : triggerSummary,
       triggerConfig: triggerConfig,
       taskConfig: taskConfig,
@@ -3701,7 +3710,7 @@ class TaskItem {
   final int? averageRunSeconds;
 
   String get scheduleLabel =>
-      triggerSummary.trim().isEmpty ? 'Task trigger' : triggerSummary;
+      triggerSummary.trim().isEmpty ? appStrings.taskTrigger : triggerSummary;
   String get lastRunLabel => lastRun == null ? '' : _formatTimestamp(lastRun!);
   String get lastRunStatusLabel =>
       _titleCase(lastRunStatus.replaceAll('_', ' '));
@@ -3730,7 +3739,7 @@ class McpServerItem {
     return McpServerItem(
       id: _asInt(json['id']),
       agentId: json['agentId']?.toString() ?? json['agent_id']?.toString(),
-      name: json['name']?.toString() ?? 'MCP Server',
+      name: json['name']?.toString() ?? appStrings.mcpServer2,
       command: json['command']?.toString() ?? '',
       config: json['config'] is Map
           ? Map<String, dynamic>.from(json['config'] as Map)
@@ -3759,18 +3768,18 @@ class McpServerItem {
   bool get hasError => (error ?? '').trim().isNotEmpty;
   String get retryLabel => nextRetryAt == null
       ? ''
-      : 'Next retry: ${_formatTimestamp(nextRetryAt!)}';
+      : appStrings.nextRetryArg1(_formatTimestamp(nextRetryAt!));
 
   String get authMethodLabel {
     final auth = _jsonMap(config['auth']);
     final type = auth['type']?.toString().ifEmpty('none') ?? 'none';
     switch (type) {
       case 'bearer':
-        return 'Bearer token';
+        return appStrings.bearerToken;
       case 'oauth':
         return 'OAuth';
       default:
-        return 'No auth';
+        return appStrings.noAuth;
     }
   }
 }
@@ -3827,10 +3836,10 @@ class AccountSessionItem {
     final parts = <String>[
       clientPlatformLabel,
       if (clientBrowserLabel.isNotEmpty &&
-          clientBrowserLabel != 'Unknown browser')
+          clientBrowserLabel != appStrings.unknownBrowser)
         clientBrowserLabel,
     ];
-    return parts.join(' · ').ifEmpty('Unknown device');
+    return parts.join(' · ').ifEmpty(appStrings.unknownDevice);
   }
 
   String get locationSummary {
@@ -3838,15 +3847,15 @@ class AccountSessionItem {
       if (location.trim().isNotEmpty) location.trim(),
       if (ipAddress.trim().isNotEmpty) ipAddress.trim(),
     ];
-    return parts.join(' · ').ifEmpty('Unknown location');
+    return parts.join(' · ').ifEmpty(appStrings.unknownLocation);
   }
 
   String get lastSeenLabel =>
-      lastSeenAt == null ? 'Not recorded' : _formatTimestamp(lastSeenAt!);
+      lastSeenAt == null ? appStrings.notRecorded : _formatTimestamp(lastSeenAt!);
   String get createdLabel =>
-      createdAt == null ? 'Not recorded' : _formatTimestamp(createdAt!);
+      createdAt == null ? appStrings.notRecorded : _formatTimestamp(createdAt!);
   String get expiresLabel =>
-      expiresAt == null ? 'Session cookie' : _formatTimestamp(expiresAt!);
+      expiresAt == null ? appStrings.sessionCookie : _formatTimestamp(expiresAt!);
 }
 
 enum _SessionDeviceClass { desktop, mobile, tablet, server, unknown }
@@ -3861,9 +3870,9 @@ class _SessionClientInfo {
   factory _SessionClientInfo.parse(String userAgent) {
     final raw = userAgent.trim();
     if (raw.isEmpty) {
-      return const _SessionClientInfo(
-        platformLabel: 'Unknown device',
-        browserLabel: 'Unknown browser',
+      return _SessionClientInfo(
+        platformLabel: appStrings.unknownDevice,
+        browserLabel: appStrings.unknownBrowser,
         deviceClass: _SessionDeviceClass.unknown,
       );
     }
@@ -3888,8 +3897,8 @@ class _SessionClientInfo {
           when lower.contains('curl/') ||
               lower.contains('wget/') ||
               lower.contains('httpie/') =>
-        'CLI session',
-      _ => 'Unknown device',
+        appStrings.cliSession,
+      _ => appStrings.unknownDevice,
     };
 
     final browserLabel = switch (true) {
@@ -3907,11 +3916,11 @@ class _SessionClientInfo {
       _ when lower.contains('curl/') => 'curl',
       _ when lower.contains('wget/') => 'wget',
       _ when lower.contains('httpie/') => 'HTTPie',
-      _ => 'Unknown browser',
+      _ => appStrings.unknownBrowser,
     };
 
     final deviceClass = switch (true) {
-      _ when platformLabel == 'CLI session' => _SessionDeviceClass.server,
+      _ when platformLabel == appStrings.cliSession => _SessionDeviceClass.server,
       _ when isTablet => _SessionDeviceClass.tablet,
       _ when isMobile => _SessionDeviceClass.mobile,
       _
@@ -3972,7 +3981,7 @@ class SecurityKeyItem {
   factory SecurityKeyItem.fromJson(Map<dynamic, dynamic> json) {
     return SecurityKeyItem(
       id: _asInt(json['id']),
-      label: json['label']?.toString() ?? 'Security key',
+      label: json['label']?.toString() ?? appStrings.securityKey,
       createdAt: _parseOptionalTimestamp(json['createdAt']?.toString()),
       lastUsedAt: _parseOptionalTimestamp(json['lastUsedAt']?.toString()),
       backedUp: json['backedUp'] == true,
@@ -3986,9 +3995,9 @@ class SecurityKeyItem {
   final bool backedUp;
 
   String get addedLabel =>
-      createdAt == null ? 'Not recorded' : _formatTimestamp(createdAt!);
+      createdAt == null ? appStrings.notRecorded : _formatTimestamp(createdAt!);
   String get lastUsedLabel =>
-      lastUsedAt == null ? 'Never used' : _formatTimestamp(lastUsedAt!);
+      lastUsedAt == null ? appStrings.neverUsed : _formatTimestamp(lastUsedAt!);
 }
 
 class LinkedAuthProviderItem {
@@ -4033,9 +4042,9 @@ class LinkedAuthProviderItem {
   String get avatarUrl => metadata['avatarUrl']?.toString() ?? '';
   String get displayName => metadata['displayName']?.toString() ?? '';
   String get linkedAtLabel =>
-      linkedAt == null ? 'Linked recently' : _formatTimestamp(linkedAt!);
+      linkedAt == null ? appStrings.linkedRecently : _formatTimestamp(linkedAt!);
   String get lastUsedLabel =>
-      lastUsedAt == null ? 'Not used yet' : _formatTimestamp(lastUsedAt!);
+      lastUsedAt == null ? appStrings.notUsedYet : _formatTimestamp(lastUsedAt!);
 }
 
 class QrLoginChallenge {
@@ -4146,8 +4155,8 @@ class QrLoginRequestedDevice {
   factory QrLoginRequestedDevice.fromJson(Map<dynamic, dynamic> json) {
     return QrLoginRequestedDevice(
       label:
-          json['label']?.toString().ifEmpty('Unknown device') ??
-          'Unknown device',
+          json['label']?.toString().ifEmpty(appStrings.unknownDevice) ??
+          appStrings.unknownDevice,
       platformLabel:
           json['platformLabel']?.toString().ifEmpty('Unknown') ?? 'Unknown',
       browserLabel:
@@ -4330,19 +4339,19 @@ class ToolEventItem {
       type == 'analysis' || type == 'planning' || toolName == 'plan';
 
   bool get isHelperRelated {
-    final label = '${type.toLowerCase()} ${toolName.toLowerCase()}';
+    final label = appStrings.arg1Arg23(type.toLowerCase(), toolName.toLowerCase());
     return label.contains('subagent') || label.contains('helper');
   }
 
   bool get isBrowserRelated {
-    final label = '${type.toLowerCase()} ${toolName.toLowerCase()}';
+    final label = appStrings.arg1Arg23(type.toLowerCase(), toolName.toLowerCase());
     return label.contains('browser') ||
         label.contains('page') ||
         label.contains('screenshot');
   }
 
   bool get isMessagingRelated {
-    final label = '${type.toLowerCase()} ${toolName.toLowerCase()}';
+    final label = appStrings.arg1Arg23(type.toLowerCase(), toolName.toLowerCase());
     return label.contains('message') ||
         label.contains('telegram') ||
         label.contains('discord') ||
@@ -4354,18 +4363,18 @@ class ToolEventItem {
 
   String get laneLabel {
     if (isPlanningRelated) {
-      return 'Planning';
+      return appStrings.planning;
     }
     if (isHelperRelated) {
-      return 'Helper';
+      return appStrings.helper;
     }
     if (isWebRelated) {
-      return 'Web';
+      return appStrings.web;
     }
     if (type == 'verification') {
-      return 'Verification';
+      return appStrings.verification;
     }
-    return 'Execution';
+    return appStrings.execution;
   }
 
   IconData get laneIcon {
@@ -4544,9 +4553,9 @@ class CoworkChat {
   factory CoworkChat.fromJson(Map<String, dynamic> json) {
     return CoworkChat(
       id: json['id']?.toString() ?? '',
-      title: json['title']?.toString().ifEmpty('New chat') ?? 'New chat',
+      title: json['title']?.toString().ifEmpty(appStrings.newChat) ?? appStrings.newChat,
       agentId: json['agentId']?.toString() ?? '',
-      agentName: json['agentName']?.toString().ifEmpty('Main') ?? 'Main',
+      agentName: json['agentName']?.toString().ifEmpty(appStrings.main) ?? appStrings.main,
       mode: json['mode']?.toString() == 'plan'
           ? CoworkInteractionMode.plan
           : CoworkInteractionMode.agent,
@@ -4591,7 +4600,7 @@ class CoworkChat {
   /// default workspace name.
   String get workspaceLabel {
     final override = workspacePathOverride;
-    if (override == null) return 'NeoAgent Workspace';
+    if (override == null) return appStrings.neoagentWorkspace;
     final segments = override
         .replaceAll('\\', '/')
         .split('/')

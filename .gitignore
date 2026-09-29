@@ -142,6 +142,8 @@ agent-data/
 /.npm-cache
 /dev
 /tmp
+# Written by `flutter gen-l10n`; the generated Dart under flutter_app/lib/l10n/gen is committed.
+flutter_app/l10n_untranslated.json
 flutter_app/neoagent_flutter.iml
 flutter_app/.idea/
 

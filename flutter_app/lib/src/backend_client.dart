@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'diagnostics_logger.dart';
 import 'network/app_http_client.dart';
 import 'network/app_http_client_factory.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 class BackendClient {
   BackendClient({AppHttpClient? httpClient})
@@ -1217,7 +1218,7 @@ class BackendClient {
   }) {
     return postMap(
       baseUrl,
-      '/api/cowork/chats/${Uri.encodeComponent(conversationId)}'
+      '/api/cowork/chats/${Uri.encodeComponent(conversationId)}' +
       '/input-requests/${Uri.encodeComponent(requestId)}/answer',
       <String, dynamic>{'answers': answers},
     );
@@ -2457,7 +2458,7 @@ class BackendClient {
       case 'DELETE':
         request = _httpClient.delete(uri, headers: headers, body: encodedBody);
       default:
-        throw BackendException('Unsupported method: $method');
+        throw BackendException(appStrings.unsupportedMethodArg1(method));
     }
     try {
       final response = await request.timeout(_requestTimeout);
@@ -2485,7 +2486,7 @@ class BackendClient {
         stackTrace: stackTrace,
       );
       throw BackendException(
-        'The NeoAgent backend took too long to respond for ${uri.path}.',
+        appStrings.theNeoagentBackendTookTooLong(uri.path),
       );
     } catch (error, stackTrace) {
       _log(
@@ -2509,19 +2510,19 @@ class BackendClient {
         lower.contains('failed to fetch') ||
         lower.contains('networkerror') ||
         lower.contains('load failed')) {
-      return 'The web app could not reach the NeoAgent backend at ${uri.path}. Check the browser console and reverse-proxy/network configuration.';
+      return appStrings.theWebAppCouldNotReach2(uri.path);
     }
     if (lower.contains('content security policy') ||
         lower.contains('connect-src')) {
-      return 'The browser blocked a request to ${uri.path} because of Content Security Policy.';
+      return appStrings.theBrowserBlockedARequestTo(uri.path);
     }
     if (uri.host == 'localhost' ||
         uri.host == '127.0.0.1' ||
         uri.host == '::1') {
-      return 'The NeoAgent backend on this computer is not answering on port '
-          '${uri.port}. Make sure it is running, then try again.';
+      return appStrings.theNeoagentBackendOnThisComputer +
+          appStrings.arg1MakeSureItIsRunning(uri.port);
     }
-    return 'Request to ${uri.path} failed before the backend responded.';
+    return appStrings.requestToArg1FailedBeforeThe(uri.path);
   }
 
   dynamic _decodeJson(String body) {
@@ -2583,7 +2584,7 @@ class BackendClient {
       return;
     }
 
-    var message = 'Request failed with HTTP ${response.statusCode}';
+    var message = appStrings.requestFailedWithHttpArg12(response.statusCode);
     String? code;
     try {
       final decoded = _asMap(_decodeJson(response.body));

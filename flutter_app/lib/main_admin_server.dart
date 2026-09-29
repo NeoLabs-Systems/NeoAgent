@@ -213,11 +213,11 @@ class _AdminServerTabState extends State<_AdminServerTab> {
     if (info == null) return;
     await _confirmDelete(
       context,
-      title: 'Update the server?',
+      title: appStrings.updateTheServer,
       message:
-          'NeoAgent installs the latest ${info.update.releaseChannelLabel.toLowerCase()} '
-          'release and restarts. Connected apps reconnect once it is back.',
-      confirmLabel: 'Update now',
+          appStrings.neoagentInstallsTheLatestArg1(info.update.releaseChannelLabel.toLowerCase()) +
+          appStrings.releaseAndRestartsConnectedAppsReconnect,
+      confirmLabel: appStrings.updateNow,
       onConfirm: () async {
         if (!mounted) return;
         setState(() {
@@ -243,7 +243,7 @@ class _AdminServerTabState extends State<_AdminServerTab> {
       children: <Widget>[
         _SectionCard(
           title: 'Server',
-          description: 'The NeoAgent instance this app is connected to.',
+          description: appStrings.theNeoagentInstanceThisAppIs,
           trailing: _RefreshButton(busy: _loading, onPressed: _reloadOverview),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -259,7 +259,7 @@ class _AdminServerTabState extends State<_AdminServerTab> {
                 _AdminOpsFactGrid(
                   facts: <(String, String)>[
                     ('Version', info.version),
-                    ('Release channel', info.update.releaseChannelLabel),
+                    (appStrings.releaseChannel, info.update.releaseChannelLabel),
                     ('Branch', info.gitBranch),
                     ('Commit', info.shortSha),
                     ('Deployment', info.deploymentLabel),
@@ -284,10 +284,10 @@ class _AdminServerTabState extends State<_AdminServerTab> {
           _AdminOpsHealthCard(checks: _checks),
           if (info.environment.isNotEmpty)
             _SectionCard(
-              title: 'Environment',
+              title: appStrings.environment,
               description:
-                  'Runtime settings this server started with. Edit them under '
-                  'Configuration or in the .env file.',
+                  appStrings.runtimeSettingsThisServerStartedWith +
+                  appStrings.configurationOrInTheEnvFile,
               child: _AdminOpsFactGrid(
                 facts: <(String, String)>[
                   for (final entry in info.environment.entries)
@@ -379,9 +379,9 @@ class _AdminOpsUpdateCard extends StatelessWidget {
         ? 'beta'
         : 'stable';
     return _SectionCard(
-      title: 'Updates',
+      title: appStrings.updates,
       description:
-          'Install new releases and choose which channel this server follows.',
+          appStrings.installNewReleasesAndChooseWhich,
       trailing: _StatusPill(label: update.badgeLabel, color: update.badgeColor),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -416,11 +416,11 @@ class _AdminOpsUpdateCard extends StatelessWidget {
           ],
           if (!update.allowSelfUpdate) ...<Widget>[
             const SizedBox(height: 14),
-            const _InlineNote(
+            _InlineNote(
               icon: Icons.lock_outline_rounded,
               message:
-                  'This is a managed deployment. Its operator rolls out '
-                  'updates, so self-update and channel changes are off here.',
+                  appStrings.thisIsAManagedDeploymentIts +
+                  appStrings.updatesSoSelfUpdateAndChannel,
             ),
           ],
           if (error != null) ...<Widget>[
@@ -434,15 +434,15 @@ class _AdminOpsUpdateCard extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: <Widget>[
               SegmentedButton<String>(
-                segments: const <ButtonSegment<String>>[
+                segments: <ButtonSegment<String>>[
                   ButtonSegment<String>(
                     value: 'stable',
-                    label: Text('Stable'),
+                    label: Text(appStrings.stable),
                     icon: Icon(Icons.verified_outlined),
                   ),
                   ButtonSegment<String>(
                     value: 'beta',
-                    label: Text('Beta'),
+                    label: Text(appStrings.beta),
                     icon: Icon(Icons.science_outlined),
                   ),
                 ],
@@ -458,8 +458,8 @@ class _AdminOpsUpdateCard extends StatelessWidget {
                         dimension: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.system_update_alt_rounded, size: 18),
-                label: Text(running ? 'Updating…' : 'Update now'),
+                    : Icon(Icons.system_update_alt_rounded, size: 18),
+                label: Text(running ? 'Updating…' : appStrings.updateNow),
               ),
             ],
           ),
@@ -478,16 +478,16 @@ class _AdminOpsHealthCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final failing = checks.where((check) => !check.passed).length;
     return _SectionCard(
-      title: 'Health checks',
-      description: 'Core services this server depends on.',
+      title: appStrings.healthChecks,
+      description: appStrings.coreServicesThisServerDependsOn,
       trailing: checks.isEmpty
           ? null
           : _StatusPill(
-              label: failing == 0 ? 'All passing' : '$failing failing',
+              label: failing == 0 ? 'All passing' : appStrings.arg1Failing(failing),
               color: failing == 0 ? _success : _danger,
             ),
       child: checks.isEmpty
-          ? const _EmptyText('The server reported no health checks.')
+          ? _EmptyText(appStrings.theServerReportedNoHealthChecks)
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
@@ -619,7 +619,7 @@ String _adminOpsLogTime(String timestamp) {
   if (time == null) return '';
   final month = time.month.toString().padLeft(2, '0');
   final day = time.day.toString().padLeft(2, '0');
-  return '$month/$day ${_formatTimeOnly(time)}';
+  return appStrings.arg1Arg2Arg32(month, day, _formatTimeOnly(time));
 }
 
 Color _adminOpsLevelColor(String level) {
@@ -684,14 +684,14 @@ class _AdminOpsLogsPanelState extends State<_AdminOpsLogsPanel> {
   Future<void> _copyAll() async {
     final lines = _visibleLogs.reversed
         .map(
-          (entry) => '[${entry.timestamp}] [${entry.level}] ${entry.message}',
+          (entry) => appStrings.arg1Arg2Arg33(entry.timestamp, entry.level, entry.message),
         )
         .join('\n');
     await Clipboard.setData(ClipboardData(text: lines));
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Log copied')));
+    ).showSnackBar(SnackBar(content: Text(appStrings.logCopied)));
   }
 
   void _clearView() {
@@ -737,7 +737,7 @@ class _AdminOpsLogsPanelState extends State<_AdminOpsLogsPanel> {
   String _filterLabel(_AdminOpsLogFilter filter) {
     switch (filter) {
       case _AdminOpsLogFilter.all:
-        return 'All';
+        return appStrings.all;
       case _AdminOpsLogFilter.errors:
         return 'Errors';
       case _AdminOpsLogFilter.warnings:
@@ -751,21 +751,21 @@ class _AdminOpsLogsPanelState extends State<_AdminOpsLogsPanel> {
     return _SectionStack(
       children: <Widget>[
         _SectionCard(
-          title: 'Issues',
-          description: 'Errors from the recent log, grouped by message.',
+          title: appStrings.issues,
+          description: appStrings.errorsFromTheRecentLogGrouped,
           trailing: initialLoad
               ? null
               : _StatusPill(
                   label: _issues.isEmpty
                       ? 'None'
-                      : '${_issues.length} ${_issues.length == 1 ? 'issue' : 'issues'}',
+                      : appStrings.arg1Arg23(_issues.length, _issues.length == 1 ? 'issue' : 'issues'),
                   color: _issues.isEmpty ? _success : _danger,
                 ),
           child: initialLoad ? const _LoadingPlaceholder() : _buildIssues(),
         ),
         _SectionCard(
-          title: 'Logs',
-          description: 'Recent server output, newest first.',
+          title: appStrings.logs,
+          description: appStrings.recentServerOutputNewestFirst,
           trailing: _RefreshButton(busy: _loading, onPressed: _reload),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -785,7 +785,7 @@ class _AdminOpsLogsPanelState extends State<_AdminOpsLogsPanel> {
                   for (final filter in _AdminOpsLogFilter.values)
                     ChoiceChip(
                       label: Text(
-                        '${_filterLabel(filter)} (${_countFor(filter)})',
+                        appStrings.arg1Arg2(_filterLabel(filter), _countFor(filter)),
                       ),
                       selected: _filter == filter,
                       onSelected: (_) => setState(() => _filter = filter),
@@ -793,22 +793,22 @@ class _AdminOpsLogsPanelState extends State<_AdminOpsLogsPanel> {
                   TextButton.icon(
                     style: _adminOpsActionStyle(),
                     onPressed: _visibleLogs.isEmpty ? null : _copyAll,
-                    icon: const Icon(Icons.copy, size: 16),
-                    label: const Text('Copy all'),
+                    icon: Icon(Icons.copy, size: 16),
+                    label: Text(appStrings.copyAll),
                   ),
                   if (_clearedThrough == null)
                     TextButton.icon(
                       style: _adminOpsActionStyle(),
                       onPressed: _logs.isEmpty ? null : _clearView,
-                      icon: const Icon(Icons.clear_all, size: 16),
-                      label: const Text('Clear view'),
+                      icon: Icon(Icons.clear_all, size: 16),
+                      label: Text(appStrings.clearView),
                     )
                   else
                     TextButton.icon(
                       style: _adminOpsActionStyle(),
                       onPressed: () => setState(() => _clearedThrough = null),
-                      icon: const Icon(Icons.history, size: 16),
-                      label: const Text('Show earlier'),
+                      icon: Icon(Icons.history, size: 16),
+                      label: Text(appStrings.showEarlier),
                     ),
                 ],
               ),
@@ -832,8 +832,8 @@ class _AdminOpsLogsPanelState extends State<_AdminOpsLogsPanel> {
     if (_issues.isEmpty) {
       return _EmptyText(
         _error == null
-            ? 'No errors in the recent log.'
-            : 'Issues appear once the log loads.',
+            ? appStrings.noErrorsInTheRecentLog
+            : appStrings.issuesAppearOnceTheLogLoads,
       );
     }
     final shown = _showAllIssues
@@ -860,7 +860,7 @@ class _AdminOpsLogsPanelState extends State<_AdminOpsLogsPanel> {
               style: _adminOpsActionStyle(),
               onPressed: () => setState(() => _showAllIssues = !_showAllIssues),
               child: Text(
-                _showAllIssues ? 'Show fewer' : 'Show all ${_issues.length}',
+                _showAllIssues ? 'Show fewer' : appStrings.showAllArg1(_issues.length),
               ),
             ),
           ),
@@ -932,7 +932,7 @@ class _AdminOpsLogViewer extends StatelessWidget {
         decoration: decoration,
         child: Center(
           child: Text(
-            'No log entries.',
+            appStrings.noLogEntries,
             style: TextStyle(fontSize: 13, color: _textMuted),
           ),
         ),
@@ -1151,8 +1151,8 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
 
   String _errorFor(Object error, _AdminOpsUser user) {
     if (error is BackendException && error.code == 'ADMIN_ACCOUNT') {
-      return '@${user.username} is an admin, so the account can’t be deleted '
-          'here. Revoke admin with `neoagent admin revoke ${user.username}` first.';
+      return appStrings.arg1IsAnAdminSoThe(user.username) +
+          appStrings.hereRevokeAdminWithNeoagentAdmin(user.username);
     }
     return _controller._friendlyErrorMessage(error);
   }
@@ -1183,17 +1183,17 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
   Future<void> _signOutEverywhere(_AdminOpsUser user) {
     return _confirmDelete(
       context,
-      title: 'Sign out @${user.username} everywhere?',
+      title: appStrings.signOutArg1Everywhere(user.username),
       message:
-          'Every active session for this account ends. They can sign in '
-          'again right away.',
-      confirmLabel: 'Sign out everywhere',
+          appStrings.everyActiveSessionForThisAccount +
+          appStrings.againRightAway,
+      confirmLabel: appStrings.signOutEverywhere,
       onConfirm: () => _runUserAction(user, () async {
         await _controller.backendClient.revokeAdminUserSessions(
           _controller.backendUrl,
           user.id,
         );
-        return 'Signed @${user.username} out of every session.';
+        return appStrings.signedArg1OutOfEverySession(user.username);
       }),
     );
   }
@@ -1207,7 +1207,7 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
     if (saved != true || !mounted) return;
     setState(() {
       _error = null;
-      _notice = 'Saved rate limits for @${user.username}.';
+      _notice = appStrings.savedRateLimitsForArg1(user.username);
     });
     await _loadUsers();
   }
@@ -1241,7 +1241,7 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
               .toList(growable: false);
         });
       }
-      return 'Deleted @${user.username} and all of their data.';
+      return appStrings.deletedArg1AndAllOfTheir(user.username);
     });
   }
 
@@ -1249,7 +1249,7 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
     final count = _users.length;
     final noun = count == 1 ? 'account' : 'accounts';
     final query = _searchController.text.trim();
-    return query.isEmpty ? '$count $noun' : '$count $noun matching “$query”';
+    return query.isEmpty ? '$count $noun' : appStrings.arg1Arg2MatchingArg3(count, noun, query);
   }
 
   @override
@@ -1259,9 +1259,9 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
       children: <Widget>[
         _AdminOpsDefaultLimitsCard(controller: _controller),
         _SectionCard(
-          title: 'Accounts',
+          title: appStrings.accounts,
           description: _loading && _users.isEmpty
-              ? 'Loading accounts…'
+              ? appStrings.loadingAccounts
               : _summary,
           trailing: _RefreshButton(busy: _loading, onPressed: _reload),
           child: Column(
@@ -1269,7 +1269,7 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
             children: <Widget>[
               _SearchField(
                 controller: _searchController,
-                hintText: 'Search by username or email',
+                hintText: appStrings.searchByUsernameOrEmail,
                 onChanged: _onSearchChanged,
                 onClear: _clearSearch,
               ),
@@ -1282,7 +1282,7 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
               if (_loading && _users.isEmpty)
                 const _LoadingPlaceholder()
               else if (_users.isEmpty)
-                const _EmptyText('No accounts found.')
+                _EmptyText(appStrings.noAccountsFound)
               else
                 for (final user in _users)
                   Padding(
@@ -1302,9 +1302,9 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
                 icon: Icons.gpp_maybe_outlined,
                 color: _warning,
                 message:
-                    'Delete permanently erases an account and all of its data '
-                    '— runs, messages, memories, integrations, files and '
-                    'sessions (GDPR Art. 17). Admin accounts can’t be deleted '
+                    appStrings.deletePermanentlyErasesAnAccountAnd +
+                    appStrings.runsMessagesMemoriesIntegrationsFilesAnd +
+                    appStrings.sessionsGdprArt17AdminAccounts +
                     'here.',
               ),
             ],
@@ -1337,36 +1337,36 @@ class _AdminOpsUserRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final facts = <(IconData, String)>[
-      (Icons.event_outlined, 'Joined ${_formatDate(user.createdAt)}'),
+      (Icons.event_outlined, appStrings.joinedArg1(_formatDate(user.createdAt))),
       (
         Icons.login_rounded,
         user.lastLogin == null
-            ? 'Never signed in'
-            : 'Last sign-in ${_formatDate(user.lastLogin)}',
+            ? appStrings.neverSignedIn
+            : appStrings.lastSignInArg1(_formatDate(user.lastLogin)),
       ),
       (
         Icons.bolt_outlined,
-        '${_formatNumber(user.runCount)} ${user.runCount == 1 ? 'run' : 'runs'}',
+        appStrings.arg1Arg23(_formatNumber(user.runCount), user.runCount == 1 ? 'run' : 'runs'),
       ),
       (Icons.folder_outlined, _formatBytes(user.storageBytes)),
       if (user.managedBy.isNotEmpty)
-        (Icons.groups_2_outlined, 'In @${user.managedBy}’s team'),
+        (Icons.groups_2_outlined, appStrings.inArg1STeam(user.managedBy)),
       if (user.email.isNotEmpty && !user.emailVerified)
-        (Icons.mark_email_unread_outlined, 'Email unverified'),
+        (Icons.mark_email_unread_outlined, appStrings.emailUnverified),
       if (user.fourHourLimit != null)
         (
           Icons.timer_outlined,
-          '4h limit ${_formatTokenCount(user.fourHourLimit!)}',
+          appStrings.n4hLimitArg1(_formatTokenCount(user.fourHourLimit!)),
         ),
       if (user.weeklyLimit != null)
         (
           Icons.date_range_outlined,
-          'Weekly limit ${_formatTokenCount(user.weeklyLimit!)}',
+          appStrings.weeklyLimitArg1(_formatTokenCount(user.weeklyLimit!)),
         ),
     ];
     final subtitle = user.email.isEmpty
         ? '@${user.username}'
-        : '@${user.username} · ${user.email}';
+        : appStrings.arg1Arg26(user.username, user.email);
 
     return _RowSurface(
       child: Column(
@@ -1454,39 +1454,39 @@ class _AdminOpsUserRow extends StatelessWidget {
               TextButton.icon(
                 style: _adminOpsActionStyle(),
                 onPressed: busy ? null : onSignOut,
-                icon: const Icon(Icons.logout_rounded, size: 16),
-                label: const Text('Sign out everywhere'),
+                icon: Icon(Icons.logout_rounded, size: 16),
+                label: Text(appStrings.signOutEverywhere),
               ),
               TextButton.icon(
                 style: _adminOpsActionStyle(),
                 onPressed: busy ? null : onRateLimits,
-                icon: const Icon(Icons.speed_rounded, size: 16),
-                label: const Text('Rate limits'),
+                icon: Icon(Icons.speed_rounded, size: 16),
+                label: Text(appStrings.rateLimits),
               ),
               if (showSubscription)
                 TextButton.icon(
                   style: _adminOpsActionStyle(),
                   onPressed: busy ? null : onSubscription,
-                  icon: const Icon(Icons.credit_card_outlined, size: 16),
-                  label: const Text('Subscription'),
+                  icon: Icon(Icons.credit_card_outlined, size: 16),
+                  label: Text(appStrings.subscription),
                 ),
               if (user.isAdmin)
                 Tooltip(
                   message:
-                      'Revoke admin with `neoagent admin revoke ${user.username}` first',
+                      appStrings.revokeAdminWithNeoagentAdminRevoke(user.username),
                   child: TextButton.icon(
                     style: _adminOpsActionStyle(),
                     onPressed: null,
-                    icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                    label: const Text('Delete'),
+                    icon: Icon(Icons.delete_outline_rounded, size: 16),
+                    label: Text(appStrings.delete),
                   ),
                 )
               else
                 TextButton.icon(
                   style: _adminOpsActionStyle(color: _danger),
                   onPressed: busy ? null : onDelete,
-                  icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                  label: const Text('Delete'),
+                  icon: Icon(Icons.delete_outline_rounded, size: 16),
+                  label: Text(appStrings.delete),
                 ),
             ],
           ),
@@ -1517,13 +1517,13 @@ class _AdminOpsLimitFields extends StatelessWidget {
       children: <Widget>[
         _FormTextField(
           controller: fourHour,
-          label: '4-hour limit (tokens)',
+          label: appStrings.n4HourLimitTokens,
           helper: fourHourHelper,
           wholeNumber: true,
         ),
         _FormTextField(
           controller: weekly,
-          label: 'Weekly limit (tokens)',
+          label: appStrings.weeklyLimitTokens,
           helper: weeklyHelper,
           wholeNumber: true,
         ),
@@ -1578,16 +1578,16 @@ class _AdminOpsDefaultLimitsCardState extends State<_AdminOpsDefaultLimitsCard>
       );
       // Reload so emptied fields show the built-in default now in effect.
       await _fetch();
-    }, 'Default rate limits saved.');
+    }, appStrings.defaultRateLimitsSaved);
   }
 
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
-      title: 'Default rate limits',
+      title: appStrings.defaultRateLimits,
       description:
-          'Token budget for every account without its own override. Leave a '
-          'field empty to restore the built-in default.',
+          appStrings.tokenBudgetForEveryAccountWithout +
+          appStrings.fieldEmptyToRestoreTheBuilt,
       child: _loadGate(_fetch) ?? _form(),
     );
   }
@@ -1599,11 +1599,11 @@ class _AdminOpsDefaultLimitsCardState extends State<_AdminOpsDefaultLimitsCard>
         _AdminOpsLimitFields(
           fourHour: _fourHour,
           weekly: _weekly,
-          fourHourHelper: 'Tokens any account may use in 4 hours.',
-          weeklyHelper: 'Tokens any account may use in 7 days.',
+          fourHourHelper: appStrings.tokensAnyAccountMayUseIn,
+          weeklyHelper: appStrings.tokensAnyAccountMayUseIn2,
         ),
         const SizedBox(height: 16),
-        _SaveButton(saving: _saving, onPressed: _save, label: 'Save defaults'),
+        _SaveButton(saving: _saving, onPressed: _save, label: appStrings.saveDefaults),
         _saveFeedback(),
       ],
     );
@@ -1701,15 +1701,15 @@ class _AdminOpsUserLimitsDialogState extends State<_AdminOpsUserLimitsDialog> {
 
   String _inheritHelper(int? fallback) {
     return fallback == null
-        ? 'Empty uses the server default.'
-        : 'Empty uses the server default (${_formatTokenCount(fallback)}).';
+        ? appStrings.emptyUsesTheServerDefault
+        : appStrings.emptyUsesTheServerDefaultArg1(_formatTokenCount(fallback));
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: _bgCard,
-      title: const Text('Rate limits'),
+      title: Text(appStrings.rateLimits),
       content: SizedBox(
         width: 420,
         child: Column(
@@ -1717,8 +1717,8 @@ class _AdminOpsUserLimitsDialogState extends State<_AdminOpsUserLimitsDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             Text(
-              'Token budget for @${widget.user.username}. Leave a field empty '
-              'to use the server default.',
+              appStrings.tokenBudgetForArg1LeaveA(widget.user.username) +
+              appStrings.toUseTheServerDefault,
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 16),
@@ -1741,7 +1741,7 @@ class _AdminOpsUserLimitsDialogState extends State<_AdminOpsUserLimitsDialog> {
       actions: <Widget>[
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
+          child: Text(appStrings.cancel),
         ),
         _SaveButton(saving: _saving, onPressed: _loading ? null : _save),
       ],
@@ -1778,7 +1778,7 @@ class _AdminOpsDeleteUserDialogState extends State<_AdminOpsDeleteUserDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: _bgCard,
-      title: Text('Delete @${widget.username}?'),
+      title: Text(appStrings.deleteArg1(widget.username)),
       content: SizedBox(
         width: 420,
         child: Column(
@@ -1786,9 +1786,9 @@ class _AdminOpsDeleteUserDialogState extends State<_AdminOpsDeleteUserDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             Text(
-              'This permanently erases the account and everything it owns: '
-              'runs, messages, memories, integrations, files and sessions. '
-              'It can’t be undone.',
+              appStrings.thisPermanentlyErasesTheAccountAnd +
+              appStrings.runsMessagesMemoriesIntegrationsFilesAnd2 +
+              appStrings.itCanTBeUndone,
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 16),
@@ -1800,7 +1800,7 @@ class _AdminOpsDeleteUserDialogState extends State<_AdminOpsDeleteUserDialog> {
               onChanged: (_) => setState(() {}),
               onSubmitted: (_) => _confirm(),
               decoration: InputDecoration(
-                labelText: 'Type ${widget.username} to confirm',
+                labelText: appStrings.typeArg1ToConfirm(widget.username),
               ),
             ),
           ],
@@ -1809,7 +1809,7 @@ class _AdminOpsDeleteUserDialogState extends State<_AdminOpsDeleteUserDialog> {
       actions: <Widget>[
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
+          child: Text(appStrings.cancel),
         ),
         FilledButton(
           style: FilledButton.styleFrom(
@@ -1817,7 +1817,7 @@ class _AdminOpsDeleteUserDialogState extends State<_AdminOpsDeleteUserDialog> {
             foregroundColor: Colors.white,
           ),
           onPressed: _matches ? _confirm : null,
-          child: const Text('Delete account'),
+          child: Text(appStrings.deleteAccount),
         ),
       ],
     );
@@ -1928,7 +1928,7 @@ class _AdminOpsSubscriptionDialogState
         planId: planId,
       );
       return _BillingSubscription.fromResponse(json);
-    }, 'Assigned $planName.');
+    }, appStrings.assignedArg1(planName));
   }
 
   Future<void> _cancel() {
@@ -1939,7 +1939,7 @@ class _AdminOpsSubscriptionDialogState
       // Another subscription (e.g. a Stripe one) may still apply.
       final json = await client.fetchAdminUserSubscription(url, widget.userId);
       return _BillingSubscription.fromResponse(json);
-    }, 'Subscription canceled.');
+    }, appStrings.subscriptionCanceled);
   }
 
   @override
@@ -1947,7 +1947,7 @@ class _AdminOpsSubscriptionDialogState
     final subscription = _subscription;
     return AlertDialog(
       backgroundColor: _bgCard,
-      title: const Text('Subscription'),
+      title: Text(appStrings.subscription),
       content: SizedBox(
         width: 440,
         child: _loading
@@ -1957,35 +1957,35 @@ class _AdminOpsSubscriptionDialogState
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
                   Text(
-                    'Plan for @${widget.username}. A plan assigned here '
-                    'skips Stripe checkout.',
+                    appStrings.planForArg1APlanAssigned(widget.username) +
+                    appStrings.skipsStripeCheckout,
                     style: TextStyle(color: _textSecondary, height: 1.45),
                   ),
                   const SizedBox(height: 18),
-                  const _SectionTitle('Current plan'),
+                  _SectionTitle(appStrings.currentPlan),
                   const SizedBox(height: 10),
                   if (subscription == null)
-                    const _EmptyText('No subscription.')
+                    _EmptyText(appStrings.noSubscription)
                   else
                     _AdminOpsSubscriptionSummary(subscription: subscription),
                   const SizedBox(height: 18),
                   if (_plans.isEmpty)
-                    const _EmptyText(
-                      'No active plans yet. Create one in the Billing tab.',
+                    _EmptyText(
+                      appStrings.noActivePlansYetCreateOne,
                     )
                   else
                     DropdownButtonFormField<String>(
                       initialValue: _selectedPlanId,
                       isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Assign plan',
+                      decoration: InputDecoration(
+                        labelText: appStrings.assignPlan,
                       ),
                       items: <DropdownMenuItem<String>>[
                         for (final plan in _plans)
                           DropdownMenuItem<String>(
                             value: plan.id,
                             child: Text(
-                              '${plan.displayName} · ${plan.priceLabel}',
+                              appStrings.arg1Arg22(plan.displayName, plan.priceLabel),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -2001,19 +2001,19 @@ class _AdminOpsSubscriptionDialogState
       actions: <Widget>[
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
+          child: Text(appStrings.close),
         ),
         if (subscription != null && subscription.cancelable)
           TextButton(
             style: TextButton.styleFrom(foregroundColor: _danger),
             onPressed: _busy ? null : _cancel,
-            child: const Text('Cancel subscription'),
+            child: Text(appStrings.cancelSubscription),
           ),
         FilledButton(
           onPressed: _loading || _busy || _selectedPlanId == null
               ? null
               : _assign,
-          child: const Text('Assign plan'),
+          child: Text(appStrings.assignPlan),
         ),
       ],
     );
@@ -2050,7 +2050,7 @@ class _AdminOpsSubscriptionSummary extends StatelessWidget {
               if (subscription.billedByStripe) ...<Widget>[
                 const SizedBox(height: 4),
                 Text(
-                  'Billed through Stripe, so it can’t be canceled here.',
+                  appStrings.billedThroughStripeSoItCan,
                   style: TextStyle(fontSize: 12, color: _textMuted),
                 ),
               ],
@@ -2171,11 +2171,11 @@ class _AdminAnalyticsTab extends StatefulWidget {
 }
 
 class _AdminAnalyticsTabState extends State<_AdminAnalyticsTab> {
-  static const List<(int, String, String)> _ranges = <(int, String, String)>[
-    (7, '7d', '7 days'),
-    (30, '30d', '30 days'),
-    (90, '90d', '90 days'),
-    (365, '1y', '365 days'),
+  static List<(int, String, String)> _ranges = <(int, String, String)>[
+    (7, '7d', appStrings.n7Days),
+    (30, '30d', appStrings.n30Days),
+    (90, '90d', appStrings.n90Days),
+    (365, '1y', appStrings.n365Days),
   ];
 
   int _rangeDays = 30;
@@ -2243,7 +2243,7 @@ class _AdminAnalyticsTabState extends State<_AdminAnalyticsTab> {
                   ButtonSegment<int>(
                     value: days,
                     label: Text(short),
-                    tooltip: 'Last $long',
+                    tooltip: appStrings.lastArg1(long),
                   ),
               ],
               selected: <int>{_rangeDays},
@@ -2281,8 +2281,8 @@ class _AdminAnalyticsTabState extends State<_AdminAnalyticsTab> {
           day: day,
           value: data.runsByDay[day]?.runs ?? 0,
           tooltip:
-              '${_formatIsoDate(day)}\n${_formatNumber(data.runsByDay[day]?.runs ?? 0)} runs · '
-              '${_formatTokenCount(data.runsByDay[day]?.tokens ?? 0)} tokens',
+              appStrings.arg1Arg2Runs(_formatIsoDate(day), _formatNumber(data.runsByDay[day]?.runs ?? 0)) +
+              appStrings.arg1Tokens(_formatTokenCount(data.runsByDay[day]?.tokens ?? 0)),
         ),
     ];
     final tokenBars = <({String day, int value, String tooltip})>[
@@ -2291,7 +2291,7 @@ class _AdminAnalyticsTabState extends State<_AdminAnalyticsTab> {
           day: day,
           value: data.runsByDay[day]?.tokens ?? 0,
           tooltip:
-              '${_formatIsoDate(day)}\n${_formatTokenCount(data.runsByDay[day]?.tokens ?? 0)} tokens',
+              appStrings.arg1Arg2Tokens(_formatIsoDate(day), _formatTokenCount(data.runsByDay[day]?.tokens ?? 0)),
         ),
     ];
     final userBars = <({String day, int value, String tooltip})>[
@@ -2300,7 +2300,7 @@ class _AdminAnalyticsTabState extends State<_AdminAnalyticsTab> {
           day: day,
           value: data.newUsersByDay[day] ?? 0,
           tooltip:
-              '${_formatIsoDate(day)}\n${data.newUsersByDay[day] ?? 0} new accounts',
+              appStrings.arg1Arg2NewAccounts(_formatIsoDate(day), data.newUsersByDay[day] ?? 0),
         ),
     ];
     final rangeRuns = runBars.fold<int>(0, (sum, bar) => sum + bar.value);
@@ -2315,47 +2315,47 @@ class _AdminAnalyticsTabState extends State<_AdminAnalyticsTab> {
       _AdminOpsStatGrid(stats: _statTiles(data)),
       _AdminOpsPair(
         first: _SectionCard(
-          title: 'Runs per day',
+          title: appStrings.runsPerDay,
           description:
-              '${_formatNumber(rangeRuns)} runs in the last $_rangeLabel.',
+              appStrings.arg1RunsInTheLastArg2(_formatNumber(rangeRuns), _rangeLabel),
           child: _AdminOpsBarChart(bars: runBars, color: _accent),
         ),
         second: _SectionCard(
-          title: 'Tokens per day',
+          title: appStrings.tokensPerDay,
           description:
-              '${_formatTokenCount(rangeTokens)} tokens in the last $_rangeLabel.',
+              appStrings.arg1TokensInTheLastArg2(_formatTokenCount(rangeTokens), _rangeLabel),
           child: _AdminOpsBarChart(bars: tokenBars, color: _info),
         ),
       ),
       _SectionCard(
-        title: 'New accounts per day',
+        title: appStrings.newAccountsPerDay,
         description:
-            '${_formatNumber(rangeUsers)} new accounts in the last $_rangeLabel.',
+            appStrings.arg1NewAccountsInTheLast(_formatNumber(rangeUsers), _rangeLabel),
         child: _AdminOpsBarChart(bars: userBars, color: _accentAlt),
       ),
       _AdminOpsPair(
         first: _SectionCard(
           title: 'Models',
-          description: 'Most used models in the last $_rangeLabel.',
+          description: appStrings.mostUsedModelsInTheLast(_rangeLabel),
           child: _AdminOpsRankedList(
-            emptyText: 'No runs in this range.',
+            emptyText: appStrings.noRunsInThisRange,
             items: <_AdminOpsRankedItem>[
               for (final entry in data.models)
                 _AdminOpsRankedItem(
                   label: entry.model,
                   value: entry.runs,
-                  valueLabel: '${_formatNumber(entry.runs)} runs',
-                  detail: '${_formatTokenCount(entry.tokens)} tokens',
+                  valueLabel: appStrings.arg1Runs(_formatNumber(entry.runs)),
+                  detail: appStrings.arg1Tokens(_formatTokenCount(entry.tokens)),
                   mono: true,
                 ),
             ],
           ),
         ),
         second: _SectionCard(
-          title: 'Run status',
-          description: 'Every run on this server, all time.',
+          title: appStrings.runStatus,
+          description: appStrings.everyRunOnThisServerAll,
           child: _AdminOpsRankedList(
-            emptyText: 'No runs yet.',
+            emptyText: appStrings.noRunsYet2,
             items: <_AdminOpsRankedItem>[
               for (final entry in data.statuses)
                 _statusItem(entry.status, entry.count, totalByStatus),
@@ -2364,27 +2364,27 @@ class _AdminAnalyticsTabState extends State<_AdminAnalyticsTab> {
         ),
       ),
       _SectionCard(
-        title: 'Top users',
-        description: 'Accounts by tokens used, all time.',
+        title: appStrings.topUsers,
+        description: appStrings.accountsByTokensUsedAllTime,
         child: _AdminOpsRankedList(
-          emptyText: 'No usage yet.',
+          emptyText: appStrings.noUsageYet,
           items: <_AdminOpsRankedItem>[
             for (final entry in data.topUsers)
               _AdminOpsRankedItem(
                 label: entry.name,
                 value: entry.tokens,
-                valueLabel: '${_formatTokenCount(entry.tokens)} tokens',
+                valueLabel: appStrings.arg1Tokens(_formatTokenCount(entry.tokens)),
                 detail:
-                    '${_formatNumber(entry.runs)} runs · ${_formatBytes(entry.storage)}',
+                    appStrings.arg1RunsArg2(_formatNumber(entry.runs), _formatBytes(entry.storage)),
               ),
           ],
         ),
       ),
       _SectionCard(
-        title: 'Recent runs',
-        description: 'The latest runs across every account.',
+        title: appStrings.recentRuns,
+        description: appStrings.theLatestRunsAcrossEveryAccount,
         child: data.recentRuns.isEmpty
-            ? const _EmptyText('No runs yet.')
+            ? _EmptyText(appStrings.noRunsYet2)
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
@@ -2406,64 +2406,64 @@ class _AdminAnalyticsTabState extends State<_AdminAnalyticsTab> {
   ) {
     return <({String title, String value, String helper})>[
       (
-        title: 'Total users',
+        title: appStrings.totalUsers,
         value: _formatNumber(data.stat('totalUsers')),
-        helper: 'Accounts on this server',
+        helper: appStrings.accountsOnThisServer,
       ),
       (
-        title: 'Active today',
+        title: appStrings.activeToday,
         value: _formatNumber(data.stat('activeToday')),
-        helper: 'Signed in within 24 hours',
+        helper: appStrings.signedInWithin24Hours,
       ),
       (
-        title: 'New this week',
+        title: appStrings.newThisWeek,
         value: _formatNumber(data.stat('newThisWeek')),
-        helper: 'Joined in the last 7 days',
+        helper: appStrings.joinedInTheLast7Days,
       ),
       (
-        title: 'Active sessions',
+        title: appStrings.activeSessions,
         value: _formatNumber(data.stat('activeSessions')),
-        helper: 'Signed-in devices',
+        helper: appStrings.signedInDevices,
       ),
       (
-        title: 'Total runs',
+        title: appStrings.totalRuns,
         value: _formatNumber(data.stat('totalRuns')),
-        helper: 'All time',
+        helper: appStrings.allTime,
       ),
       (
-        title: 'Runs today',
+        title: appStrings.runsToday,
         value: _formatNumber(data.stat('runsToday')),
-        helper: 'Last 24 hours',
+        helper: appStrings.last24Hours,
       ),
       (
-        title: 'Runs this week',
+        title: appStrings.runsThisWeek,
         value: _formatNumber(data.stat('runsThisWeek')),
-        helper: 'Last 7 days',
+        helper: appStrings.last7Days,
       ),
       (
-        title: 'Success rate',
+        title: appStrings.successRate,
         value: '${data.stat('successRate')}%',
-        helper: 'Runs that completed',
+        helper: appStrings.runsThatCompleted,
       ),
       (
-        title: 'Total tokens',
+        title: appStrings.totalTokens,
         value: _formatTokenCount(data.stat('totalTokens')),
-        helper: 'All time',
+        helper: appStrings.allTime,
       ),
       (
-        title: 'Tokens today',
+        title: appStrings.tokensToday,
         value: _formatTokenCount(data.stat('tokensToday')),
-        helper: 'Last 24 hours',
+        helper: appStrings.last24Hours,
       ),
       (
-        title: 'Tokens per run',
+        title: appStrings.tokensPerRun,
         value: _formatTokenCount(data.stat('avgTokensPerRun')),
-        helper: 'Average, all time',
+        helper: appStrings.averageAllTime,
       ),
       (
-        title: 'Storage',
+        title: appStrings.storage,
         value: _formatBytes(data.stat('totalStorage')),
-        helper: 'Files saved by all users',
+        helper: appStrings.filesSavedByAllUsers,
       ),
     ];
   }
@@ -2621,7 +2621,7 @@ class _AdminOpsBarChart extends StatelessWidget {
           children: <Widget>[
             Text(_formatIsoDate(bars.first.day), style: axisStyle),
             const Spacer(),
-            Text('peak ${_formatNumber(peak)}', style: axisStyle),
+            Text(appStrings.peakArg1(_formatNumber(peak)), style: axisStyle),
             const Spacer(),
             Text(_formatIsoDate(bars.last.day), style: axisStyle),
           ],
@@ -2743,7 +2743,7 @@ class _AdminOpsRecentRunRow extends StatelessWidget {
     final meta = <String>[
       '@$username',
       run.modelLabel,
-      '${_formatTokenCount(run.totalTokens)} tokens',
+      appStrings.arg1Tokens(_formatTokenCount(run.totalTokens)),
       run.createdAtLabel,
     ].join(' · ');
     return Padding(
@@ -2812,108 +2812,108 @@ class _AdminOpsSqlResult {
 }
 
 /// Starting points for common questions; picking one fills the editor.
-const List<({String label, String query})> _adminOpsSqlTemplates =
+List<({String label, String query})> _adminOpsSqlTemplates =
     <({String label, String query})>[
       (
-        label: 'User summary',
+        label: appStrings.userSummary,
         query:
-            'SELECT u.id, u.username, u.email,\n'
-            '       u.created_at, u.last_login,\n'
-            '       COUNT(DISTINCT r.id) AS runs,\n'
-            '       COALESCE(SUM(r.total_tokens),0) AS tokens\n'
-            'FROM users u\n'
-            'LEFT JOIN agent_runs r ON r.user_id = u.id\n'
-            'GROUP BY u.id\n'
-            'ORDER BY runs DESC\n'
-            'LIMIT 50',
+            'SELECT u.id, u.username, u.email,\n' +
+            appStrings.uCreatedAtULastLogin +
+            appStrings.countDistinctRIdAsRuns +
+            '       COALESCE(SUM(r.total_tokens),0) AS tokens\n' +
+            appStrings.fromUsersU +
+            appStrings.leftJoinAgentRunsROn +
+            appStrings.groupByUId +
+            appStrings.orderByRunsDesc +
+            appStrings.limit50,
       ),
       (
-        label: 'Recent failed runs',
+        label: appStrings.recentFailedRuns,
         query:
-            'SELECT r.id, u.username, r.title, r.status,\n'
-            '       r.error, r.created_at\n'
-            'FROM agent_runs r\n'
-            'JOIN users u ON u.id = r.user_id\n'
-            "WHERE r.status = 'failed'\n"
-            'ORDER BY r.created_at DESC\n'
-            'LIMIT 50',
+            'SELECT r.id, u.username, r.title, r.status,\n' +
+            appStrings.rErrorRCreatedAt +
+            appStrings.fromAgentRunsR +
+            appStrings.joinUsersUOnUId +
+            appStrings.whereRStatusFailed +
+            appStrings.orderByRCreatedAtDesc +
+            appStrings.limit50,
       ),
       (
-        label: 'Artifact storage by user',
+        label: appStrings.artifactStorageByUser,
         query:
-            'SELECT u.username,\n'
-            '       COUNT(a.id) AS files,\n'
-            '       SUM(a.byte_size) AS bytes,\n'
-            '       ROUND(SUM(a.byte_size) / 1048576.0, 2) AS mb\n'
-            'FROM users u\n'
-            'LEFT JOIN artifacts a ON a.user_id = u.id\n'
-            'GROUP BY u.id\n'
-            'ORDER BY bytes DESC',
+            'SELECT u.username,\n' +
+            appStrings.countAIdAsFiles +
+            appStrings.sumAByteSizeAsBytes +
+            appStrings.roundSumAByteSize1048576 +
+            appStrings.fromUsersU +
+            appStrings.leftJoinArtifactsAOnA +
+            appStrings.groupByUId +
+            appStrings.orderByBytesDesc,
       ),
       (
-        label: 'Active sessions',
+        label: appStrings.activeSessions,
         query:
-            'SELECT u.username, s.ip_address,\n'
-            '       s.user_agent, s.created_at, s.last_seen_at\n'
-            'FROM user_sessions s\n'
-            'JOIN users u ON u.id = s.user_id\n'
-            'WHERE s.revoked_at IS NULL\n'
-            "  AND s.expires_at > datetime('now')\n"
-            'ORDER BY s.last_seen_at DESC\n'
-            'LIMIT 50',
+            'SELECT u.username, s.ip_address,\n' +
+            appStrings.sUserAgentSCreatedAt +
+            appStrings.fromUserSessionsS +
+            appStrings.joinUsersUOnUId2 +
+            appStrings.whereSRevokedAtIsNull +
+            appStrings.andSExpiresAtDatetimeNow +
+            appStrings.orderBySLastSeenAt +
+            appStrings.limit50,
       ),
       (
-        label: 'Runs per day (30 days)',
+        label: appStrings.runsPerDay30Days,
         query:
-            'SELECT DATE(created_at) AS day,\n'
-            '       COUNT(*) AS runs,\n'
-            '       COALESCE(SUM(total_tokens),0) AS tokens\n'
-            'FROM agent_runs\n'
-            "WHERE created_at >= datetime('now', '-30 days')\n"
-            'GROUP BY day\n'
-            'ORDER BY day DESC',
+            'SELECT DATE(created_at) AS day,\n' +
+            appStrings.countAsRuns +
+            '       COALESCE(SUM(total_tokens),0) AS tokens\n' +
+            appStrings.fromAgentRuns +
+            appStrings.whereCreatedAtDatetimeNow30 +
+            appStrings.groupByDay +
+            appStrings.orderByDayDesc,
       ),
       (
-        label: 'Most used agents',
+        label: appStrings.mostUsedAgents,
         query:
-            'SELECT a.slug, a.display_name, u.username AS owner,\n'
-            '       COUNT(r.id) AS runs\n'
-            'FROM agents a\n'
-            'JOIN users u ON u.id = a.user_id\n'
-            'LEFT JOIN agent_runs r ON r.agent_id = a.id\n'
-            'GROUP BY a.id\n'
-            'ORDER BY runs DESC\n'
-            'LIMIT 20',
+            'SELECT a.slug, a.display_name, u.username AS owner,\n' +
+            appStrings.countRIdAsRuns +
+            appStrings.fromAgentsA +
+            appStrings.joinUsersUOnUId3 +
+            appStrings.leftJoinAgentRunsROn2 +
+            appStrings.groupByAId +
+            appStrings.orderByRunsDesc +
+            appStrings.limit20,
       ),
       (
-        label: 'Integration connections',
+        label: appStrings.integrationConnections,
         query:
-            'SELECT u.username, ic.provider_key,\n'
-            '       ic.status, ic.account_email, ic.last_connected_at\n'
-            'FROM integration_connections ic\n'
-            'JOIN users u ON u.id = ic.user_id\n'
-            'ORDER BY ic.last_connected_at DESC\n'
-            'LIMIT 50',
+            'SELECT u.username, ic.provider_key,\n' +
+            appStrings.icStatusIcAccountEmailIc +
+            appStrings.fromIntegrationConnectionsIc +
+            appStrings.joinUsersUOnUId4 +
+            appStrings.orderByIcLastConnectedAt +
+            appStrings.limit50,
       ),
       (
-        label: 'Who manages whom',
+        label: appStrings.whoManagesWhom,
         query:
-            'SELECT managed.username AS account,\n'
-            '       manager.username AS managed_by,\n'
-            '       d.allowed_permissions_json AS allowed,\n'
-            '       d.created_at AS since\n'
-            'FROM user_delegations d\n'
-            'JOIN users managed ON managed.id = d.managed_user_id\n'
-            'JOIN users manager ON manager.id = d.manager_user_id\n'
-            'ORDER BY manager.username, managed.username',
+            'SELECT managed.username AS account,\n' +
+            appStrings.managerUsernameAsManagedBy +
+            appStrings.dAllowedPermissionsJsonAsAllowed +
+            appStrings.dCreatedAtAsSince +
+            appStrings.fromUserDelegationsD +
+            appStrings.joinUsersManagedOnManagedId +
+            appStrings.joinUsersManagerOnManagerId +
+            appStrings.orderByManagerUsernameManagedUsername,
       ),
       (
-        label: 'All tables',
+        label: appStrings.allTables,
         query:
             "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
       ),
       (
-        label: 'Table info (users)',
+        label: appStrings.tableInfoUsers,
         query: "SELECT * FROM pragma_table_info('users')",
       ),
     ];
@@ -2987,17 +2987,17 @@ class _AdminSqlTabState extends State<_AdminSqlTab> {
     return _SectionStack(
       children: <Widget>[
         _SectionCard(
-          title: 'SQL console',
+          title: appStrings.sqlConsole,
           description:
-              'Query the live database. Only read-only SELECT and WITH '
-              'queries run; anything that writes is rejected.',
+              'Query the live database. Only read-only SELECT and WITH ' +
+              appStrings.queriesRunAnythingThatWritesIs,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               Align(
                 alignment: Alignment.centerLeft,
                 child: PopupMenuButton<String>(
-                  tooltip: 'Insert a template',
+                  tooltip: appStrings.insertATemplate,
                   onSelected: (query) {
                     _query.text = query;
                     _query.selection = TextSelection.collapsed(
@@ -3022,7 +3022,7 @@ class _AdminSqlTabState extends State<_AdminSqlTab> {
                           color: _accent,
                         ),
                         const SizedBox(width: 6),
-                        Text('Templates', style: TextStyle(color: _accent)),
+                        Text(appStrings.templates, style: TextStyle(color: _accent)),
                         Icon(Icons.arrow_drop_down, color: _accent),
                       ],
                     ),
@@ -3067,11 +3067,11 @@ class _AdminSqlTabState extends State<_AdminSqlTab> {
                             dimension: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.play_arrow_rounded, size: 18),
-                    label: const Text('Run query'),
+                        : Icon(Icons.play_arrow_rounded, size: 18),
+                    label: Text(appStrings.runQuery),
                   ),
                   Text(
-                    'Ctrl/⌘ + Enter runs the query.',
+                    appStrings.ctrlEnterRunsTheQuery,
                     style: TextStyle(fontSize: 12, color: _textMuted),
                   ),
                 ],
@@ -3086,9 +3086,9 @@ class _AdminSqlTabState extends State<_AdminSqlTab> {
           ),
         if (result != null)
           _SectionCard(
-            title: 'Results',
+            title: appStrings.results,
             description:
-                '${_formatNumber(result.rows.length)} ${result.rows.length == 1 ? 'row' : 'rows'}',
+                appStrings.arg1Arg23(_formatNumber(result.rows.length), result.rows.length == 1 ? 'row' : 'rows'),
             trailing: result.rows.isEmpty
                 ? null
                 : TextButton.icon(
@@ -3099,11 +3099,11 @@ class _AdminSqlTabState extends State<_AdminSqlTab> {
                       );
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Copied as CSV')),
+                        SnackBar(content: Text(appStrings.copiedAsCsv)),
                       );
                     },
-                    icon: const Icon(Icons.copy, size: 16),
-                    label: const Text('Copy CSV'),
+                    icon: Icon(Icons.copy, size: 16),
+                    label: Text(appStrings.copyCsv),
                   ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3112,14 +3112,14 @@ class _AdminSqlTabState extends State<_AdminSqlTab> {
                   _InlineNote(
                     icon: Icons.info_outline_rounded,
                     message:
-                        'Showing the first ${_formatNumber(result.rows.length)} '
-                        'rows. Add a LIMIT or a narrower WHERE clause to see '
-                        'the rest.',
+                        appStrings.showingTheFirstArg1(_formatNumber(result.rows.length)) +
+                        appStrings.rowsAddALimitOrA +
+                        appStrings.theRest,
                   ),
                   const SizedBox(height: 12),
                 ],
                 if (result.rows.isEmpty)
-                  const _EmptyText('The query returned no rows.')
+                  _EmptyText(appStrings.theQueryReturnedNoRows)
                 else
                   _AdminOpsSqlTable(result: result),
               ],

@@ -126,7 +126,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
           _PageTitle(
             title: 'Timeline',
             subtitle:
-                'Emails, AI actions, tasks and run activity in one chronological feed.',
+                appStrings.emailsAiActionsTasksAndRun,
             trailing: Wrap(
               spacing: 10,
               runSpacing: 10,
@@ -160,8 +160,8 @@ class _TimelinePanelState extends State<TimelinePanel> {
                           dimension: 14,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.sync_outlined),
-                  label: const Text('Refresh'),
+                      : Icon(Icons.sync_outlined),
+                  label: Text(appStrings.refresh),
                 ),
               ],
             ),
@@ -173,7 +173,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
                       child: Padding(
                         padding: const EdgeInsets.all(28),
                         child: Text(
-                          'No timeline activity yet for the selected filters.',
+                          appStrings.noTimelineActivityYetForThe,
                           style: TextStyle(color: _textSecondary),
                         ),
                       ),
@@ -219,12 +219,12 @@ class _TimelineFeedPane extends StatelessWidget {
               children: <Widget>[
                 Expanded(
                   child: Text(
-                    'Timeline feed',
+                    appStrings.timelineFeed,
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                   ),
                 ),
                 Text(
-                  '${groups.fold<int>(0, (sum, group) => sum + group.items.length)} entries',
+                  appStrings.arg1Entries(groups.fold<int>(0, (sum, group) => sum + group.items.length)),
                   style: TextStyle(color: _textMuted, fontSize: 12.5),
                 ),
               ],
@@ -304,7 +304,7 @@ class _TimelineDaySection extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${group.items.length} events',
+                  appStrings.arg1Events(group.items.length),
                   style: TextStyle(color: _textMuted, fontSize: 12.5),
                 ),
               ],
@@ -589,7 +589,7 @@ class _TimelineDetailPane extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        'DETAIL',
+                        appStrings.detail,
                         style: TextStyle(
                           color: _textMuted,
                           fontSize: 12,
@@ -598,8 +598,8 @@ class _TimelineDetailPane extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
-                        'Event detail',
+                      Text(
+                        appStrings.eventDetail,
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
@@ -609,24 +609,24 @@ class _TimelineDetailPane extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Previous event',
+                  tooltip: appStrings.previousEvent,
                   onPressed: onSelectPrevious,
-                  icon: const Icon(Icons.chevron_left_rounded),
+                  icon: Icon(Icons.chevron_left_rounded),
                 ),
                 Text(
                   item == null ? '0/0' : '${selectedIndex + 1}/${items.length}',
                   style: TextStyle(color: _textMuted, fontSize: 12.5),
                 ),
                 IconButton(
-                  tooltip: 'Next event',
+                  tooltip: appStrings.nextEvent,
                   onPressed: onSelectNext,
-                  icon: const Icon(Icons.chevron_right_rounded),
+                  icon: Icon(Icons.chevron_right_rounded),
                 ),
                 if (onClose != null)
                   IconButton(
                     tooltip: 'Close',
                     onPressed: onClose,
-                    icon: const Icon(Icons.close_rounded),
+                    icon: Icon(Icons.close_rounded),
                   ),
               ],
             ),
@@ -635,7 +635,7 @@ class _TimelineDetailPane extends StatelessWidget {
             child: item == null
                 ? Center(
                     child: Text(
-                      'Select an event from the feed.',
+                      appStrings.selectAnEventFromTheFeed,
                       style: TextStyle(color: _textSecondary),
                     ),
                   )
@@ -656,7 +656,7 @@ class _TimelineDetailPane extends StatelessWidget {
                             _TimelineStatPill(
                               icon: Icons.schedule_outlined,
                               label:
-                                  '${_formatTimelineTime(item.occurredAt)} · ${_formatTimelineDate(item.occurredAt.toLocal())}',
+                                  appStrings.arg1Arg22(_formatTimelineTime(item.occurredAt), _formatTimelineDate(item.occurredAt.toLocal())),
                             ),
                           ],
                         ),
@@ -705,8 +705,8 @@ class _TimelineDetailPane extends StatelessWidget {
                             width: double.infinity,
                             child: FilledButton.icon(
                               onPressed: onOpenRun,
-                              icon: const Icon(Icons.open_in_new_rounded),
-                              label: const Text('Open linked run'),
+                              icon: Icon(Icons.open_in_new_rounded),
+                              label: Text(appStrings.openLinkedRun),
                             ),
                           ),
                         ],
@@ -928,7 +928,7 @@ List<_TimelineChip> _timelineEventChips(TimelineEventItem item) {
       ),
     );
     if (item.runId.isNotEmpty) {
-      chips.add(_TimelineChip(label: 'Run linked', color: _accentAlt));
+      chips.add(_TimelineChip(label: appStrings.runLinked, color: _accentAlt));
     }
   }
   if (item.deviceLabel.trim().isNotEmpty) {
@@ -940,17 +940,17 @@ List<_TimelineChip> _timelineEventChips(TimelineEventItem item) {
 List<_TimelineDetailCell> _timelineDetailCells(TimelineEventItem item) {
   final cells = <_TimelineDetailCell>[
     _TimelineDetailCell(
-      label: 'SOURCE',
+      label: appStrings.source2,
       value: item.sourceLabel,
       emphasized: true,
       color: item.sourceColor,
     ),
     _TimelineDetailCell(
-      label: 'KIND',
+      label: appStrings.kind,
       value: _titleCase(item.eventKind.replaceAll('_', ' ')),
     ),
     _TimelineDetailCell(
-      label: 'TIME',
+      label: appStrings.time2,
       value:
           '${_formatTimelineTime(item.occurredAt)}\n${_formatTimelineDate(item.occurredAt.toLocal())}',
     ),
@@ -959,52 +959,52 @@ List<_TimelineDetailCell> _timelineDetailCells(TimelineEventItem item) {
   if (item.sourceKind == 'tasks') {
     cells.add(
       _TimelineDetailCell(
-        label: 'TASK',
+        label: appStrings.task,
         value: item.taskName.ifEmpty(item.title),
       ),
     );
     cells.add(
       _TimelineDetailCell(
-        label: 'RUN LINK',
+        label: appStrings.runLink,
         value: item.runId.isNotEmpty ? 'Available' : 'None',
       ),
     );
     cells.add(
       _TimelineDetailCell(
-        label: 'SUMMARY',
-        value: item.summary.trim().ifEmpty('No summary'),
+        label: appStrings.summary,
+        value: item.summary.trim().ifEmpty(appStrings.noSummary),
       ),
     );
   } else if (item.sourceKind == 'runs') {
     cells.add(
       _TimelineDetailCell(
-        label: 'RUN',
+        label: appStrings.run2,
         value: item.runId.isNotEmpty ? item.runId : 'Unavailable',
       ),
     );
     cells.add(
       _TimelineDetailCell(
-        label: 'SUMMARY',
-        value: item.summary.trim().ifEmpty('No summary'),
+        label: appStrings.summary,
+        value: item.summary.trim().ifEmpty(appStrings.noSummary),
       ),
     );
     cells.add(
       _TimelineDetailCell(
-        label: 'TITLE',
-        value: item.title.ifEmpty('Untitled run event'),
+        label: appStrings.title,
+        value: item.title.ifEmpty(appStrings.untitledRunEvent),
       ),
     );
   } else {
     cells.add(
       _TimelineDetailCell(
-        label: 'SUMMARY',
-        value: item.summary.trim().ifEmpty('No summary'),
+        label: appStrings.summary,
+        value: item.summary.trim().ifEmpty(appStrings.noSummary),
       ),
     );
   }
 
   if (cells.length.isOdd) {
-    cells.add(const _TimelineDetailCell(label: 'STATUS', value: 'Captured'));
+    cells.add(_TimelineDetailCell(label: appStrings.status2, value: 'Captured'));
   }
   return cells.take(6).toList(growable: false);
 }
@@ -1042,11 +1042,11 @@ Color _sourceColorForKind(String kind) {
 
 String _timelineDayLabel(DateTime day, DateTime now) {
   if (_isSameDay(day, now)) {
-    return 'Today';
+    return appStrings.today;
   }
   final yesterday = now.subtract(const Duration(days: 1));
   if (_isSameDay(day, yesterday)) {
-    return 'Yesterday';
+    return appStrings.yesterday;
   }
   return _weekdayShort(day.weekday);
 }
@@ -1056,7 +1056,7 @@ bool _isSameDay(DateTime a, DateTime b) {
 }
 
 String _formatTimelineDate(DateTime value) {
-  return '${_monthShort(value.month)} ${value.day}, ${value.year}';
+  return appStrings.arg1Arg2Arg39(_monthShort(value.month), value.day, value.year);
 }
 
 String _formatTimelineTime(DateTime value) {
@@ -1122,8 +1122,8 @@ List<Widget> _timelineDetailBody(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
             onPressed: onOpenRun,
-            icon: const Icon(Icons.open_in_new_rounded, size: 16),
-            label: const Text('Open run'),
+            icon: Icon(Icons.open_in_new_rounded, size: 16),
+            label: Text(appStrings.openRun),
           ),
         ),
       ),

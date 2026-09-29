@@ -51,15 +51,15 @@ extension _PhoneCallLayout on _VoiceAssistantPanelState {
                   Row(
                     children: <Widget>[
                       IconButton(
-                        tooltip: 'Back to chat',
-                        icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                        tooltip: appStrings.backToChat,
+                        icon: Icon(Icons.keyboard_arrow_down_rounded),
                         iconSize: 30,
                         color: _textSecondary,
                         onPressed: _leavePhoneCall,
                       ),
                       Expanded(
                         child: Text(
-                          'VOICE CALL',
+                          appStrings.voiceCall,
                           textAlign: TextAlign.center,
                           style: _sectionEyebrowStyle(),
                         ),
@@ -225,7 +225,7 @@ extension _PhoneCallLayout on _VoiceAssistantPanelState {
         onPointerCancel: _handlePrimaryPointerUp,
         child: _CallRoundButton(
           icon: capturing ? Icons.graphic_eq_rounded : Icons.mic_rounded,
-          label: capturing ? 'Release to send' : 'Hold to talk',
+          label: capturing ? 'Release to send' : appStrings.holdToTalk2,
           color: capturing ? _success : _accent,
           foreground: _bgPrimary,
           enabled: true,
@@ -239,13 +239,13 @@ extension _PhoneCallLayout on _VoiceAssistantPanelState {
         if (!endButton)
           _CallRoundButton(
             icon: Icons.subject_rounded,
-            label: 'Transcript',
+            label: appStrings.transcript,
             onTap: () => _showPhoneCallTranscript(controller),
           ),
         talk,
         _CallRoundButton(
           icon: Icons.voice_over_off_rounded,
-          label: 'Stop speaking',
+          label: appStrings.stopSpeaking,
           onTap: liveState.isSpeaking ? controller.stopLiveVoicePlayback : null,
         ),
         if (endButton) _endCallButton(controller, size: 64),
@@ -257,7 +257,7 @@ extension _PhoneCallLayout on _VoiceAssistantPanelState {
     final inCall = controller.voiceAssistantLiveState.hasActiveSession;
     return _CallRoundButton(
       icon: Icons.call_end_rounded,
-      label: 'End',
+      label: appStrings.end,
       size: size,
       color: _danger,
       foreground: Colors.white,
@@ -267,7 +267,7 @@ extension _PhoneCallLayout on _VoiceAssistantPanelState {
 
   Widget _placeCallButton() => _CallRoundButton(
     icon: Icons.call_rounded,
-    label: 'Call',
+    label: appStrings.call,
     size: 76,
     color: _success,
     foreground: Colors.white,
@@ -280,8 +280,8 @@ extension _PhoneCallLayout on _VoiceAssistantPanelState {
     required bool dialing,
   }) {
     if (dialing) return 'Calling…';
-    if (!liveState.hasActiveSession) return 'Voice call';
-    return '${_callElapsedLabel(controller)} · '
+    if (!liveState.hasActiveSession) return appStrings.voiceCall2;
+    return appStrings.arg12(_callElapsedLabel(controller)) +
         '${_liveStateLabel(controller, liveState)}';
   }
 
@@ -330,7 +330,7 @@ extension _PhoneCallLayout on _VoiceAssistantPanelState {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text('TRANSCRIPT', style: _sectionEyebrowStyle()),
+                Text(appStrings.transcript2, style: _sectionEyebrowStyle()),
                 const SizedBox(height: 12),
                 _buildTimeline(controller.voiceAssistantLiveState),
               ],

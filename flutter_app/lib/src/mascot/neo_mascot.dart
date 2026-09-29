@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import 'mascot_frames.dart';
 import 'mascot_mood.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 /// The NeoAgent mascot: a dark tile whose screen is a 9×9 dot-matrix face.
 ///
@@ -168,7 +169,7 @@ class _NeoMascotState extends State<NeoMascot>
   Widget build(BuildContext context) {
     return Semantics(
       image: true,
-      label: 'NeoAgent, ${widget.mood.semanticLabel}',
+      label: appStrings.neoagentArg1(widget.mood.semanticLabel),
       child: RepaintBoundary(
         child: CustomPaint(size: Size.square(widget.size), painter: _painter),
       ),

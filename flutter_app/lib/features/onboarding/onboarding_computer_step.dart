@@ -4,33 +4,34 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../src/theme/palette.dart';
 import 'onboarding_chrome.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 class OnboardingComputerStep extends StatelessWidget {
   const OnboardingComputerStep({super.key, required this.onNext});
 
   final VoidCallback onNext;
 
-  static const List<_ComputerPoint> _points = <_ComputerPoint>[
+  static List<_ComputerPoint> _points = <_ComputerPoint>[
     _ComputerPoint(
       icon: Icons.terminal_rounded,
-      title: 'Works like you would',
+      title: appStrings.worksLikeYouWould,
       body:
-          'Runs commands, browses the web and edits files on a real Linux '
-          'desktop to finish the job.',
+          appStrings.runsCommandsBrowsesTheWebAnd +
+          appStrings.desktopToFinishTheJob,
     ),
     _ComputerPoint(
       icon: Icons.visibility_rounded,
-      title: 'Watch it live',
+      title: appStrings.watchItLive,
       body:
-          'Open the Computer tab next to any session to see the screen '
-          'while it works.',
+          appStrings.openTheComputerTabNextTo +
+          appStrings.whileItWorks,
     ),
     _ComputerPoint(
       icon: Icons.lock_outline_rounded,
-      title: 'Private and isolated',
+      title: appStrings.privateAndIsolated,
       body:
-          'The cloud computer is sandboxed from your devices. Switch a '
-          'session to This device when you want it to work locally.',
+          appStrings.theCloudComputerIsSandboxedFrom +
+          appStrings.sessionToThisDeviceWhenYou,
     ),
   ];
 
@@ -40,15 +41,15 @@ class OnboardingComputerStep extends StatelessWidget {
       step: 3,
       totalSteps: 5,
       eyebrow: 'COMPUTER',
-      title: 'NeoAgent has its\nown computer.',
+      title: appStrings.neoagentHasItsOwnComputer,
       description:
-          'Every session gets a private cloud computer, so NeoAgent can do '
-          'real work instead of just talking about it.',
+          appStrings.everySessionGetsAPrivateCloud +
+          appStrings.realWorkInsteadOfJustTalking,
       footer: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[
           OnboardingPrimaryButton(
-            label: 'Continue',
+            label: appStrings.continue2,
             icon: Icons.arrow_forward_rounded,
             onPressed: onNext,
           ),
@@ -189,7 +190,7 @@ class _ComputerPreview extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Cloud computer',
+                    appStrings.cloudComputer,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.geist(
@@ -215,12 +216,12 @@ class _ComputerPreview extends StatelessWidget {
                         text: '\$ ',
                         style: mono.copyWith(color: p.accent),
                       ),
-                      const TextSpan(text: 'git clone repo && npm test'),
+                      TextSpan(text: appStrings.gitCloneRepoNpmTest),
                     ],
                   ),
                   style: mono,
                 ),
-                Text('✓ 42 passing', style: mono.copyWith(color: p.success)),
+                Text(appStrings.n42Passing, style: mono.copyWith(color: p.success)),
                 Text.rich(
                   TextSpan(
                     children: <InlineSpan>[
@@ -228,7 +229,7 @@ class _ComputerPreview extends StatelessWidget {
                         text: '\$ ',
                         style: mono.copyWith(color: p.accent),
                       ),
-                      const TextSpan(text: 'open browser → checking docs'),
+                      TextSpan(text: appStrings.openBrowserCheckingDocs),
                     ],
                   ),
                   style: mono,

@@ -12,6 +12,7 @@ import 'local_setup_engine.dart';
 import 'runtime_activation_service.dart';
 import 'runtime_archive_service.dart';
 import 'runtime_release_service.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 class LocalBackendInstaller {
   LocalBackendInstaller({http.Client? client})
@@ -28,7 +29,7 @@ class LocalBackendInstaller {
         _emit(
           LocalBackendInstallStage.download,
           'progress',
-          'Downloading the NeoAgent backend',
+          appStrings.downloadingTheNeoagentBackend,
           progress: 0.12 + progress * 0.36,
         );
       },
@@ -56,9 +57,9 @@ class LocalBackendInstaller {
     required String channel,
   }) async {
     if (_disposed) {
-      throw const LocalBackendInstallerException(
+      throw LocalBackendInstallerException(
         'SETUP_INSTALLER_DISPOSED',
-        'The installer is no longer available.',
+        appStrings.theInstallerIsNoLongerAvailable,
         retryable: false,
       );
     }
@@ -66,7 +67,7 @@ class LocalBackendInstaller {
     _emit(
       LocalBackendInstallStage.prepare,
       'started',
-      'Finding the correct NeoAgent runtime',
+      appStrings.findingTheCorrectNeoagentRuntime,
       progress: 0.02,
     );
     Directory? stagingDirectory;
@@ -85,7 +86,7 @@ class LocalBackendInstaller {
       );
       final runtimeRoot = Directory(paths.runtimeHome);
       final versionsRoot = Directory(
-        '${runtimeRoot.path}${Platform.pathSeparator}app'
+        '${runtimeRoot.path}${Platform.pathSeparator}app' +
         '${Platform.pathSeparator}versions',
       );
       final versionDirectory = Directory(
@@ -101,7 +102,7 @@ class LocalBackendInstaller {
         _emit(
           LocalBackendInstallStage.download,
           'started',
-          'Downloading the NeoAgent backend',
+          appStrings.downloadingTheNeoagentBackend,
           progress: 0.12,
         );
         await _releaseService.downloadArtifact(release, archiveFile);
@@ -110,14 +111,14 @@ class LocalBackendInstaller {
         _emit(
           LocalBackendInstallStage.verify,
           'started',
-          'Verifying the downloaded runtime',
+          appStrings.verifyingTheDownloadedRuntime,
           progress: 0.5,
         );
         final digest = await sha256.bind(archiveFile.openRead()).first;
         if (digest.toString() != artifact.sha256) {
-          throw const LocalBackendInstallerException(
+          throw LocalBackendInstallerException(
             'SETUP_RUNTIME_HASH_MISMATCH',
-            'The downloaded NeoAgent runtime did not pass verification.',
+            appStrings.theDownloadedNeoagentRuntimeDidNot,
           );
         }
 
@@ -128,7 +129,7 @@ class LocalBackendInstaller {
         _emit(
           LocalBackendInstallStage.install,
           'started',
-          'Extracting the NeoAgent runtime',
+          appStrings.extractingTheNeoagentRuntime,
           progress: 0.58,
         );
         var extractProgress = 0.58;
@@ -140,7 +141,7 @@ class LocalBackendInstaller {
           _emit(
             LocalBackendInstallStage.install,
             'progress',
-            'Extracting the NeoAgent runtime',
+            appStrings.extractingTheNeoagentRuntime,
             progress: extractProgress,
           );
         });
@@ -160,7 +161,7 @@ class LocalBackendInstaller {
         _emit(
           LocalBackendInstallStage.install,
           'started',
-          'Using the installed NeoAgent runtime',
+          appStrings.usingTheInstalledNeoagentRuntime,
           progress: 0.7,
         );
       }
@@ -191,7 +192,7 @@ class LocalBackendInstaller {
       _emit(
         LocalBackendInstallStage.complete,
         'completed',
-        'NeoAgent is ready',
+        appStrings.neoagentIsReady,
         progress: 1,
       );
       return result;
@@ -223,7 +224,7 @@ class LocalBackendInstaller {
         _emit(
           LocalBackendInstallStage.install,
           'message',
-          'A temporary download will be cleaned up later.',
+          appStrings.aTemporaryDownloadWillBeCleaned,
         );
       }
       try {
@@ -232,7 +233,7 @@ class LocalBackendInstaller {
         _emit(
           LocalBackendInstallStage.install,
           'message',
-          'Temporary setup files will be cleaned up later.',
+          appStrings.temporarySetupFilesWillBeCleaned,
         );
       }
     }
@@ -242,9 +243,9 @@ class LocalBackendInstaller {
     if (Platform.isMacOS) return 'macos';
     if (Platform.isWindows) return 'windows';
     if (Platform.isLinux) return 'linux';
-    throw const LocalBackendInstallerException(
+    throw LocalBackendInstallerException(
       'SETUP_PLATFORM_UNSUPPORTED',
-      'Local backend installation is not available on this platform.',
+      appStrings.localBackendInstallationIsNotAvailable,
       retryable: false,
     );
   }
@@ -272,9 +273,9 @@ class LocalBackendInstaller {
 
   void _throwIfCancelled() {
     if (_cancelled) {
-      throw const LocalBackendInstallerException(
+      throw LocalBackendInstallerException(
         'SETUP_CANCELLED',
-        'Setup was cancelled.',
+        appStrings.setupWasCancelled,
       );
     }
   }

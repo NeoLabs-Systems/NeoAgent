@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../main.dart';
 import '../../../src/error_text.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 class RetrievalInspectorView extends StatefulWidget {
   final NeoAgentController controller;
@@ -57,7 +58,7 @@ class _RetrievalInspectorViewState extends State<RetrievalInspectorView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Retrieval Inspector'),
+        title: Text(appStrings.retrievalInspector),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -68,8 +69,8 @@ class _RetrievalInspectorViewState extends State<RetrievalInspectorView> {
                 Expanded(
                   child: TextField(
                     controller: _queryController,
-                    decoration: const InputDecoration(
-                      labelText: 'Query',
+                    decoration: InputDecoration(
+                      labelText: appStrings.query,
                       border: OutlineInputBorder(),
                     ),
                     onSubmitted: (_) => _inspect(),
@@ -78,7 +79,7 @@ class _RetrievalInspectorViewState extends State<RetrievalInspectorView> {
                 const SizedBox(width: 8),
                 ElevatedButton(
                   onPressed: _isLoading ? null : _inspect,
-                  child: const Text('Inspect'),
+                  child: Text(appStrings.inspect),
                 ),
               ],
             ),
@@ -86,7 +87,7 @@ class _RetrievalInspectorViewState extends State<RetrievalInspectorView> {
             if (_isLoading)
               const CircularProgressIndicator()
             else if (_error != null)
-              Text('Error: $_error', style: const TextStyle(color: Colors.red))
+              Text(appStrings.errorArg12(_error), style: const TextStyle(color: Colors.red))
             else if (_results != null)
               Expanded(
                 child: ListView.builder(
@@ -102,19 +103,19 @@ class _RetrievalInspectorViewState extends State<RetrievalInspectorView> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Score: ${item['score']?.toStringAsFixed(3) ?? '?'}',
+                              appStrings.scoreArg1(item['score']?.toStringAsFixed(3) ?? '?'),
                               style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
-                            Text('Content: ${item['content']}'),
+                            Text(appStrings.contentArg1(item['content'])),
                             const SizedBox(height: 8),
-                            const Text('Breakdown:', style: TextStyle(fontWeight: FontWeight.bold)),
-                            Text('Semantic: ${breakdown['semantic']?.toStringAsFixed(3)}'),
-                            Text('Lexical: ${breakdown['lexical']?.toStringAsFixed(3)}'),
-                            Text('Full Text (FTS): ${breakdown['fullText']?.toStringAsFixed(3)}'),
-                            Text('Entity: ${breakdown['entity']?.toStringAsFixed(3)}'),
-                            Text('Relation: ${breakdown['relation']?.toStringAsFixed(3)}'),
-                            Text('Candidate Count: ${breakdown['candidateCount']}'),
-                            Text('Vector Rank: ${breakdown['vectorCandidateRank']}'),
+                            Text(appStrings.breakdown, style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text(appStrings.semanticArg1(breakdown['semantic']?.toStringAsFixed(3))),
+                            Text(appStrings.lexicalArg1(breakdown['lexical']?.toStringAsFixed(3))),
+                            Text(appStrings.fullTextFtsArg1(breakdown['fullText']?.toStringAsFixed(3))),
+                            Text(appStrings.entityArg1(breakdown['entity']?.toStringAsFixed(3))),
+                            Text(appStrings.relationArg1(breakdown['relation']?.toStringAsFixed(3))),
+                            Text(appStrings.candidateCountArg1(breakdown['candidateCount'])),
+                            Text(appStrings.vectorRankArg1(breakdown['vectorCandidateRank'])),
                           ],
                         ),
                       ),

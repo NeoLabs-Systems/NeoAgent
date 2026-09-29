@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../src/theme/palette.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 /// A ready-made scheduled task offered to users who have none yet.
 class TaskRecommendation {
@@ -24,78 +25,78 @@ class TaskRecommendation {
   final Color accent;
 }
 
-const List<TaskRecommendation> taskRecommendations = <TaskRecommendation>[
+List<TaskRecommendation> taskRecommendations = <TaskRecommendation>[
   TaskRecommendation(
-    title: 'Daily recap',
+    title: appStrings.dailyRecap,
     description:
-        'An evening summary of what happened and what to follow up on.',
-    scheduleLabel: 'Every day · 20:00',
+        appStrings.anEveningSummaryOfWhatHappened,
+    scheduleLabel: appStrings.everyDay2000,
     cronExpression: '0 20 * * *',
     prompt:
-        'Recap my day: summarize the conversations, finished work and '
-        'decisions from today, then list anything I should follow up on '
-        'tomorrow. Keep it short and send it to me.',
+        appStrings.recapMyDaySummarizeTheConversations +
+        appStrings.decisionsFromTodayThenListAnything +
+        appStrings.tomorrowKeepItShortAndSend,
     icon: Icons.nightlight_round,
     accent: Color(0xFF8B7CF6),
   ),
   TaskRecommendation(
-    title: 'Hourly inbox check',
-    description: 'Scans new email and only pings you when something matters.',
-    scheduleLabel: 'Every hour',
+    title: appStrings.hourlyInboxCheck,
+    description: appStrings.scansNewEmailAndOnlyPings,
+    scheduleLabel: appStrings.everyHour,
     cronExpression: '0 * * * *',
     prompt:
-        'Check my email inbox for messages that arrived since the last check. '
-        'Only message me about emails that are urgent or need a reply, with a '
-        'one-line summary each. If nothing needs my attention, do not send '
+        appStrings.checkMyEmailInboxForMessages +
+        appStrings.onlyMessageMeAboutEmailsThat +
+        appStrings.oneLineSummaryEachIfNothing +
         'anything.',
     icon: Icons.mark_email_unread_rounded,
     accent: Color(0xFF3B82F6),
   ),
   TaskRecommendation(
-    title: 'Morning briefing',
-    description: 'Weather, calendar and priorities before your day starts.',
-    scheduleLabel: 'Weekdays · 07:30',
+    title: appStrings.morningBriefing,
+    description: appStrings.weatherCalendarAndPrioritiesBeforeYour,
+    scheduleLabel: appStrings.weekdays0730,
     cronExpression: '30 7 * * 1-5',
     prompt:
-        'Prepare my morning briefing: today\'s weather where I am, the events '
-        'on my calendar, and the most important open items I know about. '
-        'Send it as a short, scannable message.',
+        appStrings.prepareMyMorningBriefingTodayS +
+        appStrings.onMyCalendarAndTheMost +
+        appStrings.sendItAsAShortScannable,
     icon: Icons.wb_sunny_rounded,
     accent: Color(0xFFF59E0B),
   ),
   TaskRecommendation(
-    title: 'Tomorrow prep',
+    title: appStrings.tomorrowPrep,
     description:
-        'Looks ahead at tomorrow\'s meetings so nothing surprises you.',
-    scheduleLabel: 'Weekdays · 18:00',
+        appStrings.looksAheadAtTomorrowSMeetings,
+    scheduleLabel: appStrings.weekdays1800,
     cronExpression: '0 18 * * 1-5',
     prompt:
-        'Look at my calendar for tomorrow. For each meeting, tell me what it '
-        'is about, who is involved and anything I should prepare. If tomorrow '
-        'is empty, do not send anything.',
+        appStrings.lookAtMyCalendarForTomorrow +
+        appStrings.isAboutWhoIsInvolvedAnd +
+        appStrings.isEmptyDoNotSendAnything,
     icon: Icons.event_note_rounded,
     accent: Color(0xFF10B981),
   ),
   TaskRecommendation(
-    title: 'News digest',
-    description: 'Headlines on the topics you care about, filtered for signal.',
-    scheduleLabel: 'Every day · 08:00',
+    title: appStrings.newsDigest,
+    description: appStrings.headlinesOnTheTopicsYouCare,
+    scheduleLabel: appStrings.everyDay0800,
     cronExpression: '0 8 * * *',
     prompt:
-        'Search the web for today\'s most important news on the topics I care '
-        'about (use what you remember about my interests). Send me a digest '
-        'of up to five items with one sentence each and a link.',
+        appStrings.searchTheWebForTodayS +
+        appStrings.aboutUseWhatYouRememberAbout +
+        appStrings.ofUpToFiveItemsWith,
     icon: Icons.newspaper_rounded,
     accent: Color(0xFFEF4444),
   ),
   TaskRecommendation(
-    title: 'Weekly review',
-    description: 'A Friday look back at the week and a plan for the next.',
-    scheduleLabel: 'Fridays · 17:00',
+    title: appStrings.weeklyReview,
+    description: appStrings.aFridayLookBackAtThe,
+    scheduleLabel: appStrings.fridays1700,
     cronExpression: '0 17 * * 5',
     prompt:
-        'Review my week: what got done, what slipped and what is still open. '
-        'Suggest the three most important things to focus on next week.',
+        appStrings.reviewMyWeekWhatGotDone +
+        appStrings.suggestTheThreeMostImportantThings,
     icon: Icons.insights_rounded,
     accent: Color(0xFF14B8A6),
   ),
@@ -222,7 +223,7 @@ class _AddButton extends StatelessWidget {
         children: <Widget>[
           Icon(Icons.add_rounded, size: 16, color: accent),
           const SizedBox(width: 6),
-          Text('Add', style: _labelStyle(accent)),
+          Text(appStrings.add, style: _labelStyle(accent)),
         ],
       ),
       TaskRecommendationStatus.adding => SizedBox(
@@ -235,9 +236,9 @@ class _AddButton extends StatelessWidget {
         key: const ValueKey<String>('added'),
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          const Icon(Icons.check_rounded, size: 16, color: Colors.white),
+          Icon(Icons.check_rounded, size: 16, color: Colors.white),
           const SizedBox(width: 6),
-          Text('Added', style: _labelStyle(Colors.white)),
+          Text(appStrings.added, style: _labelStyle(Colors.white)),
         ],
       ),
     };
@@ -294,7 +295,7 @@ class TaskInspirationButton extends StatelessWidget {
               Icon(Icons.auto_awesome_rounded, size: 14, color: p.accent),
               const SizedBox(width: 6),
               Text(
-                'Get inspired',
+                appStrings.getInspired,
                 style: GoogleFonts.geist(
                   color: p.accent,
                   fontSize: 12.5,
@@ -332,7 +333,7 @@ Future<TaskRecommendation?> showTaskInspirationPicker(BuildContext context) {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Need an idea?',
+                        appStrings.needAnIdea,
                         style: GoogleFonts.geist(
                           color: p.textPrimary,
                           fontSize: 18,
@@ -350,7 +351,7 @@ Future<TaskRecommendation?> showTaskInspirationPicker(BuildContext context) {
                 Padding(
                   padding: const EdgeInsets.only(top: 2, bottom: 14),
                   child: Text(
-                    'Pick one to fill in the task. You can tweak everything afterwards.',
+                    appStrings.pickOneToFillInThe,
                     style: GoogleFonts.geist(
                       color: p.textSecondary,
                       fontSize: 13,

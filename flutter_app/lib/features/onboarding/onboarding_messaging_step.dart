@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../main.dart';
 import '../../src/theme/palette.dart';
 import 'onboarding_chrome.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 class OnboardingMessagingStep extends StatefulWidget {
   const OnboardingMessagingStep({
@@ -35,13 +36,13 @@ class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
       step: 1,
       totalSteps: 5,
       eyebrow: 'COMMUNICATION',
-      title: 'Connect a\nmessaging platform.',
-      description: 'Choose one to get started now. You can add more later.',
+      title: appStrings.connectAMessagingPlatform,
+      description: appStrings.chooseOneToGetStartedNow,
       footer: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: <Widget>[
           OnboardingGhostButton(
-            label: 'Skip for now',
+            label: appStrings.skipForNow,
             onPressed: widget.onNext,
           ),
           Wrap(
@@ -50,7 +51,7 @@ class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
             children: <Widget>[
               if (_selectedPlatform != null)
                 OnboardingGhostButton(
-                  label: 'Configure',
+                  label: appStrings.configure,
                   icon: Icons.settings_rounded,
                   onPressed: () async {
                     try {
@@ -64,7 +65,7 @@ class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            'Failed to connect: ${widget.controller.friendlyErrorMessage(e)}',
+                            appStrings.failedToConnectArg1(widget.controller.friendlyErrorMessage(e)),
                           ),
                         ),
                       );

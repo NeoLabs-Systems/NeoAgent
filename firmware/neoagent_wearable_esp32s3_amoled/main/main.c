@@ -29,6 +29,8 @@ static const char *TAG = "NeoAgentWearable";
 
 #define NEOAGENT_RUNTIME_TASK_STACK_SIZE 24576
 #define NEOAGENT_CHROME_REFRESH_INTERVAL_MS 5000
+#define NEOAGENT_DISPLAY_DIM_MS 4000
+#define NEOAGENT_STANDBY_POLL_MS 150
 #define NEOAGENT_TOUCH_ACTION_COOLDOWN_MS 300
 // Shorter than this, a hold is a tap: it stops a reply instead of talking.
 #define NEOAGENT_TALK_TAP_MS 250
@@ -646,6 +648,14 @@ static bool enter_display_standby(bool *display_sleeping) {
     return true;
 }
 
+// Codec clocks and a fully awake radio are the idle drain. A turn that is
+// actually moving audio keeps both up; a quiet task does not.
+static void apply_idle_power(const wearable_voice_snapshot_t *voice) {
+    const bool audio_live = voice != NULL && (voice->speaking || voice->capturing || voice->call == WEARABLE_CALL_CONNECTING);
+    board_support_audio_set_active(&s_board, audio_live);
+    provisioning_manager_set_station_power_save(!audio_live);
+}
+
 static bool wake_display_from_standby(bool *display_sleeping) {
     esp_err_t display_err = board_support_set_display_awake(&s_board, true);
     if (display_err != ESP_OK) {
@@ -810,7 +820,9 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
             if (s_voice != NULL) {
                 wearable_voice_client_poll(s_voice);
             }
-            vTaskDelay(pdMS_TO_TICKS(30));
+            read_voice(&voice);
+            apply_idle_power(&voice);
+            vTaskDelay(pdMS_TO_TICKS(NEOAGENT_STANDBY_POLL_MS));
             continue;
         }
 
@@ -824,11 +836,13 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
         track_moment(&moment, &voice);
         mascot_stabilizer_update(&stabilizer, call_mood(&voice, &moment), moment.id, esp_timer_get_time() / 1000);
 
-        // Talking, a reply playing or a call being placed keeps the display on.
-        const bool voice_active = voice.speaking || voice.capturing || voice.call == WEARABLE_CALL_CONNECTING;
+        // Talking, a reply playing, a call being placed, or a task still running
+        // keeps the display on.
+        const bool voice_active = voice.speaking || voice.capturing || voice.call == WEARABLE_CALL_CONNECTING || voice.task_running;
         if (voice_active) {
             last_activity = now;
         }
+        board_support_set_display_dimmed(&s_board, now - last_activity >= pdMS_TO_TICKS(NEOAGENT_DISPLAY_DIM_MS));
         // No hang-up button: an open call nobody uses ends by itself, which also
         // ends the billed live-model session.
         if (voice.call == WEARABLE_CALL_IDLE || voice_active || voice.capturing || voice.task_running) {
@@ -976,6 +990,7 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
             shown.call.task = view.call.task != NULL ? shown.task : NULL;
             shown_valid = true;
         }
+        apply_idle_power(&voice);
         vTaskDelay(pdMS_TO_TICKS(40));
     }
 }

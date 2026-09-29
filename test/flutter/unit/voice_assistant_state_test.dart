@@ -67,4 +67,29 @@ void main() {
     expect(VoiceAssistantLiveState(state: 'reconnecting').isConnecting, isTrue);
     expect(VoiceAssistantLiveState(state: 'listening').isConnecting, isFalse);
   });
+
+  test('keyboard clicks belong only to a silent in-progress voice task', () {
+    final working = VoiceAssistantLiveState(
+      sessionId: 'session-1',
+      activeRunId: 'run-1',
+      state: 'listening',
+    );
+    expect(working.isWorkingSilently, isTrue);
+    expect(working.copyWith(state: 'speaking').isWorkingSilently, isFalse);
+    expect(working.copyWith(state: 'connecting').isWorkingSilently, isFalse);
+    expect(working.copyWith(activeRunId: '').isWorkingSilently, isFalse);
+    expect(
+      working
+          .copyWith(error: 'The live voice connection ended.')
+          .isWorkingSilently,
+      isFalse,
+    );
+    expect(
+      VoiceAssistantLiveState(
+        activeRunId: 'run-1',
+        state: 'listening',
+      ).isWorkingSilently,
+      isFalse,
+    );
+  });
 }

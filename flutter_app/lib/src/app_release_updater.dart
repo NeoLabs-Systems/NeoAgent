@@ -8,6 +8,7 @@ import 'android_app_installer.dart';
 import 'host_architecture.dart';
 import 'error_text.dart';
 import 'oauth_launcher.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 const String appUpdaterGithubOwner = String.fromEnvironment(
   'NEOAGENT_UPDATES_GITHUB_OWNER',
@@ -41,18 +42,18 @@ class AppUpdateAsset {
   String get sizeLabel {
     final size = sizeBytes;
     if (size == null || size <= 0) {
-      return 'Unknown size';
+      return appStrings.unknownSize;
     }
     if (size >= 1024 * 1024 * 1024) {
-      return '${(size / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+      return appStrings.arg1Gb((size / (1024 * 1024 * 1024)).toStringAsFixed(1));
     }
     if (size >= 1024 * 1024) {
-      return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
+      return appStrings.arg1Mb((size / (1024 * 1024)).toStringAsFixed(1));
     }
     if (size >= 1024) {
-      return '${(size / 1024).toStringAsFixed(1)} KB';
+      return appStrings.arg1Kb((size / 1024).toStringAsFixed(1));
     }
-    return '$size B';
+    return appStrings.arg1B(size);
   }
 }
 
@@ -142,7 +143,7 @@ class AppReleaseInfo {
   String get publishedLabel {
     final date = publishedAt;
     if (date == null) {
-      return 'Unknown publish time';
+      return appStrings.unknownPublishTime;
     }
     final month = <int, String>{
       1: 'Jan',
@@ -158,7 +159,7 @@ class AppReleaseInfo {
       11: 'Nov',
       12: 'Dec',
     }[date.month];
-    return '$month ${date.day}, ${date.year}';
+    return appStrings.arg1Arg2Arg39(month, date.day, date.year);
   }
 }
 
@@ -214,7 +215,7 @@ class AppReleaseUpdater {
         currentVersion: installedVersion,
         channel: normalizedChannel,
         updateAvailable: false,
-        errorMessage: 'App updates are not configured for this build.',
+        errorMessage: appStrings.appUpdatesAreNotConfiguredFor,
       );
     }
 
@@ -227,7 +228,7 @@ class AppReleaseUpdater {
         ),
         headers: <String, String>{
           'Accept': 'application/vnd.github+json',
-          'User-Agent': 'NeoAgent Flutter Updater',
+          'User-Agent': appStrings.neoagentFlutterUpdater,
           if (appUpdaterGithubToken.trim().isNotEmpty)
             'Authorization': 'Bearer ${appUpdaterGithubToken.trim()}',
         },
@@ -239,7 +240,7 @@ class AppReleaseUpdater {
           channel: normalizedChannel,
           updateAvailable: false,
           errorMessage:
-              'GitHub release check failed with HTTP ${response.statusCode}.',
+              appStrings.githubReleaseCheckFailedWithHttp(response.statusCode),
         );
       }
 
@@ -249,7 +250,7 @@ class AppReleaseUpdater {
           currentVersion: installedVersion,
           channel: normalizedChannel,
           updateAvailable: false,
-          errorMessage: 'GitHub release payload was not a release list.',
+          errorMessage: appStrings.githubReleasePayloadWasNotA,
         );
       }
 
@@ -264,7 +265,7 @@ class AppReleaseUpdater {
           channel: normalizedChannel,
           updateAvailable: false,
           errorMessage:
-              'No ${normalizedChannel == 'beta' ? 'beta' : 'stable'} release asset matched this platform.',
+              appStrings.noArg1ReleaseAssetMatchedThis(normalizedChannel == 'beta' ? 'beta' : 'stable'),
         );
       }
 
@@ -295,7 +296,7 @@ class AppReleaseUpdater {
           downloadUrl: release.asset.downloadUrl,
           fileName: release.asset.name,
           headers: <String, String>{
-            'User-Agent': 'NeoAgent Flutter Updater',
+            'User-Agent': appStrings.neoagentFlutterUpdater,
             if (appUpdaterGithubToken.trim().isNotEmpty)
               'Authorization': 'Bearer ${appUpdaterGithubToken.trim()}',
           },

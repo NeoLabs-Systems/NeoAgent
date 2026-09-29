@@ -39,11 +39,11 @@ const _overviewSettingsSection = _SettingsSection(
   <String>['overview', 'summary', 'onboarding', 'platform', 'providers'],
 );
 
-const _timeZoneSettingsSection = _SettingsSection(
-  'time zone',
-  'Time zone',
+final _timeZoneSettingsSection = _SettingsSection(
+  appStrings.timeZone,
+  appStrings.timeZone2,
   Icons.schedule_outlined,
-  <String>['time zone', 'timezone', 'clock', 'region', 'schedule', 'dst'],
+  <String>[appStrings.timeZone, 'timezone', 'clock', 'region', 'schedule', 'dst'],
 );
 
 const _workspaceSettingsSection = _SettingsSection(
@@ -61,25 +61,25 @@ const _workspaceSettingsSection = _SettingsSection(
   ],
 );
 
-const _behaviorSettingsSection = _SettingsSection(
+final _behaviorSettingsSection = _SettingsSection(
   'behavior',
   'Behavior',
   Icons.psychology_outlined,
   <String>[
     'behavior',
     'persona',
-    'social intelligence',
-    'turn taking',
+    appStrings.socialIntelligence,
+    appStrings.turnTaking,
     'groups',
     'memory',
     'norms',
-    'theory of mind',
+    appStrings.theoryOfMind,
     'delivery',
   ],
 );
 
-const _modelsSettingsSection =
-    _SettingsSection('models', 'Models & routing', Icons.hub_outlined, <String>[
+final _modelsSettingsSection =
+    _SettingsSection('models', appStrings.modelsRouting, Icons.hub_outlined, <String>[
       'models',
       'providers',
       'routing',
@@ -87,25 +87,25 @@ const _modelsSettingsSection =
       'chat',
       'sub-agent',
       'subagent',
-      'smart selector',
+      appStrings.smartSelector,
       'jev',
       'decisions',
     ]);
 
-const _advancedSettingsSection =
+final _advancedSettingsSection =
     _SettingsSection('advanced', 'Advanced', Icons.vpn_key_outlined, <String>[
       'advanced',
       'byok',
-      'bring your own key',
-      'api key',
-      'custom endpoint',
-      'openai compatible',
-      'own model',
+      appStrings.bringYourOwnKey,
+      appStrings.apiKey2,
+      appStrings.customEndpoint,
+      appStrings.openaiCompatible,
+      appStrings.ownModel,
     ]);
 
-const _socialReachSettingsSection = _SettingsSection(
-  'social reach',
-  'Social reach',
+final _socialReachSettingsSection = _SettingsSection(
+  appStrings.socialReach,
+  appStrings.socialReach2,
   Icons.public_outlined,
   <String>[
     'social',
@@ -131,11 +131,11 @@ const _voiceSettingsSection = _SettingsSection(
   <String>['voice', 'speech', 'tts', 'stt', 'live'],
 );
 
-const _desktopSettingsSection = _SettingsSection(
+final _desktopSettingsSection = _SettingsSection(
   'desktop',
   'Desktop',
   Icons.desktop_windows_outlined,
-  <String>['desktop', 'local app', 'tray', 'hotkey'],
+  <String>['desktop', appStrings.localApp, 'tray', 'hotkey'],
   requiresDesktop: true,
 );
 
@@ -162,7 +162,7 @@ const _securitySettingsSection = _SettingsSection(
   ],
 );
 
-const List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
+final List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
   _overviewSettingsSection,
   _timeZoneSettingsSection,
   _modelsSettingsSection,
@@ -379,7 +379,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
           if (!widget.embedded)
             _PageTitle(
               title: 'Settings',
-              subtitle: 'Workspace, models, and diagnostics controls.',
+              subtitle: appStrings.workspaceModelsAndDiagnosticsControls,
               trailing: _settingsSaveButton(controller),
             )
           else
@@ -392,13 +392,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
-                          'General settings',
+                          appStrings.generalSettings,
                           style: Theme.of(context).textTheme.titleLarge
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Choose a category or search across all settings.',
+                          appStrings.chooseACategoryOrSearchAcross,
                           style: TextStyle(color: _textSecondary),
                         ),
                       ],
@@ -420,9 +420,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
             controller: _searchController,
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
-              labelText: 'Search settings',
-              hintText: 'Models, browser, voice, diagnostics...',
-              prefixIcon: const Icon(Icons.search),
+              labelText: appStrings.searchSettings,
+              hintText: appStrings.modelsBrowserVoiceDiagnostics,
+              prefixIcon: Icon(Icons.search),
               suffixIcon: searchQuery.isEmpty
                   ? null
                   : IconButton(
@@ -430,7 +430,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         _searchController.clear();
                         setState(() {});
                       },
-                      icon: const Icon(Icons.close),
+                      icon: Icon(Icons.close),
                     ),
             ),
           ),
@@ -527,9 +527,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
             searchQuery,
             visibleSearchSections,
           )) ...<Widget>[
-            const _EmptyCard(
-              title: 'No matching settings',
-              subtitle: 'Try a broader search like models, browser, or voice.',
+            _EmptyCard(
+              title: appStrings.noMatchingSettings,
+              subtitle: appStrings.tryABroaderSearchLikeModels,
             ),
           ],
         ],
@@ -566,8 +566,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
             key: ValueKey<_SettingsSection>(_selectedSettingsSection),
             initialValue: _selectedSettingsSection,
             isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Category',
+            decoration: InputDecoration(
+              labelText: appStrings.category,
               prefixIcon: Icon(Icons.category_outlined),
             ),
             items: sections
@@ -700,7 +700,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
               ),
             )
           : Icon(Icons.save_outlined),
-      label: Text('Save'),
+      label: Text(appStrings.save),
     );
     if (!_hasUnsavedChanges) return button;
     return Column(
@@ -708,7 +708,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         Text(
-          'Unsaved changes',
+          appStrings.unsavedChanges,
           style: TextStyle(color: Colors.orange, fontSize: 12),
         ),
         const SizedBox(height: 4),
@@ -728,19 +728,19 @@ class _SettingsPanelState extends State<SettingsPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const _SectionTitle('Overview'),
+            _SectionTitle(appStrings.sectionOverview),
             const SizedBox(height: 10),
             Text(
-              'Configure workspace behavior and model defaults.',
+              appStrings.configureWorkspaceBehaviorAndModelDefaults,
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             if (availableModelCount == 0 &&
                 !controller.isRefreshing) ...<Widget>[
               const SizedBox(height: 14),
-              const _InlineError(
+              _InlineError(
                 message:
-                    'No AI provider is configured, so chat and messaging '
-                    'cannot run yet.',
+                    appStrings.noAiProviderIsConfiguredSo +
+                    appStrings.cannotRunYet,
               ),
             ],
             const SizedBox(height: 14),
@@ -751,26 +751,26 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 _MetaPill(
                   icon: Icons.devices_outlined,
                   label:
-                      'Platform ${platformLabel[0].toUpperCase()}${platformLabel.substring(1)}',
+                      appStrings.platformArg1Arg2(platformLabel[0].toUpperCase(), platformLabel.substring(1)),
                 ),
                 _MetaPill(
                   icon: Icons.memory_outlined,
-                  label: '$availableModelCount models ready',
+                  label: appStrings.arg1ModelsReady(availableModelCount),
                 ),
                 _MetaPill(
                   icon: Icons.hub_outlined,
-                  label: '${controller.aiProviders.length} providers',
+                  label: appStrings.arg1Providers(controller.aiProviders.length),
                 ),
                 _MetaPill(
                   icon: Icons.auto_awesome_outlined,
                   label: _smarterSelector
-                      ? 'Smart selector on'
-                      : 'Manual routing',
+                      ? appStrings.smartSelectorOn
+                      : appStrings.manualRouting,
                 ),
                 if (_supportsDesktopShell)
-                  const _MetaPill(
+                  _MetaPill(
                     icon: Icons.desktop_windows_outlined,
-                    label: 'Desktop app controls available',
+                    label: appStrings.desktopAppControlsAvailable,
                   ),
               ],
             ),
@@ -786,8 +786,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     vertical: 10,
                   ),
                 ),
-                icon: const Icon(Icons.replay_rounded, size: 18),
-                label: const Text('Redo onboarding'),
+                icon: Icon(Icons.replay_rounded, size: 18),
+                label: Text(appStrings.redoOnboarding),
               ),
             ),
           ],
@@ -811,18 +811,18 @@ class _SettingsPanelState extends State<SettingsPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const _SectionTitle('Behavior Modules'),
+            _SectionTitle(appStrings.behaviorModules),
             const SizedBox(height: 10),
             Text(
-              'One runtime controls persona, group turn-taking, room memory, norms, Theory of Mind, and delivery.',
+              appStrings.oneRuntimeControlsPersonaGroupTurn,
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 12),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Enable behavior modules'),
-              subtitle: const Text(
-                'Direct messages remain responsive. Allowlisted groups use the participation mode below.',
+              title: Text(appStrings.enableBehaviorModules),
+              subtitle: Text(
+                appStrings.directMessagesRemainResponsiveAllowlistedGroups,
               ),
               value: _behaviorEnabled,
               onChanged: (value) => setState(() {
@@ -833,21 +833,21 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               initialValue: _behaviorParticipationMode,
-              decoration: const InputDecoration(
-                labelText: 'Default group participation',
+              decoration: InputDecoration(
+                labelText: appStrings.defaultGroupParticipation,
                 helperText:
-                    'Automatic reads the room and normally holds back. Mention-only makes no decision call until directly addressed.',
+                    appStrings.automaticReadsTheRoomAndNormally,
               ),
-              items: const <DropdownMenuItem<String>>[
+              items: <DropdownMenuItem<String>>[
                 DropdownMenuItem(
                   value: 'automatic',
-                  child: Text('Automatic, reserved'),
+                  child: Text(appStrings.automaticReserved),
                 ),
                 DropdownMenuItem(
                   value: 'mention_only',
-                  child: Text('Mention or reply only'),
+                  child: Text(appStrings.mentionOrReplyOnly),
                 ),
-                DropdownMenuItem(value: 'always', child: Text('Always engage')),
+                DropdownMenuItem(value: 'always', child: Text(appStrings.alwaysEngage)),
               ],
               onChanged: !_behaviorEnabled
                   ? null
@@ -861,7 +861,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             ),
             const SizedBox(height: 18),
             Text(
-              'Minimum contribution value: ${_behaviorMinimumNeedScore.toStringAsFixed(2)}',
+              appStrings.minimumContributionValueArg1(_behaviorMinimumNeedScore.toStringAsFixed(2)),
               style: TextStyle(
                 color: _textPrimary,
                 fontWeight: FontWeight.w600,
@@ -881,12 +881,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     }),
             ),
             Text(
-              'Higher values make NeoAgent more selective in groups.',
+              appStrings.higherValuesMakeNeoagentMoreSelective,
               style: TextStyle(color: _textSecondary, fontSize: 12),
             ),
             const SizedBox(height: 14),
             Text(
-              'Room batch window: ${_behaviorBatchWindowMs.round()} ms',
+              appStrings.roomBatchWindowArg1Ms(_behaviorBatchWindowMs.round()),
               style: TextStyle(
                 color: _textPrimary,
                 fontWeight: FontWeight.w600,
@@ -897,7 +897,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
               min: 0,
               max: 5000,
               divisions: 20,
-              label: '${_behaviorBatchWindowMs.round()} ms',
+              label: appStrings.arg1Ms(_behaviorBatchWindowMs.round()),
               onChanged: !_behaviorEnabled
                   ? null
                   : (value) => setState(() {
@@ -909,17 +909,17 @@ class _SettingsPanelState extends State<SettingsPanel> {
             DropdownButtonFormField<String>(
               initialValue: _behaviorDecisionModelId,
               decoration: InputDecoration(
-                labelText: 'Turn-taking model',
+                labelText: appStrings.turnTakingModel,
                 helperText:
                     controller.jevAvailable &&
                         (controller.jevPolicy == 'on' || _jevEnabled)
-                    ? 'Jev decides when to speak while it is on; this model is the fallback.'
-                    : 'Automatic selects a fast model through the normal model catalog.',
+                    ? appStrings.jevDecidesWhenToSpeakWhileIt
+                    : appStrings.automaticSelectsAFastModelThrough,
               ),
               items: <DropdownMenuItem<String>>[
-                const DropdownMenuItem(
+                DropdownMenuItem(
                   value: '',
-                  child: Text('Automatic (fast)'),
+                  child: Text(appStrings.automaticFast),
                 ),
                 ...modelIds.map(
                   (id) => DropdownMenuItem(value: id, child: Text(id)),
@@ -938,15 +938,15 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: _behaviorVoiceModelId,
-              decoration: const InputDecoration(
-                labelText: 'Voice model',
+              decoration: InputDecoration(
+                labelText: appStrings.voiceModel,
                 helperText:
-                    'Writes the final text in direct chats. A strong model here makes replies sound far more natural; the work itself still runs on the chat model.',
+                    appStrings.writesTheFinalTextInDirectChats,
               ),
               items: <DropdownMenuItem<String>>[
-                const DropdownMenuItem(
+                DropdownMenuItem(
                   value: '',
-                  child: Text('Same as the chat model'),
+                  child: Text(appStrings.sameAsTheChatModel),
                 ),
                 ...modelIds.map(
                   (id) => DropdownMenuItem(value: id, child: Text(id)),
@@ -965,17 +965,17 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: _behaviorDeliveryStyle,
-              decoration: const InputDecoration(
-                labelText: 'Messaging delivery',
+              decoration: InputDecoration(
+                labelText: appStrings.messagingDelivery,
               ),
-              items: const <DropdownMenuItem<String>>[
+              items: <DropdownMenuItem<String>>[
                 DropdownMenuItem(
                   value: 'natural_bubbles',
-                  child: Text('Natural bubbles'),
+                  child: Text(appStrings.naturalBubbles),
                 ),
                 DropdownMenuItem(
                   value: 'single',
-                  child: Text('Single message'),
+                  child: Text(appStrings.singleMessage),
                 ),
               ],
               onChanged: !_behaviorEnabled
@@ -991,7 +991,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const SizedBox(height: 10),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Theory of Mind refinement'),
+              title: Text(appStrings.theoryOfMindRefinement),
               value: _behaviorTheoryOfMindEnabled,
               onChanged: !_behaviorEnabled
                   ? null
@@ -1002,7 +1002,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             ),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Channel-scoped social memory'),
+              title: Text(appStrings.channelScopedSocialMemory),
               value: _behaviorSocialMemoryEnabled,
               onChanged: !_behaviorEnabled
                   ? null
@@ -1013,7 +1013,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             ),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Learn room norms'),
+              title: Text(appStrings.learnRoomNorms),
               value: _behaviorNormsEnabled,
               onChanged: !_behaviorEnabled
                   ? null
@@ -1024,7 +1024,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             ),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Social observability'),
+              title: Text(appStrings.socialObservability),
               value: _behaviorObservabilityEnabled,
               onChanged: !_behaviorEnabled
                   ? null
@@ -1041,10 +1041,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
               onChanged: (_) => setState(() {
                 _hasUnsavedChanges = true;
               }),
-              decoration: const InputDecoration(
-                labelText: 'Persona behavior notes',
+              decoration: InputDecoration(
+                labelText: appStrings.personaBehaviorNotes,
                 helperText:
-                    'Durable instructions for voice and interaction style. Safety and execution rules still take priority.',
+                    appStrings.durableInstructionsForVoiceAndInteraction,
               ),
             ),
           ],
@@ -1061,10 +1061,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const _SectionTitle('Computer workspace'),
+            _SectionTitle(appStrings.computerWorkspace),
             const SizedBox(height: 10),
             Text(
-              'Browser, Linux desktop, files, terminal, and Python share one persistent cloud computer.',
+              appStrings.browserLinuxDesktopFilesTerminalAnd,
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 16),
@@ -1089,30 +1089,30 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   onPressed: controller.isRunningDeviceAction
                       ? null
                       : controller.startComputerRuntime,
-                  icon: const Icon(Icons.computer_outlined),
-                  label: const Text('Open computer'),
+                  icon: Icon(Icons.computer_outlined),
+                  label: Text(appStrings.openComputer),
                 ),
                 OutlinedButton.icon(
                   onPressed: controller.isRunningDeviceAction
                       ? null
                       : controller.stopComputerRuntime,
-                  icon: const Icon(Icons.stop_circle_outlined),
-                  label: const Text('Stop'),
+                  icon: Icon(Icons.stop_circle_outlined),
+                  label: Text(appStrings.stop),
                 ),
               ],
             ),
             const SizedBox(height: 12),
             Text(
-              'The runtime is a lightweight Debian Linux desktop with Chromium, PCManFM, Mousepad, LXTerminal, Python, Git, and standard command-line tools. Its capacity is managed by the NeoAgent host.',
+              appStrings.theRuntimeIsALightweightDebian,
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const Divider(height: 32),
             _buildInlineTestRow(
-              label: 'Computer shell',
+              label: appStrings.computerShell,
               running: _cliTestRunning,
               result: _cliTestResult,
               note:
-                  'Commands run in the same persistent computer used by the visible desktop.',
+                  appStrings.commandsRunInTheSamePersistent,
               onTest: () async {
                 setState(() {
                   _cliTestRunning = true;
@@ -1137,9 +1137,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
             ),
             const Divider(height: 32),
             _SettingToggle(
-              title: 'Smart model selection',
+              title: appStrings.smartModelSelection,
               subtitle:
-                  'Automatically choose the best enabled model for each task type.',
+                  appStrings.automaticallyChooseTheBestEnabledModel,
               value: _smarterSelector,
               onChanged: (value) => setState(() {
                 _smarterSelector = value;
@@ -1187,7 +1187,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
           children: <Widget>[
             Row(
               children: <Widget>[
-                const Expanded(child: _SectionTitle('Social Reach')),
+                Expanded(child: _SectionTitle(appStrings.socialReach3)),
                 IconButton(
                   tooltip: 'Refresh',
                   onPressed: _socialReachRefreshing
@@ -1217,13 +1217,13 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           dimension: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.refresh_rounded),
+                      : Icon(Icons.refresh_rounded),
                 ),
               ],
             ),
             const SizedBox(height: 10),
             Text(
-              'Social sources agents can read directly, including feeds, repositories, Reddit, X, videos, and cookie-backed market data.',
+              appStrings.socialSourcesAgentsCanReadDirectly,
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 12),
@@ -1233,18 +1233,18 @@ class _SettingsPanelState extends State<SettingsPanel> {
               children: <Widget>[
                 _MetaPill(
                   icon: Icons.check_circle_outline,
-                  label: '$ready ready',
+                  label: appStrings.arg1Ready(ready),
                   color: _success,
                 ),
                 _MetaPill(
                   icon: Icons.play_circle_outline,
-                  label: 'Video links',
+                  label: appStrings.videoLinks,
                   color: _info,
                 ),
                 if (cookieSetup > 0)
                   _MetaPill(
                     icon: Icons.computer_outlined,
-                    label: 'Cookie setup',
+                    label: appStrings.cookieSetup,
                     color: _warning,
                   ),
               ],
@@ -1271,7 +1271,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 ),
                 child: Text(
                   _socialReachActionResult!['error']?.toString() ??
-                      'Social Reach updated.',
+                      appStrings.socialReachUpdated,
                   style: TextStyle(
                     color: _socialReachActionResult!['error'] == null
                         ? _success
@@ -1283,7 +1283,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const SizedBox(height: 16),
             if (platforms.isEmpty)
               Text(
-                'Status is not loaded yet.',
+                appStrings.statusIsNotLoadedYet,
                 style: TextStyle(color: _textSecondary),
               )
             else
@@ -1347,8 +1347,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const SizedBox(height: 8),
             Text(
               cookie['configured'] == true
-                  ? '${cookie['count'] ?? 0} cookies imported'
-                  : 'Cookies not configured',
+                  ? appStrings.arg1CookiesImported(cookie['count'] ?? 0)
+                  : appStrings.cookiesNotConfigured,
               style: TextStyle(color: _textSecondary, fontSize: 12),
             ),
           ],
@@ -1374,8 +1374,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             color: Colors.white,
                           ),
                         )
-                      : const Icon(Icons.computer_outlined, size: 18),
-                  label: const Text('Import from computer'),
+                      : Icon(Icons.computer_outlined, size: 18),
+                  label: Text(appStrings.importFromComputer),
                 ),
                 OutlinedButton.icon(
                   onPressed: busy
@@ -1385,8 +1385,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           id,
                           () => controller.clearSocialReachCookies(id),
                         ),
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text('Clear'),
+                  icon: Icon(Icons.delete_outline, size: 18),
+                  label: Text(appStrings.clear),
                 ),
               ],
             ),
@@ -1439,21 +1439,21 @@ class _SettingsPanelState extends State<SettingsPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const _SectionTitle('Models'),
+            _SectionTitle(appStrings.models),
             const SizedBox(height: 10),
             Text(
-              'Choose defaults for chat, agents, fallback behavior, and smart routing.',
+              appStrings.chooseDefaultsForChatAgentsFallback,
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 12),
             Text(
-              'Shared provider keys are configured on the server. To use your own API key or a custom endpoint instead, go to Advanced → Bring your own key.',
+              appStrings.sharedProviderKeysAreConfiguredOn,
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 8),
             const Divider(height: 32),
             Text(
-              'Default Routing',
+              appStrings.defaultRouting,
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 color: _textPrimary,
@@ -1496,7 +1496,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       SizedBox(
                         width: cardWidth,
                         child: _RoutingSelectCard(
-                          label: 'Sub-agent',
+                          label: appStrings.subAgent,
                           icon: Icons.bolt_outlined,
                           value: _ensureModelValue(
                             _defaultSubagentModel,
@@ -1532,7 +1532,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             ],
             const Divider(height: 32),
             Text(
-              'Smart Selector Pool',
+              appStrings.smartSelectorPool,
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 color: _textPrimary,
@@ -1540,7 +1540,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             ),
             const SizedBox(height: 10),
             Text(
-              'The models the Smart Selector routes between automatically.',
+              appStrings.theModelsTheSmartSelectorRoutes,
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 12),
@@ -1630,7 +1630,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
       _ModelPickerOption(
         value: '',
         label:
-            'Server default (${serverDefault['label'] ?? defaultProviderId})',
+            appStrings.serverDefaultArg1(serverDefault['label'] ?? defaultProviderId),
       ),
       for (final provider in liveProviders)
         _ModelPickerOption(
@@ -1639,26 +1639,26 @@ class _SettingsPanelState extends State<SettingsPanel> {
         ),
     ];
     final modelOptions = withDefault(
-      'Default (${effective['defaultModel'] ?? 'provider default'})',
+      appStrings.defaultArg1(effective['defaultModel'] ?? 'provider default'),
       _jsonStringList(effective['models']),
       _voiceLiveModel,
     );
     final voiceOptions = withDefault(
-      'Default (${effective['defaultVoice'] ?? 'provider default'})',
+      appStrings.defaultArg1(effective['defaultVoice'] ?? 'provider default'),
       _jsonStringList(effective['voices']),
       _voiceLiveVoice,
     );
-    const inputModeOptions = <_ModelPickerOption>[
+    final inputModeOptions = <_ModelPickerOption>[
       _ModelPickerOption(
         value: 'hands_free',
-        label: 'Hands-free (talk freely, interrupt anytime)',
+        label: appStrings.handsFreeTalkFreelyInterruptAnytime,
       ),
-      _ModelPickerOption(value: 'ptt', label: 'Push-to-talk'),
+      _ModelPickerOption(value: 'ptt', label: appStrings.pushToTalk),
     ];
     final sttOptions = <_ModelPickerOption>[
-      const _ModelPickerOption(
+      _ModelPickerOption(
         value: 'auto',
-        label: 'Auto (first provider with an API key)',
+        label: appStrings.autoFirstProviderWithAnApi,
       ),
       for (final provider in _jsonList(
         _jsonMap(capabilities['transcription'])['providers'],
@@ -1710,15 +1710,15 @@ class _SettingsPanelState extends State<SettingsPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const _SectionTitle('Voice'),
+            _SectionTitle(appStrings.voice),
             const SizedBox(height: 10),
             Text(
-              'Voice calls run on a live speech-to-speech model with the same persona, memory and chat history as NeoAgent. It answers right away and hands real work to the normal agent, which keeps running in the background.',
+              appStrings.voiceCallsRunOnALive,
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 16),
             Text(
-              'Live voice',
+              appStrings.liveVoice,
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 color: _textPrimary,
@@ -1727,7 +1727,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const SizedBox(height: 12),
             pickerGrid(<Widget>[
               _RoutingSelectCard(
-                label: 'Live model provider',
+                label: appStrings.liveModelProvider,
                 icon: Icons.graphic_eq_outlined,
                 value: _voiceLiveProvider,
                 options: providerOptions,
@@ -1741,7 +1741,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 },
               ),
               _RoutingSelectCard(
-                label: 'Live model',
+                label: appStrings.liveModel,
                 icon: Icons.memory_outlined,
                 value: _voiceLiveModel,
                 options: modelOptions,
@@ -1750,7 +1750,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 },
               ),
               _RoutingSelectCard(
-                label: 'Voice',
+                label: appStrings.voice,
                 icon: Icons.record_voice_over_outlined,
                 value: _voiceLiveVoice,
                 options: voiceOptions,
@@ -1759,7 +1759,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 },
               ),
               _RoutingSelectCard(
-                label: 'Input mode',
+                label: appStrings.inputMode,
                 icon: Icons.mic_outlined,
                 value: _voiceInputMode,
                 options: inputModeOptions,
@@ -1770,12 +1770,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
             ]),
             const SizedBox(height: 10),
             Text(
-              'GPT-Live uses your OpenAI API key, Gemini Live your Google AI key. Changes apply to the next call.',
+              appStrings.gptLiveUsesYourOpenaiApi,
               style: TextStyle(color: _textSecondary, height: 1.4),
             ),
             const Divider(height: 32),
             Text(
-              'Voice notes and dictation',
+              appStrings.voiceNotesAndDictation,
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 color: _textPrimary,
@@ -1784,7 +1784,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             const SizedBox(height: 12),
             pickerGrid(<Widget>[
               _RoutingSelectCard(
-                label: 'Speech-to-text',
+                label: appStrings.speechToText,
                 icon: Icons.hearing_outlined,
                 value: _voiceSttProvider,
                 options: sttOptions,
@@ -1799,7 +1799,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 },
               ),
               _RoutingSelectCard(
-                label: 'Voice reply model',
+                label: appStrings.voiceReplyModel,
                 icon: Icons.chat_bubble_outline,
                 value: _ensureModelValue(
                   _defaultSpeechModel,
@@ -1815,7 +1815,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             ]),
             const SizedBox(height: 10),
             Text(
-              'Speech-to-text transcribes voice notes and dictation. Auto uses OpenAI, Gemini or Deepgram, whichever has an API key. The voice reply model is the chat model that answers voice notes.',
+              appStrings.speechToTextTranscribesVoiceNotes,
               style: TextStyle(color: _textSecondary, height: 1.4),
             ),
           ],
@@ -1831,19 +1831,19 @@ class _SettingsPanelState extends State<SettingsPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const _SectionTitle('Desktop app'),
+            _SectionTitle(appStrings.desktopApp),
             const SizedBox(height: 10),
             Text(
-              'Local preferences for the NeoAgent application. Computer control always runs through the unified cloud computer.',
+              appStrings.localPreferencesForTheNeoagentApplication,
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 16),
             SwitchListTile.adaptive(
               value: controller.desktopAskOnClose,
               contentPadding: EdgeInsets.zero,
-              title: const Text('Ask before closing to background'),
+              title: Text(appStrings.askBeforeClosingToBackground),
               subtitle: Text(
-                'Prompt before NeoAgent stays resident in the system tray.',
+                appStrings.promptBeforeNeoagentStaysResidentIn,
                 style: TextStyle(color: _textSecondary),
               ),
               onChanged: (value) => controller.setDesktopClosePreference(
@@ -1854,9 +1854,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
             SwitchListTile.adaptive(
               value: controller.desktopAssistantHotkeyEnabled,
               contentPadding: EdgeInsets.zero,
-              title: const Text('Reserve assistant hotkey'),
+              title: Text(appStrings.reserveAssistantHotkey),
               subtitle: Text(
-                'Register $_desktopAssistantHotkeyLabel for the assistant summon flow.',
+                appStrings.registerArg1ForTheAssistantSummon(_desktopAssistantHotkeyLabel),
                 style: TextStyle(color: _textSecondary),
               ),
               onChanged: controller.setDesktopAssistantHotkeyEnabled,
@@ -1877,22 +1877,22 @@ class _SettingsPanelState extends State<SettingsPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const _SectionTitle('Security'),
+            _SectionTitle(appStrings.security),
             const SizedBox(height: 10),
             Text(
-              'Per-tool permission policies, approval gates, and process isolation for shell execution.',
+              appStrings.perToolPermissionPoliciesApprovalGates,
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 8),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.checklist_outlined, color: _accentAlt),
-              title: const Text('Tool Permissions'),
+              title: Text(appStrings.toolPermissions),
               subtitle: Text(
-                'Set block / ask / allow per tool category, or pick a global mode.',
+                appStrings.setBlockAskAllowPerTool,
                 style: TextStyle(color: _textSecondary),
               ),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: Icon(Icons.chevron_right),
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
@@ -1916,20 +1916,20 @@ class _SettingsPanelState extends State<SettingsPanel> {
           children: <Widget>[
             Row(
               children: <Widget>[
-                const _SectionTitle('Diagnostics'),
+                _SectionTitle(appStrings.sectionDiagnostics),
                 const SizedBox(width: 8),
                 Icon(Icons.info_outline, size: 16, color: _textSecondary),
               ],
             ),
             const SizedBox(height: 10),
             Text(
-              'Usage and health signals that help explain current runtime behavior without digging through logs first.',
+              appStrings.usageAndHealthSignalsThatHelp,
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 14),
             if (controller.tokenUsage == null)
               Text(
-                'Token usage unavailable on this server version.',
+                appStrings.tokenUsageUnavailableOnThisServer,
                 style: TextStyle(color: _textSecondary),
               )
             else
@@ -1937,24 +1937,24 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Total: ${controller.tokenUsage!.totalTokensLabel} tokens across ${controller.tokenUsage!.totalRunsLabel} runs',
+                    appStrings.totalArg1TokensAcrossArg2Runs(controller.tokenUsage!.totalTokensLabel, controller.tokenUsage!.totalRunsLabel),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Last 7 days: ${controller.tokenUsage!.last7DaysTokensLabel} tokens in ${controller.tokenUsage!.last7DaysRunsLabel} runs',
+                    appStrings.last7DaysArg1TokensIn(controller.tokenUsage!.last7DaysTokensLabel, controller.tokenUsage!.last7DaysRunsLabel),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Avg/run: ${controller.tokenUsage!.avgTokensPerRunLabel} tokens',
+                    appStrings.avgRunArg1Tokens(controller.tokenUsage!.avgTokensPerRunLabel),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Prompt cache: ${controller.tokenUsage!.cachedReadTokensLabel} cached tokens '
-                    '(${controller.tokenUsage!.cacheHitRatioLabel} hit ratio)',
+                    appStrings.promptCacheArg1CachedTokens(controller.tokenUsage!.cachedReadTokensLabel) +
+                    appStrings.arg1HitRatio(controller.tokenUsage!.cacheHitRatioLabel),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Measured model cost: ${controller.tokenUsage!.estimatedCostLabel}',
+                    appStrings.measuredModelCostArg1(controller.tokenUsage!.estimatedCostLabel),
                   ),
                 ],
               ),
@@ -1968,22 +1968,22 @@ class _SettingsPanelState extends State<SettingsPanel> {
     return showDialog<_LeaveAction>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Unsaved changes'),
-        content: const Text(
-          'You have unsaved settings. What would you like to do?',
+        title: Text(appStrings.unsavedChanges),
+        content: Text(
+          appStrings.youHaveUnsavedSettingsWhatWould,
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.pop(ctx, _LeaveAction.cancel),
-            child: const Text('Cancel'),
+            child: Text(appStrings.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, _LeaveAction.discard),
-            child: const Text('Discard'),
+            child: Text(appStrings.discard),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, _LeaveAction.save),
-            child: const Text('Save'),
+            child: Text(appStrings.save),
           ),
         ],
       ),
@@ -2021,7 +2021,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     Expanded(
                       child: Text(
                         passed
-                            ? (detail.isNotEmpty ? detail : '$label: OK')
+                            ? (detail.isNotEmpty ? detail : appStrings.arg1Ok(label))
                             : detail,
                         style: TextStyle(
                           fontSize: 13,
@@ -2058,7 +2058,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     height: 13,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Test'),
+                : Text('Test'),
           ),
         ),
       ],
@@ -2097,7 +2097,7 @@ class _TimeZoneSettingsCardState extends State<_TimeZoneSettingsCard> {
               .toList()
             ..sort();
     } catch (error) {
-      debugPrint('[TimeZone] Could not list time zones: $error');
+      debugPrint(appStrings.timezoneCouldNotListTimeZones(error));
     }
     if (!mounted) return;
     setState(() {
@@ -2141,10 +2141,10 @@ class _TimeZoneSettingsCardState extends State<_TimeZoneSettingsCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const _SectionTitle('Time zone'),
+            _SectionTitle(appStrings.timeZone2),
             const SizedBox(height: 10),
             Text(
-              'The agent reads times you mention, and runs scheduled tasks, in this time zone.',
+              appStrings.theAgentReadsTimesYouMention,
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 14),
@@ -2154,20 +2154,20 @@ class _TimeZoneSettingsCardState extends State<_TimeZoneSettingsCard> {
               children: <Widget>[
                 _MetaPill(
                   icon: Icons.public,
-                  label: current.isEmpty ? 'Not set' : current,
+                  label: current.isEmpty ? appStrings.notSet : current,
                 ),
                 if (_deviceZone != null)
                   _MetaPill(
                     icon: Icons.devices_outlined,
-                    label: 'This device: $_deviceZone',
+                    label: appStrings.thisDeviceArg1(_deviceZone),
                   ),
               ],
             ),
             const SizedBox(height: 8),
             _SettingToggle(
-              title: 'Match this device',
+              title: appStrings.matchThisDevice,
               subtitle:
-                  'Update the time zone automatically from the device you are using.',
+                  appStrings.updateTheTimeZoneAutomaticallyFrom,
               value: followsDevice,
               onChanged: _setFollowsDevice,
             ),
@@ -2181,8 +2181,8 @@ class _TimeZoneSettingsCardState extends State<_TimeZoneSettingsCard> {
                 enableFilter: true,
                 requestFocusOnTap: true,
                 menuHeight: 320,
-                label: const Text('Time zone'),
-                leadingIcon: const Icon(Icons.search),
+                label: Text(appStrings.timeZone2),
+                leadingIcon: Icon(Icons.search),
                 dropdownMenuEntries: _zones
                     .map(
                       (zone) =>
@@ -2247,22 +2247,22 @@ class _JevSettingCard extends StatelessWidget {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: <Widget>[
                       Text(
-                        'Jev decisions',
+                        appStrings.jevDecisions,
                         style: TextStyle(
                           color: _textPrimary,
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      _StatusPill(label: 'Highly recommended', color: _accent),
+                      _StatusPill(label: appStrings.highlyRecommended, color: _accent),
                     ],
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Makes the behind-the-scenes calls in a fraction of a '
-                    'second: routing, tool and skill choice, memory ranking, '
-                    'group-chat turn-taking, research sources, answer checks, '
-                    'and browser steps. Your chat model still writes every '
+                    appStrings.makesTheBehindTheScenesCalls +
+                    appStrings.secondRoutingToolAndSkillChoice +
+                    appStrings.groupChatTurnTakingResearchSources +
+                    appStrings.andBrowserStepsYourChatModel +
                     'reply.',
                     style: TextStyle(color: _textSecondary, height: 1.45),
                   ),
@@ -2273,17 +2273,17 @@ class _JevSettingCard extends StatelessWidget {
                     children: <Widget>[
                       _MetaPill(
                         icon: Icons.speed_rounded,
-                        label: 'Faster replies',
+                        label: appStrings.fasterReplies,
                         color: _accent,
                       ),
                       _MetaPill(
                         icon: Icons.savings_outlined,
-                        label: 'Fewer model calls',
+                        label: appStrings.fewerModelCalls,
                         color: _accent,
                       ),
                       _MetaPill(
                         icon: Icons.ads_click_rounded,
-                        label: 'Sharper tool choice',
+                        label: appStrings.sharperToolChoice,
                         color: _accent,
                       ),
                     ],
@@ -2291,7 +2291,7 @@ class _JevSettingCard extends StatelessWidget {
                   if (lockedOn) ...<Widget>[
                     const SizedBox(height: 10),
                     Text(
-                      'Turned on for every agent by your server admin.',
+                      appStrings.turnedOnForEveryAgentBy,
                       style: TextStyle(color: _textMuted, fontSize: 12.5),
                     ),
                   ],
@@ -2349,7 +2349,7 @@ class _RoutingSelectCard extends StatelessWidget {
             value: value,
             options: options,
             onChanged: onChanged,
-            dialogTitle: 'Select $label',
+            dialogTitle: appStrings.selectArg1(label),
           ),
         ],
       ),
@@ -2404,7 +2404,7 @@ class _SmartPoolSummary extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  '${selected.length} of $totalAvailable models',
+                  appStrings.arg1OfArg2Models(selected.length, totalAvailable),
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
@@ -2416,7 +2416,7 @@ class _SmartPoolSummary extends StatelessWidget {
                   children: <Widget>[
                     if (providers.isEmpty)
                       Text(
-                        'No models selected',
+                        appStrings.noModelsSelected,
                         style: TextStyle(fontSize: 12, color: _textMuted),
                       )
                     else
@@ -2441,8 +2441,8 @@ class _SmartPoolSummary extends StatelessWidget {
           const SizedBox(width: 10),
           OutlinedButton.icon(
             onPressed: onManage,
-            icon: const Icon(Icons.tune_rounded, size: 14),
-            label: const Text('Manage'),
+            icon: Icon(Icons.tune_rounded, size: 14),
+            label: Text(appStrings.manage),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               textStyle: const TextStyle(fontSize: 13),
@@ -2651,7 +2651,7 @@ class _SmartPoolDialogState extends State<_SmartPoolDialog> {
                         children: <Widget>[
                           Expanded(
                             child: Text(
-                              'Smart Selector Pool',
+                              appStrings.smartSelectorPool,
                               style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w700,
@@ -2692,7 +2692,7 @@ class _SmartPoolDialogState extends State<_SmartPoolDialog> {
                                 fontSize: 14,
                               ),
                               decoration: InputDecoration(
-                                hintText: 'Search models or providers…',
+                                hintText: appStrings.searchModelsOrProviders2,
                                 hintStyle: TextStyle(
                                   color: _textMuted,
                                   fontSize: 14,
@@ -2765,7 +2765,7 @@ class _SmartPoolDialogState extends State<_SmartPoolDialog> {
                                 ),
                               ),
                               child: Text(
-                                'Available',
+                                appStrings.available,
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -2785,17 +2785,17 @@ class _SmartPoolDialogState extends State<_SmartPoolDialog> {
                       child: Row(
                         children: <Widget>[
                           _PoolActionChip(
-                            label: 'Select all',
+                            label: appStrings.selectAll,
                             onTap: () => _selectAllVisible(filtered),
                           ),
                           const SizedBox(width: 6),
                           _PoolActionChip(
-                            label: 'Clear all',
+                            label: appStrings.clearAll,
                             onTap: () => _clearAllVisible(filtered),
                           ),
                           const Spacer(),
                           Text(
-                            '$selectedAvailableCount selected',
+                            appStrings.arg1Selected(selectedAvailableCount),
                             style: TextStyle(fontSize: 12, color: _textMuted),
                           ),
                         ],
@@ -2817,7 +2817,7 @@ class _SmartPoolDialogState extends State<_SmartPoolDialog> {
                                   ),
                                   const SizedBox(height: 12),
                                   Text(
-                                    'No results for "$_query"',
+                                    appStrings.noResultsForArg1(_query),
                                     style: TextStyle(
                                       color: _textSecondary,
                                       fontSize: 14,

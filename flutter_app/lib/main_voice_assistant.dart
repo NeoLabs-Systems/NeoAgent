@@ -50,9 +50,9 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
       case 'reconnecting':
         return 'Reconnecting';
       case 'speaking':
-        return 'Speaking';
+        return appStrings.speaking;
       default:
-        if (controller.isLiveVoiceCaptureActive) return 'Listening';
+        if (controller.isLiveVoiceCaptureActive) return appStrings.listening;
         return state.isHandsFree ? 'Muted' : 'Ready';
     }
   }
@@ -63,21 +63,21 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     bool useToggleCapture,
   ) {
     if (controller.isLiveVoiceCaptureStarting || state.isConnecting) {
-      return 'Connecting to the live voice model...';
+      return appStrings.connectingToTheLiveVoiceModel;
     }
     if (!state.hasActiveSession) {
-      return useToggleCapture ? 'Tap to start talking.' : 'Hold to talk.';
+      return useToggleCapture ? 'Tap to start talking.' : appStrings.holdToTalk;
     }
     if (_handsFree(controller)) {
       return controller.isLiveVoiceCaptureActive
-          ? 'Just talk. You can interrupt at any time. Tap to mute.'
-          : 'Microphone muted. Tap to unmute.';
+          ? appStrings.justTalkYouCanInterruptAtAny
+          : appStrings.microphoneMutedTapToUnmute;
     }
     return controller.isLiveVoiceCaptureActive
         ? (useToggleCapture
-              ? 'Tap again when you are done.'
-              : 'Release when you are done.')
-        : (useToggleCapture ? 'Tap to talk.' : 'Hold to talk.');
+              ? appStrings.tapAgainWhenYouAreDone
+              : appStrings.releaseWhenYouAreDone)
+        : (useToggleCapture ? 'Tap to talk.' : appStrings.holdToTalk);
   }
 
   @override
@@ -193,22 +193,22 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
     final cancelTask = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('End voice call?'),
-        content: const Text(
-          'NeoAgent is still working on a task. End the call and get the result in chat, or cancel the task too.',
+        title: Text(appStrings.endVoiceCall),
+        content: Text(
+          appStrings.neoagentIsStillWorkingOnA,
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Stay on the call'),
+            child: Text(appStrings.stayOnTheCall),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Keep task running'),
+            child: Text(appStrings.keepTaskRunning),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Cancel task'),
+            child: Text(appStrings.cancelTask),
           ),
         ],
       ),
@@ -229,7 +229,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
           border: Border.all(color: _border),
         ),
         child: Text(
-          'What you and NeoAgent say appears here and in the chat.',
+          appStrings.whatYouAndNeoagentSayAppears,
           style: TextStyle(color: _textMuted, height: 1.45),
         ),
       );
@@ -315,8 +315,8 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
           Expanded(
             child: Text(
               request.isEmpty
-                  ? 'Working on a task in the background.'
-                  : 'Working in the background: $request',
+                  ? appStrings.workingOnATaskInTheBackground
+                  : appStrings.workingInTheBackgroundArg1(request),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: _textPrimary, height: 1.35),
@@ -324,7 +324,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
           ),
           TextButton(
             onPressed: controller.cancelLiveVoiceTask,
-            child: const Text('Cancel'),
+            child: Text(appStrings.cancel),
           ),
         ],
       ),
@@ -334,10 +334,10 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
   Widget _buildSessionCard(VoiceAssistantLiveState liveState) {
     return _VoiceAssistantSectionCard(
       icon: Icons.graphic_eq_outlined,
-      title: 'Live model',
+      title: appStrings.liveModel,
       subtitle: liveState.hasActiveSession
-          ? 'Speech-to-speech with the same memory, tools and chat history as NeoAgent.'
-          : 'Choose the live model and voice in Settings.',
+          ? appStrings.speechToSpeechWithTheSameMemory
+          : appStrings.chooseTheLiveModelAndVoice,
       child: Wrap(
         spacing: 10,
         runSpacing: 10,
@@ -392,7 +392,7 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
           )
         : Semantics(
             button: true,
-            label: captureEngaged ? 'Release to finish' : 'Hold to talk',
+            label: captureEngaged ? 'Release to finish' : appStrings.holdToTalk2,
             child: Listener(
               behavior: HitTestBehavior.opaque,
               onPointerDown: _handlePrimaryPointerDown,
@@ -513,14 +513,14 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                   children: <Widget>[
                     _VoiceAssistantActionButton(
                       icon: Icons.stop_circle_outlined,
-                      label: 'Stop speaking',
+                      label: appStrings.stopSpeaking,
                       onTap: liveState.isSpeaking
                           ? controller.stopLiveVoicePlayback
                           : null,
                     ),
                     _VoiceAssistantActionButton(
                       icon: Icons.call_end,
-                      label: 'End call',
+                      label: appStrings.endCall,
                       onTap: liveState.hasActiveSession
                           ? () => _endSession(controller)
                           : null,
@@ -532,8 +532,8 @@ class _VoiceAssistantPanelState extends State<VoiceAssistantPanel> {
                 const SizedBox(height: 18),
                 _VoiceAssistantSectionCard(
                   icon: Icons.forum_outlined,
-                  title: 'Conversation',
-                  subtitle: 'Shared with the NeoAgent chat and its memory.',
+                  title: appStrings.conversation,
+                  subtitle: appStrings.sharedWithTheNeoagentChatAnd,
                   child: _buildTimeline(liveState),
                 ),
               ],

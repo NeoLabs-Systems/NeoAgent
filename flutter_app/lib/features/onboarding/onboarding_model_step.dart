@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../main.dart';
 import '../../src/theme/palette.dart';
 import 'onboarding_chrome.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 class OnboardingModelStep extends StatefulWidget {
   const OnboardingModelStep({
@@ -82,14 +83,14 @@ class _OnboardingModelStepState extends State<OnboardingModelStep> {
       step: 2,
       totalSteps: 5,
       eyebrow: 'INTELLIGENCE',
-      title: 'Choose your\ndefault model.',
+      title: appStrings.chooseYourDefaultModel,
       description:
-          'Pick the model NeoAgent should use by default. Providers are configured on the server.',
+          appStrings.pickTheModelNeoagentShouldUse,
       footer: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[
           OnboardingPrimaryButton(
-            label: 'Continue',
+            label: appStrings.continue2,
             icon: Icons.arrow_forward_rounded,
             onPressed: widget.onNext,
           ),
@@ -101,7 +102,7 @@ class _OnboardingModelStepState extends State<OnboardingModelStep> {
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   Text(
-                    'No available models yet.\nCheck back once a provider is configured.',
+                    appStrings.noAvailableModelsYetCheckBack,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: paletteOf(context).textMuted,
@@ -173,7 +174,7 @@ class _OnboardingModelStepState extends State<OnboardingModelStep> {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to save selection: $e')));
+        ).showSnackBar(SnackBar(content: Text(appStrings.failedToSaveSelectionArg1(e))));
       }
       setState(() => _selectedModel = previousModel);
     }

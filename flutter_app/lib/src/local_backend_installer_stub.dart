@@ -1,4 +1,5 @@
 import 'local_backend_installer_models.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 class LocalBackendInstaller {
   Stream<LocalBackendInstallEvent> get events =>
@@ -8,9 +9,9 @@ class LocalBackendInstaller {
     LocalBackendSetupProfile profile, {
     required String channel,
   }) {
-    throw const LocalBackendInstallerException(
+    throw LocalBackendInstallerException(
       'SETUP_PLATFORM_UNSUPPORTED',
-      'Local backend installation is not available on this platform.',
+      appStrings.localBackendInstallationIsNotAvailable,
       retryable: false,
     );
   }

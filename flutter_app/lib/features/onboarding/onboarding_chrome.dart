@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../src/theme/palette.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 /// Shared chrome for the onboarding flow.
 class OnboardingScaffold extends StatelessWidget {
@@ -275,7 +276,7 @@ class _Brand extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              'STEP ${step + 1} OF $totalSteps',
+              appStrings.stepArg1OfArg2(step + 1, totalSteps),
               style: GoogleFonts.geistMono(
                 color: p.textMuted,
                 fontSize: 10.5,

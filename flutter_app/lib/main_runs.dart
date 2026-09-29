@@ -315,7 +315,7 @@ class _RunsPanelState extends State<RunsPanel> {
       children: <Widget>[
         _PageTitle(
           title: 'Runs',
-          subtitle: 'Live execution history, tool steps, and responses.',
+          subtitle: appStrings.liveExecutionHistoryToolStepsAnd,
           trailing: _RunsLiveControls(
             paused: _paused,
             connected: controller.socketConnected,
@@ -338,12 +338,11 @@ class _RunsPanelState extends State<RunsPanel> {
         ],
         Expanded(
           child: _runs.isEmpty && _heldRunIds.isEmpty
-              ? const Align(
+              ? Align(
                   alignment: Alignment.topCenter,
                   child: _EmptyCard(
-                    title: 'No runs yet',
-                    subtitle:
-                        'Send a task from chat and its execution history will show up here.',
+                    title: appStrings.noRunsYet,
+                    subtitle: appStrings.sendATaskFromChatAnd,
                   ),
                 )
               : LayoutBuilder(
@@ -374,11 +373,11 @@ class _RunsPanelState extends State<RunsPanel> {
                                 children: <Widget>[...previous, ?current],
                               ),
                               child: selectedId == null
-                                  ? const Center(
+                                  ? Center(
                                       child: _EmptyState(
-                                        title: 'Select a run',
+                                        title: appStrings.selectARun,
                                         subtitle:
-                                            'Pick a run from the list to see its steps.',
+                                            appStrings.pickARunFromTheList,
                                       ),
                                     )
                                   : _RunDetailView(
@@ -428,13 +427,13 @@ class _RunsPanelState extends State<RunsPanel> {
               controller: _search,
               decoration: InputDecoration(
                 isDense: true,
-                hintText: 'Search title, model, trigger, run ID',
-                prefixIcon: const Icon(Icons.search, size: 18),
+                hintText: appStrings.searchTitleModelTriggerRunId,
+                prefixIcon: Icon(Icons.search, size: 18),
                 suffixIcon: _search.text.isEmpty
                     ? null
                     : IconButton(
-                        tooltip: 'Clear search',
-                        icon: const Icon(Icons.close, size: 16),
+                        tooltip: appStrings.clearSearch,
+                        icon: Icon(Icons.close, size: 16),
                         onPressed: _search.clear,
                         visualDensity: VisualDensity.compact,
                       ),
@@ -517,12 +516,12 @@ List<_RunListEntry> _groupRuns(List<RunSummary> runs) {
     final created = run.createdAt;
     final day = DateTime(created.year, created.month, created.day);
     if (!day.isBefore(today)) {
-      return 'Today';
+      return appStrings.today;
     }
     if (!day.isBefore(yesterday)) {
-      return 'Yesterday';
+      return appStrings.yesterday;
     }
-    return 'Earlier';
+    return appStrings.earlier;
   }
 
   final ordered = <RunSummary>[
@@ -614,12 +613,12 @@ class _RunsLiveControls extends StatelessWidget {
                   builder: (context, now, _) {
                     final seconds = now.difference(refreshedAt!).inSeconds;
                     final ago = seconds < 5
-                        ? 'just now'
+                        ? appStrings.justNow
                         : seconds < 60
-                        ? '${seconds}s ago'
+                        ? appStrings.arg1SAgo(seconds)
                         : _coworkRelativeTime(refreshedAt!);
                     return Text(
-                      'updated $ago',
+                      appStrings.updatedArg1(ago),
                       style: TextStyle(color: _textSecondary, fontSize: 12),
                     );
                   },
@@ -630,7 +629,7 @@ class _RunsLiveControls extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         IconButton(
-          tooltip: paused ? 'Resume live updates' : 'Pause live updates',
+          tooltip: paused ? 'Resume live updates' : appStrings.pauseLiveUpdates,
           onPressed: onTogglePaused,
           icon: AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
@@ -643,7 +642,7 @@ class _RunsLiveControls extends StatelessWidget {
           ),
         ),
         IconButton(
-          tooltip: 'Refresh now',
+          tooltip: appStrings.refreshNow,
           onPressed: refreshing ? null : onRefresh,
           icon: AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
@@ -653,7 +652,7 @@ class _RunsLiveControls extends StatelessWidget {
                     dimension: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(
+                : Icon(
                     Icons.refresh_rounded,
                     key: ValueKey<String>('idle'),
                   ),
@@ -951,7 +950,7 @@ class _RunListRow extends StatelessWidget {
         children: <InlineSpan>[
           if (run.isActive)
             TextSpan(
-              text: '${run.statusLabel} · ',
+              text: appStrings.arg12(run.statusLabel),
               style: TextStyle(
                 color: run.statusColor,
                 fontWeight: FontWeight.w600,
@@ -1164,8 +1163,10 @@ class _RunNewRunsPill extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               padding: const EdgeInsets.symmetric(horizontal: 14),
             ),
-            icon: const Icon(Icons.arrow_upward_rounded, size: 15),
-            label: Text(count == 1 ? '1 new run' : '$count new runs'),
+            icon: Icon(Icons.arrow_upward_rounded, size: 15),
+            label: Text(
+              count == 1 ? '1 new run' : appStrings.arg1NewRuns(count),
+            ),
           ),
         ),
       ),
@@ -1187,11 +1188,14 @@ class _RunListNoMatches extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Text(
-              'No runs match these filters',
+              appStrings.noRunsMatchTheseFilters,
               style: TextStyle(color: _textSecondary),
             ),
             const SizedBox(height: 10),
-            TextButton(onPressed: onClear, child: const Text('Clear filters')),
+            TextButton(
+              onPressed: onClear,
+              child: Text(appStrings.clearFilters),
+            ),
           ],
         ),
       ),
@@ -1231,7 +1235,7 @@ class _RunDetailPageState extends State<_RunDetailPage> {
     return Scaffold(
       backgroundColor: _bgPrimary,
       appBar: AppBar(
-        title: const Text('Run'),
+        title: Text(appStrings.run),
         backgroundColor: _bgPrimary,
         surfaceTintColor: Colors.transparent,
       ),
@@ -1479,9 +1483,8 @@ class _RunDetailViewState extends State<_RunDetailView>
   Future<void> _delete(RunSummary run) async {
     await _confirmDelete(
       context,
-      title: 'Delete run?',
-      message:
-          'Remove "${run.title}" and its recorded steps from the run history?',
+      title: appStrings.deleteRun,
+      message: appStrings.removeArg1AndItsRecordedSteps(run.title),
       onConfirm: () async {
         await _controller.deleteRun(run.id);
         widget.onDeleted?.call();
@@ -1495,10 +1498,10 @@ class _RunDetailViewState extends State<_RunDetailView>
     if (run == null) {
       return _loading
           ? const Center(child: CircularProgressIndicator())
-          : const Center(
+          : Center(
               child: _EmptyState(
-                title: 'Run not found',
-                subtitle: 'It may have been deleted.',
+                title: appStrings.runNotFound,
+                subtitle: appStrings.itMayHaveBeenDeleted,
               ),
             );
     }
@@ -1515,9 +1518,9 @@ class _RunDetailViewState extends State<_RunDetailView>
             onStop: run.isActive ? _stop : null,
             onCopyResponse: response.isEmpty
                 ? null
-                : () => _copy(response, 'Copied final response'),
+                : () => _copy(response, appStrings.copiedFinalResponse),
             onShowPrompt: _showPrompt,
-            onCopyId: () => _copy(run.id, 'Copied run ID'),
+            onCopyId: () => _copy(run.id, appStrings.copiedRunId),
             onDelete: () => _delete(run),
           ),
           const SizedBox(height: 16),
@@ -1533,10 +1536,10 @@ class _RunDetailViewState extends State<_RunDetailView>
             tabAlignment: TabAlignment.start,
             dividerColor: _border,
             labelStyle: const TextStyle(fontWeight: FontWeight.w700),
-            tabs: const <Widget>[
+            tabs: <Widget>[
               Tab(text: 'Timeline'),
               Tab(text: 'Response'),
-              Tab(text: 'Flow graph'),
+              Tab(text: appStrings.flowGraph),
             ],
           ),
           const SizedBox(height: 14),
@@ -1581,7 +1584,7 @@ class _RunDetailViewState extends State<_RunDetailView>
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Text(
-              'The final response appears here when the run finishes.',
+              appStrings.theFinalResponseAppearsHereWhenThe,
               style: TextStyle(color: _textSecondary),
             ),
           );
@@ -1591,7 +1594,7 @@ class _RunDetailViewState extends State<_RunDetailView>
           children: <Widget>[
             _RunResponseCard(
               response: detail.response,
-              onCopy: () => _copy(detail.response, 'Copied final response'),
+              onCopy: () => _copy(detail.response, appStrings.copiedFinalResponse),
             ),
             if (detail.run.deliverableType.trim().isNotEmpty) ...<Widget>[
               const SizedBox(height: 12),
@@ -1662,7 +1665,10 @@ class _RunDetailHeader extends StatelessWidget {
           children: <Widget>[
             _RunStatusBadge(run: run),
             Text(
-              '${run.triggerLabel} · ${_coworkRelativeTime(run.createdAt)}',
+              appStrings.arg1Arg22(
+                run.triggerLabel,
+                _coworkRelativeTime(run.createdAt),
+              ),
               style: TextStyle(color: _textSecondary, fontSize: 12.5),
             ),
           ],
@@ -1694,17 +1700,17 @@ class _RunDetailHeader extends StatelessWidget {
               backgroundColor: _danger.withValues(alpha: 0.14),
               foregroundColor: _danger,
             ),
-            icon: const Icon(Icons.stop_rounded, size: 18),
-            label: const Text('Stop run'),
+            icon: Icon(Icons.stop_rounded, size: 18),
+            label: Text(appStrings.stopRun),
           ),
         OutlinedButton.icon(
           onPressed: onCopyResponse,
-          icon: const Icon(Icons.copy_all_outlined, size: 17),
-          label: const Text('Copy response'),
+          icon: Icon(Icons.copy_all_outlined, size: 17),
+          label: Text(appStrings.copyResponse),
         ),
         PopupMenuButton<String>(
-          tooltip: 'More actions',
-          icon: const Icon(Icons.more_horiz_rounded),
+          tooltip: appStrings.moreActions,
+          icon: Icon(Icons.more_horiz_rounded),
           onSelected: (value) {
             switch (value) {
               case 'prompt':
@@ -1716,25 +1722,28 @@ class _RunDetailHeader extends StatelessWidget {
             }
           },
           itemBuilder: (context) => <PopupMenuEntry<String>>[
-            const PopupMenuItem<String>(
+            PopupMenuItem<String>(
               value: 'prompt',
               child: ListTile(
                 leading: Icon(Icons.article_outlined),
-                title: Text('Full prompt'),
+                title: Text(appStrings.fullPrompt),
               ),
             ),
-            const PopupMenuItem<String>(
+            PopupMenuItem<String>(
               value: 'id',
               child: ListTile(
                 leading: Icon(Icons.tag_rounded),
-                title: Text('Copy run ID'),
+                title: Text(appStrings.copyRunId),
               ),
             ),
             PopupMenuItem<String>(
               value: 'delete',
               child: ListTile(
                 leading: Icon(Icons.delete_outline, color: _danger),
-                title: Text('Delete run', style: TextStyle(color: _danger)),
+                title: Text(
+                  appStrings.deleteRun2,
+                  style: TextStyle(color: _danger),
+                ),
               ),
             ),
           ],
@@ -1840,7 +1849,10 @@ class _RunStatsStrip extends StatelessWidget {
                   _RunCountUp(value: steps),
                   if (failed > 0)
                     Flexible(
-                      child: _value(' · $failed failed', color: _danger),
+                      child: _value(
+                        appStrings.arg1Failed(failed),
+                        color: _danger,
+                      ),
                     ),
                 ],
               ),
@@ -1970,7 +1982,7 @@ class _RunSkeleton extends StatelessWidget {
 
 /// Step classification shared by the timeline and the flow graph.
 String _runStepKind(RunStepItem step) {
-  final lower = '${step.type} ${step.toolName}'.toLowerCase();
+  final lower = appStrings.arg1Arg23(step.type, step.toolName).toLowerCase();
   if (lower.contains('model') ||
       lower.contains('think') ||
       lower.contains('llm')) {
@@ -2045,8 +2057,8 @@ class _RunWaterfall extends StatelessWidget {
             ],
             Text(
               run.isActive
-                  ? 'Waiting for the first step…'
-                  : 'No steps were recorded for this run.',
+                  ? appStrings.waitingForTheFirstStep
+                  : appStrings.noStepsWereRecordedForThis,
               style: TextStyle(color: _textSecondary),
             ),
           ],
@@ -2433,17 +2445,22 @@ class _RunStepDetails extends StatelessWidget {
       step.typeLabel,
       step.statusLabel,
       if (step.startedAt != null) _formatTimeOnly(step.startedAt!),
-      if (step.tokensUsed > 0) '${_formatNumber(step.tokensUsed)} tokens',
+      if (step.tokensUsed > 0)
+        appStrings.arg1Tokens(_formatNumber(step.tokensUsed)),
     ].join(' · ');
     final description = step.description.trim();
     final input = step.inputSummary.trim().isEmpty
         ? null
-        : _RunDetailBlock(label: 'Input', value: step.inputSummary);
+        : _RunDetailBlock(label: appStrings.input, value: step.inputSummary);
     final output = step.error.trim().isNotEmpty
-        ? _RunDetailBlock(label: 'Error', value: step.error, monospace: true)
+        ? _RunDetailBlock(
+            label: appStrings.error,
+            value: step.error,
+            monospace: true,
+          )
         : step.result.trim().isNotEmpty
         ? _RunDetailBlock(
-            label: 'Result',
+            label: appStrings.result,
             value: _truncateRunText(step.result),
             monospace: true,
           )
@@ -2455,7 +2472,7 @@ class _RunStepDetails extends StatelessWidget {
         children: <Widget>[
           Text(meta, style: TextStyle(color: _textSecondary, fontSize: 12)),
           if (description.isNotEmpty && description != step.summary.trim())
-            _RunDetailBlock(label: 'Description', value: description),
+            _RunDetailBlock(label: appStrings.description, value: description),
           if (input != null && output != null && !compact)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2470,7 +2487,7 @@ class _RunStepDetails extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 10),
               child: Text(
-                'No input or output was recorded for this step.',
+                appStrings.noInputOrOutputWasRecorded,
                 style: TextStyle(color: _textMuted, fontSize: 12.5),
               ),
             ),
@@ -2569,7 +2586,7 @@ class _RunPromptDialogState extends State<_RunPromptDialog> {
     }
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Copied full prompt')));
+    ).showSnackBar(SnackBar(content: Text(appStrings.copiedFullPrompt)));
   }
 
   @override
@@ -2584,15 +2601,15 @@ class _RunPromptDialogState extends State<_RunPromptDialog> {
         children: <Widget>[
           Icon(Icons.article_outlined, color: _accent),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Text(
-              'Full prompt',
+              appStrings.fullPrompt,
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
           if (snapshot != null)
             Text(
-              '${_formatNumber(snapshot.characters)} chars',
+              appStrings.arg1Chars(_formatNumber(snapshot.characters)),
               style: TextStyle(color: _textSecondary, fontSize: 12),
             ),
         ],
@@ -2605,12 +2622,12 @@ class _RunPromptDialogState extends State<_RunPromptDialog> {
       actions: <Widget>[
         TextButton.icon(
           onPressed: snapshot == null ? null : _copyPrompt,
-          icon: const Icon(Icons.copy_all_outlined, size: 18),
-          label: const Text('Copy'),
+          icon: Icon(Icons.copy_all_outlined, size: 18),
+          label: Text(appStrings.copy),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
+          child: Text(appStrings.close),
         ),
       ],
     );
@@ -2624,8 +2641,8 @@ class _RunPromptDialogState extends State<_RunPromptDialog> {
       return Center(
         child: Text(
           _loading
-              ? 'Loading prompt…'
-              : 'No model request was recorded for this run.',
+              ? appStrings.loadingPrompt
+              : appStrings.noModelRequestWasRecordedFor,
           style: TextStyle(color: _textSecondary),
         ),
       );
@@ -2694,7 +2711,10 @@ class _RunPromptSectionTile extends StatelessWidget {
         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
       ),
       subtitle: Text(
-        '${section.role} · ${_formatNumber(section.characters)} chars',
+        appStrings.arg1Arg2Chars(
+          section.role,
+          _formatNumber(section.characters),
+        ),
         style: TextStyle(color: _textSecondary, fontSize: 11),
       ),
       children: <Widget>[
@@ -2732,7 +2752,7 @@ class _RunPromptToolsBlock extends StatelessWidget {
       return const SizedBox.shrink();
     }
     return _RunDetailBlock(
-      label: 'Tools offered (${toolNames.length})',
+      label: appStrings.toolsOfferedArg1(toolNames.length),
       value: toolNames.join(', '),
       monospace: true,
     );
@@ -2755,18 +2775,18 @@ class _RunResponseCard extends StatelessWidget {
           children: <Widget>[
             Row(
               children: <Widget>[
-                Expanded(child: _SectionTitle('Final Response')),
+                Expanded(child: _SectionTitle(appStrings.finalResponse)),
                 OutlinedButton.icon(
                   onPressed: response.trim().isEmpty ? null : onCopy,
                   icon: Icon(Icons.copy_all_outlined),
-                  label: Text('Copy'),
+                  label: Text(appStrings.copy),
                 ),
               ],
             ),
             const SizedBox(height: 12),
             if (response.trim().isEmpty)
               Text(
-                'No final response was captured for this run.',
+                appStrings.noFinalResponseWasCapturedForThis,
                 style: TextStyle(color: _textSecondary),
               )
             else
@@ -2812,11 +2832,13 @@ class _DeliverableSummaryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            _SectionTitle('Deliverable'),
+            _SectionTitle(appStrings.sectionDeliverable),
             const SizedBox(height: 12),
             Text(
               run.deliverableSummary.ifEmpty(
-                'Workflow: ${run.deliverableType.replaceAll('_', ' ')}',
+                appStrings.workflowArg1(
+                  run.deliverableType.replaceAll('_', ' '),
+                ),
               ),
               style: TextStyle(color: _textPrimary, height: 1.45),
             ),
@@ -2826,7 +2848,7 @@ class _DeliverableSummaryCard extends StatelessWidget {
                 final meta = <String>[
                   artifact.kind,
                   if (artifact.mimeType.trim().isNotEmpty) artifact.mimeType,
-                  if (artifact.size > 0) '${artifact.size} bytes',
+                  if (artifact.size > 0) appStrings.arg1Bytes(artifact.size),
                 ].join(' • ');
                 final location = artifact.uri.ifEmpty(artifact.path);
                 return Padding(
@@ -3268,9 +3290,9 @@ class _RunFlowGraphCanvasState extends State<_RunFlowGraphCanvas> {
   @override
   Widget build(BuildContext context) {
     if (widget.run == null) {
-      return const _EmptyCard(
-        title: 'Select a run',
-        subtitle: 'Pick a run from the list on the left to explore its flow.',
+      return _EmptyCard(
+        title: appStrings.selectARun,
+        subtitle: appStrings.pickARunFromTheList2,
       );
     }
 
@@ -3287,7 +3309,7 @@ class _RunFlowGraphCanvasState extends State<_RunFlowGraphCanvas> {
               ),
               const SizedBox(width: 14),
               Text(
-                'Loading run flow…',
+                appStrings.loadingRunFlow,
                 style: TextStyle(color: _textSecondary),
               ),
             ],
@@ -3302,9 +3324,9 @@ class _RunFlowGraphCanvasState extends State<_RunFlowGraphCanvas> {
 
     final detail = widget.detail;
     if (detail == null) {
-      return const _EmptyCard(
-        title: 'No detail available',
-        subtitle: 'This run has no recorded step data.',
+      return _EmptyCard(
+        title: appStrings.noDetailAvailable,
+        subtitle: appStrings.thisRunHasNoRecordedStep,
       );
     }
 
@@ -3329,7 +3351,10 @@ class _RunFlowGraphCanvasState extends State<_RunFlowGraphCanvas> {
               children: <Widget>[
                 Expanded(
                   child: Text(
-                    '$stepCount step${stepCount == 1 ? '' : 's'} · tap a node to inspect',
+                    appStrings.arg1StepArg2TapANode(
+                      stepCount,
+                      stepCount == 1 ? '' : 's',
+                    ),
                     style: TextStyle(color: _textSecondary, fontSize: 12.5),
                   ),
                 ),
@@ -3350,12 +3375,12 @@ class _RunFlowGraphCanvasState extends State<_RunFlowGraphCanvas> {
                       vertical: 6,
                     ),
                   ),
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.center_focus_strong_outlined,
                     size: 15,
                   ),
-                  label: const Text(
-                    'Reset view',
+                  label: Text(
+                    appStrings.resetView,
                     style: TextStyle(fontSize: 12),
                   ),
                 ),
@@ -3416,10 +3441,13 @@ class _RunFlowGraphCanvasState extends State<_RunFlowGraphCanvas> {
               spacing: 12,
               runSpacing: 8,
               children: <Widget>[
-                _GraphLegendChip(color: _info, label: 'Model turn'),
-                _GraphLegendChip(color: _success, label: 'Tool'),
-                _GraphLegendChip(color: _warning, label: 'Plan'),
-                _GraphLegendChip(color: _accentHover, label: 'Sub-agent'),
+                _GraphLegendChip(color: _info, label: appStrings.modelTurn),
+                _GraphLegendChip(color: _success, label: appStrings.tool),
+                _GraphLegendChip(color: _warning, label: appStrings.plan),
+                _GraphLegendChip(
+                  color: _accentHover,
+                  label: appStrings.subAgent,
+                ),
                 _GraphLegendChip(color: _danger, label: 'Failed'),
               ],
             ),
@@ -3521,7 +3549,9 @@ class _RunSelectedStepCard extends StatelessWidget {
                   ),
                 if (step.tokensUsed > 0)
                   _MetaPill(
-                    label: '${_formatNumber(step.tokensUsed)} tokens',
+                    label: appStrings.arg1Tokens(
+                      _formatNumber(step.tokensUsed),
+                    ),
                     icon: Icons.toll_outlined,
                   ),
               ],
@@ -3529,23 +3559,29 @@ class _RunSelectedStepCard extends StatelessWidget {
             if (step.description.trim().isNotEmpty &&
                 step.description.trim() != step.summary.trim()) ...<Widget>[
               const SizedBox(height: 10),
-              _RunDetailBlock(label: 'Description', value: step.description),
+              _RunDetailBlock(
+                label: appStrings.description,
+                value: step.description,
+              ),
             ],
             if (step.inputSummary.trim().isNotEmpty) ...<Widget>[
               const SizedBox(height: 8),
-              _RunDetailBlock(label: 'Input', value: step.inputSummary),
+              _RunDetailBlock(
+                label: appStrings.input,
+                value: step.inputSummary,
+              ),
             ],
             if (step.error.trim().isNotEmpty) ...<Widget>[
               const SizedBox(height: 8),
               _RunDetailBlock(
-                label: 'Error',
+                label: appStrings.error,
                 value: step.error,
                 monospace: true,
               ),
             ] else if (step.result.trim().isNotEmpty) ...<Widget>[
               const SizedBox(height: 8),
               _RunDetailBlock(
-                label: 'Result',
+                label: appStrings.result,
                 value: _truncateRunText(step.result),
                 monospace: true,
               ),

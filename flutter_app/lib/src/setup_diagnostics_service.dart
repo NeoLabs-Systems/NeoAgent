@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 
 import 'local_backend_installer.dart';
 import 'setup_contract.g.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 String redactSetupDiagnosticMessage(
   String message, {
@@ -55,7 +56,7 @@ Future<bool> saveSetupDiagnostics({
   required List<LocalBackendInstallEvent> events,
 }) async {
   final destination = await FilePicker.platform.saveFile(
-    dialogTitle: 'Save NeoAgent setup diagnostics',
+    dialogTitle: appStrings.saveNeoagentSetupDiagnostics,
     fileName: 'neoagent-setup-diagnostics.json',
   );
   if (destination == null) return false;

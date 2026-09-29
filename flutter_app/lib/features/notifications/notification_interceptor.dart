@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:notification_listener_service/notification_listener_service.dart';
 import 'package:notification_listener_service/notification_event.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 class NotificationInterceptor {
   static final NotificationInterceptor _instance =
@@ -67,7 +68,7 @@ class NotificationInterceptor {
         }),
       );
     } catch (e) {
-      debugPrint('Failed to send notification to backend: $e');
+      debugPrint(appStrings.failedToSendNotificationToBackend(e));
     }
   }
 }

@@ -51,66 +51,66 @@ class _CategoryInfo {
   final String riskLevel; // 'low' | 'medium' | 'high' | 'critical'
 }
 
-const _kCategoryInfo = <String, _CategoryInfo>{
+final _kCategoryInfo = <String, _CategoryInfo>{
   'shell': _CategoryInfo(
-    label: 'Shell Commands',
-    subtitle: 'Run arbitrary commands on your machine or VM.',
+    label: appStrings.shellCommands,
+    subtitle: appStrings.runArbitraryCommandsOnYourMachine,
     icon: Icons.terminal_rounded,
     riskLevel: 'critical',
   ),
   'file_write': _CategoryInfo(
-    label: 'File Writes',
-    subtitle: 'Create or modify files in your workspace.',
+    label: appStrings.fileWrites,
+    subtitle: appStrings.createOrModifyFilesInYour,
     icon: Icons.edit_document,
     riskLevel: 'high',
   ),
   'android_privileged': _CategoryInfo(
-    label: 'Android Control',
-    subtitle: 'Run shell commands or install apps on your Android device.',
+    label: appStrings.androidControl,
+    subtitle: appStrings.runShellCommandsOrInstallApps,
     icon: Icons.android_rounded,
     riskLevel: 'high',
   ),
   'desktop_control': _CategoryInfo(
-    label: 'Desktop Control',
-    subtitle: 'Click, type, and interact with desktop apps.',
+    label: appStrings.desktopControl,
+    subtitle: appStrings.clickTypeAndInteractWithDesktop,
     icon: Icons.desktop_windows_rounded,
     riskLevel: 'medium',
   ),
   'browser_privileged': _CategoryInfo(
-    label: 'Browser Scripting',
-    subtitle: 'Execute JavaScript inside your browser session.',
+    label: appStrings.browserScripting,
+    subtitle: appStrings.executeJavascriptInsideYourBrowserSession,
     icon: Icons.code_rounded,
     riskLevel: 'high',
   ),
   'credential_use': _CategoryInfo(
-    label: 'Credential Use',
+    label: appStrings.credentialUse,
     subtitle:
-        'Fill approved logins or authenticate requests without showing secrets to the AI.',
+        appStrings.fillApprovedLoginsOrAuthenticateRequests,
     icon: Icons.password_rounded,
     riskLevel: 'high',
   ),
   'network_write': _CategoryInfo(
-    label: 'Network Write Requests',
-    subtitle: 'Send POST / PUT / DELETE requests to external APIs.',
+    label: appStrings.networkWriteRequests,
+    subtitle: appStrings.sendPostPutDeleteRequestsTo,
     icon: Icons.http_rounded,
     riskLevel: 'medium',
   ),
   'user_contact': _CategoryInfo(
-    label: 'Call User',
-    subtitle: 'Allow the agent to start an in-app voice call with you.',
+    label: appStrings.callUser,
+    subtitle: appStrings.allowTheAgentToStartAn,
     icon: Icons.phone_in_talk_rounded,
     riskLevel: 'medium',
   ),
   'skill_mutation': _CategoryInfo(
-    label: 'Skill Changes',
-    subtitle: 'Create, update, or delete skills.',
+    label: appStrings.skillChanges,
+    subtitle: appStrings.createUpdateOrDeleteSkills,
     icon: Icons.extension_rounded,
     riskLevel: 'medium',
   ),
   'external': _CategoryInfo(
-    label: 'External & MCP Tools',
+    label: appStrings.externalMcpTools,
     subtitle:
-        'Tools not built into NeoAgent, including connected MCP servers and custom tool providers.',
+        appStrings.toolsNotBuiltIntoNeoagentIncluding,
     icon: Icons.hub_rounded,
     riskLevel: 'high',
   ),
@@ -120,7 +120,7 @@ _CategoryInfo _categoryInfo(String category) {
   return _kCategoryInfo[category] ??
       _CategoryInfo(
         label: category,
-        subtitle: 'Controls access to $category tools.',
+        subtitle: appStrings.controlsAccessToArg1Tools(category),
         icon: Icons.lock_outline,
         riskLevel: 'medium',
       );
@@ -142,11 +142,11 @@ Color _riskColor(String level) {
 
 class _AppNotificationService {
   static const _channelId = 'tool_approval';
-  static const _channelName = 'Tool Approval';
+  static final _channelName = appStrings.toolApproval;
   static const _messagingChannelId = 'messaging_connection';
-  static const _messagingChannelName = 'Messaging Connections';
+  static final _messagingChannelName = appStrings.messagingConnections;
   static const _incomingCallChannelId = 'agent_calls';
-  static const _incomingCallChannelName = 'Agent Calls';
+  static final _incomingCallChannelName = appStrings.agentCalls;
   static const _approveActionId = 'approve';
   static const _denyActionId = 'deny';
 
@@ -253,15 +253,15 @@ class _AppNotificationService {
     if (plugin == null) return;
 
     final info = _categoryInfo(req.category);
-    final body = 'Agent wants to use ${req.toolName}. Tap to decide.';
+    final body = appStrings.agentWantsToUseArg1Tap(req.toolName);
 
     final androidDetails = AndroidNotificationDetails(
       _channelId,
       _channelName,
-      channelDescription: 'Approval requests for sensitive agent tools',
+      channelDescription: appStrings.approvalRequestsForSensitiveAgentTools,
       importance: Importance.high,
       priority: Priority.high,
-      ticker: 'Tool approval required',
+      ticker: appStrings.toolApprovalRequired,
       color: _riskColor(info.riskLevel),
       actions: <AndroidNotificationAction>[
         const AndroidNotificationAction(_approveActionId, 'Allow'),
@@ -275,7 +275,7 @@ class _AppNotificationService {
 
     await plugin.show(
       req.approvalId.hashCode.abs() % 100000,
-      '${info.label} approval needed',
+      appStrings.arg1ApprovalNeeded(info.label),
       body,
       NotificationDetails(
         android: androidDetails,
@@ -295,22 +295,22 @@ class _AppNotificationService {
 
     final descriptor = _messagingPlatformById(platform);
     final label = descriptor?.label ?? platform;
-    const androidDetails = AndroidNotificationDetails(
+    final androidDetails = AndroidNotificationDetails(
       _messagingChannelId,
       _messagingChannelName,
       channelDescription:
-          'Alerts when a messaging connection needs user attention',
+          appStrings.alertsWhenAMessagingConnectionNeeds,
       importance: Importance.high,
       priority: Priority.high,
-      ticker: 'Messaging connection needs attention',
+      ticker: appStrings.messagingConnectionNeedsAttention,
     );
     const darwinDetails = DarwinNotificationDetails();
 
     await plugin.show(
       100000 + (platform.hashCode.abs() % 100000),
-      '$label needs attention',
-      'Open NeoAgent and reconnect $label to restore messaging.',
-      const NotificationDetails(
+      appStrings.arg1NeedsAttention(label),
+      appStrings.openNeoagentAndReconnectArg1To(label),
+      NotificationDetails(
         android: androidDetails,
         iOS: darwinDetails,
         macOS: darwinDetails,
@@ -330,17 +330,17 @@ class _AppNotificationService {
     await requestIncomingCallPermission();
     final plugin = await _getPlugin();
     if (plugin == null) return;
-    const androidDetails = AndroidNotificationDetails(
+    final androidDetails = AndroidNotificationDetails(
       _incomingCallChannelId,
       _incomingCallChannelName,
-      channelDescription: 'Incoming in-app voice calls from NeoAgent',
+      channelDescription: appStrings.incomingInAppVoiceCallsFrom,
       importance: Importance.max,
       priority: Priority.max,
       category: AndroidNotificationCategory.call,
       fullScreenIntent: true,
       ongoing: true,
       autoCancel: false,
-      ticker: 'Incoming NeoAgent call',
+      ticker: appStrings.incomingNeoagentCall,
     );
     const darwinDetails = DarwinNotificationDetails(
       presentAlert: true,
@@ -350,9 +350,9 @@ class _AppNotificationService {
     );
     await plugin.show(
       call.callId.hashCode.abs() % 100000,
-      'Incoming NeoAgent call',
-      '${call.agentName} wants to talk with you.',
-      const NotificationDetails(
+      appStrings.incomingNeoagentCall,
+      appStrings.arg1WantsToTalkWithYou(call.agentName),
+      NotificationDetails(
         android: androidDetails,
         iOS: darwinDetails,
         macOS: darwinDetails,
@@ -411,7 +411,7 @@ class _MainSecurityState extends State<MainSecurity> {
             ? locks.map(
                 (key, manager) => MapEntry(
                   key.toString(),
-                  AccessPerson.tryParse(manager)?.label ?? 'your manager',
+                  AccessPerson.tryParse(manager)?.label ?? appStrings.yourManager,
                 ),
               )
             : const <String, String>{};
@@ -439,7 +439,7 @@ class _MainSecurityState extends State<MainSecurity> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save: $e'),
+            content: Text(appStrings.failedToSaveArg1(e)),
             backgroundColor: _danger,
           ),
         );
@@ -463,7 +463,7 @@ class _MainSecurityState extends State<MainSecurity> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save: $e'),
+            content: Text(appStrings.failedToSaveArg1(e)),
             backgroundColor: _danger,
           ),
         );
@@ -476,10 +476,10 @@ class _MainSecurityState extends State<MainSecurity> {
     final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tool Permissions'),
+        title: Text(appStrings.toolPermissions),
         actions: <Widget>[
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
+            icon: Icon(Icons.refresh_rounded),
             tooltip: 'Refresh',
             onPressed: _load,
           ),
@@ -500,10 +500,10 @@ class _MainSecurityState extends State<MainSecurity> {
                     color: colorScheme.errorContainer,
                     textColor: colorScheme.onErrorContainer,
                     message: _lockedBy.isEmpty
-                        ? 'All tools are allowed — the agent can use any capability without asking. '
-                              'Switch to "Default" or "Always ask" to re-enable approval checks.'
-                        : 'Every tool runs without asking, except the ones the person '
-                              'who manages this account turned off: '
+                        ? appStrings.allToolsAreAllowedTheAgent +
+                              appStrings.switchToDefaultOrAlwaysAskTo
+                        : appStrings.everyToolRunsWithoutAskingExcept +
+                              appStrings.whoManagesThisAccountTurnedOff +
                               '${_lockedBy.keys.map((key) => _categoryInfo(key).label).join(', ')}.',
                   )
                 else ...<Widget>[
@@ -513,13 +513,13 @@ class _MainSecurityState extends State<MainSecurity> {
                       color: colorScheme.secondaryContainer,
                       textColor: colorScheme.onSecondaryContainer,
                       message:
-                          'The agent will ask before every sensitive tool, '
-                          'regardless of per-category settings below.',
+                          appStrings.theAgentWillAskBeforeEvery +
+                          appStrings.regardlessOfPerCategorySettingsBelow,
                     ),
                   const SizedBox(height: 4),
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: 4, bottom: 6),
-                    child: _SectionTitle('Per-category permissions'),
+                    child: _SectionTitle(appStrings.perCategoryPermissions),
                   ),
                   ..._policies.entries.map(
                     (e) => Padding(
@@ -554,7 +554,7 @@ class _ErrorView extends StatelessWidget {
           Icon(Icons.error_outline, size: 48, color: _danger),
           const SizedBox(height: 12),
           Text(
-            'Failed to load policies',
+            appStrings.failedToLoadPolicies,
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 6),
@@ -566,8 +566,8 @@ class _ErrorView extends StatelessWidget {
           const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: onRetry,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Retry'),
+            icon: Icon(Icons.refresh),
+            label: Text(appStrings.retry),
           ),
         ],
       ),
@@ -636,8 +636,8 @@ class _GlobalModeCard extends StatelessWidget {
               children: <Widget>[
                 Icon(Icons.tune_rounded, size: 18, color: _accent),
                 const SizedBox(width: 8),
-                const Text(
-                  'Global security mode',
+                Text(
+                  appStrings.globalSecurityMode,
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                 ),
               ],
@@ -646,9 +646,9 @@ class _GlobalModeCard extends StatelessWidget {
             _ModeOption(
               value: 'allow_all',
               current: mode,
-              label: 'Allow all',
+              label: appStrings.allowAll,
               subtitle:
-                  'No approval prompts — agent runs without interruption.',
+                  appStrings.noApprovalPromptsAgentRunsWithout,
               icon: Icons.lock_open_rounded,
               color: _warning,
               onTap: () => onChanged('allow_all'),
@@ -657,8 +657,8 @@ class _GlobalModeCard extends StatelessWidget {
             _ModeOption(
               value: 'default',
               current: mode,
-              label: 'Default (recommended)',
-              subtitle: 'Use per-category settings below.',
+              label: appStrings.defaultRecommended,
+              subtitle: appStrings.usePerCategorySettingsBelow,
               icon: Icons.shield_outlined,
               color: _accentAlt,
               onTap: () => onChanged('default'),
@@ -667,8 +667,8 @@ class _GlobalModeCard extends StatelessWidget {
             _ModeOption(
               value: 'always_ask',
               current: mode,
-              label: 'Always ask',
-              subtitle: 'Every sensitive tool requires approval, every time.',
+              label: appStrings.alwaysAsk,
+              subtitle: appStrings.everySensitiveToolRequiresApprovalEvery,
               icon: Icons.pan_tool_outlined,
               color: _info,
               onTap: () => onChanged('always_ask'),
@@ -833,25 +833,25 @@ class _PolicyCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               SegmentedButton<String>(
-                segments: const <ButtonSegment<String>>[
+                segments: <ButtonSegment<String>>[
                   ButtonSegment<String>(
                     value: 'deny',
-                    label: Text('Block'),
+                    label: Text(appStrings.block),
                     icon: Icon(Icons.block_rounded, size: 13),
                   ),
                   ButtonSegment<String>(
                     value: 'require_approval',
-                    label: Text('Ask me'),
+                    label: Text(appStrings.askMe),
                     icon: Icon(Icons.pan_tool_outlined, size: 13),
                   ),
                   ButtonSegment<String>(
                     value: 'allow',
-                    label: Text('Allow'),
+                    label: Text(appStrings.allow),
                     icon: Icon(Icons.check_rounded, size: 13),
                   ),
                   ButtonSegment<String>(
                     value: 'allow_always',
-                    label: Text('Always'),
+                    label: Text(appStrings.always),
                     icon: Icon(Icons.verified_rounded, size: 13),
                   ),
                 ],
@@ -874,8 +874,8 @@ class _PolicyCard extends StatelessWidget {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        'Turned off by $lockedBy, who manages this account. '
-                        'Only they can change it.',
+                        appStrings.turnedOffByArg1WhoManages(lockedBy) +
+                        appStrings.onlyTheyCanChangeIt,
                         style: TextStyle(fontSize: 11, color: _textSecondary),
                       ),
                     ),
@@ -899,18 +899,18 @@ class _PolicyHint extends StatelessWidget {
   Widget build(BuildContext context) {
     final (text, color) = switch (policy) {
       'deny' => (
-        'Completely blocked — the agent cannot use this category.',
+        appStrings.completelyBlockedTheAgentCannotUse,
         _danger,
       ),
       'require_approval' => (
-        'Agent pauses and asks you before running.',
+        appStrings.agentPausesAndAsksYouBefore,
         _warning,
       ),
       'allow' => (
-        'Allowed for this run — will ask again next session.',
+        appStrings.allowedForThisRunWillAsk,
         _accentAlt,
       ),
-      'allow_always' => ('Permanently allowed — never asks again.', _info),
+      'allow_always' => (appStrings.permanentlyAllowedNeverAsksAgain, _info),
       _ => ('', _textSecondary),
     };
     if (text.isEmpty) return const SizedBox.shrink();
@@ -1006,10 +1006,10 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
 
   String _formatArgs() {
     final args = widget.request.toolArgs;
-    if (args.isEmpty) return '(no arguments)';
+    if (args.isEmpty) return appStrings.noArguments;
     final buf = StringBuffer();
     for (final e in args.entries) {
-      buf.writeln('${e.key}: ${_redact(e.key, e.value)}');
+      buf.writeln(appStrings.arg1Arg24(e.key, _redact(e.key, e.value)));
     }
     final out = buf.toString().trimRight();
     return out.length > 500 ? '${out.substring(0, 500)}…' : out;
@@ -1096,8 +1096,8 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        const Text(
-                          'Approval required',
+                        Text(
+                          appStrings.approvalRequired,
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 16,
@@ -1202,8 +1202,8 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                       children: <Widget>[
                         Expanded(
                           child: OutlinedButton.icon(
-                            icon: const Icon(Icons.block_rounded, size: 15),
-                            label: const Text('Deny'),
+                            icon: Icon(Icons.block_rounded, size: 15),
+                            label: Text(appStrings.deny),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: colorScheme.error,
                               side: BorderSide(
@@ -1216,11 +1216,11 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                         const SizedBox(width: 8),
                         Expanded(
                           child: OutlinedButton.icon(
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.check_circle_outline,
                               size: 15,
                             ),
-                            label: const Text('Allow once'),
+                            label: Text(appStrings.allowOnce),
                             onPressed: () => _decide('approved', 'once'),
                           ),
                         ),
@@ -1231,8 +1231,8 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                       children: <Widget>[
                         Expanded(
                           child: OutlinedButton.icon(
-                            icon: const Icon(Icons.history_rounded, size: 15),
-                            label: const Text('Allow session'),
+                            icon: Icon(Icons.history_rounded, size: 15),
+                            label: Text(appStrings.allowSession),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: _info,
                             ),
@@ -1242,8 +1242,8 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                         const SizedBox(width: 8),
                         Expanded(
                           child: FilledButton.icon(
-                            icon: const Icon(Icons.verified_rounded, size: 15),
-                            label: const Text('Always allow'),
+                            icon: Icon(Icons.verified_rounded, size: 15),
+                            label: Text(appStrings.alwaysAllow),
                             style: FilledButton.styleFrom(
                               backgroundColor: riskColor,
                             ),
@@ -1254,7 +1254,7 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '"Always allow" saves the policy permanently — you can change it in Settings.',
+                      appStrings.alwaysAllowSavesThePolicyPermanently,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 10,

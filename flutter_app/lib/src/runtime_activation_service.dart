@@ -4,6 +4,7 @@ import 'dart:io';
 import 'local_backend_installer_models.dart';
 import 'local_runtime_paths.dart';
 import 'setup_contract.g.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 typedef RuntimeActivationEventSink =
     void Function(LocalBackendInstallEvent event);
@@ -17,13 +18,13 @@ class RuntimeActivationService {
   void validateExtractedRuntime(Directory directory) {
     final nodePath = nodeExecutable(directory);
     final cliPath = File(
-      '${directory.path}${Platform.pathSeparator}app'
+      '${directory.path}${Platform.pathSeparator}app' +
       '${Platform.pathSeparator}bin${Platform.pathSeparator}neoagent.js',
     );
     if (!nodePath.existsSync() || !cliPath.existsSync()) {
-      throw const LocalBackendInstallerException(
+      throw LocalBackendInstallerException(
         'SETUP_RUNTIME_INCOMPLETE',
-        'The verified runtime package is missing required files.',
+        appStrings.theVerifiedRuntimePackageIsMissing,
         retryable: false,
       );
     }
@@ -41,9 +42,9 @@ class RuntimeActivationService {
 
   File nodeExecutable(Directory directory) {
     final path = Platform.isWindows
-        ? '${directory.path}${Platform.pathSeparator}node'
+        ? '${directory.path}${Platform.pathSeparator}node' +
               '${Platform.pathSeparator}node.exe'
-        : '${directory.path}${Platform.pathSeparator}node'
+        : '${directory.path}${Platform.pathSeparator}node' +
               '${Platform.pathSeparator}bin${Platform.pathSeparator}node';
     return File(path);
   }
@@ -73,7 +74,7 @@ class RuntimeActivationService {
     required String failedVersion,
     required String? previousVersion,
   }) async {
-    _emit('rollback', 'Restoring the previous NeoAgent runtime');
+    _emit('rollback', appStrings.restoringThePreviousNeoagentRuntime);
     final current = _currentMarker(runtimeRoot);
     if (previousVersion == null) {
       try {
@@ -87,13 +88,13 @@ class RuntimeActivationService {
 
     final rollbackVersion = previousVersion ?? failedVersion;
     final rollbackDirectory = Directory(
-      '${runtimeRoot.path}${Platform.pathSeparator}app'
-      '${Platform.pathSeparator}versions'
+      '${runtimeRoot.path}${Platform.pathSeparator}app' +
+      '${Platform.pathSeparator}versions' +
       '${Platform.pathSeparator}$rollbackVersion',
     );
     try {
       final cli =
-          '${rollbackDirectory.path}${Platform.pathSeparator}app'
+          '${rollbackDirectory.path}${Platform.pathSeparator}app' +
           '${Platform.pathSeparator}bin${Platform.pathSeparator}neoagent.js';
       await Process.run(
         nodeExecutable(rollbackDirectory).path,
@@ -113,7 +114,7 @@ class RuntimeActivationService {
     } on Object {
       _emit(
         'message',
-        'Automatic rollback needs a retry from the setup screen.',
+        appStrings.automaticRollbackNeedsARetryFrom,
         errorCode: 'SETUP_ROLLBACK_INCOMPLETE',
       );
     }
@@ -121,7 +122,7 @@ class RuntimeActivationService {
 
   File _currentMarker(Directory runtimeRoot) {
     return File(
-      '${runtimeRoot.path}${Platform.pathSeparator}app'
+      '${runtimeRoot.path}${Platform.pathSeparator}app' +
       '${Platform.pathSeparator}current.json',
     );
   }
@@ -191,9 +192,9 @@ void restoreExtractedRuntimePermissions(
   if (Platform.isWindows) return;
   _chmodUnixExecutable(nodeExecutable);
   final qemuBin = Directory(
-    '${directory.path}${Platform.pathSeparator}app'
-    '${Platform.pathSeparator}computer-runtime'
-    '${Platform.pathSeparator}qemu'
+    '${directory.path}${Platform.pathSeparator}app' +
+    '${Platform.pathSeparator}computer-runtime' +
+    '${Platform.pathSeparator}qemu' +
     '${Platform.pathSeparator}bin',
   );
   if (!qemuBin.existsSync()) return;
@@ -205,9 +206,9 @@ void restoreExtractedRuntimePermissions(
 void _chmodUnixExecutable(File file) {
   final result = Process.runSync('chmod', <String>['u+rwx,go+rx', file.path]);
   if (result.exitCode != 0) {
-    throw const LocalBackendInstallerException(
+    throw LocalBackendInstallerException(
       'SETUP_RUNTIME_INCOMPLETE',
-      'The verified runtime package could not be marked executable.',
+      appStrings.theVerifiedRuntimePackageCouldNot,
       retryable: false,
     );
   }

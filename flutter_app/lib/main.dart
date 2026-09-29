@@ -40,6 +40,7 @@ import 'src/home_widget_bridge.dart';
 import 'src/incoming_call_alert.dart';
 import 'src/live_voice_capture.dart';
 import 'src/live_voice_player.dart';
+import 'src/voice_work_clicks.dart';
 import 'src/local_backend_installer.dart';
 import 'src/local_runtime_manager.dart';
 import 'src/mascot/mascot_mood.dart';
@@ -59,6 +60,7 @@ import 'features/notifications/notification_interceptor.dart';
 import 'features/onboarding/onboarding_shell.dart';
 import 'features/tasks/task_recommendations.dart';
 import 'features/memory/views/retrieval_inspector_view.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 part 'main_spacing.dart';
 part 'main_theme.dart';
@@ -110,6 +112,7 @@ Future<void> runNeoAgentApp({
   NeoAgentAppMode mode = NeoAgentAppMode.standard,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
+  await ensureAppLanguageLoaded();
   if (_supportsDesktopShell) {
     await windowManager.ensureInitialized();
     await hotKeyManager.unregisterAll();
@@ -118,7 +121,7 @@ Future<void> runNeoAgentApp({
 }
 
 const String _androidDefaultLaunchPackage = 'com.android.settings';
-const String _desktopAssistantHotkeyLabel = 'Ctrl + Shift + Space';
+String get _desktopAssistantHotkeyLabel => appStrings.ctrlShiftSpace;
 const String _desktopWindowIconAsset = 'assets/branding/app_icon_256.png';
 const String _desktopTrayTemplateIconAsset =
     'assets/branding/tray_icon_template.png';

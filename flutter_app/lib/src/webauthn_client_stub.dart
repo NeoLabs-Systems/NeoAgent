@@ -1,4 +1,5 @@
 import 'webauthn_client.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 WebAuthnClient createPlatformWebAuthnClient() => _UnsupportedWebAuthnClient();
 
@@ -10,8 +11,8 @@ class _UnsupportedWebAuthnClient implements WebAuthnClient {
   Future<Map<String, dynamic>> createCredential(
     Map<String, dynamic> options,
   ) async {
-    throw const WebAuthnException(
-      'Security keys are only available in the NeoAgent web app.',
+    throw WebAuthnException(
+      appStrings.securityKeysAreOnlyAvailableIn,
     );
   }
 
@@ -19,8 +20,8 @@ class _UnsupportedWebAuthnClient implements WebAuthnClient {
   Future<Map<String, dynamic>> getAssertion(
     Map<String, dynamic> options,
   ) async {
-    throw const WebAuthnException(
-      'Security keys are only available in the NeoAgent web app.',
+    throw WebAuthnException(
+      appStrings.securityKeysAreOnlyAvailableIn,
     );
   }
 }

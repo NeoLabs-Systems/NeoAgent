@@ -1,4 +1,5 @@
 import 'oauth_launcher.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 OAuthLauncher createPlatformOAuthLauncher() => _StubOAuthLauncher();
 
@@ -11,10 +12,10 @@ class _StubOAuthLauncher extends OAuthLauncher {
     required String provider,
     Duration timeout = const Duration(minutes: 2),
   }) async {
-    return const OAuthLaunchResult(
+    return OAuthLaunchResult(
       launched: false,
       completed: false,
-      error: 'OAuth launch is not supported on this platform.',
+      error: appStrings.oauthLaunchIsNotSupportedOn,
     );
   }
 
@@ -24,10 +25,10 @@ class _StubOAuthLauncher extends OAuthLauncher {
     required String label,
     Duration timeout = const Duration(seconds: 10),
   }) async {
-    return const OAuthLaunchResult(
+    return OAuthLaunchResult(
       launched: false,
       completed: false,
-      error: 'External browser launch is not supported on this platform.',
+      error: appStrings.externalBrowserLaunchIsNotSupported,
     );
   }
 }

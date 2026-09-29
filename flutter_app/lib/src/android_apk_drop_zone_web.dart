@@ -8,6 +8,7 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 
 import 'error_text.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 int _androidApkDropZoneViewId = 0;
 const Set<String> _supportedAndroidInstallExtensions = <String>{
@@ -67,7 +68,7 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
       ..setAttribute('role', 'button')
       ..setAttribute(
         'aria-label',
-        'Drop an APK or APK bundle here to install it',
+        appStrings.dropAnApkOrApkBundle,
       )
       ..tabIndex = 0
       ..style.width = '100%'
@@ -155,7 +156,7 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
       return;
     }
     if (!_isSupportedInstallFile(file.name)) {
-      _showError('Only .apk or .apks files can be installed.');
+      _showError(appStrings.onlyApkOrApksFilesCan);
       return;
     }
     try {
@@ -184,14 +185,14 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
       }
       if (!completer.isCompleted) {
         completer.completeError(
-          StateError('Could not read the Android app package.'),
+          StateError(appStrings.couldNotReadTheAndroidApp),
         );
       }
     });
     reader.onError.listen((_) {
       if (!completer.isCompleted) {
         completer.completeError(
-          reader.error ?? StateError('Could not read the Android app package.'),
+          reader.error ?? StateError(appStrings.couldNotReadTheAndroidApp),
         );
       }
     });
@@ -246,10 +247,10 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
             alpha: theme.brightness == Brightness.dark ? 0.18 : 0.72,
           );
     final subtitle = widget.busy
-        ? 'Installing app package on the phone...'
+        ? appStrings.installingAppPackageOnThePhone
         : widget.enabled
-        ? 'Drag and drop a .apk or .apks file here, or click to browse.'
-        : 'Start the Android phone first, then drop a .apk or .apks file here.';
+        ? appStrings.dragAndDropAApkOrApks
+        : appStrings.startTheAndroidPhoneFirstThen;
 
     return Container(
       width: double.infinity,
@@ -282,7 +283,7 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      'Install APK / Bundle',
+                      appStrings.installApkBundle,
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: titleColor,
                         fontWeight: FontWeight.w700,
@@ -318,8 +319,8 @@ class _AndroidApkDropZoneWebState extends State<_AndroidApkDropZoneWeb> {
                         widget.busy
                             ? 'Installing...'
                             : _dragActive
-                            ? 'Release to install this package'
-                            : 'Drop APK or .apks Here',
+                            ? appStrings.releaseToInstallThisPackage
+                            : appStrings.dropApkOrApksHere,
                         style: theme.textTheme.titleSmall?.copyWith(
                           color: titleColor,
                           fontWeight: FontWeight.w700,
@@ -398,7 +399,7 @@ class _AndroidApkTileWebState extends State<_AndroidApkTileWeb> {
     _viewType = 'neoagent-android-apk-tile-${_androidApkTileViewId++}';
     _dropElement = html.DivElement()
       ..setAttribute('role', 'button')
-      ..setAttribute('aria-label', 'Install APK — click or drop a .apk file')
+      ..setAttribute('aria-label', appStrings.installApkClickOrDropA)
       ..tabIndex = 0
       ..style.width = '100%'
       ..style.height = '100%'
@@ -465,7 +466,7 @@ class _AndroidApkTileWebState extends State<_AndroidApkTileWeb> {
   Future<void> _handleFile(html.File file) async {
     if (!widget.enabled || widget.busy) return;
     if (!_isSupportedInstallFile(file.name)) {
-      _showError('Only .apk or .apks files can be installed.');
+      _showError(appStrings.onlyApkOrApksFilesCan);
       return;
     }
     try {
@@ -483,10 +484,10 @@ class _AndroidApkTileWebState extends State<_AndroidApkTileWeb> {
       final result = reader.result;
       if (result is ByteBuffer) { completer.complete(Uint8List.view(result)); return; }
       if (result is Uint8List) { completer.complete(result); return; }
-      if (!completer.isCompleted) completer.completeError(StateError('Could not read the APK.'));
+      if (!completer.isCompleted) completer.completeError(StateError(appStrings.couldNotReadTheApk));
     });
     reader.onError.listen((_) {
-      if (!completer.isCompleted) completer.completeError(reader.error ?? StateError('Read error'));
+      if (!completer.isCompleted) completer.completeError(reader.error ?? StateError(appStrings.readError));
     });
     reader.readAsArrayBuffer(file);
     return completer.future;
@@ -540,7 +541,7 @@ class _AndroidApkTileWebState extends State<_AndroidApkTileWeb> {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    widget.busy ? 'Installing…' : 'Install APK',
+                    widget.busy ? 'Installing…' : appStrings.installApk,
                     style: TextStyle(
                       fontSize: 10,
                       height: 1.2,

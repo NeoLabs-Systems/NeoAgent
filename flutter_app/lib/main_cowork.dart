@@ -58,7 +58,7 @@ class _DesktopModeSwitch extends StatelessWidget {
             _CoworkSegPill(
               selected: !controller.desktopCoworkMode,
               icon: Icons.dashboard_outlined,
-              label: 'Standard',
+              label: appStrings.standard,
               onTap: () => controller.setDesktopCoworkMode(false),
             ),
           ),
@@ -229,7 +229,7 @@ class _CoworkHomeViewState extends State<CoworkHomeView> {
         if (mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('Microphone error: ${_formatCaughtError(error)}')));
+          ).showSnackBar(SnackBar(content: Text(appStrings.microphoneErrorArg1(_formatCaughtError(error)))));
         }
       }
       return;
@@ -266,7 +266,7 @@ class _CoworkHomeViewState extends State<CoworkHomeView> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Transcription failed: ${_formatCaughtError(error)}')));
+        ).showSnackBar(SnackBar(content: Text(appStrings.transcriptionFailedArg1(_formatCaughtError(error)))));
       }
     } finally {
       await capture?.dispose();
@@ -476,7 +476,7 @@ class _CoworkTopBar extends StatelessWidget {
         children: <Widget>[
           if (onToggleSessions != null) ...<Widget>[
             _CoworkIconChip(
-              tooltip: 'Sessions',
+              tooltip: appStrings.sessions,
               icon: Icons.view_sidebar_outlined,
               onPressed: onToggleSessions!,
             ),
@@ -508,7 +508,7 @@ class _CoworkTopBar extends StatelessWidget {
             const SizedBox(width: 10),
           ],
           _CoworkIconChip(
-            tooltip: workbenchOpen ? 'Hide workbench (⌘J)' : 'Show workbench (⌘J)',
+            tooltip: workbenchOpen ? 'Hide workbench (⌘J)' : appStrings.showWorkbenchJ,
             icon: workbenchOpen
                 ? Icons.web_asset_rounded
                 : Icons.web_asset_off_outlined,
@@ -519,7 +519,7 @@ class _CoworkTopBar extends StatelessWidget {
           if (!compact) _DesktopModeSwitch(controller: controller),
           if (compact)
             _CoworkIconChip(
-              tooltip: 'Standard view',
+              tooltip: appStrings.standardView,
               icon: Icons.dashboard_outlined,
               onPressed: () => controller.setDesktopCoworkMode(false),
             ),
@@ -852,23 +852,25 @@ class _CoworkEmpty extends StatelessWidget {
 String _coworkRelativeTime(DateTime time) {
   final now = DateTime.now();
   final difference = now.difference(time);
-  if (difference.inSeconds < 45) return 'just now';
-  if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
+  if (difference.inSeconds < 45) return appStrings.justNow;
+  if (difference.inMinutes < 60) return appStrings.arg1MAgo(difference.inMinutes);
   if (difference.inHours < 24 && now.day == time.day) {
-    return '${difference.inHours}h ago';
+    return appStrings.arg1HAgo(difference.inHours);
   }
   final yesterday = now.subtract(const Duration(days: 1));
   if (time.year == yesterday.year &&
       time.month == yesterday.month &&
       time.day == yesterday.day) {
-    return 'Yesterday';
+    return appStrings.yesterday;
   }
-  const months = <String>[
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  final months = <String>[
+    appStrings.monthJan, appStrings.monthFeb, appStrings.monthMar,
+    appStrings.monthApr, appStrings.monthMay, appStrings.monthJun,
+    appStrings.monthJul, appStrings.monthAug, appStrings.monthSep,
+    appStrings.monthOct, appStrings.monthNov, appStrings.monthDec,
   ];
-  final date = '${months[time.month - 1]} ${time.day}';
-  return time.year == now.year ? date : '$date ${time.year}';
+  final date = appStrings.arg1Arg23(months[time.month - 1], time.day);
+  return time.year == now.year ? date : appStrings.arg1Arg23(date, time.year);
 }
 
 String _coworkFormatTokens(int tokens) {

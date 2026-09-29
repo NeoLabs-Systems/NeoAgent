@@ -6,6 +6,7 @@ import 'dart:js_util' as js_util;
 import 'dart:typed_data';
 
 import 'webauthn_client.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 WebAuthnClient createPlatformWebAuthnClient() => _BrowserWebAuthnClient();
 
@@ -101,7 +102,7 @@ class _BrowserWebAuthnClient implements WebAuthnClient {
         js_util.callMethod(_credentials, method, <Object>[request]),
       );
       if (credential == null) {
-        throw const WebAuthnException('No security key was provided.');
+        throw WebAuthnException(appStrings.noSecurityKeyWasProvided);
       }
       return credential;
     } on WebAuthnException {
@@ -117,18 +118,18 @@ class _BrowserWebAuthnClient implements WebAuthnClient {
     final String message =
         js_util.getProperty<Object?>(error, 'message')?.toString() ?? '';
     if (name == 'NotAllowedError' || name == 'AbortError') {
-      return const WebAuthnException(
-        'Security key prompt was dismissed.',
+      return WebAuthnException(
+        appStrings.securityKeyPromptWasDismissed,
         cancelled: true,
       );
     }
     if (name == 'InvalidStateError') {
-      return const WebAuthnException(
-        'That security key is already registered on this account.',
+      return WebAuthnException(
+        appStrings.thatSecurityKeyIsAlreadyRegistered,
       );
     }
     return WebAuthnException(
-      message.isEmpty ? 'The security key could not be used.' : message,
+      message.isEmpty ? appStrings.theSecurityKeyCouldNotBeUsed : message,
     );
   }
 

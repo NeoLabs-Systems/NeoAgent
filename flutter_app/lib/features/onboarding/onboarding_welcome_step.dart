@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../src/theme/palette.dart';
 import 'onboarding_chrome.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 class OnboardingWelcomeStep extends StatelessWidget {
   const OnboardingWelcomeStep({super.key, required this.onNext});
@@ -15,13 +16,13 @@ class OnboardingWelcomeStep extends StatelessWidget {
       step: 0,
       totalSteps: 5,
       eyebrow: 'WELCOME',
-      title: 'Welcome to\nNeoAgent',
-      description: 'Your assistant layer for capture, context, and action.',
+      title: appStrings.welcomeToNeoagent2,
+      description: appStrings.yourAssistantLayerForCaptureContext,
       footer: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[
           OnboardingPrimaryButton(
-                label: 'Continue',
+                label: appStrings.continue2,
                 icon: Icons.arrow_forward_rounded,
                 onPressed: onNext,
               )
@@ -36,7 +37,7 @@ class OnboardingWelcomeStep extends StatelessWidget {
           return Align(
             alignment: Alignment.topLeft,
             child: Text(
-              'Set up your workspace in a few steps and start using NeoAgent immediately.',
+              appStrings.setUpYourWorkspaceInA,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: p.textSecondary,
                 height: 1.6,

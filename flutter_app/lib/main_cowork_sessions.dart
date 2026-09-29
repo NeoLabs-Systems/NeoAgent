@@ -41,17 +41,17 @@ class _CoworkSessionRailState extends State<_CoworkSessionRail> {
 
   String _bucket(CoworkChat chat) {
     final thread = widget.controller.coworkThreadFor(chat.id);
-    if (thread.hasLiveRun || (chat.latestRun?.isLive ?? false)) return 'Running';
-    if (chat.pendingInputCount > 0) return 'Needs input';
+    if (thread.hasLiveRun || (chat.latestRun?.isLive ?? false)) return appStrings.running;
+    if (chat.pendingInputCount > 0) return appStrings.needsInput;
     final now = DateTime.now();
     final updated = chat.updatedAt;
     if (updated.year == now.year &&
         updated.month == now.month &&
         updated.day == now.day) {
-      return 'Today';
+      return appStrings.today;
     }
-    if (now.difference(updated).inDays < 7) return 'This week';
-    return 'Earlier';
+    if (now.difference(updated).inDays < 7) return appStrings.thisWeek;
+    return appStrings.earlier;
   }
 
   @override
@@ -62,12 +62,12 @@ class _CoworkSessionRailState extends State<_CoworkSessionRail> {
     for (final chat in chats) {
       buckets.putIfAbsent(_bucket(chat), () => <CoworkChat>[]).add(chat);
     }
-    const order = <String>[
-      'Running',
-      'Needs input',
-      'Today',
-      'This week',
-      'Earlier',
+    final order = <String>[
+      appStrings.running,
+      appStrings.needsInput,
+      appStrings.today,
+      appStrings.thisWeek,
+      appStrings.earlier,
     ];
     return _PanelSurface(
       borderRadius: BorderRadius.circular(AppRadius.panel),
@@ -78,9 +78,9 @@ class _CoworkSessionRailState extends State<_CoworkSessionRail> {
             padding: const EdgeInsets.fromLTRB(14, 14, 10, 8),
             child: Row(
               children: <Widget>[
-                Expanded(child: Text('SESSIONS', style: _sectionEyebrowStyle())),
+                Expanded(child: Text(appStrings.sessions2, style: _sectionEyebrowStyle())),
                 _CoworkIconChip(
-                  tooltip: 'New session (⌘N)',
+                  tooltip: appStrings.newSessionN,
                   icon: Icons.add_rounded,
                   size: 32,
                   onPressed: () {
@@ -107,7 +107,7 @@ class _CoworkSessionRailState extends State<_CoworkSessionRail> {
               onChanged: (_) => setState(() {}),
               style: const TextStyle(fontSize: 13),
               decoration: InputDecoration(
-                hintText: 'Search sessions',
+                hintText: appStrings.searchSessions,
                 isDense: true,
                 prefixIcon: Icon(Icons.search_rounded, size: 18, color: _textMuted),
                 prefixIconConstraints: const BoxConstraints(minWidth: 34),
@@ -115,7 +115,7 @@ class _CoworkSessionRailState extends State<_CoworkSessionRail> {
                     ? null
                     : IconButton(
                         iconSize: 16,
-                        icon: const Icon(Icons.close_rounded),
+                        icon: Icon(Icons.close_rounded),
                         onPressed: () => setState(_search.clear),
                       ),
                 contentPadding: const EdgeInsets.symmetric(
@@ -140,21 +140,21 @@ class _CoworkSessionRailState extends State<_CoworkSessionRail> {
           else if (controller.coworkChats.isEmpty)
             Expanded(
               child: _CoworkEmpty(
-                title: 'No sessions yet',
-                message: 'Start a session to plan or build with NeoAgent.',
+                title: appStrings.noSessionsYet,
+                message: appStrings.startASessionToPlanOr,
                 action: FilledButton.icon(
                   onPressed: () => unawaited(widget.onNew()),
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('New session'),
+                  icon: Icon(Icons.add_rounded, size: 18),
+                  label: Text(appStrings.newSession),
                 ),
               ),
             )
           else if (chats.isEmpty)
-            const Expanded(
+            Expanded(
               child: _CoworkEmpty(
                 icon: Icons.search_off_rounded,
-                title: 'No matches',
-                message: 'No session matches that search.',
+                title: appStrings.noMatches,
+                message: appStrings.noSessionMatchesThatSearch,
               ),
             )
           else
@@ -172,9 +172,9 @@ class _CoworkSessionRailState extends State<_CoworkSessionRail> {
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.8,
-                            color: bucket == 'Running'
+                            color: bucket == appStrings.running
                                 ? _success
-                                : bucket == 'Needs input'
+                                : bucket == appStrings.needsInput
                                 ? _warning
                                 : _textMuted,
                           ),
@@ -267,7 +267,7 @@ class _CoworkSessionRow extends StatelessWidget {
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
-                              '${chat.isLocal ? chat.workspaceLabel : 'Cloud'} · $mode · ${_coworkRelativeTime(chat.updatedAt)}',
+                              appStrings.arg1Arg2Arg36(chat.isLocal ? chat.workspaceLabel : 'Cloud', mode, _coworkRelativeTime(chat.updatedAt)),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.geistMono(
@@ -282,7 +282,7 @@ class _CoworkSessionRow extends StatelessWidget {
                   ),
                 ),
                 PopupMenuButton<String>(
-                  tooltip: 'Session actions',
+                  tooltip: appStrings.sessionActions,
                   iconSize: 18,
                   onSelected: (value) async {
                     switch (value) {
@@ -294,19 +294,19 @@ class _CoworkSessionRow extends StatelessWidget {
                         await _deleteCoworkChat(context, controller, chat);
                     }
                   },
-                  itemBuilder: (_) => const <PopupMenuEntry<String>>[
+                  itemBuilder: (_) => <PopupMenuEntry<String>>[
                     PopupMenuItem<String>(
                       value: 'rename',
-                      child: Text('Rename'),
+                      child: Text(appStrings.rename),
                     ),
                     PopupMenuItem<String>(
                       value: 'duplicate',
-                      child: Text('New session with same setup'),
+                      child: Text(appStrings.newSessionWithSameSetup),
                     ),
                     PopupMenuDivider(),
                     PopupMenuItem<String>(
                       value: 'delete',
-                      child: Text('Delete'),
+                      child: Text(appStrings.delete),
                     ),
                   ],
                 ),
@@ -327,18 +327,18 @@ Future<void> _deleteCoworkChat(
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Delete session?'),
+      title: Text(appStrings.deleteSession),
       content: Text(
-        '“${chat.title}” and its run history will be permanently deleted. Any active run will be stopped. Files in the workspace are not touched.',
+        appStrings.arg1AndItsRunHistoryWill(chat.title),
       ),
       actions: <Widget>[
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
+          child: Text(appStrings.cancel),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, true),
-          child: const Text('Delete'),
+          child: Text(appStrings.delete),
         ),
       ],
     ),
@@ -355,7 +355,7 @@ Future<void> _renameCoworkChat(
   final name = await showDialog<String>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Rename session'),
+      title: Text(appStrings.renameSession),
       content: TextField(
         controller: text,
         autofocus: true,
@@ -365,11 +365,11 @@ Future<void> _renameCoworkChat(
       actions: <Widget>[
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(appStrings.cancel),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, text.text),
-          child: const Text('Rename'),
+          child: Text(appStrings.rename),
         ),
       ],
     ),

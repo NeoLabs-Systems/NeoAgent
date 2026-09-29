@@ -47,7 +47,7 @@ class _CoworkComposer extends StatelessWidget {
               children: attachments
                   .map(
                     (attachment) => InputChip(
-                      avatar: const Icon(Icons.attach_file_rounded, size: 17),
+                      avatar: Icon(Icons.attach_file_rounded, size: 17),
                       label: Text(attachment.name),
                       onDeleted: () => onRemoveAttachment(attachment),
                     ),
@@ -94,12 +94,12 @@ class _CoworkComposer extends StatelessWidget {
                     style: const TextStyle(fontSize: 14, height: 1.5),
                     decoration: InputDecoration(
                       hintText: chat == null
-                          ? 'Start a session to begin'
+                          ? appStrings.startASessionToBegin
                           : steering
-                          ? 'Steer the active run…'
+                          ? appStrings.steerTheActiveRun
                           : plan
-                          ? 'Describe what to plan…'
-                          : 'Describe what to build or change…',
+                          ? appStrings.describeWhatToPlan
+                          : appStrings.describeWhatToBuildOrChange,
                       isDense: true,
                       filled: false,
                       border: InputBorder.none,
@@ -128,7 +128,7 @@ class _CoworkComposer extends StatelessWidget {
                     ],
                     const Spacer(),
                     _ChatComposerIconButton(
-                      tooltip: 'Attach files',
+                      tooltip: appStrings.attachFiles,
                       icon: Icons.attach_file_rounded,
                       onPressed: enabled ? onAttach : null,
                     ),
@@ -144,7 +144,7 @@ class _CoworkComposer extends StatelessWidget {
                           )
                         : _ChatComposerIconButton(
                             tooltip: isDictating
-                                ? 'Stop dictation'
+                                ? appStrings.stopDictation
                                 : 'Dictate',
                             icon: isDictating
                                 ? Icons.stop_circle_outlined
@@ -158,7 +158,7 @@ class _CoworkComposer extends StatelessWidget {
                           ),
                     const SizedBox(width: 6),
                     _ChatComposerIconButton(
-                      tooltip: steering ? 'Steer run (⌘↵)' : 'Send (⌘↵)',
+                      tooltip: steering ? 'Steer run (⌘↵)' : appStrings.send,
                       icon: steering
                           ? Icons.alt_route_rounded
                           : Icons.arrow_upward_rounded,
@@ -174,10 +174,10 @@ class _CoworkComposer extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             steering
-                ? 'Messages steer the current run · ⌘↵ send · ⌘. stop'
+                ? appStrings.messagesSteerTheCurrentRunSendStop
                 : plan
-                ? 'Plan mode inspects only; nothing is changed until you implement · ⌘↵ send'
-                : 'Agent mode edits the workspace · ⌘↵ send · ⌘N new session',
+                ? appStrings.planModeInspectsOnlyNothingIsChanged
+                : appStrings.agentModeEditsTheWorkspaceSend,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.geistMono(fontSize: 10.5, color: _textMuted),
@@ -204,8 +204,8 @@ class _CoworkModeSwitch extends StatelessWidget {
     final plan = chat.mode == CoworkInteractionMode.plan;
     return Tooltip(
       message: enabled
-          ? 'Agent edits the workspace. Plan only inspects.'
-          : 'Mode locks while a run is active.',
+          ? appStrings.agentEditsTheWorkspacePlanOnlyInspects
+          : appStrings.modeLocksWhileARunIs,
       child: Opacity(
         opacity: enabled ? 1 : 0.6,
         child: Container(
@@ -222,7 +222,7 @@ class _CoworkModeSwitch extends StatelessWidget {
                 dense: true,
                 selected: !plan,
                 icon: Icons.bolt_rounded,
-                label: 'Agent',
+                label: appStrings.agent,
                 onTap: () {
                   if (enabled && plan) onChanged('agent');
                 },
@@ -231,7 +231,7 @@ class _CoworkModeSwitch extends StatelessWidget {
                 dense: true,
                 selected: plan,
                 icon: Icons.route_outlined,
-                label: 'Plan',
+                label: appStrings.plan,
                 onTap: () {
                   if (enabled && !plan) onChanged('plan');
                 },
@@ -263,7 +263,7 @@ class _CoworkModelPill extends StatelessWidget {
       (option) => option.value == value,
       orElse: () => _ModelPickerOption(value: value, label: value),
     );
-    final label = current.value == 'default' ? 'Default model' : current.label;
+    final label = current.value == 'default' ? appStrings.defaultModel : current.label;
     return _CoworkContextPill(
       icon: current.isAuto
           ? Icons.auto_awesome_outlined
@@ -274,7 +274,7 @@ class _CoworkModelPill extends StatelessWidget {
         context: context,
         barrierColor: Colors.black.withValues(alpha: 0.55),
         builder: (dialogContext) => _ModelPickerDialog(
-          title: 'Model for this session',
+          title: appStrings.modelForThisSession,
           options: options,
           currentValue: value,
           onChanged: (selected) {

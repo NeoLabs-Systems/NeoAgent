@@ -43,7 +43,7 @@ class _ByokSettingsCardState extends State<_ByokSettingsCard> {
           children: <Widget>[
             Row(
               children: <Widget>[
-                const Expanded(child: _SectionTitle('Bring your own key')),
+                Expanded(child: _SectionTitle(appStrings.bringYourOwnKey2)),
                 IconButton(
                   tooltip: 'Refresh',
                   onPressed: controller.isLoadingByokProviders ? null : _load,
@@ -52,17 +52,17 @@ class _ByokSettingsCardState extends State<_ByokSettingsCard> {
                           dimension: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.refresh_rounded),
+                      : Icon(Icons.refresh_rounded),
                 ),
               ],
             ),
             const SizedBox(height: 10),
             Text(
-              "Use your own API key for a provider, or connect a custom "
-              "OpenAI-compatible endpoint (your own server, or another "
-              "hosted service). Your keys are encrypted and only usable by "
-              "your account -- and usage on a model backed by your own key "
-              "never counts against the shared usage limits.",
+              appStrings.useYourOwnApiKeyFor +
+              appStrings.openaiCompatibleEndpointYourOwnServer +
+              appStrings.hostedServiceYourKeysAreEncrypted +
+              appStrings.yourAccountAndUsageOnA +
+              appStrings.neverCountsAgainstTheSharedUsage,
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 12),
@@ -72,12 +72,12 @@ class _ByokSettingsCardState extends State<_ByokSettingsCard> {
               children: <Widget>[
                 _MetaPill(
                   icon: Icons.vpn_key_outlined,
-                  label: '$configuredCount key${configuredCount == 1 ? '' : 's'} configured',
+                  label: appStrings.arg1KeyArg2Configured(configuredCount, configuredCount == 1 ? '' : 's'),
                   color: configuredCount > 0 ? _success : _textMuted,
                 ),
                 _MetaPill(
                   icon: Icons.shield_outlined,
-                  label: 'Encrypted, private to your account',
+                  label: appStrings.encryptedPrivateToYourAccount,
                   color: _info,
                 ),
               ],
@@ -90,7 +90,7 @@ class _ByokSettingsCardState extends State<_ByokSettingsCard> {
               )
             else if (providers.isEmpty)
               Text(
-                'No providers are available to configure yet.',
+                appStrings.noProvidersAreAvailableToConfigure,
                 style: TextStyle(color: _textSecondary),
               )
             else
@@ -168,7 +168,7 @@ class _ByokProviderRow extends StatelessWidget {
                 ),
               ),
               _StatusPill(
-                label: configured ? 'Using your key' : 'Not set up',
+                label: configured ? 'Using your key' : appStrings.notSetUp,
                 color: configured ? _success : _textMuted,
               ),
             ],
@@ -193,13 +193,13 @@ class _ByokProviderRow extends StatelessWidget {
                   configured ? Icons.edit_outlined : Icons.add_circle_outline,
                   size: 18,
                 ),
-                label: Text(configured ? 'Update' : (isUrlOnly ? 'Connect endpoint' : 'Add key')),
+                label: Text(configured ? 'Update' : (isUrlOnly ? 'Connect endpoint' : appStrings.addKey)),
               ),
               if (configured)
                 OutlinedButton.icon(
                   onPressed: () => _confirmRemove(context),
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text('Remove'),
+                  icon: Icon(Icons.delete_outline, size: 18),
+                  label: Text(appStrings.remove),
                 ),
             ],
           ),
@@ -236,19 +236,19 @@ class _ByokProviderRow extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('Remove $providerLabel key?'),
+        title: Text(appStrings.removeArg1Key(providerLabel)),
         content: Text(
-          'Runs will fall back to the shared server key for $providerLabel, if one is configured. This can\'t be undone.',
+          appStrings.runsWillFallBackToThe(providerLabel),
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(appStrings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             style: FilledButton.styleFrom(backgroundColor: _danger),
-            child: const Text('Remove'),
+            child: Text(appStrings.remove),
           ),
         ],
       ),
@@ -258,13 +258,13 @@ class _ByokProviderRow extends StatelessWidget {
       await controller.clearByokProvider(providerId);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$providerLabel key removed.')),
+          SnackBar(content: Text(appStrings.arg1KeyRemoved(providerLabel))),
         );
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not remove key: $e')),
+          SnackBar(content: Text(appStrings.couldNotRemoveKeyArg1(e))),
         );
       }
     }
@@ -336,7 +336,7 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
     if (widget.supportsApiKey && apiKey.isEmpty) {
       setState(() {
         _testOk = false;
-        _testMessage = 'Enter an API key first.';
+        _testMessage = appStrings.enterAnApiKeyFirst;
       });
       return;
     }
@@ -354,8 +354,8 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
       setState(() {
         _testOk = result['ok'] == true;
         _testMessage = result['ok'] == true
-            ? (result['message']?.toString() ?? 'Connection looks good.')
-            : (result['error']?.toString() ?? 'Could not connect.');
+            ? (result['message']?.toString() ?? appStrings.connectionLooksGood)
+            : (result['error']?.toString() ?? appStrings.couldNotConnect);
       });
     } catch (e) {
       setState(() {
@@ -370,13 +370,13 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
   Future<void> _save() async {
     final apiKey = _apiKeyController.text.trim();
     if (widget.supportsApiKey && apiKey.isEmpty) {
-      setState(() => _errorMessage = 'An API key is required.');
+      setState(() => _errorMessage = appStrings.anApiKeyIsRequired);
       return;
     }
     final baseUrl = _baseUrlController.text.trim();
     final baseUrlRequired = widget.requiresBaseUrl || !widget.supportsApiKey;
     if (baseUrlRequired && baseUrl.isEmpty) {
-      setState(() => _errorMessage = 'A base URL is required for this endpoint.');
+      setState(() => _errorMessage = appStrings.aBaseUrlIsRequiredFor);
       return;
     }
     setState(() {
@@ -405,8 +405,8 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
     return AlertDialog(
       title: Text(
         widget.isCustomEndpoint
-            ? 'Connect a custom endpoint'
-            : 'Your ${widget.providerLabel} key',
+            ? appStrings.connectACustomEndpoint
+            : appStrings.yourArg1Key(widget.providerLabel),
       ),
       content: SizedBox(
         width: 420,
@@ -416,20 +416,20 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
           children: <Widget>[
             Text(
               widget.isCustomEndpoint
-                  ? 'Point NeoAgent at any OpenAI-compatible Chat Completions '
-                      'API -- your own server, a self-hosted model, or another '
-                      'hosted provider.'
-                  : "Paste your ${widget.providerLabel} API key below. It's "
-                      "stored encrypted and only used for your own runs.",
+                  ? appStrings.pointNeoagentAtAnyOpenaiCompatible +
+                      appStrings.apiYourOwnServerASelf +
+                      appStrings.hostedProvider
+                  : appStrings.pasteYourArg1ApiKeyBelow(widget.providerLabel) +
+                      appStrings.storedEncryptedAndOnlyUsedFor,
               style: TextStyle(color: _textSecondary, height: 1.4),
             ),
             const SizedBox(height: 16),
             if (widget.isCustomEndpoint) ...<Widget>[
               TextField(
                 controller: _labelController,
-                decoration: const InputDecoration(
-                  labelText: 'Name (optional)',
-                  hintText: 'e.g. My local server',
+                decoration: InputDecoration(
+                  labelText: appStrings.nameOptional,
+                  hintText: appStrings.eGMyLocalServer,
                 ),
               ),
               const SizedBox(height: 12),
@@ -438,12 +438,12 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
               TextField(
                 controller: _baseUrlController,
                 decoration: InputDecoration(
-                  labelText: baseUrlRequired ? 'Base URL' : 'Base URL (optional)',
+                  labelText: baseUrlRequired ? 'Base URL' : appStrings.baseUrlOptional,
                   hintText: widget.defaultBaseUrl.isNotEmpty
                       ? widget.defaultBaseUrl
                       : 'https://api.example.com/v1',
-                  helperText: 'Must be reachable on the public internet -- local and '
-                      'private network addresses aren\'t allowed.',
+                  helperText: appStrings.mustBeReachableOnThePublic +
+                      appStrings.privateNetworkAddressesArenTAllowed,
                   helperMaxLines: 2,
                 ),
                 keyboardType: TextInputType.url,
@@ -456,7 +456,7 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
                 obscureText: _obscureKey,
                 autocorrect: false,
                 decoration: InputDecoration(
-                  labelText: 'API key',
+                  labelText: appStrings.apiKey,
                   hintText: 'sk-...',
                   suffixIcon: IconButton(
                     icon: Icon(
@@ -477,8 +477,8 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
                         dimension: 14,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.wifi_tethering_rounded, size: 16),
-                label: const Text('Test connection'),
+                    : Icon(Icons.wifi_tethering_rounded, size: 16),
+                label: Text(appStrings.testConnection),
               ),
             ),
             if (_testMessage != null)
@@ -495,7 +495,7 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
             ],
             const SizedBox(height: 4),
             Text(
-              'Server usage limits don\'t apply to models running on your own key.',
+              appStrings.serverUsageLimitsDonTApply,
               style: TextStyle(color: _textMuted, fontSize: 11.5, fontStyle: FontStyle.italic),
             ),
           ],
@@ -504,7 +504,7 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
       actions: <Widget>[
         TextButton(
           onPressed: busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(appStrings.cancel),
         ),
         FilledButton(
           onPressed: busy ? null : _save,
@@ -513,7 +513,7 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
                   dimension: 16,
                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                 )
-              : const Text('Save'),
+              : Text(appStrings.save),
         ),
       ],
     );

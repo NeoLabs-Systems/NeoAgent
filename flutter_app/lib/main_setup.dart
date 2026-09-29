@@ -68,17 +68,17 @@ class _BackendSetupViewState extends State<BackendSetupView> {
                           const _BrandLockup(logoSize: 60),
                           const SizedBox(height: 22),
                           Text(
-                            'WELCOME TO NEOAGENT',
+                            appStrings.welcomeToNeoagent,
                             style: _sectionEyebrowStyle(),
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            'Set up or connect NeoAgent',
+                            appStrings.setUpOrConnectNeoagent,
                             style: _displayTitleStyle(34),
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Install NeoAgent on this computer without a terminal, or connect to one that is already running.',
+                            appStrings.installNeoagentOnThisComputerWithout,
                             style: TextStyle(
                               color: _textSecondary,
                               height: 1.55,
@@ -97,9 +97,9 @@ class _BackendSetupViewState extends State<BackendSetupView> {
                                     vertical: 18,
                                   ),
                                 ),
-                                icon: const Icon(Icons.auto_awesome_rounded),
-                                label: const Text(
-                                  'Set up NeoAgent on this computer',
+                                icon: Icon(Icons.auto_awesome_rounded),
+                                label: Text(
+                                  appStrings.setUpNeoagentOnThisComputer,
                                 ),
                               ),
                             ),
@@ -109,13 +109,13 @@ class _BackendSetupViewState extends State<BackendSetupView> {
                             children: <Widget>[
                               Expanded(
                                 child: Text(
-                                  'Nearby NeoAgent servers',
+                                  appStrings.nearbyNeoagentServers,
                                   style: Theme.of(context).textTheme.titleMedium
                                       ?.copyWith(fontWeight: FontWeight.w700),
                                 ),
                               ),
                               IconButton(
-                                tooltip: 'Search again',
+                                tooltip: appStrings.searchAgain,
                                 onPressed: controller.isDiscoveringBackends
                                     ? null
                                     : controller.discoverBackends,
@@ -126,7 +126,7 @@ class _BackendSetupViewState extends State<BackendSetupView> {
                                           strokeWidth: 2,
                                         ),
                                       )
-                                    : const Icon(Icons.refresh_rounded),
+                                    : Icon(Icons.refresh_rounded),
                               ),
                             ],
                           ),
@@ -141,7 +141,7 @@ class _BackendSetupViewState extends State<BackendSetupView> {
                                 borderRadius: BorderRadius.circular(18),
                                 border: Border.all(color: _borderLight),
                               ),
-                              child: const Row(
+                              child: Row(
                                 children: <Widget>[
                                   SizedBox.square(
                                     dimension: 18,
@@ -152,7 +152,7 @@ class _BackendSetupViewState extends State<BackendSetupView> {
                                   SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      'Looking on this computer and your local network…',
+                                      appStrings.lookingOnThisComputerAndYour,
                                     ),
                                   ),
                                 ],
@@ -174,7 +174,7 @@ class _BackendSetupViewState extends State<BackendSetupView> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      'No other NeoAgent server was found. You can search again or enter an address manually.',
+                                      appStrings.noOtherNeoagentServerWasFound,
                                       style: TextStyle(
                                         color: _textSecondary,
                                         height: 1.45,
@@ -232,8 +232,8 @@ class _BackendSetupViewState extends State<BackendSetupView> {
                                             const SizedBox(height: 3),
                                             Text(
                                               candidate.claimed
-                                                  ? 'Ready to sign in'
-                                                  : 'Ready for first-time setup',
+                                                  ? appStrings.readyToSignIn
+                                                  : appStrings.readyForFirstTimeSetup,
                                               style: TextStyle(
                                                 color: _textSecondary,
                                                 fontSize: 12,
@@ -242,7 +242,7 @@ class _BackendSetupViewState extends State<BackendSetupView> {
                                           ],
                                         ),
                                       ),
-                                      const Icon(Icons.arrow_forward_rounded),
+                                      Icon(Icons.arrow_forward_rounded),
                                     ],
                                   ),
                                 ),
@@ -262,9 +262,9 @@ class _BackendSetupViewState extends State<BackendSetupView> {
                                 setState(() => _showAdvanced = value),
                             tilePadding: EdgeInsets.zero,
                             childrenPadding: EdgeInsets.zero,
-                            title: const Text('Enter an address manually'),
-                            subtitle: const Text(
-                              'For hosted or advanced network setups',
+                            title: Text(appStrings.enterAnAddressManually),
+                            subtitle: Text(
+                              appStrings.forHostedOrAdvancedNetworkSetups,
                             ),
                             children: <Widget>[
                               const SizedBox(height: 8),
@@ -273,8 +273,8 @@ class _BackendSetupViewState extends State<BackendSetupView> {
                                 keyboardType: TextInputType.url,
                                 textInputAction: TextInputAction.done,
                                 onSubmitted: (_) => _submit(),
-                                decoration: const InputDecoration(
-                                  labelText: 'NeoAgent server address',
+                                decoration: InputDecoration(
+                                  labelText: appStrings.neoagentServerAddress,
                                   prefixIcon: Icon(Icons.dns_outlined),
                                 ),
                               ),
@@ -292,11 +292,11 @@ class _BackendSetupViewState extends State<BackendSetupView> {
                                             strokeWidth: 2,
                                           ),
                                         )
-                                      : const Icon(Icons.arrow_forward_rounded),
+                                      : Icon(Icons.arrow_forward_rounded),
                                   label: Text(
                                     controller.isSavingBackendUrl
-                                        ? 'Connecting…'
-                                        : 'Connect to this server',
+                                        ? appStrings.connecting
+                                        : appStrings.connectToThisServer,
                                   ),
                                 ),
                               ),

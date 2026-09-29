@@ -33,10 +33,10 @@ class _CoworkWorkbench extends StatelessWidget {
       return _PanelSurface(
         borderRadius: BorderRadius.circular(AppRadius.panel),
         fillColor: _bgSecondary.withValues(alpha: 0.78),
-        child: const _CoworkEmpty(
+        child: _CoworkEmpty(
           icon: Icons.web_asset_rounded,
           title: 'Workbench',
-          message: 'Select a session to see its computer, files and changes.',
+          message: appStrings.selectASessionToSeeIts,
         ),
       );
     }
@@ -59,7 +59,7 @@ class _CoworkWorkbench extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 _CoworkIconChip(
-                  tooltip: 'Close (⌘J)',
+                  tooltip: appStrings.closeJ,
                   icon: Icons.close_rounded,
                   size: 32,
                   onPressed: onClose,
@@ -133,7 +133,7 @@ class _CoworkWorkbenchTabs extends StatelessWidget {
               dense: true,
               selected: value == _CoworkWorkbenchTab.files,
               icon: Icons.folder_outlined,
-              label: 'Files',
+              label: appStrings.files,
               onTap: () => onChanged(_CoworkWorkbenchTab.files),
             ),
           ),
@@ -142,7 +142,7 @@ class _CoworkWorkbenchTabs extends StatelessWidget {
               dense: true,
               selected: value == _CoworkWorkbenchTab.changes,
               icon: Icons.difference_outlined,
-              label: changeCount > 0 ? 'Changes · $changeCount' : 'Changes',
+              label: changeCount > 0 ? appStrings.changesArg1(changeCount) : appStrings.changes,
               onTap: () => onChanged(_CoworkWorkbenchTab.changes),
             ),
           ),
@@ -208,8 +208,8 @@ class _CoworkComputerPaneState extends State<_CoworkComputerPane> {
               Expanded(
                 child: Text(
                   local
-                      ? 'This device · ${chat.title}'
-                      : 'Cloud computer · ${chat.title}',
+                      ? appStrings.thisDeviceArg12(chat.title)
+                      : appStrings.cloudComputerArg1(chat.title),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
@@ -217,8 +217,8 @@ class _CoworkComputerPaneState extends State<_CoworkComputerPane> {
               ),
               IconButton(
                 tooltip: controller.coworkWorkSurfacePinned
-                    ? 'Follow the selected session'
-                    : 'Keep this session\'s computer visible',
+                    ? appStrings.followTheSelectedSession
+                    : appStrings.keepThisSessionSComputerVisible,
                 iconSize: 18,
                 onPressed: () => controller.setCoworkWorkSurfacePinned(
                   !controller.coworkWorkSurfacePinned,
@@ -430,20 +430,20 @@ class _CoworkFileExplorerState extends State<_CoworkFileExplorer> {
           child: _error != null
               ? _CoworkEmpty(
                   icon: Icons.folder_off_outlined,
-                  title: 'Folder unavailable',
+                  title: appStrings.folderUnavailable,
                   message: _error!,
                   action: OutlinedButton(
                     onPressed: () => _browse(_path),
-                    child: const Text('Retry'),
+                    child: Text(appStrings.retry),
                   ),
                 )
               : _loading && _entries.isEmpty
               ? const Center(child: CircularProgressIndicator())
               : _entries.isEmpty
-              ? const _CoworkEmpty(
+              ? _CoworkEmpty(
                   icon: Icons.folder_open_outlined,
-                  title: 'Empty folder',
-                  message: 'Nothing here yet.',
+                  title: appStrings.emptyFolder,
+                  message: appStrings.nothingHereYet,
                 )
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
@@ -555,7 +555,7 @@ class _CoworkFileRow extends StatelessWidget {
                 ),
               const SizedBox(width: 4),
               Tooltip(
-                message: 'Add to prompt',
+                message: appStrings.addToPrompt,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(8),
                   onTap: onInsertReference,
@@ -609,7 +609,7 @@ class _CoworkFilePreview extends StatelessWidget {
           child: Row(
             children: <Widget>[
               IconButton(
-                tooltip: 'Back to folder',
+                tooltip: appStrings.backToFolder,
                 iconSize: 18,
                 onPressed: onBack,
                 icon: Icon(Icons.arrow_back_rounded, color: _textSecondary),
@@ -632,14 +632,14 @@ class _CoworkFilePreview extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Add to prompt',
+                tooltip: appStrings.addToPrompt,
                 iconSize: 18,
                 onPressed: onInsertReference,
                 icon: Icon(Icons.alternate_email_rounded, color: _textSecondary),
               ),
               if (canReveal)
                 IconButton(
-                  tooltip: 'Open with the default app',
+                  tooltip: appStrings.openWithTheDefaultApp,
                   iconSize: 18,
                   onPressed: onReveal,
                   icon: Icon(Icons.open_in_new_rounded, color: _textSecondary),
@@ -658,16 +658,16 @@ class _CoworkFilePreview extends StatelessWidget {
             child: error != null
                 ? _CoworkEmpty(
                     icon: Icons.broken_image_outlined,
-                    title: 'Cannot preview',
+                    title: appStrings.cannotPreview,
                     message: error!,
                   )
                 : loading
                 ? const Center(child: CircularProgressIndicator())
                 : lines.isEmpty
-                ? const _CoworkEmpty(
+                ? _CoworkEmpty(
                     icon: Icons.description_outlined,
-                    title: 'Empty file',
-                    message: 'This file has no content.',
+                    title: appStrings.emptyFile,
+                    message: appStrings.thisFileHasNoContent,
                   )
                 : SingleChildScrollView(
                     padding: const EdgeInsets.all(12),
@@ -738,14 +738,14 @@ class _CoworkChangesPane extends StatelessWidget {
     if (changes.isEmpty) {
       return _CoworkEmpty(
         icon: Icons.difference_outlined,
-        title: 'No changes yet',
+        title: appStrings.noChangesYet,
         message: chat.mode == CoworkInteractionMode.plan
-            ? 'Plan mode inspects only. Switch to Agent mode to let NeoAgent edit files.'
-            : 'Files NeoAgent writes or edits in this session show up here.',
+            ? appStrings.planModeInspectsOnlySwitchToAgent
+            : appStrings.filesNeoagentWritesOrEditsIn,
         action: OutlinedButton.icon(
           onPressed: () => controller.refreshCoworkChanges(chat.id),
-          icon: const Icon(Icons.refresh_rounded, size: 16),
-          label: const Text('Refresh'),
+          icon: Icon(Icons.refresh_rounded, size: 16),
+          label: Text(appStrings.refresh),
         ),
       );
     }
@@ -759,7 +759,7 @@ class _CoworkChangesPane extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: Text(
-                  '${changes.length} ${changes.length == 1 ? 'file' : 'files'} changed'
+                  appStrings.arg1Arg2Changed(changes.length, changes.length == 1 ? 'file' : 'files') +
                   '${written > 0 ? ' · $written new' : ''}',
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
@@ -825,7 +825,7 @@ class _CoworkChangesPane extends StatelessWidget {
                               Text(
                                 <String>[
                                   if (change.directory.isNotEmpty) change.directory,
-                                  '${change.edits} ${change.edits == 1 ? 'edit' : 'edits'}',
+                                  appStrings.arg1Arg23(change.edits, change.edits == 1 ? 'edit' : 'edits'),
                                   _coworkRelativeTime(change.changedAt),
                                 ].join(' · '),
                                 maxLines: 1,
@@ -839,7 +839,7 @@ class _CoworkChangesPane extends StatelessWidget {
                           ),
                         ),
                         Tooltip(
-                          message: 'Add to prompt',
+                          message: appStrings.addToPrompt,
                           child: InkWell(
                             borderRadius: BorderRadius.circular(8),
                             onTap: () => onInsertReference(change.path),
@@ -874,15 +874,15 @@ String? _coworkLocalAbsolutePath(CoworkChat chat, String relativePath) {
   if (!chat.isLocal) return null;
   final root =
       chat.workspacePathOverride ??
-      '${Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? ''}/NeoAgent Workspace';
+      appStrings.arg1NeoagentWorkspace(Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '');
   final separator = root.endsWith('/') ? '' : '/';
   return '$root$separator$relativePath';
 }
 
 String _coworkFormatBytes(int bytes) {
-  if (bytes < 1024) return '$bytes B';
-  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
-  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  if (bytes < 1024) return appStrings.arg1B(bytes);
+  if (bytes < 1024 * 1024) return appStrings.arg1Kb((bytes / 1024).toStringAsFixed(0));
+  return appStrings.arg1Mb((bytes / (1024 * 1024)).toStringAsFixed(1));
 }
 
 IconData _coworkFileIcon(String name) {

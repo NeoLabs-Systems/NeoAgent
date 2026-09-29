@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 @immutable
 class AppDiagnosticEntry {
@@ -68,9 +69,9 @@ class AppDiagnostics {
       if (error != null) 'error': error.toString(),
     };
 
-    debugPrint('[NeoDiag][$seq] ${jsonEncode(normalized)}');
+    debugPrint(appStrings.neodiagArg1Arg2(seq, jsonEncode(normalized)));
     if (stackTrace != null) {
-      debugPrint('[NeoDiag][$seq][stack] $stackTrace');
+      debugPrint(appStrings.neodiagArg1StackArg2(seq, stackTrace));
     }
 
     final entry = AppDiagnosticEntry(

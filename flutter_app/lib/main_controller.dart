@@ -100,6 +100,8 @@ class NeoAgentController extends ChangeNotifier {
   List<LogEntry> _clientLogs = const <LogEntry>[];
 
   bool isBooting = true;
+  AppLanguage language = currentAppLanguage;
+  int _languageRevision = 0;
   bool showOnboarding = false;
   bool isAuthenticated = false;
   bool isAuthenticating = false;
@@ -309,6 +311,10 @@ class NeoAgentController extends ChangeNotifier {
   Timer? _incomingCallExpiryTimer;
   Completer<void>? _liveVoiceSessionOpenCompleter;
   final LiveVoicePlayer _liveVoicePlayer = LiveVoicePlayer();
+  VoiceWorkClicks? _voiceWorkClicks;
+  Timer? _voiceWorkClickArm;
+  int _voiceWorkClickGeneration = 0;
+  bool _liveVoiceHearingSpeech = false;
   VoiceAssistantLiveState voiceAssistantLiveState = VoiceAssistantLiveState();
   IncomingAgentCall? incomingAgentCall;
   bool _desktopAskOnClose = true;
@@ -343,8 +349,8 @@ class NeoAgentController extends ChangeNotifier {
       _busyMessagingPlatformKeys.contains('$platform:$action');
 
   String get chatComposerHint => hasLiveRun
-      ? 'Send a steering update or next-up note for the current run...'
-      : 'Ask a question or start a task...';
+      ? appStrings.sendASteeringUpdateOrNextUp
+      : appStrings.askAQuestionOrStartA;
 
   AgentProfile? get activeAgent {
     for (final agent in agentProfiles) {
@@ -355,7 +361,7 @@ class NeoAgentController extends ChangeNotifier {
     return agentProfiles.isEmpty ? null : agentProfiles.first;
   }
 
-  String get activeAgentLabel => activeAgent?.displayName ?? 'Main';
+  String get activeAgentLabel => activeAgent?.displayName ?? appStrings.main;
 
   String? get _scopedAgentId => selectedAgentId;
 
@@ -379,25 +385,30 @@ class NeoAgentController extends ChangeNotifier {
       backendUrl.trim().isEmpty;
 
   String agentLabelFor(String? id) {
-    if (id == null || id.isEmpty) return 'Main';
+    if (id == null || id.isEmpty) return appStrings.main;
     for (final agent in agentProfiles) {
       if (agent.id == id) return agent.displayName;
     }
-    return 'Unknown agent';
+    return appStrings.unknownAgent;
   }
 
   String get chatStatusLabel {
     if (activeRun == null) {
-      return 'Idle';
+      return appStrings.idle;
     }
 
-    final base =
-        '${activeRun!.phase} (${toolEvents.where((event) => event.status == 'running').length} active tools)';
+    final base = appStrings.arg1Arg2ActiveTools(
+      activeRun!.phase,
+      toolEvents.where((event) => event.status == 'running').length,
+    );
     if (activeRun!.pendingSteeringCount > 0) {
-      return '$base · ${activeRun!.pendingSteeringCount} steering queued';
+      return appStrings.arg1Arg2SteeringQueued(
+        base,
+        activeRun!.pendingSteeringCount,
+      );
     }
     if (hasLiveRun) {
-      return '$base · new messages steer this run';
+      return appStrings.arg1NewMessagesSteerThisRun(base);
     }
     return base;
   }
@@ -457,6 +468,7 @@ class NeoAgentController extends ChangeNotifier {
     _localDisconnectHoldTimer?.cancel();
     unawaited(_desktopCompanion.disconnect());
     unawaited(_liveVoiceCapture.dispose());
+    _haltVoiceWorkClicks();
     unawaited(_liveVoicePlayer.stop());
     _oauthLauncher.dispose();
     super.dispose();
@@ -497,8 +509,8 @@ class NeoAgentController extends ChangeNotifier {
   bool get showOfflineBanner => networkStatusKnown && !hasNetworkConnection;
 
   String get offlineBannerMessage => isAuthenticated
-      ? 'No network connection. NeoAgent will reconnect when the device is back online.'
-      : 'No network connection. Connect to keep using NeoAgent.';
+      ? appStrings.noNetworkConnectionNeoagentWillReconnectWhen
+      : appStrings.noNetworkConnectionConnectToKeep;
 
   String get appUpdateChannelLabel =>
       appUpdateChannel == 'beta' ? 'Beta' : 'Stable';
@@ -506,11 +518,17 @@ class NeoAgentController extends ChangeNotifier {
   String get appUpdateLastCheckedLabel {
     final checkedAt = appUpdateLastCheckedAt;
     if (checkedAt == null) {
-      return 'Not checked yet';
+      return appStrings.notCheckedYet;
     }
     final local = checkedAt.toLocal();
     final minute = local.minute.toString().padLeft(2, '0');
-    return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} ${local.hour.toString().padLeft(2, '0')}:$minute';
+    return appStrings.arg1Arg2Arg3Arg4Arg5(
+      local.year,
+      local.month.toString().padLeft(2, '0'),
+      local.day.toString().padLeft(2, '0'),
+      local.hour.toString().padLeft(2, '0'),
+      minute,
+    );
   }
 
   void _appendChatMessage(
@@ -659,12 +677,12 @@ class NeoAgentController extends ChangeNotifier {
   List<String> get ignoredChats => _ignoredChats.toList();
 
   static LogEntry _logEntryFromDiagnostic(AppDiagnosticEntry entry) {
-    final buffer = StringBuffer('[${entry.area}] ${entry.event}');
+    final buffer = StringBuffer(appStrings.arg1Arg25(entry.area, entry.event));
     if (entry.data.isNotEmpty) {
       buffer.write(' ${jsonEncode(entry.data)}');
     }
     if (entry.error != null && entry.error!.trim().isNotEmpty) {
-      buffer.write('\nerror: ${entry.error}');
+      buffer.write(appStrings.errorArg1(entry.error));
     }
     if (entry.stackTrace != null && entry.stackTrace!.trim().isNotEmpty) {
       buffer.write('\n${entry.stackTrace}');
@@ -692,6 +710,8 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> bootstrap() async {
     _prefs = await SharedPreferences.getInstance();
+    await ensureAppLanguageLoaded();
+    language = currentAppLanguage;
     _ignoredChats.addAll(
       _prefs?.getStringList('messaging.ignored_chats') ?? <String>[],
     );
@@ -931,7 +951,7 @@ class NeoAgentController extends ChangeNotifier {
     hasNetworkConnection = connected;
     if (connected &&
         appUpdateErrorMessage ==
-            'No network connection. Reconnect to check for updates.') {
+            appStrings.noNetworkConnectionReconnectToCheck) {
       appUpdateErrorMessage = null;
     }
     if (changed) {
@@ -977,15 +997,14 @@ class NeoAgentController extends ChangeNotifier {
     if (!appUpdaterConfigured) {
       appUpdateErrorMessage = kIsWeb
           ? null
-          : 'App updates are not configured for this build.';
+          : appStrings.appUpdatesAreNotConfiguredFor;
       if (!silent) {
         notifyListeners();
       }
       return;
     }
     if (!hasNetworkConnection) {
-      appUpdateErrorMessage =
-          'No network connection. Reconnect to check for updates.';
+      appUpdateErrorMessage = appStrings.noNetworkConnectionReconnectToCheck;
       if (!silent) {
         notifyListeners();
       }
@@ -1031,7 +1050,7 @@ class NeoAgentController extends ChangeNotifier {
       );
       if (!result.launched) {
         appUpdateErrorMessage =
-            result.error ?? 'Could not open the release asset.';
+            result.error ?? appStrings.couldNotOpenTheReleaseAsset;
       }
     } finally {
       isOpeningAppUpdate = false;
@@ -1048,7 +1067,7 @@ class NeoAgentController extends ChangeNotifier {
       discoveredBackends = await _backendDiscoveryService.discover();
     } catch (_) {
       backendDiscoveryErrorMessage =
-          'Local NeoAgent discovery is temporarily unavailable.';
+          appStrings.localNeoagentDiscoveryIsTemporarilyUnavailable;
     } finally {
       isDiscoveringBackends = false;
       notifyListeners();
@@ -1061,7 +1080,7 @@ class NeoAgentController extends ChangeNotifier {
   }) async {
     final normalized = _normalizeBackendUrl(rawValue);
     if (normalized.isEmpty) {
-      errorMessage = 'Enter the address of a NeoAgent server.';
+      errorMessage = appStrings.enterTheAddressOfANeoagent;
       notifyListeners();
       return false;
     }
@@ -1140,13 +1159,18 @@ class NeoAgentController extends ChangeNotifier {
 
   Map<String, dynamic> _qrLoginClientMetadata() {
     final platformLabel = switch (true) {
-      _ when kIsWeb => 'Web browser',
-      _ when defaultTargetPlatform == TargetPlatform.android => 'Android app',
-      _ when defaultTargetPlatform == TargetPlatform.iOS => 'iPhone app',
-      _ when defaultTargetPlatform == TargetPlatform.macOS => 'macOS app',
-      _ when defaultTargetPlatform == TargetPlatform.windows => 'Windows app',
-      _ when defaultTargetPlatform == TargetPlatform.linux => 'Linux app',
-      _ => 'NeoAgent app',
+      _ when kIsWeb => appStrings.webBrowser,
+      _ when defaultTargetPlatform == TargetPlatform.android =>
+        appStrings.androidApp,
+      _ when defaultTargetPlatform == TargetPlatform.iOS =>
+        appStrings.iphoneApp,
+      _ when defaultTargetPlatform == TargetPlatform.macOS =>
+        appStrings.macosApp,
+      _ when defaultTargetPlatform == TargetPlatform.windows =>
+        appStrings.windowsApp,
+      _ when defaultTargetPlatform == TargetPlatform.linux =>
+        appStrings.linuxApp,
+      _ => appStrings.neoagentApp,
     };
     final deviceClass = switch (true) {
       _ when kIsWeb => 'desktop',
@@ -1164,7 +1188,7 @@ class NeoAgentController extends ChangeNotifier {
     return <String, dynamic>{
       'deviceLabel': platformLabel,
       'platformLabel': platformLabel,
-      'browserLabel': kIsWeb ? 'Browser' : 'Flutter app',
+      'browserLabel': kIsWeb ? 'Browser' : appStrings.flutterApp,
       'deviceClass': deviceClass,
       'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
       'appMode': appMode.name,
@@ -1220,7 +1244,7 @@ class NeoAgentController extends ChangeNotifier {
       );
       final challenge = QrLoginChallenge.fromJson(response);
       if (!challenge.isUsable) {
-        throw Exception('QR login could not be started.');
+        throw Exception(appStrings.qrLoginCouldNotBeStarted);
       }
       qrLoginChallenge = challenge;
       qrLoginErrorMessage = null;
@@ -1272,15 +1296,16 @@ class NeoAgentController extends ChangeNotifier {
       _clearQrLoginChallenge();
       await _completeAuthenticatedResponse(
         response,
-        retentionErrorMessage:
-            'QR login completed, but NeoAgent could not keep the session. Please try again.',
+        retentionErrorMessage: appStrings.qrLoginCompletedButNeoagentCould,
         authMethod: 'qr',
       );
     } catch (error) {
       final message = _friendlyErrorMessage(error);
       qrLoginErrorMessage = message;
-      if (message.toLowerCase().contains('expired') ||
-          message.toLowerCase().contains('already used')) {
+      final loweredMessage = message.toLowerCase();
+      if (loweredMessage.contains('expired') ||
+          loweredMessage.contains('abgelaufen') ||
+          loweredMessage.contains(appStrings.alreadyUsed.toLowerCase())) {
         await prepareQrLoginChallenge(force: true);
       } else {
         notifyListeners();
@@ -1390,7 +1415,7 @@ class NeoAgentController extends ChangeNotifier {
       final url = begin['url']?.toString();
       final state = begin['state']?.toString();
       if (url == null || state == null || url.isEmpty || state.isEmpty) {
-        throw Exception('Provider sign-in could not be started.');
+        throw Exception(appStrings.providerSignInCouldNotBe);
       }
       final launchResult = await _oauthLauncher.launch(
         url: url,
@@ -1398,7 +1423,7 @@ class NeoAgentController extends ChangeNotifier {
       );
       if (!launchResult.launched) {
         throw Exception(
-          launchResult.error ?? 'Could not open the provider sign-in page.',
+          launchResult.error ?? appStrings.couldNotOpenTheProviderSign,
         );
       }
       final response = await _pollForProviderAuthCompletion(state);
@@ -1417,8 +1442,7 @@ class NeoAgentController extends ChangeNotifier {
         response,
         isRegistration: register,
         authMethod: 'oauth',
-        retentionErrorMessage:
-            'Sign-in completed, but NeoAgent could not keep the browser session. Please sign in again. If this keeps happening, check backend session cookie settings.',
+        retentionErrorMessage: appStrings.signInCompletedButNeoagentCould,
       );
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -1444,8 +1468,7 @@ class NeoAgentController extends ChangeNotifier {
         response,
         fallbackUsername: pendingTwoFactorUsername,
         authMethod: 'two_factor',
-        retentionErrorMessage:
-            'Two-factor sign-in completed, but NeoAgent could not keep the browser session. Please sign in again.',
+        retentionErrorMessage: appStrings.twoFactorSignInCompletedBut,
       );
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -1468,7 +1491,7 @@ class NeoAgentController extends ChangeNotifier {
       );
       authInfoMessage =
           response['message']?.toString() ??
-          'If that account has a confirmed email, NeoAgent will send a password reset link.';
+          appStrings.ifThatAccountHasAConfirmed;
       return true;
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -1526,7 +1549,7 @@ class NeoAgentController extends ChangeNotifier {
         password = '';
         authInfoMessage =
             response['message']?.toString() ??
-            'Check your email to confirm your NeoAgent account before signing in.';
+            appStrings.checkYourEmailToConfirmYour;
         await _persistCredentials();
         return;
       }
@@ -1535,8 +1558,7 @@ class NeoAgentController extends ChangeNotifier {
         fallbackUsername: username,
         isRegistration: register,
         authMethod: 'password',
-        retentionErrorMessage:
-            'Sign-in completed, but NeoAgent could not keep the browser session. Please sign in again. If this keeps happening, the backend session cookie is likely not being retained.',
+        retentionErrorMessage: appStrings.signInCompletedButNeoagentCould2,
       );
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -1572,7 +1594,7 @@ class NeoAgentController extends ChangeNotifier {
         user!['hasCompletedOnboarding'] = true;
       }
     } catch (e) {
-      debugPrint('Failed to dismiss onboarding: $e');
+      debugPrint(appStrings.failedToDismissOnboardingArg1(e));
       showOnboarding = true;
       notifyListeners();
     }
@@ -2076,7 +2098,7 @@ class NeoAgentController extends ChangeNotifier {
     });
     if (!updated) return;
     if (selectedCoworkChatId == chat.id) {
-      await sendCoworkMessage('Implement the plan above.');
+      await sendCoworkMessage(appStrings.implementThePlanAbove);
     }
   }
 
@@ -2200,7 +2222,9 @@ class NeoAgentController extends ChangeNotifier {
         ChatEntry(
           id: 'local-${DateTime.now().microsecondsSinceEpoch}',
           role: 'user',
-          content: trimmed.isNotEmpty ? trimmed : 'Sent shared attachments.',
+          content: trimmed.isNotEmpty
+              ? trimmed
+              : appStrings.sentSharedAttachments,
           platform: 'cowork',
           createdAt: DateTime.now(),
           transient: true,
@@ -2223,7 +2247,7 @@ class NeoAgentController extends ChangeNotifier {
         'conversationId': chat.id,
         'coworkDisplayContent': trimmed.isNotEmpty
             ? trimmed
-            : 'Sent shared attachments.',
+            : appStrings.sentSharedAttachments,
         if (normalizedAttachments.isNotEmpty)
           'coworkSharedAttachments': normalizedAttachments
               .map((item) => item.toJson())
@@ -2363,7 +2387,7 @@ class NeoAgentController extends ChangeNotifier {
           toolArgs: _jsonMap(payload['toolArgs']),
         );
         next = current.copyWith(
-          phase: 'Running $toolName',
+          phase: appStrings.runningArg1(toolName),
           activity: <CoworkActivityItem>[
             ...current.activity.where((entry) => entry.id != item.id),
             item,
@@ -2464,15 +2488,17 @@ class NeoAgentController extends ChangeNotifier {
             : 'completed';
         final summary = event == 'verification'
             ? (payload['notes']?.toString() ??
-                  'Verification: ${payload['status']?.toString() ?? 'unknown'}')
+                  appStrings.verificationArg1(
+                    payload['status']?.toString() ?? 'unknown',
+                  ))
             : event == 'subagent'
             ? (payload['task']?.toString() ??
                   payload['error']?.toString() ??
                   payload['result']?.toString() ??
-                  'Subagent update')
+                  appStrings.subagentUpdate)
             : event == 'steer_queued'
-            ? 'Queued steering: ${payload['content']?.toString() ?? ''}'
-            : 'Applied ${_asInt(payload['count'])} steering update(s).';
+            ? appStrings.queuedSteeringArg1(payload['content']?.toString() ?? '')
+            : appStrings.appliedArg1SteeringUpdateS(_asInt(payload['count']));
         final item = CoworkActivityItem(
           id: '$kind-${payload['handle']?.toString() ?? DateTime.now().microsecondsSinceEpoch}',
           runId: runId,
@@ -2480,8 +2506,8 @@ class NeoAgentController extends ChangeNotifier {
           label: kind == 'subagent'
               ? 'Subagent'
               : kind == 'steering'
-              ? 'Steering'
-              : 'Verification',
+              ? appStrings.steeringWord
+              : appStrings.verification,
           status: status,
           summary: summary,
           createdAt: DateTime.now(),
@@ -2490,7 +2516,7 @@ class NeoAgentController extends ChangeNotifier {
           phase: event == 'verification'
               ? 'Verifying'
               : event == 'steer_applied'
-              ? 'Incorporating steering'
+              ? appStrings.incorporatingSteering
               : current.phase,
           activity: <CoworkActivityItem>[...current.activity, item],
         );
@@ -2525,7 +2551,7 @@ class NeoAgentController extends ChangeNotifier {
           _jsonMap(payload['request']),
         );
         next = current.copyWith(
-          phase: 'Waiting for input',
+          phase: appStrings.waitingForInput,
           runStatus: 'waiting_input',
           sending: false,
           inputRequests: <CoworkInputRequest>[
@@ -2572,7 +2598,7 @@ class NeoAgentController extends ChangeNotifier {
         unawaited(_refreshCoworkConversation(conversationId));
       case 'error':
         next = current.copyWith(
-          phase: payload['error']?.toString() ?? 'Failed',
+          phase: payload['error']?.toString() ?? appStrings.failed,
           runStatus: 'failed',
           sending: false,
           streamingContent: '',
@@ -2754,7 +2780,7 @@ class NeoAgentController extends ChangeNotifier {
     final authCycle = _authCycle;
     while (DateTime.now().isBefore(deadline)) {
       if (!isAuthenticating || _authCycle != authCycle) {
-        throw Exception('Authentication was canceled before completion.');
+        throw Exception(appStrings.authenticationWasCanceledBeforeCompletion);
       }
       final response = await _backendClient.completeProviderAuth(
         baseUrl: backendUrl,
@@ -2762,16 +2788,14 @@ class NeoAgentController extends ChangeNotifier {
       );
       if (response['status']?.toString() == 'pending') {
         if (!isAuthenticating || _authCycle != authCycle) {
-          throw Exception('Authentication was canceled before completion.');
+          throw Exception(appStrings.authenticationWasCanceledBeforeCompletion);
         }
         await Future<void>.delayed(const Duration(seconds: 2));
         continue;
       }
       return response;
     }
-    throw Exception(
-      'Authentication is still pending. Finish the browser flow and try again.',
-    );
+    throw Exception(appStrings.authenticationIsStillPendingFinishThe);
   }
 
   void clearLogs() {
@@ -2974,12 +2998,68 @@ class NeoAgentController extends ChangeNotifier {
     return null;
   }
 
+  /// Switches the interface immediately, remembers the choice on this device,
+  /// and, once signed in, saves it on the account so the next device follows.
+  Future<void> setLanguage(AppLanguage value) async {
+    if (value == language) return;
+    _languageRevision += 1;
+    final revision = _languageRevision;
+    language = value;
+    currentAppLanguage = value;
+    notifyListeners();
+    final preferences = _prefs ?? await SharedPreferences.getInstance();
+    _prefs = preferences;
+    await preferences.setString(appLanguagePreferenceKey, value.code);
+    if (revision != _languageRevision || !isAuthenticated) return;
+    if (backendUrl.trim().isEmpty) return;
+    try {
+      await _backendClient.saveSettings(backendUrl, <String, dynamic>{
+        'ui_language': value.code,
+      });
+      if (revision != _languageRevision) return;
+      settings = <String, dynamic>{...settings, 'ui_language': value.code};
+    } catch (_) {
+      // The interface is already in the new language and the choice is stored
+      // on this device. The next settings read will try the account again.
+    }
+  }
+
+  /// An account that has chosen a language is authoritative, so the choice
+  /// follows somebody to a second device. An account that has never chosen
+  /// adopts what this device detected at first launch.
+  void _reconcileLanguage(int revision) {
+    if (revision != _languageRevision || !isAuthenticated) return;
+    final stored = AppLanguage.fromCode(settings['ui_language']?.toString());
+    if (stored == null) {
+      settings = <String, dynamic>{...settings, 'ui_language': language.code};
+      unawaited(
+        _backendClient
+            .saveSettings(backendUrl, <String, dynamic>{
+              'ui_language': language.code,
+            })
+            .catchError((Object _) => <String, dynamic>{}),
+      );
+      return;
+    }
+    if (stored == language) return;
+    language = stored;
+    currentAppLanguage = stored;
+    unawaited(_rememberLanguage(stored.code));
+  }
+
+  Future<void> _rememberLanguage(String code) async {
+    final preferences = _prefs ?? await SharedPreferences.getInstance();
+    _prefs = preferences;
+    await preferences.setString(appLanguagePreferenceKey, code);
+  }
+
   Future<void> refresh() async {
     if (!isAuthenticated) {
       return;
     }
 
     final authCycle = _authCycle;
+    final languageRevision = _languageRevision;
     isRefreshing = true;
     errorMessage = null;
     notifyListeners();
@@ -2995,8 +3075,7 @@ class NeoAgentController extends ChangeNotifier {
         _authCycle += 1;
         _clearAuthenticatedState();
         if (hadAuthenticatedSession) {
-          errorMessage =
-              'Your session expired or was not retained by the browser. Please sign in again.';
+          errorMessage = appStrings.yourSessionExpiredOrWasNot;
           notifyListeners();
         }
         return;
@@ -3233,6 +3312,7 @@ class NeoAgentController extends ChangeNotifier {
           settingsMutationId == _settingsMutationId &&
           agentId == _scopedAgentId) {
         settings = Map<String, dynamic>.from(settingsResponse);
+        _reconcileLanguage(languageRevision);
       }
       behaviorConfig = behaviorResponse['config'] is Map
           ? Map<String, dynamic>.from(behaviorResponse['config'] as Map)
@@ -3703,8 +3783,7 @@ class NeoAgentController extends ChangeNotifier {
     final normalized = provider.trim().toLowerCase();
     if (normalized == computerProvider || isRunningDeviceAction) return;
     if (normalized == 'local' && !_desktopCompanion.supported) {
-      errorMessage =
-          'Local computer control is available in the NeoAgent desktop app on macOS, Windows and Linux.';
+      errorMessage = appStrings.localComputerControlIsAvailableIn;
       notifyListeners();
       return;
     }
@@ -4021,10 +4100,10 @@ class NeoAgentController extends ChangeNotifier {
       final stderr = result['stderr']?.toString() ?? '';
       final exitCode = result['exitCode'];
       computerTerminalOutput = <String>[
-        '\$ $normalized',
+        appStrings.arg13(normalized),
         if (stdout.isNotEmpty) stdout.trimRight(),
         if (stderr.isNotEmpty) stderr.trimRight(),
-        if (exitCode != null) '[exit $exitCode]',
+        if (exitCode != null) appStrings.exitArg1(exitCode),
       ].join('\n');
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -4514,7 +4593,8 @@ class NeoAgentController extends ChangeNotifier {
       label: 'neoagent_workspace_file_download',
     );
     if (!result.launched) {
-      errorMessage = result.error ?? 'Could not open workspace file download.';
+      errorMessage =
+          result.error ?? appStrings.couldNotOpenWorkspaceFileDownload;
       notifyListeners();
     }
   }
@@ -4587,7 +4667,7 @@ class NeoAgentController extends ChangeNotifier {
     }
     final ready = await _ensureSocketReady();
     if (!ready || _socket == null) {
-      throw StateError('Live voice connection is not available.');
+      throw StateError(appStrings.liveVoiceConnectionIsNotAvailable);
     }
     final completer = Completer<void>();
     _liveVoiceSessionOpenCompleter = completer;
@@ -4613,7 +4693,7 @@ class NeoAgentController extends ChangeNotifier {
       await completer.future.timeout(
         const Duration(seconds: 20),
         onTimeout: () {
-          throw StateError('The live voice model did not answer. Try again.');
+          throw StateError(appStrings.theLiveVoiceModelDidNot);
         },
       );
     } catch (error) {
@@ -4715,7 +4795,7 @@ class NeoAgentController extends ChangeNotifier {
           _handleLiveVoiceCaptureLost(_friendlyErrorMessage(error));
         },
         onStoppedUnexpectedly: () => _handleLiveVoiceCaptureLost(
-          'Microphone capture stopped unexpectedly. Try again.',
+          appStrings.microphoneCaptureStoppedUnexpectedlyTryAgain,
         ),
       );
       _liveVoiceCaptureActive = true;
@@ -4820,6 +4900,65 @@ class NeoAgentController extends ChangeNotifier {
     });
   }
 
+  /// Keyboard clicks fill the quiet while a handed-off task runs. Speech,
+  /// reconnecting, and an idle call stay silent.
+  void _syncVoiceWorkClicks() {
+    final play =
+        !_liveVoiceHearingSpeech && voiceAssistantLiveState.isWorkingSilently;
+    if (!play) {
+      _haltVoiceWorkClicks();
+      return;
+    }
+    if (_voiceWorkClicks?.isPlaying == true) return;
+    _voiceWorkClickArm?.cancel();
+    _voiceWorkClickArm = Timer(const Duration(milliseconds: 180), () {
+      _voiceWorkClickArm = null;
+      if (_liveVoiceHearingSpeech ||
+          !voiceAssistantLiveState.isWorkingSilently) {
+        return;
+      }
+      unawaited(_ensureVoiceWorkClicks());
+    });
+  }
+
+  Future<void> _ensureVoiceWorkClicks() async {
+    final generation = ++_voiceWorkClickGeneration;
+    if (_liveVoiceHearingSpeech || !voiceAssistantLiveState.isWorkingSilently) {
+      return;
+    }
+    try {
+      await _liveVoicePlayer.prepareWorkClicks();
+    } catch (error, stackTrace) {
+      AppDiagnostics.log(
+        'voice',
+        'work_clicks.unavailable',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return;
+    }
+    if (generation != _voiceWorkClickGeneration ||
+        _liveVoiceHearingSpeech ||
+        !voiceAssistantLiveState.isWorkingSilently) {
+      return;
+    }
+    final sampleRate = voiceAssistantLiveState.outputSampleRate;
+    final existing = _voiceWorkClicks;
+    if (existing == null || existing.sampleRate != sampleRate) {
+      existing?.dispose();
+      _voiceWorkClicks = VoiceWorkClicks(sampleRate: sampleRate);
+    }
+    _voiceWorkClicks!.start(_liveVoicePlayer.addWorkClick);
+  }
+
+  void _haltVoiceWorkClicks() {
+    _voiceWorkClickArm?.cancel();
+    _voiceWorkClickArm = null;
+    _voiceWorkClickGeneration++;
+    _voiceWorkClicks?.stop();
+    unawaited(_liveVoicePlayer.stopWorkClicks());
+  }
+
   /// The state resets before the async teardown, so an error that arrives
   /// meanwhile (a failed connect reports closed, then why) is not wiped.
   /// [error] keeps the reason a server-ended call stopped on screen.
@@ -4828,6 +4967,8 @@ class NeoAgentController extends ChangeNotifier {
     String? error,
   }) async {
     final sessionId = voiceAssistantLiveState.sessionId.trim();
+    _liveVoiceHearingSpeech = false;
+    _haltVoiceWorkClicks();
     _liveVoiceCaptureActive = false;
     _pendingLiveVoiceStop = false;
     _returnHomeAfterCall = false;
@@ -5549,7 +5690,7 @@ class NeoAgentController extends ChangeNotifier {
       final url = begin['url']?.toString();
       final state = begin['state']?.toString();
       if (url == null || state == null || url.isEmpty || state.isEmpty) {
-        throw Exception('Provider linking could not be started.');
+        throw Exception(appStrings.providerLinkingCouldNotBeStarted);
       }
       final launchResult = await _oauthLauncher.launch(
         url: url,
@@ -5557,7 +5698,7 @@ class NeoAgentController extends ChangeNotifier {
       );
       if (!launchResult.launched) {
         throw Exception(
-          launchResult.error ?? 'Could not open the provider linking page.',
+          launchResult.error ?? appStrings.couldNotOpenTheProviderLinking,
         );
       }
       await _pollForProviderAuthCompletion(state);
@@ -5606,7 +5747,7 @@ class NeoAgentController extends ChangeNotifier {
       );
       final options = _asJsonMap(begin['options']);
       if (options.isEmpty) {
-        throw Exception('The security key registration could not be started.');
+        throw Exception(appStrings.theSecurityKeyRegistrationCouldNot);
       }
       final attestation = await _webAuthnClient.createCredential(options);
       _applyAccountResponse(
@@ -5681,7 +5822,7 @@ class NeoAgentController extends ChangeNotifier {
       );
       final options = _asJsonMap(begin['options']);
       if (options.isEmpty) {
-        throw Exception('Security key sign-in could not be started.');
+        throw Exception(appStrings.securityKeySignInCouldNot);
       }
       final assertion = await _webAuthnClient.getAssertion(options);
       final response = await _backendClient.completeSecurityKeyLogin(
@@ -5700,8 +5841,7 @@ class NeoAgentController extends ChangeNotifier {
         response,
         fallbackUsername: username,
         authMethod: 'security_key',
-        retentionErrorMessage:
-            'Security key sign-in completed, but NeoAgent could not keep the browser session. Please sign in again.',
+        retentionErrorMessage: appStrings.securityKeySignInCompletedBut,
       );
     } on WebAuthnException catch (error) {
       if (!error.cancelled) {
@@ -6007,9 +6147,7 @@ class NeoAgentController extends ChangeNotifier {
       if ((status != 'oauth_redirect' && status != 'interactive_connect') ||
           url == null ||
           url.isEmpty) {
-        throw Exception(
-          'Official integration did not return a connection URL.',
-        );
+        throw Exception(appStrings.officialIntegrationDidNotReturnA);
       }
 
       final launchResult = await _oauthLauncher.launch(
@@ -6019,7 +6157,9 @@ class NeoAgentController extends ChangeNotifier {
         timeout: const Duration(minutes: 5),
       );
       if (!launchResult.launched) {
-        throw Exception(launchResult.error ?? 'Failed to launch OAuth flow.');
+        throw Exception(
+          launchResult.error ?? appStrings.failedToLaunchOauthFlow,
+        );
       }
       if (launchResult.completed) {
         await refreshSkills();
@@ -6351,9 +6491,7 @@ class NeoAgentController extends ChangeNotifier {
       await Future<void>.delayed(const Duration(seconds: 2));
     }
 
-    throw Exception(
-      'Authentication is still pending. Finish the browser flow and refresh.',
-    );
+    throw Exception(appStrings.authenticationIsStillPendingFinishThe2);
   }
 
   Future<void> connectMessagingPlatform({
@@ -6387,9 +6525,7 @@ class NeoAgentController extends ChangeNotifier {
       final failure = errorMessage;
       if (failure != null) throw Exception(failure);
       if (_findOfficialIntegrationApp(providerId, appId)?.isConnected != true) {
-        throw Exception(
-          'Finish signing in to ${platform.label} in your browser, then connect again.',
-        );
+        throw Exception(appStrings.finishSigningInToArg1In(platform.label));
       }
     }
     await connectMessagingPlatform(platform: platform.id);
@@ -6432,7 +6568,7 @@ class NeoAgentController extends ChangeNotifier {
       final zone = (await FlutterTimezone.getLocalTimezone()).identifier.trim();
       return zone.isEmpty ? null : zone;
     } catch (error) {
-      debugPrint('[TimeZone] Could not read the device time zone: $error');
+      debugPrint(appStrings.timezoneCouldNotReadTheDevice(error));
       return null;
     }
   }
@@ -6452,7 +6588,7 @@ class NeoAgentController extends ChangeNotifier {
       settings = <String, dynamic>{...settings, 'timezone': zone};
       notifyListeners();
     } catch (error) {
-      debugPrint('[TimeZone] Could not save the device time zone: $error');
+      debugPrint(appStrings.timezoneCouldNotSaveTheDevice(error));
     }
   }
 
@@ -6641,7 +6777,7 @@ class NeoAgentController extends ChangeNotifier {
       'suggestedTargets': currentMessagingAccessCatalog(
         platform,
       ).suggestedTargets.map((item) => item.toJson()).toList(growable: false),
-      'summary': response['summary']?.toString() ?? 'Who can message',
+      'summary': response['summary']?.toString() ?? appStrings.whoCanMessage,
     });
     messagingAccessCatalogs = <String, MessagingAccessCatalog>{
       ...messagingAccessCatalogs,
@@ -6936,13 +7072,13 @@ class NeoAgentController extends ChangeNotifier {
           final type = item.mimeType.trim().isEmpty
               ? 'unknown'
               : item.mimeType.trim();
-          return '- ${item.name} ($type) [local uri: ${item.uri}]';
+          return appStrings.arg1Arg2LocalUriArg3(item.name, type, item.uri);
         })
         .join('\n');
     final attachmentBlock = [
-      'Shared attachments from the NeoAgent client:',
+      appStrings.sharedAttachmentsFromTheNeoagentClient,
       lines,
-      'Use these for context. If a local URI is not directly accessible from the server, ask me to provide the file through an accessible workspace.',
+      appStrings.useTheseForContextIfA,
     ].join('\n');
     if (base.isEmpty) {
       return attachmentBlock;
@@ -7099,13 +7235,11 @@ class NeoAgentController extends ChangeNotifier {
       final deviceStatus = await _healthBridge.getStatus();
       deviceHealthStatus = deviceStatus;
       if (!deviceStatus.available) {
-        throw const HealthBridgeException(
-          'Health Connect is not available on this device.',
-        );
+        throw HealthBridgeException(appStrings.healthConnectIsNotAvailableOn);
       }
       if (!deviceStatus.permissionsGranted) {
-        throw const HealthBridgeException(
-          'Grant Health Connect permissions before syncing.',
+        throw HealthBridgeException(
+          appStrings.grantHealthConnectPermissionsBeforeSyncing,
         );
       }
 
@@ -7143,79 +7277,80 @@ class NeoAgentController extends ChangeNotifier {
     final backendCode = error is BackendException ? error.code : null;
 
     if (backendCode == 'COMPUTER_STORAGE_CAPACITY') {
-      return 'The computer needs more free disk space on the NeoAgent host. Free some space, then try again.';
+      return appStrings.theComputerNeedsMoreFreeDisk;
     }
     if (backendCode == 'COMPUTER_CAPACITY') {
-      return 'All cloud-computer slots are currently in use. Try again in a moment.';
+      return appStrings.allCloudComputerSlotsAreCurrently;
     }
     if (backendCode == 'COMPUTER_RUNTIME_UNAVAILABLE' ||
         backendCode == 'COMPUTER_FIRMWARE_MISSING') {
-      return 'The computer runtime needs repair. Run NeoAgent Doctor, then try again.';
+      return appStrings.theComputerRuntimeNeedsRepairRun;
     }
 
     if (backendStatusCode == 402) {
       final details = _extractMeaningfulErrorDetails(text);
       if (lower.contains('invalid credentials')) {
-        return 'The NeoAgent deployment responded with HTTP 402 instead of the normal 401 for invalid credentials. Check reverse-proxy, auth gateway, or payment-related rules on that server.';
+        return appStrings.theNeoagentDeploymentRespondedWithHttp;
       }
       if (details.isNotEmpty &&
           details.toLowerCase() !=
               'request failed with http $backendStatusCode') {
-        return 'The NeoAgent deployment responded with HTTP 402.\n\n$details';
+        return appStrings.theNeoagentDeploymentRespondedWithHttp2(details);
       }
-      return 'The NeoAgent deployment responded with HTTP 402. Check reverse-proxy, auth gateway, or payment-related rules on that server.';
+      return appStrings.theNeoagentDeploymentRespondedWithHttp3;
     }
 
     if (lower.contains('invalid credentials')) {
-      return 'Your username or password is incorrect.';
+      return appStrings.yourUsernameOrPasswordIsIncorrect;
     }
     if (lower.contains('registration is closed')) {
-      return 'This server is already set up. Sign in with an existing account.';
+      return appStrings.thisServerIsAlreadySetUp;
     }
     if (lower.contains('too many attempts')) {
-      return 'Too many sign-in attempts. Please wait and try again.';
+      return appStrings.tooManySignInAttemptsPlease;
     }
     if (lower.contains('qr login request was not found') ||
         lower.contains('qr login request has expired') ||
         lower.contains('this qr login request has expired')) {
-      return 'This QR login request expired. Generate a new code and try again.';
+      return appStrings.thisQrLoginRequestExpiredGenerate;
     }
     if (lower.contains('already used')) {
-      return 'This QR login request was already used.';
+      return appStrings.thisQrLoginRequestWasAlready;
     }
     if (lower.contains('not approved yet')) {
-      return 'This QR login request is still waiting for approval.';
+      return appStrings.thisQrLoginRequestIsStill;
     }
     if (lower.contains('valid email')) {
-      return 'Enter a valid email address.';
+      return appStrings.enterAValidEmailAddress;
     }
     if (lower.contains('email is already in use')) {
-      return 'That email is already linked to another account.';
+      return appStrings.thatEmailIsAlreadyLinkedTo;
     }
     if (lower.contains('current password is incorrect')) {
-      return 'Your current password is incorrect.';
+      return appStrings.yourCurrentPasswordIsIncorrect;
     }
     if (lower.contains('email confirmation required')) {
-      return 'Confirm your email before signing in. Check the service email message from NeoAgent.';
+      return appStrings.confirmYourEmailBeforeSigningIn;
     }
     if (lower.contains('could not send confirmation email') ||
         lower.contains('service email is not configured')) {
-      return 'NeoAgent service email is not ready. Ask the server operator to check the email environment settings.';
+      return appStrings.neoagentServiceEmailIsNotReady;
     }
     if (lower.contains('password min 8')) {
-      return 'Use a password with at least 8 characters.';
+      return appStrings.useAPasswordWithAtLeast;
     }
     if (lower.contains('password is too weak')) {
       return text;
     }
-    if (lower.contains('invalid 2fa') || lower.contains('two-factor code')) {
-      return 'The two-factor code is not valid.';
+    if (lower.contains('invalid 2fa') ||
+        lower.contains('two-factor code')) {
+      return appStrings.theTwoFactorCodeIsNot;
     }
     if (lower.contains('two-factor challenge expired')) {
-      return 'The two-factor challenge expired. Sign in again.';
+      return appStrings.theTwoFactorChallengeExpiredSign;
     }
     if (lower.contains('session_secret')) {
-      return '2FA requires SESSION_SECRET to be configured on this NeoAgent deployment.';
+      return appStrings.n2faRequiresSessionSecretToBe;
     }
     if (lower.contains('cors') ||
         lower.contains('xmlhttprequest error') ||
@@ -7223,36 +7358,34 @@ class NeoAgentController extends ChangeNotifier {
         lower.contains('network request failed') ||
         lower.contains('clientexception') ||
         lower.contains('socketexception')) {
-      return 'The app could not reach this NeoAgent deployment. Check your network connection or confirm the service URL is correct.';
+      return appStrings.theAppCouldNotReachThis;
     }
     if (lower.contains('origin not allowed')) {
-      return 'This build is not allowed to talk to this NeoAgent deployment.';
+      return appStrings.thisBuildIsNotAllowedTo;
     }
     if (lower.contains('not authenticated')) {
-      return 'Your session expired. Please sign in again.';
+      return appStrings.yourSessionExpiredPleaseSignIn;
     }
     if (lower.contains('no neoagent account is linked to this provider')) {
-      return 'This Google account is not linked yet. Use provider registration first, or sign in normally and link it from account settings.';
+      return appStrings.thisGoogleAccountIsNotLinked;
     }
     if (lower.contains('already belongs to an existing account')) {
-      return 'That email already belongs to an existing account. Sign in first, then link Google from account settings.';
+      return appStrings.thatEmailAlreadyBelongsToAn;
     }
     if (lower.contains('already linked to another neoagent account') ||
         lower.contains('already linked to another account')) {
-      return 'That Google account is already linked to a different NeoAgent account.';
+      return appStrings.thatGoogleAccountIsAlreadyLinked;
     }
-    if (lower.contains(
-      'create a password or link another provider before removing this sign-in method',
-    )) {
-      return 'Add another sign-in method before removing this one.';
+    if (lower.contains('create a password or link another provider before removing this sign-in method')) {
+      return appStrings.addAnotherSignInMethodBefore;
     }
     if (lower.contains('unable to locate a java runtime') ||
         lower.contains('java runtime')) {
       final details = _extractMeaningfulErrorDetails(text);
       if (details.isNotEmpty) {
-        return 'Mobile setup failed because Java is not available on the machine running NeoAgent.\n\n$details';
+        return appStrings.mobileSetupFailedBecauseJavaIs(details);
       }
-      return 'Mobile setup failed because Java is not available on the machine running NeoAgent. Install a JDK and try again.';
+      return appStrings.mobileSetupFailedBecauseJavaIs2;
     }
     if (lower.contains('android sdk') ||
         lower.contains('sdkmanager') ||
@@ -7261,9 +7394,9 @@ class NeoAgentController extends ChangeNotifier {
         lower.contains('gradle')) {
       final details = _extractMeaningfulErrorDetails(text);
       if (details.isNotEmpty) {
-        return 'Mobile setup failed.\n\n$details';
+        return appStrings.mobileSetupFailedArg1(details);
       }
-      return 'Mobile setup failed. Check that Android tooling is installed correctly and try again.';
+      return appStrings.mobileSetupFailedCheckThatAndroid;
     }
     if (lower.contains('health connect')) {
       return text;
@@ -7274,21 +7407,21 @@ class NeoAgentController extends ChangeNotifier {
         lower.contains('load failed')) {
       final details = _extractMeaningfulErrorDetails(text);
       return details.isNotEmpty
-          ? 'The web app could not reach the NeoAgent backend.\n\n$details'
-          : 'The web app could not reach the NeoAgent backend.';
+          ? appStrings.theWebAppCouldNotReachThe(details)
+          : appStrings.theWebAppCouldNotReach;
     }
     if (lower.contains('content security policy') ||
         lower.contains('connect-src')) {
       final details = _extractMeaningfulErrorDetails(text);
       return details.isNotEmpty
-          ? 'The browser blocked a required request because of Content Security Policy.\n\n$details'
-          : 'The browser blocked a required request because of Content Security Policy.';
+          ? appStrings.theBrowserBlockedARequiredRequestBecause(details)
+          : appStrings.theBrowserBlockedARequiredRequest;
     }
     if (_shouldExposeErrorText(text)) {
       return _extractMeaningfulErrorDetails(text);
     }
 
-    return 'Something went wrong. Please try again.';
+    return appStrings.somethingWentWrongPleaseTryAgain;
   }
 
   String friendlyErrorMessage(Object error) => _friendlyErrorMessage(error);
@@ -7447,7 +7580,8 @@ class NeoAgentController extends ChangeNotifier {
   String get accountLabel {
     final displayName = user?['display_name']?.toString().trim() ?? '';
     if (displayName.isNotEmpty) return displayName;
-    return user?['username']?.toString() ?? username.ifEmpty('NeoAgent User');
+    return user?['username']?.toString() ??
+        username.ifEmpty(appStrings.neoagentUser);
   }
 
   String get modelIndicator {
@@ -7455,7 +7589,7 @@ class NeoAgentController extends ChangeNotifier {
       final selected = _modelById(defaultChatModel);
       return selected?.label ?? defaultChatModel;
     }
-    return smarterSelector ? 'Smart selector active' : 'Manual routing';
+    return smarterSelector ? 'Smart selector active' : appStrings.manualRouting;
   }
 
   bool get showHealthSection =>
@@ -7526,7 +7660,7 @@ class NeoAgentController extends ChangeNotifier {
     if (_liveVoiceSessionOpenCompleter != null &&
         !_liveVoiceSessionOpenCompleter!.isCompleted) {
       _liveVoiceSessionOpenCompleter!.completeError(
-        StateError('Live voice connection was closed.'),
+        StateError(appStrings.liveVoiceConnectionWasClosed),
       );
     }
     _liveVoiceSessionOpenCompleter = null;
@@ -7711,14 +7845,17 @@ class NeoAgentController extends ChangeNotifier {
       final blocked = MessagingMessage.fromBlockedNotice(blockedNotice);
       messagingMessages = <MessagingMessage>[blocked, ...messagingMessages];
       _enqueueBlockedSenderNotice(blockedNotice);
-      errorMessage =
-          '${blocked.senderLabel} is blocked on ${blocked.platform.toUpperCase()}. Update the access list to allow replies.';
+      errorMessage = appStrings.arg1IsBlockedOnArg2Update(
+        blocked.senderLabel,
+        blocked.platform.toUpperCase(),
+      );
       notifyListeners();
     });
     socket.on('messaging:error', (dynamic data) {
       final payload = _jsonMap(data);
       errorMessage =
-          payload['error']?.toString() ?? 'Messaging error. Please try again.';
+          payload['error']?.toString() ??
+          appStrings.messagingErrorPleaseTryAgain;
       notifyListeners();
     });
     socket.on('timeline:updated', (dynamic _) {
@@ -7772,6 +7909,7 @@ class NeoAgentController extends ChangeNotifier {
       final outputSampleRate = _asInt(payload['outputSampleRate']) >= 8000
           ? _asInt(payload['outputSampleRate'])
           : 24000;
+      _liveVoiceHearingSpeech = false;
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
         sessionId: payload['sessionId']?.toString() ?? '',
         inputMode:
@@ -7801,12 +7939,14 @@ class NeoAgentController extends ChangeNotifier {
             stackTrace: stackTrace,
           );
           voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-            error: 'Voice playback is unavailable on this device.',
+            error: appStrings.voicePlaybackIsUnavailableOnThis,
           );
+          _syncVoiceWorkClicks();
           notifyListeners();
         }),
       );
       _liveVoiceSessionStartedAt ??= DateTime.now();
+      _syncVoiceWorkClicks();
       if (_liveVoiceSessionOpenCompleter != null &&
           !_liveVoiceSessionOpenCompleter!.isCompleted) {
         _liveVoiceSessionOpenCompleter!.complete();
@@ -7829,7 +7969,9 @@ class NeoAgentController extends ChangeNotifier {
       if (state == 'listening' && voiceAssistantLiveState.isSpeaking) {
         _liveVoicePlayer.drain();
       }
+      _liveVoiceHearingSpeech = state == 'speaking';
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(state: state);
+      _syncVoiceWorkClicks();
       notifyListeners();
     });
     socket.on('voice:audio', (dynamic data) {
@@ -7837,11 +7979,15 @@ class NeoAgentController extends ChangeNotifier {
       if (!_matchesLiveVoiceSessionPayload(payload)) return;
       final encoded = payload['audioBase64']?.toString() ?? '';
       if (encoded.isEmpty) return;
+      _liveVoiceHearingSpeech = true;
+      _haltVoiceWorkClicks();
       _liveVoicePlayer.add(base64Decode(encoded));
     });
     socket.on('voice:interrupted', (dynamic data) {
       if (!_matchesLiveVoiceSessionPayload(_jsonMap(data))) return;
+      _liveVoiceHearingSpeech = false;
       unawaited(_liveVoicePlayer.flush());
+      _syncVoiceWorkClicks();
     });
     socket.on('voice:transcript', (dynamic data) {
       final payload = _jsonMap(data);
@@ -7864,12 +8010,14 @@ class NeoAgentController extends ChangeNotifier {
           activeTaskRequest: '',
         );
       }
+      _syncVoiceWorkClicks();
       notifyListeners();
     });
     socket.on('voice:error', (dynamic data) {
       final payload = _jsonMap(data);
       if (!_matchesLiveVoiceSessionPayload(payload)) return;
-      final message = payload['error']?.toString() ?? 'Live voice failed.';
+      final message =
+          payload['error']?.toString() ?? appStrings.liveVoiceFailed;
       final opening = _liveVoiceSessionOpenCompleter;
       if (payload['recoverable'] != true &&
           opening != null &&
@@ -7879,6 +8027,7 @@ class NeoAgentController extends ChangeNotifier {
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
         error: message,
       );
+      _syncVoiceWorkClicks();
       notifyListeners();
     });
     socket.on('run:start', (dynamic data) {
@@ -7909,8 +8058,8 @@ class NeoAgentController extends ChangeNotifier {
       activeRun = ActiveRunState(
         runId: runId,
         title:
-            payload['title']?.toString().ifEmpty('Running task') ??
-            'Running task',
+            payload['title']?.toString().ifEmpty(appStrings.runningTask) ??
+            appStrings.runningTask,
         model: payload['model']?.toString() ?? '',
         triggerSource: triggerSource,
         phase: 'Starting',
@@ -7964,9 +8113,13 @@ class NeoAgentController extends ChangeNotifier {
         return;
       }
       final summary = [
-        'mode: ${payload['mode']?.toString() ?? 'execute'}',
-        'verification: ${payload['verification_need']?.toString() ?? 'none'}',
-        'freshness: ${payload['freshness_risk']?.toString() ?? 'none'}',
+        appStrings.modeArg1(payload['mode']?.toString() ?? 'execute'),
+        appStrings.verificationArg12(
+          payload['verification_need']?.toString() ?? 'none',
+        ),
+        appStrings.freshnessArg1(
+          payload['freshness_risk']?.toString() ?? 'none',
+        ),
       ].join(' | ');
       toolEvents = _capToolEvents(<ToolEventItem>[
         ...toolEvents,
@@ -8013,7 +8166,7 @@ class NeoAgentController extends ChangeNotifier {
           toolName: 'plan',
           type: 'planning',
           status: 'completed',
-          summary: steps.ifEmpty('Execution plan created.'),
+          summary: steps.ifEmpty(appStrings.executionPlanCreated),
         ),
       ]);
       if (activeRun?.runId == runId) {
@@ -8088,7 +8241,7 @@ class NeoAgentController extends ChangeNotifier {
         streamingAssistant = '';
       }
       if (activeRun?.runId == runId) {
-        activeRun = activeRun!.copyWith(phase: 'Running tool');
+        activeRun = activeRun!.copyWith(phase: appStrings.runningTool);
       }
       notifyListeners();
     });
@@ -8116,9 +8269,11 @@ class NeoAgentController extends ChangeNotifier {
               : 'failed',
           summary:
               payload['notes']?.toString().ifEmpty(
-                'Verification status: ${payload['status']?.toString() ?? 'unknown'}',
+                appStrings.verificationStatusArg1(
+                  payload['status']?.toString() ?? 'unknown',
+                ),
               ) ??
-              'Verification completed.',
+              appStrings.verificationCompleted,
         ),
       ]);
       if (activeRun?.runId == runId) {
@@ -8159,9 +8314,9 @@ class NeoAgentController extends ChangeNotifier {
               payload['task']?.toString().ifEmpty(
                 payload['error']?.toString() ??
                     payload['result']?.toString() ??
-                    'Subagent update.',
+                    appStrings.subagentUpdate2,
               ) ??
-              'Subagent update.',
+              appStrings.subagentUpdate2,
         ),
       );
       toolEvents = _capToolEvents(nextEvents);
@@ -8257,8 +8412,9 @@ class NeoAgentController extends ChangeNotifier {
           toolName: 'steering',
           type: 'note',
           status: 'completed',
-          summary:
-              'Queued as steering for the current run: ${payload['content']?.toString() ?? ''}',
+          summary: appStrings.queuedAsSteeringForTheCurrent(
+            payload['content']?.toString() ?? '',
+          ),
         ),
       ]);
       if (activeRun?.runId == runId || activeRun?.runId == 'pending') {
@@ -8289,14 +8445,16 @@ class NeoAgentController extends ChangeNotifier {
           type: 'note',
           status: 'completed',
           summary: payload['count'] == 1
-              ? 'Applied the latest steering update to the current run.'
-              : 'Applied ${_asInt(payload['count'])} queued steering updates to the current run.',
+              ? appStrings.appliedTheLatestSteeringUpdateToThe
+              : appStrings.appliedArg1QueuedSteeringUpdatesTo(
+                  _asInt(payload['count']),
+                ),
         ),
       ]);
       if (activeRun?.runId == runId || activeRun?.runId == 'pending') {
         activeRun = activeRun!.copyWith(
           pendingSteeringCount: _asInt(payload['pendingCount']),
-          phase: 'Incorporating steering',
+          phase: appStrings.incorporatingSteering,
         );
       }
       notifyListeners();
@@ -8383,7 +8541,7 @@ class NeoAgentController extends ChangeNotifier {
       if (activeRun?.runId == runId) {
         activeRun = activeRun!.copyWith(
           phase: toolEvents.any((event) => event.status == 'running')
-              ? 'Running tool'
+              ? appStrings.runningTool
               : 'Streaming',
         );
       }
@@ -8520,7 +8678,7 @@ class NeoAgentController extends ChangeNotifier {
       unawaited(refreshRunsOnly());
       final message =
           payload['error']?.toString().trim() ??
-          'I could not complete that request right now. Please try again in a moment.';
+          appStrings.iCouldNotCompleteThatRequest;
       errorMessage = _friendlyErrorMessage(
         BackendException(
           message,

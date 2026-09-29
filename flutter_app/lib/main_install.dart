@@ -76,7 +76,7 @@ class _ServerPanelState extends State<ServerPanel> {
       await _refresh();
     } on LocalBackendInstallerException catch (error) {
       if (!mounted) return;
-      setState(() => _errorMessage = '${error.message} (${error.code})');
+      setState(() => _errorMessage = appStrings.arg1Arg2(error.message, error.code));
     } finally {
       if (mounted) setState(() => _installing = false);
     }
@@ -93,7 +93,7 @@ class _ServerPanelState extends State<ServerPanel> {
       setState(() => _status = status);
     } on LocalRuntimeManagerException catch (error) {
       if (!mounted) return;
-      setState(() => _errorMessage = '${error.message} (${error.code})');
+      setState(() => _errorMessage = appStrings.arg1Arg2(error.message, error.code));
     } finally {
       if (mounted) setState(() => _actionRunning = false);
     }
@@ -121,11 +121,11 @@ class _ServerPanelState extends State<ServerPanel> {
     // One field, so the whole thing can be selected, scrolled and pasted into a
     // bug report in a single go.
     final logText = logs.isEmpty
-        ? 'The local runtime has not written a log file yet.'
+        ? appStrings.theLocalRuntimeHasNotWrittenA
         : logs
               .map(
                 (log) =>
-                    '=== ${log.path} ===\n'
+                    appStrings.arg1(log.path) +
                     '${log.content.isEmpty ? '(empty)' : log.content}',
               )
               .join('\n\n');
@@ -133,7 +133,7 @@ class _ServerPanelState extends State<ServerPanel> {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Logs on this computer'),
+        title: Text(appStrings.logsOnThisComputer),
         content: SizedBox(
           width: 760,
           height: 460,
@@ -146,14 +146,14 @@ class _ServerPanelState extends State<ServerPanel> {
               if (!dialogContext.mounted) return;
               ScaffoldMessenger.of(
                 dialogContext,
-              ).showSnackBar(const SnackBar(content: Text('Logs copied.')));
+              ).showSnackBar(SnackBar(content: Text(appStrings.logsCopied)));
             },
-            icon: const Icon(Icons.copy_rounded, size: 18),
-            label: const Text('Copy all'),
+            icon: Icon(Icons.copy_rounded, size: 18),
+            label: Text(appStrings.copyAll),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Close'),
+            child: Text(appStrings.close),
           ),
         ],
       ),
@@ -185,10 +185,10 @@ class _ServerPanelState extends State<ServerPanel> {
     return ListView(
       padding: _pagePadding(context),
       children: <Widget>[
-        const _PageTitle(
+        _PageTitle(
           title: 'Server',
           subtitle:
-              'See which NeoAgent server this window uses, and run the backend on this computer.',
+              appStrings.seeWhichNeoagentServerThisWindow,
         ),
         const SizedBox(height: 18),
         _connectionCard(),
@@ -251,15 +251,15 @@ class _ServerPanelState extends State<ServerPanel> {
     required ValueChanged<String> onChanged,
   }) {
     return SegmentedButton<String>(
-      segments: const <ButtonSegment<String>>[
+      segments: <ButtonSegment<String>>[
         ButtonSegment<String>(
           value: 'stable',
-          label: Text('Stable'),
+          label: Text(appStrings.stable),
           icon: Icon(Icons.verified_outlined),
         ),
         ButtonSegment<String>(
           value: 'beta',
-          label: Text('Beta'),
+          label: Text(appStrings.beta),
           icon: Icon(Icons.science_outlined),
         ),
       ],
@@ -278,10 +278,10 @@ class _ServerPanelState extends State<ServerPanel> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             _cardTitle(
-              'Connected server',
+              appStrings.connectedServer,
               trailing: _supportsDesktopShell
                   ? _StatusPill(
-                      label: usesLocalBackend ? 'This computer' : 'Remote',
+                      label: usesLocalBackend ? appStrings.thisComputer : 'Remote',
                       color: usesLocalBackend ? _success : _accentAlt,
                     )
                   : null,
@@ -297,8 +297,8 @@ class _ServerPanelState extends State<ServerPanel> {
               const SizedBox(height: 14),
               OutlinedButton.icon(
                 onPressed: _useLocalServer,
-                icon: const Icon(Icons.link_rounded),
-                label: const Text('Use the server on this computer'),
+                icon: Icon(Icons.link_rounded),
+                label: Text(appStrings.useTheServerOnThisComputer),
               ),
             ],
           ],
@@ -317,7 +317,7 @@ class _ServerPanelState extends State<ServerPanel> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             _cardTitle(
-              'Backend on this computer',
+              appStrings.backendOnThisComputer,
               trailing: _checking
                   ? const SizedBox.square(
                       dimension: 18,
@@ -327,10 +327,10 @@ class _ServerPanelState extends State<ServerPanel> {
                       label: status?.running == true
                           ? 'Running'
                           : status?.errorCode != null
-                          ? 'Needs attention'
+                          ? appStrings.needsAttention
                           : installed
                           ? 'Stopped'
-                          : 'Not installed',
+                          : appStrings.notInstalled,
                       color: status?.running == true
                           ? _success
                           : status?.errorCode != null
@@ -341,7 +341,7 @@ class _ServerPanelState extends State<ServerPanel> {
             const SizedBox(height: 10),
             if (!installed)
               Text(
-                'Install a signed, self-contained runtime. Node.js, npm, Git, and terminal commands are not required.',
+                appStrings.installASignedSelfContainedRuntime,
                 style: TextStyle(color: _textSecondary, height: 1.45),
               )
             else
@@ -351,14 +351,14 @@ class _ServerPanelState extends State<ServerPanel> {
                 children: <Widget>[
                   _MetaPill(
                     icon: Icons.inventory_2_outlined,
-                    label: 'Runtime ${status?.version ?? 'unknown'}',
+                    label: appStrings.runtimeArg1(status?.version ?? 'unknown'),
                   ),
                   if (status?.releaseChannel case final channel?)
                     _MetaPill(
                       icon: channel == 'beta'
                           ? Icons.science_outlined
                           : Icons.verified_outlined,
-                      label: '${_channelLabel(channel)} channel',
+                      label: appStrings.arg1Channel(_channelLabel(channel)),
                     ),
                   // The connection card already names it when it is the
                   // server in use, so only show the address otherwise.
@@ -371,14 +371,14 @@ class _ServerPanelState extends State<ServerPanel> {
               const SizedBox(height: 12),
               _InlineError(
                 message:
-                    'Version ${status?.version} is installed, but ${status?.runningVersion} is still running.'
-                    ' Restart to finish the update.',
+                    appStrings.versionArg1IsInstalledButArg2(status?.version, status?.runningVersion) +
+                    appStrings.restartToFinishTheUpdate,
               ),
             ],
             if (status?.errorCode case final errorCode?) ...<Widget>[
               const SizedBox(height: 12),
               _InlineError(
-                message: 'The local runtime needs repair ($errorCode).',
+                message: appStrings.theLocalRuntimeNeedsRepairArg1(errorCode),
               ),
             ],
             if (_errorMessage case final message?) ...<Widget>[
@@ -400,36 +400,36 @@ class _ServerPanelState extends State<ServerPanel> {
                         onPressed: _actionRunning
                             ? null
                             : () => _runAction(LocalRuntimeAction.restart),
-                        icon: const Icon(Icons.restart_alt_rounded),
-                        label: const Text('Restart'),
+                        icon: Icon(Icons.restart_alt_rounded),
+                        label: Text(appStrings.restart),
                       )
                     else
                       FilledButton.icon(
                         onPressed: _actionRunning
                             ? null
                             : () => _runAction(LocalRuntimeAction.start),
-                        icon: const Icon(Icons.play_arrow_rounded),
-                        label: const Text('Start'),
+                        icon: Icon(Icons.play_arrow_rounded),
+                        label: Text(appStrings.start),
                       ),
                     if (status?.running == true)
                       OutlinedButton.icon(
                         onPressed: _actionRunning
                             ? null
                             : () => _runAction(LocalRuntimeAction.stop),
-                        icon: const Icon(Icons.stop_rounded),
-                        label: const Text('Stop'),
+                        icon: Icon(Icons.stop_rounded),
+                        label: Text(appStrings.stop),
                       ),
                     if (_managesLocalBackend)
                       OutlinedButton.icon(
                         onPressed: _viewingLogs ? null : _showLocalLogs,
-                        icon: const Icon(Icons.article_outlined),
-                        label: const Text('View logs'),
+                        icon: Icon(Icons.article_outlined),
+                        label: Text(appStrings.viewLogs),
                       ),
                     if (_localBackendUrl != null)
                       OutlinedButton.icon(
                         onPressed: _openLocalDashboard,
-                        icon: const Icon(Icons.open_in_new_rounded),
-                        label: const Text('Open dashboard'),
+                        icon: Icon(Icons.open_in_new_rounded),
+                        label: Text(appStrings.openDashboard),
                       ),
                   ],
                 ),
@@ -458,22 +458,22 @@ class _ServerPanelState extends State<ServerPanel> {
       childrenPadding: const EdgeInsets.only(bottom: 6),
       expandedCrossAxisAlignment: CrossAxisAlignment.start,
       title: Text(
-        installed ? 'Update or repair' : 'Install the backend',
+        installed ? 'Update or repair' : appStrings.installTheBackend,
         style: const TextStyle(fontWeight: FontWeight.w700),
       ),
       children: <Widget>[
-        Text('Setup', style: TextStyle(color: _textMuted, fontSize: 12)),
+        Text(appStrings.setup, style: TextStyle(color: _textMuted, fontSize: 12)),
         const SizedBox(height: 8),
         SegmentedButton<LocalBackendSetupProfile>(
-          segments: const <ButtonSegment<LocalBackendSetupProfile>>[
+          segments: <ButtonSegment<LocalBackendSetupProfile>>[
             ButtonSegment<LocalBackendSetupProfile>(
               value: LocalBackendSetupProfile.quick,
-              label: Text('Quickstart'),
+              label: Text(appStrings.quickstart),
               icon: Icon(Icons.bolt_rounded),
             ),
             ButtonSegment<LocalBackendSetupProfile>(
               value: LocalBackendSetupProfile.full,
-              label: Text('Full setup'),
+              label: Text(appStrings.fullSetup),
               icon: Icon(Icons.tune_rounded),
             ),
           ],
@@ -483,7 +483,7 @@ class _ServerPanelState extends State<ServerPanel> {
           },
         ),
         const SizedBox(height: 14),
-        Text('Channel', style: TextStyle(color: _textMuted, fontSize: 12)),
+        Text(appStrings.channel, style: TextStyle(color: _textMuted, fontSize: 12)),
         const SizedBox(height: 8),
         _channelPicker(
           value: _channel,
@@ -492,10 +492,10 @@ class _ServerPanelState extends State<ServerPanel> {
         const SizedBox(height: 8),
         Text(
           installedChannel != null && installedChannel != _channel
-              ? 'This switches the backend from the ${installedChannel.toLowerCase()} channel to the ${_channel.toLowerCase()} channel.'
+              ? appStrings.thisSwitchesTheBackendFromTheArg1(installedChannel.toLowerCase(), _channel.toLowerCase())
               : _channel == 'beta'
-              ? 'Beta installs the newest prerelease backend. Expect rough edges.'
-              : 'Stable installs the latest published backend release.',
+              ? appStrings.betaInstallsTheNewestPrereleaseBackendExpect
+              : appStrings.stableInstallsTheLatestPublishedBackend,
           style: TextStyle(color: _textSecondary, fontSize: 12, height: 1.4),
         ),
         const SizedBox(height: 14),
@@ -506,12 +506,12 @@ class _ServerPanelState extends State<ServerPanel> {
             icon: Icon(
               installed ? Icons.build_outlined : Icons.download_outlined,
             ),
-            label: Text(installed ? 'Update and repair' : 'Install NeoAgent'),
+            label: Text(installed ? 'Update and repair' : appStrings.installNeoagent),
           ),
         ),
         const SizedBox(height: 10),
         Text(
-          'Providers, integrations, voice, and optional capabilities can be completed from Settings at any time.',
+          appStrings.providersIntegrationsVoiceAndOptionalCapabilities,
           style: TextStyle(color: _textMuted, fontSize: 12, height: 1.4),
         ),
       ],
@@ -530,11 +530,11 @@ class _ServerPanelState extends State<ServerPanel> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(_currentEvent?.message ?? 'Preparing NeoAgent…'),
+              child: Text(_currentEvent?.message ?? appStrings.preparingNeoagent),
             ),
             TextButton(
               onPressed: _installer.cancel,
-              child: const Text('Cancel'),
+              child: Text(appStrings.cancel),
             ),
           ],
         ),
@@ -555,7 +555,7 @@ class _ServerPanelState extends State<ServerPanel> {
         setState(() => _showDetails = value);
       },
       tilePadding: EdgeInsets.zero,
-      title: const Text('Setup details'),
+      title: Text(appStrings.setupDetails),
       children: <Widget>[
         for (final event in _events)
           ListTile(
@@ -591,10 +591,10 @@ class _ServerPanelState extends State<ServerPanel> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             _cardTitle(
-              'Desktop app',
+              appStrings.desktopApp,
               trailing: release == null
                   ? null
-                  : _StatusPill(label: 'Update ready', color: _accent),
+                  : _StatusPill(label: appStrings.updateReady, color: _accent),
             ),
             const SizedBox(height: 10),
             Wrap(
@@ -604,23 +604,23 @@ class _ServerPanelState extends State<ServerPanel> {
                 _MetaPill(
                   icon: Icons.desktop_windows_outlined,
                   label:
-                      'Version ${controller.installedAppVersion ?? 'unknown'}',
+                      appStrings.versionArg1(controller.installedAppVersion ?? 'unknown'),
                 ),
                 _MetaPill(
                   icon: controller.appUpdateChannel == 'beta'
                       ? Icons.science_outlined
                       : Icons.verified_outlined,
                   label:
-                      '${_channelLabel(controller.appUpdateChannel)} channel',
+                      appStrings.arg1Channel(_channelLabel(controller.appUpdateChannel)),
                 ),
                 _MetaPill(
                   icon: Icons.schedule_outlined,
-                  label: 'Checked ${controller.appUpdateLastCheckedLabel}',
+                  label: appStrings.checkedArg1(controller.appUpdateLastCheckedLabel),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            Text('Channel', style: TextStyle(color: _textMuted, fontSize: 12)),
+            Text(appStrings.channel, style: TextStyle(color: _textMuted, fontSize: 12)),
             const SizedBox(height: 8),
             _channelPicker(
               value: controller.appUpdateChannel,
@@ -630,7 +630,7 @@ class _ServerPanelState extends State<ServerPanel> {
             if (release != null) ...<Widget>[
               const SizedBox(height: 12),
               Text(
-                '${release.title} • ${release.channelLabel} • ${release.asset.sizeLabel}',
+                appStrings.arg1Arg2Arg3(release.title, release.channelLabel, release.asset.sizeLabel),
                 style: TextStyle(color: _textSecondary, height: 1.45),
               ),
             ],
@@ -649,11 +649,11 @@ class _ServerPanelState extends State<ServerPanel> {
                     onPressed: controller.isOpeningAppUpdate
                         ? null
                         : controller.openAppUpdate,
-                    icon: const Icon(Icons.system_update_alt_rounded),
+                    icon: Icon(Icons.system_update_alt_rounded),
                     label: Text(
                       controller.isOpeningAppUpdate
                           ? 'Opening…'
-                          : 'Download ${release.version}',
+                          : appStrings.downloadArg1(release.version),
                     ),
                   ),
                 OutlinedButton.icon(
@@ -665,9 +665,9 @@ class _ServerPanelState extends State<ServerPanel> {
                           dimension: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.sync_rounded),
+                      : Icon(Icons.sync_rounded),
                   label: Text(
-                    controller.isCheckingAppUpdate ? 'Checking…' : 'Check now',
+                    controller.isCheckingAppUpdate ? 'Checking…' : appStrings.checkNow,
                   ),
                 ),
               ],

@@ -103,7 +103,9 @@ static void tag(lv_obj_t *obj, board_target_t target) {
 static lv_obj_t *new_screen(void) {
     lv_obj_t *screen = lv_obj_create(NULL);
     lv_obj_remove_style_all(screen);
-    lv_obj_set_style_bg_color(screen, lv_color_hex(UI_BG), 0);
+    // Black pixels on this AMOLED draw nothing. Cards and the mascot keep the
+    // app palette; the full-screen fill does not.
+    lv_obj_set_style_bg_color(screen, lv_color_hex(0x000000), 0);
     lv_obj_set_style_bg_opa(screen, LV_OPA_COVER, 0);
     lv_obj_clear_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
     return screen;

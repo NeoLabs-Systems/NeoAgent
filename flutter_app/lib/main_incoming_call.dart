@@ -112,7 +112,7 @@ class _IncomingAgentCallOverlayState extends State<IncomingAgentCallOverlay> {
                 Text(
                   widget.call.accepting
                       ? 'CONNECTING'
-                      : 'INCOMING NEOAGENT CALL',
+                      : appStrings.incomingNeoagentCall2,
                   style: const TextStyle(
                     color: Color(0xFFB8C9C0),
                     fontSize: 12,
@@ -132,7 +132,7 @@ class _IncomingAgentCallOverlayState extends State<IncomingAgentCallOverlay> {
                       width: 2,
                     ),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.smart_toy_rounded,
                     size: 58,
                     color: Color(0xFFE0B86B),
@@ -152,8 +152,8 @@ class _IncomingAgentCallOverlayState extends State<IncomingAgentCallOverlay> {
                 const SizedBox(height: 10),
                 Text(
                   widget.call.accepting
-                      ? 'Preparing the private voice session…'
-                      : 'Wants to talk with you · ${remaining}s',
+                      ? appStrings.preparingThePrivateVoiceSession
+                      : appStrings.wantsToTalkWithYouArg1(remaining),
                   style: const TextStyle(
                     color: Color(0xFFB8C9C0),
                     fontSize: 15,
@@ -166,7 +166,7 @@ class _IncomingAgentCallOverlayState extends State<IncomingAgentCallOverlay> {
                     _IncomingCallAction(
                       key: const Key('decline-agent-call'),
                       icon: Icons.call_end_rounded,
-                      label: 'Decline',
+                      label: appStrings.decline,
                       color: const Color(0xFFD84A4A),
                       onTap: widget.call.accepting
                           ? null

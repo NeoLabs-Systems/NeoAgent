@@ -40,17 +40,17 @@ extension SidebarGroupX on SidebarGroup {
   String get label {
     switch (this) {
       case SidebarGroup.chat:
-        return 'Chat';
+        return appStrings.chat;
       case SidebarGroup.timeline:
-        return 'Timeline';
+        return appStrings.timeline;
       case SidebarGroup.automation:
-        return 'Automation';
+        return appStrings.automation;
       case SidebarGroup.settings:
-        return 'Settings';
+        return appStrings.settings;
       case SidebarGroup.team:
-        return 'Team';
+        return appStrings.team;
       case SidebarGroup.admin:
-        return 'Admin';
+        return appStrings.admin;
     }
   }
 
@@ -76,43 +76,43 @@ extension AppSectionX on AppSection {
   String get label {
     switch (this) {
       case AppSection.chat:
-        return 'Chat';
+        return appStrings.chat;
       case AppSection.timeline:
-        return 'Timeline';
+        return appStrings.timeline;
       case AppSection.voiceAssistant:
-        return 'Voice assistant';
+        return appStrings.voiceAssistant;
       case AppSection.devices:
-        return 'Devices';
+        return appStrings.devices;
       case AppSection.messaging:
-        return 'Messaging';
+        return appStrings.messaging;
       case AppSection.runs:
-        return 'Runs';
+        return appStrings.runs;
       case AppSection.settings:
-        return 'Settings';
+        return appStrings.settings;
       case AppSection.accountSettings:
-        return 'Account settings';
+        return appStrings.accountSettings;
       case AppSection.skills:
-        return 'Skills';
+        return appStrings.skills;
       case AppSection.agents:
-        return 'Agents';
+        return appStrings.agents;
       case AppSection.integrations:
-        return 'Tools';
+        return appStrings.tools;
       case AppSection.memory:
-        return 'Memory';
+        return appStrings.memory;
       case AppSection.tasks:
-        return 'Tasks';
+        return appStrings.tasks;
       case AppSection.mcp:
-        return 'MCP';
+        return appStrings.mcp;
       case AppSection.health:
-        return 'Health';
+        return appStrings.health;
       case AppSection.server:
-        return 'Server';
+        return appStrings.server;
       case AppSection.billing:
-        return 'Billing';
+        return appStrings.billing;
       case AppSection.team:
-        return 'Team';
+        return appStrings.team;
       case AppSection.admin:
-        return 'Admin';
+        return appStrings.admin;
     }
   }
 
@@ -240,6 +240,6 @@ extension AppSectionX on AppSection {
     if (groupLabel == effectiveSection.label) {
       return groupLabel;
     }
-    return '$groupLabel · ${effectiveSection.label}';
+    return appStrings.arg1Arg22(groupLabel, effectiveSection.label);
   }
 }

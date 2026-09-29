@@ -33,6 +33,7 @@
         android:label="${neoagentAppLabel}"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
+        android:localeConfig="@xml/locales_config"
         android:usesCleartextTraffic="true">
         <meta-data
             android:name="com.google.android.gms.car.application"

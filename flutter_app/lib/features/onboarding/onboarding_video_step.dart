@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../src/theme/palette.dart';
 import 'onboarding_chrome.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 class OnboardingVideoStep extends StatefulWidget {
   const OnboardingVideoStep({super.key, required this.onComplete});
@@ -96,7 +97,7 @@ class _OnboardingVideoStepState extends State<OnboardingVideoStep> {
                 ),
                 const SizedBox(height: 18),
                 Text(
-                  'Continue to setup',
+                  appStrings.continueToSetup,
                   style: TextStyle(
                     color: p.textPrimary,
                     fontSize: 26,
@@ -105,7 +106,7 @@ class _OnboardingVideoStepState extends State<OnboardingVideoStep> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'The intro is not available on this device.',
+                  appStrings.theIntroIsNotAvailableOn,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: p.textMuted,
@@ -115,7 +116,7 @@ class _OnboardingVideoStepState extends State<OnboardingVideoStep> {
                 ),
                 const SizedBox(height: 28),
                 OnboardingPrimaryButton(
-                  label: 'Continue',
+                  label: appStrings.continue2,
                   icon: Icons.arrow_forward_rounded,
                   onPressed: widget.onComplete,
                 ),
@@ -174,7 +175,7 @@ class _OnboardingVideoStepState extends State<OnboardingVideoStep> {
                   top: 28,
                   right: 28,
                   child: OnboardingGhostButton(
-                    label: 'Skip',
+                    label: appStrings.skip,
                     onPressed: widget.onComplete,
                   ).animate().fadeIn(duration: 280.ms, delay: 220.ms),
                 ),
@@ -199,7 +200,7 @@ class _RotatePrompt extends StatelessWidget {
             Icon(Icons.screen_rotation, color: p.accent, size: 54),
             const SizedBox(height: 18),
             Text(
-              'Rotate to continue',
+              appStrings.rotateToContinue,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: p.textPrimary,
@@ -209,7 +210,7 @@ class _RotatePrompt extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'This intro is designed for full-screen landscape playback.',
+              appStrings.thisIntroIsDesignedForFull,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: p.textMuted,

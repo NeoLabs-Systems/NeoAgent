@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 const int desktopCommandArtifactLimitBytes = 16 * 1024 * 1024;
 const int desktopCommandStdoutPreviewBytes = 50000;
@@ -40,7 +41,7 @@ class _StreamPreview {
     final tail = utf8.decode(_tail, allowMalformed: true).trimLeft();
     return <String>[
       head,
-      '...[truncated preview, $totalBytes bytes total]',
+      appStrings.truncatedPreviewArg1BytesTotal(totalBytes),
       tail,
     ].where((part) => part.isNotEmpty).join('\n');
   }
@@ -76,7 +77,7 @@ class DesktopCommandOutputAccumulator {
 
   void add(String stream, List<int> bytes) {
     if (_sink == null || _finalized) {
-      throw StateError('Command output accumulator is not active.');
+      throw StateError(appStrings.commandOutputAccumulatorIsNotActive);
     }
     if (stream == 'stderr') {
       _stderr.add(bytes);
@@ -102,7 +103,7 @@ class DesktopCommandOutputAccumulator {
   }
 
   Future<Map<String, Object?>> finalize() async {
-    if (_finalized) throw StateError('Command output was already finalized.');
+    if (_finalized) throw StateError(appStrings.commandOutputWasAlreadyFinalized);
     _finalized = true;
     await _sink!.flush();
     await _sink!.close();
@@ -125,7 +126,7 @@ class DesktopCommandOutputAccumulator {
     final complete = _artifactBytes <= maxArtifactBytes;
     if (!complete) {
       final marker = utf8.encode(
-        '\n...[artifact bounded, $_artifactBytes bytes total]...\n',
+        appStrings.artifactBoundedArg1BytesTotal(_artifactBytes),
       );
       final headLimit = (maxArtifactBytes ~/ 2).clamp(
         0,

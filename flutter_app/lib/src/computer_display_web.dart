@@ -5,6 +5,7 @@ import 'dart:html' as html;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 int _computerDisplayOverlayId = 0;
 
@@ -163,7 +164,7 @@ class _LiveComputerOverlay {
     _computerDisplayOverlayId += 1;
     final frame = html.IFrameElement()
       ..src = url
-      ..title = 'NeoAgent Linux computer'
+      ..title = appStrings.neoagentLinuxComputer
       ..tabIndex = 0
       ..allowFullscreen = true
       ..allow = 'clipboard-read; clipboard-write; fullscreen'

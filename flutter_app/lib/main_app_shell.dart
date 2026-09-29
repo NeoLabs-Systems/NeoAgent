@@ -29,7 +29,7 @@ class SplashView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text('Loading NeoAgent'),
+              Text(appStrings.loadingNeoagent),
             ],
           ),
         ),
@@ -152,7 +152,7 @@ class _AuthViewState extends State<AuthView> {
             builder: (context, setDialogState) {
               return AlertDialog(
                 backgroundColor: _bgCard,
-                title: Text('Reset password'),
+                title: Text(appStrings.resetPassword),
                 content: SizedBox(
                   width: 420,
                   child: Column(
@@ -160,15 +160,15 @@ class _AuthViewState extends State<AuthView> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
                       Text(
-                        'Enter your username or account email. NeoAgent will send a reset link if it can match the account.',
+                        appStrings.enterYourUsernameOrAccountEmail,
                         style: TextStyle(color: _textSecondary, height: 1.45),
                       ),
                       const SizedBox(height: 16),
                       TextField(
                         controller: accountController,
                         keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
-                          labelText: 'Username or email',
+                        decoration: InputDecoration(
+                          labelText: appStrings.usernameOrEmail,
                         ),
                       ),
                       if (inlineError != null) ...<Widget>[
@@ -183,7 +183,7 @@ class _AuthViewState extends State<AuthView> {
                     onPressed: widget.controller.isAuthenticating
                         ? null
                         : () => Navigator.of(dialogContext).pop(),
-                    child: Text('Cancel'),
+                    child: Text(appStrings.cancel),
                   ),
                   FilledButton(
                     onPressed: widget.controller.isAuthenticating
@@ -192,7 +192,7 @@ class _AuthViewState extends State<AuthView> {
                             final account = accountController.text.trim();
                             if (account.isEmpty) {
                               setDialogState(() {
-                                inlineError = 'Enter your username or email.';
+                                inlineError = appStrings.enterYourUsernameOrEmail;
                               });
                               return;
                             }
@@ -207,7 +207,7 @@ class _AuthViewState extends State<AuthView> {
                             dimension: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : Text('Send link'),
+                        : Text(appStrings.sendLink),
                   ),
                 ],
               );
@@ -278,7 +278,7 @@ class _AuthViewState extends State<AuthView> {
 
             return AlertDialog(
               backgroundColor: _bgCard,
-              title: const Text('Pair with QR code'),
+              title: Text(appStrings.pairWithQrCode),
               content: SizedBox(
                 width: 360,
                 child: Column(
@@ -286,7 +286,7 @@ class _AuthViewState extends State<AuthView> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
                     Text(
-                      'Open Account settings on a signed-in Android device, scan this code, and approve the login.',
+                      appStrings.openAccountSettingsOnASigned,
                       style: TextStyle(color: _textSecondary, height: 1.45),
                     ),
                     const SizedBox(height: 16),
@@ -295,8 +295,8 @@ class _AuthViewState extends State<AuthView> {
                     _InfoChip(
                       icon: Icons.timer_outlined,
                       label: canShowQr
-                          ? 'Refreshes in ${countdown}s'
-                          : 'Waiting for code',
+                          ? appStrings.refreshesInArg1S(countdown)
+                          : appStrings.waitingForCode,
                     ),
                     if (controller.qrLoginErrorMessage != null) ...<Widget>[
                       const SizedBox(height: 12),
@@ -318,11 +318,11 @@ class _AuthViewState extends State<AuthView> {
                             setDialogState(() {});
                           }
                         },
-                  child: const Text('Refresh code'),
+                  child: Text(appStrings.refreshCode),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Close'),
+                  child: Text(appStrings.close),
                 ),
               ],
             );
@@ -357,18 +357,18 @@ class _AuthViewState extends State<AuthView> {
         Column(children: <Widget>[const _BrandLockup(logoSize: 58)]),
         const SizedBox(height: 26),
         Text(
-          awaitingTwoFactor ? 'Verification' : title.toUpperCase(),
+          awaitingTwoFactor ? appStrings.verification : title.toUpperCase(),
           style: _sectionEyebrowStyle(),
         ),
         const SizedBox(height: 8),
         Text(
-          awaitingTwoFactor ? 'Enter 2FA code' : title,
+          awaitingTwoFactor ? appStrings.enter2faCode : title,
           style: _displayTitleStyle(30),
         ),
         const SizedBox(height: 8),
         Text(
           awaitingTwoFactor
-              ? 'Open your authenticator app and enter the current NeoAgent code.'
+              ? appStrings.openYourAuthenticatorAppAndEnterThe
               : subtitle,
           style: TextStyle(color: _textSecondary, height: 1.5),
         ),
@@ -388,22 +388,22 @@ class _AuthViewState extends State<AuthView> {
           TextField(
             controller: _twoFactorController,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: '2FA or recovery code',
+            decoration: InputDecoration(
+              labelText: appStrings.n2faOrRecoveryCode,
             ),
           ),
         ] else ...<Widget>[
           TextField(
             controller: _usernameController,
             onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(labelText: 'Username'),
+            decoration: InputDecoration(labelText: appStrings.username),
           ),
           const SizedBox(height: 14),
           TextField(
             controller: _passwordController,
             onChanged: (_) => setState(() {}),
             obscureText: true,
-            decoration: const InputDecoration(labelText: 'Password'),
+            decoration: InputDecoration(labelText: appStrings.password),
           ),
           if (_registerMode) ...<Widget>[
             const SizedBox(height: 10),
@@ -420,13 +420,13 @@ class _AuthViewState extends State<AuthView> {
               onChanged: (_) => setState(() {}),
               keyboardType: TextInputType.emailAddress,
               autofillHints: const <String>[AutofillHints.email],
-              decoration: const InputDecoration(labelText: 'Email'),
+              decoration: InputDecoration(labelText: appStrings.email),
             ),
             const SizedBox(height: 14),
             TextField(
               controller: _confirmPasswordController,
               obscureText: true,
-              decoration: const InputDecoration(labelText: 'Confirm Password'),
+              decoration: InputDecoration(labelText: appStrings.confirmPassword2),
             ),
           ],
         ],
@@ -439,7 +439,7 @@ class _AuthViewState extends State<AuthView> {
                     final code = _twoFactorController.text.trim();
                     if (code.isEmpty) {
                       widget.controller.showInlineError(
-                        'Enter your 2FA or recovery code.',
+                        appStrings.enterYour2faOrRecoveryCode,
                       );
                       return;
                     }
@@ -449,24 +449,24 @@ class _AuthViewState extends State<AuthView> {
                   final username = _usernameController.text.trim();
                   final password = _passwordController.text;
                   if (username.isEmpty) {
-                    widget.controller.showInlineError('Enter a username.');
+                    widget.controller.showInlineError(appStrings.enterAUsername);
                     return;
                   }
                   if (password.isEmpty) {
-                    widget.controller.showInlineError('Enter a password.');
+                    widget.controller.showInlineError(appStrings.enterAPassword);
                     return;
                   }
                   if (_registerMode) {
                     final email = _emailController.text.trim();
                     if (email.isEmpty || !_looksLikeEmail(email)) {
                       widget.controller.showInlineError(
-                        'Enter a valid email address.',
+                        appStrings.enterAValidEmailAddress,
                       );
                       return;
                     }
                     if (password != _confirmPasswordController.text) {
                       widget.controller.showInlineError(
-                        'Passwords do not match.',
+                        appStrings.passwordsDoNotMatch,
                       );
                       return;
                     }
@@ -494,7 +494,7 @@ class _AuthViewState extends State<AuthView> {
               : Text(
                   awaitingTwoFactor
                       ? 'Verify'
-                      : (_registerMode ? 'Create account' : 'Sign in'),
+                      : (_registerMode ? 'Create account' : appStrings.signIn),
                 ),
         ),
         if (awaitingTwoFactor) ...<Widget>[
@@ -503,7 +503,7 @@ class _AuthViewState extends State<AuthView> {
             onPressed: controller.isAuthenticating
                 ? null
                 : controller.cancelTwoFactorLogin,
-            child: const Text('Back to sign in'),
+            child: Text(appStrings.backToSignIn),
           ),
         ] else ...<Widget>[
           if (availableProviders.isNotEmpty ||
@@ -515,7 +515,7 @@ class _AuthViewState extends State<AuthView> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   child: Text(
-                    'or continue with',
+                    appStrings.orContinueWith,
                     style: TextStyle(color: _textSecondary, fontSize: 12),
                   ),
                 ),
@@ -534,7 +534,7 @@ class _AuthViewState extends State<AuthView> {
                           register: _registerMode,
                         ),
                   icon: provider.icon == 'google'
-                      ? const Text(
+                      ? Text(
                           'G',
                           style: TextStyle(
                             fontSize: 18,
@@ -544,11 +544,11 @@ class _AuthViewState extends State<AuthView> {
                             color: Color(0xFF4285F4),
                           ),
                         )
-                      : const Icon(Icons.link),
+                      : Icon(Icons.link),
                   label: Text(
                     _registerMode
-                        ? 'Register with ${provider.label}'
-                        : 'Sign in with ${provider.label}',
+                        ? appStrings.registerWithArg1(provider.label)
+                        : appStrings.signInWithArg1(provider.label),
                   ),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size.fromHeight(54),
@@ -566,8 +566,8 @@ class _AuthViewState extends State<AuthView> {
                       : () => controller.signInWithSecurityKey(
                           username: _usernameController.text,
                         ),
-                  icon: const Icon(Icons.key),
-                  label: const Text('Sign in with a security key'),
+                  icon: Icon(Icons.key),
+                  label: Text(appStrings.signInWithASecurityKey),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size.fromHeight(54),
                     backgroundColor: _bgPrimary.withValues(alpha: 0.18),
@@ -581,7 +581,7 @@ class _AuthViewState extends State<AuthView> {
               onPressed: controller.isAuthenticating
                   ? null
                   : _showForgotPasswordDialog,
-              child: const Text('Forgot password?'),
+              child: Text(appStrings.forgotPassword),
             ),
             if (!showRegisterToggle) const SizedBox(height: 12),
           ],
@@ -601,8 +601,8 @@ class _AuthViewState extends State<AuthView> {
                     },
               child: Text(
                 _registerMode
-                    ? 'Already have an account? Sign in'
-                    : 'Need a new account? Register',
+                    ? appStrings.alreadyHaveAnAccountSignIn
+                    : appStrings.needANewAccountRegister,
               ),
             ),
           ],
@@ -611,11 +611,11 @@ class _AuthViewState extends State<AuthView> {
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: _openLocalServerSettings,
-            icon: const Icon(Icons.dns_outlined, size: 18),
+            icon: Icon(Icons.dns_outlined, size: 18),
             label: Text(
               _localRuntimeStatus?.running == true
-                  ? 'Server on this computer'
-                  : 'The server on this computer is not running',
+                  ? appStrings.serverOnThisComputer
+                  : appStrings.theServerOnThisComputerIs,
             ),
           ),
         ],
@@ -647,8 +647,8 @@ class _AuthViewState extends State<AuthView> {
           return _InfoChip(
             icon: Icons.timer_outlined,
             label: canShowQr
-                ? 'Refreshes in ${countdown}s'
-                : 'Waiting for code',
+                ? appStrings.refreshesInArg1S(countdown)
+                : appStrings.waitingForCode,
           );
         }
 
@@ -711,7 +711,7 @@ class _AuthViewState extends State<AuthView> {
                   crossAxisAlignment: contentAlignment,
                   children: <Widget>[
                     Text(
-                      'Scan with NeoAgent on your phone',
+                      appStrings.scanWithNeoagentOnYourPhone,
                       textAlign: titleAlignment,
                       style: GoogleFonts.geist(
                         fontSize: titleSize,
@@ -725,7 +725,7 @@ class _AuthViewState extends State<AuthView> {
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 440),
                       child: Text(
-                        'On a signed-in Android device, open Account settings, scan this code, and approve the login.',
+                        appStrings.onASignedInAndroidDevice,
                         textAlign: titleAlignment,
                         style: TextStyle(color: _textSecondary, height: 1.5),
                       ),
@@ -811,11 +811,11 @@ class _AuthViewState extends State<AuthView> {
                                           color: _qrDarkColor,
                                         ),
                                       )
-                                    : const Icon(Icons.qr_code_2_rounded),
+                                    : Icon(Icons.qr_code_2_rounded),
                                 label: Text(
                                   canShowQr
-                                      ? 'Show QR code'
-                                      : 'Prepare QR code',
+                                      ? appStrings.showQrCode
+                                      : appStrings.prepareQrCode,
                                 ),
                               ),
                             ),
@@ -830,7 +830,7 @@ class _AuthViewState extends State<AuthView> {
                     ],
                     const SizedBox(height: 16),
                     Text(
-                      'Approval stays inside your authenticated mobile session, and each code expires automatically after a short window.',
+                      appStrings.approvalStaysInsideYourAuthenticatedMobile,
                       textAlign: titleAlignment,
                       style: TextStyle(color: _textSecondary, height: 1.45),
                     ),
@@ -848,8 +848,8 @@ class _AuthViewState extends State<AuthView> {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Icon(Icons.refresh_rounded),
-                        label: const Text('Refresh code'),
+                            : Icon(Icons.refresh_rounded),
+                        label: Text(appStrings.refreshCode),
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size.fromHeight(52),
                           foregroundColor: _textPrimary,
@@ -878,13 +878,13 @@ class _AuthViewState extends State<AuthView> {
     }
 
     final title = _registerMode
-        ? (controller.hasUser ? 'Create account' : 'Create the first account')
-        : 'Sign in';
+        ? (controller.hasUser ? 'Create account' : appStrings.createTheFirstAccount)
+        : appStrings.signIn;
     final subtitle = _registerMode
         ? (controller.hasUser
-              ? 'Create another NeoAgent account.'
-              : 'This account will unlock NeoAgent on this machine.')
-        : 'Enter your NeoAgent account details.';
+              ? appStrings.createAnotherNeoagentAccount
+              : appStrings.thisAccountWillUnlockNeoagentOn)
+        : appStrings.enterYourNeoagentAccountDetails;
     final awaitingTwoFactor = controller.isAwaitingTwoFactor;
     final showRegisterToggle =
         controller.registrationOpen && controller.hasUser;
@@ -1048,7 +1048,7 @@ class _HomeViewState extends State<HomeView> {
             })
             .catchError((error) {
               if (mounted) {
-                debugPrint('LocationService initialization failed: $error');
+                debugPrint(appStrings.locationserviceInitializationFailedArg1(error));
               }
             });
 
@@ -1334,7 +1334,7 @@ class _HomeViewState extends State<HomeView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        'Message needs access',
+                        appStrings.messageNeedsAccess,
                         style: TextStyle(fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 2),
@@ -1401,7 +1401,7 @@ class _HomeViewState extends State<HomeView> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Choose where this person should be allowed to talk to ${widget.controller.activeAgentLabel}. You can change this later under Who can message.',
+                      appStrings.chooseWhereThisPersonShouldBe(widget.controller.activeAgentLabel),
                       style: TextStyle(color: _textSecondary, height: 1.45),
                     ),
                     if (notice.suggestions.isNotEmpty) ...<Widget>[
@@ -1434,18 +1434,18 @@ class _HomeViewState extends State<HomeView> {
                   widget.controller.setSelectedSection(AppSection.messaging);
                   Navigator.of(dialogContext).pop();
                 },
-                child: Text('Who can message'),
+                child: Text(appStrings.whoCanMessage),
               ),
               TextButton(
                 onPressed: () async {
                   Navigator.of(dialogContext).pop();
                   await widget.controller.ignoreBlockedSender(notice);
                 },
-                child: Text('Ignore this chat'),
+                child: Text(appStrings.ignoreThisChat),
               ),
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: Text('Not now'),
+                child: Text(appStrings.notNow),
               ),
             ],
           );
@@ -1478,23 +1478,23 @@ class _BlockedAccessChoice extends StatelessWidget {
     final (icon, title, description) = switch (suggestion.bucket) {
       'sharedMemberRules' => (
         Icons.person_pin_circle_outlined,
-        'Only in this group',
-        'Let this person talk to $agentName here, but not in private chats or other groups.',
+        appStrings.onlyInThisGroup,
+        appStrings.letThisPersonTalkToArg1(agentName),
       ),
       'sharedActorRules' => (
         Icons.person_add_alt_1_rounded,
-        'This person, anywhere',
-        'Let this person talk to $agentName in private chats and in any group they share.',
+        appStrings.thisPersonAnywhere,
+        appStrings.letThisPersonTalkToArg12(agentName),
       ),
       'sharedSpaceRules' => (
         Icons.groups_2_outlined,
-        'Everyone in this group',
-        'Let everyone in this group talk to $agentName.',
+        appStrings.everyoneInThisGroup,
+        appStrings.letEveryoneInThisGroupTalk(agentName),
       ),
       _ => (
         Icons.person_outline_rounded,
-        'Private chats only',
-        'Let this person send $agentName a one-to-one message.',
+        appStrings.privateChatsOnly,
+        appStrings.letThisPersonSendArg1A(agentName),
       ),
     };
     return Material(
@@ -1599,7 +1599,7 @@ class _Sidebar extends StatelessWidget {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          'CONTROL SURFACE',
+                          appStrings.controlSurface,
                           style: GoogleFonts.geistMono(
                             fontSize: 9.5,
                             fontWeight: FontWeight.w600,
@@ -1673,7 +1673,7 @@ class _Sidebar extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 _SidebarIconButton(
-                  tooltip: 'Logout',
+                  tooltip: appStrings.logout,
                   icon: Icons.logout,
                   onTap: controller.logout,
                 ),
@@ -1781,7 +1781,7 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
         return Material(
           color: Colors.transparent,
           child: Tooltip(
-            message: 'Switch agent',
+            message: appStrings.switchAgent,
             child: InkWell(
               borderRadius: BorderRadius.circular(14),
               onTap: _toggleMenu,
@@ -1849,7 +1849,7 @@ class _AgentSwitcherState extends State<_AgentSwitcher> {
                                 if (selectedAgent.isDefault) ...<Widget>[
                                   const SizedBox(width: 8),
                                   _AgentTag(
-                                    label: 'DEFAULT',
+                                    label: appStrings.default3,
                                     color: _accent,
                                     foreground: _accentHover,
                                   ),
@@ -1901,8 +1901,8 @@ String _agentSwitcherSubtitle(AgentProfile agent) {
     return agent.responsibilities.trim();
   }
   return agent.canDelegate
-      ? 'Can coordinate delegated work'
-      : 'Focused execution profile';
+      ? appStrings.canCoordinateDelegatedWork
+      : appStrings.focusedExecutionProfile;
 }
 
 class _AgentSwitcherMenuItem extends StatelessWidget {
@@ -1966,7 +1966,7 @@ class _AgentSwitcherMenuItem extends StatelessWidget {
                             if (agent.isDefault) ...<Widget>[
                               const SizedBox(width: 8),
                               _AgentTag(
-                                label: 'DEFAULT',
+                                label: appStrings.default3,
                                 color: _accent,
                                 foreground: _accentHover,
                               ),
@@ -2145,7 +2145,7 @@ class _ProfileSettingsButton extends StatelessWidget {
     final initial = label.isEmpty ? 'N' : label.characters.first.toUpperCase();
     final active = controller.selectedSection == AppSection.accountSettings;
     return Tooltip(
-      message: 'Account settings',
+      message: appStrings.accountSettings,
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,
@@ -2207,7 +2207,7 @@ class _SidebarAccountAvatar extends StatelessWidget {
     final initial = label.isEmpty ? 'N' : label.characters.first.toUpperCase();
     final active = controller.selectedSection == AppSection.accountSettings;
     return Tooltip(
-      message: 'Account settings',
+      message: appStrings.accountSettings,
       child: InkWell(
         borderRadius: BorderRadius.circular(999),
         onTap: onTap,
@@ -2281,7 +2281,7 @@ class _MobileTopBar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           _SidebarIconButton(
-            tooltip: 'Logout',
+            tooltip: appStrings.logout,
             icon: Icons.logout,
             onTap: controller.logout,
           ),

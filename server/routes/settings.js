@@ -89,6 +89,13 @@ const HIDDEN_SETTING_KEYS = new Set([
   'ai_provider_api_keys',
 ]);
 
+const UI_LANGUAGE_CODES = new Set(['en', 'de']);
+
+function normalizeUiLanguage(value) {
+  const code = String(value ?? '').trim().toLowerCase();
+  return UI_LANGUAGE_CODES.has(code) ? code : null;
+}
+
 const RETIRED_SETTING_KEYS = new Set([
   'voice_tts_provider',
   'voice_tts_model',
@@ -485,6 +492,14 @@ router.put('/', async (req, res) => {
     normalizedBody.timezone = timeZone;
   }
 
+  if ('ui_language' in normalizedBody) {
+    const language = normalizeUiLanguage(normalizedBody.ui_language);
+    if (!language) {
+      return res.status(400).json({ success: false, error: 'Unknown language.' });
+    }
+    normalizedBody.ui_language = language;
+  }
+
   if ('platform_whitelist_whatsapp' in normalizedBody) {
     let whitelist = normalizedBody.platform_whitelist_whatsapp;
     if (typeof whitelist === 'string') {
@@ -752,6 +767,11 @@ router.put('/:key', async (req, res) => {
     value = normalizeTimeZone(value);
     if (!value) {
       return res.status(400).json({ success: false, error: 'Unknown time zone.' });
+    }
+  } else if (req.params.key === 'ui_language') {
+    value = normalizeUiLanguage(value);
+    if (!value) {
+      return res.status(400).json({ success: false, error: 'Unknown language.' });
     }
   } else if (
     ['runtime_profile', 'runtime_backend', 'computer_backend', 'android_backend', 'mcp_backend']

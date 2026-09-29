@@ -25,13 +25,13 @@ class _CoworkConversation extends StatelessWidget {
       return _PanelSurface(
         borderRadius: BorderRadius.circular(AppRadius.panel),
         child: _CoworkEmpty(
-          title: 'Work on a project with NeoAgent',
+          title: appStrings.workOnAProjectWithNeoagent,
           message:
-              'Sessions are pinned to a folder and a computer. Start one to plan, build, test and ship from here.',
+              appStrings.sessionsArePinnedToAFolder,
           action: FilledButton.icon(
             onPressed: () => unawaited(controller.createCoworkChat()),
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('New session'),
+            icon: Icon(Icons.add_rounded, size: 18),
+            label: Text(appStrings.newSession),
           ),
         ),
       );
@@ -135,8 +135,8 @@ class _CoworkThreadHeader extends StatelessWidget {
               _CoworkIconChip(
                 size: 34,
                 tooltip: controller.coworkThreadDetailed
-                    ? 'Show work as summaries'
-                    : 'Show every step',
+                    ? appStrings.showWorkAsSummaries
+                    : appStrings.showEveryStep,
                 icon: controller.coworkThreadDetailed
                     ? Icons.unfold_less_rounded
                     : Icons.unfold_more_rounded,
@@ -160,7 +160,7 @@ class _CoworkThreadHeader extends StatelessWidget {
                 const SizedBox(width: 6),
                 _CoworkIconChip(
                   size: 34,
-                  tooltip: 'Stop (⌘.)',
+                  tooltip: appStrings.stop2,
                   icon: Icons.stop_rounded,
                   onPressed: controller.stopCoworkRun,
                 ),
@@ -174,7 +174,7 @@ class _CoworkThreadHeader extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: <Widget>[
               PopupMenuButton<String>(
-                tooltip: 'Agent profile',
+                tooltip: appStrings.agentProfile,
                 onSelected: (value) => controller.updateCoworkChat(
                   chat.id,
                   <String, dynamic>{'agentId': value},
@@ -198,11 +198,11 @@ class _CoworkThreadHeader extends StatelessWidget {
               if (latest != null && latest.totalTokens > 0)
                 Tooltip(
                   message: latest.model == null
-                      ? 'Tokens used by the latest run'
-                      : 'Latest run · ${latest.model}',
+                      ? appStrings.tokensUsedByTheLatestRun
+                      : appStrings.latestRunArg1(latest.model),
                   child: _CoworkContextPill(
                     icon: Icons.data_usage_rounded,
-                    label: '${_coworkFormatTokens(latest.totalTokens)} tokens',
+                    label: appStrings.arg1Tokens(_coworkFormatTokens(latest.totalTokens)),
                   ),
                 ),
             ],
@@ -337,7 +337,7 @@ class _CoworkDeviceMenu extends StatelessWidget {
     final device = chat.device;
     final local = device.effective == 'local';
     return PopupMenuButton<String>(
-      tooltip: 'Computer used by this session',
+      tooltip: appStrings.computerUsedByThisSession,
       onSelected: (value) =>
           controller.updateCoworkChat(chat.id, <String, dynamic>{
             'deviceTargetOverride': value == 'default' ? null : value,
@@ -346,25 +346,25 @@ class _CoworkDeviceMenu extends StatelessWidget {
         PopupMenuItem<String>(
           value: 'default',
           child: Text(
-            'Use Settings default (${device.setting == 'local' ? 'this device' : 'cloud'})',
+            appStrings.useSettingsDefaultArg1(device.setting == 'local' ? 'this device' : 'cloud'),
           ),
         ),
         PopupMenuItem<String>(
           value: 'local',
           enabled: device.localAvailable,
           child: Text(
-            device.localAvailable ? 'This device' : 'This device — unavailable',
+            device.localAvailable ? 'This device' : appStrings.thisDeviceUnavailable,
           ),
         ),
         PopupMenuItem<String>(
           value: 'cloud',
           enabled: device.cloudAvailable,
-          child: const Text('Cloud computer'),
+          child: Text(appStrings.cloudComputer),
         ),
       ],
       child: _CoworkContextPill(
         icon: local ? Icons.laptop_mac_rounded : Icons.cloud_outlined,
-        label: local ? 'This device' : 'Cloud computer',
+        label: local ? 'This device' : appStrings.cloudComputer,
       ),
     );
   }
@@ -395,7 +395,7 @@ class _CoworkWorkspaceMenuState extends State<_CoworkWorkspaceMenu> {
 
   Future<void> _browseForFolder() async {
     final chosen = await FilePicker.platform.getDirectoryPath(
-      dialogTitle: 'Choose a project folder',
+      dialogTitle: appStrings.chooseAProjectFolder,
     );
     if (chosen == null || chosen.trim().isEmpty) return;
     await _setOverride(chosen.trim());
@@ -425,13 +425,13 @@ class _CoworkWorkspaceMenuState extends State<_CoworkWorkspaceMenu> {
       context: context,
       position: position,
       items: <PopupMenuEntry<String>>[
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: '__browse__',
-          child: Text('Open folder…'),
+          child: Text(appStrings.openFolder),
         ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: '__default__',
-          child: Text('Use default (NeoAgent Workspace)'),
+          child: Text(appStrings.useDefaultNeoagentWorkspace),
         ),
         if (recents.isNotEmpty) const PopupMenuDivider(),
         for (final path in recents)
@@ -471,7 +471,7 @@ class _CoworkWorkspaceMenuState extends State<_CoworkWorkspaceMenu> {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: widget.chat.workspacePathOverride ?? 'Default NeoAgent Workspace',
+      message: widget.chat.workspacePathOverride ?? appStrings.defaultNeoagentWorkspace,
       child: KeyedSubtree(
         key: _anchorKey,
         child: _CoworkContextPill(
@@ -504,27 +504,27 @@ class _CoworkStarters extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final plan = chat.mode == CoworkInteractionMode.plan;
-    final folder = chat.isLocal ? chat.workspaceLabel : 'the cloud workspace';
+    final folder = chat.isLocal ? chat.workspaceLabel : appStrings.theCloudWorkspace;
     final starters = <(IconData, String, String)>[
       (
         Icons.auto_stories_outlined,
-        'Explain this project',
-        'Read the folder and summarize the stack, entry points and how to run it.',
+        appStrings.explainThisProject,
+        appStrings.readTheFolderAndSummarizeThe,
       ),
       (
         Icons.bug_report_outlined,
-        'Find and fix a bug',
-        'Reproduce the bug I describe, find the root cause and fix it with a regression test.',
+        appStrings.findAndFixABug,
+        appStrings.reproduceTheBugIDescribeFind,
       ),
       (
         Icons.science_outlined,
-        'Add tests',
-        'Add tests for the parts of this project that have the least coverage, then run them.',
+        appStrings.addTests,
+        appStrings.addTestsForThePartsOf,
       ),
       (
         Icons.rate_review_outlined,
-        'Review uncommitted changes',
-        'Run git diff, review the uncommitted changes for bugs and style issues, and summarize what you find.',
+        appStrings.reviewUncommittedChanges,
+        appStrings.runGitDiffReviewTheUncommitted,
       ),
     ];
     return LayoutBuilder(
@@ -539,14 +539,14 @@ class _CoworkStarters extends StatelessWidget {
               const _LogoBadge(size: 40),
               const SizedBox(height: 14),
               Text(
-                plan ? 'What should we plan?' : 'What should we build?',
+                plan ? 'What should we plan?' : appStrings.whatShouldWeBuild,
                 style: _displayTitleStyle(24),
               ),
               const SizedBox(height: 6),
               Text(
                 chat.isLocal
-                    ? 'Working in $folder on this device. NeoAgent reads and edits the folder directly and can run commands, open apps and use the screen.'
-                    : 'Working in $folder on the cloud computer. NeoAgent reads and edits files there and can run commands and a browser.',
+                    ? appStrings.workingInArg1OnThisDeviceNeoagent(folder)
+                    : appStrings.workingInArg1OnTheCloud(folder),
                 style: TextStyle(color: _textSecondary, height: 1.5),
               ),
               const SizedBox(height: 18),
@@ -697,7 +697,7 @@ class _CoworkTranscriptState extends State<_CoworkTranscript> {
   String _signature(CoworkThreadState thread) {
     final last = thread.activity.isEmpty ? null : thread.activity.last;
     return '${thread.messages.length}:${thread.streamingContent.length}:'
-        '${thread.activity.length}:${last?.status}:${thread.inputRequests.length}:'
+        '${thread.activity.length}:${last?.status}:${thread.inputRequests.length}:' +
         '${thread.phase}';
   }
 
@@ -833,8 +833,8 @@ class _CoworkTranscriptState extends State<_CoworkTranscript> {
             padding: const EdgeInsets.only(top: 4, bottom: 8),
             child: FilledButton.icon(
               onPressed: controller.implementSelectedCoworkPlan,
-              icon: const Icon(Icons.play_arrow_rounded),
-              label: const Text('Implement this plan'),
+              icon: Icon(Icons.play_arrow_rounded),
+              label: Text(appStrings.implementThisPlan),
             ),
           ),
         ),
@@ -903,7 +903,7 @@ class _CoworkJumpToLatest extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                highlighted ? 'New activity' : 'Jump to latest',
+                highlighted ? 'New activity' : appStrings.jumpToLatest,
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
@@ -1007,11 +1007,11 @@ class _CoworkWorkBlockState extends State<_CoworkWorkBlock> {
         ? items.where((item) => item.isRunning).lastOrNull
         : null;
     final summary = <String>[
-      if (explored > 0) 'Explored ${_coworkCount(explored, 'file')}',
-      if (edited > 0) 'Edited ${_coworkCount(edited, 'file')}',
-      if (commands > 0) 'Ran ${_coworkCount(commands, 'command')}',
-      if (actions > 0) _coworkCount(actions, 'screen action'),
-      if (failed > 0) '${_coworkCount(failed, 'step')} failed',
+      if (explored > 0) appStrings.exploredArg1(_coworkCount(explored, 'file')),
+      if (edited > 0) appStrings.editedArg1(_coworkCount(edited, 'file')),
+      if (commands > 0) appStrings.ranArg1(_coworkCount(commands, 'command')),
+      if (actions > 0) _coworkCount(actions, appStrings.screenAction),
+      if (failed > 0) appStrings.arg1Failed2(_coworkCount(failed, 'step')),
     ];
     final headline = running != null && !expanded
         ? _coworkActivityTitle(running)
@@ -1021,7 +1021,7 @@ class _CoworkWorkBlockState extends State<_CoworkWorkBlock> {
     final trailing = widget.live
         ? _coworkCount(items.length, 'step')
         : totalMs > 0
-        ? 'Worked for ${_formatDuration(totalMs)}'
+        ? appStrings.workedForArg1(_formatDuration(totalMs))
         : '';
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -1117,7 +1117,7 @@ class _CoworkWorkBlockState extends State<_CoworkWorkBlock> {
 }
 
 String _coworkCount(int count, String noun) =>
-    '$count ${count == 1 ? noun : '${noun}s'}';
+    appStrings.arg1Arg23(count, count == 1 ? noun : '${noun}s');
 
 /// A display row: either one tool step or a merged cluster of exploration
 /// steps (reads, listings, searches) that ran back to back.
@@ -1176,10 +1176,10 @@ String _coworkExploreSummary(List<CoworkActivityItem> items) {
     if (path != null) names.add(_coworkFolderName(path));
   }
   final unique = names.toSet().toList(growable: false);
-  if (unique.isEmpty) return 'Explored the workspace';
+  if (unique.isEmpty) return appStrings.exploredTheWorkspace;
   final shown = unique.take(4).join(', ');
   final rest = unique.length - 4;
-  return 'Explored $shown${rest > 0 ? ' +$rest more' : ''}';
+  return appStrings.exploredArg1Arg2(shown, rest > 0 ? ' +$rest more' : '');
 }
 
 class _CoworkWorkRow extends StatefulWidget {
@@ -1278,7 +1278,7 @@ class _CoworkWorkRowState extends State<_CoworkWorkRow> {
                 if (!cluster && item.isWriteTool && path != null) ...<Widget>[
                   const SizedBox(width: 6),
                   Tooltip(
-                    message: 'Open in workbench',
+                    message: appStrings.openInWorkbench,
                     child: InkWell(
                       borderRadius: BorderRadius.circular(8),
                       onTap: () => widget.onOpenFile(path),
@@ -1404,70 +1404,70 @@ String _coworkActivityTitle(CoworkActivityItem item) {
   final path = item.filePath;
   switch (item.label) {
     case 'write_file':
-      return 'Wrote ${path ?? 'a file'}';
+      return appStrings.wroteArg1(path ?? 'a file');
     case 'edit_file' || 'replace_file_range':
-      return 'Edited ${path ?? 'a file'}';
+      return appStrings.editedArg1(path ?? 'a file');
     case 'read_file':
-      return 'Read ${path ?? 'a file'}';
+      return appStrings.readArg1(path ?? 'a file');
     case 'read_files':
       final paths = item.toolArgs['paths'];
       final count = paths is List ? paths.length : 0;
-      return count > 0 ? 'Read $count files' : 'Read files';
+      return count > 0 ? 'Read $count files' : appStrings.readFiles;
     case 'read_artifact':
-      return 'Read an artifact';
+      return appStrings.readAnArtifact;
     case 'list_directory':
       final target = path ?? '';
       return target.isEmpty || target == '.'
-          ? 'Listed the workspace root'
-          : 'Listed $target/';
+          ? appStrings.listedTheWorkspaceRoot
+          : appStrings.listedArg1(target);
     case 'search_files':
       final query = _coworkArg(item, <String>['query', 'pattern', 'glob']);
-      return query.isEmpty ? 'Searched files' : 'Searched files for "$query"';
+      return query.isEmpty ? 'Searched files' : appStrings.searchedFilesForArg1(query);
     case 'code_navigate':
       final query = _coworkArg(item, <String>['query', 'symbol']);
-      return query.isEmpty ? 'Searched code' : 'Searched code for "$query"';
+      return query.isEmpty ? 'Searched code' : appStrings.searchedCodeForArg1(query);
     case 'execute_command':
       final command = _coworkArg(item, <String>['command', 'cmd']);
-      return command.isEmpty ? 'Ran a command' : '\$ ${_condenseRunText(command, maxLength: 140)}';
+      return command.isEmpty ? 'Ran a command' : appStrings.arg13(_condenseRunText(command, maxLength: 140));
     case 'desktop_observe':
-      return 'Looked at the screen';
+      return appStrings.lookedAtTheScreen;
     case 'desktop_click':
       final x = item.toolArgs['x'];
       final y = item.toolArgs['y'];
-      return x == null || y == null ? 'Clicked' : 'Clicked at ($x, $y)';
+      return x == null || y == null ? 'Clicked' : appStrings.clickedAtArg1Arg2(x, y);
     case 'desktop_drag':
-      return 'Dragged on the screen';
+      return appStrings.draggedOnTheScreen;
     case 'desktop_scroll':
       return 'Scrolled';
     case 'desktop_type':
-      return 'Typed text';
+      return appStrings.typedText;
     case 'desktop_press_key':
       final key = _coworkArg(item, <String>['key', 'keys']);
-      return key.isEmpty ? 'Pressed a key' : 'Pressed $key';
+      return key.isEmpty ? 'Pressed a key' : appStrings.pressedArg1(key);
     case 'desktop_launch_app':
       final app = _coworkArg(item, <String>['app', 'name', 'bundleId']);
-      return app.isEmpty ? 'Opened an app' : 'Opened $app';
+      return app.isEmpty ? 'Opened an app' : appStrings.openedArg1(app);
     case 'desktop_get_tree':
-      return 'Read the UI tree';
+      return appStrings.readTheUiTree;
     case 'browser_navigate':
       final url = _coworkArg(item, <String>['url']);
-      return url.isEmpty ? 'Opened a page' : 'Opened ${_condenseRunText(url, maxLength: 100)}';
+      return url.isEmpty ? 'Opened a page' : appStrings.openedArg1(_condenseRunText(url, maxLength: 100));
     case 'browser_click':
-      return 'Clicked in the browser';
+      return appStrings.clickedInTheBrowser;
     case 'browser_type':
-      return 'Typed in the browser';
+      return appStrings.typedInTheBrowser;
     case 'browser_extract':
-      return 'Read the page';
+      return appStrings.readThePage;
     case 'browser_screenshot':
-      return 'Captured the page';
+      return appStrings.capturedThePage;
     case 'browser_evaluate':
-      return 'Ran a script in the page';
+      return appStrings.ranAScriptInThePage;
   }
   switch (item.kind) {
     case 'subagent':
-      return 'Helper: ${_condenseRunText(item.summary, maxLength: 120)}';
+      return appStrings.helperArg1(_condenseRunText(item.summary, maxLength: 120));
     case 'verification':
-      return 'Verified the result';
+      return appStrings.verifiedTheResult;
     case 'steering':
       return item.summary;
   }
@@ -1521,7 +1521,7 @@ class _CoworkMessageBubble extends StatelessWidget {
                 .map(
                   (attachment) => Chip(
                     visualDensity: VisualDensity.compact,
-                    avatar: const Icon(Icons.attach_file_rounded, size: 15),
+                    avatar: Icon(Icons.attach_file_rounded, size: 15),
                     label: Text(attachment['name']?.toString() ?? 'Attachment'),
                   ),
                 )
@@ -1548,7 +1548,7 @@ class _CoworkMessageBubble extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Text(
-                      'STEERING',
+                      appStrings.steering,
                       style: GoogleFonts.geistMono(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
@@ -1728,12 +1728,12 @@ class _CoworkInputCardState extends State<_CoworkInputCard> {
               children: <Widget>[
                 Icon(Icons.help_outline_rounded, size: 16, color: _warning),
                 const SizedBox(width: 8),
-                Text('NEOAGENT NEEDS A DECISION', style: _sectionEyebrowStyle()),
+                Text(appStrings.neoagentNeedsADecision, style: _sectionEyebrowStyle()),
               ],
             ),
             const SizedBox(height: 8),
             Text(
-              'The run is paused until you answer.',
+              appStrings.theRunIsPausedUntilYou,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 14),
@@ -1772,8 +1772,8 @@ class _CoworkInputCardState extends State<_CoworkInputCard> {
                     question.id,
                     TextEditingController.new,
                   ),
-                  decoration: const InputDecoration(
-                    labelText: 'Or answer in your own words',
+                  decoration: InputDecoration(
+                    labelText: appStrings.orAnswerInYourOwnWords,
                   ),
                   onChanged: (value) => setState(() {
                     if (value.trim().isNotEmpty) {
@@ -1795,8 +1795,8 @@ class _CoworkInputCardState extends State<_CoworkInputCard> {
                         await widget.onSubmit(_answers);
                         if (mounted) setState(() => _submitting = false);
                       },
-                icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                label: Text(_submitting ? 'Continuing…' : 'Continue run'),
+                icon: Icon(Icons.play_arrow_rounded, size: 18),
+                label: Text(_submitting ? 'Continuing…' : appStrings.continueRun),
               ),
             ),
           ],

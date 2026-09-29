@@ -36,7 +36,7 @@ class _ManagedBySection extends StatelessWidget {
         permissions: summary.permissions,
       );
     }
-    return _SectionCard(title: 'Managed by', child: body);
+    return _SectionCard(title: appStrings.managedBy, child: body);
   }
 }
 
@@ -51,15 +51,15 @@ class _NotManaged extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
-          'You’re on your own: you decide which tools your agent may use. If '
-          'a teammate sent you an invite link, enter it here to join their team.',
+          appStrings.youReOnYourOwnYou +
+          appStrings.aTeammateSentYouAnInvite,
           style: TextStyle(color: _textSecondary, height: 1.45),
         ),
         const SizedBox(height: 14),
         OutlinedButton.icon(
           onPressed: () => _showRedeemInviteDialog(context, controller),
-          icon: const Icon(Icons.link),
-          label: const Text('Enter invite link'),
+          icon: Icon(Icons.link),
+          label: Text(appStrings.enterInviteLink),
         ),
       ],
     );
@@ -93,12 +93,12 @@ class _ManagedByDetails extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    '${manager.label} manages this account',
+                    appStrings.arg1ManagesThisAccount(manager.label),
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   if (since != null)
                     Text(
-                      'Since ${_formatDate(since)}',
+                      appStrings.sinceArg1(_formatDate(since)),
                       style: TextStyle(color: _textMuted, fontSize: 12.5),
                     ),
                 ],
@@ -109,8 +109,8 @@ class _ManagedByDetails extends StatelessWidget {
         if (managedBy.chain.length > 1) ...<Widget>[
           const SizedBox(height: 10),
           Text(
-            'Chain: ${managedBy.chain.map((person) => person.label).join(' › ')}. '
-            'A decision higher up the chain wins.',
+            appStrings.chainArg1(managedBy.chain.map((person) => person.label).join(' › ')) +
+            appStrings.aDecisionHigherUpTheChain,
             style: TextStyle(color: _textSecondary, fontSize: 13),
           ),
         ],
@@ -124,20 +124,20 @@ class _ManagedByDetails extends StatelessWidget {
           ),
           onPressed: () => _confirmDelete(
             context,
-            title: 'Leave ${manager.label}’s team?',
+            title: appStrings.leaveArg1STeam(manager.label),
             message: [
-              'Everything ${manager.label} turned off for your agent comes '
-                  'back on.',
+              appStrings.everythingArg1TurnedOffForYour(manager.label) +
+                  appStrings.backOn,
               if (controller.accessSummary?.managing.isNotEmpty ?? false)
-                'The people you manage stay with you.',
+                appStrings.thePeopleYouManageStayWith,
             ].join(' '),
             confirmLabel: 'Leave',
             onConfirm: () async {
               await controller.leaveManager();
             },
           ),
-          icon: const Icon(Icons.logout),
-          label: const Text('Leave'),
+          icon: Icon(Icons.logout),
+          label: Text(appStrings.leave),
         ),
       ],
     );
@@ -176,8 +176,8 @@ class _AccessPermissionList extends StatelessWidget {
     final setBy = permission.setBy;
     if (setBy == null) return '';
     return permission.allowed
-        ? 'Allowed by ${setBy.label}'
-        : 'Turned off by ${setBy.label}';
+        ? appStrings.allowedByArg1(setBy.label)
+        : appStrings.turnedOffByArg1(setBy.label);
   }
 }
 
@@ -247,7 +247,7 @@ Future<void> _showRedeemInviteDialog(
   if (joined == null || !context.mounted) return;
   ScaffoldMessenger.of(
     context,
-  ).showSnackBar(SnackBar(content: Text('$joined now manages this account.')));
+  ).showSnackBar(SnackBar(content: Text(appStrings.arg1NowManagesThisAccount(joined))));
 }
 
 class _RedeemInviteDialog extends StatefulWidget {
@@ -315,8 +315,8 @@ class _RedeemInviteDialogState extends State<_RedeemInviteDialog> {
       backgroundColor: _bgCard,
       title: Text(
         preview == null
-            ? 'Enter invite link'
-            : '${preview.issuer.label} will manage this account',
+            ? appStrings.enterInviteLink
+            : appStrings.arg1WillManageThisAccount(preview.issuer.label),
       ),
       content: SizedBox(
         width: 480,
@@ -330,8 +330,8 @@ class _RedeemInviteDialogState extends State<_RedeemInviteDialog> {
                   controller: _linkController,
                   autofocus: true,
                   enabled: !_busy,
-                  decoration: const InputDecoration(
-                    labelText: 'Invite link',
+                  decoration: InputDecoration(
+                    labelText: appStrings.inviteLink,
                     hintText: 'https://…/app/?invite=…',
                   ),
                   onSubmitted: (_) => _check(),
@@ -349,14 +349,14 @@ class _RedeemInviteDialogState extends State<_RedeemInviteDialog> {
       actions: <Widget>[
         TextButton(
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(appStrings.cancel),
         ),
         FilledButton(
           onPressed: _busy ? null : (preview == null ? _check : _confirm),
           child: Text(
             preview == null
-                ? 'Check link'
-                : 'Let ${preview.issuer.label} manage me',
+                ? appStrings.checkLink
+                : appStrings.letArg1ManageMe(preview.issuer.label),
           ),
         ),
       ],
@@ -377,16 +377,16 @@ class _InvitePreviewDetails extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
-          'From now on $issuer decides which tools your agent may use. They '
-          'see your username and these settings, never your chats, memories '
-          'or files.',
+          appStrings.fromNowOnArg1DecidesWhich(issuer) +
+          appStrings.seeYourUsernameAndTheseSettings +
+          appStrings.orFiles,
           style: TextStyle(color: _textSecondary, height: 1.45),
         ),
         const SizedBox(height: 14),
         Text(
           preview.permissions.isEmpty
-              ? 'Your agent will not be allowed any of the controlled tools.'
-              : 'Your agent will be allowed:',
+              ? appStrings.yourAgentWillNotBeAllowedAny
+              : appStrings.yourAgentWillBeAllowed,
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         if (preview.permissions.isNotEmpty) ...<Widget>[
@@ -405,7 +405,7 @@ class _InvitePreviewDetails extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Everything else is turned off.',
+            appStrings.everythingElseIsTurnedOff,
             style: TextStyle(color: _textSecondary),
           ),
         ],
@@ -413,8 +413,8 @@ class _InvitePreviewDetails extends StatelessWidget {
         Text(
           [
             if (expiresAt != null)
-              'Link valid until ${_formatDate(expiresAt)}.',
-            'You can leave at any time from the Team page.',
+              appStrings.linkValidUntilArg1(_formatDate(expiresAt)),
+            appStrings.youCanLeaveAtAnyTime,
           ].join(' '),
           style: TextStyle(color: _textMuted, fontSize: 12.5),
         ),
@@ -454,11 +454,11 @@ class _TeamPanelState extends State<TeamPanel> {
     return ListView(
       padding: _pagePadding(context),
       children: <Widget>[
-        const _PageTitle(
+        _PageTitle(
           title: 'Team',
           subtitle:
-              'Let someone you work with decide which tools your agent may '
-              'use, or do the same for your teammates.',
+              appStrings.letSomeoneYouWorkWithDecide +
+              appStrings.useOrDoTheSameFor,
         ),
         if (_controller.errorMessage != null) ...<Widget>[
           _InlineError(
@@ -492,38 +492,38 @@ class _TeamExplainer extends StatelessWidget {
 
   final bool initiallyExpanded;
 
-  static const List<(IconData, String, String)> _points =
+  static List<(IconData, String, String)> _points =
       <(IconData, String, String)>[
         (
           Icons.person_outline,
-          'On your own (the default)',
-          'You decide which tools your agent may use, under Settings › '
-              'Permissions › Tool Permissions. Nobody else can change that.',
+          appStrings.onYourOwnTheDefault,
+          appStrings.youDecideWhichToolsYourAgent +
+              appStrings.permissionsToolPermissionsNobodyElseCan,
         ),
         (
           Icons.link,
-          'Joining a team',
-          'A teammate sends you an invite link. Once you accept it, they '
-              'decide which tools your agent may use. They see your name and '
-              'these switches, never your chats, memories or files.',
+          appStrings.joiningATeam,
+          appStrings.aTeammateSendsYouAnInvite +
+              appStrings.decideWhichToolsYourAgentMay +
+              appStrings.theseSwitchesNeverYourChatsMemories,
         ),
         (
           Icons.account_tree_outlined,
           'Chains',
-          'Managers can have managers of their own (up to four levels). A '
-              'decision higher up the chain wins and shows a lock with the '
-              'name of whoever made it.',
+          appStrings.managersCanHaveManagersOfTheir +
+              appStrings.decisionHigherUpTheChainWins +
+              appStrings.nameOfWhoeverMadeIt,
         ),
         (
           Icons.logout,
           'Leaving',
-          'You can leave a team at any time; your own settings apply again.',
+          appStrings.youCanLeaveATeamAt,
         ),
         (
           Icons.admin_panel_settings_outlined,
-          'Not the same as admin',
-          'Team links never make anyone a server admin. Admins run the '
-              'server itself: accounts, providers and configuration.',
+          appStrings.notTheSameAsAdmin,
+          appStrings.teamLinksNeverMakeAnyoneA +
+              appStrings.serverItselfAccountsProvidersAndConfiguration,
         ),
       ];
 
@@ -538,8 +538,8 @@ class _TeamExplainer extends StatelessWidget {
           tilePadding: const EdgeInsets.symmetric(horizontal: 20),
           childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           leading: Icon(Icons.help_outline, color: _accent),
-          title: const Text(
-            'How teams work',
+          title: Text(
+            appStrings.howTeamsWork,
             style: TextStyle(fontWeight: FontWeight.w700),
           ),
           children: _points
@@ -625,7 +625,7 @@ class _AccessActivityCardState extends State<_AccessActivityCard>
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
-      title: 'Access activity',
+      title: appStrings.accessActivity,
       trailing: _RefreshButton(
         busy: _loading,
         onPressed: () => _runLoad(_fetch),
@@ -647,11 +647,11 @@ class _ManagingSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final managing = summary?.managing ?? const <ManagedAccount>[];
     return _SectionCard(
-      title: 'Managing',
+      title: appStrings.managing,
       child: managing.isEmpty
           ? Text(
-              'You don’t manage anyone yet. Create an invite link below and '
-              'send it to a teammate with an account on this server.',
+              appStrings.youDonTManageAnyoneYet +
+              appStrings.sendItToATeammateWith,
               style: TextStyle(color: _textSecondary, height: 1.45),
             )
           : Column(
@@ -721,8 +721,8 @@ class _ManagedAccountCardState extends State<_ManagedAccountCard> {
                     Text(
                       [
                         '@${person.username}',
-                        if (since != null) 'since ${_formatDate(since)}',
-                        '$allowed of ${account.permissions.length} tools allowed',
+                        if (since != null) appStrings.sinceArg12(_formatDate(since)),
+                        appStrings.arg1OfArg2ToolsAllowed(allowed, account.permissions.length),
                       ].join(' · '),
                       style: TextStyle(color: _textMuted, fontSize: 12.5),
                     ),
@@ -730,21 +730,21 @@ class _ManagedAccountCardState extends State<_ManagedAccountCard> {
                 ),
               ),
               IconButton(
-                tooltip: _expanded ? 'Hide tools' : 'Show tools',
+                tooltip: _expanded ? 'Hide tools' : appStrings.showTools,
                 onPressed: () => setState(() => _expanded = !_expanded),
                 icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
               ),
               TextButton(
                 onPressed: () => _confirmDelete(
                   context,
-                  title: 'Stop managing ${person.label}?',
+                  title: appStrings.stopManagingArg1(person.label),
                   message:
-                      'Everything you turned off for ${person.label} comes back '
-                      'on. They can join again only with a new invite link.',
-                  confirmLabel: 'Stop managing',
+                      appStrings.everythingYouTurnedOffForArg1(person.label) +
+                      appStrings.onTheyCanJoinAgainOnly,
+                  confirmLabel: appStrings.stopManaging,
                   onConfirm: () => controller.releaseManagedAccount(person.id),
                 ),
-                child: const Text('Stop managing'),
+                child: Text(appStrings.stopManaging),
               ),
             ],
           ),
@@ -776,10 +776,10 @@ class _ManagedAccountCardState extends State<_ManagedAccountCard> {
     final setBy = permission.setBy;
     if (!permission.editable) {
       return setBy == null
-          ? 'Not yours to change'
-          : 'Turned off for you by ${setBy.label} — only they can change it';
+          ? appStrings.notYoursToChange
+          : appStrings.turnedOffForYouByArg1(setBy.label);
     }
-    return setBy?.id == myId ? 'Set by you' : '';
+    return setBy?.id == myId ? appStrings.setByYou : '';
   }
 }
 
@@ -794,20 +794,20 @@ class _InviteLinksSection extends StatelessWidget {
     final summary = this.summary;
     final invites = summary?.invites ?? const <DelegationInvite>[];
     return _SectionCard(
-      title: 'Invite links',
+      title: appStrings.inviteLinks,
       trailing: FilledButton.icon(
         onPressed: summary == null
             ? null
             : () => _showCreateInviteDialog(context, controller, summary),
-        icon: const Icon(Icons.add_link),
-        label: const Text('New link'),
+        icon: Icon(Icons.add_link),
+        label: Text(appStrings.newLink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            'Whoever accepts a link joins your team with only the tools it '
-            'allows. You can change that per person later. Links never grant '
+            appStrings.whoeverAcceptsALinkJoinsYour +
+            appStrings.allowsYouCanChangeThatPer +
             'admin.',
             style: TextStyle(color: _textSecondary, height: 1.45),
           ),
@@ -817,10 +817,10 @@ class _InviteLinksSection extends StatelessWidget {
               invite: invite,
               onRevoke: () => _confirmDelete(
                 context,
-                title: 'Revoke this link?',
+                title: appStrings.revokeThisLink,
                 message:
-                    'Nobody can use it any more. People who already joined '
-                    'stay managed by you.',
+                    appStrings.nobodyCanUseItAnyMore +
+                    appStrings.stayManagedByYou,
                 confirmLabel: 'Revoke',
                 onConfirm: () => controller.revokeDelegationInvite(invite.id),
               ),
@@ -843,10 +843,10 @@ class _InviteRow extends StatelessWidget {
     final expiresAt = invite.expiresAt;
     final details = <String>[
       invite.permissions.isEmpty
-          ? 'No tools'
+          ? appStrings.noTools
           : invite.permissions.map(_permissionLabel).join(', '),
-      invite.singleUse ? 'Single use' : 'Reusable · used ${invite.useCount}×',
-      expiresAt == null ? 'No expiry' : 'Expires ${_formatDate(expiresAt)}',
+      invite.singleUse ? 'Single use' : appStrings.reusableUsedArg1(invite.useCount),
+      expiresAt == null ? 'No expiry' : appStrings.expiresArg1(_formatDate(expiresAt)),
     ];
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -857,7 +857,7 @@ class _InviteRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  invite.label.isEmpty ? 'Untitled link' : invite.label,
+                  invite.label.isEmpty ? appStrings.untitledLink : invite.label,
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 Text(
@@ -874,9 +874,9 @@ class _InviteRow extends StatelessWidget {
           ),
           if (invite.isActive)
             IconButton(
-              tooltip: 'Revoke',
+              tooltip: appStrings.revoke,
               onPressed: onRevoke,
-              icon: const Icon(Icons.link_off),
+              icon: Icon(Icons.link_off),
             ),
         ],
       ),
@@ -903,11 +903,11 @@ extension on _InviteExpiry {
   String get label {
     switch (this) {
       case _InviteExpiry.day:
-        return '24 hours';
+        return appStrings.n24Hours;
       case _InviteExpiry.week:
-        return '7 days';
+        return appStrings.n7Days;
       case _InviteExpiry.month:
-        return '30 days';
+        return appStrings.n30Days;
       case _InviteExpiry.never:
         return 'Never';
     }
@@ -999,7 +999,7 @@ class _CreateInviteDialogState extends State<_CreateInviteDialog> {
     final link = _link;
     return AlertDialog(
       backgroundColor: _bgCard,
-      title: Text(link == null ? 'New invite link' : 'Invite link ready'),
+      title: Text(link == null ? 'New invite link' : appStrings.inviteLinkReady),
       content: SizedBox(
         width: 520,
         child: SingleChildScrollView(
@@ -1010,17 +1010,17 @@ class _CreateInviteDialogState extends State<_CreateInviteDialog> {
           ? <Widget>[
               TextButton(
                 onPressed: _busy ? null : () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
+                child: Text(appStrings.cancel),
               ),
               FilledButton(
                 onPressed: _busy ? null : _create,
-                child: const Text('Create link'),
+                child: Text(appStrings.createLink),
               ),
             ]
           : <Widget>[
               FilledButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Done'),
+                child: Text(appStrings.done),
               ),
             ],
     );
@@ -1035,14 +1035,14 @@ class _CreateInviteDialogState extends State<_CreateInviteDialog> {
         TextField(
           controller: _labelController,
           maxLength: 80,
-          decoration: const InputDecoration(
-            labelText: 'Label (only you see it)',
-            hintText: 'e.g. Alex’s laptop',
+          decoration: InputDecoration(
+            labelText: appStrings.labelOnlyYouSeeIt,
+            hintText: appStrings.eGAlexSLaptop,
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Tools the managed account may use',
+        Text(
+          appStrings.toolsTheManagedAccountMayUse,
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 4),
@@ -1065,13 +1065,13 @@ class _CreateInviteDialogState extends State<_CreateInviteDialog> {
             title: Text(_permissionLabel(key)),
             subtitle: holds
                 ? null
-                : const Text('Turned off for you, so you can’t hand it out'),
+                : Text(appStrings.turnedOffForYouSoYou),
           );
         }),
         const SizedBox(height: 12),
         DropdownButtonFormField<_InviteExpiry>(
           initialValue: _expiry,
-          decoration: const InputDecoration(labelText: 'Link expires after'),
+          decoration: InputDecoration(labelText: appStrings.linkExpiresAfter),
           items: _InviteExpiry.values
               .map(
                 (expiry) =>
@@ -1089,11 +1089,11 @@ class _CreateInviteDialogState extends State<_CreateInviteDialog> {
           onChanged: _busy
               ? null
               : (value) => setState(() => _singleUse = value),
-          title: const Text('Single use'),
+          title: Text(appStrings.singleUse),
           subtitle: Text(
             _singleUse
-                ? 'Stops working after one person redeems it.'
-                : 'Anyone with the link can join until it expires or you revoke it.',
+                ? appStrings.stopsWorkingAfterOnePersonRedeemsIt
+                : appStrings.anyoneWithTheLinkCanJoin,
           ),
         ),
         if (_error != null) ...<Widget>[
@@ -1110,8 +1110,8 @@ class _CreateInviteDialogState extends State<_CreateInviteDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
-          'Send this link only to the person it’s meant for. It is shown once; '
-          'the server keeps only a fingerprint of it.',
+          appStrings.sendThisLinkOnlyToThe +
+          appStrings.theServerKeepsOnlyAFingerprint,
           style: TextStyle(color: _textSecondary, height: 1.45),
         ),
         const SizedBox(height: 14),
@@ -1123,10 +1123,10 @@ class _CreateInviteDialogState extends State<_CreateInviteDialog> {
             if (!mounted) return;
             ScaffoldMessenger.of(
               context,
-            ).showSnackBar(const SnackBar(content: Text('Link copied')));
+            ).showSnackBar(SnackBar(content: Text(appStrings.linkCopied)));
           },
-          icon: const Icon(Icons.copy),
-          label: const Text('Copy link'),
+          icon: Icon(Icons.copy),
+          label: Text(appStrings.copyLink),
         ),
       ],
     );
@@ -1144,8 +1144,8 @@ class _AccessActivityList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (entries.isEmpty) {
-      return const _EmptyText(
-        'Admin grants, invite links and management changes show up here.',
+      return _EmptyText(
+        appStrings.adminGrantsInviteLinksAndManagement,
       );
     }
     return Column(
@@ -1173,13 +1173,13 @@ class _AccessActivityList extends StatelessWidget {
   }
 
   String _person(Object? value) {
-    if (value is! Map) return 'a deleted account';
-    return value['username']?.toString() ?? 'a deleted account';
+    if (value is! Map) return appStrings.aDeletedAccount;
+    return value['username']?.toString() ?? appStrings.aDeletedAccount;
   }
 
   String _personById(Object? id) {
-    if (id == null) return 'a deleted account';
-    return usernames[id.toString()] ?? 'a deleted account';
+    if (id == null) return appStrings.aDeletedAccount;
+    return usernames[id.toString()] ?? appStrings.aDeletedAccount;
   }
 
   String _describe(Map<String, dynamic> entry) {
@@ -1187,35 +1187,35 @@ class _AccessActivityList extends StatelessWidget {
         ? Map<String, dynamic>.from(entry['detail'] as Map)
         : const <String, dynamic>{};
     final actor = entry['actor'] == null
-        ? 'The operator'
+        ? appStrings.theOperator
         : _person(entry['actor']);
     final subject = _person(entry['subject']);
     switch (entry['action']?.toString()) {
       case 'admin.grant':
-        return '$subject became an admin (${detail['source'] ?? 'operator'})';
+        return appStrings.arg1BecameAnAdminArg2(subject, detail['source'] ?? 'operator');
       case 'admin.revoke':
-        return '$subject is no longer an admin (${detail['source'] ?? 'operator'})';
+        return appStrings.arg1IsNoLongerAnAdmin(subject, detail['source'] ?? 'operator');
       case 'invite.create':
-        return '$actor created an invite link';
+        return appStrings.arg1CreatedAnInviteLink(actor);
       case 'invite.revoke':
         final count = _asInt(detail['count']);
         return count > 1
-            ? '$count invite links from $subject were revoked'
-            : '$actor revoked an invite link';
+            ? appStrings.arg1InviteLinksFromArg2WereRevoked(count, subject)
+            : appStrings.arg1RevokedAnInviteLink(actor);
       case 'delegation.create':
-        return '$subject joined under ${_personById(detail['managerUserId'])}';
+        return appStrings.arg1JoinedUnderArg2(subject, _personById(detail['managerUserId']));
       case 'delegation.leave':
-        return '$subject left ${_personById(detail['managerUserId'])}';
+        return appStrings.arg1LeftArg2(subject, _personById(detail['managerUserId']));
       case 'delegation.release':
-        return '${_personById(detail['managerUserId'])} stopped managing $subject';
+        return appStrings.arg1StoppedManagingArg2(_personById(detail['managerUserId']), subject);
       case 'delegation.reattach':
-        return '$subject moved from ${_personById(detail['fromManagerUserId'])} '
-            'to ${_personById(detail['toManagerUserId'])}';
+        return appStrings.arg1MovedFromArg2(subject, _personById(detail['fromManagerUserId'])) +
+            appStrings.toArg1(_personById(detail['toManagerUserId']));
       case 'delegation.permission':
         final key = detail['permission']?.toString() ?? '';
         final allowed = detail['allowed'] == true;
-        return '$actor ${allowed ? 'allowed' : 'turned off'} '
-            '${_permissionLabel(key)} for $subject';
+        return appStrings.arg1Arg28(actor, allowed ? 'allowed' : 'turned off') +
+            appStrings.arg1ForArg2(_permissionLabel(key), subject);
       default:
         return entry['action']?.toString() ?? '';
     }

@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../main.dart';
 import '../tasks/task_recommendations.dart';
 import 'onboarding_chrome.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 class OnboardingTasksStep extends StatelessWidget {
   const OnboardingTasksStep({
@@ -43,20 +44,20 @@ class OnboardingTasksStep extends StatelessWidget {
           step: 4,
           totalSteps: 5,
           eyebrow: 'AUTOMATION',
-          title: 'Let it work\nwhile you don\'t.',
+          title: appStrings.letItWorkWhileYouDon,
           description:
-              'Tasks run on a schedule or when something happens, then '
-              'message you with the result. Add one to start, or skip and '
-              'find these later in Tasks.',
+              appStrings.tasksRunOnAScheduleOr +
+              appStrings.messageYouWithTheResultAdd +
+              appStrings.findTheseLaterInTasks,
           footer: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
               if (anyAdded)
                 const SizedBox.shrink()
               else
-                OnboardingGhostButton(label: 'Skip for now', onPressed: onNext),
+                OnboardingGhostButton(label: appStrings.skipForNow, onPressed: onNext),
               OnboardingPrimaryButton(
-                label: 'Finish setup',
+                label: appStrings.finishSetup,
                 icon: Icons.check_rounded,
                 onPressed: onNext,
               ),

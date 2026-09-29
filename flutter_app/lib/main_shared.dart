@@ -16,7 +16,7 @@ String _formatTokenCount(int amount) {
 
 String _durationLabel(Duration remaining) {
   if (remaining.inHours > 0) {
-    return '${remaining.inHours}h ${remaining.inMinutes.remainder(60)}m';
+    return appStrings.arg1HArg2M(remaining.inHours, remaining.inMinutes.remainder(60));
   }
   return '${remaining.inMinutes + 1}m';
 }
@@ -31,15 +31,15 @@ String? _usageWindowResetLabel({
 }) {
   final now = DateTime.now();
   if (reached) {
-    if (recoversAt == null) return 'Available again shortly';
+    if (recoversAt == null) return appStrings.availableAgainShortly;
     final remaining = recoversAt.difference(now);
-    if (remaining.isNegative) return 'Available again shortly';
-    return 'Available again in ${_durationLabel(remaining)}';
+    if (remaining.isNegative) return appStrings.availableAgainShortly;
+    return appStrings.availableAgainInArg1(_durationLabel(remaining));
   }
   if (fullResetAt == null) return null;
   final remaining = fullResetAt.difference(now);
   if (remaining.isNegative) return null;
-  return 'Usage fully resets in ${_durationLabel(remaining)}';
+  return appStrings.usageFullyResetsInArg1(_durationLabel(remaining));
 }
 
 EdgeInsets _pagePadding(BuildContext context) {
@@ -305,7 +305,7 @@ Future<void> _confirmDelete(
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text('Cancel'),
+            child: Text(appStrings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
@@ -327,23 +327,23 @@ Widget _buildHealthSummaryPills(Map<String, dynamic> summary) {
     children: <Widget>[
       _MetaPill(
         icon: Icons.directions_walk_outlined,
-        label: 'Steps ${_asInt(summary['stepsTotal'])}',
+        label: appStrings.stepsArg1(_asInt(summary['stepsTotal'])),
       ),
       _MetaPill(
         icon: Icons.favorite_outline,
-        label: 'Heart ${_asInt(summary['heartRateRecordCount'])} records',
+        label: appStrings.heartArg1Records(_asInt(summary['heartRateRecordCount'])),
       ),
       _MetaPill(
         icon: Icons.bedtime_outlined,
-        label: 'Sleep ${_asInt(summary['sleepSessionCount'])} sessions',
+        label: appStrings.sleepArg1Sessions(_asInt(summary['sleepSessionCount'])),
       ),
       _MetaPill(
         icon: Icons.fitness_center_outlined,
-        label: 'Exercise ${_asInt(summary['exerciseSessionCount'])} sessions',
+        label: appStrings.exerciseArg1Sessions(_asInt(summary['exerciseSessionCount'])),
       ),
       _MetaPill(
         icon: Icons.monitor_weight_outlined,
-        label: 'Weight ${_asInt(summary['weightRecordCount'])} records',
+        label: appStrings.weightArg1Records(_asInt(summary['weightRecordCount'])),
       ),
     ],
   );
@@ -520,7 +520,7 @@ class _RunStatusPanel extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        run?.title ?? 'Live run',
+                        run?.title ?? appStrings.liveRun,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -529,11 +529,11 @@ class _RunStatusPanel extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         run == null
-                            ? 'Waiting for run events...'
+                            ? appStrings.waitingForRunEvents
                             : [
                                 '${run!.phase}${run!.iteration > 0 ? ' · step ${run!.iteration}' : ''}',
                                 if (run!.pendingSteeringCount > 0)
-                                  '${run!.pendingSteeringCount} steering ${run!.pendingSteeringCount == 1 ? 'update' : 'updates'} queued',
+                                  appStrings.arg1SteeringArg2Queued(run!.pendingSteeringCount, run!.pendingSteeringCount == 1 ? 'update' : 'updates'),
                               ].join(' · '),
                         style: TextStyle(
                           color: phase.isNotEmpty
@@ -556,28 +556,28 @@ class _RunStatusPanel extends StatelessWidget {
                 runSpacing: 10,
                 children: <Widget>[
                   _MetaPill(
-                    label: '${tools.length} events',
+                    label: appStrings.arg1Events(tools.length),
                     icon: Icons.timeline_outlined,
                   ),
                   if (runningCount > 0)
                     _MetaPill(
-                      label: '$runningCount active',
+                      label: appStrings.arg1Active(runningCount),
                       icon: Icons.sync_outlined,
                       color: _warning,
                     ),
                   if (webCount > 0)
                     _MetaPill(
-                      label: '$webCount web',
+                      label: appStrings.arg1Web(webCount),
                       icon: Icons.language_outlined,
                     ),
                   if (helperCount > 0)
                     _MetaPill(
-                      label: '$helperCount helpers',
+                      label: appStrings.arg1Helpers(helperCount),
                       icon: Icons.account_tree_outlined,
                     ),
                   if (isDeepRun)
                     _MetaPill(
-                      label: 'deep run · step ${run!.iteration}',
+                      label: appStrings.deepRunStepArg1(run!.iteration),
                       icon: Icons.warning_amber_outlined,
                       color: _warning,
                     ),
@@ -600,7 +600,7 @@ class _RunStatusPanel extends StatelessWidget {
               ),
             ] else
               Text(
-                'Waiting for task events...',
+                appStrings.waitingForTaskEvents,
                 style: TextStyle(color: _textSecondary),
               ),
           ],
@@ -1274,21 +1274,21 @@ class _GreetingHeader extends StatelessWidget {
 
   static String greetingFor(int hour) {
     if (hour < 5) {
-      return 'Good evening';
+      return appStrings.goodEvening;
     }
     if (hour < 12) {
-      return 'Good morning';
+      return appStrings.goodMorning;
     }
     if (hour < 18) {
-      return 'Good afternoon';
+      return appStrings.goodAfternoon;
     }
-    return 'Good evening';
+    return appStrings.goodEvening;
   }
 
   static String dateLabelFor(DateTime moment) {
     final weekday = _weekdays[moment.weekday - 1];
     final month = _months[moment.month - 1];
-    return '$weekday \u00B7 ${moment.day} $month';
+    return appStrings.arg1Arg2Arg38(weekday, moment.day, month);
   }
 
   @override
@@ -1789,7 +1789,7 @@ class _MessageRunPreviewState extends State<_MessageRunPreview> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Loading execution details...',
+                      appStrings.loadingExecutionDetails,
                       style: TextStyle(color: _textSecondary, fontSize: 12),
                     ),
                   ),
@@ -1799,7 +1799,7 @@ class _MessageRunPreviewState extends State<_MessageRunPreview> {
           else
             _MessageRunCardShell(
               child: Text(
-                'Execution details are unavailable for this run.',
+                appStrings.executionDetailsAreUnavailableForThis,
                 style: TextStyle(color: _textSecondary, fontSize: 12),
               ),
             ),
@@ -1839,7 +1839,7 @@ class _MessageRunDisclosureHeader extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Text(
-              expanded ? 'Hide steps' : 'Steps',
+              expanded ? appStrings.hideSteps : 'Steps',
               style: TextStyle(
                 color: _textSecondary,
                 fontSize: 12,
@@ -1888,22 +1888,22 @@ class _MessageRunDetailCard extends StatelessWidget {
             runSpacing: 8,
             children: <Widget>[
               _MetaPill(
-                label: '${detail.steps.length} steps',
+                label: appStrings.arg1Steps(detail.steps.length),
                 icon: Icons.timeline_outlined,
               ),
               if (detail.webStepCount > 0)
                 _MetaPill(
-                  label: '${detail.webStepCount} web',
+                  label: appStrings.arg1Web(detail.webStepCount),
                   icon: Icons.language_outlined,
                 ),
               if (detail.helperCount > 0)
                 _MetaPill(
-                  label: '${detail.helperCount} helpers',
+                  label: appStrings.arg1Helpers(detail.helperCount),
                   icon: Icons.account_tree_outlined,
                 ),
               if (detail.planningStepCount > 0)
                 _MetaPill(
-                  label: '${detail.planningStepCount} planning',
+                  label: appStrings.arg1Planning(detail.planningStepCount),
                   icon: Icons.route_outlined,
                 ),
             ],
@@ -1923,7 +1923,7 @@ class _MessageRunDetailCard extends StatelessWidget {
           if (detail.steps.length > previewSteps.length) ...<Widget>[
             const SizedBox(height: 10),
             Text(
-              '${detail.steps.length - previewSteps.length} more steps in run history',
+              appStrings.arg1MoreStepsInRunHistory(detail.steps.length - previewSteps.length),
               style: TextStyle(
                 color: _textSecondary,
                 fontSize: 12,
@@ -2207,7 +2207,7 @@ class _InlineError extends StatelessWidget {
           ),
           if (onDismiss != null)
             IconButton(
-              tooltip: 'Dismiss',
+              tooltip: appStrings.dismiss,
               visualDensity: VisualDensity.compact,
               onPressed: onDismiss,
               icon: Icon(Icons.close_rounded, color: _danger, size: 18),
@@ -2338,8 +2338,8 @@ class _LoadError extends StatelessWidget {
         const SizedBox(height: 12),
         OutlinedButton.icon(
           onPressed: onRetry,
-          icon: const Icon(Icons.refresh_rounded, size: 18),
-          label: const Text('Try again'),
+          icon: Icon(Icons.refresh_rounded, size: 18),
+          label: Text(appStrings.tryAgain),
         ),
       ],
     );
@@ -2396,7 +2396,7 @@ class _RefreshButton extends StatelessWidget {
               dimension: 18,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : const Icon(Icons.refresh_rounded, size: 20),
+          : Icon(Icons.refresh_rounded, size: 20),
     );
   }
 }
@@ -2421,7 +2421,7 @@ class _SaveButton extends StatelessWidget {
               dimension: 16,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : const Icon(Icons.check_rounded, size: 18),
+          : Icon(Icons.check_rounded, size: 18),
       label: Text(saving ? 'Saving…' : label),
     );
   }
@@ -2452,13 +2452,13 @@ class _SearchField extends StatelessWidget {
       onSubmitted: onSubmitted,
       decoration: InputDecoration(
         hintText: hintText,
-        prefixIcon: const Icon(Icons.search_rounded),
+        prefixIcon: Icon(Icons.search_rounded),
         suffixIcon: controller.text.isEmpty
             ? null
             : IconButton(
-                tooltip: 'Clear search',
+                tooltip: appStrings.clearSearch,
                 onPressed: onClear,
-                icon: const Icon(Icons.close_rounded),
+                icon: Icon(Icons.close_rounded),
               ),
       ),
     );
@@ -2946,7 +2946,7 @@ class _GlobalNetworkBanner extends StatelessWidget {
                             color: _warning.withValues(alpha: 0.38),
                           ),
                         ),
-                        child: const Text('Retry'),
+                        child: Text(appStrings.retry),
                       ),
                     ],
                   )
@@ -2969,7 +2969,7 @@ class _GlobalNetworkBanner extends StatelessWidget {
                             color: _warning.withValues(alpha: 0.38),
                           ),
                         ),
-                        child: const Text('Retry'),
+                        child: Text(appStrings.retry),
                       ),
                     ],
                   ),
@@ -2991,7 +2991,7 @@ class _GlobalWebUpdateBanner extends StatelessWidget {
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 560;
         final content = Text(
-          'A newer web build is available on the server. Reload to fetch the latest bundle.',
+          appStrings.aNewerWebBuildIsAvailable,
           style: TextStyle(color: _textPrimary, height: 1.35),
         );
         return Material(
@@ -3033,7 +3033,7 @@ class _GlobalWebUpdateBanner extends StatelessWidget {
                             ? null
                             : monitor.reloadToLatest,
                         child: Text(
-                          monitor.isReloading ? 'Reloading...' : 'Reload now',
+                          monitor.isReloading ? 'Reloading...' : appStrings.reloadNow,
                         ),
                       ),
                       if (monitor.isReloading) ...<Widget>[
@@ -3056,7 +3056,7 @@ class _GlobalWebUpdateBanner extends StatelessWidget {
                             ? null
                             : monitor.reloadToLatest,
                         child: Text(
-                          monitor.isReloading ? 'Reloading...' : 'Reload now',
+                          monitor.isReloading ? 'Reloading...' : appStrings.reloadNow,
                         ),
                       ),
                     ],
@@ -3096,26 +3096,26 @@ bool _desktopAssistantUsesToggleControls() {
 
 String _desktopAssistantPrimaryLabel(bool isCapturing) {
   if (_desktopAssistantUsesToggleControls()) {
-    return isCapturing ? 'Stop and send' : 'Start talking';
+    return isCapturing ? 'Stop and send' : appStrings.startTalking;
   }
-  return isCapturing ? 'Release to send' : 'Hold to talk';
+  return isCapturing ? 'Release to send' : appStrings.holdToTalk2;
 }
 
 String _desktopAssistantPrimaryCaption(bool isCapturing) {
   if (_desktopAssistantUsesToggleControls()) {
     return isCapturing
-        ? 'Commit the active live capture'
-        : 'Click once to begin capturing';
+        ? appStrings.commitTheActiveLiveCapture
+        : appStrings.clickOnceToBeginCapturing;
   }
   return isCapturing
-      ? 'Stop capture and submit'
-      : 'Press and hold for quick capture';
+      ? appStrings.stopCaptureAndSubmit
+      : appStrings.pressAndHoldForQuickCapture;
 }
 
 String _desktopAssistantIdleHint() {
   return _desktopAssistantUsesToggleControls()
-      ? 'Click the mic to start speaking'
-      : 'Hold Ctrl+Shift+Space to talk';
+      ? appStrings.clickTheMicToStartSpeaking
+      : appStrings.holdCtrlShiftSpaceToTalk;
 }
 
 class _DesktopAssistantControlState {
@@ -3307,7 +3307,7 @@ class _DesktopAssistantPopupShell extends StatelessWidget {
                           backgroundColor: _bgSecondary.withValues(alpha: 0.9),
                           foregroundColor: _textSecondary,
                         ),
-                        icon: const Icon(Icons.close_rounded, size: 14),
+                        icon: Icon(Icons.close_rounded, size: 14),
                       ),
                     ],
                   ),
@@ -3328,12 +3328,12 @@ String _desktopAssistantStatusLabel(String state) {
     case 'thinking':
       return 'Thinking';
     case 'speaking':
-      return 'Speaking';
+      return appStrings.speaking;
     case 'listening':
-      return 'Listening';
+      return appStrings.listening;
     case 'idle':
     default:
-      return 'Ready';
+      return appStrings.ready;
   }
 }
 
@@ -3664,7 +3664,7 @@ String _formatTimestamp(DateTime value) {
   final minute = value.minute.toString().padLeft(2, '0');
   final month = value.month.toString().padLeft(2, '0');
   final day = value.day.toString().padLeft(2, '0');
-  return '$month/$day $hour:$minute';
+  return appStrings.arg1Arg2Arg3Arg4(month, day, hour, minute);
 }
 
 const List<String> _monthAbbreviations = <String>[
@@ -3686,7 +3686,7 @@ const List<String> _monthAbbreviations = <String>[
 String _formatDate(DateTime? value) {
   if (value == null) return '—';
   final local = value.toLocal();
-  return '${_monthAbbreviations[local.month - 1]} ${local.day}, ${local.year}';
+  return appStrings.arg1Arg2Arg39(_monthAbbreviations[local.month - 1], local.day, local.year);
 }
 
 /// [_formatDate] for an ISO-8601 string; one that doesn't parse shows its
@@ -3722,10 +3722,10 @@ String _formatElapsed(Duration value) {
   final minutes = (totalSeconds % 3600) ~/ 60;
   final seconds = totalSeconds % 60;
   if (hours > 0) {
-    return '${hours}h ${minutes}m';
+    return appStrings.arg1HArg2M(hours, minutes);
   }
   if (minutes > 0) {
-    return '${minutes}m ${seconds}s';
+    return appStrings.arg1MArg2S(minutes, seconds);
   }
   return '${seconds}s';
 }
@@ -3747,10 +3747,10 @@ String _formatBytes(int bytes) {
   const kb = 1024;
   const mb = kb * 1024;
   const gb = mb * 1024;
-  if (bytes >= gb) return '${(bytes / gb).toStringAsFixed(1)} GB';
-  if (bytes >= mb) return '${(bytes / mb).toStringAsFixed(1)} MB';
-  if (bytes >= kb) return '${(bytes / kb).toStringAsFixed(1)} KB';
-  return '$bytes B';
+  if (bytes >= gb) return appStrings.arg1Gb((bytes / gb).toStringAsFixed(1));
+  if (bytes >= mb) return appStrings.arg1Mb((bytes / mb).toStringAsFixed(1));
+  if (bytes >= kb) return appStrings.arg1Kb((bytes / kb).toStringAsFixed(1));
+  return appStrings.arg1B(bytes);
 }
 
 /// Monospace text for ids, logs, keys and query results.
@@ -3766,7 +3766,7 @@ TextStyle _monoStyle({double size = 12, Color? color, FontWeight? weight}) {
 String _summarizeToolArgs(dynamic raw) {
   if (raw is Map && raw.isNotEmpty) {
     final first = raw.entries.first;
-    return '${first.key}: ${first.value}'.trim();
+    return appStrings.arg1Arg24(first.key, first.value).trim();
   }
   return '';
 }
@@ -3781,10 +3781,10 @@ String _summarizeToolResult(dynamic raw) {
       final durationText = durationMs > 0
           ? ' after ${_formatDuration(durationMs)}'
           : '';
-      return 'Timed out$durationText';
+      return appStrings.timedOutArg1(durationText);
     }
     if (raw['killed'] == true) {
-      return 'Stopped before completion';
+      return appStrings.stoppedBeforeCompletion;
     }
     if (raw['error'] != null) {
       return raw['error'].toString();
@@ -3800,7 +3800,7 @@ String _summarizeToolResult(dynamic raw) {
     }
     return raw.entries
         .take(2)
-        .map((entry) => '${entry.key}: ${entry.value}')
+        .map((entry) => appStrings.arg1Arg24(entry.key, entry.value))
         .join(' • ');
   }
   final text = raw.toString();

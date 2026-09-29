@@ -18,17 +18,17 @@ extension on _AdminTab {
       case _AdminTab.users:
         return 'Users';
       case _AdminTab.server:
-        return 'Server';
+        return appStrings.server;
       case _AdminTab.providers:
-        return 'Providers';
+        return appStrings.providers;
       case _AdminTab.models:
-        return 'Models';
+        return appStrings.models;
       case _AdminTab.integrations:
-        return 'Integrations';
+        return appStrings.integrations;
       case _AdminTab.config:
         return 'Configuration';
       case _AdminTab.billing:
-        return 'Billing';
+        return appStrings.billing;
       case _AdminTab.analytics:
         return 'Analytics';
       case _AdminTab.sql:
@@ -76,7 +76,7 @@ class _AdminSearchEntry {
 
   bool matches(String query) {
     final haystack =
-        '${title.toLowerCase()} $keywords ${tab.label.toLowerCase()}';
+        appStrings.arg1Arg2Arg37(title.toLowerCase(), keywords, tab.label.toLowerCase());
     return query
         .split(RegExp(r'\s+'))
         .where((word) => word.isNotEmpty)
@@ -84,233 +84,233 @@ class _AdminSearchEntry {
   }
 }
 
-const List<_AdminSearchEntry> _adminSearchIndex = <_AdminSearchEntry>[
+List<_AdminSearchEntry> _adminSearchIndex = <_AdminSearchEntry>[
   _AdminSearchEntry(
     'Accounts',
     _AdminTab.users,
-    'users people search email username admin badge managed team',
+    appStrings.usersPeopleSearchEmailUsernameAdmin,
     card: 'Accounts',
   ),
   _AdminSearchEntry(
-    'Delete an account',
+    appStrings.deleteAnAccount,
     _AdminTab.users,
-    'remove erase gdpr user',
+    appStrings.removeEraseGdprUser,
     card: 'Accounts',
   ),
   _AdminSearchEntry(
-    'Sign out everywhere',
+    appStrings.signOutEverywhere,
     _AdminTab.users,
-    'sessions logout revoke force',
+    appStrings.sessionsLogoutRevokeForce,
     card: 'Accounts',
   ),
   _AdminSearchEntry(
-    'Per-account rate limits',
+    appStrings.perAccountRateLimits,
     _AdminTab.users,
-    'token budget limit 4 hour weekly quota user',
+    appStrings.tokenBudgetLimit4HourWeekly,
     card: 'Accounts',
   ),
   _AdminSearchEntry(
-    'Default rate limits',
+    appStrings.defaultRateLimits,
     _AdminTab.users,
-    'token budget limit 4 hour weekly quota global',
-    card: 'Default rate limits',
+    appStrings.tokenBudgetLimit4HourWeekly2,
+    card: appStrings.defaultRateLimits,
   ),
   _AdminSearchEntry(
-    'Assign a plan to an account',
+    appStrings.assignAPlanToAnAccount,
     _AdminTab.users,
-    'subscription billing override comp',
+    appStrings.subscriptionBillingOverrideComp,
     card: 'Accounts',
   ),
   _AdminSearchEntry(
-    'Access activity',
+    appStrings.accessActivity,
     _AdminTab.users,
-    'audit log admin grant revoke invite team history',
-    card: 'Access activity',
+    appStrings.auditLogAdminGrantRevokeInvite,
+    card: appStrings.accessActivity,
   ),
   _AdminSearchEntry(
-    'Version and uptime',
+    appStrings.versionAndUptime,
     _AdminTab.server,
-    'release commit branch node',
+    appStrings.releaseCommitBranchNode,
     card: 'Server',
   ),
   _AdminSearchEntry(
-    'Update the server',
+    appStrings.updateTheServer2,
     _AdminTab.server,
-    'upgrade update now release channel stable beta',
+    appStrings.upgradeUpdateNowReleaseChannelStable,
     card: 'Updates',
   ),
   _AdminSearchEntry(
-    'Health checks',
+    appStrings.healthChecks,
     _AdminTab.server,
-    'status database runtime vm providers',
-    card: 'Health checks',
+    appStrings.statusDatabaseRuntimeVmProviders,
+    card: appStrings.healthChecks,
   ),
   _AdminSearchEntry(
     'Issues',
     _AdminTab.server,
-    'errors problems failures',
+    appStrings.errorsProblemsFailures,
     card: 'Issues',
   ),
   _AdminSearchEntry(
     'Logs',
     _AdminTab.server,
-    'server output console warnings errors copy',
+    appStrings.serverOutputConsoleWarningsErrorsCopy,
     card: 'Logs',
   ),
   _AdminSearchEntry(
     'Environment',
     _AdminTab.server,
-    'port node_env public url trust proxy secure cookies deployment',
+    appStrings.portNodeEnvPublicUrlTrust,
     card: 'Environment',
   ),
   _AdminSearchEntry(
-    'AI provider keys',
+    appStrings.aiProviderKeys,
     _AdminTab.providers,
-    'api key anthropic claude openai gpt xai grok google gemini minimax nvidia nim openrouter credentials',
-    card: 'Server provider credentials',
+    appStrings.apiKeyAnthropicClaudeOpenaiGpt,
+    card: appStrings.serverProviderCredentials,
   ),
   _AdminSearchEntry(
-    'Custom OpenAI-compatible endpoint',
+    appStrings.customOpenaiCompatibleEndpoint,
     _AdminTab.providers,
-    'base url token local',
-    card: 'Server provider credentials',
+    appStrings.baseUrlTokenLocal,
+    card: appStrings.serverProviderCredentials,
   ),
   _AdminSearchEntry(
     'Ollama',
     _AdminTab.providers,
-    'local models url',
-    card: 'Server provider credentials',
+    appStrings.localModelsUrl,
+    card: appStrings.serverProviderCredentials,
   ),
   _AdminSearchEntry(
-    'Brave Search',
+    appStrings.braveSearch,
     _AdminTab.providers,
-    'web search api key',
-    card: 'Server provider credentials',
+    appStrings.webSearchApiKey,
+    card: appStrings.serverProviderCredentials,
   ),
   _AdminSearchEntry(
-    'Deepgram key',
+    appStrings.deepgramKey,
     _AdminTab.providers,
-    'voice note speech transcription api key',
-    card: 'Server provider credentials',
+    appStrings.voiceNoteSpeechTranscriptionApiKey,
+    card: appStrings.serverProviderCredentials,
   ),
   _AdminSearchEntry(
-    'GitHub Copilot and OpenAI Codex',
+    appStrings.githubCopilotAndOpenaiCodex,
     _AdminTab.providers,
-    'access token',
-    card: 'Server provider credentials',
+    appStrings.accessToken,
+    card: appStrings.serverProviderCredentials,
   ),
   _AdminSearchEntry(
-    'Jev decisions',
+    appStrings.jevDecisions,
     _AdminTab.models,
-    'jev typesafe decision model openrouter routing fast cheaper recommended',
-    card: 'Jev decisions',
+    appStrings.jevTypesafeDecisionModelOpenrouterRouting,
+    card: appStrings.jevDecisions,
   ),
   _AdminSearchEntry(
-    'Enable or disable models',
+    appStrings.enableOrDisableModels,
     _AdminTab.models,
-    'model visibility hide show list',
-    card: 'Model availability',
+    appStrings.modelVisibilityHideShowList,
+    card: appStrings.modelAvailability,
   ),
   _AdminSearchEntry(
-    'Google Workspace',
+    appStrings.googleWorkspace,
     _AdminTab.integrations,
-    'oauth client id secret redirect gmail calendar drive',
-    card: 'Google Workspace',
+    appStrings.oauthClientIdSecretRedirectGmail,
+    card: appStrings.googleWorkspace,
   ),
   _AdminSearchEntry(
-    'Microsoft 365',
+    appStrings.microsoft365,
     _AdminTab.integrations,
-    'oauth outlook tenant client id secret',
-    card: 'Microsoft 365',
+    appStrings.oauthOutlookTenantClientIdSecret,
+    card: appStrings.microsoft365,
   ),
   _AdminSearchEntry(
-    'Notion, Slack, Figma, GitHub, Spotify, Trello',
+    appStrings.notionSlackFigmaGithubSpotifyTrello,
     _AdminTab.integrations,
-    'oauth client id secret redirect api key',
-    card: 'Integration apps',
+    appStrings.oauthClientIdSecretRedirectApi,
+    card: appStrings.integrationApps,
   ),
   _AdminSearchEntry(
-    'Live voice defaults',
+    appStrings.liveVoiceDefaults,
     _AdminTab.integrations,
-    'voice call gpt-live gemini live model speech realtime',
-    card: 'Live voice',
+    appStrings.voiceCallGptLiveGeminiLive,
+    card: appStrings.liveVoice,
   ),
   _AdminSearchEntry(
     'Sign-ups',
     _AdminTab.config,
-    'registration register new accounts allow signup',
+    appStrings.registrationRegisterNewAccountsAllowSignup,
     card: 'Access',
   ),
   _AdminSearchEntry(
-    'Public URL and allowed origins',
+    appStrings.publicUrlAndAllowedOrigins,
     _AdminTab.config,
-    'cors domain https public url origins',
+    appStrings.corsDomainHttpsPublicUrlOrigins,
     card: 'General',
   ),
   _AdminSearchEntry(
-    'Secure cookies',
+    appStrings.secureCookies,
     _AdminTab.config,
-    'https session cookie',
+    appStrings.httpsSessionCookie,
     card: 'General',
   ),
   _AdminSearchEntry(
     'Meshtastic',
     _AdminTab.config,
-    'mesh radio messaging',
+    appStrings.meshRadioMessaging,
     card: 'General',
   ),
   _AdminSearchEntry(
-    'Memory ingestion interval',
+    appStrings.memoryIngestionInterval,
     _AdminTab.config,
-    'memory import sync',
+    appStrings.memoryImportSync,
     card: 'General',
   ),
   _AdminSearchEntry(
-    'Cloud computer (VM)',
+    appStrings.cloudComputerVm,
     _AdminTab.config,
-    'vm image memory cpu qemu runtime',
-    card: 'Cloud computers',
+    appStrings.vmImageMemoryCpuQemuRuntime,
+    card: appStrings.cloudComputers,
   ),
   _AdminSearchEntry(
-    'Service email (SMTP)',
+    appStrings.serviceEmailSmtp,
     _AdminTab.config,
-    'smtp mail sender password tls confirmation notifications reset',
-    card: 'Service email',
+    appStrings.smtpMailSenderPasswordTlsConfirmation,
+    card: appStrings.serviceEmail,
   ),
   _AdminSearchEntry(
-    'Stripe setup',
+    appStrings.stripeSetup,
     _AdminTab.billing,
-    'billing stripe keys webhook secret trial enable',
-    card: 'Stripe billing',
+    appStrings.billingStripeKeysWebhookSecretTrial,
+    card: appStrings.stripeBilling,
   ),
   _AdminSearchEntry(
     'Plans',
     _AdminTab.billing,
-    'pricing price subscription tiers create edit',
+    appStrings.pricingPriceSubscriptionTiersCreateEdit,
     card: 'Plans',
   ),
   _AdminSearchEntry(
     'Subscriptions',
     _AdminTab.billing,
-    'customers override plan status canceled trialing',
+    appStrings.customersOverridePlanStatusCanceledTrialing,
     card: 'Subscriptions',
   ),
   _AdminSearchEntry(
-    'Usage analytics',
+    appStrings.usageAnalytics,
     _AdminTab.analytics,
-    'stats runs tokens users charts success rate',
+    appStrings.statsRunsTokensUsersChartsSuccess,
   ),
   _AdminSearchEntry(
-    'Top users and recent runs',
+    appStrings.topUsersAndRecentRuns,
     _AdminTab.analytics,
-    'usage leaderboard',
-    card: 'Top users',
+    appStrings.usageLeaderboard,
+    card: appStrings.topUsers,
   ),
   _AdminSearchEntry(
-    'SQL console',
+    appStrings.sqlConsole,
     _AdminTab.sql,
-    'database query select csv templates',
-    card: 'SQL console',
+    appStrings.databaseQuerySelectCsvTemplates,
+    card: appStrings.sqlConsole,
   ),
 ];
 
@@ -357,15 +357,15 @@ class _AdminPanelState extends State<AdminPanel> {
     return ListView(
       padding: _pagePadding(context),
       children: <Widget>[
-        const _PageTitle(
+        _PageTitle(
           title: 'Admin',
           subtitle:
-              'Run this server: accounts, updates, providers, configuration '
-              'and billing. Team links live on the Team page.',
+              appStrings.runThisServerAccountsUpdatesProviders +
+              appStrings.andBillingTeamLinksLiveOn,
         ),
         _SearchField(
           controller: _search,
-          hintText: 'Search admin settings (e.g. Stripe, SMTP, Ollama, logs)',
+          hintText: appStrings.searchAdminSettingsEGStripe,
           onChanged: (_) => setState(() {}),
           onClear: () => setState(_search.clear),
           onSubmitted: (_) {
@@ -434,9 +434,9 @@ class _AdminSearchResults extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (results.isEmpty) {
-      return const _EmptyCard(
-        title: 'Nothing matches',
-        subtitle: 'Try a provider name, “email”, “limits”, “update” or “logs”.',
+      return _EmptyCard(
+        title: appStrings.nothingMatches,
+        subtitle: appStrings.tryAProviderNameEmailLimits,
       );
     }
     return Card(
@@ -447,8 +447,8 @@ class _AdminSearchResults extends StatelessWidget {
               (entry) => ListTile(
                 leading: Icon(entry.tab.icon, color: _accent),
                 title: Text(entry.title),
-                subtitle: Text('Admin › ${entry.tab.label}'),
-                trailing: const Icon(Icons.chevron_right),
+                subtitle: Text(appStrings.adminArg1(entry.tab.label)),
+                trailing: Icon(Icons.chevron_right),
                 onTap: () => onOpen(entry),
               ),
             )

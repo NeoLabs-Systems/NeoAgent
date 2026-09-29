@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:archive/archive_io.dart';
 
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
+
 import 'local_backend_installer_models.dart';
 
 bool isSafeRuntimeArchivePath(String value, {String basePath = ''}) {
@@ -63,9 +65,9 @@ Future<void> extractVerifiedRuntimeArchive(
       outputPath,
     ]);
     if (extracted.exitCode != 0) {
-      throw const LocalBackendInstallerException(
+      throw LocalBackendInstallerException(
         'SETUP_RUNTIME_ARCHIVE_INVALID',
-        'The NeoAgent runtime archive could not be extracted.',
+        appStrings.theNeoagentRuntimeArchiveCouldNotBe,
       );
     }
     rewriteExtractedRuntimeSymlinks(outputPath);
@@ -178,18 +180,18 @@ bool _unzipAvailable() {
 Future<void> _assertSafeZipEntryNames(String archivePath) async {
   final listed = await Process.run('unzip', <String>['-Z', '-1', archivePath]);
   if (listed.exitCode != 0) {
-    throw const LocalBackendInstallerException(
+    throw LocalBackendInstallerException(
       'SETUP_RUNTIME_ARCHIVE_INVALID',
-      'The NeoAgent runtime archive could not be read.',
+      appStrings.theNeoagentRuntimeArchiveCouldNotBe2,
       retryable: false,
     );
   }
   for (final name in LineSplitter.split(listed.stdout.toString())) {
     if (name.isEmpty) continue;
     if (!isSafeRuntimeArchivePath(name)) {
-      throw const LocalBackendInstallerException(
+      throw LocalBackendInstallerException(
         'SETUP_RUNTIME_ARCHIVE_INVALID',
-        'The NeoAgent runtime archive contains an unsafe path.',
+        appStrings.theNeoagentRuntimeArchiveContainsAnUnsafe,
         retryable: false,
       );
     }
@@ -206,9 +208,9 @@ Future<void> _extractWithArchivePackage(
     Directory(outputPath).createSync(recursive: true);
     for (final entry in archive) {
       if (!isSafeRuntimeArchivePath(entry.name)) {
-        throw const LocalBackendInstallerException(
+        throw LocalBackendInstallerException(
           'SETUP_RUNTIME_ARCHIVE_INVALID',
-          'The NeoAgent runtime archive contains an unsafe path.',
+          appStrings.theNeoagentRuntimeArchiveContainsAnUnsafe,
           retryable: false,
         );
       }
@@ -225,9 +227,9 @@ Future<void> _extractWithArchivePackage(
         );
         if (rewritten == null) {
           if (_isAbsolutePath(entry.symbolicLink ?? '')) continue;
-          throw const LocalBackendInstallerException(
+          throw LocalBackendInstallerException(
             'SETUP_RUNTIME_ARCHIVE_INVALID',
-            'The NeoAgent runtime archive contains an unsafe link.',
+            appStrings.theNeoagentRuntimeArchiveContainsAnUnsafe2,
             retryable: false,
           );
         }
