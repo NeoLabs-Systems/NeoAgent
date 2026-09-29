@@ -2,8 +2,9 @@
 
 const { getAiSettings } = require('./settings');
 const { createProviderInstance, getSupportedModels } = require('./models');
-const { getRawModelId } = require('./model_identity');
+const { getRawModelId, resolveModelSelection } = require('./model_identity');
 const { selectInitialModel } = require('./model_router');
+const { describeModelCooldowns } = require('./model_failure_cache');
 
 function buildSelection(model, userId, providerConfig) {
   return {
@@ -20,6 +21,40 @@ function reportRoutingFallback(providerConfig, route) {
     phase: 'model_fallback',
     message: `Requested model is unavailable; using ${route.model.id}.`,
   });
+}
+
+// Why an explicitly requested model was not routable: missing from the live
+// catalog, marked unavailable (provider/plan/admin), or cooling down.
+function describeUnroutableModel(models, requestedId, userId, agentId) {
+  const entry = resolveModelSelection(models, requestedId);
+  if (!entry) {
+    const providers = [...new Set(models.map((model) => model.provider))].join(',') || 'none';
+    return `not in the live catalog (catalog providers: ${providers})`;
+  }
+  const cooldowns = describeModelCooldowns(userId, agentId, entry.id);
+  if (cooldowns.length > 0) return `cooling down: ${cooldowns.join('; ')}`;
+  if (entry.available === false) {
+    return `unavailable (provider status ${entry.providerStatus || 'unknown'}`
+      + `${entry.runtimeUnavailable ? ', runtime health' : ''})`;
+  }
+  return 'excluded by routing';
+}
+
+function logRouting(models, settings, route, { userId, agentId, isSubagent, modelOverride }) {
+  const requestedId = String(
+    modelOverride
+      || (isSubagent ? settings.default_subagent_model : settings.default_chat_model)
+      || 'auto',
+  ).trim();
+  const scope = `user=${userId} agent=${agentId || 'main'}${isSubagent ? ' subagent' : ''}`;
+  if (!route.reason) {
+    console.info(`[ModelRouter] ${scope} requested=${requestedId} selected=${route.model.id}`);
+    return;
+  }
+  console.warn(
+    `[ModelRouter] ${scope} requested=${requestedId} is ${describeUnroutableModel(models, requestedId, userId, agentId)};`
+    + ` falling back to ${route.model.id}`,
+  );
 }
 
 async function getProviderForUser(
@@ -43,6 +78,7 @@ async function getProviderForUser(
     modelOverride,
     selectionHint: providerConfig.selectionHint,
   });
+  logRouting(models, settings, route, { userId, agentId, isSubagent, modelOverride });
   reportRoutingFallback(providerConfig, route);
   return buildSelection(route.model, userId, providerConfig);
 }

@@ -103,3 +103,40 @@ test('OpenAI Codex renews an expired access token once and retries the request',
     delete process.env.OPENAI_CODEX_REFRESH_TOKEN;
   }
 });
+
+test('OpenAI Codex keeps streamed tool calls when response.completed has no output', async () => {
+  const functionCall = {
+    type: 'function_call',
+    call_id: 'call_1',
+    name: 'execute_command',
+    arguments: '{"command":"date"}',
+  };
+  const events = [
+    { type: 'response.created', response: { output: [] } },
+    { type: 'response.output_item.added', output_index: 0, item: { ...functionCall, arguments: '' } },
+    { type: 'response.output_item.done', output_index: 0, item: functionCall },
+    { type: 'response.completed', response: { output: [], usage: { input_tokens: 5, output_tokens: 3, total_tokens: 8 } } },
+  ];
+  const body = events.map((event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join('');
+  const provider = new OpenAICodexProvider({
+    apiKey: 'codex-access-token',
+    fetch: async () => new Response(body, {
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+    }),
+  });
+
+  const result = await provider.chat(
+    [{ role: 'user', content: 'What time is it?' }],
+    [{ name: 'execute_command', parameters: { type: 'object', properties: {} } }],
+    { model: 'gpt-live' },
+  );
+
+  assert.deepEqual(result.toolCalls, [{
+    id: 'call_1',
+    type: 'function',
+    function: { name: 'execute_command', arguments: '{"command":"date"}' },
+  }]);
+  assert.equal(result.finishReason, 'tool_calls');
+  assert.equal(result.usage.totalTokens, 8);
+});

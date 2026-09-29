@@ -72,7 +72,8 @@ function listActiveFailures(userId, agentId, now) {
        WHERE user_id = ? AND agent_id = ? AND cooldown_until_ms <= ?`,
     ).run(userId, agentId, now);
     return db.prepare(
-      `SELECT provider_id, model_selection_id, failure_scope
+      `SELECT provider_id, model_selection_id, failure_scope, failure_class,
+              last_status, cooldown_until_ms
        FROM ai_model_health
        WHERE user_id = ? AND agent_id = ? AND cooldown_until_ms > ?`,
     ).all(userId, agentId, now);

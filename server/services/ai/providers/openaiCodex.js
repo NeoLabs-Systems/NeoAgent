@@ -237,6 +237,7 @@ function refreshSharedCodexAccessToken(staleAccessToken, fetchImpl) {
       .then(({ access, refresh }) => {
         process.env.OPENAI_CODEX_ACCESS_TOKEN = access;
         process.env.OPENAI_CODEX_REFRESH_TOKEN = refresh;
+        console.info('[OpenAICodex] Access token refreshed.');
         try {
           upsertEnvValue(ENV_FILE, 'OPENAI_CODEX_ACCESS_TOKEN', access);
           upsertEnvValue(ENV_FILE, 'OPENAI_CODEX_REFRESH_TOKEN', refresh);
@@ -581,6 +582,9 @@ class OpenAICodexProvider extends BaseProvider {
 
     let content = '';
     let finalResponse = null;
+    // The Codex backend streams each output item but sends `response.completed`
+    // with an empty `output`, so tool calls only survive if collected here.
+    const streamedOutput = [];
 
     for await (const event of stream) {
       if (event.type === 'response.output_text.delta' && typeof event.delta === 'string') {
@@ -589,12 +593,20 @@ class OpenAICodexProvider extends BaseProvider {
         continue;
       }
 
+      if (event.type === 'response.output_item.done' && event.item) {
+        streamedOutput.push(event.item);
+        continue;
+      }
+
       if (event.type === 'response.completed') {
         finalResponse = event.response;
       }
     }
 
-    const response = finalResponse || {};
+    const response = { ...(finalResponse || {}) };
+    if (!Array.isArray(response.output) || response.output.length === 0) {
+      response.output = streamedOutput;
+    }
     const toolCalls = extractToolCalls(response);
     const finalContent = extractResponseText(response) || content;
 

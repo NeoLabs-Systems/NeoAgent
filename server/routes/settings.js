@@ -547,6 +547,21 @@ router.put('/', async (req, res) => {
     Object.assign(normalizedBody, validation.settings);
   }
 
+  const previousModels = db.prepare(
+    `SELECT key, value FROM agent_settings
+     WHERE user_id = ? AND agent_id = ? AND key IN ('default_chat_model', 'default_subagent_model')`,
+  ).all(userId, agentId);
+  for (const key of ['default_chat_model', 'default_subagent_model']) {
+    if (!(key in normalizedBody)) continue;
+    const stored = previousModels.find((row) => row.key === key)?.value ?? null;
+    let previous = stored;
+    try { previous = JSON.parse(stored); } catch {}
+    const next = normalizedBody[key];
+    if (previous !== next) {
+      console.info(`[Settings] user=${userId} agent=${agentId} ${key}: ${previous} -> ${next} (client ${req.get('user-agent') || 'unknown'})`);
+    }
+  }
+
   const tx = db.transaction((entries) => {
     for (const [key, value] of entries) {
       const v = serializeRuntimeSettingValue(key, value);

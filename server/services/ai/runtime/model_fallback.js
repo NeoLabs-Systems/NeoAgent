@@ -35,6 +35,11 @@ async function getFailureFallbackModelId(
     excludedModelIds: failedModelIds,
     excludedProviderIds,
   });
+  console.warn(
+    `[ModelRouter] user=${userId} agent=${agentId || 'main'} ${currentModelId} failed`
+    + ` (${disposition?.failureClass || 'unclassified'}: ${String(failureError?.message || failureError).slice(0, 200)});`
+    + ` ${fallback ? `switching to ${fallback.id}` : 'no fallback model left'}`,
+  );
   return fallback?.id || null;
 }
 

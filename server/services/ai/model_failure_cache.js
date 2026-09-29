@@ -177,6 +177,12 @@ function recordModelFailure(userId, agentId, modelSelectionId, error, now = Date
   };
   failures.set(cacheKey(userId, agentId, providerId, healthModelId), entry);
   saveFailure(entry);
+  console.warn(
+    `[ModelHealth] ${disposition.scope === 'provider' ? `provider ${providerId}` : selectedId}`
+    + ` cooling down (${disposition.failureClass}, HTTP ${disposition.status ?? 'n/a'})`
+    + ` until ${new Date(entry.expiresAt).toISOString()}`
+    + ` user=${userId} agent=${entry.agentId}: ${String(error?.message || error).slice(0, 200)}`,
+  );
   return true;
 }
 
@@ -231,6 +237,18 @@ function getModelHealthSnapshot(userId, agentId, now = Date.now()) {
   return { modelIds, providerIds };
 }
 
+// Active cooldowns that keep this model out of routing, for diagnostics.
+function describeModelCooldowns(userId, agentId, modelSelectionId, now = Date.now()) {
+  const selectedId = String(modelSelectionId || '').trim();
+  const providerId = providerFromSelectionId(selectedId);
+  return listActiveFailures(userId, scopedAgentId(agentId), now)
+    .filter((entry) => entry.provider_id === providerId
+      && (entry.failure_scope === 'provider' || entry.model_selection_id === selectedId))
+    .map((entry) => `${entry.failure_scope === 'provider' ? `provider ${providerId}` : selectedId}`
+      + ` ${entry.failure_class} HTTP ${entry.last_status ?? 'n/a'}`
+      + ` until ${new Date(entry.cooldown_until_ms).toISOString()}`);
+}
+
 function isModelCoolingDown(userId, agentId, modelSelectionId, now = Date.now()) {
   const selectedId = String(modelSelectionId || '').trim();
   if (!selectedId) return false;
@@ -245,6 +263,7 @@ function clearModelFailureCache() {
 
 module.exports = {
   clearModelFailureCache,
+  describeModelCooldowns,
   getFailureDisposition,
   getModelHealthSnapshot,
   isModelCoolingDown,
