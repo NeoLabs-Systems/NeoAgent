@@ -1663,6 +1663,14 @@ class AppL10nDe extends AppL10n {
   String get back => 'Zurück';
 
   @override
+  String backgroundTaskCount(Object? count) {
+    return '$count im Hintergrund';
+  }
+
+  @override
+  String get backgroundTasks => 'Hintergrund-Aufgaben';
+
+  @override
   String get backOn => 'wieder eingeschaltet.';
 
   @override
@@ -4133,6 +4141,9 @@ class AppL10nDe extends AppL10n {
   String inArg1STeam(Object? arg1) {
     return 'Im Team von @$arg1';
   }
+
+  @override
+  String get inBackground => 'Hintergrund';
 
   @override
   String get inTheirSettings => 'nicht mehr ausschalten.';

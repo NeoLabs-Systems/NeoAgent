@@ -1657,6 +1657,14 @@ class AppL10nEn extends AppL10n {
   String get back => 'Back';
 
   @override
+  String backgroundTaskCount(Object? count) {
+    return '$count in the background';
+  }
+
+  @override
+  String get backgroundTasks => 'Background tasks';
+
+  @override
   String get backOn => 'back on.';
 
   @override
@@ -4092,6 +4100,9 @@ class AppL10nEn extends AppL10n {
   String inArg1STeam(Object? arg1) {
     return 'In @$arg1’s team';
   }
+
+  @override
+  String get inBackground => 'background';
 
   @override
   String get inTheirSettings => 'in their settings.';

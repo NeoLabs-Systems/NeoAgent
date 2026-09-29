@@ -397,25 +397,36 @@ class NeoAgentController extends ChangeNotifier {
     return appStrings.unknownAgent;
   }
 
+  /// Tasks still running after the server moved them off the chat; the chat
+  /// stays free while they work.
+  List<RunSummary> get backgroundTasks => recentRuns
+      .where((run) => run.isActive && run.ranInBackground)
+      .toList(growable: false);
+
+  bool get isAgentWorking => hasLiveRun || backgroundTasks.isNotEmpty;
+
   String get chatStatusLabel {
+    final backgroundCount = backgroundTasks.length;
+    final background = backgroundCount > 0
+        ? appStrings.backgroundTaskCount(backgroundCount)
+        : '';
     if (activeRun == null) {
-      return appStrings.idle;
+      return background.ifEmpty(appStrings.idle);
     }
 
-    final base = appStrings.arg1Arg2ActiveTools(
+    var label = appStrings.arg1Arg2ActiveTools(
       activeRun!.phase,
       toolEvents.where((event) => event.status == 'running').length,
     );
     if (activeRun!.pendingSteeringCount > 0) {
-      return appStrings.arg1Arg2SteeringQueued(
-        base,
+      label = appStrings.arg1Arg2SteeringQueued(
+        label,
         activeRun!.pendingSteeringCount,
       );
+    } else if (hasLiveRun) {
+      label = appStrings.arg1NewMessagesSteerThisRun(label);
     }
-    if (hasLiveRun) {
-      return appStrings.arg1NewMessagesSteerThisRun(base);
-    }
-    return base;
+    return background.isEmpty ? label : '$label · $background';
   }
 
   static String get _defaultBackendUrl {
@@ -2325,7 +2336,13 @@ class NeoAgentController extends ChangeNotifier {
 
   String? _coworkConversationId(Map<String, dynamic> payload) {
     final direct = payload['conversationId']?.toString().trim() ?? '';
-    if (direct.isNotEmpty && coworkChats.any((chat) => chat.id == direct)) {
+    // A cowork run's start names its trigger; from then on the thread is
+    // known here, even when the chat was created on another device or this
+    // client never loads the cowork chat list.
+    if (direct.isNotEmpty &&
+        (payload['triggerSource'] == 'cowork' ||
+            _coworkThreads.containsKey(direct) ||
+            coworkChats.any((chat) => chat.id == direct))) {
       return direct;
     }
     final runId = payload['runId']?.toString().trim() ?? '';
@@ -2345,6 +2362,10 @@ class NeoAgentController extends ChangeNotifier {
     if (conversationId == null) return;
     final current = coworkThreadFor(conversationId);
     final runId = payload['runId']?.toString() ?? current.activeRunId ?? '';
+    // A follow-up sent after a run committed its answer starts a new run in
+    // the same thread; the older run's end must not clear the newer one.
+    final activeRunId = current.activeRunId ?? '';
+    final supersededRun = activeRunId.isNotEmpty && runId != activeRunId;
     var next = current;
 
     switch (event) {
@@ -2568,32 +2589,39 @@ class NeoAgentController extends ChangeNotifier {
         );
       case 'complete':
         final content = payload['content']?.toString().trim() ?? '';
-        next = current.copyWith(
-          messages: content.isEmpty
-              ? current.messages
-              : <ChatEntry>[
-                  ...current.messages,
-                  ChatEntry(
-                    id: 'final-${DateTime.now().microsecondsSinceEpoch}',
-                    role: 'assistant',
-                    content: content,
-                    platform: 'cowork',
-                    runId: runId,
-                    createdAt: DateTime.now(),
-                    transient: true,
-                  ),
-                ],
-          phase: 'Completed',
-          runStatus: 'completed',
-          sending: false,
-          streamingContent: '',
-          clearActiveRunId: true,
-        );
+        final messages = content.isEmpty
+            ? current.messages
+            : <ChatEntry>[
+                ...current.messages,
+                ChatEntry(
+                  id: 'final-${DateTime.now().microsecondsSinceEpoch}',
+                  role: 'assistant',
+                  content: content,
+                  platform: 'cowork',
+                  runId: runId,
+                  createdAt: DateTime.now(),
+                  transient: true,
+                ),
+              ];
+        next = supersededRun
+            ? current.copyWith(messages: messages)
+            : current.copyWith(
+                messages: messages,
+                phase: 'Completed',
+                runStatus: 'completed',
+                sending: false,
+                streamingContent: '',
+                clearActiveRunId: true,
+              );
         unawaited(_refreshCoworkConversation(conversationId));
       case 'paused':
         next = current.copyWith(phase: 'Paused', runStatus: 'paused');
       case 'resumed':
         next = current.copyWith(phase: 'Working', runStatus: 'running');
+      case 'stopped' when supersededRun:
+        unawaited(_refreshCoworkConversation(conversationId));
+      case 'error' when supersededRun:
+        unawaited(_refreshCoworkConversation(conversationId));
       case 'stopped':
         next = current.copyWith(
           phase: 'Stopped',
@@ -8064,7 +8092,12 @@ class NeoAgentController extends ChangeNotifier {
         _voiceRunIds.add(runId);
         return;
       }
-      if (triggerSource == 'cowork' || _coworkConversationId(payload) != null) {
+      final coworkConversationId = _coworkConversationId(payload);
+      if (triggerSource == 'cowork' || coworkConversationId != null) {
+        if (coworkConversationId != null &&
+            !coworkChats.any((chat) => chat.id == coworkConversationId)) {
+          unawaited(refreshCowork(selectFirst: false));
+        }
         _updateCoworkRunEvent('start', payload);
         return;
       }
@@ -8098,6 +8131,9 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:background', (dynamic data) {
       final runId = _jsonMap(data)['runId']?.toString() ?? '';
+      // Any run moving to the background (chat or messaging) joins the
+      // background task list, which comes from the run list.
+      unawaited(refreshRunsOnly());
       if (runId.isEmpty || activeRun?.runId != runId) {
         return;
       }
@@ -8107,7 +8143,6 @@ class NeoAgentController extends ChangeNotifier {
       streamingAssistant = '';
       toolEvents = const <ToolEventItem>[];
       isSendingMessage = false;
-      unawaited(refreshRunsOnly());
       notifyListeners();
     });
     socket.on('run:phase', (dynamic data) {

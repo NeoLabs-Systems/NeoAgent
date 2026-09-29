@@ -2692,6 +2692,13 @@ class RunSummary {
 
   String get triggerLabel => triggerSource.ifEmpty('web');
 
+  /// The server moved this chat run to the background so the chat stayed free.
+  bool get ranInBackground => metadata['background'] is Map;
+
+  String get sourceLabel => ranInBackground
+      ? '$triggerLabel · ${appStrings.inBackground}'
+      : triggerLabel;
+
   String get modelLabel => model.ifEmpty(appStrings.modelPending);
 
   Duration? get duration => completedAt?.difference(createdAt);

@@ -2016,6 +2016,15 @@
   "avoidRepeatedCharactersAndObviousSequences": "Vermeiden Sie wiederholte Zeichen und offensichtliche Folgen.",
   "awaitingScan": "Warte auf Scan",
   "back": "Zurück",
+  "backgroundTaskCount": "{count} im Hintergrund",
+  "@backgroundTaskCount": {
+    "placeholders": {
+      "count": {
+        "type": "Object?"
+      }
+    }
+  },
+  "backgroundTasks": "Hintergrund-Aufgaben",
   "backOn": "wieder eingeschaltet.",
   "backToChat": "Zurück zum Chat",
   "backToFolder": "Zurück zum Ordner",
@@ -3343,6 +3352,7 @@
       }
     }
   },
+  "inBackground": "Hintergrund",
   "inTheirSettings": "nicht mehr ausschalten.",
   "incomingAndOutgoingChannelMessagesWill": "Eingehende und ausgehende Kanalnachrichten erscheinen hier.",
   "incomingInAppVoiceCallsFrom": "Eingehende In-App-Sprachanrufe von NeoAgent",

@@ -940,7 +940,7 @@ class _RunListRow extends StatelessWidget {
     }
     final details = <String>[
       if (!run.isActive) run.durationLabel,
-      run.triggerLabel,
+      run.sourceLabel,
       run.isActive
           ? run.modelLabel
           : (run.totalTokens > 0 ? '${run.totalTokensLabel} tok' : ''),
@@ -1666,7 +1666,7 @@ class _RunDetailHeader extends StatelessWidget {
             _RunStatusBadge(run: run),
             Text(
               appStrings.arg1Arg22(
-                run.triggerLabel,
+                run.sourceLabel,
                 _coworkRelativeTime(run.createdAt),
               ),
               style: TextStyle(color: _textSecondary, fontSize: 12.5),

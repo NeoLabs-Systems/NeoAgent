@@ -2477,6 +2477,18 @@ abstract class AppL10n {
   /// **'Back'**
   String get back;
 
+  /// No description provided for @backgroundTaskCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} in the background'**
+  String backgroundTaskCount(Object? count);
+
+  /// No description provided for @backgroundTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Background tasks'**
+  String get backgroundTasks;
+
   /// No description provided for @backOn.
   ///
   /// In en, this message translates to:
@@ -6664,6 +6676,12 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'In @{arg1}’s team'**
   String inArg1STeam(Object? arg1);
+
+  /// No description provided for @inBackground.
+  ///
+  /// In en, this message translates to:
+  /// **'background'**
+  String get inBackground;
 
   /// No description provided for @inTheirSettings.
   ///

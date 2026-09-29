@@ -1219,10 +1219,16 @@ class DurableRunRuntime {
         }
 
         if (run.runtimeState === RUNTIME_STATES.VERIFYING) {
-          // Follow-ups that arrived during the last turn are answered before
-          // anything is delivered: the run goes back to work through the same
-          // repair path verification uses.
-          if (hasPendingSteering(this.engine, runId)) {
+          // Follow-ups that arrived during the last turn or verification are
+          // answered before anything is delivered: the run goes back to work
+          // through the same repair path verification uses. Otherwise intake
+          // closes here, so a later follow-up starts a run of its own and never
+          // works alongside this one.
+          const resumeForSteering = () => {
+            if (!hasPendingSteering(this.engine, runId)) {
+              setSteeringIntake(this.engine, runId, false);
+              return false;
+            }
             workGraph.reopenNodes(runId, ['execute', 'verify']);
             applyTransition({
               runId,
@@ -1231,13 +1237,13 @@ class DurableRunRuntime {
               workerId,
               eventBus: this.eventBus,
             });
-            continue;
-          }
-          setSteeringIntake(this.engine, runId, false);
+            return true;
+          };
 
           // When callers explicitly skip verification (tests / trusted short runs),
           // accept the final response if content exists.
           if (options.skipVerifier === true && String(finalContent || '').trim()) {
+            if (resumeForSteering()) continue;
             for (const node of workGraph.requiredOpenNodes(runId)) {
               workGraph.completeNode(node.id, {
                 evidence: [{ summary: 'Accepted with skipVerifier', kind: 'response' }],
@@ -1419,6 +1425,7 @@ class DurableRunRuntime {
             };
           }
 
+          if (resumeForSteering()) continue;
           finalContent = verification.final_reply || finalContent;
           applyTransition({
             runId,

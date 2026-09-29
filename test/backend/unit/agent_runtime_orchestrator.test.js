@@ -2126,3 +2126,57 @@ test('a run stopped between steps reports its end to clients', async () => {
     && ['run:stopped', 'run:complete', 'run:error', 'run:interrupted'].includes(entry.event));
   assert.deepEqual(terminal.map((entry) => entry.event), ['run:stopped']);
 });
+
+test('a follow-up sent during verification is answered by the same run', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Report the appointments',
+    confidence: 0.85,
+    complexity: 'standard',
+    needs_verification: true,
+    research_depth: 'none',
+    suggested_tools: ['task_complete'],
+  });
+  engine.getAvailableTools = () => ([
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+  ]);
+  engine.executeTool = async () => ({ success: true });
+  engine.isReadOnlyToolCall = () => false;
+  let followUpSent = false;
+  engine.decide = async ({ phase, runId }) => {
+    if (phase === 'jev_verification' && !followUpSent) {
+      followUpSent = true;
+      assert.ok(engine.enqueueSteering(runId, 'Und was steht morgen an?'));
+    }
+    return null;
+  };
+  const analysisStub = engine.requestStructuredJson;
+  engine.requestStructuredJson = async (request) => (request.phase === 'verification'
+    ? { value: { status: 'verified', safe_to_deliver: true }, usage: 1 }
+    : analysisStub(request));
+  const seenUserTurns = [];
+  engine.requestModelResponse = async ({ messages, tools }) => {
+    if (!tools || tools.length === 0) {
+      return { response: { content: '', toolCalls: [], usage: {} }, streamContent: '' };
+    }
+    seenUserTurns.push(userTurns(messages));
+    return taskCompleteTurn(seenUserTurns.length === 1
+      ? 'Heute: Zahnarzt um 17:00.'
+      : 'Heute Zahnarzt um 17:00, morgen ist nichts eingetragen.');
+  };
+
+  const result = await engine.run(userId, 'Was steht heute an?', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    maxIterations: 12,
+  });
+
+  assert.equal(followUpSent, true);
+  assert.equal(result.status, 'completed');
+  assert.equal(seenUserTurns.length, 2);
+  assert.ok(seenUserTurns[1].includes('Und was steht morgen an?'));
+  assert.equal(result.content, 'Heute Zahnarzt um 17:00, morgen ist nichts eingetragen.');
+});

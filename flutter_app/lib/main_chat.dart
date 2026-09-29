@@ -656,6 +656,11 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
             tools: controller.toolEvents,
           ),
         ),
+      if (controller.backgroundTasks.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: _BackgroundTasksPanel(controller: controller),
+        ),
       if (messages.isEmpty)
         Padding(
           padding: const EdgeInsets.only(top: 24, bottom: 8),
@@ -974,7 +979,7 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
                               height: 6,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: controller.hasLiveRun
+                                color: controller.isAgentWorking
                                     ? _success
                                     : _textMuted,
                               ),
@@ -1219,10 +1224,10 @@ class _ChatTopBar extends StatelessWidget {
                 height: 7,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: controller.hasLiveRun ? _success : _accentAlt,
+                  color: controller.isAgentWorking ? _success : _accentAlt,
                   boxShadow: <BoxShadow>[
                     BoxShadow(
-                      color: (controller.hasLiveRun ? _success : _accentAlt)
+                      color: (controller.isAgentWorking ? _success : _accentAlt)
                           .withValues(alpha: 0.18),
                       blurRadius: 0,
                       spreadRadius: 3,
@@ -1232,7 +1237,7 @@ class _ChatTopBar extends StatelessWidget {
               ),
               const SizedBox(width: 7),
               Text(
-                controller.hasLiveRun ? 'live' : 'idle',
+                controller.isAgentWorking ? 'live' : 'idle',
                 style: GoogleFonts.geistMono(
                   fontSize: 12,
                   color: _textSecondary,
@@ -5211,5 +5216,92 @@ Future<void> _openGenericMessagingConfigHelper(
     for (final controller in textControllers.values) {
       controller.dispose();
     }
+  }
+}
+
+/// Tasks the server moved to the background keep working while the chat stays
+/// free. Each one can be opened in the Runs page or stopped from here.
+class _BackgroundTasksPanel extends StatefulWidget {
+  const _BackgroundTasksPanel({required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  State<_BackgroundTasksPanel> createState() => _BackgroundTasksPanelState();
+}
+
+class _BackgroundTasksPanelState extends State<_BackgroundTasksPanel> {
+  final _RunClock _clock = _RunClock();
+
+  @override
+  void dispose() {
+    _clock.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final tasks = controller.backgroundTasks;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 14, 8, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              '${appStrings.backgroundTasks} · ${tasks.length}',
+              style: GoogleFonts.geistMono(fontSize: 11.5, color: _textMuted),
+            ),
+            const SizedBox(height: 4),
+            for (final run in tasks)
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => unawaited(controller.openRunDetails(run.id)),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: <Widget>[
+                      _RunStatusGlyph(status: run.status),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          run.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                            color: _textPrimary,
+                          ),
+                        ),
+                      ),
+                      if (run.triggerLabel != 'web') ...<Widget>[
+                        const SizedBox(width: 8),
+                        Text(
+                          run.triggerLabel,
+                          style: TextStyle(fontSize: 12, color: _textMuted),
+                        ),
+                      ],
+                      const SizedBox(width: 8),
+                      _RunTimeLabel(run: run, clock: _clock),
+                      IconButton(
+                        tooltip: appStrings.stopRun,
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(
+                          Icons.stop_circle_outlined,
+                          size: 18,
+                          color: _textMuted,
+                        ),
+                        onPressed: () => unawaited(controller.stopRun(run.id)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
