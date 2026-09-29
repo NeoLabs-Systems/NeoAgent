@@ -138,6 +138,7 @@ const BUILT_IN_TOOLS = new Set([
   'list_subagents',
   'wait_subagent',
   'cancel_subagent',
+  'background_task',
   'notify_user',
   'create_task',
   'list_tasks',

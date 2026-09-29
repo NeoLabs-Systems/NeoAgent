@@ -38,6 +38,8 @@ const {
   resolveBehaviorConfig,
 } = require('../behavior');
 
+const MOVED_TO_BACKGROUND = Symbol('moved-to-background');
+
 function registerMessagingAutomation({ app, io, messagingManager, agentEngine }) {
   const userQueues = Object.create(null);
   const behaviorPipeline = app?.locals?.behaviorPipeline
@@ -430,7 +432,28 @@ async function executeQueuedMessage({
     runOptions.messagingInboundJobId = inboundJobIds[0] || null;
     runOptions.signal = signal;
 
-    const result = await agentEngine.run(userId, prompt, runOptions);
+    // A run that moves to the background frees this chat's queue: the next
+    // message gets its own run instead of waiting for this one to finish.
+    let resolveBackground;
+    const movedToBackground = new Promise((resolve) => {
+      resolveBackground = resolve;
+    });
+    runOptions.onBackground = () => resolveBackground(MOVED_TO_BACKGROUND);
+    const runPromise = agentEngine.run(userId, prompt, runOptions);
+    const result = await Promise.race([runPromise, movedToBackground]);
+    if (result === MOVED_TO_BACKGROUND) {
+      runPromise.catch((error) => reportSideEffectError('background run', error));
+      return {
+        runId,
+        result: {
+          runId,
+          status: 'background',
+          socialDecision: behaviorResult?.decision || null,
+          tokenPath: 'full_run',
+        },
+        error: null,
+      };
+    }
     return {
       runId,
       result: {

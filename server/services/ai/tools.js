@@ -1671,6 +1671,26 @@ function getAvailableTools(app, options = {}) {
         );
     }
 
+    if (options.triggerType === 'user' && (options.triggerSource === 'web' || options.triggerSource === 'messaging')) {
+        tools.splice(
+            tools.findIndex((tool) => tool.name === 'read_file'),
+            0,
+            {
+                name: 'background_task',
+                description: 'Check on, instruct, or cancel a task the user started earlier that is still running in the background. Running background tasks are listed in the conversation context.',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        action: { type: 'string', enum: ['status', 'instruct', 'cancel'], description: 'status: fresh progress (omit run_id to list all); instruct: pass a change or addition on to the task; cancel: stop the task.' },
+                        run_id: { type: 'string', description: 'run_id of the background task. Required for instruct and cancel.' },
+                        instruction: { type: 'string', description: 'For instruct: the change or addition, self-contained, with everything the task needs to apply it.' }
+                    },
+                    required: ['action']
+                }
+            }
+        );
+    }
+
     if (options.triggerSource === 'cowork' && options.triggerType !== 'subagent') {
         tools.splice(
             tools.findIndex((tool) => tool.name === 'read_file'),
@@ -3317,6 +3337,13 @@ async function executeTool(toolName, args, context, engine) {
                 return { error: `delegate_to_agent failed: ${err.message}` };
             }
         }
+
+        case 'background_task':
+            try {
+                return engine.manageBackgroundRun(runId, args);
+            } catch (err) {
+                return { error: `background_task failed: ${err.message}` };
+            }
 
         case 'list_subagents':
             try {

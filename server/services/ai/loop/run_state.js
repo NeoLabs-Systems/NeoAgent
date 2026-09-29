@@ -7,6 +7,7 @@ const { recordRunEvent } = require('../runEvents');
 const { parseMaybeJson } = require('../logFormat');
 const { mergeGoalContracts } = require('./completion_judge');
 const { buildInitialProgressLedger } = require('./progress_monitor');
+const { moveRunToBackground } = require('./background_runs');
 const { getPublicRunScope } = require('../../messaging/public_audience');
 const {
   createDeliveryState,
@@ -113,6 +114,7 @@ function markRunVisibleProgress(engine, runId, timestamp = isoNow()) {
     persist: false,
   });
   persistProgressLedger(engine, runId);
+  moveRunToBackground(engine, runId);
   return ledger;
 }
 
@@ -254,6 +256,8 @@ function findSteerableRunForUser(engine, userId, triggerSource = 'web', conversa
     userId,
     (runMeta) => runMeta.triggerSource === triggerSource
       && runMeta.triggerType === 'user'
+      && !runMeta.background
+      && !runMeta.steeringClosed
       && (!conversationId || runMeta.conversationId === conversationId)
   );
 }
@@ -261,7 +265,7 @@ function findSteerableRunForUser(engine, userId, triggerSource = 'web', conversa
 function enqueueSteering(engine, runId, content, metadata = {}) {
   const runMeta = engine.getRunMeta(runId);
   const trimmed = typeof content === 'string' ? content.trim() : '';
-  if (!runMeta || runMeta.aborted || !trimmed) return null;
+  if (!runMeta || runMeta.aborted || runMeta.steeringClosed || !trimmed) return null;
 
   const item = {
     id: uuidv4(),

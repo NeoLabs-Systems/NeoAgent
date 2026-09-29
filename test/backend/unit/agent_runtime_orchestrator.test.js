@@ -1925,3 +1925,204 @@ test('messaging final is not transmitted twice after send_message delivered it',
   ).get(result.runId);
   assert.equal(Number(finals.n), 1, 'the final delivery is still committed exactly once');
 });
+
+function taskCompleteTurn(message) {
+  return {
+    response: {
+      content: '',
+      toolCalls: [{
+        id: `done-${message.length}`,
+        type: 'function',
+        function: {
+          name: 'task_complete',
+          arguments: JSON.stringify({ message, confidence: 'high' }),
+        },
+      }],
+      usage: { total_tokens: 3 },
+    },
+    streamContent: '',
+  };
+}
+
+function createCalendarEngine() {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Report the appointments',
+    confidence: 0.85,
+    complexity: 'standard',
+    needs_verification: false,
+    research_depth: 'none',
+    suggested_tools: ['task_complete'],
+  });
+  engine.getAvailableTools = () => ([
+    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
+  ]);
+  engine.executeTool = async () => ({ success: true });
+  engine.isReadOnlyToolCall = () => false;
+  return engine;
+}
+
+function userTurns(messages) {
+  return messages.filter((message) => message.role === 'user').map((message) => message.content);
+}
+
+test('a follow-up sent during the final model turn is answered before delivery', async () => {
+  const engine = createCalendarEngine();
+  const seenUserTurns = [];
+  engine.requestModelResponse = async ({ messages, tools }) => {
+    if (!tools || tools.length === 0) {
+      return { response: { content: '', toolCalls: [], usage: {} }, streamContent: '' };
+    }
+    seenUserTurns.push(userTurns(messages));
+    if (seenUserTurns.length === 1) {
+      const active = engine.findSteerableRunForUser(userId, 'web');
+      assert.ok(engine.enqueueSteering(active.runId, 'Und was steht morgen an?'));
+      return taskCompleteTurn('Heute: Zahnarzt um 17:00.');
+    }
+    return taskCompleteTurn('Heute Zahnarzt um 17:00, morgen ist nichts eingetragen.');
+  };
+
+  const result = await engine.run(userId, 'Was steht heute an?', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    maxIterations: 12,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.equal(seenUserTurns.length, 2);
+  assert.ok(seenUserTurns[1].includes('Und was steht morgen an?'));
+  assert.equal(result.content, 'Heute Zahnarzt um 17:00, morgen ist nichts eingetragen.');
+});
+
+test('a follow-up sent after the answer is committed is refused so it starts its own run', async () => {
+  const engine = createCalendarEngine();
+  let runId = null;
+  const lateRouting = [];
+  engine.emit = (_userId, event, data) => {
+    if (event === 'run:start') runId = data.runId;
+    if (event === 'run:complete') {
+      lateRouting.push({
+        steerable: engine.findSteerableRunForUser(userId, 'web'),
+        queued: engine.enqueueSteering(runId, 'Noch eine Frage'),
+      });
+    }
+  };
+  engine.requestModelResponse = async () => taskCompleteTurn('Heute: Zahnarzt um 17:00.');
+
+  const result = await engine.run(userId, 'Was steht heute an?', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    maxIterations: 12,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.equal(lateRouting.length, 1);
+  assert.equal(lateRouting[0].steerable, null);
+  assert.equal(lateRouting[0].queued, null);
+});
+
+test('a follow-up queued before a forced wrap-up reaches the wrap-up turn', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Build the report',
+    confidence: 0.8,
+    complexity: 'standard',
+    success_criteria: ['Report written'],
+    needs_verification: false,
+    suggested_tools: ['make_report'],
+  });
+  engine.isReadOnlyToolCall = () => false;
+  engine.getAvailableTools = () => ([
+    { name: 'make_report', description: 'report', parameters: { type: 'object', properties: {} } },
+  ]);
+  let wrapUpUserTurns = null;
+  let turns = 0;
+  engine.requestModelResponse = async ({ messages, tools }) => {
+    if (!tools || tools.length === 0) {
+      wrapUpUserTurns = userTurns(messages);
+      return {
+        response: { content: 'Der Bericht ist halb fertig; die Grafik kommt als Nächstes.', toolCalls: [], usage: {} },
+        streamContent: '',
+      };
+    }
+    turns += 1;
+    if (turns === 2) {
+      const active = engine.findSteerableRunForUser(userId, 'web');
+      assert.ok(engine.enqueueSteering(active.runId, 'Bitte auch eine Grafik.'));
+    }
+    return {
+      response: {
+        content: '',
+        toolCalls: [{ id: `t${turns}`, type: 'function', function: { name: 'make_report', arguments: '{}' } }],
+        usage: { total_tokens: 2 },
+      },
+      streamContent: '',
+    };
+  };
+  let call = 0;
+  engine.executeTool = async () => {
+    call += 1;
+    return { section: call };
+  };
+
+  const result = await engine.run(userId, 'Schreib mir den Bericht', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    maxIterations: 2,
+  });
+
+  assert.equal(result.content, 'Der Bericht ist halb fertig; die Grafik kommt als Nächstes.');
+  assert.ok(wrapUpUserTurns.includes('Bitte auch eine Grafik.'));
+});
+
+test('a run stopped between steps reports its end to clients', async () => {
+  const engine = createEngine({
+    mode: 'execute',
+    draft_reply: '',
+    draft_status: 'needs_execution',
+    goal: 'Build the report',
+    confidence: 0.8,
+    complexity: 'standard',
+    needs_verification: false,
+    suggested_tools: ['make_report'],
+  });
+  engine.getAvailableTools = () => ([
+    { name: 'make_report', description: 'report', parameters: { type: 'object', properties: {} } },
+  ]);
+  engine.isReadOnlyToolCall = () => false;
+  const emitted = [];
+  engine.emit = (_userId, event, data) => emitted.push({ event, runId: data?.runId });
+  let runId = null;
+  engine.requestModelResponse = async () => ({
+    response: {
+      content: '',
+      toolCalls: [{ id: 'r1', type: 'function', function: { name: 'make_report', arguments: '{}' } }],
+      usage: { total_tokens: 2 },
+    },
+    streamContent: '',
+  });
+  engine.executeTool = async (_name, _args, context) => {
+    runId = context.runId;
+    engine.abort(runId, { userId, reason: 'Cancelled from another conversation.' });
+    return { section: 1 };
+  };
+
+  const result = await engine.run(userId, 'Schreib mir den Bericht', {
+    triggerSource: 'web',
+    stream: false,
+    skipGlobalRecall: true,
+    maxIterations: 6,
+  });
+
+  assert.equal(result.status, 'stopped');
+  const terminal = emitted.filter((entry) => entry.runId === runId
+    && ['run:stopped', 'run:complete', 'run:error', 'run:interrupted'].includes(entry.event));
+  assert.deepEqual(terminal.map((entry) => entry.event), ['run:stopped']);
+});

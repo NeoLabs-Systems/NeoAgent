@@ -1,3 +1,4 @@
+const { randomUUID } = require('crypto');
 const db = require('../db/database');
 const { sanitizeError } = require('../utils/security');
 const { asObject, toOptionalString } = require('../utils/text');
@@ -239,6 +240,9 @@ function setupWebSocket(io, services) {
 
     socket.on('agent:run', async (raw) => {
       let requestedConversationId = '';
+      // Known before the run starts so a failure is attributed to its run, not
+      // to whichever run the client currently shows.
+      let runId = null;
       const limit = allowEvent('agent:run');
       if (!limit.allowed) {
         recordRateLimitHit(rateLimitObserver, userId, socket.id, 'agent:run', limit.retryAfterMs);
@@ -393,8 +397,10 @@ function setupWebSocket(io, services) {
           .filter((m) => !(m.role === 'user' && m.content === task))
           .slice(-aiSettings.chat_history_window);
 
+        runId = randomUUID();
         const result = await agentEngine.run(userId, task, {
           ...options,
+          runId,
           agentId,
           conversationId,
           triggerSource,
@@ -430,6 +436,7 @@ function setupWebSocket(io, services) {
       } catch (err) {
         console.error(`[WS] agent:run failed for user ${userId}:`, err);
         socket.emit('run:error', {
+          runId,
           error: sanitizeError(err),
           code: err?.code,
           rateLimit: err?.rateLimit,

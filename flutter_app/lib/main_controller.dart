@@ -3,6 +3,7 @@ part of 'main.dart';
 /// Run socket events that change a run's status or recorded steps.
 const Set<String> _runActivityEvents = <String>{
   'run:start',
+  'run:background',
   'run:analysis',
   'run:plan',
   'run:tool_start',
@@ -86,6 +87,9 @@ class NeoAgentController extends ChangeNotifier {
   Timer? _qrLoginPollTimer;
   Timer? _manualRunCooldownTimer;
   final Set<String> _backgroundRunIds = <String>{};
+  // Chat runs the server moved to the background: the composer is free again,
+  // but their final answer still belongs in this chat.
+  final Set<String> _detachedChatRunIds = <String>{};
   final Set<String> _voiceRunIds = <String>{};
   final Set<String> _busyOfficialIntegrationKeys = <String>{};
   final Set<String> _busyMessagingPlatformKeys = <String>{};
@@ -8092,6 +8096,20 @@ class NeoAgentController extends ChangeNotifier {
       isSendingMessage = true;
       notifyListeners();
     });
+    socket.on('run:background', (dynamic data) {
+      final runId = _jsonMap(data)['runId']?.toString() ?? '';
+      if (runId.isEmpty || activeRun?.runId != runId) {
+        return;
+      }
+      _backgroundRunIds.add(runId);
+      _detachedChatRunIds.add(runId);
+      activeRun = null;
+      streamingAssistant = '';
+      toolEvents = const <ToolEventItem>[];
+      isSendingMessage = false;
+      unawaited(refreshRunsOnly());
+      notifyListeners();
+    });
     socket.on('run:phase', (dynamic data) {
       final payload = _jsonMap(data);
       if (_coworkConversationId(payload) != null) {
@@ -8587,6 +8605,12 @@ class NeoAgentController extends ChangeNotifier {
         notifyListeners();
         return;
       }
+      if (_detachedChatRunIds.remove(runId)) {
+        final content = payload['content']?.toString().trim() ?? '';
+        if (content.isNotEmpty) {
+          _appendAssistantChatMessage(content, platform: 'web');
+        }
+      }
       if (_backgroundRunIds.remove(runId)) {
         unawaited(refreshRunsOnly());
         unawaited(refreshMemory());
@@ -8605,8 +8629,10 @@ class NeoAgentController extends ChangeNotifier {
               : const <String, dynamic>{},
         );
       }
-      streamingAssistant = '';
-      isSendingMessage = false;
+      if (!_isNewerRunActive(runId)) {
+        streamingAssistant = '';
+        isSendingMessage = false;
+      }
       if (activeRun?.runId == runId) {
         activeRun = activeRun!.copyWith(
           phase: 'Completed',
@@ -8628,6 +8654,7 @@ class NeoAgentController extends ChangeNotifier {
       if (_voiceRunIds.remove(runId)) {
         return;
       }
+      _detachedChatRunIds.remove(runId);
       if (_backgroundRunIds.remove(runId)) {
         unawaited(refreshRunsOnly());
         unawaited(refreshMemory());
@@ -8656,6 +8683,7 @@ class NeoAgentController extends ChangeNotifier {
       if (_voiceRunIds.remove(runId)) {
         return;
       }
+      _detachedChatRunIds.remove(runId);
       if (_backgroundRunIds.remove(runId)) {
         unawaited(refreshRunsOnly());
         unawaited(refreshMemory());
@@ -8684,11 +8712,23 @@ class NeoAgentController extends ChangeNotifier {
         return;
       }
       if (runId != null) {
+        if (_detachedChatRunIds.remove(runId)) {
+          errorMessage = _friendlyErrorMessage(
+            BackendException(
+              payload['error']?.toString().trim() ??
+                  appStrings.iCouldNotCompleteThatRequest,
+            ),
+          );
+        }
         if (_backgroundRunIds.remove(runId)) {
           unawaited(refreshRunsOnly());
           notifyListeners();
           return;
         }
+      }
+      if (_isNewerRunActive(runId ?? '')) {
+        unawaited(refreshRunsOnly());
+        return;
       }
       streamingAssistant = '';
       _failedForegroundRunId =
@@ -8730,6 +8770,16 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.connect();
     _socket = socket;
+  }
+
+  // A follow-up sent while a run was finishing starts its own run; the older
+  // run's completion or error must not end the newer run's live state.
+  bool _isNewerRunActive(String runId) {
+    final current = activeRun;
+    return runId.isNotEmpty &&
+        current != null &&
+        current.runId != runId &&
+        current.runId != 'pending';
   }
 
   bool _isBackgroundRun(String triggerSource) {

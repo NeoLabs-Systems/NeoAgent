@@ -62,6 +62,7 @@ const {
   updateRunGoalContract: updateRunGoalContractImpl,
   updateRunProgress: updateRunProgressImpl,
 } = require('./run_state');
+const { manageBackgroundRun: manageBackgroundRunImpl } = require('./background_runs');
 const {
   deliverMessagingFinalFallback: deliverMessagingFinalFallbackImpl,
   shouldSendMessagingFinalFallback: shouldSendMessagingFinalFallbackImpl,
@@ -1206,6 +1207,10 @@ class AgentEngine {
 
   enqueueSystemSteering(runId, content, metadata = {}) {
     return enqueueSystemSteeringImpl(this, runId, content, metadata);
+  }
+
+  manageBackgroundRun(callerRunId, args = {}) {
+    return manageBackgroundRunImpl(this, callerRunId, args);
   }
 
   applyQueuedSystemSteering(runId, messages) {

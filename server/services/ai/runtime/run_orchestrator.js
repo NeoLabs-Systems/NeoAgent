@@ -45,6 +45,12 @@ const { getPublicRunScope } = require('../../messaging/public_audience');
 const { parseModelSelectionId } = require('../model_identity');
 const { getProviderRuntimeConfig } = require('../models');
 const { ToolRepetitionGuard } = require('../repetitionGuard');
+const {
+  announceBackgroundRunEnded,
+  buildBackgroundRunsNote,
+  isBackgroundEligible,
+  listBackgroundRuns,
+} = require('../loop/background_runs');
 const { shortenRunId, summarizeForLog } = require('../logFormat');
 const {
   recordModelFailure,
@@ -138,6 +144,18 @@ function usageTokens(usage) {
     output: Number(usage.output_tokens || usage.completion_tokens || usage.outputTokens || 0) || 0,
     total: Number(usage.total_tokens || usage.totalTokens || 0) || 0,
   };
+}
+
+// Follow-up messages are steered into a run only while it will still read
+// them. Intake closes where the run commits to its final answer; a follow-up
+// sent after that is refused and starts a run of its own.
+function setSteeringIntake(engine, runId, open) {
+  const runMeta = engine.getRunMeta(runId);
+  if (runMeta) runMeta.steeringClosed = !open;
+}
+
+function hasPendingSteering(engine, runId) {
+  return Boolean(engine.getRunMeta(runId)?.steeringQueue?.length);
 }
 
 /**
@@ -351,6 +369,14 @@ class DurableRunRuntime {
         deliveryState,
         triggerType,
         triggerSource,
+        request: String(options.context?.rawUserMessage || userMessage || '').trim().slice(0, 600),
+        backgroundEligible: isBackgroundEligible({
+          triggerType,
+          triggerSource,
+          memoryAudience: options.memoryAudience,
+        }),
+        background: null,
+        onBackground: typeof options.onBackground === 'function' ? options.onBackground : null,
         conversationId: conversationId || null,
         interactionMode,
         deviceTarget,
@@ -420,7 +446,7 @@ class DurableRunRuntime {
         // A model turn that is still streaming has produced nothing to report;
         // narrating it can only tell the user that nothing has happened.
         narrator: async ({ delta, liveness }) => (
-          this.engine.getRunMeta(runId)?.progressLedger?.currentPhase === 'model'
+          liveness?.phase === 'model_started'
           && !Number(liveness?.runningTools)
           && !delta?.evidence?.length
           && !delta?.completed_since_last_update?.length
@@ -709,6 +735,12 @@ class DurableRunRuntime {
           ].filter(Boolean).join('\n'),
         });
       }
+      const backgroundRuns = this.engine.getRunMeta(runId)?.backgroundEligible
+        ? listBackgroundRuns(this.engine, { userId, agentId, excludeRunId: runId })
+        : [];
+      if (backgroundRuns.length > 0) {
+        messages.push({ role: 'system', content: buildBackgroundRunsNote(backgroundRuns) });
+      }
       messages.push(this.engine.buildUserMessage(userMessage, options));
       messages = sanitizeConversationMessages(messages);
 
@@ -903,6 +935,7 @@ class DurableRunRuntime {
         ...matchedToolNames,
         ...(suggestsCoreFileWork(matchedToolNames) ? ['execute_command'] : []),
         ...preferredNeoRecallTools,
+        ...(backgroundRuns.length > 0 ? ['background_task'] : []),
       ])];
       tools = selectInitialTools(
         allTools,
@@ -952,10 +985,13 @@ class DurableRunRuntime {
       const fastGate = evaluateFastPathEligibility(contract, { draftReply, analysis });
       const directEligible = isDirectAnswerEligibleAnalysis(analysis)
         && Boolean(normalizeOutgoingMessage(draftReply));
-      const attemptedFastPath = fastGate.eligible && directEligible;
+      const attemptedFastPath = fastGate.eligible
+        && directEligible
+        && !hasPendingSteering(this.engine, runId);
 
       if (attemptedFastPath) {
         path = 'fast';
+        setSteeringIntake(this.engine, runId, false);
         applyTransition({
           runId,
           toState: RUNTIME_STATES.RESPONDING,
@@ -1021,6 +1057,7 @@ class DurableRunRuntime {
           };
         }
         path = 'durable';
+        setSteeringIntake(this.engine, runId, true);
       }
 
       await maybeAck(
@@ -1182,6 +1219,22 @@ class DurableRunRuntime {
         }
 
         if (run.runtimeState === RUNTIME_STATES.VERIFYING) {
+          // Follow-ups that arrived during the last turn are answered before
+          // anything is delivered: the run goes back to work through the same
+          // repair path verification uses.
+          if (hasPendingSteering(this.engine, runId)) {
+            workGraph.reopenNodes(runId, ['execute', 'verify']);
+            applyTransition({
+              runId,
+              toState: RUNTIME_STATES.REPAIRING,
+              reason: 'steering_pending',
+              workerId,
+              eventBus: this.eventBus,
+            });
+            continue;
+          }
+          setSteeringIntake(this.engine, runId, false);
+
           // When callers explicitly skip verification (tests / trusted short runs),
           // accept the final response if content exists.
           if (options.skipVerifier === true && String(finalContent || '').trim()) {
@@ -1587,6 +1640,7 @@ class DurableRunRuntime {
         }
 
         // Steering
+        setSteeringIntake(this.engine, runId, true);
         const steered = this.engine.applyQueuedSteering?.(runId, messages, {
           userId,
           conversationId,
@@ -2679,7 +2733,13 @@ class DurableRunRuntime {
       } catch {
         // ignore
       }
+      const endedRunMeta = this.engine.getRunMeta(runId);
       this.engine.activeRuns.delete(runId);
+      announceBackgroundRunEnded(this.engine, runId, endedRunMeta);
+      // Sub-agents report only to their parent; once it ends nothing reads them.
+      this.engine.cleanupSubagentsForRun(runId).catch((error) => {
+        console.warn('[Runtime] Sub-agent cleanup failed:', error?.message || error);
+      });
       detachExternalAbort?.();
       releaseReservation();
     }
@@ -2696,6 +2756,7 @@ class DurableRunRuntime {
     totalTokens,
     asError = false,
   }) {
+    setSteeringIntake(this.engine, runId, false);
     const channel = resolveDeliveryChannel(triggerSource);
     const recipient = resolveDeliveryRecipient(triggerSource, options);
     const result = await requestFinalDelivery({
@@ -2913,6 +2974,13 @@ class DurableRunRuntime {
     userId,
     agentId,
   }) {
+    // The wrap-up is the run's last model turn, so it must see any follow-up
+    // still waiting; nothing sent after this point can reach this run.
+    setSteeringIntake(this.engine, runId, false);
+    this.engine.applyQueuedSteering?.(runId, messages, {
+      userId,
+      conversationId: options?.conversationId || null,
+    });
     const snap = workingMemory.snapshot();
     const open = evaluateOpenObligations(contract, {
       completedNodeKeys: workGraph.listNodes(runId)
@@ -3207,6 +3275,14 @@ class DurableRunRuntime {
         reason: 'cancelled',
         eventBus: this.eventBus,
         patch: { totalTokens },
+      });
+    }
+    // A stop noticed between steps ends here instead of in the abort handler,
+    // so clients still need the terminal event.
+    if (run) {
+      this.engine.emit(run.userId, 'run:stopped', {
+        runId,
+        conversationId: this.engine.getRunMeta(runId)?.conversationId || null,
       });
     }
     return {
