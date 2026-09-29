@@ -33,7 +33,7 @@ test('agent loop policy keeps stall controls but retires productivity budgets', 
   assert.equal(Object.hasOwn(defaults, 'max_model_failure_recoveries'), false);
   assert.equal(Object.hasOwn(defaults, 'compaction_threshold'), false);
   assert.equal(Object.hasOwn(defaults, 'subagent_max_iterations'), false);
-  assert.equal(buildLoopPolicy(defaults, 'tasks', 'execute').maxIterations, 5000);
+  assert.equal(buildLoopPolicy(defaults).maxIterations, 5000);
 
   const upsert = ctx.db.prepare(
     `INSERT INTO agent_settings (user_id, agent_id, key, value)
@@ -54,9 +54,9 @@ test('agent loop policy keeps stall controls but retires productivity budgets', 
   assert.equal(settings.max_consecutive_tool_failures, 50);
   assert.equal(settings.tool_replay_budget_file_chars, 750);
 
-  const policy = buildLoopPolicy(settings, 'messaging', 'execute');
+  const policy = buildLoopPolicy(settings);
   assert.equal(policy.maxIterations, 5000);
-  assert.equal(policy.maxConsecutiveReadOnlyIterations, 3);
-  assert.equal(policy.maxConsecutiveToolFailures, 50);
+  assert.equal(policy.maxIdleTurns, 3);
+  assert.equal(policy.maxFailedTurns, 50);
   assert.equal(policy.toolResultBudget.file, 750);
 });

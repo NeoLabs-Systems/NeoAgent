@@ -50,7 +50,35 @@ before(async () => {
 
 after(() => teardownTestRuntime(ctx));
 
-function createEngine(analysis) {
+
+const EMPTY_SCHEMA = { type: 'object', properties: {} };
+
+function tool(name, description = name, parameters = EMPTY_SCHEMA) {
+  return { name, description, parameters };
+}
+
+// Enough unrelated tools that the catalog exceeds the schema cap, so the run
+// has to choose which tools start active.
+function fillerTools(count = 25) {
+  return Array.from({ length: count }, (_, index) => tool(`filler_${index}`, `Unrelated capability ${index}`));
+}
+
+function answer(content) {
+  return { response: { content, toolCalls: [], usage: { total_tokens: 3 } }, streamContent: content };
+}
+
+function toolCall(name, args = {}, id = `${name}-${Math.random()}`, content = '') {
+  return {
+    response: {
+      content,
+      toolCalls: [{ id, type: 'function', function: { name, arguments: JSON.stringify(args) } }],
+      usage: { total_tokens: 3 },
+    },
+    streamContent: content,
+  };
+}
+
+function createEngine(reply = 'fallback') {
   const engine = new AgentEngine(null);
   engine.emit = () => {};
   engine.buildSystemPrompt = async () => 'system';
@@ -59,40 +87,20 @@ function createEngine(analysis) {
   engine.buildUserMessage = (message) => ({ role: 'user', content: message });
   engine.getAvailableTools = () => [];
   engine.getReasoningEffort = () => undefined;
-  engine.requestStructuredJson = async ({ normalize, fallback }) => ({
-    value: normalize(analysis, fallback || {}),
-    raw: JSON.stringify(analysis),
-    usage: 8,
-  });
-  engine.requestModelResponse = async () => ({
-    response: {
-      content: analysis.draft_reply || 'fallback',
-      toolCalls: [],
-      usage: { total_tokens: 4 },
-    },
-    streamContent: analysis.draft_reply || 'fallback',
-  });
+  // Every run is one loop: nothing asks a model for structured routing first.
+  engine.requestStructuredJson = async () => {
+    throw new Error('a run must not make a structured pre-pass model call');
+  };
+  engine.requestModelResponse = async () => answer(reply);
   return engine;
 }
 
-test('ordinary chat completes from one analyzed response without entering execution', async () => {
-  const analysis = {
-    mode: 'direct_answer',
-    draft_reply: 'Hello!',
-    draft_status: 'final',
-    goal: 'Greet the user',
-    confidence: 0.96,
-    complexity: 'simple',
-    autonomy_level: 'minimal',
-    progress_update_policy: 'none',
-    research_depth: 'none',
-    needs_verification: false,
-    success_criteria: ['Friendly greeting'],
-    suggested_tools: [],
-  };
-  const engine = createEngine(analysis);
-  let structuredCalls = 0;
-  let executionCalls = 0;
+function userTurns(messages) {
+  return messages.filter((message) => message.role === 'user').map((message) => message.content);
+}
+
+test('a plain answer ends the run in one model turn, with no model call before it', async () => {
+  const engine = createEngine();
   const learningInputs = [];
   engine.skillLearningService = {
     enqueueCompletedRun(input) {
@@ -100,17 +108,11 @@ test('ordinary chat completes from one analyzed response without entering execut
       return Promise.resolve(null);
     },
   };
-  engine.requestStructuredJson = async ({ normalize, fallback }) => {
-    structuredCalls += 1;
-    return {
-      value: normalize(analysis, fallback),
-      raw: JSON.stringify(analysis),
-      usage: 4,
-    };
-  };
-  engine.requestModelResponse = async () => {
-    executionCalls += 1;
-    throw new Error('direct answers must not enter the execution loop');
+  const calls = [];
+  engine.getAvailableTools = () => [tool('web_search')];
+  engine.requestModelResponse = async ({ tools, options }) => {
+    calls.push({ tools: tools.map((entry) => entry.name), phase: options.phase || null });
+    return answer('Hello!');
   };
 
   const result = await engine.run(userId, 'hi', {
@@ -120,11 +122,9 @@ test('ordinary chat completes from one analyzed response without entering execut
   });
 
   assert.equal(result.status, 'completed');
-  assert.equal(result.path, 'fast');
   assert.equal(result.content, 'Hello!');
   assert.equal(result.iterations, 1);
-  assert.equal(structuredCalls, 1);
-  assert.equal(executionCalls, 0);
+  assert.deepEqual(calls, [{ tools: ['web_search'], phase: null }]);
 
   const row = ctx.db.prepare(
     'SELECT status, runtime_state, final_delivery_id, final_response FROM agent_runs WHERE id = ?',
@@ -146,28 +146,13 @@ test('ordinary chat completes from one analyzed response without entering execut
   assert.equal(learningInputs[0].task, 'hi');
   assert.equal(learningInputs[0].taskId, null);
   assert.equal(learningInputs[0].finalContent, 'Hello!');
-
 });
 
 test('completed conversations queue source-grounded learning instead of run receipts', async () => {
   const conversationId = `learning-${Date.now()}`;
   ctx.db.prepare('INSERT INTO conversations (id, user_id) VALUES (?, ?)')
     .run(conversationId, userId);
-  const analysis = {
-    mode: 'direct_answer',
-    draft_reply: 'Use the existing release checklist.',
-    draft_status: 'final',
-    goal: 'Answer with the preferred workflow',
-    confidence: 0.98,
-    complexity: 'simple',
-    autonomy_level: 'minimal',
-    progress_update_policy: 'none',
-    research_depth: 'none',
-    needs_verification: false,
-    success_criteria: ['Answer directly'],
-    suggested_tools: [],
-  };
-  const engine = createEngine(analysis);
+  const engine = createEngine('Use the existing release checklist.');
   engine.memoryManager = {};
   const learningInputs = [];
   engine.refreshConversationState = async (input) => {
@@ -202,20 +187,7 @@ test('messaging turns are stored without the per-turn routing envelope', async (
   const conversationId = `messaging-${Date.now()}`;
   ctx.db.prepare('INSERT INTO conversations (id, user_id) VALUES (?, ?)')
     .run(conversationId, userId);
-  const engine = createEngine({
-    mode: 'direct_answer',
-    draft_reply: 'kurz und schmerzlos.',
-    draft_status: 'final',
-    goal: 'Answer the message',
-    confidence: 0.97,
-    complexity: 'simple',
-    autonomy_level: 'minimal',
-    progress_update_policy: 'none',
-    research_depth: 'none',
-    needs_verification: false,
-    success_criteria: ['Reply on whatsapp'],
-    suggested_tools: [],
-  });
+  const engine = createEngine('kurz und schmerzlos.');
   const { buildIncomingPrompt } = require('../../../server/services/messaging/automation');
   const msg = {
     platform: 'whatsapp',
@@ -252,21 +224,8 @@ test('messaging turns are stored without the per-turn routing envelope', async (
   assert.ok(stored.content.length < envelope.length / 4);
 });
 
-test('voice uses the same one-turn loop and canonical outbox adapter', async () => {
-  const engine = createEngine({
-    mode: 'direct_answer',
-    draft_reply: 'The shared runtime handled this.',
-    draft_status: 'final',
-    goal: 'Answer the caller',
-    confidence: 0.98,
-    complexity: 'simple',
-    autonomy_level: 'minimal',
-    progress_update_policy: 'none',
-    research_depth: 'none',
-    needs_verification: false,
-    success_criteria: ['Accurate answer'],
-    suggested_tools: [],
-  });
+test('voice uses the same loop and the canonical outbox adapter', async () => {
+  const engine = createEngine('The shared runtime handled this.');
   const deliveries = [];
   engine.voiceRuntimeManager = {
     async presentDelivery(entry) {
@@ -286,7 +245,6 @@ test('voice uses the same one-turn loop and canonical outbox adapter', async () 
     skipGlobalRecall: true,
   });
 
-  assert.equal(result.path, 'fast');
   assert.equal(result.content, 'The shared runtime handled this.');
   assert.equal(deliveries.length, 1);
   assert.equal(deliveries[0].channel, 'voice_live');
@@ -303,95 +261,11 @@ test('voice uses the same one-turn loop and canonical outbox adapter', async () 
   assert.equal(finals.status, 'delivered');
   assert.equal(Number(finals.n), 1);
 
-  const run = ctx.db.prepare(
-    'SELECT metadata_json FROM agent_runs WHERE id = ?',
-  ).get(result.runId);
+  const run = ctx.db.prepare('SELECT metadata_json FROM agent_runs WHERE id = ?').get(result.runId);
   const metadata = JSON.parse(run.metadata_json);
-  assert.deepEqual(metadata.sessionBinding, {
-    sessionId: 'voice-session-fast',
-    turnId: 'turn-fast',
-  });
+  assert.deepEqual(metadata.sessionBinding, { sessionId: 'voice-session-fast', turnId: 'turn-fast' });
   assert.equal(metadata.latencyPriority, 'interactive');
-  assert.equal(metadata.provider, undefined);
-  assert.equal(metadata.mediaMode, undefined);
 });
-
-test('durable path creates task contract and work graph', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Inspect the runtime and report findings',
-    confidence: 0.8,
-    complexity: 'standard',
-    autonomy_level: 'normal',
-    progress_update_policy: 'required',
-    research_depth: 'light',
-    research_targets: ['runtime'],
-    needs_verification: true,
-    success_criteria: ['Findings grounded in inspection'],
-    suggested_tools: ['read_file'],
-  });
-
-  // Force a short durable loop that ends via partial delivery by answering with text only.
-  engine.requestModelResponse = async () => ({
-    response: {
-      content: 'I inspected the modules and the orchestrator owns final delivery.',
-      toolCalls: [],
-      usage: { total_tokens: 12 },
-    },
-    streamContent: 'I inspected the modules and the orchestrator owns final delivery.',
-  });
-  engine.getAvailableTools = () => ([{
-    name: 'read_file',
-    description: 'Read a file',
-    parameters: { type: 'object', properties: { path: { type: 'string' } } },
-  }]);
-
-  // Cap iterations hard through options so the durable path must terminate.
-  const result = await engine.run(userId, 'Inspect the runtime and report findings', {
-    triggerSource: 'web',
-    stream: false,
-    skipGlobalRecall: true,
-    maxIterations: 3,
-  });
-
-  assert.ok(result.runId);
-  assert.ok(['completed', 'failed', 'stopped'].includes(result.status));
-
-  const contracts = ctx.db.prepare(
-    'SELECT COUNT(*) AS n FROM agent_task_contracts WHERE run_id = ?',
-  ).get(result.runId);
-  assert.ok(Number(contracts.n) >= 1);
-
-  const nodes = ctx.db.prepare(
-    'SELECT COUNT(*) AS n FROM agent_work_nodes WHERE run_id = ?',
-  ).get(result.runId);
-  assert.ok(Number(nodes.n) >= 1);
-
-  const events = ctx.db.prepare(
-    'SELECT COUNT(*) AS n FROM agent_run_events WHERE run_id = ?',
-  ).get(result.runId);
-  assert.ok(Number(events.n) >= 1);
-});
-
-function contextRecoveryAnalysis() {
-  return {
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Finish after recovering context pressure',
-    confidence: 0.9,
-    complexity: 'standard',
-    autonomy_level: 'normal',
-    progress_update_policy: 'none',
-    research_depth: 'none',
-    needs_verification: false,
-    verification_need: 'none',
-    success_criteria: ['Return the grounded result'],
-    suggested_tools: [],
-  };
-}
 
 function installPriorTurns(engine) {
   engine.buildContextMessages = (system, summary, history, recall) => [
@@ -409,24 +283,15 @@ function installPriorTurns(engine) {
 }
 
 test('provider context overflow compacts and retries the same model call once', async () => {
-  const engine = createEngine(contextRecoveryAnalysis());
+  const engine = createEngine();
   const priorMessages = installPriorTurns(engine);
   let normalCalls = 0;
   let compactionCalls = 0;
   let recoveredMessages = [];
-  engine.requestModelResponse = async ({ messages, options, iteration }) => {
+  engine.requestModelResponse = async ({ messages, options }) => {
     if (options.phase === 'context_compaction') {
       compactionCalls += 1;
-      return {
-        response: { content: 'Older context summarized.', toolCalls: [], usage: { total_tokens: 3 } },
-        streamContent: 'Older context summarized.',
-      };
-    }
-    if (iteration === 0) {
-      return {
-        response: { content: 'Partial result.', toolCalls: [], usage: { total_tokens: 3 } },
-        streamContent: 'Partial result.',
-      };
+      return answer('Older context summarized.');
     }
     normalCalls += 1;
     if (normalCalls === 1) {
@@ -435,10 +300,7 @@ test('provider context overflow compacts and retries the same model call once', 
       throw error;
     }
     recoveredMessages = messages;
-    return {
-      response: { content: 'Recovered final answer.', toolCalls: [], usage: { total_tokens: 4 } },
-      streamContent: 'Recovered final answer.',
-    };
+    return answer('Recovered final answer.');
   };
 
   const result = await engine.run(userId, 'Current unfinished turn.', {
@@ -450,7 +312,8 @@ test('provider context overflow compacts and retries the same model call once', 
   });
 
   assert.equal(result.status, 'completed');
-  assert.ok(normalCalls >= 2);
+  assert.equal(result.content, 'Recovered final answer.');
+  assert.equal(normalCalls, 2);
   assert.ok(compactionCalls >= 1);
   assert.ok(recoveredMessages.some((message) => (
     message.role === 'system'
@@ -463,23 +326,13 @@ test('provider context overflow compacts and retries the same model call once', 
   assert.equal(Number(recoveryEvents.count), 1);
 });
 
-test('repeated overflow returns an honest partial result without provider fallback', async () => {
-  const engine = createEngine(contextRecoveryAnalysis());
+test('repeated overflow ends in a model-written wrap-up without provider fallback', async () => {
+  const engine = createEngine();
   const priorMessages = installPriorTurns(engine);
   let normalCalls = 0;
-  engine.requestModelResponse = async ({ options, iteration }) => {
-    if (options.phase === 'context_compaction') {
-      return {
-        response: { content: 'Older context summarized.', toolCalls: [], usage: { total_tokens: 3 } },
-        streamContent: 'Older context summarized.',
-      };
-    }
-    if (iteration === 0) {
-      return {
-        response: { content: 'I could not safely fit more context; this is a partial result.', toolCalls: [], usage: { total_tokens: 3 } },
-        streamContent: 'I could not safely fit more context; this is a partial result.',
-      };
-    }
+  engine.requestModelResponse = async ({ options }) => {
+    if (options.phase === 'context_compaction') return answer('Older context summarized.');
+    if (options.phase === 'wrap_up') return answer('I could not safely fit more context; this is a partial result.');
     normalCalls += 1;
     const error = new Error('prompt is too long for this context window');
     error.code = 'context_overflow';
@@ -497,79 +350,22 @@ test('repeated overflow returns an honest partial result without provider fallba
   assert.equal(result.status, 'completed');
   assert.equal(normalCalls, 2);
   assert.match(result.content, /partial result/i);
-  const exhaustedEvents = ctx.db.prepare(
-    `SELECT COUNT(*) AS count FROM agent_run_events
-     WHERE run_id = ? AND event_type = 'context.overflow_exhausted'`,
-  ).get(result.runId);
-  assert.equal(Number(exhaustedEvents.count), 1);
 });
 
-test('schedule background run keeps tool_calls.function across turns', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Calendar reminder',
-    confidence: 0.8,
-  });
-
+test('a background send the model marks final is the answer, and tool calls keep their wire shape', async () => {
+  const engine = createEngine();
   let modelTurns = 0;
   const toolContexts = [];
-  engine.requestModelResponse = async ({ messages }) => {
+  engine.requestModelResponse = async () => {
     modelTurns += 1;
-    // Second turn must still see OpenAI-shaped tool_calls from history.
-    if (modelTurns >= 2) {
-      const priorAssistant = [...messages].reverse().find(
-        (m) => m.role === 'assistant' && Array.isArray(m.tool_calls) && m.tool_calls.length,
-      );
-      assert.ok(priorAssistant, 'expected prior assistant tool call history');
-      assert.ok(
-        priorAssistant.tool_calls.every((tc) => tc?.function?.name),
-        'tool_calls must keep function.name for provider conversion',
-      );
-      return {
-        response: {
-          content: '',
-          toolCalls: [{
-            id: 'c2',
-            type: 'function',
-            function: {
-              name: 'task_complete',
-              arguments: JSON.stringify({ message: 'Reminder sent', confidence: 'high' }),
-            },
-          }],
-          usage: { total_tokens: 6 },
-        },
-        streamContent: '',
-      };
-    }
-    return {
-      response: {
-        content: '',
-        toolCalls: [{
-          id: 'c1',
-          type: 'function',
-          function: {
-            name: 'send_message',
-            arguments: JSON.stringify({
-              platform: 'telegram',
-              to: '1',
-              content: 'Meeting in 1 hour',
-              purpose: 'final_result',
-            }),
-          },
-        }],
-        usage: { total_tokens: 8 },
-      },
-      streamContent: '',
-    };
+    return toolCall('send_message', {
+      platform: 'telegram',
+      to: '1',
+      content: 'Meeting in 1 hour',
+      purpose: 'final_result',
+    }, 'c1');
   };
-  engine.getAvailableTools = () => ([
-    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-    { name: 'send_message', description: 'send', parameters: { type: 'object', properties: {} } },
-    { name: 'activate_tools', description: 'act', parameters: { type: 'object', properties: {} } },
-    { name: 'think', description: 'think', parameters: { type: 'object', properties: {} } },
-  ]);
+  engine.getAvailableTools = () => [tool('send_message'), tool('activate_tools'), tool('think')];
   engine.executeTool = async (name, args, context) => {
     toolContexts.push({ name, args, context });
     if (name === 'send_message' && context.stageProactiveMessages) {
@@ -608,7 +404,6 @@ test('schedule background run keeps tool_calls.function across turns', async () 
     stream: false,
     skipGlobalRecall: true,
     skipConversationHistory: true,
-    skipVerifier: true,
     maxIterations: 4,
     bypassUserRateLimits: true,
     deliveryState,
@@ -617,39 +412,25 @@ test('schedule background run keeps tool_calls.function across turns', async () 
   });
 
   assert.equal(result.status, 'completed');
-  assert.ok(modelTurns >= 1, 'expected at least one model turn');
-  assert.ok(toolContexts.some((c) => c.name === 'send_message'));
-  const sendCtx = toolContexts.find((c) => c.name === 'send_message');
+  assert.equal(modelTurns, 1, 'a send the model marked final needs no further turn');
+  assert.equal(result.content, 'Meeting in 1 hour');
+  const sendCtx = toolContexts.find((entry) => entry.name === 'send_message');
   assert.equal(sendCtx.context.stageProactiveMessages, true);
   assert.equal(sendCtx.context.taskId, 'task-1');
   assert.equal(sendCtx.context.deliveryState, deliveryState);
-  assert.equal(deliveryState.proactiveMessageStaged, true);
   assert.equal(deliveryState.stagedProactiveMessage.content, 'Meeting in 1 hour');
-  // Final content must use send_message `content` (not only message/text aliases).
-  assert.match(String(result.content || ''), /Meeting in 1 hour|Reminder sent/);
-  // Hard-coded ack must not be emitted for schedule automation.
+  // Background automation never gets an opening line.
   const acks = ctx.db.prepare(
-    `SELECT COUNT(*) AS n FROM agent_outbox
-     WHERE run_id = ? AND message_kind = 'ack'`,
+    `SELECT COUNT(*) AS n FROM agent_outbox WHERE run_id = ? AND message_kind = 'ack'`,
   ).get(result.runId);
   assert.equal(Number(acks.n), 0);
   assert.equal(taskLearningInputs.length, 1);
-  assert.equal(taskLearningInputs[0].runId, result.runId);
   assert.equal(taskLearningInputs[0].taskId, 'task-1');
   assert.equal(taskLearningInputs[0].triggerType, 'schedule');
 });
 
 test('tool execution preserves mutation barriers and model-order results', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Read, update, then verify a file',
-    confidence: 0.9,
-    suggested_tools: ['read_before', 'write_middle', 'read_after'],
-    needs_verification: false,
-  });
-
+  const engine = createEngine();
   const trace = [];
   let modelTurn = 0;
   engine.requestModelResponse = async ({ messages }) => {
@@ -668,30 +449,17 @@ test('tool execution preserves mutation barriers and model-order results', async
         streamContent: '',
       };
     }
-
     const toolResultIds = messages
       .filter((message) => message.role === 'tool')
       .map((message) => message.tool_call_id);
     assert.deepEqual(toolResultIds.slice(-3), ['read-1', 'write-1', 'read-2']);
-    return {
-      response: {
-        content: '',
-        toolCalls: [{
-          id: 'done',
-          type: 'function',
-          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Verified.' }) },
-        }],
-        usage: { total_tokens: 3 },
-      },
-      streamContent: '',
-    };
+    // Earlier assistant tool calls keep function.name so every provider can
+    // convert the history.
+    const priorAssistant = messages.find((message) => Array.isArray(message.tool_calls));
+    assert.ok(priorAssistant.tool_calls.every((call) => call?.function?.name));
+    return answer('Verified.');
   };
-  engine.getAvailableTools = () => ([
-    { name: 'read_before', description: 'read', parameters: { type: 'object', properties: {} } },
-    { name: 'write_middle', description: 'write', parameters: { type: 'object', properties: {} } },
-    { name: 'read_after', description: 'read', parameters: { type: 'object', properties: {} } },
-    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-  ]);
+  engine.getAvailableTools = () => [tool('read_before'), tool('write_middle'), tool('read_after')];
   engine.isReadOnlyToolCall = (call) => String(call?.function?.name || '').startsWith('read_');
   engine.executeTool = async (name) => {
     trace.push(`${name}:start`);
@@ -705,12 +473,12 @@ test('tool execution preserves mutation barriers and model-order results', async
     interactionMode: 'agent',
     stream: false,
     skipGlobalRecall: true,
-    skipVerifier: true,
     maxIterations: 4,
   });
 
   assert.equal(result.status, 'completed');
-  assert.deepEqual(trace.slice(0, 6), [
+  assert.equal(result.content, 'Verified.');
+  assert.deepEqual(trace, [
     'read_before:start',
     'read_before:end',
     'write_middle:start',
@@ -720,91 +488,49 @@ test('tool execution preserves mutation barriers and model-order results', async
   ]);
 });
 
-test('task_complete message field becomes final content', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Say done',
-    confidence: 0.9,
-  });
-  engine.requestModelResponse = async () => ({
-    response: {
-      content: '',
-      toolCalls: [{
-        id: 'tc1',
-        type: 'function',
-        function: {
-          name: 'task_complete',
-          arguments: JSON.stringify({ message: 'All calendar items reviewed.', confidence: 'high' }),
-        },
-      }],
-      usage: { total_tokens: 4 },
-    },
-    streamContent: '',
-  });
-  engine.getAvailableTools = () => ([
-    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-  ]);
-  engine.executeTool = async () => ({ success: true });
-  engine.isReadOnlyToolCall = () => false;
+test('the answer after tool work is what the user gets, and every turn keeps the system prompt', async () => {
+  const engine = createEngine();
+  engine.buildSystemPrompt = async () => 'AGENT_SYSTEM_PROMPT_MARKER';
+  engine.getAvailableTools = () => [tool('read_file')];
+  const sawSystemPrompt = [];
+  let modelTurns = 0;
+  engine.requestModelResponse = async ({ messages }) => {
+    modelTurns += 1;
+    sawSystemPrompt.push(messages.some((msg) => String(msg.content || '').includes('AGENT_SYSTEM_PROMPT_MARKER')));
+    return modelTurns === 1 ? toolCall('read_file', { path: 'a.txt' }, 'r1') : answer('File read.');
+  };
+  engine.executeTool = async () => ({ content: 'hello' });
+  engine.isReadOnlyToolCall = () => true;
 
-  const result = await engine.run(userId, 'Review calendar', {
+  const result = await engine.run(userId, 'Read a.txt', {
     triggerSource: 'web',
     stream: false,
     skipGlobalRecall: true,
-    skipVerifier: true,
-    maxIterations: 3,
+    maxIterations: 4,
   });
 
   assert.equal(result.status, 'completed');
-  assert.match(String(result.content || ''), /All calendar items reviewed/);
+  assert.equal(result.content, 'File read.');
+  assert.equal(result.iterations, 2);
+  assert.deepEqual(sawSystemPrompt, [true, true]);
+  const steps = ctx.db.prepare(
+    'SELECT tool_name, status, tool_input FROM agent_steps WHERE run_id = ? ORDER BY step_index ASC',
+  ).all(result.runId);
+  assert.deepEqual(steps.map((step) => step.tool_name), ['read_file']);
+  assert.equal(steps[0].status, 'completed');
+  assert.match(steps[0].tool_input, /a\.txt/);
 });
 
 test('Cowork Plan mode blocks mutating tools before execution', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Prepare an implementation plan without changing files',
-    confidence: 0.9,
-    complexity: 'standard',
-    needs_verification: false,
-    success_criteria: [],
-  });
+  const engine = createEngine();
   let modelTurn = 0;
   engine.requestModelResponse = async () => {
     modelTurn += 1;
-    const toolCall = modelTurn === 1
-      ? {
-        id: 'write-1',
-        type: 'function',
-        function: {
-          name: 'write_file',
-          arguments: JSON.stringify({ path: 'src/app.js', content: 'changed' }),
-        },
-      }
-      : {
-        id: `done-${modelTurn}`,
-        type: 'function',
-        function: {
-          name: 'task_complete',
-          arguments: JSON.stringify({ message: 'Implementation plan prepared.' }),
-        },
-      };
-    return {
-      response: {
-        content: '',
-        toolCalls: [toolCall],
-        usage: { total_tokens: 3 },
-      },
-      streamContent: '',
-    };
+    return modelTurn === 1
+      ? toolCall('write_file', { path: 'src/app.js', content: 'changed' }, 'write-1')
+      : answer('Implementation plan prepared.');
   };
-  engine.getAvailableTools = () => ([
-    { name: 'write_file', description: 'write', parameters: { type: 'object', properties: {} } },
-    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-  ]);
+  engine.getAvailableTools = () => [tool('write_file')];
   const executed = [];
   engine.executeTool = async (name) => {
     executed.push(name);
@@ -817,7 +543,6 @@ test('Cowork Plan mode blocks mutating tools before execution', async () => {
     interactionMode: 'plan',
     stream: false,
     skipGlobalRecall: true,
-    skipVerifier: true,
     maxIterations: 3,
   });
 
@@ -831,42 +556,13 @@ test('Cowork Plan mode blocks mutating tools before execution', async () => {
 });
 
 test('Cowork agent runs pass the open folder into the system prompt', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Revamp the portfolio',
-    confidence: 0.9,
-    complexity: 'standard',
-    needs_verification: false,
-    success_criteria: [],
-    suggested_tools: ['list_directory', 'edit_file'],
-  });
+  const engine = createEngine('Updated the local files.');
   let promptContext = null;
   engine.buildSystemPrompt = async (_userId, context) => {
     promptContext = context;
     return 'system';
   };
-  engine.requestModelResponse = async () => ({
-    response: {
-      content: '',
-      toolCalls: [{
-        id: 'done-1',
-        type: 'function',
-        function: {
-          name: 'task_complete',
-          arguments: JSON.stringify({ message: 'Updated the local files.' }),
-        },
-      }],
-      usage: { total_tokens: 4 },
-    },
-    streamContent: '',
-  });
-  engine.getAvailableTools = () => ([
-    { name: 'list_directory', description: 'list', parameters: { type: 'object', properties: {} } },
-    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-  ]);
-  engine.executeTool = async () => ({ success: true });
+  engine.getAvailableTools = () => [tool('list_directory')];
 
   await engine.run(userId, 'revamp my portfolio', {
     triggerSource: 'cowork',
@@ -875,7 +571,6 @@ test('Cowork agent runs pass the open folder into the system prompt', async () =
     workspaceRoot: '/Users/neo/Projects/Neotastisch-Portfolio',
     stream: false,
     skipGlobalRecall: true,
-    skipVerifier: true,
     maxIterations: 2,
   });
 
@@ -885,111 +580,16 @@ test('Cowork agent runs pass the open folder into the system prompt', async () =
   assert.equal(promptContext.workspaceRoot, '/Users/neo/Projects/Neotastisch-Portfolio');
 });
 
-test('a satisfied durable run completes without burning the budget on repairs', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Check the calendar and report the next appointment',
-    confidence: 0.85,
-    complexity: 'standard',
-    // Free-text criteria must not become obligations the runtime can never close.
-    success_criteria: ['Next appointment identified from the calendar', 'User informed'],
-    needs_verification: false,
-    research_depth: 'none',
-    suggested_tools: ['calendar_list'],
-  });
-  engine.getAvailableTools = () => ([
-    { name: 'calendar_list', description: 'list', parameters: { type: 'object', properties: {} } },
-    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-  ]);
-  let modelTurns = 0;
-  engine.requestModelResponse = async ({ tools }) => {
-    if (!tools || tools.length === 0) {
-      return { response: { content: '', toolCalls: [], usage: {} }, streamContent: '' };
+test('a run the guards stop gets a model-authored wrap-up, not a canned status', async () => {
+  const engine = createEngine();
+  engine.getAvailableTools = () => [tool('make_report')];
+  const wrapUpPrompts = [];
+  engine.requestModelResponse = async ({ messages, options }) => {
+    if (options.phase === 'wrap_up') {
+      wrapUpPrompts.push(messages[messages.length - 1].content);
+      return answer('Ich habe zwei Abschnitte geschrieben, der Rest fehlt noch.');
     }
-    modelTurns += 1;
-    if (modelTurns === 1) {
-      return {
-        response: {
-          content: '',
-          toolCalls: [{
-            id: 'c1',
-            type: 'function',
-            function: { name: 'calendar_list', arguments: '{}' },
-          }],
-          usage: { total_tokens: 3 },
-        },
-        streamContent: '',
-      };
-    }
-    return {
-      response: {
-        content: '',
-        toolCalls: [{
-          id: 'c2',
-          type: 'function',
-          function: {
-            name: 'task_complete',
-            arguments: JSON.stringify({ message: 'Next appointment is at 17:00.', confidence: 'high' }),
-          },
-        }],
-        usage: { total_tokens: 3 },
-      },
-      streamContent: '',
-    };
-  };
-  engine.executeTool = async () => ({ count: 1, events: [{ summary: 'Zahnarzt', start: '17:00' }] });
-  engine.isReadOnlyToolCall = () => true;
-
-  const result = await engine.run(userId, 'Was steht als nächstes an?', {
-    triggerSource: 'web',
-    stream: false,
-    skipGlobalRecall: true,
-    maxIterations: 12,
-  });
-
-  assert.equal(result.status, 'completed');
-  assert.equal(result.content, 'Next appointment is at 17:00.');
-  assert.ok(result.iterations <= 4, `expected a short run, got ${result.iterations} iterations`);
-  assert.doesNotMatch(String(result.content), /Status: partial/);
-});
-
-test('a budget-exhausted run delivers a model-authored wrap-up, not a canned status', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Build the report',
-    confidence: 0.8,
-    complexity: 'standard',
-    success_criteria: ['Report written'],
-    needs_verification: false,
-    suggested_tools: ['make_report'],
-  });
-  engine.getAvailableTools = () => ([
-    { name: 'make_report', description: 'report', parameters: { type: 'object', properties: {} } },
-  ]);
-  engine.requestModelResponse = async ({ tools }) => {
-    // The tool-less call is the forced wrap-up turn.
-    if (!tools || tools.length === 0) {
-      return {
-        response: { content: 'Ich habe zwei Abschnitte geschrieben, der Rest fehlt noch.', toolCalls: [], usage: {} },
-        streamContent: '',
-      };
-    }
-    return {
-      response: {
-        content: '',
-        toolCalls: [{
-          id: `t${Math.random()}`,
-          type: 'function',
-          function: { name: 'make_report', arguments: '{}' },
-        }],
-        usage: { total_tokens: 2 },
-      },
-      streamContent: '',
-    };
+    return toolCall('make_report');
   };
   let call = 0;
   engine.executeTool = async () => {
@@ -1006,43 +606,19 @@ test('a budget-exhausted run delivers a model-authored wrap-up, not a canned sta
   });
 
   assert.equal(result.content, 'Ich habe zwei Abschnitte geschrieben, der Rest fehlt noch.');
-  assert.doesNotMatch(String(result.content), /Status: partial|This is not a claim/);
+  assert.equal(wrapUpPrompts.length, 1);
+  assert.match(wrapUpPrompts[0], /emergency turn limit/);
+  assert.match(wrapUpPrompts[0], /do not call any tools/);
 });
 
-test('rewriting the same content over and over is churn, not progress', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Write the solution file',
-    confidence: 0.8,
-    complexity: 'standard',
-    success_criteria: ['solution.py written and passing'],
-    needs_verification: false,
-    suggested_tools: ['write_file'],
-  });
-  engine.getAvailableTools = () => ([
-    { name: 'write_file', description: 'write', parameters: { type: 'object', properties: {} } },
-    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-  ]);
+test('an identical write repeated over and over is stopped as spinning', async () => {
+  const engine = createEngine();
+  engine.getAvailableTools = () => [tool('write_file')];
   let sawRepeatNote = false;
-  engine.requestModelResponse = async ({ messages, tools }) => {
-    if (!tools || tools.length === 0) {
-      return { response: { content: 'Ich komme hier nicht weiter.', toolCalls: [], usage: {} }, streamContent: '' };
-    }
+  engine.requestModelResponse = async ({ messages, options }) => {
+    if (options.phase === 'wrap_up') return answer('Ich komme hier nicht weiter.');
     sawRepeatNote = sawRepeatNote || messages.some((m) => /Identical to your previous call/.test(String(m.content || '')));
-    return {
-      response: {
-        content: '',
-        toolCalls: [{
-          id: `w${Math.random()}`,
-          type: 'function',
-          function: { name: 'write_file', arguments: JSON.stringify({ path: 'solution.py', content: 'def f(): pass' }) },
-        }],
-        usage: { total_tokens: 2 },
-      },
-      streamContent: '',
-    };
+    return toolCall('write_file', { path: 'solution.py', content: 'def f(): pass' });
   };
   let writes = 0;
   engine.executeTool = async () => {
@@ -1055,7 +631,6 @@ test('rewriting the same content over and over is churn, not progress', async ()
     triggerSource: 'web',
     stream: false,
     skipGlobalRecall: true,
-    skipVerifier: true,
     maxIterations: 60,
   });
 
@@ -1064,453 +639,111 @@ test('rewriting the same content over and over is churn, not progress', async ()
   assert.equal(result.content, 'Ich komme hier nicht weiter.');
 });
 
-test('rewriting a file blindly, without reading or running anything between writes, is churn', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Write the solution file',
-    confidence: 0.8,
-    complexity: 'standard',
-    success_criteria: ['solution.py written and passing'],
-    needs_verification: false,
-    suggested_tools: ['write_file'],
-  });
-  engine.getAvailableTools = () => ([
-    { name: 'write_file', description: 'write', parameters: { type: 'object', properties: {} } },
-    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-  ]);
-  let writes = 0;
-  engine.requestModelResponse = async ({ tools }) => {
-    if (!tools || tools.length === 0) {
-      return { response: { content: 'Ich komme hier nicht weiter.', toolCalls: [], usage: {} }, streamContent: '' };
-    }
-    return {
-      response: {
-        content: '',
-        toolCalls: [{
-          id: `w${Math.random()}`,
-          type: 'function',
-          // Alternating variants: never byte-identical, never checked.
-          function: { name: 'write_file', arguments: JSON.stringify({ path: 'solution.py', content: `def f(): return ${writes % 3}` }) },
-        }],
-        usage: { total_tokens: 2 },
-      },
-      streamContent: '',
-    };
-  };
-  engine.executeTool = async (_name, args) => {
-    writes += 1;
-    return { success: true, path: 'solution.py', bytesWritten: args.content.length };
-  };
-  engine.isReadOnlyToolCall = () => false;
-
-  const result = await engine.run(userId, 'Schreib die Lösung', {
-    triggerSource: 'web',
-    stream: false,
-    skipGlobalRecall: true,
-    skipVerifier: true,
-    maxIterations: 60,
-  });
-
-  assert.ok(writes > 2 && writes < 20, `expected blind rewrites to be cut short, got ${writes}`);
-  assert.equal(result.content, 'Ich komme hier nicht weiter.');
-});
-
-test('productive evidence collection is not treated as budget exhaustion', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Research the answer without open-ended exploration',
-    confidence: 0.85,
-    complexity: 'standard',
-    needs_verification: false,
-    suggested_tools: ['lookup'],
-  });
-  engine.getAvailableTools = () => ([
-    { name: 'lookup', description: 'Look up a new source', parameters: { type: 'object', properties: {} } },
-    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-  ]);
-
+test('productive evidence collection is never cut short', async () => {
+  const engine = createEngine();
+  engine.getAvailableTools = () => [tool('lookup', 'Look up a new source')];
   let modelTurns = 0;
-  let sawEvidenceBudget = false;
-  engine.requestModelResponse = async ({ messages }) => {
+  engine.requestModelResponse = async () => {
     modelTurns += 1;
-    sawEvidenceBudget = sawEvidenceBudget || messages.some((message) => (
-      /evidenceBudget/.test(String(message.content || ''))
-    ));
-    const call = modelTurns > 6
-      ? {
-        id: 'done',
-        type: 'function',
-        function: {
-          name: 'task_complete',
-          arguments: JSON.stringify({ message: 'Synthesized from six sources.' }),
-        },
-      }
-      : {
-        id: `lookup-${modelTurns}`,
-        type: 'function',
-        function: { name: 'lookup', arguments: JSON.stringify({ page: modelTurns }) },
-      };
-    return {
-      response: { content: '', toolCalls: [call], usage: { total_tokens: 2 } },
-      streamContent: '',
-    };
+    return modelTurns > 12
+      ? answer('Synthesized from twelve sources.')
+      : toolCall('lookup', { page: modelTurns }, `lookup-${modelTurns}`);
   };
   engine.executeTool = async (_name, args) => ({ source: `source-${args.page}`, facts: [args.page] });
-  engine.isReadOnlyToolCall = (call) => call?.function?.name === 'lookup';
+  engine.isReadOnlyToolCall = () => true;
 
   const result = await engine.run(userId, 'Research this.', {
     triggerSource: 'web',
     stream: false,
     skipGlobalRecall: true,
-    skipVerifier: true,
-    maxIterations: 10,
-    maxEvidenceItems: 5,
   });
 
   assert.equal(result.status, 'completed');
-  assert.equal(result.content, 'Synthesized from six sources.');
-  assert.equal(sawEvidenceBudget, false);
-  assert.equal(modelTurns, 7);
-});
-
-test('the opening line comes from task analysis, and only for long work', async () => {
-  const longWork = {
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    acknowledgement: 'Schaue ich mir an.',
-    goal: 'Recherchiere die Optionen',
-    confidence: 0.8,
-    complexity: 'complex',
-    autonomy_level: 'high',
-    progress_update_policy: 'required',
-    suggested_tools: ['web_search'],
-  };
-
-  function buildEngine(analysis) {
-    const engine = createEngine(analysis);
-    engine.buildSystemPrompt = async () => 'PERSONA_MARKER: you are Aurora';
-    engine.buildContextMessages = (sys) => [
-      { role: 'system', content: sys },
-      { role: 'user', content: 'earlier question' },
-      { role: 'assistant', content: 'PRIOR_ACK_MARKER' },
-    ];
-    engine.getAvailableTools = () => ([
-      { name: 'web_search', description: 'search', parameters: { type: 'object', properties: {} } },
-      { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-    ]);
-    engine.executeTool = async () => ({ success: true });
-    engine.isReadOnlyToolCall = () => true;
-    return engine;
-  }
-
-  // Long work: the line task analysis wrote is delivered as-is, without a
-  // second model call to compose it.
-  const engine = buildEngine(longWork);
-  let toollessCalls = 0;
-  engine.requestModelResponse = async ({ tools }) => {
-    if (!tools || tools.length === 0) toollessCalls += 1;
-    return {
-      response: {
-        content: '',
-        toolCalls: [{
-          id: 'd1',
-          type: 'function',
-          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Fertig.' }) },
-        }],
-        usage: { total_tokens: 2 },
-      },
-      streamContent: '',
-    };
-  };
-
-  const result = await engine.run(userId, 'Vergleich mal die Optionen für mich', {
-    triggerSource: 'messaging',
-    source: 'whatsapp',
-    chatId: 'chat-ack',
-    stream: false,
-    skipGlobalRecall: true,
-    skipVerifier: true,
-    maxIterations: 3,
-    forceMode: 'plan_execute',
-  });
-  assert.equal(result.status, 'completed');
-  assert.equal(toollessCalls, 0, 'the opening line must not cost a model call');
-
-  const acks = ctx.db.prepare(
-    `SELECT COUNT(*) AS n, MAX(payload_json) AS payload FROM agent_outbox WHERE run_id = ? AND message_kind = 'ack'`,
-  ).get(result.runId);
-  assert.equal(Number(acks.n), 1);
-  assert.match(String(acks.payload), /Schaue ich mir an\./);
-
-  // Ordinary durable work finishes fast enough that an opening line is noise.
-  const quick = buildEngine({ ...longWork, complexity: 'standard', autonomy_level: 'normal', progress_update_policy: 'optional' });
-  let quickAckCalls = 0;
-  quick.requestModelResponse = async ({ tools }) => {
-    if (!tools || tools.length === 0) {
-      quickAckCalls += 1;
-      return { response: { content: 'x', toolCalls: [], usage: {} }, streamContent: '' };
-    }
-    return {
-      response: {
-        content: '',
-        toolCalls: [{
-          id: 'd2',
-          type: 'function',
-          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Fertig.' }) },
-        }],
-        usage: { total_tokens: 2 },
-      },
-      streamContent: '',
-    };
-  };
-  const quickResult = await quick.run(userId, 'Kurze Frage', {
-    triggerSource: 'messaging',
-    source: 'whatsapp',
-    chatId: 'chat-ack',
-    stream: false,
-    skipGlobalRecall: true,
-    skipVerifier: true,
-    maxIterations: 3,
-  });
-  assert.equal(quickAckCalls, 0, 'short durable work must not be acknowledged');
-  const quickAcks = ctx.db.prepare(
-    `SELECT COUNT(*) AS n FROM agent_outbox WHERE run_id = ? AND message_kind = 'ack'`,
-  ).get(quickResult.runId);
-  assert.equal(Number(quickAcks.n), 0);
-});
-
-test('a declined opening line is not replaced by canned text', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Do long work',
-    confidence: 0.8,
-    complexity: 'complex',
-    autonomy_level: 'high',
-    progress_update_policy: 'required',
-  });
-  engine.getAvailableTools = () => ([
-    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-  ]);
-  engine.requestModelResponse = async ({ tools }) => {
-    // The model judged there was nothing natural to say up front.
-    if (!tools || tools.length === 0) {
-      return { response: { content: '   ', toolCalls: [], usage: {} }, streamContent: '' };
-    }
-    return {
-      response: {
-        content: '',
-        toolCalls: [{
-          id: 'd1',
-          type: 'function',
-          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Done.' }) },
-        }],
-        usage: { total_tokens: 2 },
-      },
-      streamContent: '',
-    };
-  };
-  engine.executeTool = async () => ({ success: true });
-  engine.isReadOnlyToolCall = () => true;
-
-  const result = await engine.run(userId, 'Start the long thing', {
-    triggerSource: 'messaging',
-    source: 'whatsapp',
-    chatId: 'chat-silent',
-    stream: false,
-    skipGlobalRecall: true,
-    skipVerifier: true,
-    maxIterations: 3,
-  });
-
-  assert.equal(result.status, 'completed');
-  const acks = ctx.db.prepare(
-    `SELECT COUNT(*) AS n FROM agent_outbox WHERE run_id = ? AND message_kind = 'ack'`,
-  ).get(result.runId);
-  assert.equal(Number(acks.n), 0, 'silence is the fallback, never a template');
+  assert.equal(result.content, 'Synthesized from twelve sources.');
+  assert.equal(modelTurns, 13);
 });
 
 test('one run does the work once and reports its answer to the client once', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Check something and answer',
-    confidence: 0.8,
-    suggested_tools: ['lookup'],
-  });
-
+  const engine = createEngine();
   const emitted = [];
   engine.emit = (_userId, event, payload) => {
     emitted.push({ event, content: payload?.content });
   };
-  engine.getAvailableTools = () => ([
-    { name: 'lookup', description: 'look up', parameters: { type: 'object', properties: {} } },
-    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-  ]);
-
+  engine.getAvailableTools = () => [tool('lookup')];
   let modelCalls = 0;
   let toolCalls = 0;
-  engine.requestModelResponse = async ({ tools }) => {
-    if (!tools || tools.length === 0) {
-      return { response: { content: '', toolCalls: [], usage: {} }, streamContent: '' };
-    }
+  engine.requestModelResponse = async () => {
     modelCalls += 1;
-    if (modelCalls === 1) {
-      return {
-        response: {
-          content: 'Let me look that up.',
-          toolCalls: [{
-            id: 'l1',
-            type: 'function',
-            function: { name: 'lookup', arguments: '{}' },
-          }],
-          usage: { total_tokens: 4 },
-        },
-        streamContent: '',
-      };
-    }
-    return {
-      response: {
-        content: '',
-        toolCalls: [{
-          id: 'd1',
-          type: 'function',
-          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Here is the answer.' }) },
-        }],
-        usage: { total_tokens: 4 },
-      },
-      streamContent: '',
-    };
+    // Text next to a tool call is part of the work, not the answer.
+    return modelCalls === 1
+      ? toolCall('lookup', {}, 'l1', 'Let me look that up.')
+      : answer('Here is the answer.');
   };
-  engine.executeTool = async () => { toolCalls += 1; return { value: 42 }; };
+  engine.executeTool = async () => {
+    toolCalls += 1;
+    return { value: 42 };
+  };
   engine.isReadOnlyToolCall = () => true;
 
   const result = await engine.run(userId, 'Check something', {
     triggerSource: 'web',
     stream: false,
     skipGlobalRecall: true,
-    skipVerifier: true,
     maxIterations: 6,
   });
 
   assert.equal(result.status, 'completed');
   assert.equal(result.content, 'Here is the answer.');
-
-  // The run is not repeated: two model turns and one tool call is the whole cost.
   assert.equal(modelCalls, 2);
   assert.equal(toolCalls, 1);
-
-  // And the answer reaches the client exactly once. A second run:complete used
-  // to render the same reply again in clients that consume the first one.
   const completes = emitted.filter((entry) => entry.event === 'run:complete');
   assert.equal(completes.length, 1, `expected one run:complete, got ${completes.length}`);
   assert.equal(completes[0].content, 'Here is the answer.');
-
   const finals = ctx.db.prepare(
     `SELECT COUNT(*) AS n FROM agent_outbox WHERE run_id = ? AND message_kind = 'final'`,
   ).get(result.runId);
   assert.equal(Number(finals.n), 1);
 });
 
-test('an acknowledgement reaches a web client as a visible message', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    acknowledgement: 'Bin dran.',
-    goal: 'Long job',
-    confidence: 0.8,
-    complexity: 'complex',
-    autonomy_level: 'high',
-    progress_update_policy: 'required',
-  });
+test('an opening line the model sends reaches a web client as a visible message', async () => {
+  const engine = createEngine();
   const emitted = [];
   engine.emit = (_userId, event, payload) => {
     emitted.push({ event, content: payload?.content, kind: payload?.kind });
   };
-  engine.getAvailableTools = () => ([
-    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-  ]);
-  engine.requestModelResponse = async ({ tools }) => {
-    assert.ok(tools?.length, 'the opening line comes from task analysis, not a second model call');
-    return {
-      response: {
-        content: '',
-        toolCalls: [{
-          id: 'd1',
-          type: 'function',
-          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Fertig.' }) },
-        }],
-        usage: { total_tokens: 2 },
-      },
-      streamContent: '',
-    };
+  engine.getAvailableTools = () => [tool('send_interim_update')];
+  let modelTurns = 0;
+  engine.requestModelResponse = async () => {
+    modelTurns += 1;
+    return modelTurns === 1
+      ? toolCall('send_interim_update', { content: 'Bin dran.', kind: 'ack' })
+      : answer('Fertig.');
   };
-  engine.executeTool = async () => ({ success: true });
-  engine.isReadOnlyToolCall = () => true;
 
-  await engine.run(userId, 'Mach das lange Ding', {
+  const result = await engine.run(userId, 'Mach das lange Ding', {
     triggerSource: 'web',
     stream: false,
     skipGlobalRecall: true,
-    skipVerifier: true,
-    maxIterations: 3,
-    forceMode: 'plan_execute',
+    maxIterations: 4,
   });
 
+  assert.equal(result.content, 'Fertig.');
   // run:interim carries short status notes under `message`; user-facing interim
   // text must not be sent there or the client silently drops it.
   const interim = emitted.find((entry) => entry.event === 'run:assistant_interim');
-  assert.ok(interim, 'the acknowledgement never reached the client');
+  assert.ok(interim, 'the opening line never reached the client');
   assert.equal(interim.content, 'Bin dran.');
-  assert.equal(interim.kind, 'ack');
 });
 
 test('a blank model turn is recovered instead of ending the run', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Look something up',
-    confidence: 0.8,
-    suggested_tools: ['lookup'],
-  });
-  engine.getAvailableTools = () => ([
-    { name: 'lookup', description: 'look up', parameters: { type: 'object', properties: {} } },
-    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-  ]);
+  const engine = createEngine();
+  engine.getAvailableTools = () => [tool('lookup')];
   let modelTurns = 0;
-  engine.requestModelResponse = async ({ tools }) => {
-    if (!tools || tools.length === 0) {
-      return { response: { content: '', toolCalls: [], usage: {} }, streamContent: '' };
-    }
+  engine.requestModelResponse = async () => {
     modelTurns += 1;
     // A provider hiccup: no content and no tool call.
-    if (modelTurns === 1) {
-      return { response: { content: '', toolCalls: [], usage: { total_tokens: 1 } }, streamContent: '' };
-    }
-    return {
-      response: {
-        content: '',
-        toolCalls: [{
-          id: 'd1',
-          type: 'function',
-          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Found it.' }) },
-        }],
-        usage: { total_tokens: 3 },
-      },
-      streamContent: '',
-    };
+    return modelTurns === 1 ? answer('') : answer('Found it.');
   };
-  engine.executeTool = async () => ({ success: true });
-  engine.isReadOnlyToolCall = () => true;
 
   const result = await engine.run(userId, 'Look it up', {
     triggerSource: 'web',
@@ -1521,202 +754,63 @@ test('a blank model turn is recovered instead of ending the run', async () => {
 
   assert.equal(result.status, 'completed');
   assert.equal(result.content, 'Found it.');
-  assert.ok(modelTurns >= 2, 'the run must continue past the blank turn');
-
+  assert.equal(modelTurns, 2);
   const row = ctx.db.prepare('SELECT runtime_state FROM agent_runs WHERE id = ?').get(result.runId);
   assert.equal(row.runtime_state, 'completed');
 });
 
-test('an unparseable task analysis is recorded instead of passing silently', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Write the report',
-  });
-  engine.requestStructuredJson = async ({ fallback, phase }) => ({
-    value: fallback,
-    parsed: phase === 'task_analysis' ? false : true,
-    raw: '{"mode":"execute","goal":"Write the rep',
-    usage: 8,
-  });
-  engine.getAvailableTools = () => ([
-    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-  ]);
-  engine.requestModelResponse = async () => ({
-    response: {
-      content: '',
-      toolCalls: [{
-        id: 'done1',
-        type: 'function',
-        function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Fertig.' }) },
-      }],
-      usage: { total_tokens: 2 },
-    },
-    streamContent: '',
-  });
-  const recorded = [];
-  const recordRunEvent = engine.recordRunEvent.bind(engine);
-  engine.recordRunEvent = (...args) => {
-    recorded.push(args[2]);
-    return recordRunEvent(...args);
-  };
-
-  const result = await engine.run(userId, 'Schreib den Bericht', {
-    triggerSource: 'web',
-    stream: false,
-    skipGlobalRecall: true,
-    skipVerifier: true,
-    maxIterations: 3,
-  });
-
-  assert.equal(result.status, 'completed');
-  assert.ok(recorded.includes('task_analysis_unparsed'));
-});
-
-test('file work found only by lexical matching still gets a shell', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Implement the function',
-    suggested_tools: [],
-  });
-  const schema = { type: 'object', properties: {} };
-  engine.getAvailableTools = () => ([
-    { name: 'task_complete', description: 'done', parameters: schema },
-    { name: 'write_file', description: 'Write content to a workspace file', parameters: schema },
-    { name: 'execute_command', description: 'Run shell commands', parameters: schema },
-    { name: 'list_chats', description: 'List known messaging conversations', parameters: schema },
-  ]);
+test('a large catalog starts with matching tools, the core set, and a shell for file work', async () => {
+  const engine = createEngine('Fertig.');
+  engine.getAvailableTools = () => [
+    tool('write_file', 'Write content to a workspace file'),
+    tool('execute_command', 'Run shell commands'),
+    tool('web_search', 'Search the web'),
+    tool('list_chats', 'List known messaging conversations'),
+    ...fillerTools(),
+  ];
   let firstTurnTools = null;
   engine.requestModelResponse = async ({ tools }) => {
-    if (!firstTurnTools && tools?.length) firstTurnTools = tools.map((tool) => tool.name);
-    return {
-      response: {
-        content: '',
-        toolCalls: [{
-          id: 'done1',
-          type: 'function',
-          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Fertig.' }) },
-        }],
-        usage: { total_tokens: 2 },
-      },
-      streamContent: '',
-    };
+    firstTurnTools = firstTurnTools || tools.map((entry) => entry.name);
+    return answer('Fertig.');
   };
 
   await engine.run(userId, 'Write the function into solution.py', {
     triggerSource: 'web',
     stream: false,
     skipGlobalRecall: true,
-    skipVerifier: true,
     maxIterations: 3,
   });
 
   assert.ok(firstTurnTools.includes('write_file'), 'lexical match must be active');
   assert.ok(firstTurnTools.includes('execute_command'), 'file work must come with a shell');
+  assert.ok(firstTurnTools.includes('web_search'), 'core tools start active in any language');
+  assert.equal(firstTurnTools.includes('list_chats'), false);
+  assert.equal(firstTurnTools.some((name) => name.startsWith('filler_')), false);
 });
 
-test('background run searches for an inactive tool and activates it', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Kalender-Reminder',
-    confidence: 0.8,
-  });
-
-  // Only the always-active built-ins get a schema on turn one. The calendar tool
-  // is reachable through the catalog + activate_tools, never as a hidden schema.
-  engine.getAvailableTools = () => ([
-    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-    { name: 'search_tools', description: 'search tools', parameters: { type: 'object', properties: {} } },
-    { name: 'activate_tools', description: 'activate', parameters: { type: 'object', properties: {} } },
-    { name: 'think', description: 'think', parameters: { type: 'object', properties: {} } },
-    { name: 'send_message', description: 'send', parameters: { type: 'object', properties: {} } },
-    { name: 'send_interim_update', description: 'interim', parameters: { type: 'object', properties: {} } },
-    {
-      name: 'google_workspace_calendar_list_events',
-      description: 'List Google Calendar events in a time window',
-      parameters: { type: 'object', properties: { time_min: { type: 'string' } } },
-    },
-  ]);
-
+test('a run searches for an inactive tool and activates it', async () => {
+  const engine = createEngine();
+  engine.getAvailableTools = () => [
+    tool('search_tools', 'search tools'),
+    tool('activate_tools', 'activate'),
+    tool('send_message', 'send'),
+    tool('google_workspace_calendar_list_events', 'List Google Calendar events in a time window', {
+      type: 'object',
+      properties: { time_min: { type: 'string' } },
+    }),
+    ...fillerTools(),
+  ];
   const turnToolNames = [];
   let searchResult = null;
   let modelTurns = 0;
-  engine.requestModelResponse = async ({ messages, tools }) => {
+  engine.requestModelResponse = async ({ tools }) => {
     modelTurns += 1;
-    turnToolNames.push((tools || []).map((tool) => tool.name));
-    if (modelTurns === 1) {
-      return {
-        response: {
-          content: '',
-          toolCalls: [{
-            id: 'search1',
-            type: 'function',
-            function: {
-              name: 'search_tools',
-              arguments: JSON.stringify({ query: 'list Google Calendar events' }),
-            },
-          }],
-          usage: { total_tokens: 5 },
-        },
-        streamContent: '',
-      };
-    }
-    if (modelTurns === 2) {
-      return {
-        response: {
-          content: '',
-          toolCalls: [{
-            id: 'act1',
-            type: 'function',
-            function: {
-              name: 'activate_tools',
-              arguments: JSON.stringify({ names: ['google_workspace_calendar_list_events'] }),
-            },
-          }],
-          usage: { total_tokens: 5 },
-        },
-        streamContent: '',
-      };
-    }
-    if (modelTurns === 3) {
-      return {
-        response: {
-          content: '',
-          toolCalls: [{
-            id: 'cal1',
-            type: 'function',
-            function: {
-              name: 'google_workspace_calendar_list_events',
-              arguments: JSON.stringify({ time_min: '2026-08-05T12:00:00Z' }),
-            },
-          }],
-          usage: { total_tokens: 5 },
-        },
-        streamContent: '',
-      };
-    }
-    return {
-      response: {
-        content: '',
-        toolCalls: [{
-          id: 'done1',
-          type: 'function',
-          function: {
-            name: 'task_complete',
-            arguments: JSON.stringify({ message: 'Termin um 17:00 Uhr erinnert.' }),
-          },
-        }],
-        usage: { total_tokens: 5 },
-      },
-      streamContent: '',
-    };
+    turnToolNames.push(tools.map((entry) => entry.name));
+    if (modelTurns === 1) return toolCall('search_tools', { query: 'list Google Calendar events' }, 'search1');
+    if (modelTurns === 2) return toolCall('activate_tools', { names: ['google_workspace_calendar_list_events'] }, 'act1');
+    if (modelTurns === 3) return toolCall('google_workspace_calendar_list_events', { time_min: '2026-08-05T12:00:00Z' }, 'cal1');
+    return answer('Termin um 17:00 Uhr erinnert.');
   };
-
   const executed = [];
   engine.executeTool = async (name, args, context) => {
     executed.push(name);
@@ -1724,13 +818,8 @@ test('background run searches for an inactive tool and activates it', async () =
       searchResult = engine.searchToolsForRun(context.runId, args.query, args.limit);
       return searchResult;
     }
-    if (name === 'activate_tools') {
-      return engine.activateToolsForRun(context.runId, args.names || []);
-    }
-    if (name === 'google_workspace_calendar_list_events') {
-      return { count: 1, events: [{ summary: 'Zahnarzt', start: '2026-08-05T17:00:00Z' }] };
-    }
-    return { success: true };
+    if (name === 'activate_tools') return engine.activateToolsForRun(context.runId, args.names || []);
+    return { count: 1, events: [{ summary: 'Zahnarzt', start: '2026-08-05T17:00:00Z' }] };
   };
   engine.isReadOnlyToolCall = () => false;
 
@@ -1740,104 +829,20 @@ test('background run searches for an inactive tool and activates it', async () =
     stream: false,
     skipGlobalRecall: true,
     skipConversationHistory: true,
-    skipVerifier: true,
     maxIterations: 6,
     bypassUserRateLimits: true,
   });
 
   assert.equal(result.status, 'completed');
-  assert.ok(searchResult.results.some((tool) => tool.name === 'google_workspace_calendar_list_events'));
-  assert.ok(
-    !turnToolNames[0].includes('google_workspace_calendar_list_events'),
-    'catalog tool must not start active',
-  );
-  assert.ok(
-    turnToolNames[2].includes('google_workspace_calendar_list_events'),
-    'activate_tools must put the schema into the next model turn',
-  );
+  assert.equal(result.content, 'Termin um 17:00 Uhr erinnert.');
+  assert.ok(searchResult.results.some((entry) => entry.name === 'google_workspace_calendar_list_events'));
+  assert.ok(!turnToolNames[0].includes('google_workspace_calendar_list_events'), 'catalog tool must not start active');
+  assert.ok(turnToolNames[2].includes('google_workspace_calendar_list_events'), 'activate_tools must put the schema into the next model turn');
   assert.ok(executed.includes('google_workspace_calendar_list_events'));
 });
 
-test('execution turns keep the agent system prompt and persist tool steps', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Read a file and report',
-    confidence: 0.8,
-  });
-  engine.buildSystemPrompt = async () => 'AGENT_SYSTEM_PROMPT_MARKER';
-  engine.getAvailableTools = () => ([
-    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-    { name: 'read_file', description: 'read', parameters: { type: 'object', properties: {} } },
-  ]);
-
-  const sawSystemPrompt = [];
-  let modelTurns = 0;
-  engine.requestModelResponse = async ({ messages }) => {
-    modelTurns += 1;
-    sawSystemPrompt.push(
-      messages.some((msg) => String(msg.content || '').includes('AGENT_SYSTEM_PROMPT_MARKER')),
-    );
-    if (modelTurns === 1) {
-      return {
-        response: {
-          content: '',
-          toolCalls: [{
-            id: 'r1',
-            type: 'function',
-            function: { name: 'read_file', arguments: JSON.stringify({ path: 'a.txt' }) },
-          }],
-          usage: { total_tokens: 5 },
-        },
-        streamContent: '',
-      };
-    }
-    return {
-      response: {
-        content: '',
-        toolCalls: [{
-          id: 'd1',
-          type: 'function',
-          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'File read.' }) },
-        }],
-        usage: { total_tokens: 5 },
-      },
-      streamContent: '',
-    };
-  };
-  engine.executeTool = async () => ({ content: 'hello' });
-  engine.isReadOnlyToolCall = () => true;
-
-  const result = await engine.run(userId, 'Read a.txt', {
-    triggerSource: 'web',
-    stream: false,
-    skipGlobalRecall: true,
-    skipVerifier: true,
-    maxIterations: 4,
-  });
-
-  assert.equal(result.status, 'completed');
-  assert.ok(sawSystemPrompt.length >= 2);
-  assert.ok(sawSystemPrompt.every(Boolean), 'every execution turn must carry the system prompt');
-
-  // task_complete is a completion claim handled by the gate, not a dispatched tool.
-  const steps = ctx.db.prepare(
-    'SELECT tool_name, status, tool_input FROM agent_steps WHERE run_id = ? ORDER BY step_index ASC',
-  ).all(result.runId);
-  assert.deepEqual(steps.map((step) => step.tool_name), ['read_file']);
-  assert.equal(steps[0].status, 'completed');
-  assert.match(steps[0].tool_input, /a\.txt/);
-});
-
 test('messaging final is not transmitted twice after send_message delivered it', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Reply on WhatsApp',
-    confidence: 0.8,
-  });
+  const engine = createEngine();
   const sends = [];
   engine.messagingManager = {
     sendMessage: async (uid, platform, chatId, content) => {
@@ -1846,64 +851,16 @@ test('messaging final is not transmitted twice after send_message delivered it',
     },
     sendTyping: async () => {},
   };
-  engine.getAvailableTools = () => ([
-    { name: 'send_message', description: 'send', parameters: { type: 'object', properties: {} } },
-    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-  ]);
-  let modelTurns = 0;
-  engine.requestModelResponse = async ({ tools }) => {
-    // The acknowledgement request runs without tools; it is not an execution turn.
-    if (!tools || tools.length === 0) {
-      return { response: { content: '', toolCalls: [], usage: {} }, streamContent: '' };
-    }
-    modelTurns += 1;
-    if (modelTurns === 1) {
-      return {
-        response: {
-          content: '',
-          toolCalls: [{
-            id: 's1',
-            type: 'function',
-            function: {
-              name: 'send_message',
-              arguments: JSON.stringify({
-                platform: 'whatsapp',
-                to: 'chat-1',
-                content: 'Alles erledigt.',
-                purpose: 'final_result',
-              }),
-            },
-          }],
-          usage: { total_tokens: 5 },
-        },
-        streamContent: '',
-      };
-    }
-    return {
-      response: {
-        content: '',
-        toolCalls: [{
-          id: 'd1',
-          type: 'function',
-          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'Alles erledigt.' }) },
-        }],
-        usage: { total_tokens: 5 },
-      },
-      streamContent: '',
-    };
-  };
-  engine.executeTool = async (name, args, context) => {
-    if (name === 'send_message') {
-      const delivery = await engine.messagingManager.sendMessage(
-        context.userId,
-        args.platform,
-        args.to,
-        args.content,
-      );
-      return delivery;
-    }
-    return { success: true };
-  };
+  engine.getAvailableTools = () => [tool('send_message')];
+  engine.requestModelResponse = async () => toolCall('send_message', {
+    platform: 'whatsapp',
+    to: 'chat-1',
+    content: 'Alles erledigt.',
+    purpose: 'final_result',
+  }, 's1');
+  engine.executeTool = async (name, args, context) => (name === 'send_message'
+    ? engine.messagingManager.sendMessage(context.userId, args.platform, args.to, args.content)
+    : { success: true });
   engine.isReadOnlyToolCall = () => false;
 
   const result = await engine.run(userId, 'Sag mir Bescheid wenn fertig', {
@@ -1913,75 +870,28 @@ test('messaging final is not transmitted twice after send_message delivered it',
     stream: false,
     skipGlobalRecall: true,
     skipConversationHistory: true,
-    skipVerifier: true,
     maxIterations: 4,
   });
 
   assert.equal(result.status, 'completed');
   assert.equal(sends.length, 1, 'the final result must reach the chat exactly once');
-
   const finals = ctx.db.prepare(
     `SELECT COUNT(*) AS n FROM agent_outbox WHERE run_id = ? AND message_kind = 'final'`,
   ).get(result.runId);
   assert.equal(Number(finals.n), 1, 'the final delivery is still committed exactly once');
 });
 
-function taskCompleteTurn(message) {
-  return {
-    response: {
-      content: '',
-      toolCalls: [{
-        id: `done-${message.length}`,
-        type: 'function',
-        function: {
-          name: 'task_complete',
-          arguments: JSON.stringify({ message, confidence: 'high' }),
-        },
-      }],
-      usage: { total_tokens: 3 },
-    },
-    streamContent: '',
-  };
-}
-
-function createCalendarEngine() {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Report the appointments',
-    confidence: 0.85,
-    complexity: 'standard',
-    needs_verification: false,
-    research_depth: 'none',
-    suggested_tools: ['task_complete'],
-  });
-  engine.getAvailableTools = () => ([
-    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-  ]);
-  engine.executeTool = async () => ({ success: true });
-  engine.isReadOnlyToolCall = () => false;
-  return engine;
-}
-
-function userTurns(messages) {
-  return messages.filter((message) => message.role === 'user').map((message) => message.content);
-}
-
 test('a follow-up sent during the final model turn is answered before delivery', async () => {
-  const engine = createCalendarEngine();
+  const engine = createEngine();
   const seenUserTurns = [];
-  engine.requestModelResponse = async ({ messages, tools }) => {
-    if (!tools || tools.length === 0) {
-      return { response: { content: '', toolCalls: [], usage: {} }, streamContent: '' };
-    }
+  engine.requestModelResponse = async ({ messages }) => {
     seenUserTurns.push(userTurns(messages));
     if (seenUserTurns.length === 1) {
       const active = engine.findSteerableRunForUser(userId, 'web');
       assert.ok(engine.enqueueSteering(active.runId, 'Und was steht morgen an?'));
-      return taskCompleteTurn('Heute: Zahnarzt um 17:00.');
+      return answer('Heute: Zahnarzt um 17:00.');
     }
-    return taskCompleteTurn('Heute Zahnarzt um 17:00, morgen ist nichts eingetragen.');
+    return answer('Heute Zahnarzt um 17:00, morgen ist nichts eingetragen.');
   };
 
   const result = await engine.run(userId, 'Was steht heute an?', {
@@ -1998,7 +908,7 @@ test('a follow-up sent during the final model turn is answered before delivery',
 });
 
 test('a follow-up sent after the answer is committed is refused so it starts its own run', async () => {
-  const engine = createCalendarEngine();
+  const engine = createEngine('Heute: Zahnarzt um 17:00.');
   let runId = null;
   const lateRouting = [];
   engine.emit = (_userId, event, data) => {
@@ -2010,7 +920,6 @@ test('a follow-up sent after the answer is committed is refused so it starts its
       });
     }
   };
-  engine.requestModelResponse = async () => taskCompleteTurn('Heute: Zahnarzt um 17:00.');
 
   const result = await engine.run(userId, 'Was steht heute an?', {
     triggerSource: 'web',
@@ -2026,50 +935,28 @@ test('a follow-up sent after the answer is committed is refused so it starts its
 });
 
 test('a follow-up queued before a forced wrap-up reaches the wrap-up turn', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Build the report',
-    confidence: 0.8,
-    complexity: 'standard',
-    success_criteria: ['Report written'],
-    needs_verification: false,
-    suggested_tools: ['make_report'],
-  });
-  engine.isReadOnlyToolCall = () => false;
-  engine.getAvailableTools = () => ([
-    { name: 'make_report', description: 'report', parameters: { type: 'object', properties: {} } },
-  ]);
+  const engine = createEngine();
+  engine.getAvailableTools = () => [tool('make_report')];
   let wrapUpUserTurns = null;
   let turns = 0;
-  engine.requestModelResponse = async ({ messages, tools }) => {
-    if (!tools || tools.length === 0) {
+  engine.requestModelResponse = async ({ messages, options }) => {
+    if (options.phase === 'wrap_up') {
       wrapUpUserTurns = userTurns(messages);
-      return {
-        response: { content: 'Der Bericht ist halb fertig; die Grafik kommt als Nächstes.', toolCalls: [], usage: {} },
-        streamContent: '',
-      };
+      return answer('Der Bericht ist halb fertig; die Grafik kommt als Nächstes.');
     }
     turns += 1;
     if (turns === 2) {
       const active = engine.findSteerableRunForUser(userId, 'web');
       assert.ok(engine.enqueueSteering(active.runId, 'Bitte auch eine Grafik.'));
     }
-    return {
-      response: {
-        content: '',
-        toolCalls: [{ id: `t${turns}`, type: 'function', function: { name: 'make_report', arguments: '{}' } }],
-        usage: { total_tokens: 2 },
-      },
-      streamContent: '',
-    };
+    return toolCall('make_report', {}, `t${turns}`);
   };
   let call = 0;
   engine.executeTool = async () => {
     call += 1;
     return { section: call };
   };
+  engine.isReadOnlyToolCall = () => false;
 
   const result = await engine.run(userId, 'Schreib mir den Bericht', {
     triggerSource: 'web',
@@ -2083,31 +970,13 @@ test('a follow-up queued before a forced wrap-up reaches the wrap-up turn', asyn
 });
 
 test('a run stopped between steps reports its end to clients', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Build the report',
-    confidence: 0.8,
-    complexity: 'standard',
-    needs_verification: false,
-    suggested_tools: ['make_report'],
-  });
-  engine.getAvailableTools = () => ([
-    { name: 'make_report', description: 'report', parameters: { type: 'object', properties: {} } },
-  ]);
+  const engine = createEngine();
+  engine.getAvailableTools = () => [tool('make_report')];
   engine.isReadOnlyToolCall = () => false;
   const emitted = [];
   engine.emit = (_userId, event, data) => emitted.push({ event, runId: data?.runId });
   let runId = null;
-  engine.requestModelResponse = async () => ({
-    response: {
-      content: '',
-      toolCalls: [{ id: 'r1', type: 'function', function: { name: 'make_report', arguments: '{}' } }],
-      usage: { total_tokens: 2 },
-    },
-    streamContent: '',
-  });
+  engine.requestModelResponse = async () => toolCall('make_report', {}, 'r1');
   engine.executeTool = async (_name, _args, context) => {
     runId = context.runId;
     engine.abort(runId, { userId, reason: 'Cancelled from another conversation.' });
@@ -2125,58 +994,4 @@ test('a run stopped between steps reports its end to clients', async () => {
   const terminal = emitted.filter((entry) => entry.runId === runId
     && ['run:stopped', 'run:complete', 'run:error', 'run:interrupted'].includes(entry.event));
   assert.deepEqual(terminal.map((entry) => entry.event), ['run:stopped']);
-});
-
-test('a follow-up sent during verification is answered by the same run', async () => {
-  const engine = createEngine({
-    mode: 'execute',
-    draft_reply: '',
-    draft_status: 'needs_execution',
-    goal: 'Report the appointments',
-    confidence: 0.85,
-    complexity: 'standard',
-    needs_verification: true,
-    research_depth: 'none',
-    suggested_tools: ['task_complete'],
-  });
-  engine.getAvailableTools = () => ([
-    { name: 'task_complete', description: 'done', parameters: { type: 'object', properties: {} } },
-  ]);
-  engine.executeTool = async () => ({ success: true });
-  engine.isReadOnlyToolCall = () => false;
-  let followUpSent = false;
-  engine.decide = async ({ phase, runId }) => {
-    if (phase === 'jev_verification' && !followUpSent) {
-      followUpSent = true;
-      assert.ok(engine.enqueueSteering(runId, 'Und was steht morgen an?'));
-    }
-    return null;
-  };
-  const analysisStub = engine.requestStructuredJson;
-  engine.requestStructuredJson = async (request) => (request.phase === 'verification'
-    ? { value: { status: 'verified', safe_to_deliver: true }, usage: 1 }
-    : analysisStub(request));
-  const seenUserTurns = [];
-  engine.requestModelResponse = async ({ messages, tools }) => {
-    if (!tools || tools.length === 0) {
-      return { response: { content: '', toolCalls: [], usage: {} }, streamContent: '' };
-    }
-    seenUserTurns.push(userTurns(messages));
-    return taskCompleteTurn(seenUserTurns.length === 1
-      ? 'Heute: Zahnarzt um 17:00.'
-      : 'Heute Zahnarzt um 17:00, morgen ist nichts eingetragen.');
-  };
-
-  const result = await engine.run(userId, 'Was steht heute an?', {
-    triggerSource: 'web',
-    stream: false,
-    skipGlobalRecall: true,
-    maxIterations: 12,
-  });
-
-  assert.equal(followUpSent, true);
-  assert.equal(result.status, 'completed');
-  assert.equal(seenUserTurns.length, 2);
-  assert.ok(seenUserTurns[1].includes('Und was steht morgen an?'));
-  assert.equal(result.content, 'Heute Zahnarzt um 17:00, morgen ist nichts eingetragen.');
 });

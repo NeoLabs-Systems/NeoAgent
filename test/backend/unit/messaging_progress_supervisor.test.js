@@ -211,11 +211,11 @@ describe('messaging progress supervisor', () => {
     const app = {
       locals: {
         behaviorPipeline: {
-          async refineAndMaybeDeliver() {
+          async deliverReply() {
             return {
               delivered: false,
               suppressed: true,
-              reasonCodes: ['stale_turn'],
+              reason: 'stale_turn',
             };
           },
         },
@@ -452,157 +452,6 @@ describe('messaging progress supervisor', () => {
       ),
       false,
     );
-  });
-
-  test('task_complete is evaluated through the structured completion judge', async () => {
-    const messagingManager = createMessagingManager();
-    const engine = new AgentEngine(null, { messagingManager });
-
-    assert.equal(
-      typeof engine.evaluateTaskCompleteSignal,
-      'function',
-      'evaluateTaskCompleteSignal must exist on the engine',
-    );
-    assert.equal(
-      typeof engine.decideLoopState,
-      'function',
-      'decideLoopState must exist on the engine',
-    );
-  });
-
-  test('task_complete judge can reject a premature completion signal', async () => {
-    const engine = new AgentEngine(null, { messagingManager: createMessagingManager() });
-    const { runId } = seedMessagingRun(engine, {
-      goalContract: {
-        goal: 'Finish the requested implementation.',
-        successCriteria: ['Tests pass.'],
-        completionConfidenceRequired: 'high',
-      },
-    });
-    let judgeCalls = 0;
-    const result = await engine.evaluateTaskCompleteSignal({
-      provider: {
-        async chat() {
-          judgeCalls += 1;
-          return {
-            content: '{"status":"continue","reason":"Tests have not been run."}',
-            usage: { totalTokens: 7 },
-          };
-        },
-      },
-      providerName: 'test',
-      model: 'test-model',
-      messages: [],
-      analysis: { goal: 'Finish the requested implementation.' },
-      plan: null,
-      tools: [],
-      toolExecutions: [],
-      finalMessage: 'Done.',
-      confidence: 'high',
-      iteration: 1,
-      maxIterations: 5,
-      options: { runId, userId: user.userId, triggerSource: 'messaging' },
-    });
-
-    assert.equal(judgeCalls, 1);
-    assert.equal(result.accepted, false);
-    assert.equal(result.status, 'continue');
-    assert.match(result.reason, /Tests/);
-  });
-
-  test('task_complete low confidence is rejected before the judge when confidence requirement is high', async () => {
-    const engine = new AgentEngine(null, { messagingManager: createMessagingManager() });
-    const { runId } = seedMessagingRun(engine, {
-      goalContract: {
-        goal: 'Finish the requested implementation.',
-        completionConfidenceRequired: 'high',
-      },
-    });
-    let judgeCalls = 0;
-    const result = await engine.evaluateTaskCompleteSignal({
-      provider: {
-        async chat() {
-          judgeCalls += 1;
-          return { content: '{"status":"complete"}' };
-        },
-      },
-      providerName: 'test',
-      model: 'test-model',
-      messages: [],
-      analysis: { goal: 'Finish the requested implementation.' },
-      plan: null,
-      tools: [],
-      toolExecutions: [],
-      finalMessage: 'Done.',
-      confidence: 'low',
-      iteration: 1,
-      maxIterations: 5,
-      options: { runId, userId: user.userId, triggerSource: 'messaging' },
-    });
-
-    assert.equal(judgeCalls, 0);
-    assert.equal(result.accepted, false);
-    assert.equal(result.status, 'continue');
-    assert.match(result.reason, /below required/);
-  });
-
-  test('run goal contract merges and persists durable success criteria', () => {
-    const messagingManager = createMessagingManager();
-    const engine = new AgentEngine(null, { messagingManager });
-    const { runId } = seedMessagingRun(engine);
-
-    engine.updateRunGoalContract(runId, {
-      goal: 'Fix messaging reliability.',
-      successCriteria: [
-        'Final reply reaches the originating chat.',
-      ],
-      completionConfidenceRequired: 'high',
-    });
-    engine.updateRunGoalContract(runId, {
-      successCriteria: [
-        'Progress notes never suppress the final reply.',
-        'Final reply reaches the originating chat.',
-      ],
-      progressUpdatePolicy: 'required',
-    });
-
-    const runMeta = engine.getRunMeta(runId);
-    const persisted = JSON.parse(ctx.db.prepare(
-      'SELECT metadata_json FROM agent_runs WHERE id = ?'
-    ).get(runId).metadata_json || '{}');
-
-    assert.equal(runMeta.goalContract.goal, 'Fix messaging reliability.');
-    assert.deepEqual(runMeta.goalContract.successCriteria, [
-      'Final reply reaches the originating chat.',
-      'Progress notes never suppress the final reply.',
-    ]);
-    assert.equal(runMeta.goalContract.completionConfidenceRequired, 'high');
-    assert.equal(runMeta.goalContract.progressUpdatePolicy, 'required');
-    assert.deepEqual(persisted.goalContract.successCriteria, runMeta.goalContract.successCriteria);
-  });
-
-  test('the original run goal cannot be replaced by a later model summary', () => {
-    const engine = new AgentEngine(null, {
-      messagingManager: createMessagingManager(),
-    });
-    const { runId } = seedMessagingRun(engine);
-
-    engine.updateRunGoalContract(runId, {
-      goal: 'Implement the complete user request and verify the result.',
-    });
-    engine.updateRunGoalContract(runId, {
-      goal: 'Send a short acknowledgement.',
-      successCriteria: ['The requested implementation is complete.'],
-    });
-
-    const goalContract = engine.getRunMeta(runId).goalContract;
-    assert.equal(
-      goalContract.goal,
-      'Implement the complete user request and verify the result.',
-    );
-    assert.deepEqual(goalContract.successCriteria, [
-      'The requested implementation is complete.',
-    ]);
   });
 
   test('terminal interim question suppresses final fallback', () => {

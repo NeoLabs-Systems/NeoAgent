@@ -66,10 +66,6 @@ const {
 } = require('./tool_dispatch');
 const { clampRunContext } = require('../messagingFallback');
 const {
-  assessResearchAdequacy,
-  summarizeToolExecutions,
-} = require('../toolEvidence');
-const {
   buildMemoryConsolidationInstructions,
   normalizeMemoryCandidates,
 } = require('../../memory/consolidation');

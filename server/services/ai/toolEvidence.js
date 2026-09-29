@@ -1,9 +1,9 @@
 'use strict';
 
-// Classifies tool executions into run evidence (what changed, what failed, what
-// is relevant to the user's answer) and builds the deterministic recovery
-// context the engine feeds back to the model after a failure. Kept free of
-// engine state so the classification rules are pure and unit testable.
+// Classifies tool executions into run evidence: what changed, what failed, and
+// what is relevant to the user's answer. The runaway guards and progress
+// narration read it. Kept free of engine state so the rules are pure and unit
+// testable.
 
 const { compactToolResult } = require('./toolResult');
 const { summarizeForLog } = require('./logFormat');
@@ -195,199 +195,6 @@ function isSubstantiveProgressToolName(toolName = '') {
   return true;
 }
 
-function clampResearchText(value, maxChars = 220) {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  if (!text) return '';
-  if (text.length <= maxChars) return text;
-  return `${text.slice(0, Math.max(0, maxChars - 1)).trimEnd()}…`;
-}
-
-function uniqueResearchTokens(values = [], { limit = 12 } = {}) {
-  const seen = new Set();
-  const tokens = [];
-  for (const value of values) {
-    const token = String(value || '').replace(/\s+/g, ' ').trim();
-    if (!token) continue;
-    const key = token.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    tokens.push(token);
-    if (tokens.length >= limit) break;
-  }
-  return tokens;
-}
-
-// Research targets come from structured task analysis / goal contract only.
-// Do not NLP-extract entity names from free text.
-function collectResearchTargets(analysis = null, goalContext = null) {
-  return uniqueResearchTokens([
-    ...(Array.isArray(analysis?.research_targets) ? analysis.research_targets : []),
-    ...(Array.isArray(goalContext?.researchTargets) ? goalContext.researchTargets : []),
-  ], { limit: 8 });
-}
-
-function resolveResearchIntensity(analysis = null, goalContext = null) {
-  const declaredDepth = String(
-    analysis?.research_depth
-    || analysis?.researchDepth
-    || '',
-  ).trim().toLowerCase();
-  const declaredTargets = collectResearchTargets(analysis, goalContext);
-  if (
-    ['none', 'light', 'deep'].includes(declaredDepth)
-    && !(declaredDepth === 'none' && declaredTargets.length > 0)
-  ) {
-    return declaredDepth;
-  }
-
-  const mode = String(analysis?.mode || '').trim().toLowerCase();
-  const complexity = String(
-    goalContext?.effectiveComplexity
-    || analysis?.complexity
-    || '',
-  ).trim().toLowerCase();
-  const autonomyLevel = String(
-    goalContext?.effectiveAutonomyLevel
-    || analysis?.autonomy_level
-    || '',
-  ).trim().toLowerCase();
-  const completionConfidence = String(
-    goalContext?.effectiveCompletionConfidence
-    || analysis?.completion_confidence_required
-    || '',
-  ).trim().toLowerCase();
-  const verificationNeed = String(analysis?.verification_need || '').trim().toLowerCase();
-  const freshnessRisk = String(analysis?.freshness_risk || '').trim().toLowerCase();
-  const planningDepth = String(analysis?.planning_depth || '').trim().toLowerCase();
-  const targets = declaredTargets;
-
-  if (mode === 'direct_answer' && verificationNeed === 'none' && freshnessRisk === 'none') {
-    return 'none';
-  }
-
-  const needsExternalEvidence = (
-    targets.length > 0
-    || freshnessRisk === 'possible'
-    || freshnessRisk === 'high'
-  );
-  if (!needsExternalEvidence) {
-    return 'none';
-  }
-
-  const deepSignals = [
-    mode === 'plan_execute',
-    complexity === 'complex',
-    autonomyLevel === 'high',
-    completionConfidence === 'high',
-    verificationNeed === 'required',
-    freshnessRisk === 'high',
-    planningDepth === 'deep',
-    targets.length >= 2,
-  ].filter(Boolean).length;
-
-  if (deepSignals >= 2 || targets.length >= 2 || verificationNeed === 'required' || freshnessRisk === 'high') {
-    return 'deep';
-  }
-
-  return 'light';
-}
-
-function isSuccessfulResearchExecution(item = {}) {
-  if (!item || item.ok !== true) return false;
-  if (!isSubstantiveProgressToolName(item.toolName)) return false;
-  if (item.evidenceSource === 'messaging') return false;
-  return Boolean(item.evidenceRelevant || item.dependsOnOutput || item.stateChanged);
-}
-
-function selectResearchEvidenceCandidates(toolExecutions = [], maxItems = 80) {
-  const candidates = (Array.isArray(toolExecutions) ? toolExecutions : [])
-    .map((execution, index) => ({ execution, evidenceIndex: index + 1 }))
-    .filter(({ execution }) => isSuccessfulResearchExecution(execution));
-  if (candidates.length <= maxItems) return candidates;
-
-  const firstCount = Math.floor(maxItems / 4);
-  return [
-    ...candidates.slice(0, firstCount),
-    ...candidates.slice(-(maxItems - firstCount)),
-  ];
-}
-
-function summarizeResearchEvidenceCatalog(toolExecutions = [], maxItems = 80) {
-  return selectResearchEvidenceCandidates(toolExecutions, maxItems)
-    .map(({ execution, evidenceIndex }) => (
-      `E${evidenceIndex}. ${execution.toolName} [${execution.evidenceSource || 'tool'}] :: ${clampRunContext(execution.summary || '', 160)}`
-    ))
-    .join('\n');
-}
-
-function researchExecutionSignature(execution = {}) {
-  return JSON.stringify([
-    String(execution.toolName || '').trim(),
-    execution.input && typeof execution.input === 'object' ? execution.input : {},
-  ]);
-}
-
-function assessResearchAdequacy({
-  analysis = null,
-  goalContext = null,
-  toolExecutions = [],
-} = {}) {
-  const intensity = resolveResearchIntensity(analysis, goalContext);
-  const targets = collectResearchTargets(analysis, goalContext);
-
-  const successful = (Array.isArray(toolExecutions) ? toolExecutions : [])
-    .filter(isSuccessfulResearchExecution);
-  const uniqueEvidenceCandidateCount = new Set(
-    successful.map((item) => researchExecutionSignature(item)),
-  ).size;
-  const structurallyReady = intensity === 'none' || uniqueEvidenceCandidateCount > 0;
-  const missing = structurallyReady
-    ? []
-    : ['No successful source-bearing tool evidence is available for semantic review.'];
-  const nextActions = [];
-  if (!structurallyReady) {
-    nextActions.push('Gather source-backed evidence before requesting completion.');
-  } else if (intensity !== 'none') {
-    nextActions.push('Have the completion judge map each requested target to concrete evidence entries and assess source quality.');
-  }
-
-  return {
-    intensity,
-    adequate: structurallyReady,
-    structurallyReady,
-    semanticReviewRequired: intensity !== 'none',
-    evidenceCandidateCount: successful.length,
-    uniqueEvidenceCandidateCount,
-    targets,
-    coveredTargets: [],
-    primaryCoveredTargets: [],
-    uncoveredTargets: intensity === 'none' ? [] : targets,
-    primaryUncoveredTargets: intensity === 'none' ? [] : targets,
-    missing,
-    nextActions,
-    reason: structurallyReady
-      ? (intensity === 'none'
-        ? 'No research burden for this run.'
-        : 'Source candidates exist; the AI completion judge must still validate target coverage and source quality.')
-      : clampResearchText(missing.join(' ') || 'Research evidence is still incomplete.', 320),
-  };
-}
-
-function formatResearchAdequacyGuidance(assessment = null) {
-  if (!assessment || assessment.intensity === 'none') return '';
-  const lines = [
-    assessment.structurallyReady
-      ? 'Research self-check: source candidates exist, but semantic target coverage is not inferred from tool names, arguments, or token overlap.'
-      : 'Research self-check: no successful source evidence is available yet.',
-    assessment.reason ? `Gap: ${assessment.reason}` : '',
-    assessment.nextActions?.length
-      ? `Next safe steps:\n- ${assessment.nextActions.join('\n- ')}`
-      : '',
-    'The completion judge must explicitly map every requested target to supporting evidence and judge whether that evidence is primary, secondary, or merely contextual.',
-  ];
-  return lines.filter(Boolean).join('\n');
-}
-
 function isSubstantiveProgressEvidence(item = {}) {
   if (!isSubstantiveProgressToolName(item.toolName)) return false;
   if (item.evidenceSource === 'messaging') return false;
@@ -399,15 +206,6 @@ function summarizeProgressToolExecutions(toolExecutions = [], maxItems = 10) {
     toolExecutions.filter(isSubstantiveProgressEvidence),
     maxItems,
   );
-}
-
-function summarizeAvailableTools(tools = [], { exclude = [] } = {}) {
-  const excluded = new Set((Array.isArray(exclude) ? exclude : [exclude]).filter(Boolean));
-  return tools
-    .map((tool) => String(tool?.name || '').trim())
-    .filter((name) => name && !excluded.has(name))
-    .slice(0, 24)
-    .join(', ');
 }
 
 function inferToolFailureMessage(toolName, result) {
@@ -441,39 +239,10 @@ function inferToolFailureMessage(toolName, result) {
   return '';
 }
 
-function buildAutonomousRecoveryContext({ err, toolExecutions = [], tools = [], userMessage, visibleMessageSent = false }) {
-  const lastFailure = [...toolExecutions].reverse().find((item) => !item.ok);
-  const alternativeTools = summarizeAvailableTools(tools, { exclude: lastFailure?.toolName || null });
-  const parts = [
-    'This is an internal recovery retry for the same user task. Continue the task instead of stopping.',
-    userMessage ? `Original task: ${clampRunContext(userMessage, 260)}` : '',
-    lastFailure?.toolName ? `Previous attempt failed on tool: ${lastFailure.toolName}.` : '',
-    lastFailure?.error ? `Concrete failure: ${summarizeForLog(lastFailure.error, 260)}.` : '',
-    err?.message ? `Run-level error after that failure: ${summarizeForLog(err.message, 220)}.` : '',
-    'Do not send a blocker message just because one tool path failed.',
-    'Use a different safe approach if available: alternate tool, different query, browser path, HTTP fetch, file/code inspection, or command verification.',
-    visibleMessageSent ? 'A user-facing message was already sent in a previous internal attempt. Continue silently unless you have a materially new finished result or a real external blocker.' : '',
-    alternativeTools ? `Other available tools in this run: ${alternativeTools}.` : '',
-    'Only stop if the remaining problem truly requires an external dependency or user action outside this run.'
-  ];
-  return parts.filter(Boolean).join(' ');
-}
-
 module.exports = {
   classifyToolExecution,
-  deriveEvidenceSource,
-  assessResearchAdequacy,
-  formatResearchAdequacyGuidance,
   gatheredNewEvidence,
-  isSubstantiveProgressEvidence,
-  isSubstantiveProgressToolName,
-  resolveResearchIntensity,
-  selectResearchEvidenceCandidates,
-  summarizeResearchEvidenceCatalog,
   summarizeProgressToolExecutions,
-  summarizeToolExecutions,
-  summarizeAvailableTools,
   inferToolFailureMessage,
-  buildAutonomousRecoveryContext,
   resolveDeclaredToolAccess,
 };

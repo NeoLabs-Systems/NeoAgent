@@ -136,7 +136,6 @@ test('the live model speaks with the shared persona; delegated tasks keep the ag
   const user = await createTestUser(ctx.db);
   const { buildSystemPromptSections } = require('../../../server/services/ai/systemPrompt');
   const { buildLivePrompt } = require('../../../server/services/voice/live/prompt');
-  const { buildInteractionWriterPrompt } = require('../../../server/services/behavior/modules/persona_prompt');
   const memoryManager = {
     buildContext: async () => '',
     getCoreMemory: () => ({ hometown: 'Berlin' }),
@@ -154,12 +153,13 @@ test('the live model speaks with the shared persona; delegated tasks keep the ag
   assert.match(front.instructions, /Keep jokes dry\./);
   assert.match(front.instructions, /^## rules for this call/);
   assert.doesNotMatch(front.instructions, /CRITICAL EXECUTION RULES/);
-  // The messaging writer keeps its texting voice.
-  assert.match(buildInteractionWriterPrompt('Neo'), /you're texting with Neo\./);
 
+  // A hand-off run keeps the agent prompt and writes with the same persona,
+  // in its spoken form because the live model reads the result out.
   const task = await buildSystemPromptSections(user.userId, { triggerSource: 'voice_live' }, memoryManager);
   assert.match(task.stable, /CRITICAL EXECUTION RULES/);
   assert.match(task.stable, /LIVE VOICE TASK/);
+  assert.match(task.stable, /you're on a live voice call with/);
 });
 
 test('appendFragment joins provider transcript fragments without merging words', () => {

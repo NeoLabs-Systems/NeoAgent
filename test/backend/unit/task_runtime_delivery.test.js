@@ -163,7 +163,6 @@ describe('scheduled task result delivery', () => {
     assert.equal(optionsSeen[0].bypassUserRateLimits, true);
     assert.equal(optionsSeen[0].triggerSource, 'schedule');
     assert.equal(optionsSeen[0].stageProactiveMessages, true);
-    assert.equal(optionsSeen[0].skipVerifier, false);
   });
 
   test('manual task runs bypass user token admission limits', async () => {

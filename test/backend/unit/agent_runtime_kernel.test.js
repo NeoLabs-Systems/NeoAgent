@@ -12,7 +12,19 @@ let runtime;
 before(async () => {
   ctx = createTestRuntime();
   userId = (await createTestUser(ctx.db, { username: 'runtime_kernel_user' })).userId;
-  runtime = require('../../../server/services/ai/runtime');
+  const { RunEventBus } = require('../../../server/services/ai/runtime/events/run_event_bus');
+  runtime = {
+    stateMachine: require('../../../server/services/ai/runtime/run_state_machine'),
+    leases: require('../../../server/services/ai/runtime/leases'),
+    outbox: require('../../../server/services/ai/runtime/delivery/outbox_repository'),
+    decisionEngine: require('../../../server/services/ai/runtime/decision_engine'),
+    createProgressBroker: require('../../../server/services/ai/runtime/delivery/progress_broker').createProgressBroker,
+    recoverOrphanedRuns: require('../../../server/services/ai/runtime/recovery_startup').recoverOrphanedRuns,
+    createRunGuards: require('../../../server/services/ai/runtime/run_guards').createRunGuards,
+    eventStore: require('../../../server/services/ai/runtime/events/run_event_store'),
+    EVENT_TYPES: require('../../../server/services/ai/runtime/events/event_types').EVENT_TYPES,
+    RunEventBus,
+  };
 });
 
 after(() => teardownTestRuntime(ctx));
@@ -36,12 +48,12 @@ test('state machine rejects illegal transitions and honors version CAS', () => {
   insertRun('sm-run');
   const first = runtime.stateMachine.transition({
     runId: 'sm-run',
-    toState: 'triaging',
+    toState: 'executing',
     reason: 'start',
     workerId: 'w1',
   });
   assert.equal(first.ok, true);
-  assert.equal(first.run.runtimeState, 'triaging');
+  assert.equal(first.run.runtimeState, 'executing');
   assert.equal(first.run.version, 1);
 
   const illegal = runtime.stateMachine.transition({
@@ -55,7 +67,7 @@ test('state machine rejects illegal transitions and honors version CAS', () => {
 
   const stale = runtime.stateMachine.transition({
     runId: 'sm-run',
-    toState: 'planning',
+    toState: 'delivering',
     reason: 'plan',
     expectedVersion: 0,
     workerId: 'w1',
@@ -68,12 +80,7 @@ test('final delivery CAS allows exactly one commit', () => {
   insertRun('cas-run');
   runtime.stateMachine.transition({
     runId: 'cas-run',
-    toState: 'triaging',
-    workerId: 'w1',
-  });
-  runtime.stateMachine.transition({
-    runId: 'cas-run',
-    toState: 'responding',
+    toState: 'executing',
     workerId: 'w1',
   });
   runtime.stateMachine.transition({
@@ -126,92 +133,12 @@ test('run leases are exclusive while live', () => {
   assert.ok(c);
 });
 
-test('completion gate rejects open required work nodes', () => {
-  insertRun('gate-run');
-  runtime.workGraph.createGraph('gate-run', [
-    {
-      id: 'execute',
-      kind: 'execute',
-      objective: 'Do the work',
-      success_criteria: ['done'],
-      dependencies: [],
-    },
-    {
-      id: 'verify',
-      kind: 'verification',
-      objective: 'Verify',
-      dependencies: ['execute'],
-    },
-  ]);
-  const contract = runtime.taskContract.normalizeContract({
-    goal: 'Do the work',
-    intent: 'execute',
-    deliverables: [{ id: 'result', type: 'task_result', required: true }],
-    open_obligations: [{ id: 'execution', type: 'execution', required: true }],
-    evidence_requirements: [],
-    verification_required: true,
-  });
-  const rejected = runtime.evaluateCompletionClaim({
-    runId: 'gate-run',
-    contract,
-    claim: { summary: 'done', confidence: 0.9 },
-    finalContent: 'done',
-    path: 'durable',
-  });
-  assert.equal(rejected.accepted, false);
-  assert.ok(rejected.failures.some((f) => f.code === 'open_work_node' || f.code === 'open_obligation'));
-
-  const nodes = runtime.workGraph.listNodes('gate-run');
-  const execute = nodes.find((n) => n.nodeKey === 'execute');
-  runtime.workGraph.completeNode(execute.id, { evidence: [{ summary: 'ok' }] });
-  runtime.workGraph.completeNode(nodes.find((n) => n.nodeKey === 'verify').id, {
-    evidence: [{ summary: 'verified' }],
-  });
-  const accepted = runtime.evaluateCompletionClaim({
-    runId: 'gate-run',
-    contract: {
-      ...contract,
-      open_obligations: [],
-      deliverables: [{ id: 'reply', type: 'text', required: true }],
-    },
-    claim: { summary: 'done', confidence: 0.9, completed_node_ids: ['execute', 'verify'] },
-    finalContent: 'done',
-    path: 'durable',
-  });
-  assert.equal(accepted.accepted, true);
-});
-
-test('command artifact references survive working-memory and node completion', () => {
-  insertRun('artifact-node-run');
-  runtime.workGraph.createGraph('artifact-node-run', [{
-    id: 'execute',
-    kind: 'execute',
-    objective: 'Run verification command',
-    dependencies: [],
-  }]);
-  const memory = runtime.createWorkingMemory();
-  memory.addArtifact({ artifactId: 'command-artifact', kind: 'command-output' });
-  memory.addArtifact({ artifactId: 'command-artifact', kind: 'command-output' });
-  assert.deepEqual(memory.snapshot().artifacts, [{
-    artifactId: 'command-artifact',
-    kind: 'command-output',
-  }]);
-
-  const node = runtime.workGraph.listNodes('artifact-node-run')[0];
-  runtime.workGraph.updateNode(node.id, { artifactIds: ['command-artifact'] });
-  runtime.workGraph.completeNode(node.id, { evidence: [{ summary: 'Command finished' }] });
-  assert.deepEqual(runtime.workGraph.listNodes('artifact-node-run')[0].artifactIds, [
-    'command-artifact',
-  ]);
-});
-
-test('typed decisions reject prose tool syntax without executable calls', () => {
-  const invalid = runtime.decisionEngine.decisionFromModelResponse({
+test('a model turn is work, the answer, or blank; prose never runs a tool', () => {
+  const prose = runtime.decisionEngine.decisionFromModelResponse({
     content: 'call tool web_search with query=foo',
     tool_calls: [],
   });
-  assert.equal(invalid.ok, true);
-  assert.equal(invalid.decision.kind, 'respond');
+  assert.equal(prose.kind, 'answer');
 
   const act = runtime.decisionEngine.decisionFromModelResponse({
     content: '',
@@ -220,23 +147,15 @@ test('typed decisions reject prose tool syntax without executable calls', () => 
       function: { name: 'web_search', arguments: '{"query":"neoagent"}' },
     }],
   });
-  assert.equal(act.ok, true);
-  assert.equal(act.decision.kind, 'act');
-  assert.equal(act.decision.toolCalls[0].name, 'web_search');
-  // Wire-format raw must survive validateDecision re-normalization so the next
-  // provider turn can read tool_calls[].function.name.
-  assert.equal(act.decision.toolCalls[0].raw.function.name, 'web_search');
-  assert.equal(typeof act.decision.toolCalls[0].raw.function.arguments, 'string');
+  assert.equal(act.kind, 'act');
+  assert.equal(act.toolCalls[0].name, 'web_search');
+  // Wire-format raw must survive re-normalization so the next provider turn
+  // can read tool_calls[].function.name.
+  assert.equal(act.toolCalls[0].raw.function.name, 'web_search');
+  assert.equal(typeof act.toolCalls[0].raw.function.arguments, 'string');
 
-  const complete = runtime.decisionEngine.decisionFromModelResponse({
-    content: '',
-    tool_calls: [{
-      id: '2',
-      function: { name: 'task_complete', arguments: '{"summary":"All done","confidence":0.9}' },
-    }],
-  });
-  assert.equal(complete.ok, true);
-  assert.equal(complete.decision.kind, 'complete');
+  const blank = runtime.decisionEngine.decisionFromModelResponse({ content: '  ', tool_calls: [] });
+  assert.equal(blank.kind, 'blank');
 });
 
 test('normalizeToolCalls is idempotent and keeps function wire shape', () => {
@@ -269,297 +188,29 @@ test('normalizeToolCalls keeps only a preview of unparseable arguments', () => {
   assert.ok(call.raw.function.arguments.length < 1000);
 });
 
-test('task_complete message alias and high confidence labels normalize', () => {
-  const complete = runtime.decisionEngine.decisionFromModelResponse({
-    content: '',
-    tool_calls: [{
-      id: '2',
-      function: {
-        name: 'task_complete',
-        arguments: JSON.stringify({ message: 'Done via message field', confidence: 'high' }),
-      },
-    }],
-  });
-  assert.equal(complete.ok, true);
-  assert.equal(complete.decision.kind, 'complete');
-  assert.equal(complete.decision.completionClaim.summary, 'Done via message field');
-  assert.equal(complete.decision.completionClaim.confidence, 0.9);
-});
+test('run guards stop a spinning run and never a productive one', () => {
+  const productive = runtime.createRunGuards({ options: { maxIterations: 100 } });
+  for (let turn = 0; turn < 40; turn += 1) {
+    productive.recordModelTurn();
+    productive.recordToolTurn({ progressed: true, allFailed: false });
+  }
+  assert.equal(productive.stopReason(), null);
 
-test('task_result deliverable is satisfied by final text content', () => {
-  const contract = runtime.taskContract.normalizeContract({
-    goal: 'Morning recap',
-    intent: 'execute',
-    deliverables: [{ id: 'result', type: 'task_result', required: true }],
-    open_obligations: [
-      { id: 'execution', type: 'execution', required: true },
-      { id: 'verification', type: 'verification', required: true },
-    ],
-    evidence_requirements: [],
-  });
-  const openWithoutContent = runtime.taskContract.evaluateOpenObligations(contract, {
-    completedNodeKeys: ['execute'],
-    evidence: [{ summary: 'looked up calendar', success: true }],
-    finalContent: '',
-  });
-  assert.ok(openWithoutContent.open.some((o) => o.type === 'deliverable'));
+  const idle = runtime.createRunGuards();
+  for (let turn = 0; turn < 7; turn += 1) idle.recordToolTurn({ progressed: false, allFailed: false });
+  assert.equal(idle.stopReason(), null);
+  idle.recordToolTurn({ progressed: false, allFailed: false });
+  assert.equal(idle.stopReason(), 'no_progress');
 
-  const openWithContent = runtime.taskContract.evaluateOpenObligations(contract, {
-    completedNodeKeys: ['execute'],
-    evidence: [{ summary: 'looked up calendar', success: true }],
-    finalContent: 'No meetings today.',
-  });
-  assert.equal(openWithContent.satisfied, true);
-  assert.equal(openWithContent.open.length, 0);
-});
+  const failing = runtime.createRunGuards();
+  for (let turn = 0; turn < 5; turn += 1) failing.recordToolTurn({ progressed: false, allFailed: true });
+  assert.equal(failing.stopReason(), 'tool_failures');
 
-test('budget manager hard-stops on model turn ceiling', () => {
-  const budget = runtime.createBudgetManager({
-    options: { maxIterations: 2 },
-    analysisMode: 'execute',
-  });
-  budget.recordModelTurn();
-  budget.recordModelTurn();
-  const decision = budget.shouldContinue({
-    openObligations: [{ id: 'x' }],
-    hasNextAction: true,
-    progressDelta: true,
-  });
-  assert.equal(decision.continue, false);
-  assert.equal(decision.reason, 'hard_budget');
-});
-
-test('budget manager does not stop productive evidence collection', () => {
-  const budget = runtime.createBudgetManager({
-    options: { maxEvidenceItems: 2 },
-    analysisMode: 'execute',
-  });
-  budget.recordEvidence(200);
-  const decision = budget.shouldContinue({
-    openObligations: [{ id: 'result' }],
-    hasNextAction: true,
-  });
-  assert.equal(decision.continue, true);
-  assert.equal(decision.reason, 'ok');
-  assert.deepEqual(decision.snapshot.hardDimensions, []);
-  assert.equal(decision.snapshot.usage.evidenceItems, 200);
-});
-
-test('verification reopens nodes instead of terminal failure', async () => {
-  insertRun('verify-run');
-  runtime.workGraph.createGraph('verify-run', [
-    {
-      id: 'execute',
-      kind: 'execute',
-      objective: 'Implement',
-      dependencies: [],
-    },
-  ]);
-  const execute = runtime.workGraph.listNodes('verify-run')[0];
-  runtime.workGraph.completeNode(execute.id, { evidence: [{ summary: 'patch' }] });
-
-  const result = await runtime.verifyRun({
-    runId: 'verify-run',
-    contract: {
-      goal: 'Implement',
-      open_obligations: [{ id: 'execute', type: 'execution', required: true }],
-      deliverables: [{ id: 'code', type: 'repository_patch', required: true }],
-      evidence_requirements: ['tests passed'],
-      verification_required: true,
-    },
-    claim: { summary: 'done', confidence: 0.9 },
-    finalContent: 'done',
-    path: 'durable',
-    evidence: [],
-    artifacts: [],
-  });
-  assert.equal(result.status, 'repair_required');
-  assert.ok((result.defects || []).length > 0);
-  const reopened = runtime.workGraph.listNodes('verify-run');
-  assert.ok(
-    reopened.some((n) => n.status === 'reopened' || n.status === 'ready' || n.status === 'pending'),
-    `expected a reopened node, got ${reopened.map((n) => `${n.nodeKey}:${n.status}`).join(',')}`,
-  );
-});
-
-test('unchanged failed semantic verification is reused until evidence changes', async () => {
-  insertRun('verify-fingerprint-run');
-  runtime.workGraph.createGraph('verify-fingerprint-run', [{
-    id: 'verify',
-    kind: 'verification',
-    objective: 'Verify the response',
-    dependencies: [],
-  }]);
-  const base = {
-    runId: 'verify-fingerprint-run',
-    contract: {
-      version: 3,
-      goal: 'Answer with evidence',
-      open_obligations: [],
-      deliverables: [{ id: 'reply', type: 'text', required: true }],
-      evidence_requirements: [],
-      verification_required: true,
-    },
-    contractVersion: 3,
-    claim: { summary: 'Answer', confidence: 0.9 },
-    finalContent: 'Answer',
-    path: 'durable',
-    evidence: [
-      { id: 'e1', summary: 'Observed A', success: true },
-      { id: 'e-order', summary: 'Observed ordering marker', success: true },
-    ],
-    artifacts: [],
-    sideEffects: [{ id: 's1', status: 'confirmed' }],
-  };
-  let calls = 0;
-  const semanticVerifier = async () => {
-    calls += 1;
-    return {
-      status: 'needs_revision',
-      defects: [{ severity: 'major', criterion: 'proof', evidence: 'Need stronger proof' }],
-      reopen_nodes: [],
-    };
-  };
-
-  const first = await runtime.verifyRun({ ...base, semanticVerifier });
-  assert.equal(first.status, 'repair_required');
-  assert.equal(calls, 1);
-
-  const unchanged = await runtime.verifyRun({
-    ...base,
-    evidence: [...base.evidence].reverse(),
-    semanticVerifier,
-    previousSemanticFailure: first.semanticFailure,
-  });
-  assert.equal(unchanged.unchanged, true);
-  assert.deepEqual(unchanged.defects, first.defects);
-  assert.equal(calls, 1);
-
-  const changedEvidence = await runtime.verifyRun({
-    ...base,
-    evidence: [...base.evidence, { id: 'e2', summary: 'Observed B', success: true }],
-    semanticVerifier,
-    previousSemanticFailure: unchanged.semanticFailure,
-  });
-  assert.equal(calls, 2);
-
-  const changedArtifact = await runtime.verifyRun({
-    ...base,
-    evidence: [...base.evidence, { id: 'e2', summary: 'Observed B', success: true }],
-    artifacts: [{ artifactId: 'artifact-1', complete: true }],
-    semanticVerifier,
-    previousSemanticFailure: changedEvidence.semanticFailure,
-  });
-  assert.equal(calls, 3);
-
-  const changedSideEffect = await runtime.verifyRun({
-    ...base,
-    evidence: [...base.evidence, { id: 'e2', summary: 'Observed B', success: true }],
-    artifacts: [{ artifactId: 'artifact-1', complete: true }],
-    sideEffects: [{ id: 's1', status: 'failed' }],
-    semanticVerifier,
-    previousSemanticFailure: changedArtifact.semanticFailure,
-  });
-  assert.equal(calls, 4);
-
-  const changedFinal = await runtime.verifyRun({
-    ...base,
-    claim: { summary: 'Revised answer', confidence: 0.9 },
-    finalContent: 'Revised answer',
-    evidence: [...base.evidence, { id: 'e2', summary: 'Observed B', success: true }],
-    artifacts: [{ artifactId: 'artifact-1', complete: true }],
-    sideEffects: [{ id: 's1', status: 'failed' }],
-    semanticVerifier,
-    previousSemanticFailure: changedSideEffect.semanticFailure,
-  });
-  assert.equal(calls, 5);
-
-  const verifyNode = runtime.workGraph.listNodes('verify-fingerprint-run')[0];
-  runtime.workGraph.updateNode(verifyNode.id, { status: 'completed' });
-  await runtime.verifyRun({
-    ...base,
-    claim: { summary: 'Revised answer', confidence: 0.9 },
-    finalContent: 'Revised answer',
-    evidence: [...base.evidence, { id: 'e2', summary: 'Observed B', success: true }],
-    artifacts: [{ artifactId: 'artifact-1', complete: true }],
-    sideEffects: [{ id: 's1', status: 'failed' }],
-    semanticVerifier,
-    previousSemanticFailure: changedFinal.semanticFailure,
-  });
-  assert.equal(calls, 6);
-});
-
-test('semantic verifier failure does not fail open as completed', async () => {
-  insertRun('verify-error-run');
-  runtime.workGraph.createGraph('verify-error-run', [{
-    id: 'execute',
-    kind: 'execute',
-    objective: 'Produce a verified answer',
-    dependencies: [],
-  }, {
-    id: 'verify',
-    kind: 'verification',
-    objective: 'Verify the answer',
-    dependencies: ['execute'],
-  }]);
-  const execute = runtime.workGraph.listNodes('verify-error-run')
-    .find((node) => node.nodeKey === 'execute');
-  runtime.workGraph.completeNode(execute.id, { evidence: [{ summary: 'Observed result' }] });
-
-  const result = await runtime.verifyRun({
-    runId: 'verify-error-run',
-    contract: {
-      version: 1,
-      goal: 'Produce a verified answer',
-      open_obligations: [],
-      deliverables: [{ id: 'reply', type: 'text', required: true }],
-      evidence_requirements: [],
-      verification_required: true,
-    },
-    contractVersion: 1,
-    claim: { summary: 'Answer', confidence: 0.9 },
-    finalContent: 'Answer',
-    path: 'durable',
-    evidence: [{ id: 'e1', summary: 'Observed result', success: true }],
-    semanticVerifier: async () => { throw new Error('verifier transport failed'); },
-  });
-
-  assert.equal(result.status, 'repair_required');
-  assert.equal(result.defects[0].criterion, 'semantic_verifier_unavailable');
-  assert.match(result.semanticError, /transport failed/);
-});
-
-test('memory write pipeline deduplicates exact candidates', () => {
-  const first = runtime.memoryWritePipeline.enqueueCandidate({
-    userId,
-    agentId: null,
-    runId: null,
-    writeClass: 'semantic',
-    candidate: {
-      subject: 'User',
-      predicate: 'prefers',
-      object: 'concise updates',
-      sourceEventId: 'evt-1',
-    },
-  });
-  assert.equal(first.ok, true);
-  assert.ok(first.id);
-
-  const second = runtime.memoryWritePipeline.enqueueCandidate({
-    userId,
-    agentId: null,
-    runId: null,
-    writeClass: 'semantic',
-    candidate: {
-      subject: 'User',
-      predicate: 'prefers',
-      object: 'concise updates',
-      sourceEventId: 'evt-1',
-    },
-  });
-  assert.equal(second.ok, true);
-  assert.equal(second.duplicate, true);
-  assert.equal(second.id, first.id);
+  const capped = runtime.createRunGuards({ options: { maxIterations: 2 } });
+  capped.recordModelTurn();
+  assert.equal(capped.stopReason(), null);
+  capped.recordModelTurn();
+  assert.equal(capped.stopReason(), 'turn_limit');
 });
 
 test('progress broker does not invent progress without deltas', async () => {

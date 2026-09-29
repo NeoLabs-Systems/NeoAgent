@@ -8,7 +8,6 @@ const {
   workspaceFolderName,
 } = require('../../../server/services/cowork/prompt');
 const { buildSystemPromptSections } = require('../../../server/services/ai/systemPrompt');
-const { buildExecutionGuidance } = require('../../../server/services/ai/taskAnalysis');
 
 const memoryManager = {
   async buildContext() {
@@ -94,21 +93,5 @@ test('web, messaging, and voice prompts stay free of cowork-only rules', async (
     }
     assert.doesNotMatch(prompt, /File-by-file GitHub API calls are slow and hit rate limits fast/);
     assert.doesNotMatch(prompt, /If a Cowork session already has a project folder open/);
-  }
-});
-
-test('non-cowork execution prompts stay free of cowork-only rules', () => {
-  for (const triggerSource of [undefined, 'web', 'messaging', 'voice_live']) {
-    const guidance = buildExecutionGuidance({
-      triggerSource,
-      analysis: {
-        mode: 'execute',
-        goal: 'Look into this.',
-        success_criteria: ['Answer the question.'],
-      },
-    });
-    for (const phrase of COWORK_ONLY_PHRASES) {
-      assert.doesNotMatch(guidance, phrase, `${phrase} leaked into ${triggerSource} guidance`);
-    }
   }
 });

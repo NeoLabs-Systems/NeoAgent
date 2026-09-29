@@ -32,6 +32,19 @@ const CORE_FILE_TOOLS = [
   'execute_command',
 ];
 
+// What a personal agent needs most turns, whatever language the request is
+// in: search, fetching a page, the shell, memory, and scheduling. They start
+// active next to the tools that match the request; everything else is found
+// through search_tools.
+const DEFAULT_ACTIVE_TOOLS = [
+  'web_search',
+  'http_request',
+  'execute_command',
+  'memory_recall',
+  'memory_save',
+  'create_task',
+];
+
 function requiredToolNames(options = {}) {
   const requiredNames = [...ALWAYS_INCLUDE_BUILT_INS];
   if (options.includeCoreFileTools) requiredNames.push(...CORE_FILE_TOOLS);
@@ -201,7 +214,9 @@ function ensureRequiredTools(selectedTools = [], builtInTools = [], options = {}
 }
 
 function selectInitialTools(allTools = [], suggestedNames = [], options = {}) {
-  const requested = new Set(expandNamesByFamily(suggestedNames, allTools));
+  // A catalog within the schema cap is simply all active.
+  if (allTools.length <= MAX_TOOLS) return allTools.slice();
+  const requested = new Set(expandNamesByFamily([...suggestedNames, ...DEFAULT_ACTIVE_TOOLS], allTools));
   const selected = allTools.filter((tool) => requested.has(tool?.name));
   return ensureRequiredTools(selected.slice(0, MAX_TOOLS), allTools, options).slice(0, MAX_TOOLS);
 }
@@ -262,6 +277,7 @@ module.exports = {
   expandNamesByFamily,
   ALWAYS_INCLUDE_BUILT_INS,
   CORE_FILE_TOOLS,
+  DEFAULT_ACTIVE_TOOLS,
   MAX_TOOLS,
   activateTools,
   buildToolDiscoverySummary,

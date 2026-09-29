@@ -6,6 +6,7 @@ const { test } = require('node:test');
 const {
   activateTools,
   expandNamesByFamily,
+  MAX_TOOLS,
   selectInitialTools,
   suggestsCoreFileWork,
 } = require('../../../server/services/ai/toolSelector');
@@ -34,12 +35,19 @@ test('selecting one tool in a family activates the rest of that family', () => {
   );
   assert.deepEqual(expandNamesByFamily(['web_search'], catalog), ['web_search']);
 
-  const initial = selectInitialTools(catalog, ['browser_navigate']);
+  // Past the schema cap only matching families and the defaults start active.
+  const fillers = Array.from({ length: MAX_TOOLS }, (_, index) => ({ name: `filler_${index}`, description: 'other' }));
+  const initial = selectInitialTools([...catalog, ...fillers], ['browser_navigate']);
   assert.deepEqual(
     initial.map((tool) => tool.name),
-    ['browser_navigate', 'browser_click', 'browser_type', 'browser_extract'],
+    ['web_search', 'browser_navigate', 'browser_click', 'browser_type', 'browser_extract'],
   );
-  assert.equal(initial.some((tool) => tool.name === 'browser_evaluate'), false);
+
+  // A catalog within the cap is simply all active.
+  assert.deepEqual(
+    selectInitialTools(catalog, []).map((tool) => tool.name),
+    catalog.map((tool) => tool.name),
+  );
 
   const activated = activateTools(
     [{ name: 'web_search' }],

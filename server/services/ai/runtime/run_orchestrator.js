@@ -1023,7 +1023,15 @@ class DurableRunRuntime {
           { role: 'system', content: buildWrapUpPrompt(reason, options.source || null) },
         ]),
         tools: [],
-        options: { ...options, stream: false, signal: session.getActiveSignal(), runId, userId, agentId },
+        options: {
+          ...options,
+          stream: false,
+          phase: 'wrap_up',
+          signal: session.getActiveSignal(),
+          runId,
+          userId,
+          agentId,
+        },
         runId,
         iteration: session.iterations,
       });

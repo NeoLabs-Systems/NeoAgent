@@ -6,18 +6,14 @@ const { test } = require('node:test');
 const {
   normalizeOutgoingMessage,
   clampRunContext,
-  joinSentMessages,
-  buildBlankMessagingReplyPrompt,
   buildProgressUpdatePrompt,
+  buildWrapUpPrompt,
   toolWorkDescription,
   summarizeRecentWork,
   hasFailureSignal,
   isInternalToolingFailure,
   extractToolFailureMessage,
   buildDeterministicMessagingFallback,
-  buildMessagingFailureScenario,
-  buildDeterministicMessagingErrorReply,
-  buildModelFailureLoopPrompt,
 } = require('../../../server/services/ai/messagingFallback');
 
 test('normalizeOutgoingMessage collapses whitespace by default and can preserve it', () => {
@@ -34,18 +30,12 @@ test('clampRunContext truncates with ellipsis past the limit', () => {
   assert.equal(clampRunContext('abcdefghijkl', 4), 'abcd...');
 });
 
-test('joinSentMessages joins non-empty trimmed entries with blank lines', () => {
-  assert.equal(joinSentMessages(['a', '', '  b  ']), 'a\n\nb');
-  assert.equal(joinSentMessages('not-an-array'), '');
-});
-
-test('buildBlankMessagingReplyPrompt escalates wording on retry', () => {
-  const first = buildBlankMessagingReplyPrompt(1);
-  const second = buildBlankMessagingReplyPrompt(2);
-  assert.match(first, /one non-empty reply/);
-  assert.match(first, /existing system persona and channel guide/i);
-  assert.match(second, /previous reply was empty/);
-  assert.match(second, /existing system persona and channel guide/i);
+test('the wrap-up prompt names the real stop reason and forbids tools and invention', () => {
+  const prompt = buildWrapUpPrompt('no_progress', 'whatsapp');
+  assert.match(prompt, /changed nothing and found nothing new/);
+  assert.match(prompt, /do not call any tools/);
+  assert.match(prompt, /Never invent results/);
+  assert.doesNotMatch(prompt, /step limit/);
 });
 
 test('progress update prompt forbids claiming changes from read-only evidence', () => {
@@ -126,48 +116,4 @@ test('buildDeterministicMessagingFallback narrates work and blockers honestly', 
   });
   assert.doesNotMatch(sanitized, /ENOENT|Failed to read file for user|missing\.txt/);
   assert.match(sanitized, /internal tool issue/);
-});
-
-test('buildMessagingFailureScenario assembles a structured evidence string', () => {
-  const scenario = buildMessagingFailureScenario({
-    err: { message: 'kaboom' },
-    failedStepCount: 1,
-    stepIndex: 3,
-    toolExecutions: [{ toolName: 'read_file', error: 'no such file' }],
-  });
-  assert.match(scenario, /Runtime error: kaboom/);
-  assert.match(scenario, /Completed steps before failure: 3/);
-  assert.match(scenario, /Failed tool steps: 1/);
-});
-
-test('buildDeterministicMessagingErrorReply special-cases provider and timeout errors', () => {
-  assert.match(
-    buildDeterministicMessagingErrorReply({ err: { message: 'No AI providers are configured' }, toolExecutions: [] }),
-    /no AI provider is available/,
-  );
-  assert.match(
-    buildDeterministicMessagingErrorReply({ err: { message: 'request timed out' }, toolExecutions: [] }),
-    /timed out while working on that/,
-  );
-  assert.match(
-    buildDeterministicMessagingErrorReply({ err: { message: '' }, toolExecutions: [{ error: 'blocked here' }] }),
-    /got blocked while checking this: blocked here/,
-  );
-  assert.match(
-    buildDeterministicMessagingErrorReply({
-      err: { message: 'purpose=no_response requires content "[NO RESPONSE]".' },
-      toolExecutions: [],
-    }),
-    /internal tool issue/,
-  );
-});
-
-test('buildModelFailureLoopPrompt instructs autonomous recovery on the next model', () => {
-  const prompt = buildModelFailureLoopPrompt({
-    failedModel: 'model-a',
-    nextModel: 'model-b',
-    errorMessage: 'overloaded',
-  });
-  assert.match(prompt, /"model-a" failed with: overloaded/);
-  assert.match(prompt, /Continue on "model-b"/);
 });
