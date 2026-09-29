@@ -23,6 +23,8 @@ const MAX_TRANSIENT_COOLDOWN_MS = 15 * 60 * 1000;
 const MODEL_UNAVAILABLE_CODES = new Set([
   'MODEL_NOT_FOUND',
   'MODEL_NOT_AVAILABLE',
+  // GitHub Copilot answers HTTP 400 for models outside the account's plan.
+  'MODEL_NOT_SUPPORTED',
   'MODEL_UNSUPPORTED',
   'UNSUPPORTED_MODEL',
 ]);

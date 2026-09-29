@@ -3,9 +3,15 @@
 const crypto = require('crypto');
 const OpenAI = require('openai');
 const { BaseProvider } = require('./base');
-const { wrapProviderError } = require('./provider_error');
+const { wrapProviderError, sanitizeProviderErrorDetail } = require('./provider_error');
+const { fetchResponseText } = require('../../network/http');
+const { ENV_FILE, upsertEnvValue } = require('../../../../runtime/paths');
 
 const DEFAULT_BASE_URL = 'https://chatgpt.com/backend-api/codex';
+// Same OAuth client `neoagent login openai-codex` authenticates with.
+const OPENAI_CODEX_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
+const OPENAI_CODEX_TOKEN_URL = 'https://auth.openai.com/oauth/token';
+const OAUTH_REFRESH_TIMEOUT_MS = 30000;
 const OPENAI_CODEX_EMPTY_INPUT_TEXT = ' ';
 const NEOAGENT_VERSION = (() => {
   try {
@@ -186,6 +192,66 @@ function extractToolCalls(response) {
   return toolCalls.filter((toolCall) => toolCall.id && toolCall.function.name);
 }
 
+// Refresh tokens rotate, so concurrent provider instances must share one
+// refresh instead of each spending (and invalidating) the same token.
+let refreshInFlight = null;
+
+async function refreshCodexAccessToken(refreshToken, fetchImpl) {
+  const { response, text } = await fetchResponseText(OPENAI_CODEX_TOKEN_URL, {
+    fetchImpl,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({
+      client_id: OPENAI_CODEX_CLIENT_ID,
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      scope: 'openid profile email',
+    }),
+    timeoutMs: OAUTH_REFRESH_TIMEOUT_MS,
+    maxResponseBytes: 256 * 1024,
+    serviceName: 'OpenAI Codex OAuth refresh',
+  });
+  let data = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = {};
+  }
+  if (!response.ok) {
+    const detail = data?.error?.message || data?.error_description || data?.error || text;
+    throw new Error(`HTTP ${response.status} ${sanitizeProviderErrorDetail(detail)}`);
+  }
+  if (!data.access_token) {
+    throw new Error('Refresh response did not include an access token.');
+  }
+  return { access: data.access_token, refresh: data.refresh_token || refreshToken };
+}
+
+function refreshSharedCodexAccessToken(staleAccessToken, fetchImpl) {
+  const current = process.env.OPENAI_CODEX_ACCESS_TOKEN || '';
+  if (current && current !== staleAccessToken) return Promise.resolve(current);
+  const refreshToken = process.env.OPENAI_CODEX_REFRESH_TOKEN || '';
+  if (!refreshToken) return Promise.resolve(null);
+  if (!refreshInFlight) {
+    refreshInFlight = refreshCodexAccessToken(refreshToken, fetchImpl)
+      .then(({ access, refresh }) => {
+        process.env.OPENAI_CODEX_ACCESS_TOKEN = access;
+        process.env.OPENAI_CODEX_REFRESH_TOKEN = refresh;
+        try {
+          upsertEnvValue(ENV_FILE, 'OPENAI_CODEX_ACCESS_TOKEN', access);
+          upsertEnvValue(ENV_FILE, 'OPENAI_CODEX_REFRESH_TOKEN', refresh);
+        } catch (error) {
+          console.warn(`[OpenAICodex] Could not persist refreshed tokens: ${error.message}`);
+        }
+        return access;
+      })
+      .finally(() => {
+        refreshInFlight = null;
+      });
+  }
+  return refreshInFlight;
+}
+
 function formatOpenAIError(err) {
   if (!err || typeof err !== 'object') return 'Unknown OpenAI error';
   const parts = [];
@@ -237,6 +303,7 @@ class OpenAICodexProvider extends BaseProvider {
         }
       : undefined;
 
+    this.fetchImpl = config.fetch || fetch;
     this.client = new OpenAI({
       apiKey: config.apiKey || process.env.OPENAI_CODEX_ACCESS_TOKEN,
       baseURL,
@@ -245,14 +312,33 @@ class OpenAICodexProvider extends BaseProvider {
     });
   }
 
+  // Codex access tokens expire after about ten days; the refresh token saved
+  // by `neoagent login openai-codex` renews them without a new login.
+  async _withTokenRefresh(request) {
+    try {
+      return await request();
+    } catch (err) {
+      if (err?.status !== 401) throw err;
+      let accessToken = null;
+      try {
+        accessToken = await refreshSharedCodexAccessToken(this.client.apiKey, this.fetchImpl);
+      } catch (refreshError) {
+        console.warn(`[OpenAICodex] Access token refresh failed: ${refreshError.message}`);
+      }
+      if (!accessToken) throw err;
+      this.client.apiKey = accessToken;
+      return request();
+    }
+  }
+
   async listModels(signal = null) {
     try {
       const response = this.usesCodexBackend
-        ? await this.client.get('/models', {
+        ? await this._withTokenRefresh(() => this.client.get('/models', {
             query: { client_version: NEOAGENT_VERSION },
             signal,
-          })
-        : await this.client.models.list({ signal });
+          }))
+        : await this._withTokenRefresh(() => this.client.models.list({ signal }));
       const models = this.usesCodexBackend ? response.models : response.data;
       return (Array.isArray(models) ? models : [])
         .filter((model) => model?.supported_in_api !== false && model?.visibility !== 'hide')
@@ -451,10 +537,10 @@ class OpenAICodexProvider extends BaseProvider {
     const request = this._buildRequest(messages, tools, options, model);
     let response;
     try {
-      response = await this.client.responses.create(
+      response = await this._withTokenRefresh(() => this.client.responses.create(
         { model, ...request },
         { headers: this._requestHeaders(), signal: options.signal },
-      );
+      ));
     } catch (err) {
       throw wrapProviderError(err, 'OpenAI Codex request failed', {
         detail: formatOpenAIError(err),
@@ -482,10 +568,10 @@ class OpenAICodexProvider extends BaseProvider {
     const request = this._buildRequest(messages, tools, options, model);
     let stream;
     try {
-      stream = await this.client.responses.create(
+      stream = await this._withTokenRefresh(() => this.client.responses.create(
         { model, ...request, stream: true },
         { headers: this._requestHeaders(), signal: options.signal },
-      );
+      ));
     } catch (err) {
       throw wrapProviderError(err, 'OpenAI Codex request failed', {
         detail: formatOpenAIError(err),

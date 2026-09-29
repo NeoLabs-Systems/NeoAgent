@@ -31,6 +31,15 @@ test('404 model failures enter a bounded cooldown and successes clear it', () =>
   assert.equal(modelHealth.isModelCoolingDown(userId, 'main', 'nvidia::removed-model', 1_002), false);
 });
 
+test('a model outside the provider plan is treated as unavailable, not fatal', () => {
+  const error = Object.assign(new Error('400 The requested model is not supported.'), {
+    status: 400,
+    code: 'model_not_supported',
+  });
+  assert.equal(modelHealth.isPermanentModelFailure(error), true);
+  assert.equal(modelHealth.shouldSwitchModel(error), true);
+});
+
 test('JSON-wrapped provider errors preserve their structured model status', () => {
   const error = new Error(JSON.stringify({
     error: {
