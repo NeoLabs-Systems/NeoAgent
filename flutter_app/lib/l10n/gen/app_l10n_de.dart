@@ -3832,6 +3832,9 @@ class AppL10nDe extends AppL10n {
   String get githubIssueOpened => 'GitHub-Issue eröffnet';
 
   @override
+  String get neorecallMemoryCreated => 'NeoRecall-Erinnerung erstellt';
+
+  @override
   String githubReleaseCheckFailedWithHttp(Object? arg1) {
     return 'GitHub-Release-Prüfung fehlgeschlagen mit HTTP $arg1.';
   }
@@ -7059,6 +7062,10 @@ class AppL10nDe extends AppL10n {
   @override
   String get runWhenANewIssueMatching =>
       'Ausführen, wenn in einem Repository ein neues Issue eröffnet wird, das Ihren Filtern entspricht.';
+
+  @override
+  String get runWhenANewNeorecallMemoryMatches =>
+      'Ausführen, wenn eine neue NeoRecall-Erinnerung erstellt wird, die Ihren Filtern entspricht.';
 
   @override
   String get runWhenANotificationArrivesOn =>
@@ -10735,4 +10742,51 @@ class AppL10nDe extends AppL10n {
   String inArg1(Object? arg1) {
     return ' in $arg1';
   }
+
+  @override
+  String get worldNews => 'Weltnachrichten';
+
+  @override
+  String get runWhenNewWorldHeadlinesAppear =>
+      'Ausführen, wenn neue Weltnachrichten erscheinen. Dein Prompt entscheidet, ob du benachrichtigt wirst.';
+
+  @override
+  String get newsKeywordsOptional => 'Stichwörter (optional)';
+
+  @override
+  String get worldNewsSetup => 'Weltnachrichten-Einrichtung';
+
+  @override
+  String get connectWorldNewsWithGnews =>
+      'Füge einen GNews-API-Schlüssel hinzu (kostenloser Tarif auf gnews.io). Er wird verschlüsselt gespeichert und für Weltnachrichten-Trigger zum Abrufen der Top-Schlagzeilen verwendet.';
+
+  @override
+  String get gnewsApiKey => 'GNews-API-Schlüssel';
+
+  @override
+  String get pasteReplacementGnewsApiKey =>
+      'Neuen GNews-API-Schlüssel einfügen';
+
+  @override
+  String get leaveTheApiKeyEmptyToKeep =>
+      'Leer lassen, um den gespeicherten Schlüssel zu behalten.';
+
+  @override
+  String get gnewsApiKeyIsRequired =>
+      'Ein GNews-API-Schlüssel ist erforderlich.';
+
+  @override
+  String get couldNotSaveWorldNewsSetup =>
+      'Weltnachrichten-Einrichtung konnte nicht gespeichert werden.';
+
+  @override
+  String get disconnectWorldNews => 'Weltnachrichten trennen';
+
+  @override
+  String get thisRemovesTheGnewsApiKey =>
+      'Dadurch wird der gespeicherte GNews-API-Schlüssel entfernt. Weltnachrichten-Trigger werden nicht mehr ausgelöst, bis du wieder einen Schlüssel hinzufügst.';
+
+  @override
+  String get couldNotDisconnectWorldNews =>
+      'Weltnachrichten konnten nicht getrennt werden.';
 }

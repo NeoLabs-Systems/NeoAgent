@@ -2562,6 +2562,16 @@ List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
     requiresConnection: true,
   ),
   _TaskTriggerOption(
+    type: 'neorecall_memory_created',
+    section: 'Memory',
+    label: appStrings.neorecallMemoryCreated,
+    description: appStrings.runWhenANewNeorecallMemoryMatches,
+    icon: Icons.psychology_alt_rounded,
+    providerKey: 'neorecall',
+    appKey: 'recall',
+    requiresConnection: true,
+  ),
+  _TaskTriggerOption(
     type: 'weather_event',
     section: appStrings.environment,
     label: appStrings.weatherEvent,
@@ -2570,6 +2580,16 @@ List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
     icon: Icons.cloudy_snowing,
     providerKey: 'weather',
     appKey: 'forecast',
+  ),
+  _TaskTriggerOption(
+    type: 'world_news',
+    section: 'News',
+    label: appStrings.worldNews,
+    description: appStrings.runWhenNewWorldHeadlinesAppear,
+    icon: Icons.public_rounded,
+    providerKey: 'news',
+    appKey: 'headlines',
+    requiresConnection: true,
   ),
   _TaskTriggerOption(
     type: 'whatsapp_personal_message_received',
@@ -4714,6 +4734,21 @@ class _TasksPanelState extends State<TasksPanel> {
                                 ),
                               ],
                               if (selectedTriggerType ==
+                                  'neorecall_memory_created')
+                                TextField(
+                                  controller: queryController,
+                                  decoration: InputDecoration(
+                                    labelText: appStrings.containsTextOptional,
+                                  ),
+                                ),
+                              if (selectedTriggerType == 'world_news')
+                                TextField(
+                                  controller: queryController,
+                                  decoration: InputDecoration(
+                                    labelText: appStrings.newsKeywordsOptional,
+                                  ),
+                                ),
+                              if (selectedTriggerType ==
                                   'whatsapp_personal_message_received') ...<
                                 Widget
                               >[
@@ -5066,6 +5101,14 @@ class _TasksPanelState extends State<TasksPanel> {
                       if (selectedTriggerType == 'slack_message_received') {
                         triggerConfig['channel'] = channelController.text
                             .trim();
+                      }
+                      if (selectedTriggerType == 'neorecall_memory_created' &&
+                          queryController.text.trim().isNotEmpty) {
+                        triggerConfig['query'] = queryController.text.trim();
+                      }
+                      if (selectedTriggerType == 'world_news' &&
+                          queryController.text.trim().isNotEmpty) {
+                        triggerConfig['query'] = queryController.text.trim();
                       }
                       if (selectedTriggerType == 'github_issue_opened') {
                         final repo = repoController.text.trim();

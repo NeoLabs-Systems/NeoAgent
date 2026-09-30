@@ -198,6 +198,9 @@ void _openOfficialIntegrationSetupDialog(
     case 'trello':
       _showTrelloSetupDialog(context, controller);
       return;
+    case 'news':
+      _showWorldNewsSetupDialog(context, controller);
+      return;
   }
 }
 
@@ -1294,6 +1297,178 @@ Future<void> _showHomeAssistantSetupDialog(
   tokenController.dispose();
 }
 
+Future<void> _showWorldNewsSetupDialog(
+  BuildContext context,
+  NeoAgentController controller,
+) async {
+  Map<String, dynamic> existing;
+  try {
+    existing = await controller.getOfficialIntegrationConfig('news');
+  } catch (error) {
+    if (context.mounted) {
+      _showControllerError(context, controller, error);
+    }
+    return;
+  }
+
+  final hasApiKey = existing['hasApiKey'] == true;
+  var formError = '';
+  var saving = false;
+  final apiKeyController = TextEditingController();
+
+  if (!context.mounted) return;
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (dialogContext, setState) {
+          return AlertDialog(
+            title: Text(appStrings.worldNewsSetup),
+            content: SizedBox(
+              width: 520,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    appStrings.connectWorldNewsWithGnews,
+                    style: TextStyle(color: _textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: apiKeyController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: hasApiKey
+                          ? appStrings.pasteReplacementGnewsApiKey
+                          : appStrings.gnewsApiKey,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  if (hasApiKey) ...<Widget>[
+                    const SizedBox(height: 8),
+                    Text(
+                      appStrings.leaveTheApiKeyEmptyToKeep,
+                      style: TextStyle(color: _textSecondary, fontSize: 12),
+                    ),
+                  ],
+                  if (formError.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 12),
+                    Text(
+                      formError,
+                      style: TextStyle(color: _danger, fontSize: 12),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: <Widget>[
+              if (hasApiKey)
+                TextButton(
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          final shouldClear =
+                              await showDialog<bool>(
+                                context: dialogContext,
+                                builder: (context) => AlertDialog(
+                                  title: Text(appStrings.disconnectWorldNews),
+                                  content: Text(
+                                    appStrings.thisRemovesTheGnewsApiKey,
+                                  ),
+                                  actions: <Widget>[
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(false),
+                                      child: Text(appStrings.cancel),
+                                    ),
+                                    FilledButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(true),
+                                      child: Text(appStrings.disconnect),
+                                    ),
+                                  ],
+                                ),
+                              ) ??
+                              false;
+                          if (!shouldClear) return;
+                          setState(() {
+                            formError = '';
+                            saving = true;
+                          });
+                          try {
+                            await controller.clearOfficialIntegrationConfig(
+                              'news',
+                            );
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop();
+                            }
+                          } catch (_) {
+                            setState(() {
+                              formError =
+                                  controller.errorMessage ??
+                                  appStrings.couldNotDisconnectWorldNews;
+                              saving = false;
+                            });
+                          }
+                        },
+                  child: Text(appStrings.disconnect),
+                ),
+              TextButton(
+                onPressed: saving
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(),
+                child: Text(appStrings.close),
+              ),
+              FilledButton(
+                onPressed: saving
+                    ? null
+                    : () async {
+                        final apiKey = apiKeyController.text.trim();
+                        if (apiKey.isEmpty && !hasApiKey) {
+                          setState(
+                            () => formError = appStrings.gnewsApiKeyIsRequired,
+                          );
+                          return;
+                        }
+                        setState(() {
+                          formError = '';
+                          saving = true;
+                        });
+                        try {
+                          await controller.saveOfficialIntegrationConfig(
+                            'news',
+                            config: <String, dynamic>{
+                              if (apiKey.isNotEmpty) 'apiKey': apiKey,
+                            },
+                          );
+                          if (dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop();
+                          }
+                        } catch (_) {
+                          setState(() {
+                            formError =
+                                controller.errorMessage ??
+                                appStrings.couldNotSaveWorldNewsSetup;
+                            saving = false;
+                          });
+                        }
+                      },
+                child: Text(
+                  saving ? appStrings.saving : appStrings.saveConnect,
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+
+  apiKeyController.dispose();
+}
+
 Future<void> _showTrelloSetupDialog(
   BuildContext context,
   NeoAgentController controller,
@@ -1995,6 +2170,7 @@ class _OfficialIntegrationIcon extends StatelessWidget {
       'home_assistant' => const Color(0xFF41BDF5),
       'password' => const Color(0xFF175DDC),
       'trello' => const Color(0xFF0C66E4),
+      'news' => const Color(0xFFE5484D),
       _ => _accent,
     };
     final label = switch (item.icon) {
@@ -2004,6 +2180,7 @@ class _OfficialIntegrationIcon extends StatelessWidget {
       'home_assistant' => 'H',
       'password' => 'B',
       'trello' => 'T',
+      'news' => 'W',
       _ => item.label.isNotEmpty ? item.label[0] : '?',
     };
     return Container(

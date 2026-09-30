@@ -6161,6 +6161,12 @@ abstract class AppL10n {
   /// **'GitHub Issue Opened'**
   String get githubIssueOpened;
 
+  /// No description provided for @neorecallMemoryCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoRecall Memory Created'**
+  String get neorecallMemoryCreated;
+
   /// No description provided for @githubReleaseCheckFailedWithHttp.
   ///
   /// In en, this message translates to:
@@ -11632,6 +11638,12 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Run when a new issue matching your filters is opened in a repository.'**
   String get runWhenANewIssueMatching;
+
+  /// No description provided for @runWhenANewNeorecallMemoryMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when a new NeoRecall memory matching your filters is created.'**
+  String get runWhenANewNeorecallMemoryMatches;
 
   /// No description provided for @runWhenANotificationArrivesOn.
   ///
@@ -17674,6 +17686,84 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **' in {arg1}'**
   String inArg1(Object? arg1);
+
+  /// No description provided for @worldNews.
+  ///
+  /// In en, this message translates to:
+  /// **'World News'**
+  String get worldNews;
+
+  /// No description provided for @runWhenNewWorldHeadlinesAppear.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when new world headlines appear. Your prompt decides whether to notify you.'**
+  String get runWhenNewWorldHeadlinesAppear;
+
+  /// No description provided for @newsKeywordsOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Keywords (optional)'**
+  String get newsKeywordsOptional;
+
+  /// No description provided for @worldNewsSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'World News Setup'**
+  String get worldNewsSetup;
+
+  /// No description provided for @connectWorldNewsWithGnews.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a GNews API key (free plan available at gnews.io). It is stored encrypted and used to poll top headlines for World News triggers.'**
+  String get connectWorldNewsWithGnews;
+
+  /// No description provided for @gnewsApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'GNews API key'**
+  String get gnewsApiKey;
+
+  /// No description provided for @pasteReplacementGnewsApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste replacement GNews API key'**
+  String get pasteReplacementGnewsApiKey;
+
+  /// No description provided for @leaveTheApiKeyEmptyToKeep.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave the key empty to keep the currently stored key.'**
+  String get leaveTheApiKeyEmptyToKeep;
+
+  /// No description provided for @gnewsApiKeyIsRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'A GNews API key is required.'**
+  String get gnewsApiKeyIsRequired;
+
+  /// No description provided for @couldNotSaveWorldNewsSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save World News setup.'**
+  String get couldNotSaveWorldNewsSetup;
+
+  /// No description provided for @disconnectWorldNews.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect World News'**
+  String get disconnectWorldNews;
+
+  /// No description provided for @thisRemovesTheGnewsApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'This removes the stored GNews API key. World News triggers will stop firing until you add a key again.'**
+  String get thisRemovesTheGnewsApiKey;
+
+  /// No description provided for @couldNotDisconnectWorldNews.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not disconnect World News.'**
+  String get couldNotDisconnectWorldNews;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

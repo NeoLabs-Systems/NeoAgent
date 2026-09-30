@@ -6,12 +6,16 @@ const { normalizeJsonObject } = require('./utils');
 const POLLED_TRIGGER_TYPES = Object.freeze([
   'github_issue_opened',
   'gmail_message_received',
+  'neorecall_memory_created',
   'outlook_email_received',
   'slack_message_received',
   'teams_message_received',
   'weather_event',
   'whatsapp_personal_message_received',
+  'world_news',
 ]);
+
+const newsLastFetchedAt = new Map();
 
 function sortByTimestamp(left, right) {
   return String(left.timestamp).localeCompare(String(right.timestamp));
@@ -23,6 +27,8 @@ async function fetchTriggerRows({
   agentId,
   triggerType,
   config,
+  taskId = null,
+  checkpoint = '',
   signal = null,
 }) {
   if (!integrationManager) return [];
@@ -185,6 +191,36 @@ async function fetchTriggerRows({
       .sort(sortByTimestamp);
   }
 
+  if (triggerType === 'neorecall_memory_created') {
+    const result = await integrationManager.executeTool(userId, 'neorecall_list_memories', {
+      ...connectionArg,
+      type: config.type || undefined,
+      topic: config.topic || undefined,
+      limit: 30,
+    }, scopedAgentId, { signal });
+    const memories = Array.isArray(result) ? result : result?.memories || result?.items || [];
+    const query = String(config.query || '').toLowerCase();
+    const createdAt = (item) => item.created_at || item.createdAt || item.timestamp || '';
+    return memories
+      .filter((item) => item && item.id)
+      .filter((item) => !query || JSON.stringify(item).toLowerCase().includes(query))
+      .map((item) => ({
+        fingerprint: `neorecall_memory:${config.connectionId}:${item.id}`,
+        timestamp: createdAt(item) || new Date().toISOString(),
+        context: {
+          triggerEvent: {
+            provider: 'neorecall',
+            memoryId: item.id,
+            type: item.type || null,
+            title: item.title || '',
+            content: item.summary || item.body || item.content || '',
+            topics: Array.isArray(item.topics) ? item.topics : [],
+          },
+        },
+      }))
+      .sort(sortByTimestamp);
+  }
+
   if (triggerType === 'whatsapp_personal_message_received') {
     const result = await integrationManager.executeTool(userId, 'whatsapp_personal_get_messages', {
       ...connectionArg,
@@ -298,6 +334,49 @@ async function fetchTriggerRows({
     return rows.sort(sortByTimestamp);
   }
 
+  if (triggerType === 'world_news') {
+    // News APIs have small daily quotas, so each task polls on its own interval
+    // instead of the runtime's one-minute cadence.
+    const intervalMs = (Number(config.checkIntervalMinutes) || 30) * 60 * 1000;
+    const lastFetchedAt = newsLastFetchedAt.get(taskId) || 0;
+    if (Date.now() - lastFetchedAt < intervalMs) return [];
+    newsLastFetchedAt.set(taskId, Date.now());
+
+    const feed = await integrationManager.executeTool(userId, 'news_get_headlines', {
+      ...connectionArg,
+      query: config.query || undefined,
+      category: config.category,
+      lang: config.lang,
+      country: config.country || undefined,
+      max: 10,
+    }, scopedAgentId, { signal });
+    const articles = (Array.isArray(feed?.articles) ? feed.articles : [])
+      .filter((article) => article.id && article.publishedAt)
+      .map((article) => ({
+        ...article,
+        fingerprint: `news:${config.connectionId}:${article.publishedAt}:${article.id}`,
+      }))
+      .sort((left, right) => left.fingerprint.localeCompare(right.fingerprint));
+    // Fingerprints start with the publish time, so anything ordered after the
+    // checkpoint is new even when the checkpointed article left the feed.
+    const fresh = articles.filter((article) => !checkpoint || article.fingerprint > checkpoint);
+    if (!fresh.length) return [];
+
+    const latest = fresh[fresh.length - 1];
+    return [{
+      fingerprint: latest.fingerprint,
+      timestamp: latest.publishedAt,
+      context: {
+        triggerEvent: {
+          provider: 'news',
+          eventType: 'headlines',
+          count: fresh.length,
+          articles: fresh.map(({ fingerprint, id, ...article }) => article),
+        },
+      },
+    }];
+  }
+
   return [];
 }
 
@@ -309,6 +388,8 @@ async function pollIntegrationTask(runtime, task, options = {}) {
     agentId: task.agent_id,
     triggerType: task.trigger_type,
     config,
+    taskId: task.id,
+    checkpoint: String(task.last_trigger_fingerprint || ''),
     signal: options.signal,
   });
   if (!rows.length) return;

@@ -3794,6 +3794,9 @@ class AppL10nEn extends AppL10n {
   String get githubIssueOpened => 'GitHub Issue Opened';
 
   @override
+  String get neorecallMemoryCreated => 'NeoRecall Memory Created';
+
+  @override
   String githubReleaseCheckFailedWithHttp(Object? arg1) {
     return 'GitHub release check failed with HTTP $arg1.';
   }
@@ -6980,6 +6983,10 @@ class AppL10nEn extends AppL10n {
   @override
   String get runWhenANewIssueMatching =>
       'Run when a new issue matching your filters is opened in a repository.';
+
+  @override
+  String get runWhenANewNeorecallMemoryMatches =>
+      'Run when a new NeoRecall memory matching your filters is created.';
 
   @override
   String get runWhenANotificationArrivesOn =>
@@ -10610,4 +10617,47 @@ class AppL10nEn extends AppL10n {
   String inArg1(Object? arg1) {
     return ' in $arg1';
   }
+
+  @override
+  String get worldNews => 'World News';
+
+  @override
+  String get runWhenNewWorldHeadlinesAppear =>
+      'Run when new world headlines appear. Your prompt decides whether to notify you.';
+
+  @override
+  String get newsKeywordsOptional => 'Keywords (optional)';
+
+  @override
+  String get worldNewsSetup => 'World News Setup';
+
+  @override
+  String get connectWorldNewsWithGnews =>
+      'Add a GNews API key (free plan available at gnews.io). It is stored encrypted and used to poll top headlines for World News triggers.';
+
+  @override
+  String get gnewsApiKey => 'GNews API key';
+
+  @override
+  String get pasteReplacementGnewsApiKey => 'Paste replacement GNews API key';
+
+  @override
+  String get leaveTheApiKeyEmptyToKeep =>
+      'Leave the key empty to keep the currently stored key.';
+
+  @override
+  String get gnewsApiKeyIsRequired => 'A GNews API key is required.';
+
+  @override
+  String get couldNotSaveWorldNewsSetup => 'Could not save World News setup.';
+
+  @override
+  String get disconnectWorldNews => 'Disconnect World News';
+
+  @override
+  String get thisRemovesTheGnewsApiKey =>
+      'This removes the stored GNews API key. World News triggers will stop firing until you add a key again.';
+
+  @override
+  String get couldNotDisconnectWorldNews => 'Could not disconnect World News.';
 }

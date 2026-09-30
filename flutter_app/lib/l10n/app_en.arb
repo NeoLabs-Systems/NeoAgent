@@ -3179,6 +3179,7 @@
   "githubCopilot": "GitHub Copilot",
   "githubCopilotAndOpenaiCodex": "GitHub Copilot and OpenAI Codex",
   "githubIssueOpened": "GitHub Issue Opened",
+  "neorecallMemoryCreated": "NeoRecall Memory Created",
   "githubReleaseCheckFailedWithHttp": "GitHub release check failed with HTTP {arg1}.",
   "@githubReleaseCheckFailedWithHttp": {
     "placeholders": {
@@ -4814,6 +4815,7 @@
   "runWhenAMatchingGmailMessage": "Run when a matching Gmail message arrives.",
   "runWhenAMatchingOutlookEmail": "Run when a matching Outlook email arrives.",
   "runWhenANewIssueMatching": "Run when a new issue matching your filters is opened in a repository.",
+  "runWhenANewNeorecallMemoryMatches": "Run when a new NeoRecall memory matching your filters is created.",
   "runWhenANotificationArrivesOn": "Run when a notification arrives on your device.",
   "runWhenASlackMessageMatches": "Run when a Slack message matches the selected scope.",
   "runWhenATeamsChatMessage": "Run when a Teams chat message matches the selected scope.",
@@ -6824,5 +6826,18 @@
         "type": "Object?"
       }
     }
-  }
+  },
+  "worldNews": "World News",
+  "runWhenNewWorldHeadlinesAppear": "Run when new world headlines appear. Your prompt decides whether to notify you.",
+  "newsKeywordsOptional": "Keywords (optional)",
+  "worldNewsSetup": "World News Setup",
+  "connectWorldNewsWithGnews": "Add a GNews API key (free plan available at gnews.io). It is stored encrypted and used to poll top headlines for World News triggers.",
+  "gnewsApiKey": "GNews API key",
+  "pasteReplacementGnewsApiKey": "Paste replacement GNews API key",
+  "leaveTheApiKeyEmptyToKeep": "Leave the key empty to keep the currently stored key.",
+  "gnewsApiKeyIsRequired": "A GNews API key is required.",
+  "couldNotSaveWorldNewsSetup": "Could not save World News setup.",
+  "disconnectWorldNews": "Disconnect World News",
+  "thisRemovesTheGnewsApiKey": "This removes the stored GNews API key. World News triggers will stop firing until you add a key again.",
+  "couldNotDisconnectWorldNews": "Could not disconnect World News."
 }

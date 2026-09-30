@@ -3179,6 +3179,7 @@
   "githubCopilot": "GitHub Copilot",
   "githubCopilotAndOpenaiCodex": "GitHub Copilot und OpenAI Codex",
   "githubIssueOpened": "GitHub-Issue eröffnet",
+  "neorecallMemoryCreated": "NeoRecall-Erinnerung erstellt",
   "githubReleaseCheckFailedWithHttp": "GitHub-Release-Prüfung fehlgeschlagen mit HTTP {arg1}.",
   "@githubReleaseCheckFailedWithHttp": {
     "placeholders": {
@@ -4814,6 +4815,7 @@
   "runWhenAMatchingGmailMessage": "Ausführen, wenn eine passende Gmail-Nachricht eintrifft.",
   "runWhenAMatchingOutlookEmail": "Ausführen, wenn eine passende Outlook-E-Mail eintrifft.",
   "runWhenANewIssueMatching": "Ausführen, wenn in einem Repository ein neues Issue eröffnet wird, das Ihren Filtern entspricht.",
+  "runWhenANewNeorecallMemoryMatches": "Ausführen, wenn eine neue NeoRecall-Erinnerung erstellt wird, die Ihren Filtern entspricht.",
   "runWhenANotificationArrivesOn": "Ausführen, wenn eine Benachrichtigung auf Ihrem Gerät eintrifft.",
   "runWhenASlackMessageMatches": "Ausführen, wenn eine Slack-Nachricht dem gewählten Bereich entspricht.",
   "runWhenATeamsChatMessage": "Ausführen, wenn eine Teams-Chatnachricht dem gewählten Bereich entspricht.",
@@ -6824,5 +6826,18 @@
         "type": "Object?"
       }
     }
-  }
+  },
+  "worldNews": "Weltnachrichten",
+  "runWhenNewWorldHeadlinesAppear": "Ausführen, wenn neue Weltnachrichten erscheinen. Dein Prompt entscheidet, ob du benachrichtigt wirst.",
+  "newsKeywordsOptional": "Stichwörter (optional)",
+  "worldNewsSetup": "Weltnachrichten-Einrichtung",
+  "connectWorldNewsWithGnews": "Füge einen GNews-API-Schlüssel hinzu (kostenloser Tarif auf gnews.io). Er wird verschlüsselt gespeichert und für Weltnachrichten-Trigger zum Abrufen der Top-Schlagzeilen verwendet.",
+  "gnewsApiKey": "GNews-API-Schlüssel",
+  "pasteReplacementGnewsApiKey": "Neuen GNews-API-Schlüssel einfügen",
+  "leaveTheApiKeyEmptyToKeep": "Leer lassen, um den gespeicherten Schlüssel zu behalten.",
+  "gnewsApiKeyIsRequired": "Ein GNews-API-Schlüssel ist erforderlich.",
+  "couldNotSaveWorldNewsSetup": "Weltnachrichten-Einrichtung konnte nicht gespeichert werden.",
+  "disconnectWorldNews": "Weltnachrichten trennen",
+  "thisRemovesTheGnewsApiKey": "Dadurch wird der gespeicherte GNews-API-Schlüssel entfernt. Weltnachrichten-Trigger werden nicht mehr ausgelöst, bis du wieder einen Schlüssel hinzufügst.",
+  "couldNotDisconnectWorldNews": "Weltnachrichten konnten nicht getrennt werden."
 }

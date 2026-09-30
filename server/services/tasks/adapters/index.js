@@ -10,6 +10,8 @@ module.exports = [
   require('./teams_message_received'),
   require('./github_issue_opened'),
   require('./weather_event'),
+  require('./world_news'),
+  require('./neorecall_memory_created'),
   require('./webhook'),
   require('./whatsapp_personal_message_received'),
   require('./android_notification_received'),
