@@ -180,5 +180,4 @@ module.exports = {
   composeSystemPrompt: buildSystemPromptContribution,
   buildVoicePersonaSections,
   localNow,
-  resolveStyleBundle,
 };

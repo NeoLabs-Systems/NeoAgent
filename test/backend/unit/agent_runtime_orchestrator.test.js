@@ -611,6 +611,31 @@ test('a run the guards stop gets a model-authored wrap-up, not a canned status',
   assert.match(wrapUpPrompts[0], /do not call any tools/);
 });
 
+test('when the wrap-up cannot be written the run fails instead of sending canned text', async () => {
+  const engine = createEngine();
+  engine.getAvailableTools = () => [tool('make_report')];
+  engine.requestModelResponse = async ({ options }) => {
+    if (options.phase === 'wrap_up') throw new Error('provider down');
+    return toolCall('make_report', {}, undefined, 'Writing the next section.');
+  };
+  let call = 0;
+  engine.executeTool = async () => {
+    call += 1;
+    return { section: call };
+  };
+  engine.isReadOnlyToolCall = () => false;
+
+  await assert.rejects(
+    engine.run(userId, 'Schreib mir den Bericht', {
+      triggerSource: 'web',
+      stream: false,
+      skipGlobalRecall: true,
+      maxIterations: 2,
+    }),
+    /could not write a reply/,
+  );
+});
+
 test('an identical write repeated over and over is stopped as spinning', async () => {
   const engine = createEngine();
   engine.getAvailableTools = () => [tool('write_file')];
@@ -759,33 +784,38 @@ test('a blank model turn is recovered instead of ending the run', async () => {
   assert.equal(row.runtime_state, 'completed');
 });
 
-test('a large catalog starts with matching tools, the core set, and a shell for file work', async () => {
+test('a large catalog starts with the same core set in any language and lists the rest', async () => {
   const engine = createEngine('Fertig.');
   engine.getAvailableTools = () => [
-    tool('write_file', 'Write content to a workspace file'),
+    tool('android_install_apk', 'Install an APK on the Android device'),
+    tool('desktop_drag', 'Drag on the desktop screen'),
     tool('execute_command', 'Run shell commands'),
+    tool('http_request', 'Fetch a URL'),
     tool('web_search', 'Search the web'),
-    tool('list_chats', 'List known messaging conversations'),
     ...fillerTools(),
   ];
-  let firstTurnTools = null;
-  engine.requestModelResponse = async ({ tools }) => {
-    firstTurnTools = firstTurnTools || tools.map((entry) => entry.name);
+  const firstTurns = [];
+  engine.requestModelResponse = async ({ tools, messages }) => {
+    firstTurns.push({
+      tools: tools.map((entry) => entry.name),
+      discovery: messages.find((m) => String(m.content || '').startsWith('[Tool discovery]'))?.content || '',
+    });
     return answer('Fertig.');
   };
 
-  await engine.run(userId, 'Write the function into solution.py', {
-    triggerSource: 'web',
-    stream: false,
-    skipGlobalRecall: true,
-    maxIterations: 3,
-  });
+  for (const task of ['Wie wird das Wetter morgen in Berlin?', 'What is the weather in Berlin tomorrow?']) {
+    await engine.run(userId, task, { triggerSource: 'web', stream: false, skipGlobalRecall: true });
+  }
 
-  assert.ok(firstTurnTools.includes('write_file'), 'lexical match must be active');
-  assert.ok(firstTurnTools.includes('execute_command'), 'file work must come with a shell');
-  assert.ok(firstTurnTools.includes('web_search'), 'core tools start active in any language');
-  assert.equal(firstTurnTools.includes('list_chats'), false);
-  assert.equal(firstTurnTools.some((name) => name.startsWith('filler_')), false);
+  const [german, english] = firstTurns;
+  assert.deepEqual(german.tools, english.tools);
+  for (const name of ['web_search', 'http_request', 'execute_command']) {
+    assert.ok(german.tools.includes(name), `${name} starts active`);
+  }
+  // Word overlap with the request ("in" / "install") activates nothing.
+  assert.equal(german.tools.includes('android_install_apk'), false);
+  assert.equal(german.tools.includes('desktop_drag'), false);
+  assert.match(german.discovery, /android_install_apk: Install an APK/);
 });
 
 test('a run searches for an inactive tool and activates it', async () => {

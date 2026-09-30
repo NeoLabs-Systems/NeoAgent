@@ -1344,9 +1344,7 @@ class MemoryManager {
     // memory_id, not fact_id, so joining it alongside memory_facts.current produces a
     // full cross product (every fact of a memory duplicated once per relation x related
     // fact). On memories with even a modest number of facts and relations this exploded
-    // into thousands of duplicate entries, which then blew up the retrieval-enhancement
-    // LLM prompt (buildRerankerPrompt in retrieval_reasoning.js) past the model's context
-    // limit once an account accumulated enough memories.
+    // into thousands of duplicate entries in every recall payload.
     const factRows = db.prepare(
       `SELECT
          current.memory_id,
@@ -1595,27 +1593,6 @@ class MemoryManager {
     } catch (error) {
       console.error('[Memory] Could not record retrieval telemetry:', error.message);
     }
-  }
-
-  recordRetrievalEnhancement(userId, enhancement, options = {}) {
-    const agentId = this._agentId(userId, options);
-    db.prepare(
-      `INSERT INTO memory_retrieval_enhancements (
-         user_id, agent_id, run_id, query_hash, trigger_reason, plan_json,
-         initial_count, merged_count, result_ids_json, latency_ms
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      userId,
-      agentId || '',
-      options.runId || null,
-      stableHash(enhancement.query),
-      String(enhancement.reason || 'uncertain').slice(0, 80),
-      enhancement.plan ? JSON.stringify(enhancement.plan) : null,
-      Number(enhancement.initialCount || 0),
-      Number(enhancement.mergedCount || 0),
-      JSON.stringify(normalizeStringArray(enhancement.resultIds, 50, 80)),
-      Number(enhancement.latencyMs || 0),
-    );
   }
 
   /**

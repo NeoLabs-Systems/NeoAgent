@@ -49,12 +49,8 @@ test('an on_loop_iteration stop is terminally recorded as stopped, never complet
     const result = await engine.run(user.userId, 'Run until policy stops you.', {
       runId,
       stream: false,
-      skipDeliverableWorkflow: true,
-      forceMode: 'execute',
       skipGlobalRecall: true,
       skipConversationHistory: true,
-      skipConversationMaintenance: true,
-      skipVerifier: true,
       bypassUserRateLimits: true,
     });
 

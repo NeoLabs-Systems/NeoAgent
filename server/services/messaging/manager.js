@@ -586,19 +586,19 @@ class MessagingManager extends EventEmitter {
     );
   }
 
+  // The pre-scoping session moves, not copies: a copy left behind is copied
+  // back after every logout, so WhatsApp answers each reconnect with 401 and
+  // never offers a new QR code.
   _maybeMigrateLegacyWhatsAppAuth(scopedAuthDir) {
     if (!fs.existsSync(LEGACY_WHATSAPP_AUTH_DIR) || fs.existsSync(scopedAuthDir)) {
       return;
     }
     try {
       fs.mkdirSync(path.dirname(scopedAuthDir), { recursive: true });
-      fs.cpSync(LEGACY_WHATSAPP_AUTH_DIR, scopedAuthDir, {
-        recursive: true,
-        force: false,
-        errorOnExist: false,
-      });
+      fs.cpSync(LEGACY_WHATSAPP_AUTH_DIR, scopedAuthDir, { recursive: true });
+      fs.rmSync(LEGACY_WHATSAPP_AUTH_DIR, { recursive: true, force: true });
     } catch (err) {
-      console.warn('[Messaging] Failed to copy legacy WhatsApp auth into agent-scoped storage:', err.message);
+      console.warn('[Messaging] Failed to move legacy WhatsApp auth into agent-scoped storage:', err.message);
     }
   }
 

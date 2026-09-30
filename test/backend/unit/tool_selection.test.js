@@ -8,16 +8,8 @@ const {
   expandNamesByFamily,
   MAX_TOOLS,
   selectInitialTools,
-  suggestsCoreFileWork,
 } = require('../../../server/services/ai/toolSelector');
 const { getAvailableTools } = require('../../../server/services/ai/tools');
-
-test('suggested file work is recognized so the shell can be added to it', () => {
-  assert.equal(suggestsCoreFileWork(['write_file']), true);
-  assert.equal(suggestsCoreFileWork(['execute_command']), true);
-  assert.equal(suggestsCoreFileWork(['web_search']), false);
-  assert.equal(suggestsCoreFileWork(undefined), false);
-});
 
 test('selecting one tool in a family activates the rest of that family', () => {
   const catalog = [

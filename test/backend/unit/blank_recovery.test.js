@@ -3,55 +3,20 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
-const {
-  shouldContinueAfterRecoverableToolFailure,
-  shouldContinueAfterBlankToolFailure,
-  buildBlankAfterToolFailureGuidance,
-} = require('../../../server/services/ai/loop/blank_recovery');
+const { buildBlankOutputGuidance } = require('../../../server/services/ai/loop/blank_recovery');
 
-test('recoverable tool failure continues on poke-style fallback wording', () => {
-  const toolExecutions = [{
-    toolName: 'read_file',
-    ok: false,
-    error: 'Failed to read file for user 1: ENOENT: no such file or directory',
-  }];
-
-  assert.equal(
-    shouldContinueAfterRecoverableToolFailure({
-      lastContent: 'hit an internal tool issue while checking that, so no verified answer yet.',
-      remainingIterations: 3,
-      toolExecutions,
-    }),
-    true,
-  );
-
-  assert.equal(
-    shouldContinueAfterRecoverableToolFailure({
-      lastContent: 'got partway through, but no finished result yet.',
-      remainingIterations: 2,
-      toolExecutions,
-    }),
-    true,
-  );
+test('blank turn guidance names the latest failed tool', () => {
+  const guidance = buildBlankOutputGuidance([
+    { toolName: 'web_search', ok: false, error: 'rate limited' },
+    { toolName: 'read_file', ok: false, error: 'EISDIR: illegal operation on a directory, read' },
+    { toolName: 'think', ok: true },
+  ]);
+  assert.match(guidance, /"read_file" failed with: EISDIR/);
+  assert.match(guidance, /task is not terminal/);
 });
 
-test('blank after tool failure continues while budget remains', () => {
-  const toolExecutions = [{
-    toolName: 'web_search',
-    ok: false,
-    error: 'timeout',
-  }];
-  assert.equal(
-    shouldContinueAfterBlankToolFailure({
-      lastContent: '',
-      failedStepCount: 1,
-      remainingIterations: 2,
-      toolExecutions,
-    }),
-    true,
-  );
-  assert.match(
-    buildBlankAfterToolFailureGuidance(toolExecutions),
-    /next safe recovery action now/i,
-  );
+test('blank turn guidance without a failure asks for the next concrete action', () => {
+  const guidance = buildBlankOutputGuidance([{ toolName: 'web_search', ok: true }]);
+  assert.doesNotMatch(guidance, /failed with/);
+  assert.match(guidance, /Take the next concrete action now/);
 });

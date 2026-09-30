@@ -273,6 +273,27 @@ test('progress broker publishes model-authored text and dedupes unchanged state'
   assert.equal(moved.text, 'working on verify');
 });
 
+test('a declined narration waits a full interval before the model is asked again', async () => {
+  insertRun('progress-declined');
+  let narratorCalls = 0;
+  const broker = runtime.createProgressBroker({
+    engine: { emit() {}, markRunVisibleProgress() {} },
+    runId: 'progress-declined',
+    userId,
+    narrator: async () => { narratorCalls += 1; return ''; },
+    firstUpdateSeconds: 0,
+    repeatUpdateSeconds: 60,
+  });
+  broker.markAccepted();
+
+  const declined = await broker.maybePublish({ delta: broker.buildDelta({ completed: ['web_search'] }) });
+  assert.equal(declined.reason, 'no_real_delta');
+  // New work right after: still inside the interval, so no second model call.
+  const next = await broker.maybePublish({ delta: broker.buildDelta({ completed: ['http_request'] }) });
+  assert.equal(next.reason, 'not_due');
+  assert.equal(narratorCalls, 1);
+});
+
 test('progress broker permits a grounded repeat heartbeat for a still-running tool', async () => {
   insertRun('progress-tool-heartbeat');
   let narratorCalls = 0;

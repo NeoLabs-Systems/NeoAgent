@@ -8,7 +8,6 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
 const { executeTool } = require('../../../server/services/ai/tools');
-const { isInternalToolingFailure } = require('../../../server/services/ai/messagingFallback');
 
 function stubEngine() {
   return {
@@ -49,8 +48,4 @@ test('unknown-tool recovery degrades gracefully without an active run', async ()
 
   assert.match(result.error, /Unknown tool: search/);
   assert.match(result.recovery, /search_tools/);
-});
-
-test('unknown-tool errors are summarized as internal issues in user-facing fallbacks', () => {
-  assert.equal(isInternalToolingFailure('{ "error": "Unknown tool: search" }'), true);
 });

@@ -69,16 +69,6 @@ const {
   buildMemoryConsolidationInstructions,
   normalizeMemoryCandidates,
 } = require('../../memory/consolidation');
-const {
-  buildPlannerPrompt,
-  buildRerankDecision,
-  buildRerankerPrompt,
-  mergeRetrievalResults,
-  normalizeRerankResult,
-  normalizeRetrievalPlan,
-  rerankFromDecision,
-  shouldEnhanceRetrieval,
-} = require('../../memory/retrieval_reasoning');
 const jev = require('../jev');
 const {
   createAbortError,
@@ -108,10 +98,6 @@ function estimateTokenValue(value) {
   if (typeof value === 'string') return Math.ceil(value.length / 4);
   return Math.ceil(JSON.stringify(value).length / 4);
 }
-
-// Enhanced recall sits on the path to the first reply. A slow or stuck helper
-// model falls back to the direct retrieval results instead of holding the run.
-const MEMORY_ENHANCEMENT_BUDGET_MS = 15_000;
 
 const FILE_TOOL_NAMES = new Set([
   'read_file',
@@ -275,6 +261,9 @@ class AgentEngine {
     };
   }
 
+  // Memories relevant to the request, found by direct search and handed to the
+  // agent before its first turn. Deeper recall (other phrasings, a past point
+  // in time) is the agent's own call through memory_recall.
   async buildMemoryRecall({
     memoryManager,
     userId,
@@ -284,12 +273,10 @@ class AgentEngine {
     providerName,
     model,
     runId,
-    stepId = null,
     options = {},
-    returnDetails = false,
   }) {
     const signal = options.signal || this.getRunMeta(runId)?.abortController?.signal || null;
-    const initial = await memoryManager.recallMemory(userId, query, 12, {
+    const recalled = await memoryManager.recallMemory(userId, query, 5, {
       agentId,
       signal,
     });
@@ -318,127 +305,7 @@ class AgentEngine {
       });
     }
 
-    const decision = shouldEnhanceRetrieval(initial);
-    if (!decision.enhance || options.enhanceRecall === false) {
-      const message = await memoryManager.buildRecallMessage(userId, query, {
-        agentId,
-        recalled: initial.slice(0, 5),
-      });
-      return returnDetails
-        ? { message, results: initial.slice(0, 12), enhanced: false, reason: decision.reason }
-        : message;
-    }
-
-    const stats = memoryManager.getMemoryStats?.(userId, { agentId })
-      || { total: initial.length };
-    if (!Number(stats.total || 0)) {
-      return returnDetails
-        ? { message: null, results: [], enhanced: false, reason: 'empty_memory' }
-        : null;
-    }
-
-    const startedAt = Date.now();
-    let plan = null;
-    let merged = initial;
-    let reranked = initial;
-    try {
-      ({ plan, merged, reranked } = await runWithAbortTimeout(async (budgetSignal) => {
-        const planned = await this.requestStructuredJson({
-          provider,
-          providerName,
-          model,
-          messages: [],
-          prompt: buildPlannerPrompt(query, initial, new Date().toISOString()),
-          maxTokens: 650,
-          normalize: (raw) => normalizeRetrievalPlan(raw, query),
-          fallback: normalizeRetrievalPlan({}, query),
-          reasoningEffort: this.getReasoningEffort(providerName, options),
-          telemetry: { runId, stepId, userId, agentId, signal: budgetSignal },
-          phase: 'memory_retrieval_plan',
-        });
-        const resultSets = [initial];
-        for (const variant of planned.value.queryVariants) {
-          if (variant === query && initial.length) continue;
-          resultSets.push(await memoryManager.recallMemory(userId, variant, 20, {
-            agentId,
-            validAt: planned.value.validAt,
-            includeHistory: planned.value.temporalMode === 'historical',
-            signal: budgetSignal,
-          }));
-        }
-        const mergedResults = mergeRetrievalResults(resultSets, 30);
-        if (mergedResults.length <= 1) {
-          return { plan: planned.value, merged: mergedResults, reranked: mergedResults };
-        }
-        const judged = mergedResults.slice(0, 24);
-        const decision = await this.decide({
-          userId,
-          agentId,
-          runId,
-          stepId,
-          phase: 'jev_memory_rerank',
-          signal: budgetSignal,
-          ...buildRerankDecision(query, judged),
-        });
-        if (decision) {
-          return {
-            plan: planned.value,
-            merged: mergedResults,
-            reranked: rerankFromDecision(decision, mergedResults, judged),
-          };
-        }
-        const rerankResponse = await this.requestStructuredJson({
-          provider,
-          providerName,
-          model,
-          messages: [],
-          prompt: buildRerankerPrompt(query, planned.value, mergedResults.slice(0, 24)),
-          maxTokens: 1200,
-          normalize: (raw) => normalizeRerankResult(raw, mergedResults),
-          fallback: mergedResults,
-          reasoningEffort: this.getReasoningEffort(providerName, options),
-          telemetry: { runId, stepId, userId, agentId, signal: budgetSignal },
-          phase: 'memory_retrieval_rerank',
-        });
-        return { plan: planned.value, merged: mergedResults, reranked: rerankResponse.value };
-      }, {
-        signal,
-        timeoutMs: MEMORY_ENHANCEMENT_BUDGET_MS,
-        label: 'Memory retrieval enhancement',
-        timeoutCode: 'MEMORY_ENHANCEMENT_TIMEOUT',
-      }));
-    } catch (error) {
-      // Only a cancelled run stops here; a budget timeout keeps the direct results.
-      if (signal?.aborted) throw error;
-      console.warn('[Memory] Retrieval enhancement failed:', error.message);
-      plan = null;
-      merged = initial;
-      reranked = initial;
-    }
-
-    memoryManager.recordRetrievalEnhancement?.(userId, {
-      query,
-      reason: decision.reason,
-      plan,
-      initialCount: initial.length,
-      mergedCount: merged.length,
-      resultIds: reranked.slice(0, 5).map((result) => result.id),
-      latencyMs: Date.now() - startedAt,
-    }, { agentId, runId });
-
-    const message = await memoryManager.buildRecallMessage(userId, query, {
-      agentId,
-      recalled: reranked.slice(0, 5),
-    });
-    return returnDetails
-      ? {
-        message,
-        results: reranked.slice(0, 12),
-        enhanced: plan !== null,
-        reason: decision.reason,
-        plan,
-      }
-      : message;
+    return memoryManager.buildRecallMessage(userId, query, { agentId, recalled });
   }
 
   async extractPendingChunks(chunks, {

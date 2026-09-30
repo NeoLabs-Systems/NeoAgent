@@ -8,12 +8,6 @@ const {
   clampRunContext,
   buildProgressUpdatePrompt,
   buildWrapUpPrompt,
-  toolWorkDescription,
-  summarizeRecentWork,
-  hasFailureSignal,
-  isInternalToolingFailure,
-  extractToolFailureMessage,
-  buildDeterministicMessagingFallback,
 } = require('../../../server/services/ai/messagingFallback');
 
 test('normalizeOutgoingMessage collapses whitespace by default and can preserve it', () => {
@@ -46,74 +40,4 @@ test('progress update prompt forbids claiming changes from read-only evidence', 
   assert.match(prompt, /only shows inspection or failed commands/);
   assert.match(prompt, /do not imply state-changing progress/);
   assert.match(prompt, /internal status/);
-});
-
-test('toolWorkDescription maps tool names to human phrases', () => {
-  assert.equal(toolWorkDescription('execute_command'), 'ran shell commands');
-  assert.equal(toolWorkDescription('read_file'), 'checked files');
-  assert.equal(toolWorkDescription('browser_navigate'), 'checked the browser state');
-  assert.equal(toolWorkDescription('unknown_tool'), '');
-});
-
-test('summarizeRecentWork describes at most two distinct activities', () => {
-  assert.equal(summarizeRecentWork([]), '');
-  assert.equal(
-    summarizeRecentWork([{ toolName: 'execute_command' }]),
-    'ran shell commands',
-  );
-  assert.equal(
-    summarizeRecentWork([{ toolName: 'execute_command' }, { toolName: 'read_file' }]),
-    'ran shell commands and checked files',
-  );
-});
-
-test('hasFailureSignal detects error vocabulary', () => {
-  assert.equal(hasFailureSignal('all good'), false);
-  assert.equal(hasFailureSignal('command failed: permission denied'), true);
-});
-
-test('isInternalToolingFailure detects internal contract and file-access errors', () => {
-  assert.equal(isInternalToolingFailure('purpose=no_response requires content "[NO RESPONSE]".'), true);
-  assert.equal(isInternalToolingFailure('Failed to read file for user 1: ENOENT: no such file or directory'), true);
-  assert.equal(isInternalToolingFailure('disk full'), false);
-});
-
-test('extractToolFailureMessage prefers a direct error then parsed summaries', () => {
-  assert.equal(extractToolFailureMessage({ error: 'boom' }), 'boom');
-  assert.equal(
-    extractToolFailureMessage({ summary: JSON.stringify({ status: 'error', message: 'nope' }) }),
-    'nope',
-  );
-  assert.equal(
-    extractToolFailureMessage({ summary: JSON.stringify({ status: 'error', exitCode: 2 }) }),
-    'The last shell command exited with code 2',
-  );
-  assert.equal(extractToolFailureMessage({}), '');
-});
-
-test('buildDeterministicMessagingFallback narrates work and blockers honestly', () => {
-  const both = buildDeterministicMessagingFallback({
-    failedStepCount: 1,
-    stepIndex: 2,
-    toolExecutions: [{ toolName: 'execute_command', error: 'disk full' }],
-  });
-  assert.match(both, /ran shell commands/);
-  assert.match(both, /disk full/);
-  assert.match(both, /no finished result yet/i);
-
-  assert.equal(
-    buildDeterministicMessagingFallback({ failedStepCount: 0, stepIndex: 0, toolExecutions: [] }),
-    'could not land a reliable final reply just now.',
-  );
-
-  const sanitized = buildDeterministicMessagingFallback({
-    failedStepCount: 1,
-    stepIndex: 2,
-    toolExecutions: [{
-      toolName: 'read_file',
-      error: 'Failed to read file for user 1: ENOENT: no such file or directory, open \'/tmp/missing.txt\'',
-    }],
-  });
-  assert.doesNotMatch(sanitized, /ENOENT|Failed to read file for user|missing\.txt/);
-  assert.match(sanitized, /internal tool issue/);
 });

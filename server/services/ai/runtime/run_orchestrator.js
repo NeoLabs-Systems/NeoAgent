@@ -9,14 +9,7 @@ const {
   sanitizeConversationMessages,
 } = require('../history');
 const { ensureDefaultAiSettings, getAiSettings } = require('../settings');
-const {
-  ALWAYS_INCLUDE_BUILT_INS,
-  suggestsCoreFileWork,
-  buildToolDiscoverySummary,
-  searchTools,
-  selectInitialTools,
-  selectToolsForTask,
-} = require('../toolSelector');
+const { buildToolDiscoverySummary, selectInitialTools } = require('../toolSelector');
 const { sanitizeModelOutput } = require('../outputSanitizer');
 const { getCapabilityHealth, summarizeCapabilityHealth } = require('../capabilityHealth');
 const { summarizeProgressToolExecutions } = require('../toolEvidence');
@@ -34,7 +27,6 @@ const {
 const { shortenRunId } = require('../logFormat');
 const { getProviderForUser } = require('../provider_selector');
 const {
-  buildDeterministicMessagingFallback,
   buildProgressUpdatePrompt,
   buildWrapUpPrompt,
   normalizeOutgoingMessage,
@@ -547,9 +539,7 @@ class DurableRunRuntime {
           providerName: session.model.providerName,
           model: session.model.model,
           runId,
-          // Cowork carries its operating contract in the system prompt and
-          // works from the open folder; recall planning only delays it.
-          options: { ...options, enhanceRecall: triggerSource !== 'cowork' },
+          options,
         }));
       session.systemPrompt = await systemPromptPromise;
 
@@ -569,7 +559,7 @@ class DurableRunRuntime {
           .map((name) => String(name || '').trim())
           .filter(Boolean),
       );
-      const allTools = selectToolsForTask(userMessage, builtInTools, mcpTools, options)
+      const allTools = [...builtInTools, ...mcpTools]
         .filter((tool) => !disallowedToolNames.has(tool?.name));
 
       const recallMsg = recallPromise ? await recallPromise : null;
@@ -618,32 +608,25 @@ class DurableRunRuntime {
         messages.push({ role: 'system', content: buildBackgroundRunsNote(backgroundRuns) });
       }
 
-      // The tools that match the request start active; the rest of the catalog
-      // stays reachable through search_tools / activate_tools. Every extra
-      // schema in the active set costs reliability with small models.
+      // A fixed core starts active; the rest of the catalog is listed for the
+      // model to activate itself. Guessing tools from the request's words picks
+      // noise, especially outside English.
       const toolSelectionOptions = {
         triggerSource,
         triggerType,
         includeCoreFileTools: triggerSource === 'cowork',
       };
-      const matchedToolNames = searchTools(allTools, userMessage, {
-        limit: 8,
-        excludeNames: ALWAYS_INCLUDE_BUILT_INS,
-      }).map((tool) => tool.name);
       // When NeoRecall is connected, keep day/search tools active so personal
-      // recall questions do not depend on lexical discovery under the tool cap.
+      // recall questions do not wait on an activation turn.
       const preferredNeoRecallTools = [
         'neorecall_list_daily_summaries',
         'neorecall_search',
         'neorecall_list_conversations',
       ].filter((name) => allTools.some((tool) => tool?.name === name));
-      session.tools = selectInitialTools(allTools, [...new Set([
-        ...matchedToolNames,
-        // Code work needs a shell to run what it writes.
-        ...(suggestsCoreFileWork(matchedToolNames) ? ['execute_command'] : []),
+      session.tools = selectInitialTools(allTools, [
         ...preferredNeoRecallTools,
         ...(backgroundRuns.length > 0 ? ['background_task'] : []),
-      ])], toolSelectionOptions);
+      ], toolSelectionOptions);
       this.engine.initializeToolRuntime?.(runId, allTools, session.tools, toolSelectionOptions);
       messages.push({
         role: 'system',
@@ -657,7 +640,6 @@ class DurableRunRuntime {
       });
       this.engine.recordRunEvent?.(userId, runId, 'tool_selection_applied', {
         activeToolNames: session.tools.map((tool) => tool.name),
-        matchedToolNames,
         catalogSize: allTools.length,
       }, { agentId });
 
@@ -1045,14 +1027,9 @@ class DurableRunRuntime {
       console.warn('[Runtime] Wrap-up generation failed:', error?.message || error);
     }
 
-    const lastWritten = [...session.messages].reverse()
-      .find((message) => message.role === 'assistant' && String(message.content || '').trim());
-    if (lastWritten) return String(lastWritten.content).trim();
-    return buildDeterministicMessagingFallback({
-      failedStepCount: session.toolExecutions.filter((item) => item.ok === false).length,
-      stepIndex: session.toolExecutions.length,
-      toolExecutions: session.toolExecutions,
-    });
+    // No reply the model wrote: the run fails visibly rather than sending the
+    // user text nobody wrote.
+    throw new Error(`Run stopped (${reason}) and the model could not write a reply`);
   }
 
   /**

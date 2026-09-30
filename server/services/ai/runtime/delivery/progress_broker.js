@@ -38,6 +38,9 @@ function createProgressBroker({
   repeatUpdateSeconds = 90,
 } = {}) {
   let lastUserUpdateAt = 0;
+  // A narration the model declined is a checkpoint too; without it every turn
+  // after the first threshold would ask again.
+  let lastNarrationAt = 0;
   let lastProgressHash = null;
   let lastActivityAt = Date.now();
   let acceptedAt = Date.now();
@@ -159,9 +162,9 @@ function createProgressBroker({
     const externalVisibleAt = typeof getLastVisibleAt === 'function'
       ? Number(getLastVisibleAt()) || 0
       : 0;
-    const lastVisibleAt = Math.max(lastUserUpdateAt, externalVisibleAt);
-    const firstDue = lastVisibleAt === 0 && (now - acceptedAt) >= firstUpdateSeconds * 1000;
-    const repeatDue = lastVisibleAt > 0 && (now - lastVisibleAt) >= repeatUpdateSeconds * 1000;
+    const lastCheckpointAt = Math.max(lastUserUpdateAt, externalVisibleAt, lastNarrationAt);
+    const firstDue = lastCheckpointAt === 0 && (now - acceptedAt) >= firstUpdateSeconds * 1000;
+    const repeatDue = lastCheckpointAt > 0 && (now - lastCheckpointAt) >= repeatUpdateSeconds * 1000;
 
     if (!force && !firstDue && !repeatDue) {
       return { sent: false, reason: 'not_due', liveness };
@@ -171,8 +174,10 @@ function createProgressBroker({
       return { sent: false, reason: 'unchanged', liveness };
     }
 
+    lastNarrationAt = now;
     const text = await narrate(delta || buildDelta(), liveness);
     if (!text) {
+      lastProgressHash = hash;
       return { sent: false, reason: 'no_real_delta', liveness };
     }
     // The run may have finished while narration was in flight.

@@ -949,12 +949,14 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'memory_recall',
-            description: 'Search long-term memory for relevant information. Uses semantic similarity — describe what you are looking for in natural language.',
+            description: 'Search long-term memory for relevant information. Uses semantic similarity — describe what you are looking for in natural language. If the first search misses, try again with other wording, names, or related terms.',
             parameters: {
                 type: 'object',
                 properties: {
                     query: { type: 'string', description: 'What to search for. Natural language query like "user food preferences" or "python script for file watching"' },
-                    limit: { type: 'number', description: 'Max results to return (default 6)' }
+                    limit: { type: 'number', description: 'Max results to return (default 6)' },
+                    as_of: { type: 'string', description: 'ISO date. Recall what was true at that time instead of now, e.g. where the user lived in 2024.' },
+                    include_history: { type: 'boolean', description: 'Also return facts that have since been replaced, to see how something changed.' }
                 },
                 required: ['query']
             }
@@ -2224,11 +2226,17 @@ async function executeTool(toolName, args, context, engine) {
         case 'memory_recall': {
             const { MemoryManager } = require('../memory/manager');
             const mm = new MemoryManager();
+            const asOf = Date.parse(args.as_of || '');
             const results = await mm.recallMemory(
                 userId,
                 args.query,
                 args.limit || 6,
-                { agentId, signal },
+                {
+                    agentId,
+                    signal,
+                    validAt: Number.isNaN(asOf) ? undefined : new Date(asOf).toISOString(),
+                    includeHistory: args.include_history === true,
+                },
             );
             if (!results.length) return { results: [], message: 'Nothing found' };
             return { results };

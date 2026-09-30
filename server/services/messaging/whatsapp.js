@@ -264,7 +264,11 @@ class WhatsAppPlatform extends BasePlatform {
         if (shouldReconnect) {
           this._scheduleReconnect();
         } else if (statusCode === DisconnectReason.loggedOut) {
+          // The dead socket goes first so nothing it still writes can put the
+          // revoked credentials back; the next connect then pairs from scratch.
+          this._discardSocket();
           fs.rmSync(this.authDir, { recursive: true, force: true });
+          this.qrCode = null;
           this.emit('logged_out');
         }
       }

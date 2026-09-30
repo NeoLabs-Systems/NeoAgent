@@ -91,4 +91,4 @@ function resolveToolResultLimits(toolName, policy) {
   return { softLimit: soft, hardLimit: hard };
 }
 
-module.exports = { buildLoopPolicy, getToolCategory, resolveToolResultLimits };
+module.exports = { buildLoopPolicy, resolveToolResultLimits };
