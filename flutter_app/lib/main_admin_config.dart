@@ -119,24 +119,20 @@ class _AdminCfgDirtyBar extends StatelessWidget {
     required this.saving,
     required this.onDiscard,
     required this.onSave,
-    this.leading,
   });
 
   final bool dirty;
   final bool saving;
   final VoidCallback onDiscard;
   final VoidCallback onSave;
-  final Widget? leading;
 
   @override
   Widget build(BuildContext context) {
-    final leading = this.leading;
     return Wrap(
       spacing: 10,
       runSpacing: 10,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: <Widget>[
-        if (leading != null) leading,
         if (dirty) _StatusPill(label: appStrings.unsavedChanges, color: _warning),
         if (dirty)
           TextButton(
@@ -506,47 +502,65 @@ class _AdminCfgProviderDialogState extends State<_AdminCfgProviderDialog> {
 
 // ── Models ────────────────────────────────────────────────────────────────────
 
+// Catalog labels end with the provider, e.g. "Claude Sonnet (OpenRouter)";
+// the list groups by provider, so rows drop that suffix.
+final RegExp _adminCfgProviderSuffix = RegExp(r'\s*\([^()]*\)$');
+
 class _AdminCfgModel {
   const _AdminCfgModel({
     required this.id,
+    required this.modelId,
     required this.label,
+    required this.name,
     required this.provider,
-    required this.purpose,
     required this.priceTier,
     required this.inputCostPerM,
+    required this.searchText,
   });
 
   factory _AdminCfgModel.fromJson(Map<String, dynamic> json) {
     final id = json['id']?.toString() ?? '';
-    final label = json['label']?.toString() ?? '';
+    final modelId = json['modelId']?.toString() ?? id;
+    final rawLabel = json['label']?.toString() ?? '';
+    final label = rawLabel.isEmpty ? id : rawLabel;
+    final stripped = label.replaceFirst(_adminCfgProviderSuffix, '');
+    final provider = json['provider']?.toString() ?? '';
     final cost = json['inputCostPerM'];
     return _AdminCfgModel(
       id: id,
-      label: label.isEmpty ? id : label,
-      provider: json['provider']?.toString() ?? '',
-      purpose: json['purpose']?.toString() ?? '',
+      modelId: modelId,
+      label: label,
+      name: stripped.isEmpty ? label : stripped,
+      provider: provider,
       priceTier: json['priceTier']?.toString() ?? '',
       inputCostPerM: cost is num ? cost.toDouble() : null,
+      searchText: '$label\n$id\n${_providerPickerLabel(provider)}'
+          .toLowerCase(),
     );
   }
 
   /// Provider-scoped selection id, the value stored in the disabled list.
   final String id;
+
+  /// The id the provider itself uses.
+  final String modelId;
   final String label;
+
+  /// [label] without its trailing provider name.
+  final String name;
   final String provider;
-  final String purpose;
   final String priceTier;
 
   /// USD per million input tokens; null when unknown.
   final double? inputCostPerM;
 
-  String get providerLabel => provider.isEmpty ? 'Other' : _titleCase(provider);
+  /// Lower-cased label, id and provider, built once for search.
+  final String searchText;
 
-  bool matches(String lowerQuery) {
-    return label.toLowerCase().contains(lowerQuery) ||
-        id.toLowerCase().contains(lowerQuery) ||
-        provider.contains(lowerQuery);
-  }
+  String get providerLabel =>
+      provider.isEmpty ? 'Other' : _providerPickerLabel(provider);
+
+  bool matches(String lowerQuery) => searchText.contains(lowerQuery);
 }
 
 /// Chat models live under `models`; SystemOne models under `systemOneModels`.
@@ -580,6 +594,26 @@ Color _adminCfgTierColor(String tier) {
   };
 }
 
+enum _AdminModelKind { chat, systemOne }
+
+enum _AdminModelFilter { all, enabled, disabled }
+
+/// One line of the availability list: a provider header, or a model below it.
+class _AdminCfgListEntry {
+  const _AdminCfgListEntry.provider(this.provider, this.models, this.expanded)
+    : model = null;
+
+  _AdminCfgListEntry.model(_AdminCfgModel this.model)
+    : provider = model.provider,
+      models = const <_AdminCfgModel>[],
+      expanded = true;
+
+  final String provider;
+  final List<_AdminCfgModel> models;
+  final bool expanded;
+  final _AdminCfgModel? model;
+}
+
 class _AdminModelsTab extends StatefulWidget {
   const _AdminModelsTab({required this.controller});
 
@@ -596,6 +630,12 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
   List<_AdminCfgModel> _systemOneModels = const <_AdminCfgModel>[];
   Set<String> _savedDisabled = <String>{};
   Set<String> _disabled = <String>{};
+  _AdminModelKind _kind = _AdminModelKind.chat;
+  _AdminModelFilter _filter = _AdminModelFilter.all;
+
+  /// Providers whose group is open or shut against the default: shut when
+  /// browsing, open while a search or filter narrows the list.
+  final Set<String> _flipped = <String>{};
 
   @override
   NeoAgentController get _controller => widget.controller;
@@ -635,7 +675,20 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
     final bCost = b.inputCostPerM ?? double.infinity;
     final byCost = aCost.compareTo(bCost);
     if (byCost != 0) return byCost;
-    return a.label.toLowerCase().compareTo(b.label.toLowerCase());
+    return a.searchText.compareTo(b.searchText);
+  }
+
+  int _enabledCount(Iterable<_AdminCfgModel> models) =>
+      models.where((model) => !_disabled.contains(model.id)).length;
+
+  /// Filters by the saved state, so a row does not vanish while it is edited.
+  bool _isShown(_AdminCfgModel model, String query) {
+    if (query.isNotEmpty && !model.matches(query)) return false;
+    return switch (_filter) {
+      _AdminModelFilter.all => true,
+      _AdminModelFilter.enabled => !_savedDisabled.contains(model.id),
+      _AdminModelFilter.disabled => _savedDisabled.contains(model.id),
+    };
   }
 
   void _setEnabled(Iterable<_AdminCfgModel> models, bool enabled) {
@@ -668,174 +721,356 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
     }, appStrings.modelAvailabilitySaved);
   }
 
+  /// Search, filter and catalog changes start every group from its default.
+  void _narrow(VoidCallback change) {
+    setState(() {
+      change();
+      _flipped.clear();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final gate = _loadGate(_fetch);
     if (gate != null) return gate;
 
+    final catalog = _kind == _AdminModelKind.chat ? _models : _systemOneModels;
     final query = _search.text.trim().toLowerCase();
-    List<_AdminCfgModel> matching(List<_AdminCfgModel> models) => query.isEmpty
-        ? models
-        : models.where((model) => model.matches(query)).toList();
-    final visible = matching(_models);
-    final visibleSystemOne = matching(_systemOneModels);
-    Iterable<Widget> providerGroups(List<_AdminCfgModel> models) {
-      final groups = <String, List<_AdminCfgModel>>{};
-      for (final model in models) {
-        groups.putIfAbsent(model.provider, () => <_AdminCfgModel>[]).add(model);
-      }
-      return groups.entries.map(
-        (entry) => _AdminCfgModelGroup(
-          models: entry.value,
-          filtered: query.isNotEmpty,
-          disabled: _disabled,
-          onToggle: (model, enabled) =>
-              _setEnabled(<_AdminCfgModel>[model], enabled),
-          onSetAll: (enabled) => _setEnabled(entry.value, enabled),
-        ),
-      );
+    final shown = catalog.where((model) => _isShown(model, query)).toList();
+    final groups = <String, List<_AdminCfgModel>>{};
+    for (final model in shown) {
+      groups.putIfAbsent(model.provider, () => <_AdminCfgModel>[]).add(model);
     }
-
-    final allModels = <_AdminCfgModel>[..._models, ..._systemOneModels];
-    final enabledCount = allModels
-        .where((model) => !_disabled.contains(model.id))
-        .length;
-    final dirty = _dirty;
-    final saveBar = _AdminCfgDirtyBar(
-      dirty: dirty,
-      saving: _saving,
-      onDiscard: _discard,
-      onSave: _save,
-      leading: _MetaPill(
-        icon: Icons.toggle_on_outlined,
-        label: appStrings.arg1OfArg2Enabled(enabledCount, allModels.length),
-        color: _accent,
-      ),
+    final openByDefault =
+        query.isNotEmpty ||
+        _filter != _AdminModelFilter.all ||
+        groups.length == 1;
+    final entries = <_AdminCfgListEntry>[];
+    for (final group in groups.entries) {
+      final expanded = openByDefault != _flipped.contains(group.key);
+      entries.add(
+        _AdminCfgListEntry.provider(group.key, group.value, expanded),
+      );
+      if (expanded) entries.addAll(group.value.map(_AdminCfgListEntry.model));
+    }
+    final anyExpanded = entries.any((entry) => entry.model != null);
+    final changes =
+        _savedDisabled.difference(_disabled).length +
+        _disabled.difference(_savedDisabled).length;
+    // Every line is one fixed height, so the panel fits its lines up to a cap
+    // and the list lays out without measuring rows.
+    const lineHeight = 52.0;
+    final maxListHeight = (MediaQuery.sizeOf(context).height * 0.62).clamp(
+      360.0,
+      760.0,
     );
+    final listHeight = entries.isEmpty
+        ? lineHeight * 3
+        : (entries.length * lineHeight + 2).clamp(0.0, maxListHeight);
 
-    return _SectionStack(
-      children: <Widget>[
-        _SectionCard(
-          title: appStrings.modelAvailability,
-          description:
-              appStrings.chooseWhichModelsEveryAccountOn +
-              appStrings.runWhileAnyModelIsSwitched +
-              appStrings.laterStartSwitchedOffToo,
-          trailing: _RefreshButton(
-            busy: _loading,
-            onPressed: _saving ? null : () => _runLoad(_fetch),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              _SearchField(
-                controller: _search,
-                hintText: appStrings.searchModelsOrProviders,
-                onChanged: (_) => setState(() {}),
-                onClear: () => setState(_search.clear),
-              ),
-              const SizedBox(height: 14),
-              saveBar,
-              _saveFeedback(),
-            ],
-          ),
-        ),
-        if (_models.isEmpty)
-          _EmptyCard(
-            title: appStrings.noModelsYet,
-            subtitle:
-                appStrings.addAProviderCredentialFirstIts +
-                appStrings.theProviderAnswers,
-          )
-        else if (visible.isEmpty)
-          _EmptyCard(
-            title: appStrings.noMatches,
-            subtitle: appStrings.noModelMatchesArg1(_search.text.trim()),
-          )
-        else
-          ...providerGroups(visible),
-        _SectionCard(
-          title: appStrings.systemOneModels,
-          description: appStrings.systemOneAdminAvailability,
-          child: _systemOneModels.isEmpty
-              ? Text(
-                  appStrings.addATypesafeOrOpenrouterKey,
-                  style: TextStyle(color: _textMuted, height: 1.45),
-                )
-              : Align(
-                  alignment: Alignment.centerLeft,
-                  child: _MetaPill(
-                    icon: Icons.bolt_rounded,
-                    label: appStrings.arg1OfArg2Enabled(
-                      _systemOneModels
-                          .where((model) => !_disabled.contains(model.id))
-                          .length,
-                      _systemOneModels.length,
-                    ),
-                    color: _accent,
+    return _SectionCard(
+      title: appStrings.modelAvailability,
+      description: _kind == _AdminModelKind.chat
+          ? appStrings.chooseWhichModelsEveryAccountOn +
+                appStrings.runWhileAnyModelIsSwitched +
+                appStrings.laterStartSwitchedOffToo
+          : appStrings.systemOneAdminAvailability,
+      trailing: _RefreshButton(
+        busy: _loading,
+        onPressed: _saving ? null : () => _runLoad(_fetch),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: SegmentedButton<_AdminModelKind>(
+              showSelectedIcon: false,
+              segments: <ButtonSegment<_AdminModelKind>>[
+                ButtonSegment<_AdminModelKind>(
+                  value: _AdminModelKind.chat,
+                  icon: Icon(Icons.chat_bubble_outline, size: 18),
+                  label: Text(
+                    '${appStrings.chatModels}  '
+                    '${_enabledCount(_models)}/${_models.length}',
                   ),
                 ),
-        ),
-        ...providerGroups(visibleSystemOne),
-        if (dirty)
-          _PanelSurface(padding: const EdgeInsets.all(16), child: saveBar),
-      ],
+                ButtonSegment<_AdminModelKind>(
+                  value: _AdminModelKind.systemOne,
+                  icon: Icon(Icons.bolt_rounded, size: 18),
+                  label: Text(
+                    '${appStrings.systemOneModels}  '
+                    '${_enabledCount(_systemOneModels)}/${_systemOneModels.length}',
+                  ),
+                ),
+              ],
+              selected: <_AdminModelKind>{_kind},
+              onSelectionChanged: (selection) =>
+                  _narrow(() => _kind = selection.first),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 12,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: <Widget>[
+              SizedBox(
+                width: 360,
+                child: _SearchField(
+                  controller: _search,
+                  hintText: appStrings.searchModelsOrProviders,
+                  onChanged: (_) => _narrow(() {}),
+                  onClear: () => _narrow(_search.clear),
+                ),
+              ),
+              SegmentedButton<_AdminModelFilter>(
+                showSelectedIcon: false,
+                segments: <ButtonSegment<_AdminModelFilter>>[
+                  ButtonSegment<_AdminModelFilter>(
+                    value: _AdminModelFilter.all,
+                    label: Text(appStrings.all),
+                  ),
+                  ButtonSegment<_AdminModelFilter>(
+                    value: _AdminModelFilter.enabled,
+                    label: Text(appStrings.enabled),
+                  ),
+                  ButtonSegment<_AdminModelFilter>(
+                    value: _AdminModelFilter.disabled,
+                    label: Text(appStrings.disabled),
+                  ),
+                ],
+                selected: <_AdminModelFilter>{_filter},
+                onSelectionChanged: (selection) =>
+                    _narrow(() => _filter = selection.first),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 4,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: <Widget>[
+              Text(
+                appStrings.arg1Shown(shown.length),
+                style: TextStyle(color: _textMuted, fontSize: 13),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: shown.isEmpty || _enabledCount(shown) == shown.length
+                    ? null
+                    : () => _setEnabled(shown, true),
+                child: Text(
+                  query.isEmpty && _filter == _AdminModelFilter.all
+                      ? appStrings.enableAll
+                      : appStrings.enableShown,
+                ),
+              ),
+              TextButton(
+                onPressed: _enabledCount(shown) == 0
+                    ? null
+                    : () => _setEnabled(shown, false),
+                child: Text(
+                  query.isEmpty && _filter == _AdminModelFilter.all
+                      ? appStrings.disableAll
+                      : appStrings.disableShown,
+                ),
+              ),
+              if (groups.length > 1)
+                TextButton.icon(
+                  onPressed: () => setState(() {
+                    _flipped.clear();
+                    if (anyExpanded == openByDefault) {
+                      _flipped.addAll(groups.keys);
+                    }
+                  }),
+                  icon: Icon(
+                    anyExpanded ? Icons.unfold_less : Icons.unfold_more,
+                    size: 18,
+                  ),
+                  label: Text(
+                    anyExpanded ? appStrings.collapseAll : appStrings.expandAll,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            height: listHeight,
+            decoration: BoxDecoration(
+              border: Border.all(color: _border),
+              borderRadius: BorderRadius.circular(AppRadius.tag),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: entries.isEmpty
+                ? _AdminCfgListMessage(
+                    catalog.isEmpty
+                        ? (_kind == _AdminModelKind.chat
+                              ? appStrings.addAProviderCredentialFirstIts +
+                                    appStrings.theProviderAnswers
+                              : appStrings.addATypesafeOrOpenrouterKey)
+                        : appStrings.noModelMatchesArg1(_search.text.trim()),
+                  )
+                : ListView.builder(
+                    key: PageStorageKey<_AdminModelKind>(_kind),
+                    itemExtent: lineHeight,
+                    itemCount: entries.length,
+                    itemBuilder: (context, index) {
+                      final entry = entries[index];
+                      final model = entry.model;
+                      if (model != null) {
+                        return _AdminCfgModelRow(
+                          model: model,
+                          enabled: !_disabled.contains(model.id),
+                          onChanged: (enabled) =>
+                              _setEnabled(<_AdminCfgModel>[model], enabled),
+                        );
+                      }
+                      return _AdminCfgProviderHeader(
+                        provider: entry.provider,
+                        enabledCount: _enabledCount(entry.models),
+                        total: entry.models.length,
+                        expanded: entry.expanded,
+                        first: index == 0,
+                        onToggleExpanded: () => setState(() {
+                          if (!_flipped.remove(entry.provider)) {
+                            _flipped.add(entry.provider);
+                          }
+                        }),
+                        onSetAll: (enabled) =>
+                            _setEnabled(entry.models, enabled),
+                      );
+                    },
+                  ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: <Widget>[
+              if (_dirty) ...<Widget>[
+                _StatusPill(
+                  label: appStrings.arg1UnsavedChanges(changes),
+                  color: _warning,
+                ),
+                TextButton(
+                  onPressed: _saving ? null : _discard,
+                  child: Text(appStrings.discard),
+                ),
+              ],
+              _SaveButton(
+                saving: _saving,
+                onPressed: _dirty ? _save : null,
+                label: appStrings.saveChanges,
+              ),
+            ],
+          ),
+          _saveFeedback(),
+        ],
+      ),
     );
   }
 }
 
-class _AdminCfgModelGroup extends StatelessWidget {
-  const _AdminCfgModelGroup({
-    required this.models,
-    required this.filtered,
-    required this.disabled,
-    required this.onToggle,
+class _AdminCfgListMessage extends StatelessWidget {
+  const _AdminCfgListMessage(this.message);
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: _textSecondary, height: 1.45),
+        ),
+      ),
+    );
+  }
+}
+
+/// A collapsible provider group: how many of its listed models are on, and
+/// one checkbox for all of them.
+class _AdminCfgProviderHeader extends StatelessWidget {
+  const _AdminCfgProviderHeader({
+    required this.provider,
+    required this.enabledCount,
+    required this.total,
+    required this.expanded,
+    required this.first,
+    required this.onToggleExpanded,
     required this.onSetAll,
   });
 
-  /// One provider's models (only those matching the search, if any).
-  final List<_AdminCfgModel> models;
-  final bool filtered;
-  final Set<String> disabled;
-  final void Function(_AdminCfgModel model, bool enabled) onToggle;
+  final String provider;
+  final int enabledCount;
+  final int total;
+  final bool expanded;
+  final bool first;
+  final VoidCallback onToggleExpanded;
   final ValueChanged<bool> onSetAll;
 
   @override
   Widget build(BuildContext context) {
-    final enabledCount = models
-        .where((model) => !disabled.contains(model.id))
-        .length;
-    return _SectionCard(
-      title: models.first.providerLabel,
-      description:
-          appStrings.arg1OfArg2Enabled(enabledCount, models.length) +
-          '${filtered ? ' (search results)' : ''}',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Wrap(
-            spacing: 4,
+    final bool? allOn = enabledCount == total
+        ? true
+        : (enabledCount == 0 ? false : null);
+    return Material(
+      color: _bgSecondary,
+      child: InkWell(
+        onTap: onToggleExpanded,
+        child: Container(
+          padding: const EdgeInsets.only(left: 8, right: 8),
+          decoration: BoxDecoration(
+            border: Border(
+              top: first ? BorderSide.none : BorderSide(color: _border),
+            ),
+          ),
+          child: Row(
             children: <Widget>[
-              TextButton(
-                onPressed: enabledCount == models.length
-                    ? null
-                    : () => onSetAll(true),
-                child: Text(filtered ? 'Enable shown' : appStrings.enableAll),
+              Icon(
+                expanded ? Icons.expand_more : Icons.chevron_right,
+                color: _textSecondary,
               ),
-              TextButton(
-                onPressed: enabledCount == 0 ? null : () => onSetAll(false),
-                child: Text(filtered ? 'Disable shown' : appStrings.disableAll),
+              const SizedBox(width: 6),
+              Checkbox(
+                tristate: true,
+                value: allOn,
+                onChanged: (_) => onSetAll(allOn != true),
               ),
+              const SizedBox(width: 6),
+              Icon(
+                _providerPickerIcon(provider),
+                size: 18,
+                color: _providerPickerColor(provider),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  provider.isEmpty ? 'Other' : _providerPickerLabel(provider),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: _textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                appStrings.arg1OfArg2Enabled(enabledCount, total),
+                style: TextStyle(color: _textMuted, fontSize: 12.5),
+              ),
+              const SizedBox(width: 8),
             ],
           ),
-          const Divider(height: 12),
-          for (final model in models)
-            _AdminCfgModelRow(
-              model: model,
-              enabled: !disabled.contains(model.id),
-              onChanged: (enabled) => onToggle(model, enabled),
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -854,56 +1089,55 @@ class _AdminCfgModelRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cost = model.inputCostPerM;
     return InkWell(
-      borderRadius: BorderRadius.circular(AppRadius.tag),
       onTap: () => onChanged(!enabled),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.only(left: 38, right: 8),
         child: Row(
           children: <Widget>[
+            Checkbox(
+              value: enabled,
+              onChanged: (value) => onChanged(value == true),
+            ),
+            const SizedBox(width: 6),
             Expanded(
-              child: AnimatedOpacity(
-                opacity: enabled ? 1 : 0.5,
-                duration: const Duration(milliseconds: 150),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    model.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: enabled ? _textPrimary : _textMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (model.modelId != model.name)
                     Text(
-                      model.label,
-                      style: TextStyle(
-                        color: _textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      model.modelId,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _monoStyle(size: 11.5, color: _textMuted),
                     ),
-                    if (model.label != model.id) ...<Widget>[
-                      const SizedBox(height: 2),
-                      Text(
-                        model.id,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _monoStyle(size: 11.5, color: _textMuted),
-                      ),
-                    ],
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: <Widget>[
-                        if (model.purpose.isNotEmpty) _Tag(model.purpose),
-                        if (model.priceTier.isNotEmpty)
-                          _Tag(
-                            model.priceTier,
-                            color: _adminCfgTierColor(model.priceTier),
-                          ),
-                        _Tag(_adminCfgModelPrice(model.inputCostPerM)),
-                      ],
-                    ),
-                  ],
-                ),
+                ],
               ),
             ),
-            const SizedBox(width: 8),
-            Switch.adaptive(value: enabled, onChanged: onChanged),
+            if (cost != null) ...<Widget>[
+              const SizedBox(width: 12),
+              Text(
+                _adminCfgModelPrice(cost),
+                style: TextStyle(
+                  color: enabled
+                      ? _adminCfgTierColor(model.priceTier)
+                      : _textMuted,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ],
         ),
       ),

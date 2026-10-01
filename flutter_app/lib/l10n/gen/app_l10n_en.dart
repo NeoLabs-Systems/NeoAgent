@@ -10593,4 +10593,27 @@ class AppL10nEn extends AppL10n {
   @override
   String get systemoneDecisionModelsTypesafeOpenrouterOllama =>
       'systemone system one decision models jev typesafe openrouter ollama availability enable disable';
+
+  @override
+  String get chatModels => 'Chat models';
+
+  @override
+  String get disabled => 'Disabled';
+
+  @override
+  String get enableShown => 'Enable shown';
+
+  @override
+  String get disableShown => 'Disable shown';
+
+  @override
+  String get expandAll => 'Expand all';
+
+  @override
+  String get collapseAll => 'Collapse all';
+
+  @override
+  String arg1UnsavedChanges(Object? arg1) {
+    return '$arg1 unsaved changes';
+  }
 }

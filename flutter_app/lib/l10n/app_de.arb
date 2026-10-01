@@ -6813,5 +6813,12 @@
   "systemOneAdminAvailability": "Entscheidungsmodelle, die Agenten unter Einstellungen › Modelle auswählen können. Ein hier deaktiviertes Modell verschwindet aus dieser Auswahl, und Agenten, die es gewählt hatten, nutzen Automatisch. Solange ein Modell deaktiviert ist, starten später von Anbietern hinzugefügte SystemOne-Modelle ebenfalls deaktiviert.",
   "addATypesafeOrOpenrouterKey": "Noch keine SystemOne-Modelle. Fügen Sie unter Anbieter einen TypeSafe- oder OpenRouter-Schlüssel hinzu oder laden Sie in Ollama 0.35 oder neuer ein Entscheidungsmodell wie nimble.",
   "noSystemOneModelIsAvailableYet": "Noch ist kein SystemOne-Modell verfügbar. Fügen Sie unter Erweitert › Eigenen Schlüssel mitbringen einen TypeSafe- oder OpenRouter-Schlüssel hinzu oder laden Sie in Ollama ein Entscheidungsmodell wie nimble.",
-  "systemoneDecisionModelsTypesafeOpenrouterOllama": "systemone system one entscheidung modelle jev typesafe openrouter ollama verfügbarkeit aktivieren deaktivieren"
+  "systemoneDecisionModelsTypesafeOpenrouterOllama": "systemone system one entscheidung modelle jev typesafe openrouter ollama verfügbarkeit aktivieren deaktivieren",
+  "chatModels": "Chat-Modelle",
+  "disabled": "Deaktiviert",
+  "enableShown": "Angezeigte aktivieren",
+  "disableShown": "Angezeigte deaktivieren",
+  "expandAll": "Alle ausklappen",
+  "collapseAll": "Alle einklappen",
+  "arg1UnsavedChanges": "{arg1} ungespeicherte Änderungen"
 }

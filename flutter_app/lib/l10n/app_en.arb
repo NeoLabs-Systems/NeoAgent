@@ -6820,5 +6820,19 @@
   "systemOneAdminAvailability": "Decision models agents can pick under Settings › Models. A model switched off here leaves that picker, and agents that chose it fall back to Auto. While any model is switched off, SystemOne models that providers add later start switched off too.",
   "addATypesafeOrOpenrouterKey": "No SystemOne models yet. Add a TypeSafe or OpenRouter key under Providers, or pull a decision model such as nimble in Ollama 0.35 or later.",
   "noSystemOneModelIsAvailableYet": "No SystemOne model is available yet. Add a TypeSafe or OpenRouter key under Advanced › Bring your own key, or pull a decision model such as nimble in Ollama.",
-  "systemoneDecisionModelsTypesafeOpenrouterOllama": "systemone system one decision models jev typesafe openrouter ollama availability enable disable"
+  "systemoneDecisionModelsTypesafeOpenrouterOllama": "systemone system one decision models jev typesafe openrouter ollama availability enable disable",
+  "chatModels": "Chat models",
+  "disabled": "Disabled",
+  "enableShown": "Enable shown",
+  "disableShown": "Disable shown",
+  "expandAll": "Expand all",
+  "collapseAll": "Collapse all",
+  "arg1UnsavedChanges": "{arg1} unsaved changes",
+  "@arg1UnsavedChanges": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  }
 }

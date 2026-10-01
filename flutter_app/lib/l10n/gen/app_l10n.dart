@@ -17650,6 +17650,48 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'systemone system one decision models jev typesafe openrouter ollama availability enable disable'**
   String get systemoneDecisionModelsTypesafeOpenrouterOllama;
+
+  /// No description provided for @chatModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat models'**
+  String get chatModels;
+
+  /// No description provided for @disabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get disabled;
+
+  /// No description provided for @enableShown.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable shown'**
+  String get enableShown;
+
+  /// No description provided for @disableShown.
+  ///
+  /// In en, this message translates to:
+  /// **'Disable shown'**
+  String get disableShown;
+
+  /// No description provided for @expandAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Expand all'**
+  String get expandAll;
+
+  /// No description provided for @collapseAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Collapse all'**
+  String get collapseAll;
+
+  /// No description provided for @arg1UnsavedChanges.
+  ///
+  /// In en, this message translates to:
+  /// **'{arg1} unsaved changes'**
+  String arg1UnsavedChanges(Object? arg1);
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

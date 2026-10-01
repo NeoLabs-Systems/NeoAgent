@@ -10722,4 +10722,27 @@ class AppL10nDe extends AppL10n {
   @override
   String get systemoneDecisionModelsTypesafeOpenrouterOllama =>
       'systemone system one entscheidung modelle jev typesafe openrouter ollama verfügbarkeit aktivieren deaktivieren';
+
+  @override
+  String get chatModels => 'Chat-Modelle';
+
+  @override
+  String get disabled => 'Deaktiviert';
+
+  @override
+  String get enableShown => 'Angezeigte aktivieren';
+
+  @override
+  String get disableShown => 'Angezeigte deaktivieren';
+
+  @override
+  String get expandAll => 'Alle ausklappen';
+
+  @override
+  String get collapseAll => 'Alle einklappen';
+
+  @override
+  String arg1UnsavedChanges(Object? arg1) {
+    return '$arg1 ungespeicherte Änderungen';
+  }
 }
