@@ -129,4 +129,31 @@ describe('model discovery', () => {
     });
     assert.deepEqual(models, []);
   });
+
+  test('keeps the release time and tool support the catalog states', async () => {
+    class Provider {
+      async listModels() {
+        return [
+          { id: 'unstated-model' },
+          { id: 'openai-style', created: 1_780_000_000 },
+          { id: 'anthropic-style', created_at: '2026-05-01T00:00:00Z' },
+          { id: 'vendor/agent-model', supported_parameters: ['tools', 'temperature'] },
+          { id: 'vendor/chat-only', supported_parameters: ['temperature'] },
+        ];
+      }
+    }
+
+    const models = await refreshProviderModelList({
+      providerId: uniqueProviderId('metadata'),
+      factory: { Provider, apiKey: false, baseUrl: false },
+    });
+    const byId = new Map(models.map((model) => [model.id, model]));
+
+    assert.equal(byId.get('unstated-model').createdAt, null);
+    assert.equal(byId.get('unstated-model').supportsTools, null);
+    assert.equal(byId.get('openai-style').createdAt, 1_780_000_000_000);
+    assert.equal(byId.get('anthropic-style').createdAt, Date.parse('2026-05-01T00:00:00Z'));
+    assert.equal(byId.get('vendor/agent-model').supportsTools, true);
+    assert.equal(byId.get('vendor/chat-only').supportsTools, false);
+  });
 });

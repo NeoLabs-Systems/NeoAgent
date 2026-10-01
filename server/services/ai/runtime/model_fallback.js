@@ -17,7 +17,7 @@ async function getFailureFallbackModelId(
   const aiSettings = getAiSettings(userId, agentId);
   const models = await getSupportedModels(userId, agentId, { signal });
   const currentModel = resolveModelSelection(models, currentModelId);
-  const disposition = getFailureDisposition(failureError);
+  const disposition = getFailureDisposition(failureError, Date.now(), currentModel?.provider);
   const excludedProviderIds = disposition?.scope === 'provider' && currentModel?.provider
     ? [currentModel.provider]
     : [];

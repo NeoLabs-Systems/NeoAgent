@@ -14,6 +14,7 @@ describe('provider selector', () => {
   let originalGetSupportedModels;
   let getProviderForUser;
   let modelFailureCache;
+  let activeCatalog;
 
   const catalog = [
     {
@@ -53,7 +54,8 @@ describe('provider selector', () => {
     modelsModule = require('../../../server/services/ai/models');
     originalCreateProviderInstance = modelsModule.createProviderInstance;
     originalGetSupportedModels = modelsModule.getSupportedModels;
-    modelsModule.getSupportedModels = async () => catalog;
+    activeCatalog = catalog;
+    modelsModule.getSupportedModels = async () => activeCatalog;
     modelsModule.createProviderInstance = (provider) => ({ provider });
     modelFailureCache = require('../../../server/services/ai/model_failure_cache');
 
@@ -202,5 +204,53 @@ describe('provider selector', () => {
       reloadedCache.isModelCoolingDown(user.userId, agentId, selectionId),
       true,
     );
+  });
+
+  describe('on an aggregator', () => {
+    const freeModel = {
+      id: 'openrouter::vendor/model:free',
+      modelId: 'vendor/model:free',
+      provider: 'openrouter',
+      priceTier: 'free',
+      available: true,
+    };
+    const paidModel = {
+      id: 'openrouter::vendor/model',
+      modelId: 'vendor/model',
+      provider: 'openrouter',
+      priceTier: 'medium',
+      available: true,
+    };
+
+    beforeEach(() => {
+      activeCatalog = [freeModel, paidModel];
+      setSetting('enabled_models', activeCatalog.map((model) => model.id));
+    });
+
+    test('a rate-limited free model leaves the paid ones routable', async () => {
+      setSetting('default_chat_model', freeModel.id);
+      modelFailureCache.recordModelFailure(
+        user.userId,
+        agentId,
+        freeModel.id,
+        Object.assign(new Error('OpenRouter request failed: 429 Provider returned error'), { status: 429 }),
+      );
+
+      const selected = await getProviderForUser(user.userId, '', false, null, { agentId });
+      assert.equal(selected.modelSelectionId, paidModel.id);
+    });
+
+    test('running out of credit falls back to a free model', async () => {
+      const { getFailureFallbackModelId } = require('../../../server/services/ai/runtime/model_fallback');
+      const error = Object.assign(new Error('OpenRouter request failed: 402 Insufficient credits'), { status: 402 });
+      modelFailureCache.recordModelFailure(user.userId, agentId, paidModel.id, error);
+
+      assert.equal(
+        await getFailureFallbackModelId(user.userId, agentId, paidModel.id, error),
+        freeModel.id,
+      );
+      const selected = await getProviderForUser(user.userId, '', false, null, { agentId });
+      assert.equal(selected.modelSelectionId, freeModel.id);
+    });
   });
 });

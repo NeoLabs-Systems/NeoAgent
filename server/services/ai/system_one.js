@@ -6,16 +6,14 @@ const {
   createProviderInstance,
   getProviderRuntimeConfig,
 } = require('./models');
-const {
-  classifyPriceTier,
-  getInputCostPerM,
-  refreshProviderModelList,
-} = require('./model_discovery');
+const { refreshProviderModelList } = require('./model_discovery');
+const { classifyPriceTier, getInputCostPerM } = require('./model_reference');
 const { toSelectableModel } = require('./model_identity');
 const { getDisabledModelIds } = require('./model_visibility');
 const {
   getFailureDisposition,
   getModelHealthSnapshot,
+  isHealthBlocked,
   recordModelFailure,
 } = require('./model_failure_cache');
 const { recordModelUsage } = require('./usage');
@@ -83,11 +81,11 @@ async function getSystemOneModels(userId, agentId = null, { signal = null } = {}
     });
     return models.map((model) => {
       const selectable = toSelectableModel(model);
-      const runtimeUnavailable = health.modelIds.has(selectable.id)
-        || health.providerIds.has(providerId);
+      const priceTier = classifyPriceTier(model.id);
+      const runtimeUnavailable = isHealthBlocked(health, { ...selectable, priceTier });
       return {
         ...selectable,
-        priceTier: classifyPriceTier(model.id),
+        priceTier,
         inputCostPerM: getInputCostPerM(model.id) ?? null,
         available: !runtimeUnavailable && !disabled.has(selectable.id),
         runtimeUnavailable,

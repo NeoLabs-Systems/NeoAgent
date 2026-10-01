@@ -127,12 +127,14 @@ test('Grok OAuth refreshes proactively before model discovery', async () => {
     models: {
       list: async () => {
         calls.push('models');
-        return { data: [{ id: 'grok-4.5' }] };
+        return { data: [{ id: 'grok-4.5', created: 1_780_000_000 }] };
       },
     },
   };
 
-  assert.deepEqual(await provider.listModels(), [{ id: 'grok-4.5', name: 'grok-4.5' }]);
+  assert.deepEqual(await provider.listModels(), [
+    { id: 'grok-4.5', name: 'grok-4.5', created: 1_780_000_000 },
+  ]);
   assert.deepEqual(calls, ['refresh', 'models']);
 });
 

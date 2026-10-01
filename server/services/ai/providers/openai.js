@@ -16,10 +16,10 @@ class OpenAIProvider extends OpenAICompatibleProvider {
   async listModels(signal = null) {
     try {
       const res = await this.client.models.list({ signal });
-      const DROP = /dall-e|whisper|tts|embed|moderat|realtime|audio|transcribe|search-api|-image-|babbage|davinci-002|^sora|-instruct/i;
+      const DROP = /dall-e|whisper|tts|embed|moderat|realtime|audio|transcribe|search-api|-image-|babbage|davinci-002|^sora|-instruct|deep-research|computer-use|gpt-live/i;
       return res.data
         .filter((m) => !DROP.test(m.id))
-        .map((m) => ({ id: m.id, name: m.id }));
+        .map((m) => ({ id: m.id, name: m.id, created: m.created }));
     } catch (err) {
       throw wrapProviderError(err, 'Failed to list OpenAI models', { signal });
     }

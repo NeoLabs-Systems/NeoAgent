@@ -26,13 +26,16 @@ const {
     toSelectableModel,
 } = require('./model_identity');
 const {
-    classifyPriceTier,
-    getInputCostPerM,
     refreshOllamaModels,
     refreshProviderModelList,
 } = require('./model_discovery');
+const {
+    lookupModelFacts,
+    priceTierForCost,
+    refreshReferenceCatalog,
+} = require('./model_reference');
 const { getDisabledModelIds } = require('./model_visibility');
-const { getModelHealthSnapshot } = require('./model_failure_cache');
+const { getModelHealthSnapshot, isHealthBlocked } = require('./model_failure_cache');
 const { fetchResponseText } = require('../network/http');
 const { createAbortError, isAbortError, throwIfAborted } = require('../../utils/abort');
 const { isPrivateHost } = require('../../utils/cloud-security');
@@ -423,6 +426,10 @@ async function getSupportedModels(userId, agentId = null, options = {}) {
     }
 
     addConfiguredModelFallbacks(all, seenModelIds, providerById, userId, agentId);
+    if (all.some((model) => model.provider !== 'ollama')) {
+        await refreshReferenceCatalog();
+        throwIfAborted(options.signal);
+    }
 
     const globalDisabledIds = getDisabledModelIds();
     const globalDisabledSet = globalDisabledIds.length ? new Set(globalDisabledIds) : null;
@@ -446,11 +453,11 @@ async function getSupportedModels(userId, agentId = null, options = {}) {
     return all.map((model) => {
         const selectableModel = toSelectableModel(model);
         const provider = providerById.get(model.provider);
-        // Ollama models are always local/free; all others look up the OpenRouter
-        // pricing cache (populated above by Promise.allSettled).
-        const priceTier = model.provider === 'ollama'
-            ? 'free'
-            : (model.priceTier ?? classifyPriceTier(model.id));
+        // Local models cost nothing per token; every other model is looked up
+        // in the reference catalog by name.
+        const facts = model.provider === 'ollama' ? null : lookupModelFacts(model.id);
+        const inputCostPerM = model.provider === 'ollama' ? 0 : (facts?.inputCostPerM ?? null);
+        const priceTier = model.priceTier ?? priceTierForCost(inputCostPerM);
 
         let available = provider?.available !== false;
         if (available && modelMatchesConfiguredId(selectableModel, globalDisabledSet)) {
@@ -459,17 +466,17 @@ async function getSupportedModels(userId, agentId = null, options = {}) {
         if (available && planAllowedModels !== null && !modelMatchesConfiguredId(selectableModel, planAllowedModels)) {
             available = false;
         }
-        const runtimeUnavailable = runtimeHealth.modelIds.has(selectableModel.id)
-            || runtimeHealth.providerIds.has(selectableModel.provider);
+        const runtimeUnavailable = isHealthBlocked(runtimeHealth, { ...selectableModel, priceTier });
         if (available && runtimeUnavailable) available = false;
-
-        const bareId = model.id.includes('/') ? model.id.slice(model.id.indexOf('/') + 1) : null;
-        const inputCostPerM = model.provider === 'ollama'
-            ? 0
-            : (getInputCostPerM(model.id) ?? (bareId ? getInputCostPerM(bareId) : undefined) ?? null);
 
         return {
             ...selectableModel,
+            // The public release date; a provider's own `created` can be when
+            // the model was added there.
+            createdAt: facts?.createdAt ?? model.createdAt ?? null,
+            supportsTools: model.supportsTools ?? facts?.supportsTools ?? null,
+            // A provider's small models are the ones it sells cheaply.
+            purpose: priceTier === 'cheap' ? 'fast' : 'general',
             priceTier,
             inputCostPerM,
             available,

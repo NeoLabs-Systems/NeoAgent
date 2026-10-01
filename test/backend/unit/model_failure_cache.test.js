@@ -132,3 +132,44 @@ test('provider retry-after extends the recovery cooldown without exceeding its c
   assert.equal(modelHealth.isModelCoolingDown(userId, 'main', 'google::gemini', 120_999), true);
   assert.equal(modelHealth.isModelCoolingDown(userId, 'main', 'google::gemini', 121_001), false);
 });
+
+function httpError(status, message) {
+  return Object.assign(new Error(message), { status });
+}
+
+test('a rate limit on an aggregator cools down only the model it hit', () => {
+  const error = httpError(429, 'OpenRouter request failed: 429 Provider returned error');
+  modelHealth.recordModelFailure(userId, 'main', 'openrouter::vendor/model:free', error);
+  modelHealth.recordModelFailure(userId, 'main', 'openai::gpt-6.1-sol', httpError(429, 'Rate limit reached'));
+
+  const health = modelHealth.getModelHealthSnapshot(userId, 'main');
+  assert.equal(health.modelIds.has('openrouter::vendor/model:free'), true);
+  assert.equal(health.providerIds.has('openrouter'), false);
+  // A first-party provider's rate limit still covers the whole account.
+  assert.equal(health.providerIds.has('openai'), true);
+});
+
+test('running out of credit pauses an aggregator\'s paid models and keeps its free ones', () => {
+  const error = httpError(402, 'OpenRouter request failed: 402 Insufficient credits');
+  assert.equal(modelHealth.shouldSwitchModel(error), true);
+  modelHealth.recordModelFailure(userId, 'main', 'openrouter::vendor/paid-model', error);
+  modelHealth.recordModelFailure(userId, 'main', 'openai::gpt-6.1-sol', httpError(402, 'Payment required'));
+  // The cooldown is stored, not only held in memory.
+  modelHealth.clearModelFailureCache();
+
+  const health = modelHealth.getModelHealthSnapshot(userId, 'main');
+  const openRouterModel = (modelId, priceTier) => ({
+    id: `openrouter::${modelId}`,
+    provider: 'openrouter',
+    priceTier,
+  });
+  assert.equal(health.providerIds.has('openrouter'), false);
+  assert.equal(modelHealth.isHealthBlocked(health, openRouterModel('vendor/other-paid', 'medium')), true);
+  assert.equal(modelHealth.isHealthBlocked(health, openRouterModel('vendor/unpriced', null)), true);
+  assert.equal(modelHealth.isHealthBlocked(health, openRouterModel('vendor/model:free', 'free')), false);
+  assert.equal(health.providerIds.has('openai'), true);
+  assert.match(
+    modelHealth.describeModelCooldowns(userId, 'main', 'openrouter::vendor/other-paid')[0],
+    /^paid models of provider openrouter provider_billing HTTP 402/,
+  );
+});

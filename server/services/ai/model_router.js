@@ -4,11 +4,22 @@ const {
   normalizeModelSelections,
   resolveModelSelection,
 } = require('./model_identity');
-const { getModelHealthSnapshot } = require('./model_failure_cache');
+const { getModelHealthSnapshot, isHealthBlocked } = require('./model_failure_cache');
 
 const PURPOSES = new Set(['planning', 'coding', 'general', 'fast']);
 const ECONOMY_MODES = new Set(['economy', 'cost_saver', 'lowest_cost']);
 const QUALITY_MODES = new Set(['quality', 'highest_quality']);
+
+// The price class each kind of request reaches for first. Providers sell
+// their small and large models at very different rates, so price says which
+// class a model is in and its release date says whether it is current. A model
+// with no known price ranks with the mid-priced ones.
+const TIER_PREFERENCES = Object.freeze({
+  balanced: ['medium', 'cheap', 'expensive', 'free'],
+  fast: ['cheap', 'medium', 'free', 'expensive'],
+  economy: ['free', 'cheap', 'medium', 'expensive'],
+  quality: ['expensive', 'medium', 'cheap', 'free'],
+});
 
 function configuredModelIds(settings) {
   return Array.isArray(settings?.enabled_models)
@@ -36,8 +47,7 @@ function buildRoutingPools({
       .filter(Boolean),
   );
   const readyModels = selectableModels.filter((model) => (
-    !health.modelIds.has(model.id)
-    && !health.providerIds.has(model.provider)
+    !isHealthBlocked(health, model)
     && !excludedModels.has(model.id)
     && !excludedProviders.has(model.provider)
   ));
@@ -66,39 +76,38 @@ function requestedPurpose({ isSubagent, selectionHint = {} }) {
   return isSubagent ? 'fast' : 'general';
 }
 
-function priceScore(model, costMode, requiredConfidence) {
-  const tier = String(model?.priceTier || '').trim().toLowerCase();
-  if (ECONOMY_MODES.has(costMode)) {
-    return ({ free: 0, cheap: 1, medium: 2, expensive: 3 })[tier] ?? 4;
-  }
-  if (QUALITY_MODES.has(costMode) || requiredConfidence === 'high') {
-    return ({ expensive: 0, medium: 1, cheap: 2, free: 3 })[tier] ?? 4;
-  }
-  return 0;
-}
-
-function rankModels(models, { isSubagent = false, selectionHint = {}, settings = {} } = {}) {
-  const purpose = requestedPurpose({ isSubagent, selectionHint });
+function routingProfile({ isSubagent, selectionHint, settings }) {
   const costMode = String(selectionHint.costMode || settings.cost_mode || 'balanced_auto')
     .trim()
     .toLowerCase();
   const requiredConfidence = String(selectionHint.requiredConfidence || '').trim().toLowerCase();
-  const purposeOrder = [purpose, 'general', 'planning', 'coding', 'fast'];
-  const purposeRank = new Map();
-  for (const entry of purposeOrder) {
-    if (!purposeRank.has(entry)) purposeRank.set(entry, purposeRank.size);
-  }
+  if (ECONOMY_MODES.has(costMode)) return 'economy';
+  if (QUALITY_MODES.has(costMode) || requiredConfidence === 'high') return 'quality';
+  return requestedPurpose({ isSubagent, selectionHint }) === 'fast' ? 'fast' : 'balanced';
+}
 
+function tierRank(model, preference) {
+  const rank = preference.indexOf(model?.priceTier);
+  return rank === -1 ? preference.indexOf('medium') : rank;
+}
+
+// Ranks candidates for automatic selection: models whose catalog says they
+// cannot call tools last, then the price class the request wants, then the
+// most recent release. Nothing here reads model names.
+function rankModels(models, { isSubagent = false, selectionHint = {}, settings = {} } = {}) {
+  const preference = TIER_PREFERENCES[routingProfile({ isSubagent, selectionHint, settings })];
   return models
     .map((model, index) => ({
       model,
       index,
-      purposeScore: purposeRank.get(model.purpose) ?? purposeRank.size,
-      priceScore: priceScore(model, costMode, requiredConfidence),
+      toolScore: model.supportsTools === false ? 1 : 0,
+      tierScore: tierRank(model, preference),
+      createdAt: Number(model.createdAt) || 0,
     }))
     .sort((left, right) => (
-      left.purposeScore - right.purposeScore
-      || left.priceScore - right.priceScore
+      left.toolScore - right.toolScore
+      || left.tierScore - right.tierScore
+      || right.createdAt - left.createdAt
       || left.index - right.index
     ))
     .map((entry) => entry.model);

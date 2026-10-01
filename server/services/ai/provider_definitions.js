@@ -133,6 +133,9 @@ const AI_PROVIDER_DEFINITIONS = Object.freeze({
     authentication: 'api_key',
     supportsApiKey: true,
     supportsBaseUrl: true,
+    // Resells other vendors' models: failures are scoped to the model, or to
+    // its paid models when the account runs out of credit.
+    aggregator: true,
     defaultEnabled: false,
     defaultBaseUrl: 'https://openrouter.ai/api/v1'
   },

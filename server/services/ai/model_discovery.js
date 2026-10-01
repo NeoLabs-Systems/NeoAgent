@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const { readCatalogFacts, recordReferenceModels } = require('./model_reference');
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const PERMANENT_ERROR_BACKOFF_MS = 30 * 60 * 1000;
@@ -11,7 +12,6 @@ const providerModelCache = new Map();
 const providerRefreshes = new Map();
 const ollamaModelCache = new Map();
 const ollamaRefreshes = new Map();
-const openrouterPricingCache = new Map();
 
 // Chat models come from listModels(), SystemOne decision models from
 // listDecisionModels(). Each catalog is discovered and cached on its own.
@@ -19,14 +19,6 @@ const CATALOG_LISTERS = Object.freeze({
   llm: (provider, signal) => provider.listModels(signal),
   decisions: (provider, signal) => provider.listDecisionModels(signal),
 });
-
-function inferModelPurpose(id) {
-  const value = id.toLowerCase();
-  if (/flash|nano|lite|tiny|haiku|scout|mini(?!max)|small/.test(value)) return 'fast';
-  if (/r1|qwq|o[0-9]|reasoning|thinking/.test(value)) return 'planning';
-  if (/code|coder|starcoder|devstral|codex|codegemma/.test(value)) return 'coding';
-  return 'general';
-}
 
 const PROVIDER_LABELS = Object.freeze({
   openai: (model) => `${model.id} (OpenAI)`,
@@ -97,7 +89,7 @@ async function runDiscovery(factory, timeoutMs = DISCOVERY_TIMEOUT_MS) {
   }
 }
 
-function normalizeRawModels(rawModels, providerId, catalog = 'llm') {
+function normalizeRawModels(rawModels, providerId) {
   const source = Array.isArray(rawModels) ? rawModels : [];
   const labelModel = PROVIDER_LABELS[providerId] || ((model) => model.name || model.id);
   const normalized = [];
@@ -108,30 +100,19 @@ function normalizeRawModels(rawModels, providerId, catalog = 'llm') {
     const id = String(model?.id || '').trim();
     if (!id || seen.has(id)) continue;
     seen.add(id);
+    const { createdAt, supportsTools } = readCatalogFacts(model);
     normalized.push({
       id,
       label: labelModel({ ...model, id }),
       provider: providerId,
-      // Purposes route chat turns; a decision model has none.
-      purpose: catalog === 'llm' ? inferModelPurpose(id) : '',
+      // Chat models get theirs from their price once it is known; a decision
+      // model has none.
+      purpose: '',
+      createdAt,
+      supportsTools,
     });
   }
   return normalized;
-}
-
-function updateOpenRouterPricing(rawModels) {
-  if (!Array.isArray(rawModels)) return;
-  for (const model of rawModels) {
-    if (!model || typeof model !== 'object' || model.pricing?.prompt == null) continue;
-    const inputPerM = Number.parseFloat(model.pricing.prompt) * 1_000_000;
-    if (!Number.isFinite(inputPerM) || inputPerM < 0) continue;
-    openrouterPricingCache.set(model.id, inputPerM);
-    if (!model.id.includes('/')) continue;
-    const bareId = model.id.slice(model.id.indexOf('/') + 1);
-    if (!openrouterPricingCache.has(bareId)) {
-      openrouterPricingCache.set(bareId, inputPerM);
-    }
-  }
 }
 
 function isPermanentDiscoveryError(error) {
@@ -145,8 +126,8 @@ async function loadProviderModels({ providerId, factory, apiKey, baseUrl, catalo
     if (factory.baseUrl) config.baseUrl = baseUrl;
     const provider = new factory.Provider(config);
     const rawModels = await runDiscovery((signal) => CATALOG_LISTERS[catalog](provider, signal));
-    if (providerId === 'openrouter') updateOpenRouterPricing(rawModels);
-    const models = normalizeRawModels(rawModels, providerId, catalog);
+    if (providerId === 'openrouter') recordReferenceModels(rawModels);
+    const models = normalizeRawModels(rawModels, providerId);
     const entry = { models, expiresAt: Date.now() + REFRESH_INTERVAL_MS };
     return entry;
   } catch (error) {
@@ -188,11 +169,7 @@ async function loadOllamaModels({ baseUrl, Provider, existing }) {
   try {
     const provider = new Provider({ baseUrl });
     const rawModels = await runDiscovery((signal) => provider.listModels(signal));
-    const models = normalizeRawModels(rawModels, 'ollama').map((model) => ({
-      ...model,
-      label: `${model.id} (Ollama / Local)`,
-      purpose: 'general',
-    }));
+    const models = normalizeRawModels(rawModels, 'ollama');
     return { models, expiresAt: Date.now() + OLLAMA_REFRESH_INTERVAL_MS };
   } catch (error) {
     console.warn('[Models] Failed to refresh Ollama models:', error.message);
@@ -221,22 +198,7 @@ async function refreshOllamaModels({ baseUrl, Provider, signal }) {
   return waitForSharedResult(refresh, signal);
 }
 
-function getInputCostPerM(modelId) {
-  return openrouterPricingCache.get(modelId);
-}
-
-function classifyPriceTier(modelId) {
-  const costPerM = getInputCostPerM(modelId);
-  if (costPerM === undefined) return null;
-  if (costPerM === 0) return 'free';
-  if (costPerM < 0.5) return 'cheap';
-  if (costPerM < 5) return 'medium';
-  return 'expensive';
-}
-
 module.exports = {
-  classifyPriceTier,
-  getInputCostPerM,
   refreshOllamaModels,
   refreshProviderModelList,
 };

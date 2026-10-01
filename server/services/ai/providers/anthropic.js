@@ -13,7 +13,11 @@ class AnthropicProvider extends BaseProvider {
 
   async listModels(signal = null) {
     const res = await this.client.models.list({ limit: 100 }, { signal });
-    return (res.data || []).map((m) => ({ id: m.id, name: m.display_name || m.id }));
+    return (res.data || []).map((m) => ({
+      id: m.id,
+      name: m.display_name || m.id,
+      created_at: m.created_at,
+    }));
   }
 
   getContextWindow(model) {

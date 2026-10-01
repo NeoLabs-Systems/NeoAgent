@@ -13,10 +13,15 @@ const {
   saveFailure,
 } = require('./model_health_store');
 const { MODEL_SELECTION_SEPARATOR } = require('./model_identity');
+const { AI_PROVIDER_DEFINITIONS } = require('./provider_definitions');
 
+// Stored in place of a model id: every model of the provider, or only its paid
+// ones.
 const PROVIDER_HEALTH_SENTINEL = '*';
+const PAID_MODELS_SENTINEL = '$paid';
 const DEFAULT_MODEL_UNAVAILABLE_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_PROVIDER_AUTH_COOLDOWN_MS = 60 * 60 * 1000;
+const DEFAULT_PROVIDER_BILLING_COOLDOWN_MS = 15 * 60 * 1000;
 const DEFAULT_RECOVERY_COOLDOWN_MS = 60 * 1000;
 const MAX_TRANSIENT_COOLDOWN_MS = 15 * 60 * 1000;
 
@@ -76,6 +81,14 @@ function readProviderAuthCooldownMs() {
   );
 }
 
+function readProviderBillingCooldownMs() {
+  return readDuration(
+    'NEOAGENT_PROVIDER_BILLING_COOLDOWN_MS',
+    DEFAULT_PROVIDER_BILLING_COOLDOWN_MS,
+    24 * 60 * 60 * 1000,
+  );
+}
+
 function readRecoveryCooldownMs() {
   return readDuration(
     'NEOAGENT_MODEL_RECOVERY_COOLDOWN_MS',
@@ -98,7 +111,15 @@ function transientCooldownMs(error, now) {
   return Math.max(configured, Math.min(retryAfter, MAX_TRANSIENT_COOLDOWN_MS));
 }
 
-function getFailureDisposition(error, now = Date.now()) {
+// An aggregator resells many vendors' models under one account. Its rate
+// limits come from the upstream serving one model, and running out of credit
+// stops only the models that cost money.
+function isAggregator(providerId) {
+  const key = String(providerId || '').trim().toLowerCase();
+  return AI_PROVIDER_DEFINITIONS[key]?.aggregator === true;
+}
+
+function getFailureDisposition(error, now = Date.now(), providerId = null) {
   if (!error || isAbortError(error)) return null;
 
   const status = getHttpStatus(error);
@@ -118,6 +139,24 @@ function getFailureDisposition(error, now = Date.now()) {
       scope: 'provider',
       failureClass: 'provider_auth',
       cooldownMs: readProviderAuthCooldownMs(),
+      status,
+    };
+  }
+
+  if (status === 402) {
+    return {
+      scope: isAggregator(providerId) ? 'paid' : 'provider',
+      failureClass: 'provider_billing',
+      cooldownMs: readProviderBillingCooldownMs(),
+      status,
+    };
+  }
+
+  if (status === 429 && isAggregator(providerId)) {
+    return {
+      scope: 'model',
+      failureClass: 'model_rate_limit',
+      cooldownMs: transientCooldownMs(error, now),
       status,
     };
   }
@@ -158,19 +197,21 @@ function shouldSwitchModel(error) {
 
 function recordModelFailure(userId, agentId, modelSelectionId, error, now = Date.now()) {
   const selectedId = String(modelSelectionId || '').trim();
-  const disposition = getFailureDisposition(error, now);
+  const providerId = providerFromSelectionId(selectedId);
+  const disposition = getFailureDisposition(error, now, providerId);
   if (!selectedId || !disposition) return false;
 
-  const providerId = providerFromSelectionId(selectedId);
-  const healthModelId = disposition.scope === 'provider'
-    ? PROVIDER_HEALTH_SENTINEL
-    : selectedId;
+  const healthModelId = {
+    provider: PROVIDER_HEALTH_SENTINEL,
+    paid: PAID_MODELS_SENTINEL,
+  }[disposition.scope] ?? selectedId;
   const entry = {
     userId,
     agentId: scopedAgentId(agentId),
     providerId,
     modelSelectionId: healthModelId,
-    scope: disposition.scope,
+    // Stored as provider-wide; the sentinel says which of its models it covers.
+    scope: disposition.scope === 'model' ? 'model' : 'provider',
     failureClass: disposition.failureClass,
     status: disposition.status,
     expiresAt: now + disposition.cooldownMs,
@@ -178,7 +219,7 @@ function recordModelFailure(userId, agentId, modelSelectionId, error, now = Date
   failures.set(cacheKey(userId, agentId, providerId, healthModelId), entry);
   saveFailure(entry);
   console.warn(
-    `[ModelHealth] ${disposition.scope === 'provider' ? `provider ${providerId}` : selectedId}`
+    `[ModelHealth] ${describeHealthEntry(entry.scope, providerId, healthModelId)}`
     + ` cooling down (${disposition.failureClass}, HTTP ${disposition.status ?? 'n/a'})`
     + ` until ${new Date(entry.expiresAt).toISOString()}`
     + ` user=${userId} agent=${entry.agentId}: ${String(error?.message || error).slice(0, 200)}`,
@@ -214,8 +255,12 @@ function recordModelSuccess(userId, agentId, modelSelectionId) {
 
 function getModelHealthSnapshot(userId, agentId, now = Date.now()) {
   const normalizedAgentId = scopedAgentId(agentId);
-  const modelIds = new Set();
-  const providerIds = new Set();
+  const snapshot = { modelIds: new Set(), providerIds: new Set(), paidProviderIds: new Set() };
+  const add = (scope, providerId, healthModelId) => {
+    if (scope !== 'provider') snapshot.modelIds.add(healthModelId);
+    else if (healthModelId === PAID_MODELS_SENTINEL) snapshot.paidProviderIds.add(providerId);
+    else snapshot.providerIds.add(providerId);
+  };
 
   for (const [key, entry] of failures) {
     if (entry.expiresAt <= now) {
@@ -225,16 +270,29 @@ function getModelHealthSnapshot(userId, agentId, now = Date.now()) {
     if (String(entry.userId) !== String(userId) || entry.agentId !== normalizedAgentId) {
       continue;
     }
-    if (entry.scope === 'provider') providerIds.add(entry.providerId);
-    else modelIds.add(entry.modelSelectionId);
+    add(entry.scope, entry.providerId, entry.modelSelectionId);
   }
 
   for (const entry of listActiveFailures(userId, normalizedAgentId, now)) {
-    if (entry.failure_scope === 'provider') providerIds.add(entry.provider_id);
-    else modelIds.add(entry.model_selection_id);
+    add(entry.failure_scope, entry.provider_id, entry.model_selection_id);
   }
 
-  return { modelIds, providerIds };
+  return snapshot;
+}
+
+// Whether a health snapshot keeps this catalog model out of routing. A model
+// with no known price counts as paid.
+function isHealthBlocked(health, model) {
+  return health.modelIds.has(model.id)
+    || health.providerIds.has(model.provider)
+    || (health.paidProviderIds.has(model.provider) && model.priceTier !== 'free');
+}
+
+function describeHealthEntry(scope, providerId, healthModelId) {
+  if (scope !== 'provider') return healthModelId;
+  return healthModelId === PAID_MODELS_SENTINEL
+    ? `paid models of provider ${providerId}`
+    : `provider ${providerId}`;
 }
 
 // Active cooldowns that keep this model out of routing, for diagnostics.
@@ -244,7 +302,7 @@ function describeModelCooldowns(userId, agentId, modelSelectionId, now = Date.no
   return listActiveFailures(userId, scopedAgentId(agentId), now)
     .filter((entry) => entry.provider_id === providerId
       && (entry.failure_scope === 'provider' || entry.model_selection_id === selectedId))
-    .map((entry) => `${entry.failure_scope === 'provider' ? `provider ${providerId}` : selectedId}`
+    .map((entry) => `${describeHealthEntry(entry.failure_scope, providerId, entry.model_selection_id)}`
       + ` ${entry.failure_class} HTTP ${entry.last_status ?? 'n/a'}`
       + ` until ${new Date(entry.cooldown_until_ms).toISOString()}`);
 }
@@ -266,6 +324,7 @@ module.exports = {
   describeModelCooldowns,
   getFailureDisposition,
   getModelHealthSnapshot,
+  isHealthBlocked,
   isModelCoolingDown,
   isPermanentModelFailure,
   isRecoverableModelFailure,
