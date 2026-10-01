@@ -4,8 +4,12 @@ const { BaseProvider } = require('./base');
 const { fetchResponseText, readResponseText } = require('../../network/http');
 const { createAbortError, isAbortError, throwIfAborted } = require('../../../utils/abort');
 const { readOllamaStream } = require('./ollama_stream');
+const { postSystemOneDecision } = require('./system_one_api');
 
 const MAX_CHAT_RESPONSE_BYTES = 16 * 1024 * 1024;
+// Ollama 0.35+ tags SystemOne decision models (nimble, tev1) with this
+// capability and serves them through /v1/systemone instead of chat.
+const DECISION_CAPABILITY = 'decision';
 
 function ollamaError(message, status = null) {
   const error = new Error(
@@ -28,7 +32,7 @@ class OllamaProvider extends BaseProvider {
     this.models = [];
   }
 
-  async listModels(signal = null) {
+  async _listTags(signal) {
     try {
       const { response, text } = await fetchResponseText(`${this.baseUrl}/api/tags`, {
         maxResponseBytes: 2 * 1024 * 1024,
@@ -37,13 +41,35 @@ class OllamaProvider extends BaseProvider {
         timeoutMs: 5000,
       });
       if (!response.ok) throw new Error(`Ollama /api/tags returned HTTP ${response.status}`);
-      const data = JSON.parse(text || '{}');
-      this.models = (data.models || []).map(m => m.name);
-      return this.models;
+      return JSON.parse(text || '{}').models || [];
     } catch (err) {
       if (isAbortError(err, signal)) throw createAbortError(signal);
       return [];
     }
+  }
+
+  // Chat models only: decision models cannot hold a conversation.
+  async listModels(signal = null) {
+    this.models = (await this._listTags(signal))
+      .filter((m) => !m.capabilities?.includes(DECISION_CAPABILITY))
+      .map((m) => m.name);
+    return this.models;
+  }
+
+  async listDecisionModels(signal = null) {
+    return (await this._listTags(signal))
+      .filter((m) => m.capabilities?.includes(DECISION_CAPABILITY))
+      .map((m) => m.name);
+  }
+
+  async decide({ model, state, questions, signal = null, timeoutMs } = {}) {
+    return postSystemOneDecision(`${this.baseUrl}/v1/systemone`, {
+      model,
+      state,
+      questions,
+      signal,
+      timeoutMs,
+    });
   }
 
   async ensureModel(model, signal = null) {

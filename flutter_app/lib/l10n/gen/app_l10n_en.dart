@@ -24,10 +24,6 @@ class AppL10nEn extends AppL10n {
   String get aDeletedAccount => 'a deleted account';
 
   @override
-  String get aFractionOfASecondRouting =>
-      'a fraction of a second: routing, tool and skill choice, memory ';
-
-  @override
   String get aFridayLookBackAtThe =>
       'A Friday look back at the week and a plan for the next.';
 
@@ -37,7 +33,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get aLanguageModelJudgedThisMessage =>
-      'A language model judged this message because JEV is off.';
+      'A language model judged this message because SystemOne is off.';
 
   @override
   String get aNeoagentSetupMetadataFileExceeded =>
@@ -456,13 +452,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get andBillingTeamLinksLiveOn =>
       'and billing. Team links live on the Team page.';
-
-  @override
-  String get andBrowserSteps => 'and browser steps. ';
-
-  @override
-  String get andBrowserStepsYourChatModel =>
-      'and browser steps. Your chat model still writes every ';
 
   @override
   String get andSExpiresAtDatetimeNow =>
@@ -1376,11 +1365,6 @@ class AppL10nEn extends AppL10n {
   @override
   String arg1Saved(Object? arg1) {
     return '$arg1 saved.';
-  }
-
-  @override
-  String arg1ScoredByJev(Object? arg1) {
-    return '$arg1 scored by JEV';
   }
 
   @override
@@ -3142,17 +3126,6 @@ class AppL10nEn extends AppL10n {
   String get eGMyLocalServer => 'e.g. My local server';
 
   @override
-  String get eachAgentDecides => 'Each agent decides';
-
-  @override
-  String get eachAgentNowDecidesInIts =>
-      'Each agent now decides in its own settings.';
-
-  @override
-  String get eachAgentSwitchesJevOnUnder =>
-      'Each agent switches Jev on under Settings › Models. It ';
-
-  @override
   String get edit => 'Edit';
 
   @override
@@ -3367,10 +3340,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get everyActiveSessionForThisAccount =>
       'Every active session for this account ends. They can sign in ';
-
-  @override
-  String get everyAgentUsesJevAgentsCan =>
-      'Every agent uses Jev. Agents can no longer switch it off ';
 
   @override
   String get everyDay0800 => 'Every day · 08:00';
@@ -3861,10 +3830,6 @@ class AppL10nEn extends AppL10n {
   String get groupChannelOrRoom => 'Group, channel, or room';
 
   @override
-  String get groupChatTurnTakingResearchSources =>
-      'group-chat turn-taking, research sources, answer checks, ';
-
-  @override
   String get groupType => 'Group type';
 
   @override
@@ -4108,9 +4073,6 @@ class AppL10nEn extends AppL10n {
   String get inBackground => 'background';
 
   @override
-  String get inTheirSettings => 'in their settings.';
-
-  @override
   String get incomingAndOutgoingChannelMessagesWill =>
       'Incoming and outgoing channel messages will appear here.';
 
@@ -4262,42 +4224,10 @@ class AppL10nEn extends AppL10n {
   String get itCanTBeUndone => 'It can’t be undone.';
 
   @override
-  String get itCutsWaitingAndModelCost =>
-      'It cuts waiting and model cost; every reply is still written by ';
-
-  @override
   String get itMayHaveBeenDeleted => 'It may have been deleted.';
 
   @override
   String get javaRuntime => 'java runtime';
-
-  @override
-  String get jevDecisions => 'Jev decisions';
-
-  @override
-  String get jevIsADecisionModelThat =>
-      'Jev is a decision model that makes the behind-the-scenes calls in ';
-
-  @override
-  String get jevIsOffForEveryAgent =>
-      'Jev is off for every agent, and its switch is hidden in ';
-
-  @override
-  String get jevIsOffOnThisServer => 'Jev is off on this server.';
-
-  @override
-  String get jevIsOnForEveryAgent => 'Jev is on for every agent.';
-
-  @override
-  String get jevScoredThisMessageDirectlyNo =>
-      'JEV scored this message directly. No language model ran.';
-
-  @override
-  String get jevTypesafeDecisionModelOpenrouterRouting =>
-      'jev typesafe decision model openrouter routing fast cheaper recommended';
-
-  @override
-  String get jevUnavailable => 'JEV unavailable';
 
   @override
   String get joinUsersManagedOnManagedId =>
@@ -4784,10 +4714,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get makeDefault => 'Make default';
-
-  @override
-  String get makesTheBehindTheScenesCalls =>
-      'Makes the behind-the-scenes calls in a fraction of a ';
 
   @override
   String get manage => 'Manage';
@@ -5631,10 +5557,6 @@ class AppL10nEn extends AppL10n {
   String get noSecurityKeyWasProvided => 'No security key was provided.';
 
   @override
-  String get noServerOpenrouterKeyYetAdd =>
-      'No server OpenRouter key yet. Add one under Providers, ';
-
-  @override
   String get noServerUrlSet => 'No server URL set';
 
   @override
@@ -5844,9 +5766,6 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String get onForEveryone => 'On for everyone';
-
-  @override
   String get onMyCalendarAndTheMost =>
       'on my calendar, and the most important open items I know about. ';
 
@@ -6033,10 +5952,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get optionalWhenSetItIsUsed =>
       'Optional. When set, it is used instead of the URL.';
-
-  @override
-  String get orAgentsCanUseTheirOwn =>
-      'or agents can use their own key under Advanced › Bring ';
 
   @override
   String get orAnswerInYourOwnWords => 'Or answer in your own words';
@@ -6538,10 +6453,6 @@ class AppL10nEn extends AppL10n {
   String ranArg1(Object? arg1) {
     return 'Ran $arg1';
   }
-
-  @override
-  String get rankingGroupChatTurnTakingResearch =>
-      'ranking, group-chat turn-taking, research sources, answer checks, ';
 
   @override
   String get rateLimits => 'Rate limits';
@@ -7305,10 +7216,6 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String get secondRoutingToolAndSkillChoice =>
-      'second: routing, tool and skill choice, memory ranking, ';
-
-  @override
   String get secretField => 'Secret field';
 
   @override
@@ -7555,9 +7462,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get sharedWithTheNeoagentChatAnd =>
       'Shared with the NeoAgent chat and its memory.';
-
-  @override
-  String get sharperToolChoice => 'Sharper tool choice';
 
   @override
   String get shellCommands => 'Shell Commands';
@@ -7871,9 +7775,6 @@ class AppL10nEn extends AppL10n {
   String get startingYourComputer => 'Starting your computer';
 
   @override
-  String get startsOff => 'starts off.';
-
-  @override
   String get startsWithXoxbFromYourSlack =>
       'Starts with xoxb-. From your Slack app credentials.';
 
@@ -8164,10 +8065,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get theAgentReadsTimesYouMention =>
       'The agent reads times you mention, and runs scheduled tasks, in this time zone.';
-
-  @override
-  String get theAgentSChatModelJev =>
-      'the agent\'\'s chat model. Jev runs through OpenRouter.';
 
   @override
   String get theAgentWillAskBeforeEvery =>
@@ -8461,9 +8358,6 @@ class AppL10nEn extends AppL10n {
   String theWebAppCouldNotReach2(Object? arg1) {
     return 'The web app could not reach the NeoAgent backend at $arg1. Check the browser console and reverse-proxy/network configuration.';
   }
-
-  @override
-  String get theirSettings => 'their settings.';
 
   @override
   String get themselvesTheServerOperatorRemovesAdmin =>
@@ -8958,10 +8852,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get turnedOffForYouSoYou =>
       'Turned off for you, so you can’t hand it out';
-
-  @override
-  String get turnedOnForEveryAgentBy =>
-      'Turned on for every agent by your server admin.';
 
   @override
   String get twitchChatOverIrc => 'Twitch chat over IRC';
@@ -9738,9 +9628,6 @@ class AppL10nEn extends AppL10n {
       'Your Mattermost site URL, if you use the REST API.';
 
   @override
-  String get yourOwnKey => 'your own key.';
-
-  @override
   String get yourSessionExpiredOrWasNot =>
       'Your session expired or was not retained by the browser. Please sign in again.';
 
@@ -10028,10 +9915,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get smartSelectorOn => 'Smart selector on';
-
-  @override
-  String get jevDecidesWhenToSpeakWhileIt =>
-      'Jev decides when to speak while it is on; this model is the fallback.';
 
   @override
   String get startASessionToBegin => 'Start a session to begin';
@@ -10660,4 +10543,54 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get couldNotDisconnectWorldNews => 'Could not disconnect World News.';
+
+  @override
+  String get systemOneModels => 'SystemOne models';
+
+  @override
+  String get systemOneAuto => 'Auto';
+
+  @override
+  String get systemOneAutoPicksTheBestAvailable =>
+      'Picks the best available SystemOne model';
+
+  @override
+  String get systemOneOffTheChatModelDecides =>
+      'The chat model makes these decisions';
+
+  @override
+  String get systemOneModelsMakeTheBehindTheScenes =>
+      'Decision models that make the behind-the-scenes calls in a fraction of a second: group-chat turn-taking and browser steps. Your chat model still writes every reply.';
+
+  @override
+  String get systemOneDecidesWhenToSpeakWhileIt =>
+      'The SystemOne model decides when to speak while it is on; this model is the fallback.';
+
+  @override
+  String arg1ScoredBySystemOne(Object? arg1) {
+    return '$arg1 scored by SystemOne';
+  }
+
+  @override
+  String get systemOneScoredThisMessageDirectlyNo =>
+      'SystemOne scored this message directly. No language model ran.';
+
+  @override
+  String get systemOneUnavailable => 'SystemOne unavailable';
+
+  @override
+  String get systemOneAdminAvailability =>
+      'Decision models agents can pick under Settings › Models. A model switched off here leaves that picker, and agents that chose it fall back to Auto. While any model is switched off, SystemOne models that providers add later start switched off too.';
+
+  @override
+  String get addATypesafeOrOpenrouterKey =>
+      'No SystemOne models yet. Add a TypeSafe or OpenRouter key under Providers, or pull a decision model such as nimble in Ollama 0.35 or later.';
+
+  @override
+  String get noSystemOneModelIsAvailableYet =>
+      'No SystemOne model is available yet. Add a TypeSafe or OpenRouter key under Advanced › Bring your own key, or pull a decision model such as nimble in Ollama.';
+
+  @override
+  String get systemoneDecisionModelsTypesafeOpenrouterOllama =>
+      'systemone system one decision models jev typesafe openrouter ollama availability enable disable';
 }

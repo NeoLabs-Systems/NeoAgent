@@ -30,14 +30,21 @@ async function requestStructuredJson({
   });
 }
 
-// A Jev decision, or null when Jev is off or unavailable and the caller
-// should use its model path.
+// A SystemOne decision, or null when SystemOne is off or unavailable and the
+// caller should use its model path.
 async function requestDecision({ agentEngine, ...request }) {
   if (typeof agentEngine?.decide !== 'function') return null;
   return agentEngine.decide(request);
 }
 
+// Whether a SystemOne model can answer, so the caller may skip its model path.
+async function isSystemOneReady({ agentEngine, userId, agentId, signal = null }) {
+  if (typeof agentEngine?.isSystemOneReady !== 'function') return false;
+  return agentEngine.isSystemOneReady(userId, agentId, signal);
+}
+
 module.exports = {
+  isSystemOneReady,
   requestDecision,
   requestStructuredJson,
 };

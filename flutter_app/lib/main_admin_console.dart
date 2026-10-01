@@ -200,10 +200,10 @@ List<_AdminSearchEntry> _adminSearchIndex = <_AdminSearchEntry>[
     card: appStrings.serverProviderCredentials,
   ),
   _AdminSearchEntry(
-    appStrings.jevDecisions,
+    appStrings.systemOneModels,
     _AdminTab.models,
-    appStrings.jevTypesafeDecisionModelOpenrouterRouting,
-    card: appStrings.jevDecisions,
+    appStrings.systemoneDecisionModelsTypesafeOpenrouterOllama,
+    card: appStrings.systemOneModels,
   ),
   _AdminSearchEntry(
     appStrings.enableOrDisableModels,

@@ -18,7 +18,7 @@ const {
 } = require('./integrated_tools');
 const { executeHttpRequest } = require('./integrated_tools/http_request');
 const { runBrowserAct } = require('./integrated_tools/browser_act');
-const { isJevEnabled } = require('./jev');
+const { isSystemOneEnabled, isSystemOneReady } = require('./system_one');
 const {
     executeAndroidTool,
     executeDesktopTool,
@@ -536,7 +536,7 @@ function getAvailableTools(app, options = {}) {
         {
             name: 'browser_act',
             family: 'browser_page',
-            description: 'Fast, accurate control of the web page for multi-step interaction: search boxes, forms, filters, menus, dropdowns, and date pickers. Give the goal for the page, with every value to enter, and optionally a URL to open first. Jev picks each click, field, and option from the visible controls in a fraction of a second. Prefer it over browser_click and browser_type for interactive steps. Returns the actions taken and the final page; confirm the result there before reporting it.',
+            description: 'Fast, accurate control of the web page for multi-step interaction: search boxes, forms, filters, menus, dropdowns, and date pickers. Give the goal for the page, with every value to enter, and optionally a URL to open first. A SystemOne model picks each click, field, and option from the visible controls in a fraction of a second. Prefer it over browser_click and browser_type for interactive steps. Returns the actions taken and the final page; confirm the result there before reporting it.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -1744,8 +1744,8 @@ function getAvailableTools(app, options = {}) {
         tools.push(...integrationTools);
     }
 
-    // browser_act runs on Jev, so it is only offered while Jev is on.
-    let visibleTools = isJevEnabled(options.userId, options.agentId || null)
+    // browser_act runs on a SystemOne model, so it is only offered while SystemOne is on.
+    let visibleTools = isSystemOneEnabled(options.userId, options.agentId || null)
         ? tools
         : tools.filter((tool) => tool.name !== 'browser_act');
     if (options.userId != null) {
@@ -2022,8 +2022,8 @@ async function executeTool(toolName, args, context, engine) {
         case 'browser_act': {
             const goal = typeof args.goal === 'string' ? args.goal.trim() : '';
             if (!goal) return { error: 'browser_act requires a "goal" argument' };
-            if (!isJevEnabled(userId, agentId)) {
-                return { error: 'browser_act needs Jev, which is switched off for this agent. Use browser_click and browser_type instead.' };
+            if (!(await isSystemOneReady(userId, agentId, signal))) {
+                return { error: 'browser_act needs a SystemOne model, and none is available for this agent. Use browser_click and browser_type instead.' };
             }
             if (args.url) {
                 const urlCheck = await validateCloudUrlWithDns(args.url, { signal });

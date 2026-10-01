@@ -31,7 +31,7 @@ function recordDecision(userId, agentId, msg, decision) {
     reasonCodes: Array.isArray(decision.reasonCodes) ? decision.reasonCodes : [],
     needScore: Number(decision.needScore || 0),
     needThreshold: Number.isFinite(decision.needThreshold) ? decision.needThreshold : null,
-    jevScores: decision.jevScores || null,
+    systemOneScores: decision.systemOneScores || null,
     confidence: Number(decision.confidence || 0),
     tokenPath: decision.tokenPath || null,
     model: decision.model || null,

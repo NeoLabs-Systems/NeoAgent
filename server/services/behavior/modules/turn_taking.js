@@ -5,15 +5,15 @@ const { buildDecisionPacket, loadRecentRoomMessages } = require('../signals');
 const { getThreadState, setThreadState } = require('../state');
 const { normalizeDecision, holdBackDecision } = require('../gate/decisions');
 const { bypassDecision, addressDecision } = require('../gate/rules');
-const { askJev, JEV_THRESHOLD_OFFSET } = require('../gate/jev_judge');
+const { askSystemOne, SYSTEM_ONE_THRESHOLD_OFFSET } = require('../gate/system_one_judge');
 const { askModel } = require('../gate/model_judge');
 
-// Jev judges the room whenever it answers. When Jev is on, an outage holds
-// back rather than handing the decision to the chat model.
+// SystemOne judges the room whenever it answers. When SystemOne is on, an
+// outage holds back rather than handing the decision to the chat model.
 async function judgeRoom(ctx, packet) {
-  const jevDecision = await askJev(ctx, packet);
-  if (jevDecision) return jevDecision;
-  if (ctx.jevEnabled) return holdBackDecision('jev_unavailable');
+  const systemOneDecision = await askSystemOne(ctx, packet);
+  if (systemOneDecision) return systemOneDecision;
+  if (ctx.systemOneEnabled) return holdBackDecision('system_one_unavailable');
   try {
     return await askModel(ctx, packet);
   } catch (error) {
@@ -27,7 +27,7 @@ async function judgeRoom(ctx, packet) {
 function applyNeedThreshold(decision, config, secondsSinceSpoke) {
   let needThreshold = Number(config.minimumNeedScore ?? 0.58);
   if (secondsSinceSpoke != null && secondsSinceSpoke < 120) needThreshold = Math.min(needThreshold, 0.45);
-  if (decision.tokenPath === 'jev_gate') needThreshold -= JEV_THRESHOLD_OFFSET;
+  if (decision.tokenPath === 'system_one_gate') needThreshold -= SYSTEM_ONE_THRESHOLD_OFFSET;
   if (decision.decision !== 'speak' || Number(decision.needScore || 0) >= needThreshold) {
     return { ...decision, needThreshold };
   }
@@ -36,8 +36,8 @@ function applyNeedThreshold(decision, config, secondsSinceSpoke) {
     decision: 'stay_silent',
     reasonCodes: [...(decision.reasonCodes || []), 'below_need_threshold'],
   }, { tokenPath: decision.tokenPath || 'gate_only', model: decision.model });
-  return decision.jevScores
-    ? { ...held, jevScores: decision.jevScores, needThreshold }
+  return decision.systemOneScores
+    ? { ...held, systemOneScores: decision.systemOneScores, needThreshold }
     : { ...held, needThreshold };
 }
 

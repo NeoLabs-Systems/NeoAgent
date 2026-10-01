@@ -121,12 +121,6 @@ abstract class AppL10n {
   /// **'a deleted account'**
   String get aDeletedAccount;
 
-  /// No description provided for @aFractionOfASecondRouting.
-  ///
-  /// In en, this message translates to:
-  /// **'a fraction of a second: routing, tool and skill choice, memory '**
-  String get aFractionOfASecondRouting;
-
   /// No description provided for @aFridayLookBackAtThe.
   ///
   /// In en, this message translates to:
@@ -142,7 +136,7 @@ abstract class AppL10n {
   /// No description provided for @aLanguageModelJudgedThisMessage.
   ///
   /// In en, this message translates to:
-  /// **'A language model judged this message because JEV is off.'**
+  /// **'A language model judged this message because SystemOne is off.'**
   String get aLanguageModelJudgedThisMessage;
 
   /// No description provided for @aNeoagentSetupMetadataFileExceeded.
@@ -864,18 +858,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'and billing. Team links live on the Team page.'**
   String get andBillingTeamLinksLiveOn;
-
-  /// No description provided for @andBrowserSteps.
-  ///
-  /// In en, this message translates to:
-  /// **'and browser steps. '**
-  String get andBrowserSteps;
-
-  /// No description provided for @andBrowserStepsYourChatModel.
-  ///
-  /// In en, this message translates to:
-  /// **'and browser steps. Your chat model still writes every '**
-  String get andBrowserStepsYourChatModel;
 
   /// No description provided for @andSExpiresAtDatetimeNow.
   ///
@@ -2050,12 +2032,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'{arg1} saved.'**
   String arg1Saved(Object? arg1);
-
-  /// No description provided for @arg1ScoredByJev.
-  ///
-  /// In en, this message translates to:
-  /// **'{arg1} scored by JEV'**
-  String arg1ScoredByJev(Object? arg1);
 
   /// No description provided for @arg1Sec.
   ///
@@ -5069,24 +5045,6 @@ abstract class AppL10n {
   /// **'e.g. My local server'**
   String get eGMyLocalServer;
 
-  /// No description provided for @eachAgentDecides.
-  ///
-  /// In en, this message translates to:
-  /// **'Each agent decides'**
-  String get eachAgentDecides;
-
-  /// No description provided for @eachAgentNowDecidesInIts.
-  ///
-  /// In en, this message translates to:
-  /// **'Each agent now decides in its own settings.'**
-  String get eachAgentNowDecidesInIts;
-
-  /// No description provided for @eachAgentSwitchesJevOnUnder.
-  ///
-  /// In en, this message translates to:
-  /// **'Each agent switches Jev on under Settings › Models. It '**
-  String get eachAgentSwitchesJevOnUnder;
-
   /// No description provided for @edit.
   ///
   /// In en, this message translates to:
@@ -5458,12 +5416,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Every active session for this account ends. They can sign in '**
   String get everyActiveSessionForThisAccount;
-
-  /// No description provided for @everyAgentUsesJevAgentsCan.
-  ///
-  /// In en, this message translates to:
-  /// **'Every agent uses Jev. Agents can no longer switch it off '**
-  String get everyAgentUsesJevAgentsCan;
 
   /// No description provided for @everyDay0800.
   ///
@@ -6281,12 +6233,6 @@ abstract class AppL10n {
   /// **'Group, channel, or room'**
   String get groupChannelOrRoom;
 
-  /// No description provided for @groupChatTurnTakingResearchSources.
-  ///
-  /// In en, this message translates to:
-  /// **'group-chat turn-taking, research sources, answer checks, '**
-  String get groupChatTurnTakingResearchSources;
-
   /// No description provided for @groupType.
   ///
   /// In en, this message translates to:
@@ -6689,12 +6635,6 @@ abstract class AppL10n {
   /// **'background'**
   String get inBackground;
 
-  /// No description provided for @inTheirSettings.
-  ///
-  /// In en, this message translates to:
-  /// **'in their settings.'**
-  String get inTheirSettings;
-
   /// No description provided for @incomingAndOutgoingChannelMessagesWill.
   ///
   /// In en, this message translates to:
@@ -6965,12 +6905,6 @@ abstract class AppL10n {
   /// **'It can’t be undone.'**
   String get itCanTBeUndone;
 
-  /// No description provided for @itCutsWaitingAndModelCost.
-  ///
-  /// In en, this message translates to:
-  /// **'It cuts waiting and model cost; every reply is still written by '**
-  String get itCutsWaitingAndModelCost;
-
   /// No description provided for @itMayHaveBeenDeleted.
   ///
   /// In en, this message translates to:
@@ -6982,54 +6916,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'java runtime'**
   String get javaRuntime;
-
-  /// No description provided for @jevDecisions.
-  ///
-  /// In en, this message translates to:
-  /// **'Jev decisions'**
-  String get jevDecisions;
-
-  /// No description provided for @jevIsADecisionModelThat.
-  ///
-  /// In en, this message translates to:
-  /// **'Jev is a decision model that makes the behind-the-scenes calls in '**
-  String get jevIsADecisionModelThat;
-
-  /// No description provided for @jevIsOffForEveryAgent.
-  ///
-  /// In en, this message translates to:
-  /// **'Jev is off for every agent, and its switch is hidden in '**
-  String get jevIsOffForEveryAgent;
-
-  /// No description provided for @jevIsOffOnThisServer.
-  ///
-  /// In en, this message translates to:
-  /// **'Jev is off on this server.'**
-  String get jevIsOffOnThisServer;
-
-  /// No description provided for @jevIsOnForEveryAgent.
-  ///
-  /// In en, this message translates to:
-  /// **'Jev is on for every agent.'**
-  String get jevIsOnForEveryAgent;
-
-  /// No description provided for @jevScoredThisMessageDirectlyNo.
-  ///
-  /// In en, this message translates to:
-  /// **'JEV scored this message directly. No language model ran.'**
-  String get jevScoredThisMessageDirectlyNo;
-
-  /// No description provided for @jevTypesafeDecisionModelOpenrouterRouting.
-  ///
-  /// In en, this message translates to:
-  /// **'jev typesafe decision model openrouter routing fast cheaper recommended'**
-  String get jevTypesafeDecisionModelOpenrouterRouting;
-
-  /// No description provided for @jevUnavailable.
-  ///
-  /// In en, this message translates to:
-  /// **'JEV unavailable'**
-  String get jevUnavailable;
 
   /// No description provided for @joinUsersManagedOnManagedId.
   ///
@@ -7828,12 +7714,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Make default'**
   String get makeDefault;
-
-  /// No description provided for @makesTheBehindTheScenesCalls.
-  ///
-  /// In en, this message translates to:
-  /// **'Makes the behind-the-scenes calls in a fraction of a '**
-  String get makesTheBehindTheScenesCalls;
 
   /// No description provided for @manage.
   ///
@@ -9305,12 +9185,6 @@ abstract class AppL10n {
   /// **'No security key was provided.'**
   String get noSecurityKeyWasProvided;
 
-  /// No description provided for @noServerOpenrouterKeyYetAdd.
-  ///
-  /// In en, this message translates to:
-  /// **'No server OpenRouter key yet. Add one under Providers, '**
-  String get noServerOpenrouterKeyYetAdd;
-
   /// No description provided for @noServerUrlSet.
   ///
   /// In en, this message translates to:
@@ -9677,12 +9551,6 @@ abstract class AppL10n {
   /// **'On for {arg1} of {arg2} groups'**
   String onForArg1OfArg2Groups(Object? arg1, Object? arg2);
 
-  /// No description provided for @onForEveryone.
-  ///
-  /// In en, this message translates to:
-  /// **'On for everyone'**
-  String get onForEveryone;
-
   /// No description provided for @onMyCalendarAndTheMost.
   ///
   /// In en, this message translates to:
@@ -10000,12 +9868,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Optional. When set, it is used instead of the URL.'**
   String get optionalWhenSetItIsUsed;
-
-  /// No description provided for @orAgentsCanUseTheirOwn.
-  ///
-  /// In en, this message translates to:
-  /// **'or agents can use their own key under Advanced › Bring '**
-  String get orAgentsCanUseTheirOwn;
 
   /// No description provided for @orAnswerInYourOwnWords.
   ///
@@ -10870,12 +10732,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Ran {arg1}'**
   String ranArg1(Object? arg1);
-
-  /// No description provided for @rankingGroupChatTurnTakingResearch.
-  ///
-  /// In en, this message translates to:
-  /// **'ranking, group-chat turn-taking, research sources, answer checks, '**
-  String get rankingGroupChatTurnTakingResearch;
 
   /// No description provided for @rateLimits.
   ///
@@ -12185,12 +12041,6 @@ abstract class AppL10n {
   /// **'Searched files for \"{arg1}\"'**
   String searchedFilesForArg1(Object? arg1);
 
-  /// No description provided for @secondRoutingToolAndSkillChoice.
-  ///
-  /// In en, this message translates to:
-  /// **'second: routing, tool and skill choice, memory ranking, '**
-  String get secondRoutingToolAndSkillChoice;
-
   /// No description provided for @secretField.
   ///
   /// In en, this message translates to:
@@ -12622,12 +12472,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Shared with the NeoAgent chat and its memory.'**
   String get sharedWithTheNeoagentChatAnd;
-
-  /// No description provided for @sharperToolChoice.
-  ///
-  /// In en, this message translates to:
-  /// **'Sharper tool choice'**
-  String get sharperToolChoice;
 
   /// No description provided for @shellCommands.
   ///
@@ -13175,12 +13019,6 @@ abstract class AppL10n {
   /// **'Starting your computer'**
   String get startingYourComputer;
 
-  /// No description provided for @startsOff.
-  ///
-  /// In en, this message translates to:
-  /// **'starts off.'**
-  String get startsOff;
-
   /// No description provided for @startsWithXoxbFromYourSlack.
   ///
   /// In en, this message translates to:
@@ -13685,12 +13523,6 @@ abstract class AppL10n {
   /// **'The agent reads times you mention, and runs scheduled tasks, in this time zone.'**
   String get theAgentReadsTimesYouMention;
 
-  /// No description provided for @theAgentSChatModelJev.
-  ///
-  /// In en, this message translates to:
-  /// **'the agent\'\'s chat model. Jev runs through OpenRouter.'**
-  String get theAgentSChatModelJev;
-
   /// No description provided for @theAgentWillAskBeforeEvery.
   ///
   /// In en, this message translates to:
@@ -14134,12 +13966,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'The web app could not reach the NeoAgent backend at {arg1}. Check the browser console and reverse-proxy/network configuration.'**
   String theWebAppCouldNotReach2(Object? arg1);
-
-  /// No description provided for @theirSettings.
-  ///
-  /// In en, this message translates to:
-  /// **'their settings.'**
-  String get theirSettings;
 
   /// No description provided for @themselvesTheServerOperatorRemovesAdmin.
   ///
@@ -14932,12 +14758,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Turned off for you, so you can’t hand it out'**
   String get turnedOffForYouSoYou;
-
-  /// No description provided for @turnedOnForEveryAgentBy.
-  ///
-  /// In en, this message translates to:
-  /// **'Turned on for every agent by your server admin.'**
-  String get turnedOnForEveryAgentBy;
 
   /// No description provided for @twitchChatOverIrc.
   ///
@@ -16259,12 +16079,6 @@ abstract class AppL10n {
   /// **'Your Mattermost site URL, if you use the REST API.'**
   String get yourMattermostSiteUrlIfYou;
 
-  /// No description provided for @yourOwnKey.
-  ///
-  /// In en, this message translates to:
-  /// **'your own key.'**
-  String get yourOwnKey;
-
   /// No description provided for @yourSessionExpiredOrWasNot.
   ///
   /// In en, this message translates to:
@@ -16768,12 +16582,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Smart selector on'**
   String get smartSelectorOn;
-
-  /// No description provided for @jevDecidesWhenToSpeakWhileIt.
-  ///
-  /// In en, this message translates to:
-  /// **'Jev decides when to speak while it is on; this model is the fallback.'**
-  String get jevDecidesWhenToSpeakWhileIt;
 
   /// No description provided for @startASessionToBegin.
   ///
@@ -17764,6 +17572,84 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Could not disconnect World News.'**
   String get couldNotDisconnectWorldNews;
+
+  /// No description provided for @systemOneModels.
+  ///
+  /// In en, this message translates to:
+  /// **'SystemOne models'**
+  String get systemOneModels;
+
+  /// No description provided for @systemOneAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get systemOneAuto;
+
+  /// No description provided for @systemOneAutoPicksTheBestAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Picks the best available SystemOne model'**
+  String get systemOneAutoPicksTheBestAvailable;
+
+  /// No description provided for @systemOneOffTheChatModelDecides.
+  ///
+  /// In en, this message translates to:
+  /// **'The chat model makes these decisions'**
+  String get systemOneOffTheChatModelDecides;
+
+  /// No description provided for @systemOneModelsMakeTheBehindTheScenes.
+  ///
+  /// In en, this message translates to:
+  /// **'Decision models that make the behind-the-scenes calls in a fraction of a second: group-chat turn-taking and browser steps. Your chat model still writes every reply.'**
+  String get systemOneModelsMakeTheBehindTheScenes;
+
+  /// No description provided for @systemOneDecidesWhenToSpeakWhileIt.
+  ///
+  /// In en, this message translates to:
+  /// **'The SystemOne model decides when to speak while it is on; this model is the fallback.'**
+  String get systemOneDecidesWhenToSpeakWhileIt;
+
+  /// No description provided for @arg1ScoredBySystemOne.
+  ///
+  /// In en, this message translates to:
+  /// **'{arg1} scored by SystemOne'**
+  String arg1ScoredBySystemOne(Object? arg1);
+
+  /// No description provided for @systemOneScoredThisMessageDirectlyNo.
+  ///
+  /// In en, this message translates to:
+  /// **'SystemOne scored this message directly. No language model ran.'**
+  String get systemOneScoredThisMessageDirectlyNo;
+
+  /// No description provided for @systemOneUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'SystemOne unavailable'**
+  String get systemOneUnavailable;
+
+  /// No description provided for @systemOneAdminAvailability.
+  ///
+  /// In en, this message translates to:
+  /// **'Decision models agents can pick under Settings › Models. A model switched off here leaves that picker, and agents that chose it fall back to Auto. While any model is switched off, SystemOne models that providers add later start switched off too.'**
+  String get systemOneAdminAvailability;
+
+  /// No description provided for @addATypesafeOrOpenrouterKey.
+  ///
+  /// In en, this message translates to:
+  /// **'No SystemOne models yet. Add a TypeSafe or OpenRouter key under Providers, or pull a decision model such as nimble in Ollama 0.35 or later.'**
+  String get addATypesafeOrOpenrouterKey;
+
+  /// No description provided for @noSystemOneModelIsAvailableYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No SystemOne model is available yet. Add a TypeSafe or OpenRouter key under Advanced › Bring your own key, or pull a decision model such as nimble in Ollama.'**
+  String get noSystemOneModelIsAvailableYet;
+
+  /// No description provided for @systemoneDecisionModelsTypesafeOpenrouterOllama.
+  ///
+  /// In en, this message translates to:
+  /// **'systemone system one decision models jev typesafe openrouter ollama availability enable disable'**
+  String get systemoneDecisionModelsTypesafeOpenrouterOllama;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

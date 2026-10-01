@@ -12,6 +12,7 @@ const { ClaudeCodeProvider } = require('./providers/claudeCode');
 const { GrokOAuthProvider } = require('./providers/grokOauth');
 const { NvidiaProvider } = require('./providers/nvidia');
 const { OpenRouterProvider } = require('./providers/openrouter');
+const { TypeSafeProvider } = require('./providers/typesafe');
 const {
     AI_PROVIDER_DEFINITIONS,
     getAiSettings,
@@ -56,6 +57,7 @@ const PROVIDER_FACTORIES = Object.freeze({
     'grok-oauth': { Provider: GrokOAuthProvider, apiKey: true, baseUrl: false },
     nvidia: { Provider: NvidiaProvider, apiKey: true, baseUrl: true },
     openrouter: { Provider: OpenRouterProvider, apiKey: true, baseUrl: true },
+    typesafe: { Provider: TypeSafeProvider, apiKey: true, baseUrl: false },
 });
 
 // Ollama has a shorter cache lifetime and dedicated discovery path. Every other

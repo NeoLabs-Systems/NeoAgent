@@ -8,7 +8,6 @@ const {
   maskSecret,
 } = require('./env_config');
 const { httpError } = require('../../utils/http_error');
-const { JEV_POLICIES, getJevPolicy } = require('../ai/jev');
 
 function assertOptionalUrl(value, field) {
   if (!value) return;
@@ -119,26 +118,6 @@ function updateBillingSetup(body = {}) {
   return { ok: true };
 }
 
-// --- Jev ---
-
-// Agents can also bring their own OpenRouter key, so a missing server key
-// only means agents without one cannot use Jev.
-function getJevSettings() {
-  return {
-    policy: getJevPolicy(),
-    serverOpenRouterKey: Boolean(process.env.OPENROUTER_API_KEY),
-  };
-}
-
-// `agent` is the default, so it clears the variable instead of writing it.
-function setJevPolicy(policy) {
-  if (!JEV_POLICIES.includes(policy)) {
-    throw httpError(400, `policy must be one of: ${JEV_POLICIES.join(', ')}.`);
-  }
-  persistEnv('NEOAGENT_JEV', policy === 'agent' ? '' : policy);
-  return { ok: true, policy };
-}
-
 // --- Sign-up ---
 
 function getAccessSettings() {
@@ -161,6 +140,4 @@ module.exports = {
   updateBillingSetup,
   getAccessSettings,
   setSignupEnabled,
-  getJevSettings,
-  setJevPolicy,
 };

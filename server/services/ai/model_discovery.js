@@ -13,6 +13,13 @@ const ollamaModelCache = new Map();
 const ollamaRefreshes = new Map();
 const openrouterPricingCache = new Map();
 
+// Chat models come from listModels(), SystemOne decision models from
+// listDecisionModels(). Each catalog is discovered and cached on its own.
+const CATALOG_LISTERS = Object.freeze({
+  llm: (provider, signal) => provider.listModels(signal),
+  decisions: (provider, signal) => provider.listDecisionModels(signal),
+});
+
 function inferModelPurpose(id) {
   const value = id.toLowerCase();
   if (/flash|nano|lite|tiny|haiku|scout|mini(?!max)|small/.test(value)) return 'fast';
@@ -30,11 +37,15 @@ const PROVIDER_LABELS = Object.freeze({
   grok: (model) => `${model.id} (xAI)`,
   'grok-oauth': (model) => `${model.id} (xAI OAuth)`,
   openrouter: (model) => `${model.name || model.id} (OpenRouter)`,
+  typesafe: (model) => `${model.id} (TypeSafe)`,
+  ollama: (model) => `${model.id} (Ollama / Local)`,
 });
 
-function cacheKeyForProvider(providerId, apiKey, baseUrl) {
+function cacheKeyForProvider(providerId, apiKey, baseUrl, catalog) {
   return crypto
     .createHash('sha256')
+    .update(String(catalog))
+    .update('\0')
     .update(String(providerId || ''))
     .update('\0')
     .update(String(apiKey || ''))
@@ -86,7 +97,7 @@ async function runDiscovery(factory, timeoutMs = DISCOVERY_TIMEOUT_MS) {
   }
 }
 
-function normalizeRawModels(rawModels, providerId) {
+function normalizeRawModels(rawModels, providerId, catalog = 'llm') {
   const source = Array.isArray(rawModels) ? rawModels : [];
   const labelModel = PROVIDER_LABELS[providerId] || ((model) => model.name || model.id);
   const normalized = [];
@@ -101,7 +112,8 @@ function normalizeRawModels(rawModels, providerId) {
       id,
       label: labelModel({ ...model, id }),
       provider: providerId,
-      purpose: inferModelPurpose(id),
+      // Purposes route chat turns; a decision model has none.
+      purpose: catalog === 'llm' ? inferModelPurpose(id) : '',
     });
   }
   return normalized;
@@ -126,19 +138,19 @@ function isPermanentDiscoveryError(error) {
   return /401|403|unauthorized|forbidden|credits|spending/i.test(String(error?.message || ''));
 }
 
-async function loadProviderModels({ providerId, factory, apiKey, baseUrl, existing }) {
+async function loadProviderModels({ providerId, factory, apiKey, baseUrl, catalog, existing }) {
   try {
     const config = {};
     if (factory.apiKey) config.apiKey = apiKey;
     if (factory.baseUrl) config.baseUrl = baseUrl;
     const provider = new factory.Provider(config);
-    const rawModels = await runDiscovery((signal) => provider.listModels(signal));
+    const rawModels = await runDiscovery((signal) => CATALOG_LISTERS[catalog](provider, signal));
     if (providerId === 'openrouter') updateOpenRouterPricing(rawModels);
-    const models = normalizeRawModels(rawModels, providerId);
+    const models = normalizeRawModels(rawModels, providerId, catalog);
     const entry = { models, expiresAt: Date.now() + REFRESH_INTERVAL_MS };
     return entry;
   } catch (error) {
-    console.warn(`[Models] Failed to refresh ${providerId} models:`, error.message);
+    console.warn(`[Models] Failed to refresh ${providerId} ${catalog} models:`, error.message);
     const models = existing?.models || [];
     const retryAfterMs = isPermanentDiscoveryError(error)
       ? PERMANENT_ERROR_BACKOFF_MS
@@ -147,14 +159,21 @@ async function loadProviderModels({ providerId, factory, apiKey, baseUrl, existi
   }
 }
 
-async function refreshProviderModelList({ providerId, factory, apiKey, baseUrl, signal }) {
-  const cacheKey = cacheKeyForProvider(providerId, apiKey, baseUrl);
+async function refreshProviderModelList({
+  providerId,
+  factory,
+  apiKey,
+  baseUrl,
+  catalog = 'llm',
+  signal,
+}) {
+  const cacheKey = cacheKeyForProvider(providerId, apiKey, baseUrl, catalog);
   const existing = providerModelCache.get(cacheKey);
   if (existing && existing.expiresAt > Date.now()) return existing.models;
 
   let refresh = providerRefreshes.get(cacheKey);
   if (!refresh) {
-    refresh = loadProviderModels({ providerId, factory, apiKey, baseUrl, existing })
+    refresh = loadProviderModels({ providerId, factory, apiKey, baseUrl, catalog, existing })
       .then((entry) => {
         providerModelCache.set(cacheKey, entry);
         return entry.models;

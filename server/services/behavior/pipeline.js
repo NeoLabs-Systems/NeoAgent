@@ -11,8 +11,8 @@ const { recordDecision, listDecisions } = require('./gate/decision_log');
 const { createBehaviorRegistry } = require('./registry');
 const { BEHAVIOR_MODULES } = require('./modules');
 const { createServiceLogger } = require('../../utils/logger');
-const { isJevEnabled } = require('../ai/jev');
 const { ruleDecision } = require('./gate/decisions');
+const { isSystemOneReady } = require('./model_client');
 
 const logger = createServiceLogger('Behavior');
 
@@ -129,12 +129,13 @@ function createBehaviorPipeline(deps = {}) {
 
     const observations = await registry.run('observe', baseCtx);
     const observeResult = observations.find((item) => item.moduleId === 'social_memory')?.value || null;
-    // With Jev on, no model runs for a group message until Jev says speak.
-    const jevEnabled = Boolean(msg.isGroup) && isJevEnabled(userId, agentId);
-    if (msg.isGroup && !jevEnabled) scheduleBackground(baseCtx);
+    // With SystemOne on, no model runs for a group message until SystemOne says speak.
+    const systemOneEnabled = Boolean(msg.isGroup)
+      && await isSystemOneReady({ agentEngine, userId, agentId, signal });
+    if (msg.isGroup && !systemOneEnabled) scheduleBackground(baseCtx);
 
     const decision = isModuleEnabled(config, 'turn_taking')
-      ? (await registry.run('decide', { ...baseCtx, jevEnabled }))
+      ? (await registry.run('decide', { ...baseCtx, systemOneEnabled }))
         .find((item) => item.moduleId === 'turn_taking')?.value
       : {
         ...ruleDecision('speak', 'turn_taking_disabled'),
@@ -159,7 +160,7 @@ function createBehaviorPipeline(deps = {}) {
     // Claim the speak turn only after engagement is confirmed.
     const speakTurnEpoch = claimSpeakTurn({ userId, agentId, msg });
     decision.turnEpoch = speakTurnEpoch;
-    if (jevEnabled) scheduleBackground(baseCtx);
+    if (systemOneEnabled) scheduleBackground(baseCtx);
 
     const promptBlocks = await registry.composeContext({
       ...baseCtx,

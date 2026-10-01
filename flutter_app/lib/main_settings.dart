@@ -87,7 +87,8 @@ final _modelsSettingsSection =
       'sub-agent',
       'subagent',
       appStrings.smartSelector,
-      'jev',
+      'systemone',
+      'system one',
       'decisions',
     ]);
 
@@ -179,7 +180,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late final TextEditingController _searchController;
   _SettingsSection _selectedSettingsSection = _overviewSettingsSection;
   late bool _smarterSelector;
-  late bool _jevEnabled;
+  late String _systemOneModel;
   late Set<String> _enabledModels;
   late String _defaultChatModel;
   late String _defaultSubagentModel;
@@ -274,7 +275,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
         .map((model) => model.id)
         .toSet();
     _smarterSelector = controller.smarterSelector;
-    _jevEnabled = controller.jevEnabled;
+    _systemOneModel = controller.systemOneModel;
     // Saved selections are user-owned. Catalog availability may affect whether
     // a run can use a model, but it must never rewrite the saved routing pool.
     _enabledModels = controller.enabledModelIds.toSet();
@@ -623,7 +624,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
     final controller = widget.controller;
     await controller.saveSettings(
       smarterSelector: _smarterSelector,
-      jevEnabled: _jevEnabled,
+      systemOneModel: _systemOneModel,
       enabledModels: _enabledModels.toList(),
       defaultChatModel: _defaultChatModel,
       defaultSubagentModel: _defaultSubagentModel,
@@ -899,9 +900,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
               decoration: InputDecoration(
                 labelText: appStrings.turnTakingModel,
                 helperText:
-                    controller.jevAvailable &&
-                        (controller.jevPolicy == 'on' || _jevEnabled)
-                    ? appStrings.jevDecidesWhenToSpeakWhileIt
+                    controller.systemOneAvailable && _systemOneModel != 'off'
+                    ? appStrings.systemOneDecidesWhenToSpeakWhileIt
                     : appStrings.automaticSelectsAFastModelThrough,
               ),
               items: <DropdownMenuItem<String>>[
@@ -1469,17 +1469,17 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   );
                 },
               ),
-            if (controller.jevAvailable) ...<Widget>[
-              const SizedBox(height: 16),
-              _JevSettingCard(
-                enabled: _jevEnabled,
-                lockedOn: controller.jevPolicy == 'on',
-                onChanged: (value) => setState(() {
-                  _jevEnabled = value;
-                  _hasUnsavedChanges = true;
-                }),
-              ),
-            ],
+            const SizedBox(height: 16),
+            _SystemOneSettingCard(
+              selection: _systemOneModel,
+              models: controller.systemOneModels
+                  .where((model) => model.available)
+                  .toList(),
+              onChanged: (value) => setState(() {
+                _systemOneModel = value;
+                _hasUnsavedChanges = true;
+              }),
+            ),
             const Divider(height: 32),
             Text(
               appStrings.smartSelectorPool,
@@ -2150,111 +2150,110 @@ class _TimeZoneSettingsCardState extends State<_TimeZoneSettingsCard> {
   }
 }
 
-/// The per-agent Jev switch, shown under the model selectors when OpenRouter
-/// is configured. With the server policy on, it stays on and cannot be changed.
-class _JevSettingCard extends StatelessWidget {
-  const _JevSettingCard({
-    required this.enabled,
-    required this.lockedOn,
+/// The per-agent SystemOne model choice, shown under the model selectors. It
+/// uses the same picker as the chat models but lists only the available
+/// SystemOne models, plus Auto and Off.
+class _SystemOneSettingCard extends StatelessWidget {
+  const _SystemOneSettingCard({
+    required this.selection,
+    required this.models,
     required this.onChanged,
   });
 
-  final bool enabled;
-  final bool lockedOn;
-  final ValueChanged<bool> onChanged;
+  final String selection;
+  final List<ModelMeta> models;
+  final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final active = enabled || lockedOn;
-    return MergeSemantics(
-      child: _PanelSurface(
-        padding: const EdgeInsets.all(18),
-        fillColor: Color.alphaBlend(
-          _accent.withValues(alpha: active ? 0.10 : 0.05),
-          _bgCard,
-        ),
-        borderColor: _accent.withValues(alpha: active ? 0.45 : 0.22),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: _accent.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(12),
+    final active = selection != 'off';
+    final options = <_ModelPickerOption>[
+      _ModelPickerOption(
+        value: 'auto',
+        label: appStrings.systemOneAuto,
+        subtitle: appStrings.systemOneAutoPicksTheBestAvailable,
+        icon: Icons.auto_awesome_outlined,
+        isAuto: true,
+      ),
+      _ModelPickerOption(
+        value: 'off',
+        label: appStrings.off,
+        subtitle: appStrings.systemOneOffTheChatModelDecides,
+        icon: Icons.block_outlined,
+      ),
+      ..._modelPickerOptions(models),
+    ];
+    return _PanelSurface(
+      padding: const EdgeInsets.all(18),
+      fillColor: Color.alphaBlend(
+        _accent.withValues(alpha: active ? 0.10 : 0.05),
+        _bgCard,
+      ),
+      borderColor: _accent.withValues(alpha: active ? 0.45 : 0.22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: <Widget>[
+              Text(
+                appStrings.systemOneModels,
+                style: TextStyle(
+                  color: _textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-              child: Icon(Icons.bolt_rounded, color: _accent),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: <Widget>[
-                      Text(
-                        appStrings.jevDecisions,
-                        style: TextStyle(
-                          color: _textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      _StatusPill(label: appStrings.highlyRecommended, color: _accent),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    appStrings.makesTheBehindTheScenesCalls +
-                    appStrings.secondRoutingToolAndSkillChoice +
-                    appStrings.groupChatTurnTakingResearchSources +
-                    appStrings.andBrowserStepsYourChatModel +
-                    'reply.',
-                    style: TextStyle(color: _textSecondary, height: 1.45),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: <Widget>[
-                      _MetaPill(
-                        icon: Icons.speed_rounded,
-                        label: appStrings.fasterReplies,
-                        color: _accent,
-                      ),
-                      _MetaPill(
-                        icon: Icons.savings_outlined,
-                        label: appStrings.fewerModelCalls,
-                        color: _accent,
-                      ),
-                      _MetaPill(
-                        icon: Icons.ads_click_rounded,
-                        label: appStrings.sharperToolChoice,
-                        color: _accent,
-                      ),
-                    ],
-                  ),
-                  if (lockedOn) ...<Widget>[
-                    const SizedBox(height: 10),
-                    Text(
-                      appStrings.turnedOnForEveryAgentBy,
-                      style: TextStyle(color: _textMuted, fontSize: 12.5),
-                    ),
-                  ],
-                ],
+              _StatusPill(label: appStrings.highlyRecommended, color: _accent),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            appStrings.systemOneModelsMakeTheBehindTheScenes,
+            style: TextStyle(color: _textSecondary, height: 1.45),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              _MetaPill(
+                icon: Icons.speed_rounded,
+                label: appStrings.fasterReplies,
+                color: _accent,
               ),
+              _MetaPill(
+                icon: Icons.savings_outlined,
+                label: appStrings.fewerModelCalls,
+                color: _accent,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _RoutingSelectCard(
+            label: 'SystemOne',
+            icon: Icons.bolt_rounded,
+            value: _ensureModelValue(
+              selection,
+              models,
+              allowAuto: true,
+              preserveUnknown: true,
             ),
-            const SizedBox(width: 12),
-            Switch.adaptive(
-              value: active,
-              onChanged: lockedOn ? null : onChanged,
+            options: options,
+            onChanged: (next) {
+              if (next != null) onChanged(next);
+            },
+          ),
+          if (models.isEmpty) ...<Widget>[
+            const SizedBox(height: 10),
+            Text(
+              appStrings.noSystemOneModelIsAvailableYet,
+              style: TextStyle(color: _textMuted, fontSize: 12.5, height: 1.4),
             ),
           ],
-        ),
+        ],
       ),
     );
   }

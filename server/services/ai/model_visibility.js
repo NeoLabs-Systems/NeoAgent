@@ -12,7 +12,12 @@
 const { ENV_FILE, upsertEnvValue } = require('../../../runtime/paths');
 
 const DISABLED_MODELS_ENV_KEY = 'NEOAGENT_DISABLED_MODELS';
-const KNOWN_MODELS_ENV_KEY = 'NEOAGENT_KNOWN_MODELS';
+// Chat models and SystemOne decision models share the disabled list, but each
+// catalog keeps its own known list so one never retires the other's models.
+const KNOWN_MODELS_ENV_KEYS = Object.freeze({
+    llm: 'NEOAGENT_KNOWN_MODELS',
+    decisions: 'NEOAGENT_KNOWN_SYSTEM_ONE_MODELS',
+});
 
 function parseIdList(raw) {
     return raw ? raw.split(',').map((id) => id.trim()).filter(Boolean) : [];
@@ -36,25 +41,26 @@ function setDisabledModelIds(disabledIds) {
 }
 
 // null means "never bootstrapped" -- distinct from an empty list.
-function getKnownModelIds() {
-    return process.env[KNOWN_MODELS_ENV_KEY] === undefined
+function getKnownModelIds(knownEnvKey) {
+    return process.env[knownEnvKey] === undefined
         ? null
-        : parseIdList(process.env[KNOWN_MODELS_ENV_KEY]);
+        : parseIdList(process.env[knownEnvKey]);
 }
 
-function reconcileModelVisibility(currentModelIds) {
+function reconcileModelVisibility(currentModelIds, catalog = 'llm') {
+    const knownEnvKey = KNOWN_MODELS_ENV_KEYS[catalog];
     const currentSet = new Set((currentModelIds || []).map((id) => String(id).trim()).filter(Boolean));
     const disabledIds = getDisabledModelIds();
     // An empty catalog usually means a transient provider fetch failure, not
     // that every model vanished -- skip reconciliation rather than pruning.
     if (currentSet.size === 0) return disabledIds;
 
-    const knownIds = getKnownModelIds();
+    const knownIds = getKnownModelIds(knownEnvKey);
     if (knownIds === null) {
         // First run: adopt the current catalog as the known baseline without
         // touching enablement, so shipping this feature doesn't retroactively
         // disable models an admin already had enabled.
-        persistIdList(KNOWN_MODELS_ENV_KEY, Array.from(currentSet));
+        persistIdList(knownEnvKey, Array.from(currentSet));
         return disabledIds;
     }
 
@@ -79,7 +85,7 @@ function reconcileModelVisibility(currentModelIds) {
         disabledChanged = disabledSet.delete(id) || disabledChanged;
     }
 
-    persistIdList(KNOWN_MODELS_ENV_KEY, Array.from(knownSet));
+    persistIdList(knownEnvKey, Array.from(knownSet));
     if (disabledChanged) persistIdList(DISABLED_MODELS_ENV_KEY, Array.from(disabledSet));
     return Array.from(disabledSet);
 }

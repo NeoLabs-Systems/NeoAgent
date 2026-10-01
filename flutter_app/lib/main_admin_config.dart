@@ -549,9 +549,13 @@ class _AdminCfgModel {
   }
 }
 
-List<_AdminCfgModel> _adminCfgParseModels(Map<String, dynamic> data) {
+/// Chat models live under `models`; SystemOne models under `systemOneModels`.
+List<_AdminCfgModel> _adminCfgParseModels(
+  Map<String, dynamic> data, {
+  String key = 'models',
+}) {
   return _jsonMapList(
-    data['models'],
+    data[key],
   ).map(_AdminCfgModel.fromJson).where((model) => model.id.isNotEmpty).toList();
 }
 
@@ -589,6 +593,7 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
     with _LoadSaveState<_AdminModelsTab> {
   final TextEditingController _search = TextEditingController();
   List<_AdminCfgModel> _models = const <_AdminCfgModel>[];
+  List<_AdminCfgModel> _systemOneModels = const <_AdminCfgModel>[];
   Set<String> _savedDisabled = <String>{};
   Set<String> _disabled = <String>{};
 
@@ -612,6 +617,8 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
   Future<void> _fetch() async {
     final data = await _client.fetchAdminModels(_baseUrl);
     _models = _adminCfgParseModels(data)..sort(_compareModels);
+    _systemOneModels = _adminCfgParseModels(data, key: 'systemOneModels')
+      ..sort(_compareModels);
     _resetDisabled(_jsonStringList(data['disabledModels']).toSet());
   }
 
@@ -667,14 +674,30 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
     if (gate != null) return gate;
 
     final query = _search.text.trim().toLowerCase();
-    final visible = query.isEmpty
-        ? _models
-        : _models.where((model) => model.matches(query)).toList();
-    final groups = <String, List<_AdminCfgModel>>{};
-    for (final model in visible) {
-      groups.putIfAbsent(model.provider, () => <_AdminCfgModel>[]).add(model);
+    List<_AdminCfgModel> matching(List<_AdminCfgModel> models) => query.isEmpty
+        ? models
+        : models.where((model) => model.matches(query)).toList();
+    final visible = matching(_models);
+    final visibleSystemOne = matching(_systemOneModels);
+    Iterable<Widget> providerGroups(List<_AdminCfgModel> models) {
+      final groups = <String, List<_AdminCfgModel>>{};
+      for (final model in models) {
+        groups.putIfAbsent(model.provider, () => <_AdminCfgModel>[]).add(model);
+      }
+      return groups.entries.map(
+        (entry) => _AdminCfgModelGroup(
+          models: entry.value,
+          filtered: query.isNotEmpty,
+          disabled: _disabled,
+          onToggle: (model, enabled) =>
+              _setEnabled(<_AdminCfgModel>[model], enabled),
+          onSetAll: (enabled) => _setEnabled(entry.value, enabled),
+        ),
+      );
     }
-    final enabledCount = _models
+
+    final allModels = <_AdminCfgModel>[..._models, ..._systemOneModels];
+    final enabledCount = allModels
         .where((model) => !_disabled.contains(model.id))
         .length;
     final dirty = _dirty;
@@ -685,14 +708,13 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
       onSave: _save,
       leading: _MetaPill(
         icon: Icons.toggle_on_outlined,
-        label: appStrings.arg1OfArg2Enabled(enabledCount, _models.length),
+        label: appStrings.arg1OfArg2Enabled(enabledCount, allModels.length),
         color: _accent,
       ),
     );
 
     return _SectionStack(
       children: <Widget>[
-        _AdminJevCard(controller: widget.controller),
         _SectionCard(
           title: appStrings.modelAvailability,
           description:
@@ -731,142 +753,36 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
             subtitle: appStrings.noModelMatchesArg1(_search.text.trim()),
           )
         else
-          for (final entry in groups.entries)
-            _AdminCfgModelGroup(
-              models: entry.value,
-              filtered: query.isNotEmpty,
-              disabled: _disabled,
-              onToggle: (model, enabled) =>
-                  _setEnabled(<_AdminCfgModel>[model], enabled),
-              onSetAll: (enabled) => _setEnabled(entry.value, enabled),
-            ),
+          ...providerGroups(visible),
+        _SectionCard(
+          title: appStrings.systemOneModels,
+          description: appStrings.systemOneAdminAvailability,
+          child: _systemOneModels.isEmpty
+              ? Text(
+                  appStrings.addATypesafeOrOpenrouterKey,
+                  style: TextStyle(color: _textMuted, height: 1.45),
+                )
+              : Align(
+                  alignment: Alignment.centerLeft,
+                  child: _MetaPill(
+                    icon: Icons.bolt_rounded,
+                    label: appStrings.arg1OfArg2Enabled(
+                      _systemOneModels
+                          .where((model) => !_disabled.contains(model.id))
+                          .length,
+                      _systemOneModels.length,
+                    ),
+                    color: _accent,
+                  ),
+                ),
+        ),
+        ...providerGroups(visibleSystemOne),
         if (dirty)
           _PanelSurface(padding: const EdgeInsets.all(16), child: saveBar),
       ],
     );
   }
 }
-
-/// Server-wide Jev policy: each agent decides, on for everyone, or off.
-class _AdminJevCard extends StatefulWidget {
-  const _AdminJevCard({required this.controller});
-
-  final NeoAgentController controller;
-
-  @override
-  State<_AdminJevCard> createState() => _AdminJevCardState();
-}
-
-class _AdminJevCardState extends State<_AdminJevCard>
-    with _LoadSaveState<_AdminJevCard> {
-  String _policy = 'agent';
-  bool _serverKey = false;
-
-  @override
-  NeoAgentController get _controller => widget.controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _runLoad(_fetch);
-  }
-
-  Future<void> _fetch() async {
-    final data = await _client.fetchAdminJev(_baseUrl);
-    _policy = _jevPolicyFrom(data['policy']);
-    _serverKey = data['serverOpenRouterKey'] == true;
-  }
-
-  Future<void> _setPolicy(String policy) async {
-    if (_saving || policy == _policy) return;
-    final previous = _policy;
-    setState(() => _policy = policy);
-    final saved = await _runSave(
-      () async {
-        final data = await _client.setAdminJevPolicy(_baseUrl, policy);
-        _policy = _jevPolicyFrom(data['policy']);
-      },
-      switch (policy) {
-        'on' => appStrings.jevIsOnForEveryAgent,
-        'off' => appStrings.jevIsOffOnThisServer,
-        _ => appStrings.eachAgentNowDecidesInIts,
-      },
-    );
-    if (!saved && mounted) setState(() => _policy = previous);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _SectionCard(
-      title: appStrings.jevDecisions,
-      description:
-          appStrings.jevIsADecisionModelThat +
-          appStrings.aFractionOfASecondRouting +
-          appStrings.rankingGroupChatTurnTakingResearch +
-          appStrings.andBrowserSteps +
-          appStrings.itCutsWaitingAndModelCost +
-          appStrings.theAgentSChatModelJev,
-      trailing: _StatusPill(label: appStrings.highlyRecommended, color: _accent),
-      child:
-          _loadGate(_fetch) ??
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              SegmentedButton<String>(
-                segments: <ButtonSegment<String>>[
-                  ButtonSegment<String>(
-                    value: 'agent',
-                    label: Text(appStrings.eachAgentDecides),
-                    icon: Icon(Icons.tune),
-                  ),
-                  ButtonSegment<String>(
-                    value: 'on',
-                    label: Text(appStrings.onForEveryone),
-                    icon: Icon(Icons.bolt),
-                  ),
-                  ButtonSegment<String>(
-                    value: 'off',
-                    label: Text(appStrings.off),
-                    icon: Icon(Icons.block_outlined),
-                  ),
-                ],
-                selected: <String>{_policy},
-                showSelectedIcon: false,
-                onSelectionChanged: _saving
-                    ? null
-                    : (selection) => _setPolicy(selection.first),
-              ),
-              const SizedBox(height: 12),
-              Text(switch (_policy) {
-                'on' =>
-                  appStrings.everyAgentUsesJevAgentsCan +
-                      appStrings.inTheirSettings,
-                'off' =>
-                  appStrings.jevIsOffForEveryAgent +
-                      appStrings.theirSettings,
-                _ =>
-                  appStrings.eachAgentSwitchesJevOnUnder +
-                      appStrings.startsOff,
-              }, style: TextStyle(color: _textSecondary, height: 1.45)),
-              if (!_serverKey && _policy != 'off') ...<Widget>[
-                const SizedBox(height: 12),
-                _InfoChip(
-                  icon: Icons.key_outlined,
-                  label:
-                      appStrings.noServerOpenrouterKeyYetAdd +
-                      appStrings.orAgentsCanUseTheirOwn +
-                      appStrings.yourOwnKey,
-                ),
-              ],
-              _saveFeedback(),
-            ],
-          ),
-    );
-  }
-}
-
-String _jevPolicyFrom(Object? value) =>
-    value == 'on' || value == 'off' ? value as String : 'agent';
 
 class _AdminCfgModelGroup extends StatelessWidget {
   const _AdminCfgModelGroup({

@@ -136,6 +136,17 @@ const AI_PROVIDER_DEFINITIONS = Object.freeze({
     defaultEnabled: false,
     defaultBaseUrl: 'https://openrouter.ai/api/v1'
   },
+  typesafe: {
+    id: 'typesafe',
+    label: 'TypeSafe',
+    description: 'SystemOne decision models (Jev) straight from TypeSafe. Get a key at console.typesafe.ai.',
+    envKey: 'TYPESAFE_API_KEY',
+    authentication: 'api_key',
+    supportsApiKey: true,
+    supportsBaseUrl: false,
+    defaultEnabled: false,
+    defaultBaseUrl: ''
+  },
   ollama: {
     id: 'ollama',
     label: 'Ollama',

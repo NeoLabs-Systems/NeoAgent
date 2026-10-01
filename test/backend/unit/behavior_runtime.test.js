@@ -269,7 +269,7 @@ test('platform context turns by the agent reach the gate as the assistant', () =
   assert.equal(packet.sender.name, 'Neo (neo)');
 });
 
-test('a reply to another person reaches the Jev gate with what it replies to', () => {
+test('a reply to another person reaches the SystemOne gate with what it replies to', () => {
   const { buildDecisionPacket } = require('../../../server/services/behavior/signals');
   const packet = buildDecisionPacket({
     msg: groupMessage('did you finish them?', {
@@ -958,10 +958,10 @@ test('system prompt caching keeps room-scoped behavior overrides isolated', asyn
   assert.match(`${normal.stable}\n${normal.dynamic}`, /how you text:/);
 });
 
-function jevGateEngine(answers, onModelCall = () => {}) {
+function systemOneGateEngine(answers, onModelCall = () => {}) {
   return {
     async decide({ phase, questions }) {
-      assert.equal(phase, 'jev_turn_taking');
+      assert.equal(phase, 'system_one_turn_taking');
       assert.deepEqual(Object.keys(questions), ['speak', 'for_someone_else', 'urgency']);
       return answers;
     },
@@ -975,7 +975,7 @@ function jevGateEngine(answers, onModelCall = () => {}) {
   };
 }
 
-function jevAnswers(speak, forSomeoneElse, urgency = 1) {
+function systemOneAnswers(speak, forSomeoneElse, urgency = 1) {
   return {
     speak: { type: 'noul', noul: speak },
     for_someone_else: { type: 'noul', noul: forSomeoneElse },
@@ -983,10 +983,10 @@ function jevAnswers(speak, forSomeoneElse, urgency = 1) {
   };
 }
 
-test('Jev decides the group gate without a model call', async () => {
+test('SystemOne decides the group gate without a model call', async () => {
   let modelCalls = 0;
   const pipeline = behavior.createBehaviorPipeline({
-    agentEngine: jevGateEngine(jevAnswers(0.78, 0.12, 1.03), () => { modelCalls += 1; }),
+    agentEngine: systemOneGateEngine(systemOneAnswers(0.78, 0.12, 1.03), () => { modelCalls += 1; }),
   });
   const msg = groupMessage('Does anyone know if the 11:40 train from Bern still runs on Sundays?');
   pipeline.noteInbound({ userId: user.userId, agentId, msg });
@@ -994,18 +994,18 @@ test('Jev decides the group gate without a model call', async () => {
   const result = await pipeline.handleInbound({ userId: user.userId, agentId, msg });
 
   assert.equal(result.engage, true);
-  assert.equal(result.decision.tokenPath, 'jev_gate');
+  assert.equal(result.decision.tokenPath, 'system_one_gate');
   assert.equal(result.decision.urgency, 'medium');
   assert.ok(Math.abs(result.decision.needScore - 0.6864) < 1e-9);
   assert.equal(modelCalls, 0);
 });
 
-test('Jev sees who a reply is aimed at and no internal room ids', async () => {
+test('SystemOne sees who a reply is aimed at and no internal room ids', async () => {
   let seen = null;
-  const engine = jevGateEngine(jevAnswers(0.2, 0.8));
+  const engine = systemOneGateEngine(systemOneAnswers(0.2, 0.8));
   engine.decide = async ({ state }) => {
     seen = state;
-    return jevAnswers(0.2, 0.8);
+    return systemOneAnswers(0.2, 0.8);
   };
   const pipeline = behavior.createBehaviorPipeline({ agentEngine: engine });
   const msg = groupMessage('what time does it start?', {
@@ -1018,22 +1018,22 @@ test('Jev sees who a reply is aimed at and no internal room ids', async () => {
   assert.equal('room_hints' in seen, false);
 });
 
-test('Jev scores clear a slightly lower need threshold than model scores', async () => {
+test('SystemOne scores clear a slightly lower need threshold than model scores', async () => {
   const pipeline = behavior.createBehaviorPipeline({
-    agentEngine: jevGateEngine(jevAnswers(0.8, 0.35)),
+    agentEngine: systemOneGateEngine(systemOneAnswers(0.8, 0.35)),
   });
   const msg = groupMessage('What was that movie with the time loop again?');
   pipeline.noteInbound({ userId: user.userId, agentId, msg });
 
   const result = await pipeline.handleInbound({ userId: user.userId, agentId, msg });
 
-  // 0.8 * (1 - 0.35) = 0.52: under the 0.58 room default, over Jev's 0.50.
+  // 0.8 * (1 - 0.35) = 0.52: under the 0.58 room default, over SystemOne's 0.50.
   assert.equal(result.engage, true);
 });
 
-test('messages meant for someone else stay quiet under Jev', async () => {
+test('messages meant for someone else stay quiet under SystemOne', async () => {
   const pipeline = behavior.createBehaviorPipeline({
-    agentEngine: jevGateEngine(jevAnswers(0.59, 0.41)),
+    agentEngine: systemOneGateEngine(systemOneAnswers(0.59, 0.41)),
   });
   const msg = groupMessage('Around 9pm, can you pick me up?');
   pipeline.noteInbound({ userId: user.userId, agentId, msg });
@@ -1042,16 +1042,16 @@ test('messages meant for someone else stay quiet under Jev', async () => {
 
   assert.equal(result.engage, false);
   assert.ok(result.decision.reasonCodes.includes('below_need_threshold'));
-  // The held-back turn keeps Jev's scores so the settings can explain it.
+  // The held-back turn keeps SystemOne's scores so the settings can explain it.
   const [logged] = pipeline.listDecisions(user.userId, agentId, 'telegram');
-  assert.deepEqual(logged.jevScores, { speak: 0.59, forSomeoneElse: 0.41 });
+  assert.deepEqual(logged.systemOneScores, { speak: 0.59, forSomeoneElse: 0.41 });
   assert.ok(Math.abs(logged.needThreshold - 0.5) < 1e-9);
 });
 
-test('the model gate still decides when Jev has no answer', async () => {
+test('the model gate still decides when SystemOne has no answer', async () => {
   let modelCalls = 0;
   const pipeline = behavior.createBehaviorPipeline({
-    agentEngine: jevGateEngine(null, () => { modelCalls += 1; }),
+    agentEngine: systemOneGateEngine(null, () => { modelCalls += 1; }),
   });
   const msg = groupMessage();
   pipeline.noteInbound({ userId: user.userId, agentId, msg });
@@ -1060,62 +1060,47 @@ test('the model gate still decides when Jev has no answer', async () => {
 
   assert.equal(modelCalls, 1);
   assert.equal(result.engage, false);
-  assert.notEqual(result.decision.tokenPath, 'jev_gate');
+  assert.notEqual(result.decision.tokenPath, 'system_one_gate');
 });
 
-async function withJevOn(run) {
-  const saved = { policy: process.env.NEOAGENT_JEV, key: process.env.OPENROUTER_API_KEY };
-  process.env.NEOAGENT_JEV = 'on';
-  process.env.OPENROUTER_API_KEY = 'sk-or-test';
-  try {
-    await run();
-  } finally {
-    for (const [name, value] of [['NEOAGENT_JEV', saved.policy], ['OPENROUTER_API_KEY', saved.key]]) {
-      if (value === undefined) delete process.env[name];
-      else process.env[name] = value;
-    }
-  }
+// SystemOne counts as on when the engine has a model ready to answer.
+function readySystemOneEngine(answers, onModelCall) {
+  return { ...systemOneGateEngine(answers, onModelCall), isSystemOneReady: async () => true };
 }
 
-test('with Jev on, a Jev outage holds back instead of asking the model', async () => {
-  await withJevOn(async () => {
-    let modelCalls = 0;
-    const pipeline = behavior.createBehaviorPipeline({
-      agentEngine: jevGateEngine(null, () => { modelCalls += 1; }),
-    });
-    const msg = groupMessage();
-    pipeline.noteInbound({ userId: user.userId, agentId, msg });
-
-    const result = await pipeline.handleInbound({ userId: user.userId, agentId, msg });
-
-    assert.equal(modelCalls, 0);
-    assert.equal(result.engage, false);
-    assert.equal(result.decision.failureCode, 'jev_unavailable');
-    assert.deepEqual(result.decision.reasonCodes, ['prefer_hold_back', 'jev_unavailable']);
+test('with SystemOne on, an outage holds back instead of asking the model', async () => {
+  let modelCalls = 0;
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: readySystemOneEngine(null, () => { modelCalls += 1; }),
   });
+  const msg = groupMessage();
+  pipeline.noteInbound({ userId: user.userId, agentId, msg });
+
+  const result = await pipeline.handleInbound({ userId: user.userId, agentId, msg });
+
+  assert.equal(modelCalls, 0);
+  assert.equal(result.engage, false);
+  assert.equal(result.decision.failureCode, 'system_one_unavailable');
+  assert.deepEqual(result.decision.reasonCodes, ['prefer_hold_back', 'system_one_unavailable']);
 });
 
-test('with Jev on, background analysis waits for Jev to say speak', async () => {
-  await withJevOn(async () => {
-    let answers = jevAnswers(0.1, 0.1);
-    let backgroundTasks = 0;
-    const engine = jevGateEngine(null);
-    engine.decide = async () => answers;
-    engine.trackBackgroundTask = () => {
-      backgroundTasks += 1;
-      return Promise.resolve();
-    };
-    const pipeline = behavior.createBehaviorPipeline({ agentEngine: engine });
+test('with SystemOne on, background analysis waits for SystemOne to say speak', async () => {
+  let answers = systemOneAnswers(0.1, 0.1);
+  let backgroundTasks = 0;
+  const engine = readySystemOneEngine(null);
+  engine.decide = async () => answers;
+  engine.trackBackgroundTask = () => {
+    backgroundTasks += 1;
+    return Promise.resolve();
+  };
+  const pipeline = behavior.createBehaviorPipeline({ agentEngine: engine });
 
-    const quiet = await pipeline.handleInbound({ userId: user.userId, agentId, msg: groupMessage('side chatter') });
-    assert.equal(quiet.engage, false);
-    assert.equal(backgroundTasks, 0);
+  const quiet = await pipeline.handleInbound({ userId: user.userId, agentId, msg: groupMessage('side chatter') });
+  assert.equal(quiet.engage, false);
+  assert.equal(backgroundTasks, 0);
 
-    answers = jevAnswers(0.9, 0.05);
-    const spoke = await pipeline.handleInbound({ userId: user.userId, agentId, msg: groupMessage('can you check this?') });
-    assert.equal(spoke.engage, true);
-    assert.equal(backgroundTasks, 1);
-  });
+  answers = systemOneAnswers(0.9, 0.05);
+  const spoke = await pipeline.handleInbound({ userId: user.userId, agentId, msg: groupMessage('can you check this?') });
+  assert.equal(spoke.engage, true);
+  assert.equal(backgroundTasks, 1);
 });
-
-

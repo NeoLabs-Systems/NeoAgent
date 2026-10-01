@@ -21,6 +21,7 @@ const {
   createDefaultAiSettings,
   ensureDefaultAiSettings,
   normalizeProviderConfigs,
+  normalizeSystemOneModel,
   setProviderConfig,
   setProviderSecret,
 } = require('../services/ai/settings');
@@ -37,7 +38,7 @@ const {
 const { isManagedDeployment } = require('../utils/deployment');
 const { getAgentIdFromRequest, isMainAgent, resolveAgentId } = require('../services/agents/manager');
 const { getProviderHealthCatalog, getSupportedModels, PROVIDER_FACTORIES } = require('../services/ai/models');
-const { getJevPolicy } = require('../services/ai/jev');
+const { getSystemOneModels } = require('../services/ai/system_one');
 const { validateCloudUrlWithDns } = require('../utils/cloud-security');
 const { normalizeTimeZone } = require('../utils/timezone');
 
@@ -54,7 +55,7 @@ const AGENT_SETTING_KEYS = new Set([
   'assistant_behavior_notes',
   'auto_skill_learning',
   'smarter_model_selector',
-  'jev_enabled',
+  'system_one_model',
   'ai_provider_configs',
   'default_chat_model',
   'default_subagent_model',
@@ -72,12 +73,10 @@ const AGENT_SETTING_KEYS = new Set([
 
 const ENV_BACKED_SETTING_KEYS = new Set([
   'meshtastic_enabled',
-  'jev_policy',
 ]);
 
 const READ_ONLY_ENV_SETTING_KEYS = new Set([
   'meshtastic_enabled',
-  'jev_policy',
 ]);
 
 const SERVER_MANAGED_SETTING_KEYS = new Set([
@@ -180,8 +179,6 @@ function readEnvBackedSettingValue(key) {
   switch (key) {
     case 'meshtastic_enabled':
       return readMeshtasticEnabled();
-    case 'jev_policy':
-      return getJevPolicy();
     default:
       return null;
   }
@@ -210,6 +207,13 @@ async function resetEnvBackedSettingValue(req, key) {
 router.get('/meta/models', async (req, res) => {
   const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
   const models = await getSupportedModels(req.session.userId, agentId, { signal: req.signal });
+  res.json({ models });
+});
+
+// SystemOne decision models, kept apart from the chat models above.
+router.get('/meta/system-one-models', async (req, res) => {
+  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+  const models = await getSystemOneModels(req.session.userId, agentId, { signal: req.signal });
   res.json({ models });
 });
 
@@ -417,7 +421,11 @@ router.post('/byok/:providerId/test', byokWriteLimiter, async (req, res) => {
     if (typeof provider.listModels !== 'function') {
       return res.json({ success: true, ok: true, message: 'Credential saved format looks valid; this provider does not support a live connection test.' });
     }
-    const models = await provider.listModels(controller.signal);
+    let models = await provider.listModels(controller.signal);
+    // A provider with only SystemOne models (TypeSafe) proves its key there.
+    if (!models?.length && typeof provider.listDecisionModels === 'function') {
+      models = await provider.listDecisionModels(controller.signal);
+    }
     res.json({
       success: true,
       ok: true,
@@ -461,7 +469,6 @@ router.get('/', (req, res) => {
   settings.agentId = agentId;
   settings.ai_provider_configs = normalizeProviderConfigs(settings.ai_provider_configs);
   settings.meshtastic_enabled = readMeshtasticEnabled();
-  settings.jev_policy = getJevPolicy();
   settings.voice_capabilities = req.app?.locals?.voiceRuntimeManager?.getCapabilities?.() || null;
   
   // Normalize runtime settings for consistency across deployments
@@ -498,6 +505,13 @@ router.put('/', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Unknown language.' });
     }
     normalizedBody.ui_language = language;
+  }
+
+  if (
+    'system_one_model' in normalizedBody
+    && normalizeSystemOneModel(normalizedBody.system_one_model) !== normalizedBody.system_one_model
+  ) {
+    return res.status(400).json({ success: false, error: 'Unknown SystemOne model selection.' });
   }
 
   if ('platform_whitelist_whatsapp' in normalizedBody) {

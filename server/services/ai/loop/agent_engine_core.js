@@ -68,7 +68,7 @@ const {
   buildMemoryConsolidationInstructions,
   normalizeMemoryCandidates,
 } = require('../../memory/consolidation');
-const jev = require('../jev');
+const systemOne = require('../system_one');
 const {
   createAbortError,
   createLinkedAbortController,
@@ -568,10 +568,15 @@ class AgentEngine {
     };
   }
 
-  // A Jev decision for a behind-the-scenes choice. Null means Jev is off or
-  // did not answer, and the caller takes its model path.
+  // A SystemOne decision for a behind-the-scenes choice. Null means SystemOne
+  // is off or did not answer, and the caller takes its model path.
   decide(request) {
-    return jev.decide(request);
+    return systemOne.decide(request);
+  }
+
+  // Whether a SystemOne model can answer for this agent right now.
+  isSystemOneReady(userId, agentId, signal) {
+    return systemOne.isSystemOneReady(userId, agentId, signal);
   }
 
   async requestModelResponse({

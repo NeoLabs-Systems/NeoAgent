@@ -155,7 +155,9 @@ class _GroupDecisionsSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final replied = entries.where((entry) => entry.spoke).length;
-    final byJev = entries.where((entry) => entry.judgedByJev).length;
+    final bySystemOne = entries
+        .where((entry) => entry.judgedBySystemOne)
+        .length;
     final byLlm = entries.where((entry) => entry.judgedByLlm).length;
     return Wrap(
       spacing: 8,
@@ -171,10 +173,10 @@ class _GroupDecisionsSummary extends StatelessWidget {
           label: appStrings.arg1StayedQuiet(entries.length - replied),
           color: _textMuted,
         ),
-        if (byJev > 0)
+        if (bySystemOne > 0)
           _DecisionPill(
             icon: Icons.bolt_rounded,
-            label: appStrings.arg1ScoredByJev(byJev),
+            label: appStrings.arg1ScoredBySystemOne(bySystemOne),
             color: _info,
           ),
         if (byLlm > 0)
@@ -202,13 +204,13 @@ class _GroupDecisionTile extends StatelessWidget {
               ? '${entry.serverName} › ${entry.chatName}'
               : entry.chatName!
         : entry.chatId;
-    // Jev's own verdict codes repeat what its score meters already show.
+    // SystemOne's own verdict codes repeat what its score meters already show.
     final reasons = entry.reasonCodes
         .where(
           (code) =>
-              !entry.judgedByJev ||
+              !entry.judgedBySystemOne ||
               !const <String>{
-                'jev_gate',
+                'system_one_gate',
                 'agent_can_help',
                 'hold_back',
               }.contains(code),
@@ -288,9 +290,10 @@ class _GroupDecisionTile extends StatelessWidget {
               ),
             ],
           ),
-          if (entry.judgedByJev && entry.jevSpeak != null) ...<Widget>[
+          if (entry.judgedBySystemOne &&
+              entry.systemOneSpeak != null) ...<Widget>[
             const SizedBox(height: 10),
-            _JevScores(entry: entry, agentName: agentName),
+            _SystemOneScores(entry: entry, agentName: agentName),
           ],
         ],
       ),
@@ -305,12 +308,12 @@ class _DecisionJudgePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (entry.judgedByJev) {
+    if (entry.judgedBySystemOne) {
       return Tooltip(
-        message: appStrings.jevScoredThisMessageDirectlyNo,
+        message: appStrings.systemOneScoredThisMessageDirectlyNo,
         child: _DecisionPill(
           icon: Icons.bolt_rounded,
-          label: 'JEV',
+          label: 'SystemOne',
           color: _info,
         ),
       );
@@ -333,10 +336,10 @@ class _DecisionJudgePill extends StatelessWidget {
   }
 }
 
-// Jev answers with probabilities, so its explanation is the scores
+// SystemOne answers with probabilities, so its explanation is the scores
 // themselves and how the need score compares with the reply threshold.
-class _JevScores extends StatelessWidget {
-  const _JevScores({required this.entry, required this.agentName});
+class _SystemOneScores extends StatelessWidget {
+  const _SystemOneScores({required this.entry, required this.agentName});
 
   final BehaviorDecisionEntry entry;
   final String agentName;
@@ -350,12 +353,12 @@ class _JevScores extends StatelessWidget {
       children: <Widget>[
         _ScoreMeter(
           label: appStrings.wantedAReplyFromArg1(agentName),
-          value: entry.jevSpeak!,
+          value: entry.systemOneSpeak!,
         ),
-        if (entry.jevForSomeoneElse != null)
+        if (entry.systemOneForSomeoneElse != null)
           _ScoreMeter(
             label: appStrings.meantForSomeoneElse,
-            value: entry.jevForSomeoneElse!,
+            value: entry.systemOneForSomeoneElse!,
           ),
         _ScoreMeter(
           label: threshold == null
@@ -553,8 +556,8 @@ String _decisionReasonLabel(String code, String agentName) {
       return appStrings.unclearWhoItWasFor;
     case 'model_unavailable':
       return appStrings.aiUnavailable;
-    case 'jev_unavailable':
-      return appStrings.jevUnavailable;
+    case 'system_one_unavailable':
+      return appStrings.systemOneUnavailable;
     case 'parse_fallback':
       return appStrings.aiAnswerUnreadable;
     default:

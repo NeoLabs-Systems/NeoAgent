@@ -4,10 +4,9 @@
   "aChangedEmailAddressIsConfirmed": "Eine geänderte E-Mail-Adresse wird bestätigt, bevor sie verwendet wird.",
   "aDecisionHigherUpTheChain": "Eine Entscheidung weiter oben in der Kette hat Vorrang.",
   "aDeletedAccount": "ein gelöschtes Konto",
-  "aFractionOfASecondRouting": "Sekundenbruchteilen trifft: Routing, Tool- und Skill-Auswahl, Speicher-",
   "aFridayLookBackAtThe": "Ein freitäglicher Blick zurück auf die Woche und ein Plan für die nächste.",
   "aKeyThatAsksForA": "Ein Schlüssel, der eine PIN oder einen Fingerabdruck verlangt, ersetzt auch Ihren Zwei-Faktor-Code.",
-  "aLanguageModelJudgedThisMessage": "Ein Sprachmodell hat diese Nachricht beurteilt, weil JEV ausgeschaltet ist.",
+  "aLanguageModelJudgedThisMessage": "Ein Sprachmodell hat diese Nachricht beurteilt, weil SystemOne ausgeschaltet ist.",
   "aNeoagentSetupMetadataFileExceeded": "Eine NeoAgent-Einrichtungs-Metadatendatei hat das sichere Größenlimit überschritten.",
   "aNewerWebBuildIsAvailable": "Auf dem Server ist ein neueres Web-Build verfügbar. Neu laden, um das aktuelle Bundle zu holen.",
   "aPlanSIdCanT": "Die ID eines Tarifs lässt sich nicht ändern.",
@@ -201,8 +200,6 @@
   "anEveningSummaryOfWhatHappened": "Eine abendliche Zusammenfassung dessen, was passiert ist und was nachzuverfolgen ist.",
   "anHttpOrHttpsUrlIs": "Eine http- oder https-URL ist erforderlich.",
   "andBillingTeamLinksLiveOn": "und Abrechnung. Team-Links finden Sie auf der Team-Seite.",
-  "andBrowserSteps": "und Browserschritte. ",
-  "andBrowserStepsYourChatModel": "und Browserschritte. Ihr Chat-Modell schreibt weiterhin jede ",
   "andSExpiresAtDatetimeNow": "  AND s.expires_at > datetime(''now'')\n",
   "androidApkInstallIsUnavailableOn": "Android-APK-Installation ist auf dieser Plattform nicht verfügbar.",
   "androidApp": "Android-App",
@@ -1745,14 +1742,6 @@
       }
     }
   },
-  "arg1ScoredByJev": "{arg1} von JEV bewertet",
-  "@arg1ScoredByJev": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Sec": "{arg1} Sek.",
   "@arg1Sec": {
     "placeholders": {
@@ -2775,9 +2764,6 @@
   "durableInstructionsForVoiceAndInteraction": "Dauerhafte Anweisungen für Stimme und Interaktionsstil. Sicherheits- und Ausführungsregeln haben weiterhin Vorrang.",
   "eGAlexSLaptop": "z. B. Alex’ Laptop",
   "eGMyLocalServer": "z. B. Mein lokaler Server",
-  "eachAgentDecides": "Jeder Agent entscheidet",
-  "eachAgentNowDecidesInIts": "Jeder Agent entscheidet jetzt in den eigenen Einstellungen.",
-  "eachAgentSwitchesJevOnUnder": "Jeder Agent schaltet Jev unter Einstellungen › Modelle ein. Es ",
   "edit": "Bearbeiten",
   "editAgent": "Agent bearbeiten",
   "editArg1": "{arg1} bearbeiten",
@@ -2892,7 +2878,6 @@
   "everyAccountOnThisServerUses": "Jedes Konto auf diesem Server verwendet diese Adresse für ",
   "everyAccountSSubscriptionMostRecently": "Abonnement jedes Kontos, zuletzt geänderte zuerst. ",
   "everyActiveSessionForThisAccount": "Jede aktive Sitzung für dieses Konto wird beendet. Die Anmeldung ist ",
-  "everyAgentUsesJevAgentsCan": "Jeder Agent nutzt Jev. Agenten können es in ihren Einstellungen ",
   "everyDay0800": "Täglich · 08:00",
   "everyDay2000": "Täglich · 20:00",
   "everyHour": "Stündlich",
@@ -3206,7 +3191,6 @@
   "groupByDay": "GROUP BY day\n",
   "groupByUId": "GROUP BY u.id\n",
   "groupChannelOrRoom": "Gruppe, Kanal oder Raum",
-  "groupChatTurnTakingResearchSources": "Redebeiträge in Gruppenchats, Recherchequellen, Antwortprüfungen, ",
   "groupType": "Gruppentyp",
   "groupsAndChannels": "Gruppen und Kanäle",
   "groupsArg1": "Gruppen: {arg1}",
@@ -3354,7 +3338,6 @@
     }
   },
   "inBackground": "Hintergrund",
-  "inTheirSettings": "nicht mehr ausschalten.",
   "incomingAndOutgoingChannelMessagesWill": "Eingehende und ausgehende Kanalnachrichten erscheinen hier.",
   "incomingInAppVoiceCallsFrom": "Eingehende In-App-Sprachanrufe von NeoAgent",
   "incomingMessages": "Eingehende Nachrichten",
@@ -3417,17 +3400,8 @@
   "issues": "Probleme",
   "issuesAppearOnceTheLogLoads": "Probleme erscheinen, sobald das Protokoll geladen ist.",
   "itCanTBeUndone": "Dies kann nicht rückgängig gemacht werden.",
-  "itCutsWaitingAndModelCost": "Es verkürzt Wartezeiten und Modellkosten; jede Antwort schreibt weiterhin ",
   "itMayHaveBeenDeleted": "Möglicherweise wurde sie gelöscht.",
   "javaRuntime": "Java-Runtime",
-  "jevDecisions": "Jev-Entscheidungen",
-  "jevIsADecisionModelThat": "Jev ist ein Entscheidungsmodell, das die Hintergrundaufrufe in ",
-  "jevIsOffForEveryAgent": "Jev ist für jeden Agenten deaktiviert, und der Schalter ist in ",
-  "jevIsOffOnThisServer": "Jev ist auf diesem Server deaktiviert.",
-  "jevIsOnForEveryAgent": "Jev ist für jeden Agenten aktiviert.",
-  "jevScoredThisMessageDirectlyNo": "JEV hat diese Nachricht direkt bewertet. Es wurde kein Sprachmodell ausgeführt.",
-  "jevTypesafeDecisionModelOpenrouterRouting": "jev typesafe entscheidung modell openrouter routing schnell günstiger empfohlen",
-  "jevUnavailable": "JEV nicht verfügbar",
   "joinUsersManagedOnManagedId": "JOIN users managed ON managed.id = d.managed_user_id\n",
   "joinUsersManagerOnManagerId": "JOIN users manager ON manager.id = d.manager_user_id\n",
   "joinUsersUOnUId": "JOIN users u ON u.id = r.user_id\n",
@@ -3731,7 +3705,6 @@
   "mailServersThatNeedAPassword": "Mailserver, die ein Passwort brauchen, verweigern den Versand, bis ein neues ",
   "main": "Hauptagent",
   "makeDefault": "Als Standard festlegen",
-  "makesTheBehindTheScenesCalls": "Erledigt die Hintergrundaufrufe in einem Bruchteil einer ",
   "manage": "Verwalten",
   "managePayment": "Zahlung verwalten",
   "manageViaStripeCustomerPortal": "Über das Stripe-Kundenportal verwalten",
@@ -4151,7 +4124,6 @@
   "noRunsYet": "Noch keine Ausführungen",
   "noRunsYet2": "Noch keine Läufe.",
   "noSecurityKeyWasProvided": "Es wurde kein Sicherheitsschlüssel angegeben.",
-  "noServerOpenrouterKeyYetAdd": "Noch kein OpenRouter-Schlüssel für den Server. Fügen Sie einen unter Anbieter hinzu, ",
   "noServerUrlSet": "Keine Server-URL festgelegt",
   "noSessionMatchesThatSearch": "Keine Sitzung entspricht dieser Suche.",
   "noSessionsYet": "Noch keine Sitzungen",
@@ -4244,7 +4216,6 @@
       }
     }
   },
-  "onForEveryone": "Für alle aktiviert",
   "onMyCalendarAndTheMost": "in meinem Kalender und die wichtigsten offenen Punkte, die ich kenne. ",
   "onTheyCanJoinAgainOnly": "eingeschaltet. Erneut beitreten geht nur mit einem neuen Einladungslink.",
   "onYourOwnTheDefault": "Auf sich gestellt (Standard)",
@@ -4312,7 +4283,6 @@
   "optionalSecretToVerifyIncomingTeams": "Optionales Geheimnis zur Überprüfung eingehender Teams-Ereignisse.",
   "optionalTheAgentAlreadyHasIts": "Optional. Der Agent hat bereits eine eigene Persönlichkeit. Alles, was Sie zum Tonfall hinzufügen, wird darauf aufgesetzt – Sie müssen also keine eigene definieren.",
   "optionalWhenSetItIsUsed": "Optional. Wenn gesetzt, wird er statt der URL verwendet.",
-  "orAgentsCanUseTheirOwn": "oder Agenten können ihren eigenen Schlüssel unter Erweitert › Eigenen ",
   "orAnswerInYourOwnWords": "Oder antworten Sie in eigenen Worten",
   "orBuildYourOwnTask": "Oder eigene Aufgabe erstellen",
   "orContinueWith": "oder fortfahren mit",
@@ -4575,7 +4545,6 @@
       }
     }
   },
-  "rankingGroupChatTurnTakingResearch": "Ranking, Rederecht in Gruppenchats, Recherchequellen, Antwortprüfungen ",
   "rateLimits": "Ratenlimits",
   "readAnArtifact": "Artefakt gelesen",
   "readAndEditFilesInsideYour": "Dateien in Ihrem NeoAgent-Workspace-Ordner lesen und bearbeiten.",
@@ -4976,7 +4945,6 @@
       }
     }
   },
-  "secondRoutingToolAndSkillChoice": "Sekunde: Routing, Tool- und Skill-Auswahl, Speicher-Ranking, ",
   "secretField": "Geheimfeld",
   "secretKey": "Geheimschlüssel",
   "secureCookies": "Sichere Cookies",
@@ -5070,7 +5038,6 @@
   "sharedFromAnotherApp": "Aus einer anderen App geteilt",
   "sharedProviderKeysAreConfiguredOn": "Geteilte Anbieterschlüssel sind auf dem Server konfiguriert. Um stattdessen Ihren eigenen API-Schlüssel oder einen benutzerdefinierten Endpunkt zu nutzen, gehen Sie zu Erweitert → Eigenen Schlüssel mitbringen.",
   "sharedWithTheNeoagentChatAnd": "Mit dem NeoAgent-Chat und seinem Speicher geteilt.",
-  "sharperToolChoice": "Präzisere Tool-Auswahl",
   "shellCommands": "Shell-Befehle",
   "showAllArg1": "Alle {arg1} anzeigen",
   "@showAllArg1": {
@@ -5225,7 +5192,6 @@
   "startWithARecommendedTask": "Mit einer empfohlenen Aufgabe starten",
   "startingAndroid": "Android wird gestartet",
   "startingYourComputer": "Ihr Computer wird gestartet",
-  "startsOff": "startet ausgeschaltet.",
   "startsWithXoxbFromYourSlack": "Beginnt mit xoxb-. Aus den Zugangsdaten Ihrer Slack-App.",
   "starttelecomcallroutingErrorArg1": "startTelecomCallRouting-Fehler: {arg1}",
   "@starttelecomcallroutingErrorArg1": {
@@ -5362,7 +5328,6 @@
   "theAddressOfYourBluebubblesServer": "Die Adresse Ihres BlueBubbles-Servers.",
   "theAddressPeopleAndOauthProviders": "Die Adresse, über die Personen und OAuth-Anbieter ",
   "theAgentReadsTimesYouMention": "Der Agent liest von Ihnen genannte Zeiten und führt geplante Aufgaben in dieser Zeitzone aus.",
-  "theAgentSChatModelJev": "das Chat-Modell des Agenten. Jev läuft über OpenRouter.",
   "theAgentWillAskBeforeEvery": "Der Agent fragt vor jedem sensiblen Tool nach, ",
   "theAgentWillIgnoreThisSkill": "Der Agent ignoriert diesen Skill.",
   "theAppCouldNotReachThis": "Die App konnte dieses NeoAgent-Deployment nicht erreichen. Prüfen Sie Ihre Netzwerkverbindung oder ob die Service-URL korrekt ist.",
@@ -5486,7 +5451,6 @@
       }
     }
   },
-  "theirSettings": "ihren Einstellungen ausgeblendet.",
   "themselvesTheServerOperatorRemovesAdmin": "selbst löschen; der Serverbetreiber entfernt zuerst die Admin-Rechte mit ",
   "theseChannelsStaySilentToHear": "Diese Kanäle bleiben stumm. Um wieder von ihnen zu hören, fügen Sie sie unter Wer darf schreiben für diese Plattform hinzu.",
   "theseListsAreOptionalUnlessA": "Diese Listen sind optional, es sei denn, ein Abschnitt oben ist auf Nur Freigegebene gestellt.",
@@ -5776,7 +5740,6 @@
     }
   },
   "turnedOffForYouSoYou": "Für Sie ausgeschaltet, daher können Sie es nicht weitergeben",
-  "turnedOnForEveryAgentBy": "Von Ihrem Server-Administrator für jeden Agenten aktiviert.",
   "twitchChatOverIrc": "Twitch-Chat über IRC",
   "twoFactorAuthentication": "Zwei-Faktor-Authentifizierung",
   "twoFactorChallengeExpired": "Zwei-Faktor-Herausforderung abgelaufen",
@@ -6185,7 +6148,6 @@
   "yourLocationIsNeverTrackedContinuously": "Ihr Standort wird niemals durchgehend verfolgt oder auf unseren Servern gespeichert. Wir nutzen ihn nur lokal zum Abgleich mit Ihren aktiven Aufgaben.",
   "yourManager": "Ihr Verwalter",
   "yourMattermostSiteUrlIfYou": "Ihre Mattermost-Site-URL, falls Sie die REST API verwenden.",
-  "yourOwnKey": "Schlüssel mitbringen nutzen.",
   "yourSessionExpiredOrWasNot": "Ihre Sitzung ist abgelaufen oder wurde vom Browser nicht behalten. Bitte melden Sie sich erneut an.",
   "yourSessionExpiredPleaseSignIn": "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.",
   "yourSubscriptionWillRemainActiveUntil": "Ihr Abonnement bleibt bis zum Ende der Abrechnungsperiode aktiv.",
@@ -6270,7 +6232,6 @@
   "theOperator": "Die Bedienperson",
   "getStarted": "Loslegen",
   "smartSelectorOn": "Smart Selector an",
-  "jevDecidesWhenToSpeakWhileIt": "Jev entscheidet, wann gesprochen wird, solange es aktiv ist; dieses Modell ist die Ausweichlösung.",
   "startASessionToBegin": "Starten Sie eine Sitzung, um zu beginnen",
   "steerTheActiveRun": "Aktiven Lauf steuern…",
   "describeWhatToPlan": "Beschreiben Sie, was geplant werden soll…",
@@ -6839,5 +6800,18 @@
   "couldNotSaveWorldNewsSetup": "Weltnachrichten-Einrichtung konnte nicht gespeichert werden.",
   "disconnectWorldNews": "Weltnachrichten trennen",
   "thisRemovesTheGnewsApiKey": "Dadurch wird der gespeicherte GNews-API-Schlüssel entfernt. Weltnachrichten-Trigger werden nicht mehr ausgelöst, bis du wieder einen Schlüssel hinzufügst.",
-  "couldNotDisconnectWorldNews": "Weltnachrichten konnten nicht getrennt werden."
+  "couldNotDisconnectWorldNews": "Weltnachrichten konnten nicht getrennt werden.",
+  "systemOneModels": "SystemOne-Modelle",
+  "systemOneAuto": "Automatisch",
+  "systemOneAutoPicksTheBestAvailable": "Wählt das beste verfügbare SystemOne-Modell",
+  "systemOneOffTheChatModelDecides": "Das Chat-Modell trifft diese Entscheidungen",
+  "systemOneModelsMakeTheBehindTheScenes": "Entscheidungsmodelle, die die Hintergrundaufrufe in einem Bruchteil einer Sekunde erledigen: wann in Gruppenchats geantwortet wird und Browserschritte. Ihr Chat-Modell schreibt weiterhin jede Antwort.",
+  "systemOneDecidesWhenToSpeakWhileIt": "Das SystemOne-Modell entscheidet, wann gesprochen wird, solange es aktiv ist; dieses Modell ist die Ausweichlösung.",
+  "arg1ScoredBySystemOne": "{arg1} von SystemOne bewertet",
+  "systemOneScoredThisMessageDirectlyNo": "SystemOne hat diese Nachricht direkt bewertet. Es wurde kein Sprachmodell ausgeführt.",
+  "systemOneUnavailable": "SystemOne nicht verfügbar",
+  "systemOneAdminAvailability": "Entscheidungsmodelle, die Agenten unter Einstellungen › Modelle auswählen können. Ein hier deaktiviertes Modell verschwindet aus dieser Auswahl, und Agenten, die es gewählt hatten, nutzen Automatisch. Solange ein Modell deaktiviert ist, starten später von Anbietern hinzugefügte SystemOne-Modelle ebenfalls deaktiviert.",
+  "addATypesafeOrOpenrouterKey": "Noch keine SystemOne-Modelle. Fügen Sie unter Anbieter einen TypeSafe- oder OpenRouter-Schlüssel hinzu oder laden Sie in Ollama 0.35 oder neuer ein Entscheidungsmodell wie nimble.",
+  "noSystemOneModelIsAvailableYet": "Noch ist kein SystemOne-Modell verfügbar. Fügen Sie unter Erweitert › Eigenen Schlüssel mitbringen einen TypeSafe- oder OpenRouter-Schlüssel hinzu oder laden Sie in Ollama ein Entscheidungsmodell wie nimble.",
+  "systemoneDecisionModelsTypesafeOpenrouterOllama": "systemone system one entscheidung modelle jev typesafe openrouter ollama verfügbarkeit aktivieren deaktivieren"
 }

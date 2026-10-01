@@ -859,13 +859,13 @@ class BehaviorDecisionEntry {
     this.senderName,
     this.model,
     this.needThreshold,
-    this.jevSpeak,
-    this.jevForSomeoneElse,
+    this.systemOneSpeak,
+    this.systemOneForSomeoneElse,
   });
 
   factory BehaviorDecisionEntry.fromJson(Map<String, dynamic> json) {
-    final jevScores = json['jevScores'] is Map
-        ? Map<String, dynamic>.from(json['jevScores'] as Map)
+    final systemOneScores = json['systemOneScores'] is Map
+        ? Map<String, dynamic>.from(json['systemOneScores'] as Map)
         : null;
     return BehaviorDecisionEntry(
       at:
@@ -888,11 +888,11 @@ class BehaviorDecisionEntry {
       tokenPath: json['tokenPath']?.toString() ?? '',
       model: json['model']?.toString(),
       needThreshold: (json['needThreshold'] as num?)?.toDouble(),
-      jevSpeak: jevScores?['speak'] is num
-          ? (jevScores!['speak'] as num).toDouble()
+      systemOneSpeak: systemOneScores?['speak'] is num
+          ? (systemOneScores!['speak'] as num).toDouble()
           : null,
-      jevForSomeoneElse: jevScores?['forSomeoneElse'] is num
-          ? (jevScores!['forSomeoneElse'] as num).toDouble()
+      systemOneForSomeoneElse: systemOneScores?['forSomeoneElse'] is num
+          ? (systemOneScores!['forSomeoneElse'] as num).toDouble()
           : null,
     );
   }
@@ -911,13 +911,14 @@ class BehaviorDecisionEntry {
   final String tokenPath;
   final String? model;
   final double? needThreshold;
-  final double? jevSpeak;
-  final double? jevForSomeoneElse;
+  final double? systemOneSpeak;
+  final double? systemOneForSomeoneElse;
 
   bool get spoke => decision == 'speak';
 
-  // Jev scores the message itself; no language model runs for these turns.
-  bool get judgedByJev => tokenPath == 'jev_gate';
+  // A SystemOne model scores the message itself; no language model runs for
+  // these turns.
+  bool get judgedBySystemOne => tokenPath == 'system_one_gate';
 
   bool get judgedByLlm => tokenPath == 'gate_only';
 }

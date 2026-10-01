@@ -2,16 +2,17 @@ const OpenAI = require('openai');
 const { OpenAICompatibleProvider } = require('./openaiCompatible');
 const { fetchResponseText } = require('../../network/http');
 const { wrapProviderError } = require('./provider_error');
+const { postSystemOneDecision } = require('./system_one_api');
 
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 const ATTRIBUTION_HEADERS = Object.freeze({
   'HTTP-Referer': 'https://github.com/NeoLabs-Systems/NeoAgent',
   'X-Title': 'NeoAgent',
 });
-// Jev, TypeSafe's decision model, is served through OpenRouter's System One
-// API, which takes TypeSafe's own request shape. The version is pinned because
-// the decision thresholds in NeoAgent were calibrated against it.
-const JEV_MODEL = 'typesafe/jev-1.13';
+// SystemOne models (Jev, Solar Decide, ...) answer typed questions instead of
+// writing text. OpenRouter lists them under the `decisions` output modality
+// and serves them through its System One API, never through chat completions.
+const DECISION_MODALITY = 'decisions';
 
 // Context windows fetched from the API are cached here so getContextWindow
 // can serve them without a network call at inference time.
@@ -46,8 +47,8 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
     });
   }
 
-  async listModels(signal = null) {
-    const { response, text } = await fetchResponseText(`${this.baseURL}/models`, {
+  async _fetchCatalog(query, signal) {
+    const { response, text } = await fetchResponseText(`${this.baseURL}/models${query}`, {
       headers: { 'Authorization': `Bearer ${this.client.apiKey}` },
       maxResponseBytes: 5 * 1024 * 1024,
       serviceName: 'OpenRouter model catalog',
@@ -65,14 +66,23 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
     } catch {
       throw new Error('OpenRouter /models returned invalid JSON.');
     }
-    const { data } = payload;
-    const models = data || [];
+    return payload.data || [];
+  }
+
+  // Chat models only: SystemOne models cannot hold a conversation.
+  async listModels(signal = null) {
+    const models = (await this._fetchCatalog('', signal))
+      .filter((m) => !m.architecture?.output_modalities?.includes(DECISION_MODALITY));
     for (const m of models) {
       if (m.context_length) contextWindowCache.set(m.id, m.context_length);
       if (m.reasoning && typeof m.reasoning === 'object') reasoningCatalog.set(m.id, m.reasoning);
     }
     this.models = models.map((m) => m.id);
     return models;
+  }
+
+  async listDecisionModels(signal = null) {
+    return this._fetchCatalog(`?output_modalities=${DECISION_MODALITY}`, signal);
   }
 
   getContextWindow(model) {
@@ -159,39 +169,15 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
     }
   }
 
-  async decide({ state, questions, signal = null, timeoutMs } = {}) {
-    const { response, text } = await fetchResponseText(`${this.baseURL}/systemone`, {
-      method: 'POST',
-      headers: {
-        ...ATTRIBUTION_HEADERS,
-        Authorization: `Bearer ${this.client.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ model: JEV_MODEL, state, questions }),
-      maxResponseBytes: 1024 * 1024,
-      serviceName: 'Jev decision',
+  async decide({ model, state, questions, signal = null, timeoutMs } = {}) {
+    return postSystemOneDecision(`${this.baseURL}/systemone`, {
+      headers: { ...ATTRIBUTION_HEADERS, Authorization: `Bearer ${this.client.apiKey}` },
+      model,
+      state,
+      questions,
       signal,
       timeoutMs,
     });
-    let payload = null;
-    try {
-      payload = JSON.parse(text || '{}');
-    } catch {
-      payload = null;
-    }
-    if (!response.ok) {
-      const error = new Error(`Jev returned HTTP ${response.status}${payload?.error?.message ? `: ${payload.error.message}` : ''}`);
-      error.status = response.status;
-      throw error;
-    }
-    if (!payload?.answers || typeof payload.answers !== 'object') {
-      throw new Error('Jev returned no answers.');
-    }
-    return {
-      model: payload.model || JEV_MODEL,
-      answers: payload.answers,
-      usage: payload.usage || {},
-    };
   }
 }
 

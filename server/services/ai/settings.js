@@ -12,6 +12,7 @@ const {
   normalizeInputMode,
 } = require('../voice/live/catalog');
 const { AI_PROVIDER_DEFINITIONS } = require('./provider_definitions');
+const { parseModelSelectionId } = require('./model_identity');
 
 function createDefaultProviderConfigs() {
   return Object.fromEntries(
@@ -23,6 +24,13 @@ function createDefaultProviderConfigs() {
       }
     ])
   );
+}
+
+// Anything other than 'auto' or a provider-scoped model id reads as off.
+function normalizeSystemOneModel(value) {
+  const selection = String(value ?? '').trim();
+  if (selection === 'auto' || parseModelSelectionId(selection)) return selection;
+  return 'off';
 }
 
 function createDefaultAiSettings() {
@@ -39,7 +47,8 @@ function createDefaultAiSettings() {
     assistant_behavior_notes: '',
     auto_skill_learning: true,
     smarter_model_selector: true,
-    jev_enabled: false,
+    // 'off', 'auto', or a SystemOne model selection id (provider::model).
+    system_one_model: 'off',
     enabled_models: [],
     default_chat_model: 'auto',
     default_subagent_model: 'auto',
@@ -276,7 +285,7 @@ function getAiSettings(userId, agentId = null) {
     : DEFAULT_AI_SETTINGS.assistant_behavior_notes;
   settings.auto_skill_learning = settings.auto_skill_learning !== false && settings.auto_skill_learning !== 'false';
   settings.smarter_model_selector = settings.smarter_model_selector !== false && settings.smarter_model_selector !== 'false';
-  settings.jev_enabled = settings.jev_enabled === true || settings.jev_enabled === 'true';
+  settings.system_one_model = normalizeSystemOneModel(settings.system_one_model);
   settings.enabled_models = Array.isArray(settings.enabled_models) ? settings.enabled_models : DEFAULT_AI_SETTINGS.enabled_models;
   settings.default_chat_model = typeof settings.default_chat_model === 'string' && settings.default_chat_model.trim()
     ? settings.default_chat_model
@@ -309,6 +318,7 @@ module.exports = {
   getProviderConfigs,
   getProviderSecrets,
   normalizeProviderConfigs,
+  normalizeSystemOneModel,
   setProviderConfig,
   setProviderSecret,
 };

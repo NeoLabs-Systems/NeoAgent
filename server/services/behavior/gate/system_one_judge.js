@@ -3,9 +3,9 @@
 const { requestDecision } = require('../model_client');
 const { normalizeDecision, URGENCY_LEVELS } = require('./decisions');
 
-// Jev answers the same gate as the model judge: one request, a few hundred
-// milliseconds, with probabilities instead of self-reported scores.
-const JEV_GATE_QUESTIONS = Object.freeze({
+// SystemOne answers the same gate as the model judge: one request, a few
+// hundred milliseconds, with probabilities instead of self-reported scores.
+const GATE_QUESTIONS = Object.freeze({
   speak: {
     type: 'noul',
     instructions: 'The agent named in `agent.names` should post a reply to `latest_message` now.',
@@ -24,14 +24,14 @@ const JEV_GATE_QUESTIONS = Object.freeze({
     criteria: ['Not time-sensitive', 'Should be answered soon', 'Needed right now'],
   },
 });
-// Without a description of what the agent can do, Jev treats open questions
-// to the room as not the agent's business.
+// Without a description of what the agent can do, SystemOne treats open
+// questions to the room as not the agent's business.
 const AGENT_CAPABILITIES = 'answer questions, look things up on the web, and do tasks with its tools and connected apps';
-// Jev's scores are calibrated probabilities, so the room threshold that was
-// tuned on self-reported model scores can sit a little lower for them.
-const JEV_THRESHOLD_OFFSET = 0.08;
+// SystemOne scores are calibrated probabilities, so the room threshold that
+// was tuned on self-reported model scores can sit a little lower for them.
+const SYSTEM_ONE_THRESHOLD_OFFSET = 0.08;
 
-function jevGateState(packet) {
+function gateState(packet) {
   return {
     agent: {
       names: packet.room.agentNames.length ? packet.room.agentNames : ['the assistant'],
@@ -52,10 +52,10 @@ function jevGateState(packet) {
 
 // The need score is the chance a reply is wanted now and is meant for the
 // agent, so messages aimed at someone else stay quiet even when useful.
-function decisionFromJev(answers) {
+function decisionFromAnswers(answers) {
   const speak = answers.speak.noul;
   const forSomeoneElse = answers.for_someone_else.noul;
-  const reasonCodes = ['jev_gate', speak >= 0.5 ? 'agent_can_help' : 'hold_back'];
+  const reasonCodes = ['system_one_gate', speak >= 0.5 ? 'agent_can_help' : 'hold_back'];
   if (forSomeoneElse >= 0.5) reasonCodes.push('meant_for_someone_else');
   const decision = normalizeDecision({
     decision: speak >= 0.5 ? 'speak' : 'stay_silent',
@@ -63,25 +63,25 @@ function decisionFromJev(answers) {
     confidence: Math.max(speak, 1 - speak),
     reasonCodes,
     urgency: URGENCY_LEVELS[Math.round(Math.max(0, Math.min(2, answers.urgency.score)))],
-  }, { tokenPath: 'jev_gate', model: 'jev' });
-  // Jev gives probabilities, not prose; these are its whole explanation.
-  return { ...decision, jevScores: { speak, forSomeoneElse } };
+  }, { tokenPath: 'system_one_gate', model: 'system_one' });
+  // SystemOne gives probabilities, not prose; these are its whole explanation.
+  return { ...decision, systemOneScores: { speak, forSomeoneElse } };
 }
 
-async function askJev(ctx, packet) {
+async function askSystemOne(ctx, packet) {
   const answers = await requestDecision({
     agentEngine: ctx.agentEngine,
     userId: ctx.userId,
     agentId: ctx.agentId,
-    phase: 'jev_turn_taking',
+    phase: 'system_one_turn_taking',
     signal: ctx.signal,
-    state: jevGateState(packet),
-    questions: JEV_GATE_QUESTIONS,
+    state: gateState(packet),
+    questions: GATE_QUESTIONS,
   });
-  return answers ? decisionFromJev(answers) : null;
+  return answers ? decisionFromAnswers(answers) : null;
 }
 
 module.exports = {
-  JEV_THRESHOLD_OFFSET,
-  askJev,
+  SYSTEM_ONE_THRESHOLD_OFFSET,
+  askSystemOne,
 };

@@ -693,19 +693,6 @@ class BackendClient {
     return getMap(baseUrl, '/api/admin/models');
   }
 
-  Future<Map<String, dynamic>> fetchAdminJev(String baseUrl) async {
-    return getMap(baseUrl, '/api/admin/jev');
-  }
-
-  Future<Map<String, dynamic>> setAdminJevPolicy(
-    String baseUrl,
-    String policy,
-  ) async {
-    return putMap(baseUrl, '/api/admin/jev', <String, dynamic>{
-      'policy': policy,
-    });
-  }
-
   Future<Map<String, dynamic>> saveAdminDisabledModels(
     String baseUrl,
     List<String> disabledModels,
@@ -888,6 +875,16 @@ class BackendClient {
     return getMap(
       baseUrl,
       _withAgentQuery('/api/settings/meta/models', agentId),
+    );
+  }
+
+  Future<Map<String, dynamic>> fetchSystemOneModels(
+    String baseUrl, {
+    String? agentId,
+  }) async {
+    return getMap(
+      baseUrl,
+      _withAgentQuery('/api/settings/meta/system-one-models', agentId),
     );
   }
 

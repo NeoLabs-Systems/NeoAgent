@@ -63,7 +63,7 @@ function choice(picked) {
   return { type: 'choice', choice: picked, confidence: 0.9, probabilities: { [picked]: 0.95 } };
 }
 
-// Jev answers scripted one step at a time; the text helper returns `text`.
+// SystemOne answers scripted one step at a time; the text helper returns `text`.
 function fakeEngine(steps, text = 'weather zurich') {
   const decided = [];
   return {
@@ -98,7 +98,7 @@ test('the page script stays under the browser evaluate limit', () => {
   assert.ok(buildSnapshotScript('abcd1234').length < 10000);
 });
 
-test('Jev types the query, submits it, and stops when the goal is visibly done', async () => {
+test('SystemOne types the query, submits it, and stops when the goal is visibly done', async () => {
   const typed = page({ elements: SEARCH_PAGE.elements.map((element) => (
     element.i === 1 ? { ...element, value: 'weather zurich', focused: true } : element
   )) });
@@ -205,14 +205,14 @@ test('a target replaced after the snapshot is looked up again instead of failing
   assert.deepEqual(result.actions, ['click [2] button "Go"']);
 });
 
-test('without a Jev answer the run hands control back to the model', async () => {
+test('without a SystemOne answer the run hands control back to the model', async () => {
   const result = await runBrowserAct({
     provider: fakeProvider([page()], []),
     engine: fakeEngine([]),
     goal: 'Search',
     userId: 1,
   });
-  assert.equal(result.status, 'jev_unavailable');
+  assert.equal(result.status, 'system_one_unavailable');
   assert.deepEqual(result.actions, []);
 });
 

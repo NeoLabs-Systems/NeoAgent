@@ -9,6 +9,7 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { sendJsonError } = require('../http/errors');
 const { isBillingEnabled } = require('../services/billing/config');
 const { getSupportedModels } = require('../services/ai/models');
+const { getSystemOneModels } = require('../services/ai/system_one');
 const { reconcileModelVisibility, setDisabledModelIds } = require('../services/ai/model_visibility');
 const { getAdminEmailSettings, updateAdminEmailSettings } = require('../services/account/service_email_settings');
 const { getServerVersion, runHealthChecks } = require('../services/admin/health');
@@ -31,8 +32,6 @@ const {
   updateBillingSetup,
   getAccessSettings,
   setSignupEnabled,
-  getJevSettings,
-  setJevPolicy,
 } = require('../services/admin/server_config');
 const { getIntegrationSettings, updateIntegrationSettings } = require('../services/admin/integrations');
 const { httpError } = require('../utils/http_error');
@@ -104,11 +103,19 @@ router.put('/providers', jsonHandler((req) => updateProvider(req.body?.key, req.
 
 router.get('/models', async (req, res) => {
   try {
-    const models = await getSupportedModels(null, null, { signal: req.signal });
+    const [models, systemOneModels] = await Promise.all([
+      getSupportedModels(null, null, { signal: req.signal }),
+      getSystemOneModels(null, null, { signal: req.signal }),
+    ]);
     // Tracks newly discovered / retired models and applies the default
-    // enable/disable policy to anything new.
-    const disabledModels = reconcileModelVisibility(models.map((model) => model.id));
-    res.json({ models, disabledModels });
+    // enable/disable policy to anything new. Chat and SystemOne models share
+    // one disabled list but are tracked as separate catalogs.
+    reconcileModelVisibility(models.map((model) => model.id), 'llm');
+    const disabledModels = reconcileModelVisibility(
+      systemOneModels.map((model) => model.id),
+      'decisions',
+    );
+    res.json({ models, systemOneModels, disabledModels });
   } catch (err) {
     sendJsonError(res, err);
   }
@@ -119,10 +126,6 @@ router.put('/models/config', jsonHandler((req) => {
   if (!Array.isArray(disabledModels)) throw httpError(400, 'disabledModels must be an array');
   return { ok: true, disabledModels: setDisabledModelIds(disabledModels) };
 }));
-
-router.get('/jev', jsonHandler(() => getJevSettings()));
-
-router.put('/jev', settingsLimiter, jsonHandler((req) => setJevPolicy(req.body?.policy)));
 
 // --- Server configuration ---
 

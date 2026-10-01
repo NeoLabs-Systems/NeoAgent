@@ -208,6 +208,8 @@ class NeoAgentController extends ChangeNotifier {
   List<AgentProfile> agentProfiles = const <AgentProfile>[];
   String? selectedAgentId;
   List<ModelMeta> supportedModels = const <ModelMeta>[];
+  /// SystemOne decision models, offered only in their own picker.
+  List<ModelMeta> systemOneModels = const <ModelMeta>[];
   List<AiProviderMeta> aiProviders = const <AiProviderMeta>[];
   List<Map<String, dynamic>> byokProviders = const <Map<String, dynamic>>[];
   bool isLoadingByokProviders = false;
@@ -1669,6 +1671,7 @@ class NeoAgentController extends ChangeNotifier {
     selectedAgentId = null;
     unawaited(_persistSelectedAgentId(null));
     supportedModels = const <ModelMeta>[];
+    systemOneModels = const <ModelMeta>[];
     aiProviders = const <AiProviderMeta>[];
     recentRuns = const <RunSummary>[];
     coworkChats = const <CoworkChat>[];
@@ -3155,6 +3158,11 @@ class NeoAgentController extends ChangeNotifier {
         _backendClient.fetchAiProviders(backendUrl, agentId: agentId),
         const <String, dynamic>{'providers': <dynamic>[]},
       );
+      final systemOneModelsFuture = _softRefreshLoad<Map<String, dynamic>>(
+        'system_one_models',
+        _backendClient.fetchSystemOneModels(backendUrl, agentId: agentId),
+        const <String, dynamic>{'models': <dynamic>[]},
+      );
       final settingsMutationId = _settingsMutationId;
       final settingsWriteWasPending = _pendingSettingsWrites > 0;
       final settingsFuture = _softRefreshLoad<Map<String, dynamic>>(
@@ -3300,6 +3308,7 @@ class NeoAgentController extends ChangeNotifier {
       final history = await historyFuture;
       final modelsResponse = await modelsFuture;
       final providersResponse = await providersFuture;
+      final systemOneModelsResponse = await systemOneModelsFuture;
       final settingsResponse = await settingsFuture;
       final behaviorResponse = await behaviorFuture;
       final runsResponse = await runsFuture;
@@ -3334,6 +3343,11 @@ class NeoAgentController extends ChangeNotifier {
         modelsResponse['models'],
         ModelMeta.fromJson,
         fallbackToMapValues: true,
+      );
+      systemOneModels = _decodeModelList(
+        'system_one_models',
+        systemOneModelsResponse['models'],
+        ModelMeta.fromJson,
       );
 
       aiProviders = _decodeModelList(
@@ -5293,7 +5307,7 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> saveSettings({
     required bool smarterSelector,
-    required bool jevEnabled,
+    required String systemOneModel,
     required List<String> enabledModels,
     required String defaultChatModel,
     required String defaultSubagentModel,
@@ -5312,7 +5326,7 @@ class NeoAgentController extends ChangeNotifier {
       'runtime_profile': 'cloud-computer',
       'runtime_backend': 'qemu',
       'smarter_model_selector': smarterSelector,
-      'jev_enabled': jevEnabled,
+      'system_one_model': systemOneModel,
       'enabled_models': enabledModels,
       'default_chat_model': defaultChatModel,
       'default_subagent_model': defaultSubagentModel,
@@ -5412,11 +5426,18 @@ class NeoAgentController extends ChangeNotifier {
         backendUrl,
         agentId: agentId,
       );
+      final systemOneModelsResponse = await _backendClient
+          .fetchSystemOneModels(backendUrl, agentId: agentId);
       supportedModels = _decodeModelList(
         'supported_models',
         modelsResponse['models'],
         ModelMeta.fromJson,
         fallbackToMapValues: true,
+      );
+      systemOneModels = _decodeModelList(
+        'system_one_models',
+        systemOneModelsResponse['models'],
+        ModelMeta.fromJson,
       );
       aiProviders = _decodeModelList(
         'ai_providers',
@@ -7533,22 +7554,16 @@ class NeoAgentController extends ChangeNotifier {
 
   bool get smarterSelector => settings['smarter_model_selector'] != false;
 
-  /// This agent's own Jev choice; the server policy can override it.
-  bool get jevEnabled => settings['jev_enabled'] == true;
-
-  /// Server-wide Jev policy: `agent` (each agent decides), `on`, or `off`.
-  String get jevPolicy {
-    final policy = settings['jev_policy'];
-    return policy == 'on' || policy == 'off' ? policy as String : 'agent';
+  /// This agent's SystemOne choice: `off`, `auto`, or a model id.
+  String get systemOneModel {
+    final value = settings['system_one_model']?.toString().trim() ?? '';
+    return value.isEmpty ? 'off' : value;
   }
 
-  /// Jev runs through OpenRouter, so it is offered only with an OpenRouter
-  /// key (the server's or this agent's own) and when the server allows it.
-  bool get jevAvailable =>
-      jevPolicy != 'off' &&
-      aiProviders.any(
-        (provider) => provider.id == 'openrouter' && provider.available,
-      );
+  /// A provider this agent can use (the server's key or its own) serves a
+  /// SystemOne model the admin has not switched off.
+  bool get systemOneAvailable =>
+      systemOneModels.any((model) => model.available);
 
   String get timeZone => settings['timezone']?.toString().trim() ?? '';
 

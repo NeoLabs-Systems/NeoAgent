@@ -4,10 +4,9 @@
   "aChangedEmailAddressIsConfirmed": "A changed email address is confirmed before it is used.",
   "aDecisionHigherUpTheChain": "A decision higher up the chain wins.",
   "aDeletedAccount": "a deleted account",
-  "aFractionOfASecondRouting": "a fraction of a second: routing, tool and skill choice, memory ",
   "aFridayLookBackAtThe": "A Friday look back at the week and a plan for the next.",
   "aKeyThatAsksForA": "A key that asks for a PIN or fingerprint also replaces your two-factor code.",
-  "aLanguageModelJudgedThisMessage": "A language model judged this message because JEV is off.",
+  "aLanguageModelJudgedThisMessage": "A language model judged this message because SystemOne is off.",
   "aNeoagentSetupMetadataFileExceeded": "A NeoAgent setup metadata file exceeded its safe size limit.",
   "aNewerWebBuildIsAvailable": "A newer web build is available on the server. Reload to fetch the latest bundle.",
   "aPlanSIdCanT": "A plan’s ID can’t change.",
@@ -201,8 +200,6 @@
   "anEveningSummaryOfWhatHappened": "An evening summary of what happened and what to follow up on.",
   "anHttpOrHttpsUrlIs": "An http or https URL is required.",
   "andBillingTeamLinksLiveOn": "and billing. Team links live on the Team page.",
-  "andBrowserSteps": "and browser steps. ",
-  "andBrowserStepsYourChatModel": "and browser steps. Your chat model still writes every ",
   "andSExpiresAtDatetimeNow": "  AND s.expires_at > datetime(''now'')\n",
   "androidApkInstallIsUnavailableOn": "Android APK install is unavailable on this platform.",
   "androidApp": "Android app",
@@ -1745,14 +1742,6 @@
       }
     }
   },
-  "arg1ScoredByJev": "{arg1} scored by JEV",
-  "@arg1ScoredByJev": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Sec": "{arg1} sec",
   "@arg1Sec": {
     "placeholders": {
@@ -2775,9 +2764,6 @@
   "durableInstructionsForVoiceAndInteraction": "Durable instructions for voice and interaction style. Safety and execution rules still take priority.",
   "eGAlexSLaptop": "e.g. Alex’s laptop",
   "eGMyLocalServer": "e.g. My local server",
-  "eachAgentDecides": "Each agent decides",
-  "eachAgentNowDecidesInIts": "Each agent now decides in its own settings.",
-  "eachAgentSwitchesJevOnUnder": "Each agent switches Jev on under Settings › Models. It ",
   "edit": "Edit",
   "editAgent": "Edit Agent",
   "editArg1": "Edit {arg1}",
@@ -2892,7 +2878,6 @@
   "everyAccountOnThisServerUses": "Every account on this server uses this address for ",
   "everyAccountSSubscriptionMostRecently": "Every account’s subscription, most recently changed first. ",
   "everyActiveSessionForThisAccount": "Every active session for this account ends. They can sign in ",
-  "everyAgentUsesJevAgentsCan": "Every agent uses Jev. Agents can no longer switch it off ",
   "everyDay0800": "Every day · 08:00",
   "everyDay2000": "Every day · 20:00",
   "everyHour": "Every hour",
@@ -3206,7 +3191,6 @@
   "groupByDay": "GROUP BY day\n",
   "groupByUId": "GROUP BY u.id\n",
   "groupChannelOrRoom": "Group, channel, or room",
-  "groupChatTurnTakingResearchSources": "group-chat turn-taking, research sources, answer checks, ",
   "groupType": "Group type",
   "groupsAndChannels": "Groups and channels",
   "groupsArg1": "Groups: {arg1}",
@@ -3354,7 +3338,6 @@
     }
   },
   "inBackground": "background",
-  "inTheirSettings": "in their settings.",
   "incomingAndOutgoingChannelMessagesWill": "Incoming and outgoing channel messages will appear here.",
   "incomingInAppVoiceCallsFrom": "Incoming in-app voice calls from NeoAgent",
   "incomingMessages": "Incoming messages",
@@ -3417,17 +3400,8 @@
   "issues": "Issues",
   "issuesAppearOnceTheLogLoads": "Issues appear once the log loads.",
   "itCanTBeUndone": "It can’t be undone.",
-  "itCutsWaitingAndModelCost": "It cuts waiting and model cost; every reply is still written by ",
   "itMayHaveBeenDeleted": "It may have been deleted.",
   "javaRuntime": "java runtime",
-  "jevDecisions": "Jev decisions",
-  "jevIsADecisionModelThat": "Jev is a decision model that makes the behind-the-scenes calls in ",
-  "jevIsOffForEveryAgent": "Jev is off for every agent, and its switch is hidden in ",
-  "jevIsOffOnThisServer": "Jev is off on this server.",
-  "jevIsOnForEveryAgent": "Jev is on for every agent.",
-  "jevScoredThisMessageDirectlyNo": "JEV scored this message directly. No language model ran.",
-  "jevTypesafeDecisionModelOpenrouterRouting": "jev typesafe decision model openrouter routing fast cheaper recommended",
-  "jevUnavailable": "JEV unavailable",
   "joinUsersManagedOnManagedId": "JOIN users managed ON managed.id = d.managed_user_id\n",
   "joinUsersManagerOnManagerId": "JOIN users manager ON manager.id = d.manager_user_id\n",
   "joinUsersUOnUId": "JOIN users u ON u.id = r.user_id\n",
@@ -3731,7 +3705,6 @@
   "mailServersThatNeedAPassword": "Mail servers that need a password will refuse to send until a new ",
   "main": "Main",
   "makeDefault": "Make default",
-  "makesTheBehindTheScenesCalls": "Makes the behind-the-scenes calls in a fraction of a ",
   "manage": "Manage",
   "managePayment": "Manage payment",
   "manageViaStripeCustomerPortal": "Manage via Stripe Customer Portal",
@@ -4151,7 +4124,6 @@
   "noRunsYet": "No runs yet",
   "noRunsYet2": "No runs yet.",
   "noSecurityKeyWasProvided": "No security key was provided.",
-  "noServerOpenrouterKeyYetAdd": "No server OpenRouter key yet. Add one under Providers, ",
   "noServerUrlSet": "No server URL set",
   "noSessionMatchesThatSearch": "No session matches that search.",
   "noSessionsYet": "No sessions yet",
@@ -4244,7 +4216,6 @@
       }
     }
   },
-  "onForEveryone": "On for everyone",
   "onMyCalendarAndTheMost": "on my calendar, and the most important open items I know about. ",
   "onTheyCanJoinAgainOnly": "on. They can join again only with a new invite link.",
   "onYourOwnTheDefault": "On your own (the default)",
@@ -4312,7 +4283,6 @@
   "optionalSecretToVerifyIncomingTeams": "Optional secret to verify incoming Teams events.",
   "optionalTheAgentAlreadyHasIts": "Optional. The agent already has its own personality. Anything you add about tone is layered on top of it, so you never have to define one.",
   "optionalWhenSetItIsUsed": "Optional. When set, it is used instead of the URL.",
-  "orAgentsCanUseTheirOwn": "or agents can use their own key under Advanced › Bring ",
   "orAnswerInYourOwnWords": "Or answer in your own words",
   "orBuildYourOwnTask": "Or build your own task",
   "orContinueWith": "or continue with",
@@ -4575,7 +4545,6 @@
       }
     }
   },
-  "rankingGroupChatTurnTakingResearch": "ranking, group-chat turn-taking, research sources, answer checks, ",
   "rateLimits": "Rate limits",
   "readAnArtifact": "Read an artifact",
   "readAndEditFilesInsideYour": "Read and edit files inside your NeoAgent Workspace folder.",
@@ -4976,7 +4945,6 @@
       }
     }
   },
-  "secondRoutingToolAndSkillChoice": "second: routing, tool and skill choice, memory ranking, ",
   "secretField": "Secret field",
   "secretKey": "Secret key",
   "secureCookies": "Secure cookies",
@@ -5070,7 +5038,6 @@
   "sharedFromAnotherApp": "Shared from another app",
   "sharedProviderKeysAreConfiguredOn": "Shared provider keys are configured on the server. To use your own API key or a custom endpoint instead, go to Advanced → Bring your own key.",
   "sharedWithTheNeoagentChatAnd": "Shared with the NeoAgent chat and its memory.",
-  "sharperToolChoice": "Sharper tool choice",
   "shellCommands": "Shell Commands",
   "showAllArg1": "Show all {arg1}",
   "@showAllArg1": {
@@ -5225,7 +5192,6 @@
   "startWithARecommendedTask": "Start with a recommended task",
   "startingAndroid": "Starting Android",
   "startingYourComputer": "Starting your computer",
-  "startsOff": "starts off.",
   "startsWithXoxbFromYourSlack": "Starts with xoxb-. From your Slack app credentials.",
   "starttelecomcallroutingErrorArg1": "startTelecomCallRouting Error: {arg1}",
   "@starttelecomcallroutingErrorArg1": {
@@ -5362,7 +5328,6 @@
   "theAddressOfYourBluebubblesServer": "The address of your BlueBubbles server.",
   "theAddressPeopleAndOauthProviders": "The address people and OAuth providers use to reach ",
   "theAgentReadsTimesYouMention": "The agent reads times you mention, and runs scheduled tasks, in this time zone.",
-  "theAgentSChatModelJev": "the agent''s chat model. Jev runs through OpenRouter.",
   "theAgentWillAskBeforeEvery": "The agent will ask before every sensitive tool, ",
   "theAgentWillIgnoreThisSkill": "The agent will ignore this skill.",
   "theAppCouldNotReachThis": "The app could not reach this NeoAgent deployment. Check your network connection or confirm the service URL is correct.",
@@ -5486,7 +5451,6 @@
       }
     }
   },
-  "theirSettings": "their settings.",
   "themselvesTheServerOperatorRemovesAdmin": "themselves; the server operator removes admin first with ",
   "theseChannelsStaySilentToHear": "These channels stay silent. To hear from them again, add them under Who can message for that platform.",
   "theseListsAreOptionalUnlessA": "These lists are optional unless a section above is set to approved only.",
@@ -5776,7 +5740,6 @@
     }
   },
   "turnedOffForYouSoYou": "Turned off for you, so you can’t hand it out",
-  "turnedOnForEveryAgentBy": "Turned on for every agent by your server admin.",
   "twitchChatOverIrc": "Twitch chat over IRC",
   "twoFactorAuthentication": "Two-factor authentication",
   "twoFactorChallengeExpired": "two-factor challenge expired",
@@ -6185,7 +6148,6 @@
   "yourLocationIsNeverTrackedContinuously": "Your location is never tracked continuously or stored on our servers. We only use it locally to check against your active tasks.",
   "yourManager": "your manager",
   "yourMattermostSiteUrlIfYou": "Your Mattermost site URL, if you use the REST API.",
-  "yourOwnKey": "your own key.",
   "yourSessionExpiredOrWasNot": "Your session expired or was not retained by the browser. Please sign in again.",
   "yourSessionExpiredPleaseSignIn": "Your session expired. Please sign in again.",
   "yourSubscriptionWillRemainActiveUntil": "Your subscription will remain active until the end of the billing period.",
@@ -6270,7 +6232,6 @@
   "theOperator": "The operator",
   "getStarted": "Get started",
   "smartSelectorOn": "Smart selector on",
-  "jevDecidesWhenToSpeakWhileIt": "Jev decides when to speak while it is on; this model is the fallback.",
   "startASessionToBegin": "Start a session to begin",
   "steerTheActiveRun": "Steer the active run…",
   "describeWhatToPlan": "Describe what to plan…",
@@ -6839,5 +6800,25 @@
   "couldNotSaveWorldNewsSetup": "Could not save World News setup.",
   "disconnectWorldNews": "Disconnect World News",
   "thisRemovesTheGnewsApiKey": "This removes the stored GNews API key. World News triggers will stop firing until you add a key again.",
-  "couldNotDisconnectWorldNews": "Could not disconnect World News."
+  "couldNotDisconnectWorldNews": "Could not disconnect World News.",
+  "systemOneModels": "SystemOne models",
+  "systemOneAuto": "Auto",
+  "systemOneAutoPicksTheBestAvailable": "Picks the best available SystemOne model",
+  "systemOneOffTheChatModelDecides": "The chat model makes these decisions",
+  "systemOneModelsMakeTheBehindTheScenes": "Decision models that make the behind-the-scenes calls in a fraction of a second: group-chat turn-taking and browser steps. Your chat model still writes every reply.",
+  "systemOneDecidesWhenToSpeakWhileIt": "The SystemOne model decides when to speak while it is on; this model is the fallback.",
+  "arg1ScoredBySystemOne": "{arg1} scored by SystemOne",
+  "@arg1ScoredBySystemOne": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "systemOneScoredThisMessageDirectlyNo": "SystemOne scored this message directly. No language model ran.",
+  "systemOneUnavailable": "SystemOne unavailable",
+  "systemOneAdminAvailability": "Decision models agents can pick under Settings › Models. A model switched off here leaves that picker, and agents that chose it fall back to Auto. While any model is switched off, SystemOne models that providers add later start switched off too.",
+  "addATypesafeOrOpenrouterKey": "No SystemOne models yet. Add a TypeSafe or OpenRouter key under Providers, or pull a decision model such as nimble in Ollama 0.35 or later.",
+  "noSystemOneModelIsAvailableYet": "No SystemOne model is available yet. Add a TypeSafe or OpenRouter key under Advanced › Bring your own key, or pull a decision model such as nimble in Ollama.",
+  "systemoneDecisionModelsTypesafeOpenrouterOllama": "systemone system one decision models jev typesafe openrouter ollama availability enable disable"
 }
