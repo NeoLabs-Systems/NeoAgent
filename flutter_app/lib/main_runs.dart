@@ -2793,6 +2793,7 @@ class _RunResponseCard extends StatelessWidget {
               MarkdownBody(
                 data: response,
                 selectable: true,
+                sizedImageBuilder: _markdownImageLink,
                 styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
                     .copyWith(
                       p: Theme.of(context).textTheme.bodyMedium?.copyWith(

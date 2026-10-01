@@ -3,6 +3,7 @@
 const { buildPlatformFormattingGuide } = require('../messaging/formatting_guides');
 const { getAiSettings } = require('../ai/settings');
 const { SENDER_IDENTITY_NOTE, buildSenderIdentityBlock } = require('../messaging/sender_identity');
+const { fenceUntrusted } = require('../../utils/untrusted_text');
 const { INTENT_DICTATION } = require('./voice_note');
 
 const VOICE_REASONING_EFFORT = 'low';
@@ -43,9 +44,7 @@ function buildVoiceMessagingPrompt(msg = {}) {
     senderIdentity,
     '',
     'Transcribed speech content:',
-    '<spoken_request>',
-    transcript,
-    '</spoken_request>',
+    fenceUntrusted('external_spoken_request', transcript),
     '',
     SENDER_IDENTITY_NOTE,
     msg.localMediaPath

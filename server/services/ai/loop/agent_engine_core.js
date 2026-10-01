@@ -59,7 +59,6 @@ const {
   publishInterimUpdate: publishInterimUpdateImpl,
 } = require('./callbacks');
 const {
-  executeReadOnlyBatch: executeReadOnlyBatchImpl,
   executeTool: executeToolImpl,
   getAvailableTools: getAvailableToolsImpl,
   isReadOnlyToolCall: isReadOnlyToolCallImpl,
@@ -722,10 +721,6 @@ class AgentEngine {
     return isReadOnlyToolCallImpl(toolCall, toolDefinition);
   }
 
-  async executeReadOnlyBatch(toolCalls, context = {}) {
-    return executeReadOnlyBatchImpl(this, toolCalls, context);
-  }
-
   async persistRunContext(userId, {
     triggerSource,
     runTitle,
@@ -1192,6 +1187,9 @@ class AgentEngine {
             agentId: options.agentId || null,
             subagentDepth: parentDepth + 1,
             disallowedToolNames: ['spawn_subagent'],
+            // The child's task is model-written, so it works under the
+            // parent's trust and any taint it picks up flows back.
+            parentTrust: parentRunMeta?.trust || null,
             signal: childLink.signal,
           },
           options.model || null
@@ -1330,6 +1328,7 @@ class AgentEngine {
           skipConversationHistory: true,
           context: { additionalContext: `Parent run: ${parentRunId || 'unknown'}` },
           allowExternalSideEffects,
+          parentTrust: this.getRunMeta(parentRunId)?.trust || null,
         },
         null,
       );

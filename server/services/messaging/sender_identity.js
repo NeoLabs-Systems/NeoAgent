@@ -1,5 +1,7 @@
 'use strict';
 
+const { neutralizeFenceTags } = require('../../utils/untrusted_text');
+
 // The harness builds this block from platform data. The sender controls only
 // their display name and the message text, so the prompt says which parts can
 // identify them and which cannot.
@@ -7,8 +9,10 @@ const SENDER_IDENTITY_NOTE = 'The harness filled sender_identity from the platfo
 
 function buildSenderIdentityBlock(msg = {}) {
   const lines = [];
+  // Display names are sender-controlled: keep them on one line and unable to
+  // open or close a fence.
   const add = (key, value) => {
-    const text = String(value || '').trim();
+    const text = neutralizeFenceTags(String(value || '')).replace(/\s+/g, ' ').trim();
     if (text) lines.push(`${key}: ${text}`);
   };
 

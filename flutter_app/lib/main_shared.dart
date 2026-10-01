@@ -2,6 +2,26 @@ part of 'main.dart';
 
 String _formatCaughtError(Object error) => formatCaughtError(error);
 
+// Markdown from the model never loads an image by itself: an image URL built
+// from private data leaks it to that host the moment it renders. The image
+// shows as a chip naming its host, and opens only when tapped.
+Widget _markdownImageLink(MarkdownImageConfig config) {
+  final uri = config.uri;
+  final alt = config.alt?.trim() ?? '';
+  final host = uri.host.isNotEmpty ? uri.host : uri.toString();
+  final canOpen = uri.scheme == 'https' || uri.scheme == 'http';
+  return ActionChip(
+    avatar: const Icon(Icons.image_outlined, size: 16),
+    label: Text(alt.isEmpty ? host : '$alt · $host'),
+    onPressed: canOpen
+        ? () => url_launcher.launchUrl(
+            uri,
+            mode: url_launcher.LaunchMode.externalApplication,
+          )
+        : null,
+  );
+}
+
 String _formatTokenCount(int amount) {
   if (amount >= 1000000) {
     final value = amount / 1000000;
@@ -1574,6 +1594,7 @@ class _ChatBubble extends StatelessWidget {
                     MarkdownBody(
                       data: entry.content,
                       selectable: false,
+                      sizedImageBuilder: _markdownImageLink,
                       styleSheet:
                           MarkdownStyleSheet.fromTheme(
                             Theme.of(context),

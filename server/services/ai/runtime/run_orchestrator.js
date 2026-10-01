@@ -15,6 +15,7 @@ const { getCapabilityHealth, summarizeCapabilityHealth } = require('../capabilit
 const { summarizeProgressToolExecutions } = require('../toolEvidence');
 const { enforceRateLimits } = require('../rate_limits');
 const { getPublicRunScope } = require('../../messaging/public_audience');
+const { createRunTrust } = require('../../security/run_trust');
 const { parseModelSelectionId } = require('../model_identity');
 const { getProviderRuntimeConfig } = require('../models');
 const { ToolRepetitionGuard } = require('../repetitionGuard');
@@ -628,6 +629,9 @@ class DurableRunRuntime {
         ...(backgroundRuns.length > 0 ? ['background_task'] : []),
       ], toolSelectionOptions);
       this.engine.initializeToolRuntime?.(runId, allTools, session.tools, toolSelectionOptions);
+      // The tool catalog carries third-party descriptions (MCP, skills), so
+      // it is not part of what the owner wrote.
+      const openingMessages = [...messages];
       messages.push({
         role: 'system',
         content: [
@@ -643,9 +647,23 @@ class DurableRunRuntime {
         catalogSize: allTools.length,
       }, { agentId });
 
-      messages.push(this.engine.buildUserMessage(userMessage, options));
+      const userTurn = this.engine.buildUserMessage(userMessage, options);
+      messages.push(userTurn);
       session.messages = sanitizeConversationMessages(messages);
       if (conversationId) this.#storeUserMessage(session);
+      this.engine.getRunMeta(runId).trust = options.parentTrust || createRunTrust({
+        audience: publicScope ? 'public' : (options.audience || 'owner'),
+        triggerSource,
+        messages: [...openingMessages, userTurn],
+        origin: triggerSource === 'messaging'
+          ? {
+            platform: options.source,
+            chatId: options.chatId,
+            senderId: options.context?.socialIntelligence?.message?.sender,
+          }
+          : null,
+        mediaPaths: (options.mediaAttachments || []).map((attachment) => attachment?.path),
+      });
 
       applyTransition({
         runId,

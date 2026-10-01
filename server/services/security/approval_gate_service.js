@@ -113,14 +113,17 @@ class ApprovalGateService {
   /**
    * Emits tool:approval_required and waits for a decision.
    * Resolves to 'approved', 'denied', 'timeout', or 'expired'.
+   * @param {object} [options]
+   * @param {string|null} [options.reason] why this call needs the owner, when
+   *   the run's trust (not the category policy) asked for approval
    */
-  requestApproval(userId, runId, toolName, toolArgs) {
+  requestApproval(userId, runId, toolName, toolArgs, { reason = null } = {}) {
     const approvalId = randomUUID();
     const expiresAt = new Date(Date.now() + APPROVAL_TIMEOUT_MS).toISOString();
     const category = getCategoryForTool(toolName, toolArgs) ?? 'unknown';
     this._persistPendingApproval(approvalId, userId, runId, toolName, toolArgs, category, expiresAt);
 
-    const payload = { approvalId, runId, toolName, toolArgs, category, expiresAt };
+    const payload = { approvalId, runId, toolName, toolArgs, category, expiresAt, reason };
     this._io.to(`user:${userId}`).emit('tool:approval_required', payload);
 
     return new Promise((resolve) => {
@@ -148,13 +151,17 @@ class ApprovalGateService {
   }
 
   /**
-   * Called from the REST/notification endpoint when the user decides.
+   * Called from the REST/notification endpoint when the user decides. The
+   * grant and the log use the pending call, never client-supplied values.
    * @param {'approved'|'denied'} decision
    * @param {'once'|'session'|'always'} scope
+   * @returns {{runId: string|null, toolName: string, toolArgs: object}|null}
+   *   the call that was decided, or null when nothing was pending
    */
-  resolve(approvalId, userId, runId, toolName, toolArgs, decision, scope) {
+  resolve(approvalId, userId, decision, scope) {
     const entry = this._pending.get(approvalId);
-    if (!entry) return false;
+    if (!entry || String(entry.userId) !== String(userId)) return null;
+    const { runId, toolName, toolArgs } = entry;
 
     clearTimeout(entry.timer);
     this._pending.delete(approvalId);
@@ -178,7 +185,7 @@ class ApprovalGateService {
     this._logDecision(userId, runId, toolName, toolArgs, normalizedDecision, logScope);
     this._io.to(`user:${userId}`).emit('tool:approval_resolved', { approvalId, decision: normalizedDecision });
     entry.resolve(normalizedDecision);
-    return true;
+    return { runId, toolName, toolArgs };
   }
 
   _logDecision(userId, runId, toolName, toolArgs, decision, scope) {

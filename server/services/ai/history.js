@@ -3,6 +3,7 @@
 const db = require('../../db/database');
 const { resolveAgentId } = require('../agents/manager');
 const { throwIfAborted } = require('../../utils/abort');
+const { fenceUntrusted } = require('../../utils/untrusted_text');
 
 const WEB_SUMMARY_KEY = 'web_chat_summary';
 const WEB_SUMMARY_COUNT_KEY = 'web_chat_summary_count';
@@ -37,7 +38,7 @@ function buildStoredUserContent({ userMessage, rawUserMessage, platform, speaker
     isGroup ? 'group message' : 'message',
     String(speaker || '').trim() ? `from ${String(speaker).trim()}` : '',
   ].filter(Boolean).join(' ');
-  return `[${origin}]\n<external_message>\n${raw}\n</external_message>`;
+  return `[${origin}]\n${fenceUntrusted('external_message', raw)}`;
 }
 
 function normalizeHistoryRows(rows) {

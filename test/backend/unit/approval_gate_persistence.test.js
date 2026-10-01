@@ -89,16 +89,8 @@ test('session grants are persisted and reloaded across service restart', async (
     'SELECT id FROM pending_approvals WHERE user_id = ? AND run_id = ?'
   ).get(user.userId, runId);
 
-  const resolved = service.resolve(
-    pending.id,
-    user.userId,
-    runId,
-    toolName,
-    { command: 'pwd' },
-    'approved',
-    'session',
-  );
-  assert.equal(resolved, true);
+  const resolved = service.resolve(pending.id, user.userId, 'approved', 'session');
+  assert.deepEqual(resolved, { runId, toolName, toolArgs: { command: 'pwd' } });
   assert.equal(await promise, 'approved');
 
   const storedGrant = db.prepare(

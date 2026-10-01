@@ -52,32 +52,30 @@ router.put('/policies', (req, res) => {
 
 router.post('/approvals/:approvalId', (req, res) => {
   const { approvalId } = req.params;
-  const { decision, scope, runId, toolName, toolArgs } = req.body;
+  const { decision, scope, runId } = req.body;
 
   if (!decision || !['approved', 'denied'].includes(decision)) {
     return res.status(400).json({ error: 'decision must be approved or denied' });
   }
   const normalizedScope = ['once', 'session', 'always'].includes(scope) ? scope : 'once';
 
-  if (decision === 'approved' && normalizedScope === 'always' && toolName) {
-    try {
-      const category = getCategoryForTool(toolName, toolArgs ?? {});
-      if (category) {
-        req.app.locals.toolPolicyService.setPolicy(req.session.userId, category, 'allow');
-      }
-    } catch {}
-  }
-
   const { approvalGateService } = req.app.locals;
   const resolved = approvalGateService.resolve(
     approvalId,
     req.session.userId,
-    runId || null,
-    toolName || null,
-    toolArgs || {},
     decision,
     normalizedScope,
   );
+  if (resolved && decision === 'approved' && normalizedScope === 'always') {
+    const category = getCategoryForTool(resolved.toolName, resolved.toolArgs);
+    if (category) {
+      try {
+        req.app.locals.toolPolicyService.setPolicy(req.session.userId, category, 'allow');
+      } catch (err) {
+        console.warn('[Security] Failed to save always-allow policy:', err.message);
+      }
+    }
+  }
   if (!resolved) {
     const storedApproval = approvalGateService.getStoredApproval?.(
       approvalId,

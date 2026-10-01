@@ -1629,6 +1629,7 @@ class _CoworkMessageBubble extends StatelessWidget {
             child: MarkdownBody(
               data: message.content,
               selectable: true,
+              sizedImageBuilder: _markdownImageLink,
               styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
                 p: theme.textTheme.bodyMedium?.copyWith(
                   height: 1.6,

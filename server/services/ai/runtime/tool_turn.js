@@ -11,6 +11,8 @@ const {
   inferToolFailureMessage,
 } = require('../toolEvidence');
 const { globalHooks } = require('../hooks');
+const { recordToolOutput } = require('../../security/run_trust');
+const { scrubInvisible, scrubInvisibleDeep } = require('../../../utils/untrusted_text');
 const { scheduleToolCalls } = require('../loop/tool_scheduler');
 const { EVENT_TYPES, VISIBILITY } = require('./events/event_types');
 
@@ -80,7 +82,10 @@ async function runToolCall(session, { call, definition, isReadOnly }) {
   session.stepIndex += 1;
   const stepIndex = session.stepIndex;
   const stepType = engine.getStepType?.(call.name) || 'tool';
-  const toolArgs = call.arguments || {};
+  // What is approved, logged, and run must be what a person can read.
+  call.arguments = scrubInvisibleDeep(call.arguments || {});
+  const toolArgs = call.arguments;
+  const trust = engine.getRunMeta(runId)?.trust || null;
 
   db.prepare(
     `INSERT INTO agent_steps (
@@ -136,6 +141,7 @@ async function runToolCall(session, { call, definition, isReadOnly }) {
         toolArgs: call.arguments,
         userId,
         agentId,
+        trust,
       });
       if (hookResult?.block === true) {
         errorMessage = hookResult.reason || 'Blocked by policy hook';
@@ -187,6 +193,8 @@ async function runToolCall(session, { call, definition, isReadOnly }) {
   if (reportedFailure) errorMessage = reportedFailure;
   const success = !errorMessage;
   const elapsed = Date.now() - started;
+
+  if (!blocked) recordToolOutput(trust, call.name);
 
   const execution = classifyToolExecution(call.name, toolArgs, result, errorMessage, definition);
   // A blocked call never ran; observing it would reset the streak and let the
@@ -273,7 +281,7 @@ async function runToolCall(session, { call, definition, isReadOnly }) {
       role: 'tool',
       name: call.name,
       tool_call_id: call.id,
-      content: typeof compacted === 'string' ? compacted : JSON.stringify(compacted),
+      content: scrubInvisible(typeof compacted === 'string' ? compacted : JSON.stringify(compacted)),
     },
   };
 }

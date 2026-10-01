@@ -8,6 +8,7 @@ const { parseMaybeJson } = require('../logFormat');
 const { buildInitialProgressLedger } = require('./progress_monitor');
 const { moveRunToBackground } = require('./background_runs');
 const { getPublicRunScope } = require('../../messaging/public_audience');
+const { addTrustedText } = require('../../security/run_trust');
 const {
   createDeliveryState,
   markInterimDelivered,
@@ -334,6 +335,7 @@ function applyQueuedSteering(engine, runId, messages, { userId, conversationId }
 
   for (const entry of queued) {
     messages.push({ role: 'user', content: entry.content });
+    addTrustedText(runMeta.trust, entry.content);
     if (conversationId) {
       db.prepare(
         `INSERT INTO conversation_messages (

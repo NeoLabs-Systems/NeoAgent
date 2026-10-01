@@ -10,6 +10,7 @@ class ToolApprovalRequest {
     required this.toolArgs,
     required this.category,
     required this.expiresAt,
+    this.reason,
   });
 
   factory ToolApprovalRequest.fromJson(Map<String, dynamic> json) {
@@ -25,6 +26,7 @@ class ToolApprovalRequest {
           ? DateTime.tryParse(json['expiresAt'].toString()) ??
                 DateTime.now().add(const Duration(seconds: 30))
           : DateTime.now().add(const Duration(seconds: 30)),
+      reason: json['reason']?.toString(),
     );
   }
 
@@ -34,6 +36,11 @@ class ToolApprovalRequest {
   final Map<String, dynamic> toolArgs;
   final String category;
   final DateTime expiresAt;
+
+  /// Why the run's trust asked for this call, when the category policy alone
+  /// would have let it through (a group chat asked, or outside content led
+  /// here).
+  final String? reason;
 }
 
 // ── Category metadata ─────────────────────────────────────────────────────────
@@ -1136,6 +1143,27 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
               ),
             ),
             const SizedBox(height: 14),
+            if (req.reason != null && req.reason!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Icon(Icons.shield_outlined, size: 16, color: riskColor),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        req.reason!,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          height: 1.4,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             // Tool + args preview
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
