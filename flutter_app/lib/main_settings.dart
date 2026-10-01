@@ -2166,7 +2166,6 @@ class _SystemOneSettingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final active = selection != 'off';
     final options = <_ModelPickerOption>[
       _ModelPickerOption(
         value: 'auto',
@@ -2185,11 +2184,6 @@ class _SystemOneSettingCard extends StatelessWidget {
     ];
     return _PanelSurface(
       padding: const EdgeInsets.all(18),
-      fillColor: Color.alphaBlend(
-        _accent.withValues(alpha: active ? 0.10 : 0.05),
-        _bgCard,
-      ),
-      borderColor: _accent.withValues(alpha: active ? 0.45 : 0.22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
