@@ -103,8 +103,9 @@ class AgentCallCoordinator {
       reason: 'answered_elsewhere',
     });
 
+    let session = null;
     try {
-      const session = await this.voiceRuntimeManager.openFlutterSession({
+      session = await this.voiceRuntimeManager.openFlutterSession({
         userId,
         agentId: invitation.agentId,
         socket,
@@ -121,6 +122,14 @@ class AgentCallCoordinator {
       return { accepted: true, status: 'accepted', sessionId: session.id };
     } catch (error) {
       logger.warn('Failed to accept agent call', error?.message || error);
+      if (session) {
+        // The session opened but the greeting failed: release it so the next
+        // call is not reported busy.
+        socket.data.voiceSessionIds?.delete(session.id);
+        await this.voiceRuntimeManager
+          .closeSession(session.id, 'open_failed', userId)
+          .catch((closeError) => logger.warn('Failed to close agent call session', closeError?.message || closeError));
+      }
       this.io.to(`user:${userId}`).emit('voice:call_ended', {
         callId: invitation.callId,
         reason: 'unavailable',

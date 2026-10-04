@@ -234,6 +234,8 @@ class MessagingManager extends EventEmitter {
       content: normalizedIncomingContent,
       mediaType: msg.mediaType || null,
       localMediaPath: msg.localMediaPath || null,
+      mediaFileName: msg.mediaFileName || null,
+      mediaError: msg.mediaError || null,
       voiceNote: msg.voiceNote || null,
       isGroup: msg.isGroup === true,
       timestamp: msg.timestamp || new Date().toISOString(),

@@ -506,8 +506,10 @@ function ensureConversation(userId, msg) {
 
 function buildIncomingPrompt(msg, options = {}) {
   const mediaNote = msg.localMediaPath
-    ? `\nMedia attached at: ${msg.localMediaPath} (type: ${msg.mediaType}). You can reference or forward it with send_message media_path.`
-    : '';
+    ? `\nMedia attached at: ${msg.localMediaPath} (type: ${msg.mediaType}${msg.mediaFileName ? `, file name: ${msg.mediaFileName}` : ''}). You can open it with your file tools, or reference or forward it with send_message media_path.`
+    : (msg.mediaType && msg.mediaType !== 'sticker'
+      ? `\nAn attachment (type: ${msg.mediaType}${msg.mediaFileName ? `, file name: ${msg.mediaFileName}` : ''}) was sent but could not be retrieved${msg.mediaError ? `: ${msg.mediaError}` : ''}. Tell the sender it did not arrive instead of pretending to read it.`
+      : '');
   const audioContextNote = msg.voiceNote?.intent === INTENT_AUDIO_CONTEXT
     ? `\nThe audio clip is something the sender shared, not a spoken request. No transcript was made; use transcribe_audio on that path if its spoken content matters. ${msg.content ? 'The message text is the request.' : 'No text came with it, so infer from the conversation what the sender wants with it, or ask briefly.'}`
     : '';

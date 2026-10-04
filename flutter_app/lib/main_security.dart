@@ -91,8 +91,7 @@ final _kCategoryInfo = <String, _CategoryInfo>{
   ),
   'credential_use': _CategoryInfo(
     label: appStrings.credentialUse,
-    subtitle:
-        appStrings.fillApprovedLoginsOrAuthenticateRequests,
+    subtitle: appStrings.fillApprovedLoginsOrAuthenticateRequests,
     icon: Icons.password_rounded,
     riskLevel: 'high',
   ),
@@ -116,8 +115,7 @@ final _kCategoryInfo = <String, _CategoryInfo>{
   ),
   'external': _CategoryInfo(
     label: appStrings.externalMcpTools,
-    subtitle:
-        appStrings.toolsNotBuiltIntoNeoagentIncluding,
+    subtitle: appStrings.toolsNotBuiltIntoNeoagentIncluding,
     icon: Icons.hub_rounded,
     riskLevel: 'high',
   ),
@@ -305,8 +303,7 @@ class _AppNotificationService {
     final androidDetails = AndroidNotificationDetails(
       _messagingChannelId,
       _messagingChannelName,
-      channelDescription:
-          appStrings.alertsWhenAMessagingConnectionNeeds,
+      channelDescription: appStrings.alertsWhenAMessagingConnectionNeeds,
       importance: Importance.high,
       priority: Priority.high,
       ticker: appStrings.messagingConnectionNeedsAttention,
@@ -418,7 +415,8 @@ class _MainSecurityState extends State<MainSecurity> {
             ? locks.map(
                 (key, manager) => MapEntry(
                   key.toString(),
-                  AccessPerson.tryParse(manager)?.label ?? appStrings.yourManager,
+                  AccessPerson.tryParse(manager)?.label ??
+                      appStrings.yourManager,
                 ),
               )
             : const <String, String>{};
@@ -654,8 +652,7 @@ class _GlobalModeCard extends StatelessWidget {
               value: 'allow_all',
               current: mode,
               label: appStrings.allowAll,
-              subtitle:
-                  appStrings.noApprovalPromptsAgentRunsWithout,
+              subtitle: appStrings.noApprovalPromptsAgentRunsWithout,
               icon: Icons.lock_open_rounded,
               color: _warning,
               onTap: () => onChanged('allow_all'),
@@ -882,7 +879,7 @@ class _PolicyCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         appStrings.turnedOffByArg1WhoManages(lockedBy) +
-                        appStrings.onlyTheyCanChangeIt,
+                            appStrings.onlyTheyCanChangeIt,
                         style: TextStyle(fontSize: 11, color: _textSecondary),
                       ),
                     ),
@@ -905,18 +902,9 @@ class _PolicyHint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (text, color) = switch (policy) {
-      'deny' => (
-        appStrings.completelyBlockedTheAgentCannotUse,
-        _danger,
-      ),
-      'require_approval' => (
-        appStrings.agentPausesAndAsksYouBefore,
-        _warning,
-      ),
-      'allow' => (
-        appStrings.allowedForThisRunWillAsk,
-        _accentAlt,
-      ),
+      'deny' => (appStrings.completelyBlockedTheAgentCannotUse, _danger),
+      'require_approval' => (appStrings.agentPausesAndAsksYouBefore, _warning),
+      'allow' => (appStrings.allowedForThisRunWillAsk, _accentAlt),
       'allow_always' => (appStrings.permanentlyAllowedNeverAsksAgain, _info),
       _ => ('', _textSecondary),
     };
@@ -1052,170 +1040,184 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            // Handle bar
-            Center(
-              child: Container(
-                margin: const EdgeInsets.only(top: 10, bottom: 6),
-                width: 38,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colorScheme.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-              child: Row(
-                children: <Widget>[
-                  // Countdown ring
-                  SizedBox(
-                    width: 52,
-                    height: 52,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: <Widget>[
-                        AnimatedBuilder(
-                          animation: _ringController,
-                          builder: (_, __) => CircularProgressIndicator(
-                            value: 1 - _ringController.value,
-                            strokeWidth: 3.5,
-                            backgroundColor:
-                                colorScheme.surfaceContainerHighest,
-                            color: ringColor,
-                          ),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    // Handle bar
+                    Center(
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 10, bottom: 6),
+                        width: 38,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: colorScheme.outlineVariant,
+                          borderRadius: BorderRadius.circular(2),
                         ),
-                        AnimatedDefaultTextStyle(
-                          duration: const Duration(milliseconds: 200),
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: ringColor,
-                          ),
-                          child: Text('$_remainingSeconds'),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          appStrings.approvalRequired,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: <Widget>[
-                            Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: riskColor.withAlpha(22),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Icon(
-                                info.icon,
-                                size: 13,
-                                color: riskColor,
-                              ),
+                    // Header
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                      child: Row(
+                        children: <Widget>[
+                          // Countdown ring
+                          SizedBox(
+                            width: 52,
+                            height: 52,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: <Widget>[
+                                AnimatedBuilder(
+                                  animation: _ringController,
+                                  builder: (_, __) => CircularProgressIndicator(
+                                    value: 1 - _ringController.value,
+                                    strokeWidth: 3.5,
+                                    backgroundColor:
+                                        colorScheme.surfaceContainerHighest,
+                                    color: ringColor,
+                                  ),
+                                ),
+                                AnimatedDefaultTextStyle(
+                                  duration: const Duration(milliseconds: 200),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: ringColor,
+                                  ),
+                                  child: Text('$_remainingSeconds'),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              info.label,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: riskColor,
-                                fontWeight: FontWeight.w600,
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  appStrings.approvalRequired,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: <Widget>[
+                                    Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: riskColor.withAlpha(22),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Icon(
+                                        info.icon,
+                                        size: 13,
+                                        color: riskColor,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      info.label,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: riskColor,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    if (req.reason != null && req.reason!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Icon(
+                              Icons.shield_outlined,
+                              size: 16,
+                              color: riskColor,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                req.reason!,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  height: 1.4,
+                                  color: colorScheme.onSurface,
+                                ),
                               ),
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            if (req.reason != null && req.reason!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Icon(Icons.shield_outlined, size: 16, color: riskColor),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        req.reason!,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          height: 1.4,
-                          color: colorScheme.onSurface,
+                      ),
+                    // Tool + args preview
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: colorScheme.outlineVariant),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Row(
+                              children: <Widget>[
+                                Container(
+                                  width: 7,
+                                  height: 7,
+                                  decoration: BoxDecoration(
+                                    color: riskColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  req.toolName,
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (req.toolArgs.isNotEmpty) ...<Widget>[
+                              const SizedBox(height: 8),
+                              Text(
+                                _formatArgs(),
+                                style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 11,
+                                  color: colorScheme.onSurfaceVariant,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-            // Tool + args preview
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: colorScheme.outlineVariant),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: BoxDecoration(
-                            color: riskColor,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          req.toolName,
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (req.toolArgs.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 8),
-                      Text(
-                        _formatArgs(),
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 11,
-                          color: colorScheme.onSurfaceVariant,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
+                    const SizedBox(height: 18),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 18),
-            // Action buttons
+            // Action buttons (pinned below the scrollable content)
             if (_submitting)
               const Padding(
                 padding: EdgeInsets.only(bottom: 24),
@@ -1244,10 +1246,7 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                         const SizedBox(width: 8),
                         Expanded(
                           child: OutlinedButton.icon(
-                            icon: Icon(
-                              Icons.check_circle_outline,
-                              size: 15,
-                            ),
+                            icon: Icon(Icons.check_circle_outline, size: 15),
                             label: Text(appStrings.allowOnce),
                             onPressed: () => _decide('approved', 'once'),
                           ),

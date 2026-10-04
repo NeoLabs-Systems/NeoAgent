@@ -215,3 +215,42 @@ test('all recipients declining resolves the call and abort cancels a pending rin
   abortController.abort();
   assert.equal((await cancelledOutcome).status, 'cancelled');
 });
+
+test('a failed opening greeting closes the opened session so the next call is not busy', async (t) => {
+  const ctx = createTestRuntime();
+  t.after(() => teardownTestRuntime(ctx));
+  const user = await createTestUser(ctx.db);
+  const { AgentCallCoordinator } = require('../../../server/services/voice/agent_call_coordinator');
+  const socket = createSocket('socket-1', []);
+  const io = createIo([socket]);
+  const closed = [];
+  const sessions = new Set();
+  const coordinator = new AgentCallCoordinator({
+    io,
+    voiceRuntimeManager: {
+      hasActiveSessionForUser: () => sessions.size > 0,
+      openFlutterSession: async () => {
+        const session = {
+          id: 'call-session',
+          say() { throw new Error('greeting failed'); },
+        };
+        sessions.add(session.id);
+        return session;
+      },
+      closeSession: async (id, reason) => {
+        closed.push({ id, reason });
+        sessions.delete(id);
+      },
+    },
+  });
+
+  const outcome = coordinator.callUser({ userId: user.userId, openingMessage: 'Hi' });
+  await new Promise((resolve) => setImmediate(resolve));
+  const result = await coordinator.accept(emittedCallId(io), user.userId, socket);
+
+  assert.equal(result.status, 'unavailable');
+  assert.equal((await outcome).status, 'unavailable');
+  assert.deepEqual(closed, [{ id: 'call-session', reason: 'open_failed' }]);
+  assert.equal(sessions.size, 0);
+  assert.equal(socket.data.voiceSessionIds.has('call-session'), false);
+});

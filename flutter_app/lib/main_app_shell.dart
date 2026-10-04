@@ -1149,6 +1149,8 @@ class _HomeViewState extends State<HomeView> {
         if (!mounted) return;
         showModalBottomSheet<void>(
           context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
           isDismissible: false,
           enableDrag: false,
           shape: const RoundedRectangleBorder(

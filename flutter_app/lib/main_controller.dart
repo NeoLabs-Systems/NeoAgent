@@ -8464,6 +8464,8 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('tool:approval_required', (dynamic data) {
       final payload = _jsonMap(data);
       final req = ToolApprovalRequest.fromJson(payload);
+      // An already-expired request must not be presented as actionable.
+      if (!req.expiresAt.isAfter(DateTime.now())) return;
       pendingApproval = req;
       notifyListeners();
       // Show interactive push notification when app is backgrounded

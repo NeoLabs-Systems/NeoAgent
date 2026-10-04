@@ -475,3 +475,19 @@ describe('messaging automation queue', () => {
     finishFirst({ status: 'completed', content: 'laptop comparison' });
   });
 });
+
+test('incoming prompt tells the agent when an attachment could not be retrieved', () => {
+  const { buildIncomingPrompt } = require('../../../server/services/messaging/automation');
+  const failed = buildIncomingPrompt({
+    platform: 'whatsapp', content: 'summarize this', mediaType: 'document',
+    mediaFileName: 'report.pdf', mediaError: 'download failed',
+  });
+  assert.match(failed, /could not be retrieved/);
+  assert.match(failed, /report\.pdf/);
+  const ok = buildIncomingPrompt({
+    platform: 'whatsapp', content: 'summarize this', mediaType: 'document',
+    mediaFileName: 'report.pdf', localMediaPath: '/tmp/x.pdf',
+  });
+  assert.match(ok, /\/tmp\/x\.pdf/);
+  assert.match(ok, /summarize this/);
+});

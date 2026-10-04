@@ -301,6 +301,8 @@ class WhatsAppPlatform extends BasePlatform {
         let content = '';
         let mediaType = null;
         let voiceNote = null;
+        let mediaFileName = null;
+        let mediaError = null;
         const documentMimeType = String(msg.message?.documentMessage?.mimetype || '');
 
         if (msg.message?.conversation) {
@@ -326,7 +328,11 @@ class WhatsAppPlatform extends BasePlatform {
           mediaType = 'audio';
           voiceNote = { source: 'whatsapp_audio', durationSec: null };
         } else if (msg.message?.documentMessage) {
-          content = msg.message.documentMessage.fileName || '[Document]';
+          const doc = msg.message.documentMessage;
+          mediaFileName = doc.fileName || null;
+          // The caption carries the sender's instruction; the file name is
+          // only a fallback so the agent still sees what was attached.
+          content = doc.caption || doc.fileName || '[Document]';
           mediaType = 'document';
         } else if (msg.message?.stickerMessage) {
           content = '[Sticker]';
@@ -360,7 +366,12 @@ class WhatsAppPlatform extends BasePlatform {
             const audioMimeType = mediaType === 'audio'
               ? String(msg.message.audioMessage?.mimetype || documentMimeType || 'audio/ogg').split(';')[0]
               : null;
-            const ext = audioMimeType ? fileExtensionForMimeType(audioMimeType) : (extMap[mediaType] || 'bin');
+            const nameExt = mediaFileName
+              ? path.extname(mediaFileName).slice(1).replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+              : '';
+            const ext = audioMimeType
+              ? fileExtensionForMimeType(audioMimeType)
+              : (mediaType === 'document' && nameExt ? nameExt : (extMap[mediaType] || 'bin'));
             const safeId = (msg.key.id || 'file').replace(/[^a-zA-Z0-9]/g, '');
             if (!this.artifactStore || !this.userId) {
               throw new Error('Per-user artifact storage is unavailable.');
@@ -383,6 +394,7 @@ class WhatsAppPlatform extends BasePlatform {
             localMediaPath = artifact.filePath;
           } catch (dlErr) {
             log.error('Media download failed:', dlErr.message);
+            mediaError = dlErr.message;
           }
         }
 
@@ -414,6 +426,8 @@ class WhatsAppPlatform extends BasePlatform {
           content,
           mediaType,
           localMediaPath,
+          mediaFileName,
+          mediaError,
           voiceNote: localMediaPath ? voiceNote : null,
           isGroup,
           messageId: msg.key.id,
