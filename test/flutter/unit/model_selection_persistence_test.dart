@@ -175,19 +175,23 @@ void main() {
       healthBridge: HealthBridge(),
     );
     addTearDown(controller.dispose);
+    controller.settingsPage = SettingsPage.models;
 
     const savedModel = 'openrouter::anthropic/claude-sonnet-4.5';
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: SettingsPanel(controller: controller, embedded: true),
+          body: ListenableBuilder(
+            listenable: controller,
+            builder: (_, _) => SettingsPanel(controller: controller),
+          ),
         ),
       ),
     );
 
-    // The settings panel is already mounted when the remote settings and
-    // dynamic catalog arrive. This is the lifecycle that previously left the
-    // panel stuck on Auto with an empty Smart Selector pool.
+    // The settings page is already mounted when the remote settings and
+    // dynamic catalog arrive. This is the lifecycle that once left the page
+    // stuck on Auto with an empty Smart Selector pool.
     controller.settings = <String, dynamic>{
       'enabled_models': <String>[savedModel],
       'default_chat_model': savedModel,
@@ -214,33 +218,14 @@ void main() {
     controller.notifyListeners();
     await tester.pump();
 
-    await tester.tap(find.text('Save'));
-    await tester.pump();
-
-    expect(backend.settingsPayloads, hasLength(1));
-    expect(backend.settingsPayloads.single['enabled_models'], <String>[
-      savedModel,
-    ]);
-    expect(backend.settingsPayloads.single['default_chat_model'], savedModel);
-    expect(
-      backend.settingsPayloads.single['default_subagent_model'],
-      savedModel,
-    );
-    expect(backend.settingsPayloads.single['default_speech_model'], savedModel);
-    expect(
-      backend.settingsPayloads.single.containsKey('fallback_model_id'),
-      isFalse,
-    );
-
-    backend.settingsWrites.single.complete(<String, dynamic>{'success': true});
-    await tester.pump();
-    backend.behaviorWrite.complete(<String, dynamic>{
-      'config': <String, dynamic>{},
-    });
-    await tester.pumpAndSettle();
+    // Chat and sub-agent pickers both keep the saved model, and showing it
+    // writes nothing back.
+    expect(find.text(savedModel), findsNWidgets(2));
+    expect(backend.settingsPayloads, isEmpty);
+    expect(controller.enabledModelIds, <String>[savedModel]);
   });
 
-  testWidgets('catalog refresh cannot overwrite an unsaved model choice', (
+  testWidgets('choosing a model saves just that choice right away', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 1000);
@@ -254,6 +239,7 @@ void main() {
       healthBridge: HealthBridge(),
     );
     addTearDown(controller.dispose);
+    controller.settingsPage = SettingsPage.models;
 
     const openRouterModel = 'openrouter::anthropic/claude-sonnet-4.5';
     const openAiModel = 'openai::gpt-5-nano';
@@ -283,40 +269,29 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: SettingsPanel(controller: controller, embedded: true),
+          body: ListenableBuilder(
+            listenable: controller,
+            builder: (_, _) => SettingsPanel(controller: controller),
+          ),
         ),
       ),
     );
-    await tester.tap(find.text('Models & routing'));
-    await tester.pump();
     await tester.tap(find.text('Claude Sonnet 4.5 (OpenRouter)'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('GPT-5 nano').last);
-    await tester.pumpAndSettle();
-
-    // Simulate an older settings response or catalog refresh arriving after
-    // the user made a local selection but before Save was pressed.
-    controller.settings = <String, dynamic>{
-      ...controller.settings,
-      'default_chat_model': 'auto',
-    };
-    controller.supportedModels = List<ModelMeta>.from(
-      controller.supportedModels,
-    );
-    controller.notifyListeners();
+    // The save is still in flight, so its spinner keeps the page animating.
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
-    await tester.tap(find.text('Save'));
-    await tester.pump();
-    expect(backend.settingsPayloads, hasLength(1));
-    expect(backend.settingsPayloads.single['default_chat_model'], openAiModel);
+    expect(backend.settingsPayloads, <Map<String, dynamic>>[
+      <String, dynamic>{'default_chat_model': openAiModel},
+    ]);
+    // The page shows the choice while the write is still in flight.
+    expect(controller.defaultChatModel, openAiModel);
 
     backend.settingsWrites.single.complete(<String, dynamic>{'success': true});
-    await tester.pump();
-    backend.behaviorWrite.complete(<String, dynamic>{
-      'config': <String, dynamic>{},
-    });
     await tester.pumpAndSettle();
+    expect(controller.defaultChatModel, openAiModel);
   });
 
   test(

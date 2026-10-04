@@ -1621,20 +1621,25 @@ class _MessagingPanelState extends State<MessagingPanel> {
     final counts = _MessagingStatusCounts.from(controller.messagingStatuses);
     final hasMatches = _hasMessagingMatches(controller, groups, query);
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _PageTitle(
-          title: 'Messaging',
-          subtitle:
-              appStrings.connectChannelsChooseWhoArg1Talks(controller.activeAgentLabel),
-          trailing: OutlinedButton.icon(
-            onPressed: controller.refreshMessaging,
-            icon: Icon(Icons.refresh_rounded),
-            label: Text(appStrings.refresh),
+        _GroupChatDefaults(controller: controller),
+        _SettingsAnchor(
+          id: 'channels',
+          child: _SettingsHeading(
+            title: appStrings.settingsChannels,
+            description: appStrings.connectChannelsChooseWhoArg1Talks(
+              controller.activeAgentLabel,
+            ),
+            trailing: IconButton(
+              tooltip: appStrings.refresh,
+              onPressed: controller.refreshMessaging,
+              icon: Icon(Icons.refresh_rounded),
+            ),
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 8),
         _MessagingOverviewStrip(counts: counts),
         const SizedBox(height: 16),
         _MessagingToolbar(

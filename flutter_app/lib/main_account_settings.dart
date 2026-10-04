@@ -129,27 +129,24 @@ class _PasswordStrengthIndicator extends StatelessWidget {
   }
 }
 
-enum AccountSettingsTab { account, usage, security }
-
+/// The account pages of Settings: Profile, Sign-in & security, and Plan &
+/// usage. One state backs all three, so a half-typed form survives switching
+/// between them.
 class AccountSettingsPanel extends StatefulWidget {
   const AccountSettingsPanel({
     super.key,
     required this.controller,
-    this.embedded = false,
-    this.initialTab,
+    required this.page,
   });
 
   final NeoAgentController controller;
-  final bool embedded;
-  final AccountSettingsTab? initialTab;
+  final SettingsPage page;
 
   @override
   State<AccountSettingsPanel> createState() => _AccountSettingsPanelState();
 }
 
 class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
-  late AccountSettingsTab _selectedTab;
-  late final TextEditingController _displayNameController;
   late final TextEditingController _emailController;
   late final TextEditingController _emailPasswordController;
   late final TextEditingController _setupPasswordController;
@@ -162,7 +159,6 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
   late final TextEditingController _securityKeyLabelController;
   Map<String, dynamic>? _pendingSetup;
   List<String> _recoveryCodes = const <String>[];
-  String? _displayNameSuccessMessage;
   String? _displayNameInlineError;
   String? _emailSuccessMessage;
   String? _emailInlineError;
@@ -174,10 +170,6 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
   @override
   void initState() {
     super.initState();
-    _selectedTab = widget.initialTab ?? AccountSettingsTab.account;
-    _displayNameController = TextEditingController(
-      text: widget.controller.user?['display_name']?.toString() ?? '',
-    );
     _emailController = TextEditingController(
       text: widget.controller.user?['email']?.toString() ?? '',
     );
@@ -196,15 +188,6 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
   @override
   void didUpdateWidget(covariant AccountSettingsPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialTab != null &&
-        oldWidget.initialTab != widget.initialTab) {
-      _selectedTab = widget.initialTab!;
-    }
-    final displayName =
-        widget.controller.user?['display_name']?.toString() ?? '';
-    if (_displayNameController.text.isEmpty && displayName.isNotEmpty) {
-      _displayNameController.text = displayName;
-    }
     final email = widget.controller.user?['email']?.toString() ?? '';
     if (_emailController.text.isEmpty && email.isNotEmpty) {
       _emailController.text = email;
@@ -213,7 +196,6 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
 
   @override
   void dispose() {
-    _displayNameController.dispose();
     _emailController.dispose();
     _emailPasswordController.dispose();
     _setupPasswordController.dispose();
@@ -242,11 +224,9 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
 
     final payload = QrLoginScanPayload.tryParse(scanned);
     if (payload == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(appStrings.thatQrCodeIsNotA),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(appStrings.thatQrCodeIsNotA)));
       return;
     }
 
@@ -286,7 +266,9 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(appStrings.approvedLoginForArg1(preview.requestedDevice.label)),
+          content: Text(
+            appStrings.approvedLoginForArg1(preview.requestedDevice.label),
+          ),
         ),
       );
     } catch (_) {
@@ -301,361 +283,212 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < 860;
-    final showTabSwitcher = widget.initialTab == null;
-    return ListView(
-      padding: widget.embedded ? EdgeInsets.zero : _pagePadding(context),
-      children: <Widget>[
-        if (!widget.embedded)
-          _PageTitle(
-            title: appStrings.accountSettings,
-            subtitle:
-                appStrings.manageYourAccountEmailTwoFactor,
-            trailing: _refreshButton(),
-          )
-        else
-          Align(
-            alignment: Alignment.centerRight,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _refreshButton(),
-            ),
-          ),
-        if (widget.controller.errorMessage != null) ...<Widget>[
-          _InlineError(
-            message: widget.controller.errorMessage!,
-            onDismiss: widget.controller.clearInlineError,
-          ),
-          const SizedBox(height: 16),
-        ],
-        if (showTabSwitcher && compact)
-          _AccountSettingsTabs(
-            selected: _selectedTab,
-            onSelected: (value) => setState(() => _selectedTab = value),
-          )
-        else
-          const SizedBox.shrink(),
-        if (showTabSwitcher && compact) const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: !showTabSwitcher
-                ? _buildSelectedPanel()
-                : compact
-                ? _buildSelectedPanel()
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      SizedBox(
-                        width: 220,
-                        child: _AccountSettingsTabs(
-                          selected: _selectedTab,
-                          onSelected: (value) =>
-                              setState(() => _selectedTab = value),
-                          vertical: true,
-                        ),
-                      ),
-                      const SizedBox(width: 24),
-                      Expanded(child: _buildSelectedPanel()),
-                    ],
-                  ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSelectedPanel() {
-    switch (_selectedTab) {
-      case AccountSettingsTab.account:
-        return _buildAccountPanel();
-      case AccountSettingsTab.usage:
-        return _buildUsagePanel();
-      case AccountSettingsTab.security:
-        return _buildSecurityPanel();
+    switch (widget.page) {
+      case SettingsPage.security:
+        return _buildSecurityPage();
+      case SettingsPage.usage:
+        return _buildUsagePage();
+      default:
+        return _buildProfilePage();
     }
   }
 
-  Widget _refreshButton() {
-    return OutlinedButton.icon(
-      onPressed: widget.controller.isLoadingAccountSettings
-          ? null
-          : widget.controller.refreshAccountSettings,
-      icon: widget.controller.isLoadingAccountSettings
-          ? const SizedBox.square(
-              dimension: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : Icon(Icons.refresh),
-      label: Text(appStrings.refresh),
-    );
-  }
-
-  Widget _buildAccountPanel() {
+  Widget _buildProfilePage() {
     final controller = widget.controller;
-    final username = controller.user?['username']?.toString() ?? appStrings.account;
+    final username =
+        controller.user?['username']?.toString() ?? appStrings.account;
     final currentEmail =
         controller.user?['email']?.toString() ?? appStrings.noEmailLinked;
     final hasPassword = controller.user?['hasPassword'] == true;
-    final availableProviders = controller.authProviders
-        .where((provider) => provider.configured)
-        .toList();
-    final linkedProviderKeys = controller.linkedAuthProviders
-        .map((provider) => provider.provider)
-        .toSet();
-    final linkableProviders = availableProviders
-        .where((provider) => !linkedProviderKeys.contains(provider.id))
-        .toList();
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        AccountLanguageSetting(controller: controller),
-        const SizedBox(height: 22),
-        _SectionTitle(appStrings.account),
-        const SizedBox(height: 12),
-        _MetaPill(label: username, icon: Icons.person_outline),
-        const SizedBox(height: 18),
-        TextField(
-          controller: _displayNameController,
-          decoration: InputDecoration(
-            labelText: appStrings.displayName,
-            helperText:
-                appStrings.shownInTheSidebarLeaveBlank,
-          ),
-        ),
-        if (_displayNameInlineError != null) ...<Widget>[
-          const SizedBox(height: 10),
-          _InlineError(message: _displayNameInlineError!),
-        ],
-        if (_displayNameSuccessMessage != null) ...<Widget>[
-          const SizedBox(height: 10),
-          _InlineSuccess(message: _displayNameSuccessMessage!),
-        ],
-        const SizedBox(height: 14),
-        FilledButton.icon(
-          onPressed: controller.isSavingAccountSettings
-              ? null
-              : () async {
-                  setState(() {
-                    _displayNameInlineError = null;
-                    _displayNameSuccessMessage = null;
-                  });
-                  final trimmed = _displayNameController.text.trim();
-                  if (trimmed.length > 64) {
-                    setState(() {
-                      _displayNameInlineError =
-                          appStrings.displayNameMustBe64Characters;
-                    });
-                    return;
-                  }
-                  final saved = await controller.updateAccountDisplayName(
-                    displayName: trimmed,
-                  );
-                  if (saved && mounted) {
-                    setState(() {
-                      _displayNameSuccessMessage = appStrings.displayNameSaved;
-                    });
-                  }
-                },
-          icon: controller.isSavingAccountSettings
-              ? const SizedBox.square(
-                  dimension: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Icon(Icons.save_outlined),
-          label: Text(appStrings.saveName),
-        ),
-        const SizedBox(height: 22),
-        Text(appStrings.currentEmailArg1(currentEmail)),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _emailController,
-          keyboardType: TextInputType.emailAddress,
-          decoration: InputDecoration(labelText: appStrings.email),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _emailPasswordController,
-          obscureText: true,
-          enabled: hasPassword,
-          decoration: InputDecoration(
-            labelText: appStrings.currentPassword,
-            helperText: hasPassword
-                ? appStrings.requiredToAddOrChangeYourAccount
-                : appStrings.createAPasswordFirstToChange,
-          ),
-        ),
-        if (_emailInlineError != null) ...<Widget>[
-          const SizedBox(height: 10),
-          _InlineError(message: _emailInlineError!),
-        ],
-        if (_emailSuccessMessage != null) ...<Widget>[
-          const SizedBox(height: 10),
-          _InlineSuccess(message: _emailSuccessMessage!),
-        ],
-        const SizedBox(height: 14),
-        FilledButton.icon(
-          onPressed: controller.isSavingAccountSettings || !hasPassword
-              ? null
-              : () async {
-                  setState(() {
-                    _emailInlineError = null;
-                    _emailSuccessMessage = null;
-                  });
-                  if (_emailPasswordController.text.trim().isEmpty) {
-                    setState(() {
-                      _emailInlineError =
-                          appStrings.enterYourCurrentPasswordToSave;
-                    });
-                    return;
-                  }
-                  final trimmedEmail = _emailController.text.trim();
-                  final saved = await controller.updateAccountEmail(
-                    email: trimmedEmail,
-                    currentPassword: _emailPasswordController.text,
-                  );
-                  if (saved && mounted) {
-                    setState(() {
-                      _emailPasswordController.clear();
-                      _emailSuccessMessage =
-                          appStrings.emailSavedIfConfirmationIsRequired;
-                    });
-                  }
-                },
-          icon: controller.isSavingAccountSettings
-              ? const SizedBox.square(
-                  dimension: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Icon(Icons.save_outlined),
-          label: Text(appStrings.saveEmail),
-        ),
-        const SizedBox(height: 28),
-        Row(
+        _SettingsGroup(
+          title: appStrings.settingsPageProfile,
           children: <Widget>[
-            Expanded(child: _SectionTitle(appStrings.linkedSignInProviders)),
-            if (controller.linkedAuthProviders.isNotEmpty)
-              Text(
-                appStrings.arg1Linked(controller.linkedAuthProviders.length),
-                style: TextStyle(color: _textSecondary),
+            _SettingsRow(
+              label: appStrings.username,
+              description: appStrings.settingsUsernameDescription,
+              control: Text(
+                '@$username',
+                style: GoogleFonts.geistMono(
+                  fontSize: 13.5,
+                  color: _textPrimary,
+                ),
               ),
+            ),
+            _SettingsRow(
+              anchor: 'displayName',
+              label: appStrings.displayName,
+              description:
+                  _displayNameInlineError ??
+                  appStrings.shownInTheSidebarLeaveBlank,
+              fillControl: true,
+              control: _AutosaveTextField(
+                value: controller.user?['display_name']?.toString() ?? '',
+                maxLength: 64,
+                onSave: (name) async {
+                  setState(() => _displayNameInlineError = null);
+                  final saved = await controller.updateAccountDisplayName(
+                    displayName: name.trim(),
+                  );
+                  if (!saved && mounted) {
+                    setState(
+                      () => _displayNameInlineError =
+                          controller.errorMessage ??
+                          appStrings.displayNameMustBe64Characters,
+                    );
+                  }
+                },
+              ),
+            ),
+            _SettingsBlock(
+              anchor: 'email',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Text(
+                    appStrings.email,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: _textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    appStrings.currentEmailArg1(currentEmail),
+                    style: TextStyle(fontSize: 13, color: _textSecondary),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(labelText: appStrings.email),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _emailPasswordController,
+                    obscureText: true,
+                    enabled: hasPassword,
+                    decoration: InputDecoration(
+                      labelText: appStrings.currentPassword,
+                      helperText: hasPassword
+                          ? appStrings.requiredToAddOrChangeYourAccount
+                          : appStrings.createAPasswordFirstToChange,
+                    ),
+                  ),
+                  if (_emailInlineError != null) ...<Widget>[
+                    const SizedBox(height: 10),
+                    _InlineError(message: _emailInlineError!),
+                  ],
+                  if (_emailSuccessMessage != null) ...<Widget>[
+                    const SizedBox(height: 10),
+                    _InlineSuccess(message: _emailSuccessMessage!),
+                  ],
+                  const SizedBox(height: 14),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: FilledButton(
+                      onPressed:
+                          controller.isSavingAccountSettings || !hasPassword
+                          ? null
+                          : _saveEmail,
+                      child: Text(appStrings.saveEmail),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
-        const SizedBox(height: 12),
-        if (controller.linkedAuthProviders.isEmpty)
-          Text(
-            appStrings.noExternalSignInProvidersLinked,
-            style: TextStyle(color: _textSecondary),
-          )
-        else
-          ...controller.linkedAuthProviders.map(
-            (provider) => Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                leading: provider.icon == 'google'
-                    ? const CircleAvatar(
-                        backgroundColor: Color(0x1A4285F4),
-                        child: Text(
-                          'G',
-                          style: TextStyle(
-                            color: Color(0xFF4285F4),
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      )
-                    : const CircleAvatar(child: Icon(Icons.link)),
-                title: Text(provider.label),
-                subtitle: Text(
-                  provider.email.isNotEmpty
-                      ? appStrings.arg1LastUsedArg2(provider.email, provider.lastUsedLabel)
-                      : appStrings.lastUsedArg1(provider.lastUsedLabel),
-                ),
-                isThreeLine: provider.email.isNotEmpty,
-                trailing: TextButton(
-                  onPressed:
-                      controller.isSavingAccountSettings || !provider.canUnlink
-                      ? null
-                      : () => controller.unlinkAccountProvider(provider.id),
-                  child: Text(appStrings.unlink),
-                ),
-              ),
-            ),
-          ),
-        if (linkableProviders.isNotEmpty) ...<Widget>[
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: linkableProviders
-                .map(
-                  (provider) => OutlinedButton.icon(
-                    onPressed: controller.isSavingAccountSettings
-                        ? null
-                        : () => controller.linkAccountProvider(provider.id),
-                    icon: provider.icon == 'google'
-                        ? Text(
-                            'G',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF4285F4),
-                            ),
-                          )
-                        : Icon(Icons.link),
-                    label: Text(appStrings.linkArg1(provider.label)),
-                  ),
-                )
-                .toList(),
-          ),
-        ],
-        const SizedBox(height: 28),
-        _SectionTitle(appStrings.yourData),
-        const SizedBox(height: 10),
-        Text(
-          controller.isAdmin
-              ? appStrings.downloadACopyOfYourData +
-                    appStrings.themselvesTheServerOperatorRemovesAdmin +
-                    '`neoagent admin revoke <username>`.'
-              : appStrings.downloadACopyOfYourData2 +
-                    appStrings.deletionRemovesAllYourConversationsMemories +
-                    appStrings.settingsAndCannotBeUndone,
-          style: TextStyle(color: _textSecondary, height: 1.45),
-        ),
-        const SizedBox(height: 14),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
+        _SettingsGroup(
+          title: appStrings.yourData,
           children: <Widget>[
-            OutlinedButton.icon(
-              onPressed: _isExportingData ? null : _exportMyData,
-              icon: _isExportingData
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Icon(Icons.download_outlined),
-              label: Text(appStrings.exportMyData),
-            ),
-            OutlinedButton.icon(
-              onPressed: _isDeletingAccount || controller.isAdmin
-                  ? null
-                  : _confirmDeleteAccount,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: _danger,
-                side: BorderSide(color: _danger.withValues(alpha: 0.6)),
+            _SettingsRow(
+              anchor: 'exportData',
+              label: appStrings.exportMyData,
+              description: controller.isAdmin
+                  ? appStrings.downloadACopyOfYourData +
+                        appStrings.themselvesTheServerOperatorRemovesAdmin +
+                        '`neoagent admin revoke <username>`.'
+                  : appStrings.downloadACopyOfYourData2 +
+                        appStrings.deletionRemovesAllYourConversationsMemories +
+                        appStrings.settingsAndCannotBeUndone,
+              control: OutlinedButton.icon(
+                onPressed: _isExportingData ? null : _exportMyData,
+                icon: _isExportingData
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(Icons.download_outlined, size: 18),
+                label: Text(appStrings.settingsExport),
               ),
-              icon: _isDeletingAccount
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Icon(Icons.delete_forever_outlined),
-              label: Text(appStrings.deleteAccount),
+            ),
+          ],
+        ),
+        _SettingsGroup(
+          title: appStrings.settingsLeave,
+          children: <Widget>[
+            _SettingsRow(
+              anchor: 'signOut',
+              label: appStrings.signOut,
+              description: appStrings.settingsSignOutDescription,
+              control: OutlinedButton.icon(
+                onPressed: controller.logout,
+                icon: Icon(Icons.logout, size: 18),
+                label: Text(appStrings.signOut),
+              ),
+            ),
+            _SettingsRow(
+              anchor: 'deleteAccount',
+              label: appStrings.deleteAccount,
+              description: appStrings.settingsDeleteAccountDescription,
+              control: OutlinedButton.icon(
+                onPressed: _isDeletingAccount || controller.isAdmin
+                    ? null
+                    : _confirmDeleteAccount,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _danger,
+                  side: BorderSide(color: _danger.withValues(alpha: 0.6)),
+                ),
+                icon: _isDeletingAccount
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(Icons.delete_forever_outlined, size: 18),
+                label: Text(appStrings.deleteAccount),
+              ),
             ),
           ],
         ),
       ],
     );
+  }
+
+  Future<void> _saveEmail() async {
+    setState(() {
+      _emailInlineError = null;
+      _emailSuccessMessage = null;
+    });
+    if (_emailPasswordController.text.trim().isEmpty) {
+      setState(() {
+        _emailInlineError = appStrings.enterYourCurrentPasswordToSave;
+      });
+      return;
+    }
+    final saved = await widget.controller.updateAccountEmail(
+      email: _emailController.text.trim(),
+      currentPassword: _emailPasswordController.text,
+    );
+    if (saved && mounted) {
+      setState(() {
+        _emailPasswordController.clear();
+        _emailSuccessMessage = appStrings.emailSavedIfConfirmationIsRequired;
+      });
+    }
   }
 
   Future<void> _exportMyData() async {
@@ -668,14 +501,16 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
       await Clipboard.setData(ClipboardData(text: pretty));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(appStrings.yourDataExportWasCopiedTo),
-        ),
+        SnackBar(content: Text(appStrings.yourDataExportWasCopiedTo)),
       );
     } catch (err) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(appStrings.couldNotExportYourDataArg1(_formatCaughtError(err)))),
+        SnackBar(
+          content: Text(
+            appStrings.couldNotExportYourDataArg1(_formatCaughtError(err)),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isExportingData = false);
@@ -699,7 +534,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                 children: <Widget>[
                   Text(
                     appStrings.thisPermanentlyErasesAllOfYour +
-                    appStrings.undoneTypeYourUsernameToConfirm,
+                        appStrings.undoneTypeYourUsernameToConfirm,
                   ),
                   const SizedBox(height: 14),
                   TextField(
@@ -749,7 +584,11 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
       if (!mounted) return;
       setState(() => _isDeletingAccount = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(appStrings.couldNotDeleteYourAccountArg1(_formatCaughtError(err)))),
+        SnackBar(
+          content: Text(
+            appStrings.couldNotDeleteYourAccountArg1(_formatCaughtError(err)),
+          ),
+        ),
       );
     }
   }
@@ -913,8 +752,13 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
               const SizedBox(height: 6),
               Text(
                 atLimit
-                    ? appStrings.limitReachedArg1(resetLabel == null ? '' : ' · $resetLabel')
-                    : appStrings.arg1UsedArg2Remaining((progress * 100).toStringAsFixed(0), _formatTokenCount(remaining)) +
+                    ? appStrings.limitReachedArg1(
+                        resetLabel == null ? '' : ' · $resetLabel',
+                      )
+                    : appStrings.arg1UsedArg2Remaining(
+                            (progress * 100).toStringAsFixed(0),
+                            _formatTokenCount(remaining),
+                          ) +
                           '${resetLabel == null ? '' : ' · $resetLabel'}',
                 style: TextStyle(
                   fontSize: 11,
@@ -934,13 +778,6 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        _SectionTitle(appStrings.usageLimits),
-        const SizedBox(height: 12),
-        Text(
-          appStrings.keepTrackOfYourAiUsage,
-          style: TextStyle(color: _textSecondary, height: 1.4),
-        ),
-        const SizedBox(height: 24),
         buildStatBox(
           appStrings.recentUsage4Hours,
           usage.fourHourUsage,
@@ -966,49 +803,110 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     );
   }
 
-  Widget _buildSecurityPanel() {
+  Widget _buildUsagePage() {
+    final controller = widget.controller;
+    final tokenUsage = controller.tokenUsage;
+    final lineStyle = TextStyle(color: _textPrimary, height: 1.4);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _SettingsGroup(
+          anchor: 'limits',
+          title: appStrings.usageLimits2,
+          description: appStrings.keepTrackOfYourAiUsage,
+          children: <Widget>[_SettingsBlock(child: _buildUsagePanel())],
+        ),
+        _SettingsGroup(
+          anchor: 'tokenUsage',
+          title: appStrings.settingsTokenUsage,
+          description: appStrings.usageAndHealthSignalsThatHelp,
+          children: <Widget>[
+            _SettingsBlock(
+              child: tokenUsage == null
+                  ? Text(
+                      appStrings.tokenUsageUnavailableOnThisServer,
+                      style: TextStyle(color: _textSecondary),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          appStrings.totalArg1TokensAcrossArg2Runs(
+                            tokenUsage.totalTokensLabel,
+                            tokenUsage.totalRunsLabel,
+                          ),
+                          style: lineStyle,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          appStrings.last7DaysArg1TokensIn(
+                            tokenUsage.last7DaysTokensLabel,
+                            tokenUsage.last7DaysRunsLabel,
+                          ),
+                          style: lineStyle,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          appStrings.avgRunArg1Tokens(
+                            tokenUsage.avgTokensPerRunLabel,
+                          ),
+                          style: lineStyle,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          appStrings.promptCacheArg1CachedTokens(
+                                tokenUsage.cachedReadTokensLabel,
+                              ) +
+                              appStrings.arg1HitRatio(
+                                tokenUsage.cacheHitRatioLabel,
+                              ),
+                          style: lineStyle,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          appStrings.measuredModelCostArg1(
+                            tokenUsage.estimatedCostLabel,
+                          ),
+                          style: lineStyle,
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+        if (controller.showBillingSection) BillingPanel(controller: controller),
+      ],
+    );
+  }
+
+  Widget _buildSecurityPage() {
     final controller = widget.controller;
     final twoFactorEnabled = controller.accountTwoFactor['enabled'] == true;
     final recoveryCount = _asInt(
       controller.accountTwoFactor['recoveryCodesRemaining'],
     );
+    final keys = controller.accountSecurityKeys;
+    final linkedProviderKeys = controller.linkedAuthProviders
+        .map((provider) => provider.provider)
+        .toSet();
+    final linkableProviders = controller.authProviders
+        .where(
+          (provider) =>
+              provider.configured && !linkedProviderKeys.contains(provider.id),
+        )
+        .toList();
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        if (_supportsQrLoginApproval) ...<Widget>[
-          Row(
+        if (_supportsQrLoginApproval)
+          _SettingsGroup(
+            title: appStrings.approveQrLogin,
             children: <Widget>[
-              Expanded(child: _SectionTitle(appStrings.approveQrLogin)),
-              _StatusPill(label: appStrings.androidOnly, color: _accent),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            appStrings.scanQrLoginRequestsFromSigned,
-            style: TextStyle(color: _textSecondary, height: 1.4),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: <Color>[
-                  _accent.withValues(alpha: 0.16),
-                  _success.withValues(alpha: 0.10),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: _borderLight),
-            ),
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: <Widget>[
-                FilledButton.icon(
+              _SettingsRow(
+                anchor: 'qrLogin',
+                label: appStrings.scanLoginQr,
+                description: appStrings.scanQrLoginRequestsFromSigned,
+                control: FilledButton.icon(
                   onPressed: controller.isApprovingQrLogin
                       ? null
                       : _startQrLoginApproval,
@@ -1017,67 +915,139 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                           dimension: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Icon(Icons.camera_alt_outlined),
+                      : Icon(Icons.camera_alt_outlined, size: 18),
                   label: Text(appStrings.scanLoginQr),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
-        ],
-        _buildPasswordPanel(),
-        const SizedBox(height: 24),
-        Row(
-          children: <Widget>[
-            Expanded(child: _SectionTitle(appStrings.twoFactorAuthentication)),
-            _StatusPill(
-              label: twoFactorEnabled ? 'Enabled' : 'Disabled',
-              color: twoFactorEnabled ? _success : _warning,
-            ),
-          ],
+        _SettingsGroup(
+          anchor: 'password',
+          title: appStrings.password,
+          children: <Widget>[_SettingsBlock(child: _buildPasswordPanel())],
         ),
-        const SizedBox(height: 12),
-        Text(
-          twoFactorEnabled
+        _SettingsGroup(
+          anchor: 'twoFactor',
+          title: appStrings.twoFactorAuthentication,
+          description: twoFactorEnabled
               ? appStrings.arg1RecoveryCodesAreStillAvailable(recoveryCount)
               : appStrings.useAnAuthenticatorAppSuchAs,
-          style: TextStyle(color: _textSecondary, height: 1.4),
-        ),
-        const SizedBox(height: 16),
-        if (!twoFactorEnabled) _buildEnableTwoFactorPanel(),
-        if (twoFactorEnabled) _buildDisableTwoFactorPanel(),
-        if (_recoveryCodes.isNotEmpty) ...<Widget>[
-          const SizedBox(height: 16),
-          _RecoveryCodesCard(codes: _recoveryCodes),
-        ],
-        const SizedBox(height: 24),
-        _buildSecurityKeysPanel(),
-        const SizedBox(height: 24),
-        Row(
+          trailing: _StatusPill(
+            label: twoFactorEnabled ? 'Enabled' : 'Disabled',
+            color: twoFactorEnabled ? _success : _warning,
+          ),
           children: <Widget>[
-            Expanded(child: _SectionTitle(appStrings.activeSessions)),
-            Text(
-              appStrings.arg1Active(controller.accountSessions.length),
-              style: TextStyle(color: _textSecondary),
+            _SettingsBlock(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  if (twoFactorEnabled)
+                    _buildDisableTwoFactorPanel()
+                  else
+                    _buildEnableTwoFactorPanel(),
+                  if (_recoveryCodes.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 16),
+                    _RecoveryCodesCard(codes: _recoveryCodes),
+                  ],
+                ],
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        if (controller.accountSessions.isEmpty)
-          Text(
-            appStrings.noActiveSessionsFound,
-            style: TextStyle(color: _textSecondary),
-          )
-        else
-          ...controller.accountSessions.map(
-            (session) => _AccountSessionCard(
-              session: session,
-              busy: controller.isRevokingSession,
-              onRevoke: session.current
-                  ? null
-                  : () => controller.revokeAccountSession(session.id),
-            ),
+        _SettingsGroup(
+          anchor: 'securityKeys',
+          title: appStrings.securityKeys,
+          description:
+              appStrings.signInWithAHardwareKey + appStrings.aKeyThatAsksForA,
+          trailing: _StatusPill(
+            label: keys.isEmpty
+                ? 'None'
+                : appStrings.arg1Registered(keys.length),
+            color: keys.isEmpty ? _warning : _success,
           ),
+          children: <Widget>[
+            for (final key in keys)
+              _SecurityKeyCard(
+                securityKey: key,
+                busy: controller.isConfiguringTwoFactor,
+                onRename: () => _renameSecurityKey(key),
+                onRemove: () => controller.removeSecurityKey(key.id),
+              ),
+            _SettingsBlock(child: _buildAddSecurityKey()),
+          ],
+        ),
+        _SettingsGroup(
+          anchor: 'linkedProviders',
+          title: appStrings.linkedSignInProviders,
+          children: <Widget>[
+            if (controller.linkedAuthProviders.isEmpty)
+              _SettingsBlock(
+                child: Text(
+                  appStrings.noExternalSignInProvidersLinked,
+                  style: TextStyle(color: _textSecondary),
+                ),
+              ),
+            for (final provider in controller.linkedAuthProviders)
+              _SettingsRow(
+                label: provider.label,
+                description: provider.email.isNotEmpty
+                    ? appStrings.arg1LastUsedArg2(
+                        provider.email,
+                        provider.lastUsedLabel,
+                      )
+                    : appStrings.lastUsedArg1(provider.lastUsedLabel),
+                control: TextButton(
+                  onPressed:
+                      controller.isSavingAccountSettings || !provider.canUnlink
+                      ? null
+                      : () => controller.unlinkAccountProvider(provider.id),
+                  child: Text(appStrings.unlink),
+                ),
+              ),
+            if (linkableProviders.isNotEmpty)
+              _SettingsBlock(
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: <Widget>[
+                    for (final provider in linkableProviders)
+                      OutlinedButton.icon(
+                        onPressed: controller.isSavingAccountSettings
+                            ? null
+                            : () => controller.linkAccountProvider(provider.id),
+                        icon: Icon(Icons.link, size: 18),
+                        label: Text(appStrings.linkArg1(provider.label)),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        _SettingsGroup(
+          anchor: 'sessions',
+          title: appStrings.activeSessions,
+          trailing: Text(
+            appStrings.arg1Active(controller.accountSessions.length),
+            style: TextStyle(color: _textSecondary),
+          ),
+          children: <Widget>[
+            if (controller.accountSessions.isEmpty)
+              _SettingsBlock(
+                child: Text(
+                  appStrings.noActiveSessionsFound,
+                  style: TextStyle(color: _textSecondary),
+                ),
+              ),
+            for (final session in controller.accountSessions)
+              _AccountSessionCard(
+                session: session,
+                busy: controller.isRevokingSession,
+                onRevoke: session.current
+                    ? null
+                    : () => controller.revokeAccountSession(session.id),
+              ),
+          ],
+        ),
       ],
     );
   }
@@ -1087,7 +1057,9 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     final label = _securityKeyLabelController.text.trim();
     await controller.registerSecurityKey(
       label: label.isEmpty
-          ? appStrings.securityKeyArg1(controller.accountSecurityKeys.length + 1)
+          ? appStrings.securityKeyArg1(
+              controller.accountSecurityKeys.length + 1,
+            )
           : label,
     );
     if (!mounted) return;
@@ -1124,100 +1096,65 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     await widget.controller.renameSecurityKey(id: key.id, label: nextLabel);
   }
 
-  Widget _buildSecurityKeysPanel() {
+  /// Adding a key needs an authenticator this device can talk to. Keys
+  /// registered elsewhere stay listed and manageable either way.
+  Widget _buildAddSecurityKey() {
     final controller = widget.controller;
-    final keys = controller.accountSecurityKeys;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Row(
+    if (!controller.supportsSecurityKeys) {
+      return Text(
+        appStrings.thisDeviceCannotRegisterSecurityKeys,
+        style: TextStyle(color: _textSecondary, height: 1.4),
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final nameField = TextField(
+          controller: _securityKeyLabelController,
+          decoration: InputDecoration(
+            labelText: appStrings.nameOptional,
+            hintText: appStrings.yubikeyMacbookTouchId,
+          ),
+        );
+        // Side by side the button leaves the name field unusably narrow
+        // below this width, so the two stack instead.
+        final stacked = constraints.maxWidth < 520;
+        final addButton = FilledButton.icon(
+          onPressed: controller.isConfiguringTwoFactor ? null : _addSecurityKey,
+          icon: controller.isConfiguringTwoFactor
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(Icons.key),
+          label: Text(appStrings.addSecurityKey),
+          style: FilledButton.styleFrom(
+            // Size.fromHeight also pins the width to infinity, which is
+            // what a full-width stacked button wants and what would
+            // starve the name field beside it in a row.
+            minimumSize: stacked
+                ? const Size.fromHeight(56)
+                : const Size(0, 56),
+          ),
+        );
+        if (stacked) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              nameField,
+              const SizedBox(height: 12),
+              addButton,
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Expanded(child: _SectionTitle(appStrings.securityKeys)),
-            _StatusPill(
-              label: keys.isEmpty ? 'None' : appStrings.arg1Registered(keys.length),
-              color: keys.isEmpty ? _warning : _success,
-            ),
+            Expanded(child: nameField),
+            const SizedBox(width: 12),
+            addButton,
           ],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          appStrings.signInWithAHardwareKey +
-          appStrings.aKeyThatAsksForA,
-          style: TextStyle(color: _textSecondary, height: 1.4),
-        ),
-        const SizedBox(height: 14),
-        if (keys.isNotEmpty) ...<Widget>[
-          ...keys.map(
-            (key) => _SecurityKeyCard(
-              securityKey: key,
-              busy: controller.isConfiguringTwoFactor,
-              onRename: () => _renameSecurityKey(key),
-              onRemove: () => controller.removeSecurityKey(key.id),
-            ),
-          ),
-          const SizedBox(height: 4),
-        ],
-        // Keys registered elsewhere stay manageable here; only adding one needs
-        // an authenticator this device can actually talk to.
-        if (!controller.supportsSecurityKeys)
-          Text(
-            appStrings.thisDeviceCannotRegisterSecurityKeys,
-            style: TextStyle(color: _textSecondary, height: 1.4),
-          )
-        else
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final nameField = TextField(
-                controller: _securityKeyLabelController,
-                decoration: InputDecoration(
-                  labelText: appStrings.nameOptional,
-                  hintText: appStrings.yubikeyMacbookTouchId,
-                ),
-              );
-              // Side by side the button leaves the name field unusably narrow
-              // below this width, so the two stack instead.
-              final stacked = constraints.maxWidth < 520;
-              final addButton = FilledButton.icon(
-                onPressed: controller.isConfiguringTwoFactor
-                    ? null
-                    : _addSecurityKey,
-                icon: controller.isConfiguringTwoFactor
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Icon(Icons.key),
-                label: Text(appStrings.addSecurityKey),
-                style: FilledButton.styleFrom(
-                  // Size.fromHeight also pins the width to infinity, which is
-                  // what a full-width stacked button wants and what would
-                  // starve the name field beside it in a row.
-                  minimumSize: stacked
-                      ? const Size.fromHeight(56)
-                      : const Size(0, 56),
-                ),
-              );
-              if (stacked) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    nameField,
-                    const SizedBox(height: 12),
-                    addButton,
-                  ],
-                );
-              }
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Expanded(child: nameField),
-                  const SizedBox(width: 12),
-                  addButton,
-                ],
-              );
-            },
-          ),
-      ],
+        );
+      },
     );
   }
 
@@ -1232,8 +1169,6 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        _SectionTitle(appStrings.password),
-        const SizedBox(height: 12),
         if (hasPassword) ...<Widget>[
           TextField(
             controller: _currentPasswordController,
@@ -1294,8 +1229,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                   }
                   if (_newPasswordController.text.length < 8) {
                     setState(() {
-                      _passwordInlineError =
-                          appStrings.useANewPasswordWithAt;
+                      _passwordInlineError = appStrings.useANewPasswordWithAt;
                     });
                     return;
                   }
@@ -1327,7 +1261,9 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : Icon(Icons.password_outlined),
-          label: Text(hasPassword ? 'Change password' : appStrings.createPassword),
+          label: Text(
+            hasPassword ? 'Change password' : appStrings.createPassword,
+          ),
         ),
       ],
     );
@@ -1378,7 +1314,9 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           TextField(
             controller: _setupCodeController,
             keyboardType: TextInputType.number,
-            decoration: InputDecoration(labelText: appStrings.authenticatorCode),
+            decoration: InputDecoration(
+              labelText: appStrings.authenticatorCode,
+            ),
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
@@ -1457,50 +1395,6 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
   }
 }
 
-class _AccountSettingsTabs extends StatelessWidget {
-  const _AccountSettingsTabs({
-    required this.selected,
-    required this.onSelected,
-    this.vertical = false,
-  });
-
-  final AccountSettingsTab selected;
-  final ValueChanged<AccountSettingsTab> onSelected;
-  final bool vertical;
-
-  @override
-  Widget build(BuildContext context) {
-    final buttons = <Widget>[
-      _tabButton(AccountSettingsTab.account, Icons.person_outline, 'Account'),
-      _tabButton(
-        AccountSettingsTab.usage,
-        Icons.data_usage_outlined,
-        appStrings.usageLimits,
-      ),
-      _tabButton(
-        AccountSettingsTab.security,
-        Icons.security_outlined,
-        'Security',
-      ),
-    ];
-    return vertical
-        ? Column(children: buttons)
-        : Wrap(spacing: 8, runSpacing: 8, children: buttons);
-  }
-
-  Widget _tabButton(AccountSettingsTab tab, IconData icon, String label) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: vertical ? 8 : 0),
-      child: _SidebarButton(
-        label: label,
-        icon: icon,
-        active: selected == tab,
-        onTap: () => onSelected(tab),
-      ),
-    );
-  }
-}
-
 class _RecoveryCodesCard extends StatelessWidget {
   const _RecoveryCodesCard({required this.codes});
 
@@ -1562,14 +1456,8 @@ class _AccountSessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _border),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -1599,7 +1487,11 @@ class _AccountSessionCard extends StatelessWidget {
                 if (session.userAgent.isNotEmpty) ...<Widget>[
                   const SizedBox(height: 4),
                   Text(
-                    appStrings.arg1Arg2CreatedArg3(session.clientPlatformLabel, session.clientBrowserLabel, session.createdLabel),
+                    appStrings.arg1Arg2CreatedArg3(
+                      session.clientPlatformLabel,
+                      session.clientBrowserLabel,
+                      session.createdLabel,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: _textMuted, fontSize: 12),
@@ -1634,14 +1526,8 @@ class _SecurityKeyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _border),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -1660,7 +1546,10 @@ class _SecurityKeyCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  appStrings.addedArg1LastUsedArg2(securityKey.addedLabel, securityKey.lastUsedLabel),
+                  appStrings.addedArg1LastUsedArg2(
+                    securityKey.addedLabel,
+                    securityKey.lastUsedLabel,
+                  ),
                   style: TextStyle(color: _textSecondary),
                 ),
               ],
@@ -1672,8 +1561,14 @@ class _SecurityKeyCard extends StatelessWidget {
             onSelected: (action) =>
                 action == 'rename' ? onRename() : onRemove(),
             itemBuilder: (context) => <PopupMenuEntry<String>>[
-              PopupMenuItem<String>(value: 'rename', child: Text(appStrings.rename)),
-              PopupMenuItem<String>(value: 'remove', child: Text(appStrings.remove)),
+              PopupMenuItem<String>(
+                value: 'rename',
+                child: Text(appStrings.rename),
+              ),
+              PopupMenuItem<String>(
+                value: 'remove',
+                child: Text(appStrings.remove),
+              ),
             ],
           ),
         ],
@@ -1893,94 +1788,6 @@ class _QrLoginApprovalDialog extends StatelessWidget {
           label: Text(appStrings.approveLogin),
         ),
       ],
-    );
-  }
-}
-
-/// Language choice on the account page.
-///
-/// The names are each language's own name, and the choice applies at once so
-/// the rest of the page redraws in the language that was just picked.
-class AccountLanguageSetting extends StatelessWidget {
-  const AccountLanguageSetting({super.key, required this.controller});
-
-  final NeoAgentController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final strings = appStrings;
-    final selected = controller.language;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        _SectionTitle(strings.accountLanguageTitle),
-        const SizedBox(height: 8),
-        Text(
-          strings.accountLanguageDescription,
-          style: TextStyle(color: _textSecondary, height: 1.45),
-        ),
-        const SizedBox(height: 12),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: _bgSecondary.withValues(alpha: 0.45),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _border),
-          ),
-          child: Column(
-            children: <Widget>[
-              for (var index = 0; index < AppLanguage.values.length; index++) ...<Widget>[
-                if (index > 0) Divider(height: 1, color: _border),
-                _LanguageChoice(
-                  language: AppLanguage.values[index],
-                  selected: AppLanguage.values[index] == selected,
-                  onTap: () => controller.setLanguage(AppLanguage.values[index]),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _LanguageChoice extends StatelessWidget {
-  const _LanguageChoice({
-    required this.language,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final AppLanguage language;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  language.label,
-                  style: TextStyle(
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    color: selected ? _textPrimary : _textSecondary,
-                  ),
-                ),
-              ),
-              if (selected)
-                Icon(Icons.check_rounded, color: _accent, size: 20),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

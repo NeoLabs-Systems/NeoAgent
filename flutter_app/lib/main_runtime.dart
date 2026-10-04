@@ -418,6 +418,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
             '|auth:${_controller.isAuthenticated}' +
             '|onboarding:${_controller.showOnboarding}' +
             '|section:${_controller.selectedSection.name}' +
+            '|theme:${_controller.themeMode.name}' +
             '|assistantPopupMode:$_desktopAssistantPopupWindowMode' +
             '|assistantPttActive:${_controller.isLiveVoiceCaptureActive}' +
             '|assistantPttStarting:${_controller.isLiveVoiceCaptureStarting}';
@@ -437,11 +438,20 @@ class _NeoAgentAppState extends State<NeoAgentApp>
           debugShowCheckedModeBanner: false,
           theme: _buildNeoAgentTheme(_lightPalette, Brightness.light),
           darkTheme: _buildNeoAgentTheme(_darkPalette, Brightness.dark),
-          themeMode: ThemeMode.system,
+          themeMode: _controller.themeMode,
           builder: (context, child) {
+            // Widgets that resolve their palette from the platform brightness
+            // follow the theme picked in Settings too.
+            final mediaQuery = MediaQuery.of(context);
             return Stack(
               children: <Widget>[
-                if (child != null) child,
+                if (child != null)
+                  MediaQuery(
+                    data: mediaQuery.copyWith(
+                      platformBrightness: _appBrightness,
+                    ),
+                    child: child,
+                  ),
                 if (!_desktopAssistantPopupWindowMode &&
                     _controller.showOfflineBanner)
                   Positioned(

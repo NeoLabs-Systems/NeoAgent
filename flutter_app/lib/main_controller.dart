@@ -179,6 +179,10 @@ class NeoAgentController extends ChangeNotifier {
   List<String> setupOpenSections = const <String>[];
 
   AppSection selectedSection = AppSection.chat;
+
+  /// The open Settings page. Null on a phone means the page list is showing;
+  /// wider layouts show the profile page in its place.
+  SettingsPage? settingsPage;
   Map<String, dynamic>? user;
   Map<String, dynamic> accountTwoFactor = const <String, dynamic>{};
   List<AccountSessionItem> accountSessions = const <AccountSessionItem>[];
@@ -327,6 +331,8 @@ class NeoAgentController extends ChangeNotifier {
   bool _desktopAskOnClose = true;
   bool _desktopKeepRunningOnClose = true;
   bool _desktopAssistantHotkeyEnabled = true;
+  bool _locationTriggersEnabled = true;
+  bool _notificationTriggersEnabled = true;
   bool isRefreshingTimeline = false;
   Set<String> selectedTimelineSources = <String>{'tasks', 'runs'};
 
@@ -497,6 +503,14 @@ class NeoAgentController extends ChangeNotifier {
   bool get desktopKeepRunningOnClose => _desktopKeepRunningOnClose;
 
   bool get desktopAssistantHotkeyEnabled => _desktopAssistantHotkeyEnabled;
+
+  ThemeMode get themeMode => _appThemeMode;
+
+  /// Whether this phone checks its location against the account's geofences.
+  bool get locationTriggersEnabled => _locationTriggersEnabled;
+
+  /// Whether this Android phone forwards other apps' notifications as triggers.
+  bool get notificationTriggersEnabled => _notificationTriggersEnabled;
 
   String? get sessionCookie => _backendClient.sessionCookie;
 
@@ -744,6 +758,14 @@ class NeoAgentController extends ChangeNotifier {
         _prefs?.getBool('desktop.keepRunningOnClose') ?? true;
     _desktopAssistantHotkeyEnabled =
         _prefs?.getBool('desktop.assistantHotkeyEnabled') ?? true;
+    _appThemeMode = ThemeMode.values.firstWhere(
+      (mode) => mode.name == _prefs?.getString('app.themeMode'),
+      orElse: () => ThemeMode.system,
+    );
+    _locationTriggersEnabled =
+        _prefs?.getBool('mobile.locationTriggersEnabled') ?? true;
+    _notificationTriggersEnabled =
+        _prefs?.getBool('mobile.notificationTriggersEnabled') ?? true;
     desktopCoworkMode = _supportsDesktopShell
         ? _prefs?.getString(_desktopWorkspaceModePrefsKey) == 'cowork'
         : false;
@@ -1848,12 +1870,6 @@ class NeoAgentController extends ChangeNotifier {
       (section) => section.name == rawSection,
       orElse: () => AppSection.chat,
     );
-    if (restoredSection == AppSection.server && !_supportsDesktopShell) {
-      // Stored preferences are editable outside the app (localStorage on web),
-      // so restoring one never reaches a desktop-only section.
-      selectedSection = AppSection.chat;
-      return;
-    }
     selectedSection = restoredSection;
   }
 
@@ -1869,15 +1885,23 @@ class NeoAgentController extends ChangeNotifier {
     if (section == AppSection.timeline) {
       unawaited(refreshTimeline());
     }
-    if (section == AppSection.accountSettings) {
-      unawaited(refreshAccountSettings());
-    }
-    if (section == AppSection.billing) {
-      unawaited(refreshBilling());
-    }
     if (section == AppSection.settings) {
       unawaited(refreshAiCatalog());
     }
+    notifyListeners();
+  }
+
+  /// Opens Settings, on [page] when one is given and otherwise on the page
+  /// that was open last.
+  void openSettings([SettingsPage? page]) {
+    if (page != null) settingsPage = page;
+    setSelectedSection(AppSection.settings);
+  }
+
+  void setSettingsPage(SettingsPage? page) {
+    if (settingsPage == page) return;
+    settingsPage = page;
+    errorMessage = null;
     notifyListeners();
   }
 
@@ -4689,6 +4713,24 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setThemeMode(ThemeMode mode) async {
+    _appThemeMode = mode;
+    await _prefs?.setString('app.themeMode', mode.name);
+    notifyListeners();
+  }
+
+  Future<void> setLocationTriggersEnabled(bool value) async {
+    _locationTriggersEnabled = value;
+    await _prefs?.setBool('mobile.locationTriggersEnabled', value);
+    notifyListeners();
+  }
+
+  Future<void> setNotificationTriggersEnabled(bool value) async {
+    _notificationTriggersEnabled = value;
+    await _prefs?.setBool('mobile.notificationTriggersEnabled', value);
+    notifyListeners();
+  }
+
   Future<bool> _ensureSocketReady({
     Duration timeout = const Duration(seconds: 5),
   }) async {
@@ -5305,51 +5347,15 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> saveSettings({
-    required bool smarterSelector,
-    required String systemOneModel,
-    required List<String> enabledModels,
-    required String defaultChatModel,
-    required String defaultSubagentModel,
-    required String defaultSpeechModel,
-    required String voiceSttProvider,
-    required String voiceSttModel,
-    required String voiceLiveProvider,
-    required String voiceLiveModel,
-    required String voiceLiveVoice,
-    required String voiceInputMode,
-  }) async {
-    _beginSettingsSave();
-
-    final payload = <String, dynamic>{
-      'headless_browser': true,
-      'runtime_profile': 'cloud-computer',
-      'runtime_backend': 'qemu',
-      'smarter_model_selector': smarterSelector,
-      'system_one_model': systemOneModel,
-      'enabled_models': enabledModels,
-      'default_chat_model': defaultChatModel,
-      'default_subagent_model': defaultSubagentModel,
-      'default_speech_model': defaultSpeechModel,
-      'voice_stt_provider': voiceSttProvider,
-      'voice_stt_model': voiceSttModel,
-      'voice_live_provider': voiceLiveProvider,
-      'voice_live_model': voiceLiveModel,
-      'voice_live_voice': voiceLiveVoice,
-      'voice_input_mode': voiceInputMode,
-    };
-
-    final agentId = _scopedAgentId;
-    final mutationId = ++_settingsMutationId;
-    try {
-      await _queueSettingsWrite(payload, agentId: agentId);
-      if (mutationId == _settingsMutationId && agentId == _scopedAgentId) {
-        settings = <String, dynamic>{...settings, ...payload};
-      }
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-    } finally {
-      _finishSettingsSave();
+  /// Merges [patch] into this agent's behavior config and saves it. The change
+  /// shows at once; a failed save restores the previous config.
+  Future<void> updateBehaviorConfig(Map<String, dynamic> patch) async {
+    final previous = behaviorConfig;
+    behaviorConfig = <String, dynamic>{...behaviorConfig, ...patch};
+    await saveBehaviorConfig(behaviorConfig);
+    if (errorMessage != null) {
+      behaviorConfig = previous;
+      notifyListeners();
     }
   }
 

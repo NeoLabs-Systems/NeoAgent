@@ -1,2014 +1,786 @@
 part of 'main.dart';
 
-enum _LeaveAction { save, discard, cancel }
+/// The pages this device shows. The System page manages the runtime on this
+/// computer, so it exists on desktop only.
+List<SettingsPage> _visibleSettingsPages() => SettingsPage.values
+    .where((page) => page != SettingsPage.system || _supportsDesktopShell)
+    .toList(growable: false);
 
+/// The one Settings screen. Account, agent and app settings share a single
+/// list, every page is one tap away, and a page never stacks more than one
+/// dialog or sheet on top of itself.
 class SettingsPanel extends StatefulWidget {
-  const SettingsPanel({
-    super.key,
-    required this.controller,
-    this.embedded = false,
-  });
+  const SettingsPanel({super.key, required this.controller});
 
   final NeoAgentController controller;
-  final bool embedded;
 
   @override
   State<SettingsPanel> createState() => _SettingsPanelState();
 }
 
-class _SettingsSection {
-  const _SettingsSection(
-    this.title,
-    this.label,
-    this.icon,
-    this.keywords, {
-    this.requiresDesktop = false,
-  });
-
-  final String title;
-  final String label;
-  final IconData icon;
-  final List<String> keywords;
-  final bool requiresDesktop;
-}
-
-const _overviewSettingsSection = _SettingsSection(
-  'overview',
-  'Overview',
-  Icons.dashboard_outlined,
-  <String>['overview', 'summary', 'onboarding', 'platform', 'providers'],
-);
-
-final _timeZoneSettingsSection = _SettingsSection(
-  appStrings.timeZone,
-  appStrings.timeZone2,
-  Icons.schedule_outlined,
-  <String>[appStrings.timeZone, 'timezone', 'clock', 'region', 'schedule', 'dst'],
-);
-
-const _workspaceSettingsSection = _SettingsSection(
-  'workspace',
-  'Workspace',
-  Icons.workspaces_outline,
-  <String>[
-    'workspace',
-    'browser',
-    'cli',
-    'desktop',
-    'files',
-    'terminal',
-    'computer',
-  ],
-);
-
-final _behaviorSettingsSection = _SettingsSection(
-  'behavior',
-  'Behavior',
-  Icons.psychology_outlined,
-  <String>[
-    'behavior',
-    'persona',
-    appStrings.socialIntelligence,
-    appStrings.turnTaking,
-    'groups',
-    'memory',
-    'norms',
-    'delivery',
-  ],
-);
-
-final _modelsSettingsSection =
-    _SettingsSection('models', appStrings.modelsRouting, Icons.hub_outlined, <String>[
-      'models',
-      'providers',
-      'routing',
-      'fallback',
-      'chat',
-      'sub-agent',
-      'subagent',
-      appStrings.smartSelector,
-      'systemone',
-      'system one',
-      'decisions',
-    ]);
-
-final _advancedSettingsSection =
-    _SettingsSection('advanced', 'Advanced', Icons.vpn_key_outlined, <String>[
-      'advanced',
-      'byok',
-      appStrings.bringYourOwnKey,
-      appStrings.apiKey2,
-      appStrings.customEndpoint,
-      appStrings.openaiCompatible,
-      appStrings.ownModel,
-    ]);
-
-final _socialReachSettingsSection = _SettingsSection(
-  appStrings.socialReach,
-  appStrings.socialReach2,
-  Icons.public_outlined,
-  <String>[
-    'social',
-    'reach',
-    'web',
-    'rss',
-    'github',
-    'youtube',
-    'linkedin',
-    'xueqiu',
-    'twitter',
-    'reddit',
-    'instagram',
-    'facebook',
-    'cookies',
-  ],
-);
-
-const _voiceSettingsSection = _SettingsSection(
-  'voice',
-  'Voice',
-  Icons.mic_none_outlined,
-  <String>['voice', 'speech', 'tts', 'stt', 'live'],
-);
-
-final _desktopSettingsSection = _SettingsSection(
-  'desktop',
-  'Desktop',
-  Icons.desktop_windows_outlined,
-  <String>['desktop', appStrings.localApp, 'tray', 'hotkey'],
-  requiresDesktop: true,
-);
-
-const _diagnosticsSettingsSection = _SettingsSection(
-  'diagnostics',
-  'Diagnostics',
-  Icons.monitor_heart_outlined,
-  <String>['diagnostics', 'logs', 'token', 'usage', 'debug', 'health'],
-);
-
-const _securitySettingsSection = _SettingsSection(
-  'security',
-  'Permissions',
-  Icons.admin_panel_settings_outlined,
-  <String>[
-    'security',
-    'tool',
-    'permission',
-    'allowlist',
-    'shell',
-    'android',
-    'approval',
-    'policy',
-  ],
-);
-
-final List<_SettingsSection> _settingsSearchSections = <_SettingsSection>[
-  _overviewSettingsSection,
-  _timeZoneSettingsSection,
-  _modelsSettingsSection,
-  _workspaceSettingsSection,
-  _behaviorSettingsSection,
-  _socialReachSettingsSection,
-  _voiceSettingsSection,
-  _desktopSettingsSection,
-  _securitySettingsSection,
-  _diagnosticsSettingsSection,
-  _advancedSettingsSection,
-];
-
 class _SettingsPanelState extends State<SettingsPanel> {
-  late final TextEditingController _searchController;
-  _SettingsSection _selectedSettingsSection = _overviewSettingsSection;
-  late bool _smarterSelector;
-  late String _systemOneModel;
-  late Set<String> _enabledModels;
-  late String _defaultChatModel;
-  late String _defaultSubagentModel;
-  late String _defaultSpeechModel;
-  late String _voiceSttProvider;
-  late String _voiceSttModel;
-  late String _voiceLiveProvider;
-  late String _voiceLiveModel;
-  late String _voiceLiveVoice;
-  late String _voiceInputMode;
-  late final TextEditingController _behaviorNotesController;
-  late bool _behaviorEnabled;
-  late String _behaviorParticipationMode;
-  late double _behaviorMinimumNeedScore;
-  late double _behaviorBatchWindowMs;
-  late String _behaviorDecisionModelId;
-  late String _behaviorDeliveryStyle;
-  late bool _behaviorSocialMemoryEnabled;
-  late bool _behaviorNormsEnabled;
-  late bool _behaviorObservabilityEnabled;
+  final TextEditingController _searchController = TextEditingController();
 
-  bool _hasUnsavedChanges = false;
-  Object? _hydratedSettingsSource;
-  Object? _hydratedBehaviorSource;
-  Object? _hydratedMemorySource;
-  Object? _hydratedProvidersSource;
-  Object? _hydratedModelsSource;
+  /// The setting a search result pointed at. Its page scrolls to it and
+  /// flashes it once.
+  _SettingsHighlight? _highlight;
 
-  // Inline runtime test state — ephemeral, not stored in controller.
-  bool _cliTestRunning = false;
-  Map<String, dynamic>? _cliTestResult;
-  bool _socialReachRefreshing = false;
-  String? _socialReachBusyPlatform;
-  Map<String, dynamic>? _socialReachActionResult;
+  NeoAgentController get _controller => widget.controller;
 
-  @override
-  void initState() {
-    super.initState();
-    _searchController = TextEditingController();
-    _behaviorNotesController = TextEditingController();
-    _hydrate();
-    widget.controller.addListener(_handleControllerChanged);
-  }
+  String get _query => _searchController.text.trim();
 
   @override
   void dispose() {
-    widget.controller.removeListener(_handleControllerChanged);
     _searchController.dispose();
-    _behaviorNotesController.dispose();
     super.dispose();
   }
 
-  @override
-  void didUpdateWidget(covariant SettingsPanel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
-      oldWidget.controller.removeListener(_handleControllerChanged);
-      widget.controller.addListener(_handleControllerChanged);
-      _hydrate();
-    } else if (!_hasUnsavedChanges && _hydrationSourcesChanged()) {
-      _hydrate();
-    }
-  }
-
-  void _handleControllerChanged() {
-    if (!mounted || _hasUnsavedChanges || !_hydrationSourcesChanged()) return;
-    setState(_hydrate);
-  }
-
-  bool _hydrationSourcesChanged() {
-    final controller = widget.controller;
-    return !identical(_hydratedSettingsSource, controller.settings) ||
-        !identical(_hydratedBehaviorSource, controller.behaviorConfig) ||
-        !identical(_hydratedMemorySource, controller.memoryOverview) ||
-        !identical(_hydratedProvidersSource, controller.aiProviders) ||
-        !identical(_hydratedModelsSource, controller.supportedModels);
-  }
-
-  void _rememberHydrationSources() {
-    final controller = widget.controller;
-    _hydratedSettingsSource = controller.settings;
-    _hydratedBehaviorSource = controller.behaviorConfig;
-    _hydratedMemorySource = controller.memoryOverview;
-    _hydratedProvidersSource = controller.aiProviders;
-    _hydratedModelsSource = controller.supportedModels;
-  }
-
-  void _hydrate() {
-    final controller = widget.controller;
-    final availableModels = controller.supportedModels
-        .where((model) => model.available)
-        .map((model) => model.id)
-        .toSet();
-    _smarterSelector = controller.smarterSelector;
-    _systemOneModel = controller.systemOneModel;
-    // Saved selections are user-owned. Catalog availability may affect whether
-    // a run can use a model, but it must never rewrite the saved routing pool.
-    _enabledModels = controller.enabledModelIds.toSet();
-    if (_enabledModels.isEmpty && availableModels.isNotEmpty) {
-      _enabledModels = availableModels;
-    }
-    _defaultChatModel = controller.defaultChatModel;
-    _defaultSubagentModel = controller.defaultSubagentModel;
-    _defaultSpeechModel = controller.defaultSpeechModel;
-    _voiceSttProvider = controller.voiceSttProvider;
-    _voiceSttModel = controller.voiceSttModel;
-    _voiceLiveProvider = controller.voiceLiveProvider;
-    _voiceLiveModel = controller.voiceLiveModel;
-    _voiceLiveVoice = controller.voiceLiveVoice;
-    _voiceInputMode = controller.voiceInputMode;
-    final behavior = controller.behaviorConfig;
-    final modules = behavior['modules'] is Map
-        ? Map<String, dynamic>.from(behavior['modules'] as Map)
-        : const <String, dynamic>{};
-    bool moduleEnabled(String id) {
-      final module = modules[id];
-      return module is! Map || module['enabled'] != false;
-    }
-
-    _behaviorEnabled = behavior['enabled'] != false;
-    _behaviorParticipationMode =
-        <String>{
-          'automatic',
-          'mention_only',
-          'always',
-        }.contains(behavior['participationMode']?.toString())
-        ? behavior['participationMode'].toString()
-        : 'automatic';
-    _behaviorMinimumNeedScore =
-        ((behavior['minimumNeedScore'] as num?)?.toDouble() ?? 0.58)
-            .clamp(0.0, 1.0)
-            .toDouble();
-    _behaviorBatchWindowMs =
-        ((behavior['batchWindowMs'] as num?)?.toDouble() ?? 900)
-            .clamp(0.0, 5000.0)
-            .toDouble();
-    _behaviorDecisionModelId =
-        behavior['decisionModelId']?.toString().trim() ?? '';
-    _behaviorDeliveryStyle = behavior['deliveryStyle'] == 'single'
-        ? 'single'
-        : 'natural_bubbles';
-    _behaviorSocialMemoryEnabled = moduleEnabled('social_memory');
-    _behaviorNormsEnabled = moduleEnabled('norms');
-    _behaviorObservabilityEnabled = moduleEnabled('social_observability');
-    final behaviorNotes = controller.memoryOverview.assistantBehaviorNotes;
-    if (_behaviorNotesController.text != behaviorNotes) {
-      _behaviorNotesController.text = behaviorNotes;
-    }
-    _rememberHydrationSources();
+  void _openPage(SettingsPage page, {String? anchor}) {
+    _searchController.clear();
+    setState(() {
+      _highlight = anchor == null ? null : _SettingsHighlight(anchor);
+    });
+    _controller.setSettingsPage(page);
   }
 
   @override
   Widget build(BuildContext context) {
-    final controller = widget.controller;
-    final searchQuery = _searchController.text.trim().toLowerCase();
-    final availableModels = controller.supportedModels
-        .where((model) => model.available)
-        .toList();
-    final routingModels = availableModels.isEmpty
-        ? controller.supportedModels
-        : availableModels;
-    final List<_ModelPickerOption> modelChoices = _modelPickerOptions(
-      routingModels,
-      allowAuto: true,
-    );
-    final enabledSmartModels = _enabledModels
-        .where((id) => routingModels.any((model) => model.id == id))
-        .length;
-    final visibleSearchSections = _settingsSearchSections
-        .where((section) => !section.requiresDesktop || _supportsDesktopShell)
-        .toSet();
-
-    return PopScope(
-      canPop: !_hasUnsavedChanges,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        final action = await _showLeaveDialog(context);
-        if (!context.mounted) return;
-        if (action == _LeaveAction.save) {
-          await _doSave();
-          if (context.mounted) Navigator.of(context).pop();
-        } else if (action == _LeaveAction.discard) {
-          _hydrate();
-          setState(() => _hasUnsavedChanges = false);
-          Navigator.of(context).pop();
-        }
-        // cancel: do nothing
-      },
-      child: ListView(
-        padding: widget.embedded ? EdgeInsets.zero : _pagePadding(context),
-        children: <Widget>[
-          if (!widget.embedded)
-            _PageTitle(
-              title: 'Settings',
-              subtitle: appStrings.workspaceModelsAndDiagnosticsControls,
-              trailing: _settingsSaveButton(controller),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          appStrings.generalSettings,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          appStrings.chooseACategoryOrSearchAcross,
-                          style: TextStyle(color: _textSecondary),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  _settingsSaveButton(controller),
-                ],
-              ),
-            ),
-          if (controller.errorMessage != null) ...<Widget>[
-            _InlineError(
-              message: controller.errorMessage!,
-              onDismiss: controller.clearInlineError,
-            ),
-            const SizedBox(height: 16),
-          ],
-          TextField(
-            controller: _searchController,
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              labelText: appStrings.searchSettings,
-              hintText: appStrings.modelsBrowserVoiceDiagnostics,
-              prefixIcon: Icon(Icons.search),
-              suffixIcon: searchQuery.isEmpty
-                  ? null
-                  : IconButton(
-                      onPressed: () {
-                        _searchController.clear();
-                        setState(() {});
-                      },
-                      icon: Icon(Icons.close),
-                    ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildSettingsCategoryPicker(visibleSearchSections),
-          const SizedBox(height: 16),
-          if (_showsSettingsSection(
-            searchQuery,
-            _overviewSettingsSection,
-          )) ...<Widget>[
-            _buildSettingsOverview(controller, availableModels.length),
-            const SizedBox(height: 16),
-          ],
-          if (_showsSettingsSection(
-            searchQuery,
-            _timeZoneSettingsSection,
-          )) ...<Widget>[
-            _TimeZoneSettingsCard(controller: controller),
-            const SizedBox(height: 16),
-          ],
-          if (_showsSettingsSection(
-            searchQuery,
-            _behaviorSettingsSection,
-          )) ...<Widget>[
-            _buildBehaviorSection(controller, routingModels),
-            const SizedBox(height: 16),
-          ],
-          if (_showsSettingsSection(
-            searchQuery,
-            _workspaceSettingsSection,
-          )) ...<Widget>[
-            _buildWorkspaceSection(controller),
-            const SizedBox(height: 16),
-          ],
-          if (_showsSettingsSection(
-            searchQuery,
-            _socialReachSettingsSection,
-          )) ...<Widget>[
-            _buildSocialReachSection(controller),
-            const SizedBox(height: 16),
-          ],
-          if (_showsSettingsSection(
-            searchQuery,
-            _modelsSettingsSection,
-          )) ...<Widget>[
-            _buildModelsSection(
-              context: context,
-              controller: controller,
-              modelChoices: modelChoices,
-              routingModels: routingModels,
-              availableModels: availableModels,
-              enabledSmartModels: enabledSmartModels,
-            ),
-            const SizedBox(height: 16),
-          ],
-          if (_showsSettingsSection(
-            searchQuery,
-            _advancedSettingsSection,
-          )) ...<Widget>[
-            _ByokSettingsCard(controller: controller),
-            const SizedBox(height: 16),
-          ],
-          if (_showsSettingsSection(
-            searchQuery,
-            _voiceSettingsSection,
-          )) ...<Widget>[
-            _buildVoiceSection(
-              controller: controller,
-              modelChoices: modelChoices,
-              routingModels: routingModels,
-            ),
-            const SizedBox(height: 16),
-          ],
-          if (visibleSearchSections.contains(_desktopSettingsSection) &&
-              _showsSettingsSection(
-                searchQuery,
-                _desktopSettingsSection,
-              )) ...<Widget>[
-            _buildDesktopSection(controller),
-            const SizedBox(height: 16),
-          ],
-          if (_showsSettingsSection(
-            searchQuery,
-            _securitySettingsSection,
-          )) ...<Widget>[
-            _buildSecuritySection(context, controller),
-            const SizedBox(height: 16),
-          ],
-          if (_showsSettingsSection(
-            searchQuery,
-            _diagnosticsSettingsSection,
-          )) ...<Widget>[_buildDiagnosticsSection(controller)],
-          if (_noSettingsMatches(
-            searchQuery,
-            visibleSearchSections,
-          )) ...<Widget>[
-            _EmptyCard(
-              title: appStrings.noMatchingSettings,
-              subtitle: appStrings.tryABroaderSearchLikeModels,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  bool _matchesSettingsSection(String query, _SettingsSection section) {
-    if (query.isEmpty) {
-      return true;
-    }
-    final haystack = <String>[
-      section.title,
-      ...section.keywords,
-    ].join(' ').toLowerCase();
-    return haystack.contains(query);
-  }
-
-  bool _showsSettingsSection(String query, _SettingsSection section) {
-    if (query.isNotEmpty) {
-      return _matchesSettingsSection(query, section);
-    }
-    return _selectedSettingsSection == section;
-  }
-
-  Widget _buildSettingsCategoryPicker(Set<_SettingsSection> visibleSections) {
-    final sections = _settingsSearchSections
-        .where(visibleSections.contains)
-        .toList();
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 620) {
-          return DropdownButtonFormField<_SettingsSection>(
-            key: ValueKey<_SettingsSection>(_selectedSettingsSection),
-            initialValue: _selectedSettingsSection,
-            isExpanded: true,
-            decoration: InputDecoration(
-              labelText: appStrings.category,
-              prefixIcon: Icon(Icons.category_outlined),
-            ),
-            items: sections
-                .map(
-                  (section) => DropdownMenuItem<_SettingsSection>(
-                    value: section,
-                    child: Row(
-                      children: <Widget>[
-                        Icon(section.icon, size: 18),
-                        const SizedBox(width: 10),
-                        Text(section.label),
-                      ],
-                    ),
-                  ),
-                )
-                .toList(),
-            onChanged: (section) {
-              if (section == null) return;
-              _searchController.clear();
-              setState(() => _selectedSettingsSection = section);
-            },
+        final page = _controller.settingsPage;
+        if (constraints.maxWidth >= 760) {
+          final shown = page ?? SettingsPage.profile;
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Container(
+                width: 268,
+                decoration: BoxDecoration(
+                  color: _bgSecondary,
+                  border: Border(right: BorderSide(color: _border)),
+                ),
+                child: _SettingsNav(
+                  controller: _controller,
+                  searchController: _searchController,
+                  onSearchChanged: () => setState(() {}),
+                  selected: _query.isEmpty ? shown : null,
+                  onOpen: _openPage,
+                  compact: false,
+                ),
+              ),
+              Expanded(
+                child: _query.isEmpty
+                    ? _SettingsPageView(
+                        key: ValueKey<SettingsPage>(shown),
+                        controller: _controller,
+                        page: shown,
+                        highlight: _highlight,
+                      )
+                    : ListView(
+                        padding: _pagePadding(context),
+                        children: <Widget>[
+                          _SettingsSearchResults(
+                            controller: _controller,
+                            query: _query,
+                            onOpen: _openPage,
+                          ),
+                        ],
+                      ),
+              ),
+            ],
           );
         }
-        return Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: sections
-              .map(
-                (section) => ChoiceChip(
-                  avatar: Icon(section.icon, size: 17),
-                  label: Text(section.label),
-                  selected: _selectedSettingsSection == section,
-                  onSelected: (_) {
-                    _searchController.clear();
-                    setState(() => _selectedSettingsSection = section);
-                  },
-                ),
-              )
-              .toList(),
+        if (page == null || _query.isNotEmpty) {
+          return _SettingsNav(
+            controller: _controller,
+            searchController: _searchController,
+            onSearchChanged: () => setState(() {}),
+            selected: null,
+            onOpen: _openPage,
+            compact: true,
+          );
+        }
+        // On a phone a page sits on top of the list: back returns to it.
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _controller.setSettingsPage(null);
+          },
+          child: _SettingsPageView(
+            key: ValueKey<SettingsPage>(page),
+            controller: _controller,
+            page: page,
+            highlight: _highlight,
+            onBack: () => _controller.setSettingsPage(null),
+          ),
         );
       },
     );
   }
+}
 
-  bool _noSettingsMatches(
-    String query,
-    Iterable<_SettingsSection> visibleSections,
-  ) {
-    if (query.isEmpty) {
-      return false;
-    }
-    return !visibleSections.any(
-      (section) => _matchesSettingsSection(query, section),
-    );
-  }
+/// The page list: a rail beside the open page on wide screens, the whole
+/// screen on a phone. A search replaces the list with matching settings.
+class _SettingsNav extends StatelessWidget {
+  const _SettingsNav({
+    required this.controller,
+    required this.searchController,
+    required this.onSearchChanged,
+    required this.selected,
+    required this.onOpen,
+    required this.compact,
+  });
 
-  Future<void> _doSave() async {
-    final controller = widget.controller;
-    await controller.saveSettings(
-      smarterSelector: _smarterSelector,
-      systemOneModel: _systemOneModel,
-      enabledModels: _enabledModels.toList(),
-      defaultChatModel: _defaultChatModel,
-      defaultSubagentModel: _defaultSubagentModel,
-      defaultSpeechModel: _defaultSpeechModel,
-      voiceSttProvider: _voiceSttProvider,
-      voiceSttModel: _voiceSttModel,
-      voiceLiveProvider: _voiceLiveProvider,
-      voiceLiveModel: _voiceLiveModel,
-      voiceLiveVoice: _voiceLiveVoice,
-      voiceInputMode: _voiceInputMode,
-    );
-    if (controller.errorMessage != null) return;
-    final existingModules = controller.behaviorConfig['modules'] is Map
-        ? Map<String, dynamic>.from(controller.behaviorConfig['modules'] as Map)
-        : <String, dynamic>{};
-    existingModules.addAll(<String, dynamic>{
-      'social_memory': <String, dynamic>{
-        'enabled': _behaviorSocialMemoryEnabled,
-      },
-      'norms': <String, dynamic>{'enabled': _behaviorNormsEnabled},
-      'social_observability': <String, dynamic>{
-        'enabled': _behaviorObservabilityEnabled,
-      },
-    });
-    await controller.saveBehaviorConfig(<String, dynamic>{
-      ...controller.behaviorConfig,
-      'enabled': _behaviorEnabled,
-      'participationMode': _behaviorParticipationMode,
-      'minimumNeedScore': _behaviorMinimumNeedScore,
-      'batchWindowMs': _behaviorBatchWindowMs.round(),
-      'decisionModelId': _behaviorDecisionModelId.isEmpty
-          ? null
-          : _behaviorDecisionModelId,
-      'deliveryStyle': _behaviorDeliveryStyle,
-      'modules': existingModules,
-    });
-    if (controller.errorMessage != null) return;
-    if (_behaviorNotesController.text !=
-        controller.memoryOverview.assistantBehaviorNotes) {
-      await controller.updateAssistantBehaviorNotes(
-        _behaviorNotesController.text,
-      );
-      if (controller.errorMessage != null) return;
-    }
-    if (mounted) {
-      setState(() {
-        _hasUnsavedChanges = false;
-        _rememberHydrationSources();
-      });
-    }
-  }
+  final NeoAgentController controller;
+  final TextEditingController searchController;
+  final VoidCallback onSearchChanged;
+  final SettingsPage? selected;
+  final void Function(SettingsPage page, {String? anchor}) onOpen;
+  final bool compact;
 
-  Widget _settingsSaveButton(NeoAgentController controller) {
-    final button = FilledButton.icon(
-      onPressed: controller.isSavingSettings ? null : _doSave,
-      style: FilledButton.styleFrom(backgroundColor: _accent),
-      icon: controller.isSavingSettings
-          ? const SizedBox.square(
-              dimension: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
-            )
-          : Icon(Icons.save_outlined),
-      label: Text(appStrings.save),
-    );
-    if (!_hasUnsavedChanges) return button;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisSize: MainAxisSize.min,
+  @override
+  Widget build(BuildContext context) {
+    final query = searchController.text.trim();
+    final pages = _visibleSettingsPages();
+    return ListView(
+      padding: compact
+          ? _pagePadding(context)
+          : const EdgeInsets.fromLTRB(14, 26, 14, 24),
       children: <Widget>[
-        Text(
-          appStrings.unsavedChanges,
-          style: TextStyle(color: Colors.orange, fontSize: 12),
+        Padding(
+          padding: EdgeInsets.fromLTRB(compact ? 2 : 10, 0, 0, 14),
+          child: Text(
+            appStrings.settings,
+            style: compact
+                ? _displayTitleStyle(26)
+                : TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.3,
+                    color: _textPrimary,
+                  ),
+          ),
         ),
-        const SizedBox(height: 4),
-        button,
+        _SettingsSearchField(
+          controller: searchController,
+          onChanged: onSearchChanged,
+        ),
+        if (compact && query.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 16),
+          _SettingsSearchResults(
+            controller: controller,
+            query: query,
+            onOpen: onOpen,
+          ),
+        ] else
+          for (final scope in SettingsScope.values)
+            ..._scopeSection(
+              scope,
+              pages.where((page) => page.scope == scope).toList(),
+            ),
       ],
     );
   }
 
-  Widget _buildSettingsOverview(
-    NeoAgentController controller,
-    int availableModelCount,
-  ) {
-    final platformLabel = kIsWeb ? 'Web' : defaultTargetPlatform.name;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _SectionTitle(appStrings.sectionOverview),
-            const SizedBox(height: 10),
-            Text(
-              appStrings.configureWorkspaceBehaviorAndModelDefaults,
-              style: TextStyle(color: _textSecondary, height: 1.45),
-            ),
-            if (availableModelCount == 0 &&
-                !controller.isRefreshing) ...<Widget>[
-              const SizedBox(height: 14),
-              _InlineError(
-                message:
-                    appStrings.noAiProviderIsConfiguredSo +
-                    appStrings.cannotRunYet,
-              ),
-            ],
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: <Widget>[
-                _MetaPill(
-                  icon: Icons.devices_outlined,
-                  label:
-                      appStrings.platformArg1Arg2(platformLabel[0].toUpperCase(), platformLabel.substring(1)),
-                ),
-                _MetaPill(
-                  icon: Icons.memory_outlined,
-                  label: appStrings.arg1ModelsReady(availableModelCount),
-                ),
-                _MetaPill(
-                  icon: Icons.hub_outlined,
-                  label: appStrings.arg1Providers(controller.aiProviders.length),
-                ),
-                _MetaPill(
-                  icon: Icons.auto_awesome_outlined,
-                  label: _smarterSelector
-                      ? appStrings.smartSelectorOn
-                      : appStrings.manualRouting,
-                ),
-                if (_supportsDesktopShell)
-                  _MetaPill(
-                    icon: Icons.desktop_windows_outlined,
-                    label: appStrings.desktopAppControlsAvailable,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                onPressed: controller.reopenOnboarding,
-                style: OutlinedButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                ),
-                icon: Icon(Icons.replay_rounded, size: 18),
-                label: Text(appStrings.redoOnboarding),
-              ),
-            ),
-          ],
+  List<Widget> _scopeSection(SettingsScope scope, List<SettingsPage> pages) {
+    if (pages.isEmpty) return const <Widget>[];
+    final header = Padding(
+      padding: EdgeInsets.fromLTRB(compact ? 4 : 10, 22, 4, 8),
+      child: Text(
+        scope == SettingsScope.agent
+            ? appStrings
+                  .arg1Arg22(scope.label, controller.activeAgentLabel)
+                  .toUpperCase()
+            : scope.label.toUpperCase(),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.geistMono(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.4,
+          color: _textMuted,
         ),
       ),
     );
-  }
-
-  Widget _buildBehaviorSection(
-    NeoAgentController controller,
-    List<ModelMeta> routingModels,
-  ) {
-    final modelIds = <String>{
-      if (_behaviorDecisionModelId.isNotEmpty) _behaviorDecisionModelId,
-      ...routingModels.map((model) => model.id),
-    }.toList();
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _SectionTitle(appStrings.behaviorModules),
-            const SizedBox(height: 10),
-            Text(
-              appStrings.oneRuntimeControlsPersonaGroupTurn,
-              style: TextStyle(color: _textSecondary, height: 1.45),
-            ),
-            const SizedBox(height: 12),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: Text(appStrings.enableBehaviorModules),
-              subtitle: Text(
-                appStrings.directMessagesRemainResponsiveAllowlistedGroups,
-              ),
-              value: _behaviorEnabled,
-              onChanged: (value) => setState(() {
-                _behaviorEnabled = value;
-                _hasUnsavedChanges = true;
-              }),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: _behaviorParticipationMode,
-              decoration: InputDecoration(
-                labelText: appStrings.defaultGroupParticipation,
-                helperText:
-                    appStrings.automaticReadsTheRoomAndNormally,
-              ),
-              items: <DropdownMenuItem<String>>[
-                DropdownMenuItem(
-                  value: 'automatic',
-                  child: Text(appStrings.automaticReserved),
-                ),
-                DropdownMenuItem(
-                  value: 'mention_only',
-                  child: Text(appStrings.mentionOrReplyOnly),
-                ),
-                DropdownMenuItem(value: 'always', child: Text(appStrings.alwaysEngage)),
-              ],
-              onChanged: !_behaviorEnabled
-                  ? null
-                  : (value) {
-                      if (value == null) return;
-                      setState(() {
-                        _behaviorParticipationMode = value;
-                        _hasUnsavedChanges = true;
-                      });
-                    },
-            ),
-            const SizedBox(height: 18),
-            Text(
-              appStrings.minimumContributionValueArg1(_behaviorMinimumNeedScore.toStringAsFixed(2)),
-              style: TextStyle(
-                color: _textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Slider(
-              value: _behaviorMinimumNeedScore,
-              min: 0,
-              max: 1,
-              divisions: 20,
-              label: _behaviorMinimumNeedScore.toStringAsFixed(2),
-              onChanged: !_behaviorEnabled
-                  ? null
-                  : (value) => setState(() {
-                      _behaviorMinimumNeedScore = value;
-                      _hasUnsavedChanges = true;
-                    }),
-            ),
-            Text(
-              appStrings.higherValuesMakeNeoagentMoreSelective,
-              style: TextStyle(color: _textSecondary, fontSize: 12),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              appStrings.roomBatchWindowArg1Ms(_behaviorBatchWindowMs.round()),
-              style: TextStyle(
-                color: _textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Slider(
-              value: _behaviorBatchWindowMs,
-              min: 0,
-              max: 5000,
-              divisions: 20,
-              label: appStrings.arg1Ms(_behaviorBatchWindowMs.round()),
-              onChanged: !_behaviorEnabled
-                  ? null
-                  : (value) => setState(() {
-                      _behaviorBatchWindowMs = value;
-                      _hasUnsavedChanges = true;
-                    }),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: _behaviorDecisionModelId,
-              decoration: InputDecoration(
-                labelText: appStrings.turnTakingModel,
-                helperText:
-                    controller.systemOneAvailable && _systemOneModel != 'off'
-                    ? appStrings.systemOneDecidesWhenToSpeakWhileIt
-                    : appStrings.automaticSelectsAFastModelThrough,
-              ),
-              items: <DropdownMenuItem<String>>[
-                DropdownMenuItem(
-                  value: '',
-                  child: Text(appStrings.automaticFast),
-                ),
-                ...modelIds.map(
-                  (id) => DropdownMenuItem(value: id, child: Text(id)),
-                ),
-              ],
-              onChanged: !_behaviorEnabled
-                  ? null
-                  : (value) {
-                      if (value == null) return;
-                      setState(() {
-                        _behaviorDecisionModelId = value;
-                        _hasUnsavedChanges = true;
-                      });
-                    },
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: _behaviorDeliveryStyle,
-              decoration: InputDecoration(
-                labelText: appStrings.messagingDelivery,
-              ),
-              items: <DropdownMenuItem<String>>[
-                DropdownMenuItem(
-                  value: 'natural_bubbles',
-                  child: Text(appStrings.naturalBubbles),
-                ),
-                DropdownMenuItem(
-                  value: 'single',
-                  child: Text(appStrings.singleMessage),
-                ),
-              ],
-              onChanged: !_behaviorEnabled
-                  ? null
-                  : (value) {
-                      if (value == null) return;
-                      setState(() {
-                        _behaviorDeliveryStyle = value;
-                        _hasUnsavedChanges = true;
-                      });
-                    },
-            ),
-            const SizedBox(height: 10),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: Text(appStrings.channelScopedSocialMemory),
-              value: _behaviorSocialMemoryEnabled,
-              onChanged: !_behaviorEnabled
-                  ? null
-                  : (value) => setState(() {
-                      _behaviorSocialMemoryEnabled = value;
-                      _hasUnsavedChanges = true;
-                    }),
-            ),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: Text(appStrings.learnRoomNorms),
-              value: _behaviorNormsEnabled,
-              onChanged: !_behaviorEnabled
-                  ? null
-                  : (value) => setState(() {
-                      _behaviorNormsEnabled = value;
-                      _hasUnsavedChanges = true;
-                    }),
-            ),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: Text(appStrings.socialObservability),
-              value: _behaviorObservabilityEnabled,
-              onChanged: !_behaviorEnabled
-                  ? null
-                  : (value) => setState(() {
-                      _behaviorObservabilityEnabled = value;
-                      _hasUnsavedChanges = true;
-                    }),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _behaviorNotesController,
-              minLines: 4,
-              maxLines: 10,
-              onChanged: (_) => setState(() {
-                _hasUnsavedChanges = true;
-              }),
-              decoration: InputDecoration(
-                labelText: appStrings.personaBehaviorNotes,
-                helperText:
-                    appStrings.durableInstructionsForVoiceAndInteraction,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWorkspaceSection(NeoAgentController controller) {
-    final state = controller.computerRuntime['state']?.toString() ?? 'stopped';
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _SectionTitle(appStrings.computerWorkspace),
-            const SizedBox(height: 10),
-            Text(
-              appStrings.browserLinuxDesktopFilesTerminalAnd,
-              style: TextStyle(color: _textSecondary, height: 1.45),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: <Widget>[
-                _DotStatus(
-                  label: state.replaceAll('_', ' '),
-                  color:
-                      state == 'ready' ||
-                          state == 'user_control' ||
-                          state == 'agent_control' ||
-                          state == 'teaching'
-                      ? _success
-                      : state == 'error'
-                      ? _danger
-                      : _warning,
-                ),
-                FilledButton.icon(
-                  onPressed: controller.isRunningDeviceAction
-                      ? null
-                      : controller.startComputerRuntime,
-                  icon: Icon(Icons.computer_outlined),
-                  label: Text(appStrings.openComputer),
-                ),
-                OutlinedButton.icon(
-                  onPressed: controller.isRunningDeviceAction
-                      ? null
-                      : controller.stopComputerRuntime,
-                  icon: Icon(Icons.stop_circle_outlined),
-                  label: Text(appStrings.stop),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              appStrings.theRuntimeIsALightweightDebian,
-              style: TextStyle(color: _textSecondary, height: 1.45),
-            ),
-            const Divider(height: 32),
-            _buildInlineTestRow(
-              label: appStrings.computerShell,
-              running: _cliTestRunning,
-              result: _cliTestResult,
-              note:
-                  appStrings.commandsRunInTheSamePersistent,
-              onTest: () async {
-                setState(() {
-                  _cliTestRunning = true;
-                  _cliTestResult = null;
-                });
-                try {
-                  final result = await controller.testCliRuntime();
-                  if (mounted) setState(() => _cliTestResult = result);
-                } catch (error) {
-                  if (mounted) {
-                    setState(() {
-                      _cliTestResult = <String, dynamic>{
-                        'passed': false,
-                        'detail': error.toString(),
-                      };
-                    });
-                  }
-                } finally {
-                  if (mounted) setState(() => _cliTestRunning = false);
-                }
-              },
-            ),
-            const Divider(height: 32),
-            _SettingToggle(
-              title: appStrings.smartModelSelection,
-              subtitle:
-                  appStrings.automaticallyChooseTheBestEnabledModel,
-              value: _smarterSelector,
-              onChanged: (value) => setState(() {
-                _smarterSelector = value;
-                _hasUnsavedChanges = true;
-              }),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  List<Map<String, dynamic>> _socialReachPlatforms(
-    NeoAgentController controller,
-  ) {
-    final raw = controller.socialReachStatus['platforms'];
-    if (raw is! List) return const <Map<String, dynamic>>[];
-    return raw
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
-  }
-
-  Color _socialReachStatusColor(Map<String, dynamic> platform) {
-    final status = platform['status']?.toString().toLowerCase() ?? '';
-    if (platform['ready'] == true || status == 'ok') return _success;
-    if (status == 'warn') return _warning;
-    if (status == 'error') return _danger;
-    return _textSecondary;
-  }
-
-  Widget _buildSocialReachSection(NeoAgentController controller) {
-    final platforms = _socialReachPlatforms(controller);
-    final ready = platforms
-        .where((item) => item['ready'] == true || item['status'] == 'ok')
-        .length;
-    final cookieSetup = platforms
-        .where((item) => item['setupKind'] == 'cookies')
-        .length;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(child: _SectionTitle(appStrings.socialReach3)),
-                IconButton(
-                  tooltip: 'Refresh',
-                  onPressed: _socialReachRefreshing
-                      ? null
-                      : () async {
-                          setState(() {
-                            _socialReachRefreshing = true;
-                            _socialReachActionResult = null;
-                          });
-                          try {
-                            await controller.refreshSocialReachStatus();
-                          } catch (e) {
-                            if (mounted) {
-                              setState(
-                                () => _socialReachActionResult =
-                                    <String, dynamic>{'error': e.toString()},
-                              );
-                            }
-                          } finally {
-                            if (mounted) {
-                              setState(() => _socialReachRefreshing = false);
-                            }
-                          }
-                        },
-                  icon: _socialReachRefreshing
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Icon(Icons.refresh_rounded),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              appStrings.socialSourcesAgentsCanReadDirectly,
-              style: TextStyle(color: _textSecondary, height: 1.45),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: <Widget>[
-                _MetaPill(
-                  icon: Icons.check_circle_outline,
-                  label: appStrings.arg1Ready(ready),
-                  color: _success,
-                ),
-                _MetaPill(
-                  icon: Icons.play_circle_outline,
-                  label: appStrings.videoLinks,
-                  color: _info,
-                ),
-                if (cookieSetup > 0)
-                  _MetaPill(
-                    icon: Icons.computer_outlined,
-                    label: appStrings.cookieSetup,
-                    color: _warning,
-                  ),
-              ],
-            ),
-            if (_socialReachActionResult != null) ...<Widget>[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color:
-                      (_socialReachActionResult!['error'] == null
-                              ? _success
-                              : _danger)
-                          .withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color:
-                        (_socialReachActionResult!['error'] == null
-                                ? _success
-                                : _danger)
-                            .withValues(alpha: 0.30),
-                  ),
-                ),
-                child: Text(
-                  _socialReachActionResult!['error']?.toString() ??
-                      appStrings.socialReachUpdated,
-                  style: TextStyle(
-                    color: _socialReachActionResult!['error'] == null
-                        ? _success
-                        : _danger,
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 16),
-            if (platforms.isEmpty)
-              Text(
-                appStrings.statusIsNotLoadedYet,
-                style: TextStyle(color: _textSecondary),
-              )
-            else
-              ...platforms.map(
-                (platform) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _buildSocialReachPlatformRow(controller, platform),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSocialReachPlatformRow(
-    NeoAgentController controller,
-    Map<String, dynamic> platform,
-  ) {
-    final id = platform['platform']?.toString() ?? '';
-    final label = platform['label']?.toString() ?? id;
-    final setupKind = platform['setupKind']?.toString() ?? '';
-    final status = platform['status']?.toString() ?? 'off';
-    final message = platform['message']?.toString() ?? '';
-    final cookie = platform['cookie'] is Map
-        ? Map<String, dynamic>.from(platform['cookie'] as Map)
-        : const <String, dynamic>{};
-    final busy = _socialReachBusyPlatform == id;
-    final canImport = setupKind == 'cookies';
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: _textPrimary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              _StatusPill(
-                label: status,
-                color: _socialReachStatusColor(platform),
-              ),
-            ],
+    if (!compact) {
+      return <Widget>[
+        header,
+        for (final page in pages)
+          _SettingsNavItem(
+            page: page,
+            selected: page == selected,
+            onTap: () => onOpen(page),
           ),
-          const SizedBox(height: 6),
-          Text(message, style: TextStyle(color: _textSecondary, height: 1.35)),
-          if (cookie.isNotEmpty) ...<Widget>[
-            const SizedBox(height: 8),
-            Text(
-              cookie['configured'] == true
-                  ? appStrings.arg1CookiesImported(cookie['count'] ?? 0)
-                  : appStrings.cookiesNotConfigured,
-              style: TextStyle(color: _textSecondary, fontSize: 12),
-            ),
-          ],
-          if (canImport) ...<Widget>[
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: <Widget>[
-                FilledButton.icon(
-                  onPressed: busy
-                      ? null
-                      : () => _runSocialReachAction(
-                          controller,
-                          id,
-                          () => controller.importSocialReachCookies(id),
-                        ),
-                  icon: busy
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Icon(Icons.computer_outlined, size: 18),
-                  label: Text(appStrings.importFromComputer),
-                ),
-                OutlinedButton.icon(
-                  onPressed: busy
-                      ? null
-                      : () => _runSocialReachAction(
-                          controller,
-                          id,
-                          () => controller.clearSocialReachCookies(id),
-                        ),
-                  icon: Icon(Icons.delete_outline, size: 18),
-                  label: Text(appStrings.clear),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Future<void> _runSocialReachAction(
-    NeoAgentController controller,
-    String platform,
-    Future<Map<String, dynamic>> Function() action,
-  ) async {
-    setState(() {
-      _socialReachBusyPlatform = platform;
-      _socialReachActionResult = null;
-    });
-    try {
-      final result = await action();
-      if (mounted) {
-        setState(() => _socialReachActionResult = result);
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(
-          () => _socialReachActionResult = <String, dynamic>{
-            'error': e.toString(),
-          },
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _socialReachBusyPlatform = null);
-      }
-    }
-  }
-
-  Widget _buildModelsSection({
-    required BuildContext context,
-    required NeoAgentController controller,
-    required List<_ModelPickerOption> modelChoices,
-    required List<ModelMeta> routingModels,
-    required List<ModelMeta> availableModels,
-    required int enabledSmartModels,
-  }) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _SectionTitle(appStrings.models),
-            const SizedBox(height: 10),
-            Text(
-              appStrings.chooseDefaultsForChatAgentsFallback,
-              style: TextStyle(color: _textSecondary, height: 1.45),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              appStrings.sharedProviderKeysAreConfiguredOn,
-              style: TextStyle(color: _textSecondary, height: 1.45),
-            ),
-            const SizedBox(height: 8),
-            const Divider(height: 32),
-            Text(
-              appStrings.defaultRouting,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: _textPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (routingModels.isNotEmpty)
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final compact = constraints.maxWidth < 940;
-                  final cardWidth = compact
-                      ? constraints.maxWidth
-                      : (constraints.maxWidth - 24) / 3;
-                  return Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: <Widget>[
-                      SizedBox(
-                        width: cardWidth,
-                        child: _RoutingSelectCard(
-                          label: 'Chat',
-                          icon: Icons.chat_bubble_outline,
-                          value: _ensureModelValue(
-                            _defaultChatModel,
-                            routingModels,
-                            allowAuto: true,
-                            preserveUnknown: true,
-                          ),
-                          options: modelChoices,
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() {
-                                _defaultChatModel = value;
-                                _hasUnsavedChanges = true;
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                      SizedBox(
-                        width: cardWidth,
-                        child: _RoutingSelectCard(
-                          label: appStrings.subAgent,
-                          icon: Icons.bolt_outlined,
-                          value: _ensureModelValue(
-                            _defaultSubagentModel,
-                            routingModels,
-                            allowAuto: true,
-                            preserveUnknown: true,
-                          ),
-                          options: modelChoices,
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() {
-                                _defaultSubagentModel = value;
-                                _hasUnsavedChanges = true;
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            const SizedBox(height: 16),
-            _SystemOneSettingCard(
-              selection: _systemOneModel,
-              models: controller.systemOneModels
-                  .where((model) => model.available)
-                  .toList(),
-              onChanged: (value) => setState(() {
-                _systemOneModel = value;
-                _hasUnsavedChanges = true;
-              }),
-            ),
-            const Divider(height: 32),
-            Text(
-              appStrings.smartSelectorPool,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: _textPrimary,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              appStrings.theModelsTheSmartSelectorRoutes,
-              style: TextStyle(color: _textSecondary, height: 1.45),
-            ),
-            const SizedBox(height: 12),
-            _SmartPoolSummary(
-              allModels: controller.supportedModels,
-              selectedIds: _enabledModels,
-              onManage: () async {
-                final result = await showGeneralDialog<Set<String>>(
-                  context: context,
-                  barrierDismissible: true,
-                  barrierLabel: 'Dismiss',
-                  barrierColor: Colors.black.withValues(alpha: 0.55),
-                  transitionDuration: const Duration(milliseconds: 220),
-                  transitionBuilder: (ctx, anim, _, child) => FadeTransition(
-                    opacity: CurvedAnimation(
-                      parent: anim,
-                      curve: Curves.easeOut,
-                    ),
-                    child: SlideTransition(
-                      position:
-                          Tween<Offset>(
-                            begin: const Offset(0, 0.04),
-                            end: Offset.zero,
-                          ).animate(
-                            CurvedAnimation(
-                              parent: anim,
-                              curve: Curves.easeOutCubic,
-                            ),
-                          ),
-                      child: child,
-                    ),
-                  ),
-                  pageBuilder: (ctx, _, __) => _SmartPoolDialog(
-                    models: controller.supportedModels,
-                    selectedIds: _enabledModels,
-                  ),
-                );
-                if (result != null) {
-                  setState(() {
-                    _enabledModels = result;
-                    _hasUnsavedChanges = true;
-                  });
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVoiceSection({
-    required NeoAgentController controller,
-    required List<_ModelPickerOption> modelChoices,
-    required List<ModelMeta> routingModels,
-  }) {
-    final capabilities = controller.voiceCapabilities;
-    final liveProviders = _jsonList(
-      capabilities['providers'],
-    ).whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
-    final defaultProviderId =
-        capabilities['defaultProvider']?.toString() ?? 'openai';
-    Map<String, dynamic> liveProvider(String id) => liveProviders.firstWhere(
-      (item) => item['id']?.toString() == id,
-      orElse: () => <String, dynamic>{},
-    );
-    final serverDefault = liveProvider(defaultProviderId);
-    final effective = liveProvider(
-      _voiceLiveProvider.isEmpty ? defaultProviderId : _voiceLiveProvider,
-    );
-    List<_ModelPickerOption> withDefault(
-      String defaultLabel,
-      List<String> values,
-      String current,
-    ) {
-      return <_ModelPickerOption>[
-        _ModelPickerOption(value: '', label: defaultLabel),
-        for (final value in <String>{
-          ...values,
-          if (current.isNotEmpty) current,
-        })
-          _ModelPickerOption(value: value, label: value),
       ];
     }
-
-    final providerOptions = <_ModelPickerOption>[
-      _ModelPickerOption(
-        value: '',
-        label:
-            appStrings.serverDefaultArg1(serverDefault['label'] ?? defaultProviderId),
-      ),
-      for (final provider in liveProviders)
-        _ModelPickerOption(
-          value: provider['id']?.toString() ?? '',
-          label: provider['label']?.toString() ?? '',
-        ),
-    ];
-    final modelOptions = withDefault(
-      appStrings.defaultArg1(effective['defaultModel'] ?? 'provider default'),
-      _jsonStringList(effective['models']),
-      _voiceLiveModel,
-    );
-    final voiceOptions = withDefault(
-      appStrings.defaultArg1(effective['defaultVoice'] ?? 'provider default'),
-      _jsonStringList(effective['voices']),
-      _voiceLiveVoice,
-    );
-    final inputModeOptions = <_ModelPickerOption>[
-      _ModelPickerOption(
-        value: 'hands_free',
-        label: appStrings.handsFreeTalkFreelyInterruptAnytime,
-      ),
-      _ModelPickerOption(value: 'ptt', label: appStrings.pushToTalk),
-    ];
-    final sttOptions = <_ModelPickerOption>[
-      _ModelPickerOption(
-        value: 'auto',
-        label: appStrings.autoFirstProviderWithAnApi,
-      ),
-      for (final provider in _jsonList(
-        _jsonMap(capabilities['transcription'])['providers'],
-      ).whereType<Map>())
-        _ModelPickerOption(
-          value: provider['id']?.toString() ?? '',
-          label: provider['id']?.toString() ?? '',
-        ),
-    ];
-    String sttDefaultModel(String id) {
-      for (final provider in _jsonList(
-        _jsonMap(capabilities['transcription'])['providers'],
-      ).whereType<Map>()) {
-        if (provider['id']?.toString() == id) {
-          return provider['defaultModel']?.toString() ?? '';
-        }
-      }
-      return '';
-    }
-
-    Widget pickerGrid(List<Widget> cards) {
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 940;
-          final cardWidth = compact
-              ? constraints.maxWidth
-              : (constraints.maxWidth - 12) / 2;
-          return Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: cards
-                .map((card) => SizedBox(width: cardWidth, child: card))
-                .toList(growable: false),
-          );
-        },
-      );
-    }
-
-    void update(VoidCallback change) {
-      setState(() {
-        change();
-        _hasUnsavedChanges = true;
-      });
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _SectionTitle(appStrings.voice),
-            const SizedBox(height: 10),
-            Text(
-              appStrings.voiceCallsRunOnALive,
-              style: TextStyle(color: _textSecondary, height: 1.45),
+    return <Widget>[
+      header,
+      _SettingsCardList(
+        children: <Widget>[
+          for (final page in pages)
+            _SettingsListTile(
+              icon: page.icon,
+              title: page.label,
+              onTap: () => onOpen(page),
             ),
-            const SizedBox(height: 16),
-            Text(
-              appStrings.liveVoice,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: _textPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            pickerGrid(<Widget>[
-              _RoutingSelectCard(
-                label: appStrings.liveModelProvider,
-                icon: Icons.graphic_eq_outlined,
-                value: _voiceLiveProvider,
-                options: providerOptions,
-                onChanged: (value) {
-                  if (value == null) return;
-                  update(() {
-                    _voiceLiveProvider = value;
-                    _voiceLiveModel = '';
-                    _voiceLiveVoice = '';
-                  });
-                },
-              ),
-              _RoutingSelectCard(
-                label: appStrings.liveModel,
-                icon: Icons.memory_outlined,
-                value: _voiceLiveModel,
-                options: modelOptions,
-                onChanged: (value) {
-                  if (value != null) update(() => _voiceLiveModel = value);
-                },
-              ),
-              _RoutingSelectCard(
-                label: appStrings.voice,
-                icon: Icons.record_voice_over_outlined,
-                value: _voiceLiveVoice,
-                options: voiceOptions,
-                onChanged: (value) {
-                  if (value != null) update(() => _voiceLiveVoice = value);
-                },
-              ),
-              _RoutingSelectCard(
-                label: appStrings.inputMode,
-                icon: Icons.mic_outlined,
-                value: _voiceInputMode,
-                options: inputModeOptions,
-                onChanged: (value) {
-                  if (value != null) update(() => _voiceInputMode = value);
-                },
-              ),
-            ]),
-            const SizedBox(height: 10),
-            Text(
-              appStrings.gptLiveUsesYourOpenaiApi,
-              style: TextStyle(color: _textSecondary, height: 1.4),
-            ),
-            const Divider(height: 32),
-            Text(
-              appStrings.voiceNotesAndDictation,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: _textPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            pickerGrid(<Widget>[
-              _RoutingSelectCard(
-                label: appStrings.speechToText,
-                icon: Icons.hearing_outlined,
-                value: _voiceSttProvider,
-                options: sttOptions,
-                onChanged: (value) {
-                  if (value == null) return;
-                  update(() {
-                    _voiceSttProvider = value;
-                    _voiceSttModel = value == 'auto'
-                        ? ''
-                        : sttDefaultModel(value);
-                  });
-                },
-              ),
-              _RoutingSelectCard(
-                label: appStrings.voiceReplyModel,
-                icon: Icons.chat_bubble_outline,
-                value: _ensureModelValue(
-                  _defaultSpeechModel,
-                  routingModels,
-                  allowAuto: true,
-                  preserveUnknown: true,
-                ),
-                options: modelChoices,
-                onChanged: (value) {
-                  if (value != null) update(() => _defaultSpeechModel = value);
-                },
-              ),
-            ]),
-            const SizedBox(height: 10),
-            Text(
-              appStrings.speechToTextTranscribesVoiceNotes,
-              style: TextStyle(color: _textSecondary, height: 1.4),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDesktopSection(NeoAgentController controller) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _SectionTitle(appStrings.desktopApp),
-            const SizedBox(height: 10),
-            Text(
-              appStrings.localPreferencesForTheNeoagentApplication,
-              style: TextStyle(color: _textSecondary, height: 1.45),
-            ),
-            const SizedBox(height: 16),
-            SwitchListTile.adaptive(
-              value: controller.desktopAskOnClose,
-              contentPadding: EdgeInsets.zero,
-              title: Text(appStrings.askBeforeClosingToBackground),
-              subtitle: Text(
-                appStrings.promptBeforeNeoagentStaysResidentIn,
-                style: TextStyle(color: _textSecondary),
-              ),
-              onChanged: (value) => controller.setDesktopClosePreference(
-                askOnClose: value,
-                keepRunningOnClose: controller.desktopKeepRunningOnClose,
-              ),
-            ),
-            SwitchListTile.adaptive(
-              value: controller.desktopAssistantHotkeyEnabled,
-              contentPadding: EdgeInsets.zero,
-              title: Text(appStrings.reserveAssistantHotkey),
-              subtitle: Text(
-                appStrings.registerArg1ForTheAssistantSummon(_desktopAssistantHotkeyLabel),
-                style: TextStyle(color: _textSecondary),
-              ),
-              onChanged: controller.setDesktopAssistantHotkeyEnabled,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSecuritySection(
-    BuildContext context,
-    NeoAgentController controller,
-  ) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _SectionTitle(appStrings.security),
-            const SizedBox(height: 10),
-            Text(
-              appStrings.perToolPermissionPoliciesApprovalGates,
-              style: TextStyle(color: _textSecondary, height: 1.45),
-            ),
-            const SizedBox(height: 8),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.checklist_outlined, color: _accentAlt),
-              title: Text(appStrings.toolPermissions),
-              subtitle: Text(
-                appStrings.setBlockAskAllowPerTool,
-                style: TextStyle(color: _textSecondary),
-              ),
-              trailing: Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => MainSecurity(controller: controller),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDiagnosticsSection(NeoAgentController controller) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                _SectionTitle(appStrings.sectionDiagnostics),
-                const SizedBox(width: 8),
-                Icon(Icons.info_outline, size: 16, color: _textSecondary),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              appStrings.usageAndHealthSignalsThatHelp,
-              style: TextStyle(color: _textSecondary, height: 1.45),
-            ),
-            const SizedBox(height: 14),
-            if (controller.tokenUsage == null)
-              Text(
-                appStrings.tokenUsageUnavailableOnThisServer,
-                style: TextStyle(color: _textSecondary),
-              )
-            else
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    appStrings.totalArg1TokensAcrossArg2Runs(controller.tokenUsage!.totalTokensLabel, controller.tokenUsage!.totalRunsLabel),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    appStrings.last7DaysArg1TokensIn(controller.tokenUsage!.last7DaysTokensLabel, controller.tokenUsage!.last7DaysRunsLabel),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    appStrings.avgRunArg1Tokens(controller.tokenUsage!.avgTokensPerRunLabel),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    appStrings.promptCacheArg1CachedTokens(controller.tokenUsage!.cachedReadTokensLabel) +
-                    appStrings.arg1HitRatio(controller.tokenUsage!.cacheHitRatioLabel),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    appStrings.measuredModelCostArg1(controller.tokenUsage!.estimatedCostLabel),
-                  ),
-                ],
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<_LeaveAction?> _showLeaveDialog(BuildContext context) {
-    return showDialog<_LeaveAction>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(appStrings.unsavedChanges),
-        content: Text(
-          appStrings.youHaveUnsavedSettingsWhatWould,
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, _LeaveAction.cancel),
-            child: Text(appStrings.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, _LeaveAction.discard),
-            child: Text(appStrings.discard),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, _LeaveAction.save),
-            child: Text(appStrings.save),
-          ),
         ],
       ),
-    );
+    ];
   }
+}
 
-  // Shared helper: small "Test" button + inline result row.
-  Widget _buildInlineTestRow({
-    required String label,
-    required bool running,
-    required Map<String, dynamic>? result,
-    required VoidCallback onTest,
-    String? note,
-  }) {
-    final passed = result?['passed'] == true;
-    final detail = result?['detail']?.toString() ?? '';
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              if (result != null)
-                Row(
-                  children: <Widget>[
-                    Icon(
-                      passed
-                          ? Icons.check_circle_rounded
-                          : Icons.cancel_rounded,
-                      size: 15,
-                      color: passed ? _success : _danger,
+class _SettingsNavItem extends StatelessWidget {
+  const _SettingsNavItem({
+    required this.page,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final SettingsPage page;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Material(
+        color: selected ? _accentMuted : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            child: Row(
+              children: <Widget>[
+                Icon(
+                  page.icon,
+                  size: 18,
+                  color: selected ? _accent : _textMuted,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    page.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                      color: selected ? _textPrimary : _textSecondary,
                     ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        passed
-                            ? (detail.isNotEmpty ? detail : appStrings.arg1Ok(label))
-                            : detail,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: passed ? null : _danger,
-                        ),
-                      ),
-                    ),
-                  ],
-                )
-              else if (note != null)
-                Text(
-                  note,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: _textSecondary,
-                    height: 1.4,
                   ),
                 ),
-            ],
+              ],
+            ),
           ),
         ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 80,
-          child: OutlinedButton(
-            onPressed: running ? null : onTest,
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              textStyle: const TextStyle(fontSize: 12),
+      ),
+    );
+  }
+}
+
+class _SettingsSearchField extends StatelessWidget {
+  const _SettingsSearchField({
+    required this.controller,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      onChanged: (_) => onChanged(),
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: appStrings.settingsSearchHint,
+        prefixIcon: Icon(Icons.search, size: 18, color: _textMuted),
+        suffixIcon: controller.text.isEmpty
+            ? null
+            : IconButton(
+                tooltip: appStrings.clear,
+                icon: Icon(Icons.close, size: 18, color: _textMuted),
+                onPressed: () {
+                  controller.clear();
+                  onChanged();
+                },
+              ),
+      ),
+    );
+  }
+}
+
+/// One searchable setting: the page it lives on and the anchor its row
+/// carries there, so a result can scroll straight to it.
+class _SettingsEntry {
+  const _SettingsEntry(
+    this.page,
+    this.anchor,
+    this.label, {
+    this.keywords = const <String>[],
+    this.visible,
+  });
+
+  final SettingsPage page;
+  final String anchor;
+  final String Function() label;
+
+  /// Extra English terms people search for, such as "byok" for API keys.
+  final List<String> keywords;
+  final bool Function(NeoAgentController controller)? visible;
+
+  bool matches(String query) {
+    if (label().toLowerCase().contains(query)) return true;
+    return keywords.any((keyword) => keyword.contains(query));
+  }
+}
+
+bool _isMobileDevice() => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
+final List<_SettingsEntry> _settingsEntries = <_SettingsEntry>[
+  _SettingsEntry(
+    SettingsPage.profile,
+    'displayName',
+    () => appStrings.displayName,
+    keywords: const <String>['name'],
+  ),
+  _SettingsEntry(SettingsPage.profile, 'email', () => appStrings.email),
+  _SettingsEntry(
+    SettingsPage.profile,
+    'exportData',
+    () => appStrings.exportMyData,
+    keywords: const <String>['download', 'gdpr'],
+  ),
+  _SettingsEntry(
+    SettingsPage.profile,
+    'signOut',
+    () => appStrings.signOut,
+    keywords: const <String>['logout', 'log out'],
+  ),
+  _SettingsEntry(
+    SettingsPage.profile,
+    'deleteAccount',
+    () => appStrings.deleteAccount,
+  ),
+  _SettingsEntry(
+    SettingsPage.security,
+    'qrLogin',
+    () => appStrings.approveQrLogin,
+    keywords: const <String>['scan', 'qr'],
+    visible: (_) => !kIsWeb && Platform.isAndroid,
+  ),
+  _SettingsEntry(SettingsPage.security, 'password', () => appStrings.password),
+  _SettingsEntry(
+    SettingsPage.security,
+    'twoFactor',
+    () => appStrings.twoFactorAuthentication,
+    keywords: const <String>['2fa', 'authenticator', 'recovery', 'totp'],
+  ),
+  _SettingsEntry(
+    SettingsPage.security,
+    'securityKeys',
+    () => appStrings.securityKeys,
+    keywords: const <String>['passkey', 'webauthn', 'yubikey'],
+  ),
+  _SettingsEntry(
+    SettingsPage.security,
+    'linkedProviders',
+    () => appStrings.linkedSignInProviders,
+    keywords: const <String>['google', 'github', 'oauth'],
+  ),
+  _SettingsEntry(
+    SettingsPage.security,
+    'sessions',
+    () => appStrings.activeSessions,
+    keywords: const <String>['devices', 'revoke'],
+  ),
+  _SettingsEntry(
+    SettingsPage.usage,
+    'limits',
+    () => appStrings.usageLimits2,
+    keywords: const <String>['quota', 'tokens'],
+  ),
+  _SettingsEntry(
+    SettingsPage.usage,
+    'tokenUsage',
+    () => appStrings.settingsTokenUsage,
+    keywords: const <String>['tokens', 'cost', 'cache', 'diagnostics'],
+  ),
+  _SettingsEntry(
+    SettingsPage.usage,
+    'billing',
+    () => appStrings.billing,
+    keywords: const <String>['plan', 'subscription', 'invoice', 'payment'],
+    visible: (controller) => controller.showBillingSection,
+  ),
+  _SettingsEntry(
+    SettingsPage.agents,
+    'agentList',
+    () => appStrings.settingsYourAgents,
+    keywords: const <String>['bot', 'delegate', 'default agent'],
+  ),
+  _SettingsEntry(
+    SettingsPage.permissions,
+    'toolPermissions',
+    () => appStrings.toolPermissions,
+    keywords: const <String>['approval', 'shell', 'allow', 'block', 'policy'],
+  ),
+  _SettingsEntry(
+    SettingsPage.computer,
+    'computerRuntime',
+    () => appStrings.computerWorkspace,
+    keywords: const <String>['vm', 'browser', 'desktop'],
+  ),
+  _SettingsEntry(
+    SettingsPage.computer,
+    'shell',
+    () => appStrings.computerShell,
+    keywords: const <String>['terminal', 'cli'],
+  ),
+  _SettingsEntry(
+    SettingsPage.computer,
+    'socialReach',
+    () => appStrings.socialReach2,
+    keywords: const <String>[
+      'cookies',
+      'youtube',
+      'reddit',
+      'twitter',
+      'linkedin',
+      'github',
+    ],
+  ),
+  _SettingsEntry(
+    SettingsPage.models,
+    'chatModel',
+    () => appStrings.settingsChatModel,
+    keywords: const <String>['default model', 'llm'],
+  ),
+  _SettingsEntry(
+    SettingsPage.models,
+    'subAgentModel',
+    () => appStrings.settingsSubAgentModel,
+    keywords: const <String>['subagent'],
+  ),
+  _SettingsEntry(
+    SettingsPage.models,
+    'systemOne',
+    () => appStrings.systemOneModels,
+    keywords: const <String>['systemone', 'fast model'],
+  ),
+  _SettingsEntry(
+    SettingsPage.models,
+    'smartSelection',
+    () => appStrings.smartModelSelection,
+    keywords: const <String>['routing', 'auto'],
+  ),
+  _SettingsEntry(
+    SettingsPage.models,
+    'modelPool',
+    () => appStrings.settingsModelPool,
+    keywords: const <String>['routing'],
+  ),
+  _SettingsEntry(
+    SettingsPage.models,
+    'apiKeys',
+    () => appStrings.bringYourOwnKey2,
+    keywords: const <String>[
+      'byok',
+      'api key',
+      'openai',
+      'anthropic',
+      'ollama',
+      'endpoint',
+    ],
+  ),
+  _SettingsEntry(
+    SettingsPage.behavior,
+    'persona',
+    () => appStrings.personaBehaviorNotes,
+    keywords: const <String>['instructions', 'tone'],
+  ),
+  _SettingsEntry(
+    SettingsPage.behavior,
+    'socialBehavior',
+    () => appStrings.enableBehaviorModules,
+    keywords: const <String>['social', 'groups'],
+  ),
+  _SettingsEntry(
+    SettingsPage.behavior,
+    'socialMemory',
+    () => appStrings.channelScopedSocialMemory,
+  ),
+  _SettingsEntry(
+    SettingsPage.behavior,
+    'roomNorms',
+    () => appStrings.learnRoomNorms,
+  ),
+  _SettingsEntry(
+    SettingsPage.behavior,
+    'observability',
+    () => appStrings.socialObservability,
+  ),
+  _SettingsEntry(
+    SettingsPage.behavior,
+    'turnTaking',
+    () => appStrings.turnTakingModel,
+  ),
+  _SettingsEntry(
+    SettingsPage.behavior,
+    'minimumNeed',
+    () => appStrings.settingsMinimumContribution,
+  ),
+  _SettingsEntry(
+    SettingsPage.behavior,
+    'batchWindow',
+    () => appStrings.settingsBatchWindow,
+  ),
+  _SettingsEntry(
+    SettingsPage.voice,
+    'inputMode',
+    () => appStrings.inputMode,
+    keywords: const <String>['push to talk', 'hands-free', 'ptt'],
+  ),
+  _SettingsEntry(
+    SettingsPage.voice,
+    'liveProvider',
+    () => appStrings.liveModelProvider,
+  ),
+  _SettingsEntry(SettingsPage.voice, 'liveModel', () => appStrings.liveModel),
+  _SettingsEntry(
+    SettingsPage.voice,
+    'liveVoice',
+    () => appStrings.settingsLiveVoice,
+  ),
+  _SettingsEntry(
+    SettingsPage.voice,
+    'speechToText',
+    () => appStrings.speechToText,
+    keywords: const <String>['stt', 'transcription', 'dictation'],
+  ),
+  _SettingsEntry(
+    SettingsPage.voice,
+    'voiceReplyModel',
+    () => appStrings.voiceReplyModel,
+    keywords: const <String>['tts'],
+  ),
+  _SettingsEntry(
+    SettingsPage.messaging,
+    'participation',
+    () => appStrings.defaultGroupParticipation,
+    keywords: const <String>['groups', 'mention'],
+  ),
+  _SettingsEntry(
+    SettingsPage.messaging,
+    'delivery',
+    () => appStrings.messagingDelivery,
+    keywords: const <String>['bubbles'],
+  ),
+  _SettingsEntry(
+    SettingsPage.messaging,
+    'channels',
+    () => appStrings.settingsChannels,
+    keywords: const <String>[
+      'whatsapp',
+      'telegram',
+      'discord',
+      'signal',
+      'slack',
+      'meshtastic',
+      'webhook',
+    ],
+  ),
+  _SettingsEntry(
+    SettingsPage.general,
+    'theme',
+    () => appStrings.settingsTheme,
+    keywords: const <String>['dark', 'light', 'appearance'],
+  ),
+  _SettingsEntry(
+    SettingsPage.general,
+    'language',
+    () => appStrings.accountLanguageTitle,
+    keywords: const <String>['deutsch', 'english'],
+  ),
+  _SettingsEntry(
+    SettingsPage.general,
+    'timeZone',
+    () => appStrings.timeZone2,
+    keywords: const <String>['timezone', 'clock'],
+  ),
+  _SettingsEntry(
+    SettingsPage.general,
+    'closeWindow',
+    () => appStrings.settingsCloseWindow,
+    keywords: const <String>['tray', 'background'],
+    visible: (_) => _supportsDesktopShell,
+  ),
+  _SettingsEntry(
+    SettingsPage.general,
+    'hotkey',
+    () => appStrings.reserveAssistantHotkey,
+    keywords: const <String>['shortcut'],
+    visible: (_) => _supportsDesktopShell,
+  ),
+  _SettingsEntry(
+    SettingsPage.general,
+    'locationTriggers',
+    () => appStrings.settingsLocationTriggers,
+    keywords: const <String>['geofence', 'gps'],
+    visible: (_) => _isMobileDevice(),
+  ),
+  _SettingsEntry(
+    SettingsPage.general,
+    'notificationTriggers',
+    () => appStrings.settingsNotificationTriggers,
+    visible: (_) => !kIsWeb && Platform.isAndroid,
+  ),
+  _SettingsEntry(
+    SettingsPage.general,
+    'onboarding',
+    () => appStrings.redoOnboarding,
+    keywords: const <String>['setup'],
+  ),
+  _SettingsEntry(
+    SettingsPage.system,
+    'server',
+    () => appStrings.server,
+    keywords: const <String>['update', 'channel', 'beta', 'install', 'logs'],
+  ),
+];
+
+/// Pages and settings matching a search, each opening its page, with the
+/// setting itself scrolled into view.
+class _SettingsSearchResults extends StatelessWidget {
+  const _SettingsSearchResults({
+    required this.controller,
+    required this.query,
+    required this.onOpen,
+  });
+
+  final NeoAgentController controller;
+  final String query;
+  final void Function(SettingsPage page, {String? anchor}) onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final needle = query.toLowerCase();
+    final pages = _visibleSettingsPages();
+    final pageHits = pages
+        .where((page) => page.label.toLowerCase().contains(needle))
+        .toList();
+    final entryHits = _settingsEntries
+        .where(
+          (entry) =>
+              pages.contains(entry.page) &&
+              (entry.visible?.call(controller) ?? true) &&
+              entry.matches(needle),
+        )
+        .toList();
+    final total = pageHits.length + entryHits.length;
+    if (total == 0) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Text(
+          appStrings.settingsSearchNoMatch(query),
+          style: TextStyle(color: _textSecondary, height: 1.45),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+          child: Text(
+            appStrings.settingsSearchResultCount(total),
+            style: TextStyle(color: _textSecondary, fontSize: 13),
+          ),
+        ),
+        _SettingsCardList(
+          children: <Widget>[
+            for (final page in pageHits)
+              _SettingsListTile(
+                icon: page.icon,
+                title: page.label,
+                subtitle: page.scope.label,
+                onTap: () => onOpen(page),
+              ),
+            for (final entry in entryHits)
+              _SettingsListTile(
+                icon: entry.page.icon,
+                title: entry.label(),
+                subtitle: appStrings.arg1Arg22(
+                  entry.page.scope.label,
+                  entry.page.label,
+                ),
+                onTap: () => onOpen(entry.page, anchor: entry.anchor),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// A page: its header, then its groups of settings.
+class _SettingsPageView extends StatelessWidget {
+  const _SettingsPageView({
+    super.key,
+    required this.controller,
+    required this.page,
+    required this.highlight,
+    this.onBack,
+  });
+
+  final NeoAgentController controller;
+  final SettingsPage page;
+  final _SettingsHighlight? highlight;
+
+  /// Set on a phone, where the page covers the list.
+  final VoidCallback? onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: _pagePadding(context),
+      children: <Widget>[
+        Align(
+          alignment: Alignment.topLeft,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 880),
+            child: _SettingsHighlightScope(
+              highlight: highlight,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  if (onBack != null)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: onBack,
+                        icon: Icon(Icons.arrow_back_ios_new_rounded, size: 16),
+                        label: Text(appStrings.settings),
+                      ),
+                    ),
+                  _SettingsPageHeader(controller: controller, page: page),
+                  const SizedBox(height: 26),
+                  if (controller.errorMessage != null) ...<Widget>[
+                    _InlineError(
+                      message: controller.errorMessage!,
+                      onDismiss: controller.clearInlineError,
+                    ),
+                    const SizedBox(height: 18),
+                  ],
+                  _settingsPageBody(controller, page),
+                ],
+              ),
             ),
-            child: running
-                ? const SizedBox(
-                    width: 13,
-                    height: 13,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text('Test'),
           ),
         ),
       ],
@@ -2016,896 +788,757 @@ class _SettingsPanelState extends State<SettingsPanel> {
   }
 }
 
-class _TimeZoneSettingsCard extends StatefulWidget {
-  const _TimeZoneSettingsCard({required this.controller});
+Widget _settingsPageBody(NeoAgentController controller, SettingsPage page) {
+  switch (page) {
+    case SettingsPage.profile:
+    case SettingsPage.security:
+    case SettingsPage.usage:
+      return AccountSettingsPanel(controller: controller, page: page);
+    case SettingsPage.agents:
+      return AgentsPanel(controller: controller);
+    case SettingsPage.permissions:
+      return MainSecurity(controller: controller);
+    case SettingsPage.computer:
+      return _ComputerSettingsPage(controller: controller);
+    case SettingsPage.models:
+      return _ModelsSettingsPage(controller: controller);
+    case SettingsPage.behavior:
+      return _BehaviorSettingsPage(controller: controller);
+    case SettingsPage.voice:
+      return _VoiceSettingsPage(controller: controller);
+    case SettingsPage.messaging:
+      return MessagingPanel(controller: controller);
+    case SettingsPage.general:
+      return _GeneralSettingsPage(controller: controller);
+    case SettingsPage.system:
+      return ServerPanel(controller: controller, embedded: true);
+  }
+}
+
+/// Scope, title and description of a page, plus who it applies to and
+/// whether changes are still being saved.
+class _SettingsPageHeader extends StatelessWidget {
+  const _SettingsPageHeader({required this.controller, required this.page});
+
+  final NeoAgentController controller;
+  final SettingsPage page;
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 760;
+    final heading = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(page.scope.label.toUpperCase(), style: _sectionEyebrowStyle()),
+        const SizedBox(height: 8),
+        Text(page.label, style: _displayTitleStyle(compact ? 24 : 30)),
+        const SizedBox(height: 8),
+        Text(
+          page.description,
+          style: TextStyle(color: _textSecondary, height: 1.5),
+        ),
+      ],
+    );
+    final scope = _scopeIndicator();
+    final status = _SettingsSaveStatus(controller: controller);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 640) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              heading,
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 14,
+                runSpacing: 10,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: <Widget>[if (scope != null) scope, status],
+              ),
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: <Widget>[
+            Expanded(child: heading),
+            const SizedBox(width: 24),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: <Widget>[
+                if (scope != null) ...<Widget>[
+                  scope,
+                  const SizedBox(height: 10),
+                ],
+                status,
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget? _scopeIndicator() {
+    switch (page.scope) {
+      case SettingsScope.agent:
+        if (controller.agentProfiles.isEmpty) return null;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              appStrings.settingsAppliesTo,
+              style: TextStyle(color: _textSecondary, fontSize: 13),
+            ),
+            const SizedBox(width: 8),
+            _AgentSwitcher(controller: controller, compact: true),
+          ],
+        );
+      case SettingsScope.account:
+        return _SettingsScopePill(
+          icon: Icons.cloud_outlined,
+          label: appStrings.settingsScopeAccountHint,
+        );
+      case SettingsScope.allAgents:
+        return _SettingsScopePill(
+          icon: Icons.groups_2_outlined,
+          label: appStrings.settingsScopeAllAgentsHint,
+        );
+      case SettingsScope.app:
+        return null;
+    }
+  }
+}
+
+class _SettingsScopePill extends StatelessWidget {
+  const _SettingsScopePill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: _bgTertiary,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 14, color: _textSecondary),
+          const SizedBox(width: 7),
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(color: _textSecondary, fontSize: 12.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Settings save as they change; this says so, and shows when a save is
+/// still in flight.
+class _SettingsSaveStatus extends StatelessWidget {
+  const _SettingsSaveStatus({required this.controller});
 
   final NeoAgentController controller;
 
   @override
-  State<_TimeZoneSettingsCard> createState() => _TimeZoneSettingsCardState();
-}
-
-class _TimeZoneSettingsCardState extends State<_TimeZoneSettingsCard> {
-  List<String> _zones = const <String>[];
-  String? _deviceZone;
-  bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadZones();
-  }
-
-  Future<void> _loadZones() async {
-    final deviceZone = await widget.controller.deviceTimeZone();
-    List<String> zones = const <String>[];
-    try {
-      zones =
-          (await FlutterTimezone.getAvailableTimezones())
-              .map((zone) => zone.identifier)
-              .toSet()
-              .toList()
-            ..sort();
-    } catch (error) {
-      debugPrint(appStrings.timezoneCouldNotListTimeZones(error));
-    }
-    if (!mounted) return;
-    setState(() {
-      _deviceZone = deviceZone;
-      _zones = zones;
-    });
-  }
-
-  Future<void> _save(Map<String, dynamic> payload) async {
-    setState(() => _saving = true);
-    try {
-      await widget.controller.saveSettingsPayload(payload);
-    } catch (_) {
-      // saveSettingsPayload shows the error inline.
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  void _setFollowsDevice(bool follow) {
-    final deviceZone = _deviceZone;
-    _save(<String, dynamic>{
-      'timezone_auto': follow,
-      if (follow && deviceZone != null) 'timezone': deviceZone,
-    });
-  }
-
-  void _chooseZone(String zone) {
-    if (zone == widget.controller.timeZone) return;
-    _save(<String, dynamic>{'timezone_auto': false, 'timezone': zone});
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final controller = widget.controller;
-    final followsDevice = controller.timeZoneFollowsDevice;
-    final current = controller.timeZone;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _SectionTitle(appStrings.timeZone2),
-            const SizedBox(height: 10),
-            Text(
-              appStrings.theAgentReadsTimesYouMention,
-              style: TextStyle(color: _textSecondary, height: 1.45),
+    final saving =
+        controller.isSavingSettings || controller.isSavingAccountSettings;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        if (saving)
+          SizedBox.square(
+            dimension: 12,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.6,
+              color: _textMuted,
             ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: <Widget>[
-                _MetaPill(
-                  icon: Icons.public,
-                  label: current.isEmpty ? appStrings.notSet : current,
-                ),
-                if (_deviceZone != null)
-                  _MetaPill(
-                    icon: Icons.devices_outlined,
-                    label: appStrings.thisDeviceArg1(_deviceZone),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            _SettingToggle(
-              title: appStrings.matchThisDevice,
-              subtitle:
-                  appStrings.updateTheTimeZoneAutomaticallyFrom,
-              value: followsDevice,
-              onChanged: _setFollowsDevice,
-            ),
-            const SizedBox(height: 8),
-            if (_zones.isNotEmpty)
-              DropdownMenu<String>(
-                key: ValueKey<String>('timezone-$current-$followsDevice'),
-                enabled: !followsDevice && !_saving,
-                initialSelection: _zones.contains(current) ? current : null,
-                expandedInsets: EdgeInsets.zero,
-                enableFilter: true,
-                requestFocusOnTap: true,
-                menuHeight: 320,
-                label: Text(appStrings.timeZone2),
-                leadingIcon: Icon(Icons.search),
-                dropdownMenuEntries: _zones
-                    .map(
-                      (zone) =>
-                          DropdownMenuEntry<String>(value: zone, label: zone),
-                    )
-                    .toList(),
-                onSelected: (zone) {
-                  if (zone != null) _chooseZone(zone);
-                },
-              ),
-          ],
+          )
+        else
+          Icon(Icons.check_rounded, size: 15, color: _success),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            saving
+                ? appStrings.settingsSaving
+                : appStrings.settingsSavedAutomatically,
+            style: TextStyle(color: _textMuted, fontSize: 12.5),
+          ),
         ),
-      ),
+      ],
     );
   }
 }
 
-/// The per-agent SystemOne model choice, shown under the model selectors. It
-/// uses the same picker as the chat models but lists only the available
-/// SystemOne models, plus Auto and Off.
-class _SystemOneSettingCard extends StatelessWidget {
-  const _SystemOneSettingCard({
-    required this.selection,
-    required this.models,
-    required this.onChanged,
+/// Saves [payload] at once. The controller shows the new value immediately,
+/// rolls it back if the save fails and reports the failure inline, so callers
+/// have nothing left to handle.
+void _autosaveSettings(
+  NeoAgentController controller,
+  Map<String, dynamic> payload,
+) {
+  unawaited(controller.saveSettingsPayload(payload).catchError((Object _) {}));
+}
+
+/// A titled block of settings: a heading and optional help line, then its
+/// rows on one surface, separated by hairlines.
+class _SettingsGroup extends StatelessWidget {
+  const _SettingsGroup({
+    required this.title,
+    required this.children,
+    this.description,
+    this.trailing,
+    this.anchor,
   });
 
-  final String selection;
-  final List<ModelMeta> models;
-  final ValueChanged<String> onChanged;
+  final String title;
+  final String? description;
+  final Widget? trailing;
+  final List<Widget> children;
+
+  /// Search target for groups that are a single setting, like a form.
+  final String? anchor;
 
   @override
   Widget build(BuildContext context) {
-    final options = <_ModelPickerOption>[
-      _ModelPickerOption(
-        value: 'auto',
-        label: appStrings.systemOneAuto,
-        subtitle: appStrings.systemOneAutoPicksTheBestAvailable,
-        icon: Icons.auto_awesome_outlined,
-        isAuto: true,
-      ),
-      _ModelPickerOption(
-        value: 'off',
-        label: appStrings.off,
-        subtitle: appStrings.systemOneOffTheChatModelDecides,
-        icon: Icons.block_outlined,
-      ),
-      ..._modelPickerOptions(models),
-    ];
-    return _PanelSurface(
-      padding: const EdgeInsets.all(18),
+    final body = Padding(
+      padding: const EdgeInsets.only(bottom: 28),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Wrap(
-            spacing: 10,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: <Widget>[
-              Text(
-                appStrings.systemOneModels,
-                style: TextStyle(
-                  color: _textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              _StatusPill(label: appStrings.highlyRecommended, color: _accent),
-            ],
+          _SettingsHeading(
+            title: title,
+            description: description,
+            trailing: trailing,
           ),
-          const SizedBox(height: 6),
-          Text(
-            appStrings.systemOneModelsMakeTheBehindTheScenes,
-            style: TextStyle(color: _textSecondary, height: 1.45),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: <Widget>[
-              _MetaPill(
-                icon: Icons.speed_rounded,
-                label: appStrings.fasterReplies,
-                color: _accent,
-              ),
-              _MetaPill(
-                icon: Icons.savings_outlined,
-                label: appStrings.fewerModelCalls,
-                color: _accent,
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _RoutingSelectCard(
-            label: 'SystemOne',
-            icon: Icons.bolt_rounded,
-            value: _ensureModelValue(
-              selection,
-              models,
-              allowAuto: true,
-              preserveUnknown: true,
-            ),
-            options: options,
-            onChanged: (next) {
-              if (next != null) onChanged(next);
-            },
-          ),
-          if (models.isEmpty) ...<Widget>[
-            const SizedBox(height: 10),
-            Text(
-              appStrings.noSystemOneModelIsAvailableYet,
-              style: TextStyle(color: _textMuted, fontSize: 12.5, height: 1.4),
-            ),
-          ],
+          if (children.isNotEmpty) _SettingsCardList(children: children),
         ],
       ),
     );
+    return anchor == null ? body : _SettingsAnchor(id: anchor!, child: body);
   }
 }
 
-class _RoutingSelectCard extends StatelessWidget {
-  const _RoutingSelectCard({
-    required this.label,
-    required this.icon,
-    required this.value,
-    required this.options,
-    required this.onChanged,
+/// The heading over a group of settings, also used over content that brings
+/// its own layout, like the messaging channel grid.
+class _SettingsHeading extends StatelessWidget {
+  const _SettingsHeading({
+    super.key,
+    required this.title,
+    this.description,
+    this.trailing,
   });
 
-  final String label;
-  final IconData icon;
-  final String value;
-  final List<_ModelPickerOption> options;
-  final ValueChanged<String?> onChanged;
+  final String title;
+  final String? description;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Icon(icon, size: 16, color: _accentHover),
-              const SizedBox(width: 8),
-              Text(label, style: TextStyle(fontWeight: FontWeight.w700)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _ModelPickerButton(
-            value: value,
-            options: options,
-            onChanged: onChanged,
-            dialogTitle: appStrings.selectArg1(label),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Smart Pool Summary — compact summary card shown in settings
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SmartPoolSummary extends StatelessWidget {
-  const _SmartPoolSummary({
-    required this.allModels,
-    required this.selectedIds,
-    required this.onManage,
-  });
-
-  final List<ModelMeta> allModels;
-  final Set<String> selectedIds;
-  final VoidCallback onManage;
-
-  @override
-  Widget build(BuildContext context) {
-    final selected = allModels
-        .where((m) => selectedIds.contains(m.id) && m.available)
-        .toList();
-    final providers = <String>{for (final m in selected) m.provider};
-    final totalAvailable = allModels.where((m) => m.available).length;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _border),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: <Widget>[
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: _accentMuted,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(Icons.hub_outlined, size: 18, color: _accentHover),
-          ),
-          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  appStrings.arg1OfArg2Models(selected.length, totalAvailable),
+                  title,
                   style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
                     color: _textPrimary,
                   ),
                 ),
-                const SizedBox(height: 5),
-                Row(
-                  children: <Widget>[
-                    if (providers.isEmpty)
-                      Text(
-                        appStrings.noModelsSelected,
-                        style: TextStyle(fontSize: 12, color: _textMuted),
-                      )
-                    else
-                      ...providers
-                          .take(12)
-                          .map(
-                            (p) => Container(
-                              width: 8,
-                              height: 8,
-                              margin: const EdgeInsets.only(right: 5),
-                              decoration: BoxDecoration(
-                                color: _providerPickerColor(p),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                  ],
-                ),
+                if (description != null) ...<Widget>[
+                  const SizedBox(height: 3),
+                  Text(
+                    description!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: _textSecondary,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
-          const SizedBox(width: 10),
-          OutlinedButton.icon(
-            onPressed: onManage,
-            icon: Icon(Icons.tune_rounded, size: 14),
-            label: Text(appStrings.manage),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              textStyle: const TextStyle(fontSize: 13),
-            ),
-          ),
+          if (trailing != null) ...<Widget>[
+            const SizedBox(width: 12),
+            trailing!,
+          ],
         ],
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Smart Pool Dialog — searchable, grouped multi-select manager
-// ─────────────────────────────────────────────────────────────────────────────
+/// Rows on a single card, split by hairlines.
+class _SettingsCardList extends StatelessWidget {
+  const _SettingsCardList({required this.children});
 
-class _SmartPoolDialog extends StatefulWidget {
-  const _SmartPoolDialog({required this.models, required this.selectedIds});
-
-  final List<ModelMeta> models;
-  final Set<String> selectedIds;
-
-  @override
-  State<_SmartPoolDialog> createState() => _SmartPoolDialogState();
-}
-
-class _SmartPoolDialogState extends State<_SmartPoolDialog> {
-  late Set<String> _selected;
-  final TextEditingController _searchCtrl = TextEditingController();
-  String _query = '';
-  bool _onlyAvailable = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _selected = Set<String>.from(widget.selectedIds);
-  }
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
-  List<ModelMeta> get _filtered {
-    var list = _onlyAvailable
-        ? widget.models.where((m) => m.available).toList()
-        : List<ModelMeta>.from(widget.models);
-    if (_query.isNotEmpty) {
-      final q = _query.toLowerCase();
-      list = list
-          .where(
-            (m) =>
-                m.label.toLowerCase().contains(q) ||
-                m.id.toLowerCase().contains(q) ||
-                m.provider.toLowerCase().contains(q),
-          )
-          .toList();
-    }
-    return list;
-  }
-
-  void _selectAllVisible(List<ModelMeta> filtered) {
-    setState(() {
-      for (final m in filtered) {
-        if (m.available) _selected.add(m.id);
-      }
-    });
-  }
-
-  void _clearAllVisible(List<ModelMeta> filtered) {
-    setState(() {
-      final toRemove = filtered.map((m) => m.id).toSet();
-      final remaining = _selected.difference(toRemove);
-      _selected = remaining.isNotEmpty ? remaining : <String>{_selected.first};
-    });
-  }
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _filtered;
-
-    // Build grouped structure
-    final Map<String, List<ModelMeta>> grouped = <String, List<ModelMeta>>{};
-    for (final m in filtered) {
-      grouped.putIfAbsent(m.provider, () => <ModelMeta>[]).add(m);
-    }
-    final providerOrder = grouped.keys.toList();
-
-    final selectedAvailableCount = widget.models
-        .where((m) => _selected.contains(m.id) && m.available)
-        .length;
-
-    // Build flat row list (headers + model rows)
-    final List<Widget> rows = <Widget>[];
-    for (final provider in providerOrder) {
-      final models = grouped[provider]!;
-      final providerColor = _providerPickerColor(provider);
-      final available = models.where((m) => m.available).toList();
-      final allGroupSelected =
-          available.isNotEmpty &&
-          available.every((m) => _selected.contains(m.id));
-
-      rows.add(
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-          child: Row(
-            children: <Widget>[
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: providerColor,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  _providerPickerLabel(provider).toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                    color: _textMuted,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: available.isEmpty
-                    ? null
-                    : () {
-                        setState(() {
-                          if (allGroupSelected) {
-                            final toRemove = available.map((m) => m.id).toSet();
-                            final remaining = _selected.difference(toRemove);
-                            _selected = remaining.isNotEmpty
-                                ? remaining
-                                : <String>{_selected.first};
-                          } else {
-                            for (final m in available) {
-                              _selected.add(m.id);
-                            }
-                          }
-                        });
-                      },
-                child: Text(
-                  allGroupSelected ? 'None' : 'All',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: available.isEmpty ? _textMuted : _accent,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-
-      for (final model in models) {
-        rows.add(
-          _SmartPoolRow(
-            model: model,
-            selected: _selected.contains(model.id),
-            onToggle: (val) => setState(() {
-              if (val) {
-                _selected.add(model.id);
-              } else if (_selected.length > 1) {
-                _selected.remove(model.id);
-              }
-            }),
-          ),
-        );
-      }
-    }
-
-    return Center(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 560,
-          minWidth: 320,
-          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          child: Material(
-            color: _bgCard,
-            borderRadius: BorderRadius.circular(20),
-            elevation: 24,
-            shadowColor: Colors.black.withValues(alpha: 0.5),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _borderLight),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    // Header
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 10, 0),
-                      child: Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: Text(
-                              appStrings.smartSelectorPool,
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                                color: _textPrimary,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () =>
-                                Navigator.of(context).pop(_selected),
-                            icon: Icon(
-                              Icons.close_rounded,
-                              size: 20,
-                              color: _textSecondary,
-                            ),
-                            style: IconButton.styleFrom(
-                              minimumSize: const Size(36, 36),
-                              padding: EdgeInsets.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Search + available toggle
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-                      child: Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: TextField(
-                              controller: _searchCtrl,
-                              autofocus: true,
-                              onChanged: (v) =>
-                                  setState(() => _query = v.trim()),
-                              style: TextStyle(
-                                color: _textPrimary,
-                                fontSize: 14,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: appStrings.searchModelsOrProviders2,
-                                hintStyle: TextStyle(
-                                  color: _textMuted,
-                                  fontSize: 14,
-                                ),
-                                prefixIcon: Icon(
-                                  Icons.search_rounded,
-                                  size: 18,
-                                  color: _textMuted,
-                                ),
-                                suffixIcon: _query.isNotEmpty
-                                    ? GestureDetector(
-                                        onTap: () => setState(() {
-                                          _searchCtrl.clear();
-                                          _query = '';
-                                        }),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(10),
-                                          child: Icon(
-                                            Icons.cancel_rounded,
-                                            size: 16,
-                                            color: _textMuted,
-                                          ),
-                                        ),
-                                      )
-                                    : null,
-                                isDense: true,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 10,
-                                ),
-                                filled: true,
-                                fillColor: _bgSecondary,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(color: _border),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(color: _border),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: _accent,
-                                    width: 1.5,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            onTap: () => setState(
-                              () => _onlyAvailable = !_onlyAvailable,
-                            ),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 7,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _onlyAvailable
-                                    ? _accentMuted
-                                    : _bgSecondary,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: _onlyAvailable
-                                      ? _accent.withValues(alpha: 0.5)
-                                      : _border,
-                                ),
-                              ),
-                              child: Text(
-                                appStrings.available,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: _onlyAvailable
-                                      ? _accentHover
-                                      : _textSecondary,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Quick-action toolbar
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
-                      child: Row(
-                        children: <Widget>[
-                          _PoolActionChip(
-                            label: appStrings.selectAll,
-                            onTap: () => _selectAllVisible(filtered),
-                          ),
-                          const SizedBox(width: 6),
-                          _PoolActionChip(
-                            label: appStrings.clearAll,
-                            onTap: () => _clearAllVisible(filtered),
-                          ),
-                          const Spacer(),
-                          Text(
-                            appStrings.arg1Selected(selectedAvailableCount),
-                            style: TextStyle(fontSize: 12, color: _textMuted),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Divider(height: 1, thickness: 1, color: _border),
-                    // Model list
-                    Flexible(
-                      child: rows.isEmpty
-                          ? Padding(
-                              padding: const EdgeInsets.all(36),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: <Widget>[
-                                  Icon(
-                                    Icons.search_off_rounded,
-                                    size: 36,
-                                    color: _textMuted,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    appStrings.noResultsForArg1(_query),
-                                    style: TextStyle(
-                                      color: _textSecondary,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : ListView(
-                              padding: const EdgeInsets.only(top: 4, bottom: 8),
-                              shrinkWrap: true,
-                              children: rows,
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
+    return Container(
+      decoration: BoxDecoration(
+        color: _bgCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          for (var i = 0; i < children.length; i++) ...<Widget>[
+            if (i > 0) Divider(height: 1, thickness: 1, color: _border),
+            children[i],
+          ],
+        ],
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Smart Pool Row — individual model row inside the dialog
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SmartPoolRow extends StatelessWidget {
-  const _SmartPoolRow({
-    required this.model,
-    required this.selected,
-    required this.onToggle,
+/// One setting: label and help on the left, its control on the right. On a
+/// narrow screen the control moves under the label.
+class _SettingsRow extends StatelessWidget {
+  const _SettingsRow({
+    required this.label,
+    this.description,
+    this.control,
+    this.fillControl = false,
+    this.tag,
+    this.anchor,
+    this.enabled = true,
   });
 
-  final ModelMeta model;
-  final bool selected;
-  final ValueChanged<bool> onToggle;
+  final String label;
+  final String? description;
+  final Widget? control;
+
+  /// Gives the control a fixed width beside the label and the full width
+  /// under it. Pickers and text fields need this; switches and buttons size
+  /// themselves.
+  final bool fillControl;
+
+  /// Short qualifier next to the label, such as "This device".
+  final String? tag;
+  final String? anchor;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
-    final color = _providerPickerColor(model.provider);
-    return Opacity(
-      opacity: model.available ? 1.0 : 0.4,
-      child: Material(
-        color: selected
-            ? _accentMuted.withValues(alpha: 0.12)
-            : Colors.transparent,
-        child: InkWell(
-          onTap: model.available ? () => onToggle(!selected) : null,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-            child: Row(
-              children: <Widget>[
-                // Thin provider accent bar on the left
-                Container(
-                  width: 3,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: selected ? 0.85 : 0.28),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: Checkbox(
-                    value: selected,
-                    onChanged: model.available
-                        ? (v) => onToggle(v ?? false)
-                        : null,
-                    activeColor: _accent,
-                    side: BorderSide(color: _textMuted, width: 1.5),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        model.label,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: selected ? _accentHover : _textPrimary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (model.purpose.isNotEmpty)
-                        Text(
-                          model.purpose,
-                          style: TextStyle(fontSize: 11, color: _textMuted),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                if (model.isByok) ...<Widget>[
-                  const _ByokChip(),
-                  const SizedBox(width: 6),
-                ],
-                if (model.priceTier != null)
-                  _PriceTierChip(tier: model.priceTier!),
-                const SizedBox(width: 2),
-              ],
+    final text = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: <Widget>[
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: _textPrimary,
+              ),
             ),
+            if (tag != null) _SettingsTag(label: tag!),
+          ],
+        ),
+        if (description != null) ...<Widget>[
+          const SizedBox(height: 4),
+          Text(
+            description!,
+            style: TextStyle(fontSize: 13, color: _textSecondary, height: 1.45),
           ),
+        ],
+      ],
+    );
+    final row = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final control = this.control;
+          if (control == null) return text;
+          if (constraints.maxWidth < 560) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                text,
+                const SizedBox(height: 12),
+                if (fillControl)
+                  control
+                else
+                  Align(alignment: Alignment.centerLeft, child: control),
+              ],
+            );
+          }
+          return Row(
+            children: <Widget>[
+              Expanded(child: text),
+              const SizedBox(width: 24),
+              if (fillControl)
+                SizedBox(width: 300, child: control)
+              else
+                control,
+            ],
+          );
+        },
+      ),
+    );
+    final body = enabled
+        ? row
+        : IgnorePointer(child: Opacity(opacity: 0.5, child: row));
+    return anchor == null ? body : _SettingsAnchor(id: anchor!, child: body);
+  }
+}
+
+/// Free-form content inside a group, for forms and lists.
+class _SettingsBlock extends StatelessWidget {
+  const _SettingsBlock({required this.child, this.anchor});
+
+  final Widget child;
+  final String? anchor;
+
+  @override
+  Widget build(BuildContext context) {
+    final body = Padding(padding: const EdgeInsets.all(20), child: child);
+    return anchor == null ? body : _SettingsAnchor(id: anchor!, child: body);
+  }
+}
+
+class _SettingsTag extends StatelessWidget {
+  const _SettingsTag({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: _bgTertiary,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: _border),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: GoogleFonts.geistMono(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.8,
+          color: _textSecondary,
         ),
       ),
     );
   }
 }
 
-// Toolbar chip button used inside _SmartPoolDialog
-class _PoolActionChip extends StatelessWidget {
-  const _PoolActionChip({required this.label, required this.onTap});
-  final String label;
+/// A row that opens something, used for the page list on a phone and for
+/// search results.
+class _SettingsListTile extends StatelessWidget {
+  const _SettingsListTile({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: _bgSecondary,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: _border),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: _textSecondary,
-          ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: _bgTertiary,
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(icon, size: 17, color: _textSecondary),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: _textPrimary,
+                    ),
+                  ),
+                  if (subtitle != null) ...<Widget>[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      style: GoogleFonts.geistMono(
+                        fontSize: 11.5,
+                        color: _textMuted,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 20, color: _textMuted),
+          ],
         ),
       ),
+    );
+  }
+}
+
+/// A one-of-a-few choice. Beside a label it keeps its natural width; under a
+/// label on a phone it fills the row.
+class _SettingsChoice<T extends Object> extends StatelessWidget {
+  const _SettingsChoice({
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final T value;
+  final List<(T, String)> options;
+  final ValueChanged<T>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final onChanged = this.onChanged;
+    return SegmentedButton<T>(
+      segments: <ButtonSegment<T>>[
+        for (final (option, label) in options)
+          ButtonSegment<T>(value: option, label: Text(label)),
+      ],
+      selected: <T>{value},
+      showSelectedIcon: false,
+      onSelectionChanged: onChanged == null
+          ? null
+          : (selection) => onChanged(selection.first),
+      style: SegmentedButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        selectedBackgroundColor: _accentMuted,
+        selectedForegroundColor: _textPrimary,
+        foregroundColor: _textSecondary,
+        side: BorderSide(color: _borderLight),
+        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+/// A text setting that saves itself: shortly after typing stops, when the
+/// field loses focus, on submit, and when the page closes with an edit still
+/// pending.
+class _AutosaveTextField extends StatefulWidget {
+  const _AutosaveTextField({
+    required this.value,
+    required this.onSave,
+    this.minLines = 1,
+    this.maxLines = 1,
+    this.maxLength,
+  });
+
+  final String value;
+  final ValueChanged<String> onSave;
+  final int minLines;
+  final int maxLines;
+  final int? maxLength;
+
+  @override
+  State<_AutosaveTextField> createState() => _AutosaveTextFieldState();
+}
+
+class _AutosaveTextFieldState extends State<_AutosaveTextField> {
+  late final TextEditingController _textController;
+  final FocusNode _focusNode = FocusNode();
+  Timer? _debounce;
+  late String _saved;
+
+  @override
+  void initState() {
+    super.initState();
+    _saved = widget.value;
+    _textController = TextEditingController(text: widget.value);
+    _focusNode.addListener(_handleFocusChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AutosaveTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A value that changed elsewhere replaces the text, unless it is being
+    // edited here.
+    if (widget.value != oldWidget.value &&
+        !_focusNode.hasFocus &&
+        _textController.text == _saved) {
+      _saved = widget.value;
+      _textController.text = widget.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    _save(deferred: true);
+    _focusNode
+      ..removeListener(_handleFocusChanged)
+      ..dispose();
+    _textController.dispose();
+    super.dispose();
+  }
+
+  void _handleFocusChanged() {
+    if (!_focusNode.hasFocus) _save();
+  }
+
+  /// [deferred] is for dispose, which runs while the tree is locked: the
+  /// save, and the rebuild it causes, waits until the frame is done.
+  void _save({bool deferred = false}) {
+    _debounce?.cancel();
+    final text = _textController.text;
+    if (text == _saved) return;
+    if (widget.maxLength != null && text.length > widget.maxLength!) return;
+    _saved = text;
+    final onSave = widget.onSave;
+    if (deferred) {
+      scheduleMicrotask(() => onSave(text));
+    } else {
+      onSave(text);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _textController,
+      focusNode: _focusNode,
+      minLines: widget.minLines,
+      maxLines: widget.maxLines,
+      maxLength: widget.maxLength,
+      textInputAction: widget.maxLines == 1
+          ? TextInputAction.done
+          : TextInputAction.newline,
+      onSubmitted: (_) => _save(),
+      onChanged: (_) {
+        _debounce?.cancel();
+        _debounce = Timer(const Duration(milliseconds: 1200), _save);
+      },
+      decoration: const InputDecoration(isDense: true),
+    );
+  }
+}
+
+/// Which setting a search result pointed at. A new instance per search tap,
+/// so opening the same result twice flashes it twice.
+class _SettingsHighlight {
+  _SettingsHighlight(this.anchor);
+
+  final String anchor;
+}
+
+class _SettingsHighlightScope extends InheritedWidget {
+  const _SettingsHighlightScope({
+    required this.highlight,
+    required super.child,
+  });
+
+  final _SettingsHighlight? highlight;
+
+  static _SettingsHighlight? of(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<_SettingsHighlightScope>()
+      ?.highlight;
+
+  @override
+  bool updateShouldNotify(_SettingsHighlightScope oldWidget) =>
+      !identical(oldWidget.highlight, highlight);
+}
+
+/// Marks a setting a search can point at. When it is the target, it scrolls
+/// into view and flashes briefly.
+class _SettingsAnchor extends StatefulWidget {
+  const _SettingsAnchor({required this.id, required this.child});
+
+  final String id;
+  final Widget child;
+
+  @override
+  State<_SettingsAnchor> createState() => _SettingsAnchorState();
+}
+
+class _SettingsAnchorState extends State<_SettingsAnchor> {
+  _SettingsHighlight? _handled;
+  bool _lit = false;
+  Timer? _fade;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final highlight = _SettingsHighlightScope.of(context);
+    if (highlight == null ||
+        highlight.anchor != widget.id ||
+        identical(highlight, _handled)) {
+      return;
+    }
+    _handled = highlight;
+    _lit = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Scrollable.ensureVisible(
+        context,
+        alignment: 0.15,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+      );
+    });
+    _fade?.cancel();
+    _fade = Timer(const Duration(milliseconds: 2200), () {
+      if (mounted) setState(() => _lit = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _fade?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeOut,
+      decoration: BoxDecoration(
+        color: _lit ? _accentMuted : _accentMuted.withValues(alpha: 0),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: widget.child,
     );
   }
 }

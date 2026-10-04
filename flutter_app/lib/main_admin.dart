@@ -7,129 +7,106 @@ class AgentsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: _pagePadding(context),
+    return _SettingsGroup(
+      anchor: 'agentList',
+      title: appStrings.settingsYourAgents,
+      description: appStrings.createSpecialistBotsWithSeparateMemory,
+      trailing: FilledButton.icon(
+        onPressed: () => openAgentEditor(context, controller),
+        icon: Icon(Icons.add, size: 18),
+        label: Text(appStrings.addAgent),
+      ),
       children: <Widget>[
-        _PageTitle(
-          title: 'Agents',
-          subtitle:
-              appStrings.createSpecialistBotsWithSeparateMemory,
-          trailing: FilledButton.icon(
-            onPressed: () => openAgentEditor(context, controller),
-            icon: Icon(Icons.add),
-            label: Text(appStrings.addAgent),
-          ),
-        ),
-        if (controller.errorMessage != null) ...<Widget>[
-          _InlineError(
-            message: controller.errorMessage!,
-            onDismiss: controller.clearInlineError,
-          ),
-          const SizedBox(height: 16),
-        ],
         if (controller.agentProfiles.isEmpty)
-          _EmptyCard(
-            title: appStrings.noAgentsYet,
-            subtitle: appStrings.theMainAgentIsCreatedAutomatically,
-          )
-        else
-          ...controller.agentProfiles.map(
-            (agent) => Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: Text(
-                              agent.displayName,
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          if (agent.isDefault)
-                            _StatusPill(label: 'Default', color: _accentHover),
-                          const SizedBox(width: 8),
-                          _StatusPill(
-                            label: agent.status,
-                            color: agent.status == 'active'
-                                ? _success
-                                : _textSecondary,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '@${agent.slug}',
-                        style: TextStyle(color: _textSecondary),
-                      ),
-                      if (agent.description.trim().isNotEmpty) ...<Widget>[
-                        const SizedBox(height: 10),
-                        Text(agent.description),
-                      ],
-                      if (agent.responsibilities.trim().isNotEmpty) ...<Widget>[
-                        const SizedBox(height: 10),
-                        Text(
-                          agent.responsibilities,
-                          style: TextStyle(color: _textSecondary),
+          _SettingsBlock(
+            child: _EmptyState(
+              title: appStrings.noAgentsYet,
+              subtitle: appStrings.theMainAgentIsCreatedAutomatically,
+            ),
+          ),
+        for (final agent in controller.agentProfiles)
+          _SettingsBlock(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        agent.displayName,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
                         ),
-                      ],
-                      const SizedBox(height: 10),
-                      Text(
-                        _communicationSummary(controller, agent),
-                        style: TextStyle(color: _textSecondary),
                       ),
-                      const SizedBox(height: 14),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: <Widget>[
-                          OutlinedButton(
-                            onPressed: () => controller.switchAgent(agent.id),
-                            child: Text(
-                              controller.selectedAgentId == agent.id
-                                  ? 'Selected'
-                                  : 'Switch',
-                            ),
-                          ),
-                          OutlinedButton(
-                            onPressed: () => openAgentEditor(
-                              context,
-                              controller,
-                              agent: agent,
-                            ),
-                            child: Text(appStrings.edit),
-                          ),
-                          if (!agent.isDefault)
-                            OutlinedButton(
-                              onPressed: () =>
-                                  controller.makeAgentDefault(agent.id),
-                              child: Text(appStrings.makeDefault),
-                            ),
-                          if (!agent.isMain && !agent.isDefault)
-                            TextButton(
-                              onPressed: () => _confirmDelete(
-                                context,
-                                title: appStrings.archiveAgent,
-                                message:
-                                    appStrings.thisHidesArg1FromRoutingAnd(agent.displayName),
-                                onConfirm: () =>
-                                    controller.archiveAgent(agent.id),
-                              ),
-                              child: Text(appStrings.archive),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
+                    ),
+                    if (agent.isDefault)
+                      _StatusPill(label: 'Default', color: _accentHover),
+                    const SizedBox(width: 8),
+                    _StatusPill(
+                      label: agent.status,
+                      color: agent.status == 'active'
+                          ? _success
+                          : _textSecondary,
+                    ),
+                  ],
                 ),
-              ),
+                const SizedBox(height: 8),
+                Text('@${agent.slug}', style: TextStyle(color: _textSecondary)),
+                if (agent.description.trim().isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 10),
+                  Text(agent.description),
+                ],
+                if (agent.responsibilities.trim().isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 10),
+                  Text(
+                    agent.responsibilities,
+                    style: TextStyle(color: _textSecondary),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                Text(
+                  _communicationSummary(controller, agent),
+                  style: TextStyle(color: _textSecondary),
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: <Widget>[
+                    OutlinedButton(
+                      onPressed: () => controller.switchAgent(agent.id),
+                      child: Text(
+                        controller.selectedAgentId == agent.id
+                            ? 'Selected'
+                            : 'Switch',
+                      ),
+                    ),
+                    OutlinedButton(
+                      onPressed: () =>
+                          openAgentEditor(context, controller, agent: agent),
+                      child: Text(appStrings.edit),
+                    ),
+                    if (!agent.isDefault)
+                      OutlinedButton(
+                        onPressed: () => controller.makeAgentDefault(agent.id),
+                        child: Text(appStrings.makeDefault),
+                      ),
+                    if (!agent.isMain && !agent.isDefault)
+                      TextButton(
+                        onPressed: () => _confirmDelete(
+                          context,
+                          title: appStrings.archiveAgent,
+                          message: appStrings.thisHidesArg1FromRoutingAnd(
+                            agent.displayName,
+                          ),
+                          onConfirm: () => controller.archiveAgent(agent.id),
+                        ),
+                        child: Text(appStrings.archive),
+                      ),
+                  ],
+                ),
+              ],
             ),
           ),
       ],

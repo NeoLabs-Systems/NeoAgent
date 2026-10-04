@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -13,7 +14,7 @@ class NotificationInterceptor {
 
   static const Duration _perAppCooldown = Duration(seconds: 60);
 
-  bool _isListening = false;
+  StreamSubscription<ServiceNotificationEvent>? _subscription;
   String _backendUrl = '';
   String _token = '';
   final Map<String, DateTime> _lastTriggerTimes = {};
@@ -23,14 +24,18 @@ class NotificationInterceptor {
     _token = token;
 
     final isGranted = await NotificationListenerService.isPermissionGranted();
-    if (isGranted && !_isListening) {
+    if (isGranted && _subscription == null) {
       _startListening();
     }
   }
 
+  void stop() {
+    _subscription?.cancel();
+    _subscription = null;
+  }
+
   void _startListening() {
-    _isListening = true;
-    NotificationListenerService.notificationsStream.listen((
+    _subscription = NotificationListenerService.notificationsStream.listen((
       ServiceNotificationEvent event,
     ) {
       if (event.packageName == null ||

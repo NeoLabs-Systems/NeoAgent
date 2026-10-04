@@ -478,69 +478,91 @@ class _MainSecurityState extends State<MainSecurity> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 48),
+        child: Center(child: CircularProgressIndicator.adaptive()),
+      );
+    }
+    if (_error != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: _ErrorView(error: _error!, onRetry: _load),
+      );
+    }
     final colorScheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(appStrings.toolPermissions),
-        actions: <Widget>[
-          IconButton(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _SettingsGroup(
+          anchor: 'toolPermissions',
+          title: appStrings.globalSecurityMode,
+          trailing: IconButton(
             icon: Icon(Icons.refresh_rounded),
-            tooltip: 'Refresh',
+            tooltip: appStrings.refresh,
             onPressed: _load,
           ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator.adaptive())
-          : _error != null
-          ? _ErrorView(error: _error!, onRetry: _load)
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-              children: <Widget>[
-                _GlobalModeCard(mode: _mode, onChanged: _setMode),
-                const SizedBox(height: 16),
-                if (_mode == 'allow_all')
-                  _InfoBanner(
-                    icon: Icons.warning_amber_rounded,
-                    color: colorScheme.errorContainer,
-                    textColor: colorScheme.onErrorContainer,
-                    message: _lockedBy.isEmpty
-                        ? appStrings.allToolsAreAllowedTheAgent +
-                              appStrings.switchToDefaultOrAlwaysAskTo
-                        : appStrings.everyToolRunsWithoutAskingExcept +
-                              appStrings.whoManagesThisAccountTurnedOff +
-                              '${_lockedBy.keys.map((key) => _categoryInfo(key).label).join(', ')}.',
-                  )
-                else ...<Widget>[
-                  if (_mode == 'always_ask')
-                    _InfoBanner(
-                      icon: Icons.info_outline_rounded,
-                      color: colorScheme.secondaryContainer,
-                      textColor: colorScheme.onSecondaryContainer,
-                      message:
-                          appStrings.theAgentWillAskBeforeEvery +
-                          appStrings.regardlessOfPerCategorySettingsBelow,
-                    ),
-                  const SizedBox(height: 4),
-                  Padding(
-                    padding: EdgeInsets.only(top: 4, bottom: 6),
-                    child: _SectionTitle(appStrings.perCategoryPermissions),
-                  ),
-                  ..._policies.entries.map(
-                    (e) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _PolicyCard(
-                        category: e.key,
-                        policy: e.value,
-                        dimmed: _mode == 'always_ask',
-                        lockedBy: _lockedBy[e.key],
-                        onChanged: (p) => _setPolicy(e.key, p),
-                      ),
-                    ),
-                  ),
+          children: <Widget>[
+            _SettingsRow(
+              label: appStrings.toolPermissions,
+              description: switch (_mode) {
+                'allow_all' => appStrings.noApprovalPromptsAgentRunsWithout,
+                'always_ask' =>
+                  appStrings.everySensitiveToolRequiresApprovalEvery,
+                _ => appStrings.usePerCategorySettingsBelow,
+              },
+              control: _SettingsChoice<String>(
+                value: _mode,
+                options: <(String, String)>[
+                  ('allow_all', appStrings.allowAll),
+                  ('default', appStrings.defaultRecommended),
+                  ('always_ask', appStrings.alwaysAsk),
                 ],
-              ],
+                onChanged: _setMode,
+              ),
             ),
+            if (_mode == 'allow_all')
+              _SettingsBlock(
+                child: _InfoBanner(
+                  icon: Icons.warning_amber_rounded,
+                  color: colorScheme.errorContainer,
+                  textColor: colorScheme.onErrorContainer,
+                  message: _lockedBy.isEmpty
+                      ? appStrings.allToolsAreAllowedTheAgent +
+                            appStrings.switchToDefaultOrAlwaysAskTo
+                      : appStrings.everyToolRunsWithoutAskingExcept +
+                            appStrings.whoManagesThisAccountTurnedOff +
+                            '${_lockedBy.keys.map((key) => _categoryInfo(key).label).join(', ')}.',
+                ),
+              ),
+            if (_mode == 'always_ask')
+              _SettingsBlock(
+                child: _InfoBanner(
+                  icon: Icons.info_outline_rounded,
+                  color: colorScheme.secondaryContainer,
+                  textColor: colorScheme.onSecondaryContainer,
+                  message:
+                      appStrings.theAgentWillAskBeforeEvery +
+                      appStrings.regardlessOfPerCategorySettingsBelow,
+                ),
+              ),
+          ],
+        ),
+        if (_mode != 'allow_all')
+          _SettingsGroup(
+            title: appStrings.perCategoryPermissions,
+            children: <Widget>[
+              for (final entry in _policies.entries)
+                _PolicyCard(
+                  category: entry.key,
+                  policy: entry.value,
+                  dimmed: _mode == 'always_ask',
+                  lockedBy: _lockedBy[entry.key],
+                  onChanged: (policy) => _setPolicy(entry.key, policy),
+                ),
+            ],
+          ),
+      ],
     );
   }
 }
@@ -618,137 +640,6 @@ class _InfoBanner extends StatelessWidget {
   }
 }
 
-class _GlobalModeCard extends StatelessWidget {
-  const _GlobalModeCard({required this.mode, required this.onChanged});
-  final String mode;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Icon(Icons.tune_rounded, size: 18, color: _accent),
-                const SizedBox(width: 8),
-                Text(
-                  appStrings.globalSecurityMode,
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _ModeOption(
-              value: 'allow_all',
-              current: mode,
-              label: appStrings.allowAll,
-              subtitle: appStrings.noApprovalPromptsAgentRunsWithout,
-              icon: Icons.lock_open_rounded,
-              color: _warning,
-              onTap: () => onChanged('allow_all'),
-            ),
-            const SizedBox(height: 6),
-            _ModeOption(
-              value: 'default',
-              current: mode,
-              label: appStrings.defaultRecommended,
-              subtitle: appStrings.usePerCategorySettingsBelow,
-              icon: Icons.shield_outlined,
-              color: _accentAlt,
-              onTap: () => onChanged('default'),
-            ),
-            const SizedBox(height: 6),
-            _ModeOption(
-              value: 'always_ask',
-              current: mode,
-              label: appStrings.alwaysAsk,
-              subtitle: appStrings.everySensitiveToolRequiresApprovalEvery,
-              icon: Icons.pan_tool_outlined,
-              color: _info,
-              onTap: () => onChanged('always_ask'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ModeOption extends StatelessWidget {
-  const _ModeOption({
-    required this.value,
-    required this.current,
-    required this.label,
-    required this.subtitle,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-  final String value;
-  final String current;
-  final String label;
-  final String subtitle;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final selected = value == current;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? color.withAlpha(24) : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected ? color : _border,
-            width: selected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          children: <Widget>[
-            Icon(icon, size: 18, color: selected ? color : _textSecondary),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                      fontSize: 13,
-                      color: selected ? color : null,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: TextStyle(fontSize: 11, color: _textSecondary),
-                  ),
-                ],
-              ),
-            ),
-            if (selected) Icon(Icons.check_circle, size: 16, color: color),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _PolicyCard extends StatelessWidget {
   const _PolicyCard({
     required this.category,
@@ -768,127 +659,119 @@ class _PolicyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final info = _categoryInfo(category);
-    final colorScheme = Theme.of(context).colorScheme;
     final riskColor = _riskColor(info.riskLevel);
     final locked = lockedBy != null;
 
     return Opacity(
       opacity: dimmed || locked ? 0.55 : 1.0,
-      child: Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: colorScheme.outlineVariant),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: riskColor.withAlpha(22),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(info.icon, size: 16, color: riskColor),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: riskColor.withAlpha(22),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          info.label,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                        Text(
-                          info.subtitle,
-                          style: TextStyle(fontSize: 11, color: _textSecondary),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: riskColor.withAlpha(20),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      info.riskLevel.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: riskColor,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              SegmentedButton<String>(
-                segments: <ButtonSegment<String>>[
-                  ButtonSegment<String>(
-                    value: 'deny',
-                    label: Text(appStrings.block),
-                    icon: Icon(Icons.block_rounded, size: 13),
-                  ),
-                  ButtonSegment<String>(
-                    value: 'require_approval',
-                    label: Text(appStrings.askMe),
-                    icon: Icon(Icons.pan_tool_outlined, size: 13),
-                  ),
-                  ButtonSegment<String>(
-                    value: 'allow',
-                    label: Text(appStrings.allow),
-                    icon: Icon(Icons.check_rounded, size: 13),
-                  ),
-                  ButtonSegment<String>(
-                    value: 'allow_always',
-                    label: Text(appStrings.always),
-                    icon: Icon(Icons.verified_rounded, size: 13),
-                  ),
-                ],
-                selected: <String>{locked ? 'deny' : policy},
-                onSelectionChanged: dimmed || locked
-                    ? null
-                    : (s) => onChanged(s.first),
-                style: ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                  textStyle: WidgetStateProperty.all(
-                    const TextStyle(fontSize: 11),
-                  ),
+                  child: Icon(info.icon, size: 16, color: riskColor),
                 ),
-              ),
-              const SizedBox(height: 6),
-              if (locked)
-                Row(
-                  children: <Widget>[
-                    Icon(Icons.lock_outline, size: 12, color: _textSecondary),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        appStrings.turnedOffByArg1WhoManages(lockedBy) +
-                            appStrings.onlyTheyCanChangeIt,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        info.label,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Text(
+                        info.subtitle,
                         style: TextStyle(fontSize: 11, color: _textSecondary),
                       ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: riskColor.withAlpha(20),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    info.riskLevel.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: riskColor,
+                      letterSpacing: 0.5,
                     ),
-                  ],
-                )
-              else
-                _PolicyHint(policy: policy),
-            ],
-          ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SegmentedButton<String>(
+              segments: <ButtonSegment<String>>[
+                ButtonSegment<String>(
+                  value: 'deny',
+                  label: Text(appStrings.block),
+                  icon: Icon(Icons.block_rounded, size: 13),
+                ),
+                ButtonSegment<String>(
+                  value: 'require_approval',
+                  label: Text(appStrings.askMe),
+                  icon: Icon(Icons.pan_tool_outlined, size: 13),
+                ),
+                ButtonSegment<String>(
+                  value: 'allow',
+                  label: Text(appStrings.allow),
+                  icon: Icon(Icons.check_rounded, size: 13),
+                ),
+                ButtonSegment<String>(
+                  value: 'allow_always',
+                  label: Text(appStrings.always),
+                  icon: Icon(Icons.verified_rounded, size: 13),
+                ),
+              ],
+              selected: <String>{locked ? 'deny' : policy},
+              onSelectionChanged: dimmed || locked
+                  ? null
+                  : (s) => onChanged(s.first),
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                textStyle: WidgetStateProperty.all(
+                  const TextStyle(fontSize: 11),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            if (locked)
+              Row(
+                children: <Widget>[
+                  Icon(Icons.lock_outline, size: 12, color: _textSecondary),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      appStrings.turnedOffByArg1WhoManages(lockedBy) +
+                          appStrings.onlyTheyCanChangeIt,
+                      style: TextStyle(fontSize: 11, color: _textSecondary),
+                    ),
+                  ),
+                ],
+              )
+            else
+              _PolicyHint(policy: policy),
+          ],
         ),
       ),
     );

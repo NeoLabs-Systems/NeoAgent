@@ -1022,42 +1022,15 @@ class _HomeViewState extends State<HomeView> {
   AppSection? _lastSelectedSection;
   final GlobalKey _devicesPanelKey = GlobalKey();
 
+  /// What the phone triggers were last set to, so a settings change starts or
+  /// stops each one exactly once.
+  bool? _locationTriggersRunning;
+  bool? _notificationTriggersRunning;
+
   @override
   void initState() {
     super.initState();
-
-    // Initialize Proactive Context Features for mobile
-    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-      final backendUrl = widget.controller.backendUrl;
-      final sessionCookie = widget.controller.sessionCookie?.trim() ?? '';
-      final canInitializeMobileAutomation =
-          backendUrl.trim().isNotEmpty && sessionCookie.isNotEmpty;
-
-      if (canInitializeMobileAutomation) {
-        final locationService = LocationService();
-
-        locationService
-            .initialize(context)
-            .then((_) {
-              if (mounted) {
-                locationService.startGeofenceTracking(
-                  widget.controller.backendClient,
-                  backendUrl,
-                );
-              }
-            })
-            .catchError((error) {
-              if (mounted) {
-                debugPrint(appStrings.locationserviceInitializationFailedArg1(error));
-              }
-            });
-
-        if (Platform.isAndroid) {
-          NotificationInterceptor().initialize(backendUrl, sessionCookie);
-        }
-      }
-    }
-
+    _syncPhoneTriggers();
     _lastSelectedSection = widget.controller.selectedSection;
     _expandedSidebarGroup = _sidebarGroupForSection(
       widget.controller.selectedSection,
@@ -1079,17 +1052,66 @@ class _HomeViewState extends State<HomeView> {
   }
 
   SidebarGroup? _sidebarGroupForSection(AppSection section) {
-    final visibleSection = section.sidebarSection;
+    final visibleSection = section.canonicalSection;
     if (!_mainSections(widget.controller).contains(visibleSection)) {
       return null;
     }
     return visibleSection.group;
   }
 
+  /// Starts or stops the phone's location and notification triggers to match
+  /// Settings › General.
+  void _syncPhoneTriggers() {
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
+    final controller = widget.controller;
+    final backendUrl = controller.backendUrl;
+    final sessionCookie = controller.sessionCookie?.trim() ?? '';
+    if (backendUrl.trim().isEmpty || sessionCookie.isEmpty) return;
+
+    final location = controller.locationTriggersEnabled;
+    if (location != _locationTriggersRunning) {
+      _locationTriggersRunning = location;
+      final locationService = LocationService();
+      if (location) {
+        locationService
+            .initialize(context)
+            .then((_) {
+              if (mounted && controller.locationTriggersEnabled) {
+                locationService.startGeofenceTracking(
+                  controller.backendClient,
+                  backendUrl,
+                );
+              }
+            })
+            .catchError((error) {
+              if (mounted) {
+                debugPrint(
+                  appStrings.locationserviceInitializationFailedArg1(error),
+                );
+              }
+            });
+      } else {
+        locationService.stopGeofenceTracking();
+      }
+    }
+
+    final notifications =
+        Platform.isAndroid && controller.notificationTriggersEnabled;
+    if (notifications != _notificationTriggersRunning) {
+      _notificationTriggersRunning = notifications;
+      if (notifications) {
+        NotificationInterceptor().initialize(backendUrl, sessionCookie);
+      } else {
+        NotificationInterceptor().stop();
+      }
+    }
+  }
+
   void _handleControllerChanged() {
     if (!mounted) {
       return;
     }
+    _syncPhoneTriggers();
     final nextSection = widget.controller.selectedSection;
     setState(() {
       if (_lastSelectedSection != nextSection) {
@@ -1433,7 +1455,7 @@ class _HomeViewState extends State<HomeView> {
             actions: <Widget>[
               TextButton(
                 onPressed: () {
-                  widget.controller.setSelectedSection(AppSection.messaging);
+                  widget.controller.openSettings(SettingsPage.messaging);
                   Navigator.of(dialogContext).pop();
                 },
                 child: Text(appStrings.whoCanMessage),
@@ -1637,50 +1659,9 @@ class _Sidebar extends StatelessWidget {
               ),
             ),
           ),
-          Container(
-            margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-            padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: _border),
-              color: _bgTertiary,
-            ),
-            child: Row(
-              children: <Widget>[
-                _SidebarAccountAvatar(
-                  controller: controller,
-                  onTap: () =>
-                      controller.setSelectedSection(AppSection.accountSettings),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    controller.accountLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.geist(
-                      color: _textSecondary,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.1,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _SidebarIconButton(
-                  tooltip: 'Settings',
-                  icon: Icons.settings_outlined,
-                  onTap: () =>
-                      controller.setSelectedSection(AppSection.accountSettings),
-                ),
-                const SizedBox(width: 4),
-                _SidebarIconButton(
-                  tooltip: appStrings.logout,
-                  icon: Icons.logout,
-                  onTap: controller.logout,
-                ),
-              ],
-            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            child: _SidebarSettingsButton(controller: controller),
           ),
         ],
       ),
@@ -2135,100 +2116,81 @@ String _agentInitials(String label) {
       .toUpperCase();
 }
 
-class _ProfileSettingsButton extends StatelessWidget {
-  const _ProfileSettingsButton({required this.controller, required this.onTap});
+/// The foot of the rail: who is signed in, and the one way into Settings.
+class _SidebarSettingsButton extends StatelessWidget {
+  const _SidebarSettingsButton({required this.controller});
 
   final NeoAgentController controller;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final label = controller.accountLabel.trim();
     final initial = label.isEmpty ? 'N' : label.characters.first.toUpperCase();
-    final active = controller.selectedSection == AppSection.accountSettings;
-    return Tooltip(
-      message: appStrings.accountSettings,
+    final active = controller.selectedSection == AppSection.settings;
+    final radius = BorderRadius.circular(18);
+    return Material(
+      color: active ? _accentMuted : _bgTertiary,
+      borderRadius: radius,
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: <Widget>[
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: active ? _accentMuted : _bgCard,
-                shape: BoxShape.circle,
-                border: Border.all(color: active ? _accent : _borderLight),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                initial,
-                style: TextStyle(
-                  color: active ? _accentHover : _textPrimary,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
-                ),
-              ),
+        borderRadius: radius,
+        onTap: () => controller.setSelectedSection(AppSection.settings),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(
+              color: active ? _accent.withValues(alpha: 0.35) : _border,
             ),
-            Positioned(
-              right: -2,
-              bottom: -2,
-              child: Container(
-                width: 17,
-                height: 17,
+          ),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 30,
+                height: 30,
                 decoration: BoxDecoration(
-                  color: _bgSecondary,
                   shape: BoxShape.circle,
+                  color: active ? _accent : _bgCard,
                   border: Border.all(color: active ? _accent : _borderLight),
                 ),
-                child: Icon(
-                  Icons.settings,
-                  size: 11,
-                  color: active ? _accentHover : _textSecondary,
+                alignment: Alignment.center,
+                child: Text(
+                  initial,
+                  style: TextStyle(
+                    color: active ? _bgPrimary : _textPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SidebarAccountAvatar extends StatelessWidget {
-  const _SidebarAccountAvatar({required this.controller, required this.onTap});
-
-  final NeoAgentController controller;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = controller.accountLabel.trim();
-    final initial = label.isEmpty ? 'N' : label.characters.first.toUpperCase();
-    final active = controller.selectedSection == AppSection.accountSettings;
-    return Tooltip(
-      message: appStrings.accountSettings,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onTap,
-        child: Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: active ? _accentMuted : _bgCard,
-            border: Border.all(color: active ? _accent : _borderLight),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            initial,
-            style: TextStyle(
-              color: active ? _accentHover : _textPrimary,
-              fontWeight: FontWeight.w700,
-              fontSize: 11,
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.geist(
+                        color: _textPrimary,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.1,
+                      ),
+                    ),
+                    Text(
+                      appStrings.settings,
+                      style: TextStyle(color: _textMuted, fontSize: 11.5),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.settings_outlined,
+                size: 17,
+                color: active ? _accent : _textSecondary,
+              ),
+            ],
           ),
         ),
       ),
@@ -2236,9 +2198,8 @@ class _SidebarAccountAvatar extends StatelessWidget {
   }
 }
 
-/// Phone header. Carries what the rail footer carries on desktop — the agent
-/// switcher, account settings and logout — so removing the drawer costs
-/// nothing in reach.
+/// Phone header: the agent switcher. Settings, sign-out included, is a tab of
+/// its own in the bottom bar.
 class _MobileTopBar extends StatelessWidget {
   const _MobileTopBar({required this.controller});
 
@@ -2275,18 +2236,6 @@ class _MobileTopBar extends StatelessWidget {
             const SizedBox(width: 8),
             _DesktopModeSwitch(controller: controller),
           ],
-          const SizedBox(width: 8),
-          _ProfileSettingsButton(
-            controller: controller,
-            onTap: () =>
-                controller.setSelectedSection(AppSection.accountSettings),
-          ),
-          const SizedBox(width: 8),
-          _SidebarIconButton(
-            tooltip: appStrings.logout,
-            icon: Icons.logout,
-            onTap: controller.logout,
-          ),
         ],
       ),
     );
@@ -2523,18 +2472,12 @@ class _SectionBody extends StatelessWidget {
         return VoiceAssistantPanel(controller: controller);
       case AppSection.devices:
         return DevicesPanel(key: devicesPanelKey, controller: controller);
-      case AppSection.messaging:
-        return MessagingPanel(controller: controller);
       case AppSection.runs:
         return RunsAndLogsPanel(controller: controller);
       case AppSection.settings:
-        return SettingsWorkspacePanel(controller: controller);
-      case AppSection.accountSettings:
-        return SettingsWorkspacePanel(controller: controller);
+        return SettingsPanel(controller: controller);
       case AppSection.skills:
         return ToolsPanel(controller: controller);
-      case AppSection.agents:
-        return AgentsPanel(controller: controller);
       case AppSection.integrations:
         return ToolsPanel(controller: controller);
       case AppSection.memory:
@@ -2547,10 +2490,6 @@ class _SectionBody extends StatelessWidget {
         return controller.showHealthSection
             ? HealthPanel(controller: controller)
             : ChatPanel(controller: controller);
-      case AppSection.server:
-        return ServerPanel(controller: controller);
-      case AppSection.billing:
-        return BillingPanel(controller: controller);
       case AppSection.team:
         return TeamPanel(controller: controller);
       case AppSection.admin:

@@ -46,7 +46,7 @@ void main() {
   });
 
   testWidgets(
-    'the account language setting switches the interface and is remembered',
+    'the language setting switches the interface and is remembered',
     (tester) async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
       currentAppLanguage = AppLanguage.english;
@@ -56,6 +56,7 @@ void main() {
       );
       addTearDown(controller.dispose);
       addTearDown(() => currentAppLanguage = AppLanguage.english);
+      controller.settingsPage = SettingsPage.general;
 
       await tester.pumpWidget(
         AnimatedBuilder(
@@ -64,22 +65,20 @@ void main() {
             locale: controller.language.locale,
             localizationsDelegates: AppL10n.localizationsDelegates,
             supportedLocales: AppL10n.supportedLocales,
-            home: Scaffold(
-              body: AccountLanguageSetting(controller: controller),
-            ),
+            home: Scaffold(body: SettingsPanel(controller: controller)),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-    expect(find.text('LANGUAGE'), findsOneWidget);
-    expect(find.text('English'), findsOneWidget);
-    await tester.tap(find.text('Deutsch'));
-    await tester.pumpAndSettle();
+      expect(find.text('Language'), findsOneWidget);
+      expect(find.text('English'), findsOneWidget);
+      await tester.tap(find.text('Deutsch'));
+      await tester.pumpAndSettle();
 
-    expect(controller.language, AppLanguage.german);
-    expect(find.text('SPRACHE'), findsOneWidget);
-    expect(find.text('LANGUAGE'), findsNothing);
+      expect(controller.language, AppLanguage.german);
+      expect(find.text('Sprache'), findsOneWidget);
+      expect(find.text('Language'), findsNothing);
       final preferences = await SharedPreferences.getInstance();
       expect(preferences.getString(appLanguagePreferenceKey), 'de');
       expect(tester.takeException(), isNull);

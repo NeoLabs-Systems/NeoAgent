@@ -10,6 +10,10 @@ class LocationService {
   LocationService._internal();
 
   bool _isTracking = false;
+
+  /// Bumped on every start and stop, so a loop still sleeping from an earlier
+  /// start ends instead of running beside a new one.
+  int _trackingGeneration = 0;
   final Set<int> _insideFenceIds = <int>{};
 
   Future<void> initialize(BuildContext context) async {
@@ -74,11 +78,21 @@ class LocationService {
   ) async {
     if (_isTracking) return;
     _isTracking = true;
-    _trackLoop(client, backendUrl);
+    _trackLoop(client, backendUrl, ++_trackingGeneration);
   }
 
-  Future<void> _trackLoop(BackendClient client, String backendUrl) async {
-    while (_isTracking) {
+  void stopGeofenceTracking() {
+    _isTracking = false;
+    _trackingGeneration++;
+    _insideFenceIds.clear();
+  }
+
+  Future<void> _trackLoop(
+    BackendClient client,
+    String backendUrl,
+    int generation,
+  ) async {
+    while (_isTracking && generation == _trackingGeneration) {
       try {
         final response = await client.fetchGeofences(backendUrl);
         final raw = response['geofences'];

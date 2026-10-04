@@ -31,81 +31,36 @@ class _ByokSettingsCardState extends State<_ByokSettingsCard> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final providers = controller.byokProviders;
-    final configuredCount = providers
-        .where((p) => p['configured'] == true)
-        .length;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(child: _SectionTitle(appStrings.bringYourOwnKey2)),
-                IconButton(
-                  tooltip: 'Refresh',
-                  onPressed: controller.isLoadingByokProviders ? null : _load,
-                  icon: controller.isLoadingByokProviders
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Icon(Icons.refresh_rounded),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              appStrings.useYourOwnApiKeyFor +
-              appStrings.openaiCompatibleEndpointYourOwnServer +
-              appStrings.hostedServiceYourKeysAreEncrypted +
-              appStrings.yourAccountAndUsageOnA +
-              appStrings.neverCountsAgainstTheSharedUsage,
-              style: TextStyle(color: _textSecondary, height: 1.45),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: <Widget>[
-                _MetaPill(
-                  icon: Icons.vpn_key_outlined,
-                  label: appStrings.arg1KeyArg2Configured(configuredCount, configuredCount == 1 ? '' : 's'),
-                  color: configuredCount > 0 ? _success : _textMuted,
-                ),
-                _MetaPill(
-                  icon: Icons.shield_outlined,
-                  label: appStrings.encryptedPrivateToYourAccount,
-                  color: _info,
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (!_loadedOnce && controller.isLoadingByokProviders)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Center(child: CircularProgressIndicator()),
+    return _SettingsGroup(
+      anchor: 'apiKeys',
+      title: appStrings.bringYourOwnKey2,
+      description: appStrings.settingsApiKeysDescription,
+      trailing: IconButton(
+        tooltip: appStrings.refresh,
+        onPressed: controller.isLoadingByokProviders ? null : _load,
+        icon: controller.isLoadingByokProviders
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
               )
-            else if (providers.isEmpty)
-              Text(
-                appStrings.noProvidersAreAvailableToConfigure,
-                style: TextStyle(color: _textSecondary),
-              )
-            else
-              ...providers.map(
-                (provider) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _ByokProviderRow(
-                    controller: controller,
-                    provider: provider,
-                  ),
-                ),
-              ),
-          ],
-        ),
+            : Icon(Icons.refresh_rounded),
       ),
+      children: <Widget>[
+        if (!_loadedOnce && controller.isLoadingByokProviders)
+          const _SettingsBlock(
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (providers.isEmpty)
+          _SettingsBlock(
+            child: Text(
+              appStrings.noProvidersAreAvailableToConfigure,
+              style: TextStyle(color: _textSecondary),
+            ),
+          )
+        else
+          for (final provider in providers)
+            _ByokProviderRow(controller: controller, provider: provider),
+      ],
     );
   }
 }
@@ -131,78 +86,37 @@ class _ByokProviderRow extends StatelessWidget {
     final customLabel = provider['customLabel']?.toString() ?? '';
     final baseUrl = provider['baseUrl']?.toString() ?? '';
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final title = isUrlOnly && customLabel.isNotEmpty ? customLabel : label;
+    return _SettingsRow(
+      label: title,
+      description: configured && isUrlOnly && baseUrl.isNotEmpty
+          ? baseUrl
+          : description.isEmpty
+          ? null
+          : description,
+      control: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      isUrlOnly && customLabel.isNotEmpty
-                          ? customLabel
-                          : label,
-                      style: TextStyle(
-                        color: _textPrimary,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    if (description.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 4),
-                      Text(
-                        description,
-                        style: TextStyle(color: _textSecondary, fontSize: 12.5, height: 1.35),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              _StatusPill(
-                label: configured ? 'Using your key' : appStrings.notSetUp,
-                color: configured ? _success : _textMuted,
-              ),
-            ],
+          _StatusPill(
+            label: configured ? 'Using your key' : appStrings.notSetUp,
+            color: configured ? _success : _textMuted,
           ),
-          if (configured && isUrlOnly && baseUrl.isNotEmpty) ...<Widget>[
-            const SizedBox(height: 8),
-            Text(
-              baseUrl,
-              style: TextStyle(color: _textSecondary, fontSize: 12),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          OutlinedButton(
+            onPressed: () => _openEditDialog(context),
+            child: Text(
+              configured
+                  ? 'Update'
+                  : (isUrlOnly ? 'Connect endpoint' : appStrings.addKey),
             ),
-          ],
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: <Widget>[
-              FilledButton.icon(
-                onPressed: () => _openEditDialog(context),
-                icon: Icon(
-                  configured ? Icons.edit_outlined : Icons.add_circle_outline,
-                  size: 18,
-                ),
-                label: Text(configured ? 'Update' : (isUrlOnly ? 'Connect endpoint' : appStrings.addKey)),
-              ),
-              if (configured)
-                OutlinedButton.icon(
-                  onPressed: () => _confirmRemove(context),
-                  icon: Icon(Icons.delete_outline, size: 18),
-                  label: Text(appStrings.remove),
-                ),
-            ],
           ),
+          if (configured)
+            IconButton(
+              tooltip: appStrings.remove,
+              onPressed: () => _confirmRemove(context),
+              icon: Icon(Icons.delete_outline, size: 18),
+            ),
         ],
       ),
     );

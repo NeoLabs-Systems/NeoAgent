@@ -1,10 +1,19 @@
 part of 'main.dart';
 
 class ServerPanel extends StatefulWidget {
-  const ServerPanel({super.key, required this.controller, this.runtimeManager});
+  const ServerPanel({
+    super.key,
+    required this.controller,
+    this.runtimeManager,
+    this.embedded = false,
+  });
 
   final NeoAgentController controller;
   final LocalRuntimeManager? runtimeManager;
+
+  /// Inside Settings › System, which supplies the page title and scrolling.
+  /// Standalone it is the server screen reachable before signing in.
+  final bool embedded;
 
   @override
   State<ServerPanel> createState() => _ServerPanelState();
@@ -182,24 +191,32 @@ class _ServerPanelState extends State<ServerPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final cards = <Widget>[
+      _SettingsAnchor(id: 'server', child: _connectionCard()),
+      if (_supportsDesktopShell) ...<Widget>[
+        const SizedBox(height: 16),
+        _localRuntimeCard(),
+        if (_showsAppUpdates) ...<Widget>[
+          const SizedBox(height: 16),
+          _appUpdateCard(),
+        ],
+      ],
+    ];
+    if (widget.embedded) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: cards,
+      );
+    }
     return ListView(
       padding: _pagePadding(context),
       children: <Widget>[
         _PageTitle(
-          title: 'Server',
-          subtitle:
-              appStrings.seeWhichNeoagentServerThisWindow,
+          title: appStrings.server,
+          subtitle: appStrings.seeWhichNeoagentServerThisWindow,
         ),
         const SizedBox(height: 18),
-        _connectionCard(),
-        if (_supportsDesktopShell) ...<Widget>[
-          const SizedBox(height: 16),
-          _localRuntimeCard(),
-          if (_showsAppUpdates) ...<Widget>[
-            const SizedBox(height: 16),
-            _appUpdateCard(),
-          ],
-        ],
+        ...cards,
       ],
     );
   }

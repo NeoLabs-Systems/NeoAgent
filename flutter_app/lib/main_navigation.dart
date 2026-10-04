@@ -17,19 +17,14 @@ enum AppSection {
   timeline,
   voiceAssistant,
   devices,
-  messaging,
   runs,
   settings,
-  accountSettings,
   skills,
-  agents,
   integrations,
   memory,
   tasks,
   mcp,
   health,
-  server,
-  billing,
   team,
   admin,
 }
@@ -83,18 +78,12 @@ extension AppSectionX on AppSection {
         return appStrings.voiceAssistant;
       case AppSection.devices:
         return appStrings.devices;
-      case AppSection.messaging:
-        return appStrings.messaging;
       case AppSection.runs:
         return appStrings.runs;
       case AppSection.settings:
         return appStrings.settings;
-      case AppSection.accountSettings:
-        return appStrings.accountSettings;
       case AppSection.skills:
         return appStrings.skills;
-      case AppSection.agents:
-        return appStrings.agents;
       case AppSection.integrations:
         return appStrings.tools;
       case AppSection.memory:
@@ -105,10 +94,6 @@ extension AppSectionX on AppSection {
         return appStrings.mcp;
       case AppSection.health:
         return appStrings.health;
-      case AppSection.server:
-        return appStrings.server;
-      case AppSection.billing:
-        return appStrings.billing;
       case AppSection.team:
         return appStrings.team;
       case AppSection.admin:
@@ -126,18 +111,12 @@ extension AppSectionX on AppSection {
         return Icons.keyboard_voice_outlined;
       case AppSection.devices:
         return Icons.devices_other_outlined;
-      case AppSection.messaging:
-        return Icons.forum_outlined;
       case AppSection.runs:
         return Icons.monitor_heart_outlined;
       case AppSection.settings:
         return Icons.tune;
-      case AppSection.accountSettings:
-        return Icons.manage_accounts_outlined;
       case AppSection.skills:
         return Icons.extension_outlined;
-      case AppSection.agents:
-        return Icons.smart_toy_outlined;
       case AppSection.integrations:
         return Icons.handyman_outlined;
       case AppSection.memory:
@@ -148,10 +127,6 @@ extension AppSectionX on AppSection {
         return Icons.hub_outlined;
       case AppSection.health:
         return Icons.favorite_border;
-      case AppSection.server:
-        return Icons.dns_outlined;
-      case AppSection.billing:
-        return Icons.credit_card;
       case AppSection.team:
         return Icons.groups_2_outlined;
       case AppSection.admin:
@@ -173,14 +148,9 @@ extension AppSectionX on AppSection {
       case AppSection.tasks:
       case AppSection.mcp:
       case AppSection.health:
-        return SidebarGroup.automation;
       case AppSection.runs:
+        return SidebarGroup.automation;
       case AppSection.settings:
-      case AppSection.accountSettings:
-      case AppSection.messaging:
-      case AppSection.agents:
-      case AppSection.server:
-      case AppSection.billing:
         return SidebarGroup.settings;
       case AppSection.team:
         return SidebarGroup.team;
@@ -194,7 +164,6 @@ extension AppSectionX on AppSection {
   bool get isAgentScoped {
     switch (this) {
       case AppSection.chat:
-      case AppSection.messaging:
       case AppSection.runs:
       case AppSection.settings:
       case AppSection.skills:
@@ -218,15 +187,6 @@ extension AppSectionX on AppSection {
     }
   }
 
-  AppSection get sidebarSection {
-    switch (this) {
-      case AppSection.accountSettings:
-        return AppSection.settings;
-      default:
-        return canonicalSection;
-    }
-  }
-
   String get navigationTitle {
     final effectiveSection = canonicalSection;
     final groupLabel = effectiveSection.group.label;
@@ -241,5 +201,151 @@ extension AppSectionX on AppSection {
       return groupLabel;
     }
     return appStrings.arg1Arg22(groupLabel, effectiveSection.label);
+  }
+}
+
+/// Who a settings page applies to. Every page names its scope above the title,
+/// so a change is never ambiguous about following the account, every agent,
+/// only the selected agent, or this app.
+enum SettingsScope { account, allAgents, agent, app }
+
+extension SettingsScopeX on SettingsScope {
+  String get label {
+    switch (this) {
+      case SettingsScope.account:
+        return appStrings.account;
+      case SettingsScope.allAgents:
+        return appStrings.settingsScopeAllAgents;
+      case SettingsScope.agent:
+        return appStrings.settingsScopeAgent;
+      case SettingsScope.app:
+        return appStrings.settingsScopeApp;
+    }
+  }
+}
+
+/// The pages of the single Settings screen, in the order the list shows them.
+enum SettingsPage {
+  profile,
+  security,
+  usage,
+  agents,
+  permissions,
+  computer,
+  models,
+  behavior,
+  voice,
+  messaging,
+  general,
+  system,
+}
+
+extension SettingsPageX on SettingsPage {
+  SettingsScope get scope {
+    switch (this) {
+      case SettingsPage.profile:
+      case SettingsPage.security:
+      case SettingsPage.usage:
+        return SettingsScope.account;
+      case SettingsPage.agents:
+      case SettingsPage.permissions:
+      case SettingsPage.computer:
+        return SettingsScope.allAgents;
+      case SettingsPage.models:
+      case SettingsPage.behavior:
+      case SettingsPage.voice:
+      case SettingsPage.messaging:
+        return SettingsScope.agent;
+      case SettingsPage.general:
+      case SettingsPage.system:
+        return SettingsScope.app;
+    }
+  }
+
+  String get label {
+    switch (this) {
+      case SettingsPage.profile:
+        return appStrings.settingsPageProfile;
+      case SettingsPage.security:
+        return appStrings.settingsPageSecurity;
+      case SettingsPage.usage:
+        return appStrings.settingsPageUsage;
+      case SettingsPage.agents:
+        return appStrings.agents;
+      case SettingsPage.permissions:
+        return appStrings.settingsPagePermissions;
+      case SettingsPage.computer:
+        return appStrings.settingsPageComputer;
+      case SettingsPage.models:
+        return appStrings.models;
+      case SettingsPage.behavior:
+        return appStrings.settingsPageBehavior;
+      case SettingsPage.voice:
+        return appStrings.voice;
+      case SettingsPage.messaging:
+        return appStrings.messaging;
+      case SettingsPage.general:
+        return appStrings.general;
+      case SettingsPage.system:
+        return appStrings.settingsPageSystem;
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case SettingsPage.profile:
+        return appStrings.settingsPageProfileDescription;
+      case SettingsPage.security:
+        return appStrings.settingsPageSecurityDescription;
+      case SettingsPage.usage:
+        return appStrings.settingsPageUsageDescription;
+      case SettingsPage.agents:
+        return appStrings.settingsPageAgentsDescription;
+      case SettingsPage.permissions:
+        return appStrings.settingsPagePermissionsDescription;
+      case SettingsPage.computer:
+        return appStrings.settingsPageComputerDescription;
+      case SettingsPage.models:
+        return appStrings.settingsPageModelsDescription;
+      case SettingsPage.behavior:
+        return appStrings.settingsPageBehaviorDescription;
+      case SettingsPage.voice:
+        return appStrings.settingsPageVoiceDescription;
+      case SettingsPage.messaging:
+        return appStrings.settingsPageMessagingDescription;
+      case SettingsPage.general:
+        return appStrings.settingsPageGeneralDescription;
+      case SettingsPage.system:
+        return appStrings.settingsPageSystemDescription;
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case SettingsPage.profile:
+        return Icons.person_outline;
+      case SettingsPage.security:
+        return Icons.shield_outlined;
+      case SettingsPage.usage:
+        return Icons.data_usage_outlined;
+      case SettingsPage.agents:
+        return Icons.smart_toy_outlined;
+      case SettingsPage.permissions:
+        return Icons.lock_outline;
+      case SettingsPage.computer:
+        return Icons.computer_outlined;
+      case SettingsPage.models:
+        return Icons.hub_outlined;
+      case SettingsPage.behavior:
+        return Icons.psychology_outlined;
+      case SettingsPage.voice:
+        return Icons.mic_none_outlined;
+      case SettingsPage.messaging:
+        return Icons.forum_outlined;
+      case SettingsPage.general:
+        return Icons.tune;
+      case SettingsPage.system:
+        return Icons.dns_outlined;
+    }
   }
 }

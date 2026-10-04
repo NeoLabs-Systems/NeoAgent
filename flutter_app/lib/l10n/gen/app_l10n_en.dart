@@ -5749,7 +5749,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'On a signed-in Android device, open Account settings, scan this code, and approve the login.';
+      'On a signed-in Android device, open Settings › Sign-in & security, scan this code, and approve the login.';
 
   @override
   String get onAndTheServerHasRestarted => 'on and the server has restarted.';
@@ -5837,7 +5837,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Open Account settings on a signed-in Android device, scan this code, and approve the login.';
+      'Open Settings › Sign-in & security on a signed-in Android device, scan this code, and approve the login.';
 
   @override
   String get openBrowserCheckingDocs => 'open browser → checking docs';
@@ -6125,7 +6125,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get permissionsToolPermissionsNobodyElseCan =>
-      'Permissions › Tool Permissions. Nobody else can change that.';
+      'Permissions. Nobody else can change that.';
 
   @override
   String get personOrChat => 'Person or chat';
@@ -10588,7 +10588,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get noSystemOneModelIsAvailableYet =>
-      'No SystemOne model is available yet. Add a TypeSafe or OpenRouter key under Advanced › Bring your own key, or pull a decision model such as nimble in Ollama.';
+      'No SystemOne model is available yet. Add a TypeSafe or OpenRouter key under Settings › Models › Bring your own key, or pull a decision model such as nimble in Ollama.';
 
   @override
   String get systemoneDecisionModelsTypesafeOpenrouterOllama =>
@@ -10615,5 +10615,317 @@ class AppL10nEn extends AppL10n {
   @override
   String arg1UnsavedChanges(Object? arg1) {
     return '$arg1 unsaved changes';
+  }
+
+  @override
+  String get settingsScopeAllAgents => 'All agents';
+
+  @override
+  String get settingsScopeAgent => 'This agent';
+
+  @override
+  String get settingsScopeApp => 'App';
+
+  @override
+  String get settingsScopeAccountHint => 'Same everywhere you sign in';
+
+  @override
+  String get settingsScopeAllAgentsHint => 'Shared by all your agents';
+
+  @override
+  String get settingsAppliesTo => 'Applies to';
+
+  @override
+  String get settingsSaving => 'Saving…';
+
+  @override
+  String get settingsSavedAutomatically => 'Changes save automatically';
+
+  @override
+  String get settingsSearchHint => 'Search all settings';
+
+  @override
+  String get settingsPageProfile => 'Profile';
+
+  @override
+  String get settingsPageSecurity => 'Sign-in & security';
+
+  @override
+  String get settingsPageUsage => 'Plan & usage';
+
+  @override
+  String get settingsPagePermissions => 'Permissions';
+
+  @override
+  String get settingsPageComputer => 'Computer & web';
+
+  @override
+  String get settingsPageBehavior => 'Behavior';
+
+  @override
+  String get settingsPageSystem => 'System';
+
+  @override
+  String get settingsPageProfileDescription =>
+      'Your name and email, a copy of your data, and signing out.';
+
+  @override
+  String get settingsPageSecurityDescription =>
+      'Password, two-factor authentication, security keys and where you\'re signed in.';
+
+  @override
+  String get settingsPageUsageDescription =>
+      'Your limits, token spend and plan, all in one place.';
+
+  @override
+  String get settingsPageAgentsDescription =>
+      'Create agents and choose which one answers by default.';
+
+  @override
+  String get settingsPagePermissionsDescription =>
+      'What your agents may do without asking you first.';
+
+  @override
+  String get settingsPageComputerDescription =>
+      'The computer your agents work on and the sites they can read as you.';
+
+  @override
+  String get settingsPageModelsDescription =>
+      'Which models this agent uses, and the API keys that pay for them.';
+
+  @override
+  String get settingsPageBehaviorDescription =>
+      'How this agent talks and how it reads a group chat.';
+
+  @override
+  String get settingsPageVoiceDescription =>
+      'Live calls, dictation and spoken replies for this agent.';
+
+  @override
+  String get settingsPageMessagingDescription =>
+      'Where people can reach this agent and how it behaves in chats.';
+
+  @override
+  String get settingsPageGeneralDescription =>
+      'Appearance, language, time zone and what this app does in the background.';
+
+  @override
+  String get settingsPageSystemDescription =>
+      'The server this window uses, the one on this computer, and app updates.';
+
+  @override
+  String get settingsYourAgents => 'Your agents';
+
+  @override
+  String get settingsChatModel => 'Chat model';
+
+  @override
+  String get settingsChatModelDescription => 'Answers your messages.';
+
+  @override
+  String get settingsSubAgentModel => 'Sub-agent model';
+
+  @override
+  String get settingsSubAgentModelDescription =>
+      'Runs work handed off during a task.';
+
+  @override
+  String get settingsDefaultModels => 'Default models';
+
+  @override
+  String get settingsDefaultModelsDescription =>
+      'Used whenever a chat or task doesn\'t pick its own model.';
+
+  @override
+  String get settingsSmartSelection => 'Smart selection';
+
+  @override
+  String get settingsModelPool => 'Model pool';
+
+  @override
+  String get settingsApiKeysDescription =>
+      'Use your own keys or endpoint for this agent. Keys are encrypted and never shown again.';
+
+  @override
+  String get settingsPersona => 'Persona';
+
+  @override
+  String get settingsFineTuning => 'Fine-tuning';
+
+  @override
+  String get settingsFineTuningDescription =>
+      'Rarely needed. The defaults suit most chats.';
+
+  @override
+  String get settingsShow => 'Show';
+
+  @override
+  String get settingsHide => 'Hide';
+
+  @override
+  String get settingsMinimumContribution => 'Minimum contribution value';
+
+  @override
+  String get settingsBatchWindow => 'Room batch window';
+
+  @override
+  String get settingsBatchWindowDescription =>
+      'Waits this long to treat rapid messages as one turn.';
+
+  @override
+  String get settingsHandsFree => 'Hands-free';
+
+  @override
+  String get settingsHandsFreeDescription =>
+      'Talk freely and interrupt at any time.';
+
+  @override
+  String get settingsPushToTalkDescription => 'Hold to talk, release to send.';
+
+  @override
+  String get settingsLiveVoice => 'Live voice';
+
+  @override
+  String get settingsChannels => 'Channels';
+
+  @override
+  String get settingsGroupChats => 'In group chats';
+
+  @override
+  String get settingsGroupChatsDescription =>
+      'How this agent behaves in groups on every channel.';
+
+  @override
+  String get settingsGroupChatsDisabled =>
+      'Turn on behavior modules in Behavior to change these.';
+
+  @override
+  String get settingsParticipationAutomatic => 'Automatic';
+
+  @override
+  String get settingsParticipationMentionOnly => 'Mention only';
+
+  @override
+  String get settingsParticipationAutomaticDescription =>
+      'Reads the room and joins in when it has something useful to add.';
+
+  @override
+  String get settingsParticipationMentionOnlyDescription =>
+      'Replies only when mentioned or replied to.';
+
+  @override
+  String get settingsParticipationAlwaysDescription =>
+      'Replies to every message.';
+
+  @override
+  String get settingsDeliveryNaturalDescription =>
+      'Splits longer replies into short messages, the way a person would.';
+
+  @override
+  String get settingsDeliverySingleDescription =>
+      'Sends each reply as one message.';
+
+  @override
+  String get settingsComputerStatus => 'Status';
+
+  @override
+  String get settingsTest => 'Test';
+
+  @override
+  String get settingsAppearance => 'Appearance';
+
+  @override
+  String get settingsTheme => 'Theme';
+
+  @override
+  String get settingsThemeSystem => 'System';
+
+  @override
+  String get settingsThemeLight => 'Light';
+
+  @override
+  String get settingsThemeDark => 'Dark';
+
+  @override
+  String get settingsCloseWindow => 'When you close the window';
+
+  @override
+  String get settingsCloseAsk => 'Ask';
+
+  @override
+  String get settingsCloseKeepRunningDescription =>
+      'NeoAgent keeps running in the background and stays reachable.';
+
+  @override
+  String get settingsCloseQuitDescription => 'NeoAgent quits completely.';
+
+  @override
+  String get settingsPhoneTriggers => 'Phone triggers';
+
+  @override
+  String get settingsPhoneTriggersDescription =>
+      'Signals this phone sends to your agents so tasks can react to them.';
+
+  @override
+  String get settingsLocationTriggers => 'Location triggers';
+
+  @override
+  String get settingsLocationTriggersDescription =>
+      'Checks your approximate location every few minutes against the places your tasks watch.';
+
+  @override
+  String get settingsNotificationTriggers => 'Notification triggers';
+
+  @override
+  String get settingsNotificationTriggersDescription =>
+      'Forwards notifications from other apps on this phone to your agents.';
+
+  @override
+  String get settingsSetup => 'Setup';
+
+  @override
+  String get settingsOnboarding => 'Onboarding';
+
+  @override
+  String get settingsOnboardingDescription =>
+      'Walk through first-run setup again. Nothing you set up is lost.';
+
+  @override
+  String get settingsUsernameDescription =>
+      'Used to sign in. It can\'t be changed.';
+
+  @override
+  String get settingsExport => 'Export';
+
+  @override
+  String get settingsLeave => 'Sign out and delete';
+
+  @override
+  String get settingsSignOutDescription => 'Signs you out on this device only.';
+
+  @override
+  String get settingsDeleteAccountDescription =>
+      'Erases your account, agents, memory and settings. This can\'t be undone.';
+
+  @override
+  String get settingsTokenUsage => 'Token usage';
+
+  @override
+  String get settingsAvailablePlans => 'Available plans';
+
+  @override
+  String settingsSearchNoMatch(String query) {
+    return 'No setting matches “$query”.';
+  }
+
+  @override
+  String settingsSearchResultCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count matches',
+      one: '1 match',
+    );
+    return '$_temp0';
   }
 }

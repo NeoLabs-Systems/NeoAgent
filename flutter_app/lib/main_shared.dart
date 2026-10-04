@@ -186,13 +186,8 @@ List<AppSection> _mainSections(NeoAgentController controller) {
     AppSection.integrations,
     AppSection.memory,
     if (controller.showHealthSection) AppSection.health,
-    AppSection.settings,
-    // The panel manages the runtime on this machine, so it exists on desktop only.
-    if (_supportsDesktopShell) AppSection.server,
-    if (controller.showBillingSection) AppSection.billing,
     AppSection.runs,
-    AppSection.agents,
-    AppSection.messaging,
+    AppSection.settings,
     AppSection.team,
     // Shown for admin accounts only; the server enforces it on every request.
     if (controller.isAdmin) AppSection.admin,
@@ -200,21 +195,13 @@ List<AppSection> _mainSections(NeoAgentController controller) {
 }
 
 /// Sections belonging to [group], in the order the navigation shows them.
-///
-/// Settings gets one extra entry: account settings has no sidebar row on
-/// desktop (the rail footer's avatar opens it), so on a phone — where there
-/// is no rail footer — the chip row is its only way in.
 List<AppSection> _groupSections(
   NeoAgentController controller,
   SidebarGroup group,
 ) {
-  final sections = _mainSections(
+  return _mainSections(
     controller,
   ).where((section) => section.group == group).toList();
-  if (group == SidebarGroup.settings && sections.isNotEmpty) {
-    sections.insert(1, AppSection.accountSettings);
-  }
-  return sections;
 }
 
 /// The section a group opens on when it is selected as a whole.
@@ -222,13 +209,12 @@ AppSection _groupDefaultSection(
   NeoAgentController controller,
   SidebarGroup group,
 ) {
-  if (group == SidebarGroup.settings) {
-    return AppSection.settings;
-  }
   final sections = _groupSections(controller, group);
   return sections.isEmpty ? AppSection.chat : sections.first;
 }
 
+/// The rail's navigation. Settings is not listed: the account button at the
+/// foot of the rail is its one entry.
 List<Widget> _buildSidebarItems(
   NeoAgentController controller, {
   required ValueChanged<AppSection> onSelect,
@@ -237,10 +223,9 @@ List<Widget> _buildSidebarItems(
 }) {
   final widgets = <Widget>[];
   final mainSections = _mainSections(controller);
-  final selectedSidebarSection = mainSections.contains(
-    controller.selectedSection.sidebarSection,
-  );
+  final current = controller.selectedSection.canonicalSection;
   for (final group in SidebarGroup.values) {
+    if (group == SidebarGroup.settings) continue;
     final sections = mainSections
         .where((section) => section.group == group)
         .toList();
@@ -248,19 +233,9 @@ List<Widget> _buildSidebarItems(
       continue;
     }
 
-    final defaultSection = sections.first;
-    final parentSection = group == SidebarGroup.settings
-        ? AppSection.settings
-        : defaultSection;
-    final childSections = group == SidebarGroup.settings
-        ? sections.where((section) => section != parentSection).toList()
-        : sections;
-    final hasChildren =
-        childSections.length > 1 ||
-        (group == SidebarGroup.settings && childSections.isNotEmpty);
-    final active =
-        selectedSidebarSection &&
-        controller.selectedSection.sidebarSection == parentSection;
+    final parentSection = sections.first;
+    final hasChildren = sections.length > 1;
+    final active = current == parentSection;
     final expanded = expandedGroup == group;
 
     widgets.add(
@@ -276,9 +251,7 @@ List<Widget> _buildSidebarItems(
               )
             : null,
         onTap: hasChildren
-            ? group == SidebarGroup.settings
-                  ? () => onSelect(parentSection)
-                  : () => onToggleGroup(group)
+            ? () => onToggleGroup(group)
             : () => onSelect(parentSection),
       ),
     );
@@ -289,12 +262,12 @@ List<Widget> _buildSidebarItems(
 
     widgets.add(
       _SidebarSubnav(
-        children: childSections
+        children: sections
             .map(
               (section) => _SidebarButton(
                 label: section.label,
                 icon: section.icon,
-                active: controller.selectedSection.sidebarSection == section,
+                active: current == section,
                 iconSize: 16,
                 fontSize: 13,
                 compact: true,
@@ -1106,43 +1079,6 @@ class _SidebarSubnav extends StatelessWidget {
         border: Border(left: BorderSide(color: _border)),
       ),
       child: Column(children: children),
-    );
-  }
-}
-
-class _SidebarIconButton extends StatelessWidget {
-  const _SidebarIconButton({
-    required this.tooltip,
-    required this.icon,
-    required this.onTap,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(9),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(9),
-          onTap: onTap,
-          child: Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: _bgSecondary.withValues(alpha: 0.55),
-              border: Border.all(color: _border),
-            ),
-            child: Icon(icon, size: 17, color: _textSecondary),
-          ),
-        ),
-      ),
     );
   }
 }

@@ -83,17 +83,48 @@ void main() {
     expect(controller.selectedSection, AppSection.memory);
   });
 
-  testWidgets('account settings is reachable on a phone without the drawer', (
+  testWidgets('every settings page is one tap from the Settings tab', (
     tester,
   ) async {
     final controller = await pumpShell(tester, const Size(390, 844));
 
-    controller.setSelectedSection(AppSection.settings);
+    await tester.tap(find.text(SidebarGroup.settings.label).last);
+    await tester.pumpAndSettle();
+    expect(controller.selectedSection, AppSection.settings);
+    // Account and app settings share one list; there is no second menu.
+    expect(find.text('Profile'), findsOneWidget);
+    expect(find.text('Account settings'), findsNothing);
+
+    await tester.tap(find.text('Sign-in & security'));
+    await tester.pumpAndSettle();
+    expect(controller.settingsPage, SettingsPage.security);
+
+    // Back returns to the list rather than leaving Settings.
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded));
+    await tester.pumpAndSettle();
+    expect(controller.settingsPage, isNull);
+    expect(controller.selectedSection, AppSection.settings);
+  });
+
+  testWidgets('an account page opened from app settings stays open', (
+    tester,
+  ) async {
+    final controller = await pumpShell(tester, const Size(1440, 900));
+
+    controller.openSettings(SettingsPage.models);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Account settings').first);
+    // Moving between app and account pages once remounted the whole settings
+    // screen, which then always reopened on the account page.
+    await tester.tap(find.text('Plan & usage'));
     await tester.pumpAndSettle();
-    expect(controller.selectedSection, AppSection.accountSettings);
+    expect(controller.settingsPage, SettingsPage.usage);
+    expect(find.text('Usage & limits'), findsOneWidget);
+
+    await tester.tap(find.text('Sign-in & security'));
+    await tester.pumpAndSettle();
+    expect(controller.settingsPage, SettingsPage.security);
+    expect(find.text('Active sessions'), findsOneWidget);
   });
 
   testWidgets('desktop keeps the sidebar and grows no bottom bar', (
@@ -110,14 +141,14 @@ void main() {
     expect(scaffold.bottomNavigationBar, isNull);
   });
 
-  testWidgets('the desktop sidebar lists the server section', (tester) async {
+  testWidgets('desktop settings list the System page', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
     final controller = await pumpShell(tester, const Size(1440, 900));
 
     controller.setSelectedSection(AppSection.settings);
     await tester.pumpAndSettle();
 
-    expect(find.text(AppSection.server.label), findsWidgets);
+    expect(find.text(SettingsPage.system.label), findsWidgets);
     debugDefaultTargetPlatformOverride = null;
   });
 

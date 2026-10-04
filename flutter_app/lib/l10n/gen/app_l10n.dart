@@ -9524,7 +9524,7 @@ abstract class AppL10n {
   /// No description provided for @onASignedInAndroidDevice.
   ///
   /// In en, this message translates to:
-  /// **'On a signed-in Android device, open Account settings, scan this code, and approve the login.'**
+  /// **'On a signed-in Android device, open Settings › Sign-in & security, scan this code, and approve the login.'**
   String get onASignedInAndroidDevice;
 
   /// No description provided for @onAndTheServerHasRestarted.
@@ -9674,7 +9674,7 @@ abstract class AppL10n {
   /// No description provided for @openAccountSettingsOnASigned.
   ///
   /// In en, this message translates to:
-  /// **'Open Account settings on a signed-in Android device, scan this code, and approve the login.'**
+  /// **'Open Settings › Sign-in & security on a signed-in Android device, scan this code, and approve the login.'**
   String get openAccountSettingsOnASigned;
 
   /// No description provided for @openBrowserCheckingDocs.
@@ -10172,7 +10172,7 @@ abstract class AppL10n {
   /// No description provided for @permissionsToolPermissionsNobodyElseCan.
   ///
   /// In en, this message translates to:
-  /// **'Permissions › Tool Permissions. Nobody else can change that.'**
+  /// **'Permissions. Nobody else can change that.'**
   String get permissionsToolPermissionsNobodyElseCan;
 
   /// No description provided for @personOrChat.
@@ -17642,7 +17642,7 @@ abstract class AppL10n {
   /// No description provided for @noSystemOneModelIsAvailableYet.
   ///
   /// In en, this message translates to:
-  /// **'No SystemOne model is available yet. Add a TypeSafe or OpenRouter key under Advanced › Bring your own key, or pull a decision model such as nimble in Ollama.'**
+  /// **'No SystemOne model is available yet. Add a TypeSafe or OpenRouter key under Settings › Models › Bring your own key, or pull a decision model such as nimble in Ollama.'**
   String get noSystemOneModelIsAvailableYet;
 
   /// No description provided for @systemoneDecisionModelsTypesafeOpenrouterOllama.
@@ -17692,6 +17692,546 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'{arg1} unsaved changes'**
   String arg1UnsavedChanges(Object? arg1);
+
+  /// No description provided for @settingsScopeAllAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'All agents'**
+  String get settingsScopeAllAgents;
+
+  /// No description provided for @settingsScopeAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'This agent'**
+  String get settingsScopeAgent;
+
+  /// No description provided for @settingsScopeApp.
+  ///
+  /// In en, this message translates to:
+  /// **'App'**
+  String get settingsScopeApp;
+
+  /// No description provided for @settingsScopeAccountHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Same everywhere you sign in'**
+  String get settingsScopeAccountHint;
+
+  /// No description provided for @settingsScopeAllAgentsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared by all your agents'**
+  String get settingsScopeAllAgentsHint;
+
+  /// No description provided for @settingsAppliesTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Applies to'**
+  String get settingsAppliesTo;
+
+  /// No description provided for @settingsSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving…'**
+  String get settingsSaving;
+
+  /// No description provided for @settingsSavedAutomatically.
+  ///
+  /// In en, this message translates to:
+  /// **'Changes save automatically'**
+  String get settingsSavedAutomatically;
+
+  /// No description provided for @settingsSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search all settings'**
+  String get settingsSearchHint;
+
+  /// No description provided for @settingsPageProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get settingsPageProfile;
+
+  /// No description provided for @settingsPageSecurity.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in & security'**
+  String get settingsPageSecurity;
+
+  /// No description provided for @settingsPageUsage.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan & usage'**
+  String get settingsPageUsage;
+
+  /// No description provided for @settingsPagePermissions.
+  ///
+  /// In en, this message translates to:
+  /// **'Permissions'**
+  String get settingsPagePermissions;
+
+  /// No description provided for @settingsPageComputer.
+  ///
+  /// In en, this message translates to:
+  /// **'Computer & web'**
+  String get settingsPageComputer;
+
+  /// No description provided for @settingsPageBehavior.
+  ///
+  /// In en, this message translates to:
+  /// **'Behavior'**
+  String get settingsPageBehavior;
+
+  /// No description provided for @settingsPageSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get settingsPageSystem;
+
+  /// No description provided for @settingsPageProfileDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Your name and email, a copy of your data, and signing out.'**
+  String get settingsPageProfileDescription;
+
+  /// No description provided for @settingsPageSecurityDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Password, two-factor authentication, security keys and where you\'re signed in.'**
+  String get settingsPageSecurityDescription;
+
+  /// No description provided for @settingsPageUsageDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Your limits, token spend and plan, all in one place.'**
+  String get settingsPageUsageDescription;
+
+  /// No description provided for @settingsPageAgentsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Create agents and choose which one answers by default.'**
+  String get settingsPageAgentsDescription;
+
+  /// No description provided for @settingsPagePermissionsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'What your agents may do without asking you first.'**
+  String get settingsPagePermissionsDescription;
+
+  /// No description provided for @settingsPageComputerDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'The computer your agents work on and the sites they can read as you.'**
+  String get settingsPageComputerDescription;
+
+  /// No description provided for @settingsPageModelsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Which models this agent uses, and the API keys that pay for them.'**
+  String get settingsPageModelsDescription;
+
+  /// No description provided for @settingsPageBehaviorDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'How this agent talks and how it reads a group chat.'**
+  String get settingsPageBehaviorDescription;
+
+  /// No description provided for @settingsPageVoiceDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Live calls, dictation and spoken replies for this agent.'**
+  String get settingsPageVoiceDescription;
+
+  /// No description provided for @settingsPageMessagingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Where people can reach this agent and how it behaves in chats.'**
+  String get settingsPageMessagingDescription;
+
+  /// No description provided for @settingsPageGeneralDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance, language, time zone and what this app does in the background.'**
+  String get settingsPageGeneralDescription;
+
+  /// No description provided for @settingsPageSystemDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'The server this window uses, the one on this computer, and app updates.'**
+  String get settingsPageSystemDescription;
+
+  /// No description provided for @settingsYourAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'Your agents'**
+  String get settingsYourAgents;
+
+  /// No description provided for @settingsChatModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat model'**
+  String get settingsChatModel;
+
+  /// No description provided for @settingsChatModelDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Answers your messages.'**
+  String get settingsChatModelDescription;
+
+  /// No description provided for @settingsSubAgentModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sub-agent model'**
+  String get settingsSubAgentModel;
+
+  /// No description provided for @settingsSubAgentModelDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Runs work handed off during a task.'**
+  String get settingsSubAgentModelDescription;
+
+  /// No description provided for @settingsDefaultModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Default models'**
+  String get settingsDefaultModels;
+
+  /// No description provided for @settingsDefaultModelsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Used whenever a chat or task doesn\'t pick its own model.'**
+  String get settingsDefaultModelsDescription;
+
+  /// No description provided for @settingsSmartSelection.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart selection'**
+  String get settingsSmartSelection;
+
+  /// No description provided for @settingsModelPool.
+  ///
+  /// In en, this message translates to:
+  /// **'Model pool'**
+  String get settingsModelPool;
+
+  /// No description provided for @settingsApiKeysDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Use your own keys or endpoint for this agent. Keys are encrypted and never shown again.'**
+  String get settingsApiKeysDescription;
+
+  /// No description provided for @settingsPersona.
+  ///
+  /// In en, this message translates to:
+  /// **'Persona'**
+  String get settingsPersona;
+
+  /// No description provided for @settingsFineTuning.
+  ///
+  /// In en, this message translates to:
+  /// **'Fine-tuning'**
+  String get settingsFineTuning;
+
+  /// No description provided for @settingsFineTuningDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Rarely needed. The defaults suit most chats.'**
+  String get settingsFineTuningDescription;
+
+  /// No description provided for @settingsShow.
+  ///
+  /// In en, this message translates to:
+  /// **'Show'**
+  String get settingsShow;
+
+  /// No description provided for @settingsHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get settingsHide;
+
+  /// No description provided for @settingsMinimumContribution.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimum contribution value'**
+  String get settingsMinimumContribution;
+
+  /// No description provided for @settingsBatchWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'Room batch window'**
+  String get settingsBatchWindow;
+
+  /// No description provided for @settingsBatchWindowDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Waits this long to treat rapid messages as one turn.'**
+  String get settingsBatchWindowDescription;
+
+  /// No description provided for @settingsHandsFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Hands-free'**
+  String get settingsHandsFree;
+
+  /// No description provided for @settingsHandsFreeDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Talk freely and interrupt at any time.'**
+  String get settingsHandsFreeDescription;
+
+  /// No description provided for @settingsPushToTalkDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold to talk, release to send.'**
+  String get settingsPushToTalkDescription;
+
+  /// No description provided for @settingsLiveVoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Live voice'**
+  String get settingsLiveVoice;
+
+  /// No description provided for @settingsChannels.
+  ///
+  /// In en, this message translates to:
+  /// **'Channels'**
+  String get settingsChannels;
+
+  /// No description provided for @settingsGroupChats.
+  ///
+  /// In en, this message translates to:
+  /// **'In group chats'**
+  String get settingsGroupChats;
+
+  /// No description provided for @settingsGroupChatsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'How this agent behaves in groups on every channel.'**
+  String get settingsGroupChatsDescription;
+
+  /// No description provided for @settingsGroupChatsDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on behavior modules in Behavior to change these.'**
+  String get settingsGroupChatsDisabled;
+
+  /// No description provided for @settingsParticipationAutomatic.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic'**
+  String get settingsParticipationAutomatic;
+
+  /// No description provided for @settingsParticipationMentionOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Mention only'**
+  String get settingsParticipationMentionOnly;
+
+  /// No description provided for @settingsParticipationAutomaticDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Reads the room and joins in when it has something useful to add.'**
+  String get settingsParticipationAutomaticDescription;
+
+  /// No description provided for @settingsParticipationMentionOnlyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Replies only when mentioned or replied to.'**
+  String get settingsParticipationMentionOnlyDescription;
+
+  /// No description provided for @settingsParticipationAlwaysDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Replies to every message.'**
+  String get settingsParticipationAlwaysDescription;
+
+  /// No description provided for @settingsDeliveryNaturalDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Splits longer replies into short messages, the way a person would.'**
+  String get settingsDeliveryNaturalDescription;
+
+  /// No description provided for @settingsDeliverySingleDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Sends each reply as one message.'**
+  String get settingsDeliverySingleDescription;
+
+  /// No description provided for @settingsComputerStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get settingsComputerStatus;
+
+  /// No description provided for @settingsTest.
+  ///
+  /// In en, this message translates to:
+  /// **'Test'**
+  String get settingsTest;
+
+  /// No description provided for @settingsAppearance.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get settingsAppearance;
+
+  /// No description provided for @settingsTheme.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme'**
+  String get settingsTheme;
+
+  /// No description provided for @settingsThemeSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get settingsThemeSystem;
+
+  /// No description provided for @settingsThemeLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get settingsThemeLight;
+
+  /// No description provided for @settingsThemeDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get settingsThemeDark;
+
+  /// No description provided for @settingsCloseWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'When you close the window'**
+  String get settingsCloseWindow;
+
+  /// No description provided for @settingsCloseAsk.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask'**
+  String get settingsCloseAsk;
+
+  /// No description provided for @settingsCloseKeepRunningDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent keeps running in the background and stays reachable.'**
+  String get settingsCloseKeepRunningDescription;
+
+  /// No description provided for @settingsCloseQuitDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent quits completely.'**
+  String get settingsCloseQuitDescription;
+
+  /// No description provided for @settingsPhoneTriggers.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone triggers'**
+  String get settingsPhoneTriggers;
+
+  /// No description provided for @settingsPhoneTriggersDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Signals this phone sends to your agents so tasks can react to them.'**
+  String get settingsPhoneTriggersDescription;
+
+  /// No description provided for @settingsLocationTriggers.
+  ///
+  /// In en, this message translates to:
+  /// **'Location triggers'**
+  String get settingsLocationTriggers;
+
+  /// No description provided for @settingsLocationTriggersDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Checks your approximate location every few minutes against the places your tasks watch.'**
+  String get settingsLocationTriggersDescription;
+
+  /// No description provided for @settingsNotificationTriggers.
+  ///
+  /// In en, this message translates to:
+  /// **'Notification triggers'**
+  String get settingsNotificationTriggers;
+
+  /// No description provided for @settingsNotificationTriggersDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Forwards notifications from other apps on this phone to your agents.'**
+  String get settingsNotificationTriggersDescription;
+
+  /// No description provided for @settingsSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Setup'**
+  String get settingsSetup;
+
+  /// No description provided for @settingsOnboarding.
+  ///
+  /// In en, this message translates to:
+  /// **'Onboarding'**
+  String get settingsOnboarding;
+
+  /// No description provided for @settingsOnboardingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Walk through first-run setup again. Nothing you set up is lost.'**
+  String get settingsOnboardingDescription;
+
+  /// No description provided for @settingsUsernameDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Used to sign in. It can\'t be changed.'**
+  String get settingsUsernameDescription;
+
+  /// No description provided for @settingsExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Export'**
+  String get settingsExport;
+
+  /// No description provided for @settingsLeave.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out and delete'**
+  String get settingsLeave;
+
+  /// No description provided for @settingsSignOutDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Signs you out on this device only.'**
+  String get settingsSignOutDescription;
+
+  /// No description provided for @settingsDeleteAccountDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Erases your account, agents, memory and settings. This can\'t be undone.'**
+  String get settingsDeleteAccountDescription;
+
+  /// No description provided for @settingsTokenUsage.
+  ///
+  /// In en, this message translates to:
+  /// **'Token usage'**
+  String get settingsTokenUsage;
+
+  /// No description provided for @settingsAvailablePlans.
+  ///
+  /// In en, this message translates to:
+  /// **'Available plans'**
+  String get settingsAvailablePlans;
+
+  /// No description provided for @settingsSearchNoMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'No setting matches “{query}”.'**
+  String settingsSearchNoMatch(String query);
+
+  /// No description provided for @settingsSearchResultCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 match} other{{count} matches}}'**
+  String settingsSearchResultCount(int count);
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

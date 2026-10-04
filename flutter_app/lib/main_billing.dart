@@ -53,8 +53,6 @@ Future<void> _openUrl(String url) async {
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
-enum _BillingTab { overview, plans, history }
-
 class BillingPanel extends StatefulWidget {
   const BillingPanel({super.key, required this.controller});
 
@@ -64,8 +62,10 @@ class BillingPanel extends StatefulWidget {
   State<BillingPanel> createState() => _BillingPanelState();
 }
 
+/// The billing part of Settings › Plan & usage: the current plan, the plans
+/// on offer and past invoices, one after another instead of behind tabs.
 class _BillingPanelState extends State<BillingPanel> {
-  _BillingTab _tab = _BillingTab.overview;
+  final GlobalKey _plansKey = GlobalKey();
   bool _annual = false;
 
   NeoAgentController get _c => widget.controller;
@@ -78,226 +78,49 @@ class _BillingPanelState extends State<BillingPanel> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final sub = _c.billingSubscription;
-    final planName = sub?['plan']?['name'] as String? ?? '';
-    final status = sub?['status'] as String? ?? '';
-    final compact = MediaQuery.sizeOf(context).width < 860;
-
-    return _EntranceMotion(
-      child: ListView(
-        padding: _pagePadding(context),
-        children: <Widget>[
-          // ── Page header ──────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.only(bottom: 24),
-            child: compact
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(appStrings.billingSubscription,
-                          style: _displayTitleStyle(26)),
-                      const SizedBox(height: 8),
-                      Text(
-                        appStrings.manageYourPlanTrackUsageUpdate,
-                        style: TextStyle(color: _textSecondary, height: 1.5),
-                      ),
-                      if (planName.isNotEmpty) ...<Widget>[
-                        const SizedBox(height: 12),
-                        _BillingStatusPill(plan: planName, status: status),
-                      ],
-                    ],
-                  )
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(appStrings.billingSubscription,
-                                style: _displayTitleStyle(32)),
-                            const SizedBox(height: 10),
-                            ConstrainedBox(
-                              constraints:
-                                  const BoxConstraints(maxWidth: 640),
-                              child: Text(
-                                appStrings.manageYourPlanTrackUsageUpdate2,
-                                style: TextStyle(
-                                    color: _textSecondary, height: 1.5),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (planName.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: _BillingStatusPill(plan: planName, status: status),
-                        ),
-                    ],
-                  ),
-          ),
-
-          // ── Tab bar ──────────────────────────────────────────────────────
-          _BillingTabBar(
-            selected: _tab,
-            invoiceCount: _c.billingInvoices.length,
-            onSelect: (t) => setState(() => _tab = t),
-          ),
-          const SizedBox(height: 20),
-
-          // ── Tab content ──────────────────────────────────────────────────
-          if (_c.isLoadingBilling && sub == null)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 60),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_tab == _BillingTab.overview)
-            _BillingOverviewTab(
-              controller: _c,
-              onChangePlan: () => setState(() => _tab = _BillingTab.plans),
-            )
-          else if (_tab == _BillingTab.plans)
-            _BillingPlansTab(
-              controller: _c,
-              annual: _annual,
-              onToggleAnnual: (v) => setState(() => _annual = v),
-            )
-          else
-            _BillingHistoryTab(controller: _c),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Status pill ───────────────────────────────────────────────────────────────
-
-class _BillingStatusPill extends StatelessWidget {
-  const _BillingStatusPill({required this.plan, required this.status});
-
-  final String plan;
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    final dotColor = _statusColor(status);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: _bgCard,
-        border: Border.all(color: _borderLight),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: dotColor,
-              shape: BoxShape.circle,
-              boxShadow: <BoxShadow>[
-                BoxShadow(color: dotColor.withValues(alpha: 0.45), blurRadius: 6),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            appStrings.arg1Arg22(plan, status),
-            style: GoogleFonts.geist(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: _textPrimary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Tab bar ───────────────────────────────────────────────────────────────────
-
-class _BillingTabBar extends StatelessWidget {
-  const _BillingTabBar({
-    required this.selected,
-    required this.invoiceCount,
-    required this.onSelect,
-  });
-
-  final _BillingTab selected;
-  final int invoiceCount;
-  final ValueChanged<_BillingTab> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: _bgCard,
-        border: Border.all(color: _border),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: <Widget>[
-          _tab(_BillingTab.overview, 'Overview', null),
-          _tab(_BillingTab.plans, 'Plans', null),
-          _tab(_BillingTab.history, appStrings.billingHistory,
-              invoiceCount > 0 ? '$invoiceCount' : null),
-        ],
-      ),
+  void _showPlans() {
+    final plansContext = _plansKey.currentContext;
+    if (plansContext == null) return;
+    Scrollable.ensureVisible(
+      plansContext,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
     );
   }
 
-  Widget _tab(_BillingTab tab, String label, String? badge) {
-    final active = selected == tab;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => onSelect(tab),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 9),
-          decoration: BoxDecoration(
-            color: active ? _bgSecondary : Colors.transparent,
-            borderRadius: BorderRadius.circular(9),
+  @override
+  Widget build(BuildContext context) {
+    if (_c.isLoadingBilling && _c.billingSubscription == null) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 40),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return _SettingsAnchor(
+      id: 'billing',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          _SettingsHeading(
+            title: appStrings.billingSubscription,
+            description: appStrings.manageYourPlanTrackUsageUpdate,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Text(
-                label,
-                style: GoogleFonts.geist(
-                  fontSize: 13,
-                  fontWeight: active ? FontWeight.w600 : FontWeight.w500,
-                  color: active ? _textPrimary : _textMuted,
-                ),
-              ),
-              if (badge != null) ...<Widget>[
-                const SizedBox(width: 6),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: _accentMuted,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    badge,
-                    style: GoogleFonts.geist(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: _accent,
-                    ),
-                  ),
-                ),
-              ],
-            ],
+          _BillingOverviewTab(controller: _c, onChangePlan: _showPlans),
+          const SizedBox(height: 28),
+          _SettingsHeading(
+            key: _plansKey,
+            title: appStrings.settingsAvailablePlans,
           ),
-        ),
+          _BillingPlansTab(
+            controller: _c,
+            annual: _annual,
+            onToggleAnnual: (value) => setState(() => _annual = value),
+          ),
+          const SizedBox(height: 28),
+          _SettingsHeading(title: appStrings.billingHistory),
+          _BillingHistoryTab(controller: _c),
+          const SizedBox(height: 28),
+        ],
       ),
     );
   }

@@ -5812,7 +5812,7 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'Öffnen Sie auf einem angemeldeten Android-Gerät die Kontoeinstellungen, scannen Sie diesen Code und bestätigen Sie die Anmeldung.';
+      'Öffnen Sie auf einem angemeldeten Android-Gerät Einstellungen › Anmeldung & Sicherheit, scannen Sie diesen Code und bestätigen Sie die Anmeldung.';
 
   @override
   String get onAndTheServerHasRestarted =>
@@ -5903,7 +5903,7 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Öffnen Sie die Kontoeinstellungen auf einem angemeldeten Android-Gerät, scannen Sie diesen Code und bestätigen Sie die Anmeldung.';
+      'Öffnen Sie Einstellungen › Anmeldung & Sicherheit auf einem angemeldeten Android-Gerät, scannen Sie diesen Code und bestätigen Sie die Anmeldung.';
 
   @override
   String get openBrowserCheckingDocs => 'Browser öffnen → Docs prüfen';
@@ -6192,7 +6192,7 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get permissionsToolPermissionsNobodyElseCan =>
-      'Berechtigungen › Tool-Berechtigungen. Niemand sonst kann das ändern.';
+      'Berechtigungen. Niemand sonst kann das ändern.';
 
   @override
   String get personOrChat => 'Person oder Chat';
@@ -10717,7 +10717,7 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get noSystemOneModelIsAvailableYet =>
-      'Noch ist kein SystemOne-Modell verfügbar. Fügen Sie unter Erweitert › Eigenen Schlüssel mitbringen einen TypeSafe- oder OpenRouter-Schlüssel hinzu oder laden Sie in Ollama ein Entscheidungsmodell wie nimble.';
+      'Noch ist kein SystemOne-Modell verfügbar. Fügen Sie unter Einstellungen › Modelle › Eigenen Schlüssel verwenden einen TypeSafe- oder OpenRouter-Schlüssel hinzu oder laden Sie in Ollama ein Entscheidungsmodell wie nimble.';
 
   @override
   String get systemoneDecisionModelsTypesafeOpenrouterOllama =>
@@ -10744,5 +10744,322 @@ class AppL10nDe extends AppL10n {
   @override
   String arg1UnsavedChanges(Object? arg1) {
     return '$arg1 ungespeicherte Änderungen';
+  }
+
+  @override
+  String get settingsScopeAllAgents => 'Alle Agenten';
+
+  @override
+  String get settingsScopeAgent => 'Dieser Agent';
+
+  @override
+  String get settingsScopeApp => 'App';
+
+  @override
+  String get settingsScopeAccountHint =>
+      'Überall gleich, wo Sie angemeldet sind';
+
+  @override
+  String get settingsScopeAllAgentsHint => 'Gilt für alle Ihre Agenten';
+
+  @override
+  String get settingsAppliesTo => 'Gilt für';
+
+  @override
+  String get settingsSaving => 'Wird gespeichert …';
+
+  @override
+  String get settingsSavedAutomatically =>
+      'Änderungen werden automatisch gespeichert';
+
+  @override
+  String get settingsSearchHint => 'Alle Einstellungen durchsuchen';
+
+  @override
+  String get settingsPageProfile => 'Profil';
+
+  @override
+  String get settingsPageSecurity => 'Anmeldung & Sicherheit';
+
+  @override
+  String get settingsPageUsage => 'Tarif & Nutzung';
+
+  @override
+  String get settingsPagePermissions => 'Berechtigungen';
+
+  @override
+  String get settingsPageComputer => 'Computer & Web';
+
+  @override
+  String get settingsPageBehavior => 'Verhalten';
+
+  @override
+  String get settingsPageSystem => 'System';
+
+  @override
+  String get settingsPageProfileDescription =>
+      'Ihr Name und Ihre E-Mail, eine Kopie Ihrer Daten und das Abmelden.';
+
+  @override
+  String get settingsPageSecurityDescription =>
+      'Passwort, Zwei-Faktor-Authentifizierung, Sicherheitsschlüssel und wo Sie angemeldet sind.';
+
+  @override
+  String get settingsPageUsageDescription =>
+      'Ihre Limits, Ihr Token-Verbrauch und Ihr Tarif an einem Ort.';
+
+  @override
+  String get settingsPageAgentsDescription =>
+      'Agenten anlegen und festlegen, welcher standardmäßig antwortet.';
+
+  @override
+  String get settingsPagePermissionsDescription =>
+      'Was Ihre Agenten tun dürfen, ohne vorher zu fragen.';
+
+  @override
+  String get settingsPageComputerDescription =>
+      'Der Computer, auf dem Ihre Agenten arbeiten, und die Seiten, die sie in Ihrem Namen lesen können.';
+
+  @override
+  String get settingsPageModelsDescription =>
+      'Welche Modelle dieser Agent nutzt und mit welchen API-Schlüsseln sie bezahlt werden.';
+
+  @override
+  String get settingsPageBehaviorDescription =>
+      'Wie dieser Agent spricht und wie er einen Gruppenchat liest.';
+
+  @override
+  String get settingsPageVoiceDescription =>
+      'Live-Anrufe, Diktat und gesprochene Antworten für diesen Agenten.';
+
+  @override
+  String get settingsPageMessagingDescription =>
+      'Wo dieser Agent erreichbar ist und wie er sich in Chats verhält.';
+
+  @override
+  String get settingsPageGeneralDescription =>
+      'Darstellung, Sprache, Zeitzone und was diese App im Hintergrund tut.';
+
+  @override
+  String get settingsPageSystemDescription =>
+      'Der Server dieses Fensters, der Server auf diesem Computer und App-Updates.';
+
+  @override
+  String get settingsYourAgents => 'Ihre Agenten';
+
+  @override
+  String get settingsChatModel => 'Chat-Modell';
+
+  @override
+  String get settingsChatModelDescription => 'Beantwortet Ihre Nachrichten.';
+
+  @override
+  String get settingsSubAgentModel => 'Sub-Agent-Modell';
+
+  @override
+  String get settingsSubAgentModelDescription =>
+      'Erledigt Arbeit, die während einer Aufgabe abgegeben wird.';
+
+  @override
+  String get settingsDefaultModels => 'Standardmodelle';
+
+  @override
+  String get settingsDefaultModelsDescription =>
+      'Werden verwendet, wenn ein Chat oder eine Aufgabe kein eigenes Modell wählt.';
+
+  @override
+  String get settingsSmartSelection => 'Intelligente Auswahl';
+
+  @override
+  String get settingsModelPool => 'Modell-Pool';
+
+  @override
+  String get settingsApiKeysDescription =>
+      'Eigene Schlüssel oder einen eigenen Endpunkt für diesen Agenten nutzen. Schlüssel werden verschlüsselt und nie wieder angezeigt.';
+
+  @override
+  String get settingsPersona => 'Persona';
+
+  @override
+  String get settingsFineTuning => 'Feinabstimmung';
+
+  @override
+  String get settingsFineTuningDescription =>
+      'Selten nötig. Die Standardwerte passen für die meisten Chats.';
+
+  @override
+  String get settingsShow => 'Anzeigen';
+
+  @override
+  String get settingsHide => 'Ausblenden';
+
+  @override
+  String get settingsMinimumContribution => 'Mindestwert für Beiträge';
+
+  @override
+  String get settingsBatchWindow => 'Bündelungsfenster';
+
+  @override
+  String get settingsBatchWindowDescription =>
+      'Wartet so lange, um schnell aufeinanderfolgende Nachrichten als einen Beitrag zu behandeln.';
+
+  @override
+  String get settingsHandsFree => 'Freihändig';
+
+  @override
+  String get settingsHandsFreeDescription =>
+      'Frei sprechen und jederzeit unterbrechen.';
+
+  @override
+  String get settingsPushToTalkDescription =>
+      'Zum Sprechen gedrückt halten, zum Senden loslassen.';
+
+  @override
+  String get settingsLiveVoice => 'Live-Stimme';
+
+  @override
+  String get settingsChannels => 'Kanäle';
+
+  @override
+  String get settingsGroupChats => 'In Gruppenchats';
+
+  @override
+  String get settingsGroupChatsDescription =>
+      'Wie sich dieser Agent in Gruppen auf allen Kanälen verhält.';
+
+  @override
+  String get settingsGroupChatsDisabled =>
+      'Aktivieren Sie die Verhaltensmodule unter Verhalten, um diese Einstellungen zu ändern.';
+
+  @override
+  String get settingsParticipationAutomatic => 'Automatisch';
+
+  @override
+  String get settingsParticipationMentionOnly => 'Nur bei Erwähnung';
+
+  @override
+  String get settingsParticipationAutomaticDescription =>
+      'Liest die Stimmung und meldet sich, wenn es etwas Nützliches beizutragen gibt.';
+
+  @override
+  String get settingsParticipationMentionOnlyDescription =>
+      'Antwortet nur, wenn er erwähnt oder direkt angesprochen wird.';
+
+  @override
+  String get settingsParticipationAlwaysDescription =>
+      'Antwortet auf jede Nachricht.';
+
+  @override
+  String get settingsDeliveryNaturalDescription =>
+      'Teilt längere Antworten in kurze Nachrichten auf, wie es ein Mensch tun würde.';
+
+  @override
+  String get settingsDeliverySingleDescription =>
+      'Sendet jede Antwort als eine Nachricht.';
+
+  @override
+  String get settingsComputerStatus => 'Status';
+
+  @override
+  String get settingsTest => 'Testen';
+
+  @override
+  String get settingsAppearance => 'Darstellung';
+
+  @override
+  String get settingsTheme => 'Design';
+
+  @override
+  String get settingsThemeSystem => 'System';
+
+  @override
+  String get settingsThemeLight => 'Hell';
+
+  @override
+  String get settingsThemeDark => 'Dunkel';
+
+  @override
+  String get settingsCloseWindow => 'Beim Schließen des Fensters';
+
+  @override
+  String get settingsCloseAsk => 'Fragen';
+
+  @override
+  String get settingsCloseKeepRunningDescription =>
+      'NeoAgent läuft im Hintergrund weiter und bleibt erreichbar.';
+
+  @override
+  String get settingsCloseQuitDescription =>
+      'NeoAgent wird vollständig beendet.';
+
+  @override
+  String get settingsPhoneTriggers => 'Auslöser auf dem Telefon';
+
+  @override
+  String get settingsPhoneTriggersDescription =>
+      'Signale, die dieses Telefon an Ihre Agenten sendet, damit Aufgaben darauf reagieren können.';
+
+  @override
+  String get settingsLocationTriggers => 'Standort-Auslöser';
+
+  @override
+  String get settingsLocationTriggersDescription =>
+      'Prüft alle paar Minuten Ihren ungefähren Standort gegen die Orte, die Ihre Aufgaben beobachten.';
+
+  @override
+  String get settingsNotificationTriggers => 'Benachrichtigungs-Auslöser';
+
+  @override
+  String get settingsNotificationTriggersDescription =>
+      'Leitet Benachrichtigungen anderer Apps auf diesem Telefon an Ihre Agenten weiter.';
+
+  @override
+  String get settingsSetup => 'Einrichtung';
+
+  @override
+  String get settingsOnboarding => 'Einführung';
+
+  @override
+  String get settingsOnboardingDescription =>
+      'Die Ersteinrichtung erneut durchlaufen. Nichts von dem, was Sie eingerichtet haben, geht verloren.';
+
+  @override
+  String get settingsUsernameDescription =>
+      'Wird zur Anmeldung verwendet und kann nicht geändert werden.';
+
+  @override
+  String get settingsExport => 'Exportieren';
+
+  @override
+  String get settingsLeave => 'Abmelden und löschen';
+
+  @override
+  String get settingsSignOutDescription =>
+      'Meldet Sie nur auf diesem Gerät ab.';
+
+  @override
+  String get settingsDeleteAccountDescription =>
+      'Löscht Ihr Konto, Ihre Agenten, Erinnerungen und Einstellungen. Das lässt sich nicht rückgängig machen.';
+
+  @override
+  String get settingsTokenUsage => 'Token-Verbrauch';
+
+  @override
+  String get settingsAvailablePlans => 'Verfügbare Tarife';
+
+  @override
+  String settingsSearchNoMatch(String query) {
+    return 'Keine Einstellung passt zu „$query“.';
+  }
+
+  @override
+  String settingsSearchResultCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Treffer',
+      one: '1 Treffer',
+    );
+    return '$_temp0';
   }
 }
