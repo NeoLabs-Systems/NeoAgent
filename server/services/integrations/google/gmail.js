@@ -18,6 +18,25 @@ function sanitizeHeaderValue(value, label) {
   return normalized;
 }
 
+// RFC 2047: raw 8-bit header bytes are read as Latin-1 by Gmail, so non-ASCII
+// values go out as UTF-8 base64 encoded-words (each kept under 75 chars).
+function encodeHeaderWords(value) {
+  if (!/[^\x20-\x7e]/.test(value)) return value;
+  const words = [];
+  let chunk = '';
+  for (const char of value) {
+    if (Buffer.byteLength(chunk + char, 'utf8') > 45) {
+      words.push(chunk);
+      chunk = '';
+    }
+    chunk += char;
+  }
+  if (chunk) words.push(chunk);
+  return words
+    .map((word) => `=?UTF-8?B?${Buffer.from(word, 'utf8').toString('base64')}?=`)
+    .join('\r\n ');
+}
+
 const gmailToolDefinitions = [
   {
     name: 'google_workspace_gmail_search_threads',
@@ -274,7 +293,7 @@ async function executeGmailTool(toolName, args, auth) {
       if (bcc) {
         lines.push(`Bcc: ${bcc}`);
       }
-      lines.push(`Subject: ${subject}`);
+      lines.push(`Subject: ${encodeHeaderWords(subject)}`);
       lines.push('Content-Type: text/plain; charset=utf-8');
       lines.push('MIME-Version: 1.0');
       lines.push('');
