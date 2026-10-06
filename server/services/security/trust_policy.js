@@ -24,7 +24,6 @@ const SHARED_AUDIENCE_TOOLS = new Set([
   'send_interim_update',
   'send_message',
   'react_to_message',
-  'request_user_input',
   'web_search',
   'social_video_extract',
   'generate_image',

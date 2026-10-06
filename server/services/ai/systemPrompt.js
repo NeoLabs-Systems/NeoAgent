@@ -2,7 +2,6 @@
 
 const os = require('os');
 const { buildBehaviorSystemPrompt } = require('../behavior/system_prompt');
-const { buildCoworkOperatingContract } = require('../cowork/prompt');
 const { getUserTimeZone } = require('../account/timezone');
 const { formatUtcOffset, serverTimeZone, utcOffsetMinutes } = require('../../utils/timezone');
 
@@ -149,7 +148,6 @@ async function buildSystemPromptSections(userId, context = {}, memoryManager) {
     context.source || 'none',
     context.chatId || 'none',
     context.latencyProfile || 'default',
-    context.interactionMode || 'agent',
     context.deviceTarget || 'none',
     context.workspaceRoot || 'default',
   ].join(':');
@@ -167,11 +165,9 @@ async function buildSystemPromptSections(userId, context = {}, memoryManager) {
     context,
     memoryManager,
   });
-  const coworkContract = buildCoworkOperatingContract(context);
   const stable = [
     buildBasePrompt(),
     buildSurfacePrompt(context),
-    coworkContract,
     ...behaviorPrompt.stable,
   ];
   // Public threads get neither the owner's timezone nor host details.

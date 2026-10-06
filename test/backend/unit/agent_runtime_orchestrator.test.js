@@ -469,8 +469,7 @@ test('tool execution preserves mutation barriers and model-order results', async
   };
 
   const result = await engine.run(userId, 'Read it, change it, then read it again.', {
-    triggerSource: 'cowork',
-    interactionMode: 'agent',
+    triggerSource: 'web',
     stream: false,
     skipGlobalRecall: true,
     maxIterations: 4,
@@ -519,65 +518,6 @@ test('the answer after tool work is what the user gets, and every turn keeps the
   assert.deepEqual(steps.map((step) => step.tool_name), ['read_file']);
   assert.equal(steps[0].status, 'completed');
   assert.match(steps[0].tool_input, /a\.txt/);
-});
-
-test('Cowork Plan mode blocks mutating tools before execution', async () => {
-  const engine = createEngine();
-  let modelTurn = 0;
-  engine.requestModelResponse = async () => {
-    modelTurn += 1;
-    return modelTurn === 1
-      ? toolCall('write_file', { path: 'src/app.js', content: 'changed' }, 'write-1')
-      : answer('Implementation plan prepared.');
-  };
-  engine.getAvailableTools = () => [tool('write_file')];
-  const executed = [];
-  engine.executeTool = async (name) => {
-    executed.push(name);
-    return { success: true };
-  };
-  engine.isReadOnlyToolCall = () => false;
-
-  const result = await engine.run(userId, 'Plan this implementation.', {
-    triggerSource: 'cowork',
-    interactionMode: 'plan',
-    stream: false,
-    skipGlobalRecall: true,
-    maxIterations: 3,
-  });
-
-  assert.equal(executed.includes('write_file'), false);
-  const blocked = ctx.db.prepare(
-    `SELECT status, error FROM agent_steps
-     WHERE run_id = ? AND tool_name = 'write_file'`,
-  ).get(result.runId);
-  assert.equal(blocked.status, 'failed');
-  assert.match(blocked.error, /Plan mode blocks tools/);
-});
-
-test('Cowork agent runs pass the open folder into the system prompt', async () => {
-  const engine = createEngine('Updated the local files.');
-  let promptContext = null;
-  engine.buildSystemPrompt = async (_userId, context) => {
-    promptContext = context;
-    return 'system';
-  };
-  engine.getAvailableTools = () => [tool('list_directory')];
-
-  await engine.run(userId, 'revamp my portfolio', {
-    triggerSource: 'cowork',
-    interactionMode: 'agent',
-    deviceTarget: 'local',
-    workspaceRoot: '/Users/neo/Projects/Neotastisch-Portfolio',
-    stream: false,
-    skipGlobalRecall: true,
-    maxIterations: 2,
-  });
-
-  assert.equal(promptContext.triggerSource, 'cowork');
-  assert.equal(promptContext.interactionMode, 'agent');
-  assert.equal(promptContext.deviceTarget, 'local');
-  assert.equal(promptContext.workspaceRoot, '/Users/neo/Projects/Neotastisch-Portfolio');
 });
 
 test('a run the guards stop gets a model-authored wrap-up, not a canned status', async () => {

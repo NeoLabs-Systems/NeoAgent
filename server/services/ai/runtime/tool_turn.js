@@ -16,15 +16,6 @@ const { scrubInvisible, scrubInvisibleDeep } = require('../../../utils/untrusted
 const { scheduleToolCalls } = require('../loop/tool_scheduler');
 const { EVENT_TYPES, VISIBILITY } = require('./events/event_types');
 
-// Control tools that never change anything outside the run, so Plan mode lets
-// them through.
-const PLAN_MODE_SAFE_CONTROL_TOOLS = new Set([
-  'search_tools',
-  'activate_tools',
-  'request_user_input',
-  'send_interim_update',
-]);
-
 // A send_message purpose the model declares as the end of its work.
 const TERMINAL_SEND_PURPOSES = new Set(['final_result', 'blocker', 'no_response']);
 
@@ -130,58 +121,51 @@ async function runToolCall(session, { call, definition, isReadOnly }) {
   let blocked = false;
   const repetitionGuard = engine.getRunMeta(runId)?.repetitionGuard;
   try {
-    if (session.interactionMode === 'plan' && !isReadOnly && !PLAN_MODE_SAFE_CONTROL_TOOLS.has(call.name)) {
-      errorMessage = 'Plan mode blocks tools that can mutate state.';
-      result = { error: errorMessage, blocked: true, blockedBy: 'cowork_plan_mode' };
+    const hookResult = await globalHooks.run('before_tool_call', {
+      runId,
+      toolName: call.name,
+      toolArgs: call.arguments,
+      userId,
+      agentId,
+      trust,
+    });
+    if (hookResult?.block === true) {
+      errorMessage = hookResult.reason || 'Blocked by policy hook';
+      result = { error: errorMessage, blocked: true };
+      blocked = true;
+    } else if (repetitionGuard?.shouldBlock(call.name, call.arguments, { readOnly: isReadOnly })) {
+      const priorFailure = repetitionGuard.lastFailure(call.name, call.arguments);
+      errorMessage = priorFailure
+        ? `This exact call already failed twice with: ${priorFailure}`
+        : 'The same read-only call already returned an unchanged result twice.';
+      result = { status: 'blocked', reason: errorMessage };
       blocked = true;
     } else {
-      const hookResult = await globalHooks.run('before_tool_call', {
-        runId,
-        toolName: call.name,
-        toolArgs: call.arguments,
+      result = await engine.executeTool(call.name, call.arguments, {
         userId,
         agentId,
-        trust,
+        runId,
+        stepId,
+        app: session.app,
+        triggerType: session.triggerType,
+        triggerSource: session.triggerSource,
+        conversationId: session.conversationId,
+        deviceTarget: session.deviceTarget,
+        workspaceRoot: session.workspaceRoot,
+        source: options.source || null,
+        chatId: options.chatId || null,
+        isGroup: options.context?.socialIntelligence?.isGroup === true,
+        senderId: options.context?.socialIntelligence?.message?.sender || null,
+        inboundMessage: options.context?.socialIntelligence?.message || null,
+        taskId: options.taskId || null,
+        scheduledAt: options.scheduledAt || null,
+        deliveryState: options.deliveryState || engine.getRunMeta(runId)?.deliveryState || null,
+        stageProactiveMessages: options.stageProactiveMessages === true,
+        allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true
+          || options.allow_multiple_messages === true,
+        allowExternalSideEffects: options.allowExternalSideEffects === true,
+        signal: session.getActiveSignal(),
       });
-      if (hookResult?.block === true) {
-        errorMessage = hookResult.reason || 'Blocked by policy hook';
-        result = { error: errorMessage, blocked: true };
-        blocked = true;
-      } else if (repetitionGuard?.shouldBlock(call.name, call.arguments, { readOnly: isReadOnly })) {
-        const priorFailure = repetitionGuard.lastFailure(call.name, call.arguments);
-        errorMessage = priorFailure
-          ? `This exact call already failed twice with: ${priorFailure}`
-          : 'The same read-only call already returned an unchanged result twice.';
-        result = { status: 'blocked', reason: errorMessage };
-        blocked = true;
-      } else {
-        result = await engine.executeTool(call.name, call.arguments, {
-          userId,
-          agentId,
-          runId,
-          stepId,
-          app: session.app,
-          triggerType: session.triggerType,
-          triggerSource: session.triggerSource,
-          conversationId: session.conversationId,
-          deviceTarget: session.deviceTarget,
-          workspaceRoot: session.workspaceRoot,
-          interactionMode: session.interactionMode,
-          source: options.source || null,
-          chatId: options.chatId || null,
-          isGroup: options.context?.socialIntelligence?.isGroup === true,
-          senderId: options.context?.socialIntelligence?.message?.sender || null,
-          inboundMessage: options.context?.socialIntelligence?.message || null,
-          taskId: options.taskId || null,
-          scheduledAt: options.scheduledAt || null,
-          deliveryState: options.deliveryState || engine.getRunMeta(runId)?.deliveryState || null,
-          stageProactiveMessages: options.stageProactiveMessages === true,
-          allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true
-            || options.allow_multiple_messages === true,
-          allowExternalSideEffects: options.allowExternalSideEffects === true,
-          signal: session.getActiveSignal(),
-        });
-      }
     }
   } catch (error) {
     errorMessage = error?.message || String(error);
@@ -338,7 +322,6 @@ async function executeToolTurn(session, decision) {
   return {
     progressed: outcomes.some((outcome) => outcome.progressed),
     allFailed: outcomes.length > 0 && outcomes.every((outcome) => !outcome.success),
-    awaitingInput: engine.getRunMeta(runId)?.awaitingInput || null,
     // A no_response send is the model choosing silence, which the delivery
     // paths already know as the [NO RESPONSE] answer.
     terminalAnswer: terminalSend

@@ -4,7 +4,6 @@ const { sanitizeError } = require('../utils/security');
 const { asObject, toOptionalString } = require('../utils/text');
 const { listRunEvents } = require('./ai/runEvents');
 const { resolveAgentId } = require('./agents/manager');
-const cowork = require('./cowork/service');
 
 const MAX_VOICE_AUDIO_CHUNK_BYTES = 256 * 1024;
 const MAX_VOICE_AUDIO_CHUNK_BASE64_CHARS =
@@ -46,32 +45,6 @@ const EVENT_RATE_LIMITS = Object.freeze({
   'stream:subscribe': { windowMs: 10 * 1000, max: 40 },
   'stream:unsubscribe': { windowMs: 10 * 1000, max: 40 },
 });
-
-function normalizeCoworkMessageOptions(options, task) {
-  const displayContent = toOptionalString(
-    options.coworkDisplayContent,
-    MAX_AGENT_TASK_CHARS,
-  ) || task;
-  const attachments = Array.isArray(options.coworkSharedAttachments)
-    ? options.coworkSharedAttachments.slice(0, 10).flatMap((raw) => {
-      const attachment = asObject(raw);
-      const uri = toOptionalString(attachment.uri, 4096);
-      if (!uri) return [];
-      const sizeBytes = Number(attachment.sizeBytes);
-      return [{
-        uri,
-        name: toOptionalString(attachment.name, 255) || 'Attachment',
-        mimeType: toOptionalString(attachment.mimeType, 128) || 'application/octet-stream',
-        source: toOptionalString(attachment.source, 64) || 'file_picker',
-        ...(Number.isSafeInteger(sizeBytes) && sizeBytes >= 0 ? { sizeBytes } : {}),
-      }];
-    })
-    : [];
-  return {
-    coworkDisplayContent: displayContent,
-    coworkSharedAttachments: attachments,
-  };
-}
 
 function toBoundedInt(value, fallback, min, max) {
   const parsed = Number(value);
@@ -265,17 +238,10 @@ function setupWebSocket(io, services) {
           error.code = 'CONVERSATION_NOT_FOUND';
           throw error;
         }
-        const isCowork = requestedConversation?.platform === cowork.COWORK_PLATFORM;
-        const coworkMessage = isCowork
-          ? normalizeCoworkMessageOptions(options, task)
-          : null;
-        let runContext = null;
-        let agentId = isCowork
-          ? requestedConversation.agent_id
-          : resolveAgentFromPayload(userId, {
-            ...options,
-            agentId: data?.agentId,
-          });
+        const agentId = resolveAgentFromPayload(userId, {
+          ...options,
+          agentId: data?.agentId,
+        });
         console.log(`[WS] agent:run received from user ${userId}`, {
           socketId: socket.id,
           hasOptions: Boolean(options),
@@ -291,7 +257,7 @@ function setupWebSocket(io, services) {
         }
 
         const commandRouter = services.app?.locals?.commandRouter;
-        if (commandRouter && !isCowork) {
+        if (commandRouter) {
           const commandResult = await commandRouter.dispatch(task, {
             userId,
             agentId,
@@ -309,12 +275,8 @@ function setupWebSocket(io, services) {
           }
         }
 
-        const triggerSource = isCowork ? 'cowork' : 'web';
-        const activeRun = agentEngine.findSteerableRunForUser(
-          userId,
-          triggerSource,
-          isCowork ? requestedConversationId : null,
-        );
+        const triggerSource = 'web';
+        const activeRun = agentEngine.findSteerableRunForUser(userId, triggerSource, null);
         if (activeRun) {
           const queued = agentEngine.enqueueSteering(activeRun.runId, task, {
             platform: triggerSource,
@@ -336,40 +298,8 @@ function setupWebSocket(io, services) {
                 task,
                 JSON.stringify({ platform: triggerSource, steering: true, agentId })
               );
-            if (isCowork && activeRun.conversationId) {
-              db.prepare(
-                `INSERT INTO conversation_messages (
-                  conversation_id, run_id, agent_id, role, content, metadata_json
-                ) VALUES (?, ?, ?, 'user', ?, ?)`,
-              ).run(
-                activeRun.conversationId,
-                activeRun.runId,
-                activeRun.agentId || agentId,
-                task,
-                JSON.stringify({
-                  steering: true,
-                  displayContent: coworkMessage.coworkDisplayContent,
-                  ...(coworkMessage.coworkSharedAttachments.length > 0
-                    ? { sharedAttachments: coworkMessage.coworkSharedAttachments }
-                    : {}),
-                }),
-              );
-              db.prepare(
-                `UPDATE conversations SET updated_at = datetime('now')
-                 WHERE id = ? AND user_id = ? AND platform = ?`,
-              ).run(activeRun.conversationId, userId, cowork.COWORK_PLATFORM);
-            }
             return;
           }
-        }
-
-        if (isCowork) {
-          runContext = cowork.getRunContext(
-            userId,
-            requestedConversationId,
-            services.app?.locals?.runtimeManager,
-          );
-          agentId = runContext.agentId;
         }
 
         const { ensureDefaultAiSettings, getAiSettings } = require('./ai/settings');
@@ -378,7 +308,6 @@ function setupWebSocket(io, services) {
         const aiSettings = getAiSettings(userId, agentId);
         const conversationId = requestedConversationId
           || memoryManager.getDefaultWebConversationId(userId, { agentId });
-        if (isCowork) cowork.autoTitleConversation(userId, conversationId, task);
         db.prepare(
           `INSERT INTO conversation_history (
             user_id, agent_id, conversation_id, role, content, metadata
@@ -390,9 +319,7 @@ function setupWebSocket(io, services) {
           task,
           JSON.stringify({ platform: triggerSource }),
         );
-        const webContext = isCowork
-          ? { recentMessages: [], summary: '' }
-          : getWebChatContext(userId, aiSettings.chat_history_window, { agentId });
+        const webContext = getWebChatContext(userId, aiSettings.chat_history_window, { agentId });
         const prior = webContext.recentMessages
           .filter((m) => !(m.role === 'user' && m.content === task))
           .slice(-aiSettings.chat_history_window);
@@ -404,11 +331,6 @@ function setupWebSocket(io, services) {
           agentId,
           conversationId,
           triggerSource,
-          interactionMode: runContext?.mode || 'agent',
-          deviceTarget: runContext?.deviceTarget || null,
-          workspaceRoot: runContext?.workspacePathOverride || null,
-          ...(runContext?.modelOverride ? { model: runContext.modelOverride } : {}),
-          ...(coworkMessage || {}),
           priorMessages: prior,
           priorSummary: webContext.summary
         });
@@ -667,7 +589,9 @@ function setupWebSocket(io, services) {
         const callId = toOptionalString(asObject(raw)?.callId, 128);
         if (!callId) return socket.emit('voice:error', { error: 'callId is required' });
         if (!agentCallCoordinator) return socket.emit('voice:error', { error: 'Agent calls are unavailable.' });
-        agentCallCoordinator.decline(callId, userId, socket);
+        agentCallCoordinator.decline(callId, userId, socket, {
+          later: asObject(raw)?.later === true,
+        });
       } catch (err) {
         socket.emit('voice:error', { error: sanitizeError(err) });
       }

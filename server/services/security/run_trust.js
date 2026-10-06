@@ -17,7 +17,6 @@ const { stripFencedSpans } = require('../../utils/untrusted_text');
 // tainted.
 const OWNER_TRIGGER_SOURCES = new Set([
   'web',
-  'cowork',
   'cli',
   'manual',
   'schedule',
@@ -39,7 +38,6 @@ const HARNESS_OUTPUT_TOOLS = new Set([
   'notify_user',
   'call_user',
   'get_date_time',
-  'request_user_input',
   'create_task',
   'update_task',
   'delete_task',

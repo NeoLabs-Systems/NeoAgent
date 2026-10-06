@@ -67,17 +67,14 @@ test('Android capability health uses a synchronous snapshot without adb or contr
   assert.match(health.summary, /first use/i);
 });
 
-test('file capability health names the attached Cowork folder', () => {
+test('file capability health names the selected project folder', () => {
   const app = { locals: { workspaceManager: {} } };
   const selected = getFileHealth(app, {}, {
-    triggerSource: 'cowork',
+    triggerSource: 'web',
     workspaceRoot: '/Users/neo/Projects/Neotastisch-Portfolio',
   });
   assert.match(selected.summary, /Neotastisch-Portfolio/);
   assert.match(selected.summary, /already mounted/);
-
-  const defaultCowork = getFileHealth(app, {}, { triggerSource: 'cowork' });
-  assert.match(defaultCowork.summary, /already attached/);
 
   const web = getFileHealth(app, {}, { triggerSource: 'web' });
   assert.equal(web.summary, 'Per-user workspace access is available.');

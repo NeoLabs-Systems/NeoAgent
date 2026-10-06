@@ -1665,7 +1665,6 @@ class AgentEngine {
     if (FILE_TOOL_NAMES.has(toolName)) return 'files';
     if (toolName.startsWith('memory_')) return 'memory';
     if (toolName === 'send_interim_update') return 'note';
-    if (toolName === 'request_user_input') return 'question';
     if (toolName === 'send_message') return 'messaging';
     if (toolName === 'call_user') return 'voice';
     if (toolName.startsWith('mcp_') || toolName.includes('mcp')) return 'mcp';
@@ -1684,16 +1683,13 @@ class AgentEngine {
       let persisted = null;
       if (!runMeta) {
         persisted = db.prepare(
-          `SELECT conversation_id, interaction_mode, device_target
+          `SELECT conversation_id, device_target
            FROM agent_runs WHERE id = ?`,
         ).get(payload.runId);
       }
       const conversationId = runMeta?.conversationId || persisted?.conversation_id || null;
       if (conversationId) {
         payload.conversationId = conversationId;
-        payload.interactionMode = runMeta?.interactionMode
-          || persisted?.interaction_mode
-          || 'agent';
         payload.deviceTarget = runMeta?.deviceTarget
           || persisted?.device_target
           || null;

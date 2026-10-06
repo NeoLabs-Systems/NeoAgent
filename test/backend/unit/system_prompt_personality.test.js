@@ -91,13 +91,10 @@ test('execution rules still ban fabricated completion and require real tool evid
   assert.ok(prompt.length < 10_000, `general system prompt is bloated (${prompt.length} chars)`);
 });
 
-test('web chat stays on the general channel and does not inherit cowork workspace rules', async () => {
+test('web chat stays on the general channel', async () => {
   const sections = await buildSystemPromptSections(null, { triggerSource: 'web' }, memoryManager);
   const prompt = [sections.stable, sections.dynamic].join('\n\n');
 
   assert.match(prompt, /CHANNEL: short paragraphs/);
-  assert.doesNotMatch(prompt, /COWORK WORKSPACE/);
-  assert.doesNotMatch(prompt, /CHANNEL: cowork/);
   assert.doesNotMatch(prompt, /ORIENT FIRST/);
-  assert.doesNotMatch(prompt, /If a Cowork session already has a project folder open/);
 });

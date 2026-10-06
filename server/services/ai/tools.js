@@ -1028,7 +1028,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'call_user',
-            description: 'Start an in-app voice call to the user when spoken interaction is materially useful. After the user approves and answers, opening_message is spoken first and the call continues with the originating conversation context. This does not dial a phone number.',
+            description: 'Start an in-app voice call to the user when spoken interaction is materially useful. After the user approves and answers, opening_message is spoken first and the call continues with the originating conversation context. This does not dial a phone number. A call_later status means the user asked to be called back later.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -1624,7 +1624,7 @@ function getAvailableTools(app, options = {}) {
     ];
 
     const allowInterimUpdates = (
-        (options.triggerSource === 'web' || options.triggerSource === 'cowork' || options.triggerSource === 'messaging' || options.triggerSource === 'voice_live')
+        (options.triggerSource === 'web' || options.triggerSource === 'messaging' || options.triggerSource === 'voice_live')
         && options.triggerType !== 'subagent'
         && options.triggerSource !== 'agent_delegation'
     );
@@ -1684,52 +1684,6 @@ function getAvailableTools(app, options = {}) {
                     required: ['emoji']
                 }
             }
-        );
-    }
-
-    if (options.triggerSource === 'cowork' && options.triggerType !== 'subagent') {
-        tools.splice(
-            tools.findIndex((tool) => tool.name === 'read_file'),
-            0,
-            {
-                name: 'request_user_input',
-                description: 'Pause this Cowork run and ask one to three structured questions only when an irreversible product choice is missing. Give two or three options per question, mark the recommended option, and permit a custom answer. Do not use this to ask for a project URL, repo, or permission to edit files that are already in the attached workspace.',
-                parameters: {
-                    type: 'object',
-                    properties: {
-                        questions: {
-                            type: 'array',
-                            minItems: 1,
-                            maxItems: 3,
-                            items: {
-                                type: 'object',
-                                properties: {
-                                    id: { type: 'string', description: 'Stable letters, numbers, or underscores identifier.' },
-                                    header: { type: 'string', description: 'Short label of at most 24 characters.' },
-                                    question: { type: 'string' },
-                                    options: {
-                                        type: 'array',
-                                        minItems: 2,
-                                        maxItems: 3,
-                                        items: {
-                                            type: 'object',
-                                            properties: {
-                                                label: { type: 'string' },
-                                                description: { type: 'string' },
-                                                recommended: { type: 'boolean' },
-                                            },
-                                            required: ['label', 'description'],
-                                        },
-                                    },
-                                    allowCustom: { type: 'boolean' },
-                                },
-                                required: ['id', 'header', 'question', 'options'],
-                            },
-                        },
-                    },
-                    required: ['questions'],
-                },
-            },
         );
     }
 
@@ -2438,44 +2392,6 @@ async function executeTool(toolName, args, context, engine) {
                 expectsReply,
                 deferFollowUp,
             });
-        }
-
-        case 'request_user_input': {
-            if (triggerSource !== 'cowork' || !context.conversationId || !runId) {
-                return { error: 'Structured input requests require an active Cowork chat.' };
-            }
-            const cowork = require('../cowork/service');
-            const request = cowork.createInputRequest({
-                userId,
-                conversationId: context.conversationId,
-                runId,
-                agentId,
-                schema: args,
-            });
-            const runMeta = engine?.getRunMeta?.(runId);
-            if (runMeta) {
-                runMeta.awaitingInput = request;
-                runMeta.terminalInterim = {
-                    kind: 'question',
-                    content: request.schema.questions.map((question) => question.question).join('\n'),
-                    createdAt: new Date().toISOString(),
-                };
-            }
-            db.prepare(
-                `UPDATE agent_runs
-                 SET status = 'waiting_input', updated_at = datetime('now')
-                 WHERE id = ? AND user_id = ?`,
-            ).run(runId, userId);
-            engine?.persistRunMetadata?.(runId, {
-                awaitingInputRequestId: request.id,
-                terminalInterim: runMeta?.terminalInterim || null,
-            });
-            engine?.emit?.(userId, 'run:input_required', {
-                runId,
-                conversationId: context.conversationId,
-                request,
-            });
-            return { waitingForUser: true, requestId: request.id };
         }
 
         case 'react_to_message': {

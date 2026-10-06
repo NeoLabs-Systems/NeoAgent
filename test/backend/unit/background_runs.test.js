@@ -66,7 +66,6 @@ test('only owner chat runs started by the user can move to the background', () =
   assert.equal(isBackgroundEligible({ triggerType: 'user', triggerSource: 'web' }), true);
   assert.equal(isBackgroundEligible({ triggerType: 'user', triggerSource: 'messaging', memoryAudience: 'owner' }), true);
   assert.equal(isBackgroundEligible({ triggerType: 'user', triggerSource: 'messaging', memoryAudience: 'shared' }), false);
-  assert.equal(isBackgroundEligible({ triggerType: 'user', triggerSource: 'cowork' }), false);
   assert.equal(isBackgroundEligible({ triggerType: 'user', triggerSource: 'voice_live' }), false);
   assert.equal(isBackgroundEligible({ triggerType: 'subagent', triggerSource: 'web' }), false);
 });
@@ -89,13 +88,13 @@ test('a run moves to the background once and stops taking steering', () => {
 test('visible progress moves an eligible run to the background', () => {
   const engine = createEngine();
   addRun(engine, 'long-run');
-  addRun(engine, 'cowork-run', { triggerSource: 'cowork', backgroundEligible: false });
+  addRun(engine, 'foreground-run', { backgroundEligible: false });
 
   engine.markRunVisibleProgress('long-run');
-  engine.markRunVisibleProgress('cowork-run');
+  engine.markRunVisibleProgress('foreground-run');
 
   assert.ok(engine.getRunMeta('long-run').background);
-  assert.equal(engine.getRunMeta('cowork-run').background, null);
+  assert.equal(engine.getRunMeta('foreground-run').background, null);
 });
 
 test('a run that already delivered its final answer stays in the foreground', () => {

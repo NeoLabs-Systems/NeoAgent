@@ -175,11 +175,11 @@ test('local and cloud computer leases do not block each other', () => {
   });
   manager.providerModes.set('7', 'cloud');
 
-  const cloud = manager.acquireControl(7, 'agent', 'cowork-run', { provider: 'cloud' });
+  const cloud = manager.acquireControl(7, 'agent', 'agent-run', { provider: 'cloud' });
   const local = manager.acquireControl(7, 'agent', 'local-run', { provider: 'local' });
   assert.equal(cloud.provider, 'cloud');
   assert.equal(local.provider, 'local');
-  assert.equal(manager.getControlLease(7, { provider: 'cloud' }).ownerId, 'cowork-run');
+  assert.equal(manager.getControlLease(7, { provider: 'cloud' }).ownerId, 'agent-run');
   assert.equal(manager.getControlLease(7, { provider: 'local' }).ownerId, 'local-run');
   assert.throws(
     () => manager.acquireControl(7, 'user', 'session-1', { provider: 'local' }),

@@ -244,7 +244,7 @@ test('post-run learning creates, repeats, exposes, versions, and protects skills
     });
     const repeatInputs = [];
     for (const origin of [
-      { triggerType: 'user', triggerSource: 'cowork' },
+      { triggerType: 'user', triggerSource: 'web' },
       { triggerType: 'schedule', triggerSource: 'manual', taskId: 'task-1' },
     ]) {
       const runId = randomUUID();
