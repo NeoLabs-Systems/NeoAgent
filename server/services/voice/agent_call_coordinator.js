@@ -110,7 +110,6 @@ class AgentCallCoordinator {
         agentId: invitation.agentId,
         socket,
         sessionId: invitation.callId,
-        originRunId: invitation.runId,
         originConversationId: invitation.conversationId,
         agentInitiated: true,
       });

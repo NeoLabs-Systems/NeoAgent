@@ -4,7 +4,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-const _channelId = 'neoagent_keepalive';
+// Android insists a foreground service shows a notification. On a minimum
+// importance channel it has no status bar icon, stays off the lock screen and
+// sits collapsed at the bottom of the shade. Channel importance cannot change
+// once created, hence a new id; the old louder channel is removed.
+const _channelId = 'neoagent_background';
+const _legacyChannelId = 'neoagent_keepalive';
 
 // The service has no work of its own: running as a foreground service keeps
 // the app process, and with it the Socket.IO connection, alive in the
@@ -25,17 +30,21 @@ class BackgroundKeepAlive {
     try {
       final service = FlutterBackgroundService();
       if (!_configured) {
-        await FlutterLocalNotificationsPlugin()
+        final notifications = FlutterLocalNotificationsPlugin()
             .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin
-            >()
-            ?.createNotificationChannel(
-              AndroidNotificationChannel(
-                _channelId,
-                title,
-                importance: Importance.low,
-              ),
-            );
+            >();
+        await notifications?.deleteNotificationChannel(_legacyChannelId);
+        await notifications?.createNotificationChannel(
+          AndroidNotificationChannel(
+            _channelId,
+            title,
+            importance: Importance.min,
+            showBadge: false,
+            playSound: false,
+            enableVibration: false,
+          ),
+        );
         await service.configure(
           androidConfiguration: AndroidConfiguration(
             onStart: _onServiceStart,

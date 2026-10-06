@@ -102,3 +102,35 @@ test('session grants are persisted and reloaded across service restart', async (
   const reloadedService = new ApprovalGateService({ io: createFakeIo([]) });
   assert.equal(reloadedService.hasSessionGrant(user.userId, runId, toolName), true);
 });
+
+test('always allow also answers parallel approvals it covers', async () => {
+  ctx = createTestRuntime();
+  const db = require('../../../server/db/database');
+  const { ApprovalGateService } = require('../../../server/services/security/approval_gate_service');
+  const user = await createTestUser(ctx.db, { username: 'approval_always_parallel' });
+  const runId = 'run-always-parallel';
+  db.prepare(
+    `INSERT INTO agent_runs (id, user_id, status, title)
+     VALUES (?, ?, 'running', ?)`
+  ).run(runId, user.userId, 'Parallel approvals run');
+
+  const events = [];
+  const service = new ApprovalGateService({ io: createFakeIo(events) });
+  const issues = service.requestApproval(user.userId, runId, 'github_list_issues', {});
+  const prs = service.requestApproval(user.userId, runId, 'github_list_prs', {});
+  const flagged = service.requestApproval(
+    user.userId, runId, 'github_get_repo', {}, { reason: 'tainted run' },
+  );
+  const shell = service.requestApproval(user.userId, runId, 'execute_command', { command: 'pwd' });
+  const asked = events.filter((item) => item.event == 'tool:approval_required');
+
+  service.resolve(asked[1].payload.approvalId, user.userId, 'approved', 'always');
+
+  assert.equal(await prs, 'approved');
+  assert.equal(await issues, 'approved');
+  // Trust escalations and other categories still wait for their own answer.
+  assert.equal(service._pending.size, 2);
+  service.shutdown();
+  assert.equal(await flagged, 'expired');
+  assert.equal(await shell, 'expired');
+});

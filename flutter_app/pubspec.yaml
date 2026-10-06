@@ -72,5 +72,4 @@ flutter:
     - assets/branding/tray_icon_light_template.png
     - assets/branding/tray_icon_windows.ico
     - assets/branding/onboarding_intro.mp4
-    - assets/sounds/voice_key_clicks.wav
-    - assets/sounds/voice_key_clicks.license.txt
+    - assets/sounds/typing/

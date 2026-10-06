@@ -276,3 +276,27 @@ test('call me later ends the ringing everywhere with its own status', async (t) 
   assert.equal((await outcome).status, 'call_later');
   assert.ok(io.roomEvents.some((e) => e.event === 'voice:call_ended' && e.payload.reason === 'call_later'));
 });
+
+test('the run that placed a call is not the call\'s own task', () => {
+  const { LiveTaskBridge } = require('../../../server/services/voice/live/task_bridge');
+  const steered = [];
+  const started = [];
+  const agentEngine = {
+    getRunMeta: (runId) => ({ status: 'running', aborted: false, runId }),
+    enqueueSteering: (runId, text) => { steered.push({ runId, text }); return true; },
+    run: (userId, request, options) => { started.push(options.runId); return new Promise(() => {}); },
+  };
+  const session = {
+    id: 'call-1',
+    userId: 'user-1',
+    adapter: { acknowledgeTask() {}, completeTask() {} },
+    publishTask() {},
+  };
+  const bridge = new LiveTaskBridge({ agentEngine, session });
+
+  assert.equal(bridge.hasRunningWork, false);
+  bridge.delegate({ handle: 'h1', request: 'What is on my calendar?' });
+  assert.deepEqual(steered, []);
+  assert.equal(started.length, 1);
+  assert.equal(bridge.activeRunId, started[0]);
+});

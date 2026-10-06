@@ -52,7 +52,6 @@ class VoiceRuntimeManager {
     sessionId = null,
     platform = 'voice_live',
     sink,
-    originRunId = null,
     originConversationId = null,
     agentInitiated = false,
     inputMode = null,
@@ -83,7 +82,6 @@ class VoiceRuntimeManager {
         apiKey: String(runtime.apiKey || '').trim(),
         baseUrl: String(runtime.baseUrl || '').trim(),
       },
-      originRunId,
       agentInitiated,
       onIdle: (idle, reason) => this.#forget(idle, reason),
     });
@@ -164,12 +162,6 @@ class VoiceRuntimeManager {
     const session = this.getSession(entry?.recipient);
     if (!session) return { detached: true };
     return session.presentDelivery(entry);
-  }
-
-  handleRunTerminal(runId) {
-    for (const session of this.sessions.values()) {
-      session.tasks.handleRunTerminal(runId);
-    }
   }
 
   say(sessionId, text) {

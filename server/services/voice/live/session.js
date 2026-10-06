@@ -41,7 +41,6 @@ class LiveVoiceSession {
     conversationId,
     settings,
     credentials,
-    originRunId = null,
     agentInitiated = false,
     onIdle,
   }) {
@@ -58,7 +57,7 @@ class LiveVoiceSession {
     this.agentInitiated = agentInitiated;
     this.onIdle = onIdle;
     this.provider = LIVE_VOICE_PROVIDERS[settings.liveProvider];
-    this.tasks = new LiveTaskBridge({ agentEngine, session: this, originRunId });
+    this.tasks = new LiveTaskBridge({ agentEngine, session: this });
     this.adapter = null;
     this.ready = false;
     this.closed = false;

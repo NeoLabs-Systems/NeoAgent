@@ -12,11 +12,15 @@ const SPOKEN_LIVENESS = new Set(['blocked', 'waiting']);
 // orchestrator, tools, memory, approvals, verification, and outbox delivery as
 // a chat or WhatsApp message. This bridge only maps runs to the live model's
 // hand-off handles and feeds results back into the conversation.
+//
+// Only runs this call started are its work. The run that placed an
+// agent-initiated call is not: it finishes on its own, so treating it as the
+// call's task showed the call as busy and fed what the owner said into a run
+// that was already wrapping up, where nothing answered it.
 class LiveTaskBridge {
-  constructor({ agentEngine, session, originRunId = null }) {
+  constructor({ agentEngine, session }) {
     this.agentEngine = agentEngine;
     this.session = session;
-    this.originRunId = originRunId;
     this.runs = new Map();
   }
 
@@ -49,8 +53,8 @@ class LiveTaskBridge {
     this.#start(handle, text);
   }
 
-  // Outbox deliveries for runs this session started (or the run that placed an
-  // agent-initiated call) arrive here instead of a chat channel.
+  // Outbox deliveries for runs this session started arrive here instead of a
+  // chat channel.
   present(entry) {
     const content = String(entry?.payload?.content || '').trim();
     if (!content) return;
@@ -80,19 +84,14 @@ class LiveTaskBridge {
     return { cancelled: true, runId };
   }
 
-  handleRunTerminal(runId) {
-    if (runId === this.originRunId) this.originRunId = null;
-  }
-
   abortAll(reason) {
-    for (const runId of [...this.runs.keys(), this.originRunId].filter(Boolean)) {
+    for (const runId of this.runs.keys()) {
       this.agentEngine.abort(runId, { userId: this.session.userId, reason });
     }
   }
 
   #activeRunId() {
-    for (const runId of [...this.runs.keys(), this.originRunId]) {
-      if (!runId) continue;
+    for (const runId of this.runs.keys()) {
       const meta = this.agentEngine.getRunMeta(runId);
       if (meta && !meta.aborted && meta.status === 'running') return runId;
     }

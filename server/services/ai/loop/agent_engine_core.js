@@ -1695,12 +1695,6 @@ class AgentEngine {
           || null;
       }
     }
-    if (
-      ['run:complete', 'run:error', 'run:stopped', 'run:interrupted'].includes(event)
-      && payload?.runId
-    ) {
-      this.voiceRuntimeManager?.handleRunTerminal?.(payload.runId);
-    }
     if (this.io) {
       this.io.to(`user:${userId}`).emit(event, payload);
     }

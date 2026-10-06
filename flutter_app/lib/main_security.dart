@@ -157,11 +157,46 @@ class _AppNotificationService {
   static const _denyActionId = 'deny';
   static const callAnswerActionId = 'call_answer';
   static const callDeclineActionId = 'call_decline';
+  static const _reviewActionId = 'review';
   static const _callPayloadPrefix = 'agent-call:';
+  static const _approvalPayloadPrefix = 'approval:';
+
+  /// Where an action tapped while the app runs in the background — handled
+  /// in a separate isolate — is handed to the app's own isolate.
+  static const _actionPortName = 'neoagent.notification_actions';
+  static ReceivePort? _actionPort;
 
   /// Answer and Decline tapped on a ringing call's notification, with the
   /// call's id.
   static void Function(String callId, String action)? onCallAction;
+
+  /// Allow and Deny tapped on an approval's notification, with its id and
+  /// the decision.
+  static void Function(String approvalId, String decision)? onApprovalAction;
+
+  /// Starts taking actions from notifications in this isolate. Actions that
+  /// need no UI arrive in a background isolate; the app is still running
+  /// (the keep-alive service holds it), so they are forwarded here instead
+  /// of opening it.
+  static void listenForActions() {
+    if (_actionPort != null) return;
+    final port = ReceivePort();
+    IsolateNameServer.removePortNameMapping(_actionPortName);
+    IsolateNameServer.registerPortWithName(port.sendPort, _actionPortName);
+    port.listen((message) {
+      if (message is List && message.length == 2) {
+        _dispatchAction(message[0] as String?, message[1] as String?);
+      }
+    });
+    _actionPort = port;
+    unawaited(_getPlugin());
+  }
+
+  static void stopListeningForActions() {
+    IsolateNameServer.removePortNameMapping(_actionPortName);
+    _actionPort?.close();
+    _actionPort = null;
+  }
 
   static FlutterLocalNotificationsPlugin? _plugin;
 
@@ -198,7 +233,6 @@ class _AppNotificationService {
                 'Decline',
                 options: <DarwinNotificationActionOption>{
                   DarwinNotificationActionOption.destructive,
-                  DarwinNotificationActionOption.foreground,
                 },
               ),
               DarwinNotificationAction.plain(
@@ -230,27 +264,42 @@ class _AppNotificationService {
   }
 
   static void _onNotificationResponse(NotificationResponse response) {
-    _handleNotificationAction(response.id, response.actionId, response.payload);
+    _dispatchAction(response.actionId, response.payload);
   }
 
   @pragma('vm:entry-point')
   static void _onBackgroundNotificationResponse(NotificationResponse response) {
-    _handleNotificationAction(response.id, response.actionId, response.payload);
+    // With the app not running there is no one to hand it to: the request
+    // then lapses on the server like an unanswered one.
+    IsolateNameServer.lookupPortByName(
+      _actionPortName,
+    )?.send(<String?>[response.actionId, response.payload]);
   }
 
-  static void _handleNotificationAction(
-    int? id,
-    String? actionId,
-    String? payload,
-  ) {
-    // Approval actions are resolved by the approval sheet once the app is
-    // open. Call actions open the app, which is still connected, so they
-    // reach the controller here.
-    if (payload == null || !payload.startsWith(_callPayloadPrefix)) return;
-    if (actionId != callAnswerActionId && actionId != callDeclineActionId) {
+  static void _dispatchAction(String? actionId, String? payload) {
+    if (payload == null || actionId == null) return;
+    if (payload.startsWith(_callPayloadPrefix)) {
+      if (actionId != callAnswerActionId && actionId != callDeclineActionId) {
+        return;
+      }
+      onCallAction?.call(
+        payload.substring(_callPayloadPrefix.length),
+        actionId,
+      );
       return;
     }
-    onCallAction?.call(payload.substring(_callPayloadPrefix.length), actionId!);
+    if (payload.startsWith(_approvalPayloadPrefix)) {
+      final decision = switch (actionId) {
+        _approveActionId => 'approved',
+        _denyActionId => 'denied',
+        _ => null,
+      };
+      if (decision == null) return;
+      onApprovalAction?.call(
+        payload.substring(_approvalPayloadPrefix.length),
+        decision,
+      );
+    }
   }
 
   static Future<void> requestPermission({bool sound = false}) async {
@@ -291,25 +340,57 @@ class _AppNotificationService {
     final plugin = await _getPlugin();
     if (plugin == null) return;
 
+    final remaining = req.expiresAt.difference(DateTime.now());
+    if (remaining <= Duration.zero) return;
     final info = _categoryInfo(req.category);
-    final body = appStrings.agentWantsToUseArg1Tap(req.toolName);
+    final reason = req.reason?.trim() ?? '';
+    final body = reason.isEmpty
+        ? appStrings.agentWantsToUseArg1Tap(req.toolName)
+        : '${req.toolName} · $reason';
 
+    // A live notification: it stays put, counts down to the request's
+    // expiry, and is answered from the shade without opening the app.
     final androidDetails = AndroidNotificationDetails(
       _channelId,
       _channelName,
       channelDescription: appStrings.approvalRequestsForSensitiveAgentTools,
-      importance: Importance.high,
-      priority: Priority.high,
+      importance: Importance.max,
+      priority: Priority.max,
+      category: AndroidNotificationCategory.reminder,
       ticker: appStrings.toolApprovalRequired,
       color: _riskColor(info.riskLevel),
+      colorized: true,
+      ongoing: true,
+      autoCancel: false,
+      onlyAlertOnce: true,
+      showWhen: true,
+      when: req.expiresAt.millisecondsSinceEpoch,
+      usesChronometer: true,
+      chronometerCountDown: true,
+      timeoutAfter: remaining.inMilliseconds,
+      styleInformation: BigTextStyleInformation(body),
       actions: <AndroidNotificationAction>[
-        const AndroidNotificationAction(_approveActionId, 'Allow'),
-        const AndroidNotificationAction(_denyActionId, 'Deny'),
+        AndroidNotificationAction(
+          _denyActionId,
+          appStrings.deny,
+          cancelNotification: true,
+        ),
+        const AndroidNotificationAction(
+          _reviewActionId,
+          'Review',
+          showsUserInterface: true,
+        ),
+        AndroidNotificationAction(
+          _approveActionId,
+          appStrings.allowOnce,
+          cancelNotification: true,
+        ),
       ],
     );
 
-    final darwinDetails = DarwinNotificationDetails(
+    const darwinDetails = DarwinNotificationDetails(
       categoryIdentifier: 'tool_approval',
+      interruptionLevel: InterruptionLevel.timeSensitive,
     );
 
     await plugin.show(
@@ -321,7 +402,7 @@ class _AppNotificationService {
         iOS: darwinDetails,
         macOS: darwinDetails,
       ),
-      payload: req.approvalId,
+      payload: '$_approvalPayloadPrefix${req.approvalId}',
     );
   }
 
@@ -389,7 +470,6 @@ class _AppNotificationService {
         AndroidNotificationAction(
           callDeclineActionId,
           appStrings.decline,
-          showsUserInterface: true,
           cancelNotification: true,
         ),
         AndroidNotificationAction(
@@ -893,14 +973,28 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
       }
     });
 
+    widget.controller.addListener(_closeWhenAnsweredElsewhere);
+
     // Cancel the notification now that the sheet is showing
     _AppNotificationService.cancelApprovalNotification(
       widget.request.approvalId,
     );
   }
 
+  /// Answered from the notification or another device.
+  void _closeWhenAnsweredElsewhere() {
+    if (_submitting || !mounted) return;
+    if (widget.controller.pendingApproval?.approvalId ==
+        widget.request.approvalId) {
+      return;
+    }
+    widget.controller.removeListener(_closeWhenAnsweredElsewhere);
+    Navigator.of(context).pop();
+  }
+
   @override
   void dispose() {
+    widget.controller.removeListener(_closeWhenAnsweredElsewhere);
     _timer.cancel();
     _ringController.dispose();
     super.dispose();

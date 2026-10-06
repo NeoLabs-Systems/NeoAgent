@@ -33,6 +33,8 @@ class NeoAgentController extends ChangeNotifier {
     _desktopCompanion.addListener(_onDesktopCompanionChanged);
     AndroidAutoBridge.instance.onStartVoiceMode = startLiveVoiceCapture;
     _AppNotificationService.onCallAction = _handleCallNotificationAction;
+    _AppNotificationService.onApprovalAction = _resolveApprovalFromNotification;
+    _AppNotificationService.listenForActions();
     AndroidAutoBridge.instance.onStopVoiceMode = interruptLiveVoiceAssistant;
 
     _clientLogs = AppDiagnostics.recentEntries
@@ -191,6 +193,7 @@ class NeoAgentController extends ChangeNotifier {
   List<AgentProfile> agentProfiles = const <AgentProfile>[];
   String? selectedAgentId;
   List<ModelMeta> supportedModels = const <ModelMeta>[];
+
   /// SystemOne decision models, offered only in their own picker.
   List<ModelMeta> systemOneModels = const <ModelMeta>[];
   List<AiProviderMeta> aiProviders = const <AiProviderMeta>[];
@@ -454,6 +457,8 @@ class NeoAgentController extends ChangeNotifier {
   void dispose() {
     AndroidAutoBridge.instance.onStartVoiceMode = null;
     _AppNotificationService.onCallAction = null;
+    _AppNotificationService.onApprovalAction = null;
+    _AppNotificationService.stopListeningForActions();
     unawaited(CallBridge.dismiss());
     AndroidAutoBridge.instance.onStopVoiceMode = null;
     _updatePollTimer?.cancel();
@@ -497,6 +502,39 @@ class NeoAgentController extends ChangeNotifier {
   void clearPendingApproval() {
     pendingApproval = null;
     notifyListeners();
+  }
+
+  /// Allow or Deny tapped on the approval's notification. Allowing there is
+  /// always for this once; wider scopes are chosen in the app.
+  Future<void> _resolveApprovalFromNotification(
+    String approvalId,
+    String decision,
+  ) async {
+    final request = pendingApproval?.approvalId == approvalId
+        ? pendingApproval
+        : null;
+    unawaited(_AppNotificationService.cancelApprovalNotification(approvalId));
+    try {
+      await _backendClient.resolveToolApproval(
+        backendUrl,
+        approvalId: approvalId,
+        decision: decision,
+        scope: 'once',
+        runId: request?.runId,
+        toolName: request?.toolName,
+        toolArgs: request?.toolArgs,
+      );
+    } catch (error) {
+      AppDiagnostics.log(
+        'approvals',
+        'notification_resolve.failed',
+        error: error,
+      );
+    }
+    if (pendingApproval?.approvalId == approvalId) {
+      pendingApproval = null;
+      notifyListeners();
+    }
   }
 
   void clearPendingApprovalForRun(String runId) {
@@ -4317,12 +4355,10 @@ class NeoAgentController extends ChangeNotifier {
       if (cached != null) {
         clicks = cached;
       } else {
-        final data = await rootBundle.load(
-          'assets/sounds/voice_key_clicks.wav',
-        );
-        clicks = voiceKeyClicksFromWav(
-          data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
-        );
+        clicks = <Uint8List>[
+          for (final asset in voiceWorkTypingAssets)
+            voiceWorkTypingFromWav(await _loadAssetBytes(asset)),
+        ];
         _voiceKeyClickPcm = clicks;
       }
       await _liveVoicePlayer.prepareWorkClicks(clicks);
@@ -4350,6 +4386,11 @@ class NeoAgentController extends ChangeNotifier {
       );
     }
     _voiceWorkClicks!.start(_liveVoicePlayer.addWorkClick);
+  }
+
+  static Future<Uint8List> _loadAssetBytes(String asset) async {
+    final data = await rootBundle.load(asset);
+    return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
   }
 
   void _haltVoiceWorkClicks() {
@@ -4743,8 +4784,10 @@ class NeoAgentController extends ChangeNotifier {
         backendUrl,
         agentId: agentId,
       );
-      final systemOneModelsResponse = await _backendClient
-          .fetchSystemOneModels(backendUrl, agentId: agentId);
+      final systemOneModelsResponse = await _backendClient.fetchSystemOneModels(
+        backendUrl,
+        agentId: agentId,
+      );
       supportedModels = _decodeModelList(
         'supported_models',
         modelsResponse['models'],

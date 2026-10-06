@@ -59,7 +59,7 @@ class LiveVoicePlayer {
     if (pcm16.isEmpty) return;
     if (_useAndroidTrack) {
       if (_androidStarted) {
-        // A key still sitting in the call track would play before this
+        // Typing still sitting in the call track would play before this
         // speech. Drop it, then let the voice through.
         if (_clickQueued) {
           _clickQueued = false;
@@ -75,9 +75,9 @@ class LiveVoicePlayer {
     if (source != null) SoLoud.instance.addAudioDataStream(source, pcm16);
   }
 
-  /// Loads the key strikes. Each one is played whole, as its own sound, so a
-  /// gap between keys is silence instead of a stream underrun. Android writes
-  /// the same samples on the call track.
+  /// Loads the typing phrases. Each one is played whole, as its own sound, so
+  /// a pause between phrases is silence instead of a stream underrun. Android
+  /// writes the same samples on the call track.
   Future<void> prepareWorkClicks(List<Uint8List> clicks) {
     final pending = _preparingClicks;
     if (pending != null) return pending;
@@ -147,7 +147,7 @@ class LiveVoicePlayer {
     unawaited(SoLoud.instance.play(_clickSounds[index]));
   }
 
-  /// Stops keys that are still ringing. The loaded strikes stay available.
+  /// Stops typing that is still playing. The loaded phrases stay available.
   Future<void> stopWorkClicks() async {
     _clickEpoch++;
     if (_useAndroidTrack || _clickSounds.isEmpty) return;
