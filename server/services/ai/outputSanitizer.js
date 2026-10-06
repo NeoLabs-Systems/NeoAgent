@@ -66,10 +66,20 @@ function sanitizeMarkdownAware(text) {
     .join('');
 }
 
+function stripThoughtBlocks(text) {
+  if (!/<\/?think(?:ing)?>/i.test(text)) return text;
+  return text
+    .replace(/[ \t]*<think>[\s\S]*?<\/think>[ \t]*/gi, '')
+    .replace(/[ \t]*<thinking>[\s\S]*?<\/thinking>[ \t]*/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/^\n+/, '')
+    .replace(/\n+$/, '');
+}
+
 function sanitizeModelOutput(text, options = {}) {
   if (typeof text !== 'string' || text.length === 0) return text;
 
-  let sanitized = text;
+  let sanitized = stripThoughtBlocks(text);
 
   if (shouldApplyIncidentalHanSanitizer(options.model) && (sanitized.includes('<invoke') || sanitized.includes(':tool_call'))) {
     sanitized = sanitizeStreamingToolCallText(sanitized);

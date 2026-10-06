@@ -209,7 +209,7 @@ test('custom provider assembles streamed tool calls', async () => {
   }]);
 });
 
-test('readStream treats reasoning_content deltas as visible text', async () => {
+test('readStream keeps a reasoning-only reply when the endpoint sent no content', async () => {
   const provider = new OpenAICompatibleProvider();
   provider.name = 'test';
   async function* chunks() {
@@ -223,6 +223,45 @@ test('readStream treats reasoning_content deltas as visible text', async () => {
   assert.deepEqual(events[0], { type: 'content', content: 'Think.' });
   assert.equal(events[1].type, 'done');
   assert.equal(events[1].content, 'Think.');
+});
+
+test('readStream does not send the thought into the chat when a real reply follows', async () => {
+  const provider = new OpenAICompatibleProvider();
+  provider.name = 'test';
+  async function* chunks() {
+    yield { choices: [{ delta: { reasoning_content: 'Private thought. ' }, finish_reason: null }] };
+    yield { choices: [{ delta: { reasoning: 'More thought. ' }, finish_reason: null }] };
+    yield { choices: [{ delta: { content: 'The answer.' }, finish_reason: null }] };
+    yield { choices: [{ delta: {}, finish_reason: 'stop' }] };
+  }
+
+  const events = [];
+  for await (const event of provider.readStream(chunks())) events.push(event);
+
+  assert.deepEqual(events[0], { type: 'content', content: 'The answer.' });
+  assert.equal(events[1].type, 'done');
+  assert.equal(events[1].content, 'The answer.');
+});
+
+test('readStream drops a thought that only accompanied a tool call', async () => {
+  const provider = new OpenAICompatibleProvider();
+  provider.name = 'test';
+  async function* chunks() {
+    yield { choices: [{ delta: { reasoning_content: 'I should look this up.' }, finish_reason: null }] };
+    yield {
+      choices: [{
+        delta: { tool_calls: [{ index: 0, id: 'call-1', function: { name: 'lookup', arguments: '{}' } }] },
+        finish_reason: 'tool_calls',
+      }],
+    };
+  }
+
+  const events = [];
+  for await (const event of provider.readStream(chunks())) events.push(event);
+
+  assert.equal(events.length, 1);
+  assert.equal(events[0].type, 'tool_calls');
+  assert.equal(events[0].content, '');
 });
 
 test('readStream keeps the usage chunk that arrives after finish_reason', async () => {
