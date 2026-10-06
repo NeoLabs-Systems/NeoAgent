@@ -3,4 +3,9 @@
     <!-- AppRadius.panel -->
     <dimen name="neoagent_widget_radius">24dp</dimen>
     <dimen name="neoagent_widget_padding">16dp</dimen>
+    <!-- The mascot's size where a widget cannot size it from code (before Android 12),
+         and the gap it leaves to the cell edge. Size + 2 × inset fits the 40dp
+         one-cell minimum, so the face is never clipped. -->
+    <dimen name="neoagent_widget_avatar_size">36dp</dimen>
+    <dimen name="neoagent_widget_avatar_inset">2dp</dimen>
 </resources>

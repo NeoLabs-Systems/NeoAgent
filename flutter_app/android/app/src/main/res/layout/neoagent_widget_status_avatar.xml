@@ -1,11 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Just the mascot on the wallpaper, sized from code to the widget's smaller side.
-     The face keeps a square: a ProgressBar stretches an animation to its bounds. -->
+<!-- Just the mascot on the wallpaper, sized from code to the widget's smaller side. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@android:id/background"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:contentDescription="@string/neoagent_widget_talk"
     android:padding="@dimen/neoagent_widget_avatar_inset">
 
     <FrameLayout
@@ -21,15 +19,5 @@
 
             <include layout="@layout/neoagent_widget_face_idle" />
         </FrameLayout>
-
-        <ImageView
-            android:id="@+id/neoagent_widget_call_badge"
-            android:layout_width="22dp"
-            android:layout_height="22dp"
-            android:layout_gravity="bottom|end"
-            android:background="@drawable/neoagent_widget_accent_circle"
-            android:importantForAccessibility="no"
-            android:padding="5dp"
-            android:src="@drawable/ic_neoagent_widget_call" />
     </FrameLayout>
 </FrameLayout>

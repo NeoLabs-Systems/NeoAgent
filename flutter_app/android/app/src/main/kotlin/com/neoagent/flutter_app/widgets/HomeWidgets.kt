@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.os.SystemClock
 import android.text.format.DateUtils
 import android.util.SizeF
+import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
 import com.neoagent.flutter_app.MainActivity
@@ -91,7 +92,7 @@ abstract class HomeWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         val status = HomeWidgetStatus.read(context)
         for (id in ids) {
-            manager.updateAppWidget(id, layouts(context, status).pick(manager, id))
+            manager.updateAppWidget(id, layouts(context, status, manager.bounds(id)).pick(manager, id))
         }
     }
 
@@ -109,11 +110,29 @@ abstract class HomeWidgetProvider : AppWidgetProvider() {
         id: Int,
         newOptions: Bundle,
     ) {
-        manager.updateAppWidget(id, layouts(context, HomeWidgetStatus.read(context)).pick(manager, id))
+        manager.updateAppWidget(
+            id,
+            layouts(context, HomeWidgetStatus.read(context), manager.bounds(id)).pick(manager, id),
+        )
     }
 
-    /** One layout per size the widget adapts to, smallest first. */
-    internal abstract fun layouts(context: Context, status: HomeWidgetStatus?): List<SizedLayout>
+    /**
+     * One layout per size the widget adapts to, smallest first. [bounds] is
+     * the widget's size in dp, null until the launcher reports one.
+     */
+    internal abstract fun layouts(
+        context: Context,
+        status: HomeWidgetStatus?,
+        bounds: SizeF?,
+    ): List<SizedLayout>
+}
+
+/** The smallest size the widget takes in either orientation, in dp. */
+private fun AppWidgetManager.bounds(id: Int): SizeF? {
+    val options = getAppWidgetOptions(id)
+    val width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
+    val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
+    return if (width > 0 && height > 0) SizeF(width.toFloat(), height.toFloat()) else null
 }
 
 /** A layout used once the widget is at least [minSize] dp. */
@@ -157,19 +176,43 @@ internal fun RemoteViews.bindFace(context: Context, viewId: Int, status: HomeWid
     addView(viewId, RemoteViews(context.packageName, (status?.mood ?: HomeWidgetMood.ASLEEP).face))
 }
 
-internal fun RemoteViews.bindLabel(context: Context, viewId: Int, status: HomeWidgetStatus?) {
-    val label = when {
-        status == null -> R.string.neoagent_widget_not_connected
-        status.mood == HomeWidgetMood.IDLE && status.callStartedAtMs != null -> R.string.neoagent_widget_on_call
-        else -> status.mood.label
-    }
-    setTextViewText(viewId, context.getString(label))
-    val color = if (status?.mood == HomeWidgetMood.BLOCKED) {
-        R.color.neoagent_widget_alert
-    } else {
-        R.color.neoagent_widget_text_primary
-    }
-    setTextColor(viewId, context.getColor(color))
+/**
+ * Sizes the mascot to the widget's smaller side, so it reaches the cell edges
+ * whatever the widget's shape. The face stretches to its bounds and has to stay
+ * square. Before Android 12 a widget cannot size a view, and the layout's own
+ * size stays.
+ */
+internal fun RemoteViews.fitAvatar(context: Context, viewId: Int, bounds: SizeF?, badgeId: Int? = null) {
+    if (bounds == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+    val density = context.resources.displayMetrics.density
+    val inset = context.resources.getDimension(R.dimen.neoagent_widget_avatar_inset) / density
+    val side = minOf(bounds.width, bounds.height) - 2 * inset
+    if (side <= 0f) return
+    setViewLayoutWidth(viewId, side, TypedValue.COMPLEX_UNIT_DIP)
+    setViewLayoutHeight(viewId, side, TypedValue.COMPLEX_UNIT_DIP)
+    if (badgeId == null) return
+    val badge = (side * 0.3f).coerceIn(20f, 40f)
+    val padding = (badge * 0.24f * density).toInt()
+    setViewLayoutWidth(badgeId, badge, TypedValue.COMPLEX_UNIT_DIP)
+    setViewLayoutHeight(badgeId, badge, TypedValue.COMPLEX_UNIT_DIP)
+    setViewPadding(badgeId, padding, padding, padding, padding)
+}
+
+internal fun labelOf(status: HomeWidgetStatus?): Int = when {
+    status == null -> R.string.neoagent_widget_not_connected
+    status.mood == HomeWidgetMood.IDLE && status.callStartedAtMs != null -> R.string.neoagent_widget_on_call
+    else -> status.mood.label
+}
+
+internal fun RemoteViews.bindLabel(
+    context: Context,
+    viewId: Int,
+    status: HomeWidgetStatus?,
+    color: Int = R.color.neoagent_widget_text_primary,
+    alertColor: Int = R.color.neoagent_widget_alert,
+) {
+    setTextViewText(viewId, context.getString(labelOf(status)))
+    setTextColor(viewId, context.getColor(if (status?.mood == HomeWidgetMood.BLOCKED) alertColor else color))
 }
 
 internal fun RemoteViews.bindText(viewId: Int, text: CharSequence) {

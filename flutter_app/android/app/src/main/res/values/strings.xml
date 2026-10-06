@@ -20,6 +20,5 @@
     <string name="neoagent_widget_open_to_connect">Open NeoAgent to sign in</string>
     <string name="neoagent_widget_talk">Talk to NeoAgent</string>
     <string name="neoagent_widget_on_call">On a call</string>
-    <string name="neoagent_widget_call">Call</string>
     <string name="neoagent_widget_return_to_call">Return to call</string>
 </resources>

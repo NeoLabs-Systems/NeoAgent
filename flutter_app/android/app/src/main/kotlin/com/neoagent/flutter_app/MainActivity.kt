@@ -14,6 +14,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.core.content.FileProvider
 import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.lifecycleScope
+import com.neoagent.flutter_app.call.CallBridge
 import com.neoagent.flutter_app.health.HealthConnectGateway
 import com.neoagent.flutter_app.health.HealthSyncScheduler
 import io.flutter.embedding.android.FlutterFragmentActivity
@@ -45,9 +46,21 @@ class MainActivity : FlutterFragmentActivity() {
     private var appLaunchEventSink: EventChannel.EventSink? = null
     private var pendingLaunchPayload: Map<String, Any?>? = null
     private val voicePlayer = VoicePcmPlayer()
+    private var callBridge: CallBridge? = null
+
+    override fun onResume() {
+        super.onResume()
+        callBridge?.leftByUser = false
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        callBridge?.leftByUser = true
+    }
 
     override fun onDestroy() {
         voicePlayer.stop()
+        callBridge?.release()
         super.onDestroy()
     }
 
@@ -508,6 +521,7 @@ class MainActivity : FlutterFragmentActivity() {
         )
 
         HomeWidgets.registerChannel(flutterEngine.dartExecutor.binaryMessenger, this)
+        callBridge = CallBridge.register(flutterEngine.dartExecutor.binaryMessenger, this)
 
         captureLaunchIntent(intent)
     }

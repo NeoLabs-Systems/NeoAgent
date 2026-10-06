@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Text drawn straight on the wallpaper, shadowed like launcher labels. The same in
+     light and dark mode: the wallpaper, not the theme, is behind it. -->
+<resources>
+    <color name="neoagent_widget_wallpaper_text">#FFFFFFFF</color>
+    <color name="neoagent_widget_wallpaper_text_secondary">#E0FFFFFF</color>
+    <color name="neoagent_widget_wallpaper_alert">#FFF0A08F</color>
+    <color name="neoagent_widget_wallpaper_shadow">#8C000000</color>
+</resources>

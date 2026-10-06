@@ -8,8 +8,8 @@ also shows what the agent is doing right now.
 ## Where it appears
 
 - **Desktop sidebar**, in place of the logo, live
-- **Phone and cowork top bars**, live
-- **Chat and cowork replies**, as the assistant's avatar
+- **Phone top bar**, live
+- **Chat replies**, as the assistant's avatar
 - **Typing bubble**, thinking while a reply is on its way
 - **Landing page**, in the nav and acting out the hero's run log
 - **Wearable**, as the face of the voice call on the home screen and on the status screens
