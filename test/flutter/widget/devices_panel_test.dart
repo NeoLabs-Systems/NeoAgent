@@ -148,7 +148,7 @@ void main() {
     expect(find.text('This device is paused'), findsOneWidget);
   });
 
-  testWidgets('cowork local computer ignores default cloud status flashes', (
+  testWidgets('local computer ignores default cloud status flashes', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 900);

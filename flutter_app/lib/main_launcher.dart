@@ -254,11 +254,7 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
 
   // The launcher's home is the voice call, with the avatar as its centre.
   Widget _buildAssistantPage() {
-    return VoiceAssistantPanel(
-      controller: widget.controller,
-      phoneCall: true,
-      embedded: true,
-    );
+    return AgentCallScreen(controller: widget.controller, embedded: true);
   }
 
   Widget _buildSettingsPage() {

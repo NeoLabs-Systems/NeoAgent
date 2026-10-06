@@ -13349,12 +13349,6 @@ abstract class AppL10n {
   /// **'Tags only'**
   String get tagsOnly;
 
-  /// No description provided for @tapAnEntityToFilterMemories.
-  ///
-  /// In en, this message translates to:
-  /// **'Tap an entity to filter memories by it.'**
-  String get tapAnEntityToFilterMemories;
-
   /// No description provided for @task.
   ///
   /// In en, this message translates to:
@@ -18232,6 +18226,312 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 match} other{{count} matches}}'**
   String settingsSearchResultCount(int count);
+
+  /// No description provided for @settingsAdvancedModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced model settings'**
+  String get settingsAdvancedModels;
+
+  /// No description provided for @settingsAdvancedModelsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional. Pin a model to one kind of work; it takes over whenever the agent uses those tools. Anything left on default follows the chat model.'**
+  String get settingsAdvancedModelsDescription;
+
+  /// No description provided for @settingsTaskModelDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get settingsTaskModelDefault;
+
+  /// No description provided for @settingsTaskModelDefaultSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Follows the chat model'**
+  String get settingsTaskModelDefaultSubtitle;
+
+  /// No description provided for @settingsTaskModelCoding.
+  ///
+  /// In en, this message translates to:
+  /// **'Coding'**
+  String get settingsTaskModelCoding;
+
+  /// No description provided for @settingsTaskModelCodingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Writing, editing and debugging code.'**
+  String get settingsTaskModelCodingDescription;
+
+  /// No description provided for @settingsTaskModelComputerUse.
+  ///
+  /// In en, this message translates to:
+  /// **'Computer use'**
+  String get settingsTaskModelComputerUse;
+
+  /// No description provided for @settingsTaskModelComputerUseDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Driving the browser and desktop.'**
+  String get settingsTaskModelComputerUseDescription;
+
+  /// No description provided for @settingsTaskModelAndroidUse.
+  ///
+  /// In en, this message translates to:
+  /// **'Android use'**
+  String get settingsTaskModelAndroidUse;
+
+  /// No description provided for @settingsTaskModelAndroidUseDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Operating apps on an Android device or emulator.'**
+  String get settingsTaskModelAndroidUseDescription;
+
+  /// No description provided for @settingsTaskModelResearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Research'**
+  String get settingsTaskModelResearch;
+
+  /// No description provided for @settingsTaskModelResearchDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Searching, reading and summarizing sources.'**
+  String get settingsTaskModelResearchDescription;
+
+  /// No description provided for @knowledgeGraphHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your most-mentioned entities, colored by cluster. Lines connect entities that appear in the same memories. Tap one to see its links and memories; drag to pan, pinch or Ctrl/⌘-scroll to zoom.'**
+  String get knowledgeGraphHint;
+
+  /// No description provided for @linkedEntities.
+  ///
+  /// In en, this message translates to:
+  /// **'Linked entities'**
+  String get linkedEntities;
+
+  /// No description provided for @noLinkedEntities.
+  ///
+  /// In en, this message translates to:
+  /// **'Not linked to other entities yet.'**
+  String get noLinkedEntities;
+
+  /// No description provided for @mentionsArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'{arg1} mentions'**
+  String mentionsArg1(int arg1);
+
+  /// No description provided for @entityKindConcept.
+  ///
+  /// In en, this message translates to:
+  /// **'Concept'**
+  String get entityKindConcept;
+
+  /// No description provided for @entityKindDomain.
+  ///
+  /// In en, this message translates to:
+  /// **'Domain'**
+  String get entityKindDomain;
+
+  /// No description provided for @entityKindEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get entityKindEmail;
+
+  /// No description provided for @entityKindLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Link'**
+  String get entityKindLink;
+
+  /// No description provided for @entityKindFile.
+  ///
+  /// In en, this message translates to:
+  /// **'File'**
+  String get entityKindFile;
+
+  /// No description provided for @entityKindAcronym.
+  ///
+  /// In en, this message translates to:
+  /// **'Acronym'**
+  String get entityKindAcronym;
+
+  /// No description provided for @entityKindIdentifier.
+  ///
+  /// In en, this message translates to:
+  /// **'Identifier'**
+  String get entityKindIdentifier;
+
+  /// No description provided for @entityKindVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Version'**
+  String get entityKindVersion;
+
+  /// No description provided for @openFullscreen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open fullscreen'**
+  String get openFullscreen;
+
+  /// No description provided for @zoomIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom in'**
+  String get zoomIn;
+
+  /// No description provided for @zoomOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom out'**
+  String get zoomOut;
+
+  /// No description provided for @searchEntities.
+  ///
+  /// In en, this message translates to:
+  /// **'Find an entity'**
+  String get searchEntities;
+
+  /// No description provided for @incomingCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Incoming call'**
+  String get incomingCall;
+
+  /// No description provided for @answerCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Answer'**
+  String get answerCall;
+
+  /// No description provided for @callMeLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Call me later'**
+  String get callMeLater;
+
+  /// No description provided for @callingEllipsis.
+  ///
+  /// In en, this message translates to:
+  /// **'Calling…'**
+  String get callingEllipsis;
+
+  /// No description provided for @reconnectingCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnecting'**
+  String get reconnectingCall;
+
+  /// No description provided for @agentWorking.
+  ///
+  /// In en, this message translates to:
+  /// **'Working'**
+  String get agentWorking;
+
+  /// No description provided for @micMuted.
+  ///
+  /// In en, this message translates to:
+  /// **'Muted'**
+  String get micMuted;
+
+  /// No description provided for @speakerphone.
+  ///
+  /// In en, this message translates to:
+  /// **'Speaker'**
+  String get speakerphone;
+
+  /// No description provided for @muteMic.
+  ///
+  /// In en, this message translates to:
+  /// **'Mute'**
+  String get muteMic;
+
+  /// No description provided for @unmuteMic.
+  ///
+  /// In en, this message translates to:
+  /// **'Unmute'**
+  String get unmuteMic;
+
+  /// No description provided for @releaseToSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Release to send'**
+  String get releaseToSend;
+
+  /// No description provided for @callEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'Call ended'**
+  String get callEnded;
+
+  /// No description provided for @openConversation.
+  ///
+  /// In en, this message translates to:
+  /// **'Open conversation'**
+  String get openConversation;
+
+  /// No description provided for @callBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Call back'**
+  String get callBack;
+
+  /// No description provided for @letCallsReachYou.
+  ///
+  /// In en, this message translates to:
+  /// **'Let calls reach you'**
+  String get letCallsReachYou;
+
+  /// No description provided for @callPermissionsIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Your agents can call you. To ring like a phone call while NeoAgent is in the background or your phone is locked, it needs these.'**
+  String get callPermissionsIntro;
+
+  /// No description provided for @showOverOtherApps.
+  ///
+  /// In en, this message translates to:
+  /// **'Show over other apps'**
+  String get showOverOtherApps;
+
+  /// No description provided for @showOverOtherAppsDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Brings the call screen up wherever you are.'**
+  String get showOverOtherAppsDetail;
+
+  /// No description provided for @fullScreenCalls.
+  ///
+  /// In en, this message translates to:
+  /// **'Full-screen calls'**
+  String get fullScreenCalls;
+
+  /// No description provided for @fullScreenCallsDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Rings over the lock screen.'**
+  String get fullScreenCallsDetail;
+
+  /// No description provided for @unrestrictedBattery.
+  ///
+  /// In en, this message translates to:
+  /// **'Unrestricted battery'**
+  String get unrestrictedBattery;
+
+  /// No description provided for @unrestrictedBatteryDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Keeps NeoAgent connected so calls arrive.'**
+  String get unrestrictedBatteryDetail;
+
+  /// No description provided for @permissionAllowed.
+  ///
+  /// In en, this message translates to:
+  /// **'Allowed'**
+  String get permissionAllowed;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

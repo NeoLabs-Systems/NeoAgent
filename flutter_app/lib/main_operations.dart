@@ -819,7 +819,8 @@ class _MemoryPanelState extends State<MemoryPanel>
   late final TextEditingController _llmImportController;
   late final TabController _tabController;
   final Set<String> _selectedMemoryIds = <String>{};
-  String? _entityFilter;
+  MemoryEntity? _selectedEntity;
+  List<MemoryItem>? _entityMemories;
   bool _bulkActionInFlight = false;
   bool _llmPromptLoading = false;
   bool _llmImporting = false;
@@ -944,10 +945,8 @@ class _MemoryPanelState extends State<MemoryPanel>
     final base = controller.memoryRecallResults.isNotEmpty
         ? controller.memoryRecallResults
         : controller.memories;
-    if (_entityFilter == null) return base;
-    return base
-        .where((m) => m.entities.any((e) => e.name == _entityFilter))
-        .toList();
+    if (_selectedEntity == null) return base;
+    return _entityMemories ?? const <MemoryItem>[];
   }
 
   List<String> get _selectedVisibleMemoryIds {
@@ -992,7 +991,7 @@ class _MemoryPanelState extends State<MemoryPanel>
   void _resetMemorySearch(NeoAgentController controller) {
     _searchController.clear();
     _clearMemorySelection();
-    setState(() => _entityFilter = null);
+    _selectEntity(null);
     controller.clearMemorySearch();
   }
 
@@ -1002,7 +1001,10 @@ class _MemoryPanelState extends State<MemoryPanel>
   ) async {
     await controller.deleteMemory(id);
     if (!mounted) return;
-    setState(() => _selectedMemoryIds.remove(id));
+    setState(() {
+      _selectedMemoryIds.remove(id);
+      _entityMemories = _entityMemories?.where((m) => m.id != id).toList();
+    });
   }
 
   Future<void> _runBulkMemoryAction({
@@ -1023,7 +1025,12 @@ class _MemoryPanelState extends State<MemoryPanel>
         try {
           await onConfirm(ids);
           if (!mounted) return;
-          setState(() => _selectedMemoryIds.removeAll(ids));
+          setState(() {
+            _selectedMemoryIds.removeAll(ids);
+            _entityMemories = _entityMemories
+                ?.where((m) => !ids.contains(m.id))
+                .toList();
+          });
         } finally {
           if (mounted) setState(() => _bulkActionInFlight = false);
         }
@@ -1031,11 +1038,24 @@ class _MemoryPanelState extends State<MemoryPanel>
     );
   }
 
-  void _onEntityTapped(String entityName) {
+  Future<void> _selectEntity(MemoryEntity? entity) async {
+    _clearMemorySelection();
     setState(() {
-      _entityFilter = _entityFilter == entityName ? null : entityName;
-      _tabController.animateTo(0);
+      _selectedEntity = entity;
+      _entityMemories = null;
     });
+    if (entity == null) return;
+    try {
+      final memories = await widget.controller.fetchEntityMemories(entity.id);
+      if (!mounted || _selectedEntity?.id != entity.id) return;
+      setState(() => _entityMemories = memories);
+    } catch (error) {
+      if (!mounted || _selectedEntity?.id != entity.id) return;
+      setState(() => _entityMemories = const <MemoryItem>[]);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_formatCaughtError(error))),
+      );
+    }
   }
 
   void _openRetrievalInspector(
@@ -1060,8 +1080,6 @@ class _MemoryPanelState extends State<MemoryPanel>
         memoriesToShow.isNotEmpty &&
         memoriesToShow.every((m) => selectedIds.contains(m.id));
     final showingSearchResults = controller.memoryRecallResults.isNotEmpty;
-    final compact = MediaQuery.sizeOf(context).width < 760;
-
     return ListView(
       padding: _pagePadding(context),
       children: <Widget>[
@@ -1142,43 +1160,18 @@ class _MemoryPanelState extends State<MemoryPanel>
         const SizedBox(height: 16),
 
         // --- Entity knowledge graph ---
-        if (controller.memoryOverview.entities.isNotEmpty) ...<Widget>[
+        if (stats.entities > 0) ...<Widget>[
           _EntranceMotion(
             child: Card(
               child: Padding(
                 padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Expanded(child: _SectionTitle(appStrings.knowledgeGraph)),
-                        if (_entityFilter != null)
-                          TextButton.icon(
-                            onPressed: () =>
-                                setState(() => _entityFilter = null),
-                            icon: Icon(Icons.close, size: 16),
-                            label: Text(appStrings.clearFilter),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      appStrings.tapAnEntityToFilterMemories,
-                      style: TextStyle(color: _textSecondary, fontSize: 12),
-                    ),
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      height: compact ? 260 : 320,
-                      child: _EntityGraphView(
-                        entities: controller.memoryOverview.entities,
-                        knowledgeViews:
-                            controller.memoryOverview.knowledgeViews,
-                        selectedEntity: _entityFilter,
-                        onEntityTapped: _onEntityTapped,
-                      ),
-                    ),
-                  ],
+                child: _EntityGraphSection(
+                  controller: controller,
+                  selectedEntity: _selectedEntity,
+                  onEntitySelected: (entity) {
+                    _selectEntity(entity);
+                    if (entity != null) _tabController.animateTo(0);
+                  },
                 ),
               ),
             ),
@@ -1271,7 +1264,7 @@ class _MemoryPanelState extends State<MemoryPanel>
                                     child: Text(appStrings.search),
                                   ),
                                   if (showingSearchResults ||
-                                      _entityFilter != null) ...<Widget>[
+                                      _selectedEntity != null) ...<Widget>[
                                     const SizedBox(width: 10),
                                     OutlinedButton(
                                       onPressed: () =>
@@ -1281,13 +1274,15 @@ class _MemoryPanelState extends State<MemoryPanel>
                                   ],
                                 ],
                               ),
-                              if (_entityFilter != null) ...<Widget>[
+                              if (_selectedEntity != null) ...<Widget>[
                                 const SizedBox(height: 10),
                                 Wrap(
                                   spacing: 8,
                                   children: <Widget>[
                                     _MetaPill(
-                                      label: appStrings.entityArg1(_entityFilter),
+                                      label: appStrings.entityArg1(
+                                        _selectedEntity!.name,
+                                      ),
                                       icon: Icons.filter_alt_outlined,
                                       color: _accent,
                                     ),
@@ -1371,10 +1366,20 @@ class _MemoryPanelState extends State<MemoryPanel>
                                 ),
                               ],
                               const SizedBox(height: 12),
-                              if (memoriesToShow.isEmpty)
+                              if (_selectedEntity != null &&
+                                  _entityMemories == null)
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  child: Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                )
+                              else if (memoriesToShow.isEmpty)
                                 Text(
-                                  _entityFilter != null
-                                      ? appStrings.noMemoriesLinkedToArg1(_entityFilter)
+                                  _selectedEntity != null
+                                      ? appStrings.noMemoriesLinkedToArg1(
+                                          _selectedEntity!.name,
+                                        )
                                       : appStrings.noMemoryEntriesFound,
                                   style: TextStyle(color: _textSecondary),
                                 )
@@ -2103,359 +2108,6 @@ class _MemoryRow extends StatelessWidget {
       ),
     );
   }
-}
-
-// ---------------------------------------------------------------------------
-// Interactive Entity Knowledge Graph
-// ---------------------------------------------------------------------------
-
-class _EntityGraphView extends StatefulWidget {
-  const _EntityGraphView({
-    required this.entities,
-    required this.knowledgeViews,
-    this.selectedEntity,
-    this.onEntityTapped,
-  });
-
-  final List<MemoryEntity> entities;
-  final List<KnowledgeViewItem> knowledgeViews;
-  final String? selectedEntity;
-  final ValueChanged<String>? onEntityTapped;
-
-  @override
-  State<_EntityGraphView> createState() => _EntityGraphViewState();
-}
-
-class _EntityGraphViewState extends State<_EntityGraphView>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _idleController;
-  final List<_GraphNode> _nodes = <_GraphNode>[];
-  String? _hoveredNode;
-  bool _layoutDone = false;
-  Size? _lastLayoutSize;
-
-  @override
-  void initState() {
-    super.initState();
-    _idleController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 6),
-    )..repeat();
-    _buildNodes();
-  }
-
-  @override
-  void didUpdateWidget(_EntityGraphView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.entities != widget.entities ||
-        oldWidget.knowledgeViews != widget.knowledgeViews) {
-      _buildNodes();
-    }
-  }
-
-  @override
-  void dispose() {
-    _idleController.dispose();
-    super.dispose();
-  }
-
-  static const Map<String, Color> _kindColors = <String, Color>{
-    'person': Color(0xFF9B8AE0),
-    'project': Color(0xFF5E9B7C),
-    'file': Color(0xFF7BA5C7),
-    'concept': Color(0xFFB8A06B),
-    'tool': Color(0xFFCF8F6B),
-    'organization': Color(0xFF7DA0B5),
-  };
-
-  void _buildNodes() {
-    _nodes.clear();
-    final entities = widget.entities;
-    final views = widget.knowledgeViews;
-    final maxMention = entities.fold<int>(
-      1,
-      (max, e) => e.mentionCount > max ? e.mentionCount : max,
-    );
-
-    for (int i = 0; i < entities.length; i++) {
-      final entity = entities[i];
-      final sizeFactor = 0.4 + 0.6 * (entity.mentionCount / maxMention);
-      _nodes.add(
-        _GraphNode(
-          id: entity.name,
-          label: entity.name,
-          radius: 18 + 20 * sizeFactor,
-          color: _kindColors[entity.kind] ?? _kindColors['concept']!,
-          kind: entity.kind,
-          isReflection: false,
-          offsetPhase: i * 0.7,
-        ),
-      );
-    }
-
-    for (int i = 0; i < views.length && i < 6; i++) {
-      _nodes.add(
-        _GraphNode(
-          id: 'kv_${views[i].title}',
-          label: views[i].title,
-          radius: 14,
-          color: const Color(0xFF8B7EC8),
-          kind: views[i].viewType,
-          isReflection: true,
-          offsetPhase: (entities.length + i) * 0.9,
-        ),
-      );
-    }
-
-    _layoutDone = false;
-  }
-
-  void _layoutNodes(Size size) {
-    if (_nodes.isEmpty) return;
-    if (_layoutDone && _lastLayoutSize == size) return;
-    _layoutDone = true;
-    _lastLayoutSize = size;
-
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-    final radiusX = size.width * 0.35;
-    final radiusY = size.height * 0.35;
-
-    for (int i = 0; i < _nodes.length; i++) {
-      final angle = (2 * math.pi * i / _nodes.length) - math.pi / 2;
-      final jitter = (i.isEven ? 0.85 : 1.0) + (i % 3) * 0.05;
-      _nodes[i].x = cx + radiusX * jitter * math.cos(angle);
-      _nodes[i].y = cy + radiusY * jitter * math.sin(angle);
-    }
-  }
-
-  void _handleTap(Offset localPosition) {
-    for (final node in _nodes.reversed) {
-      final dx = localPosition.dx - node.x;
-      final dy = localPosition.dy - node.y;
-      if (dx * dx + dy * dy <= node.radius * node.radius * 1.8) {
-        if (!node.isReflection) {
-          widget.onEntityTapped?.call(node.label);
-        }
-        return;
-      }
-    }
-  }
-
-  void _handleHover(Offset? localPosition) {
-    if (localPosition == null) {
-      if (_hoveredNode != null) setState(() => _hoveredNode = null);
-      return;
-    }
-    String? found;
-    for (final node in _nodes.reversed) {
-      final dx = localPosition.dx - node.x;
-      final dy = localPosition.dy - node.y;
-      if (dx * dx + dy * dy <= node.radius * node.radius * 1.8) {
-        found = node.id;
-        break;
-      }
-    }
-    if (found != _hoveredNode) setState(() => _hoveredNode = found);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final size = Size(constraints.maxWidth, constraints.maxHeight);
-        _layoutNodes(size);
-        return MouseRegion(
-          onHover: (event) => _handleHover(event.localPosition),
-          onExit: (_) => _handleHover(null),
-          child: GestureDetector(
-            onTapDown: (details) => _handleTap(details.localPosition),
-            child: AnimatedBuilder(
-              animation: _idleController,
-              builder: (context, _) {
-                return CustomPaint(
-                  size: size,
-                  painter: _EntityGraphPainter(
-                    nodes: _nodes,
-                    selectedEntity: widget.selectedEntity,
-                    hoveredNode: _hoveredNode,
-                    animationValue: _idleController.value,
-                    accentColor: _accent,
-                    bgColor: _bgSecondary,
-                    textColor: _textPrimary,
-                    mutedTextColor: _textSecondary,
-                    borderColor: _border,
-                  ),
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _GraphNode {
-  _GraphNode({
-    required this.id,
-    required this.label,
-    required this.radius,
-    required this.color,
-    required this.kind,
-    required this.isReflection,
-    required this.offsetPhase,
-  });
-
-  final String id;
-  final String label;
-  final double radius;
-  final Color color;
-  final String kind;
-  final bool isReflection;
-  final double offsetPhase;
-  double x = 0;
-  double y = 0;
-}
-
-class _EntityGraphPainter extends CustomPainter {
-  const _EntityGraphPainter({
-    required this.nodes,
-    required this.selectedEntity,
-    required this.hoveredNode,
-    required this.animationValue,
-    required this.accentColor,
-    required this.bgColor,
-    required this.textColor,
-    required this.mutedTextColor,
-    required this.borderColor,
-  });
-
-  final List<_GraphNode> nodes;
-  final String? selectedEntity;
-  final String? hoveredNode;
-  final double animationValue;
-  final Color accentColor;
-  final Color bgColor;
-  final Color textColor;
-  final Color mutedTextColor;
-  final Color borderColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (nodes.isEmpty) return;
-
-    final entityNodes = nodes
-        .where((n) => !n.isReflection)
-        .toList(growable: false);
-    final reflectionNodes = nodes
-        .where((n) => n.isReflection)
-        .toList(growable: false);
-
-    // Draw connections between entity nodes (subtle web)
-    final linePaint = Paint()
-      ..color = borderColor.withValues(alpha: 0.18)
-      ..strokeWidth = 1;
-    for (int i = 0; i < entityNodes.length; i++) {
-      for (int j = i + 1; j < entityNodes.length; j++) {
-        if ((i + j) % 3 != 0) continue;
-        final a = entityNodes[i];
-        final b = entityNodes[j];
-        final drift = math.sin(animationValue * 2 * math.pi + a.offsetPhase);
-        canvas.drawLine(
-          Offset(a.x, a.y + drift * 2),
-          Offset(b.x, b.y + drift * 2),
-          linePaint,
-        );
-      }
-    }
-
-    // Draw connections from reflections to closest entity
-    if (entityNodes.isNotEmpty) {
-      final reflectionLinePaint = Paint()
-        ..color = borderColor.withValues(alpha: 0.14)
-        ..strokeWidth = 1
-        ..style = PaintingStyle.stroke;
-      for (final rn in reflectionNodes) {
-        final drift =
-            math.sin(animationValue * 2 * math.pi + rn.offsetPhase) * 3;
-        var closest = entityNodes.first;
-        var minDist = double.infinity;
-        for (final en in entityNodes) {
-          final d =
-              (en.x - rn.x) * (en.x - rn.x) + (en.y - rn.y) * (en.y - rn.y);
-          if (d < minDist) {
-            minDist = d;
-            closest = en;
-          }
-        }
-        canvas.drawLine(
-          Offset(rn.x, rn.y + drift),
-          Offset(closest.x, closest.y + drift),
-          reflectionLinePaint,
-        );
-      }
-    }
-
-    // Draw nodes
-    for (final node in nodes) {
-      final drift =
-          math.sin(animationValue * 2 * math.pi + node.offsetPhase) * 3;
-      final isSelected = node.label == selectedEntity;
-      final isHovered = node.id == hoveredNode;
-      final cx = node.x;
-      final cy = node.y + drift;
-      final r = node.radius * (isHovered ? 1.15 : 1.0);
-
-      // Glow
-      if (isSelected || isHovered) {
-        final glowPaint = Paint()
-          ..color = (isSelected ? accentColor : node.color).withValues(
-            alpha: 0.22,
-          )
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
-        canvas.drawCircle(Offset(cx, cy), r + 6, glowPaint);
-      }
-
-      // Fill
-      final fillPaint = Paint()
-        ..shader = RadialGradient(
-          colors: <Color>[
-            node.color.withValues(alpha: isSelected ? 0.9 : 0.7),
-            node.color.withValues(alpha: isSelected ? 0.6 : 0.35),
-          ],
-        ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: r));
-      canvas.drawCircle(Offset(cx, cy), r, fillPaint);
-
-      // Border
-      final borderPaint = Paint()
-        ..color = isSelected
-            ? accentColor
-            : (isHovered
-                  ? node.color.withValues(alpha: 0.8)
-                  : node.color.withValues(alpha: 0.35))
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = isSelected ? 2.5 : 1.5;
-      canvas.drawCircle(Offset(cx, cy), r, borderPaint);
-
-      // Label
-      final labelStyle = TextStyle(
-        color: isSelected ? textColor : mutedTextColor,
-        fontSize: node.isReflection ? 9 : 11,
-        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-      );
-      final tp = TextPainter(
-        text: TextSpan(text: node.label, style: labelStyle),
-        textDirection: TextDirection.ltr,
-        maxLines: 1,
-        ellipsis: '…',
-      )..layout(maxWidth: r * 3);
-      tp.paint(canvas, Offset(cx - tp.width / 2, cy + r + 5));
-    }
-  }
-
-  @override
-  bool shouldRepaint(_EntityGraphPainter oldDelegate) => true;
 }
 
 String _manualRunButtonLabel(String label, int remainingSeconds) {

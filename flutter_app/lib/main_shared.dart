@@ -75,7 +75,7 @@ EdgeInsets _pagePadding(BuildContext context) {
 
 final ValueNotifier<bool> _partyModeEnabled = ValueNotifier<bool>(false);
 
-/// Flat page backdrop for auth, setup, launcher, and cowork.
+/// Flat page backdrop for auth, setup, and launcher.
 class _ControlSurfaceBackdrop extends StatelessWidget {
   const _ControlSurfaceBackdrop({required this.child});
 
@@ -3831,4 +3831,28 @@ String _truncateRunText(String value, {int maxLength = 1400}) {
 
 extension on String {
   String ifEmpty(String fallback) => trim().isEmpty ? fallback : this;
+}
+
+String _relativeTime(DateTime time) {
+  final now = DateTime.now();
+  final difference = now.difference(time);
+  if (difference.inSeconds < 45) return appStrings.justNow;
+  if (difference.inMinutes < 60) return appStrings.arg1MAgo(difference.inMinutes);
+  if (difference.inHours < 24 && now.day == time.day) {
+    return appStrings.arg1HAgo(difference.inHours);
+  }
+  final yesterday = now.subtract(const Duration(days: 1));
+  if (time.year == yesterday.year &&
+      time.month == yesterday.month &&
+      time.day == yesterday.day) {
+    return appStrings.yesterday;
+  }
+  final months = <String>[
+    appStrings.monthJan, appStrings.monthFeb, appStrings.monthMar,
+    appStrings.monthApr, appStrings.monthMay, appStrings.monthJun,
+    appStrings.monthJul, appStrings.monthAug, appStrings.monthSep,
+    appStrings.monthOct, appStrings.monthNov, appStrings.monthDec,
+  ];
+  final date = appStrings.arg1Arg23(months[time.month - 1], time.day);
+  return time.year == now.year ? date : appStrings.arg1Arg23(date, time.year);
 }

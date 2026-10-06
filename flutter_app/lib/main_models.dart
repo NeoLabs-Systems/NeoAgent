@@ -3391,8 +3391,6 @@ class MemoryOverview {
     this.apiKeys = const <String, String>{},
     this.coreEntries = const <String, dynamic>{},
     this.stats = const MemoryStats(),
-    this.entities = const <MemoryEntity>[],
-    this.knowledgeViews = const <KnowledgeViewItem>[],
     this.recentKnowledgeChanges = const <KnowledgeChangeItem>[],
   });
 
@@ -3414,12 +3412,6 @@ class MemoryOverview {
           ? Map<String, dynamic>.from(coreRaw)
           : const <String, dynamic>{},
       stats: MemoryStats.fromJson(_jsonMap(json['stats'])),
-      entities: _jsonMapList(
-        json['entities'],
-      ).map(MemoryEntity.fromJson).toList(),
-      knowledgeViews: _jsonMapList(
-        json['knowledgeViews'],
-      ).map(KnowledgeViewItem.fromJson).toList(),
       recentKnowledgeChanges: _jsonMapList(
         json['recentKnowledgeChanges'],
       ).map(KnowledgeChangeItem.fromJson).toList(),
@@ -3431,8 +3423,6 @@ class MemoryOverview {
   final Map<String, String> apiKeys;
   final Map<String, dynamic> coreEntries;
   final MemoryStats stats;
-  final List<MemoryEntity> entities;
-  final List<KnowledgeViewItem> knowledgeViews;
   final List<KnowledgeChangeItem> recentKnowledgeChanges;
 
   int get behaviorNotesLength => assistantBehaviorNotes.length;
@@ -3486,6 +3476,7 @@ class MemoryEntity {
     required this.name,
     required this.kind,
     required this.mentionCount,
+    this.lastSeenAt,
   });
 
   factory MemoryEntity.fromJson(Map<dynamic, dynamic> json) {
@@ -3495,6 +3486,7 @@ class MemoryEntity {
       name: json['name']?.toString() ?? '',
       kind: json['kind']?.toString().ifEmpty('concept') ?? 'concept',
       mentionCount: _asInt(json['mentionCount']),
+      lastSeenAt: _parseOptionalTimestamp(json['lastSeenAt']?.toString()),
     );
   }
 
@@ -3503,28 +3495,44 @@ class MemoryEntity {
   final String name;
   final String kind;
   final int mentionCount;
+  final DateTime? lastSeenAt;
 }
 
-class KnowledgeViewItem {
-  const KnowledgeViewItem({
-    required this.title,
-    required this.viewType,
-    required this.summary,
+class MemoryGraphEdge {
+  const MemoryGraphEdge({
+    required this.source,
+    required this.target,
+    required this.weight,
   });
 
-  factory KnowledgeViewItem.fromJson(Map<dynamic, dynamic> json) {
-    return KnowledgeViewItem(
-      title:
-          json['title']?.toString().ifEmpty(appStrings.knowledgeView) ??
-          appStrings.knowledgeView,
-      viewType: json['viewType']?.toString().ifEmpty('view') ?? 'view',
-      summary: json['summary']?.toString() ?? '',
+  factory MemoryGraphEdge.fromJson(Map<dynamic, dynamic> json) {
+    return MemoryGraphEdge(
+      source: json['source']?.toString() ?? '',
+      target: json['target']?.toString() ?? '',
+      weight: _asInt(json['weight']),
     );
   }
 
-  final String title;
-  final String viewType;
-  final String summary;
+  final String source;
+  final String target;
+  final int weight;
+}
+
+class MemoryGraph {
+  const MemoryGraph({
+    this.nodes = const <MemoryEntity>[],
+    this.edges = const <MemoryGraphEdge>[],
+  });
+
+  factory MemoryGraph.fromJson(Map<dynamic, dynamic> json) {
+    return MemoryGraph(
+      nodes: _jsonMapList(json['nodes']).map(MemoryEntity.fromJson).toList(),
+      edges: _jsonMapList(json['edges']).map(MemoryGraphEdge.fromJson).toList(),
+    );
+  }
+
+  final List<MemoryEntity> nodes;
+  final List<MemoryGraphEdge> edges;
 }
 
 class KnowledgeChangeItem {
@@ -4498,458 +4506,6 @@ class AccountUsageAndLimits {
 
   bool get hasLimits => fourHourLimit != null || weeklyLimit != null;
   bool get isReached => fourHourReached || weeklyReached;
-}
-
-enum CoworkInteractionMode { agent, plan }
-
-class CoworkDeviceSelection {
-  const CoworkDeviceSelection({
-    required this.effective,
-    required this.setting,
-    required this.inherited,
-    required this.available,
-    required this.localAvailable,
-    required this.localConnected,
-    required this.cloudAvailable,
-    this.override,
-  });
-
-  factory CoworkDeviceSelection.fromJson(Map<String, dynamic> json) {
-    final providers = _jsonMap(json['providers']);
-    final local = _jsonMap(providers['local']);
-    final cloud = _jsonMap(providers['cloud']);
-    return CoworkDeviceSelection(
-      effective: json['effective']?.toString() == 'local' ? 'local' : 'cloud',
-      setting: json['setting']?.toString() == 'local' ? 'local' : 'cloud',
-      inherited: json['inherited'] != false,
-      available: json['available'] != false,
-      localAvailable: local['available'] == true,
-      localConnected: local['connected'] == true,
-      cloudAvailable: cloud['available'] != false,
-      override: json['override']?.toString(),
-    );
-  }
-
-  final String effective;
-  final String setting;
-  final String? override;
-  final bool inherited;
-  final bool available;
-  final bool localAvailable;
-  final bool localConnected;
-  final bool cloudAvailable;
-}
-
-class CoworkChat {
-  const CoworkChat({
-    required this.id,
-    required this.title,
-    required this.agentId,
-    required this.agentName,
-    required this.mode,
-    required this.device,
-    this.workspacePathOverride,
-    this.modelOverride,
-    required this.manuallyTitled,
-    required this.createdAt,
-    required this.updatedAt,
-    required this.messageCount,
-    required this.pendingInputCount,
-    this.latestRun,
-  });
-
-  factory CoworkChat.fromJson(Map<String, dynamic> json) {
-    return CoworkChat(
-      id: json['id']?.toString() ?? '',
-      title: json['title']?.toString().ifEmpty(appStrings.newChat) ?? appStrings.newChat,
-      agentId: json['agentId']?.toString() ?? '',
-      agentName: json['agentName']?.toString().ifEmpty(appStrings.main) ?? appStrings.main,
-      mode: json['mode']?.toString() == 'plan'
-          ? CoworkInteractionMode.plan
-          : CoworkInteractionMode.agent,
-      device: CoworkDeviceSelection.fromJson(_jsonMap(json['device'])),
-      workspacePathOverride:
-          (json['workspacePathOverride']?.toString().trim().isNotEmpty ?? false)
-          ? json['workspacePathOverride'].toString().trim()
-          : null,
-      modelOverride:
-          (json['modelOverride']?.toString().trim().isNotEmpty ?? false)
-          ? json['modelOverride'].toString().trim()
-          : null,
-      manuallyTitled: json['manuallyTitled'] == true,
-      createdAt: _parseTimestamp(json['createdAt']?.toString()),
-      updatedAt: _parseTimestamp(json['updatedAt']?.toString()),
-      messageCount: _asInt(json['messageCount']),
-      pendingInputCount: _asInt(json['pendingInputCount']),
-      latestRun: json['latestRun'] is Map
-          ? CoworkRunSummary.fromJson(_jsonMap(json['latestRun']))
-          : null,
-    );
-  }
-
-  final String id;
-  final String title;
-  final String agentId;
-  final String agentName;
-  final CoworkInteractionMode mode;
-  final CoworkDeviceSelection device;
-  final String? workspacePathOverride;
-  final String? modelOverride;
-  final bool manuallyTitled;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final int messageCount;
-  final int pendingInputCount;
-  final CoworkRunSummary? latestRun;
-
-  bool get isLocal => device.effective == 'local';
-
-  /// Folder shown in the UI: the last path segment of the override, or the
-  /// default workspace name.
-  String get workspaceLabel {
-    final override = workspacePathOverride;
-    if (override == null) return appStrings.neoagentWorkspace;
-    final segments = override
-        .replaceAll('\\', '/')
-        .split('/')
-        .where((segment) => segment.isNotEmpty)
-        .toList(growable: false);
-    return segments.isEmpty ? override : segments.last;
-  }
-}
-
-class CoworkRunSummary {
-  const CoworkRunSummary({
-    required this.id,
-    required this.status,
-    required this.title,
-    required this.mode,
-    required this.deviceTarget,
-    this.model,
-    this.totalTokens = 0,
-  });
-
-  factory CoworkRunSummary.fromJson(Map<String, dynamic> json) {
-    return CoworkRunSummary(
-      id: json['id']?.toString() ?? '',
-      status: json['status']?.toString() ?? 'pending',
-      title: json['title']?.toString() ?? '',
-      mode: json['mode']?.toString() == 'plan'
-          ? CoworkInteractionMode.plan
-          : CoworkInteractionMode.agent,
-      deviceTarget: json['deviceTarget']?.toString(),
-      model: (json['model']?.toString().trim().isNotEmpty ?? false)
-          ? json['model'].toString().trim()
-          : null,
-      totalTokens: _asInt(json['totalTokens']),
-    );
-  }
-
-  final String id;
-  final String status;
-  final String title;
-  final CoworkInteractionMode mode;
-  final String? deviceTarget;
-  final String? model;
-  final int totalTokens;
-
-  bool get isLive => <String>{
-    'pending',
-    'running',
-    'pausing',
-    'paused',
-    'resuming',
-  }.contains(status);
-}
-
-class CoworkActivityItem {
-  const CoworkActivityItem({
-    required this.id,
-    required this.runId,
-    required this.kind,
-    required this.label,
-    required this.status,
-    required this.summary,
-    required this.createdAt,
-    this.durationMs,
-    this.toolArgs = const <String, dynamic>{},
-    this.detail = '',
-    this.screenshotPath,
-  });
-
-  static const Set<String> writeTools = <String>{
-    'write_file',
-    'edit_file',
-    'replace_file_range',
-  };
-  static const Set<String> readTools = <String>{
-    'read_file',
-    'read_files',
-    'read_artifact',
-    'list_directory',
-    'search_files',
-    'code_navigate',
-  };
-
-  final String id;
-  final String runId;
-
-  /// Step type from the server (tool, verification, subagent, steering).
-  final String kind;
-
-  /// Tool name for tool steps, otherwise a display label.
-  final String label;
-  final String status;
-  final String summary;
-  final DateTime createdAt;
-  final int? durationMs;
-  final Map<String, dynamic> toolArgs;
-
-  /// Long-form output (command stdout, error text) shown when expanded.
-  final String detail;
-  final String? screenshotPath;
-
-  bool get isRunning => status == 'running';
-  bool get isFailed => status == 'failed';
-  bool get isWriteTool => writeTools.contains(label);
-  bool get isReadTool => readTools.contains(label);
-  bool get isCommand => label == 'execute_command';
-  bool get isDesktopTool => label.startsWith('desktop_');
-  bool get isBrowserTool => label.startsWith('browser_');
-
-  /// Workspace path targeted by a file tool, if any.
-  String? get filePath {
-    final raw = toolArgs['path'] ?? toolArgs['file_path'];
-    final path = raw?.toString().trim() ?? '';
-    return path.isEmpty ? null : path;
-  }
-
-  CoworkActivityItem copyWith({
-    String? status,
-    String? summary,
-    int? durationMs,
-    Map<String, dynamic>? toolArgs,
-    String? detail,
-    String? screenshotPath,
-  }) {
-    return CoworkActivityItem(
-      id: id,
-      runId: runId,
-      kind: kind,
-      label: label,
-      status: status ?? this.status,
-      summary: summary ?? this.summary,
-      createdAt: createdAt,
-      durationMs: durationMs ?? this.durationMs,
-      toolArgs: toolArgs ?? this.toolArgs,
-      detail: detail ?? this.detail,
-      screenshotPath: screenshotPath ?? this.screenshotPath,
-    );
-  }
-}
-
-class CoworkChangedFile {
-  const CoworkChangedFile({
-    required this.path,
-    required this.action,
-    required this.edits,
-    required this.runId,
-    required this.changedAt,
-  });
-
-  factory CoworkChangedFile.fromJson(Map<String, dynamic> json) {
-    return CoworkChangedFile(
-      path: json['path']?.toString() ?? '',
-      action: json['action']?.toString() == 'written' ? 'written' : 'edited',
-      edits: _asInt(json['edits']),
-      runId: json['runId']?.toString() ?? '',
-      changedAt: _parseTimestamp(json['changedAt']?.toString()),
-    );
-  }
-
-  final String path;
-  final String action;
-  final int edits;
-  final String runId;
-  final DateTime changedAt;
-
-  String get name =>
-      path.split('/').where((part) => part.isNotEmpty).lastOrNull ?? path;
-  String get directory {
-    final index = path.lastIndexOf('/');
-    return index <= 0 ? '' : path.substring(0, index);
-  }
-}
-
-class CoworkWorkspaceEntry {
-  const CoworkWorkspaceEntry({
-    required this.name,
-    required this.path,
-    required this.isDirectory,
-    this.sizeBytes,
-  });
-
-  factory CoworkWorkspaceEntry.fromJson(Map<String, dynamic> json) {
-    return CoworkWorkspaceEntry(
-      name: json['name']?.toString() ?? '',
-      path: json['path']?.toString() ?? '',
-      isDirectory: json['type']?.toString() == 'directory',
-      sizeBytes: json['size'] is num ? (json['size'] as num).toInt() : null,
-    );
-  }
-
-  final String name;
-  final String path;
-  final bool isDirectory;
-  final int? sizeBytes;
-}
-
-class CoworkInputOption {
-  const CoworkInputOption({
-    required this.label,
-    required this.description,
-    required this.recommended,
-  });
-
-  factory CoworkInputOption.fromJson(Map<String, dynamic> json) {
-    return CoworkInputOption(
-      label: json['label']?.toString() ?? '',
-      description: json['description']?.toString() ?? '',
-      recommended: json['recommended'] == true,
-    );
-  }
-
-  final String label;
-  final String description;
-  final bool recommended;
-}
-
-class CoworkInputQuestion {
-  const CoworkInputQuestion({
-    required this.id,
-    required this.header,
-    required this.question,
-    required this.options,
-    required this.allowCustom,
-  });
-
-  factory CoworkInputQuestion.fromJson(Map<String, dynamic> json) {
-    return CoworkInputQuestion(
-      id: json['id']?.toString() ?? '',
-      header: json['header']?.toString() ?? 'Question',
-      question: json['question']?.toString() ?? '',
-      options: _jsonMapList(
-        json['options'],
-        fallbackToMapValues: true,
-      ).map(CoworkInputOption.fromJson).toList(growable: false),
-      allowCustom: json['allowCustom'] != false,
-    );
-  }
-
-  final String id;
-  final String header;
-  final String question;
-  final List<CoworkInputOption> options;
-  final bool allowCustom;
-}
-
-class CoworkInputRequest {
-  const CoworkInputRequest({
-    required this.id,
-    required this.runId,
-    required this.status,
-    required this.questions,
-  });
-
-  factory CoworkInputRequest.fromJson(Map<String, dynamic> json) {
-    final schema = _jsonMap(json['schema']);
-    return CoworkInputRequest(
-      id: json['id']?.toString() ?? '',
-      runId: json['runId']?.toString() ?? '',
-      status: json['status']?.toString() ?? 'pending',
-      questions: _jsonMapList(
-        schema['questions'],
-        fallbackToMapValues: true,
-      ).map(CoworkInputQuestion.fromJson).toList(growable: false),
-    );
-  }
-
-  final String id;
-  final String runId;
-  final String status;
-  final List<CoworkInputQuestion> questions;
-
-  bool get isPending => status == 'pending';
-}
-
-class CoworkThreadState {
-  const CoworkThreadState({
-    this.messages = const <ChatEntry>[],
-    this.activity = const <CoworkActivityItem>[],
-    this.inputRequests = const <CoworkInputRequest>[],
-    this.changes = const <CoworkChangedFile>[],
-    this.streamingContent = '',
-    this.phase = '',
-    this.activeRunId,
-    this.runStatus,
-    this.runStartedAt,
-    this.loading = false,
-    this.sending = false,
-  });
-
-  final List<ChatEntry> messages;
-  final List<CoworkActivityItem> activity;
-  final List<CoworkInputRequest> inputRequests;
-  final List<CoworkChangedFile> changes;
-  final DateTime? runStartedAt;
-  final String streamingContent;
-  final String phase;
-  final String? activeRunId;
-  final String? runStatus;
-  final bool loading;
-  final bool sending;
-
-  bool get hasLiveRun =>
-      activeRunId != null &&
-      <String>{
-        'pending',
-        'running',
-        'pausing',
-        'paused',
-        'resuming',
-      }.contains(runStatus);
-
-  List<CoworkActivityItem> activityForRun(String runId) =>
-      activity.where((item) => item.runId == runId).toList(growable: false);
-
-  CoworkThreadState copyWith({
-    List<ChatEntry>? messages,
-    List<CoworkActivityItem>? activity,
-    List<CoworkInputRequest>? inputRequests,
-    List<CoworkChangedFile>? changes,
-    String? streamingContent,
-    String? phase,
-    String? activeRunId,
-    bool clearActiveRunId = false,
-    String? runStatus,
-    DateTime? runStartedAt,
-    bool? loading,
-    bool? sending,
-  }) {
-    return CoworkThreadState(
-      messages: messages ?? this.messages,
-      activity: activity ?? this.activity,
-      inputRequests: inputRequests ?? this.inputRequests,
-      changes: changes ?? this.changes,
-      streamingContent: streamingContent ?? this.streamingContent,
-      phase: phase ?? this.phase,
-      activeRunId: clearActiveRunId ? null : activeRunId ?? this.activeRunId,
-      runStatus: runStatus ?? this.runStatus,
-      runStartedAt: clearActiveRunId ? null : runStartedAt ?? this.runStartedAt,
-      loading: loading ?? this.loading,
-      sending: sending ?? this.sending,
-    );
-  }
 }
 
 // ── Delegated access (who manages whom) ─────────────────────────────────────

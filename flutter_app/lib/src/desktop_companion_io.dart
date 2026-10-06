@@ -110,7 +110,7 @@ class DesktopCompanionManager extends ChangeNotifier {
 
   Future<void> bootstrap(SharedPreferences prefs) async {
     // This machine is the local device. Keep the companion on whenever the
-    // desktop app is running so Cowork never needs a manual Connect press.
+    // desktop app is running so the local computer never needs a manual Connect press.
     _enabled = supported;
     if (supported) {
       await prefs.setBool(desktopCompanionEnabledPrefsKey, true);

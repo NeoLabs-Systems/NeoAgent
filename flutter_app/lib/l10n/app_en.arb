@@ -5299,7 +5299,6 @@
   "systemPrivacySettings": "System privacy settings",
   "tableInfoUsers": "Table info (users)",
   "tagsOnly": "Tags only",
-  "tapAnEntityToFilterMemories": "Tap an entity to filter memories by it.",
   "task": "TASK",
   "tasks": "Tasks",
   "tasksRunOnAScheduleOr": "Tasks run on a schedule or when something happens, then ",
@@ -6938,5 +6937,63 @@
         "type": "int"
       }
     }
-  }
+  },
+  "settingsAdvancedModels": "Advanced model settings",
+  "settingsAdvancedModelsDescription": "Optional. Pin a model to one kind of work; it takes over whenever the agent uses those tools. Anything left on default follows the chat model.",
+  "settingsTaskModelDefault": "Default",
+  "settingsTaskModelDefaultSubtitle": "Follows the chat model",
+  "settingsTaskModelCoding": "Coding",
+  "settingsTaskModelCodingDescription": "Writing, editing and debugging code.",
+  "settingsTaskModelComputerUse": "Computer use",
+  "settingsTaskModelComputerUseDescription": "Driving the browser and desktop.",
+  "settingsTaskModelAndroidUse": "Android use",
+  "settingsTaskModelAndroidUseDescription": "Operating apps on an Android device or emulator.",
+  "settingsTaskModelResearch": "Research",
+  "settingsTaskModelResearchDescription": "Searching, reading and summarizing sources.",
+  "knowledgeGraphHint": "Your most-mentioned entities, colored by cluster. Lines connect entities that appear in the same memories. Tap one to see its links and memories; drag to pan, pinch or Ctrl/⌘-scroll to zoom.",
+  "linkedEntities": "Linked entities",
+  "noLinkedEntities": "Not linked to other entities yet.",
+  "mentionsArg1": "{arg1} mentions",
+  "@mentionsArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "int"
+      }
+    }
+  },
+  "entityKindConcept": "Concept",
+  "entityKindDomain": "Domain",
+  "entityKindEmail": "Email",
+  "entityKindLink": "Link",
+  "entityKindFile": "File",
+  "entityKindAcronym": "Acronym",
+  "entityKindIdentifier": "Identifier",
+  "entityKindVersion": "Version",
+  "openFullscreen": "Open fullscreen",
+  "zoomIn": "Zoom in",
+  "zoomOut": "Zoom out",
+  "searchEntities": "Find an entity",
+  "incomingCall": "Incoming call",
+  "answerCall": "Answer",
+  "callMeLater": "Call me later",
+  "callingEllipsis": "Calling…",
+  "reconnectingCall": "Reconnecting",
+  "agentWorking": "Working",
+  "micMuted": "Muted",
+  "speakerphone": "Speaker",
+  "muteMic": "Mute",
+  "unmuteMic": "Unmute",
+  "releaseToSend": "Release to send",
+  "callEnded": "Call ended",
+  "openConversation": "Open conversation",
+  "callBack": "Call back",
+  "letCallsReachYou": "Let calls reach you",
+  "callPermissionsIntro": "Your agents can call you. To ring like a phone call while NeoAgent is in the background or your phone is locked, it needs these.",
+  "showOverOtherApps": "Show over other apps",
+  "showOverOtherAppsDetail": "Brings the call screen up wherever you are.",
+  "fullScreenCalls": "Full-screen calls",
+  "fullScreenCallsDetail": "Rings over the lock screen.",
+  "unrestrictedBattery": "Unrestricted battery",
+  "unrestrictedBatteryDetail": "Keeps NeoAgent connected so calls arrive.",
+  "permissionAllowed": "Allowed"
 }

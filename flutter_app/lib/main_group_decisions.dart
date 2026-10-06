@@ -255,7 +255,7 @@ class _GroupDecisionTile extends StatelessWidget {
               Tooltip(
                 message: entry.at.toString(),
                 child: Text(
-                  _coworkRelativeTime(entry.at),
+                  _relativeTime(entry.at),
                   style: TextStyle(color: _textMuted, fontSize: 12),
                 ),
               ),

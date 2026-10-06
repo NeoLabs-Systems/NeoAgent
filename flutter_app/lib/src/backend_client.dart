@@ -1153,74 +1153,6 @@ class BackendClient {
     );
   }
 
-  Future<Map<String, dynamic>> fetchCoworkCapabilities(String baseUrl) {
-    return getMap(baseUrl, '/api/cowork/capabilities');
-  }
-
-  Future<Map<String, dynamic>> fetchCoworkChats(String baseUrl) {
-    return getMap(baseUrl, '/api/cowork/chats');
-  }
-
-  Future<Map<String, dynamic>> fetchCoworkChat(
-    String baseUrl,
-    String conversationId,
-  ) {
-    return getMap(
-      baseUrl,
-      '/api/cowork/chats/${Uri.encodeComponent(conversationId)}',
-    );
-  }
-
-  Future<Map<String, dynamic>> fetchCoworkChanges(
-    String baseUrl,
-    String conversationId,
-  ) {
-    return getMap(
-      baseUrl,
-      '/api/cowork/chats/${Uri.encodeComponent(conversationId)}/changes',
-    );
-  }
-
-  Future<Map<String, dynamic>> createCoworkChat(
-    String baseUrl,
-    Map<String, dynamic> payload,
-  ) {
-    return postMap(baseUrl, '/api/cowork/chats', payload);
-  }
-
-  Future<Map<String, dynamic>> updateCoworkChat(
-    String baseUrl,
-    String conversationId,
-    Map<String, dynamic> payload,
-  ) {
-    return patchMap(
-      baseUrl,
-      '/api/cowork/chats/${Uri.encodeComponent(conversationId)}',
-      payload,
-    );
-  }
-
-  Future<void> deleteCoworkChat(String baseUrl, String conversationId) async {
-    await deleteMap(
-      baseUrl,
-      '/api/cowork/chats/${Uri.encodeComponent(conversationId)}',
-    );
-  }
-
-  Future<Map<String, dynamic>> answerCoworkInput(
-    String baseUrl, {
-    required String conversationId,
-    required String requestId,
-    required Map<String, String> answers,
-  }) {
-    return postMap(
-      baseUrl,
-      '/api/cowork/chats/${Uri.encodeComponent(conversationId)}' +
-      '/input-requests/${Uri.encodeComponent(requestId)}/answer',
-      <String, dynamic>{'answers': answers},
-    );
-  }
-
   Future<Map<String, dynamic>> pauseAgentRun(String baseUrl, String runId) {
     return _postEmpty(
       baseUrl,
@@ -2048,6 +1980,31 @@ class BackendClient {
     String? agentId,
   }) async {
     return getMap(baseUrl, _withAgentQuery('/api/memory', agentId));
+  }
+
+  Future<Map<String, dynamic>> fetchMemoryGraph(
+    String baseUrl, {
+    required int limit,
+    String? agentId,
+  }) async {
+    return getMap(
+      baseUrl,
+      _withAgentQuery('/api/memory/graph?limit=$limit', agentId),
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> fetchEntityMemories(
+    String baseUrl,
+    String entityId, {
+    String? agentId,
+  }) async {
+    return getList(
+      baseUrl,
+      _withAgentQuery(
+        '/api/memory/entities/${Uri.encodeComponent(entityId)}/memories',
+        agentId,
+      ),
+    );
   }
 
   Future<Map<String, dynamic>> fetchMemoryTransferPrompt(

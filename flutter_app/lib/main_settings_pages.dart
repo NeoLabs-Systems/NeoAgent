@@ -80,13 +80,6 @@ class _ModelsSettingsPage extends StatelessWidget {
               value: controller.defaultChatModel,
               settingKey: 'default_chat_model',
             ),
-            modelRow(
-              anchor: 'subAgentModel',
-              label: appStrings.settingsSubAgentModel,
-              description: appStrings.settingsSubAgentModelDescription,
-              value: controller.defaultSubagentModel,
-              settingKey: 'default_subagent_model',
-            ),
             _SettingsRow(
               anchor: 'systemOne',
               label: appStrings.systemOneModels,
@@ -129,6 +122,7 @@ class _ModelsSettingsPage extends StatelessWidget {
             ),
           ],
         ),
+        _AdvancedModelSettings(controller: controller, models: routingModels),
         _SettingsGroup(
           title: appStrings.settingsSmartSelection,
           children: <Widget>[
@@ -192,6 +186,156 @@ class _ModelsSettingsPage extends StatelessWidget {
         'enabled_models': result.toList(),
       });
     }
+  }
+}
+
+/// Optional per-task model pins, collapsed by default. A task left on
+/// "Default" follows the chat or sub-agent model, so nothing here is required.
+class _AdvancedModelSettings extends StatefulWidget {
+  const _AdvancedModelSettings({
+    required this.controller,
+    required this.models,
+  });
+
+  final NeoAgentController controller;
+  final List<ModelMeta> models;
+
+  @override
+  State<_AdvancedModelSettings> createState() => _AdvancedModelSettingsState();
+}
+
+class _AdvancedModelSettingsState extends State<_AdvancedModelSettings> {
+  late bool _expanded = widget.controller.taskModels.isNotEmpty;
+
+  static List<(String, String Function(), String Function())> get _tasks =>
+      <(String, String Function(), String Function())>[
+        (
+          'coding',
+          () => appStrings.settingsTaskModelCoding,
+          () => appStrings.settingsTaskModelCodingDescription,
+        ),
+        (
+          'computer_use',
+          () => appStrings.settingsTaskModelComputerUse,
+          () => appStrings.settingsTaskModelComputerUseDescription,
+        ),
+        (
+          'android_use',
+          () => appStrings.settingsTaskModelAndroidUse,
+          () => appStrings.settingsTaskModelAndroidUseDescription,
+        ),
+        (
+          'research',
+          () => appStrings.settingsTaskModelResearch,
+          () => appStrings.settingsTaskModelResearchDescription,
+        ),
+      ];
+
+  void _pin(String kind, String? value) {
+    if (value == null) return;
+    final next = Map<String, String>.from(widget.controller.taskModels);
+    if (value.isEmpty) {
+      next.remove(kind);
+    } else {
+      next[kind] = value;
+    }
+    _autosaveSettings(widget.controller, <String, dynamic>{
+      'task_models': next,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final pinned = widget.controller.taskModels;
+    final options = <_ModelPickerOption>[
+      _ModelPickerOption(
+        value: '',
+        label: appStrings.settingsTaskModelDefault,
+        subtitle: appStrings.settingsTaskModelDefaultSubtitle,
+        icon: Icons.auto_awesome_outlined,
+        isAuto: true,
+      ),
+      ..._modelPickerOptions(widget.models),
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(4, 6, 4, 6),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      appStrings.settingsAdvancedModels,
+                      style: theme.textTheme.titleSmall,
+                    ),
+                  ),
+                  if (pinned.isNotEmpty && !_expanded)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Text(
+                        '${pinned.length}',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  AnimatedRotation(
+                    turns: _expanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: const Icon(Icons.expand_more_rounded, size: 20),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: !_expanded
+                ? const SizedBox(width: double.infinity)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+                        child: Text(
+                          appStrings.settingsAdvancedModelsDescription,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      _SettingsCardList(
+                        children: <Widget>[
+                          for (final (kind, label, description) in _tasks)
+                            _SettingsRow(
+                              anchor: 'taskModel_$kind',
+                              label: label(),
+                              description: description(),
+                              fillControl: true,
+                              control: _ModelPickerButton(
+                                value: pinned[kind] ?? '',
+                                options: options,
+                                dialogTitle: appStrings.selectArg1(label()),
+                                onChanged: (next) => _pin(kind, next),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

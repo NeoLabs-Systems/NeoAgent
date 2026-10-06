@@ -1018,6 +1018,7 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   bool _blockedDialogOpen = false;
   bool _approvalSheetOpen = false;
+  bool _callPermissionsAsked = false;
   SidebarGroup? _expandedSidebarGroup;
   AppSection? _lastSelectedSection;
   final GlobalKey _devicesPanelKey = GlobalKey();
@@ -1140,7 +1141,10 @@ class _HomeViewState extends State<HomeView> {
       fit: StackFit.expand,
       children: <Widget>[
         child,
-        IncomingAgentCallOverlay(call: call, controller: widget.controller),
+        AgentCallScreen(
+          key: const Key('incoming-agent-call'),
+          controller: widget.controller,
+        ),
       ],
     );
   }
@@ -1162,6 +1166,15 @@ class _HomeViewState extends State<HomeView> {
           return;
         }
         _showBlockedSenderDialog(pendingBlockedSender);
+      });
+    }
+    // Wait until no call is ringing or live, so the sheet never covers it.
+    final inCall = controller.incomingAgentCall != null ||
+        controller.voiceAssistantLiveState.sessionId.isNotEmpty;
+    if (!_callPermissionsAsked && controller.isAuthenticated && !inCall) {
+      _callPermissionsAsked = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(promptForCallPermissionsIfNeeded(context));
       });
     }
     final pendingApproval = controller.pendingApproval;
@@ -1253,7 +1266,7 @@ class _HomeViewState extends State<HomeView> {
         _ControlSurfaceBackdrop(
           child: Scaffold(
             backgroundColor: Colors.transparent,
-            body: VoiceAssistantPanel(controller: controller, phoneCall: true),
+            body: AgentCallScreen(controller: controller),
           ),
         ),
       );
@@ -1638,11 +1651,6 @@ class _Sidebar extends StatelessWidget {
               ),
             ),
           ),
-          if (_supportsDesktopShell)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-              child: _DesktopModeSwitch(controller: controller, expand: true),
-            ),
           if (controller.agentProfiles.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 2, 14, 14),
@@ -2232,10 +2240,6 @@ class _MobileTopBar extends StatelessWidget {
                     ),
                   ),
           ),
-          if (_supportsDesktopShell) ...<Widget>[
-            const SizedBox(width: 8),
-            _DesktopModeSwitch(controller: controller),
-          ],
         ],
       ),
     );
@@ -2469,7 +2473,7 @@ class _SectionBody extends StatelessWidget {
       case AppSection.timeline:
         return TimelinePanel(controller: controller);
       case AppSection.voiceAssistant:
-        return VoiceAssistantPanel(controller: controller);
+        return AgentCallScreen(controller: controller, embedded: true);
       case AppSection.devices:
         return DevicesPanel(key: devicesPanelKey, controller: controller);
       case AppSection.runs:

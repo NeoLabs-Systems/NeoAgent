@@ -616,7 +616,7 @@ class _RunsLiveControls extends StatelessWidget {
                         ? appStrings.justNow
                         : seconds < 60
                         ? appStrings.arg1SAgo(seconds)
-                        : _coworkRelativeTime(refreshedAt!);
+                        : _relativeTime(refreshedAt!);
                     return Text(
                       appStrings.updatedArg1(ago),
                       style: TextStyle(color: _textSecondary, fontSize: 12),
@@ -976,7 +976,7 @@ class _RunTimeLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!run.isActive) {
       return Text(
-        _coworkRelativeTime(run.createdAt),
+        _relativeTime(run.createdAt),
         style: TextStyle(fontSize: 12, color: _textSecondary),
       );
     }
@@ -1667,7 +1667,7 @@ class _RunDetailHeader extends StatelessWidget {
             Text(
               appStrings.arg1Arg22(
                 run.sourceLabel,
-                _coworkRelativeTime(run.createdAt),
+                _relativeTime(run.createdAt),
               ),
               style: TextStyle(color: _textSecondary, fontSize: 12.5),
             ),

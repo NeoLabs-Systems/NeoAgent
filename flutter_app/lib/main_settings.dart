@@ -463,9 +463,9 @@ final List<_SettingsEntry> _settingsEntries = <_SettingsEntry>[
   ),
   _SettingsEntry(
     SettingsPage.models,
-    'subAgentModel',
-    () => appStrings.settingsSubAgentModel,
-    keywords: const <String>['subagent'],
+    'taskModel_coding',
+    () => appStrings.settingsAdvancedModels,
+    keywords: const <String>['coding', 'research', 'android', 'computer use'],
   ),
   _SettingsEntry(
     SettingsPage.models,

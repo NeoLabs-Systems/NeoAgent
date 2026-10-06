@@ -150,10 +150,18 @@ class _AppNotificationService {
   static final _channelName = appStrings.toolApproval;
   static const _messagingChannelId = 'messaging_connection';
   static final _messagingChannelName = appStrings.messagingConnections;
-  static const _incomingCallChannelId = 'agent_calls';
+  // Silent: the phone's own ringtone plays natively while a call rings.
+  static const _incomingCallChannelId = 'agent_calls_ringing';
   static final _incomingCallChannelName = appStrings.agentCalls;
   static const _approveActionId = 'approve';
   static const _denyActionId = 'deny';
+  static const callAnswerActionId = 'call_answer';
+  static const callDeclineActionId = 'call_decline';
+  static const _callPayloadPrefix = 'agent-call:';
+
+  /// Answer and Decline tapped on a ringing call's notification, with the
+  /// call's id.
+  static void Function(String callId, String action)? onCallAction;
 
   static FlutterLocalNotificationsPlugin? _plugin;
 
@@ -178,6 +186,26 @@ class _AppNotificationService {
                 'Deny',
                 options: <DarwinNotificationActionOption>{
                   DarwinNotificationActionOption.destructive,
+                },
+              ),
+            ],
+          ),
+          DarwinNotificationCategory(
+            'agent_call',
+            actions: <DarwinNotificationAction>[
+              DarwinNotificationAction.plain(
+                callDeclineActionId,
+                'Decline',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.destructive,
+                  DarwinNotificationActionOption.foreground,
+                },
+              ),
+              DarwinNotificationAction.plain(
+                callAnswerActionId,
+                'Answer',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.foreground,
                 },
               ),
             ],
@@ -215,8 +243,14 @@ class _AppNotificationService {
     String? actionId,
     String? payload,
   ) {
-    // No-op in background; the app will handle it on resume via foreground listener.
-    // Foreground case is handled directly by the approval gate service.
+    // Approval actions are resolved by the approval sheet once the app is
+    // open. Call actions open the app, which is still connected, so they
+    // reach the controller here.
+    if (payload == null || !payload.startsWith(_callPayloadPrefix)) return;
+    if (actionId != callAnswerActionId && actionId != callDeclineActionId) {
+      return;
+    }
+    onCallAction?.call(payload.substring(_callPayloadPrefix.length), actionId!);
   }
 
   static Future<void> requestPermission({bool sound = false}) async {
@@ -334,6 +368,7 @@ class _AppNotificationService {
     await requestIncomingCallPermission();
     final plugin = await _getPlugin();
     if (plugin == null) return;
+    final ringFor = call.expiresAt.difference(DateTime.now());
     final androidDetails = AndroidNotificationDetails(
       _incomingCallChannelId,
       _incomingCallChannelName,
@@ -344,24 +379,44 @@ class _AppNotificationService {
       fullScreenIntent: true,
       ongoing: true,
       autoCancel: false,
+      playSound: false,
+      enableVibration: false,
+      color: const Color(0xFF5FB06A),
+      colorized: true,
+      timeoutAfter: ringFor.isNegative ? null : ringFor.inMilliseconds,
       ticker: appStrings.incomingNeoagentCall,
+      actions: <AndroidNotificationAction>[
+        AndroidNotificationAction(
+          callDeclineActionId,
+          appStrings.decline,
+          showsUserInterface: true,
+          cancelNotification: true,
+        ),
+        AndroidNotificationAction(
+          callAnswerActionId,
+          appStrings.answerCall,
+          showsUserInterface: true,
+          cancelNotification: true,
+        ),
+      ],
     );
     const darwinDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBanner: true,
       presentSound: true,
+      categoryIdentifier: 'agent_call',
       interruptionLevel: InterruptionLevel.timeSensitive,
     );
     await plugin.show(
       call.callId.hashCode.abs() % 100000,
-      appStrings.incomingNeoagentCall,
-      appStrings.arg1WantsToTalkWithYou(call.agentName),
+      call.agentName,
+      appStrings.incomingCall,
       NotificationDetails(
         android: androidDetails,
         iOS: darwinDetails,
         macOS: darwinDetails,
       ),
-      payload: 'agent-call:${call.callId}',
+      payload: '$_callPayloadPrefix${call.callId}',
     );
   }
 

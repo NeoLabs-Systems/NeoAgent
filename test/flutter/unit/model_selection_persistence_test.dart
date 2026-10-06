@@ -218,9 +218,9 @@ void main() {
     controller.notifyListeners();
     await tester.pump();
 
-    // Chat and sub-agent pickers both keep the saved model, and showing it
-    // writes nothing back.
-    expect(find.text(savedModel), findsNWidgets(2));
+    // The chat picker keeps the saved model, and showing it writes nothing
+    // back.
+    expect(find.text(savedModel), findsOneWidget);
     expect(backend.settingsPayloads, isEmpty);
     expect(controller.enabledModelIds, <String>[savedModel]);
   });

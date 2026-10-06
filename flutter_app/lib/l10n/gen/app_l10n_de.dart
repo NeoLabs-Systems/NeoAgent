@@ -8057,10 +8057,6 @@ class AppL10nDe extends AppL10n {
   String get tagsOnly => 'Nur Markierungen';
 
   @override
-  String get tapAnEntityToFilterMemories =>
-      'Tippen Sie auf eine Entität, um Erinnerungen danach zu filtern.';
-
-  @override
   String get task => 'AUFGABE';
 
   @override
@@ -11062,4 +11058,168 @@ class AppL10nDe extends AppL10n {
     );
     return '$_temp0';
   }
+
+  @override
+  String get settingsAdvancedModels => 'Erweiterte Modelleinstellungen';
+
+  @override
+  String get settingsAdvancedModelsDescription =>
+      'Optional. Lege ein Modell für eine Art von Arbeit fest; es übernimmt, sobald der Agent die passenden Werkzeuge nutzt. Alles auf Standard folgt dem Chat-Modell.';
+
+  @override
+  String get settingsTaskModelDefault => 'Standard';
+
+  @override
+  String get settingsTaskModelDefaultSubtitle => 'Folgt dem Chat-Modell';
+
+  @override
+  String get settingsTaskModelCoding => 'Programmieren';
+
+  @override
+  String get settingsTaskModelCodingDescription =>
+      'Code schreiben, bearbeiten und debuggen.';
+
+  @override
+  String get settingsTaskModelComputerUse => 'Computernutzung';
+
+  @override
+  String get settingsTaskModelComputerUseDescription =>
+      'Steuert Browser und Desktop.';
+
+  @override
+  String get settingsTaskModelAndroidUse => 'Android-Nutzung';
+
+  @override
+  String get settingsTaskModelAndroidUseDescription =>
+      'Bedient Apps auf einem Android-Gerät oder Emulator.';
+
+  @override
+  String get settingsTaskModelResearch => 'Recherche';
+
+  @override
+  String get settingsTaskModelResearchDescription =>
+      'Quellen suchen, lesen und zusammenfassen.';
+
+  @override
+  String get knowledgeGraphHint =>
+      'Ihre meistgenannten Entitäten, nach Clustern eingefärbt. Linien verbinden Entitäten, die in denselben Erinnerungen vorkommen. Tippen Sie auf eine, um ihre Verknüpfungen und Erinnerungen zu sehen; ziehen zum Verschieben, Pinch oder Strg/⌘-Scrollen zum Zoomen.';
+
+  @override
+  String get linkedEntities => 'Verknüpfte Entitäten';
+
+  @override
+  String get noLinkedEntities => 'Noch mit keiner anderen Entität verknüpft.';
+
+  @override
+  String mentionsArg1(int arg1) {
+    return '$arg1 Erwähnungen';
+  }
+
+  @override
+  String get entityKindConcept => 'Begriff';
+
+  @override
+  String get entityKindDomain => 'Domain';
+
+  @override
+  String get entityKindEmail => 'E-Mail';
+
+  @override
+  String get entityKindLink => 'Link';
+
+  @override
+  String get entityKindFile => 'Datei';
+
+  @override
+  String get entityKindAcronym => 'Akronym';
+
+  @override
+  String get entityKindIdentifier => 'Kennung';
+
+  @override
+  String get entityKindVersion => 'Version';
+
+  @override
+  String get openFullscreen => 'Vollbild öffnen';
+
+  @override
+  String get zoomIn => 'Vergrößern';
+
+  @override
+  String get zoomOut => 'Verkleinern';
+
+  @override
+  String get searchEntities => 'Entität suchen';
+
+  @override
+  String get incomingCall => 'Eingehender Anruf';
+
+  @override
+  String get answerCall => 'Annehmen';
+
+  @override
+  String get callMeLater => 'Später zurückrufen';
+
+  @override
+  String get callingEllipsis => 'Wird angerufen…';
+
+  @override
+  String get reconnectingCall => 'Verbindung wird wiederhergestellt';
+
+  @override
+  String get agentWorking => 'Arbeitet';
+
+  @override
+  String get micMuted => 'Stummgeschaltet';
+
+  @override
+  String get speakerphone => 'Lautsprecher';
+
+  @override
+  String get muteMic => 'Stumm';
+
+  @override
+  String get unmuteMic => 'Ton an';
+
+  @override
+  String get releaseToSend => 'Loslassen zum Senden';
+
+  @override
+  String get callEnded => 'Anruf beendet';
+
+  @override
+  String get openConversation => 'Unterhaltung öffnen';
+
+  @override
+  String get callBack => 'Zurückrufen';
+
+  @override
+  String get letCallsReachYou => 'Anrufe zulassen';
+
+  @override
+  String get callPermissionsIntro =>
+      'Ihre Agenten können Sie anrufen. Damit es wie ein Telefonanruf klingelt, während NeoAgent im Hintergrund läuft oder Ihr Telefon gesperrt ist, braucht es diese Berechtigungen.';
+
+  @override
+  String get showOverOtherApps => 'Über anderen Apps anzeigen';
+
+  @override
+  String get showOverOtherAppsDetail =>
+      'Zeigt den Anrufbildschirm, wo immer Sie gerade sind.';
+
+  @override
+  String get fullScreenCalls => 'Vollbild-Anrufe';
+
+  @override
+  String get fullScreenCallsDetail => 'Klingelt über dem Sperrbildschirm.';
+
+  @override
+  String get unrestrictedBattery => 'Uneingeschränkter Akku';
+
+  @override
+  String get unrestrictedBatteryDetail =>
+      'Hält NeoAgent verbunden, damit Anrufe ankommen.';
+
+  @override
+  String get permissionAllowed => 'Erlaubt';
 }

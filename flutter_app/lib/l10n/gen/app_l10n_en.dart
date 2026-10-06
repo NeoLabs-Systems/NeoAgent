@@ -7964,10 +7964,6 @@ class AppL10nEn extends AppL10n {
   String get tagsOnly => 'Tags only';
 
   @override
-  String get tapAnEntityToFilterMemories =>
-      'Tap an entity to filter memories by it.';
-
-  @override
   String get task => 'TASK';
 
   @override
@@ -10928,4 +10924,168 @@ class AppL10nEn extends AppL10n {
     );
     return '$_temp0';
   }
+
+  @override
+  String get settingsAdvancedModels => 'Advanced model settings';
+
+  @override
+  String get settingsAdvancedModelsDescription =>
+      'Optional. Pin a model to one kind of work; it takes over whenever the agent uses those tools. Anything left on default follows the chat model.';
+
+  @override
+  String get settingsTaskModelDefault => 'Default';
+
+  @override
+  String get settingsTaskModelDefaultSubtitle => 'Follows the chat model';
+
+  @override
+  String get settingsTaskModelCoding => 'Coding';
+
+  @override
+  String get settingsTaskModelCodingDescription =>
+      'Writing, editing and debugging code.';
+
+  @override
+  String get settingsTaskModelComputerUse => 'Computer use';
+
+  @override
+  String get settingsTaskModelComputerUseDescription =>
+      'Driving the browser and desktop.';
+
+  @override
+  String get settingsTaskModelAndroidUse => 'Android use';
+
+  @override
+  String get settingsTaskModelAndroidUseDescription =>
+      'Operating apps on an Android device or emulator.';
+
+  @override
+  String get settingsTaskModelResearch => 'Research';
+
+  @override
+  String get settingsTaskModelResearchDescription =>
+      'Searching, reading and summarizing sources.';
+
+  @override
+  String get knowledgeGraphHint =>
+      'Your most-mentioned entities, colored by cluster. Lines connect entities that appear in the same memories. Tap one to see its links and memories; drag to pan, pinch or Ctrl/⌘-scroll to zoom.';
+
+  @override
+  String get linkedEntities => 'Linked entities';
+
+  @override
+  String get noLinkedEntities => 'Not linked to other entities yet.';
+
+  @override
+  String mentionsArg1(int arg1) {
+    return '$arg1 mentions';
+  }
+
+  @override
+  String get entityKindConcept => 'Concept';
+
+  @override
+  String get entityKindDomain => 'Domain';
+
+  @override
+  String get entityKindEmail => 'Email';
+
+  @override
+  String get entityKindLink => 'Link';
+
+  @override
+  String get entityKindFile => 'File';
+
+  @override
+  String get entityKindAcronym => 'Acronym';
+
+  @override
+  String get entityKindIdentifier => 'Identifier';
+
+  @override
+  String get entityKindVersion => 'Version';
+
+  @override
+  String get openFullscreen => 'Open fullscreen';
+
+  @override
+  String get zoomIn => 'Zoom in';
+
+  @override
+  String get zoomOut => 'Zoom out';
+
+  @override
+  String get searchEntities => 'Find an entity';
+
+  @override
+  String get incomingCall => 'Incoming call';
+
+  @override
+  String get answerCall => 'Answer';
+
+  @override
+  String get callMeLater => 'Call me later';
+
+  @override
+  String get callingEllipsis => 'Calling…';
+
+  @override
+  String get reconnectingCall => 'Reconnecting';
+
+  @override
+  String get agentWorking => 'Working';
+
+  @override
+  String get micMuted => 'Muted';
+
+  @override
+  String get speakerphone => 'Speaker';
+
+  @override
+  String get muteMic => 'Mute';
+
+  @override
+  String get unmuteMic => 'Unmute';
+
+  @override
+  String get releaseToSend => 'Release to send';
+
+  @override
+  String get callEnded => 'Call ended';
+
+  @override
+  String get openConversation => 'Open conversation';
+
+  @override
+  String get callBack => 'Call back';
+
+  @override
+  String get letCallsReachYou => 'Let calls reach you';
+
+  @override
+  String get callPermissionsIntro =>
+      'Your agents can call you. To ring like a phone call while NeoAgent is in the background or your phone is locked, it needs these.';
+
+  @override
+  String get showOverOtherApps => 'Show over other apps';
+
+  @override
+  String get showOverOtherAppsDetail =>
+      'Brings the call screen up wherever you are.';
+
+  @override
+  String get fullScreenCalls => 'Full-screen calls';
+
+  @override
+  String get fullScreenCallsDetail => 'Rings over the lock screen.';
+
+  @override
+  String get unrestrictedBattery => 'Unrestricted battery';
+
+  @override
+  String get unrestrictedBatteryDetail =>
+      'Keeps NeoAgent connected so calls arrive.';
+
+  @override
+  String get permissionAllowed => 'Allowed';
 }
