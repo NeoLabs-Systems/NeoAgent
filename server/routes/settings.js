@@ -6,6 +6,7 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { normalizeWhatsAppWhitelist } = require('../utils/whatsapp');
 const { getVersionInfo } = require('../utils/version');
 const { APP_DIR } = require('../../runtime/paths');
+const { UI_LANGUAGE_CODES } = require('../config/ui_languages');
 const {
   readUpdateStatus,
   writeUpdateStatusFile: writeUpdateStatus,
@@ -60,6 +61,7 @@ const AGENT_SETTING_KEYS = new Set([
   'default_chat_model',
   'default_subagent_model',
   'default_speech_model',
+  'task_models',
   'enabled_models',
   'voice_stt_provider',
   'voice_stt_model',
@@ -87,8 +89,6 @@ const SERVER_MANAGED_SETTING_KEYS = new Set([
 const HIDDEN_SETTING_KEYS = new Set([
   'ai_provider_api_keys',
 ]);
-
-const UI_LANGUAGE_CODES = new Set(['en', 'de']);
 
 function normalizeUiLanguage(value) {
   const code = String(value ?? '').trim().toLowerCase();

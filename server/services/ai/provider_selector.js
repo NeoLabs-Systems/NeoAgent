@@ -43,7 +43,9 @@ function describeUnroutableModel(models, requestedId, userId, agentId) {
 function logRouting(models, settings, route, { userId, agentId, isSubagent, modelOverride }) {
   const requestedId = String(
     modelOverride
-      || (isSubagent ? settings.default_subagent_model : settings.default_chat_model)
+      || (isSubagent && settings.default_subagent_model !== 'auto'
+        ? settings.default_subagent_model
+        : settings.default_chat_model)
       || 'auto',
   ).trim();
   const scope = `user=${userId} agent=${agentId || 'main'}${isSubagent ? ' subagent' : ''}`;

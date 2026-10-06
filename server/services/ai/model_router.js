@@ -129,6 +129,14 @@ function routingUnavailableError(message) {
   return error;
 }
 
+// Sub-agents run on the chat model unless an older config pinned one for them.
+function subagentOrChatModel(settings, isSubagent) {
+  const chat = String(settings.default_chat_model || 'auto');
+  if (!isSubagent) return chat;
+  const subagent = String(settings.default_subagent_model || 'auto');
+  return subagent === 'auto' ? chat : subagent;
+}
+
 function selectInitialModel({
   models,
   settings,
@@ -152,11 +160,7 @@ function selectInitialModel({
 
   const requestedId = typeof modelOverride === 'string' && modelOverride.trim()
     ? modelOverride.trim()
-    : (
-      isSubagent
-        ? String(settings.default_subagent_model || 'auto')
-        : String(settings.default_chat_model || 'auto')
-    );
+    : subagentOrChatModel(settings, isSubagent);
   if (requestedId !== 'auto') {
     const requested = resolveReadyModel(pools.readyModels, requestedId);
     if (requested) return { model: requested, reason: null };

@@ -13,6 +13,7 @@ const {
 } = require('../voice/live/catalog');
 const { AI_PROVIDER_DEFINITIONS } = require('./provider_definitions');
 const { parseModelSelectionId } = require('./model_identity');
+const { normalizeTaskModels } = require('./task_models');
 
 function createDefaultProviderConfigs() {
   return Object.fromEntries(
@@ -53,6 +54,8 @@ function createDefaultAiSettings() {
     default_chat_model: 'auto',
     default_subagent_model: 'auto',
     default_speech_model: 'auto',
+    // Optional per-kind model pins ({coding: 'provider::model', ...}); empty follows the defaults.
+    task_models: {},
     ai_provider_configs: createDefaultProviderConfigs(),
     voice_stt_provider: AUTO_STT_PROVIDER,
     voice_stt_model: '',
@@ -293,6 +296,7 @@ function getAiSettings(userId, agentId = null) {
   settings.default_subagent_model = typeof settings.default_subagent_model === 'string' && settings.default_subagent_model.trim()
     ? settings.default_subagent_model
     : DEFAULT_AI_SETTINGS.default_subagent_model;
+  settings.task_models = normalizeTaskModels(settings.task_models);
   settings.default_speech_model = typeof settings.default_speech_model === 'string' && settings.default_speech_model.trim()
     ? settings.default_speech_model.trim()
     : DEFAULT_AI_SETTINGS.default_speech_model;

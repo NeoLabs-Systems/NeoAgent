@@ -107,7 +107,6 @@ class DurableRunRuntime {
     const aiSettings = getAiSettings(userId, agentId);
     const runId = options.runId || randomUUID();
     const conversationId = options.conversationId;
-    const interactionMode = options.interactionMode === 'plan' ? 'plan' : 'agent';
     const deviceTarget = ['local', 'cloud'].includes(options.deviceTarget)
       ? options.deviceTarget
       : null;
@@ -133,11 +132,12 @@ class DurableRunRuntime {
       triggerType,
       triggerSource,
       conversationId,
-      interactionMode,
       deviceTarget,
       workspaceRoot,
       userMessage,
       model: null,
+      // A model chosen for this run (message, schedule, parent agent) wins over task pins.
+      explicitModel: Boolean(modelOverride),
       messages: [],
       tools: [],
       systemPrompt: '',
@@ -234,8 +234,8 @@ class DurableRunRuntime {
           `INSERT INTO agent_runs(
             id, user_id, agent_id, title, status, runtime_state, version,
             trigger_type, trigger_source, model, metadata_json,
-            conversation_id, interaction_mode, device_target
-          ) VALUES(?, ?, ?, ?, 'running', ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
+            conversation_id, device_target
+          ) VALUES(?, ?, ?, ?, 'running', ?, 0, ?, ?, ?, ?, ?, ?)`,
         ).run(
           runId,
           userId,
@@ -250,12 +250,10 @@ class DurableRunRuntime {
             ...(options.sessionBinding ? { sessionBinding: options.sessionBinding } : {}),
             ...(options.latencyPriority ? { latencyPriority: options.latencyPriority } : {}),
             ...(conversationId ? { conversationId } : {}),
-            interactionMode,
             ...(deviceTarget ? { deviceTarget } : {}),
             runtimeKernel: 'v2',
           }),
           conversationId || null,
-          interactionMode,
           deviceTarget,
         );
         runRecordCreated = true;
@@ -314,7 +312,6 @@ class DurableRunRuntime {
         background: null,
         onBackground: typeof options.onBackground === 'function' ? options.onBackground : null,
         conversationId: conversationId || null,
-        interactionMode,
         deviceTarget,
         workspaceRoot,
         voiceSessionId: options.voiceSessionId || options.sessionBinding?.sessionId || null,
@@ -411,7 +408,6 @@ class DurableRunRuntime {
         title: runTitle,
         triggerType,
         triggerSource,
-        interactionMode,
         deviceTarget,
         runtimeKernel: 'v2',
       });
@@ -441,7 +437,6 @@ class DurableRunRuntime {
         triggerSource,
         memoryAudience: options.memoryAudience || 'owner',
         latencyProfile: options.latencyProfile || null,
-        interactionMode,
         deviceTarget,
         workspaceRoot,
       }));
@@ -615,7 +610,6 @@ class DurableRunRuntime {
       const toolSelectionOptions = {
         triggerSource,
         triggerType,
-        includeCoreFileTools: triggerSource === 'cowork',
       };
       // When NeoRecall is connected, keep day/search tools active so personal
       // recall questions do not wait on an activation turn.
@@ -698,28 +692,6 @@ class DurableRunRuntime {
           status: outcome.status,
         };
       }
-      if (outcome.type === 'waiting') {
-        applyTransition({
-          runId,
-          toState: RUNTIME_STATES.WAITING,
-          reason: 'structured_input_required',
-          workerId,
-          eventBus: this.eventBus,
-          patch: { metadata: { awaitingInputRequestId: outcome.inputRequest.id } },
-        });
-        db.prepare(
-          `UPDATE agent_runs SET status = 'waiting_input', updated_at = datetime('now') WHERE id = ?`,
-        ).run(runId);
-        return {
-          runId,
-          content: '',
-          totalTokens: session.totalTokens,
-          iterations: session.iterations,
-          status: 'waiting_input',
-          inputRequest: outcome.inputRequest,
-        };
-      }
-
       const answer = outcome.type === 'wrap_up'
         ? await this.#wrapUp(session, outcome.reason)
         : outcome.content;
@@ -804,9 +776,6 @@ class DurableRunRuntime {
 
   #storeUserMessage(session) {
     const { options, triggerSource } = session;
-    const sharedAttachments = triggerSource === 'cowork' && Array.isArray(options.coworkSharedAttachments)
-      ? options.coworkSharedAttachments
-      : [];
     const socialMessage = options.context?.socialIntelligence?.message || null;
     db.prepare(
       `INSERT INTO conversation_messages (
@@ -824,12 +793,7 @@ class DurableRunRuntime {
         isGroup: Boolean(socialMessage?.isGroup),
       }),
       JSON.stringify({
-        interactionMode: session.interactionMode,
         deviceTarget: session.deviceTarget,
-        ...(triggerSource === 'cowork' && options.coworkDisplayContent
-          ? { displayContent: String(options.coworkDisplayContent) }
-          : {}),
-        ...(sharedAttachments.length > 0 ? { sharedAttachments } : {}),
       }),
     );
   }

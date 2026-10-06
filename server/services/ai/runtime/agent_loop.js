@@ -18,6 +18,7 @@ const { decisionFromModelResponse, DECISION_KINDS } = require('./decision_engine
 const { isContextOverflowError } = require('./context/context_pressure');
 const { getFailureFallbackModelId } = require('./model_fallback');
 const { executeToolTurn } = require('./tool_turn');
+const { applyTaskModel } = require('./task_model_switch');
 
 const MAX_BLANK_RECOVERIES = 2;
 const MAX_TRUNCATION_RETRIES = 2;
@@ -159,6 +160,7 @@ async function runAgentLoop(session) {
   const { engine, eventBus, runId, userId, agentId, workerId } = session;
   let blankRecoveries = 0;
   let truncationRetries = 0;
+  session.baseModelSelectionId = session.model.modelSelectionId;
 
   while (true) {
     if (engine.getRunMeta(runId)?.aborted) return { type: 'cancelled' };
@@ -277,7 +279,7 @@ async function runAgentLoop(session) {
     truncationRetries = 0;
     const toolTurn = await executeToolTurn(session, decision);
     session.guards.recordToolTurn(toolTurn);
-    if (toolTurn.awaitingInput) return { type: 'waiting', inputRequest: toolTurn.awaitingInput };
+    await applyTaskModel(session, decision.toolCalls);
     if (toolTurn.terminalAnswer !== null && !hasPendingSteering(engine, runId)) {
       setSteeringIntake(engine, runId, false);
       return { type: 'answer', content: toolTurn.terminalAnswer };

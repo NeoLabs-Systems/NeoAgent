@@ -352,6 +352,7 @@ function configuredModelRefs(userId, agentId) {
         ...(Array.isArray(settings.enabled_models) ? settings.enabled_models : []),
         settings.default_chat_model,
         settings.default_subagent_model,
+        ...Object.values(settings.task_models || {}),
     ]) {
         const parsed = parseModelSelectionId(value);
         if (!parsed) continue;
