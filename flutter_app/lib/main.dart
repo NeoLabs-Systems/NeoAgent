@@ -28,6 +28,7 @@ import 'package:window_manager/window_manager.dart';
 import 'src/android_launcher_bridge.dart';
 import 'src/app_launch_bridge.dart';
 import 'src/app_release_updater.dart' as app_release_updater;
+import 'src/background_keepalive.dart';
 import 'src/backend_client.dart';
 import 'src/backend_discovery_service.dart';
 import 'src/computer_display.dart';

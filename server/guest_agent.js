@@ -488,8 +488,11 @@ app.get('/workspace/files/content', async (req, res) => {
 
 app.put('/workspace/files/content', async (req, res) => {
   await handle(res, async () => {
-    const content = coerceWritableText(req.body?.content);
-    const contentBytes = Buffer.byteLength(content, 'utf8');
+    const binary = String(req.body?.encoding || '').toLowerCase() === 'base64';
+    const content = binary
+      ? Buffer.from(String(req.body?.content || ''), 'base64')
+      : coerceWritableText(req.body?.content);
+    const contentBytes = binary ? content.length : Buffer.byteLength(content, 'utf8');
     if (contentBytes > MAX_WORKSPACE_FILE_BYTES) {
       throw new Error('Workspace file is too large to edit.');
     }
@@ -500,7 +503,7 @@ app.put('/workspace/files/content', async (req, res) => {
       path.dirname(filePath),
       `.${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`,
     );
-    fs.writeFileSync(temporary, content, { encoding: 'utf8', mode: 0o600 });
+    fs.writeFileSync(temporary, content, binary ? { mode: 0o600 } : { encoding: 'utf8', mode: 0o600 });
     fs.renameSync(temporary, filePath);
     return { success: true, path: relativeWorkspacePath(filePath) };
   });

@@ -1,5 +1,8 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
+
 const db = require('../../db/database');
 const { fenceUntrusted } = require('../../utils/untrusted_text');
 const { maskSenderId } = require('../../utils/logger');
@@ -366,6 +369,7 @@ async function executeQueuedMessage({
       chatId: msg.chatId,
       isGroup: Boolean(msg.isGroup),
     });
+    await stageInboundMedia(agentEngine, userId, msg, signal);
     const prompt = buildIncomingPrompt(msg, {
       socialMode: Boolean(msg.isGroup),
       decision: behaviorResult?.decision || null,
@@ -504,9 +508,30 @@ function ensureConversation(userId, msg) {
   return conversationId;
 }
 
+// The agent's file tools only see the workspace, not the host artifact store,
+// so an inbound attachment is copied there and referenced by that path.
+async function stageInboundMedia(agentEngine, userId, msg, signal) {
+  if (!msg.localMediaPath || msg.mediaType === 'sticker' || msg.voiceNote) return;
+  const workspace = agentEngine?.app?.locals?.computerWorkspaceManager;
+  if (!workspace?.writeBinaryFile) return;
+  try {
+    const name = String(msg.mediaFileName || path.basename(msg.localMediaPath))
+      .replace(/[^\w.\- ]+/g, '_').slice(-120) || 'attachment';
+    const target = `inbox/${Date.now()}_${name}`;
+    const result = await workspace.writeBinaryFile(userId, {
+      path: target,
+      content: fs.readFileSync(msg.localMediaPath),
+      signal,
+    });
+    msg.workspaceMediaPath = result.path;
+  } catch (error) {
+    console.warn(`[MessagingAutomation] attachment staging failed user=${userId}:`, getErrorMessage(error));
+  }
+}
+
 function buildIncomingPrompt(msg, options = {}) {
   const mediaNote = msg.localMediaPath
-    ? `\nMedia attached at: ${msg.localMediaPath} (type: ${msg.mediaType}${msg.mediaFileName ? `, file name: ${msg.mediaFileName}` : ''}). You can open it with your file tools, or reference or forward it with send_message media_path.`
+    ? `\nMedia attached at: ${msg.workspaceMediaPath || msg.localMediaPath} (type: ${msg.mediaType}${msg.mediaFileName ? `, file name: ${msg.mediaFileName}` : ''}). ${msg.workspaceMediaPath ? 'It is in your workspace, so shell and file tools can open it. ' : ''}You can open it with your file tools, or reference or forward it with send_message media_path.`
     : (msg.mediaType && msg.mediaType !== 'sticker'
       ? `\nAn attachment (type: ${msg.mediaType}${msg.mediaFileName ? `, file name: ${msg.mediaFileName}` : ''}) was sent but could not be retrieved${msg.mediaError ? `: ${msg.mediaError}` : ''}. Tell the sender it did not arrive instead of pretending to read it.`
       : '');

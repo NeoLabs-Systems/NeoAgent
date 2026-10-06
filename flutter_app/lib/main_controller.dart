@@ -1664,6 +1664,7 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   void _clearAuthenticatedState() {
+    unawaited(BackgroundKeepAlive.stop());
     _disconnectSocket();
     _updatePollTimer?.cancel();
     _updatePollTimer = null;
@@ -7742,6 +7743,12 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   void _ensureSocketConnected() {
+    unawaited(
+      BackgroundKeepAlive.start(
+        title: 'NeoAgent',
+        body: 'Connected so calls and approvals can reach you',
+      ),
+    );
     final origin = _socketOrigin();
     final existing = _socket?.io.uri;
     if (_socket != null && existing == origin) {
