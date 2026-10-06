@@ -11,7 +11,7 @@ const {
   parseJsonObject,
   safeTrim,
 } = require('./ingestion_support');
-const { chunkDocument, overlapWindowChunks } = require('./ingestion_chunking');
+const { chunkDocument } = require('./ingestion_chunking');
 const { isAbortError, throwIfAborted } = require('../../utils/abort');
 
 async function ingestDocuments(service, userId, documents = [], options = {}) {
@@ -57,7 +57,6 @@ async function ingestDocuments(service, userId, documents = [], options = {}) {
       documentIds.push(documentId);
       const retainedChunkIds = [];
       const chunks = chunkDocument(document);
-      const savedChunkMemoryIds = [];
       for (const chunk of chunks) {
         throwIfAborted(signal, 'Memory ingestion aborted.');
         const memoryId = await service.memoryManager.saveMemory(
@@ -97,7 +96,6 @@ async function ingestDocuments(service, userId, documents = [], options = {}) {
         );
         if (!memoryId) continue;
         memoryIds.push(memoryId);
-        savedChunkMemoryIds.push(memoryId);
         retainedChunkIds.push(service.memoryManager.replaceSourceChunk(
           documentId,
           chunk,
@@ -112,48 +110,6 @@ async function ingestDocuments(service, userId, documents = [], options = {}) {
             },
           },
         ));
-      }
-
-      const overlapChunks = overlapWindowChunks(chunks);
-      for (const window of overlapChunks) {
-        throwIfAborted(signal, 'Memory ingestion aborted.');
-        const windowMemoryId = await service.memoryManager.saveMemory(
-          userId,
-          `${document.title}\n${window.content}`,
-          SOURCE_MEMORY_CATEGORIES[document.normalizedType]
-            || SOURCE_MEMORY_CATEGORIES[document.sourceType]
-            || 'episodic',
-          document.salience,
-          {
-            agentId,
-            staleAfterDays: getFreshnessPolicy(document.sourceType).staleAfterDays,
-            sourceRef: {
-              sourceType: 'memory_ingestion',
-              sourceId: document.externalObjectId,
-              sourceLabel: document.title,
-            },
-            scope: {
-              scopeType: 'agent',
-              scopeId: agentId,
-            },
-            metadata: {
-              ingestionJobId: jobId,
-              ingestionDocumentId: documentId,
-              providerKey: document.providerKey || null,
-              connectionId: document.connectionId || null,
-              sourceType: document.sourceType,
-              trustLevel: 'external_source',
-              chunkIndex: window.chunkIndex,
-              sourceSpan: {
-                charStart: window.charStart,
-                charEnd: window.charEnd,
-              },
-              isOverlapWindow: true,
-            },
-            signal,
-          },
-        );
-        if (windowMemoryId) savedChunkMemoryIds.push(windowMemoryId);
       }
 
       service.memoryManager.pruneSourceChunks(documentId, retainedChunkIds);

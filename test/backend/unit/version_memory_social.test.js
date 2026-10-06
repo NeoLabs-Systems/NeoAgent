@@ -69,7 +69,8 @@ test('memory ingestion writes typed documents and materialized views', async () 
   const recall = await memoryManager.recallMemory(user.userId, 'Who owns the deck?', 3, { agentId });
   assert.equal(recall.some((memory) => memory.content.includes('Alice')), true);
   assert.ok(recall.some((memory) => memory.entities.some((entity) => entity.name.includes('Alice'))));
-  assert.ok(memoryManager.getMemoryStats(user.userId, { agentId }).facts > 0);
+  // Raw source chunks are recall material, not facts.
+  assert.equal(memoryManager.getMemoryStats(user.userId, { agentId }).facts, 0);
   assert.ok(memoryManager.listEntities(user.userId, { agentId }).some((entity) => entity.name.includes('Alice')));
   assert.ok(memoryManager.listKnowledgeViews(user.userId, { agentId }).length > 0);
   assert.deepEqual(sourceTypesForConnection('google_workspace', 'gmail'), ['email']);

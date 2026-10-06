@@ -236,6 +236,28 @@ router.get('/entities', (req, res) => {
   }
 });
 
+router.get('/graph', (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  try {
+    res.json(mm.getEntityGraph(userId, { agentId, limit: req.query.limit }));
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.get('/entities/:id/memories', (req, res) => {
+  const mm = req.app.locals.memoryManager;
+  const userId = req.session.userId;
+  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
+  try {
+    res.json(mm.listEntityMemories(userId, req.params.id, { agentId, limit: req.query.limit }));
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
 router.get('/facts', (req, res) => {
   const mm = req.app.locals.memoryManager;
   const userId = req.session.userId;

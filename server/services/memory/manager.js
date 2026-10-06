@@ -13,7 +13,9 @@ const { getMemoryStorageDecision } = require('./policy');
 const {
   buildFacts,
   canonicalEntityKey,
+  collectLowercaseWords,
   extractEntities,
+  isConfirmedEntity,
   extractKeywords,
   scoreMemoryCandidate,
   stableHash,
@@ -235,6 +237,7 @@ class MemoryManager {
     this._ensureDirs();
     this._backfillMemoryIntelligence();
     this.embeddingBackfillTimer = null;
+    this._lowercaseWordsCache = null;
   }
 
   startEmbeddingIndexBackfill() {
@@ -335,6 +338,7 @@ class MemoryManager {
          FROM memories m
          LEFT JOIN memory_facts f ON f.memory_id = m.id
          WHERE m.archived = 0 AND f.id IS NULL
+           AND COALESCE(m.source_type, '') != 'memory_ingestion'
          ORDER BY m.updated_at DESC
          LIMIT ?`
       ).all(Math.max(1, Math.min(Number(limit) || 1000, 5000)));
@@ -672,11 +676,19 @@ class MemoryManager {
        FROM memories
        WHERE user_id = ? AND agent_id = ?`
     ).get(userId, scopedAgentId) || {};
+    // Count what recall can actually use: entities and current facts attached
+    // to non-archived memories, not superseded history or archived leftovers.
     const entityCount = db.prepare(
-      `SELECT COUNT(*) AS count FROM memory_entities WHERE user_id = ? AND agent_id = ?`
+      `SELECT COUNT(DISTINCT mention.entity_id) AS count
+       FROM memory_entity_mentions mention
+       JOIN memories m ON m.id = mention.memory_id
+       WHERE m.user_id = ? AND m.agent_id = ? AND m.archived = 0`
     ).get(userId, scopedAgentId)?.count || 0;
     const factCount = db.prepare(
-      `SELECT COUNT(*) AS count FROM memory_facts WHERE user_id = ? AND agent_id = ?`
+      `SELECT COUNT(*) AS count
+       FROM memory_facts f
+       JOIN memories m ON m.id = f.memory_id
+       WHERE f.user_id = ? AND f.agent_id = ? AND f.status = 'active' AND m.archived = 0`
     ).get(userId, scopedAgentId)?.count || 0;
     const viewCount = db.prepare(
       `SELECT COUNT(*) AS count FROM materialized_knowledge_views WHERE user_id = ? AND agent_id = ?`
@@ -791,6 +803,7 @@ class MemoryManager {
       db.prepare(
         `DELETE FROM memory_source_chunks WHERE id IN (${placeholders})`
       ).run(...staleChunkIds);
+      const entityIds = this._entityIdsForMemories(staleMemoryIds);
       for (const memoryId of staleMemoryIds) {
         const remaining = db.prepare(
           'SELECT 1 FROM memory_source_links WHERE memory_id = ? LIMIT 1'
@@ -800,24 +813,62 @@ class MemoryManager {
           db.prepare('DELETE FROM memories WHERE id = ?').run(memoryId);
         }
       }
+      this._pruneOrphanEntities(entityIds);
     });
     transaction();
     return staleChunkIds.length;
   }
 
+  // Lowercase vocabulary of the agent's live memories, cached until they change.
+  _lowercaseWords(userId, agentId) {
+    const stamp = db.prepare(
+      `SELECT COUNT(*) AS count, MAX(updated_at) AS updatedAt
+       FROM memories WHERE user_id = ? AND agent_id = ? AND archived = 0`
+    ).get(userId, agentId);
+    const cacheKey = `${userId}:${agentId}:${stamp.count}:${stamp.updatedAt}`;
+    if (this._lowercaseWordsCache && this._lowercaseWordsCache.key === cacheKey) return this._lowercaseWordsCache.words;
+    const rows = db.prepare(
+      'SELECT content FROM memories WHERE user_id = ? AND agent_id = ? AND archived = 0'
+    ).iterate(userId, agentId);
+    const words = new Set();
+    for (const row of rows) collectLowercaseWords([row.content], words);
+    this._lowercaseWordsCache = { key: cacheKey, words };
+    return words;
+  }
+
   listEntities(userId, { agentId = null, limit = 24, query = null } = {}) {
     const scopedAgentId = this._agentId(userId, { agentId });
-    let sql = `SELECT * FROM memory_entities WHERE user_id = ? AND agent_id = ?`;
+    const wanted = Math.max(1, Math.min(Number(limit) || 24, 250));
+    let sql = `SELECT ent.*, EXISTS (
+                 SELECT 1 FROM memory_entity_mentions mem
+                 JOIN memories m ON m.id = mem.memory_id AND m.archived = 0
+                 WHERE mem.entity_id = ent.id AND mem.in_sentence = 1
+               ) AS has_in_sentence_mention
+               FROM memory_entities ent
+               WHERE ent.user_id = ? AND ent.agent_id = ?
+                 AND EXISTS (
+                   SELECT 1 FROM memory_entity_mentions mem
+                   JOIN memories m ON m.id = mem.memory_id AND m.archived = 0
+                   WHERE mem.entity_id = ent.id
+                 )`;
     const params = [userId, scopedAgentId];
     const normalizedQuery = String(query || '').trim();
     if (normalizedQuery) {
-      sql += ` AND (entity_key LIKE ? OR name LIKE ?)`;
+      sql += ` AND (ent.entity_key LIKE ? OR ent.name LIKE ?)`;
       const like = `%${canonicalEntityKey(normalizedQuery)}%`;
       params.push(like, `%${normalizedQuery}%`);
     }
-    sql += ` ORDER BY mention_count DESC, last_seen_at DESC LIMIT ?`;
-    params.push(Math.max(1, Math.min(Number(limit) || 24, 100)));
-    return db.prepare(sql).all(...params).map((row) => ({
+    // Over-fetch: unconfirmed sentence-initial words are filtered out below.
+    sql += ` ORDER BY ent.mention_count DESC, ent.last_seen_at DESC LIMIT ?`;
+    params.push(wanted * 4);
+    const lowercaseWords = this._lowercaseWords(userId, scopedAgentId);
+    const rows = db.prepare(sql).all(...params)
+      .filter((row) => isConfirmedEntity({
+        name: row.name,
+        hasInSentenceMention: row.has_in_sentence_mention === 1,
+      }, lowercaseWords))
+      .slice(0, wanted);
+    return rows.map((row) => ({
       id: row.id,
       key: row.entity_key,
       name: row.name,
@@ -829,6 +880,52 @@ class MemoryManager {
       lastSeenAt: row.last_seen_at || null,
       metadata: parseJsonObject(row.metadata_json, {}),
     }));
+  }
+
+  // Most-mentioned entities plus co-occurrence edges (two entities linked by
+  // the live memories that mention both), trimmed to each node's strongest
+  // links so the graph stays readable.
+  getEntityGraph(userId, { agentId = null, limit = 60, linksPerNode = 6 } = {}) {
+    const nodes = this.listEntities(userId, { agentId, limit });
+    if (nodes.length < 2) return { nodes, edges: [] };
+    const placeholders = nodes.map(() => '?').join(', ');
+    const ids = nodes.map((node) => node.id);
+    const pairs = db.prepare(
+      `SELECT a.entity_id AS source, b.entity_id AS target, COUNT(*) AS weight
+       FROM memory_entity_mentions a
+       JOIN memory_entity_mentions b ON b.memory_id = a.memory_id AND a.entity_id < b.entity_id
+       JOIN memories m ON m.id = a.memory_id AND m.archived = 0
+       WHERE a.entity_id IN (${placeholders}) AND b.entity_id IN (${placeholders})
+       GROUP BY a.entity_id, b.entity_id
+       ORDER BY weight DESC`
+    ).all(...ids, ...ids);
+
+    const linkCounts = new Map();
+    const edges = [];
+    for (const pair of pairs) {
+      const sourceLinks = linkCounts.get(pair.source) || 0;
+      const targetLinks = linkCounts.get(pair.target) || 0;
+      if (sourceLinks >= linksPerNode && targetLinks >= linksPerNode) continue;
+      linkCounts.set(pair.source, sourceLinks + 1);
+      linkCounts.set(pair.target, targetLinks + 1);
+      edges.push({ source: pair.source, target: pair.target, weight: Number(pair.weight) });
+    }
+    return { nodes, edges };
+  }
+
+  listEntityMemories(userId, entityId, { agentId = null, limit = 40 } = {}) {
+    const scopedAgentId = this._agentId(userId, { agentId });
+    const rows = db.prepare(
+      `SELECT m.id, m.category, m.content, m.summary, m.importance, m.confidence, m.access_count,
+              m.memory_strength, m.last_accessed_at, m.pinned, m.archived, m.created_at, m.updated_at,
+              m.scope_type, m.scope_id, m.source_type, m.source_id, m.source_label, m.stale_after_days, m.metadata_json
+       FROM memory_entity_mentions mem
+       JOIN memories m ON m.id = mem.memory_id
+       WHERE mem.entity_id = ? AND m.user_id = ? AND m.agent_id = ? AND m.archived = 0
+       ORDER BY m.importance DESC, m.updated_at DESC
+       LIMIT ?`
+    ).all(entityId, userId, scopedAgentId, Math.max(1, Math.min(Number(limit) || 40, 200)));
+    return this._attachEntities(rows).map(serializeMemoryRow);
   }
 
   materializeKnowledgeViews(userId, { agentId = null } = {}) {
@@ -1093,6 +1190,31 @@ class MemoryManager {
     db.prepare('DELETE FROM memory_embedding_bands WHERE memory_id = ?').run(memoryId);
   }
 
+  // Single place that keeps memory_entities in step with mentions: recount the
+  // given entities and drop the ones no memory mentions anymore. Callers collect
+  // ids before deleting or re-indexing mentions and call this afterwards.
+  _pruneOrphanEntities(entityIds) {
+    for (const entityId of new Set(entityIds)) {
+      const count = db.prepare(
+        'SELECT COUNT(*) AS count FROM memory_entity_mentions WHERE entity_id = ?'
+      ).get(entityId)?.count || 0;
+      if (count) {
+        db.prepare('UPDATE memory_entities SET mention_count = ? WHERE id = ?').run(count, entityId);
+      } else {
+        db.prepare('DELETE FROM memory_entities WHERE id = ?').run(entityId);
+      }
+    }
+  }
+
+  _entityIdsForMemories(memoryIds) {
+    const ids = [...new Set(memoryIds)];
+    if (!ids.length) return [];
+    return db.prepare(
+      `SELECT DISTINCT entity_id FROM memory_entity_mentions
+       WHERE memory_id IN (${ids.map(() => '?').join(', ')})`
+    ).all(...ids).map((row) => row.entity_id);
+  }
+
   _upsertMemoryIntelligence(userId, agentId, memoryId, {
     content,
     category,
@@ -1122,10 +1244,15 @@ class MemoryManager {
           forgetAfter: fact.forgetAfter,
         },
       }))
-      : buildFacts({ content, category, sourceRef, metadata });
+      // Raw ingested source chunks stay searchable as memories, but copying
+      // their sentences into the fact index only floods it with non-facts.
+      : sourceRef?.sourceType === 'memory_ingestion'
+        ? []
+        : buildFacts({ content, category, sourceRef, metadata });
     const now = new Date().toISOString();
 
     const upsert = db.transaction(() => {
+      const touchedEntityIds = this._entityIdsForMemories([memoryId]);
       this._deleteMemoryIndex(memoryId);
 
       for (const fact of facts) {
@@ -1259,7 +1386,6 @@ class MemoryManager {
             name = CASE WHEN length(excluded.name) > length(memory_entities.name) THEN excluded.name ELSE memory_entities.name END,
             kind = CASE WHEN memory_entities.kind = 'concept' THEN excluded.kind ELSE memory_entities.kind END,
             aliases_json = excluded.aliases_json,
-            mention_count = memory_entities.mention_count + 1,
             last_seen_at = excluded.last_seen_at`
         ).run(
           entityId,
@@ -1272,10 +1398,12 @@ class MemoryManager {
           now,
         );
         db.prepare(
-          `INSERT OR IGNORE INTO memory_entity_mentions (entity_id, memory_id, user_id, agent_id)
-           VALUES (?, ?, ?, ?)`
-        ).run(entityId, memoryId, userId, agentId);
+          `INSERT OR IGNORE INTO memory_entity_mentions (entity_id, memory_id, user_id, agent_id, in_sentence)
+           VALUES (?, ?, ?, ?, ?)`
+        ).run(entityId, memoryId, userId, agentId, entity.inSentence ? 1 : 0);
+        touchedEntityIds.push(entityId);
       }
+      this._pruneOrphanEntities(touchedEntityIds);
 
       try {
         db.prepare(
@@ -2242,11 +2370,20 @@ class MemoryManager {
     )];
     if (!uniqueIds.length) return 0;
     const placeholders = uniqueIds.map(() => '?').join(', ');
-    for (const id of uniqueIds) this._deleteMemoryIndex(id);
-    const result = userId != null
-      ? db.prepare(`DELETE FROM memories WHERE id IN (${placeholders}) AND user_id = ?`).run(...uniqueIds, userId)
-      : db.prepare(`DELETE FROM memories WHERE id IN (${placeholders})`).run(...uniqueIds);
-    return result.changes || 0;
+    const ownedIds = userId != null
+      ? db.prepare(`SELECT id FROM memories WHERE id IN (${placeholders}) AND user_id = ?`)
+        .all(...uniqueIds, userId).map((row) => row.id)
+      : uniqueIds;
+    if (!ownedIds.length) return 0;
+    return db.transaction(() => {
+      const entityIds = this._entityIdsForMemories(ownedIds);
+      for (const id of ownedIds) this._deleteMemoryIndex(id);
+      const result = db.prepare(
+        `DELETE FROM memories WHERE id IN (${ownedIds.map(() => '?').join(', ')})`
+      ).run(...ownedIds);
+      this._pruneOrphanEntities(entityIds);
+      return result.changes || 0;
+    })();
   }
 
   /**
