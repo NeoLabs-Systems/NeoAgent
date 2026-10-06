@@ -45,7 +45,7 @@ class AgentCallCoordinator {
         callId,
         userId,
         agentId: agent?.id || agentId || null,
-        agentName: String(agent?.display_name || 'NeoAgent').trim() || 'NeoAgent',
+        agentName: String(agent?.display_name || agent?.displayName || '').trim() || 'NeoAgent',
         runId: String(runId || '').trim() || null,
         conversationId: String(conversationId || '').trim() || null,
         openingMessage: content,
@@ -139,9 +139,15 @@ class AgentCallCoordinator {
     }
   }
 
-  decline(callId, userId, socket) {
+  // `later` means the user asked to be called back: that ends the ringing on
+  // every device, and the agent hears it as its own outcome.
+  decline(callId, userId, socket, { later = false } = {}) {
     const invitation = this.#ownedInvitation(callId, userId);
     if (!invitation || invitation.settled) return { declined: false, status: 'unavailable' };
+    if (later) {
+      this.#finish(invitation, 'call_later');
+      return { declined: true, status: 'call_later' };
+    }
     invitation.recipients.delete(socket.id);
     socket.emit('voice:call_ended', { callId: invitation.callId, reason: 'declined' });
     if (invitation.recipients.size === 0) this.#finish(invitation, 'declined');

@@ -254,3 +254,25 @@ test('a failed opening greeting closes the opened session so the next call is no
   assert.equal(sessions.size, 0);
   assert.equal(socket.data.voiceSessionIds.has('call-session'), false);
 });
+
+test('call me later ends the ringing everywhere with its own status', async (t) => {
+  const ctx = createTestRuntime();
+  t.after(() => teardownTestRuntime(ctx));
+  const user = await createTestUser(ctx.db);
+  const { AgentCallCoordinator } = require('../../../server/services/voice/agent_call_coordinator');
+  const phone = createSocket('phone', []);
+  const desktop = createSocket('desktop', []);
+  const io = createIo([phone, desktop]);
+  const coordinator = new AgentCallCoordinator({
+    io,
+    voiceRuntimeManager: { hasActiveSessionForUser: () => false },
+  });
+
+  const outcome = coordinator.callUser({ userId: user.userId, openingMessage: 'Hi' });
+  await new Promise((resolve) => setImmediate(resolve));
+  const result = coordinator.decline(emittedCallId(io), user.userId, phone, { later: true });
+
+  assert.equal(result.status, 'call_later');
+  assert.equal((await outcome).status, 'call_later');
+  assert.ok(io.roomEvents.some((e) => e.event === 'voice:call_ended' && e.payload.reason === 'call_later'));
+});
