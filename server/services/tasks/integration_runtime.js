@@ -438,13 +438,64 @@ function matchesWhatsappTaskEvent(task, event) {
   return true;
 }
 
+function createDiscordJoinTriggerPayload(event) {
+  return {
+    fingerprint: `discord_member:${event.guildId}:${event.memberId}:${event.joinedAt}`,
+    timestamp: event.joinedAt,
+    context: {
+      triggerEvent: {
+        provider: 'discord',
+        event: 'member_joined',
+        guildId: event.guildId,
+        guildName: event.guildName,
+        memberId: event.memberId,
+        memberUsername: event.memberUsername,
+        memberDisplayName: event.memberDisplayName,
+        dmChatId: event.chatId,
+        joinedAt: event.joinedAt,
+      },
+    },
+  };
+}
+
+async function fireDiscordJoinTasks(runtime, event) {
+  const tasks = runtime.taskRepository.listEnabledEventTasks(event.userId, event.agentId, 'discord_member_joined');
+  for (const task of tasks) {
+    if (runtime.stopping) break;
+    if (normalizeJsonObject(task.trigger_config).guildId !== event.guildId) continue;
+    await runtime.fireTaskFromTrigger(task.id, task.user_id, createDiscordJoinTriggerPayload(event)).catch((error) => {
+      const logger = runtime.logger?.error || console.error;
+      logger('[Tasks] Failed to fire Discord join task trigger', {
+        taskId: task.id,
+        userId: task.user_id,
+        agentId: event.agentId,
+        error: error?.message || String(error),
+      });
+    });
+  }
+}
+
+// Joins are handled one at a time: a task already running skips a new trigger,
+// so two people joining together would otherwise leave the second unwelcomed.
+function attachDiscordJoinSource(runtime) {
+  const manager = runtime.app?.locals?.messagingManager;
+  if (!manager) return null;
+  let queue = Promise.resolve();
+  const listener = (event) => {
+    if (runtime.stopping || event.platform !== 'discord') return;
+    queue = queue.then(() => fireDiscordJoinTasks(runtime, event));
+  };
+  manager.on('member_joined', listener);
+  return () => manager.off('member_joined', listener);
+}
+
 function attachIntegrationEventSources(runtime) {
   const cleanups = [];
   const provider = runtime.integrationManager?.getProvider?.('whatsapp_personal');
   if (provider && typeof provider.on === 'function') {
     const listener = async (event) => {
       if (runtime.stopping) return;
-      const tasks = runtime.taskRepository.listEnabledWhatsappEventTasks(event.userId, event.agentId);
+      const tasks = runtime.taskRepository.listEnabledEventTasks(event.userId, event.agentId, 'whatsapp_personal_message_received');
       for (const task of tasks) {
         if (runtime.stopping) break;
         if (!matchesWhatsappTaskEvent(task, event)) continue;
@@ -468,6 +519,8 @@ function attachIntegrationEventSources(runtime) {
       }
     });
   }
+  const detachDiscordJoins = attachDiscordJoinSource(runtime);
+  if (detachDiscordJoins) cleanups.push(detachDiscordJoins);
   return cleanups;
 }
 

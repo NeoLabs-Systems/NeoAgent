@@ -11222,4 +11222,21 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get permissionAllowed => 'Erlaubt';
+
+  @override
+  String get discordMemberJoined => 'Discord-Mitglied beigetreten';
+
+  @override
+  String get runWhenSomeoneJoinsADiscordServer =>
+      'Ausführen, wenn jemand einem Ihrer Discord-Server beitritt.';
+
+  @override
+  String get discordServerId => 'Discord-Server-ID';
+
+  @override
+  String get discordServerIdHelper =>
+      'Rechtsklick auf den Server und „Server-ID kopieren“ wählen (Entwicklermodus). Der Bot benötigt den Server Members Intent.';
+
+  @override
+  String get enterTheDiscordServerId => 'Geben Sie die Discord-Server-ID ein.';
 }

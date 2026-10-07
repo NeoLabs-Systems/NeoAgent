@@ -148,11 +148,11 @@ class TaskRepository {
     ).all(...triggerTypes);
   }
 
-  listEnabledWhatsappEventTasks(userId, agentId) {
+  listEnabledEventTasks(userId, agentId, triggerType) {
     return db.prepare(
       `SELECT * FROM scheduled_tasks
-       WHERE enabled = 1 AND user_id = ? AND agent_id = ? AND trigger_type = 'whatsapp_personal_message_received'`
-    ).all(userId, agentId);
+       WHERE enabled = 1 AND user_id = ? AND agent_id = ? AND trigger_type = ?`
+    ).all(userId, agentId, triggerType);
   }
 
   markTaskTriggered(taskId, userId, fingerprint) {

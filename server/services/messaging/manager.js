@@ -823,6 +823,11 @@ class MessagingManager extends EventEmitter {
       });
     });
 
+    platform.on('member_joined', (event) => {
+      if (this.isShuttingDown) return;
+      this.emit('member_joined', { userId, agentId, platform: platformName, ...event });
+    });
+
     platform.on('reaction', (reaction) => {
       if (this.isShuttingDown) return;
       try {

@@ -18532,6 +18532,36 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Allowed'**
   String get permissionAllowed;
+
+  /// No description provided for @discordMemberJoined.
+  ///
+  /// In en, this message translates to:
+  /// **'Discord Member Joined'**
+  String get discordMemberJoined;
+
+  /// No description provided for @runWhenSomeoneJoinsADiscordServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when someone joins one of your Discord servers.'**
+  String get runWhenSomeoneJoinsADiscordServer;
+
+  /// No description provided for @discordServerId.
+  ///
+  /// In en, this message translates to:
+  /// **'Discord server ID'**
+  String get discordServerId;
+
+  /// No description provided for @discordServerIdHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Right-click the server and choose Copy Server ID (Developer Mode). The bot needs the Server Members Intent.'**
+  String get discordServerIdHelper;
+
+  /// No description provided for @enterTheDiscordServerId.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the Discord server ID.'**
+  String get enterTheDiscordServerId;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

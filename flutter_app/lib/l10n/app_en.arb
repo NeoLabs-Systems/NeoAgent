@@ -6995,5 +6995,10 @@
   "fullScreenCallsDetail": "Rings over the lock screen.",
   "unrestrictedBattery": "Unrestricted battery",
   "unrestrictedBatteryDetail": "Keeps NeoAgent connected so calls arrive.",
-  "permissionAllowed": "Allowed"
+  "permissionAllowed": "Allowed",
+  "discordMemberJoined": "Discord Member Joined",
+  "runWhenSomeoneJoinsADiscordServer": "Run when someone joins one of your Discord servers.",
+  "discordServerId": "Discord server ID",
+  "discordServerIdHelper": "Right-click the server and choose Copy Server ID (Developer Mode). The bot needs the Server Members Intent.",
+  "enterTheDiscordServerId": "Enter the Discord server ID."
 }

@@ -15,4 +15,5 @@ module.exports = [
   require('./webhook'),
   require('./whatsapp_personal_message_received'),
   require('./android_notification_received'),
+  require('./discord_member_joined'),
 ];

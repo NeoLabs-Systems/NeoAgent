@@ -2253,6 +2253,13 @@ List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
     appKey: 'personal',
   ),
   _TaskTriggerOption(
+    type: 'discord_member_joined',
+    section: 'Messaging',
+    label: appStrings.discordMemberJoined,
+    description: appStrings.runWhenSomeoneJoinsADiscordServer,
+    icon: Icons.person_add_alt_1_rounded,
+  ),
+  _TaskTriggerOption(
     type: 'android_notification_received',
     section: 'System',
     label: appStrings.androidNotificationReceived,
@@ -3799,6 +3806,9 @@ class _TasksPanelState extends State<TasksPanel> {
     final senderController = TextEditingController(
       text: task?.triggerConfig['sender']?.toString() ?? '',
     );
+    final guildIdController = TextEditingController(
+      text: task?.triggerConfig['guildId']?.toString() ?? '',
+    );
     final repoController = TextEditingController(
       text: task?.triggerConfig['repo']?.toString() ?? '',
     );
@@ -4249,6 +4259,17 @@ class _TasksPanelState extends State<TasksPanel> {
                             );
                           }
 
+                          if (selectedTriggerType == 'discord_member_joined') {
+                            return TextField(
+                              controller: guildIdController,
+                              keyboardType: TextInputType.number,
+                              decoration: InputDecoration(
+                                labelText: appStrings.discordServerId,
+                                helperText: appStrings.discordServerIdHelper,
+                              ),
+                            );
+                          }
+
                           return Column(
                             children: <Widget>[
                               ValueListenableBuilder<
@@ -4657,6 +4678,16 @@ class _TasksPanelState extends State<TasksPanel> {
                     final triggerConfig = <String, dynamic>{};
                     if (selectedTriggerType == 'manual') {
                       // Manual trigger uses no trigger-specific config.
+                    } else if (selectedTriggerType == 'discord_member_joined') {
+                      final guildId = guildIdController.text.trim();
+                      if (!RegExp(r'^\d{17,20}$').hasMatch(guildId)) {
+                        _showFormError(
+                          context,
+                          appStrings.enterTheDiscordServerId,
+                        );
+                        return;
+                      }
+                      triggerConfig['guildId'] = guildId;
                     } else if (selectedTriggerType == 'schedule') {
                       final runAt = runAtController.text.trim();
                       triggerConfig['mode'] = scheduleDraft.mode;

@@ -6960,5 +6960,10 @@
   "fullScreenCallsDetail": "Klingelt über dem Sperrbildschirm.",
   "unrestrictedBattery": "Uneingeschränkter Akku",
   "unrestrictedBatteryDetail": "Hält NeoAgent verbunden, damit Anrufe ankommen.",
-  "permissionAllowed": "Erlaubt"
+  "permissionAllowed": "Erlaubt",
+  "discordMemberJoined": "Discord-Mitglied beigetreten",
+  "runWhenSomeoneJoinsADiscordServer": "Ausführen, wenn jemand einem Ihrer Discord-Server beitritt.",
+  "discordServerId": "Discord-Server-ID",
+  "discordServerIdHelper": "Rechtsklick auf den Server und „Server-ID kopieren“ wählen (Entwicklermodus). Der Bot benötigt den Server Members Intent.",
+  "enterTheDiscordServerId": "Geben Sie die Discord-Server-ID ein."
 }
