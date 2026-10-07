@@ -113,7 +113,7 @@ class LiveVoicePlayer {
       if (epoch != _clickEpoch) break;
       final source = await soloud.loadMem(
         'neoagent-key-click-$epoch-$index',
-        _wavPcm16(clicks[index], _sampleRate),
+        pcm16MonoWav(clicks[index], _sampleRate),
       );
       if (epoch != _clickEpoch) {
         loaded.add(source);
@@ -220,8 +220,8 @@ class LiveVoicePlayer {
   }
 }
 
-/// A minimal WAV wrapper so a raw strike can be loaded as its own sound.
-Uint8List _wavPcm16(Uint8List pcm, int sampleRate) {
+/// A minimal WAV wrapper so raw 16-bit mono samples can be loaded as a sound.
+Uint8List pcm16MonoWav(Uint8List pcm, int sampleRate) {
   final bytes = Uint8List(44 + pcm.length);
   final data = ByteData.sublistView(bytes);
   _writeAscii(bytes, 0, 'RIFF');

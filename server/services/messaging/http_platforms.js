@@ -251,6 +251,11 @@ class ConfigurableHttpPlatform extends BasePlatform {
   }
 }
 
+const SLACK_MEMBERSHIP_EVENTS = Object.freeze({
+  member_joined_channel: 'member_joined',
+  member_left_channel: 'member_left',
+});
+
 class SlackPlatform extends BasePlatform {
   constructor(config = {}) {
     super('slack', config);
@@ -327,6 +332,22 @@ class SlackPlatform extends BasePlatform {
     if (!this.#verifySlackRequest(req)) return { handled: false, status: 403, body: 'Forbidden' };
 
     const event = body.event || body;
+    if (SLACK_MEMBERSHIP_EVENTS[event.type]) {
+      // Slack sends these only when the app subscribes to them. They never
+      // start a chat run; they only feed the owner's tasks.
+      if (event.user && event.user !== this._botUserId) {
+        this.emit(SLACK_MEMBERSHIP_EVENTS[event.type], {
+          spaceId: String(event.channel || ''),
+          spaceName: null,
+          chatId: String(event.channel || ''),
+          memberId: String(event.user),
+          memberName: `<@${event.user}>`,
+          dmChatId: String(event.user),
+          occurredAt: event.event_ts ? new Date(Number(event.event_ts) * 1000).toISOString() : new Date().toISOString(),
+        });
+      }
+      return { handled: true, status: 200, body: 'OK' };
+    }
     if (event.type !== 'message' || event.subtype || !event.text) {
       if (event.type !== 'app_mention') {
         return { handled: true, status: 202, body: 'ignored' };
@@ -560,8 +581,34 @@ class MatrixPlatform extends BasePlatform {
     this._timer.unref?.();
   }
 
+  // The first sync of a connection returns history, so membership is only
+  // read from syncs that continue an earlier one. Joins and leaves never start
+  // a chat run; they only feed the owner's tasks.
+  #emitMembership(roomId, event) {
+    const memberId = String(event.state_key || '');
+    if (!memberId || memberId === this.userId) return;
+    const membership = event.content?.membership;
+    const previous = event.unsigned?.prev_content?.membership;
+    const kind = membership === 'join' && previous !== 'join'
+      ? 'member_joined'
+      : (membership === 'leave' || membership === 'ban') && previous === 'join'
+        ? 'member_left'
+        : null;
+    if (!kind) return;
+    this.emit(kind, {
+      spaceId: roomId,
+      spaceName: null,
+      chatId: roomId,
+      memberId,
+      memberName: event.content?.displayname || memberId,
+      dmChatId: null,
+      occurredAt: event.origin_server_ts ? new Date(event.origin_server_ts).toISOString() : new Date().toISOString(),
+    });
+  }
+
   async #poll() {
     const query = new URLSearchParams({ timeout: String(Math.min(this.pollIntervalMs, 30000)) });
+    const continuesSync = Boolean(this._since);
     if (this._since) query.set('since', this._since);
     const sync = await this.#matrix(`/sync?${query.toString()}`);
     this._since = sync?.next_batch || this._since;
@@ -569,6 +616,10 @@ class MatrixPlatform extends BasePlatform {
     for (const [roomId, room] of Object.entries(rooms)) {
       const events = room?.timeline?.events || [];
       for (const event of events) {
+        if (event.type === 'm.room.member') {
+          if (continuesSync) this.#emitMembership(roomId, event);
+          continue;
+        }
         if (event.type !== 'm.room.message') continue;
         if (event.sender && this.userId && event.sender === this.userId) continue;
         const content = event.content?.body || '';

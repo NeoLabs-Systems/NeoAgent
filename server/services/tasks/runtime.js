@@ -2,13 +2,15 @@
 
 const cron = require('node-cron');
 const crypto = require('crypto');
+const { EventEmitter } = require('events');
 const { isMainAgent, resolveAgentId } = require('../agents/manager');
 const taskAdapters = require('./adapters');
 const {
   POLLED_TRIGGER_TYPES,
-  attachIntegrationEventSources,
-  pollIntegrationTask,
-} = require('./integration_runtime');
+  forgetPolledTask,
+  pollTriggerTask,
+} = require('./trigger_polling');
+const { attachTriggerEventSources } = require('./trigger_events');
 const { TaskRepository } = require('./task_repository');
 const { TriggerRegistry } = require('./trigger_registry');
 const scheduleAdapter = require('./adapters/schedule');
@@ -91,12 +93,20 @@ class TaskRuntime {
     this.leadTimeOccurrences = new Map();
     this.abortController = new AbortController();
     this.integrationEventCleanups = [];
+    // Events that reach the server through its own routes and runs: a phone's
+    // notification or geofence, a health sync, a finished task.
+    this.events = new EventEmitter();
     this.triggerRegistry = new TriggerRegistry(taskAdapters);
     this.started = false;
     this.stopping = false;
     this.stopPromise = null;
     this.state = 'idle';
     this.lastError = null;
+  }
+
+  publishEvent(name, event) {
+    if (!this.started || this.stopping) return;
+    this.events.emit(name, event);
   }
 
   get integrationManager() {
@@ -139,7 +149,7 @@ class TaskRuntime {
       this._startOneTimePoller();
       this._startLeadTimePoller();
       this._startIntegrationPoller();
-      this.integrationEventCleanups = attachIntegrationEventSources(this);
+      this.integrationEventCleanups = attachTriggerEventSources(this);
       this.state = 'running';
       console.log('[Tasks] Started');
       return this.getStatus();
@@ -433,7 +443,7 @@ class TaskRuntime {
         for (const task of tasks) {
           if (this.abortController.signal.aborted) break;
           try {
-            await pollIntegrationTask(this, task, {
+            await pollTriggerTask(this, task, {
               signal: this.abortController.signal,
             });
           } catch (error) {
@@ -522,6 +532,7 @@ class TaskRuntime {
     }
     this.scheduleJobs.delete(taskId);
     this.leadTimeOccurrences.delete(taskId);
+    forgetPolledTask(taskId);
   }
 
   async _executeTask(taskId, userId, executionMeta = {}) {
@@ -552,11 +563,35 @@ class TaskRuntime {
     const executionPromise = this._executeTaskSerial(taskId, userId, executionMeta);
     this.activeExecutionPromises.add(executionPromise);
     try {
-      return await executionPromise;
+      const result = await executionPromise;
+      this._publishRunFinished(taskId, userId, executionMeta, result);
+      return result;
     } finally {
       this.runningTaskExecutions.delete(executionKey);
       this.activeExecutionPromises.delete(executionPromise);
     }
+  }
+
+  // Chained tasks carry how many runs led to them, so a loop of tasks that
+  // trigger each other stops instead of running forever.
+  _publishRunFinished(taskId, userId, executionMeta, result) {
+    if (!result || (result.skipped && !result.error)) return;
+    const task = this.taskRepository.getTaskById(taskId, userId);
+    const chainDepth = executionMeta.triggerSource === 'task_run_finished'
+      ? Number(executionMeta.triggerPayload?.triggerEvent?.chainDepth) || 0
+      : 0;
+    this.publishEvent('task_run_finished', {
+      userId,
+      agentId: task?.agent_id || null,
+      taskId,
+      taskName: task?.name || `Task ${taskId}`,
+      outcome: result.error ? 'failed' : 'succeeded',
+      error: result.error || null,
+      result: result.error ? '' : stringifyTaskResult(result).slice(0, 2000),
+      runId: result.runId || null,
+      chainDepth: chainDepth + 1,
+      finishedAt: new Date().toISOString(),
+    });
   }
 
   async _executeTaskSerial(taskId, userId, executionMeta = {}) {
@@ -902,6 +937,7 @@ class TaskRuntime {
     const triggerConfig = await adapter.validateConfig(this._normalizeJson(rawTriggerConfig), {
       userId,
       agentId,
+      taskId: existingTask?.id || null,
       integrationManager: this.integrationManager,
     });
     const enabled = input.enabled !== undefined ? input.enabled !== false : existingTask ? !!existingTask.enabled : true;

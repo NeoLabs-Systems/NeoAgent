@@ -1056,32 +1056,6 @@ class BackendClient {
     return getMap(baseUrl, _withAgentQuery('/api/agents?limit=20', agentId));
   }
 
-  Future<Map<String, dynamic>> fetchTimeline(
-    String baseUrl, {
-    Iterable<String>? sources,
-    String? agentId,
-    int limit = 50,
-    String? beforeOccurredAt,
-    int? beforeId,
-  }) async {
-    final query = <String>[
-      'limit=${limit.clamp(1, 200)}',
-      if (agentId?.trim().isNotEmpty == true)
-        'agentId=${Uri.encodeQueryComponent(agentId!.trim())}',
-      if (beforeOccurredAt?.trim().isNotEmpty == true)
-        'beforeOccurredAt=${Uri.encodeQueryComponent(beforeOccurredAt!.trim())}',
-      if (beforeId != null && beforeId > 0) 'beforeId=$beforeId',
-    ];
-    for (final source in (sources ?? const <String>[])) {
-      final normalized = source.trim().toLowerCase();
-      if (normalized.isEmpty) {
-        continue;
-      }
-      query.add('source=${Uri.encodeQueryComponent(normalized)}');
-    }
-    return getMap(baseUrl, '/api/timeline?${query.join('&')}');
-  }
-
   Future<Map<String, dynamic>> fetchRunSteps(
     String baseUrl,
     String runId,
@@ -2611,18 +2585,16 @@ class BackendClient {
 
   Future<Map<String, dynamic>> triggerGeofenceEvent(
     String baseUrl, {
-    required String label,
+    required int fenceId,
+    required String transition,
     required double latitude,
     required double longitude,
-    int? radiusMeters,
-    String? action,
   }) {
     return postMap(baseUrl, '/api/triggers/geofence', <String, dynamic>{
-      'label': label,
+      'fence_id': fenceId,
+      'transition': transition,
       'latitude': latitude,
       'longitude': longitude,
-      if (radiusMeters != null) 'radius_meters': radiusMeters,
-      if (action != null && action.trim().isNotEmpty) 'action': action,
     });
   }
 }

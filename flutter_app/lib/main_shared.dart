@@ -180,7 +180,6 @@ class _PanelSurface extends StatelessWidget {
 List<AppSection> _mainSections(NeoAgentController controller) {
   return <AppSection>[
     AppSection.chat,
-    AppSection.timeline,
     AppSection.devices,
     AppSection.tasks,
     AppSection.integrations,
@@ -1441,9 +1440,11 @@ class _ChatBubble extends StatelessWidget {
     required this.entry,
     this.onLoadRunDetail,
     this.onSendMessage,
+    this.liveController,
   });
 
   final ChatEntry entry;
+  final NeoAgentController? liveController;
   final Future<RunDetailSnapshot> Function(String runId)? onLoadRunDetail;
   final void Function(String)? onSendMessage;
 
@@ -1472,7 +1473,7 @@ class _ChatBubble extends StatelessWidget {
             : MainAxisAlignment.start,
         children: <Widget>[
           if (!isUser) ...<Widget>[
-            const _MessageAvatar(assistant: true),
+            _MessageAvatar(assistant: true, liveController: liveController),
             const SizedBox(width: 12),
           ],
           Flexible(
@@ -1991,15 +1992,22 @@ class _MessageRunStepRow extends StatelessWidget {
 }
 
 class _MessageAvatar extends StatelessWidget {
-  const _MessageAvatar({required this.assistant});
+  const _MessageAvatar({required this.assistant, this.liveController});
 
   final bool assistant;
+
+  /// Set on the newest assistant message: its face follows the agent and
+  /// moves at rest like the sidebar mascot. Older messages stay still.
+  final NeoAgentController? liveController;
 
   @override
   Widget build(BuildContext context) {
     if (assistant) {
-      return const ExcludeSemantics(
-        child: NeoMascot(mood: MascotMood.idle, size: 34, animate: false),
+      final live = liveController;
+      return ExcludeSemantics(
+        child: live != null
+            ? _LiveMascot(controller: live, size: 34)
+            : const NeoMascot(mood: MascotMood.idle, size: 34, animate: false),
       );
     }
     return Container(

@@ -1,5 +1,6 @@
 'use strict';
 
+const { EventEmitter } = require('events');
 const { getVersionInfo } = require('../../utils/version');
 const { publicBaseUrlForRequest } = require('../../utils/public_url');
 const { clientIpFromRequest, lookupIpLocation } = require('../account/geoip');
@@ -65,8 +66,9 @@ function utcOffsetSecondsForTimeZone(timeZone, now = new Date()) {
   }
 }
 
-class WearableService {
+class WearableService extends EventEmitter {
   constructor({ app }) {
+    super();
     this.app = app;
     this.connectionsByUser = new Map();
   }
@@ -180,7 +182,18 @@ class WearableService {
     };
     userSet.set(deviceId, connection);
     this.connectionsByUser.set(key, userSet);
+    this._emitConnectionChanged(key, connection, 'connected');
     return connection;
+  }
+
+  _emitConnectionChanged(userId, connection, transition) {
+    this.emit('connection_changed', {
+      userId,
+      deviceId: connection.deviceId,
+      deviceLabel: connection.hello.deviceLabel,
+      transition,
+      occurredAt: new Date().toISOString(),
+    });
   }
 
   touchConnection(userId, deviceId) {
@@ -191,10 +204,15 @@ class WearableService {
     }
   }
 
-  unregisterConnection(userId, deviceId) {
+  // A device that reconnects registers its new socket before the old one
+  // closes, so only the socket that still owns the entry removes it.
+  unregisterConnection(userId, deviceId, ws) {
     const userSet = this.connectionsByUser.get(Number(userId));
     if (!userSet) return;
-    userSet.delete(String(deviceId || '').trim());
+    const connection = userSet.get(String(deviceId || '').trim());
+    if (!connection || connection.ws !== ws) return;
+    userSet.delete(connection.deviceId);
+    this._emitConnectionChanged(Number(userId), connection, 'disconnected');
     if (userSet.size === 0) {
       this.connectionsByUser.delete(Number(userId));
     }

@@ -147,9 +147,9 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
       await capture.dispose();
       _dictationCapture = null;
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(appStrings.microphoneErrorArg1(e))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(appStrings.microphoneErrorArg1(e))),
+        );
       }
     }
   }
@@ -185,9 +185,9 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(appStrings.transcriptionFailedArg1(e))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(appStrings.transcriptionFailedArg1(e))),
+        );
       }
     } finally {
       await capture?.dispose();
@@ -622,6 +622,17 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     final controller = widget.controller;
     final messages = controller.visibleChatMessages;
     _maybeFollowChatContent(messages, controller);
+    // The newest assistant reply carries the live face; while the typing
+    // bubble is up, its own thinking face is the live one.
+    ChatEntry? liveAvatarEntry;
+    if (!messages.any((entry) => entry.typing)) {
+      for (final entry in messages.reversed) {
+        if (entry.role != 'user') {
+          liveAvatarEntry = entry;
+          break;
+        }
+      }
+    }
 
     final threadChildren = <Widget>[
       if (controller.isLoadingOlderChatHistory) ...<Widget>[
@@ -668,8 +679,7 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               _GreetingHeader(
-                subtitle:
-                    appStrings.runsToolsMemorySchedulingSkillsAnd,
+                subtitle: appStrings.runsToolsMemorySchedulingSkillsAnd,
               ),
               const SizedBox(height: 26),
               ConstrainedBox(
@@ -724,6 +734,9 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
               entry: entry,
               onLoadRunDetail: controller.fetchRunDetail,
               onSendMessage: controller.sendMessage,
+              liveController: identical(entry, liveAvatarEntry)
+                  ? controller
+                  : null,
             ),
           ),
         ),
@@ -1087,7 +1100,9 @@ class _RateLimitStatusCard extends StatelessWidget {
             Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
             const Spacer(),
             Text(
-              reached ? 'Limit reached' : appStrings.arg1Left(_formatTokenCount(remaining)),
+              reached
+                  ? 'Limit reached'
+                  : appStrings.arg1Left(_formatTokenCount(remaining)),
               style: TextStyle(
                 color: color,
                 fontSize: 12,
@@ -1108,8 +1123,11 @@ class _RateLimitStatusCard extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          appStrings.arg1Arg2Tokens3(_formatTokenCount(usageAmount), _formatTokenCount(limit)) +
-          '${resetLabel == null ? '' : ' · $resetLabel'}',
+          appStrings.arg1Arg2Tokens3(
+                _formatTokenCount(usageAmount),
+                _formatTokenCount(limit),
+              ) +
+              '${resetLabel == null ? '' : ' · $resetLabel'}',
           style: TextStyle(color: _textMuted, fontSize: 11),
         ),
       ],
@@ -1611,11 +1629,6 @@ class _MessagingPanelState extends State<MessagingPanel> {
           'webchat',
         ],
       ),
-      (
-        appStrings.hardwareBridges,
-        appStrings.localDeviceBridgesAndTcpConnected,
-        ['meshtastic'],
-      ),
     ];
     final query = _searchController.text.trim().toLowerCase();
     final counts = _MessagingStatusCounts.from(controller.messagingStatuses);
@@ -1663,9 +1676,13 @@ class _MessagingPanelState extends State<MessagingPanel> {
                     final status =
                         controller.messagingStatuses[platform.id] ??
                         MessagingPlatformStatus.empty(platform.id);
-                    final haystack =
-                        appStrings.arg1Arg2Arg37(platform.label, platform.subtitle, group.$1)
-                            .toLowerCase();
+                    final haystack = appStrings
+                        .arg1Arg2Arg37(
+                          platform.label,
+                          platform.subtitle,
+                          group.$1,
+                        )
+                        .toLowerCase();
                     return _matchesMessagingStatusFilter(status) &&
                         (query.isEmpty || haystack.contains(query));
                   })
@@ -1736,8 +1753,7 @@ class _MessagingPanelState extends State<MessagingPanel> {
           const SizedBox(height: 10),
           _EmptyCard(
             title: appStrings.noPlatformsMatch,
-            subtitle:
-                appStrings.adjustTheSearchOrStatusFilter,
+            subtitle: appStrings.adjustTheSearchOrStatusFilter,
           ),
           const SizedBox(height: 22),
         ],
@@ -1762,7 +1778,8 @@ class _MessagingPanelState extends State<MessagingPanel> {
         final status =
             controller.messagingStatuses[platform.id] ??
             MessagingPlatformStatus.empty(platform.id);
-        final haystack = appStrings.arg1Arg2Arg37(platform.label, platform.subtitle, group.$1)
+        final haystack = appStrings
+            .arg1Arg2Arg37(platform.label, platform.subtitle, group.$1)
             .toLowerCase();
         if (_matchesMessagingStatusFilter(status) &&
             (query.isEmpty || haystack.contains(query))) {
@@ -2306,15 +2323,17 @@ class _MessagingActivityPanel extends StatelessWidget {
                   ),
                 ),
               ),
-              _StatusPill(label: appStrings.arg1Events(messages.length), color: _info),
+              _StatusPill(
+                label: appStrings.arg1Events(messages.length),
+                color: _info,
+              ),
             ],
           ),
           const SizedBox(height: 14),
           if (messages.isEmpty)
             _EmptyCard(
               title: appStrings.noRecentChannelActivity,
-              subtitle:
-                  appStrings.incomingAndOutgoingChannelMessagesWill,
+              subtitle: appStrings.incomingAndOutgoingChannelMessagesWill,
             )
           else
             Column(
@@ -2704,7 +2723,9 @@ class _MessagingCard extends StatelessWidget {
                   icon: selfChatOnly
                       ? Icons.bookmark_border_rounded
                       : Icons.smartphone_rounded,
-                  label: selfChatOnly ? 'Self-chat only' : appStrings.separateAccount,
+                  label: selfChatOnly
+                      ? 'Self-chat only'
+                      : appStrings.separateAccount,
                 ),
             ],
           ),
@@ -3070,8 +3091,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                       _AccessModeField(
                         icon: Icons.chat_bubble_outline_rounded,
                         label: appStrings.privateChats,
-                        description:
-                            appStrings.whoCanSendArg1AOne(agentName),
+                        description: appStrings.whoCanSendArg1AOne(agentName),
                         value: policy.directPolicy,
                         shared: false,
                         agentName: agentName,
@@ -3084,8 +3104,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                       _AccessModeField(
                         icon: Icons.groups_2_outlined,
                         label: appStrings.groupsAndChannels,
-                        description:
-                            appStrings.whoCanTalkToArg1In(agentName),
+                        description: appStrings.whoCanTalkToArg1In(agentName),
                         value: policy.sharedPolicy,
                         shared: true,
                         modes: capabilities.sharedModes,
@@ -3198,8 +3217,9 @@ Future<void> _showMessagingAccessPolicyDialog(
                       _AccessRuleSection(
                         icon: Icons.chat_bubble_outline_rounded,
                         title: appStrings.peopleInPrivateChats,
-                        subtitle:
-                            appStrings.thesePeopleCanMessageArg1One(agentName),
+                        subtitle: appStrings.thesePeopleCanMessageArg1One(
+                          agentName,
+                        ),
                         rules: policy.directRules,
                         emptyLabel: appStrings.noOneAddedYet,
                         onRemove: (rule) =>
@@ -3214,8 +3234,13 @@ Future<void> _showMessagingAccessPolicyDialog(
                             ? appStrings.whereArg1Listens(agentName)
                             : appStrings.wholeGroups,
                         subtitle: capabilities.requireSharedActor
-                            ? appStrings.arg1WatchesThesePlacesForMentionsAnyone(agentName)
-                            : appStrings.everyoneInTheseGroupsChannelsOr(agentName),
+                            ? appStrings
+                                  .arg1WatchesThesePlacesForMentionsAnyone(
+                                    agentName,
+                                  )
+                            : appStrings.everyoneInTheseGroupsChannelsOr(
+                                agentName,
+                              ),
                         rules: policy.sharedSpaceRules,
                         emptyLabel: appStrings.noGroupsAddedYet,
                         onRemove: (rule) =>
@@ -3226,7 +3251,9 @@ Future<void> _showMessagingAccessPolicyDialog(
                         icon: Icons.person_outline_rounded,
                         title: appStrings.thesePeopleAnywhere,
                         subtitle: capabilities.requireSharedActor
-                            ? appStrings.thesePeopleCanAskArg1WhereverThey(agentName)
+                            ? appStrings.thesePeopleCanAskArg1WhereverThey(
+                                agentName,
+                              )
                             : appStrings.thesePeopleCanMessageArg1In(agentName),
                         rules: policy.sharedActorRules,
                         emptyLabel: appStrings.noPeopleAddedYet,
@@ -3237,8 +3264,9 @@ Future<void> _showMessagingAccessPolicyDialog(
                       _AccessRuleSection(
                         icon: Icons.person_pin_circle_outlined,
                         title: appStrings.thesePeopleInOneGroup,
-                        subtitle:
-                            appStrings.thesePeopleCanOnlyMessageArg1(agentName),
+                        subtitle: appStrings.thesePeopleCanOnlyMessageArg1(
+                          agentName,
+                        ),
                         rules: policy.sharedMemberRules,
                         emptyLabel: appStrings.noGroupSpecificPeopleAddedYet,
                         onRemove: (rule) => removeRule(
@@ -3441,11 +3469,17 @@ class _GroupParticipationSection extends StatelessWidget {
                     Text(
                       approvedOnly
                           ? supportsMentionGate
-                                ? appStrings.arg1StillOnlyHearsPeopleAndGroups(agentName)
-                                : appStrings.arg1StillOnlyHearsPeopleAndGroups2(agentName)
+                                ? appStrings.arg1StillOnlyHearsPeopleAndGroups(
+                                    agentName,
+                                  )
+                                : appStrings.arg1StillOnlyHearsPeopleAndGroups2(
+                                    agentName,
+                                  )
                           : supportsMentionGate
                           ? appStrings.ifSomeoneTagsArg1OrRepliesArg1(agentName)
-                          : appStrings.chooseWhichGroupsArg1ShouldJoin(agentName),
+                          : appStrings.chooseWhichGroupsArg1ShouldJoin(
+                              agentName,
+                            ),
                       style: TextStyle(color: _textSecondary, height: 1.35),
                     ),
                   ],
@@ -3503,10 +3537,16 @@ class _GroupParticipationSection extends StatelessWidget {
                   Text(
                     defaultAllowUntagged
                         ? approvedOnly
-                              ? appStrings.newGroupsWillLetArg1JoinOrdinary(agentName)
-                              : appStrings.newGroupsWillLetArg1JoinOrdinary2(agentName)
+                              ? appStrings.newGroupsWillLetArg1JoinOrdinary(
+                                  agentName,
+                                )
+                              : appStrings.newGroupsWillLetArg1JoinOrdinary2(
+                                  agentName,
+                                )
                         : approvedOnly
-                        ? appStrings.newGroupsStayQuietUnlessAnApproved(agentName)
+                        ? appStrings.newGroupsStayQuietUnlessAnApproved(
+                            agentName,
+                          )
                         : appStrings.newGroupsStayQuietUnlessSomeone(agentName),
                     style: TextStyle(color: _textSecondary, height: 1.35),
                   ),
@@ -3530,7 +3570,9 @@ class _GroupParticipationSection extends StatelessWidget {
                             ),
                         if (enabledSpaces.length > 4)
                           Chip(
-                            label: Text(appStrings.arg1More(enabledSpaces.length - 4)),
+                            label: Text(
+                              appStrings.arg1More(enabledSpaces.length - 4),
+                            ),
                           ),
                       ],
                     ),
@@ -3662,9 +3704,14 @@ class _SocialIntelligencePickerDialogState
             return false;
           }
           if (query.isEmpty) return true;
-          final haystack =
-              appStrings.arg1Arg2Arg3Arg42(space.displayLabel, space.scopeLabel, space.scope, space.value)
-                  .toLowerCase();
+          final haystack = appStrings
+              .arg1Arg2Arg3Arg42(
+                space.displayLabel,
+                space.scopeLabel,
+                space.scope,
+                space.value,
+              )
+              .toLowerCase();
           return haystack.contains(query);
         })
         .toList(growable: false);
@@ -3786,11 +3833,24 @@ class _SocialIntelligencePickerDialogState
                                 Text(
                                   enabledCount == 0
                                       ? widget.approvedOnly
-                                            ? appStrings.onlyWhenAnApprovedPersonTagsArg1(widget.agentName)
-                                            : appStrings.onlyWhenArg1IsTaggedUnlessYou(widget.agentName)
+                                            ? appStrings
+                                                  .onlyWhenAnApprovedPersonTagsArg1(
+                                                    widget.agentName,
+                                                  )
+                                            : appStrings
+                                                  .onlyWhenArg1IsTaggedUnlessYou(
+                                                    widget.agentName,
+                                                  )
                                       : widget.approvedOnly
-                                      ? appStrings.arg1OfArg2GroupsJoinOrdinaryChat(enabledCount, widget.spaces.length)
-                                      : appStrings.arg1OfArg2GroupsJoinOrdinary(enabledCount, widget.spaces.length),
+                                      ? appStrings
+                                            .arg1OfArg2GroupsJoinOrdinaryChat(
+                                              enabledCount,
+                                              widget.spaces.length,
+                                            )
+                                      : appStrings.arg1OfArg2GroupsJoinOrdinary(
+                                          enabledCount,
+                                          widget.spaces.length,
+                                        ),
                                   style: TextStyle(
                                     color: _textSecondary,
                                     fontSize: 13,
@@ -3820,10 +3880,16 @@ class _SocialIntelligencePickerDialogState
                       child: Text(
                         widget.approvedOnly
                             ? widget.supportsMentionGate
-                                  ? appStrings.thisDoesNotApproveNewPeopleTags(widget.agentName)
-                                  : appStrings.thisDoesNotApproveNewPeopleTurn(widget.agentName)
+                                  ? appStrings.thisDoesNotApproveNewPeopleTags(
+                                      widget.agentName,
+                                    )
+                                  : appStrings.thisDoesNotApproveNewPeopleTurn(
+                                      widget.agentName,
+                                    )
                             : widget.supportsMentionGate
-                            ? appStrings.tagsAndRepliesAlwaysGetAResponse(widget.agentName)
+                            ? appStrings.tagsAndRepliesAlwaysGetAResponse(
+                                widget.agentName,
+                              )
                             : appStrings.turnAGroupOnIfArg1(widget.agentName),
                         style: TextStyle(
                           color: _textSecondary,
@@ -3938,7 +4004,9 @@ class _SocialIntelligencePickerDialogState
                             style: TextStyle(fontWeight: FontWeight.w600),
                           ),
                           subtitle: Text(
-                            appStrings.groupsArg1HasNotSeenYet(widget.agentName),
+                            appStrings.groupsArg1HasNotSeenYet(
+                              widget.agentName,
+                            ),
                             style: TextStyle(color: _textSecondary),
                           ),
                           value: _defaultAllowUntagged,
@@ -3954,7 +4022,9 @@ class _SocialIntelligencePickerDialogState
                           ? Padding(
                               padding: const EdgeInsets.all(28),
                               child: Text(
-                                appStrings.noGroupsFoundYetAfterArg12(widget.agentName),
+                                appStrings.noGroupsFoundYetAfterArg12(
+                                  widget.agentName,
+                                ),
                                 style: TextStyle(color: _textMuted),
                                 textAlign: TextAlign.center,
                               ),
@@ -4042,11 +4112,25 @@ class _SocialIntelligencePickerDialogState
                                             subtitle: Text(
                                               enabled
                                                   ? widget.approvedOnly
-                                                        ? appStrings.arg1JoinsOrdinaryChatWithApprovedPeople(widget.agentName)
-                                                        : appStrings.arg1CanJoinOrdinaryChat(widget.agentName)
+                                                        ? appStrings
+                                                              .arg1JoinsOrdinaryChatWithApprovedPeople(
+                                                                widget
+                                                                    .agentName,
+                                                              )
+                                                        : appStrings
+                                                              .arg1CanJoinOrdinaryChat(
+                                                                widget
+                                                                    .agentName,
+                                                              )
                                                   : widget.approvedOnly
-                                                  ? appStrings.arg1OnlyRepliesWhenAnApprovedPerson(widget.agentName)
-                                                  : appStrings.arg1OnlyRepliesWhenTagged(widget.agentName),
+                                                  ? appStrings
+                                                        .arg1OnlyRepliesWhenAnApprovedPerson(
+                                                          widget.agentName,
+                                                        )
+                                                  : appStrings
+                                                        .arg1OnlyRepliesWhenTagged(
+                                                          widget.agentName,
+                                                        ),
                                               style: TextStyle(
                                                 color: _textSecondary,
                                               ),
@@ -4331,9 +4415,14 @@ class _MessagingAccessRulePickerSheetState
     ];
     bool matchesQuery(MessagingAccessTarget target) {
       if (query.isEmpty) return true;
-      final haystack =
-          appStrings.arg1Arg2Arg3Arg42(target.label, target.subtitle, target.scope, target.value)
-              .toLowerCase();
+      final haystack = appStrings
+          .arg1Arg2Arg3Arg42(
+            target.label,
+            target.subtitle,
+            target.scope,
+            target.value,
+          )
+          .toLowerCase();
       return haystack.contains(query);
     }
 
@@ -4780,7 +4869,10 @@ Future<void> _connectIntegrationMessagingPlatform(
     messenger?.showSnackBar(
       SnackBar(
         content: Text(
-          appStrings.failedToConnectArg1Arg2(platform.label, controller.friendlyErrorMessage(error)),
+          appStrings.failedToConnectArg1Arg2(
+            platform.label,
+            controller.friendlyErrorMessage(error),
+          ),
         ),
       ),
     );
@@ -4788,7 +4880,9 @@ Future<void> _connectIntegrationMessagingPlatform(
 }
 
 bool readWhatsAppSelfChatMode(NeoAgentController controller) {
-  final saved = _jsonMap(_decodeMaybeJson(controller.settings['whatsapp_config']));
+  final saved = _jsonMap(
+    _decodeMaybeJson(controller.settings['whatsapp_config']),
+  );
   return saved['selfChatMode'] == true ||
       saved['selfChatMode']?.toString() == 'true';
 }
@@ -4901,7 +4995,9 @@ Future<void> _openWhatsAppModeDialog(
                         style: TextStyle(fontWeight: FontWeight.w800),
                       ),
                       Text(
-                        appStrings.pickHowArg1UsesThisAccount(controller.activeAgentLabel),
+                        appStrings.pickHowArg1UsesThisAccount(
+                          controller.activeAgentLabel,
+                        ),
                         style: TextStyle(
                           color: _textSecondary,
                           fontSize: 13,
@@ -4955,7 +5051,9 @@ Future<void> _openWhatsAppModeDialog(
               ),
               FilledButton(
                 onPressed: () async {
-                  final config = <String, dynamic>{'selfChatMode': selfChatMode};
+                  final config = <String, dynamic>{
+                    'selfChatMode': selfChatMode,
+                  };
                   final connected = await _connectMessagingPlatformHelper(
                     context,
                     controller,
@@ -5001,7 +5099,10 @@ Future<bool> _connectMessagingPlatformHelper(
     messenger?.showSnackBar(
       SnackBar(
         content: Text(
-          appStrings.failedToConnectArg1Arg2(platformLabel, controller.friendlyErrorMessage(error)),
+          appStrings.failedToConnectArg1Arg2(
+            platformLabel,
+            controller.friendlyErrorMessage(error),
+          ),
         ),
       ),
     );
@@ -5087,8 +5188,13 @@ Future<void> _openGenericMessagingConfigHelper(
                     children: <Widget>[
                       Text(
                         platform.configFields.isEmpty
-                            ? appStrings.nothingExtraIsNeededConnectToStart(platform.label)
-                            : appStrings.enterTheDetailsArg1GaveYou(platform.label, controller.activeAgentLabel),
+                            ? appStrings.nothingExtraIsNeededConnectToStart(
+                                platform.label,
+                              )
+                            : appStrings.enterTheDetailsArg1GaveYou(
+                                platform.label,
+                                controller.activeAgentLabel,
+                              ),
                         style: TextStyle(color: _textSecondary, height: 1.4),
                       ),
                       const SizedBox(height: 16),
@@ -5145,18 +5251,12 @@ Future<void> _openGenericMessagingConfigHelper(
                           );
                         }),
                       const SizedBox(height: 8),
-                      if (platform.id == 'meshtastic')
-                        Text(
-                          appStrings.arg1TalksToTheDeviceOn(controller.activeAgentLabel),
-                          style: TextStyle(color: _textSecondary, height: 1.4),
-                        )
-                      else
-                        _MessagingWebhookCard(
-                          url:
-                              '${controller.backendUrl}/api/messaging/webhook/${platform.id}',
-                          platformLabel: platform.label,
-                          agentName: controller.activeAgentLabel,
-                        ),
+                      _MessagingWebhookCard(
+                        url:
+                            '${controller.backendUrl}/api/messaging/webhook/${platform.id}',
+                        platformLabel: platform.label,
+                        agentName: controller.activeAgentLabel,
+                      ),
                     ],
                   ),
                 ),

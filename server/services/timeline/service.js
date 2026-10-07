@@ -64,14 +64,6 @@ function toFeedItem(row) {
 class TimelineService {
   constructor(options = {}) {
     this.db = options.db || db;
-    this.io = options.io || null;
-  }
-
-  _emitUpdated(userId) {
-    if (!userId || !this.io?.to) return;
-    this.io.to(`user:${userId}`).emit('timeline:updated', {
-      timestamp: new Date().toISOString(),
-    });
   }
 
   _insertEvent({
@@ -117,9 +109,6 @@ class TimelineService {
     const limit = Number.isFinite(limitRaw) && limitRaw > 0
       ? Math.min(limitRaw, MAX_FEED_LIMIT)
       : DEFAULT_FEED_LIMIT;
-    const beforeOccurredAt = String(options.beforeOccurredAt || '').trim();
-    const beforeId = Number.parseInt(options.beforeId, 10);
-    const agentId = String(options.agentId || '').trim();
     const sources = Array.isArray(options.sources)
       ? options.sources
           .map((value) => String(value || '').trim())
@@ -129,17 +118,9 @@ class TimelineService {
     const clauses = ['user_id = ?'];
     const params = [normalizedUserId];
 
-    if (agentId) {
-      clauses.push('agent_id = ?');
-      params.push(agentId);
-    }
     if (sources.length > 0) {
       clauses.push(`source_kind IN (${sources.map(() => '?').join(', ')})`);
       params.push(...sources);
-    }
-    if (beforeOccurredAt && Number.isFinite(beforeId) && beforeId > 0) {
-      clauses.push('(occurred_at < ? OR (occurred_at = ? AND id < ?))');
-      params.push(beforeOccurredAt, beforeOccurredAt, beforeId);
     }
 
     const rows = this.db.prepare(
@@ -262,7 +243,6 @@ class TimelineService {
         triggerSource: triggerSource || null,
       },
     });
-    this._emitUpdated(userId);
     return item;
   }
 
@@ -296,7 +276,6 @@ class TimelineService {
         error: error || null,
       },
     });
-    this._emitUpdated(userId);
     return item;
   }
 

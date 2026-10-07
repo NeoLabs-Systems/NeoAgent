@@ -108,6 +108,11 @@ class NeoAgentController extends ChangeNotifier {
   /// clears the previous bot's lists, so pages would otherwise flash their
   /// empty states ("No runs yet") before the new data arrives.
   bool isSwitchingAgent = false;
+
+  /// False from sign-in until the first refresh settles. Every list is empty
+  /// until then, which pages would otherwise present as "nothing here".
+  bool hasLoadedInitialData = false;
+  int _refreshSeq = 0;
   bool isRefreshingDevices = false;
   bool isSendingMessage = false;
   bool isSavingSettings = false;
@@ -206,7 +211,6 @@ class NeoAgentController extends ChangeNotifier {
   /// themselves without the whole app polling.
   final ValueNotifier<({int seq, String runId})> runActivity =
       ValueNotifier<({int seq, String runId})>((seq: 0, runId: ''));
-  List<TimelineEventItem> timelineItems = const <TimelineEventItem>[];
   TokenUsageSnapshot? tokenUsage;
   Map<String, dynamic>? billingSubscription;
   List<Map<String, dynamic>> billingPlans = const <Map<String, dynamic>>[];
@@ -312,8 +316,6 @@ class NeoAgentController extends ChangeNotifier {
   bool _desktopAssistantHotkeyEnabled = true;
   bool _locationTriggersEnabled = true;
   bool _notificationTriggersEnabled = true;
-  bool isRefreshingTimeline = false;
-  Set<String> selectedTimelineSources = <String>{'tasks', 'runs'};
 
   bool get isLauncherMode => appMode == NeoAgentAppMode.launcher;
   bool get localComputerSupported => _desktopCompanion.supported;
@@ -1683,6 +1685,7 @@ class NeoAgentController extends ChangeNotifier {
     isAuthenticated = false;
     isRefreshing = false;
     isSwitchingAgent = false;
+    hasLoadedInitialData = false;
     showOnboarding = false;
     _onboardingManuallyReopened = false;
     _busyMessagingPlatformKeys.clear();
@@ -1708,8 +1711,6 @@ class NeoAgentController extends ChangeNotifier {
     systemOneModels = const <ModelMeta>[];
     aiProviders = const <AiProviderMeta>[];
     recentRuns = const <RunSummary>[];
-    timelineItems = const <TimelineEventItem>[];
-    isRefreshingTimeline = false;
     tokenUsage = null;
     updateStatus = const UpdateStatusSnapshot();
     _clientLogs = const <LogEntry>[];
@@ -1888,9 +1889,6 @@ class NeoAgentController extends ChangeNotifier {
     unawaited(_prefs?.setString(_selectedSectionPrefsKey, section.name));
     if (section == AppSection.devices) {
       unawaited(refreshDevices());
-    }
-    if (section == AppSection.timeline) {
-      unawaited(refreshTimeline());
     }
     if (section == AppSection.settings) {
       unawaited(refreshAiCatalog());
@@ -2371,6 +2369,7 @@ class NeoAgentController extends ChangeNotifier {
 
     final authCycle = _authCycle;
     final languageRevision = _languageRevision;
+    final refreshSeq = ++_refreshSeq;
     isRefreshing = true;
     errorMessage = null;
     notifyListeners();
@@ -2452,15 +2451,6 @@ class NeoAgentController extends ChangeNotifier {
         'runs',
         _backendClient.fetchRuns(backendUrl, agentId: agentId),
         const <String, dynamic>{'runs': <dynamic>[]},
-      );
-      final timelineFuture = _softRefreshLoad<Map<String, dynamic>>(
-        'timeline',
-        _backendClient.fetchTimeline(
-          backendUrl,
-          sources: selectedTimelineSources,
-          limit: 50,
-        ),
-        const <String, dynamic>{'items': <dynamic>[]},
       );
       final versionFuture = _softRefreshLoad<Map<String, dynamic>>(
         'version',
@@ -2585,7 +2575,6 @@ class NeoAgentController extends ChangeNotifier {
       final settingsResponse = await settingsFuture;
       final behaviorResponse = await behaviorFuture;
       final runsResponse = await runsFuture;
-      final timelineResponse = await timelineFuture;
       final versionResponse = await versionFuture;
       final setupStatusResponse = await setupStatusFuture;
       final tokenResponse = await tokenFuture;
@@ -2643,12 +2632,6 @@ class NeoAgentController extends ChangeNotifier {
         'runs',
         runsResponse['runs'],
         RunSummary.fromJson,
-        fallbackToMapValues: true,
-      );
-      timelineItems = _decodeModelList(
-        'timeline',
-        timelineResponse['items'],
-        TimelineEventItem.fromJson,
         fallbackToMapValues: true,
       );
       versionInfo = versionResponse;
@@ -2721,9 +2704,19 @@ class NeoAgentController extends ChangeNotifier {
       }
     } finally {
       isRefreshing = false;
+      // An older refresh that bailed out for a stale agent has applied
+      // nothing; the newest one decides when the first load is done.
+      if (refreshSeq == _refreshSeq && _isCurrentAuthCycle(authCycle)) {
+        hasLoadedInitialData = true;
+      }
       notifyListeners();
     }
   }
+
+  /// Whether [section] has no real data to show yet: nothing has loaded since
+  /// sign-in, or a bot switch emptied that bot's lists.
+  bool isAwaitingDataFor(AppSection section) =>
+      !hasLoadedInitialData || (isSwitchingAgent && section.isAgentScoped);
 
   bool _isCurrentAuthCycle(int authCycle) =>
       isAuthenticated && _authCycle == authCycle;
@@ -2815,62 +2808,6 @@ class NeoAgentController extends ChangeNotifier {
       tokenUsage = TokenUsageSnapshot.fromJson(usage);
       notifyListeners();
     } catch (_) {}
-  }
-
-  Future<void> refreshTimeline({
-    Set<String>? sources,
-    bool notify = true,
-  }) async {
-    if (!isAuthenticated) {
-      return;
-    }
-    if (sources != null) {
-      selectedTimelineSources = sources
-          .map((value) => value.trim().toLowerCase())
-          .where((value) => value.isNotEmpty)
-          .toSet();
-    }
-    isRefreshingTimeline = true;
-    if (notify) {
-      notifyListeners();
-    }
-    try {
-      final response = await _backendClient.fetchTimeline(
-        backendUrl,
-        sources: selectedTimelineSources,
-        limit: 50,
-      );
-      timelineItems = _decodeModelList(
-        'timeline',
-        response['items'],
-        TimelineEventItem.fromJson,
-        fallbackToMapValues: true,
-      );
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-    } finally {
-      isRefreshingTimeline = false;
-      if (notify) {
-        notifyListeners();
-      }
-    }
-  }
-
-  Future<void> toggleTimelineSource(String sourceKind) async {
-    final normalized = sourceKind.trim().toLowerCase();
-    if (normalized.isEmpty) {
-      return;
-    }
-    final next = <String>{...selectedTimelineSources};
-    if (next.contains(normalized)) {
-      if (next.length == 1) {
-        return;
-      }
-      next.remove(normalized);
-    } else {
-      next.add(normalized);
-    }
-    await refreshTimeline(sources: next);
   }
 
   Future<void> refreshMessaging() async {
@@ -6915,8 +6852,6 @@ class NeoAgentController extends ChangeNotifier {
 
   bool get headlessBrowser => true;
 
-  bool get smarterSelector => settings['smarter_model_selector'] != false;
-
   /// This agent's SystemOne choice: `off`, `auto`, or a model id.
   String get systemOneModel {
     final value = settings['system_one_model']?.toString().trim() ?? '';
@@ -7031,7 +6966,7 @@ class NeoAgentController extends ChangeNotifier {
       final selected = _modelById(defaultChatModel);
       return selected?.label ?? defaultChatModel;
     }
-    return smarterSelector ? 'Smart selector active' : appStrings.manualRouting;
+    return appStrings.smartSelector2;
   }
 
   bool get showHealthSection =>
@@ -7305,9 +7240,6 @@ class NeoAgentController extends ChangeNotifier {
           payload['error']?.toString() ??
           appStrings.messagingErrorPleaseTryAgain;
       notifyListeners();
-    });
-    socket.on('timeline:updated', (dynamic _) {
-      unawaited(refreshTimeline());
     });
     socket.on('voice:incoming_call', (dynamic data) {
       final call = IncomingAgentCall.fromJson(_jsonMap(data));

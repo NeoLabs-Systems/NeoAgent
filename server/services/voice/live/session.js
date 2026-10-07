@@ -19,6 +19,9 @@ const MAX_RECONNECT_ATTEMPTS = 3;
 // A call nobody has spoken on for this long, with no task running, was left
 // open by accident; hanging up ends the billed provider session.
 const IDLE_HANGUP_MS = 3 * 60 * 1000;
+// Margin past the end of the model's goodbye before the line drops, covering
+// the client's playback buffer.
+const HANGUP_GRACE_MS = 600;
 
 // Transcript fragments arrive with or without their leading space depending on
 // the provider; join them so words neither merge nor double-space.
@@ -43,6 +46,7 @@ class LiveVoiceSession {
     credentials,
     agentInitiated = false,
     onIdle,
+    onHangUp,
   }) {
     this.id = id;
     this.userId = userId;
@@ -56,6 +60,7 @@ class LiveVoiceSession {
     this.credentials = credentials;
     this.agentInitiated = agentInitiated;
     this.onIdle = onIdle;
+    this.onHangUp = onHangUp;
     this.provider = LIVE_VOICE_PROVIDERS[settings.liveProvider];
     this.tasks = new LiveTaskBridge({ agentEngine, session: this });
     this.adapter = null;
@@ -71,6 +76,9 @@ class LiveVoiceSession {
     this.state = 'connecting';
     this.speakingTimer = null;
     this.idleTimer = null;
+    this.hangUpTimer = null;
+    this.hangingUp = false;
+    this.playbackEndsAt = 0;
     this.reconnectAttempts = 0;
   }
 
@@ -242,6 +250,7 @@ class LiveVoiceSession {
     this.ready = false;
     clearTimeout(this.speakingTimer);
     clearTimeout(this.idleTimer);
+    clearTimeout(this.hangUpTimer);
     const adapter = this.adapter;
     this.adapter = null;
     await adapter?.close().catch(() => {});
@@ -261,6 +270,7 @@ class LiveVoiceSession {
       onInputTranscript: guard((text) => this.#handleInputTranscript(text)),
       onOutputTranscript: guard((text) => this.#handleOutputTranscript(text)),
       onInterrupted: guard(() => {
+        this.playbackEndsAt = 0;
         this.#emit('interrupted');
         this.#flushAssistantTurn();
         this.#setState('listening');
@@ -269,6 +279,11 @@ class LiveVoiceSession {
         this.#flushAssistantTurn();
       }),
       onDelegation: guard((delegation) => this.#handleDelegation(delegation)),
+      onHangUp: guard(() => {
+        logger.info('Live model hung up the call', { sessionId: this.id });
+        this.hangingUp = true;
+        this.#scheduleHangUp();
+      }),
       onError: guard((error) => {
         logger.warn('Live provider error', { sessionId: this.id, error: error.message });
         this.#emit('error', { error: error.message, recoverable: true });
@@ -283,6 +298,9 @@ class LiveVoiceSession {
     if (this.outputSuppressed) return;
     this.#noteActivity();
     this.#emit('audio', { audioBase64: pcm.toString('base64') });
+    const playMs = (pcm.length / 2 / this.provider.outputSampleRate) * 1000;
+    this.playbackEndsAt = Math.max(Date.now(), this.playbackEndsAt) + playMs;
+    if (this.hangingUp) this.#scheduleHangUp();
     this.#setState('speaking');
     clearTimeout(this.speakingTimer);
     this.speakingTimer = setTimeout(() => this.#setState('listening'), SPEAKING_IDLE_MS);
@@ -303,6 +321,22 @@ class LiveVoiceSession {
     this.#flushUserTurn();
     this.assistantTurn = appendFragment(this.assistantTurn, text);
     this.#emit('transcript', { role: 'assistant', content: this.assistantTurn, final: false });
+  }
+
+  // Speech still arriving after the hang-up pushes it back, so the goodbye is
+  // heard to the end. The client hears the line drop here; the manager then
+  // ends the session like an owner hang-up, keeping running tasks going.
+  #scheduleHangUp() {
+    clearTimeout(this.hangUpTimer);
+    const delay = Math.max(0, this.playbackEndsAt - Date.now()) + HANGUP_GRACE_MS;
+    this.hangUpTimer = setTimeout(() => {
+      this.hangingUp = false;
+      if (this.closed || !this.attached) return;
+      this.#emit('state', { state: 'closed', reason: 'agent_hung_up' });
+      this.sink = null;
+      this.onHangUp(this);
+    }, delay);
+    this.hangUpTimer.unref?.();
   }
 
   // GPT-Live hands off without task text: the request is the owner's latest

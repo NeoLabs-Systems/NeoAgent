@@ -9,6 +9,7 @@ const DEFAULT_ORIGIN = 'https://generativelanguage.googleapis.com';
 const LIVE_PATH = '/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
 const OPEN_TIMEOUT_MS = 15000;
 const RUN_TASK = 'run_task';
+const END_CALL = 'end_call';
 
 // run_task returns at once with the task's real state. Gemini fills the silence
 // of a pending (non-blocking) call by inventing an outcome, so the call never
@@ -26,6 +27,12 @@ const RUN_TASK_DECLARATION = Object.freeze({
     },
     required: ['request'],
   },
+});
+// The call closes once what the model already said has played out, so it can
+// say goodbye before hanging up.
+const END_CALL_DECLARATION = Object.freeze({
+  name: END_CALL,
+  description: 'Hang up the call. Use it when the conversation is over or the owner wants to end the call, after you have said goodbye; nothing can be said after it. Tasks already running keep going and report in chat.',
 });
 const TASK_STARTED = 'The task is now running in the background. Nothing is done, saved, or sent yet. If you have not told the owner you are on it, do that briefly; otherwise say nothing more about it. Its outcome arrives later as a separate message; only then say what happened.';
 
@@ -99,7 +106,7 @@ class GeminiLiveAdapter {
             speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: this.voice } } },
           },
           systemInstruction: { parts: [{ text: withHistory(instructions, history) }] },
-          tools: [{ functionDeclarations: [RUN_TASK_DECLARATION] }],
+          tools: [{ functionDeclarations: [RUN_TASK_DECLARATION, END_CALL_DECLARATION] }],
           inputAudioTranscription: {},
           outputAudioTranscription: {},
           ...(this.manualTurns
@@ -198,6 +205,10 @@ class GeminiLiveAdapter {
       if (content.turnComplete) this.handlers.onTurnComplete();
     }
     for (const call of message.toolCall?.functionCalls || []) {
+      if (call.name === END_CALL) {
+        this.handlers.onHangUp();
+        continue;
+      }
       if (call.name !== RUN_TASK || !call.id) continue;
       const request = String(call.args?.request || '');
       this.requests.set(call.id, request);

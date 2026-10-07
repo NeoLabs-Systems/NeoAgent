@@ -169,6 +169,27 @@ class WhatsAppPlatform extends BasePlatform {
     });
   }
 
+  // Joins and leaves never start a chat run and skip the access policy; they
+  // only feed the owner's tasks.
+  _emitMembership({ id, participants, action }) {
+    const kind = action === 'add' ? 'member_joined' : action === 'remove' ? 'member_left' : null;
+    if (!kind) return;
+    const ownIds = this._ownIds();
+    for (const participant of participants || []) {
+      const memberId = typeof participant === 'string' ? participant : participant?.id;
+      if (!memberId || ownIds.has(normalizeWhatsAppId(memberId))) continue;
+      this.emit(kind, {
+        spaceId: id,
+        spaceName: null,
+        chatId: id,
+        memberId,
+        memberName: normalizeWhatsAppId(memberId) || memberId,
+        dmChatId: memberId,
+        occurredAt: new Date().toISOString(),
+      });
+    }
+  }
+
   async connect() {
     this._manualDisconnect = false;
     if (this._reconnectTimer) {
@@ -282,6 +303,8 @@ class WhatsAppPlatform extends BasePlatform {
         this.emit('connected');
       }
     });
+
+    this.sock.ev.on('group-participants.update', (update) => this._emitMembership(update));
 
     this.sock.ev.on('messages.upsert', async ({ messages, type }) => {
       for (const msg of messages) {

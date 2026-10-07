@@ -1075,14 +1075,6 @@
       }
     }
   },
-  "arg1Entries": "{arg1} Einträge",
-  "@arg1Entries": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Events": "{arg1} Ereignisse",
   "@arg1Events": {
     "placeholders": {
@@ -1815,14 +1807,6 @@
       }
     }
   },
-  "arg1TalksToTheDeviceOn": "{arg1} kommuniziert mit dem Gerät in Ihrem lokalen Netzwerk (standardmäßig Port 4403). Der Chat bleibt auf dem oben gewählten Kanal.",
-  "@arg1TalksToTheDeviceOn": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Tokens": "{arg1} Tokens",
   "@arg1Tokens": {
     "placeholders": {
@@ -1978,7 +1962,6 @@
   "automaticReserved": "Automatisch, zurückhaltend",
   "automaticRollbackNeedsARetryFrom": "Der automatische Rollback erfordert einen erneuten Versuch im Einrichtungsbildschirm.",
   "automaticSelectsAFastModelThrough": "Automatisch wählt ein schnelles Modell über den normalen Modellkatalog.",
-  "automaticallyChooseTheBestEnabledModel": "Automatisch das beste aktivierte Modell für jeden Aufgabentyp wählen.",
   "automation": "Automatisierung",
   "available": "Verfügbar",
   "availableAgainInArg1": "Wieder verfügbar in {arg1}",
@@ -2139,7 +2122,6 @@
       }
     }
   },
-  "channelNumber": "Kanalnummer",
   "channelScopedSocialMemory": "Kanalbezogenes soziales Gedächtnis",
   "channels": "Kanäle",
   "chat": "Chat",
@@ -2716,9 +2698,7 @@
   },
   "desktopToFinishTheJob": "Desktop, um die Aufgabe zu erledigen.",
   "destinationId": "Ziel-ID",
-  "detail": "DETAILS",
   "deviceAccess": "Gerätezugriff",
-  "deviceIpAddress": "Geräte-IP-Adresse",
   "deviceSettings": "Geräteeinstellungen",
   "devices": "Geräte",
   "diagnosticsSaved": "Diagnose gespeichert.",
@@ -2795,7 +2775,6 @@
   "emailSavedIfConfirmationIsRequired": "E-Mail gespeichert. Falls eine Bestätigung nötig ist, prüfen Sie die neue Adresse auf einen NeoAgent-Bestätigungslink.",
   "emailSettingsSaved": "E-Mail-Einstellungen gespeichert.",
   "emailUnverified": "E-Mail nicht verifiziert",
-  "emailsAiActionsTasksAndRun": "E-Mails, KI-Aktionen, Aufgaben und Laufaktivität in einem chronologischen Feed.",
   "empty": "Leer",
   "emptyFile": "Leere Datei",
   "emptyFolder": "Leerer Ordner",
@@ -2869,7 +2848,6 @@
   },
   "errorsFromTheRecentLogGrouped": "Fehler aus dem aktuellen Protokoll, nach Nachricht gruppiert.",
   "errorsProblemsFailures": "fehler probleme ausfälle",
-  "eventDetail": "Ereignisdetail",
   "eventTypesCommaSeparated": "Ereignistypen (kommagetrennt)",
   "every15Minutes": "Alle 15 Minuten",
   "every30Minutes": "Alle 30 Minuten",
@@ -3211,7 +3189,6 @@
   },
   "handlesDirectTasksItself": "Erledigt direkte Aufgaben selbst",
   "handsFreeTalkFreelyInterruptAnytime": "Freihändig (frei sprechen, jederzeit unterbrechen)",
-  "hardwareBridges": "Hardware-Brücken",
   "headerName": "Header-Name",
   "headlinesOnTheTopicsYouCare": "Schlagzeilen zu Ihren Themen, gefiltert auf das Wesentliche.",
   "health": "Gesundheit",
@@ -3437,7 +3414,6 @@
   "key": "Schlüssel",
   "keyIsRequired": "Taste ist erforderlich.",
   "keyValuePairsThatPersistAcross": "Schlüssel-Wert-Paare, die über Gespräche hinweg erhalten bleiben.",
-  "kind": "ART",
   "knowledgeGraph": "Wissensgraph",
   "knowledgeView": "Wissensansicht",
   "labelOnlyYouSeeIt": "Bezeichnung (nur Sie sehen sie)",
@@ -3546,7 +3522,6 @@
   "leftJoinAgentRunsROn": "LEFT JOIN agent_runs r ON r.user_id = u.id\n",
   "leftJoinAgentRunsROn2": "LEFT JOIN agent_runs r ON r.agent_id = a.id\n",
   "leftJoinArtifactsAOnA": "LEFT JOIN artifacts a ON a.user_id = u.id\n",
-  "letAccountsConnectMeshtasticRadios": "Konten die Verbindung von Meshtastic-Radios erlauben.",
   "letArg1ManageMe": "{arg1} soll mich verwalten",
   "@letArg1ManageMe": {
     "placeholders": {
@@ -3668,7 +3643,6 @@
   "localBaseImagePath": "Lokaler Basis-Image-Pfad",
   "localComputerControlIsAvailableIn": "Lokale Computersteuerung ist in der NeoAgent-Desktop-App unter macOS, Windows und Linux verfügbar.",
   "localComputerControlIsNotAvailable": "Lokale Computersteuerung ist hier nicht verfügbar.",
-  "localDeviceBridgesAndTcpConnected": "Lokale Gerätebrücken und TCP-verbundene Integrationen.",
   "localModelsUrl": "lokale modelle url",
   "localNeoagentDiscoveryIsTemporarilyUnavailable": "Die lokale NeoAgent-Erkennung ist vorübergehend nicht verfügbar.",
   "localPreferencesForTheNeoagentApplication": "Lokale Einstellungen für die NeoAgent-Anwendung. Die Computersteuerung läuft immer über den einheitlichen Cloud-Computer.",
@@ -3716,7 +3690,6 @@
   "managersCanHaveManagersOfTheir": "Manager können selbst Manager haben (bis zu vier Ebenen). Eine ",
   "managing": "Verwaltung",
   "manualDestination": "Manuelles Ziel",
-  "manualRouting": "Manuelle Weiterleitung",
   "manualTrigger": "Manueller Auslöser",
   "masterPassword": "Master-Passwort",
   "matchThisDevice": "An dieses Gerät anpassen",
@@ -3755,7 +3728,6 @@
   "memoryMustBeAtLeast512": "Der Speicher muss mindestens 512 MB betragen.",
   "mentionOrReplyOnly": "Nur Erwähnung oder Antwort",
   "mergedServerAndFlutterRuntimeLogs": "Zusammengeführte Server- und Flutter-Laufzeitlogs für diese App-Sitzung.",
-  "meshRadioMessaging": "mesh funk messaging",
   "messageBodyTemplateJson": "Nachrichtenkörper-Vorlage (JSON)",
   "messageNeedsAccess": "Nachricht benötigt Zugriff",
   "messageTextField": "Nachrichtentextfeld",
@@ -3995,7 +3967,6 @@
   "newSkill2": "Neuer Skill",
   "newThisWeek": "Neu diese Woche",
   "newsDigest": "Nachrichtenüberblick",
-  "nextEvent": "Nächstes Ereignis",
   "nextPage": "Nächste Seite",
   "nextRetryArg1": "Nächster Versuch: {arg1}",
   "@nextRetryArg1": {
@@ -4131,7 +4102,6 @@
   "noStepsWereRecordedForThis": "Für diese Ausführung wurden keine Schritte aufgezeichnet.",
   "noStoreSkillsMatchThisSearch": "Keine Store-Skills passen zu dieser Suche.",
   "noSubscription": "Kein Abonnement.",
-  "noSummary": "Keine Zusammenfassung",
   "noSummaryAvailable": "Keine Zusammenfassung verfügbar.",
   "noTasksForArg1": "Keine Aufgaben für {arg1}",
   "@noTasksForArg1": {
@@ -4141,7 +4111,6 @@
       }
     }
   },
-  "noTimelineActivityYetForThe": "Noch keine Zeitachsenaktivität für die gewählten Filter.",
   "noToolMatchesArg1": "Kein Tool passt zu \"{arg1}\".",
   "@noToolMatchesArg1": {
     "placeholders": {
@@ -4242,7 +4211,6 @@
   "openDashboard": "Dashboard öffnen",
   "openFolder": "Ordner öffnen…",
   "openInWorkbench": "In der Workbench öffnen",
-  "openLinkedRun": "Verknüpften Lauf öffnen",
   "openNeoagentAndReconnectArg1To": "Öffnen Sie NeoAgent und verbinden Sie {arg1} erneut, um Messaging wiederherzustellen.",
   "@openNeoagentAndReconnectArg1To": {
     "placeholders": {
@@ -4251,7 +4219,6 @@
       }
     }
   },
-  "openRun": "Lauf öffnen",
   "openTheComputerTabNextTo": "Öffnen Sie den Computer-Tab neben einer Sitzung, um den Bildschirm ",
   "openTimeSettings": "Zeiteinstellungen öffnen",
   "openToAnyone": "Für alle offen",
@@ -4457,7 +4424,6 @@
       }
     }
   },
-  "previousEvent": "Vorheriges Ereignis",
   "previousPage": "Vorherige Seite",
   "priceInCents": "Preis in Cent",
   "priceMustBeAWholeNumber": "Der Preis muss eine ganze Zahl in Cent sein (0 oder mehr).",
@@ -4763,14 +4729,11 @@
   "rowsAddALimitOrA": "Zeilen werden angezeigt. Fügen Sie ein LIMIT oder eine engere WHERE-Klausel hinzu, um ",
   "rule": "Regel",
   "run": "Lauf",
-  "run2": "LAUF",
   "runArbitraryCommandsOnYourMachine": "Führen Sie beliebige Befehle auf Ihrem Rechner oder Ihrer VM aus.",
   "runAt": "Ausführen um",
   "runCompleted": "Lauf abgeschlossen",
   "runFailed": "Lauf fehlgeschlagen",
   "runGitDiffReviewTheUncommitted": "Führen Sie git diff aus, prüfen Sie die nicht committeten Änderungen auf Fehler und Stilprobleme und fassen Sie die Ergebnisse zusammen.",
-  "runLink": "LAUF-LINK",
-  "runLinked": "Lauf verknüpft",
   "runNotFound": "Ausführung nicht gefunden",
   "runNow": "Jetzt ausführen",
   "runOnInboundPersonalWhatsappMessages": "Bei eingehenden persönlichen WhatsApp-Nachrichten ausführen.",
@@ -4962,7 +4925,6 @@
   "selectASessionToSeeIts": "Wählen Sie eine Sitzung, um Computer, Dateien und Änderungen zu sehen.",
   "selectAll": "Alle auswählen",
   "selectAll2": "Alle auswählen",
-  "selectAnEventFromTheFeed": "Wählen Sie ein Ereignis aus dem Feed.",
   "selectArg1": "{arg1} auswählen",
   "@selectArg1": {
     "placeholders": {
@@ -5135,7 +5097,6 @@
     }
   },
   "smallestCurrencyUnit1900Is19": "Kleinste Währungseinheit: 1900 entspricht 19,00.",
-  "smartModelSelection": "Intelligente Modellauswahl",
   "smartSelector": "Smart Selector",
   "smartSelector2": "Smart Selector",
   "smartSelectorPool": "Smart-Selector-Pool",
@@ -5159,7 +5120,6 @@
   "sortOrder": "Sortierreihenfolge",
   "sortOrderMustBeAWhole": "Die Sortierreihenfolge muss eine ganze Zahl sein.",
   "source": "Quelle",
-  "source2": "QUELLE",
   "spaceOrChatIdUsedWhen": "Space- oder Chat-ID, die verwendet wird, wenn dieser Agent eine Unterhaltung startet.",
   "spaceWebhookAndAppCallbackSupport": "Space-Webhook und App-Callback-Unterstützung",
   "speaking": "Spricht",
@@ -5203,7 +5163,6 @@
   },
   "statsRunsTokensUsersChartsSuccess": "statistik läufe tokens benutzer diagramme erfolgsrate",
   "status": "Status",
-  "status2": "STATUS",
   "statusDatabaseRuntimeVmProviders": "status datenbank laufzeit vm anbieter",
   "statusIsNotLoadedYet": "Status ist noch nicht geladen.",
   "stayManagedByYou": "bleiben von Ihnen verwaltet.",
@@ -5289,7 +5248,6 @@
   },
   "sumAByteSizeAsBytes": "       SUM(a.byte_size) AS bytes,\n",
   "summariseMyLastRun": "Meinen letzten Lauf zusammenfassen",
-  "summary": "ZUSAMMENFASSUNG",
   "supportUrl": "Support-URL",
   "supportedRainStartSnowStartWind": "Unterstützt: rain_start, snow_start, wind_alert, temperature_above, temperature_below",
   "switchAgent": "Agent wechseln",
@@ -5299,11 +5257,9 @@
   "systemPrivacySettings": "System-Datenschutzeinstellungen",
   "tableInfoUsers": "Tabelleninfo (users)",
   "tagsOnly": "Nur Markierungen",
-  "task": "AUFGABE",
   "tasks": "Aufgaben",
   "tasksRunOnAScheduleOr": "Aufgaben laufen nach Zeitplan oder bei Ereignissen und ",
   "tasksRunOnTheirOwnAnd": "Aufgaben laufen selbstständig und senden Ihnen das ",
-  "tcpBridgeToALocalDevice": "TCP-Brücke zu einem lokalen Gerätekanal",
   "teach": "Beibringen",
   "teachingInProgress": "Einlernen läuft",
   "team": "Team",
@@ -5365,7 +5321,6 @@
   },
   "theLinuxGraphicalSessionIsNot": "Die grafische Linux-Sitzung läuft nicht.",
   "theLiveVoiceModelDidNot": "Das Live-Sprachmodell hat nicht geantwortet. Versuchen Sie es erneut.",
-  "theLocalIpOfTheMeshtastic": "Die lokale IP des Meshtastic-Geräts.",
   "theLocalNeoagentCommandExitedWith": "Der lokale NeoAgent-Befehl wurde mit Code {arg1} beendet.",
   "@theLocalNeoagentCommandExitedWith": {
     "placeholders": {
@@ -5572,7 +5527,6 @@
   },
   "tickTheModelsThisPlanMay": "Haken Sie die Modelle an, die dieser Tarif nutzen darf. Alle unangehakt lassen, um ",
   "time": "Zeit",
-  "time2": "ZEIT",
   "timeZone": "Zeitzone",
   "timeZone2": "Zeitzone",
   "timedOutArg1": "Zeitüberschreitung{arg1}",
@@ -5583,8 +5537,6 @@
       }
     }
   },
-  "timeline": "Zeitleiste",
-  "timelineFeed": "Zeitachsen-Feed",
   "timezoneCouldNotListTimeZones": "[TimeZone] Zeitzonen konnten nicht geladen werden: {arg1}",
   "@timezoneCouldNotListTimeZones": {
     "placeholders": {
@@ -5609,7 +5561,6 @@
       }
     }
   },
-  "title": "TITEL",
   "toArg1": "nach {arg1} verschoben",
   "@toArg1": {
     "placeholders": {
@@ -5793,7 +5744,6 @@
       }
     }
   },
-  "untitledRunEvent": "Unbenanntes Laufereignis",
   "unusualSignInAlerts": "Hinweise zu ungewöhnlichen Anmeldungen",
   "update": "Aktualisieren",
   "updateArg1": "Update {arg1}",
@@ -5877,7 +5827,6 @@
   "usersPeopleSearchEmailUsernameAdmin": "benutzer personen suchen e-mail benutzername admin abzeichen verwaltet team",
   "usesTheChatModelConfiguredIn": "Verwendet das unter Einstellungen konfigurierte Chat-Modell",
   "usingTheInstalledNeoagentRuntime": "Installierte NeoAgent-Laufzeit wird verwendet",
-  "usually0ForThePrimaryChannel": "Üblicherweise 0 für den Hauptkanal.",
   "usuallyLooksLikeBotMatrixOrg": "Sieht üblicherweise aus wie @bot:matrix.org",
   "validEmail": "gültige E-Mail",
   "value": "Wert",
@@ -6855,7 +6804,6 @@
   "settingsSubAgentModelDescription": "Erledigt Arbeit, die während einer Aufgabe abgegeben wird.",
   "settingsDefaultModels": "Standardmodelle",
   "settingsDefaultModelsDescription": "Werden verwendet, wenn ein Chat oder eine Aufgabe kein eigenes Modell wählt.",
-  "settingsSmartSelection": "Intelligente Auswahl",
   "settingsModelPool": "Modell-Pool",
   "settingsApiKeysDescription": "Eigene Schlüssel oder einen eigenen Endpunkt für diesen Agenten nutzen. Schlüssel werden verschlüsselt und nie wieder angezeigt.",
   "settingsPersona": "Persona",
@@ -6961,9 +6909,121 @@
   "unrestrictedBattery": "Uneingeschränkter Akku",
   "unrestrictedBatteryDetail": "Hält NeoAgent verbunden, damit Anrufe ankommen.",
   "permissionAllowed": "Erlaubt",
-  "discordMemberJoined": "Discord-Mitglied beigetreten",
-  "runWhenSomeoneJoinsADiscordServer": "Ausführen, wenn jemand einem Ihrer Discord-Server beitritt.",
-  "discordServerId": "Discord-Server-ID",
-  "discordServerIdHelper": "Rechtsklick auf den Server und „Server-ID kopieren“ wählen (Entwicklermodus). Der Bot benötigt den Server Members Intent.",
-  "enterTheDiscordServerId": "Geben Sie die Discord-Server-ID ein."
+  "triggerSectionCalendar": "Kalender",
+  "triggerSectionFiles": "Dateien und Dokumente",
+  "triggerSectionHome": "Zuhause und Medien",
+  "triggerSectionDevices": "Geräte und Orte",
+  "triggerSectionTasks": "Aufgaben",
+  "messagingMemberJoined": "Mitglied beigetreten",
+  "runWhenSomeoneJoinsAServerOrGroup": "Ausführen, wenn jemand einem Discord-Server, einer Telegram- oder WhatsApp-Gruppe, einem Slack-Kanal oder einem Matrix-Raum beitritt.",
+  "messagingMemberLeft": "Mitglied ausgetreten",
+  "runWhenSomeoneLeavesAServerOrGroup": "Ausführen, wenn jemand einen Discord-Server, eine Telegram- oder WhatsApp-Gruppe, einen Slack-Kanal oder einen Matrix-Raum verlässt.",
+  "messagingReactionAdded": "Reaktion hinzugefügt",
+  "runWhenSomeoneReactsInAPrivateChat": "Ausführen, wenn eine zugelassene Person in einem privaten Chat auf eine Nachricht reagiert.",
+  "messagingPlatformDisconnected": "Messenger getrennt",
+  "runWhenAMessagingConnectionNeedsYou": "Ausführen, wenn eine Messenger-Verbindung stoppt und Sie braucht, etwa nach einer Abmeldung.",
+  "googleCalendarEventStarting": "Google-Kalender-Termin beginnt",
+  "googleCalendarEventCreated": "Google-Kalender-Termin erstellt",
+  "runWhenANewGoogleCalendarEventAppears": "Ausführen, wenn ein neuer Termin oder eine Einladung erscheint.",
+  "outlookCalendarEventStarting": "Outlook-Termin beginnt",
+  "nextcloudCalendarEventStarting": "Nextcloud-Termin beginnt",
+  "runMinutesBeforeEachEvent": "Eine festgelegte Anzahl Minuten vor jedem Termin ausführen.",
+  "googleDriveFileAdded": "Google-Drive-Datei hinzugefügt",
+  "runWhenAFileIsAddedToDrive": "Ausführen, wenn eine Datei zu Drive oder einem Ordner darin hinzugefügt wird.",
+  "googleSheetsRowAdded": "Google-Sheets-Zeile hinzugefügt",
+  "runWhenRowsAreAddedToASheet": "Ausführen, wenn neue Zeilen in einer Tabelle erscheinen.",
+  "onedriveFileAdded": "OneDrive-Datei hinzugefügt",
+  "runWhenAFileIsAddedToOnedrive": "Ausführen, wenn eine Datei zu einem OneDrive-Ordner hinzugefügt wird.",
+  "nextcloudFileAdded": "Nextcloud-Datei hinzugefügt",
+  "runWhenAFileIsAddedToNextcloud": "Ausführen, wenn eine Datei zu einem Nextcloud-Ordner hinzugefügt wird.",
+  "nextcloudShareReceived": "Nextcloud-Datei mit Ihnen geteilt",
+  "runWhenSomeoneSharesWithYouOnNextcloud": "Ausführen, wenn jemand eine Datei oder einen Ordner mit Ihnen teilt.",
+  "notionItemAdded": "Notion-Datenbankeintrag hinzugefügt",
+  "runWhenAnItemIsAddedToANotionDatabase": "Ausführen, wenn ein Eintrag zu einer Notion-Datenbank hinzugefügt wird.",
+  "notionItemUpdated": "Notion-Datenbankeintrag geändert",
+  "runWhenANotionDatabaseItemChanges": "Ausführen, wenn sich ein Eintrag in einer Notion-Datenbank ändert.",
+  "trelloCardEnteredList": "Trello-Karte zur Liste hinzugefügt",
+  "runWhenACardIsCreatedInOrMovedIntoAList": "Ausführen, wenn eine Karte in einer Liste erstellt oder dorthin verschoben wird.",
+  "figmaCommentAdded": "Figma-Kommentar hinzugefügt",
+  "runWhenSomeoneCommentsOnAFigmaFile": "Ausführen, wenn jemand eine Figma-Datei kommentiert.",
+  "githubPrOpened": "GitHub-Pull-Request geöffnet",
+  "runWhenANewPullRequestIsOpened": "Ausführen, wenn in einem Repository ein neuer Pull Request geöffnet wird.",
+  "githubWorkflowRunFailed": "GitHub-Workflow fehlgeschlagen",
+  "runWhenAGithubActionsRunFails": "Ausführen, wenn ein GitHub-Actions-Lauf fehlschlägt.",
+  "githubCommitPushed": "GitHub-Commit gepusht",
+  "runWhenNewCommitsReachABranch": "Ausführen, wenn neue Commits in einem Branch ankommen.",
+  "mcpServerFailed": "MCP-Server ausgefallen",
+  "runWhenAWorkingMcpServerFails": "Ausführen, wenn ein laufender MCP-Server ausfällt oder eine Anmeldung braucht.",
+  "homeAssistantStateChanged": "Home-Assistant-Zustand geändert",
+  "runWhenAHomeAssistantEntityChanges": "Ausführen, wenn sich eine Entität ändert, einen Zustand erreicht oder einen Wert überschreitet.",
+  "spotifyTrackChanged": "Spotify-Titel gewechselt",
+  "runWhenADifferentTrackStartsPlaying": "Ausführen, wenn ein anderer Titel abgespielt wird.",
+  "neorecallDailySummaryReady": "NeoRecall-Tageszusammenfassung fertig",
+  "runWhenADaysSummaryIsFinal": "Ausführen, wenn die Zusammenfassung eines Tages fertig ist.",
+  "neorecallConversationRecorded": "NeoRecall-Gespräch aufgezeichnet",
+  "runWhenARecordedConversationEnds": "Ausführen, wenn ein aufgezeichnetes Gespräch endet.",
+  "geofenceTrigger": "Standort-Geofence",
+  "runWhenYourPhoneArrivesOrLeaves": "Ausführen, wenn Ihr Telefon an einem Ort ankommt oder ihn verlässt. Erfordert Standortverfolgung auf dem Telefon.",
+  "healthMetricRecorded": "Gesundheitswert erfasst",
+  "runWhenAHealthReadingArrives": "Ausführen, wenn ein synchronisierter Gesundheitswert eintrifft, optional über oder unter einem Wert.",
+  "wearableConnectionChanged": "Wearable verbunden oder getrennt",
+  "runWhenYourWearableConnectsOrDisconnects": "Ausführen, wenn sich Ihr Wearable verbindet oder trennt.",
+  "taskRunFinished": "Andere Aufgabe beendet",
+  "runWhenAnotherTaskFinishes": "Ausführen, nachdem eine andere Aufgabe endet, gelingt oder fehlschlägt.",
+  "appPackageOptional": "App-Paket (optional)",
+  "appPackageHelper": "Zum Beispiel com.whatsapp",
+  "anyPlatform": "Jede Plattform",
+  "spaceIdOptional": "Server-, Gruppen-, Kanal- oder Raum-ID (optional)",
+  "spaceIdHelper": "Leer beobachtet alle, in denen der Bot ist.",
+  "emojiOptional": "Emoji (optional)",
+  "chatIdOptional": "Chat-ID (optional)",
+  "platformOptional": "Plattform (optional)",
+  "platformOptionalHelper": "Zum Beispiel whatsapp. Leer beobachtet alle.",
+  "minutesBefore": "Minuten vorher",
+  "calendarIdOptional": "Kalender-ID (optional)",
+  "calendarIdHelper": "Leer verwendet Ihren Hauptkalender.",
+  "invitesOnly": "Nur Einladungen von anderen",
+  "nextcloudCalendarPath": "Kalender",
+  "nextcloudCalendarPathHelper": "Sein Name in der Nextcloud-Kalenderliste, zum Beispiel personal",
+  "folderIdOptionalHelperDrive": "Leer beobachtet das gesamte Drive.",
+  "folderIdOptionalHelperOnedrive": "Leer beobachtet den Stammordner.",
+  "driveFolderIdOptional": "Ordner-ID (optional)",
+  "spreadsheetId": "Tabellen-ID",
+  "sheetRange": "Bereich",
+  "sheetRangeHelper": "Die Spalten der Tabelle, zum Beispiel Sheet1!A:E",
+  "folderPathOptional": "Ordnerpfad (optional)",
+  "folderPathHelper": "Zum Beispiel Documents",
+  "notionDatabaseId": "Datenbank-ID",
+  "trelloListId": "Listen-ID",
+  "figmaFileKey": "Dateischlüssel",
+  "figmaFileKeyHelper": "Aus dem Dateilink: figma.com/file/<key>/…",
+  "githubRepository": "Repository",
+  "workflowOptional": "Workflow (optional)",
+  "workflowHelper": "Dateiname wie ci.yml",
+  "branchOptional": "Branch (optional)",
+  "branchHelper": "Leer verwendet den Standard-Branch.",
+  "mcpServerIdOptional": "MCP-Server-ID (optional)",
+  "entityId": "Entitäts-ID",
+  "entityIdHelper": "Zum Beispiel binary_sensor.front_door",
+  "targetStateOptional": "Zielzustand (optional)",
+  "targetStateHelper": "Zum Beispiel on",
+  "aboveOptional": "Über (optional)",
+  "belowOptional": "Unter (optional)",
+  "placeName": "Ortsname",
+  "latitude": "Breitengrad",
+  "longitude": "Längengrad",
+  "radiusMeters": "Radius in Metern",
+  "geofenceTransition": "Wann",
+  "arriving": "Ankommen",
+  "leaving": "Verlassen",
+  "healthMetric": "Gesundheitswert",
+  "healthMetricHelper": "Zum Beispiel heart_rate, steps, weight",
+  "wearableTransition": "Wenn das Wearable",
+  "wearableConnects": "Sich verbindet",
+  "wearableDisconnects": "Sich trennt",
+  "sourceTask": "Nach Aufgabe",
+  "taskOutcome": "Ergebnis",
+  "anyOutcome": "Jedes Ergebnis",
+  "succeeded": "Erfolgreich",
+  "fieldMissingOrInvalidArg1": "{arg1} fehlt oder ist ungültig."
 }

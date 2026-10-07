@@ -78,7 +78,7 @@ function bindWearableGateway(httpServer, app, sessionMiddleware) {
         const teardown = async () => {
           clearTimeout(helloTimer);
           if (deviceId) {
-            wearableService.unregisterConnection(req.session.userId, deviceId);
+            wearableService.unregisterConnection(req.session.userId, deviceId, ws);
           }
           await Promise.allSettled(
             Array.from(activeSessionIds).map((sessionId) =>

@@ -964,6 +964,7 @@ db.exec(`
 `);
 
 runSchemaMigrations(db);
+db.prepare("DELETE FROM platform_connections WHERE platform = 'meshtastic'").run();
 fs.rmSync(path.join(DATA_DIR, 'recordings'), { recursive: true, force: true });
 
 function interruptStaleAgentRuns(reason = STALE_RUN_INTERRUPTED_ERROR) {

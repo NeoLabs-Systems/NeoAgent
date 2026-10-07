@@ -254,12 +254,6 @@ List<_AdminSearchEntry> _adminSearchIndex = <_AdminSearchEntry>[
     card: 'General',
   ),
   _AdminSearchEntry(
-    'Meshtastic',
-    _AdminTab.config,
-    appStrings.meshRadioMessaging,
-    card: 'General',
-  ),
-  _AdminSearchEntry(
     appStrings.memoryIngestionInterval,
     _AdminTab.config,
     appStrings.memoryImportSync,

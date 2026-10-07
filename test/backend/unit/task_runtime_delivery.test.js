@@ -1162,7 +1162,7 @@ describe('scheduled task result delivery', () => {
   });
 
   test('stops an integration poll batch after a retryable execution failure', async () => {
-    const { pollIntegrationTask } = require('../../../server/services/tasks/integration_runtime');
+    const { pollTriggerTask } = require('../../../server/services/tasks/trigger_polling');
     const fired = [];
     const task = {
       id: 42,
@@ -1193,7 +1193,7 @@ describe('scheduled task result delivery', () => {
       },
     };
 
-    await pollIntegrationTask(fakeRuntime, task);
+    await pollTriggerTask(fakeRuntime, task);
 
     assert.equal(fired.length, 1);
     assert.equal(fired[0].payload.fingerprint, 'slack:connection-id:channel-id:2');

@@ -359,27 +359,6 @@ final messagingPlatforms = <MessagingPlatformDescriptor>[
     ],
   ),
   MessagingPlatformDescriptor(
-    id: 'meshtastic',
-    label: 'Meshtastic',
-    subtitle: appStrings.tcpBridgeToALocalDevice,
-    accent: Color(0xFF2E7D32),
-    connectMethod: MessagingConnectMethod.config,
-    icon: Icons.router_rounded,
-    configFields: <MessagingConfigField>[
-      MessagingConfigField(
-        key: 'host',
-        label: appStrings.deviceIpAddress,
-        hint: appStrings.theLocalIpOfTheMeshtastic,
-      ),
-      MessagingConfigField(
-        key: 'channel',
-        label: appStrings.channelNumber,
-        hint: appStrings.usually0ForThePrimaryChannel,
-        defaultValue: '0',
-      ),
-    ],
-  ),
-  MessagingPlatformDescriptor(
     id: 'github',
     label: 'GitHub',
     subtitle: appStrings.answersMentionsOnIssuesAndPull,
@@ -2723,70 +2702,6 @@ class RunSummary {
         return _textSecondary;
     }
   }
-}
-
-class TimelineEventItem {
-  const TimelineEventItem({
-    required this.id,
-    required this.sourceKind,
-    required this.eventKind,
-    required this.occurredAt,
-    required this.title,
-    required this.summary,
-    required this.metadata,
-    this.agentId,
-    this.sourceId,
-  });
-
-  factory TimelineEventItem.fromJson(Map<dynamic, dynamic> json) {
-    return TimelineEventItem(
-      id: _asInt(json['id']),
-      sourceKind: json['sourceKind']?.toString() ?? '',
-      eventKind: json['eventKind']?.toString() ?? '',
-      occurredAt: _parseTimestamp(json['occurredAt']?.toString()),
-      title: json['title']?.toString() ?? '',
-      summary: json['summary']?.toString() ?? '',
-      agentId: json['agentId']?.toString(),
-      sourceId: json['sourceId']?.toString(),
-      metadata: json['metadata'] is Map
-          ? Map<String, dynamic>.from(json['metadata'] as Map)
-          : const <String, dynamic>{},
-    );
-  }
-
-  final int id;
-  final String sourceKind;
-  final String eventKind;
-  final DateTime occurredAt;
-  final String title;
-  final String summary;
-  final String? agentId;
-  final String? sourceId;
-  final Map<String, dynamic> metadata;
-
-  String get occurredAtLabel => _formatTimestamp(occurredAt);
-
-  String get sourceLabel => switch (sourceKind) {
-    'tasks' => 'Task',
-    'runs' => 'Run',
-    _ => _titleCase(sourceKind.replaceAll('_', ' ')),
-  };
-
-  Color get sourceColor => switch (sourceKind) {
-    'tasks' => _warning,
-    'runs' => _success,
-    _ => _textSecondary,
-  };
-
-  String get deviceLabel =>
-      metadata['deviceLabel']?.toString() ??
-      metadata['deviceId']?.toString() ??
-      '';
-  String get runId => metadata['runId']?.toString() ?? sourceId ?? '';
-  String get taskName =>
-      metadata['taskName']?.toString().trim().isNotEmpty == true
-      ? metadata['taskName'].toString()
-      : title;
 }
 
 class TokenUsageSnapshot {

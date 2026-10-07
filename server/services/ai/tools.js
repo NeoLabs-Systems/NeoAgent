@@ -30,6 +30,18 @@ const { AI_PROVIDER_DEFINITIONS } = require('./provider_definitions');
 const { buildGuestGitEnv } = require('../integrations/github/git_proxy');
 const { checkPublicToolCall, getPublicRunScope } = require('../messaging/public_audience');
 const { isTainted } = require('../security/run_trust');
+const taskTriggerAdapters = require('../tasks/adapters');
+
+const TASK_TRIGGER_TYPES = taskTriggerAdapters.map((adapter) => adapter.type).join(', ');
+
+// Each trigger's fields stay out of the always-loaded schema; a config the
+// trigger rejects comes back with the shape it expects.
+function taskTriggerError(error, triggerType) {
+  const adapter = taskTriggerAdapters.find((entry) => entry.type === triggerType);
+  return adapter?.configHint
+    ? { error: error.message, expectedConfig: `${adapter.type}: ${adapter.configHint}` }
+    : { error: error.message };
+}
 
 function compactText(text, maxChars = 120) {
     const str = String(text || '').replace(/\s+/g, ' ').trim();
@@ -1396,8 +1408,8 @@ function getAvailableTools(app, options = {}) {
                 properties: {
                     name: { type: 'string', description: 'Short descriptive name for the task.' },
                     trigger: { type: 'object', description: 'Unified trigger object. Prefer { type: "manual" | "schedule" | integration_trigger_type, config: {...} }.' },
-                    trigger_type: { type: 'string', description: 'Trigger type such as manual, schedule, gmail_message_received, outlook_email_received, slack_message_received, teams_message_received, github_issue_opened, neorecall_memory_created, weather_event, world_news, whatsapp_personal_message_received, android_notification_received, or discord_member_joined.' },
-                    trigger_config: { type: 'object', description: 'Trigger-specific configuration object. For schedule triggers prefer { mode: "recurring", cronExpression: "m h dom mon dow" } or { mode: "one_time", runAt: ISO datetime }. Cron fields and runAt values without an offset are read in the user\'s timezone. 5-field cron only (seconds unsupported). For github_issue_opened use { connectionId, repo: "owner/repo", author?, assignee?, labels?: "bug,urgent" (all must match), query?: text in title/body }. For world_news use { connectionId, query?: keywords, category?: world|nation|business|technology|science|health|sports|entertainment|general, lang?: "en", country?: "de", checkIntervalMinutes?: 15-720 }; each run receives the new headlines and should decide from the prompt whether they are worth notifying about. For discord_member_joined use { guildId: Discord server ID }; each run receives the new member, with dmChatId to message them directly via send_message on discord.' },
+                    trigger_type: { type: 'string', description: `Trigger type, one of: ${TASK_TRIGGER_TYPES}.` },
+                    trigger_config: { type: 'object', description: 'Trigger-specific configuration object. For schedule triggers prefer { mode: "recurring", cronExpression: "m h dom mon dow" } or { mode: "one_time", runAt: ISO datetime }. Cron fields and runAt values without an offset are read in the user\'s timezone. 5-field cron only (seconds unsupported). Integration triggers take the connectionId of the connected account. A config the trigger cannot use is answered with the fields it expects.' },
                     prompt: { type: 'string', description: 'The instructions the agent will run when the trigger fires.' },
                     enabled: { type: 'boolean', description: 'Whether to activate immediately.' },
                     model: { type: 'string', description: 'Optional model override.' }
@@ -2979,8 +2991,9 @@ async function executeTool(toolName, args, context, engine) {
         case 'create_task': {
             const s = taskRuntime();
             if (!s) return { error: 'Task runtime not available' };
+            let resolvedTrigger = null;
             try {
-                const resolvedTrigger = resolveTaskTriggerArgs(args, 'schedule');
+                resolvedTrigger = resolveTaskTriggerArgs(args, 'schedule');
                 if (!resolvedTrigger.hasType || !resolvedTrigger.triggerType) {
                     return { error: 'Task trigger type is required (use trigger.type or trigger_type).' };
                 }
@@ -3002,7 +3015,7 @@ async function executeTool(toolName, args, context, engine) {
                 });
                 return { success: true, task, message: `Task "${args.name}" created.` };
             } catch (err) {
-                return { error: err.message };
+                return taskTriggerError(err, String(resolvedTrigger?.triggerType || '').trim());
             }
         }
 
@@ -3029,11 +3042,12 @@ async function executeTool(toolName, args, context, engine) {
         case 'update_task': {
             const s = taskRuntime();
             if (!s) return { error: 'Task runtime not available' };
+            let resolvedTrigger = null;
             try {
                 const existing = db.prepare('SELECT agent_id, trigger_type FROM scheduled_tasks WHERE id = ? AND user_id = ?').get(args.task_id, userId);
                 if (!existing || existing.agent_id !== agentId) return { error: 'Task not found for this agent.' };
                 const updates = {};
-                const resolvedTrigger = resolveTaskTriggerArgs(args, existing.trigger_type || 'schedule');
+                resolvedTrigger = resolveTaskTriggerArgs(args, existing.trigger_type || 'schedule');
                 if (args.name !== undefined) updates.name = args.name;
                 if (resolvedTrigger.hasType && resolvedTrigger.triggerType) updates.triggerType = resolvedTrigger.triggerType;
                 if (resolvedTrigger.hasConfig && resolvedTrigger.triggerConfig !== undefined) updates.triggerConfig = resolvedTrigger.triggerConfig;
@@ -3043,7 +3057,7 @@ async function executeTool(toolName, args, context, engine) {
                 const updated = await s.updateTask(args.task_id, userId, updates);
                 return { success: true, task: updated };
             } catch (err) {
-                return { error: err.message };
+                return taskTriggerError(err, String(resolvedTrigger?.triggerType || '').trim());
             }
         }
 

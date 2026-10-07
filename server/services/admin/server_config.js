@@ -37,7 +37,6 @@ function getGeneralSettings() {
       publicUrl: process.env.PUBLIC_URL || '',
       secureCookies: readEnvBool('SECURE_COOKIES', false),
       allowedOrigins: process.env.ALLOWED_ORIGINS || '',
-      meshtasticEnabled: readEnvBool('MESHTASTIC_ENABLED', true),
       memoryIngestionIntervalMs: readEnvInt('NEOAGENT_MEMORY_INGESTION_INTERVAL_MS', 600000),
     },
   };
@@ -49,12 +48,10 @@ function updateGeneralSettings(body = {}) {
   const allowedOrigins = cleanLine(body.allowedOrigins);
   const intervalMs = parseMinInt(body.memoryIngestionIntervalMs, 1000, 'memoryIngestionIntervalMs');
   assertBoolean(body.secureCookies, 'secureCookies');
-  assertBoolean(body.meshtasticEnabled, 'meshtasticEnabled');
 
   persistEnv('PUBLIC_URL', publicUrl);
   persistEnv('SECURE_COOKIES', body.secureCookies ? 'true' : 'false');
   persistEnv('ALLOWED_ORIGINS', allowedOrigins);
-  persistEnv('MESHTASTIC_ENABLED', body.meshtasticEnabled ? 'true' : 'false');
   persistEnv('NEOAGENT_MEMORY_INGESTION_INTERVAL_MS', intervalMs);
   return { ok: true };
 }

@@ -83,7 +83,8 @@ class DiscordPlatform extends BasePlatform {
     if (memberEvents) intents.push(GatewayIntentBits.GuildMembers);  // Privileged
     this._client = new Client({
       intents,
-      partials: [Partials.Channel, Partials.Message, Partials.Reaction, Partials.User],
+      // GuildMember lets a leave arrive for a member who joined before this login.
+      partials: [Partials.Channel, Partials.Message, Partials.Reaction, Partials.User, Partials.GuildMember],
     });
 
     return new Promise((resolve, reject) => {
@@ -140,7 +141,8 @@ class DiscordPlatform extends BasePlatform {
         this.emit('logged_out');
       });
       this._client.on('messageCreate', (msg) => this._handleMessage(msg));
-      this._client.on('guildMemberAdd', (member) => this._handleMemberJoin(member));
+      this._client.on('guildMemberAdd', (member) => this._emitMembership('member_joined', member));
+      this._client.on('guildMemberRemove', (member) => this._emitMembership('member_left', member));
       this._client.on('messageReactionAdd', (reaction, user) => {
         this._handleReaction(reaction, user).catch((err) => {
           console.error('[Discord] Reaction handler error:', err.message);
@@ -248,20 +250,22 @@ class DiscordPlatform extends BasePlatform {
     });
   }
 
-  // ── Member join handler ────────────────────────────────────────────────────
+  // ── Membership handler ─────────────────────────────────────────────────────
 
-  // A join is not a message: it never starts a chat run and skips the access
-  // policy. It only feeds tasks the owner set up for that server.
-  _handleMemberJoin(member) {
-    if (member.user.bot) return;
-    this.emit('member_joined', {
-      guildId: member.guild.id,
-      guildName: member.guild.name || null,
+  // Joins and leaves are not messages: they never start a chat run and skip
+  // the access policy. They only feed tasks the owner set up for that server.
+  _emitMembership(kind, member) {
+    if (member.user?.bot) return;
+    this.emit(kind, {
+      spaceId: member.guild.id,
+      spaceName: member.guild.name || null,
+      chatId: member.guild.systemChannelId || null,
       memberId: member.user.id,
-      memberUsername: member.user.username || null,
-      memberDisplayName: member.displayName || member.user.globalName || member.user.username || member.user.id,
-      chatId: `dm_${member.user.id}`,
-      joinedAt: (member.joinedAt || new Date()).toISOString(),
+      memberName: member.displayName || member.user.globalName || member.user.username || member.user.id,
+      dmChatId: `dm_${member.user.id}`,
+      occurredAt: kind === 'member_joined' && member.joinedAt
+        ? member.joinedAt.toISOString()
+        : new Date().toISOString(),
     });
   }
 

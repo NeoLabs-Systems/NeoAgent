@@ -14,7 +14,6 @@ NeoAgentAppMode _appModeFromEnvironment() {
 
 enum AppSection {
   chat,
-  timeline,
   voiceAssistant,
   devices,
   runs,
@@ -29,15 +28,13 @@ enum AppSection {
   admin,
 }
 
-enum SidebarGroup { chat, timeline, automation, team, settings, admin }
+enum SidebarGroup { chat, automation, team, settings, admin }
 
 extension SidebarGroupX on SidebarGroup {
   String get label {
     switch (this) {
       case SidebarGroup.chat:
         return appStrings.chat;
-      case SidebarGroup.timeline:
-        return appStrings.timeline;
       case SidebarGroup.automation:
         return appStrings.automation;
       case SidebarGroup.settings:
@@ -53,8 +50,6 @@ extension SidebarGroupX on SidebarGroup {
     switch (this) {
       case SidebarGroup.chat:
         return Icons.chat_bubble_outline;
-      case SidebarGroup.timeline:
-        return Icons.timeline_rounded;
       case SidebarGroup.automation:
         return Icons.auto_awesome_outlined;
       case SidebarGroup.settings:
@@ -72,8 +67,6 @@ extension AppSectionX on AppSection {
     switch (this) {
       case AppSection.chat:
         return appStrings.chat;
-      case AppSection.timeline:
-        return appStrings.timeline;
       case AppSection.voiceAssistant:
         return appStrings.voiceAssistant;
       case AppSection.devices:
@@ -105,8 +98,6 @@ extension AppSectionX on AppSection {
     switch (this) {
       case AppSection.chat:
         return Icons.chat_bubble_outline;
-      case AppSection.timeline:
-        return Icons.timeline_rounded;
       case AppSection.voiceAssistant:
         return Icons.keyboard_voice_outlined;
       case AppSection.devices:
@@ -139,8 +130,6 @@ extension AppSectionX on AppSection {
       case AppSection.chat:
       case AppSection.voiceAssistant:
         return SidebarGroup.chat;
-      case AppSection.timeline:
-        return SidebarGroup.timeline;
       case AppSection.devices:
       case AppSection.skills:
       case AppSection.integrations:
@@ -193,8 +182,7 @@ extension AppSectionX on AppSection {
     if (effectiveSection == AppSection.voiceAssistant) {
       return effectiveSection.label;
     }
-    if (effectiveSection.group == SidebarGroup.chat ||
-        effectiveSection.group == SidebarGroup.timeline) {
+    if (effectiveSection.group == SidebarGroup.chat) {
       return groupLabel;
     }
     if (groupLabel == effectiveSection.label) {

@@ -47,7 +47,6 @@ function createDefaultAiSettings() {
     subagent_max_children_per_run: 10,
     assistant_behavior_notes: '',
     auto_skill_learning: true,
-    smarter_model_selector: true,
     // 'off', 'auto', or a SystemOne model selection id (provider::model).
     system_one_model: 'off',
     enabled_models: [],
@@ -287,7 +286,6 @@ function getAiSettings(userId, agentId = null) {
     ? settings.assistant_behavior_notes
     : DEFAULT_AI_SETTINGS.assistant_behavior_notes;
   settings.auto_skill_learning = settings.auto_skill_learning !== false && settings.auto_skill_learning !== 'false';
-  settings.smarter_model_selector = settings.smarter_model_selector !== false && settings.smarter_model_selector !== 'false';
   settings.system_one_model = normalizeSystemOneModel(settings.system_one_model);
   settings.enabled_models = Array.isArray(settings.enabled_models) ? settings.enabled_models : DEFAULT_AI_SETTINGS.enabled_models;
   settings.default_chat_model = typeof settings.default_chat_model === 'string' && settings.default_chat_model.trim()

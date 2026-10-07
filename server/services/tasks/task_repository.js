@@ -29,10 +29,16 @@ class TaskRepository {
   updateTask(taskId, userId, normalizedTask) {
     db.prepare(
       `UPDATE scheduled_tasks
-       SET agent_id = ?, name = ?, trigger_type = ?, trigger_config = ?, cron_expression = ?, run_at = ?,
+       SET last_trigger_fingerprint = CASE
+             WHEN trigger_type = ? AND trigger_config = ? THEN last_trigger_fingerprint
+             ELSE NULL
+           END,
+           agent_id = ?, name = ?, trigger_type = ?, trigger_config = ?, cron_expression = ?, run_at = ?,
            one_time = ?, execution_mode = ?, task_type = ?, task_config = ?, enabled = ?
        WHERE id = ? AND user_id = ?`
     ).run(
+      normalizedTask.triggerType,
+      JSON.stringify(normalizedTask.triggerConfig),
       normalizedTask.agentId,
       normalizedTask.name,
       normalizedTask.triggerType,
@@ -148,11 +154,12 @@ class TaskRepository {
     ).all(...triggerTypes);
   }
 
+  // A null agentId matches the user's tasks on every agent.
   listEnabledEventTasks(userId, agentId, triggerType) {
     return db.prepare(
       `SELECT * FROM scheduled_tasks
-       WHERE enabled = 1 AND user_id = ? AND agent_id = ? AND trigger_type = ?`
-    ).all(userId, agentId, triggerType);
+       WHERE enabled = 1 AND user_id = ? AND (? IS NULL OR agent_id = ?) AND trigger_type = ?`
+    ).all(userId, agentId, agentId, triggerType);
   }
 
   markTaskTriggered(taskId, userId, fingerprint) {

@@ -4,6 +4,8 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import 'ringtone.dart';
+
 /// Whether the phone lets NeoAgent put a call in front of the user: drawing
 /// over other apps (to come forward from the background), full-screen
 /// notifications (to ring over the lock screen) and running without battery
@@ -31,15 +33,15 @@ class CallPermissionStatus {
 /// The platform side of a call: ringing, presenting the call screen from the
 /// background or over the lock screen, and the speakerphone.
 ///
-/// Android does all of it natively. Elsewhere the ring is a repeating system
-/// alert with haptics, and the rest is a no-op.
+/// Android does all of it natively. Elsewhere the ring is a looping ringtone
+/// with haptics, and the rest is a no-op.
 class CallBridge {
   CallBridge._();
 
   static const MethodChannel _channel = MethodChannel('neoagent/call');
-  static const Duration _fallbackRingInterval = Duration(seconds: 2);
+  static const Duration _hapticInterval = Duration(seconds: 3);
 
-  static Timer? _fallbackRing;
+  static Timer? _haptics;
 
   static bool get _native => !kIsWeb && Platform.isAndroid;
 
@@ -73,15 +75,20 @@ class CallBridge {
 
   static Future<void> startRinging() async {
     if (_native) return _invoke('startRinging');
-    _fallbackRing?.cancel();
-    _ringOnce();
-    _fallbackRing = Timer.periodic(_fallbackRingInterval, (_) => _ringOnce());
+    _haptics?.cancel();
+    unawaited(HapticFeedback.heavyImpact());
+    _haptics = Timer.periodic(
+      _hapticInterval,
+      (_) => unawaited(HapticFeedback.heavyImpact()),
+    );
+    await Ringtone.start();
   }
 
   static Future<void> stopRinging() async {
-    _fallbackRing?.cancel();
-    _fallbackRing = null;
-    if (_native) await _invoke('stopRinging');
+    if (_native) return _invoke('stopRinging');
+    _haptics?.cancel();
+    _haptics = null;
+    await Ringtone.stop();
   }
 
   /// Brings the app forward and lets it show over the lock screen. Returns
@@ -98,19 +105,12 @@ class CallBridge {
   /// Stops ringing and stops showing over the lock screen; [moveToBack]
   /// returns the app to wherever the user was before the call came in.
   static Future<void> dismiss({bool moveToBack = false}) async {
-    _fallbackRing?.cancel();
-    _fallbackRing = null;
-    if (!_native) return;
+    if (!_native) return stopRinging();
     await _invoke('dismiss', <String, Object?>{'moveToBack': moveToBack});
   }
 
   static Future<void> setSpeakerphone(bool on) =>
       _invoke('setSpeakerphone', <String, Object?>{'on': on});
-
-  static void _ringOnce() {
-    unawaited(SystemSound.play(SystemSoundType.alert));
-    unawaited(HapticFeedback.heavyImpact());
-  }
 
   static Future<void> _invoke(String method, [Object? arguments]) async {
     if (!_native) return;

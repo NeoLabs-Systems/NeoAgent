@@ -1,6 +1,6 @@
 part of 'main.dart';
 
-/// Settings › Models: the agent's default models, smart selection and the
+/// Settings › Models: the agent's default models, the Smart Selector pool and the
 /// API keys that pay for them.
 class _ModelsSettingsPage extends StatelessWidget {
   const _ModelsSettingsPage({required this.controller});
@@ -80,6 +80,20 @@ class _ModelsSettingsPage extends StatelessWidget {
               value: controller.defaultChatModel,
               settingKey: 'default_chat_model',
             ),
+            // Smart Selector and failure fallbacks only route between these.
+            _SettingsRow(
+              anchor: 'modelPool',
+              label: appStrings.settingsModelPool,
+              description: appStrings.arg1OfArg2Models(
+                poolSize,
+                availableModels.length,
+              ),
+              control: OutlinedButton.icon(
+                onPressed: () => _managePool(context, pool),
+                icon: Icon(Icons.tune_rounded, size: 16),
+                label: Text(appStrings.manage),
+              ),
+            ),
             _SettingsRow(
               anchor: 'systemOne',
               label: appStrings.systemOneModels,
@@ -123,37 +137,6 @@ class _ModelsSettingsPage extends StatelessWidget {
           ],
         ),
         _AdvancedModelSettings(controller: controller, models: routingModels),
-        _SettingsGroup(
-          title: appStrings.settingsSmartSelection,
-          children: <Widget>[
-            _SettingsRow(
-              anchor: 'smartSelection',
-              label: appStrings.smartModelSelection,
-              description: appStrings.automaticallyChooseTheBestEnabledModel,
-              control: Switch(
-                value: controller.smarterSelector,
-                onChanged: (value) => _autosaveSettings(
-                  controller,
-                  <String, dynamic>{'smarter_model_selector': value},
-                ),
-              ),
-            ),
-            _SettingsRow(
-              anchor: 'modelPool',
-              label: appStrings.settingsModelPool,
-              description: appStrings.arg1OfArg2Models(
-                poolSize,
-                availableModels.length,
-              ),
-              enabled: controller.smarterSelector,
-              control: OutlinedButton.icon(
-                onPressed: () => _managePool(context, pool),
-                icon: Icon(Icons.tune_rounded, size: 16),
-                label: Text(appStrings.manage),
-              ),
-            ),
-          ],
-        ),
         _ByokSettingsCard(controller: controller),
       ],
     );

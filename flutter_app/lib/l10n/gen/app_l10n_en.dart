@@ -998,11 +998,6 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String arg1Entries(Object? arg1) {
-    return '$arg1 entries';
-  }
-
-  @override
   String arg1Events(Object? arg1) {
     return '$arg1 events';
   }
@@ -1408,11 +1403,6 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String arg1TalksToTheDeviceOn(Object? arg1) {
-    return '$arg1 talks to the device on your local network (port 4403 by default). Chat stays on the channel you pick above.';
-  }
-
-  @override
   String arg1Tokens(Object? arg1) {
     return '$arg1 tokens';
   }
@@ -1593,10 +1583,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get automaticSelectsAFastModelThrough =>
       'Automatic selects a fast model through the normal model catalog.';
-
-  @override
-  String get automaticallyChooseTheBestEnabledModel =>
-      'Automatically choose the best enabled model for each task type.';
 
   @override
   String get automation => 'Automation';
@@ -1909,9 +1895,6 @@ class AppL10nEn extends AppL10n {
   ) {
     return 'Channel: $arg1$arg2 | Update Version: $arg3$arg4$arg5';
   }
-
-  @override
-  String get channelNumber => 'Channel number';
 
   @override
   String get channelScopedSocialMemory => 'Channel-scoped social memory';
@@ -2991,13 +2974,7 @@ class AppL10nEn extends AppL10n {
   String get destinationId => 'Destination ID';
 
   @override
-  String get detail => 'DETAIL';
-
-  @override
   String get deviceAccess => 'Device access';
-
-  @override
-  String get deviceIpAddress => 'Device IP address';
 
   @override
   String get deviceSettings => 'Device Settings';
@@ -3184,10 +3161,6 @@ class AppL10nEn extends AppL10n {
   String get emailUnverified => 'Email unverified';
 
   @override
-  String get emailsAiActionsTasksAndRun =>
-      'Emails, AI actions, tasks and run activity in one chronological feed.';
-
-  @override
   String get empty => 'Empty';
 
   @override
@@ -3308,9 +3281,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get errorsProblemsFailures => 'errors problems failures';
-
-  @override
-  String get eventDetail => 'Event detail';
 
   @override
   String get eventTypesCommaSeparated => 'Event Types (comma separated)';
@@ -3853,9 +3823,6 @@ class AppL10nEn extends AppL10n {
       'Hands-free (talk freely, interrupt anytime)';
 
   @override
-  String get hardwareBridges => 'Hardware Bridges';
-
-  @override
   String get headerName => 'Header name';
 
   @override
@@ -4325,9 +4292,6 @@ class AppL10nEn extends AppL10n {
       'Key-value pairs that persist across conversations.';
 
   @override
-  String get kind => 'KIND';
-
-  @override
   String get knowledgeGraph => 'Knowledge Graph';
 
   @override
@@ -4439,10 +4403,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get leftJoinArtifactsAOnA =>
       'LEFT JOIN artifacts a ON a.user_id = u.id\n';
-
-  @override
-  String get letAccountsConnectMeshtasticRadios =>
-      'Let accounts connect Meshtastic radios.';
 
   @override
   String letArg1ManageMe(Object? arg1) {
@@ -4613,10 +4573,6 @@ class AppL10nEn extends AppL10n {
       'Local computer control is not available here.';
 
   @override
-  String get localDeviceBridgesAndTcpConnected =>
-      'Local device bridges and TCP-connected integrations.';
-
-  @override
   String get localModelsUrl => 'local models url';
 
   @override
@@ -4755,9 +4711,6 @@ class AppL10nEn extends AppL10n {
   String get manualDestination => 'Manual destination';
 
   @override
-  String get manualRouting => 'Manual routing';
-
-  @override
   String get manualTrigger => 'Manual Trigger';
 
   @override
@@ -4835,9 +4788,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get mergedServerAndFlutterRuntimeLogs =>
       'Merged server and Flutter runtime logs for this app session.';
-
-  @override
-  String get meshRadioMessaging => 'mesh radio messaging';
 
   @override
   String get messageBodyTemplateJson => 'Message body template (JSON)';
@@ -5284,9 +5234,6 @@ class AppL10nEn extends AppL10n {
   String get newsDigest => 'News digest';
 
   @override
-  String get nextEvent => 'Next event';
-
-  @override
   String get nextPage => 'Next page';
 
   @override
@@ -5580,19 +5527,12 @@ class AppL10nEn extends AppL10n {
   String get noSubscription => 'No subscription.';
 
   @override
-  String get noSummary => 'No summary';
-
-  @override
   String get noSummaryAvailable => 'No summary available.';
 
   @override
   String noTasksForArg1(Object? arg1) {
     return 'No tasks for $arg1';
   }
-
-  @override
-  String get noTimelineActivityYetForThe =>
-      'No timeline activity yet for the selected filters.';
 
   @override
   String noToolMatchesArg1(Object? arg1) {
@@ -5855,15 +5795,9 @@ class AppL10nEn extends AppL10n {
   String get openInWorkbench => 'Open in workbench';
 
   @override
-  String get openLinkedRun => 'Open linked run';
-
-  @override
   String openNeoagentAndReconnectArg1To(Object? arg1) {
     return 'Open NeoAgent and reconnect $arg1 to restore messaging.';
   }
-
-  @override
-  String get openRun => 'Open run';
 
   @override
   String get openTheComputerTabNextTo =>
@@ -6281,9 +6215,6 @@ class AppL10nEn extends AppL10n {
   String pressedArg1(Object? arg1) {
     return 'Pressed $arg1';
   }
-
-  @override
-  String get previousEvent => 'Previous event';
 
   @override
   String get previousPage => 'Previous page';
@@ -6824,9 +6755,6 @@ class AppL10nEn extends AppL10n {
   String get run => 'Run';
 
   @override
-  String get run2 => 'RUN';
-
-  @override
   String get runArbitraryCommandsOnYourMachine =>
       'Run arbitrary commands on your machine or VM.';
 
@@ -6842,12 +6770,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get runGitDiffReviewTheUncommitted =>
       'Run git diff, review the uncommitted changes for bugs and style issues, and summarize what you find.';
-
-  @override
-  String get runLink => 'RUN LINK';
-
-  @override
-  String get runLinked => 'Run linked';
 
   @override
   String get runNotFound => 'Run not found';
@@ -7274,9 +7196,6 @@ class AppL10nEn extends AppL10n {
   String get selectAll2 => 'Select All';
 
   @override
-  String get selectAnEventFromTheFeed => 'Select an event from the feed.';
-
-  @override
   String selectArg1(Object? arg1) {
     return 'Select $arg1';
   }
@@ -7611,9 +7530,6 @@ class AppL10nEn extends AppL10n {
       'Smallest currency unit: 1900 is 19.00.';
 
   @override
-  String get smartModelSelection => 'Smart model selection';
-
-  @override
   String get smartSelector => 'smart selector';
 
   @override
@@ -7685,9 +7601,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get source => 'Source';
-
-  @override
-  String get source2 => 'SOURCE';
 
   @override
   String get spaceOrChatIdUsedWhen =>
@@ -7789,9 +7702,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get status => 'Status';
-
-  @override
-  String get status2 => 'STATUS';
 
   @override
   String get statusDatabaseRuntimeVmProviders =>
@@ -7932,9 +7842,6 @@ class AppL10nEn extends AppL10n {
   String get summariseMyLastRun => 'Summarise my last run';
 
   @override
-  String get summary => 'SUMMARY';
-
-  @override
   String get supportUrl => 'Support URL';
 
   @override
@@ -7964,9 +7871,6 @@ class AppL10nEn extends AppL10n {
   String get tagsOnly => 'Tags only';
 
   @override
-  String get task => 'TASK';
-
-  @override
   String get tasks => 'Tasks';
 
   @override
@@ -7976,9 +7880,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get tasksRunOnTheirOwnAnd =>
       'Tasks run on their own and message you with the ';
-
-  @override
-  String get tcpBridgeToALocalDevice => 'TCP bridge to a local device channel';
 
   @override
   String get teach => 'Teach';
@@ -8154,10 +8055,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get theLiveVoiceModelDidNot =>
       'The live voice model did not answer. Try again.';
-
-  @override
-  String get theLocalIpOfTheMeshtastic =>
-      'The local IP of the Meshtastic device.';
 
   @override
   String theLocalNeoagentCommandExitedWith(Object? arg1) {
@@ -8586,9 +8483,6 @@ class AppL10nEn extends AppL10n {
   String get time => 'Time';
 
   @override
-  String get time2 => 'TIME';
-
-  @override
   String get timeZone => 'time zone';
 
   @override
@@ -8598,12 +8492,6 @@ class AppL10nEn extends AppL10n {
   String timedOutArg1(Object? arg1) {
     return 'Timed out$arg1';
   }
-
-  @override
-  String get timeline => 'Timeline';
-
-  @override
-  String get timelineFeed => 'Timeline feed';
 
   @override
   String timezoneCouldNotListTimeZones(Object? arg1) {
@@ -8619,9 +8507,6 @@ class AppL10nEn extends AppL10n {
   String timezoneCouldNotSaveTheDevice(Object? arg1) {
     return '[TimeZone] Could not save the device time zone: $arg1';
   }
-
-  @override
-  String get title => 'TITLE';
 
   @override
   String toArg1(Object? arg1) {
@@ -8962,9 +8847,6 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String get untitledRunEvent => 'Untitled run event';
-
-  @override
   String get unusualSignInAlerts => 'Unusual sign-in alerts';
 
   @override
@@ -9159,10 +9041,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get usingTheInstalledNeoagentRuntime =>
       'Using the installed NeoAgent runtime';
-
-  @override
-  String get usually0ForThePrimaryChannel =>
-      'Usually 0 for the primary channel.';
 
   @override
   String get usuallyLooksLikeBotMatrixOrg =>
@@ -10733,9 +10611,6 @@ class AppL10nEn extends AppL10n {
       'Used whenever a chat or task doesn\'t pick its own model.';
 
   @override
-  String get settingsSmartSelection => 'Smart selection';
-
-  @override
   String get settingsModelPool => 'Model pool';
 
   @override
@@ -11090,19 +10965,385 @@ class AppL10nEn extends AppL10n {
   String get permissionAllowed => 'Allowed';
 
   @override
-  String get discordMemberJoined => 'Discord Member Joined';
+  String get triggerSectionCalendar => 'Calendar';
 
   @override
-  String get runWhenSomeoneJoinsADiscordServer =>
-      'Run when someone joins one of your Discord servers.';
+  String get triggerSectionFiles => 'Files and documents';
 
   @override
-  String get discordServerId => 'Discord server ID';
+  String get triggerSectionHome => 'Home and media';
 
   @override
-  String get discordServerIdHelper =>
-      'Right-click the server and choose Copy Server ID (Developer Mode). The bot needs the Server Members Intent.';
+  String get triggerSectionDevices => 'Devices and places';
 
   @override
-  String get enterTheDiscordServerId => 'Enter the Discord server ID.';
+  String get triggerSectionTasks => 'Tasks';
+
+  @override
+  String get messagingMemberJoined => 'Member joined';
+
+  @override
+  String get runWhenSomeoneJoinsAServerOrGroup =>
+      'Run when someone joins a Discord server, Telegram or WhatsApp group, Slack channel, or Matrix room.';
+
+  @override
+  String get messagingMemberLeft => 'Member left';
+
+  @override
+  String get runWhenSomeoneLeavesAServerOrGroup =>
+      'Run when someone leaves a Discord server, Telegram or WhatsApp group, Slack channel, or Matrix room.';
+
+  @override
+  String get messagingReactionAdded => 'Reaction added';
+
+  @override
+  String get runWhenSomeoneReactsInAPrivateChat =>
+      'Run when an allowed person reacts to a message in a private chat.';
+
+  @override
+  String get messagingPlatformDisconnected => 'Messaging disconnected';
+
+  @override
+  String get runWhenAMessagingConnectionNeedsYou =>
+      'Run when a messaging connection stops and needs you, such as after a logout.';
+
+  @override
+  String get googleCalendarEventStarting => 'Google Calendar event starting';
+
+  @override
+  String get googleCalendarEventCreated => 'Google Calendar event created';
+
+  @override
+  String get runWhenANewGoogleCalendarEventAppears =>
+      'Run when a new event or invitation appears.';
+
+  @override
+  String get outlookCalendarEventStarting => 'Outlook Calendar event starting';
+
+  @override
+  String get nextcloudCalendarEventStarting =>
+      'Nextcloud Calendar event starting';
+
+  @override
+  String get runMinutesBeforeEachEvent =>
+      'Run a set number of minutes before each event.';
+
+  @override
+  String get googleDriveFileAdded => 'Google Drive file added';
+
+  @override
+  String get runWhenAFileIsAddedToDrive =>
+      'Run when a file is added to Drive or a folder in it.';
+
+  @override
+  String get googleSheetsRowAdded => 'Google Sheets row added';
+
+  @override
+  String get runWhenRowsAreAddedToASheet =>
+      'Run when new rows appear in a sheet.';
+
+  @override
+  String get onedriveFileAdded => 'OneDrive file added';
+
+  @override
+  String get runWhenAFileIsAddedToOnedrive =>
+      'Run when a file is added to a OneDrive folder.';
+
+  @override
+  String get nextcloudFileAdded => 'Nextcloud file added';
+
+  @override
+  String get runWhenAFileIsAddedToNextcloud =>
+      'Run when a file is added to a Nextcloud folder.';
+
+  @override
+  String get nextcloudShareReceived => 'Nextcloud file shared with you';
+
+  @override
+  String get runWhenSomeoneSharesWithYouOnNextcloud =>
+      'Run when someone shares a file or folder with you.';
+
+  @override
+  String get notionItemAdded => 'Notion database item added';
+
+  @override
+  String get runWhenAnItemIsAddedToANotionDatabase =>
+      'Run when an item is added to a Notion database.';
+
+  @override
+  String get notionItemUpdated => 'Notion database item updated';
+
+  @override
+  String get runWhenANotionDatabaseItemChanges =>
+      'Run when an item in a Notion database changes.';
+
+  @override
+  String get trelloCardEnteredList => 'Trello card added to list';
+
+  @override
+  String get runWhenACardIsCreatedInOrMovedIntoAList =>
+      'Run when a card is created in or moved into a list.';
+
+  @override
+  String get figmaCommentAdded => 'Figma comment added';
+
+  @override
+  String get runWhenSomeoneCommentsOnAFigmaFile =>
+      'Run when someone comments on a Figma file.';
+
+  @override
+  String get githubPrOpened => 'GitHub pull request opened';
+
+  @override
+  String get runWhenANewPullRequestIsOpened =>
+      'Run when a new pull request is opened in a repository.';
+
+  @override
+  String get githubWorkflowRunFailed => 'GitHub workflow run failed';
+
+  @override
+  String get runWhenAGithubActionsRunFails =>
+      'Run when a GitHub Actions run fails.';
+
+  @override
+  String get githubCommitPushed => 'GitHub commit pushed';
+
+  @override
+  String get runWhenNewCommitsReachABranch =>
+      'Run when new commits reach a branch.';
+
+  @override
+  String get mcpServerFailed => 'MCP server failed';
+
+  @override
+  String get runWhenAWorkingMcpServerFails =>
+      'Run when an MCP server that was working fails or needs sign-in.';
+
+  @override
+  String get homeAssistantStateChanged => 'Home Assistant state changed';
+
+  @override
+  String get runWhenAHomeAssistantEntityChanges =>
+      'Run when an entity changes, reaches a state, or crosses a value.';
+
+  @override
+  String get spotifyTrackChanged => 'Spotify track changed';
+
+  @override
+  String get runWhenADifferentTrackStartsPlaying =>
+      'Run when a different track starts playing.';
+
+  @override
+  String get neorecallDailySummaryReady => 'NeoRecall daily summary ready';
+
+  @override
+  String get runWhenADaysSummaryIsFinal =>
+      'Run when the summary of a day is final.';
+
+  @override
+  String get neorecallConversationRecorded => 'NeoRecall conversation recorded';
+
+  @override
+  String get runWhenARecordedConversationEnds =>
+      'Run when a recorded conversation ends.';
+
+  @override
+  String get geofenceTrigger => 'Location geofence';
+
+  @override
+  String get runWhenYourPhoneArrivesOrLeaves =>
+      'Run when your phone arrives at or leaves a place. Needs location tracking on the phone.';
+
+  @override
+  String get healthMetricRecorded => 'Health metric recorded';
+
+  @override
+  String get runWhenAHealthReadingArrives =>
+      'Run when a synced health reading arrives, optionally above or below a value.';
+
+  @override
+  String get wearableConnectionChanged => 'Wearable connected or disconnected';
+
+  @override
+  String get runWhenYourWearableConnectsOrDisconnects =>
+      'Run when your wearable connects or disconnects.';
+
+  @override
+  String get taskRunFinished => 'Another task finished';
+
+  @override
+  String get runWhenAnotherTaskFinishes =>
+      'Run after another task finishes, succeeds, or fails.';
+
+  @override
+  String get appPackageOptional => 'App package (optional)';
+
+  @override
+  String get appPackageHelper => 'For example com.whatsapp';
+
+  @override
+  String get anyPlatform => 'Any platform';
+
+  @override
+  String get spaceIdOptional => 'Server, group, channel, or room ID (optional)';
+
+  @override
+  String get spaceIdHelper => 'Empty watches every one the bot is in.';
+
+  @override
+  String get emojiOptional => 'Emoji (optional)';
+
+  @override
+  String get chatIdOptional => 'Chat ID (optional)';
+
+  @override
+  String get platformOptional => 'Platform (optional)';
+
+  @override
+  String get platformOptionalHelper =>
+      'For example whatsapp. Empty watches all.';
+
+  @override
+  String get minutesBefore => 'Minutes before';
+
+  @override
+  String get calendarIdOptional => 'Calendar ID (optional)';
+
+  @override
+  String get calendarIdHelper => 'Empty uses your primary calendar.';
+
+  @override
+  String get invitesOnly => 'Only invitations from others';
+
+  @override
+  String get nextcloudCalendarPath => 'Calendar';
+
+  @override
+  String get nextcloudCalendarPathHelper =>
+      'Its name in the Nextcloud calendar list, for example personal';
+
+  @override
+  String get folderIdOptionalHelperDrive => 'Empty watches all of Drive.';
+
+  @override
+  String get folderIdOptionalHelperOnedrive => 'Empty watches the root folder.';
+
+  @override
+  String get driveFolderIdOptional => 'Folder ID (optional)';
+
+  @override
+  String get spreadsheetId => 'Spreadsheet ID';
+
+  @override
+  String get sheetRange => 'Range';
+
+  @override
+  String get sheetRangeHelper => 'The table\'s columns, for example Sheet1!A:E';
+
+  @override
+  String get folderPathOptional => 'Folder path (optional)';
+
+  @override
+  String get folderPathHelper => 'For example Documents';
+
+  @override
+  String get notionDatabaseId => 'Database ID';
+
+  @override
+  String get trelloListId => 'List ID';
+
+  @override
+  String get figmaFileKey => 'File key';
+
+  @override
+  String get figmaFileKeyHelper => 'From the file link: figma.com/file/<key>/…';
+
+  @override
+  String get githubRepository => 'Repository';
+
+  @override
+  String get workflowOptional => 'Workflow (optional)';
+
+  @override
+  String get workflowHelper => 'File name such as ci.yml';
+
+  @override
+  String get branchOptional => 'Branch (optional)';
+
+  @override
+  String get branchHelper => 'Empty uses the default branch.';
+
+  @override
+  String get mcpServerIdOptional => 'MCP server ID (optional)';
+
+  @override
+  String get entityId => 'Entity ID';
+
+  @override
+  String get entityIdHelper => 'For example binary_sensor.front_door';
+
+  @override
+  String get targetStateOptional => 'Target state (optional)';
+
+  @override
+  String get targetStateHelper => 'For example on';
+
+  @override
+  String get aboveOptional => 'Above (optional)';
+
+  @override
+  String get belowOptional => 'Below (optional)';
+
+  @override
+  String get placeName => 'Place name';
+
+  @override
+  String get latitude => 'Latitude';
+
+  @override
+  String get longitude => 'Longitude';
+
+  @override
+  String get radiusMeters => 'Radius in meters';
+
+  @override
+  String get geofenceTransition => 'When';
+
+  @override
+  String get arriving => 'Arriving';
+
+  @override
+  String get leaving => 'Leaving';
+
+  @override
+  String get healthMetric => 'Health metric';
+
+  @override
+  String get healthMetricHelper => 'For example heart_rate, steps, weight';
+
+  @override
+  String get wearableTransition => 'When the wearable';
+
+  @override
+  String get wearableConnects => 'Connects';
+
+  @override
+  String get wearableDisconnects => 'Disconnects';
+
+  @override
+  String get sourceTask => 'After task';
+
+  @override
+  String get taskOutcome => 'Outcome';
+
+  @override
+  String get anyOutcome => 'Any outcome';
+
+  @override
+  String get succeeded => 'Succeeded';
+
+  @override
+  String fieldMissingOrInvalidArg1(Object? arg1) {
+    return '$arg1 is missing or not valid.';
+  }
 }

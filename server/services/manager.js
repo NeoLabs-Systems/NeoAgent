@@ -68,11 +68,11 @@ function createWorkspaceManager(app) {
   return workspaceManager;
 }
 
-function createTimelineService(app, io) {
+function createTimelineService(app) {
   const timelineService = registerLocal(
     app,
     'timelineService',
-    new TimelineService({ io }),
+    new TimelineService(),
   );
   logServiceReady('Timeline service ready');
   return timelineService;
@@ -397,7 +397,7 @@ async function startServices(app, io) {
   try {
     const artifactStore = createArtifactStore(app);
     createWorkspaceManager(app);
-    createTimelineService(app, io);
+    createTimelineService(app);
     const memoryManager = createMemoryManager(app);
     const mcpClient = createMcpClient(app);
     createAuthProviderManager(app);

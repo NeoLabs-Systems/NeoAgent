@@ -1075,14 +1075,6 @@
       }
     }
   },
-  "arg1Entries": "{arg1} entries",
-  "@arg1Entries": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Events": "{arg1} events",
   "@arg1Events": {
     "placeholders": {
@@ -1815,14 +1807,6 @@
       }
     }
   },
-  "arg1TalksToTheDeviceOn": "{arg1} talks to the device on your local network (port 4403 by default). Chat stays on the channel you pick above.",
-  "@arg1TalksToTheDeviceOn": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Tokens": "{arg1} tokens",
   "@arg1Tokens": {
     "placeholders": {
@@ -1978,7 +1962,6 @@
   "automaticReserved": "Automatic, reserved",
   "automaticRollbackNeedsARetryFrom": "Automatic rollback needs a retry from the setup screen.",
   "automaticSelectsAFastModelThrough": "Automatic selects a fast model through the normal model catalog.",
-  "automaticallyChooseTheBestEnabledModel": "Automatically choose the best enabled model for each task type.",
   "automation": "Automation",
   "available": "Available",
   "availableAgainInArg1": "Available again in {arg1}",
@@ -2139,7 +2122,6 @@
       }
     }
   },
-  "channelNumber": "Channel number",
   "channelScopedSocialMemory": "Channel-scoped social memory",
   "channels": "Channels",
   "chat": "Chat",
@@ -2716,9 +2698,7 @@
   },
   "desktopToFinishTheJob": "desktop to finish the job.",
   "destinationId": "Destination ID",
-  "detail": "DETAIL",
   "deviceAccess": "Device access",
-  "deviceIpAddress": "Device IP address",
   "deviceSettings": "Device Settings",
   "devices": "Devices",
   "diagnosticsSaved": "Diagnostics saved.",
@@ -2795,7 +2775,6 @@
   "emailSavedIfConfirmationIsRequired": "Email saved. If confirmation is required, check the new address for a NeoAgent confirmation link.",
   "emailSettingsSaved": "Email settings saved.",
   "emailUnverified": "Email unverified",
-  "emailsAiActionsTasksAndRun": "Emails, AI actions, tasks and run activity in one chronological feed.",
   "empty": "Empty",
   "emptyFile": "Empty file",
   "emptyFolder": "Empty folder",
@@ -2869,7 +2848,6 @@
   },
   "errorsFromTheRecentLogGrouped": "Errors from the recent log, grouped by message.",
   "errorsProblemsFailures": "errors problems failures",
-  "eventDetail": "Event detail",
   "eventTypesCommaSeparated": "Event Types (comma separated)",
   "every15Minutes": "Every 15 minutes",
   "every30Minutes": "Every 30 minutes",
@@ -3211,7 +3189,6 @@
   },
   "handlesDirectTasksItself": "Handles direct tasks itself",
   "handsFreeTalkFreelyInterruptAnytime": "Hands-free (talk freely, interrupt anytime)",
-  "hardwareBridges": "Hardware Bridges",
   "headerName": "Header name",
   "headlinesOnTheTopicsYouCare": "Headlines on the topics you care about, filtered for signal.",
   "health": "Health",
@@ -3437,7 +3414,6 @@
   "key": "Key",
   "keyIsRequired": "Key is required.",
   "keyValuePairsThatPersistAcross": "Key-value pairs that persist across conversations.",
-  "kind": "KIND",
   "knowledgeGraph": "Knowledge Graph",
   "knowledgeView": "Knowledge view",
   "labelOnlyYouSeeIt": "Label (only you see it)",
@@ -3546,7 +3522,6 @@
   "leftJoinAgentRunsROn": "LEFT JOIN agent_runs r ON r.user_id = u.id\n",
   "leftJoinAgentRunsROn2": "LEFT JOIN agent_runs r ON r.agent_id = a.id\n",
   "leftJoinArtifactsAOnA": "LEFT JOIN artifacts a ON a.user_id = u.id\n",
-  "letAccountsConnectMeshtasticRadios": "Let accounts connect Meshtastic radios.",
   "letArg1ManageMe": "Let {arg1} manage me",
   "@letArg1ManageMe": {
     "placeholders": {
@@ -3668,7 +3643,6 @@
   "localBaseImagePath": "Local base image path",
   "localComputerControlIsAvailableIn": "Local computer control is available in the NeoAgent desktop app on macOS, Windows and Linux.",
   "localComputerControlIsNotAvailable": "Local computer control is not available here.",
-  "localDeviceBridgesAndTcpConnected": "Local device bridges and TCP-connected integrations.",
   "localModelsUrl": "local models url",
   "localNeoagentDiscoveryIsTemporarilyUnavailable": "Local NeoAgent discovery is temporarily unavailable.",
   "localPreferencesForTheNeoagentApplication": "Local preferences for the NeoAgent application. Computer control always runs through the unified cloud computer.",
@@ -3716,7 +3690,6 @@
   "managersCanHaveManagersOfTheir": "Managers can have managers of their own (up to four levels). A ",
   "managing": "Managing",
   "manualDestination": "Manual destination",
-  "manualRouting": "Manual routing",
   "manualTrigger": "Manual Trigger",
   "masterPassword": "Master password",
   "matchThisDevice": "Match this device",
@@ -3755,7 +3728,6 @@
   "memoryMustBeAtLeast512": "Memory must be at least 512 MB.",
   "mentionOrReplyOnly": "Mention or reply only",
   "mergedServerAndFlutterRuntimeLogs": "Merged server and Flutter runtime logs for this app session.",
-  "meshRadioMessaging": "mesh radio messaging",
   "messageBodyTemplateJson": "Message body template (JSON)",
   "messageNeedsAccess": "Message needs access",
   "messageTextField": "Message text field",
@@ -3995,7 +3967,6 @@
   "newSkill2": "New Skill",
   "newThisWeek": "New this week",
   "newsDigest": "News digest",
-  "nextEvent": "Next event",
   "nextPage": "Next page",
   "nextRetryArg1": "Next retry: {arg1}",
   "@nextRetryArg1": {
@@ -4131,7 +4102,6 @@
   "noStepsWereRecordedForThis": "No steps were recorded for this run.",
   "noStoreSkillsMatchThisSearch": "No store skills match this search.",
   "noSubscription": "No subscription.",
-  "noSummary": "No summary",
   "noSummaryAvailable": "No summary available.",
   "noTasksForArg1": "No tasks for {arg1}",
   "@noTasksForArg1": {
@@ -4141,7 +4111,6 @@
       }
     }
   },
-  "noTimelineActivityYetForThe": "No timeline activity yet for the selected filters.",
   "noToolMatchesArg1": "No tool matches \"{arg1}\".",
   "@noToolMatchesArg1": {
     "placeholders": {
@@ -4242,7 +4211,6 @@
   "openDashboard": "Open dashboard",
   "openFolder": "Open folder…",
   "openInWorkbench": "Open in workbench",
-  "openLinkedRun": "Open linked run",
   "openNeoagentAndReconnectArg1To": "Open NeoAgent and reconnect {arg1} to restore messaging.",
   "@openNeoagentAndReconnectArg1To": {
     "placeholders": {
@@ -4251,7 +4219,6 @@
       }
     }
   },
-  "openRun": "Open run",
   "openTheComputerTabNextTo": "Open the Computer tab next to any session to see the screen ",
   "openTimeSettings": "Open time settings",
   "openToAnyone": "Open to anyone",
@@ -4457,7 +4424,6 @@
       }
     }
   },
-  "previousEvent": "Previous event",
   "previousPage": "Previous page",
   "priceInCents": "Price in cents",
   "priceMustBeAWholeNumber": "Price must be a whole number of cents (0 or more).",
@@ -4763,14 +4729,11 @@
   "rowsAddALimitOrA": "rows. Add a LIMIT or a narrower WHERE clause to see ",
   "rule": "Rule",
   "run": "Run",
-  "run2": "RUN",
   "runArbitraryCommandsOnYourMachine": "Run arbitrary commands on your machine or VM.",
   "runAt": "Run At",
   "runCompleted": "Run completed",
   "runFailed": "Run failed",
   "runGitDiffReviewTheUncommitted": "Run git diff, review the uncommitted changes for bugs and style issues, and summarize what you find.",
-  "runLink": "RUN LINK",
-  "runLinked": "Run linked",
   "runNotFound": "Run not found",
   "runNow": "Run Now",
   "runOnInboundPersonalWhatsappMessages": "Run on inbound personal WhatsApp messages.",
@@ -4962,7 +4925,6 @@
   "selectASessionToSeeIts": "Select a session to see its computer, files and changes.",
   "selectAll": "Select all",
   "selectAll2": "Select All",
-  "selectAnEventFromTheFeed": "Select an event from the feed.",
   "selectArg1": "Select {arg1}",
   "@selectArg1": {
     "placeholders": {
@@ -5135,7 +5097,6 @@
     }
   },
   "smallestCurrencyUnit1900Is19": "Smallest currency unit: 1900 is 19.00.",
-  "smartModelSelection": "Smart model selection",
   "smartSelector": "smart selector",
   "smartSelector2": "Smart Selector",
   "smartSelectorPool": "Smart Selector Pool",
@@ -5159,7 +5120,6 @@
   "sortOrder": "Sort order",
   "sortOrderMustBeAWhole": "Sort order must be a whole number.",
   "source": "Source",
-  "source2": "SOURCE",
   "spaceOrChatIdUsedWhen": "Space or chat ID used when this agent starts a conversation.",
   "spaceWebhookAndAppCallbackSupport": "Space webhook and app callback support",
   "speaking": "Speaking",
@@ -5203,7 +5163,6 @@
   },
   "statsRunsTokensUsersChartsSuccess": "stats runs tokens users charts success rate",
   "status": "Status",
-  "status2": "STATUS",
   "statusDatabaseRuntimeVmProviders": "status database runtime vm providers",
   "statusIsNotLoadedYet": "Status is not loaded yet.",
   "stayManagedByYou": "stay managed by you.",
@@ -5289,7 +5248,6 @@
   },
   "sumAByteSizeAsBytes": "       SUM(a.byte_size) AS bytes,\n",
   "summariseMyLastRun": "Summarise my last run",
-  "summary": "SUMMARY",
   "supportUrl": "Support URL",
   "supportedRainStartSnowStartWind": "Supported: rain_start, snow_start, wind_alert, temperature_above, temperature_below",
   "switchAgent": "Switch agent",
@@ -5299,11 +5257,9 @@
   "systemPrivacySettings": "System privacy settings",
   "tableInfoUsers": "Table info (users)",
   "tagsOnly": "Tags only",
-  "task": "TASK",
   "tasks": "Tasks",
   "tasksRunOnAScheduleOr": "Tasks run on a schedule or when something happens, then ",
   "tasksRunOnTheirOwnAnd": "Tasks run on their own and message you with the ",
-  "tcpBridgeToALocalDevice": "TCP bridge to a local device channel",
   "teach": "Teach",
   "teachingInProgress": "Teaching in progress",
   "team": "Team",
@@ -5365,7 +5321,6 @@
   },
   "theLinuxGraphicalSessionIsNot": "The Linux graphical session is not running.",
   "theLiveVoiceModelDidNot": "The live voice model did not answer. Try again.",
-  "theLocalIpOfTheMeshtastic": "The local IP of the Meshtastic device.",
   "theLocalNeoagentCommandExitedWith": "The local NeoAgent command exited with code {arg1}.",
   "@theLocalNeoagentCommandExitedWith": {
     "placeholders": {
@@ -5572,7 +5527,6 @@
   },
   "tickTheModelsThisPlanMay": "Tick the models this plan may use. Leave all unticked to allow ",
   "time": "Time",
-  "time2": "TIME",
   "timeZone": "time zone",
   "timeZone2": "Time zone",
   "timedOutArg1": "Timed out{arg1}",
@@ -5583,8 +5537,6 @@
       }
     }
   },
-  "timeline": "Timeline",
-  "timelineFeed": "Timeline feed",
   "timezoneCouldNotListTimeZones": "[TimeZone] Could not list time zones: {arg1}",
   "@timezoneCouldNotListTimeZones": {
     "placeholders": {
@@ -5609,7 +5561,6 @@
       }
     }
   },
-  "title": "TITLE",
   "toArg1": "to {arg1}",
   "@toArg1": {
     "placeholders": {
@@ -5793,7 +5744,6 @@
       }
     }
   },
-  "untitledRunEvent": "Untitled run event",
   "unusualSignInAlerts": "Unusual sign-in alerts",
   "update": "Update",
   "updateArg1": "Update {arg1}",
@@ -5877,7 +5827,6 @@
   "usersPeopleSearchEmailUsernameAdmin": "users people search email username admin badge managed team",
   "usesTheChatModelConfiguredIn": "Uses the chat model configured in Settings",
   "usingTheInstalledNeoagentRuntime": "Using the installed NeoAgent runtime",
-  "usually0ForThePrimaryChannel": "Usually 0 for the primary channel.",
   "usuallyLooksLikeBotMatrixOrg": "Usually looks like @bot:matrix.org",
   "validEmail": "valid email",
   "value": "Value",
@@ -6869,7 +6818,6 @@
   "settingsSubAgentModelDescription": "Runs work handed off during a task.",
   "settingsDefaultModels": "Default models",
   "settingsDefaultModelsDescription": "Used whenever a chat or task doesn't pick its own model.",
-  "settingsSmartSelection": "Smart selection",
   "settingsModelPool": "Model pool",
   "settingsApiKeysDescription": "Use your own keys or endpoint for this agent. Keys are encrypted and never shown again.",
   "settingsPersona": "Persona",
@@ -6996,9 +6944,128 @@
   "unrestrictedBattery": "Unrestricted battery",
   "unrestrictedBatteryDetail": "Keeps NeoAgent connected so calls arrive.",
   "permissionAllowed": "Allowed",
-  "discordMemberJoined": "Discord Member Joined",
-  "runWhenSomeoneJoinsADiscordServer": "Run when someone joins one of your Discord servers.",
-  "discordServerId": "Discord server ID",
-  "discordServerIdHelper": "Right-click the server and choose Copy Server ID (Developer Mode). The bot needs the Server Members Intent.",
-  "enterTheDiscordServerId": "Enter the Discord server ID."
+  "triggerSectionCalendar": "Calendar",
+  "triggerSectionFiles": "Files and documents",
+  "triggerSectionHome": "Home and media",
+  "triggerSectionDevices": "Devices and places",
+  "triggerSectionTasks": "Tasks",
+  "messagingMemberJoined": "Member joined",
+  "runWhenSomeoneJoinsAServerOrGroup": "Run when someone joins a Discord server, Telegram or WhatsApp group, Slack channel, or Matrix room.",
+  "messagingMemberLeft": "Member left",
+  "runWhenSomeoneLeavesAServerOrGroup": "Run when someone leaves a Discord server, Telegram or WhatsApp group, Slack channel, or Matrix room.",
+  "messagingReactionAdded": "Reaction added",
+  "runWhenSomeoneReactsInAPrivateChat": "Run when an allowed person reacts to a message in a private chat.",
+  "messagingPlatformDisconnected": "Messaging disconnected",
+  "runWhenAMessagingConnectionNeedsYou": "Run when a messaging connection stops and needs you, such as after a logout.",
+  "googleCalendarEventStarting": "Google Calendar event starting",
+  "googleCalendarEventCreated": "Google Calendar event created",
+  "runWhenANewGoogleCalendarEventAppears": "Run when a new event or invitation appears.",
+  "outlookCalendarEventStarting": "Outlook Calendar event starting",
+  "nextcloudCalendarEventStarting": "Nextcloud Calendar event starting",
+  "runMinutesBeforeEachEvent": "Run a set number of minutes before each event.",
+  "googleDriveFileAdded": "Google Drive file added",
+  "runWhenAFileIsAddedToDrive": "Run when a file is added to Drive or a folder in it.",
+  "googleSheetsRowAdded": "Google Sheets row added",
+  "runWhenRowsAreAddedToASheet": "Run when new rows appear in a sheet.",
+  "onedriveFileAdded": "OneDrive file added",
+  "runWhenAFileIsAddedToOnedrive": "Run when a file is added to a OneDrive folder.",
+  "nextcloudFileAdded": "Nextcloud file added",
+  "runWhenAFileIsAddedToNextcloud": "Run when a file is added to a Nextcloud folder.",
+  "nextcloudShareReceived": "Nextcloud file shared with you",
+  "runWhenSomeoneSharesWithYouOnNextcloud": "Run when someone shares a file or folder with you.",
+  "notionItemAdded": "Notion database item added",
+  "runWhenAnItemIsAddedToANotionDatabase": "Run when an item is added to a Notion database.",
+  "notionItemUpdated": "Notion database item updated",
+  "runWhenANotionDatabaseItemChanges": "Run when an item in a Notion database changes.",
+  "trelloCardEnteredList": "Trello card added to list",
+  "runWhenACardIsCreatedInOrMovedIntoAList": "Run when a card is created in or moved into a list.",
+  "figmaCommentAdded": "Figma comment added",
+  "runWhenSomeoneCommentsOnAFigmaFile": "Run when someone comments on a Figma file.",
+  "githubPrOpened": "GitHub pull request opened",
+  "runWhenANewPullRequestIsOpened": "Run when a new pull request is opened in a repository.",
+  "githubWorkflowRunFailed": "GitHub workflow run failed",
+  "runWhenAGithubActionsRunFails": "Run when a GitHub Actions run fails.",
+  "githubCommitPushed": "GitHub commit pushed",
+  "runWhenNewCommitsReachABranch": "Run when new commits reach a branch.",
+  "mcpServerFailed": "MCP server failed",
+  "runWhenAWorkingMcpServerFails": "Run when an MCP server that was working fails or needs sign-in.",
+  "homeAssistantStateChanged": "Home Assistant state changed",
+  "runWhenAHomeAssistantEntityChanges": "Run when an entity changes, reaches a state, or crosses a value.",
+  "spotifyTrackChanged": "Spotify track changed",
+  "runWhenADifferentTrackStartsPlaying": "Run when a different track starts playing.",
+  "neorecallDailySummaryReady": "NeoRecall daily summary ready",
+  "runWhenADaysSummaryIsFinal": "Run when the summary of a day is final.",
+  "neorecallConversationRecorded": "NeoRecall conversation recorded",
+  "runWhenARecordedConversationEnds": "Run when a recorded conversation ends.",
+  "geofenceTrigger": "Location geofence",
+  "runWhenYourPhoneArrivesOrLeaves": "Run when your phone arrives at or leaves a place. Needs location tracking on the phone.",
+  "healthMetricRecorded": "Health metric recorded",
+  "runWhenAHealthReadingArrives": "Run when a synced health reading arrives, optionally above or below a value.",
+  "wearableConnectionChanged": "Wearable connected or disconnected",
+  "runWhenYourWearableConnectsOrDisconnects": "Run when your wearable connects or disconnects.",
+  "taskRunFinished": "Another task finished",
+  "runWhenAnotherTaskFinishes": "Run after another task finishes, succeeds, or fails.",
+  "appPackageOptional": "App package (optional)",
+  "appPackageHelper": "For example com.whatsapp",
+  "anyPlatform": "Any platform",
+  "spaceIdOptional": "Server, group, channel, or room ID (optional)",
+  "spaceIdHelper": "Empty watches every one the bot is in.",
+  "emojiOptional": "Emoji (optional)",
+  "chatIdOptional": "Chat ID (optional)",
+  "platformOptional": "Platform (optional)",
+  "platformOptionalHelper": "For example whatsapp. Empty watches all.",
+  "minutesBefore": "Minutes before",
+  "calendarIdOptional": "Calendar ID (optional)",
+  "calendarIdHelper": "Empty uses your primary calendar.",
+  "invitesOnly": "Only invitations from others",
+  "nextcloudCalendarPath": "Calendar",
+  "nextcloudCalendarPathHelper": "Its name in the Nextcloud calendar list, for example personal",
+  "folderIdOptionalHelperDrive": "Empty watches all of Drive.",
+  "folderIdOptionalHelperOnedrive": "Empty watches the root folder.",
+  "driveFolderIdOptional": "Folder ID (optional)",
+  "spreadsheetId": "Spreadsheet ID",
+  "sheetRange": "Range",
+  "sheetRangeHelper": "The table's columns, for example Sheet1!A:E",
+  "folderPathOptional": "Folder path (optional)",
+  "folderPathHelper": "For example Documents",
+  "notionDatabaseId": "Database ID",
+  "trelloListId": "List ID",
+  "figmaFileKey": "File key",
+  "figmaFileKeyHelper": "From the file link: figma.com/file/<key>/…",
+  "githubRepository": "Repository",
+  "workflowOptional": "Workflow (optional)",
+  "workflowHelper": "File name such as ci.yml",
+  "branchOptional": "Branch (optional)",
+  "branchHelper": "Empty uses the default branch.",
+  "mcpServerIdOptional": "MCP server ID (optional)",
+  "entityId": "Entity ID",
+  "entityIdHelper": "For example binary_sensor.front_door",
+  "targetStateOptional": "Target state (optional)",
+  "targetStateHelper": "For example on",
+  "aboveOptional": "Above (optional)",
+  "belowOptional": "Below (optional)",
+  "placeName": "Place name",
+  "latitude": "Latitude",
+  "longitude": "Longitude",
+  "radiusMeters": "Radius in meters",
+  "geofenceTransition": "When",
+  "arriving": "Arriving",
+  "leaving": "Leaving",
+  "healthMetric": "Health metric",
+  "healthMetricHelper": "For example heart_rate, steps, weight",
+  "wearableTransition": "When the wearable",
+  "wearableConnects": "Connects",
+  "wearableDisconnects": "Disconnects",
+  "sourceTask": "After task",
+  "taskOutcome": "Outcome",
+  "anyOutcome": "Any outcome",
+  "succeeded": "Succeeded",
+  "fieldMissingOrInvalidArg1": "{arg1} is missing or not valid.",
+  "@fieldMissingOrInvalidArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  }
 }

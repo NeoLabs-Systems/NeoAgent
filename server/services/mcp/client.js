@@ -69,11 +69,17 @@ class MCPClient extends EventEmitter {
 
   _setServerStatus(server, status, extra = {}) {
     if (!server) return;
+    const previousStatus = server.status;
     server.status = status;
     Object.assign(server, extra);
     this._persistStatus(server.id, status);
     this.emit('server_status', {
       serverId: server.id,
+      serverName: server.name,
+      userId: server.userId,
+      agentId: server.agentId,
+      previousStatus,
+      changedAt: new Date().toISOString(),
       status,
       error: server.lastError || null,
       consecutiveFails: server.consecutiveFails || 0,

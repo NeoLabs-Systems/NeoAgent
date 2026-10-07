@@ -2450,28 +2450,48 @@ class _SectionBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final page = _buildPage();
-    if (!controller.selectedSection.isAgentScoped) {
-      return page;
-    }
-    // While a bot switch loads, keep the page mounted (drafts, scroll and
-    // filters survive) but hidden, so its emptied lists don't read as "none".
-    final switching = controller.isSwitchingAgent;
+    // While data loads, keep the page mounted (drafts, scroll and filters
+    // survive) but hidden behind a skeleton, so its empty lists don't read as
+    // "none". The page fades in as the skeleton fades out.
+    final loading = controller.isAwaitingDataFor(controller.selectedSection);
     return Stack(
       fit: StackFit.expand,
       children: <Widget>[
-        Visibility(visible: !switching, maintainState: true, child: page),
-        if (switching) const _LoadingPlaceholder(),
+        Visibility(
+          visible: !loading,
+          maintainState: true,
+          child: AnimatedOpacity(
+            opacity: loading ? 0 : 1,
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOut,
+            child: _buildPage(),
+          ),
+        ),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 260),
+          child: loading
+              ? PageSkeleton(layout: _skeletonLayout)
+              : const SizedBox.shrink(),
+        ),
       ],
     );
+  }
+
+  PageSkeletonLayout get _skeletonLayout {
+    switch (controller.selectedSection) {
+      case AppSection.chat:
+        return PageSkeletonLayout.chat;
+      case AppSection.settings:
+        return PageSkeletonLayout.settings;
+      default:
+        return PageSkeletonLayout.list;
+    }
   }
 
   Widget _buildPage() {
     switch (controller.selectedSection) {
       case AppSection.chat:
         return ChatPanel(controller: controller);
-      case AppSection.timeline:
-        return TimelinePanel(controller: controller);
       case AppSection.voiceAssistant:
         return AgentCallScreen(controller: controller, embedded: true);
       case AppSection.devices:

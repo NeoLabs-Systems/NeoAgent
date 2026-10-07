@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
 const githubIssueOpened = require('../../../server/services/tasks/adapters/github_issue_opened');
-const { fetchTriggerRows } = require('../../../server/services/tasks/integration_runtime');
+const { fetchTriggerRows } = require('../../../server/services/tasks/trigger_polling');
 
 const connectedGithub = {
   getConnectionById: () => ({

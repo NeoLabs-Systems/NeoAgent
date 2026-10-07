@@ -1577,7 +1577,6 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
   final TextEditingController _allowedOrigins = TextEditingController();
   final TextEditingController _ingestionInterval = TextEditingController();
   bool _secureCookies = false;
-  bool _meshtasticEnabled = true;
 
   @override
   NeoAgentController get _controller => widget.controller;
@@ -1604,7 +1603,6 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
     _ingestionInterval.text =
         settings['memoryIngestionIntervalMs']?.toString() ?? '';
     _secureCookies = settings['secureCookies'] == true;
-    _meshtasticEnabled = settings['meshtasticEnabled'] != false;
   }
 
   Future<void> _save() async {
@@ -1623,7 +1621,6 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
         'publicUrl': _publicUrl.text.trim(),
         'secureCookies': _secureCookies,
         'allowedOrigins': _allowedOrigins.text.trim(),
-        'meshtasticEnabled': _meshtasticEnabled,
         'memoryIngestionIntervalMs': interval,
       }),
       appStrings.generalSettingsSaved,
@@ -1685,15 +1682,6 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
           value: _secureCookies,
           onChanged: (value) => setState(() {
             _secureCookies = value;
-            _saveNotice = null;
-          }),
-        ),
-        _SettingToggle(
-          title: 'Meshtastic',
-          subtitle: appStrings.letAccountsConnectMeshtasticRadios,
-          value: _meshtasticEnabled,
-          onChanged: (value) => setState(() {
-            _meshtasticEnabled = value;
             _saveNotice = null;
           }),
         ),

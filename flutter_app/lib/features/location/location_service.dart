@@ -119,7 +119,7 @@ class LocationService {
           final latitude = (fence['latitude'] as num?)?.toDouble();
           final longitude = (fence['longitude'] as num?)?.toDouble();
           final radius = (fence['radius_meters'] as num?)?.toDouble() ?? 100;
-          if (latitude == null || longitude == null) continue;
+          if (id == null || latitude == null || longitude == null) continue;
 
           final distance = Geolocator.distanceBetween(
             position.latitude,
@@ -128,20 +128,17 @@ class LocationService {
             longitude,
           );
           final inside = distance <= radius;
-          if (inside) {
-            final firstEntry = id == null || _insideFenceIds.add(id);
-            if (firstEntry) {
-              await client.triggerGeofenceEvent(
-                backendUrl,
-                label: fence['label']?.toString() ?? 'unknown',
-                latitude: position.latitude,
-                longitude: position.longitude,
-                radiusMeters: radius.round(),
-                action: fence['trigger_action']?.toString(),
-              );
-            }
-          } else if (id != null) {
-            _insideFenceIds.remove(id);
+          final crossed = inside
+              ? _insideFenceIds.add(id)
+              : _insideFenceIds.remove(id);
+          if (crossed) {
+            await client.triggerGeofenceEvent(
+              backendUrl,
+              fenceId: id,
+              transition: inside ? 'enter' : 'exit',
+              latitude: position.latitude,
+              longitude: position.longitude,
+            );
           }
         }
       } catch (e) {

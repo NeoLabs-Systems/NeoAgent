@@ -84,6 +84,8 @@ class VoiceRuntimeManager {
       },
       agentInitiated,
       onIdle: (idle, reason) => this.#forget(idle, reason),
+      onHangUp: (ended) => this.closeSession(ended.id, 'agent_hung_up', ended.userId)
+        .catch((error) => logger.warn('Failed to end hung-up voice call', error?.message || error)),
     });
     this.sessions.set(session.id, session);
     try {

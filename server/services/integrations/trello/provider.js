@@ -92,6 +92,22 @@ const TRELLO_TOOL_DEFINITIONS = [
   },
   {
     appId: TRELLO_APP.id,
+    name: 'trello_list_actions',
+    access: 'read',
+    description: 'List recent activity on a Trello list, newest first: cards created, moved, commented on, and so on.',
+    parameters: {
+      type: 'object',
+      properties: {
+        list_id: { type: 'string', description: 'Trello list ID.' },
+        filter: { type: 'string', description: 'Optional comma-separated action types, e.g. createCard,updateCard:idList.' },
+        since: { type: 'string', description: 'Optional ISO date or action ID; only newer actions are returned.' },
+        limit: { type: 'number', description: 'Maximum actions to return, default 50.' },
+      },
+      required: ['list_id'],
+    },
+  },
+  {
+    appId: TRELLO_APP.id,
     name: 'trello_get_card',
     access: 'read',
     description: 'Get a Trello card by ID.',
@@ -441,6 +457,17 @@ async function executeTrelloTool(
         },
       });
       return { result: Array.isArray(cards) ? cards.slice(0, limit) : [] };
+    }
+    case 'trello_list_actions': {
+      const actions = await trelloRequest(config, {
+        path: `/1/lists/${encodeURIComponent(requireText(args.list_id, 'list_id'))}/actions`,
+        query: {
+          filter: trimText(args.filter) || 'all',
+          since: trimText(args.since) || undefined,
+          limit: Math.max(1, Math.min(Number(args.limit) || 50, 1000)),
+        },
+      });
+      return { result: Array.isArray(actions) ? actions : [] };
     }
     case 'trello_get_card': {
       const card = await trelloRequest(config, {

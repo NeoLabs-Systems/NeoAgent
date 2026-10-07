@@ -54,6 +54,7 @@ function normalizeCronExpression(value) {
 module.exports = {
   type: 'schedule',
   label: 'Schedule',
+  configHint: '{ mode: "recurring", cronExpression: "m h dom mon dow" } or { mode: "one_time", runAt: ISO datetime }; cron fields and runAt values without an offset are read in the user\'s timezone; 5-field cron only (seconds unsupported)',
   async validateConfig(config = {}, context = {}) {
     const mode = String(config.mode || '').trim() || ((config.runAt || config.run_at) ? 'one_time' : 'recurring');
     if (!['recurring', 'one_time'].includes(mode)) {

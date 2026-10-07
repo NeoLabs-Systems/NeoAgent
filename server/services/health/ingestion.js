@@ -126,6 +126,7 @@ const ingestHealthSyncTx = db.transaction((userId, body) => {
     windowEnd,
     recordCount: records.length,
     acceptedMetrics: [...new Set(records.map((record) => record.metricType))],
+    records,
   };
 });
 
@@ -289,5 +290,6 @@ function readHealthData(userId, metricType, limit = 50) {
 module.exports = {
   getHealthSyncStatus,
   ingestHealthSync,
+  normalizeMetricType,
   readHealthData,
 };

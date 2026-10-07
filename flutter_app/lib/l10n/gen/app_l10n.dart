@@ -1589,12 +1589,6 @@ abstract class AppL10n {
   /// **'{arg1} desktop'**
   String arg1Desktop(Object? arg1);
 
-  /// No description provided for @arg1Entries.
-  ///
-  /// In en, this message translates to:
-  /// **'{arg1} entries'**
-  String arg1Entries(Object? arg1);
-
   /// No description provided for @arg1Events.
   ///
   /// In en, this message translates to:
@@ -2081,12 +2075,6 @@ abstract class AppL10n {
   /// **'{arg1} stopped managing {arg2}'**
   String arg1StoppedManagingArg2(Object? arg1, Object? arg2);
 
-  /// No description provided for @arg1TalksToTheDeviceOn.
-  ///
-  /// In en, this message translates to:
-  /// **'{arg1} talks to the device on your local network (port 4403 by default). Chat stays on the channel you pick above.'**
-  String arg1TalksToTheDeviceOn(Object? arg1);
-
   /// No description provided for @arg1Tokens.
   ///
   /// In en, this message translates to:
@@ -2374,12 +2362,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Automatic selects a fast model through the normal model catalog.'**
   String get automaticSelectsAFastModelThrough;
-
-  /// No description provided for @automaticallyChooseTheBestEnabledModel.
-  ///
-  /// In en, this message translates to:
-  /// **'Automatically choose the best enabled model for each task type.'**
-  String get automaticallyChooseTheBestEnabledModel;
 
   /// No description provided for @automation.
   ///
@@ -2938,12 +2920,6 @@ abstract class AppL10n {
     Object? arg4,
     Object? arg5,
   );
-
-  /// No description provided for @channelNumber.
-  ///
-  /// In en, this message translates to:
-  /// **'Channel number'**
-  String get channelNumber;
 
   /// No description provided for @channelScopedSocialMemory.
   ///
@@ -4799,23 +4775,11 @@ abstract class AppL10n {
   /// **'Destination ID'**
   String get destinationId;
 
-  /// No description provided for @detail.
-  ///
-  /// In en, this message translates to:
-  /// **'DETAIL'**
-  String get detail;
-
   /// No description provided for @deviceAccess.
   ///
   /// In en, this message translates to:
   /// **'Device access'**
   String get deviceAccess;
-
-  /// No description provided for @deviceIpAddress.
-  ///
-  /// In en, this message translates to:
-  /// **'Device IP address'**
-  String get deviceIpAddress;
 
   /// No description provided for @deviceSettings.
   ///
@@ -5147,12 +5111,6 @@ abstract class AppL10n {
   /// **'Email unverified'**
   String get emailUnverified;
 
-  /// No description provided for @emailsAiActionsTasksAndRun.
-  ///
-  /// In en, this message translates to:
-  /// **'Emails, AI actions, tasks and run activity in one chronological feed.'**
-  String get emailsAiActionsTasksAndRun;
-
   /// No description provided for @empty.
   ///
   /// In en, this message translates to:
@@ -5362,12 +5320,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'errors problems failures'**
   String get errorsProblemsFailures;
-
-  /// No description provided for @eventDetail.
-  ///
-  /// In en, this message translates to:
-  /// **'Event detail'**
-  String get eventDetail;
 
   /// No description provided for @eventTypesCommaSeparated.
   ///
@@ -6269,12 +6221,6 @@ abstract class AppL10n {
   /// **'Hands-free (talk freely, interrupt anytime)'**
   String get handsFreeTalkFreelyInterruptAnytime;
 
-  /// No description provided for @hardwareBridges.
-  ///
-  /// In en, this message translates to:
-  /// **'Hardware Bridges'**
-  String get hardwareBridges;
-
   /// No description provided for @headerName.
   ///
   /// In en, this message translates to:
@@ -7085,12 +7031,6 @@ abstract class AppL10n {
   /// **'Key-value pairs that persist across conversations.'**
   String get keyValuePairsThatPersistAcross;
 
-  /// No description provided for @kind.
-  ///
-  /// In en, this message translates to:
-  /// **'KIND'**
-  String get kind;
-
   /// No description provided for @knowledgeGraph.
   ///
   /// In en, this message translates to:
@@ -7258,12 +7198,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'LEFT JOIN artifacts a ON a.user_id = u.id\n'**
   String get leftJoinArtifactsAOnA;
-
-  /// No description provided for @letAccountsConnectMeshtasticRadios.
-  ///
-  /// In en, this message translates to:
-  /// **'Let accounts connect Meshtastic radios.'**
-  String get letAccountsConnectMeshtasticRadios;
 
   /// No description provided for @letArg1ManageMe.
   ///
@@ -7535,12 +7469,6 @@ abstract class AppL10n {
   /// **'Local computer control is not available here.'**
   String get localComputerControlIsNotAvailable;
 
-  /// No description provided for @localDeviceBridgesAndTcpConnected.
-  ///
-  /// In en, this message translates to:
-  /// **'Local device bridges and TCP-connected integrations.'**
-  String get localDeviceBridgesAndTcpConnected;
-
   /// No description provided for @localModelsUrl.
   ///
   /// In en, this message translates to:
@@ -7781,12 +7709,6 @@ abstract class AppL10n {
   /// **'Manual destination'**
   String get manualDestination;
 
-  /// No description provided for @manualRouting.
-  ///
-  /// In en, this message translates to:
-  /// **'Manual routing'**
-  String get manualRouting;
-
   /// No description provided for @manualTrigger.
   ///
   /// In en, this message translates to:
@@ -7930,12 +7852,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Merged server and Flutter runtime logs for this app session.'**
   String get mergedServerAndFlutterRuntimeLogs;
-
-  /// No description provided for @meshRadioMessaging.
-  ///
-  /// In en, this message translates to:
-  /// **'mesh radio messaging'**
-  String get meshRadioMessaging;
 
   /// No description provided for @messageBodyTemplateJson.
   ///
@@ -8705,12 +8621,6 @@ abstract class AppL10n {
   /// **'News digest'**
   String get newsDigest;
 
-  /// No description provided for @nextEvent.
-  ///
-  /// In en, this message translates to:
-  /// **'Next event'**
-  String get nextEvent;
-
   /// No description provided for @nextPage.
   ///
   /// In en, this message translates to:
@@ -9227,12 +9137,6 @@ abstract class AppL10n {
   /// **'No subscription.'**
   String get noSubscription;
 
-  /// No description provided for @noSummary.
-  ///
-  /// In en, this message translates to:
-  /// **'No summary'**
-  String get noSummary;
-
   /// No description provided for @noSummaryAvailable.
   ///
   /// In en, this message translates to:
@@ -9244,12 +9148,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'No tasks for {arg1}'**
   String noTasksForArg1(Object? arg1);
-
-  /// No description provided for @noTimelineActivityYetForThe.
-  ///
-  /// In en, this message translates to:
-  /// **'No timeline activity yet for the selected filters.'**
-  String get noTimelineActivityYetForThe;
 
   /// No description provided for @noToolMatchesArg1.
   ///
@@ -9707,23 +9605,11 @@ abstract class AppL10n {
   /// **'Open in workbench'**
   String get openInWorkbench;
 
-  /// No description provided for @openLinkedRun.
-  ///
-  /// In en, this message translates to:
-  /// **'Open linked run'**
-  String get openLinkedRun;
-
   /// No description provided for @openNeoagentAndReconnectArg1To.
   ///
   /// In en, this message translates to:
   /// **'Open NeoAgent and reconnect {arg1} to restore messaging.'**
   String openNeoagentAndReconnectArg1To(Object? arg1);
-
-  /// No description provided for @openRun.
-  ///
-  /// In en, this message translates to:
-  /// **'Open run'**
-  String get openRun;
 
   /// No description provided for @openTheComputerTabNextTo.
   ///
@@ -10432,12 +10318,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Pressed {arg1}'**
   String pressedArg1(Object? arg1);
-
-  /// No description provided for @previousEvent.
-  ///
-  /// In en, this message translates to:
-  /// **'Previous event'**
-  String get previousEvent;
 
   /// No description provided for @previousPage.
   ///
@@ -11369,12 +11249,6 @@ abstract class AppL10n {
   /// **'Run'**
   String get run;
 
-  /// No description provided for @run2.
-  ///
-  /// In en, this message translates to:
-  /// **'RUN'**
-  String get run2;
-
   /// No description provided for @runArbitraryCommandsOnYourMachine.
   ///
   /// In en, this message translates to:
@@ -11404,18 +11278,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Run git diff, review the uncommitted changes for bugs and style issues, and summarize what you find.'**
   String get runGitDiffReviewTheUncommitted;
-
-  /// No description provided for @runLink.
-  ///
-  /// In en, this message translates to:
-  /// **'RUN LINK'**
-  String get runLink;
-
-  /// No description provided for @runLinked.
-  ///
-  /// In en, this message translates to:
-  /// **'Run linked'**
-  String get runLinked;
 
   /// No description provided for @runNotFound.
   ///
@@ -12143,12 +12005,6 @@ abstract class AppL10n {
   /// **'Select All'**
   String get selectAll2;
 
-  /// No description provided for @selectAnEventFromTheFeed.
-  ///
-  /// In en, this message translates to:
-  /// **'Select an event from the feed.'**
-  String get selectAnEventFromTheFeed;
-
   /// No description provided for @selectArg1.
   ///
   /// In en, this message translates to:
@@ -12719,12 +12575,6 @@ abstract class AppL10n {
   /// **'Smallest currency unit: 1900 is 19.00.'**
   String get smallestCurrencyUnit1900Is19;
 
-  /// No description provided for @smartModelSelection.
-  ///
-  /// In en, this message translates to:
-  /// **'Smart model selection'**
-  String get smartModelSelection;
-
   /// No description provided for @smartSelector.
   ///
   /// In en, this message translates to:
@@ -12862,12 +12712,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Source'**
   String get source;
-
-  /// No description provided for @source2.
-  ///
-  /// In en, this message translates to:
-  /// **'SOURCE'**
-  String get source2;
 
   /// No description provided for @spaceOrChatIdUsedWhen.
   ///
@@ -13042,12 +12886,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Status'**
   String get status;
-
-  /// No description provided for @status2.
-  ///
-  /// In en, this message translates to:
-  /// **'STATUS'**
-  String get status2;
 
   /// No description provided for @statusDatabaseRuntimeVmProviders.
   ///
@@ -13289,12 +13127,6 @@ abstract class AppL10n {
   /// **'Summarise my last run'**
   String get summariseMyLastRun;
 
-  /// No description provided for @summary.
-  ///
-  /// In en, this message translates to:
-  /// **'SUMMARY'**
-  String get summary;
-
   /// No description provided for @supportUrl.
   ///
   /// In en, this message translates to:
@@ -13349,12 +13181,6 @@ abstract class AppL10n {
   /// **'Tags only'**
   String get tagsOnly;
 
-  /// No description provided for @task.
-  ///
-  /// In en, this message translates to:
-  /// **'TASK'**
-  String get task;
-
   /// No description provided for @tasks.
   ///
   /// In en, this message translates to:
@@ -13372,12 +13198,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Tasks run on their own and message you with the '**
   String get tasksRunOnTheirOwnAnd;
-
-  /// No description provided for @tcpBridgeToALocalDevice.
-  ///
-  /// In en, this message translates to:
-  /// **'TCP bridge to a local device channel'**
-  String get tcpBridgeToALocalDevice;
 
   /// No description provided for @teach.
   ///
@@ -13660,12 +13480,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'The live voice model did not answer. Try again.'**
   String get theLiveVoiceModelDidNot;
-
-  /// No description provided for @theLocalIpOfTheMeshtastic.
-  ///
-  /// In en, this message translates to:
-  /// **'The local IP of the Meshtastic device.'**
-  String get theLocalIpOfTheMeshtastic;
 
   /// No description provided for @theLocalNeoagentCommandExitedWith.
   ///
@@ -14315,12 +14129,6 @@ abstract class AppL10n {
   /// **'Time'**
   String get time;
 
-  /// No description provided for @time2.
-  ///
-  /// In en, this message translates to:
-  /// **'TIME'**
-  String get time2;
-
   /// No description provided for @timeZone.
   ///
   /// In en, this message translates to:
@@ -14339,18 +14147,6 @@ abstract class AppL10n {
   /// **'Timed out{arg1}'**
   String timedOutArg1(Object? arg1);
 
-  /// No description provided for @timeline.
-  ///
-  /// In en, this message translates to:
-  /// **'Timeline'**
-  String get timeline;
-
-  /// No description provided for @timelineFeed.
-  ///
-  /// In en, this message translates to:
-  /// **'Timeline feed'**
-  String get timelineFeed;
-
   /// No description provided for @timezoneCouldNotListTimeZones.
   ///
   /// In en, this message translates to:
@@ -14368,12 +14164,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'[TimeZone] Could not save the device time zone: {arg1}'**
   String timezoneCouldNotSaveTheDevice(Object? arg1);
-
-  /// No description provided for @title.
-  ///
-  /// In en, this message translates to:
-  /// **'TITLE'**
-  String get title;
 
   /// No description provided for @toArg1.
   ///
@@ -14951,12 +14741,6 @@ abstract class AppL10n {
   /// **'Unsupported method: {arg1}'**
   String unsupportedMethodArg1(Object? arg1);
 
-  /// No description provided for @untitledRunEvent.
-  ///
-  /// In en, this message translates to:
-  /// **'Untitled run event'**
-  String get untitledRunEvent;
-
   /// No description provided for @unusualSignInAlerts.
   ///
   /// In en, this message translates to:
@@ -15286,12 +15070,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Using the installed NeoAgent runtime'**
   String get usingTheInstalledNeoagentRuntime;
-
-  /// No description provided for @usually0ForThePrimaryChannel.
-  ///
-  /// In en, this message translates to:
-  /// **'Usually 0 for the primary channel.'**
-  String get usually0ForThePrimaryChannel;
 
   /// No description provided for @usuallyLooksLikeBotMatrixOrg.
   ///
@@ -17897,12 +17675,6 @@ abstract class AppL10n {
   /// **'Used whenever a chat or task doesn\'t pick its own model.'**
   String get settingsDefaultModelsDescription;
 
-  /// No description provided for @settingsSmartSelection.
-  ///
-  /// In en, this message translates to:
-  /// **'Smart selection'**
-  String get settingsSmartSelection;
-
   /// No description provided for @settingsModelPool.
   ///
   /// In en, this message translates to:
@@ -18533,35 +18305,707 @@ abstract class AppL10n {
   /// **'Allowed'**
   String get permissionAllowed;
 
-  /// No description provided for @discordMemberJoined.
+  /// No description provided for @triggerSectionCalendar.
   ///
   /// In en, this message translates to:
-  /// **'Discord Member Joined'**
-  String get discordMemberJoined;
+  /// **'Calendar'**
+  String get triggerSectionCalendar;
 
-  /// No description provided for @runWhenSomeoneJoinsADiscordServer.
+  /// No description provided for @triggerSectionFiles.
   ///
   /// In en, this message translates to:
-  /// **'Run when someone joins one of your Discord servers.'**
-  String get runWhenSomeoneJoinsADiscordServer;
+  /// **'Files and documents'**
+  String get triggerSectionFiles;
 
-  /// No description provided for @discordServerId.
+  /// No description provided for @triggerSectionHome.
   ///
   /// In en, this message translates to:
-  /// **'Discord server ID'**
-  String get discordServerId;
+  /// **'Home and media'**
+  String get triggerSectionHome;
 
-  /// No description provided for @discordServerIdHelper.
+  /// No description provided for @triggerSectionDevices.
   ///
   /// In en, this message translates to:
-  /// **'Right-click the server and choose Copy Server ID (Developer Mode). The bot needs the Server Members Intent.'**
-  String get discordServerIdHelper;
+  /// **'Devices and places'**
+  String get triggerSectionDevices;
 
-  /// No description provided for @enterTheDiscordServerId.
+  /// No description provided for @triggerSectionTasks.
   ///
   /// In en, this message translates to:
-  /// **'Enter the Discord server ID.'**
-  String get enterTheDiscordServerId;
+  /// **'Tasks'**
+  String get triggerSectionTasks;
+
+  /// No description provided for @messagingMemberJoined.
+  ///
+  /// In en, this message translates to:
+  /// **'Member joined'**
+  String get messagingMemberJoined;
+
+  /// No description provided for @runWhenSomeoneJoinsAServerOrGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when someone joins a Discord server, Telegram or WhatsApp group, Slack channel, or Matrix room.'**
+  String get runWhenSomeoneJoinsAServerOrGroup;
+
+  /// No description provided for @messagingMemberLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'Member left'**
+  String get messagingMemberLeft;
+
+  /// No description provided for @runWhenSomeoneLeavesAServerOrGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when someone leaves a Discord server, Telegram or WhatsApp group, Slack channel, or Matrix room.'**
+  String get runWhenSomeoneLeavesAServerOrGroup;
+
+  /// No description provided for @messagingReactionAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Reaction added'**
+  String get messagingReactionAdded;
+
+  /// No description provided for @runWhenSomeoneReactsInAPrivateChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when an allowed person reacts to a message in a private chat.'**
+  String get runWhenSomeoneReactsInAPrivateChat;
+
+  /// No description provided for @messagingPlatformDisconnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Messaging disconnected'**
+  String get messagingPlatformDisconnected;
+
+  /// No description provided for @runWhenAMessagingConnectionNeedsYou.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when a messaging connection stops and needs you, such as after a logout.'**
+  String get runWhenAMessagingConnectionNeedsYou;
+
+  /// No description provided for @googleCalendarEventStarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Google Calendar event starting'**
+  String get googleCalendarEventStarting;
+
+  /// No description provided for @googleCalendarEventCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Google Calendar event created'**
+  String get googleCalendarEventCreated;
+
+  /// No description provided for @runWhenANewGoogleCalendarEventAppears.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when a new event or invitation appears.'**
+  String get runWhenANewGoogleCalendarEventAppears;
+
+  /// No description provided for @outlookCalendarEventStarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Outlook Calendar event starting'**
+  String get outlookCalendarEventStarting;
+
+  /// No description provided for @nextcloudCalendarEventStarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Nextcloud Calendar event starting'**
+  String get nextcloudCalendarEventStarting;
+
+  /// No description provided for @runMinutesBeforeEachEvent.
+  ///
+  /// In en, this message translates to:
+  /// **'Run a set number of minutes before each event.'**
+  String get runMinutesBeforeEachEvent;
+
+  /// No description provided for @googleDriveFileAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Google Drive file added'**
+  String get googleDriveFileAdded;
+
+  /// No description provided for @runWhenAFileIsAddedToDrive.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when a file is added to Drive or a folder in it.'**
+  String get runWhenAFileIsAddedToDrive;
+
+  /// No description provided for @googleSheetsRowAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Google Sheets row added'**
+  String get googleSheetsRowAdded;
+
+  /// No description provided for @runWhenRowsAreAddedToASheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when new rows appear in a sheet.'**
+  String get runWhenRowsAreAddedToASheet;
+
+  /// No description provided for @onedriveFileAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'OneDrive file added'**
+  String get onedriveFileAdded;
+
+  /// No description provided for @runWhenAFileIsAddedToOnedrive.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when a file is added to a OneDrive folder.'**
+  String get runWhenAFileIsAddedToOnedrive;
+
+  /// No description provided for @nextcloudFileAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Nextcloud file added'**
+  String get nextcloudFileAdded;
+
+  /// No description provided for @runWhenAFileIsAddedToNextcloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when a file is added to a Nextcloud folder.'**
+  String get runWhenAFileIsAddedToNextcloud;
+
+  /// No description provided for @nextcloudShareReceived.
+  ///
+  /// In en, this message translates to:
+  /// **'Nextcloud file shared with you'**
+  String get nextcloudShareReceived;
+
+  /// No description provided for @runWhenSomeoneSharesWithYouOnNextcloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when someone shares a file or folder with you.'**
+  String get runWhenSomeoneSharesWithYouOnNextcloud;
+
+  /// No description provided for @notionItemAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Notion database item added'**
+  String get notionItemAdded;
+
+  /// No description provided for @runWhenAnItemIsAddedToANotionDatabase.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when an item is added to a Notion database.'**
+  String get runWhenAnItemIsAddedToANotionDatabase;
+
+  /// No description provided for @notionItemUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Notion database item updated'**
+  String get notionItemUpdated;
+
+  /// No description provided for @runWhenANotionDatabaseItemChanges.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when an item in a Notion database changes.'**
+  String get runWhenANotionDatabaseItemChanges;
+
+  /// No description provided for @trelloCardEnteredList.
+  ///
+  /// In en, this message translates to:
+  /// **'Trello card added to list'**
+  String get trelloCardEnteredList;
+
+  /// No description provided for @runWhenACardIsCreatedInOrMovedIntoAList.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when a card is created in or moved into a list.'**
+  String get runWhenACardIsCreatedInOrMovedIntoAList;
+
+  /// No description provided for @figmaCommentAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Figma comment added'**
+  String get figmaCommentAdded;
+
+  /// No description provided for @runWhenSomeoneCommentsOnAFigmaFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when someone comments on a Figma file.'**
+  String get runWhenSomeoneCommentsOnAFigmaFile;
+
+  /// No description provided for @githubPrOpened.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub pull request opened'**
+  String get githubPrOpened;
+
+  /// No description provided for @runWhenANewPullRequestIsOpened.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when a new pull request is opened in a repository.'**
+  String get runWhenANewPullRequestIsOpened;
+
+  /// No description provided for @githubWorkflowRunFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub workflow run failed'**
+  String get githubWorkflowRunFailed;
+
+  /// No description provided for @runWhenAGithubActionsRunFails.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when a GitHub Actions run fails.'**
+  String get runWhenAGithubActionsRunFails;
+
+  /// No description provided for @githubCommitPushed.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub commit pushed'**
+  String get githubCommitPushed;
+
+  /// No description provided for @runWhenNewCommitsReachABranch.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when new commits reach a branch.'**
+  String get runWhenNewCommitsReachABranch;
+
+  /// No description provided for @mcpServerFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'MCP server failed'**
+  String get mcpServerFailed;
+
+  /// No description provided for @runWhenAWorkingMcpServerFails.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when an MCP server that was working fails or needs sign-in.'**
+  String get runWhenAWorkingMcpServerFails;
+
+  /// No description provided for @homeAssistantStateChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Home Assistant state changed'**
+  String get homeAssistantStateChanged;
+
+  /// No description provided for @runWhenAHomeAssistantEntityChanges.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when an entity changes, reaches a state, or crosses a value.'**
+  String get runWhenAHomeAssistantEntityChanges;
+
+  /// No description provided for @spotifyTrackChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Spotify track changed'**
+  String get spotifyTrackChanged;
+
+  /// No description provided for @runWhenADifferentTrackStartsPlaying.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when a different track starts playing.'**
+  String get runWhenADifferentTrackStartsPlaying;
+
+  /// No description provided for @neorecallDailySummaryReady.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoRecall daily summary ready'**
+  String get neorecallDailySummaryReady;
+
+  /// No description provided for @runWhenADaysSummaryIsFinal.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when the summary of a day is final.'**
+  String get runWhenADaysSummaryIsFinal;
+
+  /// No description provided for @neorecallConversationRecorded.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoRecall conversation recorded'**
+  String get neorecallConversationRecorded;
+
+  /// No description provided for @runWhenARecordedConversationEnds.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when a recorded conversation ends.'**
+  String get runWhenARecordedConversationEnds;
+
+  /// No description provided for @geofenceTrigger.
+  ///
+  /// In en, this message translates to:
+  /// **'Location geofence'**
+  String get geofenceTrigger;
+
+  /// No description provided for @runWhenYourPhoneArrivesOrLeaves.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when your phone arrives at or leaves a place. Needs location tracking on the phone.'**
+  String get runWhenYourPhoneArrivesOrLeaves;
+
+  /// No description provided for @healthMetricRecorded.
+  ///
+  /// In en, this message translates to:
+  /// **'Health metric recorded'**
+  String get healthMetricRecorded;
+
+  /// No description provided for @runWhenAHealthReadingArrives.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when a synced health reading arrives, optionally above or below a value.'**
+  String get runWhenAHealthReadingArrives;
+
+  /// No description provided for @wearableConnectionChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Wearable connected or disconnected'**
+  String get wearableConnectionChanged;
+
+  /// No description provided for @runWhenYourWearableConnectsOrDisconnects.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when your wearable connects or disconnects.'**
+  String get runWhenYourWearableConnectsOrDisconnects;
+
+  /// No description provided for @taskRunFinished.
+  ///
+  /// In en, this message translates to:
+  /// **'Another task finished'**
+  String get taskRunFinished;
+
+  /// No description provided for @runWhenAnotherTaskFinishes.
+  ///
+  /// In en, this message translates to:
+  /// **'Run after another task finishes, succeeds, or fails.'**
+  String get runWhenAnotherTaskFinishes;
+
+  /// No description provided for @appPackageOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'App package (optional)'**
+  String get appPackageOptional;
+
+  /// No description provided for @appPackageHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'For example com.whatsapp'**
+  String get appPackageHelper;
+
+  /// No description provided for @anyPlatform.
+  ///
+  /// In en, this message translates to:
+  /// **'Any platform'**
+  String get anyPlatform;
+
+  /// No description provided for @spaceIdOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Server, group, channel, or room ID (optional)'**
+  String get spaceIdOptional;
+
+  /// No description provided for @spaceIdHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty watches every one the bot is in.'**
+  String get spaceIdHelper;
+
+  /// No description provided for @emojiOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Emoji (optional)'**
+  String get emojiOptional;
+
+  /// No description provided for @chatIdOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat ID (optional)'**
+  String get chatIdOptional;
+
+  /// No description provided for @platformOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Platform (optional)'**
+  String get platformOptional;
+
+  /// No description provided for @platformOptionalHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'For example whatsapp. Empty watches all.'**
+  String get platformOptionalHelper;
+
+  /// No description provided for @minutesBefore.
+  ///
+  /// In en, this message translates to:
+  /// **'Minutes before'**
+  String get minutesBefore;
+
+  /// No description provided for @calendarIdOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Calendar ID (optional)'**
+  String get calendarIdOptional;
+
+  /// No description provided for @calendarIdHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty uses your primary calendar.'**
+  String get calendarIdHelper;
+
+  /// No description provided for @invitesOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Only invitations from others'**
+  String get invitesOnly;
+
+  /// No description provided for @nextcloudCalendarPath.
+  ///
+  /// In en, this message translates to:
+  /// **'Calendar'**
+  String get nextcloudCalendarPath;
+
+  /// No description provided for @nextcloudCalendarPathHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Its name in the Nextcloud calendar list, for example personal'**
+  String get nextcloudCalendarPathHelper;
+
+  /// No description provided for @folderIdOptionalHelperDrive.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty watches all of Drive.'**
+  String get folderIdOptionalHelperDrive;
+
+  /// No description provided for @folderIdOptionalHelperOnedrive.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty watches the root folder.'**
+  String get folderIdOptionalHelperOnedrive;
+
+  /// No description provided for @driveFolderIdOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Folder ID (optional)'**
+  String get driveFolderIdOptional;
+
+  /// No description provided for @spreadsheetId.
+  ///
+  /// In en, this message translates to:
+  /// **'Spreadsheet ID'**
+  String get spreadsheetId;
+
+  /// No description provided for @sheetRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Range'**
+  String get sheetRange;
+
+  /// No description provided for @sheetRangeHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'The table\'s columns, for example Sheet1!A:E'**
+  String get sheetRangeHelper;
+
+  /// No description provided for @folderPathOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Folder path (optional)'**
+  String get folderPathOptional;
+
+  /// No description provided for @folderPathHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'For example Documents'**
+  String get folderPathHelper;
+
+  /// No description provided for @notionDatabaseId.
+  ///
+  /// In en, this message translates to:
+  /// **'Database ID'**
+  String get notionDatabaseId;
+
+  /// No description provided for @trelloListId.
+  ///
+  /// In en, this message translates to:
+  /// **'List ID'**
+  String get trelloListId;
+
+  /// No description provided for @figmaFileKey.
+  ///
+  /// In en, this message translates to:
+  /// **'File key'**
+  String get figmaFileKey;
+
+  /// No description provided for @figmaFileKeyHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'From the file link: figma.com/file/<key>/…'**
+  String get figmaFileKeyHelper;
+
+  /// No description provided for @githubRepository.
+  ///
+  /// In en, this message translates to:
+  /// **'Repository'**
+  String get githubRepository;
+
+  /// No description provided for @workflowOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Workflow (optional)'**
+  String get workflowOptional;
+
+  /// No description provided for @workflowHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'File name such as ci.yml'**
+  String get workflowHelper;
+
+  /// No description provided for @branchOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Branch (optional)'**
+  String get branchOptional;
+
+  /// No description provided for @branchHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty uses the default branch.'**
+  String get branchHelper;
+
+  /// No description provided for @mcpServerIdOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'MCP server ID (optional)'**
+  String get mcpServerIdOptional;
+
+  /// No description provided for @entityId.
+  ///
+  /// In en, this message translates to:
+  /// **'Entity ID'**
+  String get entityId;
+
+  /// No description provided for @entityIdHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'For example binary_sensor.front_door'**
+  String get entityIdHelper;
+
+  /// No description provided for @targetStateOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Target state (optional)'**
+  String get targetStateOptional;
+
+  /// No description provided for @targetStateHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'For example on'**
+  String get targetStateHelper;
+
+  /// No description provided for @aboveOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Above (optional)'**
+  String get aboveOptional;
+
+  /// No description provided for @belowOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Below (optional)'**
+  String get belowOptional;
+
+  /// No description provided for @placeName.
+  ///
+  /// In en, this message translates to:
+  /// **'Place name'**
+  String get placeName;
+
+  /// No description provided for @latitude.
+  ///
+  /// In en, this message translates to:
+  /// **'Latitude'**
+  String get latitude;
+
+  /// No description provided for @longitude.
+  ///
+  /// In en, this message translates to:
+  /// **'Longitude'**
+  String get longitude;
+
+  /// No description provided for @radiusMeters.
+  ///
+  /// In en, this message translates to:
+  /// **'Radius in meters'**
+  String get radiusMeters;
+
+  /// No description provided for @geofenceTransition.
+  ///
+  /// In en, this message translates to:
+  /// **'When'**
+  String get geofenceTransition;
+
+  /// No description provided for @arriving.
+  ///
+  /// In en, this message translates to:
+  /// **'Arriving'**
+  String get arriving;
+
+  /// No description provided for @leaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Leaving'**
+  String get leaving;
+
+  /// No description provided for @healthMetric.
+  ///
+  /// In en, this message translates to:
+  /// **'Health metric'**
+  String get healthMetric;
+
+  /// No description provided for @healthMetricHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'For example heart_rate, steps, weight'**
+  String get healthMetricHelper;
+
+  /// No description provided for @wearableTransition.
+  ///
+  /// In en, this message translates to:
+  /// **'When the wearable'**
+  String get wearableTransition;
+
+  /// No description provided for @wearableConnects.
+  ///
+  /// In en, this message translates to:
+  /// **'Connects'**
+  String get wearableConnects;
+
+  /// No description provided for @wearableDisconnects.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnects'**
+  String get wearableDisconnects;
+
+  /// No description provided for @sourceTask.
+  ///
+  /// In en, this message translates to:
+  /// **'After task'**
+  String get sourceTask;
+
+  /// No description provided for @taskOutcome.
+  ///
+  /// In en, this message translates to:
+  /// **'Outcome'**
+  String get taskOutcome;
+
+  /// No description provided for @anyOutcome.
+  ///
+  /// In en, this message translates to:
+  /// **'Any outcome'**
+  String get anyOutcome;
+
+  /// No description provided for @succeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Succeeded'**
+  String get succeeded;
+
+  /// No description provided for @fieldMissingOrInvalidArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'{arg1} is missing or not valid.'**
+  String fieldMissingOrInvalidArg1(Object? arg1);
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

@@ -191,7 +191,6 @@ class _LogsPanelState extends State<LogsPanel> {
       'ai': <String, dynamic>{
         'defaultChatModel': controller.defaultChatModel,
         'defaultSubagentModel': controller.defaultSubagentModel,
-        'smarterSelector': controller.smarterSelector,
         'enabledModelCount': controller.enabledModelIds.length,
         'availableModelCount': controller.supportedModels
             .where((model) => model.available)
@@ -2117,164 +2116,6 @@ String _manualRunButtonLabel(String label, int remainingSeconds) {
   return appStrings.arg1Arg2S(label, remainingSeconds);
 }
 
-class _TaskTriggerOption {
-  const _TaskTriggerOption({
-    required this.type,
-    required this.section,
-    required this.label,
-    required this.description,
-    required this.icon,
-    this.providerKey,
-    this.appKey,
-    this.requiresConnection = false,
-  });
-
-  final String type;
-  final String section;
-  final String label;
-  final String description;
-  final IconData icon;
-
-  /// The official integration provider key this trigger binds to, if any.
-  /// When set, the task editor shows a connected-account dropdown instead of
-  /// a raw connection ID text field.
-  final String? providerKey;
-
-  /// The app within the provider (matches [OfficialIntegrationAppItem.id]).
-  /// Narrows account lookup to just the relevant app so multi-app providers
-  /// (e.g. Google Workspace with Gmail + Drive + Calendar) don't show
-  /// duplicate accounts.
-  final String? appKey;
-
-  /// Hides the trigger from the picker until the integration has a connected
-  /// account.
-  final bool requiresConnection;
-}
-
-List<_TaskTriggerOption> _taskTriggerOptions = <_TaskTriggerOption>[
-  _TaskTriggerOption(
-    type: 'manual',
-    section: appStrings.onDemand,
-    label: appStrings.manualTrigger,
-    description: appStrings.runsOnlyWhenYouPressRun,
-    icon: Icons.play_circle_outline_rounded,
-  ),
-  _TaskTriggerOption(
-    type: 'schedule',
-    section: appStrings.time,
-    label: appStrings.schedule,
-    description: appStrings.cronBasedRecurringRunsAndOne,
-    icon: Icons.schedule_rounded,
-  ),
-  _TaskTriggerOption(
-    type: 'gmail_message_received',
-    section: appStrings.email,
-    label: appStrings.gmailMessageReceived,
-    description: appStrings.runWhenAMatchingGmailMessage,
-    icon: Icons.mail_rounded,
-    providerKey: 'google_workspace',
-    appKey: 'gmail',
-  ),
-  _TaskTriggerOption(
-    type: 'outlook_email_received',
-    section: appStrings.email,
-    label: appStrings.outlookEmailReceived,
-    description: appStrings.runWhenAMatchingOutlookEmail,
-    icon: Icons.markunread_rounded,
-    providerKey: 'microsoft_365',
-    appKey: 'outlook',
-  ),
-  _TaskTriggerOption(
-    type: 'slack_message_received',
-    section: 'Messaging',
-    label: appStrings.slackMessageReceived,
-    description: appStrings.runWhenASlackMessageMatches,
-    icon: Icons.forum_rounded,
-    providerKey: 'slack',
-    appKey: 'slack',
-  ),
-  _TaskTriggerOption(
-    type: 'teams_message_received',
-    section: 'Messaging',
-    label: appStrings.teamsMessageReceived,
-    description: appStrings.runWhenATeamsChatMessage,
-    icon: Icons.groups_rounded,
-    providerKey: 'microsoft_365',
-    appKey: 'teams',
-  ),
-  _TaskTriggerOption(
-    type: 'github_issue_opened',
-    section: 'Developer',
-    label: appStrings.githubIssueOpened,
-    description:
-        appStrings.runWhenANewIssueMatching,
-    icon: Icons.bug_report_rounded,
-    providerKey: 'github',
-    appKey: 'repos',
-    requiresConnection: true,
-  ),
-  _TaskTriggerOption(
-    type: 'neorecall_memory_created',
-    section: 'Memory',
-    label: appStrings.neorecallMemoryCreated,
-    description: appStrings.runWhenANewNeorecallMemoryMatches,
-    icon: Icons.psychology_alt_rounded,
-    providerKey: 'neorecall',
-    appKey: 'recall',
-    requiresConnection: true,
-  ),
-  _TaskTriggerOption(
-    type: 'weather_event',
-    section: appStrings.environment,
-    label: appStrings.weatherEvent,
-    description:
-        appStrings.runWhenConfiguredWeatherEventsAre,
-    icon: Icons.cloudy_snowing,
-    providerKey: 'weather',
-    appKey: 'forecast',
-  ),
-  _TaskTriggerOption(
-    type: 'world_news',
-    section: 'News',
-    label: appStrings.worldNews,
-    description: appStrings.runWhenNewWorldHeadlinesAppear,
-    icon: Icons.public_rounded,
-    providerKey: 'news',
-    appKey: 'headlines',
-    requiresConnection: true,
-  ),
-  _TaskTriggerOption(
-    type: 'whatsapp_personal_message_received',
-    section: 'Messaging',
-    label: appStrings.whatsappPersonalMessageReceived,
-    description: appStrings.runOnInboundPersonalWhatsappMessages,
-    icon: Icons.chat_bubble_rounded,
-    providerKey: 'whatsapp_personal',
-    appKey: 'personal',
-  ),
-  _TaskTriggerOption(
-    type: 'discord_member_joined',
-    section: 'Messaging',
-    label: appStrings.discordMemberJoined,
-    description: appStrings.runWhenSomeoneJoinsADiscordServer,
-    icon: Icons.person_add_alt_1_rounded,
-  ),
-  _TaskTriggerOption(
-    type: 'android_notification_received',
-    section: 'System',
-    label: appStrings.androidNotificationReceived,
-    description: appStrings.runWhenANotificationArrivesOn,
-    icon: Icons.notifications_active_rounded,
-  ),
-];
-
-_TaskTriggerOption _taskTriggerOptionForType(String type) {
-  return _taskTriggerOptions.firstWhere(
-    (option) => option.type == type,
-    orElse: () => _taskTriggerOptions.first,
-  );
-}
-
 class _TaskSchedulePreset {
   const _TaskSchedulePreset({
     required this.id,
@@ -3781,51 +3622,12 @@ class _TasksPanelState extends State<TasksPanel> {
     final selectedDeliveryTarget = ValueNotifier<TaskDeliveryTarget?>(
       _taskDeliveryTargetFromTask(task),
     );
-    final queryController = TextEditingController(
-      text:
-          task?.triggerConfig['query']?.toString() ??
-          task?.triggerConfig['location']?.toString() ??
-          '',
-    );
-    final weatherEventTypesController = TextEditingController(
-      text: (() {
-        final raw = task?.triggerConfig['eventTypes'];
-        if (raw is List) {
-          return raw.map((entry) => entry.toString()).join(', ');
-        }
-        return task?.triggerConfig['eventTypes']?.toString() ??
-            appStrings.rainStartWindAlert;
-      })(),
-    );
-    final channelController = TextEditingController(
-      text:
-          task?.triggerConfig['channel']?.toString() ??
-          task?.triggerConfig['chatId']?.toString() ??
-          '',
-    );
-    final senderController = TextEditingController(
-      text: task?.triggerConfig['sender']?.toString() ?? '',
-    );
-    final guildIdController = TextEditingController(
-      text: task?.triggerConfig['guildId']?.toString() ?? '',
-    );
-    final repoController = TextEditingController(
-      text: task?.triggerConfig['repo']?.toString() ?? '',
-    );
-    final authorController = TextEditingController(
-      text: task?.triggerConfig['author']?.toString() ?? '',
-    );
-    final assigneeController = TextEditingController(
-      text: task?.triggerConfig['assignee']?.toString() ?? '',
-    );
-    final labelsController = TextEditingController(
-      text: task?.triggerConfig['labels']?.toString() ?? '',
+    final triggerDraft = _TaskTriggerDraft(
+      task?.triggerConfig ?? const <String, dynamic>{},
     );
     final promptController = TextEditingController(text: task?.prompt ?? '');
     var enabled = task?.enabled ?? true;
     var loopPaused = task?.loopPaused ?? false;
-    var unreadOnly = task?.triggerConfig['unreadOnly'] == true;
-    var ignoreGroups = task?.triggerConfig['ignoreGroups'] == true;
     // No saved model means "follow the Settings default"; 'auto' is a real,
     // explicitly stored override for the smart selector.
     final savedTaskModel = (task?.model ?? '').trim();
@@ -4259,181 +4061,37 @@ class _TasksPanelState extends State<TasksPanel> {
                             );
                           }
 
-                          if (selectedTriggerType == 'discord_member_joined') {
-                            return TextField(
-                              controller: guildIdController,
-                              keyboardType: TextInputType.number,
-                              decoration: InputDecoration(
-                                labelText: appStrings.discordServerId,
-                                helperText: appStrings.discordServerIdHelper,
-                              ),
-                            );
-                          }
-
+                          final option = _taskTriggerOptionForType(
+                            selectedTriggerType,
+                          );
                           return Column(
                             children: <Widget>[
-                              ValueListenableBuilder<
-                                List<OfficialIntegrationItem>
-                              >(
-                                valueListenable: agentIntegrations,
-                                builder: (context, integrations, _) =>
-                                    _buildConnectionIdSelector(
-                                      triggerType: selectedTriggerType,
-                                      integrations: integrations,
-                                      selectedConnectionId:
-                                          selectedConnectionId,
-                                      fallbackController:
-                                          connectionIdController,
-                                      setLocalState: setLocalState,
-                                    ),
+                              if (option.providerKey != null) ...<Widget>[
+                                ValueListenableBuilder<
+                                  List<OfficialIntegrationItem>
+                                >(
+                                  valueListenable: agentIntegrations,
+                                  builder: (context, integrations, _) =>
+                                      _buildConnectionIdSelector(
+                                        triggerType: selectedTriggerType,
+                                        integrations: integrations,
+                                        selectedConnectionId:
+                                            selectedConnectionId,
+                                        fallbackController:
+                                            connectionIdController,
+                                        setLocalState: setLocalState,
+                                      ),
+                                ),
+                                const SizedBox(height: 12),
+                              ],
+                              _buildTaskTriggerFields(
+                                option: option,
+                                draft: triggerDraft,
+                                otherTasks: controller.taskItems
+                                    .where((other) => other.id != task?.id)
+                                    .toList(),
+                                setLocalState: setLocalState,
                               ),
-                              const SizedBox(height: 12),
-                              if (selectedTriggerType ==
-                                  'weather_event') ...<Widget>[
-                                TextField(
-                                  controller: queryController,
-                                  decoration: InputDecoration(
-                                    labelText: appStrings.locationCityOrPlace,
-                                    helperText: appStrings.requiredExampleBerlinDe,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                TextField(
-                                  controller: weatherEventTypesController,
-                                  decoration: InputDecoration(
-                                    labelText: appStrings.eventTypesCommaSeparated,
-                                    helperText:
-                                        appStrings.supportedRainStartSnowStartWind,
-                                  ),
-                                ),
-                              ],
-                              if (selectedTriggerType ==
-                                      'gmail_message_received' ||
-                                  selectedTriggerType ==
-                                      'outlook_email_received') ...<Widget>[
-                                TextField(
-                                  controller: queryController,
-                                  decoration: InputDecoration(
-                                    labelText: appStrings.queryFilter,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                SwitchListTile(
-                                  value: unreadOnly,
-                                  contentPadding: EdgeInsets.zero,
-                                  title: Text(appStrings.unreadOnly),
-                                  onChanged: (value) =>
-                                      setLocalState(() => unreadOnly = value),
-                                ),
-                              ],
-                              if (selectedTriggerType ==
-                                  'outlook_email_received') ...<Widget>[
-                                TextField(
-                                  controller: channelController,
-                                  decoration: InputDecoration(
-                                    labelText: appStrings.folderIdOptional,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                              ],
-                              if (selectedTriggerType ==
-                                      'slack_message_received' ||
-                                  selectedTriggerType ==
-                                      'teams_message_received' ||
-                                  selectedTriggerType ==
-                                      'whatsapp_personal_message_received') ...<
-                                Widget
-                              >[
-                                TextField(
-                                  controller: channelController,
-                                  decoration: InputDecoration(
-                                    labelText:
-                                        selectedTriggerType ==
-                                            'slack_message_received'
-                                        ? appStrings.channelId
-                                        : appStrings.chatId,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                TextField(
-                                  controller: senderController,
-                                  decoration: InputDecoration(
-                                    labelText: appStrings.senderFilterOptional,
-                                  ),
-                                ),
-                              ],
-                              if (selectedTriggerType ==
-                                  'github_issue_opened') ...<Widget>[
-                                TextField(
-                                  controller: repoController,
-                                  decoration: InputDecoration(
-                                    labelText: 'Repository',
-                                    helperText: appStrings.requiredFormatOwnerRepo,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                TextField(
-                                  controller: authorController,
-                                  decoration: InputDecoration(
-                                    labelText: appStrings.authorOptional,
-                                    helperText:
-                                        appStrings.githubUsernameThatOpenedTheIssue,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                TextField(
-                                  controller: assigneeController,
-                                  decoration: InputDecoration(
-                                    labelText: appStrings.assigneeOptional,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                TextField(
-                                  controller: labelsController,
-                                  decoration: InputDecoration(
-                                    labelText: appStrings.labelsOptional,
-                                    helperText:
-                                        appStrings.commaSeparatedTheIssueMustHave,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                TextField(
-                                  controller: queryController,
-                                  decoration: InputDecoration(
-                                    labelText: appStrings.containsTextOptional,
-                                    helperText:
-                                        appStrings.matchedAgainstTitleAndBody,
-                                  ),
-                                ),
-                              ],
-                              if (selectedTriggerType ==
-                                  'neorecall_memory_created')
-                                TextField(
-                                  controller: queryController,
-                                  decoration: InputDecoration(
-                                    labelText: appStrings.containsTextOptional,
-                                  ),
-                                ),
-                              if (selectedTriggerType == 'world_news')
-                                TextField(
-                                  controller: queryController,
-                                  decoration: InputDecoration(
-                                    labelText: appStrings.newsKeywordsOptional,
-                                  ),
-                                ),
-                              if (selectedTriggerType ==
-                                  'whatsapp_personal_message_received') ...<
-                                Widget
-                              >[
-                                const SizedBox(height: 12),
-                                SwitchListTile(
-                                  value: ignoreGroups,
-                                  contentPadding: EdgeInsets.zero,
-                                  title: Text(appStrings.ignoreGroups),
-                                  onChanged: (value) =>
-                                      setLocalState(() => ignoreGroups = value),
-                                ),
-                              ],
                             ],
                           );
                         },
@@ -4678,16 +4336,6 @@ class _TasksPanelState extends State<TasksPanel> {
                     final triggerConfig = <String, dynamic>{};
                     if (selectedTriggerType == 'manual') {
                       // Manual trigger uses no trigger-specific config.
-                    } else if (selectedTriggerType == 'discord_member_joined') {
-                      final guildId = guildIdController.text.trim();
-                      if (!RegExp(r'^\d{17,20}$').hasMatch(guildId)) {
-                        _showFormError(
-                          context,
-                          appStrings.enterTheDiscordServerId,
-                        );
-                        return;
-                      }
-                      triggerConfig['guildId'] = guildId;
                     } else if (selectedTriggerType == 'schedule') {
                       final runAt = runAtController.text.trim();
                       triggerConfig['mode'] = scheduleDraft.mode;
@@ -4733,102 +4381,33 @@ class _TasksPanelState extends State<TasksPanel> {
                         triggerConfig['runAt'] = runAt;
                       }
                     } else {
-                      final parsedConnectionId =
-                          selectedConnectionId.value ??
-                          int.tryParse(connectionIdController.text.trim());
-                      if (parsedConnectionId == null ||
-                          parsedConnectionId <= 0) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              appStrings.pleaseSelectAnAccountOrEnter,
-                            ),
-                            backgroundColor: Colors.red,
-                          ),
+                      final option = _taskTriggerOptionForType(
+                        selectedTriggerType,
+                      );
+                      if (option.providerKey != null) {
+                        final parsedConnectionId =
+                            selectedConnectionId.value ??
+                            int.tryParse(connectionIdController.text.trim());
+                        if (parsedConnectionId == null ||
+                            parsedConnectionId <= 0) {
+                          _showFormError(
+                            context,
+                            appStrings.pleaseSelectAnAccountOrEnter,
+                          );
+                          return;
+                        }
+                        triggerConfig['connectionId'] = parsedConnectionId;
+                      }
+                      final invalidField = triggerDraft.writeTo(
+                        option.fields,
+                        triggerConfig,
+                      );
+                      if (invalidField != null) {
+                        _showFormError(
+                          context,
+                          appStrings.fieldMissingOrInvalidArg1(invalidField),
                         );
                         return;
-                      }
-                      triggerConfig['connectionId'] = parsedConnectionId;
-                      if (selectedTriggerType == 'weather_event') {
-                        if (queryController.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                appStrings.locationIsRequiredForWeatherEvent,
-                              ),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
-                        }
-                        triggerConfig['location'] = queryController.text.trim();
-                        final eventTypes = weatherEventTypesController.text
-                            .split(',')
-                            .map((entry) => entry.trim())
-                            .where((entry) => entry.isNotEmpty)
-                            .toList();
-                        triggerConfig['eventTypes'] = eventTypes;
-                      }
-                      if (selectedTriggerType == 'gmail_message_received' ||
-                          selectedTriggerType == 'outlook_email_received') {
-                        if (queryController.text.trim().isNotEmpty) {
-                          triggerConfig['query'] = queryController.text.trim();
-                        }
-                        triggerConfig['unreadOnly'] = unreadOnly;
-                        if (selectedTriggerType == 'outlook_email_received' &&
-                            channelController.text.trim().isNotEmpty) {
-                          triggerConfig['folderId'] = channelController.text
-                              .trim();
-                        }
-                      }
-                      if (selectedTriggerType == 'slack_message_received') {
-                        triggerConfig['channel'] = channelController.text
-                            .trim();
-                      }
-                      if (selectedTriggerType == 'neorecall_memory_created' &&
-                          queryController.text.trim().isNotEmpty) {
-                        triggerConfig['query'] = queryController.text.trim();
-                      }
-                      if (selectedTriggerType == 'world_news' &&
-                          queryController.text.trim().isNotEmpty) {
-                        triggerConfig['query'] = queryController.text.trim();
-                      }
-                      if (selectedTriggerType == 'github_issue_opened') {
-                        final repo = repoController.text.trim();
-                        if (!RegExp(r'^[\w.-]+/[\w.-]+$').hasMatch(repo)) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                appStrings.repositoryMustBeInTheFormat,
-                              ),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
-                        }
-                        triggerConfig['repo'] = repo;
-                        final filters = <String, TextEditingController>{
-                          'author': authorController,
-                          'assignee': assigneeController,
-                          'labels': labelsController,
-                          'query': queryController,
-                        };
-                        filters.forEach((key, fieldController) {
-                          final value = fieldController.text.trim();
-                          if (value.isNotEmpty) triggerConfig[key] = value;
-                        });
-                      }
-                      if (selectedTriggerType == 'teams_message_received' ||
-                          selectedTriggerType ==
-                              'whatsapp_personal_message_received') {
-                        triggerConfig['chatId'] = channelController.text.trim();
-                      }
-                      if (senderController.text.trim().isNotEmpty) {
-                        triggerConfig['sender'] = senderController.text.trim();
-                      }
-                      if (selectedTriggerType ==
-                          'whatsapp_personal_message_received') {
-                        triggerConfig['ignoreGroups'] = ignoreGroups;
                       }
                     }
                     final taskConfig = <String, dynamic>{

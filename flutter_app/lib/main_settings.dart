@@ -475,15 +475,9 @@ final List<_SettingsEntry> _settingsEntries = <_SettingsEntry>[
   ),
   _SettingsEntry(
     SettingsPage.models,
-    'smartSelection',
-    () => appStrings.smartModelSelection,
-    keywords: const <String>['routing', 'auto'],
-  ),
-  _SettingsEntry(
-    SettingsPage.models,
     'modelPool',
     () => appStrings.settingsModelPool,
-    keywords: const <String>['routing'],
+    keywords: const <String>['routing', 'auto', 'smart selector'],
   ),
   _SettingsEntry(
     SettingsPage.models,
@@ -591,7 +585,6 @@ final List<_SettingsEntry> _settingsEntries = <_SettingsEntry>[
       'discord',
       'signal',
       'slack',
-      'meshtastic',
       'webhook',
     ],
   ),

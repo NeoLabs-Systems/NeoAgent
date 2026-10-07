@@ -115,7 +115,6 @@ function rankModels(models, { isSubagent = false, selectionHint = {}, settings =
 
 function chooseAutomaticModel(models, options) {
   if (!models.length) return null;
-  if (options.settings.smarter_model_selector === false) return models[0];
   return rankModels(models, options)[0] || models[0];
 }
 

@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
 const worldNews = require('../../../server/services/tasks/adapters/world_news');
-const { fetchTriggerRows } = require('../../../server/services/tasks/integration_runtime');
+const { fetchTriggerRows, pollTriggerTask } = require('../../../server/services/tasks/trigger_polling');
 
 const connectedNews = {
   getConnectionById: () => ({
@@ -48,7 +48,7 @@ test('world news trigger normalizes config and rejects unknown categories', asyn
   );
 });
 
-test('world news polling batches only articles newer than the checkpoint and honours the interval', async () => {
+test('world news polling batches only articles newer than the checkpoint', async () => {
   const calls = [];
   const base = {
     integrationManager: feedManager(articles, calls),
@@ -58,26 +58,38 @@ test('world news polling batches only articles newer than the checkpoint and hon
     config: { connectionId: 9, category: 'world', lang: 'en', checkIntervalMinutes: 30 },
   };
 
-  const first = await fetchTriggerRows({ ...base, taskId: 101 });
+  const first = await fetchTriggerRows(base);
   assert.equal(calls[0].toolName, 'news_get_headlines');
   assert.equal(first.length, 1);
   assert.equal(first[0].fingerprint, 'news:9:2026-09-30T11:00:00Z:b');
   assert.deepEqual(first[0].context.triggerEvent.articles.map((a) => a.title), ['First', 'Second']);
 
-  assert.deepEqual(await fetchTriggerRows({ ...base, taskId: 101 }), []);
-  assert.equal(calls.length, 1);
-
-  const resumed = await fetchTriggerRows({
-    ...base,
-    taskId: 102,
-    checkpoint: 'news:9:2026-09-30T10:00:00Z:a',
-  });
+  const resumed = await fetchTriggerRows({ ...base, checkpoint: 'news:9:2026-09-30T10:00:00Z:a' });
   assert.deepEqual(resumed[0].context.triggerEvent.articles.map((a) => a.title), ['Second']);
 
-  const caughtUp = await fetchTriggerRows({
-    ...base,
-    taskId: 103,
-    checkpoint: first[0].fingerprint,
-  });
-  assert.deepEqual(caughtUp, []);
+  assert.deepEqual(await fetchTriggerRows({ ...base, checkpoint: first[0].fingerprint }), []);
+});
+
+test('world news tasks poll on their own interval', async () => {
+  const calls = [];
+  const runtime = {
+    integrationManager: feedManager(articles, calls),
+    taskRepository: { markTaskTriggerCheckpoint() {} },
+    fireTaskFromTrigger: async () => ({}),
+  };
+  const task = {
+    id: 101,
+    user_id: null,
+    agent_id: null,
+    trigger_type: 'world_news',
+    trigger_config: JSON.stringify({ connectionId: 9, category: 'world', lang: 'en', checkIntervalMinutes: 30 }),
+    last_trigger_fingerprint: '',
+  };
+  const start = Date.parse('2026-09-30T12:00:00Z');
+
+  await pollTriggerTask(runtime, task, { now: start });
+  await pollTriggerTask(runtime, task, { now: start + 29 * 60 * 1000 });
+  assert.equal(calls.length, 1);
+  await pollTriggerTask(runtime, task, { now: start + 30 * 60 * 1000 });
+  assert.equal(calls.length, 2);
 });

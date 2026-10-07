@@ -429,6 +429,57 @@ test('Gemini Live session: run_task returns at once, outcome as a message, inter
   await session.close('test_done');
 });
 
+test('Gemini Live can hang up, after its goodbye has played out', async (t) => {
+  const ctx = createTestRuntime();
+  const fake = await startFakeLiveServer();
+  t.after(async () => {
+    await fake.close();
+    teardownTestRuntime(ctx);
+  });
+  process.env.GOOGLE_AI_KEY = 'test-google-key';
+  const engine = createFakeEngine();
+  const { user, manager, conversationId } = await setupManager(ctx, engine, {
+    voice_live_provider: 'google',
+  });
+  const { LiveVoiceSession } = require('../../../server/services/voice/live/session');
+  const sink = createSink();
+  const session = new LiveVoiceSession({
+    id: 'gemini-hangup',
+    userId: user.userId,
+    agentId: null,
+    platform: 'voice_live',
+    sink,
+    agentEngine: engine,
+    conversationId,
+    settings: require('../../../server/services/voice/liveSettings').getVoiceRuntimeSettings(user.userId),
+    credentials: { apiKey: 'test-google-key', baseUrl: fake.url },
+    onIdle: () => {},
+    onHangUp: (ended) => manager.closeSession(ended.id, 'agent_hung_up', ended.userId),
+  });
+  manager.sessions.set(session.id, session);
+  const connecting = session.connect();
+  const setupMessage = await fake.next((event) => event.setup);
+  const names = setupMessage.setup.tools[0].functionDeclarations.map((declaration) => declaration.name);
+  assert.deepEqual(names, ['run_task', 'end_call']);
+  fake.send({ setupComplete: {} });
+  await connecting;
+
+  // 300 ms of goodbye at 24 kHz, then the hang-up.
+  const goodbye = Buffer.alloc(24000 * 2 * 0.3).toString('base64');
+  fake.send({ serverContent: { modelTurn: { parts: [{ inlineData: { data: goodbye } }] } } });
+  fake.send({ toolCall: { functionCalls: [{ id: 'bye-1', name: 'end_call', args: {} }] } });
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  assert.equal(manager.getSession(session.id), session);
+  assert.ok(!sink.of('state').some((event) => event.state === 'closed'));
+
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  assert.equal(manager.getSession(session.id), null);
+  const closed = sink.of('state').filter((event) => event.state === 'closed');
+  assert.deepEqual(closed.map((event) => event.reason), ['agent_hung_up']);
+  // The hang-up is not answered: nothing more is said on the line.
+  assert.ok(!fake.received.some((event) => event.toolResponse));
+});
+
 test('a call left open without speech or tasks hangs up after three minutes', async (t) => {
   const ctx = createTestRuntime();
   const fake = await startFakeLiveServer();
