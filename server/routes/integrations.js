@@ -126,7 +126,7 @@ router.get('/oauth/callback', async (req, res) => {
       if (!authProviderManager) {
         throw new Error('Auth provider manager is not available on app.locals.authProviderManager.');
       }
-      const result = await authProviderManager.finishAuthorization(state, code);
+      const result = await authProviderManager.finishAuthorization(state, { code });
       return res.type('html').send(renderOAuthPopupResult({
         success: true,
         payload: {

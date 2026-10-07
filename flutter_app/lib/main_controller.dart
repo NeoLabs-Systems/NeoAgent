@@ -1470,16 +1470,22 @@ class NeoAgentController extends ChangeNotifier {
       if (url == null || state == null || url.isEmpty || state.isEmpty) {
         throw Exception(appStrings.providerSignInCouldNotBe);
       }
-      final launchResult = await _oauthLauncher.launch(
+      final completion = _pollForProviderAuthCompletion(
+        state,
+        isActive: () => isAuthenticating,
+      );
+      final launchResult = await _launchProviderAuth(
         url: url,
         provider: provider,
+        completion: completion,
       );
       if (!launchResult.launched) {
+        completion.ignore();
         throw Exception(
           launchResult.error ?? appStrings.couldNotOpenTheProviderSign,
         );
       }
-      final response = await _pollForProviderAuthCompletion(state);
+      final response = await completion;
       if (response['requiresTwoFactor'] == true) {
         final responseUser =
             response['user'] as Map<dynamic, dynamic>? ??
@@ -2082,13 +2088,30 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Opens the provider's page and resolves once it has opened, or once the
+  /// backend already reports the sign-in finished: on web, a provider page
+  /// can sever the popup's opener, so its completion message never arrives.
+  Future<OAuthLaunchResult> _launchProviderAuth({
+    required String url,
+    required String provider,
+    required Future<Map<String, dynamic>> completion,
+  }) {
+    return Future.any(<Future<OAuthLaunchResult>>[
+      _oauthLauncher.launch(url: url, provider: provider),
+      completion.then(
+        (_) => const OAuthLaunchResult(launched: true, completed: true),
+      ),
+    ]);
+  }
+
   Future<Map<String, dynamic>> _pollForProviderAuthCompletion(
-    String state,
-  ) async {
+    String state, {
+    required bool Function() isActive,
+  }) async {
     final deadline = DateTime.now().add(const Duration(minutes: 2));
     final authCycle = _authCycle;
     while (DateTime.now().isBefore(deadline)) {
-      if (!isAuthenticating || _authCycle != authCycle) {
+      if (!isActive() || _authCycle != authCycle) {
         throw Exception(appStrings.authenticationWasCanceledBeforeCompletion);
       }
       final response = await _backendClient.completeProviderAuth(
@@ -2096,7 +2119,7 @@ class NeoAgentController extends ChangeNotifier {
         state: state,
       );
       if (response['status']?.toString() == 'pending') {
-        if (!isAuthenticating || _authCycle != authCycle) {
+        if (!isActive() || _authCycle != authCycle) {
           throw Exception(appStrings.authenticationWasCanceledBeforeCompletion);
         }
         await Future<void>.delayed(const Duration(seconds: 2));
@@ -5061,17 +5084,26 @@ class NeoAgentController extends ChangeNotifier {
       if (url == null || state == null || url.isEmpty || state.isEmpty) {
         throw Exception(appStrings.providerLinkingCouldNotBeStarted);
       }
-      final launchResult = await _oauthLauncher.launch(
+      final completion = _pollForProviderAuthCompletion(
+        state,
+        isActive: () => isSavingAccountSettings,
+      );
+      final launchResult = await _launchProviderAuth(
         url: url,
         provider: provider,
+        completion: completion,
       );
       if (!launchResult.launched) {
+        completion.ignore();
         throw Exception(
           launchResult.error ?? appStrings.couldNotOpenTheProviderLinking,
         );
       }
-      await _pollForProviderAuthCompletion(state);
+      await completion;
       await refreshAccountSettings();
+      // Linking a model provider (ChatGPT) changes the model catalog and
+      // the default model.
+      await refresh();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
@@ -5091,6 +5123,7 @@ class NeoAgentController extends ChangeNotifier {
           providerLinkId: providerLinkId,
         ),
       );
+      await refresh();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
@@ -7401,6 +7434,13 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('voice:error', (dynamic data) {
       final payload = _jsonMap(data);
       if (!_matchesLiveVoiceSessionPayload(payload)) return;
+      // A session-scoped error with no session on this side is a late reply
+      // about a call that already ended (trailing audio after hang-up).
+      final errorSessionId = payload['sessionId']?.toString().trim() ?? '';
+      if (errorSessionId.isNotEmpty &&
+          voiceAssistantLiveState.sessionId.trim().isEmpty) {
+        return;
+      }
       final message =
           payload['error']?.toString() ?? appStrings.liveVoiceFailed;
       final opening = _liveVoiceSessionOpenCompleter;

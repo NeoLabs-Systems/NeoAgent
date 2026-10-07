@@ -56,16 +56,19 @@ class EndedAgentCall {
   final String? backgroundTask;
 }
 
-/// Colours of the call screen. A call always looks like a phone call, dark
-/// whatever the app theme, so these do not follow the palette.
+/// Colours of the call screen, following the app theme. Answer and decline
+/// keep the phone-call green and red in both themes.
 abstract final class _CallColors {
-  static const Color backdropTop = Color(0xFF121B15);
-  static const Color backdrop = Color(0xFF0B110D);
-  static const Color text = Color(0xFFECEFE5);
-  static const Color textMuted = Color(0xFF8D9886);
-  static const Color accent = Color(0xFFE1B052);
-  static const Color control = Color(0x14E0F0E0);
-  static const Color controlBorder = Color(0x1FE0F0E0);
+  static Color get backdropTop => _palette.bgSecondary;
+  static Color get backdrop => _palette.bgPrimary;
+  static Color get surface => _palette.bgCard;
+  static Color get text => _palette.textPrimary;
+  static Color get textSecondary => _palette.textSecondary;
+  static Color get textMuted => _palette.textMuted;
+  static Color get accent => _palette.accent;
+  static Color get control => _palette.textPrimary.withValues(alpha: 0.08);
+  static Color get controlBorder => _palette.borderLight;
+  static const Color onAccent = Color(0xFF1A1406);
   static const Color answer = Color(0xFF5FB06A);
   static const Color decline = Color(0xFFD9705C);
 }
@@ -81,7 +84,7 @@ String _formatCallDuration(Duration duration) {
       : '${two(minutes)}:${two(seconds)}';
 }
 
-/// The dark backdrop every call screen sits on.
+/// The backdrop every call screen sits on.
 class _CallBackdrop extends StatelessWidget {
   const _CallBackdrop({required this.child});
 
@@ -93,7 +96,7 @@ class _CallBackdrop extends StatelessWidget {
     return Material(
       color: _CallColors.backdrop,
       child: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment(0, 0.1),
@@ -101,7 +104,7 @@ class _CallBackdrop extends StatelessWidget {
           ),
         ),
         child: DefaultTextStyle.merge(
-          style: const TextStyle(color: _CallColors.text),
+          style: TextStyle(color: _CallColors.text),
           child: child,
         ),
       ),
@@ -277,7 +280,7 @@ class _CallButton extends StatelessWidget {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   color: _CallColors.textMuted,
                   fontSize: 13,
                 ),
@@ -309,9 +312,9 @@ class _CallPillButton extends StatelessWidget {
       icon: Icon(icon, size: 16),
       label: Text(label),
       style: OutlinedButton.styleFrom(
-        foregroundColor: const Color(0xFFC9D0C1),
-        backgroundColor: const Color(0x0AE0F0E0),
-        side: const BorderSide(color: _CallColors.controlBorder),
+        foregroundColor: _CallColors.textSecondary,
+        backgroundColor: _CallColors.text.withValues(alpha: 0.04),
+        side: BorderSide(color: _CallColors.controlBorder),
         minimumSize: const Size(0, 44),
         padding: const EdgeInsets.symmetric(horizontal: 20),
         shape: const StadiumBorder(),

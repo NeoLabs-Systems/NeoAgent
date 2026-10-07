@@ -8,6 +8,7 @@ const { OpenAIProvider } = require('./providers/openai');
 const { CustomOpenAIProvider } = require('./providers/openai_compatible_custom');
 const { GithubCopilotProvider } = require('./providers/githubCopilot');
 const { OpenAICodexProvider } = require('./providers/openaiCodex');
+const { ChatGPTProvider } = require('./providers/chatgpt');
 const { ClaudeCodeProvider } = require('./providers/claudeCode');
 const { GrokOAuthProvider } = require('./providers/grokOauth');
 const { NvidiaProvider } = require('./providers/nvidia');
@@ -19,6 +20,7 @@ const {
     getProviderConfigs,
     getProviderSecrets,
 } = require('./settings');
+const { getAccountAccessToken } = require('./account_credentials');
 const {
     createModelSelectionId,
     modelMatchesConfiguredId,
@@ -42,6 +44,8 @@ const { isPrivateHost } = require('../../utils/cloud-security');
 
 // Maps a provider id to its class and which runtime fields its constructor takes.
 // Adding a provider is a one-line entry here instead of another dispatch branch.
+// `userId` marks providers whose credential is the user's own account sign-in,
+// which the provider instance refreshes for that user.
 // `apiKey`/`baseUrl` mirror exactly what each constructor was historically given;
 // they intentionally do not derive from AI_PROVIDER_DEFINITIONS.supportsBaseUrl,
 // which disagrees for github-copilot/openai-codex (those read their base URL from
@@ -56,6 +60,7 @@ const PROVIDER_FACTORIES = Object.freeze({
     ollama: { Provider: OllamaProvider, apiKey: false, baseUrl: true },
     'github-copilot': { Provider: GithubCopilotProvider, apiKey: true, baseUrl: false },
     'openai-codex': { Provider: OpenAICodexProvider, apiKey: true, baseUrl: false },
+    chatgpt: { Provider: ChatGPTProvider, apiKey: true, baseUrl: false, userId: true },
     'claude-code': { Provider: ClaudeCodeProvider, apiKey: true, baseUrl: false },
     'grok-oauth': { Provider: GrokOAuthProvider, apiKey: true, baseUrl: false },
     nvidia: { Provider: NvidiaProvider, apiKey: true, baseUrl: true },
@@ -155,6 +160,7 @@ function getProviderRuntimeConfig(userId, providerId, agentId = null) {
         ? (process.env[definition.baseUrlEnvKey] || '').trim()
         : '';
     const scopedApiKey = typeof secrets[providerId] === 'string' ? secrets[providerId].trim() : '';
+    const accountApiKey = getAccountAccessToken(userId, providerId);
     const rawConfigBaseUrl = typeof config.baseUrl === 'string' ? config.baseUrl.trim() : '';
     const configBaseUrl = isUnsafeUserBaseUrl(rawConfigBaseUrl, definition) ? '' : rawConfigBaseUrl;
     // A user's own (BYOK) credential always wins over the server/env one --
@@ -165,7 +171,7 @@ function getProviderRuntimeConfig(userId, providerId, agentId = null) {
     const isByok = definition.supportsApiKey
         ? Boolean(scopedApiKey)
         : Boolean(definition.supportsBaseUrl && configBaseUrl);
-    const apiKey = scopedApiKey || envApiKey;
+    const apiKey = scopedApiKey || accountApiKey || envApiKey;
     const baseUrl = definition.supportsBaseUrl
         ? (isByok
             ? (configBaseUrl || envBaseUrl || definition.defaultBaseUrl || '')
@@ -182,7 +188,7 @@ function getProviderRuntimeConfig(userId, providerId, agentId = null) {
         baseUrlValid: !baseUrl || isValidHttpUrl(baseUrl),
         hasScopedApiKey: isByok,
         isByok,
-        source: isByok ? 'byok' : (envApiKey ? 'server' : 'none'),
+        source: isByok ? 'byok' : (accountApiKey ? 'account' : (envApiKey ? 'server' : 'none')),
         label: typeof config.label === 'string' ? config.label : '',
     };
 }
@@ -407,6 +413,7 @@ async function getSupportedModels(userId, agentId = null, options = {}) {
             return refreshProviderModelList({
                 providerId: id,
                 factory: PROVIDER_FACTORIES[id],
+                userId,
                 apiKey: runtime.apiKey,
                 baseUrl: runtime.baseUrl,
                 signal: options.signal,
@@ -516,6 +523,7 @@ function createProviderInstance(providerStr, userId = null, configOverrides = {}
     const config = {};
     if (factory.apiKey) config.apiKey = runtime.apiKey;
     if (factory.baseUrl) config.baseUrl = runtime.baseUrl;
+    if (factory.userId) config.userId = userId;
 
     return new factory.Provider({ ...config, ...providerOverrides });
 }

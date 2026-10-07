@@ -30,6 +30,7 @@ import 'package:window_manager/window_manager.dart';
 import 'src/android_launcher_bridge.dart';
 import 'src/app_launch_bridge.dart';
 import 'src/app_release_updater.dart' as app_release_updater;
+import 'src/auth_provider_icon.dart';
 import 'src/background_keepalive.dart';
 import 'src/call/call_bridge.dart';
 import 'src/backend_client.dart';

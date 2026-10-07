@@ -134,7 +134,7 @@ class _AgentCallScreenState extends State<AgentCallScreen> {
               onPressed: _minimize,
               style: IconButton.styleFrom(
                 backgroundColor: _CallColors.control,
-                foregroundColor: const Color(0xFFC9D0C1),
+                foregroundColor: _CallColors.textSecondary,
               ),
               icon: const Icon(Icons.keyboard_arrow_down_rounded),
             ),
@@ -421,7 +421,7 @@ class _AgentCallScreenState extends State<AgentCallScreen> {
             onPressed: _openConversation,
             style: FilledButton.styleFrom(
               backgroundColor: _CallColors.accent,
-              foregroundColor: const Color(0xFF1A1406),
+              foregroundColor: _CallColors.onAccent,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -443,7 +443,7 @@ class _AgentCallScreenState extends State<AgentCallScreen> {
             label: Text(appStrings.callBack),
             style: OutlinedButton.styleFrom(
               foregroundColor: _CallColors.text,
-              side: const BorderSide(color: _CallColors.controlBorder),
+              side: BorderSide(color: _CallColors.controlBorder),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -526,13 +526,13 @@ class _BackgroundTaskLine extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(16, 12, onCancel == null ? 16 : 6, 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF171F1A),
+        color: _CallColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _CallColors.controlBorder),
       ),
       child: Row(
         children: <Widget>[
-          const SizedBox.square(
+          SizedBox.square(
             dimension: 14,
             child: CircularProgressIndicator(
               strokeWidth: 1.8,
@@ -547,8 +547,8 @@ class _BackgroundTaskLine extends StatelessWidget {
                   : appStrings.workingInTheBackgroundArg1(text),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFFC9D0C1),
+              style: TextStyle(
+                color: _CallColors.textSecondary,
                 fontSize: 14,
                 height: 1.4,
               ),

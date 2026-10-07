@@ -94,6 +94,7 @@ String _providerPickerLabel(String id) {
     'ollama': 'Ollama',
     'github-copilot': appStrings.githubCopilot,
     'openai-codex': appStrings.openaiCodex,
+    'chatgpt': 'ChatGPT',
     'claude-code': appStrings.claudeCode,
     'openrouter': 'OpenRouter',
     'typesafe': 'TypeSafe',

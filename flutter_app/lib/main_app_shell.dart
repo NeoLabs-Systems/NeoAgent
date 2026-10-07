@@ -504,18 +504,7 @@ class _AuthViewState extends State<AuthView> {
                           provider: provider.id,
                           register: _registerMode,
                         ),
-                  icon: provider.icon == 'google'
-                      ? Text(
-                          'G',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            // Google brand blue — required by Google Sign-In
-                            // branding guidelines, not a palette deviation.
-                            color: Color(0xFF4285F4),
-                          ),
-                        )
-                      : Icon(Icons.link),
+                  icon: AuthProviderIcon(icon: provider.icon),
                   label: Text(
                     _registerMode
                         ? appStrings.registerWithArg1(provider.label)

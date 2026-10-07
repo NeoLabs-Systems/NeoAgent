@@ -59,8 +59,8 @@ class _CallPermissionSheetState extends State<_CallPermissionSheet>
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF121B15),
+      decoration: BoxDecoration(
+        color: _CallColors.backdropTop,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
@@ -174,7 +174,7 @@ class _CallPermissionRow extends StatelessWidget {
               children: <Widget>[
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _CallColors.text,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -183,7 +183,7 @@ class _CallPermissionRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   detail,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _CallColors.textMuted,
                     fontSize: 13,
                     height: 1.35,
@@ -204,7 +204,7 @@ class _CallPermissionRow extends StatelessWidget {
               onPressed: () => unawaited(onAllow()),
               style: FilledButton.styleFrom(
                 backgroundColor: _CallColors.accent,
-                foregroundColor: const Color(0xFF1A1406),
+                foregroundColor: _CallColors.onAccent,
                 minimumSize: const Size(72, 40),
                 shape: const StadiumBorder(),
               ),

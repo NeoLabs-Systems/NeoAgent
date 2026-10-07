@@ -2547,6 +2547,7 @@ class AiProviderMeta {
   IconData get icon {
     switch (id) {
       case 'openai':
+      case 'chatgpt':
         return Icons.auto_awesome;
       case 'anthropic':
         return Icons.edit_note_outlined;

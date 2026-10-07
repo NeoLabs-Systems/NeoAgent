@@ -282,6 +282,21 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
+  -- Model access a user connected through a provider account sign-in (e.g.
+  -- ChatGPT plan usage). credentials_json is encrypted at rest.
+  CREATE TABLE IF NOT EXISTS user_model_connections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    provider_id TEXT NOT NULL,
+    account_subject TEXT NOT NULL,
+    account_email TEXT,
+    credentials_json TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(user_id, provider_id)
+  );
+
   CREATE TABLE IF NOT EXISTS agent_runs (
     id TEXT PRIMARY KEY,
     user_id INTEGER NOT NULL,

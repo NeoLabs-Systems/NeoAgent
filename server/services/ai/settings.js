@@ -209,6 +209,29 @@ function setProviderConfig(userId, providerId, updates = {}, agentId = null) {
   return normalized[providerId];
 }
 
+const DEFAULT_MODEL_KEYS = ['default_chat_model', 'default_subagent_model'];
+
+// Makes one model the main agent's chat and subagent default.
+function setDefaultModels(userId, selectionId) {
+  const agentId = resolveAgentId(userId, null);
+  ensureDefaultAiSettings(userId, agentId);
+  for (const key of DEFAULT_MODEL_KEYS) {
+    upsertAgentSetting.run(userId, agentId, key, JSON.stringify(selectionId));
+  }
+}
+
+// Returns the main agent's defaults to 'auto' where they point at a provider
+// the user just disconnected.
+function releaseDefaultModels(userId, providerId) {
+  const agentId = resolveAgentId(userId, null);
+  const settings = getAiSettings(userId, agentId);
+  for (const key of DEFAULT_MODEL_KEYS) {
+    if (parseModelSelectionId(settings[key])?.provider === providerId) {
+      upsertAgentSetting.run(userId, agentId, key, JSON.stringify('auto'));
+    }
+  }
+}
+
 function ensureDefaultAiSettings(userId, agentId = null) {
   if (!userId) return createDefaultAiSettings();
   const scopedAgentId = resolveAgentId(userId, agentId);
@@ -321,6 +344,8 @@ module.exports = {
   getProviderSecrets,
   normalizeProviderConfigs,
   normalizeSystemOneModel,
+  releaseDefaultModels,
+  setDefaultModels,
   setProviderConfig,
   setProviderSecret,
 };

@@ -119,11 +119,12 @@ function isPermanentDiscoveryError(error) {
   return /401|403|unauthorized|forbidden|credits|spending/i.test(String(error?.message || ''));
 }
 
-async function loadProviderModels({ providerId, factory, apiKey, baseUrl, catalog, existing }) {
+async function loadProviderModels({ providerId, factory, userId, apiKey, baseUrl, catalog, existing }) {
   try {
     const config = {};
     if (factory.apiKey) config.apiKey = apiKey;
     if (factory.baseUrl) config.baseUrl = baseUrl;
+    if (factory.userId) config.userId = userId;
     const provider = new factory.Provider(config);
     const rawModels = await runDiscovery((signal) => CATALOG_LISTERS[catalog](provider, signal));
     if (providerId === 'openrouter') recordReferenceModels(rawModels);
@@ -143,6 +144,7 @@ async function loadProviderModels({ providerId, factory, apiKey, baseUrl, catalo
 async function refreshProviderModelList({
   providerId,
   factory,
+  userId = null,
   apiKey,
   baseUrl,
   catalog = 'llm',
@@ -154,7 +156,7 @@ async function refreshProviderModelList({
 
   let refresh = providerRefreshes.get(cacheKey);
   if (!refresh) {
-    refresh = loadProviderModels({ providerId, factory, apiKey, baseUrl, catalog, existing })
+    refresh = loadProviderModels({ providerId, factory, userId, apiKey, baseUrl, catalog, existing })
       .then((entry) => {
         providerModelCache.set(cacheKey, entry);
         return entry.models;

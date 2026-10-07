@@ -114,6 +114,17 @@ const AI_PROVIDER_DEFINITIONS = Object.freeze({
     defaultEnabled: false,
     defaultBaseUrl: 'https://chatgpt.com/backend-api/codex'
   },
+  chatgpt: {
+    id: 'chatgpt',
+    label: 'ChatGPT',
+    description: 'Models included in your ChatGPT plan. Connect by signing in with ChatGPT on the computer running NeoAgent.',
+    envKey: '',
+    authentication: 'oauth',
+    supportsApiKey: true,
+    supportsBaseUrl: false,
+    defaultEnabled: true,
+    defaultBaseUrl: ''
+  },
   'claude-code': {
     id: 'claude-code',
     label: 'Claude Code',
