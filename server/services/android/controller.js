@@ -486,12 +486,13 @@ class AndroidController {
     const starting = this.startPromise;
     if (starting) await starting.catch(() => {});
     const state = readState(this.userId);
+    const serial = this.liveAdbSerial();
     let adbStopError = null;
-    if (state.adbSerial) {
+    if (serial) {
       try {
         await runProcess(
           adbBin(this.sdkDir),
-          ['-s', state.adbSerial, 'emu', 'kill'],
+          ['-s', serial, 'emu', 'kill'],
           { timeoutMs: 5000, maxOutputBytes: 64 * 1024, signal: options.signal },
         );
       } catch (error) {
@@ -571,11 +572,11 @@ class AndroidController {
   }
 
   async adb(...args) {
-    const state = readState(this.userId);
+    const serial = this.#requireSerial();
     const adb = adbBin(this.sdkDir);
     const result = await runProcess(
       adb,
-      ['-s', state.adbSerial || this.adbSerial, ...args],
+      ['-s', serial, ...args],
       { timeoutMs: 60_000, maxOutputBytes: 16 * 1024 * 1024 },
     );
     return result.stdout;
@@ -889,10 +890,18 @@ class AndroidController {
 
   // ── Private helpers ───────────────────────────────────────────────────────
 
-  #requireSerial() {
+  // The constructor serial is only a port guess. Commands and streams use the
+  // serial this account actually started, and only while that process is alive.
+  liveAdbSerial() {
     const state = readState(this.userId);
-    if (!state.adbSerial) throw new Error('No emulator running');
+    if (!state.adbSerial || !this.#isPidAlive(state.pid)) return null;
     return state.adbSerial;
+  }
+
+  #requireSerial() {
+    const serial = this.liveAdbSerial();
+    if (!serial) throw new Error('No emulator running');
+    return serial;
   }
 
   #isPidAlive(pid) {

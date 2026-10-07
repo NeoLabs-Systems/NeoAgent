@@ -1,6 +1,8 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { after, before, test } = require('node:test');
 
 const { createTestRuntime, teardownTestRuntime } = require('../../helpers/db');
@@ -139,6 +141,29 @@ test('startEmulator exists for agent tools and waits for boot completion', async
   });
   assert.equal(calls[0].options.headless, false);
   assert.equal(calls[1].options.timeoutMs, 12_345);
+});
+
+test('live serial ignores the constructor port and a dead emulator process', () => {
+  const controller = new AndroidController({ userId: '7', sdkDir: ctx.dir });
+  assert.equal(controller.liveAdbSerial(), null);
+  assert.match(controller.adbSerial, /^emulator-/);
+
+  const { DATA_DIR } = require('../../../runtime/paths');
+  const statePath = path.join(DATA_DIR, 'android', 'state', '7.json');
+  fs.mkdirSync(path.dirname(statePath), { recursive: true });
+  fs.writeFileSync(statePath, JSON.stringify({
+    userId: '7',
+    pid: process.pid,
+    adbSerial: 'emulator-5600',
+  }));
+  assert.equal(controller.liveAdbSerial(), 'emulator-5600');
+
+  fs.writeFileSync(statePath, JSON.stringify({
+    userId: '7',
+    pid: 2 ** 30,
+    adbSerial: 'emulator-5600',
+  }));
+  assert.equal(controller.liveAdbSerial(), null);
 });
 
 test('pressKey rejects shell metacharacters', async () => {

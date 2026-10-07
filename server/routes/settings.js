@@ -328,8 +328,10 @@ router.delete('/byok/:providerId', byokWriteLimiter, (req, res) => {
     if (definition.supportsApiKey) {
       setProviderSecret(userId, providerId, '', agentId);
     }
-    if (!definition.supportsApiKey && definition.supportsBaseUrl) {
-      setProviderConfig(userId, providerId, { baseUrl: '', label: '' }, agentId);
+    if (definition.supportsBaseUrl) {
+      const updates = { baseUrl: '' };
+      if (!definition.supportsApiKey) updates.label = '';
+      setProviderConfig(userId, providerId, updates, agentId);
     }
     res.json({ success: true, configured: false });
   } catch (error) {
@@ -350,13 +352,22 @@ router.post('/byok/:providerId/test', byokWriteLimiter, async (req, res) => {
     return res.status(404).json({ success: false, error: 'Unknown provider.' });
   }
 
-  let apiKey = typeof req.body?.apiKey === 'string' ? req.body.apiKey.trim() : '';
-  let baseUrl = typeof req.body?.baseUrl === 'string' ? req.body.baseUrl.trim() : '';
-  if (!apiKey) {
+  const suppliedKey = typeof req.body?.apiKey === 'string' ? req.body.apiKey.trim() : '';
+  const suppliedUrl = typeof req.body?.baseUrl === 'string' ? req.body.baseUrl.trim() : '';
+  if (suppliedUrl && !suppliedKey && definition.supportsApiKey) {
+    return res.status(400).json({
+      success: false,
+      ok: false,
+      error: 'Testing a custom base URL requires the API key for that endpoint.',
+    });
+  }
+  let apiKey = suppliedKey;
+  let baseUrl = suppliedUrl;
+  if (!apiKey && !suppliedUrl) {
     const { getProviderRuntimeConfig } = require('../services/ai/models');
     const runtime = getProviderRuntimeConfig(userId, providerId, agentId);
     apiKey = runtime.apiKey;
-    baseUrl = baseUrl || runtime.baseUrl;
+    baseUrl = runtime.baseUrl;
   }
   if (definition.supportsApiKey && !apiKey) {
     return res.status(400).json({ success: false, ok: false, error: 'No API key to test.' });

@@ -172,10 +172,12 @@ function getProviderRuntimeConfig(userId, providerId, agentId = null) {
         ? Boolean(scopedApiKey)
         : Boolean(definition.supportsBaseUrl && configBaseUrl);
     const apiKey = scopedApiKey || accountApiKey || envApiKey;
+    // A stored user URL belongs to that user's own key. The server or account
+    // key is sent only to the operator-configured origin.
     const baseUrl = definition.supportsBaseUrl
         ? (isByok
             ? (configBaseUrl || envBaseUrl || definition.defaultBaseUrl || '')
-            : (envBaseUrl || configBaseUrl || definition.defaultBaseUrl || ''))
+            : (envBaseUrl || definition.defaultBaseUrl || ''))
         : '';
 
     return {

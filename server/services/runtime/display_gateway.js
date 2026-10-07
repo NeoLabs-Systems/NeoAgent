@@ -1,5 +1,6 @@
 'use strict';
 
+const net = require('net');
 const { WebSocket, WebSocketServer } = require('ws');
 const {
   createUpgradeLimiter,
@@ -54,43 +55,28 @@ function bindComputerDisplayGateway(httpServer, app, sessionMiddleware) {
       wss.handleUpgrade(req, socket, head, (client) => {
         const displayToken = url.searchParams.get('token');
         const displayUserId = req.session.userId;
-        const upstream = new WebSocket(target, ['binary'], {
-          maxPayload: MAX_DISPLAY_FRAME_BYTES,
-        });
-        let upstreamReady = false;
-        const pending = [];
-        client.on('message', (data, isBinary) => {
+        // QEMU serves raw RFB on a socket the guest cannot reach; this bridge is its only
+        // websocket, so every frame passes the display-session checks above.
+        const upstream = net.createConnection(target);
+        upstream.setNoDelay(true);
+        client.on('message', (data) => {
           if (!runtimeManager.isDisplaySessionActive(displayUserId, displayToken, displaySession)) {
             client.close(1008, 'Computer control changed');
             return;
           }
           runtimeManager.touchComputerActivity(displayUserId);
           runtimeManager.touchDisplaySession(displaySession);
-          if (!upstreamReady) {
-            if (pending.length < 32) pending.push([data, isBinary]);
-            return;
-          }
-          if (upstream.readyState === WebSocket.OPEN) upstream.send(data, { binary: isBinary });
+          if (!upstream.destroyed) upstream.write(data);
         });
-        upstream.once('open', () => {
-          upstreamReady = true;
-          for (const [data, isBinary] of pending.splice(0)) {
-            if (upstream.readyState === WebSocket.OPEN) upstream.send(data, { binary: isBinary });
-          }
-        });
-        upstream.on('message', (data, isBinary) => {
+        upstream.on('data', (chunk) => {
           if (client.readyState !== WebSocket.OPEN) return;
           runtimeManager.touchDisplaySession(displaySession);
-          client.send(data, { binary: isBinary });
+          client.send(chunk, { binary: true });
         });
         upstream.once('error', () => {
           if (client.readyState === WebSocket.OPEN) client.close(1011, 'Computer display unavailable');
         });
-        client.once('close', () => {
-          if (upstream.readyState === WebSocket.OPEN || upstream.readyState === WebSocket.CONNECTING) {
-            upstream.close();
-          }
-        });
+        client.once('close', () => upstream.destroy());
         upstream.once('close', () => {
           if (client.readyState === WebSocket.OPEN) client.close(1001, 'Computer display closed');
         });

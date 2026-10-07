@@ -71,4 +71,19 @@ function base64UrlSha256(value) {
     .replace(/=+$/g, '');
 }
 
-module.exports = { base64UrlSha256, sanitizeError, validateString, safeEqual };
+// JSON embedded in an inline <script>. JSON.stringify leaves "</script>"
+// intact, which ends the script element and runs whatever follows.
+function jsonForInlineScript(value) {
+  return JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, (ch) => {
+    switch (ch) {
+      case '<': return '\\u003c';
+      case '>': return '\\u003e';
+      case '&': return '\\u0026';
+      case '\u2028': return '\\u2028';
+      case '\u2029': return '\\u2029';
+      default: return ch;
+    }
+  });
+}
+
+module.exports = { base64UrlSha256, jsonForInlineScript, sanitizeError, validateString, safeEqual };

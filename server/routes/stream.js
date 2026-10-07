@@ -67,17 +67,17 @@ async function resolveStartDeviceId(platform, req) {
   if (platform === 'browser') return { deviceId: 'browser', controller: null };
   if (platform === 'android') {
     const controller = await androidController(req);
-    const status = typeof controller.getStatus === 'function'
-      ? await controller.getStatus().catch(() => ({}))
-      : {};
-    const adbSerial = String(status?.adbSerial || controller.adbSerial || '').trim();
-    if (rawDeviceId && adbSerial && rawDeviceId !== adbSerial) {
+    const adbSerial = String(controller.liveAdbSerial?.() || '').trim();
+    if (!adbSerial) {
+      const error = new Error('No emulator is running for this account.');
+      error.status = 409;
+      throw error;
+    }
+    if (rawDeviceId && rawDeviceId !== adbSerial) {
       const error = new Error('Android deviceId does not match the active emulator serial.');
       error.status = 400;
       throw error;
     }
-    if (rawDeviceId) return { deviceId: rawDeviceId, controller };
-    if (!adbSerial) throw new Error('Android deviceId is required when no emulator serial is available.');
     return { deviceId: adbSerial, controller };
   }
   if (rawDeviceId) return { deviceId: rawDeviceId, controller: null };
@@ -90,10 +90,7 @@ async function resolveStopDeviceId(platform, req) {
   if (platform === 'browser') return 'browser';
   if (platform === 'android') {
     const controller = await androidController(req);
-    const status = typeof controller.getStatus === 'function'
-      ? await controller.getStatus().catch(() => ({}))
-      : {};
-    const adbSerial = String(status?.adbSerial || controller.adbSerial || '').trim();
+    const adbSerial = String(controller.liveAdbSerial?.() || '').trim();
     if (adbSerial) return adbSerial;
   }
   const error = new Error('deviceId is required.');

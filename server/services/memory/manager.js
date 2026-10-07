@@ -2659,6 +2659,19 @@ class MemoryManager {
     return conversationId;
   }
 
+  // A client may continue only its own conversation; any other id is treated as missing.
+  assertOwnedConversation(userId, conversationId) {
+    const owned = db.prepare('SELECT id FROM conversations WHERE id = ? AND user_id = ?')
+      .get(String(conversationId), userId);
+    if (!owned) {
+      const error = new Error('Conversation not found.');
+      error.code = 'CONVERSATION_NOT_FOUND';
+      error.statusCode = 404;
+      throw error;
+    }
+    return owned.id;
+  }
+
   getDefaultWebConversationId(userId, options = {}) {
     const agentId = this._agentId(userId, options);
     return this.ensureConversation(userId, {

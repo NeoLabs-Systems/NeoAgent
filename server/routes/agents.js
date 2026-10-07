@@ -8,6 +8,7 @@ const { listRunEvents } = require('../services/ai/runEvents');
 const { listRunPromptTurns, getRunPromptTurn } = require('../services/ai/runtime/prompt_inspector');
 const { isInterimAssistantMetadata } = require('../services/ai/interim');
 const { buildAgentRunContext } = require('./_helpers/agentRunContext');
+const { clientRunOptions } = require('../utils/client_run_options');
 
 router.use(requireAuth);
 
@@ -274,22 +275,24 @@ router.post('/', async (req, res) => {
       }
     }
 
-    db.prepare('INSERT INTO conversation_history (user_id, agent_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)')
-      .run(req.session.userId, agentId, 'user', task, JSON.stringify({ platform: 'flutter' }));
-
     const engine = req.app?.locals?.agentEngine;
     const memoryManager = req.app?.locals?.memoryManager;
     if (!engine || !memoryManager) {
       return res.status(500).json({ error: 'Agent engine or memory manager is not initialized.' });
     }
-    const conversationId = options?.conversationId || memoryManager.getDefaultWebConversationId(req.session.userId, { agentId });
+    const conversationId = options?.conversationId
+      ? memoryManager.assertOwnedConversation(req.session.userId, options.conversationId)
+      : memoryManager.getDefaultWebConversationId(req.session.userId, { agentId });
+
+    db.prepare('INSERT INTO conversation_history (user_id, agent_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)')
+      .run(req.session.userId, agentId, 'user', task, JSON.stringify({ platform: 'flutter' }));
     const { priorMessages, priorSummary } = buildAgentRunContext({
       userId: req.session.userId,
       agentId,
       task,
     });
     const result = await engine.run(req.session.userId, task, {
-      ...(options || {}),
+      ...clientRunOptions(options),
       agentId,
       conversationId,
       priorMessages,
@@ -458,7 +461,7 @@ router.post('/multi-step', async (req, res) => {
       return res.status(500).json({ error: 'Multi-step orchestrator is not initialized.' });
     }
     const result = await multiStep.planAndExecute(req.session.userId, task, {
-      ...(options || {}),
+      ...clientRunOptions(options),
       agentId,
       requestedSteps: Array.isArray(steps) ? steps : [],
     });

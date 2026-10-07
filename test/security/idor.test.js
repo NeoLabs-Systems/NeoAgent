@@ -51,6 +51,18 @@ describe('IDOR protections', () => {
     assert.equal(ctx.db.prepare('SELECT COUNT(*) AS count FROM agent_runs WHERE id = ?').get('run-owned-by-a').count, 1);
   });
 
+  test('user cannot run an agent inside another user conversation', async () => {
+    const userA = await createTestUser(ctx.db, { username: 'idor_conv_a' });
+    const userB = await createTestUser(ctx.db, { username: 'idor_conv_b' });
+    const conversationId = app.locals.memoryManager.getDefaultWebConversationId(userA.userId);
+    const b = agent(app);
+    await loginAs(b, userB);
+    const response = await b.post('/api/agents')
+      .send({ task: 'continue', options: { conversationId } })
+      .expect(404);
+    assert.equal(response.body.code, 'CONVERSATION_NOT_FOUND');
+  });
+
   test('user cannot read or mutate another user MCP server', async () => {
     const userA = await createTestUser(ctx.db, { username: 'idor_mcp_a' });
     const userB = await createTestUser(ctx.db, { username: 'idor_mcp_b' });

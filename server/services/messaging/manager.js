@@ -708,7 +708,7 @@ class MessagingManager extends EventEmitter {
     const PlatformClass = this.platformTypes[platformName];
     if (!PlatformClass) throw new Error(`Unknown platform: ${platformName}`);
 
-    if (platformName === 'whatsapp' && !config.authDir) {
+    if (platformName === 'whatsapp') {
       config.authDir = this._scopedPlatformAuthDir(userId, agentId, platformName);
       this._maybeMigrateLegacyWhatsAppAuth(config.authDir);
     }

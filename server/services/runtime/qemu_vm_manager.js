@@ -171,7 +171,7 @@ function runChecked(command, args, options = {}) {
   return String(result.stdout || '').trim();
 }
 
-async function findVncDisplay() {
+async function findVncPort() {
   for (let display = 10; display < 100; display += 1) {
     const port = 5900 + display;
     const available = await new Promise((resolve) => {
@@ -180,18 +180,33 @@ async function findVncDisplay() {
       server.once('error', () => resolve(false));
       server.listen(port, '127.0.0.1', () => server.close(() => resolve(true)));
     });
-    if (available) return { display, port };
+    if (available) return port;
   }
   throw new Error('No loopback VNC display is available.');
 }
 
-// QEMU opens its VNC websocket a moment after the process exists. Handing out a display
+// The guest reaches host loopback through 10.0.2.2, so QEMU's control and display sockets
+// live in the instance directory where no guest can connect. sockaddr_un caps a UNIX socket
+// path at 104 bytes, and QEMU refuses to start when the instance directory pushes it past
+// that, so a deep runtime home falls back to a loopback port.
+async function instanceSocketAddress(instanceDir, name, findFallbackPort) {
+  const socketPath = path.join(instanceDir, name);
+  if (process.platform === 'win32' || Buffer.byteLength(socketPath) >= 104) return findFallbackPort();
+  fs.rmSync(socketPath, { force: true });
+  return socketPath;
+}
+
+function socketConnectOptions(address) {
+  return typeof address === 'number' ? { host: '127.0.0.1', port: address } : { path: address };
+}
+
+// QEMU opens its VNC server a moment after the process exists. Handing out a display
 // session before then means the first viewer to connect is refused and sees nothing, so
-// the computer is not considered started until the port answers.
-function waitForLoopbackPort(port, timeoutMs, options = {}) {
+// the computer is not considered started until the socket answers.
+function waitForSocket(address, timeoutMs, options = {}) {
   const deadline = Date.now() + timeoutMs;
   const attempt = () => new Promise((resolve) => {
-    const socket = net.createConnection({ host: '127.0.0.1', port });
+    const socket = net.createConnection(socketConnectOptions(address));
     const finish = (reachable) => {
       socket.destroy();
       resolve(reachable);
@@ -471,8 +486,7 @@ function buildQemuArgs({
   seedImage,
   guestAgentPort,
   hostAgentPort,
-  vncDisplay,
-  websocketPort,
+  vncSocket,
   qmpSocket,
   qemuDataDirectory,
   armFirmwareVariables = null,
@@ -537,7 +551,9 @@ function buildQemuArgs({
     '-netdev', `user,id=net0,hostfwd=tcp:127.0.0.1:${hostAgentPort}-:${guestAgentPort}`,
     '-device', 'virtio-net-pci,netdev=net0,romfile=',
     '-display', 'none',
-    '-vnc', `127.0.0.1:${vncDisplay},websocket=127.0.0.1:${websocketPort}`,
+    '-vnc', typeof vncSocket === 'number'
+      ? `127.0.0.1:${vncSocket - 5900}`
+      : `unix:${vncSocket}`,
     '-qmp', typeof qmpSocket === 'number'
       ? `tcp:127.0.0.1:${qmpSocket},server=on,wait=off`
       : `unix:${qmpSocket},server=on,wait=off`,
@@ -595,9 +611,7 @@ async function terminateOrphanedVm(pid) {
 
 function requestQmpCommand(qmpSocket, execute, args = undefined, timeoutMs = 30000) {
   return new Promise((resolve, reject) => {
-    const socket = typeof qmpSocket === 'number'
-      ? net.createConnection({ host: '127.0.0.1', port: qmpSocket })
-      : net.createConnection(qmpSocket);
+    const socket = net.createConnection(socketConnectOptions(qmpSocket));
     let settled = false;
     let buffer = '';
     let capabilitiesReady = false;
@@ -991,15 +1005,8 @@ class QemuVMManager {
     }
 
     const hostAgentPort = await findAvailablePort();
-    const websocketPort = await findAvailablePort();
-    const vnc = await findVncDisplay();
-    // sockaddr_un caps a UNIX socket path at 104 bytes, and QEMU refuses to start when the
-    // instance directory pushes it past that, so a deep runtime home falls back to loopback.
-    const instanceQmpSocket = path.join(instanceDir, 'qmp.sock');
-    const qmpSocket = process.platform === 'win32' || Buffer.byteLength(instanceQmpSocket) >= 104
-      ? await findAvailablePort()
-      : instanceQmpSocket;
-    if (typeof qmpSocket === 'string') fs.rmSync(qmpSocket, { force: true });
+    const vncSocket = await instanceSocketAddress(instanceDir, 'vnc.sock', findVncPort);
+    const qmpSocket = await instanceSocketAddress(instanceDir, 'qmp.sock', findAvailablePort);
     const guestTokenPath = path.join(instanceDir, 'guest-token');
     let guestToken = fs.existsSync(guestTokenPath)
       ? fs.readFileSync(guestTokenPath, 'utf8').trim()
@@ -1065,8 +1072,7 @@ class QemuVMManager {
       seedImage: seed.seedImagePath,
       guestAgentPort: this.guestAgentPort,
       hostAgentPort,
-      vncDisplay: vnc.display,
-      websocketPort,
+      vncSocket,
       qmpSocket,
       qemuDataDirectory: this.qemuDataDirectory,
       armFirmwareVariables,
@@ -1090,11 +1096,7 @@ class QemuVMManager {
       state: 'starting',
       resources,
       accelerator: this.accelerators[0],
-      display: {
-        websocketUrl: `ws://127.0.0.1:${websocketPort}`,
-        websocketPort,
-        vncPort: vnc.port,
-      },
+      display: { target: socketConnectOptions(vncSocket) },
       qmpSocket,
       startedAt: new Date().toISOString(),
       directBoot: Boolean(kernelImage && initrdImage),
@@ -1124,13 +1126,13 @@ class QemuVMManager {
       }
       this.onVmStopped?.(key);
     });
-    const displayReady = await waitForLoopbackPort(websocketPort, 10000, {
+    const displayReady = await waitForSocket(vncSocket, 10000, {
       isDead: () => spawnFailed || child.exitCode != null || child.killed,
     });
     if (!displayReady) {
       const reason = session.lastError
         || (isProcessAlive(child)
-          ? 'QEMU display websocket did not become reachable.'
+          ? 'QEMU display did not become reachable.'
           : 'QEMU exited before the display was reachable.');
       const error = new Error(composeQemuFailure(reason, logPath));
       error.code = 'COMPUTER_START_FAILED';
@@ -1211,5 +1213,5 @@ module.exports = {
   resolveQemuDataDirectory,
   resolveQemuSystemBinary,
   selectAccelerators,
-  waitForLoopbackPort,
+  waitForSocket,
 };

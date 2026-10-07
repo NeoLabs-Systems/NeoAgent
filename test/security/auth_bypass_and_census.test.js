@@ -39,6 +39,7 @@ const PUBLIC_ROUTES = new Set([
 
 const INTENTIONALLY_UNTESTED = new Map([
   ['GET /api/integrations/oauth/callback', 'OAuth callback depends on provider state.'],
+  ['GET /api/integrations/oauth/callback/confirm', 'Releases a held OAuth callback with its one-time confirmation token.'],
   ['GET /api/integrations/qr-image', 'QR image generation is covered by integration service tests.'],
   ['GET /api/integrations/:provider/connect/:sessionId', 'OAuth popup HTML flow.'],
   ['GET /api/integrations/:provider/connect/:sessionId/status', 'OAuth popup polling flow.'],

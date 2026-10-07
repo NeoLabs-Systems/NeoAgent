@@ -176,6 +176,21 @@ class AuthProviderManager {
     ).run(String(message || 'Authentication failed.'), nowIso(), stateRow.id);
   }
 
+  // What a person is approving when a held callback asks for confirmation.
+  describePendingAuthorization(state) {
+    const stateRow = this.#getStateRow(state);
+    if (!stateRow) return null;
+    const linkedUser = stateRow.user_id
+      ? db.prepare('SELECT username FROM users WHERE id = ?').get(stateRow.user_id)
+      : null;
+    return {
+      providerLabel: this.getProvider(stateRow.provider_key)?.label || stateRow.provider_key,
+      mode: stateRow.mode,
+      username: linkedUser?.username || null,
+      startedAt: stateRow.created_at,
+    };
+  }
+
   // `callback` holds the redirect's parameters: always `code`, plus whatever
   // else the provider's callback transport collected.
   async finishAuthorization(state, callback) {

@@ -2,6 +2,7 @@ const { randomUUID } = require('crypto');
 const db = require('../db/database');
 const { sanitizeError } = require('../utils/security');
 const { asObject, toOptionalString } = require('../utils/text');
+const { clientRunOptions } = require('../utils/client_run_options');
 const { listRunEvents } = require('./ai/runEvents');
 const { resolveAgentId } = require('./agents/manager');
 
@@ -228,15 +229,8 @@ function setupWebSocket(io, services) {
         const options = asObject(data.options);
         const task = typeof data.task === 'string' ? data.task : '';
         requestedConversationId = toOptionalString(options.conversationId, 128);
-        const requestedConversation = requestedConversationId
-          ? db.prepare(
-            'SELECT * FROM conversations WHERE id = ? AND user_id = ?',
-          ).get(requestedConversationId, userId)
-          : null;
-        if (requestedConversationId && !requestedConversation) {
-          const error = new Error('Conversation not found.');
-          error.code = 'CONVERSATION_NOT_FOUND';
-          throw error;
+        if (requestedConversationId) {
+          memoryManager.assertOwnedConversation(userId, requestedConversationId);
         }
         const agentId = resolveAgentFromPayload(userId, {
           ...options,
@@ -326,7 +320,7 @@ function setupWebSocket(io, services) {
 
         runId = randomUUID();
         const result = await agentEngine.run(userId, task, {
-          ...options,
+          ...clientRunOptions(options),
           runId,
           agentId,
           conversationId,

@@ -32,6 +32,7 @@ const {
   createChallenge,
   getChallengeStatusForPoll,
 } = require('../services/account/qr_login');
+const { bindOAuthState, isOAuthStateBound } = require('../services/account/oauth_handoff');
 const {
   beginLogin: beginWebAuthnLogin,
   completeLogin: completeWebAuthnLogin,
@@ -328,6 +329,7 @@ router.post('/api/auth/providers/:provider/begin', authLimiter, async (req, res)
       userId: mode === 'link' ? req.session?.userId || null : null,
       context: authRequestContext(req),
     });
+    bindOAuthState(req.session, result.state);
     res.json(result);
   } catch (error) {
     res.status(400).json({ error: error.message || 'Provider sign-in failed.' });
@@ -341,6 +343,10 @@ router.get('/api/auth/providers/complete', async (req, res) => {
       throw new Error('Provider sign-in is not available.');
     }
     const state = String(req.query?.state || '').trim();
+    // Only the client that started the sign-in may collect its result.
+    if (!isOAuthStateBound(req.session, state)) {
+      return res.status(404).json({ error: 'Authentication request was not found or has expired.' });
+    }
     const completion = authProviderManager.consumeAuthorization(state);
     if (completion.status === 'pending') {
       return res.json(completion);

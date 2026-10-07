@@ -213,7 +213,7 @@ test('startComputer returns when QEMU is up and does not wait for the guest desk
   const session = {
     state: 'starting',
     startedAt: new Date().toISOString(),
-    display: { websocketUrl: 'ws://127.0.0.1:16080' },
+    display: { target: { path: '/runtime/7/vnc.sock' } },
   };
   let guestWaitStarted = false;
   const manager = new RuntimeManager({
@@ -240,7 +240,7 @@ test('computer startup keeps repairing the desktop after the HTTP client disconn
   const session = {
     state: 'starting',
     startedAt: new Date().toISOString(),
-    display: { websocketUrl: 'ws://127.0.0.1:16080' },
+    display: { target: { path: '/runtime/7/vnc.sock' } },
     desktop: null,
   };
   const controller = new AbortController();
@@ -305,7 +305,7 @@ test('opening a display session does not relaunch the guest browser or repair th
   const session = {
     state: 'ready',
     startedAt: new Date().toISOString(),
-    display: { websocketUrl: 'ws://127.0.0.1:16080' },
+    display: { target: { path: '/runtime/7/vnc.sock' } },
     desktop: { available: true, error: null },
   };
   let browserLaunches = 0;
@@ -339,7 +339,7 @@ test('opening a display session does not relaunch the guest browser or repair th
 
 test('display sessions come up even when workspace import fails', async () => {
   const session = {
-    display: { websocketUrl: 'ws://127.0.0.1:16080' },
+    display: { target: { path: '/runtime/7/vnc.sock' } },
     instanceDir: '/tmp/neoagent-computer-test',
     startedAt: new Date().toISOString(),
     state: 'starting',
@@ -384,7 +384,7 @@ test('startComputer completes guest desktop bring-up in the background', async (
   const session = {
     state: 'starting',
     startedAt: new Date().toISOString(),
-    display: { websocketUrl: 'ws://127.0.0.1:16080' },
+    display: { target: { path: '/runtime/7/vnc.sock' } },
   };
   let desktopEnsures = 0;
   const manager = new RuntimeManager({
@@ -405,7 +405,7 @@ test('startComputer completes guest desktop bring-up in the background', async (
 test('display sessions are user-scoped, lease-aware, and revoked on control changes', () => {
   const computerBackend = {
     vmManager: {
-      instances: new Map([['7', { display: { websocketUrl: 'ws://127.0.0.1:16080' } }]]),
+      instances: new Map([['7', { display: { target: { path: '/runtime/7/vnc.sock' } } }]]),
       getStatus: () => ({ state: 'ready' }),
     },
     touchActivity() {},
@@ -431,7 +431,7 @@ test('agent control kicks the user off the interactive display', () => {
   const manager = new RuntimeManager({
     computerBackend: {
       vmManager: {
-        instances: new Map([['7', { display: { websocketUrl: 'ws://127.0.0.1:16080' } }]]),
+        instances: new Map([['7', { display: { target: { path: '/runtime/7/vnc.sock' } } }]]),
         getStatus: () => ({ state: 'ready' }),
       },
       touchActivity() {},
@@ -449,7 +449,7 @@ test('agent control kicks the user off the interactive display', () => {
 });
 
 test('a display session follows the computer instead of a fixed address', () => {
-  const instances = new Map([['7', { display: { websocketUrl: 'ws://127.0.0.1:16080' } }]]);
+  const instances = new Map([['7', { display: { target: { path: '/runtime/7/vnc.sock' } } }]]);
   const vmManager = { instances, getStatus: () => ({ state: 'ready' }) };
   const manager = new RuntimeManager({
     computerBackend: { vmManager, touchActivity() {} },
@@ -458,18 +458,18 @@ test('a display session follows the computer instead of a fixed address', () => 
   const display = manager.createDisplaySession(7);
   const stored = manager.displaySessions.get(display.token);
   assert.equal(stored.target, undefined);
-  assert.equal(manager.getDisplayTarget(7), 'ws://127.0.0.1:16080');
+  assert.deepEqual(manager.getDisplayTarget(7), { path: '/runtime/7/vnc.sock' });
 
   // The computer restarts and listens somewhere else.
-  instances.set('7', { display: { websocketUrl: 'ws://127.0.0.1:17099' } });
-  assert.equal(manager.getDisplayTarget(7), 'ws://127.0.0.1:17099');
+  instances.set('7', { display: { target: { path: '/runtime/7b/vnc.sock' } } });
+  assert.deepEqual(manager.getDisplayTarget(7), { path: '/runtime/7b/vnc.sock' });
 
   instances.delete('7');
   assert.equal(manager.getDisplayTarget(7), null);
 });
 
 test('a computer that died is not handed out as a display target', () => {
-  const instances = new Map([['7', { display: { websocketUrl: 'ws://127.0.0.1:16080' } }]]);
+  const instances = new Map([['7', { display: { target: { path: '/runtime/7/vnc.sock' } } }]]);
   let alive = true;
   const manager = new RuntimeManager({
     computerBackend: {
@@ -477,7 +477,7 @@ test('a computer that died is not handed out as a display target', () => {
       touchActivity() {},
     },
   });
-  assert.equal(manager.getDisplayTarget(7), 'ws://127.0.0.1:16080');
+  assert.deepEqual(manager.getDisplayTarget(7), { path: '/runtime/7/vnc.sock' });
 
   // The process is gone but its exit event has not been delivered yet.
   alive = false;
@@ -487,7 +487,7 @@ test('a computer that died is not handed out as a display target', () => {
 
 test('viewers are dropped when the computer they watch stops', () => {
   const vmManager = {
-    instances: new Map([['7', { display: { websocketUrl: 'ws://127.0.0.1:16080' } }]]),
+    instances: new Map([['7', { display: { target: { path: '/runtime/7/vnc.sock' } } }]]),
     getStatus: () => ({ state: 'ready' }),
   };
   const manager = new RuntimeManager({
@@ -503,7 +503,7 @@ test('viewers are dropped when the computer they watch stops', () => {
 test('a connected display session does not expire underneath the viewer', () => {
   const computerBackend = {
     vmManager: {
-      instances: new Map([['7', { display: { websocketUrl: 'ws://127.0.0.1:16080' } }]]),
+      instances: new Map([['7', { display: { target: { path: '/runtime/7/vnc.sock' } } }]]),
       getStatus: () => ({ state: 'ready' }),
     },
     touchActivity() {},

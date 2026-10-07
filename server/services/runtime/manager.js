@@ -517,7 +517,7 @@ class RuntimeManager {
     // A computer that has died is still in the instance map until its exit event lands, and
     // its address is already refusing connections, so ask whether it is actually alive.
     if (typeof vmManager.hasVm === 'function' && !vmManager.hasVm(key)) return null;
-    return vmManager.instances.get(key)?.display?.websocketUrl || null;
+    return vmManager.instances.get(key)?.display?.target || null;
   }
 
   resolveDisplaySession(userId, token) {

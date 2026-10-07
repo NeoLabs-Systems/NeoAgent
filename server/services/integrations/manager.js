@@ -361,7 +361,26 @@ class IntegrationManager {
       provider: provider.key,
       appId: appKey,
       status: 'oauth_redirect',
+      state,
       url,
+    };
+  }
+
+  // What a person is approving when a held callback asks for confirmation.
+  describePendingOAuth(state) {
+    const row = db.prepare(
+      `SELECT s.provider_key, s.app_key, s.created_at, u.username
+       FROM integration_oauth_states s
+       JOIN users u ON u.id = s.user_id
+       WHERE s.state = ? AND datetime(s.expires_at) > datetime('now')`,
+    ).get(String(state || ''));
+    if (!row) return null;
+    const provider = this.getProvider(row.provider_key);
+    return {
+      providerLabel: provider?.label || row.provider_key,
+      appLabel: provider?.getApp?.(row.app_key)?.label || null,
+      username: row.username,
+      startedAt: row.created_at,
     };
   }
 
