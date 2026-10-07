@@ -11378,4 +11378,27 @@ class AppL10nEn extends AppL10n {
   String triggerResultCountArg1(Object? arg1) {
     return '$arg1 triggers';
   }
+
+  @override
+  String get addFromSkillsSh => 'Add from skills.sh';
+
+  @override
+  String get skillsShHint =>
+      'Search above to find skills on skills.sh, or paste a skills.sh link or an `npx skills add` command.';
+
+  @override
+  String get noSkillsShMatches => 'No skills.sh skills match this search.';
+
+  @override
+  String get installingSkill => 'Installing…';
+
+  @override
+  String installedSkillArg1(Object? arg1) {
+    return 'Installed $arg1';
+  }
+
+  @override
+  String skillsShInstallsArg1(Object? arg1) {
+    return '$arg1 installs';
+  }
 }

@@ -62,11 +62,12 @@ function addRun(engine, runId, overrides = {}) {
   return engine.activeRuns.get(runId);
 }
 
-test('only owner chat runs started by the user can move to the background', () => {
+test('only runs the owner started in chat or a call can move to the background', () => {
   assert.equal(isBackgroundEligible({ triggerType: 'user', triggerSource: 'web' }), true);
   assert.equal(isBackgroundEligible({ triggerType: 'user', triggerSource: 'messaging', memoryAudience: 'owner' }), true);
   assert.equal(isBackgroundEligible({ triggerType: 'user', triggerSource: 'messaging', memoryAudience: 'shared' }), false);
-  assert.equal(isBackgroundEligible({ triggerType: 'user', triggerSource: 'voice_live' }), false);
+  assert.equal(isBackgroundEligible({ triggerType: 'user', triggerSource: 'voice_live' }), true);
+  assert.equal(isBackgroundEligible({ triggerType: 'user', triggerSource: 'schedule' }), false);
   assert.equal(isBackgroundEligible({ triggerType: 'subagent', triggerSource: 'web' }), false);
 });
 
@@ -125,6 +126,11 @@ test('foreground runs see background work of the same agent only', async () => {
   const runs = listBackgroundRuns(engine, { userId: 1, agentId: 'agent-1', excludeRunId: 'foreground' });
   assert.deepEqual(runs.map((run) => run.run_id), ['research']);
   assert.deepEqual(runs[0].recent_steps.map((step) => step.status), ['completed', 'running']);
+  // A live call has no foreground of its own and sees the chat's too.
+  assert.deepEqual(
+    listBackgroundRuns(engine, { userId: 1, agentId: 'agent-1', includeForeground: true }).map((run) => run.run_id),
+    ['research', 'foreground'],
+  );
 
   const note = buildBackgroundRunsNote(runs);
   assert.match(note, /run_id research/);

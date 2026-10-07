@@ -7084,5 +7084,25 @@
         "type": "Object?"
       }
     }
+  },
+  "addFromSkillsSh": "Add from skills.sh",
+  "skillsShHint": "Search above to find skills on skills.sh, or paste a skills.sh link or an `npx skills add` command.",
+  "noSkillsShMatches": "No skills.sh skills match this search.",
+  "installingSkill": "Installing…",
+  "installedSkillArg1": "Installed {arg1}",
+  "@installedSkillArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "skillsShInstallsArg1": "{arg1} installs",
+  "@skillsShInstallsArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
   }
 }

@@ -66,7 +66,7 @@ neoagent env set SESSION_SECRET "$(openssl rand -hex 32)"
 | `BRAVE_SEARCH_API_KEY` | Web search |
 | `DEEPGRAM_API_KEY` | Voice-note and dictation transcription |
 | `VOICE_LIVE_PROVIDER` | Default live voice model provider: `openai` (GPT-Live, default) or `google` (Gemini Live) |
-| `VOICE_LIVE_MODEL` | Default live voice model; blank uses `gpt-live-1` or `gemini-3.8-live` |
+| `VOICE_LIVE_MODEL` | Default live voice model; blank uses the newest released live model the provider's model list shows |
 | `VOICE_LIVE_VOICE` | Default live voice; blank uses the provider's default voice |
 
 Account-backed model providers use `neoagent login`, not these API-key fields.

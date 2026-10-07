@@ -18,12 +18,19 @@ class ToolsPanel extends StatefulWidget {
 
 class _ToolsPanelState extends State<ToolsPanel> {
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
   late _ToolsSegment _segment;
   late AppSection _lastSection;
   String _query = '';
   String _skillStatus = 'all';
   String _skillSource = 'all';
   String _storeCategory = 'all';
+  Timer? _skillsShDebounce;
+  int _skillsShRequest = 0;
+  String _skillsShQuery = '';
+  List<SkillsShItem> _skillsShResults = const <SkillsShItem>[];
+  bool _skillsShLoading = false;
+  String? _skillsShError;
 
   @override
   void initState() {
@@ -32,6 +39,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
     _segment = _segmentForSection(_lastSection);
     _searchController.addListener(() {
       setState(() => _query = _searchController.text.trim().toLowerCase());
+      _scheduleSkillsShSearch();
     });
   }
 
@@ -47,8 +55,60 @@ class _ToolsPanelState extends State<ToolsPanel> {
 
   @override
   void dispose() {
+    _skillsShDebounce?.cancel();
     _searchController.dispose();
+    _searchFocus.dispose();
     super.dispose();
+  }
+
+  /// skills.sh is searched only where its results show: the overview and the
+  /// Store segment.
+  bool get _showsSkillsSh =>
+      _segment == _ToolsSegment.all || _segment == _ToolsSegment.store;
+
+  void _scheduleSkillsShSearch() {
+    final query = _searchController.text.trim();
+    if (!_showsSkillsSh || query == _skillsShQuery) return;
+    _skillsShDebounce?.cancel();
+    _skillsShQuery = query;
+    if (query.length < 2) {
+      setState(() {
+        _skillsShResults = const <SkillsShItem>[];
+        _skillsShLoading = false;
+        _skillsShError = null;
+      });
+      return;
+    }
+    setState(() => _skillsShLoading = true);
+    _skillsShDebounce = Timer(
+      const Duration(milliseconds: 350),
+      () => _runSkillsShSearch(query),
+    );
+  }
+
+  Future<void> _runSkillsShSearch(String query) async {
+    final request = ++_skillsShRequest;
+    try {
+      final results = await widget.controller.searchSkillsSh(query);
+      if (!mounted || request != _skillsShRequest) return;
+      setState(() {
+        _skillsShResults = results;
+        _skillsShError = null;
+        _skillsShLoading = false;
+      });
+    } catch (error) {
+      if (!mounted || request != _skillsShRequest) return;
+      setState(() {
+        _skillsShResults = const <SkillsShItem>[];
+        _skillsShError = formatCaughtError(error);
+        _skillsShLoading = false;
+      });
+    }
+  }
+
+  void _browseSkillsSh() {
+    _selectSegment(_ToolsSegment.store);
+    _searchFocus.requestFocus();
   }
 
   /// The sidebar's "Tools" entry is [AppSection.integrations] and opens the
@@ -148,6 +208,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
 
   void _selectSegment(_ToolsSegment segment) {
     setState(() => _segment = segment);
+    _scheduleSkillsShSearch();
   }
 
   @override
@@ -172,10 +233,14 @@ class _ToolsPanelState extends State<ToolsPanel> {
                 title: 'Tools',
                 subtitle:
                     appStrings.everythingTheAgentCanUseOfficial,
-                trailing: _ToolsAddMenu(controller: controller),
+                trailing: _ToolsAddMenu(
+                  controller: controller,
+                  onBrowseSkillsSh: _browseSkillsSh,
+                ),
               ),
               TextField(
                 controller: _searchController,
+                focusNode: _searchFocus,
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
                   hintText: appStrings.searchToolsIntegrationsAndSkills,
@@ -197,11 +262,13 @@ class _ToolsPanelState extends State<ToolsPanel> {
                       integrations.length +
                       servers.length +
                       skills.length +
-                      storeSkills.length,
+                      storeSkills.length +
+                      _skillsShResults.length,
                   _ToolsSegment.integrations: integrations.length,
                   _ToolsSegment.mcp: servers.length,
                   _ToolsSegment.skills: skills.length,
-                  _ToolsSegment.store: storeSkills.length,
+                  _ToolsSegment.store:
+                      storeSkills.length + _skillsShResults.length,
                 },
                 onSelected: _selectSegment,
               ),
@@ -249,6 +316,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
             'learned',
             'user',
             'store',
+            'skills.sh',
           ],
           onSelected: (value) => setState(() => _skillSource = value),
         ),
@@ -378,6 +446,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
               .toList(),
         ),
       );
+      children.addAll(_buildSkillsShGroup(controller, overview: overview));
     }
 
     if (children.isEmpty) {
@@ -391,6 +460,45 @@ class _ToolsPanelState extends State<ToolsPanel> {
       );
     }
     return children;
+  }
+
+  List<Widget> _buildSkillsShGroup(
+    NeoAgentController controller, {
+    required bool overview,
+  }) {
+    if (_skillsShQuery.length < 2) {
+      return overview
+          ? const <Widget>[]
+          : <Widget>[
+              _ToolsSectionHeader(title: 'skills.sh', count: 0),
+              _EmptyCard(
+                title: appStrings.addFromSkillsSh,
+                subtitle: appStrings.skillsShHint,
+              ),
+            ];
+    }
+    if (_skillsShLoading && _skillsShResults.isEmpty) {
+      return <Widget>[
+        _ToolsSectionHeader(title: 'skills.sh', count: 0),
+        const LinearProgressIndicator(),
+        const SizedBox(height: 26),
+      ];
+    }
+    return _buildGroup(
+      segment: _ToolsSegment.store,
+      title: 'skills.sh',
+      emptyMessage: _skillsShError ?? appStrings.noSkillsShMatches,
+      overview: overview,
+      tiles: _skillsShResults
+          .map(
+            (item) => _SkillsShTile(
+              key: ValueKey<String>(item.id),
+              controller: controller,
+              item: item,
+            ),
+          )
+          .toList(),
+    );
   }
 
   /// One titled group of rows. In the overview only the first few rows show,
@@ -435,9 +543,13 @@ class _ToolsPanelState extends State<ToolsPanel> {
 }
 
 class _ToolsAddMenu extends StatelessWidget {
-  const _ToolsAddMenu({required this.controller});
+  const _ToolsAddMenu({
+    required this.controller,
+    required this.onBrowseSkillsSh,
+  });
 
   final NeoAgentController controller;
+  final VoidCallback onBrowseSkillsSh;
 
   @override
   Widget build(BuildContext context) {
@@ -459,6 +571,11 @@ class _ToolsAddMenu extends StatelessWidget {
           leadingIcon: Icon(Icons.auto_awesome_outlined, size: 18),
           onPressed: () => _openCreateSkill(context, controller),
           child: Text(appStrings.newSkill),
+        ),
+        MenuItemButton(
+          leadingIcon: Icon(Icons.travel_explore_rounded, size: 18),
+          onPressed: onBrowseSkillsSh,
+          child: Text(appStrings.addFromSkillsSh),
         ),
       ],
     );
@@ -1022,6 +1139,112 @@ class _StoreSkillTile extends StatelessWidget {
       onTap: () => _openStoreSkillDetail(context, controller, item, icon),
     );
   }
+}
+
+/// A skills.sh search hit. Installing makes it a regular user skill, so once
+/// installed it opens the same detail view as any other skill.
+class _SkillsShTile extends StatefulWidget {
+  const _SkillsShTile({
+    super.key,
+    required this.controller,
+    required this.item,
+  });
+
+  final NeoAgentController controller;
+  final SkillsShItem item;
+
+  @override
+  State<_SkillsShTile> createState() => _SkillsShTileState();
+}
+
+class _SkillsShTileState extends State<_SkillsShTile> {
+  late String _installedName = widget.item.installedName;
+  bool _installing = false;
+
+  Future<void> _install() async {
+    setState(() => _installing = true);
+    try {
+      final name = await widget.controller.installSkillsShSkill(widget.item);
+      if (!mounted) return;
+      setState(() => _installedName = name);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(appStrings.installedSkillArg1(name))),
+      );
+    } catch (error) {
+      if (mounted) _showFormError(context, formatCaughtError(error));
+    } finally {
+      if (mounted) setState(() => _installing = false);
+    }
+  }
+
+  void _open(Widget icon) {
+    if (_installedName.isEmpty) {
+      url_launcher.launchUrl(
+        Uri.parse('https://skills.sh/${widget.item.id}'),
+        mode: url_launcher.LaunchMode.externalApplication,
+      );
+      return;
+    }
+    _showToolDetail(
+      context,
+      icon: icon,
+      title: _installedName,
+      subtitle: appStrings.skill,
+      child: SkillDetailView(
+        controller: widget.controller,
+        skillName: _installedName,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    final installed = _installedName.isNotEmpty;
+    final color = _toolAccentFor(item.name);
+    final icon = _ToolIconTile(
+      color: color,
+      child: Text(
+        item.name.isEmpty ? '?' : item.name[0].toUpperCase(),
+        style: TextStyle(
+          color: color,
+          fontSize: 20,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+    return _ToolTile(
+      icon: icon,
+      title: item.name,
+      subtitle: item.source,
+      statusColor: installed ? _success : null,
+      meta: <String>[
+        if (installed) 'Installed',
+        if (item.installs != null)
+          appStrings.skillsShInstallsArg1(_formatInstallCount(item.installs!)),
+      ],
+      trailing: _ToolActionButton(
+        label: installed
+            ? appStrings.open
+            : _installing
+            ? appStrings.installingSkill
+            : 'Get',
+        primary: !installed,
+        onPressed: _installing
+            ? null
+            : installed
+            ? () => _open(icon)
+            : _install,
+      ),
+      onTap: () => _open(icon),
+    );
+  }
+}
+
+String _formatInstallCount(int count) {
+  if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
+  if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}K';
+  return '$count';
 }
 
 /// Wide store card used by the Discover strip on the overview.

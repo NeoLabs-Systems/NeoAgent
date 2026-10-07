@@ -11515,4 +11515,28 @@ class AppL10nDe extends AppL10n {
   String triggerResultCountArg1(Object? arg1) {
     return '$arg1 Auslöser';
   }
+
+  @override
+  String get addFromSkillsSh => 'Von skills.sh hinzufügen';
+
+  @override
+  String get skillsShHint =>
+      'Suchen Sie oben nach Skills auf skills.sh oder fügen Sie einen skills.sh-Link oder einen `npx skills add`-Befehl ein.';
+
+  @override
+  String get noSkillsShMatches =>
+      'Keine skills.sh-Skills passen zu dieser Suche.';
+
+  @override
+  String get installingSkill => 'Wird installiert…';
+
+  @override
+  String installedSkillArg1(Object? arg1) {
+    return '$arg1 installiert';
+  }
+
+  @override
+  String skillsShInstallsArg1(Object? arg1) {
+    return '$arg1 Installationen';
+  }
 }

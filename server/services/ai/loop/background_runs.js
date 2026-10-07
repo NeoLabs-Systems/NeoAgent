@@ -10,10 +10,14 @@ const RECENT_STEP_LIMIT = 5;
 // The chat is free again: the next message starts a new foreground run that
 // sees the background work and can check on, instruct, or cancel it. The
 // background run keeps its own progress updates and delivers its own result.
+// A live voice call hands work off and keeps talking, so its runs are
+// background work from the start.
+
+const OWNER_SURFACES = new Set(['web', 'messaging', 'voice_live']);
 
 function isBackgroundEligible({ triggerType, triggerSource, memoryAudience }) {
   return triggerType === 'user'
-    && (triggerSource === 'web' || triggerSource === 'messaging')
+    && OWNER_SURFACES.has(triggerSource)
     && memoryAudience !== 'shared';
 }
 
@@ -67,10 +71,13 @@ function describeRun(runId, runMeta) {
   };
 }
 
-function listBackgroundRuns(engine, { userId, agentId, excludeRunId = null }) {
+// A live voice call has no foreground of its own, so it also sees the chat
+// run that is still in the foreground (includeForeground).
+function listBackgroundRuns(engine, { userId, agentId, excludeRunId = null, includeForeground = false }) {
   const runs = [];
   for (const [runId, runMeta] of engine.activeRuns.entries()) {
-    if (runId === excludeRunId || !runMeta.background || runMeta.aborted) continue;
+    if (runId === excludeRunId || !runMeta.backgroundEligible || runMeta.aborted) continue;
+    if (!runMeta.background && !includeForeground) continue;
     if (runMeta.userId !== userId || runMeta.agentId !== agentId) continue;
     runs.push(describeRun(runId, runMeta));
   }
@@ -102,6 +109,18 @@ function manageBackgroundRun(engine, callerRunId, args = {}) {
     agentId: caller.agentId,
     excludeRunId: callerRunId,
   });
+  return applyBackgroundAction(engine, {
+    userId: caller.userId,
+    agentId: caller.agentId,
+    runs,
+    origin: { fromRunId: callerRunId },
+  }, args);
+}
+
+// status, instruct, or cancel one of the listed runs. Shared by the chat's
+// background_task tool and the live voice call's task tools; origin names
+// where the instruction came from in the run's event log.
+function applyBackgroundAction(engine, { userId, agentId, runs, origin }, args = {}) {
   const action = String(args.action || '').trim();
   const targetId = String(args.run_id || '').trim();
   if (action === 'status' && !targetId) return { background_tasks: runs };
@@ -124,10 +143,10 @@ function manageBackgroundRun(engine, callerRunId, args = {}) {
       'Apply it from your next step on:',
       instruction,
     ].join('\n'), { reason: 'background_instruction' });
-    engine.recordRunEvent(caller.userId, targetId, 'background_instruction', {
-      fromRunId: callerRunId,
+    engine.recordRunEvent(userId, targetId, 'background_instruction', {
+      ...origin,
       instruction: clampRunContext(instruction, 500),
-    }, { agentId: caller.agentId });
+    }, { agentId });
     return {
       instructed: Boolean(queued),
       run_id: targetId,
@@ -139,7 +158,7 @@ function manageBackgroundRun(engine, callerRunId, args = {}) {
 
   if (action === 'cancel') {
     const cancelled = engine.abort(targetId, {
-      userId: caller.userId,
+      userId,
       reason: 'Cancelled by the user from their ongoing conversation.',
     });
     return { cancelled, run_id: targetId };
@@ -169,6 +188,7 @@ function announceBackgroundRunEnded(engine, runId, runMeta) {
 
 module.exports = {
   announceBackgroundRunEnded,
+  applyBackgroundAction,
   buildBackgroundRunsNote,
   isBackgroundEligible,
   listBackgroundRuns,

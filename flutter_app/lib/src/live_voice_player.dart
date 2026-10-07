@@ -31,6 +31,15 @@ class LiveVoicePlayer {
   bool _androidStarted = false;
   Future<void>? _starting;
   Future<void>? _preparingClicks;
+  // The model streams speech faster than it plays; this is when what arrived
+  // so far will have been heard.
+  DateTime _speechEndsAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Speech already received that is still to be heard.
+  Duration get speechRemaining {
+    final remaining = _speechEndsAt.difference(DateTime.now());
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
 
   Future<void> start({required int sampleRate}) {
     _sampleRate = sampleRate;
@@ -57,6 +66,10 @@ class LiveVoicePlayer {
 
   void add(Uint8List pcm16) {
     if (pcm16.isEmpty) return;
+    final now = DateTime.now();
+    _speechEndsAt = (_speechEndsAt.isAfter(now) ? _speechEndsAt : now).add(
+      Duration(microseconds: pcm16.length * 500000 ~/ _sampleRate),
+    );
     if (_useAndroidTrack) {
       if (_androidStarted) {
         // Typing still sitting in the call track would play before this
@@ -178,6 +191,7 @@ class LiveVoicePlayer {
   }
 
   Future<void> flush() async {
+    _speechEndsAt = DateTime.fromMillisecondsSinceEpoch(0);
     if (_useAndroidTrack) {
       if (_androidStarted) await _androidChannel.invokeMethod<void>('flush');
       return;
@@ -188,6 +202,7 @@ class LiveVoicePlayer {
   }
 
   Future<void> stop() async {
+    _speechEndsAt = DateTime.fromMillisecondsSinceEpoch(0);
     await _releaseWorkClicks();
     if (_useAndroidTrack) {
       if (!_androidStarted) return;

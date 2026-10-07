@@ -19,6 +19,7 @@ import android.provider.Settings
 import android.view.WindowManager
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
+import com.neoagent.flutter_app.telecom.NeoAgentConnectionService
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -117,6 +118,12 @@ class CallBridge(private val activity: Activity) : MethodChannel.MethodCallHandl
     }
 
     private fun setSpeakerphone(on: Boolean) {
+        // Telecom routes the audio of its own calls and would undo a device
+        // chosen under it.
+        NeoAgentConnectionService.current()?.let {
+            it.setSpeaker(on)
+            return
+        }
         val audio = activity.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (!on) {

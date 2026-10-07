@@ -58,6 +58,8 @@ class OpenAiLiveAdapter {
     this.inputEnded = false;
     this.silenceTimer = null;
     this.delegations = new Set();
+    // No event marks the end of a model turn.
+    this.reportsTurnEnds = false;
   }
 
   async connect({ instructions, history }) {
@@ -122,26 +124,15 @@ class OpenAiLiveAdapter {
     this.inputEnded = true;
   }
 
-  say(text) {
-    this.#append('session.commentary.append', null, text);
-  }
-
-  note(text) {
-    this.#append('session.thinking.append', null, text);
-  }
-
-  // A hand-off from an earlier connection is unknown to this session, so its
-  // updates go in as general context instead.
-  acknowledgeTask(handle, text) {
-    this.#append('session.thinking.append', this.#known(handle), text);
-  }
-
-  taskProgress(handle, text, { speak = false } = {}) {
-    this.#append(speak ? 'session.commentary.append' : 'session.thinking.append', this.#known(handle), text);
-  }
-
-  completeTask(handle, text) {
+  // Commentary is for the model to say, thinking is context it keeps quiet
+  // about. Both name the hand-off they answer; one from an earlier connection
+  // is unknown to this session, so its updates go in as general context.
+  say(text, handle = null) {
     this.#append('session.commentary.append', this.#known(handle), text);
+  }
+
+  note(text, handle = null) {
+    this.#append('session.thinking.append', this.#known(handle), text);
   }
 
   async close() {

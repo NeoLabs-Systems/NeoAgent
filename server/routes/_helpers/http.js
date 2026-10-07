@@ -3,12 +3,13 @@
 const { httpError } = require('../../utils/http_error');
 const { sendJsonError } = require('../../http/errors');
 
-// Wraps a synchronous handler body: its return value is the JSON response, and
-// a thrown error (usually an httpError) becomes the matching error response.
+// Wraps a handler body: its return value, or what its promise resolves to, is
+// the JSON response, and a thrown error (usually an httpError) becomes the
+// matching error response.
 function jsonHandler(action, { status = 200 } = {}) {
-  return (req, res) => {
+  return async (req, res) => {
     try {
-      res.status(status).json(action(req));
+      res.status(status).json(await action(req));
     } catch (err) {
       sendJsonError(res, err);
     }

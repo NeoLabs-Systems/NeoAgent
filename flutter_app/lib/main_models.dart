@@ -1657,6 +1657,14 @@ class VoiceTimelineItem {
   }
 }
 
+/// A task the live call handed off that is still running.
+class VoiceCallTask {
+  const VoiceCallTask({required this.runId, this.request = ''});
+
+  final String runId;
+  final String request;
+}
+
 class VoiceAssistantLiveState {
   VoiceAssistantLiveState({
     this.sessionId = '',
@@ -1666,8 +1674,7 @@ class VoiceAssistantLiveState {
     this.provider = '',
     this.model = '',
     this.voice = '',
-    this.activeRunId = '',
-    this.activeTaskRequest = '',
+    this.tasks = const <VoiceCallTask>[],
     this.transportState = 'connected',
     this.state = 'idle',
     List<VoiceTimelineItem>? timeline,
@@ -1682,9 +1689,9 @@ class VoiceAssistantLiveState {
   final String model;
   final String voice;
 
-  /// The background task the live model handed off, while it runs.
-  final String activeRunId;
-  final String activeTaskRequest;
+  /// The tasks the live model handed off that are still running, oldest
+  /// first. Several can run at once; the call shows the newest.
+  final List<VoiceCallTask> tasks;
   final String transportState;
 
   /// Server-reported conversation state: connecting, listening, speaking,
@@ -1697,7 +1704,9 @@ class VoiceAssistantLiveState {
   bool get isHandsFree => inputMode == 'hands_free';
   bool get isSpeaking => state == 'speaking';
   bool get isConnecting => state == 'connecting' || state == 'reconnecting';
-  bool get hasActiveTask => activeRunId.trim().isNotEmpty;
+  bool get hasActiveTask => tasks.isNotEmpty;
+  String get activeRunId => tasks.isEmpty ? '' : tasks.last.runId;
+  String get activeTaskRequest => tasks.isEmpty ? '' : tasks.last.request;
 
   /// A handed-off task is still running and the assistant is not speaking,
   /// so the call would otherwise sit in silence.
@@ -1730,8 +1739,7 @@ class VoiceAssistantLiveState {
     String? provider,
     String? model,
     String? voice,
-    String? activeRunId,
-    String? activeTaskRequest,
+    List<VoiceCallTask>? tasks,
     String? transportState,
     String? state,
     List<VoiceTimelineItem>? timeline,
@@ -1746,8 +1754,7 @@ class VoiceAssistantLiveState {
       provider: provider ?? this.provider,
       model: model ?? this.model,
       voice: voice ?? this.voice,
-      activeRunId: activeRunId ?? this.activeRunId,
-      activeTaskRequest: activeTaskRequest ?? this.activeTaskRequest,
+      tasks: tasks ?? this.tasks,
       transportState: transportState ?? this.transportState,
       state: state ?? this.state,
       timeline: timeline ?? this.timeline,
@@ -2992,6 +2999,37 @@ class StoreSkillItem {
   final String category;
   final String icon;
   final bool installed;
+}
+
+/// A search hit from skills.sh. [installedName] is the local skill name when
+/// this user already installed it.
+class SkillsShItem {
+  const SkillsShItem({
+    required this.id,
+    required this.source,
+    required this.skillId,
+    required this.name,
+    required this.installs,
+    required this.installedName,
+  });
+
+  factory SkillsShItem.fromJson(Map<dynamic, dynamic> json) {
+    return SkillsShItem(
+      id: json['id']?.toString() ?? '',
+      source: json['source']?.toString() ?? '',
+      skillId: json['skillId']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      installs: (json['installs'] as num?)?.toInt(),
+      installedName: json['installedName']?.toString() ?? '',
+    );
+  }
+
+  final String id;
+  final String source;
+  final String skillId;
+  final String name;
+  final int? installs;
+  final String installedName;
 }
 
 class OfficialIntegrationAppItem {

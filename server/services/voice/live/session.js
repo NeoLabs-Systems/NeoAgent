@@ -4,6 +4,7 @@ const { createServiceLogger } = require('../../../utils/logger');
 const { LIVE_VOICE_PROVIDERS } = require('./catalog');
 const { GeminiLiveAdapter } = require('./gemini_live');
 const { OpenAiLiveAdapter } = require('./openai_live');
+const { LiveFloor } = require('./floor');
 const { buildLivePrompt } = require('./prompt');
 const { LiveTaskBridge } = require('./task_bridge');
 const { recordTaskReply, recordVoiceTurn } = require('./transcript_store');
@@ -22,6 +23,9 @@ const IDLE_HANGUP_MS = 3 * 60 * 1000;
 // Margin past the end of the model's goodbye before the line drops, covering
 // the client's playback buffer.
 const HANGUP_GRACE_MS = 600;
+// Spoken progress stays occasional on a long task; the updates in between
+// still reach the model as context.
+const SPOKEN_PROGRESS_GAP_MS = 60 * 1000;
 
 // Transcript fragments arrive with or without their leading space depending on
 // the provider; join them so words neither merge nor double-space.
@@ -63,6 +67,8 @@ class LiveVoiceSession {
     this.onHangUp = onHangUp;
     this.provider = LIVE_VOICE_PROVIDERS[settings.liveProvider];
     this.tasks = new LiveTaskBridge({ agentEngine, session: this });
+    this.floor = new LiveFloor();
+    this.lastSpokenProgressAt = 0;
     this.adapter = null;
     this.ready = false;
     this.closed = false;
@@ -72,7 +78,6 @@ class LiveVoiceSession {
     this.assistantTurn = '';
     this.lastUserTurn = '';
     this.outputSuppressed = false;
-    this.pendingOnReady = [];
     this.state = 'connecting';
     this.speakingTimer = null;
     this.idleTimer = null;
@@ -88,6 +93,7 @@ class LiveVoiceSession {
 
   async connect({ reconnected = false, resumeHandle = null } = {}) {
     this.ready = false;
+    this.floor.setConnected(false);
     this.#setState(reconnected ? 'reconnecting' : 'connecting');
     // A reattaching client may arrive before the old provider connection was
     // dropped; never leave two billed live sessions open.
@@ -99,12 +105,15 @@ class LiveVoiceSession {
       userId: this.userId,
       agentId: this.agentId,
       conversationId: this.conversationId,
+      runningTasks: this.tasks.checkTasks().tasks,
+      taskTools: this.provider.taskTools,
     });
     const Adapter = ADAPTERS[this.provider.id];
     const adapter = new Adapter({
       apiKey: this.credentials.apiKey,
       baseUrl: this.credentials.baseUrl,
       model: this.settings.liveModel,
+      thinking: this.settings.liveModelThinks,
       voice: this.settings.liveVoice,
       inputMode: this.settings.inputMode,
       handlers: this.#handlersFor(() => this.adapter === adapter),
@@ -121,7 +130,6 @@ class LiveVoiceSession {
     for (const chunk of this.pendingAudio) adapter.appendAudio(chunk);
     this.pendingAudio = [];
     this.pendingAudioBytes = 0;
-    for (const deliver of this.pendingOnReady.splice(0)) deliver();
     this.#emit('session_ready', {
       provider: this.provider.id,
       model: this.settings.liveModel,
@@ -130,9 +138,12 @@ class LiveVoiceSession {
       inputSampleRate: this.provider.inputSampleRate,
       outputSampleRate: this.provider.outputSampleRate,
       activeRunId: this.tasks.activeRunId,
+      tasks: this.tasks.runningTasks.map(({ runId, request }) => ({ runId, request })),
       reconnected,
     });
     this.#setState('listening');
+    // What arrived while the line was down goes out now.
+    this.floor.setConnected(true);
   }
 
   appendAudio(pcm) {
@@ -151,12 +162,17 @@ class LiveVoiceSession {
   // Pressing push-to-talk talks over the assistant, like picking up mid-sentence.
   startInput() {
     if (!this.ready) return;
-    if (this.settings.inputMode === 'ptt') this.interruptOutput();
+    if (this.settings.inputMode === 'ptt') {
+      this.interruptOutput();
+      this.floor.setInputHeld(true);
+    }
     this.adapter.startInput();
   }
 
   endInput() {
-    if (this.ready) this.adapter.endInput();
+    if (!this.ready) return;
+    if (this.settings.inputMode === 'ptt') this.floor.setInputHeld(false);
+    this.adapter.endInput();
   }
 
   // The owner asked the assistant to stop talking: drop what is still coming
@@ -166,21 +182,49 @@ class LiveVoiceSession {
     this.#emit('interrupted');
     this.#flushAssistantTurn();
     this.#setState('listening');
+    this.floor.ownerInterrupted();
   }
 
   say(text) {
-    this.adapter?.say(text);
+    this.tell(null, text);
+  }
+
+  // Something the owner must hear: the model says it once the line is free.
+  // It is news, so speech the owner stopped earlier does not silence it.
+  tell(handle, text) {
+    this.floor.whenFree(() => {
+      this.outputSuppressed = false;
+      this.adapter.say(text, handle);
+      this.floor.expectReply();
+    });
+  }
+
+  // Context the model uses when it matters, without saying it now.
+  inform(handle, text) {
+    this.floor.whenFree(() => this.adapter.note(text, handle));
+  }
+
+  // A progress update fills a silence; while the owner and the assistant are
+  // talking, or shortly after the last one, it only joins the context.
+  offerProgress(handle, text) {
+    const now = Date.now();
+    if (this.floor.quiet && now - this.lastSpokenProgressAt >= SPOKEN_PROGRESS_GAP_MS) {
+      this.lastSpokenProgressAt = now;
+      this.tell(handle, text);
+      return;
+    }
+    this.inform(handle, text);
   }
 
   presentDelivery(entry) {
     if (!this.attached) return { detached: true };
-    this.#whenReady(() => this.tasks.present(entry));
+    this.tasks.present(entry);
     return { detached: false };
   }
 
   deliverTaskOutcome({ handle, runId, outcome, reply }) {
     if (this.attached) {
-      this.#whenReady(() => this.adapter.completeTask(handle, outcome));
+      this.tell(handle, outcome);
       return;
     }
     if (reply) {
@@ -222,14 +266,8 @@ class LiveVoiceSession {
     this.#emit('state', { state: 'closed', reason });
     this.closed = true;
     this.sink = null;
+    this.floor.close();
     await this.#closeAdapter();
-  }
-
-  // Results that arrive while the provider connection is being re-established
-  // are spoken once it is back.
-  #whenReady(deliver) {
-    if (this.ready) deliver();
-    else this.pendingOnReady.push(deliver);
   }
 
   #noteActivity() {
@@ -248,6 +286,7 @@ class LiveVoiceSession {
 
   async #closeAdapter() {
     this.ready = false;
+    this.floor.setConnected(false);
     clearTimeout(this.speakingTimer);
     clearTimeout(this.idleTimer);
     clearTimeout(this.hangUpTimer);
@@ -258,27 +297,42 @@ class LiveVoiceSession {
 
   #handlersFor(isCurrent) {
     const guard = (fn) => (...args) => {
-      if (!isCurrent() || this.closed) return;
+      if (!isCurrent() || this.closed) return undefined;
       try {
-        fn(...args);
+        return fn(...args);
       } catch (error) {
         logger.warn('Live event handling failed', error?.message || error);
+        return undefined;
       }
     };
     return {
       onAudio: guard((pcm) => this.#handleAudio(pcm)),
       onInputTranscript: guard((text) => this.#handleInputTranscript(text)),
       onOutputTranscript: guard((text) => this.#handleOutputTranscript(text)),
+      // The owner talked over the model: their turn has the line.
       onInterrupted: guard(() => {
         this.playbackEndsAt = 0;
         this.#emit('interrupted');
         this.#flushAssistantTurn();
         this.#setState('listening');
+        this.floor.ownerInterrupted();
       }),
-      onTurnComplete: guard(() => {
+      onTurnComplete: guard(({ idle = true } = {}) => {
         this.#flushAssistantTurn();
+        this.floor.turnEnded();
+        if (idle) this.floor.modelIdle();
+        else this.floor.modelWorking();
       }),
-      onDelegation: guard((delegation) => this.#handleDelegation(delegation)),
+      // Gemini's tool calls are answered at once, and the model speaks next.
+      // A GPT-Live hand-off is answered when its task reports.
+      onDelegation: guard((delegation) => {
+        if (delegation.request) this.floor.expectReply();
+        return this.#handleDelegation(delegation);
+      }),
+      onTaskTool: guard((name, args) => {
+        this.floor.expectReply();
+        return this.tasks.runTool(name, args);
+      }),
       onHangUp: guard(() => {
         logger.info('Live model hung up the call', { sessionId: this.id });
         this.hangingUp = true;
@@ -295,21 +349,31 @@ class LiveVoiceSession {
   }
 
   #handleAudio(pcm) {
-    if (this.outputSuppressed) return;
     this.#noteActivity();
+    clearTimeout(this.speakingTimer);
+    this.speakingTimer = setTimeout(() => {
+      this.#setState('listening');
+      this.floor.modelSilent();
+      // GPT-Live reports no turn ends; its speech ending is the closest.
+      if (!this.adapter?.reportsTurnEnds) this.floor.turnEnded();
+    }, SPEAKING_IDLE_MS);
+    this.speakingTimer.unref?.();
+    if (this.outputSuppressed) {
+      this.floor.droppedSpeech();
+      return;
+    }
     this.#emit('audio', { audioBase64: pcm.toString('base64') });
     const playMs = (pcm.length / 2 / this.provider.outputSampleRate) * 1000;
     this.playbackEndsAt = Math.max(Date.now(), this.playbackEndsAt) + playMs;
+    this.floor.modelSpeaking(this.playbackEndsAt);
     if (this.hangingUp) this.#scheduleHangUp();
     this.#setState('speaking');
-    clearTimeout(this.speakingTimer);
-    this.speakingTimer = setTimeout(() => this.#setState('listening'), SPEAKING_IDLE_MS);
-    this.speakingTimer.unref?.();
   }
 
   #handleInputTranscript(text) {
     if (!text) return;
     this.#noteActivity();
+    this.floor.ownerSpoke();
     this.outputSuppressed = false;
     this.#flushAssistantTurn();
     this.userTurn = appendFragment(this.userTurn, text);
@@ -339,22 +403,23 @@ class LiveVoiceSession {
     this.hangUpTimer.unref?.();
   }
 
-  // GPT-Live hands off without task text: the request is the owner's latest
-  // turn, and the run reads the rest of the conversation from its history.
+  // Returns the new task's id for a model that names its request. GPT-Live
+  // hands off without task text: the request is the owner's latest turn, and
+  // the run reads the rest of the conversation from its history.
   #handleDelegation({ handle, request }) {
-    if (request) {
-      this.tasks.delegate({ handle, request });
-      return;
-    }
+    if (request) return this.tasks.delegate({ handle, request });
     const timer = setTimeout(() => {
       if (this.closed || !this.ready) return;
-      this.tasks.delegate({ handle, request: this.userTurn || this.lastUserTurn });
+      const taskId = this.tasks.delegate({ handle, request: this.userTurn || this.lastUserTurn });
+      if (!taskId) this.tell(handle, 'The hand-off arrived without a request. Ask the owner what they want done.');
     }, DELEGATION_SETTLE_MS);
     timer.unref?.();
+    return null;
   }
 
   async #reconnect(reason, resumeHandle) {
     this.ready = false;
+    this.floor.setConnected(false);
     this.#flushTurns();
     if (!this.attached || this.closed) return;
     this.reconnectAttempts += 1;

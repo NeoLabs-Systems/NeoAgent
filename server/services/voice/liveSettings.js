@@ -4,9 +4,9 @@ const db = require('../../db/database');
 const { isMainAgent, resolveAgentId } = require('../agents/manager');
 const { normalizeSttProvider, resolveSttModel } = require('./providers');
 const {
+  configuredLiveModel,
   normalizeInputMode,
   normalizeLiveProvider,
-  resolveLiveModel,
   resolveLiveVoice,
 } = require('./live/catalog');
 
@@ -43,7 +43,8 @@ function getVoiceRuntimeSettings(userId, agentId = null) {
     sttProvider,
     sttModel: resolveSttModel(sttProvider, read('voice_stt_model')),
     liveProvider,
-    liveModel: resolveLiveModel(liveProvider, read('voice_live_model')),
+    // Empty: the provider's default, taken from its model list when a call opens.
+    liveModel: configuredLiveModel(liveProvider, read('voice_live_model')),
     liveVoice: resolveLiveVoice(liveProvider, read('voice_live_voice')),
     inputMode: normalizeInputMode(read('voice_input_mode')),
   };

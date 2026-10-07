@@ -68,7 +68,10 @@ Some features use separate providers:
 - Voice calls run on a live speech-to-speech model (OpenAI GPT-Live or
   Gemini Live) that shares the chat's system prompt, memory and history. It
   answers conversation directly and hands anything that needs tools to a
-  normal agent run in the background, then speaks the result.
+  normal agent run in the background, several at once if needed. While they
+  run, it passes on progress when the line is quiet, and you can ask how they
+  are going, change them or stop them by voice; each result is spoken when it
+  arrives.
 - Voice-note and dictation transcription uses OpenAI, Gemini or Deepgram.
 - Image generation and analysis depend on the selected provider and model.
 

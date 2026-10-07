@@ -7035,5 +7035,25 @@
   "noTriggersMatch": "Kein Auslöser passt zu Ihrer Suche.",
   "triggerAccountMissing": "Noch kein Konto",
   "pickTriggerKeyboardHint": "Enter wählt das erste Ergebnis",
-  "triggerResultCountArg1": "{arg1} Auslöser"
+  "triggerResultCountArg1": "{arg1} Auslöser",
+  "addFromSkillsSh": "Von skills.sh hinzufügen",
+  "skillsShHint": "Suchen Sie oben nach Skills auf skills.sh oder fügen Sie einen skills.sh-Link oder einen `npx skills add`-Befehl ein.",
+  "noSkillsShMatches": "Keine skills.sh-Skills passen zu dieser Suche.",
+  "installingSkill": "Wird installiert…",
+  "installedSkillArg1": "{arg1} installiert",
+  "@installedSkillArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "skillsShInstallsArg1": "{arg1} Installationen",
+  "@skillsShInstallsArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  }
 }

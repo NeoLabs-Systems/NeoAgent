@@ -86,6 +86,34 @@ class GoogleProvider extends BaseProvider {
 
   async listModels(signal = null) {
     const DROP = /tts|lyria|robotics|deep-research|antigravity|computer-use|-image(?!.*it)/i;
+    return (await this.#fetchModelCatalog(signal))
+      .filter((m) => {
+        const id = m.name.replace('models/', '');
+        return (m.supportedGenerationMethods || []).includes('generateContent')
+          && !DROP.test(id);
+      })
+      .map((m) => {
+        const id = m.name.replace('models/', '');
+        this.contextWindows[id] = m.inputTokenLimit || 1048576;
+        if (m.thinking === true) thinkingModels.add(id);
+        return { id, name: m.displayName || id };
+      });
+  }
+
+  // Models that hold a spoken conversation over the Live API. Transcription,
+  // translation and robotics streams use the same protocol but do not talk.
+  async listLiveVoiceModels(signal = null) {
+    const DROP = /transcribe|translate|robotics/i;
+    return (await this.#fetchModelCatalog(signal))
+      .filter((m) => (m.supportedGenerationMethods || []).includes('bidiGenerateContent')
+        && !DROP.test(m.name))
+      .map((m) => {
+        const id = m.name.replace('models/', '');
+        return { id, name: m.displayName || id, thinking: m.thinking === true };
+      });
+  }
+
+  async #fetchModelCatalog(signal) {
     const models = [];
     const seenPageTokens = new Set();
     let pageToken = '';
@@ -119,19 +147,7 @@ class GoogleProvider extends BaseProvider {
       seenPageTokens.add(nextPageToken);
       pageToken = nextPageToken;
     } while (pageToken);
-
-    return models
-      .filter((m) => {
-        const id = m.name.replace('models/', '');
-        return (m.supportedGenerationMethods || []).includes('generateContent')
-          && !DROP.test(id);
-      })
-      .map((m) => {
-        const id = m.name.replace('models/', '');
-        this.contextWindows[id] = m.inputTokenLimit || 1048576;
-        if (m.thinking === true) thinkingModels.add(id);
-        return { id, name: m.displayName || id };
-      });
+    return models;
   }
 
   getContextWindow(model) {

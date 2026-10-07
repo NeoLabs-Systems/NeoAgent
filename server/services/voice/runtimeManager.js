@@ -4,7 +4,8 @@ const { randomUUID } = require('crypto');
 const { getProviderRuntimeConfig } = require('../ai/models');
 const { waitForBoundedResult } = require('../network/http');
 const { createServiceLogger } = require('../../utils/logger');
-const { LIVE_VOICE_PROVIDERS, describeLiveVoiceCatalog } = require('./live/catalog');
+const { LIVE_VOICE_PROVIDERS } = require('./live/catalog');
+const { describeLiveVoiceCatalog, resolveLiveModel } = require('./live/models');
 const { LiveVoiceSession } = require('./live/session');
 const { getVoiceRuntimeSettings } = require('./liveSettings');
 const { DEFAULT_STT_MODELS, STT_PROVIDERS } = require('./providers/provider_defaults');
@@ -29,11 +30,11 @@ class VoiceRuntimeManager {
     this.agentCallCoordinator = null;
   }
 
-  // What the settings UI offers: live voice models, plus the transcription
-  // providers used for voice notes and dictation.
-  getCapabilities() {
+  // What the settings UI offers: the live voice models the account's keys can
+  // reach, plus the transcription providers used for voice notes and dictation.
+  async getCapabilities({ userId = null, agentId = null } = {}) {
     return {
-      ...describeLiveVoiceCatalog(),
+      ...await describeLiveVoiceCatalog({ userId, agentId }),
       transcription: {
         providers: STT_PROVIDERS.map((id) => ({ id, defaultModel: DEFAULT_STT_MODELS[id] })),
       },
@@ -64,8 +65,18 @@ class VoiceRuntimeManager {
       return existing;
     }
 
-    const settings = { ...getVoiceRuntimeSettings(userId, agentId), ...(inputMode ? { inputMode } : {}) };
-    const provider = LIVE_VOICE_PROVIDERS[settings.liveProvider];
+    const configured = { ...getVoiceRuntimeSettings(userId, agentId), ...(inputMode ? { inputMode } : {}) };
+    const provider = LIVE_VOICE_PROVIDERS[configured.liveProvider];
+    const model = await resolveLiveModel({
+      userId,
+      agentId,
+      providerId: provider.id,
+      configured: configured.liveModel,
+    });
+    if (!model) {
+      throw new Error(`${provider.label} lists no live voice model for this account. Check its API key.`);
+    }
+    const settings = { ...configured, liveModel: model.id, liveModelThinks: model.thinking === true };
     const runtime = getProviderRuntimeConfig(userId, provider.runtimeProvider, agentId);
     const session = new LiveVoiceSession({
       id: String(sessionId || randomUUID()).trim(),
@@ -131,8 +142,8 @@ class VoiceRuntimeManager {
     this.#requireSession(sessionId, userId).interruptOutput();
   }
 
-  cancelTask(sessionId, userId) {
-    return this.#requireSession(sessionId, userId).tasks.cancel();
+  cancelTask(sessionId, userId, runId = null) {
+    return this.#requireSession(sessionId, userId).tasks.cancelFromScreen(runId);
   }
 
   // The client went away; running hand-offs keep going and the session stays

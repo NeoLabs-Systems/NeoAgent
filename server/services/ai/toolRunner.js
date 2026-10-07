@@ -493,11 +493,16 @@ class SkillRunner {
     }
 
     try {
-      fs.unlinkSync(skill.filePath);
       const dir = path.dirname(skill.filePath);
-      if (path.basename(skill.filePath) === 'SKILL.md') {
-        const remaining = fs.readdirSync(dir);
-        if (remaining.length === 0) fs.rmdirSync(dir);
+      // A user skill owns its whole directory, including bundled scripts and
+      // references (skills.sh installs carry those).
+      if (
+        path.basename(skill.filePath) === 'SKILL.md'
+        && path.resolve(dir) === path.resolve(USER_SKILLS_DIR, String(ownerId), skill.name)
+      ) {
+        fs.rmSync(dir, { recursive: true, force: true });
+      } else {
+        fs.unlinkSync(skill.filePath);
       }
     } catch (e) { /* ignore */ }
 

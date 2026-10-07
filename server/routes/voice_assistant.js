@@ -1,6 +1,7 @@
 const express = require('express');
 
 const { requireAuth } = require('../middleware/auth');
+const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 const { sanitizeError } = require('../utils/security');
 const { writeTempAudioFile, removeTempFile } = require('../services/voice/liveAudio');
 const { transcribeForUser } = require('../services/voice/transcription');
@@ -9,12 +10,16 @@ const router = express.Router();
 
 router.use(requireAuth);
 
-router.get('/capabilities', (req, res) => {
+router.get('/capabilities', async (req, res) => {
   const manager = req.app?.locals?.voiceRuntimeManager;
   if (!manager || typeof manager.getCapabilities !== 'function') {
     return res.status(503).json({ error: 'Voice runtime is unavailable.' });
   }
-  return res.json(manager.getCapabilities());
+  const userId = req.session.userId;
+  return res.json(await manager.getCapabilities({
+    userId,
+    agentId: resolveAgentId(userId, getAgentIdFromRequest(req)),
+  }));
 });
 
 router.post('/transcribe', async (req, res) => {

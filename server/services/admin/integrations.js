@@ -1,7 +1,8 @@
 'use strict';
 
 const { cleanLine, persistEnv } = require('./env_config');
-const { LIVE_VOICE_PROVIDERS, describeLiveVoiceCatalog } = require('../voice/live/catalog');
+const { LIVE_VOICE_PROVIDERS } = require('../voice/live/catalog');
+const { describeLiveVoiceCatalog } = require('../voice/live/models');
 
 // Server-wide OAuth app credentials that let accounts connect each integration.
 const OAUTH_INTEGRATIONS = [
@@ -79,7 +80,7 @@ const OAUTH_INTEGRATIONS = [
 ];
 
 // Secrets are reported as configured or not, never echoed back.
-function getIntegrationSettings() {
+async function getIntegrationSettings() {
   const integrations = OAUTH_INTEGRATIONS.map(({ key, label, fields }) => ({
     key,
     label,
@@ -89,12 +90,12 @@ function getIntegrationSettings() {
       : { name, secret: false, value: process.env[env] || '' })),
   }));
   // Server defaults for live voice; accounts that pick their own model in the
-  // app keep it. Blank values fall back to the catalog defaults.
+  // app keep it. A blank model is the newest one the server's key can reach.
   const liveVoice = {
     provider: process.env.VOICE_LIVE_PROVIDER || '',
     model: process.env.VOICE_LIVE_MODEL || '',
     voice: process.env.VOICE_LIVE_VOICE || '',
-    catalog: describeLiveVoiceCatalog(),
+    catalog: await describeLiveVoiceCatalog(),
   };
   return { integrations, liveVoice };
 }

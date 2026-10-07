@@ -1661,7 +1661,7 @@ function getAvailableTools(app, options = {}) {
         );
     }
 
-    if (options.triggerType === 'user' && (options.triggerSource === 'web' || options.triggerSource === 'messaging')) {
+    if (options.triggerType === 'user' && ['web', 'messaging', 'voice_live'].includes(options.triggerSource)) {
         tools.splice(
             tools.findIndex((tool) => tool.name === 'read_file'),
             0,

@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const http = require('node:http');
 const { once } = require('node:events');
 const { mock, test } = require('node:test');
 const { WebSocketServer } = require('ws');
@@ -11,13 +12,33 @@ const {
   teardownTestRuntime,
 } = require('../../helpers/db');
 
-// A local stand-in for the provider's live socket that records every client
-// event and lets the test push server events.
+// What OpenAI's model list returns: the live model among models the call
+// cannot use.
+const OPENAI_MODELS = [
+  { id: 'gpt-realtime-2', object: 'model', created: 1778006032, owned_by: 'system' },
+  { id: 'gpt-live-1', object: 'model', created: 1788889407, owned_by: 'system' },
+  { id: 'gpt-live-transcribe', object: 'model', created: 1785168034, owned_by: 'system' },
+  { id: 'gpt-5.5', object: 'model', created: 1776000000, owned_by: 'system' },
+];
+
+// A local stand-in for the provider: its live socket records every client
+// event and lets the test push server events, and it serves OpenAI's model
+// list.
 async function startFakeLiveServer() {
-  const wss = new WebSocketServer({ port: 0 });
-  await once(wss, 'listening');
+  const httpServer = http.createServer((req, res) => {
+    res.setHeader('content-type', 'application/json');
+    if (req.url === '/v1/models') {
+      res.end(JSON.stringify({ object: 'list', data: OPENAI_MODELS }));
+      return;
+    }
+    res.statusCode = 404;
+    res.end('{}');
+  });
+  const wss = new WebSocketServer({ server: httpServer });
+  httpServer.listen(0, '127.0.0.1');
+  await once(httpServer, 'listening');
   const server = {
-    url: `http://127.0.0.1:${wss.address().port}`,
+    url: `http://127.0.0.1:${httpServer.address().port}`,
     paths: [],
     received: [],
     socket: null,
@@ -32,7 +53,8 @@ async function startFakeLiveServer() {
     },
     close() {
       for (const client of wss.clients) client.terminate();
-      return new Promise((resolve) => wss.close(resolve));
+      wss.close();
+      return new Promise((resolve) => httpServer.close(resolve));
     },
   };
   wss.on('connection', (socket, req) => {
@@ -64,21 +86,48 @@ function createSink() {
   };
 }
 
+// Mirrors the engine's run registry: the task tools read the owner's running
+// runs from activeRuns, the way the real engine keeps them.
 function createFakeEngine(overrides = {}) {
   return {
     runs: [],
-    steering: [],
     aborted: [],
-    running: new Set(),
+    activeRuns: new Map(),
     getRunMeta(runId) {
-      return this.running.has(runId) ? { status: 'running', aborted: false } : null;
+      return this.activeRuns.get(runId) || null;
     },
-    enqueueSteering(runId, content) {
-      this.steering.push({ runId, content });
-      return { runId };
+    track(userId, request, options = {}) {
+      const { resolveAgentId } = require('../../../server/services/agents/manager');
+      this.activeRuns.set(options.runId, {
+        userId,
+        agentId: resolveAgentId(userId, options.agentId || null),
+        status: 'running',
+        aborted: false,
+        triggerType: 'user',
+        triggerSource: options.triggerSource || 'web',
+        request,
+        startedAtIso: new Date().toISOString(),
+        backgroundEligible: options.backgroundEligible !== false,
+        background: { since: new Date().toISOString() },
+        systemSteeringQueue: [],
+      });
     },
+    finish(runId) {
+      this.activeRuns.delete(runId);
+    },
+    enqueueSystemSteering(runId, content) {
+      const meta = this.activeRuns.get(runId);
+      if (!meta) return null;
+      meta.systemSteeringQueue.push({ content });
+      return { content };
+    },
+    recordRunEvent() {},
     abort(runId) {
+      const meta = this.activeRuns.get(runId);
+      if (!meta || meta.aborted) return false;
+      meta.aborted = true;
       this.aborted.push(runId);
+      return true;
     },
     ...overrides,
   };
@@ -106,28 +155,142 @@ function historyRows(db, userId) {
   ).all(userId);
 }
 
-test('live voice catalog resolves per-provider defaults and the server default', () => {
+// Google has no configurable base URL, so the session is built directly and
+// pointed at the fake server, with the model the manager would have resolved
+// from Google's model list.
+async function connectGemini(fake, engine, setup, {
+  id = 'gemini-session',
+  model = 'gemini-3.8-live',
+  thinking = false,
+} = {}) {
+  const { LiveVoiceSession } = require('../../../server/services/voice/live/session');
+  const { getVoiceRuntimeSettings } = require('../../../server/services/voice/liveSettings');
+  const sink = createSink();
+  const session = new LiveVoiceSession({
+    id,
+    userId: setup.user.userId,
+    agentId: null,
+    platform: 'voice_live',
+    sink,
+    agentEngine: engine,
+    conversationId: setup.conversationId,
+    settings: {
+      ...getVoiceRuntimeSettings(setup.user.userId),
+      liveModel: model,
+      liveModelThinks: thinking,
+    },
+    credentials: { apiKey: 'test-google-key', baseUrl: fake.url },
+    onIdle: () => {},
+    onHangUp: (ended) => setup.manager.closeSession(ended.id, 'agent_hung_up', ended.userId),
+  });
+  setup.manager.sessions.set(session.id, session);
+  const connecting = session.connect();
+  const setupMessage = await fake.next((event) => event.setup);
+  fake.send({ setupComplete: {} });
+  await connecting;
+  return { session, sink, setupMessage };
+}
+
+const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+test('live voice settings name a model only when one is configured', () => {
   const previous = { ...process.env };
   try {
     delete process.env.VOICE_LIVE_PROVIDER;
     delete process.env.VOICE_LIVE_MODEL;
     const catalog = require('../../../server/services/voice/live/catalog');
     assert.equal(catalog.normalizeLiveProvider(''), 'openai');
-    assert.equal(catalog.resolveLiveModel('openai', ''), 'gpt-live-1');
-    assert.equal(catalog.resolveLiveModel('google', ''), 'gemini-3.8-live');
+    assert.equal(catalog.configuredLiveModel('google', ''), '');
     assert.equal(catalog.resolveLiveVoice('google', ''), 'Kore');
     assert.equal(catalog.normalizeInputMode('bogus'), 'hands_free');
 
     process.env.VOICE_LIVE_PROVIDER = 'google';
     process.env.VOICE_LIVE_MODEL = 'gemini-3.1-flash-live-preview';
     assert.equal(catalog.normalizeLiveProvider('unknown'), 'google');
-    assert.equal(catalog.resolveLiveModel('google', ''), 'gemini-3.1-flash-live-preview');
-    assert.equal(catalog.resolveLiveModel('openai', ''), 'gpt-live-1');
-    assert.equal(catalog.resolveLiveModel('google', 'custom-live'), 'custom-live');
-    assert.equal(catalog.describeLiveVoiceCatalog().defaultProvider, 'google');
+    assert.equal(catalog.configuredLiveModel('google', ''), 'gemini-3.1-flash-live-preview');
+    assert.equal(catalog.configuredLiveModel('openai', ''), '');
+    assert.equal(catalog.configuredLiveModel('google', 'custom-live'), 'custom-live');
   } finally {
     process.env = previous;
   }
+});
+
+test('without a choice, calls take the newest released model of the provider\'s list', () => {
+  const { rankLiveModels } = require('../../../server/services/voice/live/models');
+  const ranked = rankLiveModels([
+    { id: 'gemini-2.5-flash-native-audio-preview-12-2025' },
+    { id: 'gemini-3.1-flash-live-preview' },
+    { id: 'gemini-3.8-live-extended-thinking' },
+    { id: 'gemini-2.5-flash-native-audio-latest' },
+    { id: 'gemini-3.8-live' },
+    { id: 'gemini-4.0-live-preview' },
+  ]).map((model) => model.id);
+  assert.deepEqual(ranked, [
+    'gemini-3.8-live',
+    'gemini-3.8-live-extended-thinking',
+    'gemini-2.5-flash-native-audio-latest',
+    'gemini-4.0-live-preview',
+    'gemini-3.1-flash-live-preview',
+    'gemini-2.5-flash-native-audio-preview-12-2025',
+  ]);
+  assert.equal(rankLiveModels([{ id: 'gpt-live-1' }, { id: 'gpt-live-2' }])[0].id, 'gpt-live-2');
+});
+
+test('Google\'s live models come from its model list, with what it says about thinking', async (t) => {
+  const ctx = createTestRuntime();
+  const previousFetch = global.fetch;
+  const requests = [];
+  global.fetch = async (url, options) => {
+    requests.push({ url: String(url), key: options?.headers?.['x-goog-api-key'] });
+    const model = (name, methods, extra = {}) => ({
+      name: `models/${name}`,
+      displayName: name,
+      supportedGenerationMethods: methods,
+      ...extra,
+    });
+    return new Response(JSON.stringify({
+      models: [
+        model('gemini-3.5-pro', ['generateContent']),
+        model('gemini-3.8-live', ['bidiGenerateContent']),
+        model('gemini-3.8-live-extended-thinking', ['bidiGenerateContent'], { thinking: true }),
+        model('gemini-3.1-flash-live-preview', ['bidiGenerateContent']),
+        model('gemini-3.5-transcribe-live', ['bidiGenerateContent']),
+        model('gemini-3.5-live-translate-preview', ['bidiGenerateContent']),
+        model('gemini-robotics-er-2-streaming-preview', ['bidiGenerateContent']),
+      ],
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  t.after(() => {
+    global.fetch = previousFetch;
+    teardownTestRuntime(ctx);
+  });
+  process.env.GOOGLE_AI_KEY = 'listing-key';
+  const user = await createTestUser(ctx.db);
+  const { describeLiveVoiceCatalog, resolveLiveModel } = require('../../../server/services/voice/live/models');
+
+  const catalog = await describeLiveVoiceCatalog({ userId: user.userId });
+  const google = catalog.providers.find((provider) => provider.id === 'google');
+  assert.deepEqual(google.models, [
+    'gemini-3.8-live',
+    'gemini-3.8-live-extended-thinking',
+    'gemini-3.1-flash-live-preview',
+  ]);
+  assert.equal(google.defaultModel, 'gemini-3.8-live');
+  assert.equal(requests[0].key, 'listing-key');
+
+  const chosen = await resolveLiveModel({
+    userId: user.userId,
+    agentId: null,
+    providerId: 'google',
+    configured: 'gemini-3.8-live-extended-thinking',
+  });
+  assert.equal(chosen.thinking, true);
+  assert.equal(
+    (await resolveLiveModel({ userId: user.userId, agentId: null, providerId: 'google', configured: '' })).id,
+    'gemini-3.8-live',
+  );
+  // The list is cached: the lookups above asked Google once.
+  assert.equal(requests.length, 1);
 });
 
 test('the live model speaks with the shared persona; delegated tasks keep the agent prompt', async (t) => {
@@ -185,14 +348,14 @@ test('GPT-Live session: shared prompt, transcripts, hand-off as a normal run, re
   const engine = createFakeEngine({
     async run(userId, request, options) {
       this.runs.push({ userId, request, options });
-      this.running.add(options.runId);
+      this.track(userId, request, options);
       manager.presentDelivery({
         recipient: options.voiceSessionId,
         runId: options.runId,
         messageKind: 'final',
         payload: { content: 'Die Mail an Max ist raus.' },
       });
-      this.running.delete(options.runId);
+      this.finish(options.runId);
       return { runId: options.runId, status: 'completed', content: 'Die Mail an Max ist raus.' };
     },
   });
@@ -207,6 +370,7 @@ test('GPT-Live session: shared prompt, transcripts, hand-off as a normal run, re
   const opening = manager.openSession({ userId: user.userId, sink });
   const start = await fake.next((event) => event.type === 'session.start');
   assert.equal(fake.paths[0], '/v1/live/sessions');
+  // Nobody picked a model: the call takes the live model OpenAI's list shows.
   assert.equal(start.session.model, 'gpt-live-1');
   assert.equal(start.session.audio.output.voice, 'marin');
   assert.deepEqual(start.session.delegation, { type: 'client' });
@@ -232,9 +396,11 @@ test('GPT-Live session: shared prompt, transcripts, hand-off as a normal run, re
   fake.send({ type: 'session.output_transcript.delta', delta: 'Mach ich.' });
   fake.send({ type: 'session.output_audio.delta', delta: Buffer.from([9, 9]).toString('base64') });
 
+  // The result waits until the model's "Mach ich." has played, then goes to
+  // the hand-off that asked for it.
   const result = await fake.next((event) => event.type === 'session.commentary.append');
   assert.equal(result.delegation_id, 'item_1');
-  assert.equal(result.content, 'Die Mail an Max ist raus.');
+  assert.match(result.content, /^task 1 \("Schreib Max dass ich später komme"\) finished\. Its outcome:\nDie Mail an Max ist raus\.$/);
 
   assert.equal(engine.runs.length, 1);
   const run = engine.runs[0];
@@ -260,7 +426,7 @@ test('GPT-Live session: shared prompt, transcripts, hand-off as a normal run, re
   assert.deepEqual(threadRoles, ['Earlier typed question', 'Schreib Max dass ich später komme', 'Mach ich.']);
 });
 
-test('a hand-off during a running task steers that run instead of starting another', async (t) => {
+test('each GPT-Live hand-off is a task of its own, and running tasks outlive the call', async (t) => {
   const ctx = createTestRuntime();
   const fake = await startFakeLiveServer();
   t.after(async () => {
@@ -270,21 +436,22 @@ test('a hand-off during a running task steers that run instead of starting anoth
   process.env.OPENAI_API_KEY = 'test-openai-key';
   process.env.OPENAI_BASE_URL = `${fake.url}/v1`;
 
-  let finishRun = null;
+  const finish = new Map();
   const engine = createFakeEngine({
-    run(_userId, request, options) {
+    run(userId, request, options) {
       this.runs.push({ request, options });
-      this.running.add(options.runId);
+      this.track(userId, request, options);
       return new Promise((resolve) => {
-        finishRun = () => {
-          this.running.delete(options.runId);
-          resolve({ status: 'completed', content: 'Termin steht.' });
-        };
+        finish.set(request, (content) => {
+          this.finish(options.runId);
+          resolve({ status: 'completed', content });
+        });
       });
     },
   });
   const { user, manager } = await setupManager(ctx, engine);
-  const opening = manager.openSession({ userId: user.userId, sink: createSink() });
+  const sink = createSink();
+  const opening = manager.openSession({ userId: user.userId, sink });
   await fake.next((event) => event.type === 'session.start');
   fake.send({ type: 'session.started', session: { id: 'sess_2' } });
   const session = await opening;
@@ -292,26 +459,29 @@ test('a hand-off during a running task steers that run instead of starting anoth
   fake.send({ type: 'session.input_transcript.delta', delta: 'Leg einen Termin an' });
   fake.send({ type: 'session.delegation.created', delegation: { id: 'item_a', target: 'client' } });
   await new Promise((resolve) => setTimeout(resolve, 650));
-  fake.send({ type: 'session.output_transcript.delta', delta: 'Mach ich, für wann?' });
-  fake.send({ type: 'session.input_transcript.delta', delta: 'lieber um drei' });
+  fake.send({ type: 'session.output_transcript.delta', delta: 'Mach ich.' });
+  fake.send({ type: 'session.input_transcript.delta', delta: 'Und schreib Lisa, dass ich später komme' });
   fake.send({ type: 'session.delegation.created', delegation: { id: 'item_b', target: 'client' } });
+  await new Promise((resolve) => setTimeout(resolve, 650));
 
-  const ack = await fake.next((event) => event.type === 'session.thinking.append'
-    && event.delegation_id === 'item_b');
-  assert.ok(ack.content);
-  assert.equal(engine.runs.length, 1);
-  assert.deepEqual(engine.steering, [{ runId: engine.runs[0].options.runId, content: 'lieber um drei' }]);
+  // The second request does not land in the first task: both run side by side.
+  assert.deepEqual(engine.runs.map((run) => run.request), [
+    'Leg einen Termin an',
+    'Und schreib Lisa, dass ich später komme',
+  ]);
+  assert.deepEqual(session.tasks.runningTasks.map((task) => task.taskId), ['1', '2']);
+  assert.deepEqual(sink.of('task').map((event) => event.status), ['running', 'running']);
 
-  // The client hangs up; the task keeps running and its result lands in chat.
+  // The client hangs up; the tasks keep running and their results land in chat.
   await manager.detachSession(session.id, 'socket_disconnected', user.userId);
-  assert.ok(manager.getSession(session.id));
-  finishRun();
+  finish.get('Leg einen Termin an')('Termin steht.');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(manager.getSession(session.id), session);
+  finish.get('Und schreib Lisa, dass ich später komme')('Lisa weiß Bescheid.');
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(manager.getSession(session.id), null);
-  const reply = historyRows(ctx.db, user.userId).find((row) => row.agent_run_id);
-  assert.equal(reply.role, 'assistant');
-  assert.equal(reply.content, 'Termin steht.');
-  assert.equal(reply.agent_run_id, engine.runs[0].options.runId);
+  const replies = historyRows(ctx.db, user.userId).filter((row) => row.agent_run_id);
+  assert.deepEqual(replies.map((row) => row.content), ['Termin steht.', 'Lisa weiß Bescheid.']);
 });
 
 test('wearable calls are push-to-talk even when the agent is set to hands-free', async (t) => {
@@ -344,7 +514,6 @@ test('Gemini Live session: run_task returns at once, outcome as a message, inter
   });
   process.env.GOOGLE_AI_KEY = 'test-google-key';
 
-  let manager = null;
   const engine = createFakeEngine({
     async run(_userId, request, options) {
       this.runs.push({ request, options });
@@ -356,26 +525,7 @@ test('Gemini Live session: run_task returns at once, outcome as a message, inter
     voice_live_voice: 'Puck',
     voice_input_mode: 'ptt',
   });
-  manager = setup.manager;
-  const { user } = setup;
-  const { LiveVoiceSession } = require('../../../server/services/voice/live/session');
-  const sink = createSink();
-  // Google has no configurable base URL; point this session at the fake server.
-  const session = new LiveVoiceSession({
-    id: 'gemini-session',
-    userId: user.userId,
-    agentId: null,
-    platform: 'voice_live',
-    sink,
-    agentEngine: engine,
-    conversationId: setup.conversationId,
-    settings: require('../../../server/services/voice/liveSettings').getVoiceRuntimeSettings(user.userId),
-    credentials: { apiKey: 'test-google-key', baseUrl: fake.url },
-    onIdle: () => {},
-  });
-  manager.sessions.set(session.id, session);
-  const connecting = session.connect();
-  const setupMessage = await fake.next((event) => event.setup);
+  const { session, sink, setupMessage } = await connectGemini(fake, engine, setup);
   assert.match(fake.paths[0], /BidiGenerateContent\?key=test-google-key$/);
   assert.equal(setupMessage.setup.model, 'models/gemini-3.8-live');
   assert.equal(
@@ -387,8 +537,8 @@ test('Gemini Live session: run_task returns at once, outcome as a message, inter
   assert.match(setupMessage.setup.systemInstruction.parts[0].text, /## rules for this call/);
   // Push-to-talk turns are marked explicitly instead of detected from silence.
   assert.deepEqual(setupMessage.setup.realtimeInputConfig, { automaticActivityDetection: { disabled: true } });
-  fake.send({ setupComplete: {} });
-  await connecting;
+  // A model the list does not mark as thinking rejects a thinking level.
+  assert.equal(setupMessage.setup.generationConfig.thinkingConfig, undefined);
   assert.equal(sink.of('session_ready')[0].inputSampleRate, 16000);
   assert.equal(sink.of('session_ready')[0].inputMode, 'ptt');
 
@@ -408,8 +558,15 @@ test('Gemini Live session: run_task returns at once, outcome as a message, inter
   const started = response.toolResponse.functionResponses[0];
   assert.equal(started.id, 'call-1');
   assert.match(started.response.result, /Nothing is done, saved, or sent yet/);
+  assert.equal(started.response.task_id, '1');
+  // The outcome waits until the model has answered the tool call: a new turn
+  // would cut that answer off.
+  await pause(20);
+  assert.ok(!fake.received.some((event) => event.clientContent));
+  fake.send({ serverContent: { modelTurn: { parts: [{ inlineData: { data: 'AAE=' } }] } } });
+  fake.send({ serverContent: { turnComplete: true } });
   const outcome = await fake.next((event) => event.clientContent?.turnComplete === true);
-  assert.match(outcome.clientContent.turns[0].parts[0].text, /Task "Aktuelle Temperatur in Berlin": The task finished\. Its outcome:\nEs sind 21 Grad\./);
+  assert.match(outcome.clientContent.turns[0].parts[0].text, /task 1 \("Aktuelle Temperatur in Berlin"\) finished\. Its outcome:\nEs sind 21 Grad\./);
   assert.equal(engine.runs[0].request, 'Aktuelle Temperatur in Berlin');
 
   fake.send({ serverContent: { modelTurn: { parts: [{ inlineData: { mimeType: 'audio/pcm;rate=24000', data: 'AAE=' } }] } } });
@@ -438,31 +595,16 @@ test('Gemini Live can hang up, after its goodbye has played out', async (t) => {
   });
   process.env.GOOGLE_AI_KEY = 'test-google-key';
   const engine = createFakeEngine();
-  const { user, manager, conversationId } = await setupManager(ctx, engine, {
-    voice_live_provider: 'google',
-  });
-  const { LiveVoiceSession } = require('../../../server/services/voice/live/session');
-  const sink = createSink();
-  const session = new LiveVoiceSession({
-    id: 'gemini-hangup',
-    userId: user.userId,
-    agentId: null,
-    platform: 'voice_live',
-    sink,
-    agentEngine: engine,
-    conversationId,
-    settings: require('../../../server/services/voice/liveSettings').getVoiceRuntimeSettings(user.userId),
-    credentials: { apiKey: 'test-google-key', baseUrl: fake.url },
-    onIdle: () => {},
-    onHangUp: (ended) => manager.closeSession(ended.id, 'agent_hung_up', ended.userId),
-  });
-  manager.sessions.set(session.id, session);
-  const connecting = session.connect();
-  const setupMessage = await fake.next((event) => event.setup);
+  const setup = await setupManager(ctx, engine, { voice_live_provider: 'google' });
+  const { manager } = setup;
+  const { session, sink, setupMessage } = await connectGemini(fake, engine, setup, { id: 'gemini-hangup' });
   const names = setupMessage.setup.tools[0].functionDeclarations.map((declaration) => declaration.name);
-  assert.deepEqual(names, ['run_task', 'end_call']);
-  fake.send({ setupComplete: {} });
-  await connecting;
+  assert.deepEqual(names, ['run_task', 'check_tasks', 'update_task', 'cancel_task', 'end_call']);
+  // Hands-free, only clear speech starts the owner's turn, so the call's own
+  // audio coming back through the microphone does not cut the model off.
+  assert.deepEqual(setupMessage.setup.realtimeInputConfig, {
+    automaticActivityDetection: { startOfSpeechSensitivity: 'START_SENSITIVITY_LOW' },
+  });
 
   // 300 ms of goodbye at 24 kHz, then the hang-up.
   const goodbye = Buffer.alloc(24000 * 2 * 0.3).toString('base64');
@@ -478,6 +620,180 @@ test('Gemini Live can hang up, after its goodbye has played out', async (t) => {
   assert.deepEqual(closed.map((event) => event.reason), ['agent_hung_up']);
   // The hang-up is not answered: nothing more is said on the line.
   assert.ok(!fake.received.some((event) => event.toolResponse));
+});
+
+test('Gemini Live task tools check, change, and stop the owner\'s running tasks', async (t) => {
+  const ctx = createTestRuntime();
+  const fake = await startFakeLiveServer();
+  t.after(async () => {
+    await fake.close();
+    teardownTestRuntime(ctx);
+  });
+  process.env.GOOGLE_AI_KEY = 'test-google-key';
+  const finish = new Map();
+  const engine = createFakeEngine({
+    run(userId, request, options) {
+      this.runs.push({ request, options });
+      this.track(userId, request, options);
+      return new Promise((resolve) => finish.set(options.runId, (result) => {
+        this.finish(options.runId);
+        resolve(result);
+      }));
+    },
+  });
+  const setup = await setupManager(ctx, engine, { voice_live_provider: 'google' });
+  // A chat task of the owner's and another account's task are already running.
+  engine.track(setup.user.userId, 'Fasse meine Mails zusammen', { runId: 'chat-run', triggerSource: 'web' });
+  const stranger = await createTestUser(ctx.db, { username: 'someone_else' });
+  engine.track(stranger.userId, 'Fremde Aufgabe', { runId: 'stranger-run', triggerSource: 'web' });
+  const { session, sink, setupMessage } = await connectGemini(fake, engine, setup);
+
+  // The call starts knowing what is already running.
+  assert.match(
+    setupMessage.setup.systemInstruction.parts[0].text,
+    /- task 1 \(started in the chat, running for 0 min\): Fasse meine Mails zusammen/,
+  );
+  const answer = async (id, name, args = {}) => {
+    fake.send({ toolCall: { functionCalls: [{ id, name, args }] } });
+    const message = await fake.next((event) => event.toolResponse?.functionResponses?.[0]?.id === id);
+    return message.toolResponse.functionResponses[0].response;
+  };
+
+  assert.equal((await answer('call-1', 'run_task', { request: 'Recherchiere Laptops unter 1000 Euro' })).task_id, '2');
+  const status = await answer('call-2', 'check_tasks');
+  assert.deepEqual(status.tasks.map((task) => [task.task_id, task.started_in, task.request]), [
+    ['1', 'the chat', 'Fasse meine Mails zusammen'],
+    ['2', 'this call', 'Recherchiere Laptops unter 1000 Euro'],
+  ]);
+
+  // With two tasks running, the model has to say which one.
+  const unnamed = await answer('call-3', 'cancel_task');
+  assert.match(unnamed.error, /task_id/);
+  assert.equal(unnamed.tasks.length, 2);
+  assert.deepEqual(engine.aborted, []);
+
+  const voiceRunId = engine.runs[0].options.runId;
+  const instructed = await answer('call-4', 'update_task', { task_id: '2', instruction: 'Auch Geräte bis 1200 Euro' });
+  assert.equal(instructed.instructed, true);
+  assert.match(engine.getRunMeta(voiceRunId).systemSteeringQueue[0].content, /Auch Geräte bis 1200 Euro/);
+
+  const cancelled = await answer('call-5', 'cancel_task', { task_id: '2' });
+  assert.equal(cancelled.cancelled, true);
+  assert.deepEqual(engine.aborted, [voiceRunId]);
+
+  // The model already said it stopped the task; its end is not announced again.
+  finish.get(voiceRunId)({ status: 'stopped', content: '' });
+  fake.send({ serverContent: { turnComplete: true } });
+  await pause(20);
+  assert.ok(!fake.received.some((event) => event.clientContent));
+  assert.deepEqual(sink.of('task').map((event) => event.status), ['running', 'stopped']);
+  await session.close('test_done');
+});
+
+test('progress is spoken into a quiet line and kept as context while people talk', async (t) => {
+  const ctx = createTestRuntime();
+  const fake = await startFakeLiveServer();
+  t.after(async () => {
+    mock.timers.reset();
+    await fake.close();
+    teardownTestRuntime(ctx);
+  });
+  process.env.GOOGLE_AI_KEY = 'test-google-key';
+  const engine = createFakeEngine({
+    run(userId, request, options) {
+      this.runs.push({ request, options });
+      this.track(userId, request, options);
+      return new Promise(() => {});
+    },
+  });
+  const setup = await setupManager(ctx, engine, { voice_live_provider: 'google' });
+  const { session } = await connectGemini(fake, engine, setup);
+  mock.timers.enable({ apis: ['Date'], now: Date.now() });
+
+  fake.send({ toolCall: { functionCalls: [{ id: 'call-1', name: 'run_task', args: { request: 'Recherchiere Laptops' } }] } });
+  await fake.next((event) => event.toolResponse);
+  const runId = engine.runs[0].options.runId;
+  const present = (messageKind, content, metadata) => setup.manager.presentDelivery({
+    recipient: session.id,
+    runId,
+    messageKind,
+    payload: { content, metadata },
+  });
+  const modelSpeaks = async () => {
+    fake.send({ serverContent: { modelTurn: { parts: [{ inlineData: { data: 'AAE=' } }] } } });
+    fake.send({ serverContent: { turnComplete: true } });
+    await pause(20);
+  };
+  const delivered = (pattern) => fake.next((event) => pattern.test(event.clientContent?.turns?.[0]?.parts?.[0]?.text || ''));
+
+  // The owner asks something: the update waits for the answer, then joins
+  // the context without being read out.
+  await modelSpeaks();
+  fake.send({ serverContent: { inputTranscription: { text: 'Wie lange dauert das?' } } });
+  await pause(20);
+  present('progress', 'Zwei Testberichte gefunden.', { liveness: { status: 'working' } });
+  await pause(20);
+  assert.ok(!fake.received.some((event) => event.clientContent));
+  await modelSpeaks();
+  const note = await delivered(/Zwei Testberichte gefunden/);
+  assert.equal(note.clientContent.turnComplete, false);
+  assert.match(note.clientContent.turns[0].parts[0].text, /Progress on task 1 \("Recherchiere Laptops"\):\nZwei Testberichte gefunden\./);
+
+  // After a silence the next update is spoken.
+  mock.timers.tick(7000);
+  present('progress', 'Drei Modelle im Vergleich.', { liveness: { status: 'working' } });
+  const spoken = await delivered(/Drei Modelle im Vergleich/);
+  assert.equal(spoken.clientContent.turnComplete, true);
+  assert.match(spoken.clientContent.turns[0].parts[0].text, /^Tell the owner now/);
+
+  // Within a minute of a spoken update, the next one stays context.
+  await modelSpeaks();
+  await pause(750);
+  mock.timers.tick(7000);
+  present('progress', 'Preise geprüft.', { liveness: { status: 'working' } });
+  assert.equal((await delivered(/Preise geprüft/)).clientContent.turnComplete, false);
+
+  // A question from the task is put to the owner at once.
+  present('interim', 'Welche Marke bevorzugst du?', { kind: 'question', expectsReply: true });
+  assert.equal((await delivered(/Welche Marke bevorzugst du\?/)).clientContent.turnComplete, true);
+  await session.close('test_done');
+});
+
+test('a thinking Gemini model gets a thinking level and keeps the line while it works', async (t) => {
+  const ctx = createTestRuntime();
+  const fake = await startFakeLiveServer();
+  t.after(async () => {
+    await fake.close();
+    teardownTestRuntime(ctx);
+  });
+  process.env.GOOGLE_AI_KEY = 'test-google-key';
+  const engine = createFakeEngine({
+    async run(userId, request, options) {
+      this.runs.push({ request, options });
+      return { status: 'completed', content: 'Notiert.' };
+    },
+  });
+  const setup = await setupManager(ctx, engine, { voice_live_provider: 'google' });
+  // Google's model list marks it as thinking; such models need a level.
+  const { session, setupMessage } = await connectGemini(fake, engine, setup, {
+    model: 'gemini-3.8-live-extended-thinking',
+    thinking: true,
+  });
+  assert.equal(setupMessage.setup.model, 'models/gemini-3.8-live-extended-thinking');
+  assert.deepEqual(setupMessage.setup.generationConfig.thinkingConfig, { thinkingLevel: 'low' });
+
+  fake.send({ toolCall: { functionCalls: [{ id: 'call-1', name: 'run_task', args: { request: 'Merk dir den Termin' } }] } });
+  await fake.next((event) => event.toolResponse);
+  // The model speaks and ends its turn while it is still working: its speech
+  // is over, but the line stays its own until it reports idle.
+  fake.send({ serverContent: { modelTurn: { parts: [{ inlineData: { data: 'AAE=' } }] } } });
+  fake.send({ serverContent: { turnComplete: true, interactionStatus: 'IN_PROGRESS' } });
+  await pause(750);
+  assert.ok(!fake.received.some((event) => event.clientContent));
+  fake.send({ serverContent: { turnComplete: true, interactionStatus: 'IDLE' } });
+  const outcome = await fake.next((event) => event.clientContent?.turnComplete === true);
+  assert.match(outcome.clientContent.turns[0].parts[0].text, /task 1 \("Merk dir den Termin"\) finished\. Its outcome:\nNotiert\./);
+  await session.close('test_done');
 });
 
 test('a call left open without speech or tasks hangs up after three minutes', async (t) => {

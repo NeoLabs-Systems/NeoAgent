@@ -25,6 +25,19 @@ class OpenAIProvider extends OpenAICompatibleProvider {
     }
   }
 
+  // GPT-Live conversation models. The realtime models speak another protocol,
+  // and the transcription and translation ones do not talk.
+  async listLiveVoiceModels(signal = null) {
+    try {
+      const res = await this.client.models.list({ signal });
+      return res.data
+        .filter((m) => /^gpt-live/i.test(m.id) && !/transcribe|translate/i.test(m.id))
+        .map((m) => ({ id: m.id, name: m.id, created: m.created }));
+    } catch (err) {
+      throw wrapProviderError(err, 'Failed to list OpenAI live models', { signal });
+    }
+  }
+
   isReasoningModel(model) {
     const id = String(model || '').trim().toLowerCase();
     return /^o\d/.test(id)

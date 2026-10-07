@@ -262,5 +262,6 @@ module.exports = {
   listCatalog,
   listInstalledCatalogIds,
   normalizeBundledText,
+  prependStoreNotes,
   uninstallCatalogSkill,
 };

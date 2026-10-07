@@ -14,10 +14,12 @@ const ollamaModelCache = new Map();
 const ollamaRefreshes = new Map();
 
 // Chat models come from listModels(), SystemOne decision models from
-// listDecisionModels(). Each catalog is discovered and cached on its own.
+// listDecisionModels(), live voice models from listLiveVoiceModels(). Each
+// catalog is discovered and cached on its own.
 const CATALOG_LISTERS = Object.freeze({
   llm: (provider, signal) => provider.listModels(signal),
   decisions: (provider, signal) => provider.listDecisionModels(signal),
+  voice: (provider, signal) => provider.listLiveVoiceModels(signal),
 });
 
 const PROVIDER_LABELS = Object.freeze({
@@ -110,6 +112,7 @@ function normalizeRawModels(rawModels, providerId) {
       purpose: '',
       createdAt,
       supportsTools,
+      ...(model.thinking === true ? { thinking: true } : {}),
     });
   }
   return normalized;
@@ -141,6 +144,8 @@ async function loadProviderModels({ providerId, factory, userId, apiKey, baseUrl
   }
 }
 
+// staleOk: a caller that should not wait (a call being set up) takes the last
+// list while the next one loads; only the very first lookup waits.
 async function refreshProviderModelList({
   providerId,
   factory,
@@ -148,6 +153,7 @@ async function refreshProviderModelList({
   apiKey,
   baseUrl,
   catalog = 'llm',
+  staleOk = false,
   signal,
 }) {
   const cacheKey = cacheKeyForProvider(providerId, apiKey, baseUrl, catalog);
@@ -164,6 +170,7 @@ async function refreshProviderModelList({
       .finally(() => providerRefreshes.delete(cacheKey));
     providerRefreshes.set(cacheKey, refresh);
   }
+  if (existing && staleOk) return existing.models;
   return waitForSharedResult(refresh, signal);
 }
 

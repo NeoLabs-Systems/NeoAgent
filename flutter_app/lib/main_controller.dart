@@ -3993,14 +3993,7 @@ class NeoAgentController extends ChangeNotifier {
     }
     final completer = Completer<void>();
     _liveVoiceSessionOpenCompleter = completer;
-    if (!_liveVoiceTelecomRouting) {
-      try {
-        _liveVoiceTelecomRouting = await AndroidAutoBridge.instance
-            .startTelecomCallRouting();
-      } catch (_) {
-        // Call routing is an Android nicety; the session works without it.
-      }
-    }
+    await _startLiveVoiceTelecomRouting();
     voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
       state: 'connecting',
       clearError: true,
@@ -4030,6 +4023,19 @@ class NeoAgentController extends ChangeNotifier {
       if (identical(_liveVoiceSessionOpenCompleter, completer)) {
         _liveVoiceSessionOpenCompleter = null;
       }
+    }
+  }
+
+  /// On Android the call runs as a Telecom call: the earpiece unless the
+  /// speaker is chosen, the call's echo canceller, and the screen turning off
+  /// at the ear.
+  Future<void> _startLiveVoiceTelecomRouting() async {
+    if (_liveVoiceTelecomRouting) return;
+    try {
+      _liveVoiceTelecomRouting = await AndroidAutoBridge.instance
+          .startTelecomCallRouting();
+    } catch (_) {
+      // Call routing is an Android nicety; the session works without it.
     }
   }
 
@@ -4275,12 +4281,32 @@ class NeoAgentController extends ChangeNotifier {
     _socket!.emit('voice:interrupt', <String, dynamic>{'sessionId': sessionId});
   }
 
+  /// Stops the task the call screen shows, the newest one.
   Future<void> cancelLiveVoiceTask() async {
     final sessionId = voiceAssistantLiveState.sessionId.trim();
     if (sessionId.isEmpty || _socket == null) return;
     _socket!.emit('voice:cancel_task', <String, dynamic>{
       'sessionId': sessionId,
+      'runId': voiceAssistantLiveState.activeRunId,
     });
+  }
+
+  /// The call's running tasks, as a (re)connected session reports them.
+  List<VoiceCallTask> _voiceCallTasksFrom(Map<String, dynamic> payload) {
+    final listed = payload['tasks'];
+    if (listed is List) {
+      return <VoiceCallTask>[
+        for (final entry in listed.whereType<Map>())
+          VoiceCallTask(
+            runId: entry['runId']?.toString() ?? '',
+            request: entry['request']?.toString() ?? '',
+          ),
+      ];
+    }
+    final runId = payload['activeRunId']?.toString() ?? '';
+    return runId.isEmpty
+        ? const <VoiceCallTask>[]
+        : <VoiceCallTask>[VoiceCallTask(runId: runId)];
   }
 
   /// Keyboard clicks fill the quiet while a handed-off task runs. Speech,
@@ -4294,7 +4320,12 @@ class NeoAgentController extends ChangeNotifier {
     }
     if (_voiceWorkClicks?.isPlaying == true) return;
     _voiceWorkClickArm?.cancel();
-    _voiceWorkClickArm = Timer(const Duration(milliseconds: 180), () {
+    // Typing waits until speech still playing is heard out: the server stops
+    // reporting speech once it has sent it, and on Android typing shares the
+    // call track, so speech arriving after it would flush both.
+    final delay =
+        const Duration(milliseconds: 180) + _liveVoicePlayer.speechRemaining;
+    _voiceWorkClickArm = Timer(delay, () {
       _voiceWorkClickArm = null;
       if (_liveVoiceHearingSpeech ||
           !voiceAssistantLiveState.isWorkingSilently) {
@@ -5510,6 +5541,23 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> uninstallStoreSkill(String id) async {
     await _backendClient.uninstallStoreSkill(backendUrl, id);
     await refreshSkills();
+  }
+
+  Future<List<SkillsShItem>> searchSkillsSh(String query) async {
+    final rows = await _backendClient.searchSkillsSh(backendUrl, query);
+    return rows.map(SkillsShItem.fromJson).toList();
+  }
+
+  /// Installs a skills.sh skill as a user skill and returns its local name.
+  Future<String> installSkillsShSkill(SkillsShItem item) async {
+    final result = await _backendClient.installSkillsShSkill(
+      backendUrl,
+      source: item.source,
+      skillId: item.skillId,
+      name: item.name,
+    );
+    await refreshSkills();
+    return result['name']?.toString() ?? item.name;
   }
 
   Future<void> connectOfficialIntegration(
@@ -7323,6 +7371,9 @@ class NeoAgentController extends ChangeNotifier {
         }
         _clearIncomingAgentCall(acceptedCallId, sessionStarted: true);
         setSelectedSection(AppSection.voiceAssistant);
+        // The server opened this session, so ensureLiveVoiceSession, which
+        // starts call routing for calls the owner places, never ran.
+        unawaited(_startLiveVoiceTelecomRouting());
       }
       final outputSampleRate = _asInt(payload['outputSampleRate']) >= 8000
           ? _asInt(payload['outputSampleRate'])
@@ -7340,7 +7391,7 @@ class NeoAgentController extends ChangeNotifier {
         provider: payload['provider']?.toString() ?? '',
         model: payload['model']?.toString() ?? '',
         voice: payload['voice']?.toString() ?? '',
-        activeRunId: payload['activeRunId']?.toString() ?? '',
+        tasks: _voiceCallTasksFrom(payload),
         transportState: 'connected',
         state: 'listening',
         clearError: true,
@@ -7417,17 +7468,18 @@ class NeoAgentController extends ChangeNotifier {
       final payload = _jsonMap(data);
       if (!_matchesLiveVoiceSessionPayload(payload)) return;
       final runId = payload['runId']?.toString() ?? '';
+      final tasks = voiceAssistantLiveState.tasks
+          .where((task) => task.runId != runId)
+          .toList();
       if (payload['status']?.toString() == 'running') {
-        voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-          activeRunId: runId,
-          activeTaskRequest: payload['request']?.toString() ?? '',
-        );
-      } else if (voiceAssistantLiveState.activeRunId == runId) {
-        voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-          activeRunId: '',
-          activeTaskRequest: '',
+        tasks.add(
+          VoiceCallTask(
+            runId: runId,
+            request: payload['request']?.toString() ?? '',
+          ),
         );
       }
+      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(tasks: tasks);
       _syncVoiceWorkClicks();
       notifyListeners();
     });

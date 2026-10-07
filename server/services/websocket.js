@@ -667,8 +667,8 @@ function setupWebSocket(io, services) {
       voiceRuntimeManager.interruptOutput(sessionId, userId);
     });
 
-    onVoiceSessionEvent('voice:cancel_task', (sessionId) => {
-      voiceRuntimeManager.cancelTask(sessionId, userId);
+    onVoiceSessionEvent('voice:cancel_task', (sessionId, data) => {
+      voiceRuntimeManager.cancelTask(sessionId, userId, toOptionalString(data?.runId, 128));
     });
 
     onVoiceSessionEvent('voice:session_close', async (sessionId, data) => {

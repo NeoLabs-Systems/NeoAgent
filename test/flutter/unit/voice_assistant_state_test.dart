@@ -18,8 +18,9 @@ void main() {
     final started = DateTime.utc(2026, 9, 26, 12);
     final state = VoiceAssistantLiveState(
       sessionId: 'session-1',
-      activeRunId: 'run-1',
-      activeTaskRequest: 'Check the deployment',
+      tasks: const <VoiceCallTask>[
+        VoiceCallTask(runId: 'run-1', request: 'Check the deployment'),
+      ],
       state: 'speaking',
       timeline: <VoiceTimelineItem>[
         VoiceTimelineItem(
@@ -46,8 +47,7 @@ void main() {
 
     final settled = state.copyWith(
       state: 'listening',
-      activeRunId: '',
-      activeTaskRequest: '',
+      tasks: const <VoiceCallTask>[],
       timeline: <VoiceTimelineItem>[
         state.timeline.first,
         state.timeline.last.copyWith(isFinal: true),
@@ -68,16 +68,34 @@ void main() {
     expect(VoiceAssistantLiveState(state: 'listening').isConnecting, isFalse);
   });
 
+  test('a call can run several tasks and shows the newest', () {
+    final state = VoiceAssistantLiveState(
+      tasks: const <VoiceCallTask>[
+        VoiceCallTask(runId: 'run-1', request: 'Book the table'),
+        VoiceCallTask(runId: 'run-2', request: 'Compare laptops'),
+      ],
+    );
+    expect(state.hasActiveTask, isTrue);
+    expect(state.activeRunId, 'run-2');
+    expect(state.activeTaskRequest, 'Compare laptops');
+    final first = state.copyWith(tasks: <VoiceCallTask>[state.tasks.first]);
+    expect(first.activeRunId, 'run-1');
+    expect(first.activeTaskRequest, 'Book the table');
+  });
+
   test('keyboard clicks belong only to a silent in-progress voice task', () {
     final working = VoiceAssistantLiveState(
       sessionId: 'session-1',
-      activeRunId: 'run-1',
+      tasks: const <VoiceCallTask>[VoiceCallTask(runId: 'run-1')],
       state: 'listening',
     );
     expect(working.isWorkingSilently, isTrue);
     expect(working.copyWith(state: 'speaking').isWorkingSilently, isFalse);
     expect(working.copyWith(state: 'connecting').isWorkingSilently, isFalse);
-    expect(working.copyWith(activeRunId: '').isWorkingSilently, isFalse);
+    expect(
+      working.copyWith(tasks: const <VoiceCallTask>[]).isWorkingSilently,
+      isFalse,
+    );
     expect(
       working
           .copyWith(error: 'The live voice connection ended.')
@@ -86,7 +104,7 @@ void main() {
     );
     expect(
       VoiceAssistantLiveState(
-        activeRunId: 'run-1',
+        tasks: const <VoiceCallTask>[VoiceCallTask(runId: 'run-1')],
         state: 'listening',
       ).isWorkingSilently,
       isFalse,

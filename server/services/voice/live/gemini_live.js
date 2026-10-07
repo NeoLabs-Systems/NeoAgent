@@ -13,10 +13,10 @@ const END_CALL = 'end_call';
 
 // run_task returns at once with the task's real state. Gemini fills the silence
 // of a pending (non-blocking) call by inventing an outcome, so the call never
-// stays open: the outcome arrives later as a separate message.
+// stays open: progress and the outcome arrive later as separate messages.
 const RUN_TASK_DECLARATION = Object.freeze({
   name: RUN_TASK,
-  description: 'Start a request in the NeoAgent task runtime, which does the work with the owner\'s tools, integrations, memory, and approvals. Returns at once while the task keeps running in the background; its outcome, success or failure, arrives later as a separate message.',
+  description: 'Start new work in the NeoAgent task runtime, which does it with the owner\'s tools, integrations, memory, and approvals. Returns at once with the task_id while the task runs in the background, so the conversation can go on and more tasks can start. Progress and the outcome, success or failure, arrive later as separate messages.',
   parameters: {
     type: 'OBJECT',
     properties: {
@@ -28,6 +28,41 @@ const RUN_TASK_DECLARATION = Object.freeze({
     required: ['request'],
   },
 });
+const TASK_ID_PARAMETER = Object.freeze({
+  type: 'STRING',
+  description: 'The task_id from run_task or check_tasks. May be left out when only one task is running.',
+});
+// The task tools answer at once from the runtime's own records, for every task
+// the owner has running: this call's, an earlier call's, and the chat's.
+const TASK_TOOL_DECLARATIONS = Object.freeze([
+  Object.freeze({
+    name: 'check_tasks',
+    description: 'See how the owner\'s running tasks are going right now: each task_id, request, status, how long it has been running, and its latest steps.',
+  }),
+  Object.freeze({
+    name: 'update_task',
+    description: 'Pass a change, an addition, or the owner\'s answer to its question on to a running task; it applies it at its next step.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        task_id: TASK_ID_PARAMETER,
+        instruction: {
+          type: 'STRING',
+          description: 'The change in the owner\'s words, complete enough to apply without the conversation.',
+        },
+      },
+      required: ['instruction'],
+    },
+  }),
+  Object.freeze({
+    name: 'cancel_task',
+    description: 'Stop a running task.',
+    parameters: {
+      type: 'OBJECT',
+      properties: { task_id: TASK_ID_PARAMETER },
+    },
+  }),
+]);
 // The call closes once what the model already said has played out, so it can
 // say goodbye before hanging up.
 const END_CALL_DECLARATION = Object.freeze({
@@ -35,6 +70,8 @@ const END_CALL_DECLARATION = Object.freeze({
   description: 'Hang up the call. Use it when the conversation is over or the owner wants to end the call, after you have said goodbye; nothing can be said after it. Tasks already running keep going and report in chat.',
 });
 const TASK_STARTED = 'The task is now running in the background. Nothing is done, saved, or sent yet. If you have not told the owner you are on it, do that briefly; otherwise say nothing more about it. Its outcome arrives later as a separate message; only then say what happened.';
+const NO_ANSWER = 'The task runtime could not answer this call.';
+
 
 function liveSocketUrl(baseUrl, apiKey) {
   const origin = new URL(baseUrl || DEFAULT_ORIGIN).origin.replace(/^http/i, 'ws');
@@ -50,19 +87,23 @@ function withHistory(instructions, history = []) {
 }
 
 class GeminiLiveAdapter {
-  constructor({ apiKey, baseUrl, model, voice, inputMode, handlers }) {
+  constructor({ apiKey, baseUrl, model, thinking = false, voice, inputMode, handlers }) {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl;
     // Push-to-talk marks each turn explicitly; Gemini's own speech detection
     // needs trailing silence a released button never sends.
     this.manualTurns = inputMode === 'ptt';
     this.model = model;
+    // Models the model list marks as thinking take a level, and some refuse a
+    // session without one; low keeps the first words of an answer quick.
+    // Others reject it.
+    this.thinking = thinking;
     this.voice = voice;
     this.handlers = handlers;
     this.ws = null;
     this.closing = false;
     this.resumeHandle = null;
-    this.requests = new Map();
+    this.reportsTurnEnds = true;
   }
 
   async connect({ instructions, history, resumeHandle = null }) {
@@ -104,14 +145,22 @@ class GeminiLiveAdapter {
           generationConfig: {
             responseModalities: ['AUDIO'],
             speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: this.voice } } },
+            ...(this.thinking ? { thinkingConfig: { thinkingLevel: 'low' } } : {}),
           },
           systemInstruction: { parts: [{ text: withHistory(instructions, history) }] },
-          tools: [{ functionDeclarations: [RUN_TASK_DECLARATION, END_CALL_DECLARATION] }],
+          tools: [{
+            functionDeclarations: [RUN_TASK_DECLARATION, ...TASK_TOOL_DECLARATIONS, END_CALL_DECLARATION],
+          }],
           inputAudioTranscription: {},
           outputAudioTranscription: {},
-          ...(this.manualTurns
-            ? { realtimeInputConfig: { automaticActivityDetection: { disabled: true } } }
-            : {}),
+          // Hands-free, only clear speech counts as the owner starting to talk,
+          // so the call's own audio coming back through the microphone does
+          // not cut the model off.
+          realtimeInputConfig: {
+            automaticActivityDetection: this.manualTurns
+              ? { disabled: true }
+              : { startOfSpeechSensitivity: 'START_SENSITIVITY_LOW' },
+          },
           sessionResumption: resumeHandle ? { handle: resumeHandle } : {},
           contextWindowCompression: { slidingWindow: {} },
         },
@@ -134,6 +183,8 @@ class GeminiLiveAdapter {
     this.#send({ realtimeInput: this.manualTurns ? { activityEnd: {} } : { audioStreamEnd: true } });
   }
 
+  // A new turn cuts off the answer Gemini is generating; the session only
+  // calls these while the line is free.
   say(text) {
     this.#clientText(`Tell the owner now, in your own words:\n${text}`, true);
   }
@@ -142,32 +193,12 @@ class GeminiLiveAdapter {
     this.#clientText(`Context update (do not read aloud unless it becomes relevant):\n${text}`, false);
   }
 
-  acknowledgeTask(_handle, text) {
-    this.note(text);
-  }
-
-  taskProgress(handle, text, { speak = false } = {}) {
-    const labelled = this.#forTask(handle, text);
-    if (speak) this.say(labelled);
-    else this.note(labelled);
-  }
-
-  completeTask(handle, text) {
-    this.say(this.#forTask(handle, `The task finished. Its outcome:\n${text}`));
-    this.requests.delete(handle);
-  }
-
   async close() {
     this.closing = true;
     const ws = this.ws;
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
       ws.close(1000);
     }
-  }
-
-  #forTask(handle, text) {
-    const request = this.requests.get(handle);
-    return request ? `Task "${request}": ${text}` : text;
   }
 
   #clientText(text, turnComplete) {
@@ -202,23 +233,18 @@ class GeminiLiveAdapter {
         this.handlers.onOutputTranscript(content.outputTranscription.text);
       }
       if (content.interrupted) this.handlers.onInterrupted();
-      if (content.turnComplete) this.handlers.onTurnComplete();
+      // Extended-thinking models end turns they are still working on.
+      if (content.turnComplete) this.handlers.onTurnComplete({ idle: content.interactionStatus !== 'IN_PROGRESS' });
     }
+    const responses = [];
     for (const call of message.toolCall?.functionCalls || []) {
       if (call.name === END_CALL) {
         this.handlers.onHangUp();
         continue;
       }
-      if (call.name !== RUN_TASK || !call.id) continue;
-      const request = String(call.args?.request || '');
-      this.requests.set(call.id, request);
-      this.#send({
-        toolResponse: {
-          functionResponses: [{ id: call.id, name: RUN_TASK, response: { result: TASK_STARTED } }],
-        },
-      });
-      this.handlers.onDelegation({ handle: call.id, request });
+      if (call.id) responses.push({ id: call.id, name: call.name, response: this.#answer(call) });
     }
+    if (responses.length) this.#send({ toolResponse: { functionResponses: responses } });
     if (message.goAway) {
       this.#handleClose('go_away');
       this.ws?.close(1000);
@@ -232,6 +258,14 @@ class GeminiLiveAdapter {
         this.handlers.onError(error);
       }
     }
+  }
+
+  #answer(call) {
+    if (call.name !== RUN_TASK) return this.handlers.onTaskTool(call.name, call.args || {}) || { error: NO_ANSWER };
+    const request = String(call.args?.request || '').trim();
+    if (!request) return { error: 'Nothing was started: the request was empty. Ask the owner what they want done.' };
+    const taskId = this.handlers.onDelegation({ handle: call.id, request });
+    return taskId ? { result: TASK_STARTED, task_id: taskId } : { error: NO_ANSWER };
   }
 
   // A connection that never completed setup is reported through connect()'s
@@ -250,5 +284,4 @@ class GeminiLiveAdapter {
 
 module.exports = {
   GeminiLiveAdapter,
-  RUN_TASK_DECLARATION,
 };

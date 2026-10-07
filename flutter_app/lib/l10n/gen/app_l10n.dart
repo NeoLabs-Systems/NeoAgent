@@ -19066,6 +19066,42 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'{arg1} triggers'**
   String triggerResultCountArg1(Object? arg1);
+
+  /// No description provided for @addFromSkillsSh.
+  ///
+  /// In en, this message translates to:
+  /// **'Add from skills.sh'**
+  String get addFromSkillsSh;
+
+  /// No description provided for @skillsShHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search above to find skills on skills.sh, or paste a skills.sh link or an `npx skills add` command.'**
+  String get skillsShHint;
+
+  /// No description provided for @noSkillsShMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'No skills.sh skills match this search.'**
+  String get noSkillsShMatches;
+
+  /// No description provided for @installingSkill.
+  ///
+  /// In en, this message translates to:
+  /// **'Installing…'**
+  String get installingSkill;
+
+  /// No description provided for @installedSkillArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Installed {arg1}'**
+  String installedSkillArg1(Object? arg1);
+
+  /// No description provided for @skillsShInstallsArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'{arg1} installs'**
+  String skillsShInstallsArg1(Object? arg1);
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

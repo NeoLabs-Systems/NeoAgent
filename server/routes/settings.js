@@ -397,7 +397,7 @@ router.post('/byok/:providerId/test', byokWriteLimiter, async (req, res) => {
 });
 
 // Get all settings
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
   ensureDefaultAiSettings(req.session.userId, agentId);
   ensureDefaultRuntimeSettings(req.session.userId);
@@ -424,7 +424,10 @@ router.get('/', (req, res) => {
   }
   settings.agentId = agentId;
   settings.ai_provider_configs = normalizeProviderConfigs(settings.ai_provider_configs);
-  settings.voice_capabilities = req.app?.locals?.voiceRuntimeManager?.getCapabilities?.() || null;
+  settings.voice_capabilities = await req.app?.locals?.voiceRuntimeManager?.getCapabilities?.({
+    userId: req.session.userId,
+    agentId,
+  }) || null;
   
   // Normalize runtime settings for consistency across deployments
   const normalizedRuntime = getRuntimeSettings(req.session.userId);

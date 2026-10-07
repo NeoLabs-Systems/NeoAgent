@@ -1632,6 +1632,29 @@ class BackendClient {
     await deleteMap(baseUrl, '/api/store/$id/uninstall');
   }
 
+  Future<List<Map<String, dynamic>>> searchSkillsSh(
+    String baseUrl,
+    String query,
+  ) {
+    return getList(
+      baseUrl,
+      '/api/skills/skills-sh/search?q=${Uri.encodeQueryComponent(query)}',
+    );
+  }
+
+  Future<Map<String, dynamic>> installSkillsShSkill(
+    String baseUrl, {
+    required String source,
+    required String skillId,
+    required String name,
+  }) {
+    return postMap(baseUrl, '/api/skills/skills-sh/install', <String, dynamic>{
+      'source': source,
+      'skillId': skillId,
+      'name': name,
+    });
+  }
+
   Future<Map<String, dynamic>> connectOfficialIntegration(
     String baseUrl,
     String providerId, {

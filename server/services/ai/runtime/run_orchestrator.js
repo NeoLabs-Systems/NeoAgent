@@ -24,6 +24,7 @@ const {
   buildBackgroundRunsNote,
   isBackgroundEligible,
   listBackgroundRuns,
+  moveRunToBackground,
 } = require('../loop/background_runs');
 const { shortenRunId } = require('../logFormat');
 const { getProviderForUser } = require('../provider_selector');
@@ -335,6 +336,8 @@ class DurableRunRuntime {
           }
           : null,
       });
+      // The call that handed this off keeps talking while it works.
+      if (triggerSource === 'voice_live') moveRunToBackground(this.engine, runId);
 
       if (options.signal) {
         const abortFromExternal = () => {
