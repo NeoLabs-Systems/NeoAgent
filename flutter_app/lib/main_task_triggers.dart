@@ -170,7 +170,7 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
   ),
   _TaskTriggerOption(
     type: 'slack_message_received',
-    section: 'Messaging',
+    section: appStrings.triggerSectionMessaging,
     label: appStrings.slackMessageReceived,
     description: appStrings.runWhenASlackMessageMatches,
     icon: Icons.forum_rounded,
@@ -183,7 +183,7 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
   ),
   _TaskTriggerOption(
     type: 'teams_message_received',
-    section: 'Messaging',
+    section: appStrings.triggerSectionMessaging,
     label: appStrings.teamsMessageReceived,
     description: appStrings.runWhenATeamsChatMessage,
     icon: Icons.groups_rounded,
@@ -196,7 +196,7 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
   ),
   _TaskTriggerOption(
     type: 'whatsapp_personal_message_received',
-    section: 'Messaging',
+    section: appStrings.triggerSectionMessaging,
     label: appStrings.whatsappPersonalMessageReceived,
     description: appStrings.runOnInboundPersonalWhatsappMessages,
     icon: Icons.chat_bubble_rounded,
@@ -214,7 +214,7 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
   ),
   _TaskTriggerOption(
     type: 'messaging_member_joined',
-    section: 'Messaging',
+    section: appStrings.triggerSectionMessaging,
     label: appStrings.messagingMemberJoined,
     description: appStrings.runWhenSomeoneJoinsAServerOrGroup,
     icon: Icons.person_add_alt_1_rounded,
@@ -222,7 +222,7 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
   ),
   _TaskTriggerOption(
     type: 'messaging_member_left',
-    section: 'Messaging',
+    section: appStrings.triggerSectionMessaging,
     label: appStrings.messagingMemberLeft,
     description: appStrings.runWhenSomeoneLeavesAServerOrGroup,
     icon: Icons.person_remove_alt_1_rounded,
@@ -230,7 +230,7 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
   ),
   _TaskTriggerOption(
     type: 'messaging_reaction_added',
-    section: 'Messaging',
+    section: appStrings.triggerSectionMessaging,
     label: appStrings.messagingReactionAdded,
     description: appStrings.runWhenSomeoneReactsInAPrivateChat,
     icon: Icons.add_reaction_rounded,
@@ -252,7 +252,7 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
   ),
   _TaskTriggerOption(
     type: 'messaging_platform_disconnected',
-    section: 'Messaging',
+    section: appStrings.triggerSectionMessaging,
     label: appStrings.messagingPlatformDisconnected,
     description: appStrings.runWhenAMessagingConnectionNeedsYou,
     icon: Icons.link_off_rounded,
@@ -472,7 +472,7 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
   ),
   _TaskTriggerOption(
     type: 'github_issue_opened',
-    section: 'Developer',
+    section: appStrings.triggerSectionDeveloper,
     label: appStrings.githubIssueOpened,
     description: appStrings.runWhenANewIssueMatching,
     icon: Icons.bug_report_rounded,
@@ -501,7 +501,7 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
   ),
   _TaskTriggerOption(
     type: 'github_pr_opened',
-    section: 'Developer',
+    section: appStrings.triggerSectionDeveloper,
     label: appStrings.githubPrOpened,
     description: appStrings.runWhenANewPullRequestIsOpened,
     icon: Icons.merge_type_rounded,
@@ -520,7 +520,7 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
   ),
   _TaskTriggerOption(
     type: 'github_workflow_run_failed',
-    section: 'Developer',
+    section: appStrings.triggerSectionDeveloper,
     label: appStrings.githubWorkflowRunFailed,
     description: appStrings.runWhenAGithubActionsRunFails,
     icon: Icons.error_outline_rounded,
@@ -539,7 +539,7 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
   ),
   _TaskTriggerOption(
     type: 'github_commit_pushed',
-    section: 'Developer',
+    section: appStrings.triggerSectionDeveloper,
     label: appStrings.githubCommitPushed,
     description: appStrings.runWhenNewCommitsReachABranch,
     icon: Icons.commit_rounded,
@@ -557,7 +557,7 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
   ),
   _TaskTriggerOption(
     type: 'mcp_server_disconnected',
-    section: 'Developer',
+    section: appStrings.triggerSectionDeveloper,
     label: appStrings.mcpServerFailed,
     description: appStrings.runWhenAWorkingMcpServerFails,
     icon: Icons.power_off_rounded,
@@ -602,7 +602,7 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
   ),
   _TaskTriggerOption(
     type: 'neorecall_memory_created',
-    section: 'Memory',
+    section: appStrings.triggerSectionMemory,
     label: appStrings.neorecallMemoryCreated,
     description: appStrings.runWhenANewNeorecallMemoryMatches,
     icon: Icons.psychology_alt_rounded,
@@ -615,7 +615,7 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
   ),
   _TaskTriggerOption(
     type: 'neorecall_daily_summary_created',
-    section: 'Memory',
+    section: appStrings.triggerSectionMemory,
     label: appStrings.neorecallDailySummaryReady,
     description: appStrings.runWhenADaysSummaryIsFinal,
     icon: Icons.summarize_rounded,
@@ -625,7 +625,7 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
   ),
   _TaskTriggerOption(
     type: 'neorecall_conversation_recorded',
-    section: 'Memory',
+    section: appStrings.triggerSectionMemory,
     label: appStrings.neorecallConversationRecorded,
     description: appStrings.runWhenARecordedConversationEnds,
     icon: Icons.record_voice_over_rounded,
@@ -660,7 +660,7 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
   ),
   _TaskTriggerOption(
     type: 'world_news',
-    section: 'News',
+    section: appStrings.triggerSectionNews,
     label: appStrings.worldNews,
     description: appStrings.runWhenNewWorldHeadlinesAppear,
     icon: Icons.public_rounded,
@@ -673,7 +673,7 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
   ),
   _TaskTriggerOption(
     type: 'android_notification_received',
-    section: 'System',
+    section: appStrings.triggerSectionSystem,
     label: appStrings.androidNotificationReceived,
     description: appStrings.runWhenANotificationArrivesOn,
     icon: Icons.notifications_active_rounded,
@@ -965,5 +965,468 @@ Widget _buildTaskTriggerField({
     case _TaskTriggerFieldKind.list:
     case _TaskTriggerFieldKind.text:
       return TextField(controller: draft.textFor(field), decoration: decoration);
+  }
+}
+
+Future<String?> _pickTaskTriggerType(
+  BuildContext context,
+  String selectedType, {
+  required bool Function(_TaskTriggerOption option) isConnected,
+}) {
+  final compact = MediaQuery.sizeOf(context).width < 640;
+  final picker = _TaskTriggerPicker(
+    selectedType: selectedType,
+    isConnected: isConnected,
+    compact: compact,
+  );
+  return showDialog<String>(
+    context: context,
+    builder: (context) => compact
+        ? Dialog.fullscreen(backgroundColor: _bgCard, child: picker)
+        : Dialog(
+            backgroundColor: _bgCard,
+            insetPadding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760, maxHeight: 780),
+              child: picker,
+            ),
+          ),
+  );
+}
+
+enum _TriggerAvailability { ready, connected, accountMissing, needsAccount }
+
+class _TaskTriggerPicker extends StatefulWidget {
+  const _TaskTriggerPicker({
+    required this.selectedType,
+    required this.isConnected,
+    required this.compact,
+  });
+
+  final String selectedType;
+  final bool Function(_TaskTriggerOption option) isConnected;
+  final bool compact;
+
+  @override
+  State<_TaskTriggerPicker> createState() => _TaskTriggerPickerState();
+}
+
+class _TaskTriggerPickerState extends State<_TaskTriggerPicker> {
+  final TextEditingController _search = TextEditingController();
+  late final List<_TaskTriggerOption> _options = _taskTriggerOptions;
+  late final List<String> _sections = _options
+      .map((option) => option.section)
+      .toSet()
+      .toList();
+  String? _section;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  _TriggerAvailability _availability(_TaskTriggerOption option) {
+    if (option.providerKey == null) return _TriggerAvailability.ready;
+    if (widget.isConnected(option)) return _TriggerAvailability.connected;
+    if (option.requiresConnection && option.type != widget.selectedType) {
+      return _TriggerAvailability.needsAccount;
+    }
+    return _TriggerAvailability.accountMissing;
+  }
+
+  // Every word must appear in the name, description, category, or app.
+  bool _matches(_TaskTriggerOption option, List<String> words) {
+    if (words.isEmpty) return true;
+    final haystack = <String?>[
+      option.label,
+      option.description,
+      option.section,
+      option.type.replaceAll('_', ' '),
+      option.providerKey?.replaceAll('_', ' '),
+    ].whereType<String>().join(' ').toLowerCase();
+    return words.every(haystack.contains);
+  }
+
+  List<String> get _words => _search.text
+      .toLowerCase()
+      .split(RegExp(r'\s+'))
+      .where((word) => word.isNotEmpty)
+      .toList();
+
+  List<_TaskTriggerOption> _searchResults() {
+    final words = _words;
+    return _options.where((option) => _matches(option, words)).toList();
+  }
+
+  void _pick(_TaskTriggerOption option) {
+    if (_availability(option) == _TriggerAvailability.needsAccount) return;
+    Navigator.of(context).pop(option.type);
+  }
+
+  void _pickFirst(List<_TaskTriggerOption> visible) {
+    for (final option in visible) {
+      if (_availability(option) != _TriggerAvailability.needsAccount) {
+        _pick(option);
+        return;
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final results = _searchResults();
+    final visible = _section == null
+        ? results
+        : results.where((option) => option.section == _section).toList();
+    final padding = widget.compact ? 16.0 : 24.0;
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(padding, padding, padding, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            _buildHeader(),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _search,
+              autofocus: !widget.compact,
+              textInputAction: TextInputAction.search,
+              onChanged: (_) => setState(() {}),
+              onSubmitted: (_) => _pickFirst(visible),
+              decoration: InputDecoration(
+                hintText: appStrings.searchTriggersHint,
+                prefixIcon: Icon(Icons.search_rounded, color: _textMuted),
+                suffixIcon: _search.text.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: appStrings.clear,
+                        icon: Icon(Icons.close_rounded, color: _textMuted),
+                        onPressed: () => setState(_search.clear),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildSectionChips(results),
+            const SizedBox(height: 8),
+            Expanded(
+              child: visible.isEmpty
+                  ? _buildEmptyState()
+                  : _buildResults(visible),
+            ),
+            _buildFooter(visible.length),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                appStrings.selectTrigger,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                appStrings.chooseHowThisTaskShouldStart,
+                style: TextStyle(color: _textSecondary, height: 1.45),
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          tooltip: appStrings.close,
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionChips(List<_TaskTriggerOption> results) {
+    final counts = <String, int>{};
+    for (final option in results) {
+      counts[option.section] = (counts[option.section] ?? 0) + 1;
+    }
+    Widget chip(String? section, String label, int count) {
+      final selected = _section == section;
+      return Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: ChoiceChip(
+          selected: selected,
+          showCheckmark: false,
+          label: Text('$label  $count'),
+          labelStyle: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: count == 0 && !selected ? _textMuted : null,
+          ),
+          onSelected: count == 0 && !selected
+              ? null
+              : (_) => setState(() => _section = selected ? null : section),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 40,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: <Widget>[
+          chip(null, appStrings.all, results.length),
+          for (final section in _sections)
+            chip(section, section, counts[section] ?? 0),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResults(List<_TaskTriggerOption> visible) {
+    final grouped = _section == null && _words.isEmpty;
+    final items = <Widget>[];
+    String? currentSection;
+    for (final option in visible) {
+      if (grouped && option.section != currentSection) {
+        currentSection = option.section;
+        items.add(
+          Padding(
+            padding: EdgeInsets.fromLTRB(4, items.isEmpty ? 4 : 18, 4, 8),
+            child: Text(
+              option.section.toUpperCase(),
+              style: TextStyle(
+                color: _textSecondary,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.3,
+              ),
+            ),
+          ),
+        );
+      }
+      items.add(
+        _TaskTriggerTile(
+          option: option,
+          selected: option.type == widget.selectedType,
+          availability: _availability(option),
+          showSection: !grouped,
+          onTap: () => _pick(option),
+        ),
+      );
+    }
+    return ListView(
+      padding: const EdgeInsets.only(top: 4, bottom: 8),
+      children: items,
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(Icons.search_off_rounded, size: 40, color: _textMuted),
+          const SizedBox(height: 12),
+          Text(
+            appStrings.noTriggersMatch,
+            style: TextStyle(color: _textSecondary),
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () => setState(() {
+              _search.clear();
+              _section = null;
+            }),
+            child: Text(appStrings.clear),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooter(int count) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: <Widget>[
+          Text(
+            appStrings.triggerResultCountArg1(count),
+            style: TextStyle(color: _textMuted, fontSize: 12),
+          ),
+          if (!widget.compact && _search.text.isNotEmpty && count > 0) ...[
+            const SizedBox(width: 12),
+            Icon(Icons.keyboard_return_rounded, size: 14, color: _textMuted),
+            const SizedBox(width: 4),
+            Text(
+              appStrings.pickTriggerKeyboardHint,
+              style: TextStyle(color: _textMuted, fontSize: 12),
+            ),
+          ],
+          const Spacer(),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(appStrings.cancel),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TaskTriggerTile extends StatelessWidget {
+  const _TaskTriggerTile({
+    required this.option,
+    required this.selected,
+    required this.availability,
+    required this.showSection,
+    required this.onTap,
+  });
+
+  final _TaskTriggerOption option;
+  final bool selected;
+  final _TriggerAvailability availability;
+  final bool showSection;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = availability == _TriggerAvailability.needsAccount;
+    final badge = switch (availability) {
+      _TriggerAvailability.connected => (appStrings.connected, _success),
+      _TriggerAvailability.accountMissing => (
+        appStrings.triggerAccountMissing,
+        _warning,
+      ),
+      _TriggerAvailability.needsAccount => (
+        appStrings.triggerNeedsAccount,
+        _textMuted,
+      ),
+      _TriggerAvailability.ready => null,
+    };
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Opacity(
+        opacity: disabled ? 0.55 : 1,
+        child: Material(
+          color: selected
+              ? _accent.withValues(alpha: 0.10)
+              : _bgCard.withValues(alpha: 0.72),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: selected ? _accent : _border,
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: disabled ? null : onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: <Widget>[
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? _accent.withValues(alpha: 0.16)
+                          : _bgTertiary,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      option.icon,
+                      size: 21,
+                      color: selected ? _accent : _textSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: <Widget>[
+                            Text(
+                              option.label,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14.5,
+                              ),
+                            ),
+                            if (showSection)
+                              Text(
+                                option.section,
+                                style: TextStyle(
+                                  color: _textMuted,
+                                  fontSize: 11.5,
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          option.description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: _textSecondary,
+                            fontSize: 12.5,
+                            height: 1.35,
+                          ),
+                        ),
+                        if (badge != null) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            children: <Widget>[
+                              Container(
+                                width: 7,
+                                height: 7,
+                                decoration: BoxDecoration(
+                                  color: badge.$2,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                badge.$1,
+                                style: TextStyle(
+                                  color: _textSecondary,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Icon(
+                    selected
+                        ? Icons.check_circle_rounded
+                        : Icons.chevron_right_rounded,
+                    color: selected ? _accent : _textMuted,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

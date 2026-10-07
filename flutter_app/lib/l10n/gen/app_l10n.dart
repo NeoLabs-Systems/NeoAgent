@@ -19006,6 +19006,72 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'{arg1} is missing or not valid.'**
   String fieldMissingOrInvalidArg1(Object? arg1);
+
+  /// No description provided for @triggerSectionMessaging.
+  ///
+  /// In en, this message translates to:
+  /// **'Messaging'**
+  String get triggerSectionMessaging;
+
+  /// No description provided for @triggerSectionDeveloper.
+  ///
+  /// In en, this message translates to:
+  /// **'Developer'**
+  String get triggerSectionDeveloper;
+
+  /// No description provided for @triggerSectionMemory.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory'**
+  String get triggerSectionMemory;
+
+  /// No description provided for @triggerSectionNews.
+  ///
+  /// In en, this message translates to:
+  /// **'News'**
+  String get triggerSectionNews;
+
+  /// No description provided for @triggerSectionSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get triggerSectionSystem;
+
+  /// No description provided for @searchTriggersHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search triggers, apps, or events'**
+  String get searchTriggersHint;
+
+  /// No description provided for @noTriggersMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'No trigger matches your search.'**
+  String get noTriggersMatch;
+
+  /// No description provided for @triggerNeedsAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect an account first'**
+  String get triggerNeedsAccount;
+
+  /// No description provided for @triggerAccountMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'No account yet'**
+  String get triggerAccountMissing;
+
+  /// No description provided for @pickTriggerKeyboardHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter picks the first result'**
+  String get pickTriggerKeyboardHint;
+
+  /// No description provided for @triggerResultCountArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'{arg1} triggers'**
+  String triggerResultCountArg1(Object? arg1);
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

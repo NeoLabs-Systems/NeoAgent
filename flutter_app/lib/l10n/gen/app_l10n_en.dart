@@ -11346,4 +11346,39 @@ class AppL10nEn extends AppL10n {
   String fieldMissingOrInvalidArg1(Object? arg1) {
     return '$arg1 is missing or not valid.';
   }
+
+  @override
+  String get triggerSectionMessaging => 'Messaging';
+
+  @override
+  String get triggerSectionDeveloper => 'Developer';
+
+  @override
+  String get triggerSectionMemory => 'Memory';
+
+  @override
+  String get triggerSectionNews => 'News';
+
+  @override
+  String get triggerSectionSystem => 'System';
+
+  @override
+  String get searchTriggersHint => 'Search triggers, apps, or events';
+
+  @override
+  String get noTriggersMatch => 'No trigger matches your search.';
+
+  @override
+  String get triggerNeedsAccount => 'Connect an account first';
+
+  @override
+  String get triggerAccountMissing => 'No account yet';
+
+  @override
+  String get pickTriggerKeyboardHint => 'Enter picks the first result';
+
+  @override
+  String triggerResultCountArg1(Object? arg1) {
+    return '$arg1 triggers';
+  }
 }

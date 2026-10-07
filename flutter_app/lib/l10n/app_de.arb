@@ -7025,5 +7025,16 @@
   "taskOutcome": "Ergebnis",
   "anyOutcome": "Jedes Ergebnis",
   "succeeded": "Erfolgreich",
-  "fieldMissingOrInvalidArg1": "{arg1} fehlt oder ist ungültig."
+  "fieldMissingOrInvalidArg1": "{arg1} fehlt oder ist ungültig.",
+  "triggerSectionMessaging": "Nachrichten",
+  "triggerSectionDeveloper": "Entwicklung",
+  "triggerSectionMemory": "Erinnerungen",
+  "triggerSectionNews": "News",
+  "triggerSectionSystem": "System",
+  "searchTriggersHint": "Auslöser, Apps oder Ereignisse suchen",
+  "noTriggersMatch": "Kein Auslöser passt zu Ihrer Suche.",
+  "triggerNeedsAccount": "Zuerst ein Konto verbinden",
+  "triggerAccountMissing": "Noch kein Konto",
+  "pickTriggerKeyboardHint": "Enter wählt das erste Ergebnis",
+  "triggerResultCountArg1": "{arg1} Auslöser"
 }

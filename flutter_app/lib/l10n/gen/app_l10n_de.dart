@@ -11483,4 +11483,39 @@ class AppL10nDe extends AppL10n {
   String fieldMissingOrInvalidArg1(Object? arg1) {
     return '$arg1 fehlt oder ist ungültig.';
   }
+
+  @override
+  String get triggerSectionMessaging => 'Nachrichten';
+
+  @override
+  String get triggerSectionDeveloper => 'Entwicklung';
+
+  @override
+  String get triggerSectionMemory => 'Erinnerungen';
+
+  @override
+  String get triggerSectionNews => 'News';
+
+  @override
+  String get triggerSectionSystem => 'System';
+
+  @override
+  String get searchTriggersHint => 'Auslöser, Apps oder Ereignisse suchen';
+
+  @override
+  String get noTriggersMatch => 'Kein Auslöser passt zu Ihrer Suche.';
+
+  @override
+  String get triggerNeedsAccount => 'Zuerst ein Konto verbinden';
+
+  @override
+  String get triggerAccountMissing => 'Noch kein Konto';
+
+  @override
+  String get pickTriggerKeyboardHint => 'Enter wählt das erste Ergebnis';
+
+  @override
+  String triggerResultCountArg1(Object? arg1) {
+    return '$arg1 Auslöser';
+  }
 }

@@ -499,7 +499,9 @@ class _DevicesPanelState extends State<DevicesPanel> {
           child: Card(
             margin: EdgeInsets.zero,
             clipBehavior: Clip.antiAlias,
-            color: Colors.black,
+            color: online && !starting
+                ? Colors.black
+                : Theme.of(context).colorScheme.surfaceContainerLowest,
             child: starting
                 ? _ComputerEmptyState(
                     icon: Icons.android_rounded,

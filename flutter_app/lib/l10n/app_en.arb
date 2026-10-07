@@ -7067,5 +7067,23 @@
         "type": "Object?"
       }
     }
+  },
+  "triggerSectionMessaging": "Messaging",
+  "triggerSectionDeveloper": "Developer",
+  "triggerSectionMemory": "Memory",
+  "triggerSectionNews": "News",
+  "triggerSectionSystem": "System",
+  "searchTriggersHint": "Search triggers, apps, or events",
+  "noTriggersMatch": "No trigger matches your search.",
+  "triggerNeedsAccount": "Connect an account first",
+  "triggerAccountMissing": "No account yet",
+  "pickTriggerKeyboardHint": "Enter picks the first result",
+  "triggerResultCountArg1": "{arg1} triggers",
+  "@triggerResultCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
   }
 }
