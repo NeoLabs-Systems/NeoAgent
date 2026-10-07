@@ -179,7 +179,8 @@ class _AppNotificationService {
   /// (the keep-alive service holds it), so they are forwarded here instead
   /// of opening it.
   static void listenForActions() {
-    if (_actionPort != null) return;
+    // Web has no isolate ports and no local notification actions.
+    if (kIsWeb || _actionPort != null) return;
     final port = ReceivePort();
     IsolateNameServer.removePortNameMapping(_actionPortName);
     IsolateNameServer.registerPortWithName(port.sendPort, _actionPortName);
@@ -193,6 +194,7 @@ class _AppNotificationService {
   }
 
   static void stopListeningForActions() {
+    if (kIsWeb) return;
     IsolateNameServer.removePortNameMapping(_actionPortName);
     _actionPort?.close();
     _actionPort = null;
