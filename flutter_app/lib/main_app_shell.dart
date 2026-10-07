@@ -5,36 +5,7 @@ class SplashView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: RadialGradient(
-          center: Alignment(-0.4, -0.6),
-          radius: 1.3,
-          colors: <Color>[_accent, _bgSecondary, _bgPrimary],
-        ),
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              _BrandLockup(logoSize: 52),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: 180,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: const LinearProgressIndicator(minHeight: 4),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(appStrings.loadingNeoagent),
-            ],
-          ),
-        ),
-      ),
-    );
+    return const Scaffold(body: AppSplash());
   }
 }
 

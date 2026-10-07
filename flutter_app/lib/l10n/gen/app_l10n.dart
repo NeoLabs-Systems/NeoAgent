@@ -19049,12 +19049,6 @@ abstract class AppL10n {
   /// **'No trigger matches your search.'**
   String get noTriggersMatch;
 
-  /// No description provided for @triggerNeedsAccount.
-  ///
-  /// In en, this message translates to:
-  /// **'Connect an account first'**
-  String get triggerNeedsAccount;
-
   /// No description provided for @triggerAccountMissing.
   ///
   /// In en, this message translates to:

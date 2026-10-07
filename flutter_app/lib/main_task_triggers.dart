@@ -42,7 +42,6 @@ class _TaskTriggerOption {
     required this.icon,
     this.providerKey,
     this.appKey,
-    this.requiresConnection = false,
     this.fields = const <_TaskTriggerField>[],
   });
 
@@ -62,10 +61,6 @@ class _TaskTriggerOption {
   /// (e.g. Google Workspace with Gmail + Drive + Calendar) don't show
   /// duplicate accounts.
   final String? appKey;
-
-  /// Hides the trigger from the picker until the integration has a connected
-  /// account.
-  final bool requiresConnection;
 
   final List<_TaskTriggerField> fields;
 }
@@ -478,7 +473,6 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
     icon: Icons.bug_report_rounded,
     providerKey: 'github',
     appKey: 'repos',
-    requiresConnection: true,
     fields: <_TaskTriggerField>[
       _repoField(),
       _TaskTriggerField(
@@ -507,7 +501,6 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
     icon: Icons.merge_type_rounded,
     providerKey: 'github',
     appKey: 'repos',
-    requiresConnection: true,
     fields: <_TaskTriggerField>[
       _repoField(),
       _TaskTriggerField('author', appStrings.authorOptional),
@@ -526,7 +519,6 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
     icon: Icons.error_outline_rounded,
     providerKey: 'github',
     appKey: 'repos',
-    requiresConnection: true,
     fields: <_TaskTriggerField>[
       _repoField(),
       _TaskTriggerField(
@@ -545,7 +537,6 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
     icon: Icons.commit_rounded,
     providerKey: 'github',
     appKey: 'repos',
-    requiresConnection: true,
     fields: <_TaskTriggerField>[
       _repoField(),
       _TaskTriggerField(
@@ -573,7 +564,6 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
     icon: Icons.sensors_rounded,
     providerKey: 'home_assistant',
     appKey: 'home_assistant',
-    requiresConnection: true,
     fields: <_TaskTriggerField>[
       _TaskTriggerField(
         'entityId',
@@ -598,7 +588,6 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
     icon: Icons.music_note_rounded,
     providerKey: 'spotify',
     appKey: 'spotify',
-    requiresConnection: true,
   ),
   _TaskTriggerOption(
     type: 'neorecall_memory_created',
@@ -608,7 +597,6 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
     icon: Icons.psychology_alt_rounded,
     providerKey: 'neorecall',
     appKey: 'recall',
-    requiresConnection: true,
     fields: <_TaskTriggerField>[
       _TaskTriggerField('query', appStrings.containsTextOptional),
     ],
@@ -621,7 +609,6 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
     icon: Icons.summarize_rounded,
     providerKey: 'neorecall',
     appKey: 'recall',
-    requiresConnection: true,
   ),
   _TaskTriggerOption(
     type: 'neorecall_conversation_recorded',
@@ -631,7 +618,6 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
     icon: Icons.record_voice_over_rounded,
     providerKey: 'neorecall',
     appKey: 'recall',
-    requiresConnection: true,
   ),
   _TaskTriggerOption(
     type: 'weather_event',
@@ -666,7 +652,6 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
     icon: Icons.public_rounded,
     providerKey: 'news',
     appKey: 'headlines',
-    requiresConnection: true,
     fields: <_TaskTriggerField>[
       _TaskTriggerField('query', appStrings.newsKeywordsOptional),
     ],
@@ -964,7 +949,10 @@ Widget _buildTaskTriggerField({
       );
     case _TaskTriggerFieldKind.list:
     case _TaskTriggerFieldKind.text:
-      return TextField(controller: draft.textFor(field), decoration: decoration);
+      return TextField(
+        controller: draft.textFor(field),
+        decoration: decoration,
+      );
   }
 }
 
@@ -994,7 +982,7 @@ Future<String?> _pickTaskTriggerType(
   );
 }
 
-enum _TriggerAvailability { ready, connected, accountMissing, needsAccount }
+enum _TriggerAvailability { ready, connected, accountMissing }
 
 class _TaskTriggerPicker extends StatefulWidget {
   const _TaskTriggerPicker({
@@ -1013,7 +1001,16 @@ class _TaskTriggerPicker extends StatefulWidget {
 
 class _TaskTriggerPickerState extends State<_TaskTriggerPicker> {
   final TextEditingController _search = TextEditingController();
-  late final List<_TaskTriggerOption> _options = _taskTriggerOptions;
+  // Integration triggers show only once their app has a connected account;
+  // the task's current trigger stays visible so editing never hides it.
+  late final List<_TaskTriggerOption> _options = _taskTriggerOptions
+      .where(
+        (option) =>
+            option.providerKey == null ||
+            option.type == widget.selectedType ||
+            widget.isConnected(option),
+      )
+      .toList();
   late final List<String> _sections = _options
       .map((option) => option.section)
       .toSet()
@@ -1028,11 +1025,9 @@ class _TaskTriggerPickerState extends State<_TaskTriggerPicker> {
 
   _TriggerAvailability _availability(_TaskTriggerOption option) {
     if (option.providerKey == null) return _TriggerAvailability.ready;
-    if (widget.isConnected(option)) return _TriggerAvailability.connected;
-    if (option.requiresConnection && option.type != widget.selectedType) {
-      return _TriggerAvailability.needsAccount;
-    }
-    return _TriggerAvailability.accountMissing;
+    return widget.isConnected(option)
+        ? _TriggerAvailability.connected
+        : _TriggerAvailability.accountMissing;
   }
 
   // Every word must appear in the name, description, category, or app.
@@ -1060,17 +1055,11 @@ class _TaskTriggerPickerState extends State<_TaskTriggerPicker> {
   }
 
   void _pick(_TaskTriggerOption option) {
-    if (_availability(option) == _TriggerAvailability.needsAccount) return;
     Navigator.of(context).pop(option.type);
   }
 
   void _pickFirst(List<_TaskTriggerOption> visible) {
-    for (final option in visible) {
-      if (_availability(option) != _TriggerAvailability.needsAccount) {
-        _pick(option);
-        return;
-      }
-    }
+    if (visible.isNotEmpty) _pick(visible.first);
   }
 
   @override
@@ -1299,130 +1288,122 @@ class _TaskTriggerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final disabled = availability == _TriggerAvailability.needsAccount;
     final badge = switch (availability) {
       _TriggerAvailability.connected => (appStrings.connected, _success),
       _TriggerAvailability.accountMissing => (
         appStrings.triggerAccountMissing,
         _warning,
       ),
-      _TriggerAvailability.needsAccount => (
-        appStrings.triggerNeedsAccount,
-        _textMuted,
-      ),
       _TriggerAvailability.ready => null,
     };
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Opacity(
-        opacity: disabled ? 0.55 : 1,
-        child: Material(
-          color: selected
-              ? _accent.withValues(alpha: 0.10)
-              : _bgCard.withValues(alpha: 0.72),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(
-              color: selected ? _accent : _border,
-              width: selected ? 1.5 : 1,
-            ),
+      child: Material(
+        color: selected
+            ? _accent.withValues(alpha: 0.10)
+            : _bgCard.withValues(alpha: 0.72),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: selected ? _accent : _border,
+            width: selected ? 1.5 : 1,
           ),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: disabled ? null : onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              child: Row(
-                children: <Widget>[
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? _accent.withValues(alpha: 0.16)
-                          : _bgTertiary,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      option.icon,
-                      size: 21,
-                      color: selected ? _accent : _textSecondary,
-                    ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: <Widget>[
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? _accent.withValues(alpha: 0.16)
+                        : _bgTertiary,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 4,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: <Widget>[
+                  child: Icon(
+                    option.icon,
+                    size: 21,
+                    color: selected ? _accent : _textSecondary,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: <Widget>[
+                          Text(
+                            option.label,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14.5,
+                            ),
+                          ),
+                          if (showSection)
                             Text(
-                              option.label,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 14.5,
+                              option.section,
+                              style: TextStyle(
+                                color: _textMuted,
+                                fontSize: 11.5,
                               ),
                             ),
-                            if (showSection)
-                              Text(
-                                option.section,
-                                style: TextStyle(
-                                  color: _textMuted,
-                                  fontSize: 11.5,
-                                ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        option.description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: _textSecondary,
+                          fontSize: 12.5,
+                          height: 1.35,
+                        ),
+                      ),
+                      if (badge != null) ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          children: <Widget>[
+                            Container(
+                              width: 7,
+                              height: 7,
+                              decoration: BoxDecoration(
+                                color: badge.$2,
+                                shape: BoxShape.circle,
                               ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              badge.$1,
+                              style: TextStyle(
+                                color: _textSecondary,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ],
                         ),
-                        const SizedBox(height: 3),
-                        Text(
-                          option.description,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: _textSecondary,
-                            fontSize: 12.5,
-                            height: 1.35,
-                          ),
-                        ),
-                        if (badge != null) ...[
-                          const SizedBox(height: 6),
-                          Row(
-                            children: <Widget>[
-                              Container(
-                                width: 7,
-                                height: 7,
-                                decoration: BoxDecoration(
-                                  color: badge.$2,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                badge.$1,
-                                style: TextStyle(
-                                  color: _textSecondary,
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
                       ],
-                    ),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  Icon(
-                    selected
-                        ? Icons.check_circle_rounded
-                        : Icons.chevron_right_rounded,
-                    color: selected ? _accent : _textMuted,
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 10),
+                Icon(
+                  selected
+                      ? Icons.check_circle_rounded
+                      : Icons.chevron_right_rounded,
+                  color: selected ? _accent : _textMuted,
+                ),
+              ],
             ),
           ),
         ),

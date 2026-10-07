@@ -11369,9 +11369,6 @@ class AppL10nEn extends AppL10n {
   String get noTriggersMatch => 'No trigger matches your search.';
 
   @override
-  String get triggerNeedsAccount => 'Connect an account first';
-
-  @override
   String get triggerAccountMissing => 'No account yet';
 
   @override

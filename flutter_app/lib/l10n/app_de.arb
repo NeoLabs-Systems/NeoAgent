@@ -7033,7 +7033,6 @@
   "triggerSectionSystem": "System",
   "searchTriggersHint": "Auslöser, Apps oder Ereignisse suchen",
   "noTriggersMatch": "Kein Auslöser passt zu Ihrer Suche.",
-  "triggerNeedsAccount": "Zuerst ein Konto verbinden",
   "triggerAccountMissing": "Noch kein Konto",
   "pickTriggerKeyboardHint": "Enter wählt das erste Ergebnis",
   "triggerResultCountArg1": "{arg1} Auslöser"

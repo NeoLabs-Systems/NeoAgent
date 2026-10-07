@@ -11506,9 +11506,6 @@ class AppL10nDe extends AppL10n {
   String get noTriggersMatch => 'Kein Auslöser passt zu Ihrer Suche.';
 
   @override
-  String get triggerNeedsAccount => 'Zuerst ein Konto verbinden';
-
-  @override
   String get triggerAccountMissing => 'Noch kein Konto';
 
   @override

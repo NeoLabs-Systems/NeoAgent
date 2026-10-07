@@ -47,6 +47,7 @@ import 'src/live_voice_player.dart';
 import 'src/voice_work_clicks.dart';
 import 'src/local_backend_installer.dart';
 import 'src/local_runtime_manager.dart';
+import 'src/loading/app_splash.dart';
 import 'src/loading/page_skeletons.dart';
 import 'src/mascot/mascot_mood.dart';
 import 'src/mascot/neo_mascot.dart';
