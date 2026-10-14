@@ -633,7 +633,7 @@ describe('scheduled task result delivery', () => {
     assert.deepEqual(runState.sentMessages, []);
   });
 
-  test('explicit messaging delivery is terminal only for the originating chat', async () => {
+  test('a reply in the originating chat is progress, not the run\'s final delivery', async () => {
     const { executeTool } = require('../../../server/services/ai/tools');
     const runState = {
       messagingSent: false,
@@ -677,10 +677,8 @@ describe('scheduled task result delivery', () => {
     }, context, engine);
 
     assert.equal(sent.length, 2);
-    assert.equal(runState.messagingSent, true);
     assert.equal(runState.explicitMessageSent, true);
-    assert.equal(runState.finalDeliverySent, true);
-    assert.deepEqual(runState.sentMessages, ['Finished result.']);
+    assert.equal(runState.finalDeliverySent, false);
   });
 
   test('send_message does not use phrase matching to classify an origin reply', async () => {
@@ -718,7 +716,7 @@ describe('scheduled task result delivery', () => {
 
     assert.equal(result.success, true);
     assert.equal(sent.length, 1);
-    assert.equal(runState.finalDeliverySent, true);
+    assert.equal(runState.explicitMessageSent, true);
 
     await executeTool('send_message', {
       platform: 'whatsapp',

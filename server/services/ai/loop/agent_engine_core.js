@@ -1186,6 +1186,7 @@ class AgentEngine {
           subagentContract,
           {
             app: options.app || this.app,
+            title: task,
             triggerType: 'subagent',
             triggerSource: 'agent',
             runId: childRunId,
@@ -1328,6 +1329,7 @@ class AgentEngine {
           app: app || this.app,
           runId: childRunId,
           agentId: targetAgent.id,
+          title: taskText,
           triggerType: 'agent_delegation',
           triggerSource: 'agent_delegation',
           skipConversationHistory: true,

@@ -399,6 +399,9 @@ async function executeQueuedMessage({
             additionalContext: additionalContext || undefined,
           },
         };
+    runOptions.title = String(msg.content || '').trim()
+      || msg.mediaFileName
+      || `${msg.platform} ${msg.mediaType || 'message'}`;
     runOptions.context = {
       ...(runOptions.context || {}),
       rawUserMessage: voiceNoteHistoryText(msg),

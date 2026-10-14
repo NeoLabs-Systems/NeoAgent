@@ -2564,9 +2564,14 @@ async function executeTool(toolName, args, context, engine) {
                 && sendResult?.suppressed !== true
                 && originDelivery
             ) {
-                markProactiveMessageSent({ runState, deliveryState, content: normalizedMessage });
                 if (runState && triggerSource === 'messaging') {
+                    // A reply in the chat the run answers is visible progress,
+                    // not the run's end: the run may keep working, and its final
+                    // answer is still owed unless this reply stays its last word.
                     runState.explicitMessageSent = true;
+                    engine?.markRunVisibleProgress?.(runId);
+                } else {
+                    markProactiveMessageSent({ runState, deliveryState, content: normalizedMessage });
                 }
             }
             return {

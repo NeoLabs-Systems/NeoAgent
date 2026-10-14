@@ -31,6 +31,19 @@ const { parseErrorEnvelope } = require('../../utils/retry');
 const { normalizeStoredString } = require('../../utils/text');
 
 const MAX_AUTONOMOUS_RETRIES = 1;
+
+// Default delivery style for every background task. The task prompt and the
+// user's memory/preferences win wherever they say otherwise.
+const TASK_OUTPUT_DEFAULTS = [
+  'Default output rules (the task instructions below and the user\'s memory/preferences override these wherever they say otherwise):',
+  '- Report only what actually changed or needs attention. Never mention checks that found nothing (e.g. if the task checks mail and calendar and only mail has something new, say nothing about the calendar).',
+  '- Do not explain why or when the task ran, what you checked, or how you did it. No preamble, no sign-off.',
+  '- Say each thing once. No repetition, no restating the task, no summary of a summary.',
+  '- Be brief and token-efficient: do the minimum tool calls needed and keep the message as short as the content allows.',
+  '- Format user-facing messages for easy reading on the target platform (short lines, lists or bold for key items where it helps).',
+  '- If nothing is relevant, do not message the user.',
+  '- Treat the task instructions as intent, not a rigid script. If context shows something else would serve the user better, do that instead.',
+].join('\n');
 const MAX_RECURRING_TASK_START_DELAY_MS = 90 * 1000;
 const INTEGRATION_TRIGGER_POLL_CRON = '* * * * *';
 const LEAD_TIME_POLL_CRON = '* * * * *';
@@ -700,6 +713,7 @@ class TaskRuntime {
         `Task Name: ${taskName}`,
         `Trigger: ${triggerSummary}`,
         temporalAccuracyHint,
+        TASK_OUTPUT_DEFAULTS,
         '',
         task.task_type === 'agent_prompt'
           ? (normalizedConfig.prompt || `You have been triggered to run the background task "${taskName}".`)
@@ -714,6 +728,7 @@ class TaskRuntime {
       while (attempt <= MAX_AUTONOMOUS_RETRIES) {
         const finalPrompt = basePrompt + recoveryNote;
         const runOptions = {
+          title: taskName,
           triggerType: task.trigger_type || 'schedule',
           triggerSource: executionMeta.triggerSource || task.trigger_type || 'schedule',
           agentId,

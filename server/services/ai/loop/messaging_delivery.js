@@ -62,12 +62,9 @@ function shouldSendMessagingFinalFallback(_engine, runMeta, content, platform = 
   const cleanedContent = normalizeOutgoingMessage(content || '', platform, {
     collapseWhitespace: false,
   });
-  const lastFinalDeliveryMessage = normalizeOutgoingMessage(
-    runMeta?.lastSentMessage
-    || (Array.isArray(runMeta?.sentMessages) ? runMeta.sentMessages[runMeta.sentMessages.length - 1] : '')
-    || '',
-    platform,
-  );
+  // explicitMessageSent holds only while a reply the model sent in this chat
+  // is still its last word; anything sent earlier or elsewhere does not
+  // replace the final answer.
   return Boolean(
     cleanedContent
     && !runMeta?.terminalInterim
@@ -75,7 +72,6 @@ function shouldSendMessagingFinalFallback(_engine, runMeta, content, platform = 
     && runMeta?.explicitMessageSent !== true
     && runMeta?.finalDeliverySent !== true
     && runMeta?.deliveryState?.finalContentDelivered !== true
-    && !lastFinalDeliveryMessage
   );
 }
 

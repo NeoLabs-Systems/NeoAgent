@@ -851,6 +851,45 @@ test('messaging final is not transmitted twice after send_message delivered it',
   assert.equal(Number(finals.n), 1, 'the final delivery is still committed exactly once');
 });
 
+test('a messaging run that replies mid-run and keeps working still delivers its final answer', async () => {
+  const engine = createEngine();
+  const sends = [];
+  engine.messagingManager = {
+    sendMessage: async (uid, platform, chatId, content) => {
+      sends.push(content);
+      return { success: true };
+    },
+    sendTyping: async () => {},
+  };
+  engine.getAvailableTools = () => [tool('send_message'), tool('web_search')];
+  let turn = 0;
+  engine.requestModelResponse = async () => {
+    turn += 1;
+    if (turn === 1) {
+      return toolCall('send_message', { platform: 'whatsapp', to: 'chat-1', content: 'Ich schau mich um.' }, 's1');
+    }
+    if (turn === 2) return toolCall('web_search', { query: 'oversized shirts eu' }, 's2');
+    return answer('Hier sind drei Shops mit EU-Versand.');
+  };
+  engine.executeTool = async (name, args, context) => (name === 'send_message'
+    ? engine.messagingManager.sendMessage(context.userId, args.platform, args.to, args.content)
+    : { results: ['shop'] });
+  engine.isReadOnlyToolCall = (call) => call?.function?.name === 'web_search';
+
+  const result = await engine.run(userId, 'Finde Shops', {
+    triggerSource: 'messaging',
+    source: 'whatsapp',
+    chatId: 'chat-1',
+    stream: false,
+    skipGlobalRecall: true,
+    skipConversationHistory: true,
+    maxIterations: 6,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.deepEqual(sends, ['Ich schau mich um.', 'Hier sind drei Shops mit EU-Versand.']);
+});
+
 test('a follow-up sent during the final model turn is answered before delivery', async () => {
   const engine = createEngine();
   const seenUserTurns = [];

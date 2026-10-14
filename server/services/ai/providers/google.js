@@ -179,13 +179,25 @@ class GoogleProvider extends BaseProvider {
     return config;
   }
 
-  convertMessages(messages) {
+  convertMessages(messages, model = null) {
     let systemInstruction = '';
     const history = [];
+    // Thinking models reject a functionCall without the thought signature they
+    // issued. Calls another model made earlier in the run carry none, so for
+    // those models they and their results are passed as text.
+    const requiresSignatures = thinkingModels.has(model);
+    const unsignedCallIds = new Set();
 
     for (const msg of messages) {
       if (msg.role === 'system') {
         systemInstruction += (systemInstruction ? '\n\n' : '') + msg.content;
+        continue;
+      }
+      if (msg.role === 'tool' && unsignedCallIds.has(msg.tool_call_id)) {
+        history.push({
+          role: 'user',
+          parts: [{ text: `[Result of ${msg.name || 'tool'}]\n${msg.content || ''}` }]
+        });
         continue;
       }
       if (msg.role === 'tool') {
@@ -205,9 +217,19 @@ class GoogleProvider extends BaseProvider {
       if (msg.role === 'assistant' && msg.tool_calls) {
         const parts = [];
         if (msg.content) parts.push({ text: msg.content });
+        // Gemini signs only the first call of a parallel group, so a turn with
+        // any signature is its own.
+        const unsigned = requiresSignatures
+          && !msg.tool_calls.some((tc) => tc?.function?.thought_signature);
         for (const tc of msg.tool_calls) {
           const name = tc?.function?.name || tc?.name;
           if (!name) continue;
+          if (unsigned) {
+            if (tc.id) unsignedCallIds.add(tc.id);
+            const args = JSON.stringify(parseToolArguments(tc?.function?.arguments ?? tc?.arguments));
+            parts.push({ text: `[Called ${name} with ${args}]` });
+            continue;
+          }
           const functionCallPart = {
             functionCall: {
               name,
@@ -272,7 +294,7 @@ class GoogleProvider extends BaseProvider {
 
   async chat(messages, tools = [], options = {}) {
     const model = this.requireModel(options);
-    const { systemInstruction, history } = this.convertMessages(messages);
+    const { systemInstruction, history } = this.convertMessages(messages, model);
     const response = await this.genAI.models.generateContent({
       model,
       contents: history,
@@ -291,7 +313,7 @@ class GoogleProvider extends BaseProvider {
 
   async *stream(messages, tools = [], options = {}) {
     const model = this.requireModel(options);
-    const { systemInstruction, history } = this.convertMessages(messages);
+    const { systemInstruction, history } = this.convertMessages(messages, model);
     const responseStream = await this.genAI.models.generateContentStream({
       model,
       contents: history,

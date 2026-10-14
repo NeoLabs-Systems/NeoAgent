@@ -2612,6 +2612,7 @@ class RunSummary {
     required this.triggerSource,
     required this.totalTokens,
     required this.createdAt,
+    this.triggerType = 'user',
     this.completedAt,
     this.error = '',
     this.metadata = const <String, dynamic>{},
@@ -2630,6 +2631,7 @@ class RunSummary {
       status: json['status']?.toString() ?? 'unknown',
       model: json['model']?.toString() ?? '',
       triggerSource: json['trigger_source']?.toString() ?? '',
+      triggerType: (json['trigger_type']?.toString() ?? '').ifEmpty('user'),
       totalTokens: _asInt(json['total_tokens']),
       createdAt: _parseTimestamp(json['created_at']?.toString()),
       completedAt: _parseOptionalTimestamp(json['completed_at']?.toString()),
@@ -2643,6 +2645,7 @@ class RunSummary {
   final String status;
   final String model;
   final String triggerSource;
+  final String triggerType;
   final int totalTokens;
   final DateTime createdAt;
   final DateTime? completedAt;
@@ -2667,6 +2670,10 @@ class RunSummary {
   }
 
   bool get isFailure => status == 'failed' || status == 'error';
+
+  /// Started by the system (a task, subagent, or delegation), not by someone
+  /// writing to the agent.
+  bool get isSystemRun => triggerType != 'user' || metadata['taskId'] != null;
 
   /// Still executing: counts toward the live section and ticks its elapsed time.
   bool get isActive =>

@@ -117,7 +117,8 @@ class DurableRunRuntime {
     const app = options.app || this.engine.app;
     const triggerSource = options.triggerSource || 'web';
     const workerId = `worker_${randomUUID()}`;
-    const runTitle = generateTitle(userMessage);
+    // Callers that wrap the request in instructions name the run themselves.
+    const runTitle = generateTitle(options.title || userMessage);
     const startedAtMs = Date.now();
 
     // Everything the agent loop and the tool turns read and update.

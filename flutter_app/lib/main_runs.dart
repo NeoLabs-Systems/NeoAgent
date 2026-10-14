@@ -34,6 +34,22 @@ bool _runMatchesFilter(RunSummary run, _RunFilter filter) => switch (filter) {
   _RunFilter.completed => run.status == 'completed',
 };
 
+/// Who started the run: a person writing in, or the system (tasks,
+/// subagents, delegations).
+enum _RunKind { all, messages, tasks }
+
+String _runKindLabel(_RunKind kind) => switch (kind) {
+  _RunKind.all => 'Everything',
+  _RunKind.messages => 'Messages',
+  _RunKind.tasks => 'Tasks',
+};
+
+bool _runMatchesKind(RunSummary run, _RunKind kind) => switch (kind) {
+  _RunKind.all => true,
+  _RunKind.messages => !run.isSystemRun,
+  _RunKind.tasks => run.isSystemRun,
+};
+
 TextStyle _runMonoStyle({double size = 12, Color? color, FontWeight? weight}) {
   return TextStyle(
     fontFamily: GoogleFonts.geistMono().fontFamily,
@@ -86,6 +102,7 @@ class _RunsPanelState extends State<RunsPanel> {
   bool _split = true;
 
   _RunFilter _filter = _RunFilter.all;
+  _RunKind _kind = _RunKind.all;
   String? _selectedRunId;
 
   /// Runs on screen. Lags the controller's list while new runs are held back.
@@ -242,6 +259,8 @@ class _RunsPanelState extends State<RunsPanel> {
 
   void _setFilter(_RunFilter filter) => setState(() => _filter = filter);
 
+  void _setKind(_RunKind kind) => setState(() => _kind = kind);
+
   void _openRequestedRun() {
     final runId = _controller.requestedRunFocusId?.trim() ?? '';
     if (runId.isEmpty ||
@@ -252,6 +271,7 @@ class _RunsPanelState extends State<RunsPanel> {
     setState(() {
       _adoptRuns(hold: false);
       _filter = _RunFilter.all;
+      _kind = _RunKind.all;
     });
     _search.clear();
     _openRun(runId);
@@ -289,7 +309,7 @@ class _RunsPanelState extends State<RunsPanel> {
   List<RunSummary> get _visibleRuns {
     final query = _search.text.trim().toLowerCase();
     return _runs.where((run) {
-      if (!_runMatchesFilter(run, _filter)) {
+      if (!_runMatchesKind(run, _kind) || !_runMatchesFilter(run, _filter)) {
         return false;
       }
       if (query.isEmpty) {
@@ -407,9 +427,18 @@ class _RunsPanelState extends State<RunsPanel> {
 
   Widget _buildListPane(List<RunSummary> visible) {
     final selectedId = _split ? _resolveSelection(visible) : null;
+    final kindCounts = <_RunKind, int>{
+      for (final kind in _RunKind.values)
+        kind: _runs.where((run) => _runMatchesKind(run, kind)).length,
+    };
     final counts = <_RunFilter, int>{
       for (final filter in _RunFilter.values)
-        filter: _runs.where((run) => _runMatchesFilter(run, filter)).length,
+        filter: _runs
+            .where(
+              (run) =>
+                  _runMatchesKind(run, _kind) && _runMatchesFilter(run, filter),
+            )
+            .length,
     };
     final entries = _groupRuns(visible);
     final keyIndex = <Key, int>{
@@ -444,7 +473,25 @@ class _RunsPanelState extends State<RunsPanel> {
               ),
             ),
           ),
-          _RunFilterBar(filter: _filter, counts: counts, onChanged: _setFilter),
+          _RunFilterBar(
+            groups: <Widget>[
+              _RunChipGroup<_RunKind>(
+                options: _RunKind.values,
+                selected: _kind,
+                counts: kindCounts,
+                label: _runKindLabel,
+                onChanged: _setKind,
+              ),
+              _RunChipGroup<_RunFilter>(
+                options: _RunFilter.values,
+                selected: _filter,
+                counts: counts,
+                label: _runFilterLabel,
+                dotColor: _runFilterColor,
+                onChanged: _setFilter,
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           Divider(height: 1, color: _border),
           Expanded(
@@ -454,7 +501,10 @@ class _RunsPanelState extends State<RunsPanel> {
                   _RunListNoMatches(
                     onClear: () {
                       _search.clear();
-                      _setFilter(_RunFilter.all);
+                      setState(() {
+                        _filter = _RunFilter.all;
+                        _kind = _RunKind.all;
+                      });
                     },
                   )
                 else
@@ -737,16 +787,11 @@ class _RunPulseDotState extends State<_RunPulseDot>
 
 // ── List pieces ───────────────────────────────────────────────────────────────
 
+/// Chip groups side by side in one scrolling row, split by a hairline.
 class _RunFilterBar extends StatelessWidget {
-  const _RunFilterBar({
-    required this.filter,
-    required this.counts,
-    required this.onChanged,
-  });
+  const _RunFilterBar({required this.groups});
 
-  final _RunFilter filter;
-  final Map<_RunFilter, int> counts;
-  final ValueChanged<_RunFilter> onChanged;
+  final List<Widget> groups;
 
   @override
   Widget build(BuildContext context) {
@@ -754,80 +799,118 @@ class _RunFilterBar extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
-        children: _RunFilter.values.map((option) {
-          final selected = option == filter;
-          final dot = _runFilterColor(option);
-          return Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: Semantics(
-              button: true,
-              selected: selected,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: () => onChanged(option),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOutCubic,
-                  height: 32,
-                  padding: const EdgeInsets.symmetric(horizontal: 11),
-                  decoration: BoxDecoration(
-                    color: selected ? _bgTertiary : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: selected ? _border : Colors.transparent,
-                    ),
+        children: <Widget>[
+          for (final (index, group) in groups.indexed) ...<Widget>[
+            if (index > 0)
+              Container(
+                width: 1,
+                height: 18,
+                margin: const EdgeInsets.only(left: 4, right: 8),
+                color: _border,
+              ),
+            group,
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RunChipGroup<T> extends StatelessWidget {
+  const _RunChipGroup({
+    required this.options,
+    required this.selected,
+    required this.counts,
+    required this.label,
+    required this.onChanged,
+    this.dotColor,
+  });
+
+  final List<T> options;
+  final T selected;
+  final Map<T, int> counts;
+  final String Function(T) label;
+  final Color? Function(T)? dotColor;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = selected;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: options.map((option) {
+        final selected = option == current;
+        final dot = dotColor?.call(option);
+        return Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: Semantics(
+            button: true,
+            selected: selected,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => onChanged(option),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                height: 32,
+                padding: const EdgeInsets.symmetric(horizontal: 11),
+                decoration: BoxDecoration(
+                  color: selected ? _bgTertiary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: selected ? _border : Colors.transparent,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      if (dot != null) ...<Widget>[
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: BoxDecoration(
-                            color: dot,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                      ],
-                      Text(
-                        _runFilterLabel(option),
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: selected
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: selected ? _textPrimary : _textSecondary,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    if (dot != null) ...<Widget>[
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: dot,
+                          shape: BoxShape.circle,
                         ),
                       ),
                       const SizedBox(width: 6),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        transitionBuilder: (child, animation) => FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.4),
-                              end: Offset.zero,
-                            ).animate(animation),
-                            child: child,
-                          ),
-                        ),
-                        child: Text(
-                          '${counts[option] ?? 0}',
-                          key: ValueKey<int>(counts[option] ?? 0),
-                          style: _runMonoStyle(size: 11),
+                    ],
+                    Text(
+                      label(option),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: selected ? _textPrimary : _textSecondary,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0, 0.4),
+                            end: Offset.zero,
+                          ).animate(animation),
+                          child: child,
                         ),
                       ),
-                    ],
-                  ),
+                      child: Text(
+                        '${counts[option] ?? 0}',
+                        key: ValueKey<int>(counts[option] ?? 0),
+                        style: _runMonoStyle(size: 11),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          );
-        }).toList(),
-      ),
+          ),
+        );
+      }).toList(),
     );
   }
 }

@@ -13,6 +13,12 @@ const {
   withModelCallTimeout,
 } = require('./model_call_guard');
 
+// The per-call ceiling already waited minutes on this model; retrying it
+// repeats that wait instead of moving on to the next model.
+function isRetryableModelError(err) {
+  return err?.code !== 'MODEL_CALL_TIMEOUT' && isTransientError(err);
+}
+
 function isoNow() {
   return new Date().toISOString();
 }
@@ -89,7 +95,7 @@ async function requestStructuredJson(engine, {
       ),
       {
         label: `Engine ${model} (structured)`,
-        isRetryable: (err) => !modelAbortController.signal.aborted && isTransientError(err),
+        isRetryable: (err) => !modelAbortController.signal.aborted && isRetryableModelError(err),
         signal: modelAbortController.signal,
       }
     );
@@ -254,7 +260,7 @@ async function requestModelResponse(engine, {
   ({ response, streamContent } = await withProviderRetry(attemptModelCall, {
     ...(options.retry || {}),
     label: `Engine ${model}`,
-    isRetryable: (err) => !parentSignal?.aborted && isTransientError(err),
+    isRetryable: (err) => !parentSignal?.aborted && isRetryableModelError(err),
     onRetry: ({ attempt, delayMs }) => {
       // Stream payloads are full snapshots for one iteration, so clearing and
       // replaying the same durable request cannot duplicate a visible message.

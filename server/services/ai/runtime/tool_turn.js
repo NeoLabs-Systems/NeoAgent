@@ -319,6 +319,14 @@ async function executeToolTurn(session, decision) {
     && TERMINAL_SEND_PURPOSES.has(String(outcome.call.arguments?.purpose || '').trim().toLowerCase())
   ));
 
+  // A reply sent in the run's own chat stays the run's last word only while
+  // the model does nothing else; once it works on, the final answer is new.
+  const runMeta = engine.getRunMeta(runId);
+  if (runMeta && terminalSend) runMeta.explicitMessageSent = true;
+  else if (runMeta?.explicitMessageSent && !outcomes.some((outcome) => outcome.call.name === 'send_message')) {
+    runMeta.explicitMessageSent = false;
+  }
+
   return {
     progressed: outcomes.some((outcome) => outcome.progressed),
     allFailed: outcomes.length > 0 && outcomes.every((outcome) => !outcome.success),
