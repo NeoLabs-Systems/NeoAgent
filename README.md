@@ -35,7 +35,11 @@
 </p>
 
 <p align="center">
-  <a href="docs/videos/neoagent-promo.mp4"><img src="docs/images/marketing/video-poster.jpg" alt="Watch the 35-second NeoAgent tour" width="100%"></a>
+
+
+https://github.com/user-attachments/assets/ba50e0a5-1846-4738-9720-3fbf732d3659
+
+
 </p>
 
 
