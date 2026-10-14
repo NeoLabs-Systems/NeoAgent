@@ -183,8 +183,9 @@
   </div>
 
   <script>
-    // Fade the splash once Flutter mounts its view (or after a safety timeout),
-    // so we never get stuck showing it if the mutation never fires.
+    // Keep the splash up until Flutter has painted its first frame. Mounting
+    // the view happens seconds earlier (fonts, first data), and hiding then
+    // left a blank page. The long safety timeout only covers a failed boot.
     (function () {
       var splash = document.getElementById('splash');
       var hidden = false;
@@ -196,15 +197,8 @@
         setTimeout(function () { splash.remove(); }, 550);
       }
 
-      var observer = new MutationObserver(function () {
-        if (document.querySelector('flt-glass-pane, flutter-view')) {
-          hideSplash();
-          observer.disconnect();
-        }
-      });
-      observer.observe(document.body, { childList: true, subtree: true });
-
-      setTimeout(hideSplash, 6000);
+      window.addEventListener('flutter-first-frame', hideSplash, { once: true });
+      setTimeout(hideSplash, 30000);
     })();
   </script>
 
