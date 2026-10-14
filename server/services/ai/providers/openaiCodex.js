@@ -269,13 +269,11 @@ class OpenAICodexProvider extends BaseProvider {
   constructor(config = {}) {
     super(config);
 
-    const baseURL = this._resolveBaseUrl(config);
+    const configuredBaseURL = config.baseUrl || process.env.OPENAI_CODEX_BASE_URL || DEFAULT_BASE_URL;
+    const baseURL = normalizeCodexBaseUrl(configuredBaseURL);
 
     this.baseURL = baseURL;
     this.usesCodexBackend = isCodexBackendBaseUrl(baseURL);
-    // The Codex backend only answers streaming requests.
-    this.streamOnly = this.usesCodexBackend;
-    this.displayName = 'OpenAI Codex';
 
     if (!this.usesCodexBackend && !baseURL.includes('api.openai.com')) {
       console.warn(`[OpenAICodex] Using non-official base URL: ${baseURL}`);
@@ -315,16 +313,8 @@ class OpenAICodexProvider extends BaseProvider {
     });
   }
 
-  _resolveBaseUrl(config) {
-    return normalizeCodexBaseUrl(config.baseUrl || process.env.OPENAI_CODEX_BASE_URL || DEFAULT_BASE_URL);
-  }
-
   // Codex access tokens expire after about ten days; the refresh token saved
   // by `neoagent login openai-codex` renews them without a new login.
-  _refreshAccessToken(staleAccessToken) {
-    return refreshSharedCodexAccessToken(staleAccessToken, this.fetchImpl);
-  }
-
   async _withTokenRefresh(request) {
     try {
       return await request();
@@ -332,9 +322,9 @@ class OpenAICodexProvider extends BaseProvider {
       if (err?.status !== 401) throw err;
       let accessToken = null;
       try {
-        accessToken = await this._refreshAccessToken(this.client.apiKey);
+        accessToken = await refreshSharedCodexAccessToken(this.client.apiKey, this.fetchImpl);
       } catch (refreshError) {
-        console.warn(`[${this.displayName}] Access token refresh failed: ${refreshError.message}`);
+        console.warn(`[OpenAICodex] Access token refresh failed: ${refreshError.message}`);
       }
       if (!accessToken) throw err;
       this.client.apiKey = accessToken;
@@ -523,7 +513,7 @@ class OpenAICodexProvider extends BaseProvider {
   }
 
   async chat(messages, tools = [], options = {}) {
-    if (this.streamOnly) {
+    if (this.usesCodexBackend) {
       let final = null;
       let content = '';
       for await (const event of this.stream(messages, tools, options)) {
@@ -553,7 +543,7 @@ class OpenAICodexProvider extends BaseProvider {
         { headers: this._requestHeaders(), signal: options.signal },
       ));
     } catch (err) {
-      throw wrapProviderError(err, `${this.displayName} request failed`, {
+      throw wrapProviderError(err, 'OpenAI Codex request failed', {
         detail: formatOpenAIError(err),
         signal: options.signal,
       });
@@ -584,7 +574,7 @@ class OpenAICodexProvider extends BaseProvider {
         { headers: this._requestHeaders(), signal: options.signal },
       ));
     } catch (err) {
-      throw wrapProviderError(err, `${this.displayName} request failed`, {
+      throw wrapProviderError(err, 'OpenAI Codex request failed', {
         detail: formatOpenAIError(err),
         signal: options.signal,
       });

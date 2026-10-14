@@ -25,7 +25,6 @@ const ROUTE_BASES = {
   skills: '/api/skills',
   social_reach: '/api/social-reach',
   social_video: '/api/social-video',
-  store: '/api/store',
   stream: '/api/stream',
   tasks: '/api/tasks',
   triggers: '/api/triggers',

@@ -2714,7 +2714,6 @@
   "disconnectNextcloud": "Disconnect Nextcloud?",
   "disconnectPlatform": "Disconnect platform",
   "disconnectTrello": "Disconnect Trello?",
-  "discover": "Discover",
   "discoveryFailed": "Discovery failed",
   "dismiss": "Dismiss",
   "displayIdIsRequired": "Display ID is required.",
@@ -4100,7 +4099,6 @@
   "noSessionsYet": "No sessions yet",
   "noSkillsMatchTheseFilters": "No skills match these filters.",
   "noStepsWereRecordedForThis": "No steps were recorded for this run.",
-  "noStoreSkillsMatchThisSearch": "No store skills match this search.",
   "noSubscription": "No subscription.",
   "noSummaryAvailable": "No summary available.",
   "noTasksForArg1": "No tasks for {arg1}",
@@ -5211,7 +5209,6 @@
     }
   },
   "storage": "Storage",
-  "storeSkill": "Store skill",
   "storedArg1": "Stored: {arg1}",
   "@storedArg1": {
     "placeholders": {
@@ -5496,7 +5493,6 @@
   "thisServer": "this server.",
   "thisServerIsAlreadySetUp": "This server is already set up. Sign in with an existing account.",
   "thisServerReportsNoProviderSettings": "This server reports no provider settings.",
-  "thisSkillIsNoLongerIn": "This skill is no longer in the store.",
   "thisSkillIsNoLongerInstalled": "This skill is no longer installed.",
   "thisTaskHasNoCompletedRun": "This task has no completed run yet, so it still starts at the ",
   "thisTaskWillOnlyRunWhen": "This task will only run when you press Run Now.",

@@ -3056,9 +3056,6 @@ class AppL10nDe extends AppL10n {
   String get disconnectTrello => 'Trello trennen?';
 
   @override
-  String get discover => 'Entdecken';
-
-  @override
   String get discoveryFailed => 'Erkennung fehlgeschlagen';
 
   @override
@@ -5583,10 +5580,6 @@ class AppL10nDe extends AppL10n {
       'Für diese Ausführung wurden keine Schritte aufgezeichnet.';
 
   @override
-  String get noStoreSkillsMatchThisSearch =>
-      'Keine Store-Skills passen zu dieser Suche.';
-
-  @override
   String get noSubscription => 'Kein Abonnement.';
 
   @override
@@ -7856,9 +7849,6 @@ class AppL10nDe extends AppL10n {
   String get storage => 'Speicher';
 
   @override
-  String get storeSkill => 'Store-Skill';
-
-  @override
   String storedArg1(Object? arg1) {
     return 'Gespeichert: $arg1';
   }
@@ -8538,9 +8528,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get thisServerReportsNoProviderSettings =>
       'Dieser Server meldet keine Anbietereinstellungen.';
-
-  @override
-  String get thisSkillIsNoLongerIn => 'Dieser Skill ist nicht mehr im Store.';
 
   @override
   String get thisSkillIsNoLongerInstalled =>

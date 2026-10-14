@@ -1564,10 +1564,6 @@ class BackendClient {
     return getList(baseUrl, '/api/skills/audit/summary');
   }
 
-  Future<List<Map<String, dynamic>>> fetchSkillStore(String baseUrl) async {
-    return getList(baseUrl, '/api/store');
-  }
-
   Future<List<Map<String, dynamic>>> fetchOfficialIntegrations(
     String baseUrl, {
     String? agentId,
@@ -1615,21 +1611,6 @@ class BackendClient {
 
   Future<void> deleteSkill(String baseUrl, String name) async {
     await deleteMap(baseUrl, '/api/skills/$name');
-  }
-
-  Future<Map<String, dynamic>> installStoreSkill(
-    String baseUrl,
-    String id,
-  ) async {
-    return postMap(
-      baseUrl,
-      '/api/store/$id/install',
-      const <String, dynamic>{},
-    );
-  }
-
-  Future<void> uninstallStoreSkill(String baseUrl, String id) async {
-    await deleteMap(baseUrl, '/api/store/$id/uninstall');
   }
 
   Future<List<Map<String, dynamic>>> searchSkillsSh(

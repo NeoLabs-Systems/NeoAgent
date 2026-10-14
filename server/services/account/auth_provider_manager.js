@@ -49,13 +49,10 @@ class AuthProviderManager {
     ).run();
   }
 
-  // `context` describes the requesting client (see authRequestContext in
-  // routes/auth.js); providers use it to offer themselves only where their
-  // flow can complete, e.g. loopback-only sign-in for same-machine clients.
-  listProviders(context = {}) {
+  listProviders() {
     this.cleanupExpiredStates();
     return this.registry.list().map((provider) => {
-      const env = provider.getEnvStatus(context);
+      const env = provider.getEnvStatus();
       return {
         id: provider.key,
         label: provider.label,
@@ -96,7 +93,7 @@ class AuthProviderManager {
     });
   }
 
-  async beginAuthorization({ providerKey, mode, userId = null, context = {} }) {
+  async beginAuthorization({ providerKey, mode, userId = null }) {
     this.cleanupExpiredStates();
     const provider = this.getProvider(providerKey);
     if (!provider) {
@@ -111,7 +108,7 @@ class AuthProviderManager {
       throw new Error('You must be signed in to link a provider.');
     }
 
-    const env = provider.getEnvStatus(context);
+    const env = provider.getEnvStatus();
     if (!env.configured) {
       throw new Error(env.summary);
     }
@@ -119,6 +116,7 @@ class AuthProviderManager {
     const state = `auth_${crypto.randomBytes(24).toString('hex')}`;
     const codeVerifier = crypto.randomBytes(48).toString('base64url');
     const expiresAt = new Date(Date.now() + OAUTH_STATE_TTL_MS).toISOString();
+    const { url } = await provider.beginOAuth({ state, codeVerifier });
 
     db.prepare(
       `INSERT INTO auth_oauth_states (
@@ -137,23 +135,6 @@ class AuthProviderManager {
       encryptValue(codeVerifier),
       expiresAt,
     );
-
-    // Providers redirect to the shared web callback by default, which calls
-    // finishAuthorization itself; a provider that receives its own callback
-    // (e.g. on a loopback listener) reports it through complete/fail.
-    let url;
-    try {
-      ({ url } = await provider.beginOAuth({
-        state,
-        codeVerifier,
-        ttlMs: OAUTH_STATE_TTL_MS,
-        complete: (callback) => this.finishAuthorization(state, callback),
-        fail: (message) => this.failAuthorization(state, message),
-      }));
-    } catch (error) {
-      db.prepare('DELETE FROM auth_oauth_states WHERE state = ?').run(state);
-      throw error;
-    }
 
     return {
       provider: provider.key,
@@ -191,9 +172,7 @@ class AuthProviderManager {
     };
   }
 
-  // `callback` holds the redirect's parameters: always `code`, plus whatever
-  // else the provider's callback transport collected.
-  async finishAuthorization(state, callback) {
+  async finishAuthorization(state, code) {
     const stateRow = this.#getStateRow(state);
     if (!stateRow) {
       throw new Error('OAuth state is missing or expired.');
@@ -206,13 +185,10 @@ class AuthProviderManager {
 
     try {
       const identity = await provider.finishOAuth({
-        ...callback,
+        code,
         codeVerifier: decryptValue(stateRow.code_verifier),
       });
       const result = await this.#resolveAuthorization(stateRow, provider, identity);
-      if (provider.onAuthorized) {
-        await provider.onAuthorized({ userId: result.userId, result, identity });
-      }
       db.prepare(
         `UPDATE auth_oauth_states
          SET status = 'completed',
@@ -271,7 +247,7 @@ class AuthProviderManager {
     };
   }
 
-  async unlinkProvider(userId, linkId) {
+  unlinkProvider(userId, linkId) {
     const numericId = Number(linkId);
     if (!Number.isInteger(numericId) || numericId <= 0) {
       throw new Error('A valid linked provider id is required.');
@@ -299,10 +275,6 @@ class AuthProviderManager {
 
     db.prepare('DELETE FROM user_auth_providers WHERE id = ? AND user_id = ?')
       .run(numericId, userId);
-    const provider = this.getProvider(row.provider_key);
-    if (provider?.onUnlinked) {
-      await provider.onUnlinked({ userId });
-    }
     return { removed: true };
   }
 

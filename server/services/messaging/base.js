@@ -89,4 +89,12 @@ class BasePlatform extends EventEmitter {
   getAuthInfo() { return null; }
 }
 
-module.exports = { BasePlatform };
+// Missing credentials cannot fix themselves, so the manager stops retrying.
+function missingConfigError(message) {
+  const error = new Error(message);
+  error.requiresUserAction = true;
+  error.reason = 'configuration_required';
+  return error;
+}
+
+module.exports = { BasePlatform, missingConfigError };

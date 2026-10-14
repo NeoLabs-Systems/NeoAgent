@@ -3,7 +3,6 @@
 const fs = require('fs');
 const path = require('path');
 const { scrubInvisible } = require('../../utils/untrusted_text');
-const { prependStoreNotes } = require('./store_service');
 
 // skills.sh is a directory of agent skills hosted in public GitHub repos. Its
 // search API names a skill by repo ("owner/repo") plus the skill's id; the
@@ -194,6 +193,25 @@ async function downloadSkillsShSkill(ref) {
   return { skillContent: scrubInvisible(located.content), files };
 }
 
+// skills.sh skills are written for generic agents; point their tool names at
+// NeoAgent's equivalents.
+function prependNeoAgentNotes(body) {
+  const note = [
+    '## NeoAgent Notes',
+    '',
+    'Map any generic tool references in this skill to NeoAgent equivalents:',
+    '- shell and scripts: `execute_command`',
+    '- local files and code search: `read_file`, `search_files`, `write_file`, `edit_file`',
+    '- remote pages and APIs: `http_request`, `web_search`, and `browser_*` tools',
+    '',
+  ].join('\n');
+
+  if (/^## NeoAgent Notes$/m.test(body)) {
+    return body;
+  }
+  return `${note}\n${body.replace(/^\n+/, '')}`;
+}
+
 async function installSkillsShSkill(runner, userId, ref) {
   const { skillContent, files } = await downloadSkillsShSkill(ref);
   const parsed = parseFrontmatter(skillContent);
@@ -207,7 +225,7 @@ async function installSkillsShSkill(runner, userId, ref) {
     userId,
     parsed.data.name,
     String(parsed.data.description || '').replace(/\s+/g, ' ').trim(),
-    prependStoreNotes(parsed.body),
+    prependNeoAgentNotes(parsed.body),
     { source: 'skills.sh', skills_sh_id: `${ref.source}/${ref.skillId}` },
   );
   if (result.error) {

@@ -15,7 +15,7 @@ server/          Express HTTP server, all backend logic
   services/      Business logic, grouped by domain
     ai/          LLM engine, providers, tool runner, history, compaction
     agents/      Agent profile manager
-    skills/      Skill catalog and runtime
+    skills/      Skill runtime, learning, and skills.sh installs
     tasks/       Task scheduling, execution, security
     integrations/ OAuth flows and integration runtimes
   utils/         Shared server-side helpers
@@ -147,11 +147,6 @@ scripts/         Build and release utility scripts
 1. Define the tool schema and handler in `server/services/ai/tools.js`.
 2. Extract non-trivial logic into `server/services/ai/integrated_tools/` and import from there.
 3. Ensure the tool result is passed through `compactToolResult()` if it can produce large payloads.
-
-### New skill
-
-1. Add the skill definition to `server/services/skills/base_catalog.js`.
-2. If server-side execution is needed, implement it in `server/services/skills/runtime.js`.
 
 ---
 

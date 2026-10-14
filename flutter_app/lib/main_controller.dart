@@ -227,7 +227,6 @@ class NeoAgentController extends ChangeNotifier {
   final List<BlockedSenderNotice> _blockedSenderQueue = <BlockedSenderNotice>[];
   final Set<String> _ignoredChats = <String>{};
   List<SkillItem> skills = const <SkillItem>[];
-  List<StoreSkillItem> storeSkills = const <StoreSkillItem>[];
   List<OfficialIntegrationItem> officialIntegrations =
       const <OfficialIntegrationItem>[];
   MemoryOverview memoryOverview = const MemoryOverview();
@@ -1470,22 +1469,19 @@ class NeoAgentController extends ChangeNotifier {
       if (url == null || state == null || url.isEmpty || state.isEmpty) {
         throw Exception(appStrings.providerSignInCouldNotBe);
       }
-      final completion = _pollForProviderAuthCompletion(
-        state,
-        isActive: () => isAuthenticating,
-      );
-      final launchResult = await _launchProviderAuth(
+      final launchResult = await _oauthLauncher.launch(
         url: url,
         provider: provider,
-        completion: completion,
       );
       if (!launchResult.launched) {
-        completion.ignore();
         throw Exception(
           launchResult.error ?? appStrings.couldNotOpenTheProviderSign,
         );
       }
-      final response = await completion;
+      final response = await _pollForProviderAuthCompletion(
+        state,
+        isActive: () => isAuthenticating,
+      );
       if (response['requiresTwoFactor'] == true) {
         final responseUser =
             response['user'] as Map<dynamic, dynamic>? ??
@@ -1726,7 +1722,6 @@ class NeoAgentController extends ChangeNotifier {
     messagingAccessCatalogs = const <String, MessagingAccessCatalog>{};
     pendingMessagingQr = null;
     skills = const <SkillItem>[];
-    storeSkills = const <StoreSkillItem>[];
     officialIntegrations = const <OfficialIntegrationItem>[];
     setupProfile = 'quick';
     setupComplete = true;
@@ -2086,22 +2081,6 @@ class NeoAgentController extends ChangeNotifier {
     if (errorMessage == null) return;
     errorMessage = null;
     notifyListeners();
-  }
-
-  /// Opens the provider's page and resolves once it has opened, or once the
-  /// backend already reports the sign-in finished: on web, a provider page
-  /// can sever the popup's opener, so its completion message never arrives.
-  Future<OAuthLaunchResult> _launchProviderAuth({
-    required String url,
-    required String provider,
-    required Future<Map<String, dynamic>> completion,
-  }) {
-    return Future.any(<Future<OAuthLaunchResult>>[
-      _oauthLauncher.launch(url: url, provider: provider),
-      completion.then(
-        (_) => const OAuthLaunchResult(launched: true, completed: true),
-      ),
-    ]);
   }
 
   Future<Map<String, dynamic>> _pollForProviderAuthCompletion(
@@ -2514,11 +2493,6 @@ class NeoAgentController extends ChangeNotifier {
         _backendClient.fetchSkills(backendUrl),
         const <Map<String, dynamic>>[],
       );
-      final storeSkillsFuture = _softRefreshLoad<List<Map<String, dynamic>>>(
-        'skill_store',
-        _backendClient.fetchSkillStore(backendUrl),
-        const <Map<String, dynamic>>[],
-      );
       final officialIntegrationsFuture =
           _softRefreshLoad<List<Map<String, dynamic>>>(
             'official_integrations',
@@ -2606,7 +2580,6 @@ class NeoAgentController extends ChangeNotifier {
       final messagingResponse = await messagingFuture;
       final messagingMessagesResponse = await messagingMessagesFuture;
       final skillsResponse = await skillsFuture;
-      final storeSkillsResponse = await storeSkillsFuture;
       final memoryResponse = await memoryFuture;
       final memoriesResponse = await memoriesFuture;
       final conversationsResponse = await conversationsFuture;
@@ -2681,11 +2654,6 @@ class NeoAgentController extends ChangeNotifier {
         MessagingMessage.fromJson,
       );
       skills = _decodeModelList('skills', skillsResponse, SkillItem.fromJson);
-      storeSkills = _decodeModelList(
-        'skill_store',
-        storeSkillsResponse,
-        StoreSkillItem.fromJson,
-      );
       memoryOverview = MemoryOverview.fromJson(memoryResponse);
       memories = _decodeModelList(
         'memories',
@@ -2894,11 +2862,6 @@ class NeoAgentController extends ChangeNotifier {
       'skills',
       await _backendClient.fetchSkills(backendUrl),
       SkillItem.fromJson,
-    );
-    storeSkills = _decodeModelList(
-      'skill_store',
-      await _backendClient.fetchSkillStore(backendUrl),
-      StoreSkillItem.fromJson,
     );
     try {
       officialIntegrations = _decodeModelList(
@@ -5115,26 +5078,20 @@ class NeoAgentController extends ChangeNotifier {
       if (url == null || state == null || url.isEmpty || state.isEmpty) {
         throw Exception(appStrings.providerLinkingCouldNotBeStarted);
       }
-      final completion = _pollForProviderAuthCompletion(
-        state,
-        isActive: () => isSavingAccountSettings,
-      );
-      final launchResult = await _launchProviderAuth(
+      final launchResult = await _oauthLauncher.launch(
         url: url,
         provider: provider,
-        completion: completion,
       );
       if (!launchResult.launched) {
-        completion.ignore();
         throw Exception(
           launchResult.error ?? appStrings.couldNotOpenTheProviderLinking,
         );
       }
-      await completion;
+      await _pollForProviderAuthCompletion(
+        state,
+        isActive: () => isSavingAccountSettings,
+      );
       await refreshAccountSettings();
-      // Linking a model provider (ChatGPT) changes the model catalog and
-      // the default model.
-      await refresh();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
@@ -5154,7 +5111,6 @@ class NeoAgentController extends ChangeNotifier {
           providerLinkId: providerLinkId,
         ),
       );
-      await refresh();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
@@ -5530,16 +5486,6 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> deleteSkill(String name) async {
     await _backendClient.deleteSkill(backendUrl, name);
-    await refreshSkills();
-  }
-
-  Future<void> installStoreSkill(String id) async {
-    await _backendClient.installStoreSkill(backendUrl, id);
-    await refreshSkills();
-  }
-
-  Future<void> uninstallStoreSkill(String id) async {
-    await _backendClient.uninstallStoreSkill(backendUrl, id);
     await refreshSkills();
   }
 

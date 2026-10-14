@@ -2554,7 +2554,6 @@ class AiProviderMeta {
   IconData get icon {
     switch (id) {
       case 'openai':
-      case 'chatgpt':
         return Icons.auto_awesome;
       case 'anthropic':
         return Icons.edit_note_outlined;
@@ -2977,35 +2976,6 @@ class SkillItem {
   final bool draft;
   final String category;
   final String source;
-}
-
-class StoreSkillItem {
-  const StoreSkillItem({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.category,
-    required this.icon,
-    required this.installed,
-  });
-
-  factory StoreSkillItem.fromJson(Map<dynamic, dynamic> json) {
-    return StoreSkillItem(
-      id: json['id']?.toString() ?? '',
-      name: json['name']?.toString() ?? appStrings.skill,
-      description: json['description']?.toString() ?? '',
-      category: json['category']?.toString().ifEmpty('general') ?? 'general',
-      icon: json['icon']?.toString().ifEmpty('🧩') ?? '🧩',
-      installed: json['installed'] == true,
-    );
-  }
-
-  final String id;
-  final String name;
-  final String description;
-  final String category;
-  final String icon;
-  final bool installed;
 }
 
 /// A search hit from skills.sh. [installedName] is the local skill name when

@@ -1,6 +1,6 @@
 'use strict';
 
-const { BasePlatform } = require('./base');
+const { BasePlatform, missingConfigError } = require('./base');
 const { Telegraf } = require('telegraf');
 
 class TelegramPlatform extends BasePlatform {
@@ -24,7 +24,7 @@ class TelegramPlatform extends BasePlatform {
   }
 
   async connect() {
-    if (!this.botToken) throw new Error('Telegram bot token is required');
+    if (!this.botToken) throw missingConfigError('Telegram bot token is required');
 
     if (this._bot) {
       try {

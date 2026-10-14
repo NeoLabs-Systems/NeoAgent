@@ -2714,7 +2714,6 @@
   "disconnectNextcloud": "Nextcloud trennen?",
   "disconnectPlatform": "Plattform trennen",
   "disconnectTrello": "Trello trennen?",
-  "discover": "Entdecken",
   "discoveryFailed": "Erkennung fehlgeschlagen",
   "dismiss": "Schließen",
   "displayIdIsRequired": "Anzeige-ID ist erforderlich.",
@@ -4100,7 +4099,6 @@
   "noSessionsYet": "Noch keine Sitzungen",
   "noSkillsMatchTheseFilters": "Keine Skills passen zu diesen Filtern.",
   "noStepsWereRecordedForThis": "Für diese Ausführung wurden keine Schritte aufgezeichnet.",
-  "noStoreSkillsMatchThisSearch": "Keine Store-Skills passen zu dieser Suche.",
   "noSubscription": "Kein Abonnement.",
   "noSummaryAvailable": "Keine Zusammenfassung verfügbar.",
   "noTasksForArg1": "Keine Aufgaben für {arg1}",
@@ -5211,7 +5209,6 @@
     }
   },
   "storage": "Speicher",
-  "storeSkill": "Store-Skill",
   "storedArg1": "Gespeichert: {arg1}",
   "@storedArg1": {
     "placeholders": {
@@ -5496,7 +5493,6 @@
   "thisServer": "diesen Server erreichen.",
   "thisServerIsAlreadySetUp": "Dieser Server ist bereits eingerichtet. Melden Sie sich mit einem bestehenden Konto an.",
   "thisServerReportsNoProviderSettings": "Dieser Server meldet keine Anbietereinstellungen.",
-  "thisSkillIsNoLongerIn": "Dieser Skill ist nicht mehr im Store.",
   "thisSkillIsNoLongerInstalled": "Dieser Skill ist nicht mehr installiert.",
   "thisTaskHasNoCompletedRun": "Diese Aufgabe hat noch keinen abgeschlossenen Lauf, startet also weiterhin zur ",
   "thisTaskWillOnlyRunWhen": "Diese Aufgabe läuft nur, wenn Sie auf Jetzt ausführen tippen.",

@@ -154,7 +154,7 @@ async function finishOAuthCallback(req, res, state, callback) {
       if (!authProviderManager) {
         throw new Error('Auth provider manager is not available on app.locals.authProviderManager.');
       }
-      const result = await authProviderManager.finishAuthorization(state, callback);
+      const result = await authProviderManager.finishAuthorization(state, callback.code);
       return res.type('html').send(renderOAuthPopupResult({
         success: true,
         payload: {

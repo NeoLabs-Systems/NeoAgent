@@ -17,8 +17,8 @@ A skill is a Markdown instruction set for a repeatable workflow. Skills can
 teach an agent how to use existing tools, commands, file formats, or local
 conventions. They do not add a new security boundary or bypass tool approvals.
 
-Manage skills in **Skills**. NeoAgent includes a catalog of system, network,
-document, data, creative, and development workflows. Installed skills are
+Manage skills in **Tools**. Install community skills from the
+[skills.sh](https://skills.sh) library, or write your own. Installed skills are
 editable and removable.
 
 Custom skills live in the NeoAgent agent-data directory and are loaded without

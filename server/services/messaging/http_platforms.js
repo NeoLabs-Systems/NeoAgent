@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 const net = require('net');
 const tls = require('tls');
-const { BasePlatform } = require('./base');
+const { BasePlatform, missingConfigError } = require('./base');
 const { fetchResponseText } = require('../network/http');
 const { requireText } = require('../../utils/text');
 const { safeEqual } = require('../../utils/security');
@@ -271,7 +271,7 @@ class SlackPlatform extends BasePlatform {
 
   async connect() {
     if (!this.botToken && !this.inboundSecret && !this.signingSecret) {
-      throw new Error('Slack bot token or inbound secret is required');
+      throw missingConfigError('Slack bot token or inbound secret is required');
     }
     if (this.botToken) {
       const auth = await fetchJson('https://slack.com/api/auth.test', {
@@ -835,7 +835,7 @@ class LinePlatform extends ConfigurableHttpPlatform {
 
   async connect() {
     if (!(this.config.channelAccessToken || this.config.token || this.config.inboundSecret)) {
-      throw new Error('LINE channel access token or inbound secret is required');
+      throw missingConfigError('LINE channel access token or inbound secret is required');
     }
     this.status = 'connected';
     this.emit('connected');
@@ -909,7 +909,7 @@ class MattermostPlatform extends ConfigurableHttpPlatform {
 
   async connect() {
     if (!this.config.webhookUrl && !this.config.baseUrl && !this.config.inboundSecret) {
-      throw new Error('Mattermost webhook URL, base URL, or inbound secret is required');
+      throw missingConfigError('Mattermost webhook URL, base URL, or inbound secret is required');
     }
     this.status = 'connected';
     this.emit('connected');

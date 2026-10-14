@@ -1,6 +1,6 @@
 'use strict';
 
-const { BasePlatform } = require('./base');
+const { BasePlatform, missingConfigError } = require('./base');
 const {
   Client,
   GatewayIntentBits,
@@ -58,7 +58,7 @@ class DiscordPlatform extends BasePlatform {
   // that has not enabled it in the Developer Portal is refused at login, so the
   // connection retries without it and join triggers stay quiet.
   async connect() {
-    if (!this.token) throw new Error('Discord bot token is required');
+    if (!this.token) throw missingConfigError('Discord bot token is required');
 
     this._manualDisconnect = false;
     try {

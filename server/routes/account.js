@@ -383,13 +383,13 @@ router.delete('/sessions/:id', accountLimiter, (req, res) => {
   }
 });
 
-router.delete('/providers/:id', accountLimiter, async (req, res) => {
+router.delete('/providers/:id', accountLimiter, (req, res) => {
   try {
     const authProviderManager = getAuthProviderManager(req);
     if (!authProviderManager) {
       throw new Error('Provider linking is not available.');
     }
-    await authProviderManager.unlinkProvider(req.session.userId, req.params.id);
+    authProviderManager.unlinkProvider(req.session.userId, req.params.id);
     res.json(accountPayload(req));
   } catch (err) {
     sendRouteError(res, err);

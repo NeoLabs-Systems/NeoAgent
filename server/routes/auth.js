@@ -5,7 +5,6 @@ const rateLimit = require('express-rate-limit');
 const db = require('../db/database');
 const { getDeploymentPolicy } = require('../utils/deployment');
 const { publicBaseUrlForRequest } = require('../utils/public_url');
-const { isSameMachineRequest } = require('../utils/same_machine');
 const { requireValidEmail } = require('../services/account/email');
 const {
   evaluatePasswordStrength,
@@ -82,11 +81,6 @@ const WEARABLE_SESSION_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
 
 function getAuthProviderManager(req) {
   return req.app?.locals?.authProviderManager;
-}
-
-// What sign-in providers may know about the requesting client.
-function authRequestContext(req) {
-  return { sameMachine: isSameMachineRequest(req) };
 }
 
 function toUserPayload(user) {
@@ -291,7 +285,7 @@ router.get('/api/auth/status', (req, res) => {
         configured: emailConfig.configured,
         signupConfirmationRequired: requireSignupEmailConfirmation(),
       },
-      providers: authProviderManager ? authProviderManager.listProviders(authRequestContext(req)) : [],
+      providers: authProviderManager ? authProviderManager.listProviders() : [],
     });
   }
   res.json({
@@ -304,7 +298,7 @@ router.get('/api/auth/status', (req, res) => {
       configured: emailConfig.configured,
       signupConfirmationRequired: requireSignupEmailConfirmation(),
     },
-    providers: authProviderManager ? authProviderManager.listProviders(authRequestContext(req)) : [],
+    providers: authProviderManager ? authProviderManager.listProviders() : [],
   });
 });
 
@@ -313,7 +307,7 @@ router.get('/api/auth/providers', (req, res) => {
   if (!authProviderManager) {
     return res.json({ providers: [] });
   }
-  return res.json({ providers: authProviderManager.listProviders(authRequestContext(req)) });
+  return res.json({ providers: authProviderManager.listProviders() });
 });
 
 router.post('/api/auth/providers/:provider/begin', authLimiter, async (req, res) => {
@@ -327,7 +321,6 @@ router.post('/api/auth/providers/:provider/begin', authLimiter, async (req, res)
       providerKey: req.params.provider,
       mode,
       userId: mode === 'link' ? req.session?.userId || null : null,
-      context: authRequestContext(req),
     });
     bindOAuthState(req.session, result.state);
     res.json(result);

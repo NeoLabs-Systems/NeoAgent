@@ -2,7 +2,7 @@ part of 'main.dart';
 
 /// Filters for the Tools page. `all` is the overview: a short, ranked preview
 /// of every group with a "See all" jump into the full list.
-enum _ToolsSegment { all, integrations, mcp, skills, store }
+enum _ToolsSegment { all, integrations, mcp, skills, skillsSh }
 
 /// How many rows a group shows in the overview before it is cut off.
 const int _toolsOverviewLimit = 3;
@@ -24,7 +24,6 @@ class _ToolsPanelState extends State<ToolsPanel> {
   String _query = '';
   String _skillStatus = 'all';
   String _skillSource = 'all';
-  String _storeCategory = 'all';
   Timer? _skillsShDebounce;
   int _skillsShRequest = 0;
   String _skillsShQuery = '';
@@ -62,9 +61,9 @@ class _ToolsPanelState extends State<ToolsPanel> {
   }
 
   /// skills.sh is searched only where its results show: the overview and the
-  /// Store segment.
+  /// skills.sh segment.
   bool get _showsSkillsSh =>
-      _segment == _ToolsSegment.all || _segment == _ToolsSegment.store;
+      _segment == _ToolsSegment.all || _segment == _ToolsSegment.skillsSh;
 
   void _scheduleSkillsShSearch() {
     final query = _searchController.text.trim();
@@ -107,7 +106,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
   }
 
   void _browseSkillsSh() {
-    _selectSegment(_ToolsSegment.store);
+    _selectSegment(_ToolsSegment.skillsSh);
     _searchFocus.requestFocus();
   }
 
@@ -185,27 +184,6 @@ class _ToolsPanelState extends State<ToolsPanel> {
     }).toList();
   }
 
-  List<StoreSkillItem> _visibleStoreSkills() {
-    final items =
-        widget.controller.storeSkills
-            .where(
-              (item) =>
-                  _matches(<String>[
-                    item.name,
-                    item.description,
-                    item.category,
-                  ]) &&
-                  (_segment != _ToolsSegment.store ||
-                      _storeCategory == 'all' ||
-                      item.category == _storeCategory),
-            )
-            .toList()
-          ..sort(
-            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-          );
-    return items;
-  }
-
   void _selectSegment(_ToolsSegment segment) {
     setState(() => _segment = segment);
     _scheduleSkillsShSearch();
@@ -217,7 +195,6 @@ class _ToolsPanelState extends State<ToolsPanel> {
     final integrations = _visibleIntegrations();
     final servers = _visibleServers();
     final skills = _visibleSkills();
-    final storeSkills = _visibleStoreSkills();
 
     return Padding(
       padding: _pagePadding(context),
@@ -262,13 +239,11 @@ class _ToolsPanelState extends State<ToolsPanel> {
                       integrations.length +
                       servers.length +
                       skills.length +
-                      storeSkills.length +
                       _skillsShResults.length,
                   _ToolsSegment.integrations: integrations.length,
                   _ToolsSegment.mcp: servers.length,
                   _ToolsSegment.skills: skills.length,
-                  _ToolsSegment.store:
-                      storeSkills.length + _skillsShResults.length,
+                  _ToolsSegment.skillsSh: _skillsShResults.length,
                 },
                 onSelected: _selectSegment,
               ),
@@ -282,7 +257,6 @@ class _ToolsPanelState extends State<ToolsPanel> {
                     integrations: integrations,
                     servers: servers,
                     skills: skills,
-                    storeSkills: storeSkills,
                   ),
                 ),
               ),
@@ -315,25 +289,9 @@ class _ToolsPanelState extends State<ToolsPanel> {
             'built-in',
             'learned',
             'user',
-            'store',
             'skills.sh',
           ],
           onSelected: (value) => setState(() => _skillSource = value),
-        ),
-      );
-    }
-    if (_segment == _ToolsSegment.store) {
-      final categories = <String>{
-        'all',
-        ...controller.storeSkills.map((item) => item.category),
-      }.toList();
-      filters.add(
-        _ToolsFilterMenu(
-          icon: Icons.grid_view_rounded,
-          label: appStrings.category,
-          value: _storeCategory,
-          options: categories,
-          onSelected: (value) => setState(() => _storeCategory = value),
         ),
       );
     }
@@ -351,41 +309,9 @@ class _ToolsPanelState extends State<ToolsPanel> {
     required List<OfficialIntegrationItem> integrations,
     required List<McpServerItem> servers,
     required List<SkillItem> skills,
-    required List<StoreSkillItem> storeSkills,
   }) {
     final overview = _segment == _ToolsSegment.all;
     final children = <Widget>[];
-
-    if (overview && _query.isEmpty) {
-      final discover = storeSkills
-          .where((item) => !item.installed)
-          .take(8)
-          .toList();
-      if (discover.isNotEmpty) {
-        children.add(
-          _ToolsSectionHeader(
-            title: appStrings.discover,
-            count: discover.length,
-            onSeeAll: () => _selectSegment(_ToolsSegment.store),
-          ),
-        );
-        children.add(
-          SizedBox(
-            height: 196,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: discover.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (context, index) => _StoreSkillCard(
-                controller: controller,
-                item: discover[index],
-              ),
-            ),
-          ),
-        );
-        children.add(const SizedBox(height: 26));
-      }
-    }
 
     children.addAll(
       _buildGroup(
@@ -422,7 +348,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
         title: 'Skills',
         emptyMessage:
             _query.isEmpty && _skillStatus == 'all' && _skillSource == 'all'
-            ? 'No skills installed yet. Install one from the store or write your own.'
+            ? 'No skills installed yet. Install one from skills.sh or write your own.'
             : appStrings.noSkillsMatchTheseFilters,
         overview: overview,
         tiles: skills
@@ -430,24 +356,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
             .toList(),
       ),
     );
-    // On the overview the Discover strip already carries the store, so the
-    // group only reappears there to show search matches.
-    if (!overview || _query.isNotEmpty) {
-      children.addAll(
-        _buildGroup(
-          segment: _ToolsSegment.store,
-          title: 'Store',
-          emptyMessage: appStrings.noStoreSkillsMatchThisSearch,
-          overview: overview,
-          tiles: storeSkills
-              .map(
-                (item) => _StoreSkillTile(controller: controller, item: item),
-              )
-              .toList(),
-        ),
-      );
-      children.addAll(_buildSkillsShGroup(controller, overview: overview));
-    }
+    children.addAll(_buildSkillsShGroup(controller, overview: overview));
 
     if (children.isEmpty) {
       children.add(
@@ -485,7 +394,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
       ];
     }
     return _buildGroup(
-      segment: _ToolsSegment.store,
+      segment: _ToolsSegment.skillsSh,
       title: 'skills.sh',
       emptyMessage: _skillsShError ?? appStrings.noSkillsShMatches,
       overview: overview,
@@ -598,7 +507,7 @@ class _ToolsSegmentBar extends StatelessWidget {
     _ToolsSegment.integrations: 'Integrations',
     _ToolsSegment.mcp: 'MCP',
     _ToolsSegment.skills: 'Skills',
-    _ToolsSegment.store: 'Store',
+    _ToolsSegment.skillsSh: 'skills.sh',
   };
 
   @override
@@ -1111,36 +1020,6 @@ class _SkillTile extends StatelessWidget {
   }
 }
 
-class _StoreSkillTile extends StatelessWidget {
-  const _StoreSkillTile({required this.controller, required this.item});
-
-  final NeoAgentController controller;
-  final StoreSkillItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final icon = _ToolIconTile(
-      color: _toolAccentFor(item.name),
-      child: Text(item.icon, style: const TextStyle(fontSize: 22)),
-    );
-    return _ToolTile(
-      icon: icon,
-      title: item.name,
-      subtitle: item.description,
-      statusColor: item.installed ? _success : null,
-      meta: <String>[if (item.installed) 'Installed', item.category],
-      trailing: _ToolActionButton(
-        label: item.installed ? 'Open' : 'Get',
-        primary: !item.installed,
-        onPressed: () => item.installed
-            ? _openStoreSkillDetail(context, controller, item, icon)
-            : controller.installStoreSkill(item.id),
-      ),
-      onTap: () => _openStoreSkillDetail(context, controller, item, icon),
-    );
-  }
-}
-
 /// A skills.sh search hit. Installing makes it a regular user skill, so once
 /// installed it opens the same detail view as any other skill.
 class _SkillsShTile extends StatefulWidget {
@@ -1245,112 +1124,6 @@ String _formatInstallCount(int count) {
   if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
   if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}K';
   return '$count';
-}
-
-/// Wide store card used by the Discover strip on the overview.
-class _StoreSkillCard extends StatelessWidget {
-  const _StoreSkillCard({required this.controller, required this.item});
-
-  final NeoAgentController controller;
-  final StoreSkillItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final icon = _ToolIconTile(
-      color: _toolAccentFor(item.name),
-      child: Text(item.icon, style: const TextStyle(fontSize: 22)),
-    );
-    return SizedBox(
-      width: 268,
-      child: Material(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(18),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: () => _openStoreSkillDetail(context, controller, item, icon),
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: _border),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    icon,
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        item.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 15.5,
-                          fontWeight: FontWeight.w700,
-                          color: _textPrimary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Expanded(
-                  child: Text(
-                    item.description,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: _textSecondary,
-                      fontSize: 13,
-                      height: 1.35,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        item.category,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: _textMuted,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    _ToolActionButton(
-                      label: 'Get',
-                      onPressed: () => controller.installStoreSkill(item.id),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-void _openStoreSkillDetail(
-  BuildContext context,
-  NeoAgentController controller,
-  StoreSkillItem item,
-  Widget icon,
-) {
-  _showToolDetail(
-    context,
-    icon: icon,
-    title: item.name,
-    subtitle: appStrings.storeSkill,
-    child: StoreSkillDetailView(controller: controller, skillId: item.id),
-  );
 }
 
 /// Stable per-name accent so skill tiles stay visually distinguishable.

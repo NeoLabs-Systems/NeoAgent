@@ -574,59 +574,6 @@ class SkillDetailView extends StatelessWidget {
   }
 }
 
-/// Store listing for a skill that can be installed or removed.
-class StoreSkillDetailView extends StatelessWidget {
-  const StoreSkillDetailView({
-    super.key,
-    required this.controller,
-    required this.skillId,
-  });
-
-  final NeoAgentController controller;
-  final String skillId;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) {
-        final item = controller.storeSkills
-            .where((skill) => skill.id == skillId)
-            .firstOrNull;
-        if (item == null) {
-          return Text(
-            appStrings.thisSkillIsNoLongerIn,
-            style: TextStyle(color: _textSecondary),
-          );
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              item.description,
-              style: TextStyle(color: _textSecondary, height: 1.45),
-            ),
-            const SizedBox(height: 14),
-            _MetaPill(label: item.category, icon: Icons.grid_view_rounded),
-            const SizedBox(height: 18),
-            item.installed
-                ? OutlinedButton.icon(
-                    onPressed: () => controller.uninstallStoreSkill(item.id),
-                    icon: Icon(Icons.delete_outline),
-                    label: Text(appStrings.remove),
-                  )
-                : FilledButton.icon(
-                    onPressed: () => controller.installStoreSkill(item.id),
-                    icon: Icon(Icons.download_rounded),
-                    label: Text(appStrings.install),
-                  ),
-          ],
-        );
-      },
-    );
-  }
-}
-
 Future<void> _openSkillEditor(
   BuildContext context,
   NeoAgentController controller,

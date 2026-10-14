@@ -489,6 +489,15 @@ class MessagingManager extends EventEmitter {
     return config?.autoConnect !== false;
   }
 
+  _stopIfNeedsUser(key, userId, agentId, platformName, error) {
+    if (error?.requiresUserAction !== true) return false;
+    this._clearReconnect(key);
+    this._attentionRequired(userId, agentId, platformName, error.reason || 'reconnect_required');
+    db.prepare('UPDATE platform_connections SET status = ? WHERE user_id = ? AND agent_id = ? AND platform = ?')
+      .run('error', userId, agentId, platformName);
+    return true;
+  }
+
   _scheduleReconnectWatchdog({ userId, agentId, platformName, config }) {
     const key = this._key(userId, agentId, platformName);
     if (this.isShuttingDown || this.reconnectTimers.has(key)) return;
@@ -533,6 +542,7 @@ class MessagingManager extends EventEmitter {
       this.connectPlatform(userId, platformName, config, { agentId }).catch((error) => {
         if (this.isShuttingDown) return;
         messagingLogger.warn(`${platformName} reconnect failed:`, error?.message || error);
+        if (this._stopIfNeedsUser(key, userId, agentId, platformName, error)) return;
         this._scheduleReconnect({ userId, agentId, platformName, config });
       });
     }, delayMs);
@@ -1098,6 +1108,8 @@ class MessagingManager extends EventEmitter {
         await this.connectPlatform(row.user_id, row.platform, config, { agentId: row.agent_id });
       } catch (err) {
         console.error(`[Messaging] Failed to restore ${row.platform} for user ${row.user_id}:`, err.message);
+        const key = this._key(row.user_id, row.agent_id, row.platform);
+        if (this._stopIfNeedsUser(key, row.user_id, row.agent_id, row.platform, err)) continue;
         const config = this._decodeStoredConfig(row.config);
         this._scheduleReconnect({
           userId: row.user_id,

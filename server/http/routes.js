@@ -22,7 +22,6 @@ const routeRegistry = [
   { basePath: '/api/integrations', modulePath: '../routes/integrations' },
   { basePath: '/api/git-proxy', modulePath: '../routes/git_proxy' },
   { basePath: '/api/skills', modulePath: '../routes/skills' },
-  { basePath: '/api/store', modulePath: '../routes/store' },
   { basePath: '/api/artifacts', modulePath: '../routes/artifacts' },
   { basePath: '/api/memory', modulePath: '../routes/memory' },
   { basePath: '/api/tasks', modulePath: '../routes/tasks' },

@@ -3024,9 +3024,6 @@ class AppL10nEn extends AppL10n {
   String get disconnectTrello => 'Disconnect Trello?';
 
   @override
-  String get discover => 'Discover';
-
-  @override
   String get discoveryFailed => 'Discovery failed';
 
   @override
@@ -5520,10 +5517,6 @@ class AppL10nEn extends AppL10n {
       'No steps were recorded for this run.';
 
   @override
-  String get noStoreSkillsMatchThisSearch =>
-      'No store skills match this search.';
-
-  @override
   String get noSubscription => 'No subscription.';
 
   @override
@@ -7764,9 +7757,6 @@ class AppL10nEn extends AppL10n {
   String get storage => 'Storage';
 
   @override
-  String get storeSkill => 'Store skill';
-
-  @override
   String storedArg1(Object? arg1) {
     return 'Stored: $arg1';
   }
@@ -8441,9 +8431,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get thisServerReportsNoProviderSettings =>
       'This server reports no provider settings.';
-
-  @override
-  String get thisSkillIsNoLongerIn => 'This skill is no longer in the store.';
 
   @override
   String get thisSkillIsNoLongerInstalled =>

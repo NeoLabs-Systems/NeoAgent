@@ -4871,12 +4871,6 @@ abstract class AppL10n {
   /// **'Disconnect Trello?'**
   String get disconnectTrello;
 
-  /// No description provided for @discover.
-  ///
-  /// In en, this message translates to:
-  /// **'Discover'**
-  String get discover;
-
   /// No description provided for @discoveryFailed.
   ///
   /// In en, this message translates to:
@@ -9125,12 +9119,6 @@ abstract class AppL10n {
   /// **'No steps were recorded for this run.'**
   String get noStepsWereRecordedForThis;
 
-  /// No description provided for @noStoreSkillsMatchThisSearch.
-  ///
-  /// In en, this message translates to:
-  /// **'No store skills match this search.'**
-  String get noStoreSkillsMatchThisSearch;
-
   /// No description provided for @noSubscription.
   ///
   /// In en, this message translates to:
@@ -12989,12 +12977,6 @@ abstract class AppL10n {
   /// **'Storage'**
   String get storage;
 
-  /// No description provided for @storeSkill.
-  ///
-  /// In en, this message translates to:
-  /// **'Store skill'**
-  String get storeSkill;
-
   /// No description provided for @storedArg1.
   ///
   /// In en, this message translates to:
@@ -14068,12 +14050,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'This server reports no provider settings.'**
   String get thisServerReportsNoProviderSettings;
-
-  /// No description provided for @thisSkillIsNoLongerIn.
-  ///
-  /// In en, this message translates to:
-  /// **'This skill is no longer in the store.'**
-  String get thisSkillIsNoLongerIn;
 
   /// No description provided for @thisSkillIsNoLongerInstalled.
   ///
