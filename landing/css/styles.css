@@ -616,9 +616,12 @@ h3, h4 { letter-spacing: -0.03em; font-weight: 650; line-height: 1.15; }
   25%, 100% { background: var(--line-2); }
 }
 
-/* hold still while someone is reading */
-.hrun:hover .hrun-slide,
-.hrun:hover .hrun-dots i,
+/* hold still while someone is reading — real hover only: a tap leaves
+   :hover stuck on touch screens, which froze the rotation for good */
+@media (hover: hover) {
+  .hrun:hover .hrun-slide,
+  .hrun:hover .hrun-dots i { animation-play-state: paused; }
+}
 .hrun:focus-within .hrun-slide,
 .hrun:focus-within .hrun-dots i { animation-play-state: paused; }
 
@@ -1136,15 +1139,15 @@ h3, h4 { letter-spacing: -0.03em; font-weight: 650; line-height: 1.15; }
 
 @keyframes cursor-tour {
   0%   { transform: translate(0, 0); }
-  16%  { transform: translate(180px, 60px); }
-  22%  { transform: translate(180px, 60px) scale(0.82); }
-  26%  { transform: translate(180px, 60px) scale(1); }
-  48%  { transform: translate(60px, 150px); }
-  54%  { transform: translate(60px, 150px) scale(0.82); }
-  58%  { transform: translate(60px, 150px) scale(1); }
-  82%  { transform: translate(260px, 110px); }
-  88%  { transform: translate(260px, 110px) scale(0.82); }
-  92%  { transform: translate(260px, 110px) scale(1); }
+  16%  { transform: translate(calc(180px * var(--k, 1)), calc(60px * var(--k, 1))); }
+  22%  { transform: translate(calc(180px * var(--k, 1)), calc(60px * var(--k, 1))) scale(0.82); }
+  26%  { transform: translate(calc(180px * var(--k, 1)), calc(60px * var(--k, 1))) scale(1); }
+  48%  { transform: translate(calc(60px * var(--k, 1)), calc(150px * var(--k, 1))); }
+  54%  { transform: translate(calc(60px * var(--k, 1)), calc(150px * var(--k, 1))) scale(0.82); }
+  58%  { transform: translate(calc(60px * var(--k, 1)), calc(150px * var(--k, 1))) scale(1); }
+  82%  { transform: translate(calc(260px * var(--k, 1)), calc(110px * var(--k, 1))); }
+  88%  { transform: translate(calc(260px * var(--k, 1)), calc(110px * var(--k, 1))) scale(0.82); }
+  92%  { transform: translate(calc(260px * var(--k, 1)), calc(110px * var(--k, 1))) scale(1); }
   100% { transform: translate(0, 0); }
 }
 
@@ -1415,8 +1418,42 @@ h3, h4 { letter-spacing: -0.03em; font-weight: 650; line-height: 1.15; }
   .story { grid-template-columns: 1fr; }
   .story-stage-wrap { position: sticky; top: 78px; }
   .story-stage { min-height: clamp(360px, 60vw, 440px); }
-  .story-step { min-height: 52vh; text-align: left; }
-  .story-step:first-child { padding-top: 8vh; }
+
+  /* Once pinned, the steps scroll up underneath the stage. This cap hides
+     the strip between the nav and the stage's rounded top, where step text
+     used to peek out (js/main.js toggles is-stuck). */
+  .story-stage-wrap::before {
+    content: "";
+    position: absolute;
+    left: calc(var(--gutter) * -1);
+    right: calc(var(--gutter) * -1);
+    top: -96px;
+    height: calc(96px + var(--radius-lg));
+    background: var(--bg);
+    visibility: hidden;
+  }
+  .story-stage-wrap.is-stuck::before { visibility: visible; }
+
+  .story-step { min-height: 46vh; min-height: 46svh; text-align: left; }
+  .story-step:first-child { padding-top: 4vh; }
+  /* the stage stays pinned until the story ends, so a tall last step was
+     just empty scrolling under a frozen panel */
+  .story-step:last-child { min-height: 0; padding-bottom: 24px; }
+
+  /* flat cards: a perspective tilt on a full-width card just looks skewed */
+  .device-visual { --ty: 0; --tx: 0; }
+  .dv-cursor { --k: 0.7; }
+
+  /* reveals: no blur (expensive on phones) and a shorter travel */
+  .reveal {
+    transform: translateY(14px);
+    filter: none;
+    transition: opacity .6s var(--ease), transform .6s var(--ease);
+  }
+
+  /* the fixed blended grain layer forces a full repaint on every scroll
+     frame on mobile browsers, and at this opacity nobody sees it */
+  body::before { display: none; }
 
   .manifesto-row { grid-template-columns: 1fr; gap: 24px; }
   .footer-grid { grid-template-columns: 1fr 1fr; }
@@ -1444,6 +1481,7 @@ h3, h4 { letter-spacing: -0.03em; font-weight: 650; line-height: 1.15; }
   .hrun-status { justify-items: start; }
 
   .story-stage-wrap { top: 70px; }
+  .run-step { padding: 10px 0; }
   .footer-grid { grid-template-columns: 1fr; }
   .nav-inner { min-height: 64px; }
 }

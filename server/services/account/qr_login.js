@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const { randomUUID } = require('crypto');
+const { EventEmitter } = require('events');
 const db = require('../../db/database');
 const { clientIpFromRequest, lookupIpLocation } = require('./geoip');
 const { sessionHash } = require('./sessions');
@@ -9,6 +10,15 @@ const { parseJsonObject } = require('../../utils/text');
 
 const QR_LOGIN_TTL_MS = 2 * 60 * 1000;
 const QR_LOGIN_TERMINAL_RETENTION_MS = 60 * 60 * 1000;
+const QR_LOGIN_LONG_POLL_MS = 25 * 1000;
+
+// Wakes status requests held open for a challenge, keyed by challenge id.
+const challengeChanges = new EventEmitter();
+challengeChanges.setMaxListeners(0);
+
+function notifyChallengeChanged(challengeId) {
+  challengeChanges.emit(challengeId);
+}
 
 function sqliteDateFromMs(ms) {
   return new Date(ms).toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '');
@@ -297,6 +307,7 @@ function markChallengeScanned({ challengeId, secret, scannerMetadata }) {
       JSON.stringify(normalizeMetadata(scannerMetadata)),
       row.id,
     );
+    notifyChallengeChanged(row.id);
   }
   const preview = resolveChallengeForApproval({ challengeId, secret });
   // To the phone a scanned request is still undecided; app builds from before
@@ -319,6 +330,7 @@ function declineRow(row) {
     WHERE id = ?
       AND status IN ('pending', 'scanned')
   `).run(row.id);
+  notifyChallengeChanged(row.id);
 }
 
 /** The phone turned the request down. */
@@ -374,6 +386,7 @@ function approveChallenge({
     now,
     row.id,
   );
+  notifyChallengeChanged(row.id);
 
   return resolveChallengeForApproval({ challengeId, secret });
 }
@@ -407,6 +420,44 @@ function getChallengeStatusForPoll({ challengeId, pollToken }) {
   return result;
 }
 
+/**
+ * Answers once the challenge leaves [knownStatus]: right away if it already
+ * has, else when the phone scans, approves or declines, the code expires, or
+ * after [maxWaitMs]. [signal] ends the wait when the client goes away.
+ */
+function waitForChallengeStatusChange({
+  challengeId,
+  pollToken,
+  knownStatus,
+  signal,
+  maxWaitMs = QR_LOGIN_LONG_POLL_MS,
+}) {
+  const read = () => ({
+    ...getChallengeStatusForPoll({ challengeId, pollToken }),
+    longPoll: true,
+  });
+  const current = read();
+  if (current.status !== knownStatus || signal?.aborted) {
+    return Promise.resolve(current);
+  }
+  const untilExpiry = parseSqliteUtcMs(current.expiresAt) - Date.now();
+  const waitMs = Math.max(0, Math.min(maxWaitMs, untilExpiry + 250));
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      challengeChanges.off(current.challengeId, finish);
+      signal?.removeEventListener('abort', finish);
+      resolve(read());
+    };
+    const timer = setTimeout(finish, waitMs);
+    challengeChanges.on(current.challengeId, finish);
+    signal?.addEventListener('abort', finish, { once: true });
+  });
+}
+
 function claimApprovedChallenge({ challengeId, pollToken }) {
   const row = getChallengeRowByPollToken(challengeId, pollToken);
   if (!row || challengeIsExpired(row) || row.status === 'expired') {
@@ -432,6 +483,7 @@ function claimApprovedChallenge({ challengeId, pollToken }) {
   if (result.changes !== 1) {
     throw challengeStateError('This QR login request is no longer available.');
   }
+  notifyChallengeChanged(row.id);
 
   const user = db.prepare(`
     SELECT id, username, email, email_verified_at, password_login_enabled, created_at, last_login, has_completed_onboarding
@@ -461,6 +513,7 @@ module.exports = {
   getChallengeStatusForPoll,
   markChallengeScanned,
   resolveChallengeForApproval,
+  waitForChallengeStatusChange,
   __test: {
     challengeIsExpired,
     parseSqliteUtcMs,

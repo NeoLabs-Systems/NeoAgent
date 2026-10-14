@@ -131,3 +131,27 @@ test('the signing-in screen cancelling makes a late approval fail', async () => 
     secret: challenge.secret,
   }).expect(409);
 });
+
+test('a held status check answers as soon as the phone scans', async () => {
+  const approverUser = await createTestUser(ctx.db, { username: 'qr_fast' });
+  const approver = agent(app);
+  await loginAs(approver, approverUser);
+  const challenge = await startChallenge(agent(app));
+
+  const started = Date.now();
+  const held = request(app)
+    .post(`/api/auth/qr-login/challenge/${challenge.id}/status`)
+    .send({ token: challenge.pollToken, knownStatus: 'pending' })
+    .then((res) => res);
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  await approver.post('/api/account/qr-login/resolve').send({
+    challengeId: challenge.id,
+    secret: challenge.secret,
+  }).expect(200);
+
+  const status = await held;
+  assert.equal(status.status, 200);
+  assert.equal(status.body.status, 'scanned');
+  assert.equal(status.body.longPoll, true);
+  assert.ok(Date.now() - started < 5000);
+});

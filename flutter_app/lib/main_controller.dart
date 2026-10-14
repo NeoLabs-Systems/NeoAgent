@@ -79,6 +79,7 @@ class NeoAgentController extends ChangeNotifier {
   Timer? _updatePollTimer;
   Timer? _qrLoginPollTimer;
   static const Duration _qrLoginPollInterval = Duration(seconds: 5);
+  static const Duration _qrLoginHeldPollGap = Duration(milliseconds: 300);
   static const Duration _qrLoginPollMaxInterval = Duration(seconds: 60);
   Duration _qrLoginPollDelay = _qrLoginPollInterval;
   bool _qrLoginPollingActive = false;
@@ -101,7 +102,13 @@ class NeoAgentController extends ChangeNotifier {
   static const Duration _manualRunCooldownDuration = Duration(seconds: 10);
   static const int _chatHistoryPageSize = 20;
   int _authCycle = 0;
-  bool _isPollingQrLogin = false;
+  /// The challenge whose status check is in flight; a held check for an old
+  /// code must not block the new one.
+  String? _qrLoginPollingChallengeId;
+
+  /// Whether the server holds status checks open until something changes;
+  /// then the next check can follow straight away.
+  bool _qrLoginServerHoldsPolls = false;
   bool _socketHasConnectedOnce = false;
   bool _onboardingManuallyReopened = false;
   bool _onboardingCompletedLocally = false;
@@ -1312,7 +1319,6 @@ class NeoAgentController extends ChangeNotifier {
     qrLoginChallenge = null;
     qrLoginScan = null;
     qrLoginErrorMessage = null;
-    _isPollingQrLogin = false;
   }
 
   void _ensureQrLoginPolling() {
@@ -1325,15 +1331,20 @@ class NeoAgentController extends ChangeNotifier {
     _scheduleQrLoginPoll();
   }
 
-  /// Polls every [_qrLoginPollInterval]; failures (including rate limits)
-  /// double the wait up to [_qrLoginPollMaxInterval].
+  /// Polls right after each held check returns, or every
+  /// [_qrLoginPollInterval] against servers that answer at once; failures
+  /// (including rate limits) double the wait up to [_qrLoginPollMaxInterval].
   void _scheduleQrLoginPoll() {
     _qrLoginPollTimer = Timer(_qrLoginPollDelay, () async {
       _qrLoginPollTimer = null;
       final succeeded = await _pollQrLoginChallenge();
+      // Skipped or outdated: another chain owns the polling.
+      if (succeeded == null) return;
       final doubled = _qrLoginPollDelay * 2;
       _qrLoginPollDelay = succeeded
-          ? _qrLoginPollInterval
+          ? (_qrLoginServerHoldsPolls
+                ? _qrLoginHeldPollGap
+                : _qrLoginPollInterval)
           : (doubled > _qrLoginPollMaxInterval
                 ? _qrLoginPollMaxInterval
                 : doubled);
@@ -1379,7 +1390,7 @@ class NeoAgentController extends ChangeNotifier {
       }
       qrLoginChallenge = challenge;
       qrLoginErrorMessage = null;
-      _qrLoginPollDelay = _qrLoginPollInterval;
+      _qrLoginPollDelay = _qrLoginHeldPollGap;
       _ensureQrLoginPolling();
     } catch (error) {
       _clearQrLoginChallenge();
@@ -1397,19 +1408,25 @@ class NeoAgentController extends ChangeNotifier {
     return _friendlyErrorMessage(error);
   }
 
-  /// Returns whether the status check reached the server.
-  Future<bool> _pollQrLoginChallenge() async {
+  /// Returns whether the status check reached the server, or null when it
+  /// was skipped or its code was replaced while it waited.
+  Future<bool?> _pollQrLoginChallenge() async {
     final challenge = qrLoginChallenge;
-    if (_isPollingQrLogin || challenge == null || !challenge.isUsable) {
-      return true;
+    if (challenge == null ||
+        !challenge.isUsable ||
+        _qrLoginPollingChallengeId == challenge.challengeId) {
+      return null;
     }
-    _isPollingQrLogin = true;
+    _qrLoginPollingChallengeId = challenge.challengeId;
     try {
       final status = await _backendClient.getQrLoginChallengeStatus(
         baseUrl: backendUrl,
         challengeId: challenge.challengeId,
         pollToken: challenge.pollToken,
+        knownStatus: qrLoginScan != null ? 'scanned' : 'pending',
       );
+      if (qrLoginChallenge?.challengeId != challenge.challengeId) return null;
+      _qrLoginServerHoldsPolls = status['longPoll'] == true;
       if (qrLoginErrorMessage != null) {
         qrLoginErrorMessage = null;
         notifyListeners();
@@ -1437,11 +1454,14 @@ class NeoAgentController extends ChangeNotifier {
       }
       return true;
     } catch (error) {
+      if (qrLoginChallenge?.challengeId != challenge.challengeId) return null;
       qrLoginErrorMessage = _qrLoginErrorMessage(error);
       notifyListeners();
       return false;
     } finally {
-      _isPollingQrLogin = false;
+      if (_qrLoginPollingChallengeId == challenge.challengeId) {
+        _qrLoginPollingChallengeId = null;
+      }
     }
   }
 

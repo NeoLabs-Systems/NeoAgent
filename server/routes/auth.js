@@ -37,6 +37,7 @@ const {
   claimApprovedChallenge,
   createChallenge,
   getChallengeStatusForPoll,
+  waitForChallengeStatusChange,
 } = require('../services/account/qr_login');
 const { bindOAuthState, isOAuthStateBound } = require('../services/account/oauth_handoff');
 const {
@@ -60,7 +61,8 @@ const authLimiter = rateLimit({
 
 // Showing a sign-in QR code is not a credential attempt, so it gets its own
 // budget instead of eating into authLimiter. A visible code rotates every two
-// minutes and is polled about every five seconds.
+// minutes; its status checks are held open up to 25 seconds each, or come
+// every five seconds from older apps.
 const qrLoginChallengeLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 60,
@@ -740,18 +742,27 @@ router.post('/api/auth/qr-login/challenge', qrLoginChallengeLimiter, (req, res) 
   }
 });
 
-router.post('/api/auth/qr-login/challenge/:id/status', qrLoginPollLimiter, (req, res) => {
+// With `knownStatus`, the request is held open until the status differs from
+// it, so the signing-in screen hears about a scan or approval at once.
+router.post('/api/auth/qr-login/challenge/:id/status', qrLoginPollLimiter, async (req, res) => {
   try {
     const pollToken = String(req.body?.token || '').trim();
     if (!pollToken) {
       return res.status(400).json({ error: 'QR login poll token is required.' });
     }
-    res.json(
-      getChallengeStatusForPoll({
-        challengeId: req.params.id,
-        pollToken,
-      }),
-    );
+    const knownStatus = String(req.body?.knownStatus || '').trim();
+    if (!knownStatus) {
+      return res.json(getChallengeStatusForPoll({ challengeId: req.params.id, pollToken }));
+    }
+    const clientGone = new AbortController();
+    res.on('close', () => clientGone.abort());
+    const status = await waitForChallengeStatusChange({
+      challengeId: req.params.id,
+      pollToken,
+      knownStatus,
+      signal: clientGone.signal,
+    });
+    if (!res.writableEnded && !clientGone.signal.aborted) res.json(status);
   } catch (error) {
     res.status(Number(error?.statusCode || 500)).json({
       error: error?.message || 'Could not read QR login status.',

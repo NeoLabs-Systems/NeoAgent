@@ -327,15 +327,21 @@ class BackendClient {
     }, allowUnauthorized: true);
   }
 
+  /// With [knownStatus], the server holds the request until the status
+  /// differs from it (at most about 25 seconds).
   Future<Map<String, dynamic>> getQrLoginChallengeStatus({
     required String baseUrl,
     required String challengeId,
     required String pollToken,
+    String? knownStatus,
   }) async {
     return postMap(
       baseUrl,
       '/api/auth/qr-login/challenge/${Uri.encodeComponent(challengeId)}/status',
-      <String, dynamic>{'token': pollToken},
+      <String, dynamic>{
+        'token': pollToken,
+        if (knownStatus != null) 'knownStatus': knownStatus,
+      },
       allowUnauthorized: true,
     );
   }

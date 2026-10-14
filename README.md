@@ -1,5 +1,5 @@
 <p align="center">
-  <img src=".github/social-preview.png" alt="NeoAgent" width="100%">
+  <img src=".github/banner.jpg" alt="NeoAgent: the personal AI agent you host yourself" width="100%">
 </p>
 
 <h1 align="center">NeoAgent</h1>
@@ -105,9 +105,11 @@ Then open **http://localhost:3333** (or your server's address). The first accoun
 
 ## 🧭 Explore it
 
-| Dashboard | Memory | Devices |
-| --- | --- | --- |
-| ![NeoAgent dashboard](landing/images/dashboard-dark.png) | ![NeoAgent memory view](landing/images/memory-dark.png) | ![NeoAgent device controls](landing/images/remote-devices-dark.png) |
+| 💬 Chat | ⏰ Automation |
+| --- | --- |
+| ![NeoAgent comparing three flats in a table](docs/images/marketing/chat.jpg) | ![NeoAgent turning one sentence into a scheduled task](docs/images/marketing/automation.jpg) |
+| **🧠 Memory** | **🔎 Runs** |
+| ![NeoAgent memory knowledge graph](docs/images/marketing/memory.jpg) | ![NeoAgent run timeline with tool steps](docs/images/marketing/runs.jpg) |
 
 ## 🤖 Meet the mascot
 
