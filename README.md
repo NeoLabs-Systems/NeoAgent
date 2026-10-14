@@ -35,10 +35,9 @@
 </p>
 
 <p align="center">
-  <a href="docs/videos/neoagent-promo.mp4"><img src="docs/images/marketing/video-poster.jpg" alt="Watch the 30-second NeoAgent tour" width="100%"></a>
+  <a href="docs/videos/neoagent-promo.mp4"><img src="docs/images/marketing/video-poster.jpg" alt="Watch the 35-second NeoAgent tour" width="100%"></a>
 </p>
 
-<p align="center"><sub>🎬 <b>30-second tour</b> · real app screens · <a href="docs/videos/neoagent-promo.mp4">play the video</a></sub></p>
 
 <table>
   <tr>
