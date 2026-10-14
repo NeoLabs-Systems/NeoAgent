@@ -62,7 +62,7 @@ class AppL10nDe extends AppL10n {
 
   @override
   String onboardingMessagingWaiting(String platform) {
-    return 'Warte auf die Verbindung mit $platform…';
+    return 'Warten auf die Verbindung mit $platform…';
   }
 
   @override
@@ -89,60 +89,67 @@ class AppL10nDe extends AppL10n {
   String get onboardingStepRoutines => 'Routinen';
 
   @override
-  String get onboardingComputerChoiceTitle => 'Wo soll\nes arbeiten?';
+  String get onboardingComputerChoiceTitle => 'Wo soll NeoAgent\narbeiten?';
 
   @override
   String get onboardingComputerChoiceDescription =>
       'Das lässt sich pro Sitzung ändern.';
 
   @override
-  String get onboardingCloudComputerSubtitle => 'Private Sandbox · immer an';
+  String get onboardingCloudComputerSubtitle =>
+      'Private Sandbox · immer verfügbar';
 
   @override
   String get onboardingThisComputer => 'Dieser Computer';
 
   @override
   String get onboardingThisComputerSubtitle =>
-      'Deine Dateien, Apps und dein Browser';
+      'Ihre Dateien, Apps und Ihr Browser';
 
   @override
   String get onboardingSearchApps => 'Apps suchen…';
 
   @override
   String get onboardingRoutinesDescription =>
-      'Ergebnisse kommen in deinen Chats an.';
+      'Die Ergebnisse erscheinen in Ihren Chats.';
 
   @override
   String get onboardingRoutinesDescriptionPhone =>
-      'Ergebnisse kommen als Mitteilungen.';
+      'Sie erhalten die Ergebnisse als Benachrichtigungen.';
 
   @override
-  String get onboardingNotifications => 'Mitteilungen';
+  String get onboardingNotifications => 'Benachrichtigungen';
 
   @override
   String get onboardingReadyTitle => 'Alles\nbereit.';
 
   @override
-  String get onboardingReadyDescription => 'Schick deine erste Nachricht.';
+  String get onboardingReadyDescription => 'Senden Sie Ihre erste Nachricht.';
 
   @override
-  String get onboardingMessageNeoagent => 'Nachricht an NeoAgent';
+  String get onboardingMessageNeoagent => 'NeoAgent eine Nachricht senden';
 
   @override
-  String get onboardingAskAnything => 'Frag einfach…';
+  String get onboardingAskAnything => 'Stellen Sie eine Frage…';
 
   @override
   String get onboardingOpenNeoagent => 'NeoAgent öffnen';
 
   @override
-  String get onboardingStarterTrip => 'Plane einen Wochenendausflug';
+  String get onboardingStarterTrip => 'Einen Wochenendausflug planen';
 
   @override
-  String get onboardingStarterLanding => 'Bau eine Landingpage';
+  String get onboardingStarterLanding => 'Eine Landingpage erstellen';
 
   @override
   String onboardingQuickSteps(int count) {
-    return '$count kurze Schritte';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count kurze Schritte',
+      one: '$count kurzer Schritt',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -297,7 +304,7 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get accountLanguageDescription =>
-      'NeoAgent verwendet diese Sprache in der gesamten App. Beim ersten Anmelden übernimmt sie die Sprache dieses Geräts. Danach wird die Auswahl in Ihrem Konto gespeichert und auf allen Geräten verwendet.';
+      'NeoAgent verwendet diese Sprache in der gesamten App. Bei Ihrer ersten Anmeldung wird die Sprache dieses Geräts übernommen. Danach wird Ihre Auswahl im Konto gespeichert und auf allen Geräten verwendet.';
 
   @override
   String accountLanguageFailed(Object? error) {
@@ -1639,7 +1646,7 @@ class AppL10nDe extends AppL10n {
   String get authMethod => 'Authentifizierungsmethode';
 
   @override
-  String get authServerUrl => 'Auth-Server-URL';
+  String get authServerUrl => 'URL des Authentifizierungsservers';
 
   @override
   String get authentication => 'Authentifizierung';
@@ -1649,14 +1656,15 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get authenticationIsStillPendingFinishThe =>
-      'Die Authentifizierung steht noch aus. Schließen Sie den Browser-Ablauf ab und versuchen Sie es erneut.';
+      'Die Authentifizierung ist noch nicht abgeschlossen. Schließen Sie die Anmeldung im Browser ab und versuchen Sie es erneut.';
 
   @override
   String get authenticationIsStillPendingFinishThe2 =>
-      'Die Authentifizierung steht noch aus. Schließen Sie den Browser-Ablauf ab und aktualisieren Sie.';
+      'Die Authentifizierung ist noch nicht abgeschlossen. Schließen Sie die Anmeldung im Browser ab und aktualisieren Sie anschließend die Ansicht.';
 
   @override
-  String get authenticationTimedOut => 'Authentifizierung ist abgelaufen.';
+  String get authenticationTimedOut =>
+      'Die Zeit für die Authentifizierung ist abgelaufen.';
 
   @override
   String get authenticationWasCanceledBeforeCompletion =>
@@ -6110,7 +6118,7 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get qrLoginCompletedButNeoagentCould =>
-      'QR-Anmeldung abgeschlossen, aber NeoAgent konnte die Sitzung nicht behalten. Bitte versuchen Sie es erneut.';
+      'Die QR-Anmeldung wurde abgeschlossen, aber NeoAgent konnte die Sitzung nicht aufrechterhalten. Bitte versuchen Sie es erneut.';
 
   @override
   String get qrLoginCouldNotBeStarted =>
@@ -10330,7 +10338,7 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get settingsParticipationAutomaticDescription =>
-      'Liest die Stimmung und meldet sich, wenn es etwas Nützliches beizutragen gibt.';
+      'Berücksichtigt den Gesprächsverlauf und beteiligt sich, wenn er etwas Nützliches beitragen kann.';
 
   @override
   String get settingsParticipationMentionOnlyDescription =>
@@ -10395,7 +10403,7 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get settingsLocationTriggersDescription =>
-      'Prüft alle paar Minuten Ihren ungefähren Standort gegen die Orte, die Ihre Aufgaben beobachten.';
+      'Prüft alle paar Minuten, ob sich Ihr ungefährer Standort innerhalb der Bereiche befindet, die Ihre Aufgaben überwachen.';
 
   @override
   String get settingsNotificationTriggers => 'Benachrichtigungs-Auslöser';
@@ -10456,7 +10464,7 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get settingsAdvancedModelsDescription =>
-      'Optional. Lege ein Modell für eine Art von Arbeit fest; es übernimmt, sobald der Agent die passenden Werkzeuge nutzt. Alles auf Standard folgt dem Chat-Modell.';
+      'Optional. Legen Sie ein Modell für eine bestimmte Art von Arbeit fest. Es wird verwendet, sobald der Agent die entsprechenden Werkzeuge nutzt. Bei der Auswahl „Standard“ wird das Chat-Modell verwendet.';
 
   @override
   String get settingsTaskModelDefault => 'Standard';
@@ -11106,7 +11114,7 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get authForgotPasswordAskAdmin =>
-      'Passwort vergessen? Bitten Sie Ihren Server-Administrator, es unter Admin → Users zurückzusetzen.';
+      'Passwort vergessen? Bitten Sie Ihren Serveradministrator, es im Bereich Admin unter „Users“ zurückzusetzen.';
 
   @override
   String get authChangeServer => 'Server wechseln';
@@ -11118,7 +11126,7 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get authNotANeoagentServer =>
-      'Unter dieser Adresse antwortet kein NeoAgent-Server. Prüfen Sie die URL und versuchen Sie es erneut.';
+      'Die Antwort unter dieser Adresse entspricht nicht der eines NeoAgent-Servers. Prüfen Sie die URL und versuchen Sie es erneut.';
 
   @override
   String authSecureConnectionFailedArg1(Object? arg1) {
@@ -11140,7 +11148,7 @@ class AppL10nDe extends AppL10n {
 
   @override
   String adminResetPasswordBodyArg1(Object? arg1) {
-    return 'Legen Sie ein neues Passwort für $arg1 fest. Das Konto wird auf allen Geräten abgemeldet und meldet sich danach mit diesem Passwort an.';
+    return 'Legen Sie ein neues Passwort für $arg1 fest. Die Person wird auf allen Geräten abgemeldet und muss sich anschließend mit diesem Passwort erneut anmelden.';
   }
 
   @override
@@ -11185,7 +11193,7 @@ class AppL10nDe extends AppL10n {
   String get qrLoginLocation => 'Standort';
 
   @override
-  String get qrLoginWaitingForApproval => 'Warte auf Bestätigung';
+  String get qrLoginWaitingForApproval => 'Warten auf Bestätigung';
 
   @override
   String get qrLoginCancelAndUsePassword => 'Abbrechen und Passwort verwenden';

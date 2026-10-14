@@ -22,7 +22,7 @@
       }
     }
   },
-  "onboardingMessagingWaiting": "Warte auf die Verbindung mit {platform}…",
+  "onboardingMessagingWaiting": "Warten auf die Verbindung mit {platform}…",
   "@onboardingMessagingWaiting": {
     "placeholders": {
       "platform": {
@@ -44,23 +44,23 @@
   "onboardingStepCloudOrLocal": "Cloud oder lokal",
   "onboardingStepComputer": "Computer",
   "onboardingStepRoutines": "Routinen",
-  "onboardingComputerChoiceTitle": "Wo soll\nes arbeiten?",
+  "onboardingComputerChoiceTitle": "Wo soll NeoAgent\narbeiten?",
   "onboardingComputerChoiceDescription": "Das lässt sich pro Sitzung ändern.",
-  "onboardingCloudComputerSubtitle": "Private Sandbox · immer an",
+  "onboardingCloudComputerSubtitle": "Private Sandbox · immer verfügbar",
   "onboardingThisComputer": "Dieser Computer",
-  "onboardingThisComputerSubtitle": "Deine Dateien, Apps und dein Browser",
+  "onboardingThisComputerSubtitle": "Ihre Dateien, Apps und Ihr Browser",
   "onboardingSearchApps": "Apps suchen…",
-  "onboardingRoutinesDescription": "Ergebnisse kommen in deinen Chats an.",
-  "onboardingRoutinesDescriptionPhone": "Ergebnisse kommen als Mitteilungen.",
-  "onboardingNotifications": "Mitteilungen",
+  "onboardingRoutinesDescription": "Die Ergebnisse erscheinen in Ihren Chats.",
+  "onboardingRoutinesDescriptionPhone": "Sie erhalten die Ergebnisse als Benachrichtigungen.",
+  "onboardingNotifications": "Benachrichtigungen",
   "onboardingReadyTitle": "Alles\nbereit.",
-  "onboardingReadyDescription": "Schick deine erste Nachricht.",
-  "onboardingMessageNeoagent": "Nachricht an NeoAgent",
-  "onboardingAskAnything": "Frag einfach…",
+  "onboardingReadyDescription": "Senden Sie Ihre erste Nachricht.",
+  "onboardingMessageNeoagent": "NeoAgent eine Nachricht senden",
+  "onboardingAskAnything": "Stellen Sie eine Frage…",
   "onboardingOpenNeoagent": "NeoAgent öffnen",
-  "onboardingStarterTrip": "Plane einen Wochenendausflug",
-  "onboardingStarterLanding": "Bau eine Landingpage",
-  "onboardingQuickSteps": "{count} kurze Schritte",
+  "onboardingStarterTrip": "Einen Wochenendausflug planen",
+  "onboardingStarterLanding": "Eine Landingpage erstellen",
+  "onboardingQuickSteps": "{count, plural, one{{count} kurzer Schritt} other{{count} kurze Schritte}}",
   "@onboardingQuickSteps": {
     "placeholders": {
       "count": {
@@ -123,7 +123,7 @@
   "accountChangeAlerts": "Hinweise zu Kontoänderungen",
   "accountEmail": "Konto-E-Mail",
   "accountEmailIsOffUntilThese": "Konto-E-Mail ist aus, bis Folgendes gesetzt ist: ",
-  "accountLanguageDescription": "NeoAgent verwendet diese Sprache in der gesamten App. Beim ersten Anmelden übernimmt sie die Sprache dieses Geräts. Danach wird die Auswahl in Ihrem Konto gespeichert und auf allen Geräten verwendet.",
+  "accountLanguageDescription": "NeoAgent verwendet diese Sprache in der gesamten App. Bei Ihrer ersten Anmeldung wird die Sprache dieses Geräts übernommen. Danach wird Ihre Auswahl im Konto gespeichert und auf allen Geräten verwendet.",
   "accountLanguageFailed": "Die Sprache konnte nicht geändert werden: {error}",
   "@accountLanguageFailed": {
     "placeholders": {
@@ -1914,12 +1914,12 @@
   },
   "auditLogAdminGrantRevokeInvite": "audit log admin gewähren widerrufen einladen team verlauf",
   "authMethod": "Authentifizierungsmethode",
-  "authServerUrl": "Auth-Server-URL",
+  "authServerUrl": "URL des Authentifizierungsservers",
   "authentication": "Authentifizierung",
   "authenticationFailed": "Authentifizierung fehlgeschlagen.",
-  "authenticationIsStillPendingFinishThe": "Die Authentifizierung steht noch aus. Schließen Sie den Browser-Ablauf ab und versuchen Sie es erneut.",
-  "authenticationIsStillPendingFinishThe2": "Die Authentifizierung steht noch aus. Schließen Sie den Browser-Ablauf ab und aktualisieren Sie.",
-  "authenticationTimedOut": "Authentifizierung ist abgelaufen.",
+  "authenticationIsStillPendingFinishThe": "Die Authentifizierung ist noch nicht abgeschlossen. Schließen Sie die Anmeldung im Browser ab und versuchen Sie es erneut.",
+  "authenticationIsStillPendingFinishThe2": "Die Authentifizierung ist noch nicht abgeschlossen. Schließen Sie die Anmeldung im Browser ab und aktualisieren Sie anschließend die Ansicht.",
+  "authenticationTimedOut": "Die Zeit für die Authentifizierung ist abgelaufen.",
   "authenticationWasCanceledBeforeCompletion": "Die Authentifizierung wurde vor dem Abschluss abgebrochen.",
   "authenticatorApp": "Authenticator-App",
   "authenticatorCode": "Authenticator-Code",
@@ -4288,7 +4288,7 @@
   "pullsTogetherTheDayAhead": "Fasst den kommenden Tag zusammen",
   "pushToTalk": "Push-to-Talk",
   "qrBasedPhoneLinking": "QR-basierte Telefonverknüpfung",
-  "qrLoginCompletedButNeoagentCould": "QR-Anmeldung abgeschlossen, aber NeoAgent konnte die Sitzung nicht behalten. Bitte versuchen Sie es erneut.",
+  "qrLoginCompletedButNeoagentCould": "Die QR-Anmeldung wurde abgeschlossen, aber NeoAgent konnte die Sitzung nicht aufrechterhalten. Bitte versuchen Sie es erneut.",
   "qrLoginCouldNotBeStarted": "QR-Anmeldung konnte nicht gestartet werden.",
   "qrLoginRequestHasExpired": "QR-Anmeldeanfrage ist abgelaufen",
   "qrLoginRequestWasNotFound": "QR-Anmeldeanfrage wurde nicht gefunden",
@@ -6585,7 +6585,7 @@
   "settingsGroupChatsDisabled": "Aktivieren Sie die Verhaltensmodule unter Verhalten, um diese Einstellungen zu ändern.",
   "settingsParticipationAutomatic": "Automatisch",
   "settingsParticipationMentionOnly": "Nur bei Erwähnung",
-  "settingsParticipationAutomaticDescription": "Liest die Stimmung und meldet sich, wenn es etwas Nützliches beizutragen gibt.",
+  "settingsParticipationAutomaticDescription": "Berücksichtigt den Gesprächsverlauf und beteiligt sich, wenn er etwas Nützliches beitragen kann.",
   "settingsParticipationMentionOnlyDescription": "Antwortet nur, wenn er erwähnt oder direkt angesprochen wird.",
   "settingsParticipationAlwaysDescription": "Antwortet auf jede Nachricht.",
   "settingsDeliveryNaturalDescription": "Teilt längere Antworten in kurze Nachrichten auf, wie es ein Mensch tun würde.",
@@ -6604,7 +6604,7 @@
   "settingsPhoneTriggers": "Auslöser auf dem Telefon",
   "settingsPhoneTriggersDescription": "Signale, die dieses Telefon an Ihre Agenten sendet, damit Aufgaben darauf reagieren können.",
   "settingsLocationTriggers": "Standort-Auslöser",
-  "settingsLocationTriggersDescription": "Prüft alle paar Minuten Ihren ungefähren Standort gegen die Orte, die Ihre Aufgaben beobachten.",
+  "settingsLocationTriggersDescription": "Prüft alle paar Minuten, ob sich Ihr ungefährer Standort innerhalb der Bereiche befindet, die Ihre Aufgaben überwachen.",
   "settingsNotificationTriggers": "Benachrichtigungs-Auslöser",
   "settingsNotificationTriggersDescription": "Leitet Benachrichtigungen anderer Apps auf diesem Telefon an Ihre Agenten weiter.",
   "settingsSetup": "Einrichtung",
@@ -6619,7 +6619,7 @@
   "settingsSearchNoMatch": "Keine Einstellung passt zu „{query}“.",
   "settingsSearchResultCount": "{count, plural, =1{1 Treffer} other{{count} Treffer}}",
   "settingsAdvancedModels": "Erweiterte Modelleinstellungen",
-  "settingsAdvancedModelsDescription": "Optional. Lege ein Modell für eine Art von Arbeit fest; es übernimmt, sobald der Agent die passenden Werkzeuge nutzt. Alles auf Standard folgt dem Chat-Modell.",
+  "settingsAdvancedModelsDescription": "Optional. Legen Sie ein Modell für eine bestimmte Art von Arbeit fest. Es wird verwendet, sobald der Agent die entsprechenden Werkzeuge nutzt. Bei der Auswahl „Standard“ wird das Chat-Modell verwendet.",
   "settingsTaskModelDefault": "Standard",
   "settingsTaskModelDefaultSubtitle": "Folgt dem Chat-Modell",
   "settingsTaskModelCoding": "Programmieren",
@@ -6836,7 +6836,7 @@
   "authInsecureTransport": "Dieser Server akzeptiert Anmeldungen nur über HTTPS. Verbinden Sie sich über eine https://-Adresse.",
   "authAccountNotFound": "Dieses Konto existiert nicht mehr.",
   "authQrRateLimited": "Zu viele QR-Anmeldeanfragen. Warten Sie einen Moment und aktualisieren Sie dann den Code.",
-  "authForgotPasswordAskAdmin": "Passwort vergessen? Bitten Sie Ihren Server-Administrator, es unter Admin → Users zurückzusetzen.",
+  "authForgotPasswordAskAdmin": "Passwort vergessen? Bitten Sie Ihren Serveradministrator, es im Bereich Admin unter „Users“ zurückzusetzen.",
   "authChangeServer": "Server wechseln",
   "authSigningInToArg1": "Anmeldung bei {arg1}",
   "@authSigningInToArg1": {
@@ -6846,7 +6846,7 @@
       }
     }
   },
-  "authNotANeoagentServer": "Unter dieser Adresse antwortet kein NeoAgent-Server. Prüfen Sie die URL und versuchen Sie es erneut.",
+  "authNotANeoagentServer": "Die Antwort unter dieser Adresse entspricht nicht der eines NeoAgent-Servers. Prüfen Sie die URL und versuchen Sie es erneut.",
   "authSecureConnectionFailedArg1": "Es konnte keine sichere HTTPS-Verbindung zu {arg1} hergestellt werden.",
   "@authSecureConnectionFailedArg1": {
     "placeholders": {
@@ -6872,7 +6872,7 @@
       }
     }
   },
-  "adminResetPasswordBodyArg1": "Legen Sie ein neues Passwort für {arg1} fest. Das Konto wird auf allen Geräten abgemeldet und meldet sich danach mit diesem Passwort an.",
+  "adminResetPasswordBodyArg1": "Legen Sie ein neues Passwort für {arg1} fest. Die Person wird auf allen Geräten abgemeldet und muss sich anschließend mit diesem Passwort erneut anmelden.",
   "@adminResetPasswordBodyArg1": {
     "placeholders": {
       "arg1": {
@@ -6902,7 +6902,7 @@
   "qrLoginWaitingBody": "Ihr Handy hat den Code gescannt. Bestätigen Sie die Anmeldung dort, um fortzufahren.",
   "qrLoginSigningInOn": "Anmeldung auf",
   "qrLoginLocation": "Standort",
-  "qrLoginWaitingForApproval": "Warte auf Bestätigung",
+  "qrLoginWaitingForApproval": "Warten auf Bestätigung",
   "qrLoginCancelAndUsePassword": "Abbrechen und Passwort verwenden",
   "qrLoginDeclinedOnPhone": "Die Anmeldung wurde auf dem Handy abgelehnt. Scannen Sie den neuen Code, um es erneut zu versuchen."
 }

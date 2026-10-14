@@ -5,8 +5,30 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart' as intl;
 
+import 'app_l10n_bg.dart';
+import 'app_l10n_cs.dart';
+import 'app_l10n_da.dart';
 import 'app_l10n_de.dart';
+import 'app_l10n_el.dart';
 import 'app_l10n_en.dart';
+import 'app_l10n_es.dart';
+import 'app_l10n_et.dart';
+import 'app_l10n_fi.dart';
+import 'app_l10n_fr.dart';
+import 'app_l10n_ga.dart';
+import 'app_l10n_hr.dart';
+import 'app_l10n_hu.dart';
+import 'app_l10n_it.dart';
+import 'app_l10n_lt.dart';
+import 'app_l10n_lv.dart';
+import 'app_l10n_mt.dart';
+import 'app_l10n_nl.dart';
+import 'app_l10n_pl.dart';
+import 'app_l10n_pt.dart';
+import 'app_l10n_ro.dart';
+import 'app_l10n_sk.dart';
+import 'app_l10n_sl.dart';
+import 'app_l10n_sv.dart';
 
 // ignore_for_file: type=lint
 
@@ -93,8 +115,30 @@ abstract class AppL10n {
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
+    Locale('bg'),
+    Locale('cs'),
+    Locale('da'),
     Locale('de'),
+    Locale('el'),
     Locale('en'),
+    Locale('es'),
+    Locale('et'),
+    Locale('fi'),
+    Locale('fr'),
+    Locale('ga'),
+    Locale('hr'),
+    Locale('hu'),
+    Locale('it'),
+    Locale('lt'),
+    Locale('lv'),
+    Locale('mt'),
+    Locale('nl'),
+    Locale('pl'),
+    Locale('pt'),
+    Locale('ro'),
+    Locale('sk'),
+    Locale('sl'),
+    Locale('sv'),
   ];
 
   /// No description provided for @onboardingEyebrowWelcome.
@@ -18543,8 +18587,32 @@ class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {
   }
 
   @override
-  bool isSupported(Locale locale) =>
-      <String>['de', 'en'].contains(locale.languageCode);
+  bool isSupported(Locale locale) => <String>[
+    'bg',
+    'cs',
+    'da',
+    'de',
+    'el',
+    'en',
+    'es',
+    'et',
+    'fi',
+    'fr',
+    'ga',
+    'hr',
+    'hu',
+    'it',
+    'lt',
+    'lv',
+    'mt',
+    'nl',
+    'pl',
+    'pt',
+    'ro',
+    'sk',
+    'sl',
+    'sv',
+  ].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppL10nDelegate old) => false;
@@ -18553,10 +18621,54 @@ class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {
 AppL10n lookupAppL10n(Locale locale) {
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
+    case 'bg':
+      return AppL10nBg();
+    case 'cs':
+      return AppL10nCs();
+    case 'da':
+      return AppL10nDa();
     case 'de':
       return AppL10nDe();
+    case 'el':
+      return AppL10nEl();
     case 'en':
       return AppL10nEn();
+    case 'es':
+      return AppL10nEs();
+    case 'et':
+      return AppL10nEt();
+    case 'fi':
+      return AppL10nFi();
+    case 'fr':
+      return AppL10nFr();
+    case 'ga':
+      return AppL10nGa();
+    case 'hr':
+      return AppL10nHr();
+    case 'hu':
+      return AppL10nHu();
+    case 'it':
+      return AppL10nIt();
+    case 'lt':
+      return AppL10nLt();
+    case 'lv':
+      return AppL10nLv();
+    case 'mt':
+      return AppL10nMt();
+    case 'nl':
+      return AppL10nNl();
+    case 'pl':
+      return AppL10nPl();
+    case 'pt':
+      return AppL10nPt();
+    case 'ro':
+      return AppL10nRo();
+    case 'sk':
+      return AppL10nSk();
+    case 'sl':
+      return AppL10nSl();
+    case 'sv':
+      return AppL10nSv();
   }
 
   throw FlutterError(

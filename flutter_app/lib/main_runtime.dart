@@ -433,7 +433,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
               ? 'NeoAgent Launcher'
               : 'NeoAgent',
           locale: _controller.language.locale,
-          localizationsDelegates: AppL10n.localizationsDelegates,
+          localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppL10n.supportedLocales,
           debugShowCheckedModeBanner: false,
           theme: _buildNeoAgentTheme(_lightPalette, Brightness.light),

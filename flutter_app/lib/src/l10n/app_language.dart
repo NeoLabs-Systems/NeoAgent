@@ -12,7 +12,29 @@ export '../../l10n/gen/app_l10n.dart';
 /// which is what a picker must show: a German speaker is looking for "Deutsch".
 enum AppLanguage {
   english('en', 'English'),
-  german('de', 'Deutsch');
+  german('de', 'Deutsch'),
+  bulgarian('bg', 'Български'),
+  croatian('hr', 'Hrvatski'),
+  czech('cs', 'Čeština'),
+  danish('da', 'Dansk'),
+  dutch('nl', 'Nederlands'),
+  estonian('et', 'Eesti'),
+  finnish('fi', 'Suomi'),
+  french('fr', 'Français'),
+  greek('el', 'Ελληνικά'),
+  hungarian('hu', 'Magyar'),
+  irish('ga', 'Gaeilge'),
+  italian('it', 'Italiano'),
+  latvian('lv', 'Latviešu'),
+  lithuanian('lt', 'Lietuvių'),
+  maltese('mt', 'Malti'),
+  polish('pl', 'Polski'),
+  portuguese('pt', 'Português'),
+  romanian('ro', 'Română'),
+  slovak('sk', 'Slovenčina'),
+  slovenian('sl', 'Slovenščina'),
+  spanish('es', 'Español'),
+  swedish('sv', 'Svenska');
 
   const AppLanguage(this.code, this.label);
 

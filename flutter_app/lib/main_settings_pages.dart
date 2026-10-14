@@ -1255,14 +1255,26 @@ class _GeneralSettingsPageState extends State<_GeneralSettingsPage> {
               anchor: 'language',
               label: appStrings.accountLanguageTitle,
               description: appStrings.accountLanguageDescription,
-              control: _SettingsChoice<AppLanguage>(
-                value: controller.language,
-                options: <(AppLanguage, String)>[
+              fillControl: true,
+              control: DropdownMenu<AppLanguage>(
+                key: ValueKey<String>('language-${controller.language.code}'),
+                initialSelection: controller.language,
+                expandedInsets: EdgeInsets.zero,
+                enableFilter: true,
+                requestFocusOnTap: true,
+                menuHeight: 320,
+                dropdownMenuEntries: <DropdownMenuEntry<AppLanguage>>[
                   for (final language in AppLanguage.values)
-                    (language, language.label),
+                    DropdownMenuEntry<AppLanguage>(
+                      value: language,
+                      label: language.label,
+                    ),
                 ],
-                onChanged: (language) =>
-                    unawaited(controller.setLanguage(language)),
+                onSelected: (language) {
+                  if (language != null) {
+                    unawaited(controller.setLanguage(language));
+                  }
+                },
               ),
             ),
           ],
