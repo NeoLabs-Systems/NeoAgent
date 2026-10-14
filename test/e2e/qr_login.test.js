@@ -43,7 +43,7 @@ test('full QR login challenge, approval, claim, and reuse rejection flow', async
     secret,
     scannerMetadata: { deviceLabel: 'Android app', deviceClass: 'mobile' },
   }).expect(200);
-  assert.equal(preview.body.status, 'scanned');
+  assert.equal(preview.body.status, 'pending');
 
   const scanned = await request(app)
     .post(`/api/auth/qr-login/challenge/${challenge.body.challengeId}/status`)

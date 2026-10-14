@@ -124,7 +124,7 @@ Set these under `environment:` in `compose.yaml`, then run `docker compose up -d
 | --- | --- | --- |
 | `ALLOWED_ORIGINS` | empty: localhost only | Browser addresses allowed to sign in; once set, list `http://localhost:3333` too |
 | `PUBLIC_URL` | empty | HTTPS address behind a proxy; also turns on secure cookies and proxy trust |
-| `NEOAGENT_ALLOW_SIGNUP` | on | `false` closes sign-up; the first account can always register |
+| `NEOAGENT_ALLOW_SIGNUP` | on | `false` makes new accounts need a one-time sign-up key; the first account can always register |
 | `TERMINAL_ENV` | `qemu` | Cloud computer backend; `compose.docker.yaml` sets `docker` |
 | `NEOAGENT_COMPUTER_MAX_DISK_GIB` | `12` | Largest data disk per cloud computer |
 | `NEOAGENT_HOME` | `/data` | Set by the image; where the volume is mounted |

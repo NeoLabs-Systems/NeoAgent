@@ -33,6 +33,7 @@ const PUBLIC_ROUTES = new Set([
   'POST /api/auth/qr-login/challenge/:id/cancel',
   'POST /api/auth/qr-login/challenge/:id/claim',
   'POST /api/auth/register',
+  'POST /api/auth/signup-key/check',
   'POST /api/auth/webauthn/login/options',
   'POST /api/auth/webauthn/login/verify',
   'POST /api/messaging/webhook/:platform',

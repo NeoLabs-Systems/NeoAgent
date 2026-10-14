@@ -3,7 +3,6 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const rateLimit = require('express-rate-limit');
 const db = require('../db/database');
-const { getDeploymentPolicy } = require('../utils/deployment');
 const { publicBaseUrlForRequest } = require('../utils/public_url');
 const { isValidEmail, normalizeEmail } = require('../services/account/email');
 const {
@@ -17,6 +16,7 @@ const { getTwoFactorStatus, verifyLoginCode } = require('../services/account/two
 const { isAdminUser } = require('../services/access/admin');
 const { requireSessionTransport } = require('../middleware/auth');
 const { sendJsonError } = require('../http/errors');
+const { jsonHandler } = require('./_helpers/http');
 const { httpError } = require('../utils/http_error');
 const { recordCurrentSession, revokeAllSessionsForUser } = require('../services/account/sessions');
 const {
@@ -39,6 +39,12 @@ const {
   getChallengeStatusForPoll,
 } = require('../services/account/qr_login');
 const { bindOAuthState, isOAuthStateBound } = require('../services/account/oauth_handoff');
+const {
+  assertSignupKeyUsable,
+  isSignupKeyRequired,
+  redeemSignupKeyForNewUser,
+  releaseSignupKey,
+} = require('../services/access/signup_keys');
 const {
   beginLogin: beginWebAuthnLogin,
   completeLogin: completeWebAuthnLogin,
@@ -91,6 +97,16 @@ const webauthnLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 40,
   message: { error: 'Too many security key attempts, try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Checking a sign-up key is a guess at a credential, so it is budgeted
+// separately from the account form that follows it.
+const signupKeyCheckLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Too many sign-up key attempts, try again later' },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -288,14 +304,17 @@ function sendWebAuthnError(res, err, fallbackMessage) {
 
 router.get('/api/auth/status', (req, res) => {
   const count = db.prepare('SELECT COUNT(*) as count FROM users').get();
-  const policy = getDeploymentPolicy();
+  const signupKeyRequired = isSignupKeyRequired();
   const emailConfig = getEmailConfig();
   const authProviderManager = getAuthProviderManager(req);
   const currentUser = readAuthenticatedUser(req);
   if (!currentUser) {
     return res.json({
       hasUser: count.count > 0,
-      registrationOpen: policy.registrationOpen || count.count === 0,
+      // Clients from before sign-up keys read this; newer ones read
+      // signupKeyRequired.
+      registrationOpen: !signupKeyRequired,
+      signupKeyRequired,
       authenticated: false,
       user: null,
       email: {
@@ -308,7 +327,8 @@ router.get('/api/auth/status', (req, res) => {
   }
   res.json({
     hasUser: count.count > 0,
-    registrationOpen: policy.registrationOpen || count.count === 0,
+    registrationOpen: !signupKeyRequired,
+    signupKeyRequired,
     authenticated: Boolean(currentUser),
     user: currentUser ? toUserPayload(currentUser) : null,
     email: {
@@ -339,11 +359,12 @@ router.post('/api/auth/providers/:provider/begin', authLimiter, requireSessionTr
       providerKey: req.params.provider,
       mode,
       userId: mode === 'link' ? req.session?.userId || null : null,
+      signupKey: req.body?.signupKey,
     });
     bindOAuthState(req.session, result.state);
     res.json(result);
   } catch (error) {
-    res.status(400).json({ error: error.message || 'Provider sign-in failed.' });
+    sendJsonError(res, error, 400);
   }
 });
 
@@ -393,9 +414,15 @@ router.get('/api/auth/providers/complete', async (req, res) => {
   }
 });
 
+// Lets the sign-up form confirm a key before asking for account details. The
+// key is only spent when the account is created.
+router.post('/api/auth/signup-key/check', signupKeyCheckLimiter, jsonHandler((req) => {
+  assertSignupKeyUsable(req.body?.key);
+  return { valid: true };
+}));
+
 router.post('/api/auth/register', authLimiter, requireSessionTransport, async (req, res) => {
   try {
-    const policy = getDeploymentPolicy();
     const username = String(req.body?.username || '').trim();
     const password = String(req.body?.password || '');
     const email = normalizeEmail(req.body?.email);
@@ -415,18 +442,16 @@ router.post('/api/auth/register', authLimiter, requireSessionTransport, async (r
 
     const hash = await hashPassword(password);
     const createUser = db.transaction(() => {
-      const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
-      if (userCount.count > 0 && !policy.registrationOpen) {
-        throw httpError(403, 'Registration is closed', 'SIGNUP_DISABLED');
-      }
       // Checked again inside the transaction: the hash above takes long
       // enough for a concurrent sign-up to claim either name.
       validateNewUsername(username);
       assertEmailAvailable(email);
-      return db.prepare(`
+      const inserted = db.prepare(`
         INSERT INTO users (username, email, email_verified_at, password, password_login_enabled)
         VALUES (?, ?, CASE WHEN ? THEN NULL ELSE datetime('now') END, ?, 1)
       `).run(username, email, confirmationRequired ? 1 : 0, hash);
+      redeemSignupKeyForNewUser(req.body?.signupKey, Number(inserted.lastInsertRowid));
+      return inserted;
     });
     const result = createUser();
 
@@ -437,6 +462,7 @@ router.post('/api/auth/register', authLimiter, requireSessionTransport, async (r
         await sendSignupConfirmation(user, token);
       } catch (sendError) {
         db.transaction(() => {
+          releaseSignupKey(user.id);
           db.prepare('DELETE FROM user_email_tokens WHERE user_id = ?').run(user.id);
           db.prepare('DELETE FROM users WHERE id = ?').run(user.id);
         })();

@@ -559,9 +559,6 @@ class AppL10nDe extends AppL10n {
       'Erlauben Sie „Unbekannte Apps installieren“ für NeoAgent und versuchen Sie das Update erneut.';
 
   @override
-  String get allowNewSignUps => 'Neue Registrierungen zulassen';
-
-  @override
   String get allowOnce => 'Einmal erlauben';
 
   @override
@@ -5603,9 +5600,6 @@ class AppL10nDe extends AppL10n {
       'Ein oder mehrere Konten sind abgelaufen. Verbinden Sie das betroffene Konto erneut, um den Werkzeugzugriff wiederherzustellen.';
 
   @override
-  String get oneRegister => 'Registrierung immer zu.';
-
-  @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'Eine Runtime steuert Persona, Gruppen-Rederecht, Raumgedächtnis, Normen, Theory of Mind und Zustellung.';
 
@@ -7031,10 +7025,6 @@ class AppL10nDe extends AppL10n {
       'Servernutzungslimits gelten nicht für Modelle mit Ihrem eigenen Schlüssel.';
 
   @override
-  String get serverWithNoAccountsYetAlways =>
-      'Server ohne Konten lässt die erste ';
-
-  @override
   String get serviceEmail => 'Service-E-Mail';
 
   @override
@@ -7222,9 +7212,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get signOutEverywhere => 'Überall abmelden';
-
-  @override
-  String get signUpIsClosed => 'Registrierung ist geschlossen.';
 
   @override
   String get signalCliRestApiBridge => 'signal-cli-REST-API-Brücke';
@@ -8967,10 +8954,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get whatsappPersonalMessageReceived =>
       'Persönliche WhatsApp-Nachricht empfangen';
-
-  @override
-  String get whenOffOnlyExistingAccountsCan =>
-      'Wenn aus, können sich nur bestehende Konten anmelden. Ein ';
 
   @override
   String get whenYouChooseApprovedOnlyAdd =>
@@ -11201,4 +11184,169 @@ class AppL10nDe extends AppL10n {
   @override
   String get qrLoginDeclinedOnPhone =>
       'Die Anmeldung wurde auf dem Handy abgelehnt. Scannen Sie den neuen Code, um es erneut zu versuchen.';
+
+  @override
+  String get signupKey => 'Registrierungsschlüssel';
+
+  @override
+  String get signupKeyStepSubtitle =>
+      'Neue Konten auf diesem Server benötigen einen Registrierungsschlüssel. Geben Sie den Schlüssel ein, den Sie von einem Administrator erhalten haben.';
+
+  @override
+  String get signupKeyChange => 'Ändern';
+
+  @override
+  String get signupKeyRequiredError =>
+      'Geben Sie Ihren Registrierungsschlüssel ein.';
+
+  @override
+  String get signupKeyInvalidError =>
+      'Dieser Registrierungsschlüssel ist ungültig. Prüfen Sie ihn und versuchen Sie es erneut.';
+
+  @override
+  String get signupKeyUsedError =>
+      'Dieser Registrierungsschlüssel wurde bereits verwendet. Bitten Sie einen Administrator um einen neuen.';
+
+  @override
+  String get adminRequireSignupKey => 'Registrierungsschlüssel verlangen';
+
+  @override
+  String get adminRequireSignupKeyHint =>
+      'Neue Konten benötigen einen einmaligen Schlüssel von einem Administrator. Wenn aus, kann sich jeder registrieren, der diesen Server erreicht. Das erste Konto braucht nie einen Schlüssel.';
+
+  @override
+  String get adminSignupKeyRequiredNotice =>
+      'Neue Konten benötigen jetzt einen Registrierungsschlüssel.';
+
+  @override
+  String get adminSignupOpenNotice => 'Jeder kann sich jetzt registrieren.';
+
+  @override
+  String get signupKeys => 'Registrierungsschlüssel';
+
+  @override
+  String get signupKeysDescription =>
+      'Einmalige Schlüssel für die Registrierung, solange ein Schlüssel verlangt wird. Jeder Schlüssel erstellt genau ein Konto.';
+
+  @override
+  String get signupKeysNew => 'Neue Schlüssel';
+
+  @override
+  String signupKeysFilterUnused(int count) {
+    return 'Unbenutzt · $count';
+  }
+
+  @override
+  String signupKeysFilterUsed(int count) {
+    return 'Verwendet · $count';
+  }
+
+  @override
+  String signupKeysFilterRevoked(int count) {
+    return 'Widerrufen · $count';
+  }
+
+  @override
+  String signupKeysFilterAll(int count) {
+    return 'Alle · $count';
+  }
+
+  @override
+  String get signupKeyStatusUnused => 'Unbenutzt';
+
+  @override
+  String get signupKeyStatusUsed => 'Verwendet';
+
+  @override
+  String get signupKeyStatusRevoked => 'Widerrufen';
+
+  @override
+  String get signupKeysExport => 'Als .txt exportieren';
+
+  @override
+  String get signupKeysCopied => 'Schlüssel kopiert';
+
+  @override
+  String get signupKeyCopied => 'Schlüssel kopiert';
+
+  @override
+  String get signupKeysEmpty => 'Keine Schlüssel in dieser Liste.';
+
+  @override
+  String signupKeyCreatedArg1(String arg1) {
+    return 'Erstellt am $arg1';
+  }
+
+  @override
+  String signupKeyUsedByArg1Arg2(String arg1, String arg2) {
+    return 'Verwendet von $arg1 am $arg2';
+  }
+
+  @override
+  String signupKeyUsedByDeletedArg1(String arg1) {
+    return 'Am $arg1 von einem inzwischen gelöschten Konto verwendet';
+  }
+
+  @override
+  String get signupKeyRevokeTitle => 'Diesen Schlüssel widerrufen?';
+
+  @override
+  String get signupKeyRevokeMessage =>
+      'Niemand kann sich mehr damit registrieren. Das lässt sich nicht rückgängig machen.';
+
+  @override
+  String get signupKeyRevoked => 'Schlüssel widerrufen.';
+
+  @override
+  String signupKeysShowMore(int count) {
+    return '$count weitere anzeigen';
+  }
+
+  @override
+  String get signupKeysCreateTitle => 'Registrierungsschlüssel erstellen';
+
+  @override
+  String get signupKeysCount => 'Anzahl der Schlüssel';
+
+  @override
+  String get signupKeysCountHelper => '1 bis 500';
+
+  @override
+  String get signupKeysCountInvalid => 'Geben Sie eine Zahl von 1 bis 500 ein.';
+
+  @override
+  String get signupKeysLabel => 'Bezeichnung (optional)';
+
+  @override
+  String get signupKeysLabelHint => 'z. B. Beta-Tester Frühjahr';
+
+  @override
+  String signupKeysCreateAction(int count) {
+    return 'Erstellen ($count)';
+  }
+
+  @override
+  String signupKeysReady(int count) {
+    return 'Schlüssel bereit: $count';
+  }
+
+  @override
+  String get signupKeysReadyHint =>
+      'Geben Sie jeden Schlüssel nur an eine Person weiter. Unbenutzte Schlüssel bleiben in der Liste, sodass Sie sie später erneut kopieren oder exportieren können.';
+
+  @override
+  String get signupKeysSaveDialogTitle => 'Registrierungsschlüssel speichern';
+
+  @override
+  String get signupKeysExported => 'Schlüssel exportiert.';
+
+  @override
+  String auditSignupKeysCreated(String actor, int count) {
+    return '$actor hat Registrierungsschlüssel erstellt ($count)';
+  }
+
+  @override
+  String auditSignupKeyRevoked(String actor) {
+    return '$actor hat einen Registrierungsschlüssel widerrufen';
+  }
 }

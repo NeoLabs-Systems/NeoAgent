@@ -557,9 +557,6 @@ class AppL10nNl extends AppL10n {
       'Sta \'Installeer onbekende apps\' toe voor NeoAgent en probeer de update opnieuw.';
 
   @override
-  String get allowNewSignUps => 'Sta nieuwe aanmeldingen toe';
-
-  @override
   String get allowOnce => 'Eén keer toestaan';
 
   @override
@@ -5586,9 +5583,6 @@ class AppL10nNl extends AppL10n {
       'Een of meer accounts zijn verlopen. Maak opnieuw verbinding met het getroffen account om de toegang tot het hulpprogramma te herstellen.';
 
   @override
-  String get oneRegister => 'één register.';
-
-  @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'Eén runtime regelt persona, groepsbeurten, ruimtegeheugen, normen, Theory of Mind en levering.';
 
@@ -7004,10 +6998,6 @@ class AppL10nNl extends AppL10n {
       'Servergebruikslimieten zijn niet van toepassing op modellen die op uw eigen sleutel draaien.';
 
   @override
-  String get serverWithNoAccountsYetAlways =>
-      'server zonder accounts, maar laat altijd de eerste toe ';
-
-  @override
   String get serviceEmail => 'Service-e-mail';
 
   @override
@@ -7194,9 +7184,6 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get signOutEverywhere => 'Meld u overal af';
-
-  @override
-  String get signUpIsClosed => 'De inschrijving is gesloten.';
 
   @override
   String get signalCliRestApiBridge => 'signal-cli REST API-brug';
@@ -8930,10 +8917,6 @@ class AppL10nNl extends AppL10n {
   @override
   String get whatsappPersonalMessageReceived =>
       'WhatsApp persoonlijk bericht ontvangen';
-
-  @override
-  String get whenOffOnlyExistingAccountsCan =>
-      'Wanneer uitgeschakeld, kunnen alleen bestaande accounts inloggen. A ';
 
   @override
   String get whenYouChooseApprovedOnlyAdd =>
@@ -11157,4 +11140,168 @@ class AppL10nNl extends AppL10n {
   @override
   String get qrLoginDeclinedOnPhone =>
       'De login is geweigerd op uw telefoon. Scan de nieuwe code om het opnieuw te proberen.';
+
+  @override
+  String get signupKey => 'Registratiesleutel';
+
+  @override
+  String get signupKeyStepSubtitle =>
+      'Nieuwe accounts op deze server hebben een registratiesleutel nodig. Voer de sleutel in die u van een beheerder hebt gekregen.';
+
+  @override
+  String get signupKeyChange => 'Wijzigen';
+
+  @override
+  String get signupKeyRequiredError => 'Voer uw registratiesleutel in.';
+
+  @override
+  String get signupKeyInvalidError =>
+      'Deze registratiesleutel is ongeldig. Controleer hem en probeer het opnieuw.';
+
+  @override
+  String get signupKeyUsedError =>
+      'Deze registratiesleutel is al gebruikt. Vraag een beheerder om een nieuwe.';
+
+  @override
+  String get adminRequireSignupKey => 'Registratiesleutel vereisen';
+
+  @override
+  String get adminRequireSignupKeyHint =>
+      'Nieuwe accounts hebben een eenmalige sleutel van een beheerder nodig. Als dit uit staat, kan iedereen die deze server kan bereiken zich registreren. Het eerste account heeft nooit een sleutel nodig.';
+
+  @override
+  String get adminSignupKeyRequiredNotice =>
+      'Nieuwe accounts hebben nu een registratiesleutel nodig.';
+
+  @override
+  String get adminSignupOpenNotice => 'Iedereen kan zich nu registreren.';
+
+  @override
+  String get signupKeys => 'Registratiesleutels';
+
+  @override
+  String get signupKeysDescription =>
+      'Eenmalige sleutels om te registreren zolang een sleutel vereist is. Elke sleutel maakt precies één account aan.';
+
+  @override
+  String get signupKeysNew => 'Nieuwe sleutels';
+
+  @override
+  String signupKeysFilterUnused(int count) {
+    return 'Ongebruikt · $count';
+  }
+
+  @override
+  String signupKeysFilterUsed(int count) {
+    return 'Gebruikt · $count';
+  }
+
+  @override
+  String signupKeysFilterRevoked(int count) {
+    return 'Ingetrokken · $count';
+  }
+
+  @override
+  String signupKeysFilterAll(int count) {
+    return 'Alle · $count';
+  }
+
+  @override
+  String get signupKeyStatusUnused => 'Ongebruikt';
+
+  @override
+  String get signupKeyStatusUsed => 'Gebruikt';
+
+  @override
+  String get signupKeyStatusRevoked => 'Ingetrokken';
+
+  @override
+  String get signupKeysExport => 'Exporteren als .txt';
+
+  @override
+  String get signupKeysCopied => 'Sleutels gekopieerd';
+
+  @override
+  String get signupKeyCopied => 'Sleutel gekopieerd';
+
+  @override
+  String get signupKeysEmpty => 'Geen sleutels in deze lijst.';
+
+  @override
+  String signupKeyCreatedArg1(String arg1) {
+    return 'Aangemaakt op $arg1';
+  }
+
+  @override
+  String signupKeyUsedByArg1Arg2(String arg1, String arg2) {
+    return 'Gebruikt door $arg1 op $arg2';
+  }
+
+  @override
+  String signupKeyUsedByDeletedArg1(String arg1) {
+    return 'Gebruikt op $arg1 door een inmiddels verwijderd account';
+  }
+
+  @override
+  String get signupKeyRevokeTitle => 'Deze sleutel intrekken?';
+
+  @override
+  String get signupKeyRevokeMessage =>
+      'Niemand kan zich er nog mee registreren. Dit kan niet ongedaan worden gemaakt.';
+
+  @override
+  String get signupKeyRevoked => 'Sleutel ingetrokken.';
+
+  @override
+  String signupKeysShowMore(int count) {
+    return 'Nog $count tonen';
+  }
+
+  @override
+  String get signupKeysCreateTitle => 'Registratiesleutels aanmaken';
+
+  @override
+  String get signupKeysCount => 'Aantal sleutels';
+
+  @override
+  String get signupKeysCountHelper => '1 tot 500';
+
+  @override
+  String get signupKeysCountInvalid => 'Voer een getal van 1 tot 500 in.';
+
+  @override
+  String get signupKeysLabel => 'Label (optioneel)';
+
+  @override
+  String get signupKeysLabelHint => 'bijv. Bètatesters voorjaar';
+
+  @override
+  String signupKeysCreateAction(int count) {
+    return 'Aanmaken ($count)';
+  }
+
+  @override
+  String signupKeysReady(int count) {
+    return 'Sleutels klaar: $count';
+  }
+
+  @override
+  String get signupKeysReadyHint =>
+      'Geef elke sleutel aan één persoon. Ongebruikte sleutels blijven in de lijst staan, zodat u ze later opnieuw kunt kopiëren of exporteren.';
+
+  @override
+  String get signupKeysSaveDialogTitle => 'Registratiesleutels opslaan';
+
+  @override
+  String get signupKeysExported => 'Sleutels geëxporteerd.';
+
+  @override
+  String auditSignupKeysCreated(String actor, int count) {
+    return '$actor heeft registratiesleutels aangemaakt ($count)';
+  }
+
+  @override
+  String auditSignupKeyRevoked(String actor) {
+    return '$actor heeft een registratiesleutel ingetrokken';
+  }
 }

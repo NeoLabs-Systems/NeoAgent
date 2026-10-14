@@ -551,9 +551,6 @@ class AppL10nLt extends AppL10n {
       'Leiskite „NeoAgent“ „Įdiegti nežinomas programas“, tada bandykite atnaujinti dar kartą.';
 
   @override
-  String get allowNewSignUps => 'Leisti naujas registracijas';
-
-  @override
   String get allowOnce => 'Leisti vieną kartą';
 
   @override
@@ -5572,9 +5569,6 @@ class AppL10nLt extends AppL10n {
       'Vienos ar daugiau paskyrų galiojimo laikas baigėsi. Iš naujo prijunkite paveiktą paskyrą, kad atkurtumėte prieigą prie įrankio.';
 
   @override
-  String get oneRegister => 'vienas registras.';
-
-  @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'Vienas vykdymo laikas valdo asmenį, grupės eilutę, kambario atmintį, normas, proto teoriją ir pristatymą.';
 
@@ -6997,10 +6991,6 @@ class AppL10nLt extends AppL10n {
       'Serverio naudojimo apribojimai netaikomi modeliams, kuriuose veikia jūsų raktas.';
 
   @override
-  String get serverWithNoAccountsYetAlways =>
-      'serveris be paskyrų visada leidžia pirmąjį ';
-
-  @override
   String get serviceEmail => 'Paslaugos el';
 
   @override
@@ -7188,9 +7178,6 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get signOutEverywhere => 'Atsijunkite visur';
-
-  @override
-  String get signUpIsClosed => 'Registracija uždaryta.';
 
   @override
   String get signalCliRestApiBridge => 'signal-cli REST API tiltas';
@@ -8928,10 +8915,6 @@ class AppL10nLt extends AppL10n {
   @override
   String get whatsappPersonalMessageReceived =>
       'Gauta WhatsApp asmeninė žinutė';
-
-  @override
-  String get whenOffOnlyExistingAccountsCan =>
-      'Kai išjungta, gali prisijungti tik esamos paskyros. A ';
 
   @override
   String get whenYouChooseApprovedOnlyAdd =>
@@ -11150,4 +11133,168 @@ class AppL10nLt extends AppL10n {
   @override
   String get qrLoginDeclinedOnPhone =>
       'Prisijungimas buvo atmestas jūsų telefone. Nuskaitykite naują kodą ir bandykite dar kartą.';
+
+  @override
+  String get signupKey => 'Registracijos raktas';
+
+  @override
+  String get signupKeyStepSubtitle =>
+      'Naujoms paskyroms šiame serveryje reikia registracijos rakto. Įveskite raktą, kurį gavote iš administratoriaus.';
+
+  @override
+  String get signupKeyChange => 'Keisti';
+
+  @override
+  String get signupKeyRequiredError => 'Įveskite savo registracijos raktą.';
+
+  @override
+  String get signupKeyInvalidError =>
+      'Šis registracijos raktas negalioja. Patikrinkite jį ir bandykite dar kartą.';
+
+  @override
+  String get signupKeyUsedError =>
+      'Šis registracijos raktas jau panaudotas. Paprašykite administratoriaus naujo.';
+
+  @override
+  String get adminRequireSignupKey => 'Reikalauti registracijos rakto';
+
+  @override
+  String get adminRequireSignupKeyHint =>
+      'Naujoms paskyroms reikia vienkartinio administratoriaus rakto. Išjungus, užsiregistruoti gali bet kas, pasiekiantis šį serverį. Pirmajai paskyrai raktas niekada nereikalingas.';
+
+  @override
+  String get adminSignupKeyRequiredNotice =>
+      'Naujoms paskyroms dabar reikia registracijos rakto.';
+
+  @override
+  String get adminSignupOpenNotice => 'Dabar užsiregistruoti gali bet kas.';
+
+  @override
+  String get signupKeys => 'Registracijos raktai';
+
+  @override
+  String get signupKeysDescription =>
+      'Vienkartiniai raktai registracijai, kol raktas yra privalomas. Kiekvienas raktas sukuria lygiai vieną paskyrą.';
+
+  @override
+  String get signupKeysNew => 'Nauji raktai';
+
+  @override
+  String signupKeysFilterUnused(int count) {
+    return 'Nepanaudoti · $count';
+  }
+
+  @override
+  String signupKeysFilterUsed(int count) {
+    return 'Panaudoti · $count';
+  }
+
+  @override
+  String signupKeysFilterRevoked(int count) {
+    return 'Atšaukti · $count';
+  }
+
+  @override
+  String signupKeysFilterAll(int count) {
+    return 'Visi · $count';
+  }
+
+  @override
+  String get signupKeyStatusUnused => 'Nepanaudotas';
+
+  @override
+  String get signupKeyStatusUsed => 'Panaudotas';
+
+  @override
+  String get signupKeyStatusRevoked => 'Atšauktas';
+
+  @override
+  String get signupKeysExport => 'Eksportuoti .txt';
+
+  @override
+  String get signupKeysCopied => 'Raktai nukopijuoti';
+
+  @override
+  String get signupKeyCopied => 'Raktas nukopijuotas';
+
+  @override
+  String get signupKeysEmpty => 'Šiame sąraše raktų nėra.';
+
+  @override
+  String signupKeyCreatedArg1(String arg1) {
+    return 'Sukurtas $arg1';
+  }
+
+  @override
+  String signupKeyUsedByArg1Arg2(String arg1, String arg2) {
+    return 'Panaudojo $arg1, $arg2';
+  }
+
+  @override
+  String signupKeyUsedByDeletedArg1(String arg1) {
+    return 'Panaudotas $arg1 paskyros, kuri vėliau ištrinta';
+  }
+
+  @override
+  String get signupKeyRevokeTitle => 'Atšaukti šį raktą?';
+
+  @override
+  String get signupKeyRevokeMessage =>
+      'Niekas nebegalės juo užsiregistruoti. Šio veiksmo anuliuoti negalima.';
+
+  @override
+  String get signupKeyRevoked => 'Raktas atšauktas.';
+
+  @override
+  String signupKeysShowMore(int count) {
+    return 'Rodyti dar $count';
+  }
+
+  @override
+  String get signupKeysCreateTitle => 'Kurti registracijos raktus';
+
+  @override
+  String get signupKeysCount => 'Raktų skaičius';
+
+  @override
+  String get signupKeysCountHelper => 'Nuo 1 iki 500';
+
+  @override
+  String get signupKeysCountInvalid => 'Įveskite skaičių nuo 1 iki 500.';
+
+  @override
+  String get signupKeysLabel => 'Etiketė (neprivaloma)';
+
+  @override
+  String get signupKeysLabelHint => 'pvz., pavasario beta testuotojai';
+
+  @override
+  String signupKeysCreateAction(int count) {
+    return 'Kurti ($count)';
+  }
+
+  @override
+  String signupKeysReady(int count) {
+    return 'Paruošta raktų: $count';
+  }
+
+  @override
+  String get signupKeysReadyHint =>
+      'Kiekvieną raktą duokite tik vienam asmeniui. Nepanaudoti raktai lieka sąraše, todėl vėliau galėsite juos vėl nukopijuoti ar eksportuoti.';
+
+  @override
+  String get signupKeysSaveDialogTitle => 'Išsaugoti registracijos raktus';
+
+  @override
+  String get signupKeysExported => 'Raktai eksportuoti.';
+
+  @override
+  String auditSignupKeysCreated(String actor, int count) {
+    return '$actor sukūrė registracijos raktų ($count)';
+  }
+
+  @override
+  String auditSignupKeyRevoked(String actor) {
+    return '$actor atšaukė registracijos raktą';
+  }
 }

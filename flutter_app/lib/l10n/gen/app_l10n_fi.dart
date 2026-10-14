@@ -549,9 +549,6 @@ class AppL10nFi extends AppL10n {
       'Salli \"Asenna tuntemattomat sovellukset\" NeoAgentille ja yritä sitten päivitystä uudelleen.';
 
   @override
-  String get allowNewSignUps => 'Salli uudet ilmoittautumiset';
-
-  @override
   String get allowOnce => 'Salli kerran';
 
   @override
@@ -5568,9 +5565,6 @@ class AppL10nFi extends AppL10n {
       'Yksi tai useampi tili on vanhentunut. Yhdistä ongelmallinen tili uudelleen palauttaaksesi työkalun käyttöoikeudet.';
 
   @override
-  String get oneRegister => 'yksi rekisteri.';
-
-  @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'Yksi suoritusaika ohjaa persoonaa, ryhmävuoroja, huoneen muistia, normeja, mielen teoriaa ja toimitusta.';
 
@@ -6987,10 +6981,6 @@ class AppL10nFi extends AppL10n {
       'Palvelimen käyttörajoitukset eivät koske malleja, jotka toimivat omalla avaimellasi.';
 
   @override
-  String get serverWithNoAccountsYetAlways =>
-      'palvelin, jolla ei ole tilejä, sallii aina ensimmäisen ';
-
-  @override
   String get serviceEmail => 'Palvelun sähköposti';
 
   @override
@@ -7177,9 +7167,6 @@ class AppL10nFi extends AppL10n {
 
   @override
   String get signOutEverywhere => 'Kirjaudu ulos kaikkialta';
-
-  @override
-  String get signUpIsClosed => 'Ilmoittautuminen on suljettu.';
 
   @override
   String get signalCliRestApiBridge => 'signal-cli REST API -silta';
@@ -8913,10 +8900,6 @@ class AppL10nFi extends AppL10n {
   @override
   String get whatsappPersonalMessageReceived =>
       'WhatsApp henkilökohtainen viesti vastaanotettu';
-
-  @override
-  String get whenOffOnlyExistingAccountsCan =>
-      'Kun se ei ole käytössä, vain olemassa olevat tilit voivat kirjautua sisään. A ';
 
   @override
   String get whenYouChooseApprovedOnlyAdd =>
@@ -11136,4 +11119,168 @@ class AppL10nFi extends AppL10n {
   @override
   String get qrLoginDeclinedOnPhone =>
       'Kirjautuminen hylättiin puhelimellasi. Skannaa uusi koodi ja yritä uudelleen.';
+
+  @override
+  String get signupKey => 'Rekisteröitymisavain';
+
+  @override
+  String get signupKeyStepSubtitle =>
+      'Tämän palvelimen uudet tilit tarvitsevat rekisteröitymisavaimen. Anna ylläpitäjältä saamasi avain.';
+
+  @override
+  String get signupKeyChange => 'Vaihda';
+
+  @override
+  String get signupKeyRequiredError => 'Anna rekisteröitymisavaimesi.';
+
+  @override
+  String get signupKeyInvalidError =>
+      'Rekisteröitymisavain ei kelpaa. Tarkista se ja yritä uudelleen.';
+
+  @override
+  String get signupKeyUsedError =>
+      'Rekisteröitymisavain on jo käytetty. Pyydä ylläpitäjältä uusi.';
+
+  @override
+  String get adminRequireSignupKey => 'Vaadi rekisteröitymisavain';
+
+  @override
+  String get adminRequireSignupKeyHint =>
+      'Uudet tilit tarvitsevat ylläpitäjältä kertakäyttöisen avaimen. Kun tämä on pois päältä, kuka tahansa palvelimen tavoittava voi rekisteröityä. Ensimmäinen tili ei koskaan tarvitse avainta.';
+
+  @override
+  String get adminSignupKeyRequiredNotice =>
+      'Uudet tilit tarvitsevat nyt rekisteröitymisavaimen.';
+
+  @override
+  String get adminSignupOpenNotice => 'Kuka tahansa voi nyt rekisteröityä.';
+
+  @override
+  String get signupKeys => 'Rekisteröitymisavaimet';
+
+  @override
+  String get signupKeysDescription =>
+      'Kertakäyttöiset avaimet rekisteröitymiseen, kun avain vaaditaan. Jokainen avain luo täsmälleen yhden tilin.';
+
+  @override
+  String get signupKeysNew => 'Uudet avaimet';
+
+  @override
+  String signupKeysFilterUnused(int count) {
+    return 'Käyttämättömät · $count';
+  }
+
+  @override
+  String signupKeysFilterUsed(int count) {
+    return 'Käytetyt · $count';
+  }
+
+  @override
+  String signupKeysFilterRevoked(int count) {
+    return 'Peruutetut · $count';
+  }
+
+  @override
+  String signupKeysFilterAll(int count) {
+    return 'Kaikki · $count';
+  }
+
+  @override
+  String get signupKeyStatusUnused => 'Käyttämätön';
+
+  @override
+  String get signupKeyStatusUsed => 'Käytetty';
+
+  @override
+  String get signupKeyStatusRevoked => 'Peruutettu';
+
+  @override
+  String get signupKeysExport => 'Vie .txt-tiedostoon';
+
+  @override
+  String get signupKeysCopied => 'Avaimet kopioitu';
+
+  @override
+  String get signupKeyCopied => 'Avain kopioitu';
+
+  @override
+  String get signupKeysEmpty => 'Tässä luettelossa ei ole avaimia.';
+
+  @override
+  String signupKeyCreatedArg1(String arg1) {
+    return 'Luotu $arg1';
+  }
+
+  @override
+  String signupKeyUsedByArg1Arg2(String arg1, String arg2) {
+    return 'Käyttäjä $arg1 käytti $arg2';
+  }
+
+  @override
+  String signupKeyUsedByDeletedArg1(String arg1) {
+    return 'Käytetty $arg1 tilillä, joka on sittemmin poistettu';
+  }
+
+  @override
+  String get signupKeyRevokeTitle => 'Peruutetaanko tämä avain?';
+
+  @override
+  String get signupKeyRevokeMessage =>
+      'Kukaan ei voi enää rekisteröityä sillä. Toimintoa ei voi kumota.';
+
+  @override
+  String get signupKeyRevoked => 'Avain peruutettu.';
+
+  @override
+  String signupKeysShowMore(int count) {
+    return 'Näytä $count lisää';
+  }
+
+  @override
+  String get signupKeysCreateTitle => 'Luo rekisteröitymisavaimia';
+
+  @override
+  String get signupKeysCount => 'Avainten määrä';
+
+  @override
+  String get signupKeysCountHelper => '1–500';
+
+  @override
+  String get signupKeysCountInvalid => 'Anna luku väliltä 1–500.';
+
+  @override
+  String get signupKeysLabel => 'Nimi (valinnainen)';
+
+  @override
+  String get signupKeysLabelHint => 'esim. Kevään beetatestaajat';
+
+  @override
+  String signupKeysCreateAction(int count) {
+    return 'Luo ($count)';
+  }
+
+  @override
+  String signupKeysReady(int count) {
+    return 'Avaimet valmiina: $count';
+  }
+
+  @override
+  String get signupKeysReadyHint =>
+      'Anna kukin avain vain yhdelle henkilölle. Käyttämättömät avaimet pysyvät luettelossa, joten voit kopioida tai viedä ne myöhemmin uudelleen.';
+
+  @override
+  String get signupKeysSaveDialogTitle => 'Tallenna rekisteröitymisavaimet';
+
+  @override
+  String get signupKeysExported => 'Avaimet viety.';
+
+  @override
+  String auditSignupKeysCreated(String actor, int count) {
+    return '$actor loi rekisteröitymisavaimia ($count)';
+  }
+
+  @override
+  String auditSignupKeyRevoked(String actor) {
+    return '$actor peruutti rekisteröitymisavaimen';
+  }
 }

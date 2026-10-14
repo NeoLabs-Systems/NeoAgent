@@ -1718,15 +1718,49 @@ class _QrLoginApprovalDialog extends StatelessWidget {
                           preview.requestedDevice.label,
                           style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          [
-                            preview.requestLocation.label,
-                            if (preview.requestedAt != null)
-                              appStrings.requestedArg1(_formatTimestamp(preview.requestedAt!)),
-                          ].join(' · '),
-                          style: TextStyle(color: _textSecondary, height: 1.4),
+                        const SizedBox(height: 8),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Icon(
+                              Icons.place_outlined,
+                              size: 16,
+                              color: _textSecondary,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text.rich(
+                                TextSpan(
+                                  text: preview.requestLocation.label,
+                                  style: TextStyle(color: _textPrimary),
+                                  children: <InlineSpan>[
+                                    if (preview.requestLocation.ipAddress
+                                            ?.isNotEmpty ==
+                                        true)
+                                      TextSpan(
+                                        text:
+                                            ' · ${preview.requestLocation.ipAddress}',
+                                        style: TextStyle(color: _textMuted),
+                                      ),
+                                  ],
+                                ),
+                                style: const TextStyle(height: 1.4),
+                              ),
+                            ),
+                          ],
                         ),
+                        if (preview.requestedAt != null) ...<Widget>[
+                          const SizedBox(height: 4),
+                          Text(
+                            appStrings.requestedArg1(
+                              _formatTimestamp(preview.requestedAt!),
+                            ),
+                            style: TextStyle(
+                              color: _textSecondary,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

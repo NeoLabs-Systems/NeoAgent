@@ -553,9 +553,6 @@ class AppL10nSk extends AppL10n {
       'Povoľte \"Inštalovať neznáme aplikácie\" pre NeoAgent a potom skúste aktualizáciu znova.';
 
   @override
-  String get allowNewSignUps => 'Povoliť nové registrácie';
-
-  @override
   String get allowOnce => 'Povoliť raz';
 
   @override
@@ -5570,9 +5567,6 @@ class AppL10nSk extends AppL10n {
       'Platnosť jedného alebo viacerých účtov vypršala. Ak chcete obnoviť prístup k nástroju, znova pripojte príslušný účet.';
 
   @override
-  String get oneRegister => 'jeden register.';
-
-  @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'Jeden runtime riadi osobu, skupinové poradie, pamäť miestnosti, normy, teóriu mysle a doručenie.';
 
@@ -6991,10 +6985,6 @@ class AppL10nSk extends AppL10n {
       'Limity používania servera sa nevzťahujú na modely spustené na vašom vlastnom kľúči.';
 
   @override
-  String get serverWithNoAccountsYetAlways =>
-      'server, ktorý zatiaľ nemá žiadne účty, vždy povolí prvého ';
-
-  @override
   String get serviceEmail => 'Servisný email';
 
   @override
@@ -7182,9 +7172,6 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get signOutEverywhere => 'Odhláste sa všade';
-
-  @override
-  String get signUpIsClosed => 'Registrácia je uzavretá.';
 
   @override
   String get signalCliRestApiBridge => 'signal-cli REST API most';
@@ -8918,10 +8905,6 @@ class AppL10nSk extends AppL10n {
   @override
   String get whatsappPersonalMessageReceived =>
       'Osobná správa WhatsApp bola prijatá';
-
-  @override
-  String get whenOffOnlyExistingAccountsCan =>
-      'Keď je táto možnosť vypnutá, môžu sa prihlásiť iba existujúce účty. A ';
 
   @override
   String get whenYouChooseApprovedOnlyAdd =>
@@ -11145,4 +11128,168 @@ class AppL10nSk extends AppL10n {
   @override
   String get qrLoginDeclinedOnPhone =>
       'Prihlásenie bolo vo vašom telefóne odmietnuté. Naskenujte nový kód a skúste to znova.';
+
+  @override
+  String get signupKey => 'Registračný kľúč';
+
+  @override
+  String get signupKeyStepSubtitle =>
+      'Nové účty na tomto serveri vyžadujú registračný kľúč. Zadajte kľúč, ktorý ste dostali od správcu.';
+
+  @override
+  String get signupKeyChange => 'Zmeniť';
+
+  @override
+  String get signupKeyRequiredError => 'Zadajte svoj registračný kľúč.';
+
+  @override
+  String get signupKeyInvalidError =>
+      'Tento registračný kľúč nie je platný. Skontrolujte ho a skúste to znova.';
+
+  @override
+  String get signupKeyUsedError =>
+      'Tento registračný kľúč už bol použitý. Požiadajte správcu o nový.';
+
+  @override
+  String get adminRequireSignupKey => 'Vyžadovať registračný kľúč';
+
+  @override
+  String get adminRequireSignupKeyHint =>
+      'Nové účty vyžadujú jednorazový kľúč od správcu. Keď je vypnuté, môže sa zaregistrovať ktokoľvek, kto sa dostane k tomuto serveru. Prvý účet kľúč nikdy nepotrebuje.';
+
+  @override
+  String get adminSignupKeyRequiredNotice =>
+      'Nové účty teraz vyžadujú registračný kľúč.';
+
+  @override
+  String get adminSignupOpenNotice => 'Teraz sa môže zaregistrovať ktokoľvek.';
+
+  @override
+  String get signupKeys => 'Registračné kľúče';
+
+  @override
+  String get signupKeysDescription =>
+      'Jednorazové kľúče na registráciu, kým sa kľúč vyžaduje. Každý kľúč vytvorí práve jeden účet.';
+
+  @override
+  String get signupKeysNew => 'Nové kľúče';
+
+  @override
+  String signupKeysFilterUnused(int count) {
+    return 'Nepoužité · $count';
+  }
+
+  @override
+  String signupKeysFilterUsed(int count) {
+    return 'Použité · $count';
+  }
+
+  @override
+  String signupKeysFilterRevoked(int count) {
+    return 'Zrušené · $count';
+  }
+
+  @override
+  String signupKeysFilterAll(int count) {
+    return 'Všetky · $count';
+  }
+
+  @override
+  String get signupKeyStatusUnused => 'Nepoužitý';
+
+  @override
+  String get signupKeyStatusUsed => 'Použitý';
+
+  @override
+  String get signupKeyStatusRevoked => 'Zrušený';
+
+  @override
+  String get signupKeysExport => 'Exportovať .txt';
+
+  @override
+  String get signupKeysCopied => 'Kľúče skopírované';
+
+  @override
+  String get signupKeyCopied => 'Kľúč skopírovaný';
+
+  @override
+  String get signupKeysEmpty => 'V tomto zozname nie sú žiadne kľúče.';
+
+  @override
+  String signupKeyCreatedArg1(String arg1) {
+    return 'Vytvorené $arg1';
+  }
+
+  @override
+  String signupKeyUsedByArg1Arg2(String arg1, String arg2) {
+    return 'Použil(a) $arg1, $arg2';
+  }
+
+  @override
+  String signupKeyUsedByDeletedArg1(String arg1) {
+    return 'Použité $arg1 účtom, ktorý bol medzitým odstránený';
+  }
+
+  @override
+  String get signupKeyRevokeTitle => 'Zrušiť tento kľúč?';
+
+  @override
+  String get signupKeyRevokeMessage =>
+      'Nikto sa s ním už nebude môcť zaregistrovať. Túto akciu nemožno vrátiť.';
+
+  @override
+  String get signupKeyRevoked => 'Kľúč zrušený.';
+
+  @override
+  String signupKeysShowMore(int count) {
+    return 'Zobraziť ďalších $count';
+  }
+
+  @override
+  String get signupKeysCreateTitle => 'Vytvoriť registračné kľúče';
+
+  @override
+  String get signupKeysCount => 'Počet kľúčov';
+
+  @override
+  String get signupKeysCountHelper => '1 až 500';
+
+  @override
+  String get signupKeysCountInvalid => 'Zadajte číslo od 1 do 500.';
+
+  @override
+  String get signupKeysLabel => 'Označenie (voliteľné)';
+
+  @override
+  String get signupKeysLabelHint => 'napr. Jarní beta testeri';
+
+  @override
+  String signupKeysCreateAction(int count) {
+    return 'Vytvoriť ($count)';
+  }
+
+  @override
+  String signupKeysReady(int count) {
+    return 'Pripravené kľúče: $count';
+  }
+
+  @override
+  String get signupKeysReadyHint =>
+      'Každý kľúč odovzdajte iba jednej osobe. Nepoužité kľúče zostávajú v zozname, takže ich môžete neskôr znova skopírovať alebo exportovať.';
+
+  @override
+  String get signupKeysSaveDialogTitle => 'Uložiť registračné kľúče';
+
+  @override
+  String get signupKeysExported => 'Kľúče exportované.';
+
+  @override
+  String auditSignupKeysCreated(String actor, int count) {
+    return '$actor vytvoril(a) registračné kľúče ($count)';
+  }
+
+  @override
+  String auditSignupKeyRevoked(String actor) {
+    return '$actor zrušil(a) registračný kľúč';
+  }
 }

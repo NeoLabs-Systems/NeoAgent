@@ -557,9 +557,6 @@ class AppL10nEl extends AppL10n {
       'Επιτρέψτε την \"Εγκατάσταση άγνωστων εφαρμογών\" για το NeoAgent και, στη συνέχεια, δοκιμάστε ξανά την ενημέρωση.';
 
   @override
-  String get allowNewSignUps => 'Επιτρέψτε νέες εγγραφές';
-
-  @override
   String get allowOnce => 'Επιτρέψτε μια φορά';
 
   @override
@@ -5610,9 +5607,6 @@ class AppL10nEl extends AppL10n {
       'Ένας ή περισσότεροι λογαριασμοί έληξαν. Επανασυνδέστε τον επηρεαζόμενο λογαριασμό για να επαναφέρετε την πρόσβαση στο εργαλείο.';
 
   @override
-  String get oneRegister => 'ένα μητρώο.';
-
-  @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'Ένας χρόνος εκτέλεσης ελέγχει την προσωπικότητα, την ομαδική στροφή, τη μνήμη δωματίου, τους κανόνες, τη Θεωρία του Νου και την παράδοση.';
 
@@ -7035,10 +7029,6 @@ class AppL10nEl extends AppL10n {
       'Τα όρια χρήσης διακομιστή δεν ισχύουν για μοντέλα που εκτελούνται με δικό σας κλειδί.';
 
   @override
-  String get serverWithNoAccountsYetAlways =>
-      'διακομιστής χωρίς λογαριασμούς, αλλά πάντα επιτρέπει τον πρώτο ';
-
-  @override
   String get serviceEmail => 'email υπηρεσίας';
 
   @override
@@ -7226,9 +7216,6 @@ class AppL10nEl extends AppL10n {
 
   @override
   String get signOutEverywhere => 'Αποσυνδεθείτε παντού';
-
-  @override
-  String get signUpIsClosed => 'Η εγγραφή έχει κλείσει.';
 
   @override
   String get signalCliRestApiBridge => 'signal-cli REST API bridge';
@@ -8973,10 +8960,6 @@ class AppL10nEl extends AppL10n {
   @override
   String get whatsappPersonalMessageReceived =>
       'Το προσωπικό μήνυμα WhatsApp ελήφθη';
-
-  @override
-  String get whenOffOnlyExistingAccountsCan =>
-      'Όταν είναι απενεργοποιημένο, μόνο οι υπάρχοντες λογαριασμοί μπορούν να συνδεθούν. Α ';
 
   @override
   String get whenYouChooseApprovedOnlyAdd =>
@@ -11226,4 +11209,168 @@ class AppL10nEl extends AppL10n {
   @override
   String get qrLoginDeclinedOnPhone =>
       'Η σύνδεση απορρίφθηκε στο τηλέφωνό σας. Σαρώστε τον νέο κωδικό για να προσπαθήσετε ξανά.';
+
+  @override
+  String get signupKey => 'Κλειδί εγγραφής';
+
+  @override
+  String get signupKeyStepSubtitle =>
+      'Οι νέοι λογαριασμοί σε αυτόν τον διακομιστή χρειάζονται κλειδί εγγραφής. Εισαγάγετε το κλειδί που λάβατε από έναν διαχειριστή.';
+
+  @override
+  String get signupKeyChange => 'Αλλαγή';
+
+  @override
+  String get signupKeyRequiredError => 'Εισαγάγετε το κλειδί εγγραφής σας.';
+
+  @override
+  String get signupKeyInvalidError =>
+      'Αυτό το κλειδί εγγραφής δεν είναι έγκυρο. Ελέγξτε το και δοκιμάστε ξανά.';
+
+  @override
+  String get signupKeyUsedError =>
+      'Αυτό το κλειδί εγγραφής έχει ήδη χρησιμοποιηθεί. Ζητήστε νέο από έναν διαχειριστή.';
+
+  @override
+  String get adminRequireSignupKey => 'Απαίτηση κλειδιού εγγραφής';
+
+  @override
+  String get adminRequireSignupKeyHint =>
+      'Οι νέοι λογαριασμοί χρειάζονται κλειδί μίας χρήσης από διαχειριστή. Όταν είναι απενεργοποιημένο, μπορεί να εγγραφεί οποιοσδήποτε έχει πρόσβαση σε αυτόν τον διακομιστή. Ο πρώτος λογαριασμός δεν χρειάζεται ποτέ κλειδί.';
+
+  @override
+  String get adminSignupKeyRequiredNotice =>
+      'Οι νέοι λογαριασμοί χρειάζονται πλέον κλειδί εγγραφής.';
+
+  @override
+  String get adminSignupOpenNotice => 'Πλέον μπορεί να εγγραφεί οποιοσδήποτε.';
+
+  @override
+  String get signupKeys => 'Κλειδιά εγγραφής';
+
+  @override
+  String get signupKeysDescription =>
+      'Κλειδιά μίας χρήσης για εγγραφή όσο απαιτείται κλειδί. Κάθε κλειδί δημιουργεί ακριβώς έναν λογαριασμό.';
+
+  @override
+  String get signupKeysNew => 'Νέα κλειδιά';
+
+  @override
+  String signupKeysFilterUnused(int count) {
+    return 'Αχρησιμοποίητα · $count';
+  }
+
+  @override
+  String signupKeysFilterUsed(int count) {
+    return 'Χρησιμοποιημένα · $count';
+  }
+
+  @override
+  String signupKeysFilterRevoked(int count) {
+    return 'Ανακλημένα · $count';
+  }
+
+  @override
+  String signupKeysFilterAll(int count) {
+    return 'Όλα · $count';
+  }
+
+  @override
+  String get signupKeyStatusUnused => 'Αχρησιμοποίητο';
+
+  @override
+  String get signupKeyStatusUsed => 'Χρησιμοποιημένο';
+
+  @override
+  String get signupKeyStatusRevoked => 'Ανακλημένο';
+
+  @override
+  String get signupKeysExport => 'Εξαγωγή .txt';
+
+  @override
+  String get signupKeysCopied => 'Τα κλειδιά αντιγράφηκαν';
+
+  @override
+  String get signupKeyCopied => 'Το κλειδί αντιγράφηκε';
+
+  @override
+  String get signupKeysEmpty => 'Δεν υπάρχουν κλειδιά σε αυτή τη λίστα.';
+
+  @override
+  String signupKeyCreatedArg1(String arg1) {
+    return 'Δημιουργήθηκε $arg1';
+  }
+
+  @override
+  String signupKeyUsedByArg1Arg2(String arg1, String arg2) {
+    return 'Χρησιμοποιήθηκε από $arg1 στις $arg2';
+  }
+
+  @override
+  String signupKeyUsedByDeletedArg1(String arg1) {
+    return 'Χρησιμοποιήθηκε στις $arg1 από λογαριασμό που έχει πλέον διαγραφεί';
+  }
+
+  @override
+  String get signupKeyRevokeTitle => 'Ανάκληση αυτού του κλειδιού;';
+
+  @override
+  String get signupKeyRevokeMessage =>
+      'Κανείς δεν θα μπορεί να εγγραφεί με αυτό. Η ενέργεια δεν αναιρείται.';
+
+  @override
+  String get signupKeyRevoked => 'Το κλειδί ανακλήθηκε.';
+
+  @override
+  String signupKeysShowMore(int count) {
+    return 'Εμφάνιση $count ακόμη';
+  }
+
+  @override
+  String get signupKeysCreateTitle => 'Δημιουργία κλειδιών εγγραφής';
+
+  @override
+  String get signupKeysCount => 'Αριθμός κλειδιών';
+
+  @override
+  String get signupKeysCountHelper => 'Από 1 έως 500';
+
+  @override
+  String get signupKeysCountInvalid => 'Εισαγάγετε αριθμό από 1 έως 500.';
+
+  @override
+  String get signupKeysLabel => 'Ετικέτα (προαιρετικά)';
+
+  @override
+  String get signupKeysLabelHint => 'π.χ. Ανοιξιάτικοι beta testers';
+
+  @override
+  String signupKeysCreateAction(int count) {
+    return 'Δημιουργία ($count)';
+  }
+
+  @override
+  String signupKeysReady(int count) {
+    return 'Έτοιμα κλειδιά: $count';
+  }
+
+  @override
+  String get signupKeysReadyHint =>
+      'Δώστε κάθε κλειδί σε ένα μόνο άτομο. Τα αχρησιμοποίητα κλειδιά παραμένουν στη λίστα, ώστε να μπορείτε να τα αντιγράψετε ή να τα εξαγάγετε ξανά αργότερα.';
+
+  @override
+  String get signupKeysSaveDialogTitle => 'Αποθήκευση κλειδιών εγγραφής';
+
+  @override
+  String get signupKeysExported => 'Τα κλειδιά εξήχθησαν.';
+
+  @override
+  String auditSignupKeysCreated(String actor, int count) {
+    return '$actor δημιούργησε κλειδιά εγγραφής ($count)';
+  }
+
+  @override
+  String auditSignupKeyRevoked(String actor) {
+    return '$actor ανακάλεσε ένα κλειδί εγγραφής';
+  }
 }

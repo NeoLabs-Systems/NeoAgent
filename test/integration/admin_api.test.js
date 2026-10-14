@@ -45,7 +45,7 @@ describe('admin API', () => {
     const denied = await client.get('/api/admin/users').expect(403);
     assert.equal(denied.body.code, 'ADMIN_REQUIRED');
     await client.post('/api/admin/sql').send({ query: 'SELECT 1' }).expect(403);
-    await client.put('/api/admin/access/signup').send({ enabled: false }).expect(403);
+    await client.put('/api/admin/access/signup').send({ keyRequired: true }).expect(403);
   });
 
   test('server updates are admin-only', async () => {
@@ -153,15 +153,20 @@ describe('admin API', () => {
     assert.equal(ctx.db.prepare('SELECT COUNT(*) AS n FROM users').get().n, usersBefore);
   });
 
-  test('access settings expose only the sign-up toggle', async () => {
+  test('access settings expose only the sign-up key switch', async (t) => {
+    const previous = process.env.NEOAGENT_ALLOW_SIGNUP;
+    t.after(() => {
+      if (previous == null) delete process.env.NEOAGENT_ALLOW_SIGNUP;
+      else process.env.NEOAGENT_ALLOW_SIGNUP = previous;
+    });
     const client = await signedIn(owner);
     const access = await client.get('/api/admin/access').expect(200);
-    assert.deepEqual(access.body, { signupEnabled: true });
+    assert.deepEqual(access.body, { signupKeyRequired: false });
 
-    const off = await client.put('/api/admin/access/signup').send({ enabled: false }).expect(200);
-    assert.deepEqual(off.body, { ok: true, signupEnabled: false });
-    const on = await client.put('/api/admin/access/signup').send({ enabled: true }).expect(200);
-    assert.equal(on.body.signupEnabled, true);
+    const on = await client.put('/api/admin/access/signup').send({ keyRequired: true }).expect(200);
+    assert.deepEqual(on.body, { ok: true, signupKeyRequired: true });
+    const off = await client.put('/api/admin/access/signup').send({ keyRequired: false }).expect(200);
+    assert.equal(off.body.signupKeyRequired, false);
   });
 
   test('server overview endpoints answer with the documented shapes', async () => {

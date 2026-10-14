@@ -549,9 +549,6 @@ class AppL10nDa extends AppL10n {
       'Tillad \"Installer ukendte apps\" for NeoAgent, og prøv derefter opdateringen igen.';
 
   @override
-  String get allowNewSignUps => 'Tillad nye tilmeldinger';
-
-  @override
   String get allowOnce => 'Tillad én gang';
 
   @override
@@ -5552,9 +5549,6 @@ class AppL10nDa extends AppL10n {
       'En eller flere konti er udløbet. Tilslut den berørte konto igen for at gendanne værktøjsadgang.';
 
   @override
-  String get oneRegister => 'ét register.';
-
-  @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'Én runtime styrer persona, gruppeturtagning, rumhukommelse, normer, Theory of Mind og levering.';
 
@@ -6966,10 +6960,6 @@ class AppL10nDa extends AppL10n {
       'Serverbrugsgrænser gælder ikke for modeller, der kører på din egen nøgle.';
 
   @override
-  String get serverWithNoAccountsYetAlways =>
-      'server uden konti endnu lader altid den første ';
-
-  @override
   String get serviceEmail => 'Service e-mail';
 
   @override
@@ -7156,9 +7146,6 @@ class AppL10nDa extends AppL10n {
 
   @override
   String get signOutEverywhere => 'Log ud overalt';
-
-  @override
-  String get signUpIsClosed => 'Tilmeldingen er lukket.';
 
   @override
   String get signalCliRestApiBridge => 'signal-cli REST API-bro';
@@ -8895,10 +8882,6 @@ class AppL10nDa extends AppL10n {
   @override
   String get whatsappPersonalMessageReceived =>
       'WhatsApp personlig besked modtaget';
-
-  @override
-  String get whenOffOnlyExistingAccountsCan =>
-      'Når de er slået fra, kan kun eksisterende konti logge ind. A ';
 
   @override
   String get whenYouChooseApprovedOnlyAdd =>
@@ -11111,4 +11094,168 @@ class AppL10nDa extends AppL10n {
   @override
   String get qrLoginDeclinedOnPhone =>
       'Login blev afvist på din telefon. Scan den nye kode for at prøve igen.';
+
+  @override
+  String get signupKey => 'Tilmeldingsnøgle';
+
+  @override
+  String get signupKeyStepSubtitle =>
+      'Nye konti på denne server kræver en tilmeldingsnøgle. Indtast den, du har fået af en administrator.';
+
+  @override
+  String get signupKeyChange => 'Skift';
+
+  @override
+  String get signupKeyRequiredError => 'Indtast din tilmeldingsnøgle.';
+
+  @override
+  String get signupKeyInvalidError =>
+      'Tilmeldingsnøglen er ugyldig. Kontrollér den, og prøv igen.';
+
+  @override
+  String get signupKeyUsedError =>
+      'Tilmeldingsnøglen er allerede brugt. Bed en administrator om en ny.';
+
+  @override
+  String get adminRequireSignupKey => 'Kræv en tilmeldingsnøgle';
+
+  @override
+  String get adminRequireSignupKeyHint =>
+      'Nye konti kræver en engangsnøgle fra en administrator. Når den er slået fra, kan alle, der kan nå denne server, oprette en konto. Den første konto kræver aldrig en nøgle.';
+
+  @override
+  String get adminSignupKeyRequiredNotice =>
+      'Nye konti kræver nu en tilmeldingsnøgle.';
+
+  @override
+  String get adminSignupOpenNotice => 'Alle kan nu oprette en konto.';
+
+  @override
+  String get signupKeys => 'Tilmeldingsnøgler';
+
+  @override
+  String get signupKeysDescription =>
+      'Engangsnøgler til tilmelding, mens der kræves en nøgle. Hver nøgle opretter præcis én konto.';
+
+  @override
+  String get signupKeysNew => 'Nye nøgler';
+
+  @override
+  String signupKeysFilterUnused(int count) {
+    return 'Ubrugte · $count';
+  }
+
+  @override
+  String signupKeysFilterUsed(int count) {
+    return 'Brugte · $count';
+  }
+
+  @override
+  String signupKeysFilterRevoked(int count) {
+    return 'Tilbagekaldte · $count';
+  }
+
+  @override
+  String signupKeysFilterAll(int count) {
+    return 'Alle · $count';
+  }
+
+  @override
+  String get signupKeyStatusUnused => 'Ubrugt';
+
+  @override
+  String get signupKeyStatusUsed => 'Brugt';
+
+  @override
+  String get signupKeyStatusRevoked => 'Tilbagekaldt';
+
+  @override
+  String get signupKeysExport => 'Eksportér .txt';
+
+  @override
+  String get signupKeysCopied => 'Nøgler kopieret';
+
+  @override
+  String get signupKeyCopied => 'Nøgle kopieret';
+
+  @override
+  String get signupKeysEmpty => 'Ingen nøgler på denne liste.';
+
+  @override
+  String signupKeyCreatedArg1(String arg1) {
+    return 'Oprettet $arg1';
+  }
+
+  @override
+  String signupKeyUsedByArg1Arg2(String arg1, String arg2) {
+    return 'Brugt af $arg1 den $arg2';
+  }
+
+  @override
+  String signupKeyUsedByDeletedArg1(String arg1) {
+    return 'Brugt den $arg1 af en konto, der siden er slettet';
+  }
+
+  @override
+  String get signupKeyRevokeTitle => 'Tilbagekald denne nøgle?';
+
+  @override
+  String get signupKeyRevokeMessage =>
+      'Ingen vil kunne oprette en konto med den. Dette kan ikke fortrydes.';
+
+  @override
+  String get signupKeyRevoked => 'Nøgle tilbagekaldt.';
+
+  @override
+  String signupKeysShowMore(int count) {
+    return 'Vis $count mere';
+  }
+
+  @override
+  String get signupKeysCreateTitle => 'Opret tilmeldingsnøgler';
+
+  @override
+  String get signupKeysCount => 'Antal nøgler';
+
+  @override
+  String get signupKeysCountHelper => '1 til 500';
+
+  @override
+  String get signupKeysCountInvalid => 'Indtast et tal fra 1 til 500.';
+
+  @override
+  String get signupKeysLabel => 'Etiket (valgfri)';
+
+  @override
+  String get signupKeysLabelHint => 'f.eks. Betatestere forår';
+
+  @override
+  String signupKeysCreateAction(int count) {
+    return 'Opret ($count)';
+  }
+
+  @override
+  String signupKeysReady(int count) {
+    return 'Nøgler klar: $count';
+  }
+
+  @override
+  String get signupKeysReadyHint =>
+      'Giv hver nøgle til én person. Ubrugte nøgler bliver på listen, så du kan kopiere eller eksportere dem igen senere.';
+
+  @override
+  String get signupKeysSaveDialogTitle => 'Gem tilmeldingsnøgler';
+
+  @override
+  String get signupKeysExported => 'Nøgler eksporteret.';
+
+  @override
+  String auditSignupKeysCreated(String actor, int count) {
+    return '$actor oprettede tilmeldingsnøgler ($count)';
+  }
+
+  @override
+  String auditSignupKeyRevoked(String actor) {
+    return '$actor tilbagekaldte en tilmeldingsnøgle';
+  }
 }

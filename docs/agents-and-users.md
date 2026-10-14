@@ -34,7 +34,7 @@ Use separate agents to keep contexts apart, for example a personal agent and a w
 ## 👤 User accounts
 
 - **One account per person.** Each account has its own agents, data and cloud computer.
-- **Sign-up control.** `NEOAGENT_ALLOW_SIGNUP=false`, or the switch in the **Admin** tab, closes registration.
+- **Sign-up keys.** Turn on **Admin › Configuration › Access › Require a sign-up key** (or set `NEOAGENT_ALLOW_SIGNUP=false`) and new accounts need a one-time key. Admins create keys one at a time or in batches under **Sign-up keys**, then copy or export them as `.txt`.
 - **Not a hostile-tenant boundary.** Read the [isolation notes](#isolation) before giving accounts to people you do not trust.
 
 ## 🛡️ Admins

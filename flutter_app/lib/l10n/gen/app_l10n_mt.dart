@@ -550,9 +550,6 @@ class AppL10nMt extends AppL10n {
       'Ħalli \"Installa apps mhux magħrufa\" għal NeoAgent, imbagħad erġa\' pprova l-aġġornament.';
 
   @override
-  String get allowNewSignUps => 'Ippermetti reġistrazzjonijiet ġodda';
-
-  @override
   String get allowOnce => 'Ħalli darba';
 
   @override
@@ -5583,9 +5580,6 @@ class AppL10nMt extends AppL10n {
       'Kont wieħed jew aktar skada. Erġa\' qabbad il-kont affettwat biex tirrestawra l-aċċess għall-għodda.';
 
   @override
-  String get oneRegister => 'reġistru wieħed.';
-
-  @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'Runtime wieħed jikkontrolla l-persuna, it-teħid tad-dawran tal-grupp, il-memorja tal-kamra, in-normi, it-Teorija tal-Moħħ, u l-kunsinna.';
 
@@ -6998,10 +6992,6 @@ class AppL10nMt extends AppL10n {
       'Il-limiti tal-użu tas-server ma japplikawx għal mudelli li jaħdmu fuq iċ-ċavetta tiegħek stess.';
 
   @override
-  String get serverWithNoAccountsYetAlways =>
-      'server bl-ebda kontijiet għadha dejjem tikri l-ewwel ';
-
-  @override
   String get serviceEmail => 'Email tas-servizz';
 
   @override
@@ -7188,9 +7178,6 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get signOutEverywhere => 'Iffirma kullimkien';
-
-  @override
-  String get signUpIsClosed => 'Is-reġistrazzjoni hija magħluqa.';
 
   @override
   String get signalCliRestApiBridge => 'signal-cli REST API pont';
@@ -8925,10 +8912,6 @@ class AppL10nMt extends AppL10n {
   @override
   String get whatsappPersonalMessageReceived =>
       'Messaġġ Personali WhatsApp Riċevut';
-
-  @override
-  String get whenOffOnlyExistingAccountsCan =>
-      'Meta mitfi, il-kontijiet eżistenti biss jistgħu jidħlu. A ';
 
   @override
   String get whenYouChooseApprovedOnlyAdd =>
@@ -11155,4 +11138,170 @@ class AppL10nMt extends AppL10n {
   @override
   String get qrLoginDeclinedOnPhone =>
       'Il-login ġie rrifjutat fuq it-telefon tiegħek. Skennja l-kodiċi l-ġdid biex terġa\' tipprova.';
+
+  @override
+  String get signupKey => 'Ċavetta tar-reġistrazzjoni';
+
+  @override
+  String get signupKeyStepSubtitle =>
+      'Kontijiet ġodda fuq dan is-server jeħtieġu ċavetta tar-reġistrazzjoni. Daħħal iċ-ċavetta li rċevejt mingħand amministratur.';
+
+  @override
+  String get signupKeyChange => 'Ibdel';
+
+  @override
+  String get signupKeyRequiredError =>
+      'Daħħal iċ-ċavetta tar-reġistrazzjoni tiegħek.';
+
+  @override
+  String get signupKeyInvalidError =>
+      'Dik iċ-ċavetta tar-reġistrazzjoni mhix valida. Iċċekkjaha u erġa\' pprova.';
+
+  @override
+  String get signupKeyUsedError =>
+      'Dik iċ-ċavetta tar-reġistrazzjoni diġà ntużat. Itlob waħda ġdida lil amministratur.';
+
+  @override
+  String get adminRequireSignupKey => 'Eħtieġ ċavetta tar-reġistrazzjoni';
+
+  @override
+  String get adminRequireSignupKeyHint =>
+      'Kontijiet ġodda jeħtieġu ċavetta għal darba waħda mingħand amministratur. Meta jkun mitfi, kulmin jilħaq dan is-server jista\' jirreġistra. L-ewwel kont qatt ma jeħtieġ ċavetta.';
+
+  @override
+  String get adminSignupKeyRequiredNotice =>
+      'Kontijiet ġodda issa jeħtieġu ċavetta tar-reġistrazzjoni.';
+
+  @override
+  String get adminSignupOpenNotice => 'Issa kulħadd jista\' jirreġistra.';
+
+  @override
+  String get signupKeys => 'Ċwievet tar-reġistrazzjoni';
+
+  @override
+  String get signupKeysDescription =>
+      'Ċwievet għal darba waħda biex tirreġistra sakemm tkun meħtieġa ċavetta. Kull ċavetta toħloq eżattament kont wieħed.';
+
+  @override
+  String get signupKeysNew => 'Ċwievet ġodda';
+
+  @override
+  String signupKeysFilterUnused(int count) {
+    return 'Mhux użati · $count';
+  }
+
+  @override
+  String signupKeysFilterUsed(int count) {
+    return 'Użati · $count';
+  }
+
+  @override
+  String signupKeysFilterRevoked(int count) {
+    return 'Revokati · $count';
+  }
+
+  @override
+  String signupKeysFilterAll(int count) {
+    return 'Kollha · $count';
+  }
+
+  @override
+  String get signupKeyStatusUnused => 'Mhux użata';
+
+  @override
+  String get signupKeyStatusUsed => 'Użata';
+
+  @override
+  String get signupKeyStatusRevoked => 'Revokata';
+
+  @override
+  String get signupKeysExport => 'Esporta .txt';
+
+  @override
+  String get signupKeysCopied => 'Iċ-ċwievet ġew ikkupjati';
+
+  @override
+  String get signupKeyCopied => 'Iċ-ċavetta ġiet ikkupjata';
+
+  @override
+  String get signupKeysEmpty => 'M\'hemmx ċwievet f\'din il-lista.';
+
+  @override
+  String signupKeyCreatedArg1(String arg1) {
+    return 'Maħluqa fl-$arg1';
+  }
+
+  @override
+  String signupKeyUsedByArg1Arg2(String arg1, String arg2) {
+    return 'Użata minn $arg1 fl-$arg2';
+  }
+
+  @override
+  String signupKeyUsedByDeletedArg1(String arg1) {
+    return 'Użata fl-$arg1 minn kont li minn dakinhar tħassar';
+  }
+
+  @override
+  String get signupKeyRevokeTitle => 'Tirrevoka din iċ-ċavetta?';
+
+  @override
+  String get signupKeyRevokeMessage =>
+      'Ħadd ma jkun jista\' jirreġistra biha. Dan ma jistax jitreġġa\' lura.';
+
+  @override
+  String get signupKeyRevoked => 'Iċ-ċavetta ġiet revokata.';
+
+  @override
+  String signupKeysShowMore(int count) {
+    return 'Uri $count oħra';
+  }
+
+  @override
+  String get signupKeysCreateTitle => 'Oħloq ċwievet tar-reġistrazzjoni';
+
+  @override
+  String get signupKeysCount => 'Numru ta\' ċwievet';
+
+  @override
+  String get signupKeysCountHelper => 'Minn 1 sa 500';
+
+  @override
+  String get signupKeysCountInvalid => 'Daħħal numru minn 1 sa 500.';
+
+  @override
+  String get signupKeysLabel => 'Tikketta (mhux obbligatorja)';
+
+  @override
+  String get signupKeysLabelHint => 'eż. Testers beta tar-rebbiegħa';
+
+  @override
+  String signupKeysCreateAction(int count) {
+    return 'Oħloq ($count)';
+  }
+
+  @override
+  String signupKeysReady(int count) {
+    return 'Ċwievet lesti: $count';
+  }
+
+  @override
+  String get signupKeysReadyHint =>
+      'Agħti kull ċavetta lil persuna waħda biss. Iċ-ċwievet mhux użati jibqgħu fil-lista, biex tkun tista\' terġa\' tikkopjahom jew tesportahom aktar tard.';
+
+  @override
+  String get signupKeysSaveDialogTitle =>
+      'Issejvja ċ-ċwievet tar-reġistrazzjoni';
+
+  @override
+  String get signupKeysExported => 'Iċ-ċwievet ġew esportati.';
+
+  @override
+  String auditSignupKeysCreated(String actor, int count) {
+    return '$actor ħoloq ċwievet tar-reġistrazzjoni ($count)';
+  }
+
+  @override
+  String auditSignupKeyRevoked(String actor) {
+    return '$actor irrevoka ċavetta tar-reġistrazzjoni';
+  }
 }

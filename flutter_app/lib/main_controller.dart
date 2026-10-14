@@ -163,7 +163,9 @@ class NeoAgentController extends ChangeNotifier {
   io.Socket? get streamSocket => socketConnected ? _socket : null;
 
   bool hasUser = true;
-  bool registrationOpen = false;
+  /// New accounts need a one-time sign-up key from an admin; the first
+  /// account on a server never does.
+  bool signupKeyRequired = false;
   bool serviceEmailConfigured = false;
   String backendUrl = _defaultBackendUrl;
   String username = '';
@@ -876,7 +878,7 @@ class NeoAgentController extends ChangeNotifier {
     try {
       final status = await _authStatusStartingLocalBackend();
       hasUser = status['hasUser'] != false;
-      registrationOpen = status['registrationOpen'] == true;
+      signupKeyRequired = status['signupKeyRequired'] == true;
       serviceEmailConfigured =
           (status['email'] is Map &&
           (status['email'] as Map)['configured'] == true);
@@ -1578,16 +1580,43 @@ class NeoAgentController extends ChangeNotifier {
     required String username,
     required String email,
     required String password,
+    String? signupKey,
   }) async {
     this.username = username.trim();
     this.email = email.trim();
     this.password = password;
-    await _authenticate(register: true);
+    await _authenticate(register: true, signupKey: signupKey);
+  }
+
+  /// Whether [key] can still create an account. On failure the reason is the
+  /// inline error, under [authErrorCode].
+  Future<bool> checkSignupKey(String key) async {
+    isAuthenticating = true;
+    errorMessage = null;
+    authInfoMessage = null;
+    notifyListeners();
+    try {
+      await _backendClient.checkSignupKey(baseUrl: backendUrl, key: key);
+      return true;
+    } catch (error) {
+      _setAuthError(error);
+      return false;
+    } finally {
+      isAuthenticating = false;
+      notifyListeners();
+    }
+  }
+
+  void _setAuthError(Object error) {
+    errorMessage = _friendlyErrorMessage(error);
+    _authErrorCode = error is BackendException ? error.code : null;
+    _authErrorMessage = errorMessage;
   }
 
   Future<void> authenticateWithProvider({
     required String provider,
     required bool register,
+    String? signupKey,
   }) async {
     isAuthenticating = true;
     errorMessage = null;
@@ -1599,6 +1628,7 @@ class NeoAgentController extends ChangeNotifier {
         baseUrl: backendUrl,
         provider: provider,
         mode: register ? 'register' : 'login',
+        signupKey: signupKey,
       );
       final url = begin['url']?.toString();
       final state = begin['state']?.toString();
@@ -1636,7 +1666,7 @@ class NeoAgentController extends ChangeNotifier {
         retentionErrorMessage: appStrings.signInCompletedButNeoagentCould,
       );
     } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
+      _setAuthError(error);
       isAuthenticated = false;
     } finally {
       isAuthenticating = false;
@@ -1711,6 +1741,7 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> _authenticate({
     required bool register,
+    String? signupKey,
     bool silent = false,
   }) async {
     isAuthenticating = true;
@@ -1727,6 +1758,7 @@ class NeoAgentController extends ChangeNotifier {
               username: username,
               email: email,
               password: password,
+              signupKey: signupKey,
             )
           : await _backendClient.login(
               baseUrl: backendUrl,
@@ -1761,9 +1793,7 @@ class NeoAgentController extends ChangeNotifier {
         retentionErrorMessage: appStrings.signInCompletedButNeoagentCould2,
       );
     } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      _authErrorCode = error is BackendException ? error.code : null;
-      _authErrorMessage = errorMessage;
+      _setAuthError(error);
       isAuthenticated = false;
     } finally {
       isAuthenticating = false;
@@ -7126,8 +7156,12 @@ class NeoAgentController extends ChangeNotifier {
         return appStrings.thatEmailIsAlreadyLinkedTo;
       case 'INVALID_EMAIL':
         return appStrings.enterAValidEmailAddress;
-      case 'SIGNUP_DISABLED':
-        return appStrings.authSignupsClosed;
+      case 'SIGNUP_KEY_REQUIRED':
+        return appStrings.signupKeyRequiredError;
+      case 'SIGNUP_KEY_INVALID':
+        return appStrings.signupKeyInvalidError;
+      case 'SIGNUP_KEY_USED':
+        return appStrings.signupKeyUsedError;
       case 'INVALID_CREDENTIALS':
         return appStrings.yourUsernameOrPasswordIsIncorrect;
       case 'USER_NOT_FOUND':

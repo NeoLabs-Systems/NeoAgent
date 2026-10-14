@@ -549,9 +549,6 @@ class AppL10nSl extends AppL10n {
       'Dovolite »Namesti neznane aplikacije« za NeoAgent, nato znova poskusite posodobiti.';
 
   @override
-  String get allowNewSignUps => 'Dovoli nove prijave';
-
-  @override
   String get allowOnce => 'Dovolite enkrat';
 
   @override
@@ -5571,9 +5568,6 @@ class AppL10nSl extends AppL10n {
       'Eden ali več računov je poteklo. Znova povežite prizadeti račun, da obnovite dostop do orodja.';
 
   @override
-  String get oneRegister => 'en register.';
-
-  @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'En čas izvajanja nadzoruje osebnost, nadomestne skupine, pomnilnik sobe, norme, teorijo uma in dostavo.';
 
@@ -6989,10 +6983,6 @@ class AppL10nSl extends AppL10n {
       'Omejitve uporabe strežnika ne veljajo za modele, ki se izvajajo na vašem ključu.';
 
   @override
-  String get serverWithNoAccountsYetAlways =>
-      'strežnik brez računov, vendar vedno pusti prvega ';
-
-  @override
   String get serviceEmail => 'Storitvena e-pošta';
 
   @override
@@ -7178,9 +7168,6 @@ class AppL10nSl extends AppL10n {
 
   @override
   String get signOutEverywhere => 'Odjavite se povsod';
-
-  @override
-  String get signUpIsClosed => 'Prijava je zaključena.';
 
   @override
   String get signalCliRestApiBridge => 'signal-cli REST API most';
@@ -8911,10 +8898,6 @@ class AppL10nSl extends AppL10n {
   @override
   String get whatsappPersonalMessageReceived =>
       'Prejeto osebno sporočilo WhatsApp';
-
-  @override
-  String get whenOffOnlyExistingAccountsCan =>
-      'Ko je izklopljen, se lahko prijavijo samo obstoječi računi. A ';
 
   @override
   String get whenYouChooseApprovedOnlyAdd =>
@@ -11134,4 +11117,168 @@ class AppL10nSl extends AppL10n {
   @override
   String get qrLoginDeclinedOnPhone =>
       'Prijava na vašem telefonu je bila zavrnjena. Skenirajte novo kodo in poskusite znova.';
+
+  @override
+  String get signupKey => 'Registracijski ključ';
+
+  @override
+  String get signupKeyStepSubtitle =>
+      'Novi računi na tem strežniku potrebujejo registracijski ključ. Vnesite ključ, ki ste ga dobili od skrbnika.';
+
+  @override
+  String get signupKeyChange => 'Spremeni';
+
+  @override
+  String get signupKeyRequiredError => 'Vnesite svoj registracijski ključ.';
+
+  @override
+  String get signupKeyInvalidError =>
+      'Ta registracijski ključ ni veljaven. Preverite ga in poskusite znova.';
+
+  @override
+  String get signupKeyUsedError =>
+      'Ta registracijski ključ je že bil uporabljen. Prosite skrbnika za novega.';
+
+  @override
+  String get adminRequireSignupKey => 'Zahtevaj registracijski ključ';
+
+  @override
+  String get adminRequireSignupKeyHint =>
+      'Novi računi potrebujejo enkratni ključ skrbnika. Ko je izklopljeno, se lahko registrira vsak, ki doseže ta strežnik. Prvi račun ključa nikoli ne potrebuje.';
+
+  @override
+  String get adminSignupKeyRequiredNotice =>
+      'Novi računi zdaj potrebujejo registracijski ključ.';
+
+  @override
+  String get adminSignupOpenNotice => 'Zdaj se lahko registrira vsak.';
+
+  @override
+  String get signupKeys => 'Registracijski ključi';
+
+  @override
+  String get signupKeysDescription =>
+      'Enkratni ključi za registracijo, dokler je ključ zahtevan. Vsak ključ ustvari natanko en račun.';
+
+  @override
+  String get signupKeysNew => 'Novi ključi';
+
+  @override
+  String signupKeysFilterUnused(int count) {
+    return 'Neuporabljeni · $count';
+  }
+
+  @override
+  String signupKeysFilterUsed(int count) {
+    return 'Uporabljeni · $count';
+  }
+
+  @override
+  String signupKeysFilterRevoked(int count) {
+    return 'Preklicani · $count';
+  }
+
+  @override
+  String signupKeysFilterAll(int count) {
+    return 'Vsi · $count';
+  }
+
+  @override
+  String get signupKeyStatusUnused => 'Neuporabljen';
+
+  @override
+  String get signupKeyStatusUsed => 'Uporabljen';
+
+  @override
+  String get signupKeyStatusRevoked => 'Preklican';
+
+  @override
+  String get signupKeysExport => 'Izvozi .txt';
+
+  @override
+  String get signupKeysCopied => 'Ključi kopirani';
+
+  @override
+  String get signupKeyCopied => 'Ključ kopiran';
+
+  @override
+  String get signupKeysEmpty => 'Na tem seznamu ni ključev.';
+
+  @override
+  String signupKeyCreatedArg1(String arg1) {
+    return 'Ustvarjeno $arg1';
+  }
+
+  @override
+  String signupKeyUsedByArg1Arg2(String arg1, String arg2) {
+    return 'Uporabil(a) $arg1, $arg2';
+  }
+
+  @override
+  String signupKeyUsedByDeletedArg1(String arg1) {
+    return 'Uporabljeno $arg1 z računom, ki je bil medtem izbrisan';
+  }
+
+  @override
+  String get signupKeyRevokeTitle => 'Prekličem ta ključ?';
+
+  @override
+  String get signupKeyRevokeMessage =>
+      'Z njim se ne bo mogel registrirati nihče več. Tega ni mogoče razveljaviti.';
+
+  @override
+  String get signupKeyRevoked => 'Ključ preklican.';
+
+  @override
+  String signupKeysShowMore(int count) {
+    return 'Pokaži še $count';
+  }
+
+  @override
+  String get signupKeysCreateTitle => 'Ustvari registracijske ključe';
+
+  @override
+  String get signupKeysCount => 'Število ključev';
+
+  @override
+  String get signupKeysCountHelper => 'Od 1 do 500';
+
+  @override
+  String get signupKeysCountInvalid => 'Vnesite število od 1 do 500.';
+
+  @override
+  String get signupKeysLabel => 'Oznaka (neobvezno)';
+
+  @override
+  String get signupKeysLabelHint => 'npr. Spomladanski beta preizkuševalci';
+
+  @override
+  String signupKeysCreateAction(int count) {
+    return 'Ustvari ($count)';
+  }
+
+  @override
+  String signupKeysReady(int count) {
+    return 'Pripravljeni ključi: $count';
+  }
+
+  @override
+  String get signupKeysReadyHint =>
+      'Vsak ključ dajte le eni osebi. Neuporabljeni ključi ostanejo na seznamu, zato jih lahko pozneje znova kopirate ali izvozite.';
+
+  @override
+  String get signupKeysSaveDialogTitle => 'Shrani registracijske ključe';
+
+  @override
+  String get signupKeysExported => 'Ključi izvoženi.';
+
+  @override
+  String auditSignupKeysCreated(String actor, int count) {
+    return '$actor je ustvaril(a) registracijske ključe ($count)';
+  }
+
+  @override
+  String auditSignupKeyRevoked(String actor) {
+    return '$actor je preklical(a) registracijski ključ';
+  }
 }

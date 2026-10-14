@@ -298,7 +298,11 @@ function markChallengeScanned({ challengeId, secret, scannerMetadata }) {
       row.id,
     );
   }
-  return resolveChallengeForApproval({ challengeId, secret });
+  const preview = resolveChallengeForApproval({ challengeId, secret });
+  // To the phone a scanned request is still undecided; app builds from before
+  // the scanned state only offer Approve for pending ones.
+  if (preview.status === 'scanned') preview.status = 'pending';
+  return preview;
 }
 
 function declineRow(row) {

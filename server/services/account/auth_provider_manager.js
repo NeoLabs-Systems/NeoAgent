@@ -3,7 +3,11 @@
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const db = require('../../db/database');
-const { getDeploymentPolicy } = require('../../utils/deployment');
+const {
+  assertSignupKeyUsable,
+  isSignupKeyRequired,
+  redeemSignupKeyForNewUser,
+} = require('../access/signup_keys');
 const { isReservedAdminUsername } = require('../access/admin');
 const { isUsernameTaken } = require('./credentials');
 const { decryptValue, encryptValue } = require('../integrations/secrets');
@@ -94,7 +98,7 @@ class AuthProviderManager {
     });
   }
 
-  async beginAuthorization({ providerKey, mode, userId = null }) {
+  async beginAuthorization({ providerKey, mode, userId = null, signupKey = null }) {
     this.cleanupExpiredStates();
     const provider = this.getProvider(providerKey);
     if (!provider) {
@@ -108,6 +112,11 @@ class AuthProviderManager {
     if (normalizedMode === 'link' && !userId) {
       throw new Error('You must be signed in to link a provider.');
     }
+    // Checked here so a bad key fails before the provider round trip; it is
+    // spent only when the callback creates the account.
+    const keyCode = normalizedMode === 'register' && isSignupKeyRequired()
+      ? assertSignupKeyUsable(signupKey)
+      : null;
 
     const env = provider.getEnvStatus();
     if (!env.configured) {
@@ -126,8 +135,9 @@ class AuthProviderManager {
          mode,
          state,
          code_verifier,
-         expires_at
-       ) VALUES (?, ?, ?, ?, ?, ?)`,
+         expires_at,
+         signup_key
+       ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       userId || null,
       provider.key,
@@ -135,6 +145,7 @@ class AuthProviderManager {
       state,
       encryptValue(codeVerifier),
       expiresAt,
+      keyCode,
     );
 
     return {
@@ -348,13 +359,7 @@ class AuthProviderManager {
       throw new Error('That email already belongs to an existing account. Sign in first and link this provider from account settings.');
     }
 
-    const policy = getDeploymentPolicy();
-    const userCount = db.prepare('SELECT COUNT(*) AS count FROM users').get();
-    if (Number(userCount?.count || 0) > 0 && !policy.registrationOpen) {
-      throw new Error('Registration is closed');
-    }
-
-    const userId = await this.#createUserFromIdentity(identity);
+    const userId = await this.#createUserFromIdentity(identity, stateRow.signup_key);
     this.#upsertLink(userId, provider.key, identity);
     return {
       action: 'register',
@@ -366,19 +371,23 @@ class AuthProviderManager {
     };
   }
 
-  async #createUserFromIdentity(identity) {
+  async #createUserFromIdentity(identity, signupKey) {
     const passwordHash = await bcrypt.hash(crypto.randomUUID(), 12);
-    const username = this.#generateUniqueUsername(identity);
-    const result = db.prepare(
-      `INSERT INTO users (
-         username,
-         email,
-         email_verified_at,
-         password,
-         password_login_enabled
-       ) VALUES (?, ?, datetime('now'), ?, 0)`,
-    ).run(username, identity.email.toLowerCase(), passwordHash);
-    return Number(result.lastInsertRowid);
+    return db.transaction(() => {
+      const username = this.#generateUniqueUsername(identity);
+      const result = db.prepare(
+        `INSERT INTO users (
+           username,
+           email,
+           email_verified_at,
+           password,
+           password_login_enabled
+         ) VALUES (?, ?, datetime('now'), ?, 0)`,
+      ).run(username, identity.email.toLowerCase(), passwordHash);
+      const userId = Number(result.lastInsertRowid);
+      redeemSignupKeyForNewUser(signupKey, userId);
+      return userId;
+    })();
   }
 
   #generateUniqueUsername(identity) {

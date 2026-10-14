@@ -1065,12 +1065,6 @@ abstract class AppL10n {
   /// **'Allow \"Install unknown apps\" for NeoAgent, then retry the update.'**
   String get allowInstallUnknownAppsForNeoagent;
 
-  /// No description provided for @allowNewSignUps.
-  ///
-  /// In en, this message translates to:
-  /// **'Allow new sign-ups'**
-  String get allowNewSignUps;
-
   /// No description provided for @allowOnce.
   ///
   /// In en, this message translates to:
@@ -9223,12 +9217,6 @@ abstract class AppL10n {
   /// **'One or more accounts expired. Reconnect the affected account to restore tool access.'**
   String get oneOrMoreAccountsExpiredReconnect;
 
-  /// No description provided for @oneRegister.
-  ///
-  /// In en, this message translates to:
-  /// **'one register.'**
-  String get oneRegister;
-
   /// No description provided for @oneRuntimeControlsPersonaGroupTurn.
   ///
   /// In en, this message translates to:
@@ -11647,12 +11635,6 @@ abstract class AppL10n {
   /// **'Server usage limits don\'\'t apply to models running on your own key.'**
   String get serverUsageLimitsDonTApply;
 
-  /// No description provided for @serverWithNoAccountsYetAlways.
-  ///
-  /// In en, this message translates to:
-  /// **'server with no accounts yet always lets the first '**
-  String get serverWithNoAccountsYetAlways;
-
   /// No description provided for @serviceEmail.
   ///
   /// In en, this message translates to:
@@ -11958,12 +11940,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Sign out everywhere'**
   String get signOutEverywhere;
-
-  /// No description provided for @signUpIsClosed.
-  ///
-  /// In en, this message translates to:
-  /// **'Sign-up is closed.'**
-  String get signUpIsClosed;
 
   /// No description provided for @signalCliRestApiBridge.
   ///
@@ -14826,12 +14802,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'WhatsApp Personal Message Received'**
   String get whatsappPersonalMessageReceived;
-
-  /// No description provided for @whenOffOnlyExistingAccountsCan.
-  ///
-  /// In en, this message translates to:
-  /// **'When off, only existing accounts can sign in. A '**
-  String get whenOffOnlyExistingAccountsCan;
 
   /// No description provided for @whenYouChooseApprovedOnlyAdd.
   ///
@@ -18576,6 +18546,270 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'The login was declined on your phone. Scan the new code to try again.'**
   String get qrLoginDeclinedOnPhone;
+
+  /// No description provided for @signupKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-up key'**
+  String get signupKey;
+
+  /// No description provided for @signupKeyStepSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New accounts on this server need a sign-up key. Enter the one you got from an admin.'**
+  String get signupKeyStepSubtitle;
+
+  /// No description provided for @signupKeyChange.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get signupKeyChange;
+
+  /// No description provided for @signupKeyRequiredError.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your sign-up key.'**
+  String get signupKeyRequiredError;
+
+  /// No description provided for @signupKeyInvalidError.
+  ///
+  /// In en, this message translates to:
+  /// **'That sign-up key isn’t valid. Check it and try again.'**
+  String get signupKeyInvalidError;
+
+  /// No description provided for @signupKeyUsedError.
+  ///
+  /// In en, this message translates to:
+  /// **'That sign-up key has already been used. Ask an admin for a new one.'**
+  String get signupKeyUsedError;
+
+  /// No description provided for @adminRequireSignupKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Require a sign-up key'**
+  String get adminRequireSignupKey;
+
+  /// No description provided for @adminRequireSignupKeyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'New accounts need a one-time key from an admin. When off, anyone who can reach this server can register. The first account never needs a key.'**
+  String get adminRequireSignupKeyHint;
+
+  /// No description provided for @adminSignupKeyRequiredNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'New accounts now need a sign-up key.'**
+  String get adminSignupKeyRequiredNotice;
+
+  /// No description provided for @adminSignupOpenNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Anyone can register now.'**
+  String get adminSignupOpenNotice;
+
+  /// No description provided for @signupKeys.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-up keys'**
+  String get signupKeys;
+
+  /// No description provided for @signupKeysDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'One-time keys for registering while a key is required. Each key creates exactly one account.'**
+  String get signupKeysDescription;
+
+  /// No description provided for @signupKeysNew.
+  ///
+  /// In en, this message translates to:
+  /// **'New keys'**
+  String get signupKeysNew;
+
+  /// No description provided for @signupKeysFilterUnused.
+  ///
+  /// In en, this message translates to:
+  /// **'Unused · {count}'**
+  String signupKeysFilterUnused(int count);
+
+  /// No description provided for @signupKeysFilterUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Used · {count}'**
+  String signupKeysFilterUsed(int count);
+
+  /// No description provided for @signupKeysFilterRevoked.
+  ///
+  /// In en, this message translates to:
+  /// **'Revoked · {count}'**
+  String signupKeysFilterRevoked(int count);
+
+  /// No description provided for @signupKeysFilterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All · {count}'**
+  String signupKeysFilterAll(int count);
+
+  /// No description provided for @signupKeyStatusUnused.
+  ///
+  /// In en, this message translates to:
+  /// **'Unused'**
+  String get signupKeyStatusUnused;
+
+  /// No description provided for @signupKeyStatusUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Used'**
+  String get signupKeyStatusUsed;
+
+  /// No description provided for @signupKeyStatusRevoked.
+  ///
+  /// In en, this message translates to:
+  /// **'Revoked'**
+  String get signupKeyStatusRevoked;
+
+  /// No description provided for @signupKeysExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Export .txt'**
+  String get signupKeysExport;
+
+  /// No description provided for @signupKeysCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Keys copied'**
+  String get signupKeysCopied;
+
+  /// No description provided for @signupKeyCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Key copied'**
+  String get signupKeyCopied;
+
+  /// No description provided for @signupKeysEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No keys in this list.'**
+  String get signupKeysEmpty;
+
+  /// No description provided for @signupKeyCreatedArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Created {arg1}'**
+  String signupKeyCreatedArg1(String arg1);
+
+  /// No description provided for @signupKeyUsedByArg1Arg2.
+  ///
+  /// In en, this message translates to:
+  /// **'Used by {arg1} on {arg2}'**
+  String signupKeyUsedByArg1Arg2(String arg1, String arg2);
+
+  /// No description provided for @signupKeyUsedByDeletedArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Used on {arg1} by an account that has since been deleted'**
+  String signupKeyUsedByDeletedArg1(String arg1);
+
+  /// No description provided for @signupKeyRevokeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke this key?'**
+  String get signupKeyRevokeTitle;
+
+  /// No description provided for @signupKeyRevokeMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Nobody will be able to register with it. This can’t be undone.'**
+  String get signupKeyRevokeMessage;
+
+  /// No description provided for @signupKeyRevoked.
+  ///
+  /// In en, this message translates to:
+  /// **'Key revoked.'**
+  String get signupKeyRevoked;
+
+  /// No description provided for @signupKeysShowMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Show {count} more'**
+  String signupKeysShowMore(int count);
+
+  /// No description provided for @signupKeysCreateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create sign-up keys'**
+  String get signupKeysCreateTitle;
+
+  /// No description provided for @signupKeysCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Number of keys'**
+  String get signupKeysCount;
+
+  /// No description provided for @signupKeysCountHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'1 to 500'**
+  String get signupKeysCountHelper;
+
+  /// No description provided for @signupKeysCountInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a number from 1 to 500.'**
+  String get signupKeysCountInvalid;
+
+  /// No description provided for @signupKeysLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Label (optional)'**
+  String get signupKeysLabel;
+
+  /// No description provided for @signupKeysLabelHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Spring beta testers'**
+  String get signupKeysLabelHint;
+
+  /// No description provided for @signupKeysCreateAction.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Create 1 key} other{Create {count} keys}}'**
+  String signupKeysCreateAction(int count);
+
+  /// No description provided for @signupKeysReady.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Your key is ready} other{{count} keys are ready}}'**
+  String signupKeysReady(int count);
+
+  /// No description provided for @signupKeysReadyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Give each key to one person. Unused keys stay in the list, so you can copy or export them again later.'**
+  String get signupKeysReadyHint;
+
+  /// No description provided for @signupKeysSaveDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save sign-up keys'**
+  String get signupKeysSaveDialogTitle;
+
+  /// No description provided for @signupKeysExported.
+  ///
+  /// In en, this message translates to:
+  /// **'Keys exported.'**
+  String get signupKeysExported;
+
+  /// No description provided for @auditSignupKeysCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{actor} created a sign-up key} other{{actor} created {count} sign-up keys}}'**
+  String auditSignupKeysCreated(String actor, int count);
+
+  /// No description provided for @auditSignupKeyRevoked.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} revoked a sign-up key'**
+  String auditSignupKeyRevoked(String actor);
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

@@ -561,9 +561,6 @@ class AppL10nFr extends AppL10n {
       'Autorisez « Installer des applications inconnues » pour NeoAgent, puis réessayez la mise à jour.';
 
   @override
-  String get allowNewSignUps => 'Autoriser les nouvelles inscriptions';
-
-  @override
   String get allowOnce => 'Autoriser une fois';
 
   @override
@@ -5616,9 +5613,6 @@ class AppL10nFr extends AppL10n {
       'Un ou plusieurs comptes ont expiré. Reconnectez le compte concerné pour restaurer l\'accès à l\'outil.';
 
   @override
-  String get oneRegister => 'un seul registre.';
-
-  @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'Un environnement d\'exécution contrôle le personnage, le tour de rôle du groupe, la mémoire de la salle, les normes, la théorie de l\'esprit et la livraison.';
 
@@ -7051,10 +7045,6 @@ class AppL10nFr extends AppL10n {
       'Les limites d\'utilisation du serveur ne s\'appliquent pas aux modèles exécutés sur votre propre clé.';
 
   @override
-  String get serverWithNoAccountsYetAlways =>
-      'le serveur sans compte laisse toujours le premier ';
-
-  @override
   String get serviceEmail => 'E-mail de service';
 
   @override
@@ -7242,9 +7232,6 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get signOutEverywhere => 'Déconnectez-vous partout';
-
-  @override
-  String get signUpIsClosed => 'Les inscriptions sont closes.';
 
   @override
   String get signalCliRestApiBridge => 'signal-cli REST API bridge';
@@ -8989,10 +8976,6 @@ class AppL10nFr extends AppL10n {
   @override
   String get whatsappPersonalMessageReceived =>
       'Message personnel WhatsApp reçu';
-
-  @override
-  String get whenOffOnlyExistingAccountsCan =>
-      'Lorsqu\'elle est désactivée, seuls les comptes existants peuvent se connecter. ';
 
   @override
   String get whenYouChooseApprovedOnlyAdd =>
@@ -11232,4 +11215,169 @@ class AppL10nFr extends AppL10n {
   @override
   String get qrLoginDeclinedOnPhone =>
       'La connexion a été refusée sur votre téléphone. Scannez le nouveau code pour réessayer.';
+
+  @override
+  String get signupKey => 'Clé d’inscription';
+
+  @override
+  String get signupKeyStepSubtitle =>
+      'Les nouveaux comptes sur ce serveur nécessitent une clé d’inscription. Saisissez celle qu’un administrateur vous a remise.';
+
+  @override
+  String get signupKeyChange => 'Modifier';
+
+  @override
+  String get signupKeyRequiredError => 'Saisissez votre clé d’inscription.';
+
+  @override
+  String get signupKeyInvalidError =>
+      'Cette clé d’inscription n’est pas valide. Vérifiez-la et réessayez.';
+
+  @override
+  String get signupKeyUsedError =>
+      'Cette clé d’inscription a déjà été utilisée. Demandez-en une nouvelle à un administrateur.';
+
+  @override
+  String get adminRequireSignupKey => 'Exiger une clé d’inscription';
+
+  @override
+  String get adminRequireSignupKeyHint =>
+      'Les nouveaux comptes nécessitent une clé à usage unique fournie par un administrateur. Désactivé, toute personne pouvant accéder à ce serveur peut s’inscrire. Le premier compte n’a jamais besoin de clé.';
+
+  @override
+  String get adminSignupKeyRequiredNotice =>
+      'Les nouveaux comptes nécessitent désormais une clé d’inscription.';
+
+  @override
+  String get adminSignupOpenNotice =>
+      'Tout le monde peut désormais s’inscrire.';
+
+  @override
+  String get signupKeys => 'Clés d’inscription';
+
+  @override
+  String get signupKeysDescription =>
+      'Clés à usage unique pour s’inscrire lorsqu’une clé est exigée. Chaque clé crée exactement un compte.';
+
+  @override
+  String get signupKeysNew => 'Nouvelles clés';
+
+  @override
+  String signupKeysFilterUnused(int count) {
+    return 'Inutilisées · $count';
+  }
+
+  @override
+  String signupKeysFilterUsed(int count) {
+    return 'Utilisées · $count';
+  }
+
+  @override
+  String signupKeysFilterRevoked(int count) {
+    return 'Révoquées · $count';
+  }
+
+  @override
+  String signupKeysFilterAll(int count) {
+    return 'Toutes · $count';
+  }
+
+  @override
+  String get signupKeyStatusUnused => 'Inutilisée';
+
+  @override
+  String get signupKeyStatusUsed => 'Utilisée';
+
+  @override
+  String get signupKeyStatusRevoked => 'Révoquée';
+
+  @override
+  String get signupKeysExport => 'Exporter en .txt';
+
+  @override
+  String get signupKeysCopied => 'Clés copiées';
+
+  @override
+  String get signupKeyCopied => 'Clé copiée';
+
+  @override
+  String get signupKeysEmpty => 'Aucune clé dans cette liste.';
+
+  @override
+  String signupKeyCreatedArg1(String arg1) {
+    return 'Créée le $arg1';
+  }
+
+  @override
+  String signupKeyUsedByArg1Arg2(String arg1, String arg2) {
+    return 'Utilisée par $arg1 le $arg2';
+  }
+
+  @override
+  String signupKeyUsedByDeletedArg1(String arg1) {
+    return 'Utilisée le $arg1 par un compte supprimé depuis';
+  }
+
+  @override
+  String get signupKeyRevokeTitle => 'Révoquer cette clé ?';
+
+  @override
+  String get signupKeyRevokeMessage =>
+      'Personne ne pourra plus s’inscrire avec. Cette action est irréversible.';
+
+  @override
+  String get signupKeyRevoked => 'Clé révoquée.';
+
+  @override
+  String signupKeysShowMore(int count) {
+    return 'Afficher $count de plus';
+  }
+
+  @override
+  String get signupKeysCreateTitle => 'Créer des clés d’inscription';
+
+  @override
+  String get signupKeysCount => 'Nombre de clés';
+
+  @override
+  String get signupKeysCountHelper => 'De 1 à 500';
+
+  @override
+  String get signupKeysCountInvalid => 'Saisissez un nombre entre 1 et 500.';
+
+  @override
+  String get signupKeysLabel => 'Libellé (facultatif)';
+
+  @override
+  String get signupKeysLabelHint => 'p. ex. Testeurs bêta du printemps';
+
+  @override
+  String signupKeysCreateAction(int count) {
+    return 'Créer ($count)';
+  }
+
+  @override
+  String signupKeysReady(int count) {
+    return 'Clés prêtes : $count';
+  }
+
+  @override
+  String get signupKeysReadyHint =>
+      'Remettez chaque clé à une seule personne. Les clés inutilisées restent dans la liste : vous pourrez les copier ou les exporter plus tard.';
+
+  @override
+  String get signupKeysSaveDialogTitle => 'Enregistrer les clés d’inscription';
+
+  @override
+  String get signupKeysExported => 'Clés exportées.';
+
+  @override
+  String auditSignupKeysCreated(String actor, int count) {
+    return '$actor a créé des clés d’inscription ($count)';
+  }
+
+  @override
+  String auditSignupKeyRevoked(String actor) {
+    return '$actor a révoqué une clé d’inscription';
+  }
 }

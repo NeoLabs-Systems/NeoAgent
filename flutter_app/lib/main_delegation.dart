@@ -1204,6 +1204,13 @@ class _AccessActivityList extends StatelessWidget {
         return count > 1
             ? appStrings.arg1InviteLinksFromArg2WereRevoked(count, subject)
             : appStrings.arg1RevokedAnInviteLink(actor);
+      case 'signup_keys.create':
+        return appStrings.auditSignupKeysCreated(
+          actor,
+          _asInt(detail['count']),
+        );
+      case 'signup_keys.revoke':
+        return appStrings.auditSignupKeyRevoked(actor);
       case 'delegation.create':
         return appStrings.arg1JoinedUnderArg2(subject, _personById(detail['managerUserId']));
       case 'delegation.leave':

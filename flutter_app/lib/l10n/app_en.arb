@@ -255,7 +255,6 @@
   "allowedRunsWithoutAsking": "Allowed. Runs without asking.",
   "allowAll": "Allow all",
   "allowInstallUnknownAppsForNeoagent": "Allow \"Install unknown apps\" for NeoAgent, then retry the update.",
-  "allowNewSignUps": "Allow new sign-ups",
   "allowOnce": "Allow once",
   "allowSender": "Allow sender",
   "allowSession": "Allow session",
@@ -4039,7 +4038,6 @@
   "oneBlankToKeepWhatIs": "one blank to keep what is stored.",
   "oneIsSavedOtherChangesIn": "one is saved. Other changes in this form are saved too.",
   "oneOrMoreAccountsExpiredReconnect": "One or more accounts expired. Reconnect the affected account to restore tool access.",
-  "oneRegister": "one register.",
   "oneRuntimeControlsPersonaGroupTurn": "One runtime controls persona, group turn-taking, room memory, norms, Theory of Mind, and delivery.",
   "oneTimeRun": "One-time run",
   "onlyApkOrApksFilesCan": "Only .apk or .apks files can be installed.",
@@ -4750,7 +4748,6 @@
   "serverProviderCredentials": "Server provider credentials",
   "serverUrl": "Server URL",
   "serverUsageLimitsDonTApply": "Server usage limits don''t apply to models running on your own key.",
-  "serverWithNoAccountsYetAlways": "server with no accounts yet always lets the first ",
   "serviceEmail": "Service email",
   "serviceEmailIsNotConfigured": "service email is not configured",
   "serviceEmailSmtp": "Service email (SMTP)",
@@ -4872,7 +4869,6 @@
     }
   },
   "signOutEverywhere": "Sign out everywhere",
-  "signUpIsClosed": "Sign-up is closed.",
   "signalCliRestApiBridge": "signal-cli REST API bridge",
   "signalCliServerUrl": "signal-cli server URL",
   "signedArg1OutOfEverySession": "Signed @{arg1} out of every session.",
@@ -5772,7 +5768,6 @@
   "whatShouldWeBuild": "What should we build?",
   "whatYouAndNeoagentSayAppears": "What you and NeoAgent say appears here and in the chat.",
   "whatsappPersonalMessageReceived": "WhatsApp Personal Message Received",
-  "whenOffOnlyExistingAccountsCan": "When off, only existing accounts can sign in. A ",
   "whenYouChooseApprovedOnlyAdd": "When you choose approved only, add people or groups below.",
   "whereCreatedAtDatetimeNow30": "WHERE created_at >= datetime(''now'', ''-30 days'')\n",
   "whereRStatusFailed": "WHERE r.status = ''failed''\n",
@@ -6953,5 +6948,139 @@
   "qrLoginLocation": "Location",
   "qrLoginWaitingForApproval": "Waiting for approval",
   "qrLoginCancelAndUsePassword": "Cancel and use a password",
-  "qrLoginDeclinedOnPhone": "The login was declined on your phone. Scan the new code to try again."
+  "qrLoginDeclinedOnPhone": "The login was declined on your phone. Scan the new code to try again.",
+  "signupKey": "Sign-up key",
+  "signupKeyStepSubtitle": "New accounts on this server need a sign-up key. Enter the one you got from an admin.",
+  "signupKeyChange": "Change",
+  "signupKeyRequiredError": "Enter your sign-up key.",
+  "signupKeyInvalidError": "That sign-up key isn’t valid. Check it and try again.",
+  "signupKeyUsedError": "That sign-up key has already been used. Ask an admin for a new one.",
+  "adminRequireSignupKey": "Require a sign-up key",
+  "adminRequireSignupKeyHint": "New accounts need a one-time key from an admin. When off, anyone who can reach this server can register. The first account never needs a key.",
+  "adminSignupKeyRequiredNotice": "New accounts now need a sign-up key.",
+  "adminSignupOpenNotice": "Anyone can register now.",
+  "signupKeys": "Sign-up keys",
+  "signupKeysDescription": "One-time keys for registering while a key is required. Each key creates exactly one account.",
+  "signupKeysNew": "New keys",
+  "signupKeysFilterUnused": "Unused · {count}",
+  "@signupKeysFilterUnused": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "signupKeysFilterUsed": "Used · {count}",
+  "@signupKeysFilterUsed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "signupKeysFilterRevoked": "Revoked · {count}",
+  "@signupKeysFilterRevoked": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "signupKeysFilterAll": "All · {count}",
+  "@signupKeysFilterAll": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "signupKeyStatusUnused": "Unused",
+  "signupKeyStatusUsed": "Used",
+  "signupKeyStatusRevoked": "Revoked",
+  "signupKeysExport": "Export .txt",
+  "signupKeysCopied": "Keys copied",
+  "signupKeyCopied": "Key copied",
+  "signupKeysEmpty": "No keys in this list.",
+  "signupKeyCreatedArg1": "Created {arg1}",
+  "@signupKeyCreatedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "String"
+      }
+    }
+  },
+  "signupKeyUsedByArg1Arg2": "Used by {arg1} on {arg2}",
+  "@signupKeyUsedByArg1Arg2": {
+    "placeholders": {
+      "arg1": {
+        "type": "String"
+      },
+      "arg2": {
+        "type": "String"
+      }
+    }
+  },
+  "signupKeyUsedByDeletedArg1": "Used on {arg1} by an account that has since been deleted",
+  "@signupKeyUsedByDeletedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "String"
+      }
+    }
+  },
+  "signupKeyRevokeTitle": "Revoke this key?",
+  "signupKeyRevokeMessage": "Nobody will be able to register with it. This can’t be undone.",
+  "signupKeyRevoked": "Key revoked.",
+  "signupKeysShowMore": "Show {count} more",
+  "@signupKeysShowMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "signupKeysCreateTitle": "Create sign-up keys",
+  "signupKeysCount": "Number of keys",
+  "signupKeysCountHelper": "1 to 500",
+  "signupKeysCountInvalid": "Enter a number from 1 to 500.",
+  "signupKeysLabel": "Label (optional)",
+  "signupKeysLabelHint": "e.g. Spring beta testers",
+  "signupKeysCreateAction": "{count, plural, =1{Create 1 key} other{Create {count} keys}}",
+  "@signupKeysCreateAction": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "signupKeysReady": "{count, plural, =1{Your key is ready} other{{count} keys are ready}}",
+  "@signupKeysReady": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "signupKeysReadyHint": "Give each key to one person. Unused keys stay in the list, so you can copy or export them again later.",
+  "signupKeysSaveDialogTitle": "Save sign-up keys",
+  "signupKeysExported": "Keys exported.",
+  "auditSignupKeysCreated": "{count, plural, =1{{actor} created a sign-up key} other{{actor} created {count} sign-up keys}}",
+  "@auditSignupKeysCreated": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "auditSignupKeyRevoked": "{actor} revoked a sign-up key",
+  "@auditSignupKeyRevoked": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      }
+    }
+  }
 }

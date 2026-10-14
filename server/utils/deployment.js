@@ -57,6 +57,8 @@ function getTerminalEnv(env = process.env) {
   return parseTerminalEnv(env.TERMINAL_ENV);
 }
 
+// Open sign-up is the default. Turning it off does not close registration: new
+// accounts then need a one-time sign-up key from an admin.
 function getAllowSignup(env = process.env) {
   const raw = String(env.NEOAGENT_ALLOW_SIGNUP ?? '').trim().toLowerCase();
   if (raw === 'false' || raw === '0' || raw === 'no') return false;
@@ -76,7 +78,7 @@ function getDeploymentPolicy(env = process.env) {
     mode,
     managed: mode === DEPLOYMENT_MODE_MANAGED,
     allowSelfUpdate: mode !== DEPLOYMENT_MODE_MANAGED && !isContainerImage(env),
-    registrationOpen: getAllowSignup(env),
+    signupKeyRequired: !getAllowSignup(env),
     runtimeDefaults: {
       runtime_profile: 'cloud-computer',
       runtime_backend: getTerminalEnv(env),

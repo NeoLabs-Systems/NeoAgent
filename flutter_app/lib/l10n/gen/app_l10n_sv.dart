@@ -548,9 +548,6 @@ class AppL10nSv extends AppL10n {
       'Tillåt \"Installera okända appar\" för NeoAgent och försök sedan att uppdatera igen.';
 
   @override
-  String get allowNewSignUps => 'Tillåt nya registreringar';
-
-  @override
   String get allowOnce => 'Tillåt en gång';
 
   @override
@@ -5558,9 +5555,6 @@ class AppL10nSv extends AppL10n {
       'Ett eller flera konton har löpt ut. Återanslut det berörda kontot för att återställa verktygsåtkomst.';
 
   @override
-  String get oneRegister => 'ett register.';
-
-  @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'En körning styr persona, gruppturtagning, rumsminne, normer, Theory of Mind och leverans.';
 
@@ -6976,10 +6970,6 @@ class AppL10nSv extends AppL10n {
       'Serveranvändningsgränser gäller inte för modeller som körs på din egen nyckel.';
 
   @override
-  String get serverWithNoAccountsYetAlways =>
-      'server utan konton låter alltid den första ';
-
-  @override
   String get serviceEmail => 'Servicemail';
 
   @override
@@ -7166,9 +7156,6 @@ class AppL10nSv extends AppL10n {
 
   @override
   String get signOutEverywhere => 'Logga ut överallt';
-
-  @override
-  String get signUpIsClosed => 'Anmälan är stängd.';
 
   @override
   String get signalCliRestApiBridge => 'signal-cli REST API-brygga';
@@ -8901,10 +8888,6 @@ class AppL10nSv extends AppL10n {
   @override
   String get whatsappPersonalMessageReceived =>
       'WhatsApp personligt meddelande mottaget';
-
-  @override
-  String get whenOffOnlyExistingAccountsCan =>
-      'När det är inaktiverat kan bara befintliga konton logga in. A ';
 
   @override
   String get whenYouChooseApprovedOnlyAdd =>
@@ -11120,4 +11103,168 @@ class AppL10nSv extends AppL10n {
   @override
   String get qrLoginDeclinedOnPhone =>
       'Inloggningen avvisades på din telefon. Skanna den nya koden för att försöka igen.';
+
+  @override
+  String get signupKey => 'Registreringsnyckel';
+
+  @override
+  String get signupKeyStepSubtitle =>
+      'Nya konton på den här servern kräver en registreringsnyckel. Ange den du fick av en administratör.';
+
+  @override
+  String get signupKeyChange => 'Ändra';
+
+  @override
+  String get signupKeyRequiredError => 'Ange din registreringsnyckel.';
+
+  @override
+  String get signupKeyInvalidError =>
+      'Registreringsnyckeln är ogiltig. Kontrollera den och försök igen.';
+
+  @override
+  String get signupKeyUsedError =>
+      'Registreringsnyckeln har redan använts. Be en administratör om en ny.';
+
+  @override
+  String get adminRequireSignupKey => 'Kräv en registreringsnyckel';
+
+  @override
+  String get adminRequireSignupKeyHint =>
+      'Nya konton kräver en engångsnyckel från en administratör. När det är av kan alla som når den här servern registrera sig. Det första kontot behöver aldrig någon nyckel.';
+
+  @override
+  String get adminSignupKeyRequiredNotice =>
+      'Nya konton kräver nu en registreringsnyckel.';
+
+  @override
+  String get adminSignupOpenNotice => 'Nu kan vem som helst registrera sig.';
+
+  @override
+  String get signupKeys => 'Registreringsnycklar';
+
+  @override
+  String get signupKeysDescription =>
+      'Engångsnycklar för registrering så länge en nyckel krävs. Varje nyckel skapar exakt ett konto.';
+
+  @override
+  String get signupKeysNew => 'Nya nycklar';
+
+  @override
+  String signupKeysFilterUnused(int count) {
+    return 'Oanvända · $count';
+  }
+
+  @override
+  String signupKeysFilterUsed(int count) {
+    return 'Använda · $count';
+  }
+
+  @override
+  String signupKeysFilterRevoked(int count) {
+    return 'Återkallade · $count';
+  }
+
+  @override
+  String signupKeysFilterAll(int count) {
+    return 'Alla · $count';
+  }
+
+  @override
+  String get signupKeyStatusUnused => 'Oanvänd';
+
+  @override
+  String get signupKeyStatusUsed => 'Använd';
+
+  @override
+  String get signupKeyStatusRevoked => 'Återkallad';
+
+  @override
+  String get signupKeysExport => 'Exportera .txt';
+
+  @override
+  String get signupKeysCopied => 'Nycklar kopierade';
+
+  @override
+  String get signupKeyCopied => 'Nyckel kopierad';
+
+  @override
+  String get signupKeysEmpty => 'Inga nycklar i den här listan.';
+
+  @override
+  String signupKeyCreatedArg1(String arg1) {
+    return 'Skapad $arg1';
+  }
+
+  @override
+  String signupKeyUsedByArg1Arg2(String arg1, String arg2) {
+    return 'Använd av $arg1 den $arg2';
+  }
+
+  @override
+  String signupKeyUsedByDeletedArg1(String arg1) {
+    return 'Använd den $arg1 av ett konto som sedan har raderats';
+  }
+
+  @override
+  String get signupKeyRevokeTitle => 'Återkalla den här nyckeln?';
+
+  @override
+  String get signupKeyRevokeMessage =>
+      'Ingen kommer att kunna registrera sig med den. Det går inte att ångra.';
+
+  @override
+  String get signupKeyRevoked => 'Nyckeln återkallades.';
+
+  @override
+  String signupKeysShowMore(int count) {
+    return 'Visa $count till';
+  }
+
+  @override
+  String get signupKeysCreateTitle => 'Skapa registreringsnycklar';
+
+  @override
+  String get signupKeysCount => 'Antal nycklar';
+
+  @override
+  String get signupKeysCountHelper => '1 till 500';
+
+  @override
+  String get signupKeysCountInvalid => 'Ange ett tal från 1 till 500.';
+
+  @override
+  String get signupKeysLabel => 'Etikett (valfri)';
+
+  @override
+  String get signupKeysLabelHint => 't.ex. Betatestare våren';
+
+  @override
+  String signupKeysCreateAction(int count) {
+    return 'Skapa ($count)';
+  }
+
+  @override
+  String signupKeysReady(int count) {
+    return 'Nycklar klara: $count';
+  }
+
+  @override
+  String get signupKeysReadyHint =>
+      'Ge varje nyckel till en person. Oanvända nycklar finns kvar i listan så att du kan kopiera eller exportera dem igen senare.';
+
+  @override
+  String get signupKeysSaveDialogTitle => 'Spara registreringsnycklar';
+
+  @override
+  String get signupKeysExported => 'Nycklarna exporterades.';
+
+  @override
+  String auditSignupKeysCreated(String actor, int count) {
+    return '$actor skapade registreringsnycklar ($count)';
+  }
+
+  @override
+  String auditSignupKeyRevoked(String actor) {
+    return '$actor återkallade en registreringsnyckel';
+  }
 }

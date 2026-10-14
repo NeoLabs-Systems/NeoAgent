@@ -1481,73 +1481,11 @@ class _AdminConfigTabState extends State<_AdminConfigTab> {
     return _SectionStack(
       children: <Widget>[
         _AdminCfgAccessCard(controller: controller),
+        _AdminSignupKeysCard(controller: controller),
         _AdminCfgGeneralCard(controller: controller),
         _AdminCfgVmCard(controller: controller),
         _AdminCfgEmailCard(controller: controller),
       ],
-    );
-  }
-}
-
-class _AdminCfgAccessCard extends StatefulWidget {
-  const _AdminCfgAccessCard({required this.controller});
-
-  final NeoAgentController controller;
-
-  @override
-  State<_AdminCfgAccessCard> createState() => _AdminCfgAccessCardState();
-}
-
-class _AdminCfgAccessCardState extends State<_AdminCfgAccessCard>
-    with _LoadSaveState<_AdminCfgAccessCard> {
-  bool _signupEnabled = true;
-
-  @override
-  NeoAgentController get _controller => widget.controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _runLoad(_fetch);
-  }
-
-  Future<void> _fetch() async {
-    final data = await _client.fetchAdminAccess(_baseUrl);
-    _signupEnabled = data['signupEnabled'] != false;
-  }
-
-  Future<void> _setSignup(bool enabled) async {
-    if (_saving) return;
-    final previous = _signupEnabled;
-    setState(() => _signupEnabled = enabled);
-    final saved = await _runSave(() async {
-      final data = await _client.setAdminSignupEnabled(_baseUrl, enabled);
-      _signupEnabled = data['signupEnabled'] != false;
-    }, enabled ? 'Sign-up is open.' : appStrings.signUpIsClosed);
-    if (!saved && mounted) setState(() => _signupEnabled = previous);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _SectionCard(
-      title: appStrings.access,
-      child:
-          _loadGate(_fetch) ??
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              _SettingToggle(
-                title: appStrings.allowNewSignUps,
-                subtitle:
-                    appStrings.whenOffOnlyExistingAccountsCan +
-                    appStrings.serverWithNoAccountsYetAlways +
-                    appStrings.oneRegister,
-                value: _signupEnabled,
-                onChanged: _setSignup,
-              ),
-              _saveFeedback(),
-            ],
-          ),
     );
   }
 }

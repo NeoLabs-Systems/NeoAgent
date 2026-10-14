@@ -31,11 +31,15 @@ bool _looksLikeEmail(String value) {
 }
 
 /// The sign-in and registration fields, for inline errors.
-enum _AuthField { username, email, password, confirmPassword }
+enum _AuthField { signupKey, username, email, password, confirmPassword }
 
 /// Which field a server error code concerns during registration.
 _AuthField? _authFieldForCode(String? code) {
   switch (code) {
+    case 'SIGNUP_KEY_REQUIRED':
+    case 'SIGNUP_KEY_INVALID':
+    case 'SIGNUP_KEY_USED':
+      return _AuthField.signupKey;
     case 'USERNAME_TOO_SHORT':
     case 'USERNAME_TAKEN':
       return _AuthField.username;
@@ -55,11 +59,16 @@ class _AuthViewState extends State<AuthView> {
   late final TextEditingController _passwordController;
   late final TextEditingController _confirmPasswordController;
   late final TextEditingController _twoFactorController;
+  final TextEditingController _signupKeyController = TextEditingController();
+  final FocusNode _usernameFocus = FocusNode();
   final FocusNode _emailFocus = FocusNode();
   final FocusNode _passwordFocus = FocusNode();
   final FocusNode _confirmPasswordFocus = FocusNode();
   late final AppLifecycleListener _lifecycle;
   bool _registerMode = false;
+
+  /// The sign-up key the server accepted; the account form opens once set.
+  String? _verifiedSignupKey;
   bool _obscurePassword = true;
   Map<_AuthField, String> _fieldErrors = const <_AuthField, String>{};
 
@@ -162,6 +171,8 @@ class _AuthViewState extends State<AuthView> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _twoFactorController.dispose();
+    _signupKeyController.dispose();
+    _usernameFocus.dispose();
     _emailFocus.dispose();
     _passwordFocus.dispose();
     _confirmPasswordFocus.dispose();
@@ -406,6 +417,59 @@ class _AuthViewState extends State<AuthView> {
     return errors.isEmpty;
   }
 
+  /// Registration on a server that needs a key starts by asking for one.
+  bool get _awaitingSignupKey =>
+      _registerMode &&
+      widget.controller.signupKeyRequired &&
+      _verifiedSignupKey == null;
+
+  Future<void> _submitSignupKey() async {
+    final key = _signupKeyController.text.trim();
+    if (key.isEmpty) {
+      setState(
+        () => _fieldErrors = <_AuthField, String>{
+          _AuthField.signupKey: appStrings.signupKeyRequiredError,
+        },
+      );
+      return;
+    }
+    final accepted = await widget.controller.checkSignupKey(key);
+    if (!mounted || !accepted) return;
+    setState(() {
+      _verifiedSignupKey = key;
+      _fieldErrors = const <_AuthField, String>{};
+    });
+    _usernameFocus.requestFocus();
+  }
+
+  /// A key the server turned down while creating the account (spent or
+  /// revoked meanwhile) sends the form back to the key step, error and all.
+  void _returnToKeyStepIfRejected() {
+    if (!mounted ||
+        _authFieldForCode(widget.controller.authErrorCode) !=
+            _AuthField.signupKey) {
+      return;
+    }
+    setState(() => _verifiedSignupKey = null);
+  }
+
+  void _changeSignupKey() {
+    widget.controller.clearInlineError();
+    setState(() {
+      _verifiedSignupKey = null;
+      _fieldErrors = const <_AuthField, String>{};
+    });
+  }
+
+  Future<void> _registerWithProvider(String provider) async {
+    await widget.controller.authenticateWithProvider(
+      provider: provider,
+      register: true,
+      signupKey: _verifiedSignupKey,
+    );
+    _returnToKeyStepIfRejected();
+  }
+
   bool _validateLogin() {
     final errors = <_AuthField, String>{
       if (_usernameController.text.trim().isEmpty)
@@ -430,13 +494,18 @@ class _AuthViewState extends State<AuthView> {
       if (!controller.isAwaitingTwoFactor) {
         _twoFactorController.clear();
       }
+    } else if (_awaitingSignupKey) {
+      await _submitSignupKey();
+      return;
     } else if (_registerMode) {
       if (!_validateRegistration()) return;
       await controller.register(
         username: _usernameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
+        signupKey: _verifiedSignupKey,
       );
+      _returnToKeyStepIfRejected();
       // Created but waiting on email confirmation: sign in once confirmed.
       if (mounted &&
           !controller.isAuthenticated &&
@@ -561,6 +630,7 @@ class _AuthViewState extends State<AuthView> {
     final controller = widget.controller;
     final usernameField = TextField(
       controller: _usernameController,
+      focusNode: _usernameFocus,
       autofillHints: const <String>[AutofillHints.username],
       keyboardType: _registerMode
           ? TextInputType.text
@@ -661,6 +731,71 @@ class _AuthViewState extends State<AuthView> {
         ),
       ),
     ];
+  }
+
+  Widget _buildSignupKeyField() {
+    return _labeledField(
+      appStrings.signupKey,
+      TextField(
+        controller: _signupKeyController,
+        autofocus: true,
+        keyboardType: TextInputType.visiblePassword,
+        autocorrect: false,
+        enableSuggestions: false,
+        textCapitalization: TextCapitalization.characters,
+        inputFormatters: <TextInputFormatter>[_SignupKeyFormatter()],
+        textInputAction: TextInputAction.done,
+        textAlign: TextAlign.center,
+        style: GoogleFonts.geistMono(
+          color: _textPrimary,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 2,
+        ),
+        onChanged: (_) => _onFieldEdited(_AuthField.signupKey),
+        onSubmitted: (_) => unawaited(_submit()),
+        decoration: _authInputDecoration(
+          errorText: _errorFor(_AuthField.signupKey),
+        ).copyWith(hintText: 'XXXX-XXXX-XXXX'),
+      ),
+    );
+  }
+
+  /// The accepted key above the account form, with a way back to change it.
+  Widget _buildSignupKeySummary(String key) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+      decoration: BoxDecoration(
+        color: _success.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _success.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(Icons.vpn_key_outlined, size: 16, color: _success),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              key,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.geistMono(
+                color: _textPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: widget.controller.isAuthenticating
+                ? null
+                : _changeSignupKey,
+            style: _inlineLinkStyle,
+            child: Text(appStrings.signupKeyChange),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Phone sign-in, the quickest way in: the code itself where the card has
@@ -838,10 +973,14 @@ class _AuthViewState extends State<AuthView> {
         OutlinedButton.icon(
           onPressed: controller.isAuthenticating
               ? null
-              : () => controller.authenticateWithProvider(
-                  provider: provider.id,
-                  register: _registerMode,
-                ),
+              : () => _registerMode
+                    ? unawaited(_registerWithProvider(provider.id))
+                    : unawaited(
+                        controller.authenticateWithProvider(
+                          provider: provider.id,
+                          register: false,
+                        ),
+                      ),
           style: style,
           icon: provider.icon == 'google'
               ? const Text(
@@ -898,9 +1037,7 @@ class _AuthViewState extends State<AuthView> {
     NeoAgentController controller,
     QrLoginScan scan,
   ) {
-    final location = scan.requestLocationLabel.trim();
-    final showLocation =
-        location.isNotEmpty && location.toLowerCase() != 'unknown';
+    final location = scan.requestLocationLabel.trim().ifEmpty('Unknown');
     Widget detail(String label, String value) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -977,7 +1114,7 @@ class _AuthViewState extends State<AuthView> {
                   ),
                 ],
               ),
-              if (scan.requestedDeviceLabel.isNotEmpty || showLocation) ...[
+              ...<Widget>[
                 const SizedBox(height: 14),
                 Divider(height: 1, color: _border),
                 const SizedBox(height: 14),
@@ -991,10 +1128,9 @@ class _AuthViewState extends State<AuthView> {
                           scan.requestedDeviceLabel,
                         ),
                       ),
-                    if (showLocation)
-                      Expanded(
-                        child: detail(appStrings.qrLoginLocation, location),
-                      ),
+                    Expanded(
+                      child: detail(appStrings.qrLoginLocation, location),
+                    ),
                   ],
                 ),
               ],
@@ -1050,6 +1186,8 @@ class _AuthViewState extends State<AuthView> {
   }) {
     final showSecurityKeySignIn =
         !_registerMode && controller.supportsSecurityKeys;
+    final awaitingSignupKey = !awaitingTwoFactor && _awaitingSignupKey;
+    final verifiedSignupKey = _verifiedSignupKey;
     // Field-specific server errors sit under their field, not in the banner.
     final showErrorBanner =
         controller.errorMessage != null &&
@@ -1058,9 +1196,11 @@ class _AuthViewState extends State<AuthView> {
     final submitBlocked =
         _registerMode &&
         !awaitingTwoFactor &&
+        !awaitingSignupKey &&
         !_registerPasswordStrength.acceptable;
     final hasAlternatives =
-        availableProviders.isNotEmpty || showSecurityKeySignIn;
+        !awaitingSignupKey &&
+        (availableProviders.isNotEmpty || showSecurityKeySignIn);
     final scan = controller.qrLoginScan;
     if (showQrLogin && scan != null) {
       return _buildQrWaitingContent(controller, scan);
@@ -1138,11 +1278,19 @@ class _AuthViewState extends State<AuthView> {
               decoration: _authInputDecoration(),
             ),
           )
+        else if (awaitingSignupKey)
+          _buildSignupKeyField()
         else
           AutofillGroup(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: _buildCredentialFields(),
+              children: <Widget>[
+                if (_registerMode && verifiedSignupKey != null) ...<Widget>[
+                  _buildSignupKeySummary(verifiedSignupKey),
+                  const SizedBox(height: 16),
+                ],
+                ..._buildCredentialFields(),
+              ],
             ),
           ),
         const SizedBox(height: 20),
@@ -1159,6 +1307,8 @@ class _AuthViewState extends State<AuthView> {
               : Text(
                   awaitingTwoFactor
                       ? appStrings.authVerify
+                      : awaitingSignupKey
+                      ? appStrings.continue2
                       : (_registerMode
                             ? appStrings.authCreateAccount
                             : appStrings.signIn),
@@ -1272,13 +1422,6 @@ class _AuthViewState extends State<AuthView> {
                 : appStrings.needANewAccountRegister,
           ),
         ),
-      ] else if (!_registerMode && controller.hasUser) ...<Widget>[
-        const SizedBox(height: 18),
-        Text(
-          appStrings.authSignupsClosed,
-          textAlign: TextAlign.center,
-          style: TextStyle(color: _textMuted, fontSize: 12, height: 1.45),
-        ),
       ],
       if (controller.canChangeBackend) ...<Widget>[
         const SizedBox(height: 4),
@@ -1315,8 +1458,7 @@ class _AuthViewState extends State<AuthView> {
     }
 
     final awaitingTwoFactor = controller.isAwaitingTwoFactor;
-    final showRegisterToggle =
-        controller.registrationOpen && controller.hasUser;
+    final showRegisterToggle = controller.hasUser;
     final showQrLogin = !awaitingTwoFactor && !_registerMode;
     final waitingForPhone = showQrLogin && controller.qrLoginScan != null;
     if (!showQrLogin) {
@@ -1337,9 +1479,11 @@ class _AuthViewState extends State<AuthView> {
               : appStrings.createTheFirstAccount)
         : appStrings.authSignInTitle;
     final subtitle = _registerMode
-        ? (controller.hasUser
-              ? appStrings.createAnotherNeoagentAccount
-              : appStrings.thisAccountWillUnlockNeoagentOn)
+        ? (!controller.hasUser
+              ? appStrings.thisAccountWillUnlockNeoagentOn
+              : _awaitingSignupKey
+              ? appStrings.signupKeyStepSubtitle
+              : appStrings.createAnotherNeoagentAccount)
         : appStrings.authSignInSubtitle;
 
     return _AuthBackdrop(
@@ -3097,5 +3241,30 @@ class _SectionBody extends StatelessWidget {
             ? AdminPanel(controller: controller)
             : ChatPanel(controller: controller);
     }
+  }
+}
+
+/// Sign-up keys as XXXX-XXXX-XXXX while they are typed or pasted: upper case,
+/// grouped by fours, anything else dropped. The server accepts them either way.
+class _SignupKeyFormatter extends TextInputFormatter {
+  static const int _length = 12;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    var raw = newValue.text.toUpperCase().replaceAll(RegExp(r'[^0-9A-Z]'), '');
+    if (raw.length > _length) raw = raw.substring(0, _length);
+    final grouped = StringBuffer();
+    for (var index = 0; index < raw.length; index++) {
+      if (index > 0 && index % 4 == 0) grouped.write('-');
+      grouped.write(raw[index]);
+    }
+    final text = grouped.toString();
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
   }
 }

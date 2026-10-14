@@ -12,8 +12,7 @@ NeoAgentController _controller(ScriptedHttpClient http) {
       healthBridge: HealthBridge(),
     )
     ..backendUrl = 'http://localhost:3333'
-    ..hasUser = true
-    ..registrationOpen = true;
+    ..hasUser = true;
 }
 
 Future<void> _pumpAuthView(
@@ -95,6 +94,77 @@ void main() {
     );
   });
 
+  testWidgets('a server that needs a key asks for it before the form', (
+    tester,
+  ) async {
+    var keyAccepted = false;
+    final http = ScriptedHttpClient((method, uri, body) {
+      if (uri.path == '/api/auth/signup-key/check') {
+        if (!body.toString().contains('ABCD-EFGH-JKMN')) {
+          return jsonResponse(403, <String, dynamic>{
+            'error': 'invalid',
+            'code': 'SIGNUP_KEY_INVALID',
+          });
+        }
+        keyAccepted = true;
+        return jsonResponse(200, <String, dynamic>{'valid': true});
+      }
+      if (uri.path == '/api/auth/register') {
+        return jsonResponse(403, <String, dynamic>{
+          'error': 'used',
+          'code': 'SIGNUP_KEY_USED',
+        });
+      }
+      return jsonResponse(200, <String, dynamic>{});
+    });
+    final controller = _controller(http)..signupKeyRequired = true;
+    addTearDown(controller.dispose);
+    await _pumpAuthView(tester, controller);
+
+    await tester.tap(find.text('Need a new account? Register'));
+    await tester.pump();
+    expect(find.text('Username'), findsNothing);
+
+    await tester.enterText(_fieldLabeled('Sign-up key'), 'wxyz-wxyz-wxyz');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(
+      find.text('That sign-up key isn’t valid. Check it and try again.'),
+      findsOneWidget,
+    );
+    expect(find.text('Username'), findsNothing);
+
+    // Typed in lower case without dashes; the field formats it.
+    await tester.enterText(_fieldLabeled('Sign-up key'), 'abcdefghjkmn');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(keyAccepted, isTrue);
+    expect(find.text('ABCD-EFGH-JKMN'), findsOneWidget);
+
+    await tester.enterText(_fieldLabeled('Username'), 'new_person');
+    await tester.enterText(_fieldLabeled('Email'), 'new@example.com');
+    await tester.enterText(_fieldLabeled('Password'), 'Correct-Horse-9-Battery');
+    await tester.enterText(
+      _fieldLabeled('Confirm Password'),
+      'Correct-Horse-9-Battery',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    final register = http.requests.where(
+      (r) => r.$2.path == '/api/auth/register',
+    );
+    expect(register.single.$3.toString(), contains('ABCD-EFGH-JKMN'));
+    // A key spent meanwhile sends the form back to the key step.
+    expect(find.text('Sign-up key'), findsOneWidget);
+    expect(
+      find.text(
+        'That sign-up key has already been used. Ask an admin for a new one.',
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('server error codes map to localized messages', (tester) async {
     final controller = _controller(
       ScriptedHttpClient((m, u, b) => jsonResponse(200, <String, dynamic>{})),
@@ -110,7 +180,7 @@ void main() {
           ),
         );
 
-    expect(message('SIGNUP_DISABLED'), contains('Sign-ups are closed'));
+    expect(message('SIGNUP_KEY_USED'), contains('already been used'));
     expect(message('USERNAME_TAKEN'), 'That username is already taken.');
     expect(
       message('INVALID_CREDENTIALS'),

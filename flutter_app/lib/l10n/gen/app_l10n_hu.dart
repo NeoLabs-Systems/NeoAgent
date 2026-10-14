@@ -552,9 +552,6 @@ class AppL10nHu extends AppL10n {
       'Engedélyezze az „Ismeretlen alkalmazások telepítése” lehetőséget a NeoAgent számára, majd próbálkozzon újra a frissítéssel.';
 
   @override
-  String get allowNewSignUps => 'Új regisztrációk engedélyezése';
-
-  @override
   String get allowOnce => 'Engedje meg egyszer';
 
   @override
@@ -5589,9 +5586,6 @@ class AppL10nHu extends AppL10n {
       'Egy vagy több fiók lejárt. Csatlakoztassa újra az érintett fiókot az eszköz hozzáférésének visszaállításához.';
 
   @override
-  String get oneRegister => 'egy regiszter.';
-
-  @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'Egy futási idő vezérli a személyt, a csoportok átvételét, a helyiség memóriáját, a normákat, az elmeelméletet és a kézbesítést.';
 
@@ -7019,10 +7013,6 @@ class AppL10nHu extends AppL10n {
       'A szerverhasználati korlátozások nem vonatkoznak a saját kulcsán futó modellekre.';
 
   @override
-  String get serverWithNoAccountsYetAlways =>
-      'fiók nélküli szerver mindig engedélyezi az elsőt ';
-
-  @override
   String get serviceEmail => 'Szerviz e-mail';
 
   @override
@@ -7211,9 +7201,6 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get signOutEverywhere => 'Jelentkezzen ki mindenhol';
-
-  @override
-  String get signUpIsClosed => 'A regisztráció lezárult.';
 
   @override
   String get signalCliRestApiBridge => 'signal-cli REST API híd';
@@ -8953,10 +8940,6 @@ class AppL10nHu extends AppL10n {
   @override
   String get whatsappPersonalMessageReceived =>
       'WhatsApp személyes üzenet érkezett';
-
-  @override
-  String get whenOffOnlyExistingAccountsCan =>
-      'Kikapcsolt állapotban csak a meglévő fiókok tudnak bejelentkezni. A ';
 
   @override
   String get whenYouChooseApprovedOnlyAdd =>
@@ -11183,4 +11166,168 @@ class AppL10nHu extends AppL10n {
   @override
   String get qrLoginDeclinedOnPhone =>
       'A telefonján a bejelentkezést elutasították. Olvassa be az új kódot, és próbálja újra.';
+
+  @override
+  String get signupKey => 'Regisztrációs kulcs';
+
+  @override
+  String get signupKeyStepSubtitle =>
+      'Ezen a szerveren az új fiókokhoz regisztrációs kulcs kell. Adja meg a rendszergazdától kapott kulcsot.';
+
+  @override
+  String get signupKeyChange => 'Módosítás';
+
+  @override
+  String get signupKeyRequiredError => 'Adja meg a regisztrációs kulcsát.';
+
+  @override
+  String get signupKeyInvalidError =>
+      'Ez a regisztrációs kulcs érvénytelen. Ellenőrizze, és próbálja újra.';
+
+  @override
+  String get signupKeyUsedError =>
+      'Ezt a regisztrációs kulcsot már felhasználták. Kérjen újat egy rendszergazdától.';
+
+  @override
+  String get adminRequireSignupKey => 'Regisztrációs kulcs megkövetelése';
+
+  @override
+  String get adminRequireSignupKeyHint =>
+      'Az új fiókokhoz egyszer használatos kulcs kell egy rendszergazdától. Kikapcsolva bárki regisztrálhat, aki eléri ezt a szervert. Az első fiókhoz soha nem kell kulcs.';
+
+  @override
+  String get adminSignupKeyRequiredNotice =>
+      'Az új fiókokhoz mostantól regisztrációs kulcs kell.';
+
+  @override
+  String get adminSignupOpenNotice => 'Mostantól bárki regisztrálhat.';
+
+  @override
+  String get signupKeys => 'Regisztrációs kulcsok';
+
+  @override
+  String get signupKeysDescription =>
+      'Egyszer használatos kulcsok a regisztrációhoz, amíg kulcs szükséges. Minden kulcs pontosan egy fiókot hoz létre.';
+
+  @override
+  String get signupKeysNew => 'Új kulcsok';
+
+  @override
+  String signupKeysFilterUnused(int count) {
+    return 'Fel nem használt · $count';
+  }
+
+  @override
+  String signupKeysFilterUsed(int count) {
+    return 'Felhasznált · $count';
+  }
+
+  @override
+  String signupKeysFilterRevoked(int count) {
+    return 'Visszavont · $count';
+  }
+
+  @override
+  String signupKeysFilterAll(int count) {
+    return 'Összes · $count';
+  }
+
+  @override
+  String get signupKeyStatusUnused => 'Fel nem használt';
+
+  @override
+  String get signupKeyStatusUsed => 'Felhasznált';
+
+  @override
+  String get signupKeyStatusRevoked => 'Visszavont';
+
+  @override
+  String get signupKeysExport => 'Exportálás .txt-be';
+
+  @override
+  String get signupKeysCopied => 'Kulcsok másolva';
+
+  @override
+  String get signupKeyCopied => 'Kulcs másolva';
+
+  @override
+  String get signupKeysEmpty => 'Ebben a listában nincsenek kulcsok.';
+
+  @override
+  String signupKeyCreatedArg1(String arg1) {
+    return 'Létrehozva: $arg1';
+  }
+
+  @override
+  String signupKeyUsedByArg1Arg2(String arg1, String arg2) {
+    return 'Felhasználta: $arg1, $arg2';
+  }
+
+  @override
+  String signupKeyUsedByDeletedArg1(String arg1) {
+    return 'Felhasználva $arg1 napon egy azóta törölt fiók által';
+  }
+
+  @override
+  String get signupKeyRevokeTitle => 'Visszavonja ezt a kulcsot?';
+
+  @override
+  String get signupKeyRevokeMessage =>
+      'Senki sem tud majd regisztrálni vele. Ez nem vonható vissza.';
+
+  @override
+  String get signupKeyRevoked => 'Kulcs visszavonva.';
+
+  @override
+  String signupKeysShowMore(int count) {
+    return 'Még $count megjelenítése';
+  }
+
+  @override
+  String get signupKeysCreateTitle => 'Regisztrációs kulcsok létrehozása';
+
+  @override
+  String get signupKeysCount => 'Kulcsok száma';
+
+  @override
+  String get signupKeysCountHelper => '1 és 500 között';
+
+  @override
+  String get signupKeysCountInvalid => 'Adjon meg egy számot 1 és 500 között.';
+
+  @override
+  String get signupKeysLabel => 'Címke (nem kötelező)';
+
+  @override
+  String get signupKeysLabelHint => 'pl. Tavaszi béta tesztelők';
+
+  @override
+  String signupKeysCreateAction(int count) {
+    return 'Létrehozás ($count)';
+  }
+
+  @override
+  String signupKeysReady(int count) {
+    return 'Elkészült kulcsok: $count';
+  }
+
+  @override
+  String get signupKeysReadyHint =>
+      'Minden kulcsot csak egy személynek adjon át. A fel nem használt kulcsok a listában maradnak, így később újra másolhatja vagy exportálhatja őket.';
+
+  @override
+  String get signupKeysSaveDialogTitle => 'Regisztrációs kulcsok mentése';
+
+  @override
+  String get signupKeysExported => 'Kulcsok exportálva.';
+
+  @override
+  String auditSignupKeysCreated(String actor, int count) {
+    return '$actor regisztrációs kulcsokat hozott létre ($count)';
+  }
+
+  @override
+  String auditSignupKeyRevoked(String actor) {
+    return '$actor visszavont egy regisztrációs kulcsot';
+  }
 }

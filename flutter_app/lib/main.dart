@@ -57,6 +57,8 @@ import 'src/messaging_access_summary.dart';
 import 'src/oauth_launcher.dart';
 import 'src/security/password_strength.dart';
 import 'src/setup_diagnostics_service.dart';
+import 'src/signup_keys.dart';
+import 'src/text_file_saver.dart';
 import 'src/theme/palette.dart';
 import 'src/web_app_update_monitor.dart';
 import 'src/webauthn_client.dart';
@@ -106,6 +108,7 @@ part 'main_admin_console.dart';
 part 'main_delegation.dart';
 part 'main_admin_server.dart';
 part 'main_admin_config.dart';
+part 'main_admin_signup_keys.dart';
 part 'main_unified.dart';
 part 'main_install.dart';
 

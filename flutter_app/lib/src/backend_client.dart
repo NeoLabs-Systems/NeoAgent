@@ -178,11 +178,23 @@ class BackendClient {
     required String username,
     required String email,
     required String password,
+    String? signupKey,
   }) async {
     return postMap(baseUrl, '/api/auth/register', <String, dynamic>{
       'username': username,
       'email': email,
       'password': password,
+      if (signupKey != null) 'signupKey': signupKey,
+    });
+  }
+
+  /// Confirms a sign-up key can still be redeemed, without spending it.
+  Future<Map<String, dynamic>> checkSignupKey({
+    required String baseUrl,
+    required String key,
+  }) async {
+    return postMap(baseUrl, '/api/auth/signup-key/check', <String, dynamic>{
+      'key': key,
     });
   }
 
@@ -190,11 +202,15 @@ class BackendClient {
     required String baseUrl,
     required String provider,
     required String mode,
+    String? signupKey,
   }) async {
     return postMap(
       baseUrl,
       '/api/auth/providers/$provider/begin',
-      <String, dynamic>{'mode': mode},
+      <String, dynamic>{
+        'mode': mode,
+        if (signupKey != null) 'signupKey': signupKey,
+      },
       allowUnauthorized: mode != 'link',
     );
   }
@@ -698,13 +714,35 @@ class BackendClient {
     return getMap(baseUrl, '/api/admin/access');
   }
 
-  Future<Map<String, dynamic>> setAdminSignupEnabled(
+  Future<Map<String, dynamic>> setAdminSignupKeyRequired(
     String baseUrl,
-    bool enabled,
+    bool required,
   ) async {
     return putMap(baseUrl, '/api/admin/access/signup', <String, dynamic>{
-      'enabled': enabled,
+      'keyRequired': required,
     });
+  }
+
+  Future<Map<String, dynamic>> fetchAdminSignupKeys(String baseUrl) async {
+    return getMap(baseUrl, '/api/admin/signup-keys');
+  }
+
+  Future<Map<String, dynamic>> createAdminSignupKeys(
+    String baseUrl, {
+    required int count,
+    required String label,
+  }) async {
+    return postMap(baseUrl, '/api/admin/signup-keys', <String, dynamic>{
+      'count': count,
+      'label': label,
+    });
+  }
+
+  Future<Map<String, dynamic>> revokeAdminSignupKey(
+    String baseUrl,
+    int id,
+  ) async {
+    return deleteMap(baseUrl, '/api/admin/signup-keys/$id');
   }
 
   Future<Map<String, dynamic>> fetchAdminProviders(String baseUrl) async {

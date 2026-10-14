@@ -554,9 +554,6 @@ class AppL10nLv extends AppL10n {
       'Atļaujiet NeoAgent “Instalēt nezināmas lietotnes” un pēc tam mēģiniet vēlreiz atjaunināt.';
 
   @override
-  String get allowNewSignUps => 'Atļaut jaunu reģistrēšanos';
-
-  @override
   String get allowOnce => 'Atļaut vienu reizi';
 
   @override
@@ -5571,9 +5568,6 @@ class AppL10nLv extends AppL10n {
       'Vienam vai vairākiem kontiem ir beidzies derīguma termiņš. Atkārtoti pievienojiet ietekmēto kontu, lai atjaunotu piekļuvi rīkam.';
 
   @override
-  String get oneRegister => 'viens reģistrs.';
-
-  @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'Viens izpildlaiks kontrolē personu, grupu gājienu uzņemšanu, telpas atmiņu, normas, prāta teoriju un piegādi.';
 
@@ -6995,10 +6989,6 @@ class AppL10nLv extends AppL10n {
       'Servera lietošanas ierobežojumi neattiecas uz modeļiem, kas darbojas ar jūsu atslēgu.';
 
   @override
-  String get serverWithNoAccountsYetAlways =>
-      'serveris bez kontiem vienmēr atļauj pirmo ';
-
-  @override
   String get serviceEmail => 'Pakalpojuma e-pasts';
 
   @override
@@ -7183,9 +7173,6 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get signOutEverywhere => 'Izrakstieties visur';
-
-  @override
-  String get signUpIsClosed => 'Pieteikšanās ir slēgta.';
 
   @override
   String get signalCliRestApiBridge => 'signāls-cli REST API tilts';
@@ -8919,10 +8906,6 @@ class AppL10nLv extends AppL10n {
   @override
   String get whatsappPersonalMessageReceived =>
       'Saņemta WhatsApp personiskā ziņa';
-
-  @override
-  String get whenOffOnlyExistingAccountsCan =>
-      'Kad tas ir izslēgts, var pierakstīties tikai esošie konti. A ';
 
   @override
   String get whenYouChooseApprovedOnlyAdd =>
@@ -11145,4 +11128,168 @@ class AppL10nLv extends AppL10n {
   @override
   String get qrLoginDeclinedOnPhone =>
       'Pieteikšanās jūsu tālrunī tika noraidīta. Skenējiet jauno kodu, lai mēģinātu vēlreiz.';
+
+  @override
+  String get signupKey => 'Reģistrācijas atslēga';
+
+  @override
+  String get signupKeyStepSubtitle =>
+      'Jauniem kontiem šajā serverī ir nepieciešama reģistrācijas atslēga. Ievadiet atslēgu, ko saņēmāt no administratora.';
+
+  @override
+  String get signupKeyChange => 'Mainīt';
+
+  @override
+  String get signupKeyRequiredError => 'Ievadiet savu reģistrācijas atslēgu.';
+
+  @override
+  String get signupKeyInvalidError =>
+      'Šī reģistrācijas atslēga nav derīga. Pārbaudiet to un mēģiniet vēlreiz.';
+
+  @override
+  String get signupKeyUsedError =>
+      'Šī reģistrācijas atslēga jau ir izmantota. Lūdziet administratoram jaunu.';
+
+  @override
+  String get adminRequireSignupKey => 'Pieprasīt reģistrācijas atslēgu';
+
+  @override
+  String get adminRequireSignupKeyHint =>
+      'Jauniem kontiem ir nepieciešama vienreizēja atslēga no administratora. Ja izslēgts, reģistrēties var ikviens, kas var piekļūt šim serverim. Pirmajam kontam atslēga nekad nav vajadzīga.';
+
+  @override
+  String get adminSignupKeyRequiredNotice =>
+      'Jauniem kontiem tagad ir nepieciešama reģistrācijas atslēga.';
+
+  @override
+  String get adminSignupOpenNotice => 'Tagad reģistrēties var ikviens.';
+
+  @override
+  String get signupKeys => 'Reģistrācijas atslēgas';
+
+  @override
+  String get signupKeysDescription =>
+      'Vienreizējas atslēgas reģistrācijai, kamēr atslēga ir obligāta. Katra atslēga izveido tieši vienu kontu.';
+
+  @override
+  String get signupKeysNew => 'Jaunas atslēgas';
+
+  @override
+  String signupKeysFilterUnused(int count) {
+    return 'Neizmantotas · $count';
+  }
+
+  @override
+  String signupKeysFilterUsed(int count) {
+    return 'Izmantotas · $count';
+  }
+
+  @override
+  String signupKeysFilterRevoked(int count) {
+    return 'Atsauktas · $count';
+  }
+
+  @override
+  String signupKeysFilterAll(int count) {
+    return 'Visas · $count';
+  }
+
+  @override
+  String get signupKeyStatusUnused => 'Neizmantota';
+
+  @override
+  String get signupKeyStatusUsed => 'Izmantota';
+
+  @override
+  String get signupKeyStatusRevoked => 'Atsaukta';
+
+  @override
+  String get signupKeysExport => 'Eksportēt .txt';
+
+  @override
+  String get signupKeysCopied => 'Atslēgas nokopētas';
+
+  @override
+  String get signupKeyCopied => 'Atslēga nokopēta';
+
+  @override
+  String get signupKeysEmpty => 'Šajā sarakstā nav atslēgu.';
+
+  @override
+  String signupKeyCreatedArg1(String arg1) {
+    return 'Izveidota $arg1';
+  }
+
+  @override
+  String signupKeyUsedByArg1Arg2(String arg1, String arg2) {
+    return 'Izmantoja $arg1, $arg2';
+  }
+
+  @override
+  String signupKeyUsedByDeletedArg1(String arg1) {
+    return 'Izmantota $arg1 kontā, kas kopš tā laika ir dzēsts';
+  }
+
+  @override
+  String get signupKeyRevokeTitle => 'Vai atsaukt šo atslēgu?';
+
+  @override
+  String get signupKeyRevokeMessage =>
+      'Neviens ar to vairs nevarēs reģistrēties. To nevar atsaukt.';
+
+  @override
+  String get signupKeyRevoked => 'Atslēga atsaukta.';
+
+  @override
+  String signupKeysShowMore(int count) {
+    return 'Rādīt vēl $count';
+  }
+
+  @override
+  String get signupKeysCreateTitle => 'Izveidot reģistrācijas atslēgas';
+
+  @override
+  String get signupKeysCount => 'Atslēgu skaits';
+
+  @override
+  String get signupKeysCountHelper => 'No 1 līdz 500';
+
+  @override
+  String get signupKeysCountInvalid => 'Ievadiet skaitli no 1 līdz 500.';
+
+  @override
+  String get signupKeysLabel => 'Etiķete (neobligāti)';
+
+  @override
+  String get signupKeysLabelHint => 'piem., pavasara beta testētāji';
+
+  @override
+  String signupKeysCreateAction(int count) {
+    return 'Izveidot ($count)';
+  }
+
+  @override
+  String signupKeysReady(int count) {
+    return 'Atslēgas gatavas: $count';
+  }
+
+  @override
+  String get signupKeysReadyHint =>
+      'Katru atslēgu nododiet tikai vienai personai. Neizmantotās atslēgas paliek sarakstā, tāpēc vēlāk tās var atkal nokopēt vai eksportēt.';
+
+  @override
+  String get signupKeysSaveDialogTitle => 'Saglabāt reģistrācijas atslēgas';
+
+  @override
+  String get signupKeysExported => 'Atslēgas eksportētas.';
+
+  @override
+  String auditSignupKeysCreated(String actor, int count) {
+    return '$actor izveidoja reģistrācijas atslēgas ($count)';
+  }
+
+  @override
+  String auditSignupKeyRevoked(String actor) {
+    return '$actor atsauca reģistrācijas atslēgu';
+  }
 }

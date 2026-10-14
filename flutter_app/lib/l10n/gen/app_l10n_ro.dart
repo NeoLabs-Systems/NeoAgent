@@ -550,9 +550,6 @@ class AppL10nRo extends AppL10n {
       'Permiteți „Instalați aplicații necunoscute” pentru NeoAgent, apoi încercați din nou actualizarea.';
 
   @override
-  String get allowNewSignUps => 'Permiteți noi înscrieri';
-
-  @override
   String get allowOnce => 'Permite o dată';
 
   @override
@@ -5582,9 +5579,6 @@ class AppL10nRo extends AppL10n {
       'Unul sau mai multe conturi au expirat. Reconectați contul afectat pentru a restabili accesul la instrument.';
 
   @override
-  String get oneRegister => 'un singur registru.';
-
-  @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'Un timp de rulare controlează persoana, turnarea în grup, memoria camerei, normele, teoria minții și livrarea.';
 
@@ -7009,10 +7003,6 @@ class AppL10nRo extends AppL10n {
       'Limitele de utilizare a serverului nu se aplică modelelor care rulează pe propria cheie.';
 
   @override
-  String get serverWithNoAccountsYetAlways =>
-      'server fără conturi încă lasă întotdeauna primul ';
-
-  @override
   String get serviceEmail => 'E-mail de serviciu';
 
   @override
@@ -7199,9 +7189,6 @@ class AppL10nRo extends AppL10n {
 
   @override
   String get signOutEverywhere => 'Deconectați-vă peste tot';
-
-  @override
-  String get signUpIsClosed => 'Înscrierea este închisă.';
 
   @override
   String get signalCliRestApiBridge => 'puntea semnal-cli REST API';
@@ -8942,10 +8929,6 @@ class AppL10nRo extends AppL10n {
   @override
   String get whatsappPersonalMessageReceived =>
       'Mesaj personal WhatsApp primit';
-
-  @override
-  String get whenOffOnlyExistingAccountsCan =>
-      'Când este dezactivat, numai conturile existente se pot conecta. A ';
 
   @override
   String get whenYouChooseApprovedOnlyAdd =>
@@ -11178,4 +11161,168 @@ class AppL10nRo extends AppL10n {
   @override
   String get qrLoginDeclinedOnPhone =>
       'Conectarea a fost refuzată pe telefonul dvs. Scanați noul cod pentru a încerca din nou.';
+
+  @override
+  String get signupKey => 'Cheie de înregistrare';
+
+  @override
+  String get signupKeyStepSubtitle =>
+      'Conturile noi de pe acest server necesită o cheie de înregistrare. Introduceți cheia primită de la un administrator.';
+
+  @override
+  String get signupKeyChange => 'Schimbați';
+
+  @override
+  String get signupKeyRequiredError => 'Introduceți cheia de înregistrare.';
+
+  @override
+  String get signupKeyInvalidError =>
+      'Această cheie de înregistrare nu este validă. Verificați-o și încercați din nou.';
+
+  @override
+  String get signupKeyUsedError =>
+      'Această cheie de înregistrare a fost deja folosită. Cereți una nouă unui administrator.';
+
+  @override
+  String get adminRequireSignupKey => 'Solicită o cheie de înregistrare';
+
+  @override
+  String get adminRequireSignupKeyHint =>
+      'Conturile noi necesită o cheie de unică folosință de la un administrator. Când este dezactivat, oricine poate accesa acest server se poate înregistra. Primul cont nu are niciodată nevoie de cheie.';
+
+  @override
+  String get adminSignupKeyRequiredNotice =>
+      'Conturile noi necesită acum o cheie de înregistrare.';
+
+  @override
+  String get adminSignupOpenNotice => 'Acum oricine se poate înregistra.';
+
+  @override
+  String get signupKeys => 'Chei de înregistrare';
+
+  @override
+  String get signupKeysDescription =>
+      'Chei de unică folosință pentru înregistrare cât timp este necesară o cheie. Fiecare cheie creează exact un cont.';
+
+  @override
+  String get signupKeysNew => 'Chei noi';
+
+  @override
+  String signupKeysFilterUnused(int count) {
+    return 'Nefolosite · $count';
+  }
+
+  @override
+  String signupKeysFilterUsed(int count) {
+    return 'Folosite · $count';
+  }
+
+  @override
+  String signupKeysFilterRevoked(int count) {
+    return 'Revocate · $count';
+  }
+
+  @override
+  String signupKeysFilterAll(int count) {
+    return 'Toate · $count';
+  }
+
+  @override
+  String get signupKeyStatusUnused => 'Nefolosită';
+
+  @override
+  String get signupKeyStatusUsed => 'Folosită';
+
+  @override
+  String get signupKeyStatusRevoked => 'Revocată';
+
+  @override
+  String get signupKeysExport => 'Exportați .txt';
+
+  @override
+  String get signupKeysCopied => 'Chei copiate';
+
+  @override
+  String get signupKeyCopied => 'Cheie copiată';
+
+  @override
+  String get signupKeysEmpty => 'Nu există chei în această listă.';
+
+  @override
+  String signupKeyCreatedArg1(String arg1) {
+    return 'Creată pe $arg1';
+  }
+
+  @override
+  String signupKeyUsedByArg1Arg2(String arg1, String arg2) {
+    return 'Folosită de $arg1 pe $arg2';
+  }
+
+  @override
+  String signupKeyUsedByDeletedArg1(String arg1) {
+    return 'Folosită pe $arg1 de un cont șters între timp';
+  }
+
+  @override
+  String get signupKeyRevokeTitle => 'Revocați această cheie?';
+
+  @override
+  String get signupKeyRevokeMessage =>
+      'Nimeni nu se va mai putea înregistra cu ea. Acțiunea nu poate fi anulată.';
+
+  @override
+  String get signupKeyRevoked => 'Cheie revocată.';
+
+  @override
+  String signupKeysShowMore(int count) {
+    return 'Afișați încă $count';
+  }
+
+  @override
+  String get signupKeysCreateTitle => 'Creați chei de înregistrare';
+
+  @override
+  String get signupKeysCount => 'Număr de chei';
+
+  @override
+  String get signupKeysCountHelper => 'Între 1 și 500';
+
+  @override
+  String get signupKeysCountInvalid => 'Introduceți un număr între 1 și 500.';
+
+  @override
+  String get signupKeysLabel => 'Etichetă (opțional)';
+
+  @override
+  String get signupKeysLabelHint => 'de ex. Testeri beta de primăvară';
+
+  @override
+  String signupKeysCreateAction(int count) {
+    return 'Creați ($count)';
+  }
+
+  @override
+  String signupKeysReady(int count) {
+    return 'Chei pregătite: $count';
+  }
+
+  @override
+  String get signupKeysReadyHint =>
+      'Dați fiecare cheie unei singure persoane. Cheile nefolosite rămân în listă, astfel încât le puteți copia sau exporta din nou mai târziu.';
+
+  @override
+  String get signupKeysSaveDialogTitle => 'Salvați cheile de înregistrare';
+
+  @override
+  String get signupKeysExported => 'Chei exportate.';
+
+  @override
+  String auditSignupKeysCreated(String actor, int count) {
+    return '$actor a creat chei de înregistrare ($count)';
+  }
+
+  @override
+  String auditSignupKeyRevoked(String actor) {
+    return '$actor a revocat o cheie de înregistrare';
+  }
 }

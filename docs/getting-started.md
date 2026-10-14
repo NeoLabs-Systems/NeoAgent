@@ -102,7 +102,7 @@ neoagent setup --resume   # continue an interrupted setup
 ## 👥 Accounts and sign-up
 
 - **Claim the server first.** The first account becomes admin, so create it before anyone else can reach the address.
-- **Sign-up is open by default.** Turn off **Admin › Configuration › Access › Allow new sign-ups**, or set `NEOAGENT_ALLOW_SIGNUP=false`.
+- **Sign-up is open by default.** To hand out access yourself, turn on **Admin › Configuration › Access › Require a sign-up key** (or set `NEOAGENT_ALLOW_SIGNUP=false`) and create keys under **Sign-up keys**.
 - **One account per person.** Each account gets its own agents, memory and cloud computer.
 - **More admins.** `neoagent admin grant <username>`.
 - **Headless first account.** `neoagent account create --username <name> --password <password>` works only while no account exists.

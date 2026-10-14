@@ -553,9 +553,6 @@ class AppL10nBg extends AppL10n {
       'Разрешете „Инсталиране на неизвестни приложения“ за NeoAgent, след което опитайте отново актуализацията.';
 
   @override
-  String get allowNewSignUps => 'Разрешаване на нови регистрации';
-
-  @override
   String get allowOnce => 'Разрешете веднъж';
 
   @override
@@ -5577,9 +5574,6 @@ class AppL10nBg extends AppL10n {
       'Един или повече акаунти са изтекли. Свържете отново засегнатия акаунт, за да възстановите достъпа до инструмента.';
 
   @override
-  String get oneRegister => 'един регистър.';
-
-  @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'Едно време за изпълнение контролира личността, груповото редуване, паметта на стаята, нормите, теорията на ума и доставката.';
 
@@ -7006,10 +7000,6 @@ class AppL10nBg extends AppL10n {
       'Ограниченията за използване на сървъра не се прилагат за модели, работещи на вашия собствен ключ.';
 
   @override
-  String get serverWithNoAccountsYetAlways =>
-      'сървър без акаунти, но винаги позволява първия ';
-
-  @override
   String get serviceEmail => 'Служебен имейл';
 
   @override
@@ -7196,9 +7186,6 @@ class AppL10nBg extends AppL10n {
 
   @override
   String get signOutEverywhere => 'Излезте навсякъде';
-
-  @override
-  String get signUpIsClosed => 'Регистрацията е затворена.';
 
   @override
   String get signalCliRestApiBridge => 'signal-cli REST API мост';
@@ -8938,10 +8925,6 @@ class AppL10nBg extends AppL10n {
   @override
   String get whatsappPersonalMessageReceived =>
       'Получено е лично съобщение в WhatsApp';
-
-  @override
-  String get whenOffOnlyExistingAccountsCan =>
-      'Когато е изключено, само съществуващи акаунти могат да влизат. A ';
 
   @override
   String get whenYouChooseApprovedOnlyAdd =>
@@ -11172,4 +11155,169 @@ class AppL10nBg extends AppL10n {
   @override
   String get qrLoginDeclinedOnPhone =>
       'Влизането беше отказано на вашия телефон. Сканирайте новия код, за да опитате отново.';
+
+  @override
+  String get signupKey => 'Ключ за регистрация';
+
+  @override
+  String get signupKeyStepSubtitle =>
+      'Новите акаунти на този сървър изискват ключ за регистрация. Въведете ключа, който сте получили от администратор.';
+
+  @override
+  String get signupKeyChange => 'Промяна';
+
+  @override
+  String get signupKeyRequiredError => 'Въведете своя ключ за регистрация.';
+
+  @override
+  String get signupKeyInvalidError =>
+      'Този ключ за регистрация е невалиден. Проверете го и опитайте отново.';
+
+  @override
+  String get signupKeyUsedError =>
+      'Този ключ за регистрация вече е използван. Поискайте нов от администратор.';
+
+  @override
+  String get adminRequireSignupKey => 'Изисквай ключ за регистрация';
+
+  @override
+  String get adminRequireSignupKeyHint =>
+      'Новите акаунти изискват еднократен ключ от администратор. Когато е изключено, всеки, който има достъп до този сървър, може да се регистрира. Първият акаунт никога не изисква ключ.';
+
+  @override
+  String get adminSignupKeyRequiredNotice =>
+      'Новите акаунти вече изискват ключ за регистрация.';
+
+  @override
+  String get adminSignupOpenNotice => 'Вече всеки може да се регистрира.';
+
+  @override
+  String get signupKeys => 'Ключове за регистрация';
+
+  @override
+  String get signupKeysDescription =>
+      'Еднократни ключове за регистрация, докато се изисква ключ. Всеки ключ създава точно един акаунт.';
+
+  @override
+  String get signupKeysNew => 'Нови ключове';
+
+  @override
+  String signupKeysFilterUnused(int count) {
+    return 'Неизползвани · $count';
+  }
+
+  @override
+  String signupKeysFilterUsed(int count) {
+    return 'Използвани · $count';
+  }
+
+  @override
+  String signupKeysFilterRevoked(int count) {
+    return 'Отменени · $count';
+  }
+
+  @override
+  String signupKeysFilterAll(int count) {
+    return 'Всички · $count';
+  }
+
+  @override
+  String get signupKeyStatusUnused => 'Неизползван';
+
+  @override
+  String get signupKeyStatusUsed => 'Използван';
+
+  @override
+  String get signupKeyStatusRevoked => 'Отменен';
+
+  @override
+  String get signupKeysExport => 'Експорт в .txt';
+
+  @override
+  String get signupKeysCopied => 'Ключовете са копирани';
+
+  @override
+  String get signupKeyCopied => 'Ключът е копиран';
+
+  @override
+  String get signupKeysEmpty => 'Няма ключове в този списък.';
+
+  @override
+  String signupKeyCreatedArg1(String arg1) {
+    return 'Създаден на $arg1';
+  }
+
+  @override
+  String signupKeyUsedByArg1Arg2(String arg1, String arg2) {
+    return 'Използван от $arg1 на $arg2';
+  }
+
+  @override
+  String signupKeyUsedByDeletedArg1(String arg1) {
+    return 'Използван на $arg1 от акаунт, който междувременно е изтрит';
+  }
+
+  @override
+  String get signupKeyRevokeTitle => 'Да се отмени ли този ключ?';
+
+  @override
+  String get signupKeyRevokeMessage =>
+      'Никой вече няма да може да се регистрира с него. Това не може да бъде отменено.';
+
+  @override
+  String get signupKeyRevoked => 'Ключът е отменен.';
+
+  @override
+  String signupKeysShowMore(int count) {
+    return 'Покажи още $count';
+  }
+
+  @override
+  String get signupKeysCreateTitle => 'Създаване на ключове за регистрация';
+
+  @override
+  String get signupKeysCount => 'Брой ключове';
+
+  @override
+  String get signupKeysCountHelper => 'От 1 до 500';
+
+  @override
+  String get signupKeysCountInvalid => 'Въведете число от 1 до 500.';
+
+  @override
+  String get signupKeysLabel => 'Етикет (по избор)';
+
+  @override
+  String get signupKeysLabelHint => 'напр. Пролетни бета тестери';
+
+  @override
+  String signupKeysCreateAction(int count) {
+    return 'Създай ($count)';
+  }
+
+  @override
+  String signupKeysReady(int count) {
+    return 'Готови ключове: $count';
+  }
+
+  @override
+  String get signupKeysReadyHint =>
+      'Давайте всеки ключ само на един човек. Неизползваните ключове остават в списъка, така че по-късно можете отново да ги копирате или експортирате.';
+
+  @override
+  String get signupKeysSaveDialogTitle =>
+      'Запазване на ключовете за регистрация';
+
+  @override
+  String get signupKeysExported => 'Ключовете са експортирани.';
+
+  @override
+  String auditSignupKeysCreated(String actor, int count) {
+    return '$actor създаде ключове за регистрация ($count)';
+  }
+
+  @override
+  String auditSignupKeyRevoked(String actor) {
+    return '$actor отмени ключ за регистрация';
+  }
 }

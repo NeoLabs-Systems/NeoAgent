@@ -8,6 +8,7 @@ const {
 } = require('./env_config');
 const { httpError } = require('../../utils/http_error');
 const { getComputerResourceProfile } = require('../runtime/resource_profile');
+const { getDeploymentPolicy } = require('../../utils/deployment');
 
 function assertOptionalUrl(value, field) {
   if (!value) return;
@@ -87,14 +88,15 @@ function updateVmSettings(body = {}) {
 // --- Sign-up ---
 
 function getAccessSettings() {
-  return { signupEnabled: process.env.NEOAGENT_ALLOW_SIGNUP !== 'false' };
+  return { signupKeyRequired: getDeploymentPolicy().signupKeyRequired };
 }
 
-// Anything but an explicit `false` turns sign-up on.
-function setSignupEnabled(enabled) {
-  const signupEnabled = enabled !== false;
-  persistEnv('NEOAGENT_ALLOW_SIGNUP', signupEnabled ? 'true' : 'false');
-  return { ok: true, signupEnabled };
+// Requiring a key turns open sign-up off; the keys themselves live in
+// services/access/signup_keys.js.
+function setSignupKeyRequired(required) {
+  assertBoolean(required, 'keyRequired');
+  persistEnv('NEOAGENT_ALLOW_SIGNUP', required ? 'false' : 'true');
+  return { ok: true, signupKeyRequired: required };
 }
 
 module.exports = {
@@ -103,5 +105,5 @@ module.exports = {
   getVmSettings,
   updateVmSettings,
   getAccessSettings,
-  setSignupEnabled,
+  setSignupKeyRequired,
 };

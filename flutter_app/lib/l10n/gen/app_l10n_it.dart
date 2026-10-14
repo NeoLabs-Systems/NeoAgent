@@ -562,9 +562,6 @@ class AppL10nIt extends AppL10n {
       'Consenti \"Installa app sconosciute\" per NeoAgent, quindi riprova l\'aggiornamento.';
 
   @override
-  String get allowNewSignUps => 'Consenti nuove iscrizioni';
-
-  @override
   String get allowOnce => 'Consenti una volta';
 
   @override
@@ -5618,9 +5615,6 @@ class AppL10nIt extends AppL10n {
       'Uno o più account sono scaduti. Ricollega l\'account interessato per ripristinare l\'accesso allo strumento.';
 
   @override
-  String get oneRegister => 'un registro.';
-
-  @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'Un runtime controlla la persona, i turni di gruppo, la memoria della stanza, le norme, la teoria della mente e la consegna.';
 
@@ -7045,10 +7039,6 @@ class AppL10nIt extends AppL10n {
       'I limiti di utilizzo del server non si applicano ai modelli in esecuzione sulla tua chiave.';
 
   @override
-  String get serverWithNoAccountsYetAlways =>
-      'server senza account, tuttavia consente sempre il primo ';
-
-  @override
   String get serviceEmail => 'E-mail di servizio';
 
   @override
@@ -7236,9 +7226,6 @@ class AppL10nIt extends AppL10n {
 
   @override
   String get signOutEverywhere => 'Esci ovunque';
-
-  @override
-  String get signUpIsClosed => 'La registrazione è chiusa.';
 
   @override
   String get signalCliRestApiBridge => 'bridge API REST signal-cli';
@@ -8980,10 +8967,6 @@ class AppL10nIt extends AppL10n {
   @override
   String get whatsappPersonalMessageReceived =>
       'Messaggio personale WhatsApp ricevuto';
-
-  @override
-  String get whenOffOnlyExistingAccountsCan =>
-      'Quando questa opzione è disattivata, solo gli account esistenti possono accedere. A ';
 
   @override
   String get whenYouChooseApprovedOnlyAdd =>
@@ -11218,4 +11201,169 @@ class AppL10nIt extends AppL10n {
   @override
   String get qrLoginDeclinedOnPhone =>
       'L\'accesso è stato rifiutato sul tuo telefono. Scansiona il nuovo codice per riprovare.';
+
+  @override
+  String get signupKey => 'Chiave di registrazione';
+
+  @override
+  String get signupKeyStepSubtitle =>
+      'I nuovi account su questo server richiedono una chiave di registrazione. Inserisci quella ricevuta da un amministratore.';
+
+  @override
+  String get signupKeyChange => 'Cambia';
+
+  @override
+  String get signupKeyRequiredError =>
+      'Inserisci la tua chiave di registrazione.';
+
+  @override
+  String get signupKeyInvalidError =>
+      'Questa chiave di registrazione non è valida. Controllala e riprova.';
+
+  @override
+  String get signupKeyUsedError =>
+      'Questa chiave di registrazione è già stata usata. Chiedine una nuova a un amministratore.';
+
+  @override
+  String get adminRequireSignupKey => 'Richiedi una chiave di registrazione';
+
+  @override
+  String get adminRequireSignupKeyHint =>
+      'I nuovi account richiedono una chiave monouso fornita da un amministratore. Se disattivato, chiunque possa raggiungere questo server può registrarsi. Il primo account non richiede mai una chiave.';
+
+  @override
+  String get adminSignupKeyRequiredNotice =>
+      'I nuovi account ora richiedono una chiave di registrazione.';
+
+  @override
+  String get adminSignupOpenNotice => 'Ora chiunque può registrarsi.';
+
+  @override
+  String get signupKeys => 'Chiavi di registrazione';
+
+  @override
+  String get signupKeysDescription =>
+      'Chiavi monouso per registrarsi quando è richiesta una chiave. Ogni chiave crea esattamente un account.';
+
+  @override
+  String get signupKeysNew => 'Nuove chiavi';
+
+  @override
+  String signupKeysFilterUnused(int count) {
+    return 'Non usate · $count';
+  }
+
+  @override
+  String signupKeysFilterUsed(int count) {
+    return 'Usate · $count';
+  }
+
+  @override
+  String signupKeysFilterRevoked(int count) {
+    return 'Revocate · $count';
+  }
+
+  @override
+  String signupKeysFilterAll(int count) {
+    return 'Tutte · $count';
+  }
+
+  @override
+  String get signupKeyStatusUnused => 'Non usata';
+
+  @override
+  String get signupKeyStatusUsed => 'Usata';
+
+  @override
+  String get signupKeyStatusRevoked => 'Revocata';
+
+  @override
+  String get signupKeysExport => 'Esporta .txt';
+
+  @override
+  String get signupKeysCopied => 'Chiavi copiate';
+
+  @override
+  String get signupKeyCopied => 'Chiave copiata';
+
+  @override
+  String get signupKeysEmpty => 'Nessuna chiave in questo elenco.';
+
+  @override
+  String signupKeyCreatedArg1(String arg1) {
+    return 'Creata il $arg1';
+  }
+
+  @override
+  String signupKeyUsedByArg1Arg2(String arg1, String arg2) {
+    return 'Usata da $arg1 il $arg2';
+  }
+
+  @override
+  String signupKeyUsedByDeletedArg1(String arg1) {
+    return 'Usata il $arg1 da un account poi eliminato';
+  }
+
+  @override
+  String get signupKeyRevokeTitle => 'Revocare questa chiave?';
+
+  @override
+  String get signupKeyRevokeMessage =>
+      'Nessuno potrà più registrarsi con questa chiave. L\'operazione non può essere annullata.';
+
+  @override
+  String get signupKeyRevoked => 'Chiave revocata.';
+
+  @override
+  String signupKeysShowMore(int count) {
+    return 'Mostra altre $count';
+  }
+
+  @override
+  String get signupKeysCreateTitle => 'Crea chiavi di registrazione';
+
+  @override
+  String get signupKeysCount => 'Numero di chiavi';
+
+  @override
+  String get signupKeysCountHelper => 'Da 1 a 500';
+
+  @override
+  String get signupKeysCountInvalid => 'Inserisci un numero da 1 a 500.';
+
+  @override
+  String get signupKeysLabel => 'Etichetta (facoltativa)';
+
+  @override
+  String get signupKeysLabelHint => 'es. Beta tester di primavera';
+
+  @override
+  String signupKeysCreateAction(int count) {
+    return 'Crea ($count)';
+  }
+
+  @override
+  String signupKeysReady(int count) {
+    return 'Chiavi pronte: $count';
+  }
+
+  @override
+  String get signupKeysReadyHint =>
+      'Consegna ogni chiave a una sola persona. Le chiavi non usate restano nell\'elenco, così puoi copiarle o esportarle di nuovo in seguito.';
+
+  @override
+  String get signupKeysSaveDialogTitle => 'Salva chiavi di registrazione';
+
+  @override
+  String get signupKeysExported => 'Chiavi esportate.';
+
+  @override
+  String auditSignupKeysCreated(String actor, int count) {
+    return '$actor ha creato chiavi di registrazione ($count)';
+  }
+
+  @override
+  String auditSignupKeyRevoked(String actor) {
+    return '$actor ha revocato una chiave di registrazione';
+  }
 }

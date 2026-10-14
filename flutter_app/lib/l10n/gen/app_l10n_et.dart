@@ -550,9 +550,6 @@ class AppL10nEt extends AppL10n {
       'Lubage NeoAgenti jaoks \"Installi tundmatud rakendused\" ja proovige seejärel värskendada.';
 
   @override
-  String get allowNewSignUps => 'Lubage uusi registreerumisi';
-
-  @override
   String get allowOnce => 'Luba üks kord';
 
   @override
@@ -5571,9 +5568,6 @@ class AppL10nEt extends AppL10n {
       'Üks või mitu kontot on aegunud. Tööriistale juurdepääsu taastamiseks ühendage mõjutatud konto uuesti.';
 
   @override
-  String get oneRegister => 'üks register.';
-
-  @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'Üks käitusaeg kontrollib isikut, grupi kordamist, ruumi mälu, norme, mõistuse teooriat ja kohaletoimetamist.';
 
@@ -6988,10 +6982,6 @@ class AppL10nEt extends AppL10n {
       'Serveri kasutuspiirangud ei kehti mudelitele, mis töötavad teie enda võtmega.';
 
   @override
-  String get serverWithNoAccountsYetAlways =>
-      'kontodeta server laseb alati esimese ';
-
-  @override
   String get serviceEmail => 'Teenindusmeil';
 
   @override
@@ -7178,9 +7168,6 @@ class AppL10nEt extends AppL10n {
 
   @override
   String get signOutEverywhere => 'Kõikjal logige välja';
-
-  @override
-  String get signUpIsClosed => 'Registreerumine on suletud.';
 
   @override
   String get signalCliRestApiBridge => 'signal-cli REST API sild';
@@ -8908,10 +8895,6 @@ class AppL10nEt extends AppL10n {
   @override
   String get whatsappPersonalMessageReceived =>
       'Saabus WhatsAppi isiklik sõnum';
-
-  @override
-  String get whenOffOnlyExistingAccountsCan =>
-      'Kui see on välja lülitatud, saavad sisse logida ainult olemasolevad kontod. A ';
 
   @override
   String get whenYouChooseApprovedOnlyAdd =>
@@ -11127,4 +11110,168 @@ class AppL10nEt extends AppL10n {
   @override
   String get qrLoginDeclinedOnPhone =>
       'Teie telefoni sisselogimine lükati tagasi. Uuesti proovimiseks skannige uus kood.';
+
+  @override
+  String get signupKey => 'Registreerimisvõti';
+
+  @override
+  String get signupKeyStepSubtitle =>
+      'Selle serveri uued kontod vajavad registreerimisvõtit. Sisestage administraatorilt saadud võti.';
+
+  @override
+  String get signupKeyChange => 'Muuda';
+
+  @override
+  String get signupKeyRequiredError => 'Sisestage oma registreerimisvõti.';
+
+  @override
+  String get signupKeyInvalidError =>
+      'See registreerimisvõti ei kehti. Kontrollige seda ja proovige uuesti.';
+
+  @override
+  String get signupKeyUsedError =>
+      'Seda registreerimisvõtit on juba kasutatud. Küsige administraatorilt uus.';
+
+  @override
+  String get adminRequireSignupKey => 'Nõua registreerimisvõtit';
+
+  @override
+  String get adminRequireSignupKeyHint =>
+      'Uued kontod vajavad administraatorilt ühekordset võtit. Kui see on välja lülitatud, saab registreeruda igaüks, kes serverini jõuab. Esimene konto ei vaja kunagi võtit.';
+
+  @override
+  String get adminSignupKeyRequiredNotice =>
+      'Uued kontod vajavad nüüd registreerimisvõtit.';
+
+  @override
+  String get adminSignupOpenNotice => 'Nüüd saab registreeruda igaüks.';
+
+  @override
+  String get signupKeys => 'Registreerimisvõtmed';
+
+  @override
+  String get signupKeysDescription =>
+      'Ühekordsed võtmed registreerimiseks ajal, mil võti on nõutud. Iga võti loob täpselt ühe konto.';
+
+  @override
+  String get signupKeysNew => 'Uued võtmed';
+
+  @override
+  String signupKeysFilterUnused(int count) {
+    return 'Kasutamata · $count';
+  }
+
+  @override
+  String signupKeysFilterUsed(int count) {
+    return 'Kasutatud · $count';
+  }
+
+  @override
+  String signupKeysFilterRevoked(int count) {
+    return 'Tühistatud · $count';
+  }
+
+  @override
+  String signupKeysFilterAll(int count) {
+    return 'Kõik · $count';
+  }
+
+  @override
+  String get signupKeyStatusUnused => 'Kasutamata';
+
+  @override
+  String get signupKeyStatusUsed => 'Kasutatud';
+
+  @override
+  String get signupKeyStatusRevoked => 'Tühistatud';
+
+  @override
+  String get signupKeysExport => 'Ekspordi .txt';
+
+  @override
+  String get signupKeysCopied => 'Võtmed kopeeritud';
+
+  @override
+  String get signupKeyCopied => 'Võti kopeeritud';
+
+  @override
+  String get signupKeysEmpty => 'Selles loendis pole võtmeid.';
+
+  @override
+  String signupKeyCreatedArg1(String arg1) {
+    return 'Loodud $arg1';
+  }
+
+  @override
+  String signupKeyUsedByArg1Arg2(String arg1, String arg2) {
+    return 'Kasutas $arg1, $arg2';
+  }
+
+  @override
+  String signupKeyUsedByDeletedArg1(String arg1) {
+    return 'Kasutatud $arg1 kontoga, mis on vahepeal kustutatud';
+  }
+
+  @override
+  String get signupKeyRevokeTitle => 'Kas tühistada see võti?';
+
+  @override
+  String get signupKeyRevokeMessage =>
+      'Sellega ei saa enam keegi registreeruda. Seda ei saa tagasi võtta.';
+
+  @override
+  String get signupKeyRevoked => 'Võti tühistatud.';
+
+  @override
+  String signupKeysShowMore(int count) {
+    return 'Näita veel $count';
+  }
+
+  @override
+  String get signupKeysCreateTitle => 'Loo registreerimisvõtmed';
+
+  @override
+  String get signupKeysCount => 'Võtmete arv';
+
+  @override
+  String get signupKeysCountHelper => '1 kuni 500';
+
+  @override
+  String get signupKeysCountInvalid => 'Sisestage arv vahemikus 1 kuni 500.';
+
+  @override
+  String get signupKeysLabel => 'Silt (valikuline)';
+
+  @override
+  String get signupKeysLabelHint => 'nt kevadised beetatestijad';
+
+  @override
+  String signupKeysCreateAction(int count) {
+    return 'Loo ($count)';
+  }
+
+  @override
+  String signupKeysReady(int count) {
+    return 'Võtmed valmis: $count';
+  }
+
+  @override
+  String get signupKeysReadyHint =>
+      'Andke iga võti ainult ühele inimesele. Kasutamata võtmed jäävad loendisse, nii et saate need hiljem uuesti kopeerida või eksportida.';
+
+  @override
+  String get signupKeysSaveDialogTitle => 'Salvesta registreerimisvõtmed';
+
+  @override
+  String get signupKeysExported => 'Võtmed eksporditud.';
+
+  @override
+  String auditSignupKeysCreated(String actor, int count) {
+    return '$actor lõi registreerimisvõtmeid ($count)';
+  }
+
+  @override
+  String auditSignupKeyRevoked(String actor) {
+    return '$actor tühistas registreerimisvõtme';
+  }
 }

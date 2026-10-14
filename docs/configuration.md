@@ -60,7 +60,7 @@ Exposing the server: see [Reach it from other devices](getting-started.md#networ
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `NEOAGENT_ADMIN_USERS` | unset | Usernames made admin on every start. Removing a name does not revoke; use `neoagent admin revoke <user>` |
-| `NEOAGENT_ALLOW_SIGNUP` | on | `false`, `0` or `no` closes registration. A server with no accounts always lets the first one register |
+| `NEOAGENT_ALLOW_SIGNUP` | on | `false`, `0` or `no` makes new accounts need a one-time sign-up key from an admin. A server with no accounts always lets the first one register |
 | `NEOAGENT_RATE_LIMIT_4H` | `2500000` | Tokens per user per rolling 4 hours |
 | `NEOAGENT_RATE_LIMIT_WEEKLY` | `10000000` | Tokens per user per rolling 7 days |
 | `NEOAGENT_DISABLE_RATE_LIMITS` | unset | `true` turns both limits off for everyone |

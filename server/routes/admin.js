@@ -28,8 +28,9 @@ const {
   getVmSettings,
   updateVmSettings,
   getAccessSettings,
-  setSignupEnabled,
+  setSignupKeyRequired,
 } = require('../services/admin/server_config');
+const { createSignupKeys, listSignupKeys, revokeSignupKey } = require('../services/access/signup_keys');
 const { getIntegrationSettings, updateIntegrationSettings } = require('../services/admin/integrations');
 const { httpError } = require('../utils/http_error');
 const { jsonHandler, userIdParam } = require('./_helpers/http');
@@ -96,7 +97,20 @@ router.post('/sql', sqlLimiter, jsonHandler((req) => runReadOnlyQuery(req.body?.
 
 router.get('/access', jsonHandler(() => getAccessSettings()));
 
-router.put('/access/signup', settingsLimiter, jsonHandler((req) => setSignupEnabled(req.body?.enabled)));
+router.put('/access/signup', settingsLimiter, jsonHandler((req) => setSignupKeyRequired(req.body?.keyRequired)));
+
+router.get('/signup-keys', jsonHandler(() => listSignupKeys()));
+
+router.post('/signup-keys', settingsLimiter, jsonHandler((req) => createSignupKeys(req.session.userId, {
+  count: req.body?.count,
+  label: req.body?.label,
+}), { status: 201 }));
+
+router.delete('/signup-keys/:id', jsonHandler((req) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) throw httpError(400, 'Invalid sign-up key id', 'SIGNUP_KEY_NOT_FOUND');
+  return revokeSignupKey(req.session.userId, id);
+}));
 
 // --- Providers and models ---
 

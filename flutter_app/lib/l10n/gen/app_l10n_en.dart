@@ -547,9 +547,6 @@ class AppL10nEn extends AppL10n {
       'Allow \"Install unknown apps\" for NeoAgent, then retry the update.';
 
   @override
-  String get allowNewSignUps => 'Allow new sign-ups';
-
-  @override
   String get allowOnce => 'Allow once';
 
   @override
@@ -5532,9 +5529,6 @@ class AppL10nEn extends AppL10n {
       'One or more accounts expired. Reconnect the affected account to restore tool access.';
 
   @override
-  String get oneRegister => 'one register.';
-
-  @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'One runtime controls persona, group turn-taking, room memory, norms, Theory of Mind, and delivery.';
 
@@ -6942,10 +6936,6 @@ class AppL10nEn extends AppL10n {
       'Server usage limits don\'\'t apply to models running on your own key.';
 
   @override
-  String get serverWithNoAccountsYetAlways =>
-      'server with no accounts yet always lets the first ';
-
-  @override
   String get serviceEmail => 'Service email';
 
   @override
@@ -7129,9 +7119,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get signOutEverywhere => 'Sign out everywhere';
-
-  @override
-  String get signUpIsClosed => 'Sign-up is closed.';
 
   @override
   String get signalCliRestApiBridge => 'signal-cli REST API bridge';
@@ -8857,10 +8844,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get whatsappPersonalMessageReceived =>
       'WhatsApp Personal Message Received';
-
-  @override
-  String get whenOffOnlyExistingAccountsCan =>
-      'When off, only existing accounts can sign in. A ';
 
   @override
   String get whenYouChooseApprovedOnlyAdd =>
@@ -11059,4 +11042,186 @@ class AppL10nEn extends AppL10n {
   @override
   String get qrLoginDeclinedOnPhone =>
       'The login was declined on your phone. Scan the new code to try again.';
+
+  @override
+  String get signupKey => 'Sign-up key';
+
+  @override
+  String get signupKeyStepSubtitle =>
+      'New accounts on this server need a sign-up key. Enter the one you got from an admin.';
+
+  @override
+  String get signupKeyChange => 'Change';
+
+  @override
+  String get signupKeyRequiredError => 'Enter your sign-up key.';
+
+  @override
+  String get signupKeyInvalidError =>
+      'That sign-up key isn’t valid. Check it and try again.';
+
+  @override
+  String get signupKeyUsedError =>
+      'That sign-up key has already been used. Ask an admin for a new one.';
+
+  @override
+  String get adminRequireSignupKey => 'Require a sign-up key';
+
+  @override
+  String get adminRequireSignupKeyHint =>
+      'New accounts need a one-time key from an admin. When off, anyone who can reach this server can register. The first account never needs a key.';
+
+  @override
+  String get adminSignupKeyRequiredNotice =>
+      'New accounts now need a sign-up key.';
+
+  @override
+  String get adminSignupOpenNotice => 'Anyone can register now.';
+
+  @override
+  String get signupKeys => 'Sign-up keys';
+
+  @override
+  String get signupKeysDescription =>
+      'One-time keys for registering while a key is required. Each key creates exactly one account.';
+
+  @override
+  String get signupKeysNew => 'New keys';
+
+  @override
+  String signupKeysFilterUnused(int count) {
+    return 'Unused · $count';
+  }
+
+  @override
+  String signupKeysFilterUsed(int count) {
+    return 'Used · $count';
+  }
+
+  @override
+  String signupKeysFilterRevoked(int count) {
+    return 'Revoked · $count';
+  }
+
+  @override
+  String signupKeysFilterAll(int count) {
+    return 'All · $count';
+  }
+
+  @override
+  String get signupKeyStatusUnused => 'Unused';
+
+  @override
+  String get signupKeyStatusUsed => 'Used';
+
+  @override
+  String get signupKeyStatusRevoked => 'Revoked';
+
+  @override
+  String get signupKeysExport => 'Export .txt';
+
+  @override
+  String get signupKeysCopied => 'Keys copied';
+
+  @override
+  String get signupKeyCopied => 'Key copied';
+
+  @override
+  String get signupKeysEmpty => 'No keys in this list.';
+
+  @override
+  String signupKeyCreatedArg1(String arg1) {
+    return 'Created $arg1';
+  }
+
+  @override
+  String signupKeyUsedByArg1Arg2(String arg1, String arg2) {
+    return 'Used by $arg1 on $arg2';
+  }
+
+  @override
+  String signupKeyUsedByDeletedArg1(String arg1) {
+    return 'Used on $arg1 by an account that has since been deleted';
+  }
+
+  @override
+  String get signupKeyRevokeTitle => 'Revoke this key?';
+
+  @override
+  String get signupKeyRevokeMessage =>
+      'Nobody will be able to register with it. This can’t be undone.';
+
+  @override
+  String get signupKeyRevoked => 'Key revoked.';
+
+  @override
+  String signupKeysShowMore(int count) {
+    return 'Show $count more';
+  }
+
+  @override
+  String get signupKeysCreateTitle => 'Create sign-up keys';
+
+  @override
+  String get signupKeysCount => 'Number of keys';
+
+  @override
+  String get signupKeysCountHelper => '1 to 500';
+
+  @override
+  String get signupKeysCountInvalid => 'Enter a number from 1 to 500.';
+
+  @override
+  String get signupKeysLabel => 'Label (optional)';
+
+  @override
+  String get signupKeysLabelHint => 'e.g. Spring beta testers';
+
+  @override
+  String signupKeysCreateAction(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Create $count keys',
+      one: 'Create 1 key',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String signupKeysReady(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count keys are ready',
+      one: 'Your key is ready',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get signupKeysReadyHint =>
+      'Give each key to one person. Unused keys stay in the list, so you can copy or export them again later.';
+
+  @override
+  String get signupKeysSaveDialogTitle => 'Save sign-up keys';
+
+  @override
+  String get signupKeysExported => 'Keys exported.';
+
+  @override
+  String auditSignupKeysCreated(String actor, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$actor created $count sign-up keys',
+      one: '$actor created a sign-up key',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String auditSignupKeyRevoked(String actor) {
+    return '$actor revoked a sign-up key';
+  }
 }

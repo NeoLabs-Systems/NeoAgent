@@ -554,9 +554,6 @@ class AppL10nGa extends AppL10n {
       'Ceadaigh \"Suiteáil apps anaithnid\" do NeoAgent, ansin bain triail eile as an nuashonrú.';
 
   @override
-  String get allowNewSignUps => 'Ceadaigh clárúcháin nua';
-
-  @override
   String get allowOnce => 'Ceadaigh uair amháin';
 
   @override
@@ -5597,9 +5594,6 @@ class AppL10nGa extends AppL10n {
       'Chuaigh cuntas amháin nó níos mó in éag. Athcheangail an cuntas lena mbaineann chun rochtain uirlisí a aischur.';
 
   @override
-  String get oneRegister => 'clár amháin.';
-
-  @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'Rialaíonn am rite amháin pearsana, sealaíocht ghrúpa, cuimhne an tseomra, noirm, Teoiric na hIntinne, agus seachadadh.';
 
@@ -7027,10 +7021,6 @@ class AppL10nGa extends AppL10n {
       'Ní bhaineann teorainneacha úsáide freastalaí le samhlacha a ritheann ar d\'eochair féin.';
 
   @override
-  String get serverWithNoAccountsYetAlways =>
-      'freastalaí gan aon chuntais fós ligeann i gcónaí an chéad ';
-
-  @override
   String get serviceEmail => 'Ríomhphost seirbhíse';
 
   @override
@@ -7218,9 +7208,6 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get signOutEverywhere => 'Sínigh amach i ngach áit';
-
-  @override
-  String get signUpIsClosed => 'Tá an clárú dúnta.';
 
   @override
   String get signalCliRestApiBridge => 'droichead comhartha-cli REST API';
@@ -8963,10 +8950,6 @@ class AppL10nGa extends AppL10n {
   @override
   String get whatsappPersonalMessageReceived =>
       'Fuarthas Teachtaireacht Phearsanta WhatsApp';
-
-  @override
-  String get whenOffOnlyExistingAccountsCan =>
-      'Nuair atá sé múchta, ní féidir ach le cuntais reatha síniú isteach. A ';
 
   @override
   String get whenYouChooseApprovedOnlyAdd =>
@@ -11199,4 +11182,168 @@ class AppL10nGa extends AppL10n {
   @override
   String get qrLoginDeclinedOnPhone =>
       'Diúltaíodh don logáil isteach ar do ghuthán. Scan an cód nua chun triail eile a bhaint as.';
+
+  @override
+  String get signupKey => 'Eochair chlárúcháin';
+
+  @override
+  String get signupKeyStepSubtitle =>
+      'Teastaíonn eochair chlárúcháin ó chuntais nua ar an bhfreastalaí seo. Cuir isteach an eochair a fuair tú ó riarthóir.';
+
+  @override
+  String get signupKeyChange => 'Athraigh';
+
+  @override
+  String get signupKeyRequiredError => 'Cuir isteach d’eochair chlárúcháin.';
+
+  @override
+  String get signupKeyInvalidError =>
+      'Níl an eochair chlárúcháin sin bailí. Seiceáil í agus bain triail eile as.';
+
+  @override
+  String get signupKeyUsedError =>
+      'Úsáideadh an eochair chlárúcháin sin cheana. Iarr ceann nua ar riarthóir.';
+
+  @override
+  String get adminRequireSignupKey => 'Éiligh eochair chlárúcháin';
+
+  @override
+  String get adminRequireSignupKeyHint =>
+      'Teastaíonn eochair aonuaire ó riarthóir do chuntais nua. Nuair atá sé múchta, is féidir le duine ar bith a shroicheann an freastalaí seo clárú. Ní theastaíonn eochair riamh ón gcéad chuntas.';
+
+  @override
+  String get adminSignupKeyRequiredNotice =>
+      'Teastaíonn eochair chlárúcháin ó chuntais nua anois.';
+
+  @override
+  String get adminSignupOpenNotice => 'Is féidir le duine ar bith clárú anois.';
+
+  @override
+  String get signupKeys => 'Eochracha clárúcháin';
+
+  @override
+  String get signupKeysDescription =>
+      'Eochracha aonuaire le clárú fad is atá eochair ag teastáil. Cruthaíonn gach eochair cuntas amháin go díreach.';
+
+  @override
+  String get signupKeysNew => 'Eochracha nua';
+
+  @override
+  String signupKeysFilterUnused(int count) {
+    return 'Gan úsáid · $count';
+  }
+
+  @override
+  String signupKeysFilterUsed(int count) {
+    return 'Úsáidte · $count';
+  }
+
+  @override
+  String signupKeysFilterRevoked(int count) {
+    return 'Cúlghairthe · $count';
+  }
+
+  @override
+  String signupKeysFilterAll(int count) {
+    return 'Gach ceann · $count';
+  }
+
+  @override
+  String get signupKeyStatusUnused => 'Gan úsáid';
+
+  @override
+  String get signupKeyStatusUsed => 'Úsáidte';
+
+  @override
+  String get signupKeyStatusRevoked => 'Cúlghairthe';
+
+  @override
+  String get signupKeysExport => 'Easpórtáil .txt';
+
+  @override
+  String get signupKeysCopied => 'Cóipeáladh na heochracha';
+
+  @override
+  String get signupKeyCopied => 'Cóipeáladh an eochair';
+
+  @override
+  String get signupKeysEmpty => 'Níl aon eochracha sa liosta seo.';
+
+  @override
+  String signupKeyCreatedArg1(String arg1) {
+    return 'Cruthaithe $arg1';
+  }
+
+  @override
+  String signupKeyUsedByArg1Arg2(String arg1, String arg2) {
+    return 'Úsáidte ag $arg1 ar $arg2';
+  }
+
+  @override
+  String signupKeyUsedByDeletedArg1(String arg1) {
+    return 'Úsáidte ar $arg1 ag cuntas a scriosadh ó shin';
+  }
+
+  @override
+  String get signupKeyRevokeTitle => 'An gcúlghairfear an eochair seo?';
+
+  @override
+  String get signupKeyRevokeMessage =>
+      'Ní bheidh aon duine in ann clárú léi. Ní féidir é seo a chealú.';
+
+  @override
+  String get signupKeyRevoked => 'Cúlghaireadh an eochair.';
+
+  @override
+  String signupKeysShowMore(int count) {
+    return 'Taispeáin $count eile';
+  }
+
+  @override
+  String get signupKeysCreateTitle => 'Cruthaigh eochracha clárúcháin';
+
+  @override
+  String get signupKeysCount => 'Líon na n-eochracha';
+
+  @override
+  String get signupKeysCountHelper => '1 go 500';
+
+  @override
+  String get signupKeysCountInvalid => 'Cuir isteach uimhir ó 1 go 500.';
+
+  @override
+  String get signupKeysLabel => 'Lipéad (roghnach)';
+
+  @override
+  String get signupKeysLabelHint => 'm.sh. Tástálaithe béite an earraigh';
+
+  @override
+  String signupKeysCreateAction(int count) {
+    return 'Cruthaigh ($count)';
+  }
+
+  @override
+  String signupKeysReady(int count) {
+    return 'Eochracha réidh: $count';
+  }
+
+  @override
+  String get signupKeysReadyHint =>
+      'Tabhair gach eochair do dhuine amháin. Fanann eochracha gan úsáid sa liosta, ionas gur féidir leat iad a chóipeáil nó a easpórtáil arís níos déanaí.';
+
+  @override
+  String get signupKeysSaveDialogTitle => 'Sábháil eochracha clárúcháin';
+
+  @override
+  String get signupKeysExported => 'Easpórtáladh na heochracha.';
+
+  @override
+  String auditSignupKeysCreated(String actor, int count) {
+    return 'Chruthaigh $actor eochracha clárúcháin ($count)';
+  }
+
+  @override
+  String auditSignupKeyRevoked(String actor) {
+    return 'Chúlghair $actor eochair chlárúcháin';
+  }
 }
