@@ -55,6 +55,7 @@ import 'src/mascot/mascot_mood.dart';
 import 'src/mascot/neo_mascot.dart';
 import 'src/messaging_access_summary.dart';
 import 'src/oauth_launcher.dart';
+import 'src/auth/auth_provider_icon.dart';
 import 'src/security/password_strength.dart';
 import 'src/setup_diagnostics_service.dart';
 import 'src/signup_keys.dart';
@@ -77,6 +78,8 @@ part 'main_theme.dart';
 part 'main_setup.dart';
 part 'main_local_install.dart';
 part 'main_app_shell.dart';
+part 'main_provider_auth.dart';
+
 part 'main_launcher.dart';
 part 'main_integrations.dart';
 part 'main_models.dart';

@@ -117,6 +117,7 @@ class _ByokSettingsCardState extends State<ByokSettingsCard> {
             if (provider['signInAvailable'] == true &&
                 provider['configured'] != true)
               _ProviderSignInRow(
+                providerId: provider['id']?.toString() ?? '',
                 providerLabel: provider['label']?.toString() ?? '',
                 waiting: _signingInProviderId == provider['id'],
                 enabled: _signingInProviderId == null,
@@ -137,6 +138,7 @@ class _ByokSettingsCardState extends State<ByokSettingsCard> {
 /// "Sign in with OpenRouter" and similar: adds a provider without copying a key.
 class _ProviderSignInRow extends StatelessWidget {
   const _ProviderSignInRow({
+    required this.providerId,
     required this.providerLabel,
     required this.waiting,
     required this.enabled,
@@ -145,6 +147,7 @@ class _ProviderSignInRow extends StatelessWidget {
   });
 
   final String providerLabel;
+  final String providerId;
   final bool waiting;
   final bool enabled;
   final VoidCallback onSignIn;
@@ -171,7 +174,7 @@ class _ProviderSignInRow extends StatelessWidget {
             )
           : FilledButton.icon(
               onPressed: enabled ? onSignIn : null,
-              icon: const Icon(Icons.login_rounded, size: 18),
+              icon: AuthProviderIcon(provider: providerId),
               label: Text(appStrings.signInWithArg1(providerLabel)),
             ),
     );
@@ -367,9 +370,7 @@ class _ByokProviderRow extends StatelessWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(appStrings.removeArg1Key(providerLabel)),
-        content: Text(
-          appStrings.runsWillFallBackToThe(providerLabel),
-        ),
+        content: Text(appStrings.runsWillFallBackToThe(providerLabel)),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -559,10 +560,10 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
             Text(
               widget.isCustomEndpoint
                   ? appStrings.pointNeoagentAtAnyOpenaiCompatible +
-                      appStrings.apiYourOwnServerASelf +
-                      appStrings.hostedProvider
+                        appStrings.apiYourOwnServerASelf +
+                        appStrings.hostedProvider
                   : appStrings.pasteYourArg1ApiKeyBelow(widget.providerLabel) +
-                      appStrings.storedEncryptedAndOnlyUsedFor,
+                        appStrings.storedEncryptedAndOnlyUsedFor,
               style: TextStyle(color: _textSecondary, height: 1.4),
             ),
             const SizedBox(height: 16),
@@ -580,11 +581,14 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
               TextField(
                 controller: _baseUrlController,
                 decoration: InputDecoration(
-                  labelText: baseUrlRequired ? 'Base URL' : appStrings.baseUrlOptional,
+                  labelText: baseUrlRequired
+                      ? 'Base URL'
+                      : appStrings.baseUrlOptional,
                   hintText: widget.defaultBaseUrl.isNotEmpty
                       ? widget.defaultBaseUrl
                       : 'https://api.example.com/v1',
-                  helperText: appStrings.mustBeReachableOnThePublic +
+                  helperText:
+                      appStrings.mustBeReachableOnThePublic +
                       appStrings.privateNetworkAddressesArenTAllowed,
                   helperMaxLines: 2,
                 ),
@@ -602,7 +606,9 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
                   hintText: 'sk-...',
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscureKey ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                      _obscureKey
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
                     ),
                     onPressed: () => setState(() => _obscureKey = !_obscureKey),
                   ),
@@ -638,7 +644,11 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
             const SizedBox(height: 4),
             Text(
               appStrings.serverUsageLimitsDonTApply,
-              style: TextStyle(color: _textMuted, fontSize: 11.5, fontStyle: FontStyle.italic),
+              style: TextStyle(
+                color: _textMuted,
+                fontSize: 11.5,
+                fontStyle: FontStyle.italic,
+              ),
             ),
           ],
         ),
@@ -653,7 +663,10 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
           child: _saving
               ? const SizedBox.square(
                   dimension: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 )
               : Text(appStrings.save),
         ),

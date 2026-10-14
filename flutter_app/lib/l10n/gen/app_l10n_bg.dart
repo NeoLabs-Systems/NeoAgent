@@ -7610,10 +7610,6 @@ class AppL10nBg extends AppL10n {
       'Този имейл вече е свързан с друг акаунт.';
 
   @override
-  String get thatGoogleAccountIsAlreadyLinked =>
-      'Този акаунт в Google вече е свързан с различен акаунт в NeoAgent.';
-
-  @override
   String get thatQrCodeIsNotA =>
       'Този QR код не е заявка за влизане в NeoAgent.';
 
@@ -7992,10 +7988,6 @@ class AppL10nBg extends AppL10n {
 
   @override
   String get thisFileHasNoContent => 'Този файл няма съдържание.';
-
-  @override
-  String get thisGoogleAccountIsNotLinked =>
-      'Този акаунт в Google все още не е свързан. Първо използвайте регистрация на доставчик или влезте нормално и го свържете от настройките на акаунта.';
 
   @override
   String thisHidesArg1FromRoutingAnd(Object? arg1) {
@@ -11320,4 +11312,11 @@ class AppL10nBg extends AppL10n {
   String auditSignupKeyRevoked(String actor) {
     return '$actor отмени ключ за регистрация';
   }
+
+  @override
+  String get providerChooseUsername => 'Choose your username';
+
+  @override
+  String get providerChooseUsernameBody =>
+      'Choose an available username to finish creating your account.';
 }

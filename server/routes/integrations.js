@@ -187,7 +187,9 @@ async function finishOAuthCallback(req, res, state, callback) {
           mode: result.action,
           email: result.email,
         },
-        message: 'You can close this window and return to NeoAgent.',
+        message: result.requiresUsername
+          ? 'Return to NeoAgent to choose your username and finish registration.'
+          : 'You can close this window and return to NeoAgent.',
       }));
     }
 

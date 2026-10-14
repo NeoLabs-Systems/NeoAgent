@@ -28,6 +28,7 @@ const PUBLIC_ROUTES = new Set([
   'POST /api/auth/password/forgot',
   'POST /api/auth/password/reset',
   'POST /api/auth/providers/:provider/begin',
+  'POST /api/auth/providers/register',
   'POST /api/auth/qr-login/challenge',
   'POST /api/auth/qr-login/challenge/:id/status',
   'POST /api/auth/qr-login/challenge/:id/cancel',

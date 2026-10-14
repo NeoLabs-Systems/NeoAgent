@@ -7614,10 +7614,6 @@ class AppL10nRo extends AppL10n {
       'Acel e-mail este deja conectat la alt cont.';
 
   @override
-  String get thatGoogleAccountIsAlreadyLinked =>
-      'Contul Google este deja conectat la un alt cont NeoAgent.';
-
-  @override
   String get thatQrCodeIsNotA =>
       'Acest cod QR nu este o solicitare de conectare la NeoAgent.';
 
@@ -7997,10 +7993,6 @@ class AppL10nRo extends AppL10n {
 
   @override
   String get thisFileHasNoContent => 'Acest fișier nu are conținut.';
-
-  @override
-  String get thisGoogleAccountIsNotLinked =>
-      'Acest cont Google nu este încă conectat. Utilizați mai întâi înregistrarea furnizorului sau conectați-vă în mod normal și conectați-l din setările contului.';
 
   @override
   String thisHidesArg1FromRoutingAnd(Object? arg1) {
@@ -11325,4 +11317,11 @@ class AppL10nRo extends AppL10n {
   String auditSignupKeyRevoked(String actor) {
     return '$actor a revocat o cheie de înregistrare';
   }
+
+  @override
+  String get providerChooseUsername => 'Choose your username';
+
+  @override
+  String get providerChooseUsernameBody =>
+      'Choose an available username to finish creating your account.';
 }

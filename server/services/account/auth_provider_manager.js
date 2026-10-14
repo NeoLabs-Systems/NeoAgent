@@ -1,15 +1,14 @@
 'use strict';
 
-const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const db = require('../../db/database');
 const {
   assertSignupKeyUsable,
   isSignupKeyRequired,
-  redeemSignupKeyForNewUser,
 } = require('../access/signup_keys');
-const { isReservedAdminUsername } = require('../access/admin');
-const { isUsernameTaken } = require('./credentials');
+const { httpError } = require('../../utils/http_error');
+const { validateNewUsername } = require('./credentials');
+const { createProviderAccount, saveProviderAccount, hasUsernameCandidate } = require('./provider_accounts');
 const { decryptValue, encryptValue } = require('../integrations/secrets');
 const { createAuthProviderRegistry } = require('./auth_providers/registry');
 const { parseJsonObject } = require('../../utils/text');
@@ -23,18 +22,6 @@ function normalizeMode(value) {
 
 function nowIso() {
   return new Date().toISOString();
-}
-
-function normalizeUsernameCandidate(value) {
-  const normalized = String(value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, '')
-    .replace(/^[._-]+|[._-]+$/g, '');
-  if (normalized.length >= 3) {
-    return normalized.slice(0, 32);
-  }
-  return '';
 }
 
 class AuthProviderManager {
@@ -206,6 +193,11 @@ class AuthProviderManager {
         codeVerifier: decryptValue(stateRow.code_verifier),
       });
       const result = await this.#resolveAuthorization(stateRow, provider, identity);
+      if (result.requiresUsername) {
+        db.prepare("UPDATE auth_oauth_states SET status = 'requires_username', result_json = ? WHERE id = ?")
+          .run(encryptValue(JSON.stringify(identity)), stateRow.id);
+        return result;
+      }
       db.prepare(
         `UPDATE auth_oauth_states
          SET status = 'completed',
@@ -248,6 +240,11 @@ class AuthProviderManager {
       };
     }
 
+    if (stateRow.status === 'requires_username') {
+      this.getProvider(stateRow.provider_key)?.assertEnabled?.();
+      return { status: 'requires_username', requiresUsername: true, provider: stateRow.provider_key };
+    }
+
     db.prepare('DELETE FROM auth_oauth_states WHERE id = ?').run(stateRow.id);
 
     if (stateRow.status === 'failed') {
@@ -264,6 +261,30 @@ class AuthProviderManager {
       provider: stateRow.provider_key,
       result: parseJsonObject(stateRow.result_json),
     };
+  }
+
+  async completeRegistration(state, username) {
+    this.cleanupExpiredStates();
+    const row = db.prepare("SELECT * FROM auth_oauth_states WHERE state = ? AND status = 'requires_username'")
+      .get(String(state || '').trim());
+    if (!row) throw httpError(404, 'Registration request was not found or has expired.');
+    const provider = this.getProvider(row.provider_key);
+    provider.assertEnabled?.();
+    const selectedUsername = typeof username === 'string' ? username.trim() : '';
+    validateNewUsername(selectedUsername);
+    const identity = JSON.parse(decryptValue(row.result_json));
+    db.prepare("UPDATE auth_oauth_states SET status = 'exchanging' WHERE id = ?").run(row.id);
+    try {
+      const result = await this.#resolveAuthorization(row, provider, identity, selectedUsername);
+      db.prepare("UPDATE auth_oauth_states SET status = 'completed', result_json = ?, completed_at = ? WHERE id = ?")
+        .run(JSON.stringify(result), nowIso(), row.id);
+      return { status: 'completed' };
+    } catch (error) {
+      const retryable = error.code === 'USERNAME_TAKEN' || error.code === 'USERNAME_TOO_SHORT';
+      db.prepare('UPDATE auth_oauth_states SET status = ?, error_message = ? WHERE id = ?')
+        .run(retryable ? 'requires_username' : 'failed', error.message, row.id);
+      throw error;
+    }
   }
 
   unlinkProvider(userId, linkId) {
@@ -309,7 +330,7 @@ class AuthProviderManager {
     return row;
   }
 
-  async #resolveAuthorization(stateRow, provider, identity) {
+  async #resolveAuthorization(stateRow, provider, identity, username = null) {
     const existingLink = db.prepare(
       `SELECT *
        FROM user_auth_providers
@@ -318,9 +339,9 @@ class AuthProviderManager {
 
     if (stateRow.mode === 'login') {
       if (!existingLink) {
-        throw new Error('No NeoAgent account is linked to this provider. Register first or sign in and link it from account settings.');
+        throw new Error(`No NeoAgent account is linked to this ${provider.label} account. Register first or sign in and link it from account settings.`);
       }
-      this.#upsertLink(existingLink.user_id, provider.key, identity);
+      saveProviderAccount(existingLink.user_id, provider, identity);
       return {
         action: 'login',
         userId: existingLink.user_id,
@@ -335,9 +356,9 @@ class AuthProviderManager {
         throw new Error('You must be signed in to link a provider.');
       }
       if (existingLink && Number(existingLink.user_id) !== Number(stateRow.user_id)) {
-        throw new Error('This provider account is already linked to another NeoAgent account.');
+        throw new Error(`This ${provider.label} account is already linked to another NeoAgent account.`);
       }
-      this.#upsertLink(stateRow.user_id, provider.key, identity);
+      saveProviderAccount(stateRow.user_id, provider, identity);
       return {
         action: 'link',
         userId: stateRow.user_id,
@@ -348,7 +369,7 @@ class AuthProviderManager {
     }
 
     if (existingLink) {
-      this.#upsertLink(existingLink.user_id, provider.key, identity);
+      saveProviderAccount(existingLink.user_id, provider, identity);
       return {
         action: 'register',
         userId: existingLink.user_id,
@@ -366,7 +387,10 @@ class AuthProviderManager {
       throw new Error('That email already belongs to an existing account. Sign in first and link this provider from account settings.');
     }
 
-    const account = await this.#createUserFromIdentity(identity, stateRow.signup_key, provider.key);
+    if (!username && !hasUsernameCandidate(identity)) {
+      return { action: 'register', provider: provider.key, requiresUsername: true };
+    }
+    const account = await createProviderAccount(identity, stateRow.signup_key, provider, username);
     return {
       action: 'register',
       userId: account.userId,
@@ -377,100 +401,6 @@ class AuthProviderManager {
     };
   }
 
-  async #createUserFromIdentity(identity, signupKey, providerKey) {
-    const passwordHash = await bcrypt.hash(crypto.randomUUID(), 12);
-    return db.transaction(() => {
-      // Another callback can register this identity while password hashing yields.
-      const existing = db.prepare(
-        'SELECT user_id FROM user_auth_providers WHERE provider_key = ? AND provider_user_id = ?',
-      ).get(providerKey, identity.providerUserId);
-      if (existing) {
-        this.#upsertLink(existing.user_id, providerKey, identity);
-        return { userId: existing.user_id, created: false };
-      }
-      const username = this.#generateUniqueUsername(identity);
-      const result = db.prepare(
-        `INSERT INTO users (
-           username,
-           email,
-           email_verified_at,
-           password,
-           password_login_enabled
-         ) VALUES (?, ?, ?, ?, 0)`,
-      ).run(
-        username,
-        identity.email?.toLowerCase() || null,
-        identity.email ? nowIso() : null,
-        passwordHash,
-      );
-      const userId = Number(result.lastInsertRowid);
-      redeemSignupKeyForNewUser(signupKey, userId);
-      this.#upsertLink(userId, providerKey, identity);
-      return { userId, created: true };
-    })();
-  }
-
-  #generateUniqueUsername(identity) {
-    const candidates = [
-      normalizeUsernameCandidate(identity.displayName),
-      normalizeUsernameCandidate(String(identity.email || '').split('@')[0]),
-      'user',
-    ].filter(Boolean);
-
-    for (const candidate of candidates) {
-      const value = this.#firstAvailableUsername(candidate);
-      if (value) return value;
-    }
-    return this.#firstAvailableUsername('user');
-  }
-
-  #firstAvailableUsername(base) {
-    const normalizedBase = normalizeUsernameCandidate(base) || 'user';
-    for (let attempt = 0; attempt < 1000; attempt += 1) {
-      const suffix = attempt === 0 ? '' : String(attempt + 1);
-      const username = `${normalizedBase}${suffix}`.slice(0, 32);
-      if (!isUsernameTaken(username) && !isReservedAdminUsername(username)) return username;
-    }
-    return `user${Date.now().toString().slice(-6)}`;
-  }
-
-  #upsertLink(userId, providerKey, identity) {
-    db.transaction(() => {
-      this.#saveLink(userId, providerKey, identity);
-      this.getProvider(providerKey).saveCredentials?.(userId, identity);
-    })();
-  }
-
-  #saveLink(userId, providerKey, identity) {
-    db.prepare(
-      `INSERT INTO user_auth_providers (
-         user_id,
-         provider_key,
-         provider_user_id,
-         email,
-         metadata_json,
-         last_used_at,
-         updated_at
-       ) VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-       ON CONFLICT(provider_key, provider_user_id) DO UPDATE SET
-         user_id = excluded.user_id,
-         email = excluded.email,
-         metadata_json = excluded.metadata_json,
-         last_used_at = excluded.last_used_at,
-         updated_at = excluded.updated_at`,
-    ).run(
-      userId,
-      providerKey,
-      identity.providerUserId,
-      identity.email?.toLowerCase() || null,
-      JSON.stringify({
-        displayName: identity.displayName || null,
-        avatarUrl: identity.avatarUrl || null,
-        emailVerified: identity.emailVerified === true,
-        ...(identity.metadata || {}),
-      }),
-    );
-  }
 }
 
 module.exports = {

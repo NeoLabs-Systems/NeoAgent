@@ -5073,7 +5073,6 @@
   "thatAddedTheirOwnKeyKeep": "που πρόσθεσαν το δικό τους κλειδί συνεχίστε να το χρησιμοποιείτε.",
   "thatEmailAlreadyBelongsToAn": "Αυτό το email ανήκει ήδη σε έναν υπάρχοντα λογαριασμό. Συνδεθείτε πρώτα και, στη συνέχεια, συνδέστε το Google από τις ρυθμίσεις λογαριασμού.",
   "thatEmailIsAlreadyLinkedTo": "Αυτό το email είναι ήδη συνδεδεμένο με άλλο λογαριασμό.",
-  "thatGoogleAccountIsAlreadyLinked": "Αυτός ο λογαριασμός Google είναι ήδη συνδεδεμένος με διαφορετικό λογαριασμό NeoAgent.",
   "thatQrCodeIsNotA": "Αυτός ο κωδικός QR δεν είναι αίτημα σύνδεσης NeoAgent.",
   "thatQrCodeIsNotA2": "Αυτός ο κωδικός QR δεν είναι αίτημα σύζευξης NeoAgent.",
   "thatSecurityKeyIsAlreadyRegistered": "Αυτό το κλειδί ασφαλείας είναι ήδη εγγεγραμμένο σε αυτόν τον λογαριασμό.",
@@ -5254,7 +5253,6 @@
   "thisDeviceCannotRegisterSecurityKeys": "Αυτή η συσκευή δεν μπορεί να καταχωρήσει κλειδιά ασφαλείας. Ανοίξτε το NeoAgent σε ένα πρόγραμμα περιήγησης μέσω HTTPS για να προσθέσετε ένα.",
   "thisDeviceUnavailable": "Αυτή η συσκευή — δεν είναι διαθέσιμη",
   "thisFileHasNoContent": "Αυτό το αρχείο δεν έχει περιεχόμενο.",
-  "thisGoogleAccountIsNotLinked": "Αυτός ο λογαριασμός Google δεν είναι συνδεδεμένος ακόμα. Χρησιμοποιήστε πρώτα την εγγραφή παρόχου ή συνδεθείτε κανονικά και συνδέστε την από τις ρυθμίσεις λογαριασμού.",
   "thisHidesArg1FromRoutingAnd": "Αυτό αποκρύπτει το \"{arg1}\" από τη δρομολόγηση και την επιλογή.",
   "@thisHidesArg1FromRoutingAnd": {
     "placeholders": {

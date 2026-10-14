@@ -119,6 +119,11 @@ class NeoAgentController extends ChangeNotifier {
   bool aiModelsUnavailable = false;
   bool isAuthenticated = false;
   bool isAuthenticating = false;
+  String? pendingProviderRegistrationState;
+  String pendingRegistrationProvider = '';
+  bool get isAwaitingProviderUsername =>
+      pendingProviderRegistrationState != null;
+
   bool isAwaitingTwoFactor = false;
   bool isRefreshing = false;
 
@@ -163,6 +168,7 @@ class NeoAgentController extends ChangeNotifier {
   io.Socket? get streamSocket => socketConnected ? _socket : null;
 
   bool hasUser = true;
+
   /// New accounts need a one-time sign-up key from an admin; the first
   /// account on a server never does.
   bool signupKeyRequired = false;
@@ -1549,6 +1555,8 @@ class NeoAgentController extends ChangeNotifier {
     hasUser = true;
     isAuthenticated = true;
     isAwaitingTwoFactor = false;
+    pendingProviderRegistrationState = null;
+    pendingRegistrationProvider = '';
     pendingTwoFactorUsername = '';
     password = '';
     if (_draftHeldForUserId != null &&
@@ -1613,6 +1621,50 @@ class NeoAgentController extends ChangeNotifier {
     _authErrorMessage = errorMessage;
   }
 
+  void cancelProviderRegistration() {
+    pendingProviderRegistrationState = null;
+    pendingRegistrationProvider = '';
+    clearInlineError();
+    notifyListeners();
+  }
+
+  Future<void> completeProviderRegistration(String username) async {
+    final state = pendingProviderRegistrationState;
+    if (state == null || isAuthenticating) return;
+    isAuthenticating = true;
+    clearInlineError();
+    notifyListeners();
+    try {
+      await _backendClient.finishProviderRegistration(
+        baseUrl: backendUrl,
+        state: state,
+        username: username.trim(),
+      );
+      final response = await _backendClient.completeProviderAuth(
+        baseUrl: backendUrl,
+        state: state,
+      );
+      pendingProviderRegistrationState = null;
+      pendingRegistrationProvider = '';
+      await _completeAuthenticatedResponse(
+        response,
+        isRegistration: true,
+        authMethod: 'oauth',
+        retentionErrorMessage: appStrings.signInCompletedButNeoagentCould,
+      );
+    } catch (error) {
+      _setAuthError(error);
+      if (error is BackendException &&
+          (error.statusCode == 404 || error.statusCode == 403)) {
+        pendingProviderRegistrationState = null;
+        pendingRegistrationProvider = '';
+      }
+    } finally {
+      isAuthenticating = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> authenticateWithProvider({
     required String provider,
     required bool register,
@@ -1648,6 +1700,11 @@ class NeoAgentController extends ChangeNotifier {
         state,
         isActive: () => isAuthenticating,
       );
+      if (response['requiresUsername'] == true) {
+        pendingProviderRegistrationState = state;
+        pendingRegistrationProvider = provider;
+        return;
+      }
       if (response['requiresTwoFactor'] == true) {
         final responseUser =
             response['user'] as Map<dynamic, dynamic>? ??
@@ -1899,6 +1956,8 @@ class NeoAgentController extends ChangeNotifier {
     aiModelsUnavailable = false;
     _busyMessagingPlatformKeys.clear();
     isAwaitingTwoFactor = false;
+    pendingProviderRegistrationState = null;
+    pendingRegistrationProvider = '';
     pendingTwoFactorUsername = '';
     errorMessage = null;
     authInfoMessage = null;
@@ -7076,15 +7135,8 @@ class NeoAgentController extends ChangeNotifier {
         (backendStatusCode == 401 && lower == 'unauthorized')) {
       return appStrings.yourSessionExpiredPleaseSignIn;
     }
-    if (lower.contains('no neoagent account is linked to this provider')) {
-      return appStrings.thisGoogleAccountIsNotLinked;
-    }
     if (lower.contains('already belongs to an existing account')) {
       return appStrings.thatEmailAlreadyBelongsToAn;
-    }
-    if (lower.contains('already linked to another neoagent account') ||
-        lower.contains('already linked to another account')) {
-      return appStrings.thatGoogleAccountIsAlreadyLinked;
     }
     if (lower.contains(
       'create a password or link another provider before removing this sign-in method',

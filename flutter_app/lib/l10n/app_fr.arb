@@ -5073,7 +5073,6 @@
   "thatAddedTheirOwnKeyKeep": "qui a ajouté sa propre clé, continuez à l'utiliser.",
   "thatEmailAlreadyBelongsToAn": "Cet e-mail appartient déjà à un compte existant. Connectez-vous d'abord, puis associez Google à partir des paramètres du compte.",
   "thatEmailIsAlreadyLinkedTo": "Cet e-mail est déjà lié à un autre compte.",
-  "thatGoogleAccountIsAlreadyLinked": "Ce compte Google est déjà lié à un autre compte NeoAgent.",
   "thatQrCodeIsNotA": "Ce code QR n'est pas une demande de connexion NeoAgent.",
   "thatQrCodeIsNotA2": "Ce code QR n'est pas une demande de couplage NeoAgent.",
   "thatSecurityKeyIsAlreadyRegistered": "Cette clé de sécurité est déjà enregistrée sur ce compte.",
@@ -5254,7 +5253,6 @@
   "thisDeviceCannotRegisterSecurityKeys": "Cet appareil ne peut pas enregistrer les clés de sécurité. Ouvrez NeoAgent dans un navigateur via HTTPS pour en ajouter un.",
   "thisDeviceUnavailable": "Cet appareil — indisponible",
   "thisFileHasNoContent": "Ce fichier n'a aucun contenu.",
-  "thisGoogleAccountIsNotLinked": "Ce compte Google n'est pas encore associé. Utilisez d’abord l’enregistrement du fournisseur ou connectez-vous normalement et associez-le à partir des paramètres du compte.",
   "thisHidesArg1FromRoutingAnd": "Cela masque \"{arg1}\" du routage et de la sélection.",
   "@thisHidesArg1FromRoutingAnd": {
     "placeholders": {

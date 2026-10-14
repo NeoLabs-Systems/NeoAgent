@@ -5073,7 +5073,6 @@
   "thatAddedTheirOwnKeyKeep": "mis lisasid oma võtme, jätkavad selle kasutamist.",
   "thatEmailAlreadyBelongsToAn": "See e-kiri kuulub juba olemasolevale kontole. Logige esmalt sisse ja seejärel linkige konto seadetes Google.",
   "thatEmailIsAlreadyLinkedTo": "See meil on juba lingitud teise kontoga.",
-  "thatGoogleAccountIsAlreadyLinked": "See Google'i konto on juba lingitud teise NeoAgenti kontoga.",
   "thatQrCodeIsNotA": "See QR-kood ei ole NeoAgenti sisselogimistaotlus.",
   "thatQrCodeIsNotA2": "See QR-kood ei ole NeoAgenti sidumistaotlus.",
   "thatSecurityKeyIsAlreadyRegistered": "See turvavõti on sellel kontol juba registreeritud.",
@@ -5254,7 +5253,6 @@
   "thisDeviceCannotRegisterSecurityKeys": "See seade ei saa turvavõtmeid registreerida. Selle lisamiseks avage HTTPS-i kaudu brauseris NeoAgent.",
   "thisDeviceUnavailable": "See seade – pole saadaval",
   "thisFileHasNoContent": "Sellel failil pole sisu.",
-  "thisGoogleAccountIsNotLinked": "See Google'i konto pole veel lingitud. Kasutage esmalt teenusepakkuja registreerimist või logige sisse tavapäraselt ja linkige see konto seadetest.",
   "thisHidesArg1FromRoutingAnd": "See peidab \"{arg1}\" marsruudi ja valiku eest.",
   "@thisHidesArg1FromRoutingAnd": {
     "placeholders": {

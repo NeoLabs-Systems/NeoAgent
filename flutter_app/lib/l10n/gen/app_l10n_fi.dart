@@ -7590,10 +7590,6 @@ class AppL10nFi extends AppL10n {
       'Tämä sähköposti on jo linkitetty toiseen tiliin.';
 
   @override
-  String get thatGoogleAccountIsAlreadyLinked =>
-      'Tämä Google-tili on jo linkitetty toiseen NeoAgent-tiliin.';
-
-  @override
   String get thatQrCodeIsNotA =>
       'Tämä QR-koodi ei ole NeoAgent-kirjautumispyyntö.';
 
@@ -7971,10 +7967,6 @@ class AppL10nFi extends AppL10n {
 
   @override
   String get thisFileHasNoContent => 'Tällä tiedostolla ei ole sisältöä.';
-
-  @override
-  String get thisGoogleAccountIsNotLinked =>
-      'Tätä Google-tiliä ei ole vielä linkitetty. Käytä ensin palveluntarjoajan rekisteröintiä tai kirjaudu sisään normaalisti ja linkitä se tilin asetuksista.';
 
   @override
   String thisHidesArg1FromRoutingAnd(Object? arg1) {
@@ -11283,4 +11275,11 @@ class AppL10nFi extends AppL10n {
   String auditSignupKeyRevoked(String actor) {
     return '$actor peruutti rekisteröitymisavaimen';
   }
+
+  @override
+  String get providerChooseUsername => 'Choose your username';
+
+  @override
+  String get providerChooseUsernameBody =>
+      'Choose an available username to finish creating your account.';
 }

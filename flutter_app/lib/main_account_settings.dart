@@ -1004,7 +1004,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                         onPressed: controller.isSavingAccountSettings
                             ? null
                             : () => controller.linkAccountProvider(provider.id),
-                        icon: Icon(Icons.link, size: 18),
+                        icon: AuthProviderIcon(provider: provider.icon),
                         label: Text(appStrings.linkArg1(provider.label)),
                       ),
                   ],

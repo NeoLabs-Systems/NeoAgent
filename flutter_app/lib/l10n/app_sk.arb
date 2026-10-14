@@ -5073,7 +5073,6 @@
   "thatAddedTheirOwnKeyKeep": "ktorí pridali svoj vlastný kľúč, naďalej ho používajte.",
   "thatEmailAlreadyBelongsToAn": "Tento e-mail už patrí k existujúcemu účtu. Najprv sa prihláste a potom v nastaveniach účtu prepojte Google.",
   "thatEmailIsAlreadyLinkedTo": "Tento e-mail je už prepojený s iným účtom.",
-  "thatGoogleAccountIsAlreadyLinked": "Tento účet Google je už prepojený s iným účtom NeoAgent.",
   "thatQrCodeIsNotA": "Tento QR kód nie je žiadosťou o prihlásenie NeoAgent.",
   "thatQrCodeIsNotA2": "Tento QR kód nie je žiadosťou o párovanie NeoAgent.",
   "thatSecurityKeyIsAlreadyRegistered": "Tento bezpečnostný kľúč je už zaregistrovaný v tomto účte.",
@@ -5254,7 +5253,6 @@
   "thisDeviceCannotRegisterSecurityKeys": "Toto zariadenie nemôže zaregistrovať bezpečnostné kľúče. Otvorte NeoAgent v prehliadači cez HTTPS a pridajte ho.",
   "thisDeviceUnavailable": "Toto zariadenie — nedostupné",
   "thisFileHasNoContent": "Tento súbor nemá žiadny obsah.",
-  "thisGoogleAccountIsNotLinked": "Tento účet Google ešte nie je prepojený. Najprv použite registráciu poskytovateľa alebo sa normálne prihláste a prepojte ho z nastavení účtu.",
   "thisHidesArg1FromRoutingAnd": "Toto skryje \"{arg1}\" pred smerovaním a výberom.",
   "@thisHidesArg1FromRoutingAnd": {
     "placeholders": {

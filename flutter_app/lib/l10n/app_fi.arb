@@ -5073,7 +5073,6 @@
   "thatAddedTheirOwnKeyKeep": "jotka lisäsivät oman avaimensa, jatkavat sen käyttöä.",
   "thatEmailAlreadyBelongsToAn": "Sähköpostiosoite kuuluu jo olemassa olevaan tiliin. Kirjaudu ensin sisään ja linkitä sitten Google tilin asetuksista.",
   "thatEmailIsAlreadyLinkedTo": "Tämä sähköposti on jo linkitetty toiseen tiliin.",
-  "thatGoogleAccountIsAlreadyLinked": "Tämä Google-tili on jo linkitetty toiseen NeoAgent-tiliin.",
   "thatQrCodeIsNotA": "Tämä QR-koodi ei ole NeoAgent-kirjautumispyyntö.",
   "thatQrCodeIsNotA2": "Tämä QR-koodi ei ole NeoAgent-pariliitospyyntö.",
   "thatSecurityKeyIsAlreadyRegistered": "Tämä suojausavain on jo rekisteröity tälle tilille.",
@@ -5254,7 +5253,6 @@
   "thisDeviceCannotRegisterSecurityKeys": "Tämä laite ei voi rekisteröidä suojausavaimia. Lisää sellainen avaamalla NeoAgent selaimessa HTTPS:n kautta.",
   "thisDeviceUnavailable": "Tämä laite – ei saatavilla",
   "thisFileHasNoContent": "Tällä tiedostolla ei ole sisältöä.",
-  "thisGoogleAccountIsNotLinked": "Tätä Google-tiliä ei ole vielä linkitetty. Käytä ensin palveluntarjoajan rekisteröintiä tai kirjaudu sisään normaalisti ja linkitä se tilin asetuksista.",
   "thisHidesArg1FromRoutingAnd": "Tämä piilottaa \"{arg1}\" reitityksestä ja valinnasta.",
   "@thisHidesArg1FromRoutingAnd": {
     "placeholders": {

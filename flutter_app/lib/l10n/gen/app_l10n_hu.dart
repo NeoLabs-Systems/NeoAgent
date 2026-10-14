@@ -7625,10 +7625,6 @@ class AppL10nHu extends AppL10n {
       'Ez az e-mail már össze van kapcsolva egy másik fiókkal.';
 
   @override
-  String get thatGoogleAccountIsAlreadyLinked =>
-      'Ez a Google-fiók már össze van kapcsolva egy másik NeoAgent-fiókkal.';
-
-  @override
   String get thatQrCodeIsNotA =>
       'Ez a QR-kód nem a NeoAgent bejelentkezési kérelme.';
 
@@ -8005,10 +8001,6 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get thisFileHasNoContent => 'Ennek a fájlnak nincs tartalma.';
-
-  @override
-  String get thisGoogleAccountIsNotLinked =>
-      'Ez a Google-fiók még nincs összekapcsolva. Először használja a szolgáltatói regisztrációt, vagy jelentkezzen be a szokásos módon, és kapcsolja össze a fiókbeállításokból.';
 
   @override
   String thisHidesArg1FromRoutingAnd(Object? arg1) {
@@ -11330,4 +11322,11 @@ class AppL10nHu extends AppL10n {
   String auditSignupKeyRevoked(String actor) {
     return '$actor visszavont egy regisztrációs kulcsot';
   }
+
+  @override
+  String get providerChooseUsername => 'Choose your username';
+
+  @override
+  String get providerChooseUsernameBody =>
+      'Choose an available username to finish creating your account.';
 }

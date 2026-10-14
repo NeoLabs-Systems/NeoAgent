@@ -226,6 +226,15 @@ class BackendClient {
     );
   }
 
+  Future<Map<String, dynamic>> finishProviderRegistration({
+    required String baseUrl,
+    required String state,
+    required String username,
+  }) => postMap(baseUrl, '/api/auth/providers/register', <String, dynamic>{
+    'state': state,
+    'username': username,
+  }, allowUnauthorized: true);
+
   Future<Map<String, dynamic>> completeTwoFactorLogin({
     required String baseUrl,
     required String code,
@@ -569,9 +578,11 @@ class BackendClient {
     String baseUrl,
     String link,
   ) async {
-    return postMap(baseUrl, '/api/delegation/invites/preview', <String, dynamic>{
-      'link': link,
-    });
+    return postMap(
+      baseUrl,
+      '/api/delegation/invites/preview',
+      <String, dynamic>{'link': link},
+    );
   }
 
   Future<Map<String, dynamic>> redeemDelegationInvite(
@@ -640,11 +651,16 @@ class BackendClient {
     String query = '',
   }) async {
     final trimmed = query.trim();
-    final suffix = trimmed.isEmpty ? '' : '?q=${Uri.encodeQueryComponent(trimmed)}';
+    final suffix = trimmed.isEmpty
+        ? ''
+        : '?q=${Uri.encodeQueryComponent(trimmed)}';
     return getMap(baseUrl, '/api/admin/users$suffix');
   }
 
-  Future<Map<String, dynamic>> deleteAdminUser(String baseUrl, int userId) async {
+  Future<Map<String, dynamic>> deleteAdminUser(
+    String baseUrl,
+    int userId,
+  ) async {
     return deleteMap(baseUrl, '/api/admin/users/$userId');
   }
 

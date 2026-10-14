@@ -7596,10 +7596,6 @@ class AppL10nSk extends AppL10n {
       'Tento e-mail je už prepojený s iným účtom.';
 
   @override
-  String get thatGoogleAccountIsAlreadyLinked =>
-      'Tento účet Google je už prepojený s iným účtom NeoAgent.';
-
-  @override
   String get thatQrCodeIsNotA =>
       'Tento QR kód nie je žiadosťou o prihlásenie NeoAgent.';
 
@@ -7977,10 +7973,6 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get thisFileHasNoContent => 'Tento súbor nemá žiadny obsah.';
-
-  @override
-  String get thisGoogleAccountIsNotLinked =>
-      'Tento účet Google ešte nie je prepojený. Najprv použite registráciu poskytovateľa alebo sa normálne prihláste a prepojte ho z nastavení účtu.';
 
   @override
   String thisHidesArg1FromRoutingAnd(Object? arg1) {
@@ -11292,4 +11284,11 @@ class AppL10nSk extends AppL10n {
   String auditSignupKeyRevoked(String actor) {
     return '$actor zrušil(a) registračný kľúč';
   }
+
+  @override
+  String get providerChooseUsername => 'Choose your username';
+
+  @override
+  String get providerChooseUsernameBody =>
+      'Choose an available username to finish creating your account.';
 }

@@ -5073,7 +5073,6 @@
   "thatAddedTheirOwnKeyKeep": "които добавиха свой собствен ключ, продължават да го използват.",
   "thatEmailAlreadyBelongsToAn": "Този имейл вече принадлежи на съществуващ акаунт. Първо влезте, след това свържете Google от настройките на акаунта.",
   "thatEmailIsAlreadyLinkedTo": "Този имейл вече е свързан с друг акаунт.",
-  "thatGoogleAccountIsAlreadyLinked": "Този акаунт в Google вече е свързан с различен акаунт в NeoAgent.",
   "thatQrCodeIsNotA": "Този QR код не е заявка за влизане в NeoAgent.",
   "thatQrCodeIsNotA2": "Този QR код не е заявка за сдвояване на NeoAgent.",
   "thatSecurityKeyIsAlreadyRegistered": "Този ключ за сигурност вече е регистриран в този акаунт.",
@@ -5254,7 +5253,6 @@
   "thisDeviceCannotRegisterSecurityKeys": "Това устройство не може да регистрира ключове за сигурност. Отворете NeoAgent в браузър през HTTPS, за да добавите такъв.",
   "thisDeviceUnavailable": "Това устройство — недостъпно",
   "thisFileHasNoContent": "Този файл няма съдържание.",
-  "thisGoogleAccountIsNotLinked": "Този акаунт в Google все още не е свързан. Първо използвайте регистрация на доставчик или влезте нормално и го свържете от настройките на акаунта.",
   "thisHidesArg1FromRoutingAnd": "Това скрива \"{arg1}\" от маршрутизиране и избор.",
   "@thisHidesArg1FromRoutingAnd": {
     "placeholders": {

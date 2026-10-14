@@ -5073,7 +5073,6 @@
   "thatAddedTheirOwnKeyKeep": "die hun eigen sleutel hebben toegevoegd, blijf deze gebruiken.",
   "thatEmailAlreadyBelongsToAn": "Dat e-mailadres hoort al bij een bestaand account. Meld u eerst aan en koppel vervolgens Google vanuit de accountinstellingen.",
   "thatEmailIsAlreadyLinkedTo": "Dat e-mailadres is al aan een ander account gekoppeld.",
-  "thatGoogleAccountIsAlreadyLinked": "Dat Google-account is al gekoppeld aan een ander NeoAgent-account.",
   "thatQrCodeIsNotA": "Die QR-code is geen NeoAgent-inlogverzoek.",
   "thatQrCodeIsNotA2": "Die QR-code is geen NeoAgent-koppelingsverzoek.",
   "thatSecurityKeyIsAlreadyRegistered": "Die beveiligingssleutel is al geregistreerd op dit account.",
@@ -5254,7 +5253,6 @@
   "thisDeviceCannotRegisterSecurityKeys": "Dit apparaat kan geen beveiligingssleutels registreren. Open NeoAgent in een browser via HTTPS om er een toe te voegen.",
   "thisDeviceUnavailable": "Dit apparaat is niet beschikbaar",
   "thisFileHasNoContent": "Dit bestand heeft geen inhoud.",
-  "thisGoogleAccountIsNotLinked": "Dit Google-account is nog niet gekoppeld. Gebruik eerst de providerregistratie of meld u normaal aan en koppel deze vanuit de accountinstellingen.",
   "thisHidesArg1FromRoutingAnd": "Hierdoor wordt \"{arg1}\" verborgen voor routering en selectie.",
   "@thisHidesArg1FromRoutingAnd": {
     "placeholders": {

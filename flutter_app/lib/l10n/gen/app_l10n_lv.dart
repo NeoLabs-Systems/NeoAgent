@@ -7596,10 +7596,6 @@ class AppL10nLv extends AppL10n {
       'Šis e-pasts jau ir saistīts ar citu kontu.';
 
   @override
-  String get thatGoogleAccountIsAlreadyLinked =>
-      'Šis Google konts jau ir saistīts ar citu NeoAgent kontu.';
-
-  @override
   String get thatQrCodeIsNotA =>
       'Šis QR kods nav NeoAgent pieteikšanās pieprasījums.';
 
@@ -7975,10 +7971,6 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get thisFileHasNoContent => 'Šim failam nav satura.';
-
-  @override
-  String get thisGoogleAccountIsNotLinked =>
-      'Šis Google konts vēl nav saistīts. Vispirms izmantojiet pakalpojumu sniedzēja reģistrāciju vai pierakstieties kā parasti un saistiet to no konta iestatījumiem.';
 
   @override
   String thisHidesArg1FromRoutingAnd(Object? arg1) {
@@ -11292,4 +11284,11 @@ class AppL10nLv extends AppL10n {
   String auditSignupKeyRevoked(String actor) {
     return '$actor atsauca reģistrācijas atslēgu';
   }
+
+  @override
+  String get providerChooseUsername => 'Choose your username';
+
+  @override
+  String get providerChooseUsernameBody =>
+      'Choose an available username to finish creating your account.';
 }

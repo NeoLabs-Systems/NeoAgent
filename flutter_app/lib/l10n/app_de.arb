@@ -5073,7 +5073,6 @@
   "thatAddedTheirOwnKeyKeep": "die einen eigenen Schlüssel hinzugefügt haben, behalten ihn.",
   "thatEmailAlreadyBelongsToAn": "Diese E-Mail gehört bereits zu einem bestehenden Konto. Melden Sie sich zuerst an und verknüpfen Sie Google dann in den Kontoeinstellungen.",
   "thatEmailIsAlreadyLinkedTo": "Diese E-Mail ist bereits mit einem anderen Konto verknüpft.",
-  "thatGoogleAccountIsAlreadyLinked": "Dieses Google-Konto ist bereits mit einem anderen NeoAgent-Konto verknüpft.",
   "thatQrCodeIsNotA": "Dieser QR-Code ist keine NeoAgent-Anmeldeanfrage.",
   "thatQrCodeIsNotA2": "Dieser QR-Code ist keine NeoAgent-Pairing-Anfrage.",
   "thatSecurityKeyIsAlreadyRegistered": "Dieser Sicherheitsschlüssel ist bereits für dieses Konto registriert.",
@@ -5254,7 +5253,6 @@
   "thisDeviceCannotRegisterSecurityKeys": "Dieses Gerät kann keine Sicherheitsschlüssel registrieren. Öffnen Sie NeoAgent in einem Browser über HTTPS, um einen hinzuzufügen.",
   "thisDeviceUnavailable": "Dieses Gerät — nicht verfügbar",
   "thisFileHasNoContent": "Diese Datei hat keinen Inhalt.",
-  "thisGoogleAccountIsNotLinked": "Dieses Google-Konto ist noch nicht verknüpft. Nutzen Sie zuerst die Anbieterregistrierung, oder melden Sie sich normal an und verknüpfen Sie es in den Kontoeinstellungen.",
   "thisHidesArg1FromRoutingAnd": "Dadurch wird „{arg1}“ aus Routing und Auswahl ausgeblendet.",
   "@thisHidesArg1FromRoutingAnd": {
     "placeholders": {
@@ -6943,5 +6941,7 @@
   "signupKeysSaveDialogTitle": "Registrierungsschlüssel speichern",
   "signupKeysExported": "Schlüssel exportiert.",
   "auditSignupKeysCreated": "{actor} hat Registrierungsschlüssel erstellt ({count})",
-  "auditSignupKeyRevoked": "{actor} hat einen Registrierungsschlüssel widerrufen"
+  "auditSignupKeyRevoked": "{actor} hat einen Registrierungsschlüssel widerrufen",
+  "providerChooseUsername": "Wähle deinen Benutzernamen",
+  "providerChooseUsernameBody": "Wähle einen verfügbaren Benutzernamen, um dein Konto zu erstellen."
 }

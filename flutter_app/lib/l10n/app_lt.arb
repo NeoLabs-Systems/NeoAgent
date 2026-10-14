@@ -5073,7 +5073,6 @@
   "thatAddedTheirOwnKeyKeep": "kurie pridėjo savo raktą ir toliau juo naudojasi.",
   "thatEmailAlreadyBelongsToAn": "Šis el. paštas jau priklauso esamai paskyrai. Pirmiausia prisijunkite, tada susiekite „Google“ paskyros nustatymuose.",
   "thatEmailIsAlreadyLinkedTo": "Šis el. paštas jau susietas su kita paskyra.",
-  "thatGoogleAccountIsAlreadyLinked": "Ta „Google“ paskyra jau susieta su kita „NeoAgent“ paskyra.",
   "thatQrCodeIsNotA": "Šis QR kodas nėra „NeoAgent“ prisijungimo užklausa.",
   "thatQrCodeIsNotA2": "Šis QR kodas nėra „NeoAgent“ susiejimo užklausa.",
   "thatSecurityKeyIsAlreadyRegistered": "Šis saugos raktas jau užregistruotas šioje paskyroje.",
@@ -5254,7 +5253,6 @@
   "thisDeviceCannotRegisterSecurityKeys": "Šis įrenginys negali užregistruoti saugos raktų. Atidarykite „NeoAgent“ naršyklėje per HTTPS, kad ją pridėtumėte.",
   "thisDeviceUnavailable": "Šis įrenginys – nepasiekiamas",
   "thisFileHasNoContent": "Šiame faile nėra turinio.",
-  "thisGoogleAccountIsNotLinked": "Ši „Google“ paskyra dar nesusieta. Pirmiausia naudokite teikėjo registraciją arba prisijunkite įprastai ir susiekite ją paskyros nustatymuose.",
   "thisHidesArg1FromRoutingAnd": "Tai paslepia „{arg1}“ nuo maršruto parinkimo ir pasirinkimo.",
   "@thisHidesArg1FromRoutingAnd": {
     "placeholders": {

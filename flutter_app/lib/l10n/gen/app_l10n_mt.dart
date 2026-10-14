@@ -7601,10 +7601,6 @@ class AppL10nMt extends AppL10n {
       'Dik l-email diġà hija marbuta ma\' kont ieħor.';
 
   @override
-  String get thatGoogleAccountIsAlreadyLinked =>
-      'Dak il-kont tal-Google diġà huwa marbut ma\' kont differenti ta\' NeoAgent.';
-
-  @override
   String get thatQrCodeIsNotA =>
       'Dak il-kodiċi QR mhuwiex talba għall-login ta\' NeoAgent.';
 
@@ -7983,10 +7979,6 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get thisFileHasNoContent => 'Dan il-fajl m\'għandux kontenut.';
-
-  @override
-  String get thisGoogleAccountIsNotLinked =>
-      'Dan il-kont Google għadu mhux konness. Uża r-reġistrazzjoni tal-fornitur l-ewwel, jew idħol normalment u għaqqadha mis-settings tal-kont.';
 
   @override
   String thisHidesArg1FromRoutingAnd(Object? arg1) {
@@ -11304,4 +11296,11 @@ class AppL10nMt extends AppL10n {
   String auditSignupKeyRevoked(String actor) {
     return '$actor irrevoka ċavetta tar-reġistrazzjoni';
   }
+
+  @override
+  String get providerChooseUsername => 'Choose your username';
+
+  @override
+  String get providerChooseUsernameBody =>
+      'Choose an available username to finish creating your account.';
 }

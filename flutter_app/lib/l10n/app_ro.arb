@@ -5073,7 +5073,6 @@
   "thatAddedTheirOwnKeyKeep": "care și-au adăugat propria cheie continuă să o folosească.",
   "thatEmailAlreadyBelongsToAn": "Acel e-mail aparține deja unui cont existent. Conectați-vă mai întâi, apoi conectați Google din setările contului.",
   "thatEmailIsAlreadyLinkedTo": "Acel e-mail este deja conectat la alt cont.",
-  "thatGoogleAccountIsAlreadyLinked": "Contul Google este deja conectat la un alt cont NeoAgent.",
   "thatQrCodeIsNotA": "Acest cod QR nu este o solicitare de conectare la NeoAgent.",
   "thatQrCodeIsNotA2": "Codul QR nu este o solicitare de asociere NeoAgent.",
   "thatSecurityKeyIsAlreadyRegistered": "Cheia de securitate este deja înregistrată în acest cont.",
@@ -5254,7 +5253,6 @@
   "thisDeviceCannotRegisterSecurityKeys": "Acest dispozitiv nu poate înregistra cheile de securitate. Deschideți NeoAgent într-un browser prin HTTPS pentru a adăuga unul.",
   "thisDeviceUnavailable": "Acest dispozitiv — indisponibil",
   "thisFileHasNoContent": "Acest fișier nu are conținut.",
-  "thisGoogleAccountIsNotLinked": "Acest cont Google nu este încă conectat. Utilizați mai întâi înregistrarea furnizorului sau conectați-vă în mod normal și conectați-l din setările contului.",
   "thisHidesArg1FromRoutingAnd": "Aceasta ascunde „{arg1}” de rutare și selecție.",
   "@thisHidesArg1FromRoutingAnd": {
     "placeholders": {

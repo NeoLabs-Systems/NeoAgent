@@ -12,6 +12,7 @@ let app;
 let manager;
 let accountId;
 let exchanges;
+let attempts = 0;
 const realFetch = global.fetch;
 const previousAllowSignup = process.env.NEOAGENT_ALLOW_SIGNUP;
 
@@ -39,7 +40,7 @@ after(() => {
 
 async function begin(client, mode, signupKey) {
   const res = await client.post('/api/auth/providers/openrouter/begin')
-    .set('X-Forwarded-For', '10.88.0.1').send({ mode, signupKey }).expect(200);
+    .set('X-Forwarded-For', `10.88.0.${++attempts}`).send({ mode, signupKey }).expect(200);
   const url = new URL(res.body.url);
   assert.equal(url.origin + url.pathname, 'https://openrouter.ai/auth');
   assert.equal(url.searchParams.get('state'), res.body.state);
@@ -68,7 +69,17 @@ function stubExchange(flow, identity = 'openrouter-account', key = 'sk-or-accoun
 
 async function callback(client, flow, status = 200, code = 'approved') {
   const res = await client.get('/api/integrations/oauth/callback')
-    .query({ state: flow.state, code }).expect(status);
+    .query({ state: flow.state, code });
+  const row = ctx.db.prepare('SELECT status FROM auth_oauth_states WHERE state = ?').get(flow.state);
+  if (res.status === 200 && row?.status === 'requires_username') {
+    const registration = await client.post('/api/auth/providers/register').send({
+      state: flow.state, username: `account_${crypto.randomBytes(6).toString('hex')}`,
+    });
+    if (status === 200) assert.equal(registration.status, 200);
+    else assert.ok([400, 403].includes(registration.status));
+  } else {
+    assert.equal(res.status, status);
+  }
   assert.equal(res.text.includes('sk-or-account-test'), false);
   return res;
 }
@@ -243,8 +254,14 @@ test('two simultaneous registrations of the same identity create only one accoun
     manager.finishAuthorization(first.state, 'approved'),
     manager.finishAuthorization(second.state, 'approved'),
   ]);
-  assert.equal(results[0].userId, results[1].userId);
-  assert.deepEqual(results.map((r) => r.created).sort(), [false, true]);
+  assert.ok(results.every((r) => r.requiresUsername));
+  await Promise.all([
+    manager.completeRegistration(first.state, 'concurrent_first'),
+    manager.completeRegistration(second.state, 'concurrent_second'),
+  ]);
+  const accounts = [manager.consumeAuthorization(first.state), manager.consumeAuthorization(second.state)];
+  assert.equal(accounts[0].result.userId, accounts[1].result.userId);
+  assert.deepEqual(accounts.map((r) => r.result.created).sort(), [false, true]);
   assert.equal(ctx.db.prepare('SELECT COUNT(*) AS n FROM users').get().n, count + 1);
 });
 
@@ -358,4 +375,50 @@ test('OpenRouter-only accounts must keep a sign-in method and can set a password
   const loggedIn = await client.post('/api/auth/login')
     .send({ username: user.username, password: 'Correct-Horse-Battery-9' }).expect(200);
   assert.equal(loggedIn.body.user.id, accountId);
+});
+
+test('new identities choose an available username before any account or credentials are created', async () => {
+  const client = agent(app);
+  const flow = await begin(client, 'register');
+  stubExchange(flow, 'username-selection-identity');
+  const count = ctx.db.prepare('SELECT COUNT(*) AS n FROM users').get().n;
+  await client.get('/api/integrations/oauth/callback').query({ state: flow.state, code: 'approved' }).expect(200);
+  const pending = await collect(client, flow);
+  assert.equal(pending.requiresUsername, true);
+  assert.equal(ctx.db.prepare('SELECT COUNT(*) AS n FROM users').get().n, count);
+  const stored = ctx.db.prepare('SELECT result_json FROM auth_oauth_states WHERE state = ?').get(flow.state);
+  assert.equal(stored.result_json.includes('sk-or-account-test'), false);
+  assert.equal(stored.result_json.includes('username-selection-identity'), false);
+  await agent(app).post('/api/auth/providers/register').send({ state: flow.state, username: 'chosen_name' }).expect(404);
+  const submit = (username) => client.post('/api/auth/providers/register').send({ state: flow.state, username });
+  assert.equal((await submit('ab').expect(400)).body.code, 'USERNAME_TOO_SHORT');
+  const taken = ctx.db.prepare('SELECT username FROM users WHERE id = ?').get(accountId).username.toUpperCase();
+  assert.equal((await submit(taken).expect(409)).body.code, 'USERNAME_TAKEN');
+  assert.equal((await collect(client, flow)).requiresUsername, true);
+  await submit('chosen_name').expect(200);
+  const done = await collect(client, flow);
+  assert.equal(done.user.username, 'chosen_name');
+  assert.equal(exchanges.length, 1);
+  await submit('another_name').expect(404);
+  assert.equal(ctx.db.prepare('SELECT COUNT(*) AS n FROM users').get().n, count + 1);
+});
+
+test('username selection applies to another provider without provider-specific registration logic', async () => {
+  const originalRegistry = manager.registry;
+  const provider = {
+    key: 'new_provider', label: 'New Provider', getEnvStatus: () => ({ configured: true }),
+    beginOAuth: () => ({ url: 'https://identity.example.test/authorize' }),
+    finishOAuth: () => ({ providerUserId: 'new-provider-identity', email: null }),
+  };
+  manager.registry = { get: (key) => key === provider.key ? provider : originalRegistry.get(key), list: () => [...originalRegistry.list(), provider] };
+  try {
+    const begun = await manager.beginAuthorization({ providerKey: provider.key, mode: 'register' });
+    assert.equal((await manager.finishAuthorization(begun.state, 'approved')).requiresUsername, true);
+    assert.equal(manager.consumeAuthorization(begun.state).requiresUsername, true);
+    await manager.completeRegistration(begun.state, 'new_provider_user');
+    const done = manager.consumeAuthorization(begun.state);
+    assert.equal(ctx.db.prepare('SELECT username FROM users WHERE id = ?').get(done.result.userId).username, 'new_provider_user');
+  } finally {
+    manager.registry = originalRegistry;
+  }
 });

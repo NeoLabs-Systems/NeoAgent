@@ -5073,7 +5073,6 @@
   "thatAddedTheirOwnKeyKeep": "amelyek hozzáadták a saját kulcsukat, továbbra is használják.",
   "thatEmailAlreadyBelongsToAn": "Ez az e-mail már egy meglévő fiókhoz tartozik. Először jelentkezzen be, majd kapcsolja be a Google-t a fiókbeállításokból.",
   "thatEmailIsAlreadyLinkedTo": "Ez az e-mail már össze van kapcsolva egy másik fiókkal.",
-  "thatGoogleAccountIsAlreadyLinked": "Ez a Google-fiók már össze van kapcsolva egy másik NeoAgent-fiókkal.",
   "thatQrCodeIsNotA": "Ez a QR-kód nem a NeoAgent bejelentkezési kérelme.",
   "thatQrCodeIsNotA2": "Ez a QR-kód nem a NeoAgent párosítási kérelme.",
   "thatSecurityKeyIsAlreadyRegistered": "Ez a biztonsági kulcs már regisztrálva van ennél a fióknál.",
@@ -5254,7 +5253,6 @@
   "thisDeviceCannotRegisterSecurityKeys": "Ez az eszköz nem tud biztonsági kulcsokat regisztrálni. Nyissa meg a NeoAgentet egy böngészőben HTTPS-en keresztül, hogy hozzáadjon egyet.",
   "thisDeviceUnavailable": "Ez az eszköz – nem elérhető",
   "thisFileHasNoContent": "Ennek a fájlnak nincs tartalma.",
-  "thisGoogleAccountIsNotLinked": "Ez a Google-fiók még nincs összekapcsolva. Először használja a szolgáltatói regisztrációt, vagy jelentkezzen be a szokásos módon, és kapcsolja össze a fiókbeállításokból.",
   "thisHidesArg1FromRoutingAnd": "Ez elrejti a \"{arg1}\"-t az útválasztás és a kiválasztás elől.",
   "@thisHidesArg1FromRoutingAnd": {
     "placeholders": {

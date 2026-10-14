@@ -7591,10 +7591,6 @@ class AppL10nSl extends AppL10n {
       'Ta e-pošta je že povezana z drugim računom.';
 
   @override
-  String get thatGoogleAccountIsAlreadyLinked =>
-      'Ta Google račun je že povezan z drugim računom NeoAgent.';
-
-  @override
   String get thatQrCodeIsNotA => 'Ta koda QR ni zahteva za prijavo v NeoAgent.';
 
   @override
@@ -7970,10 +7966,6 @@ class AppL10nSl extends AppL10n {
 
   @override
   String get thisFileHasNoContent => 'Ta datoteka nima vsebine.';
-
-  @override
-  String get thisGoogleAccountIsNotLinked =>
-      'Ta Google račun še ni povezan. Najprej uporabite registracijo ponudnika ali pa se prijavite kot običajno in ga povežite v nastavitvah računa.';
 
   @override
   String thisHidesArg1FromRoutingAnd(Object? arg1) {
@@ -11281,4 +11273,11 @@ class AppL10nSl extends AppL10n {
   String auditSignupKeyRevoked(String actor) {
     return '$actor je preklical(a) registracijski ključ';
   }
+
+  @override
+  String get providerChooseUsername => 'Choose your username';
+
+  @override
+  String get providerChooseUsernameBody =>
+      'Choose an available username to finish creating your account.';
 }

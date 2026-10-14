@@ -234,7 +234,8 @@ class _AuthViewState extends State<AuthView> {
                             final account = accountController.text.trim();
                             if (account.isEmpty) {
                               setDialogState(() {
-                                inlineError = appStrings.enterYourUsernameOrEmail;
+                                inlineError =
+                                    appStrings.enterYourUsernameOrEmail;
                               });
                               return;
                             }
@@ -353,7 +354,6 @@ class _AuthViewState extends State<AuthView> {
     );
   }
 
-
   void _setRegisterMode(bool registerMode) {
     widget.controller.clearInlineError();
     setState(() {
@@ -368,8 +368,7 @@ class _AuthViewState extends State<AuthView> {
     widget.controller.clearInlineError();
     setState(() {
       if (_fieldErrors.containsKey(field)) {
-        _fieldErrors = Map<_AuthField, String>.of(_fieldErrors)
-          ..remove(field);
+        _fieldErrors = Map<_AuthField, String>.of(_fieldErrors)..remove(field);
       }
     });
   }
@@ -380,8 +379,7 @@ class _AuthViewState extends State<AuthView> {
     final local = _fieldErrors[field];
     if (local != null) return local;
     final controller = widget.controller;
-    if (_registerMode &&
-        _authFieldForCode(controller.authErrorCode) == field) {
+    if (_registerMode && _authFieldForCode(controller.authErrorCode) == field) {
       return controller.errorMessage;
     }
     return null;
@@ -616,10 +614,7 @@ class _AuthViewState extends State<AuthView> {
         Expanded(child: Divider(color: _border)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            label,
-            style: TextStyle(color: _textMuted, fontSize: 12),
-          ),
+          child: Text(label, style: TextStyle(color: _textMuted, fontSize: 12)),
         ),
         Expanded(child: Divider(color: _border)),
       ],
@@ -639,8 +634,8 @@ class _AuthViewState extends State<AuthView> {
       enableSuggestions: false,
       textInputAction: TextInputAction.next,
       onChanged: (_) => _onFieldEdited(_AuthField.username),
-      onSubmitted: (_) => (_registerMode ? _emailFocus : _passwordFocus)
-          .requestFocus(),
+      onSubmitted: (_) =>
+          (_registerMode ? _emailFocus : _passwordFocus).requestFocus(),
       decoration: _authInputDecoration(
         errorText: _errorFor(_AuthField.username),
       ),
@@ -982,18 +977,7 @@ class _AuthViewState extends State<AuthView> {
                         ),
                       ),
           style: style,
-          icon: provider.icon == 'google'
-              ? const Text(
-                  'G',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    // Google brand blue — required by Google Sign-In
-                    // branding guidelines, not a palette deviation.
-                    color: Color(0xFF4285F4),
-                  ),
-                )
-              : const Icon(Icons.link, size: 18),
+          icon: AuthProviderIcon(provider: provider.icon),
           label: Text(
             _registerMode
                 ? appStrings.registerWithArg1(provider.label)
@@ -1044,10 +1028,7 @@ class _AuthViewState extends State<AuthView> {
         children: <Widget>[
           Text(label, style: TextStyle(color: _textMuted, fontSize: 12.5)),
           const SizedBox(height: 3),
-          Text(
-            value,
-            style: TextStyle(color: _textPrimary, fontSize: 12.5),
-          ),
+          Text(value, style: TextStyle(color: _textPrimary, fontSize: 12.5)),
         ],
       );
     }
@@ -1184,6 +1165,9 @@ class _AuthViewState extends State<AuthView> {
     required String title,
     required String subtitle,
   }) {
+    if (controller.isAwaitingProviderUsername) {
+      return _ProviderUsernameForm(controller: controller);
+    }
     final showSecurityKeySignIn =
         !_registerMode && controller.supportsSecurityKeys;
     final awaitingSignupKey = !awaitingTwoFactor && _awaitingSignupKey;
@@ -1191,8 +1175,7 @@ class _AuthViewState extends State<AuthView> {
     // Field-specific server errors sit under their field, not in the banner.
     final showErrorBanner =
         controller.errorMessage != null &&
-        !(_registerMode &&
-            _authFieldForCode(controller.authErrorCode) != null);
+        !(_registerMode && _authFieldForCode(controller.authErrorCode) != null);
     final submitBlocked =
         _registerMode &&
         !awaitingTwoFactor &&
@@ -1406,7 +1389,8 @@ class _AuthViewState extends State<AuthView> {
     required bool awaitingTwoFactor,
     required bool showRegisterToggle,
   }) {
-    if (awaitingTwoFactor) return const <Widget>[];
+    if (awaitingTwoFactor || widget.controller.isAwaitingProviderUsername)
+      return const <Widget>[];
     final backendHost =
         Uri.tryParse(controller.backendUrl)?.authority ?? controller.backendUrl;
     return <Widget>[
@@ -1459,7 +1443,10 @@ class _AuthViewState extends State<AuthView> {
 
     final awaitingTwoFactor = controller.isAwaitingTwoFactor;
     final showRegisterToggle = controller.hasUser;
-    final showQrLogin = !awaitingTwoFactor && !_registerMode;
+    final showQrLogin =
+        !awaitingTwoFactor &&
+        !controller.isAwaitingProviderUsername &&
+        !_registerMode;
     final waitingForPhone = showQrLogin && controller.qrLoginScan != null;
     if (!showQrLogin) {
       _setInlineQrVisible(false);
@@ -1889,7 +1876,8 @@ class _HomeViewState extends State<HomeView> {
       });
     }
     // Wait until no call is ringing or live, so the sheet never covers it.
-    final inCall = controller.incomingAgentCall != null ||
+    final inCall =
+        controller.incomingAgentCall != null ||
         controller.voiceAssistantLiveState.sessionId.isNotEmpty;
     if (!_callPermissionsAsked && controller.isAuthenticated && !inCall) {
       _callPermissionsAsked = true;
@@ -2158,7 +2146,9 @@ class _HomeViewState extends State<HomeView> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      appStrings.chooseWhereThisPersonShouldBe(widget.controller.activeAgentLabel),
+                      appStrings.chooseWhereThisPersonShouldBe(
+                        widget.controller.activeAgentLabel,
+                      ),
                       style: TextStyle(color: _textSecondary, height: 1.45),
                     ),
                     if (notice.suggestions.isNotEmpty) ...<Widget>[

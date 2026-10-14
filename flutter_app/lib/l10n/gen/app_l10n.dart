@@ -12685,12 +12685,6 @@ abstract class AppL10n {
   /// **'That email is already linked to another account.'**
   String get thatEmailIsAlreadyLinkedTo;
 
-  /// No description provided for @thatGoogleAccountIsAlreadyLinked.
-  ///
-  /// In en, this message translates to:
-  /// **'That Google account is already linked to a different NeoAgent account.'**
-  String get thatGoogleAccountIsAlreadyLinked;
-
   /// No description provided for @thatQrCodeIsNotA.
   ///
   /// In en, this message translates to:
@@ -13266,12 +13260,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'This file has no content.'**
   String get thisFileHasNoContent;
-
-  /// No description provided for @thisGoogleAccountIsNotLinked.
-  ///
-  /// In en, this message translates to:
-  /// **'This Google account is not linked yet. Use provider registration first, or sign in normally and link it from account settings.'**
-  String get thisGoogleAccountIsNotLinked;
 
   /// No description provided for @thisHidesArg1FromRoutingAnd.
   ///
@@ -18810,6 +18798,18 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'{actor} revoked a sign-up key'**
   String auditSignupKeyRevoked(String actor);
+
+  /// No description provided for @providerChooseUsername.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your username'**
+  String get providerChooseUsername;
+
+  /// No description provided for @providerChooseUsernameBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an available username to finish creating your account.'**
+  String get providerChooseUsernameBody;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

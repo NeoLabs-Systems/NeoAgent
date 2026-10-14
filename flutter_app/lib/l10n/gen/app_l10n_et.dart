@@ -7591,10 +7591,6 @@ class AppL10nEt extends AppL10n {
       'See meil on juba lingitud teise kontoga.';
 
   @override
-  String get thatGoogleAccountIsAlreadyLinked =>
-      'See Google\'i konto on juba lingitud teise NeoAgenti kontoga.';
-
-  @override
   String get thatQrCodeIsNotA =>
       'See QR-kood ei ole NeoAgenti sisselogimistaotlus.';
 
@@ -7967,10 +7963,6 @@ class AppL10nEt extends AppL10n {
 
   @override
   String get thisFileHasNoContent => 'Sellel failil pole sisu.';
-
-  @override
-  String get thisGoogleAccountIsNotLinked =>
-      'See Google\'i konto pole veel lingitud. Kasutage esmalt teenusepakkuja registreerimist või logige sisse tavapäraselt ja linkige see konto seadetest.';
 
   @override
   String thisHidesArg1FromRoutingAnd(Object? arg1) {
@@ -11274,4 +11266,11 @@ class AppL10nEt extends AppL10n {
   String auditSignupKeyRevoked(String actor) {
     return '$actor tühistas registreerimisvõtme';
   }
+
+  @override
+  String get providerChooseUsername => 'Choose your username';
+
+  @override
+  String get providerChooseUsernameBody =>
+      'Choose an available username to finish creating your account.';
 }

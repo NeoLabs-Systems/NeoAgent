@@ -369,6 +369,18 @@ router.post('/api/auth/providers/:provider/begin', authLimiter, requireSessionTr
   }
 });
 
+router.post('/api/auth/providers/register', authLimiter, requireSessionTransport, async (req, res) => {
+  const state = String(req.body?.state || '').trim();
+  if (!isOAuthStateBound(req.session, state)) {
+    return res.status(404).json({ error: 'Registration request was not found or has expired.' });
+  }
+  try {
+    res.json(await getAuthProviderManager(req).completeRegistration(state, req.body?.username));
+  } catch (error) {
+    sendJsonError(res, error, 400);
+  }
+});
+
 router.get('/api/auth/providers/complete', async (req, res) => {
   try {
     const authProviderManager = getAuthProviderManager(req);
@@ -381,7 +393,7 @@ router.get('/api/auth/providers/complete', async (req, res) => {
       return res.status(404).json({ error: 'Authentication request was not found or has expired.' });
     }
     const completion = authProviderManager.consumeAuthorization(state);
-    if (completion.status === 'pending') {
+    if (completion.status === 'pending' || completion.status === 'requires_username') {
       return res.json(completion);
     }
     if (completion.mode === 'link') {

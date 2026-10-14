@@ -7640,10 +7640,6 @@ class AppL10nEl extends AppL10n {
       'Αυτό το email είναι ήδη συνδεδεμένο με άλλο λογαριασμό.';
 
   @override
-  String get thatGoogleAccountIsAlreadyLinked =>
-      'Αυτός ο λογαριασμός Google είναι ήδη συνδεδεμένος με διαφορετικό λογαριασμό NeoAgent.';
-
-  @override
   String get thatQrCodeIsNotA =>
       'Αυτός ο κωδικός QR δεν είναι αίτημα σύνδεσης NeoAgent.';
 
@@ -8026,10 +8022,6 @@ class AppL10nEl extends AppL10n {
 
   @override
   String get thisFileHasNoContent => 'Αυτό το αρχείο δεν έχει περιεχόμενο.';
-
-  @override
-  String get thisGoogleAccountIsNotLinked =>
-      'Αυτός ο λογαριασμός Google δεν είναι συνδεδεμένος ακόμα. Χρησιμοποιήστε πρώτα την εγγραφή παρόχου ή συνδεθείτε κανονικά και συνδέστε την από τις ρυθμίσεις λογαριασμού.';
 
   @override
   String thisHidesArg1FromRoutingAnd(Object? arg1) {
@@ -11373,4 +11365,11 @@ class AppL10nEl extends AppL10n {
   String auditSignupKeyRevoked(String actor) {
     return '$actor ανακάλεσε ένα κλειδί εγγραφής';
   }
+
+  @override
+  String get providerChooseUsername => 'Choose your username';
+
+  @override
+  String get providerChooseUsernameBody =>
+      'Choose an available username to finish creating your account.';
 }

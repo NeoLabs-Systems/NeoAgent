@@ -5073,7 +5073,6 @@
   "thatAddedTheirOwnKeyKeep": "kas pievienoja savu atslēgu, turpina to izmantot.",
   "thatEmailAlreadyBelongsToAn": "Šis e-pasts jau pieder esošam kontam. Vispirms pierakstieties un pēc tam saistiet Google no konta iestatījumiem.",
   "thatEmailIsAlreadyLinkedTo": "Šis e-pasts jau ir saistīts ar citu kontu.",
-  "thatGoogleAccountIsAlreadyLinked": "Šis Google konts jau ir saistīts ar citu NeoAgent kontu.",
   "thatQrCodeIsNotA": "Šis QR kods nav NeoAgent pieteikšanās pieprasījums.",
   "thatQrCodeIsNotA2": "Šis QR kods nav NeoAgent pieprasījums savienošanai pārī.",
   "thatSecurityKeyIsAlreadyRegistered": "Šī drošības atslēga jau ir reģistrēta šajā kontā.",
@@ -5254,7 +5253,6 @@
   "thisDeviceCannotRegisterSecurityKeys": "Šī ierīce nevar reģistrēt drošības atslēgas. Atveriet NeoAgent pārlūkprogrammā, izmantojot HTTPS, lai to pievienotu.",
   "thisDeviceUnavailable": "Šī ierīce nav pieejama",
   "thisFileHasNoContent": "Šim failam nav satura.",
-  "thisGoogleAccountIsNotLinked": "Šis Google konts vēl nav saistīts. Vispirms izmantojiet pakalpojumu sniedzēja reģistrāciju vai pierakstieties kā parasti un saistiet to no konta iestatījumiem.",
   "thisHidesArg1FromRoutingAnd": "Tas paslēpj \"{arg1}\" no maršrutēšanas un atlases.",
   "@thisHidesArg1FromRoutingAnd": {
     "placeholders": {

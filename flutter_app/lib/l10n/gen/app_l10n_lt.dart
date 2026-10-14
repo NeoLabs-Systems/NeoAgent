@@ -7602,10 +7602,6 @@ class AppL10nLt extends AppL10n {
       'Šis el. paštas jau susietas su kita paskyra.';
 
   @override
-  String get thatGoogleAccountIsAlreadyLinked =>
-      'Ta „Google“ paskyra jau susieta su kita „NeoAgent“ paskyra.';
-
-  @override
   String get thatQrCodeIsNotA =>
       'Šis QR kodas nėra „NeoAgent“ prisijungimo užklausa.';
 
@@ -7982,10 +7978,6 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get thisFileHasNoContent => 'Šiame faile nėra turinio.';
-
-  @override
-  String get thisGoogleAccountIsNotLinked =>
-      'Ši „Google“ paskyra dar nesusieta. Pirmiausia naudokite teikėjo registraciją arba prisijunkite įprastai ir susiekite ją paskyros nustatymuose.';
 
   @override
   String thisHidesArg1FromRoutingAnd(Object? arg1) {
@@ -11297,4 +11289,11 @@ class AppL10nLt extends AppL10n {
   String auditSignupKeyRevoked(String actor) {
     return '$actor atšaukė registracijos raktą';
   }
+
+  @override
+  String get providerChooseUsername => 'Choose your username';
+
+  @override
+  String get providerChooseUsernameBody =>
+      'Choose an available username to finish creating your account.';
 }

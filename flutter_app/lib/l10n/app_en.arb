@@ -5073,7 +5073,6 @@
   "thatAddedTheirOwnKeyKeep": "that added their own key keep using it.",
   "thatEmailAlreadyBelongsToAn": "That email already belongs to an existing account. Sign in first, then link Google from account settings.",
   "thatEmailIsAlreadyLinkedTo": "That email is already linked to another account.",
-  "thatGoogleAccountIsAlreadyLinked": "That Google account is already linked to a different NeoAgent account.",
   "thatQrCodeIsNotA": "That QR code is not a NeoAgent login request.",
   "thatQrCodeIsNotA2": "That QR code is not a NeoAgent pairing request.",
   "thatSecurityKeyIsAlreadyRegistered": "That security key is already registered on this account.",
@@ -5254,7 +5253,6 @@
   "thisDeviceCannotRegisterSecurityKeys": "This device cannot register security keys. Open NeoAgent in a browser over HTTPS to add one.",
   "thisDeviceUnavailable": "This device — unavailable",
   "thisFileHasNoContent": "This file has no content.",
-  "thisGoogleAccountIsNotLinked": "This Google account is not linked yet. Use provider registration first, or sign in normally and link it from account settings.",
   "thisHidesArg1FromRoutingAnd": "This hides \"{arg1}\" from routing and selection.",
   "@thisHidesArg1FromRoutingAnd": {
     "placeholders": {
@@ -7082,5 +7080,7 @@
         "type": "String"
       }
     }
-  }
+  },
+  "providerChooseUsername": "Choose your username",
+  "providerChooseUsernameBody": "Choose an available username to finish creating your account."
 }

@@ -5073,7 +5073,6 @@
   "thatAddedTheirOwnKeyKeep": "gur cuireadh a n-eochair féin in úsáid agat.",
   "thatEmailAlreadyBelongsToAn": "Is le cuntas atá ann cheana féin an ríomhphost sin. Sínigh isteach ar dtús, ansin nasc Google ó shocruithe cuntais.",
   "thatEmailIsAlreadyLinkedTo": "Tá an ríomhphost sin nasctha le cuntas eile cheana féin.",
-  "thatGoogleAccountIsAlreadyLinked": "Tá an cuntas Google sin nasctha le cuntas NeoAgent eile cheana féin.",
   "thatQrCodeIsNotA": "Ní iarratas logáil isteach NeoAgent é an cód QR sin.",
   "thatQrCodeIsNotA2": "Ní iarratas péireála NeoAgent é an cód QR sin.",
   "thatSecurityKeyIsAlreadyRegistered": "Tá an eochair shlándála sin cláraithe ar an gcuntas seo cheana.",
@@ -5254,7 +5253,6 @@
   "thisDeviceCannotRegisterSecurityKeys": "Ní féidir leis an ngléas seo eochracha slándála a chlárú. Oscail NeoAgent i mbrabhsálaí thar HTTPS chun ceann a chur leis.",
   "thisDeviceUnavailable": "An gléas - ar fáil",
   "thisFileHasNoContent": "Níl aon ábhar sa chomhad seo.",
-  "thisGoogleAccountIsNotLinked": "Níl an Cuntas Google seo nasctha fós. Bain úsáid as clárú soláthraí ar dtús, nó sínigh isteach de ghnáth agus nasc é ó shocruithe cuntais.",
   "thisHidesArg1FromRoutingAnd": "Cuireann sé seo \"{arg1}\" i bhfolach ó ródú agus roghnú.",
   "@thisHidesArg1FromRoutingAnd": {
     "placeholders": {

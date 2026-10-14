@@ -5073,7 +5073,6 @@
   "thatAddedTheirOwnKeyKeep": "ki so dodali svoj ključ, ga še naprej uporabljajo.",
   "thatEmailAlreadyBelongsToAn": "Ta e-poštni naslov že pripada obstoječemu računu. Najprej se prijavite, nato povežite Google v nastavitvah računa.",
   "thatEmailIsAlreadyLinkedTo": "Ta e-pošta je že povezana z drugim računom.",
-  "thatGoogleAccountIsAlreadyLinked": "Ta Google račun je že povezan z drugim računom NeoAgent.",
   "thatQrCodeIsNotA": "Ta koda QR ni zahteva za prijavo v NeoAgent.",
   "thatQrCodeIsNotA2": "Ta koda QR ni zahteva za seznanjanje NeoAgent.",
   "thatSecurityKeyIsAlreadyRegistered": "Ta varnostni ključ je že registriran v tem računu.",
@@ -5254,7 +5253,6 @@
   "thisDeviceCannotRegisterSecurityKeys": "Ta naprava ne more registrirati varnostnih ključev. Odprite NeoAgent v brskalniku prek HTTPS, da ga dodate.",
   "thisDeviceUnavailable": "Ta naprava — ni na voljo",
   "thisFileHasNoContent": "Ta datoteka nima vsebine.",
-  "thisGoogleAccountIsNotLinked": "Ta Google račun še ni povezan. Najprej uporabite registracijo ponudnika ali pa se prijavite kot običajno in ga povežite v nastavitvah računa.",
   "thisHidesArg1FromRoutingAnd": "To skrije \"{arg1}\" pred usmerjanjem in izbiro.",
   "@thisHidesArg1FromRoutingAnd": {
     "placeholders": {

@@ -5073,7 +5073,6 @@
   "thatAddedTheirOwnKeyKeep": "som lagt till sin egen nyckel fortsätter att använda den.",
   "thatEmailAlreadyBelongsToAn": "Det e-postmeddelandet tillhör redan ett befintligt konto. Logga in först och länka sedan Google från kontoinställningarna.",
   "thatEmailIsAlreadyLinkedTo": "Det e-postmeddelandet är redan länkat till ett annat konto.",
-  "thatGoogleAccountIsAlreadyLinked": "Det Google-kontot är redan länkat till ett annat NeoAgent-konto.",
   "thatQrCodeIsNotA": "Den QR-koden är inte en NeoAgent-inloggningsförfrågan.",
   "thatQrCodeIsNotA2": "Den QR-koden är inte en NeoAgent-parningsförfrågan.",
   "thatSecurityKeyIsAlreadyRegistered": "Den säkerhetsnyckeln är redan registrerad på det här kontot.",
@@ -5254,7 +5253,6 @@
   "thisDeviceCannotRegisterSecurityKeys": "Den här enheten kan inte registrera säkerhetsnycklar. Öppna NeoAgent i en webbläsare över HTTPS för att lägga till en.",
   "thisDeviceUnavailable": "Den här enheten — inte tillgänglig",
   "thisFileHasNoContent": "Den här filen har inget innehåll.",
-  "thisGoogleAccountIsNotLinked": "Detta Google-konto är inte länkat än. Använd först leverantörsregistrering eller logga in normalt och länka den från kontoinställningarna.",
   "thisHidesArg1FromRoutingAnd": "Detta döljer \"{arg1}\" från routing och val.",
   "@thisHidesArg1FromRoutingAnd": {
     "placeholders": {

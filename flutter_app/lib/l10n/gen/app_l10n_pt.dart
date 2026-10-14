@@ -7619,10 +7619,6 @@ class AppL10nPt extends AppL10n {
       'Esse e-mail já está vinculado a outra conta.';
 
   @override
-  String get thatGoogleAccountIsAlreadyLinked =>
-      'Essa conta do Google já está vinculada a uma conta NeoAgent diferente.';
-
-  @override
   String get thatQrCodeIsNotA =>
       'Esse código QR não é uma solicitação de login do NeoAgent.';
 
@@ -8002,10 +7998,6 @@ class AppL10nPt extends AppL10n {
 
   @override
   String get thisFileHasNoContent => 'Este arquivo não tem conteúdo.';
-
-  @override
-  String get thisGoogleAccountIsNotLinked =>
-      'Esta conta do Google ainda não está vinculada. Use o registro do provedor primeiro ou faça login normalmente e vincule-o nas configurações da conta.';
 
   @override
   String thisHidesArg1FromRoutingAnd(Object? arg1) {
@@ -11321,4 +11313,11 @@ class AppL10nPt extends AppL10n {
   String auditSignupKeyRevoked(String actor) {
     return '$actor revogou uma chave de registo';
   }
+
+  @override
+  String get providerChooseUsername => 'Choose your username';
+
+  @override
+  String get providerChooseUsernameBody =>
+      'Choose an available username to finish creating your account.';
 }

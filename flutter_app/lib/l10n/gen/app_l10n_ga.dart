@@ -7633,10 +7633,6 @@ class AppL10nGa extends AppL10n {
       'Tá an ríomhphost sin nasctha le cuntas eile cheana féin.';
 
   @override
-  String get thatGoogleAccountIsAlreadyLinked =>
-      'Tá an cuntas Google sin nasctha le cuntas NeoAgent eile cheana féin.';
-
-  @override
   String get thatQrCodeIsNotA =>
       'Ní iarratas logáil isteach NeoAgent é an cód QR sin.';
 
@@ -8017,10 +8013,6 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get thisFileHasNoContent => 'Níl aon ábhar sa chomhad seo.';
-
-  @override
-  String get thisGoogleAccountIsNotLinked =>
-      'Níl an Cuntas Google seo nasctha fós. Bain úsáid as clárú soláthraí ar dtús, nó sínigh isteach de ghnáth agus nasc é ó shocruithe cuntais.';
 
   @override
   String thisHidesArg1FromRoutingAnd(Object? arg1) {
@@ -11346,4 +11338,11 @@ class AppL10nGa extends AppL10n {
   String auditSignupKeyRevoked(String actor) {
     return 'Chúlghair $actor eochair chlárúcháin';
   }
+
+  @override
+  String get providerChooseUsername => 'Choose your username';
+
+  @override
+  String get providerChooseUsernameBody =>
+      'Choose an available username to finish creating your account.';
 }

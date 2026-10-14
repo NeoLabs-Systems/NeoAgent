@@ -5073,7 +5073,6 @@
   "thatAddedTheirOwnKeyKeep": "li żiedu ċ-ċavetta tagħhom stess jibqgħu jużawha.",
   "thatEmailAlreadyBelongsToAn": "Dik l-email diġà tappartjeni għal kont eżistenti. Idħol l-ewwel, imbagħad għaqqad lil Google mis-settings tal-kont.",
   "thatEmailIsAlreadyLinkedTo": "Dik l-email diġà hija marbuta ma' kont ieħor.",
-  "thatGoogleAccountIsAlreadyLinked": "Dak il-kont tal-Google diġà huwa marbut ma' kont differenti ta' NeoAgent.",
   "thatQrCodeIsNotA": "Dak il-kodiċi QR mhuwiex talba għall-login ta' NeoAgent.",
   "thatQrCodeIsNotA2": "Dak il-kodiċi QR mhuwiex talba ta' pairing NeoAgent.",
   "thatSecurityKeyIsAlreadyRegistered": "Dik iċ-ċavetta tas-sigurtà hija diġà rreġistrata fuq dan il-kont.",
@@ -5254,7 +5253,6 @@
   "thisDeviceCannotRegisterSecurityKeys": "Dan l-apparat ma jistax jirreġistra ċwievet tas-sigurtà. Iftaħ NeoAgent fi browser fuq HTTPS biex iżżid wieħed.",
   "thisDeviceUnavailable": "Dan l-apparat — mhux disponibbli",
   "thisFileHasNoContent": "Dan il-fajl m'għandux kontenut.",
-  "thisGoogleAccountIsNotLinked": "Dan il-kont Google għadu mhux konness. Uża r-reġistrazzjoni tal-fornitur l-ewwel, jew idħol normalment u għaqqadha mis-settings tal-kont.",
   "thisHidesArg1FromRoutingAnd": "Dan jaħbi \"{arg1}\" mir-rotta u l-għażla.",
   "@thisHidesArg1FromRoutingAnd": {
     "placeholders": {

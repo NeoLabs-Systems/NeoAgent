@@ -62,6 +62,7 @@ flutter:
   # Generates AppL10n from lib/l10n/*.arb (see l10n.yaml) on pub get and build.
   generate: true
   assets:
+    - assets/branding/providers/
     - web/icons/Icon-192.png
     - assets/branding/app_icon_256.png
     - assets/branding/app_icon_512.png
