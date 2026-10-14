@@ -5,18 +5,10 @@ const db = require('../db/database');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { normalizeWhatsAppWhitelist } = require('../utils/whatsapp');
 const { getVersionInfo } = require('../utils/version');
-const { APP_DIR } = require('../../runtime/paths');
 const { UI_LANGUAGE_CODES } = require('../config/ui_languages');
-const {
-  readUpdateStatus,
-  writeUpdateStatusFile: writeUpdateStatus,
-} = require('../utils/update_status');
+const { readUpdateStatus } = require('../utils/update_status');
 const { getRuntimeValidation } = require('../services/runtime/validation');
-const {
-  parseReleaseChannel,
-  writeReleaseChannelToEnvFile,
-  getReleaseChannelBranchPolicy,
-} = require('../../runtime/release_channel');
+const { startUpdate, setUpdateChannel } = require('../services/admin/updates');
 const {
   AI_PROVIDER_DEFINITIONS,
   createDefaultAiSettings,
@@ -33,7 +25,6 @@ const {
   serializeRuntimeSettingValue,
   validateRuntimeSettings,
 } = require('../services/runtime/settings');
-const { getDeploymentPolicy } = require('../utils/deployment');
 const { getAgentIdFromRequest, isMainAgent, resolveAgentId } = require('../services/agents/manager');
 const { getProviderHealthCatalog, getSupportedModels, PROVIDER_FACTORIES } = require('../services/ai/models');
 const { getSystemOneModels } = require('../services/ai/system_one');
@@ -137,11 +128,12 @@ router.get('/update/status', requireAuth, (req, res) => {
       gitVersion: version.gitVersion,
       gitSha: version.gitSha,
       gitBranch: version.gitBranch,
-      releaseChannel: status.releaseChannel || version.releaseChannel,
-      targetBranch: status.targetBranch || version.targetBranch,
+      releaseChannel: version.releaseChannel,
+      targetBranch: status.state === 'running' ? status.targetBranch || version.targetBranch : version.targetBranch,
       deploymentMode: version.deploymentMode,
       managedDeployment: version.managedDeployment,
       allowSelfUpdate: version.allowSelfUpdate,
+      containerImage: version.containerImage,
       runtimeDefaults: version.runtimeDefaults,
       allowHostRuntime: version.allowHostRuntime,
       runtimeValidation: getRuntimeValidation(req.app?.locals?.runtimeManager),
@@ -818,85 +810,22 @@ router.delete('/:key', (req, res) => {
   res.json({ success: true });
 });
 
-// Self-update is off for managed deployments and for the container image,
-// which updates by pulling a newer image.
-function selfUpdateBlockedReason() {
-  const policy = getDeploymentPolicy();
-  if (policy.allowSelfUpdate) return null;
-  return policy.managed
-    ? 'Updates are managed by this deployment.'
-    : 'This NeoAgent runs from a container image. Update it by pulling a newer image.';
-}
-
-// Trigger auto-update script
-router.post('/update', requireAuth, requireAdmin, updateTriggerLimiter, (req, res) => {
-  const blockedReason = selfUpdateBlockedReason();
-  if (blockedReason) {
-    return res.status(403).json({ success: false, error: blockedReason });
+router.post('/update', requireAuth, requireAdmin, updateTriggerLimiter, async (req, res, next) => {
+  try {
+    res.status(202).json(await startUpdate());
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, error: error.message });
+    next(error);
   }
-  const { spawn } = require('child_process');
-  const status = readUpdateStatus();
-  if (status.state === 'running') {
-    return res.status(409).json({ success: false, error: 'An update is already running' });
-  }
-  console.log('[Settings] Triggering update-runner...');
-  const child = spawn(process.execPath, ['scripts/update-runner.js'], {
-    detached: true,
-    stdio: 'ignore',
-    cwd: APP_DIR
-  });
-
-  writeUpdateStatus({
-    state: 'running',
-    progress: 1,
-    phase: 'starting',
-    message: 'Launching update job',
-    startedAt: new Date().toISOString(),
-    completedAt: null,
-    versionBefore: null,
-    versionAfter: null,
-    runnerPid: child.pid,
-    changelog: [],
-    logs: []
-  });
-
-  child.once('error', (error) => {
-    writeUpdateStatus({
-      state: 'failed',
-      progress: 100,
-      phase: 'failed',
-      message: `Failed to launch update job: ${error.message}`,
-      completedAt: new Date().toISOString(),
-      runnerPid: null,
-    });
-  });
-
-  child.unref();
-  res.json({ success: true, message: 'Update triggered', pid: child.pid });
 });
 
-router.put('/update/channel', requireAuth, requireAdmin, (req, res) => {
-  const blockedReason = selfUpdateBlockedReason();
-  if (blockedReason) {
-    return res.status(403).json({ success: false, error: blockedReason });
+router.put('/update/channel', requireAuth, requireAdmin, (req, res, next) => {
+  try {
+    res.json(setUpdateChannel(req.body?.channel));
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, error: error.message });
+    next(error);
   }
-  const requested = req.body?.channel;
-  const releaseChannel = parseReleaseChannel(requested);
-  if (!releaseChannel) {
-    return res.status(400).json({
-      success: false,
-      error: 'Release channel must be "stable" or "beta".',
-    });
-  }
-
-  writeReleaseChannelToEnvFile(releaseChannel);
-  process.env.NEOAGENT_RELEASE_CHANNEL = releaseChannel;
-
-  res.json({
-    success: true,
-    releaseChannel,
-    targetBranch: getReleaseChannelBranchPolicy(releaseChannel),
-  });
 });
 
 module.exports = router;

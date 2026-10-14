@@ -413,14 +413,14 @@ class _NeoAgentAppState extends State<NeoAgentApp>
         // Do not include isRefreshing here — remounting MaterialApp on every
         // refresh tears down onboarding (and other root surfaces) mid-login.
         final rootStateSignature =
-            'boot:${_controller.isBooting}' +
-            '|backend:${_controller.requiresBackendUrlSetup}' +
-            '|auth:${_controller.isAuthenticated}' +
-            '|onboarding:${_controller.showOnboarding}' +
-            '|section:${_controller.selectedSection.name}' +
-            '|theme:${_controller.themeMode.name}' +
-            '|assistantPopupMode:$_desktopAssistantPopupWindowMode' +
-            '|assistantPttActive:${_controller.isLiveVoiceCaptureActive}' +
+            'boot:${_controller.isBooting}'
+            '|backend:${_controller.requiresBackendUrlSetup}'
+            '|auth:${_controller.isAuthenticated}'
+            '|onboarding:${_controller.showOnboarding}'
+            '|section:${_controller.selectedSection.name}'
+            '|theme:${_controller.themeMode.name}'
+            '|assistantPopupMode:$_desktopAssistantPopupWindowMode'
+            '|assistantPttActive:${_controller.isLiveVoiceCaptureActive}'
             '|assistantPttStarting:${_controller.isLiveVoiceCaptureStarting}';
         if (_navigatorScopeSignature != rootStateSignature) {
           _navigatorScopeSignature = rootStateSignature;

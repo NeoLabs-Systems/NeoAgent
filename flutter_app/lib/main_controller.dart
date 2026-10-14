@@ -5583,7 +5583,9 @@ class NeoAgentController extends ChangeNotifier {
     errorMessage = null;
     notifyListeners();
     try {
-      await _backendClient.triggerUpdate(backendUrl);
+      updateStatus = UpdateStatusSnapshot.fromJson(
+        await _backendClient.triggerUpdate(backendUrl),
+      );
       await refreshUpdateStatus();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);

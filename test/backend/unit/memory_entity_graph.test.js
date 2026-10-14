@@ -32,6 +32,18 @@ test('extractEntities drops date parts, timezones and header labels', () => {
   assert.equal(byName.get('When Sam')?.inSentence, false);
 });
 
+test('calendar names remain entities in prose while numeric dates stay excluded', () => {
+  const entities = extractEntities('I met Sam and Jan with May. We meet on Fri, 12 Sep 2025 in UTC.');
+  const byName = new Map(entities.map((entity) => [entity.name, entity]));
+
+  for (const name of ['Sam', 'Jan', 'May']) {
+    assert.equal(byName.get(name)?.inSentence, true, name);
+  }
+  for (const name of ['Fri', 'Sep', 'UTC']) {
+    assert.ok(!byName.has(name), name);
+  }
+});
+
 test('entity graph hides common sentence-initial words and links co-mentions', async () => {
   ctx = createTestRuntime();
   const db = require('../../../server/db/database');

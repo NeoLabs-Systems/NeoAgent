@@ -2,7 +2,6 @@
 
 const crypto = require('crypto');
 const db = require('../../../db/database');
-const { isLoopbackOrigin } = require('../../../config/origins');
 const { createServiceLogger } = require('../../../utils/logger');
 const { base64UrlSha256, sanitizeError } = require('../../../utils/security');
 const { setProviderSecret } = require('../settings');
@@ -44,14 +43,6 @@ function pendingFlow(state) {
   return flow?.status === 'pending' ? flow : null;
 }
 
-// A provider can only send the browser back to an address it can trust:
-// https, or this machine. Plain http on a LAN address gets the paste-a-code
-// flow instead.
-function callbackUrlFor(baseUrl) {
-  if (!baseUrl.startsWith('https://') && !isLoopbackOrigin(baseUrl)) return null;
-  return `${baseUrl}/api/integrations/oauth/callback`;
-}
-
 function begin({ providerId, userId, agentId, baseUrl }) {
   const method = METHODS.get(providerId);
   if (!method) throw new Error('Sign-in is not available for this provider.');
@@ -60,7 +51,7 @@ function begin({ providerId, userId, agentId, baseUrl }) {
   pruneExpired(now);
   const state = `model_${crypto.randomBytes(24).toString('hex')}`;
   const codeVerifier = crypto.randomBytes(48).toString('base64url');
-  const callbackUrl = callbackUrlFor(baseUrl);
+  const callbackUrl = openrouter.callbackUrlFor(baseUrl);
   flows.set(state, {
     method,
     userId,

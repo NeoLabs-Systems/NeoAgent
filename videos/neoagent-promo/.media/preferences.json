@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "preferences": {
+    "destination": {
+      "value": "github-readme",
+      "confirmed_in": [
+        "neoagent-promo"
+      ],
+      "updated_at": "2026-10-14T19:59:37.175Z"
+    },
+    "aspect": {
+      "value": "1920x1080",
+      "confirmed_in": [
+        "neoagent-promo"
+      ],
+      "updated_at": "2026-10-14T19:59:37.200Z"
+    },
+    "language": {
+      "value": "en",
+      "confirmed_in": [
+        "neoagent-promo"
+      ],
+      "updated_at": "2026-10-14T19:59:37.224Z"
+    },
+    "flow": {
+      "value": "automation",
+      "confirmed_in": [
+        "neoagent-promo"
+      ],
+      "updated_at": "2026-10-14T19:59:37.249Z"
+    },
+    "storyboard": {
+      "value": "no",
+      "confirmed_in": [
+        "neoagent-promo"
+      ],
+      "updated_at": "2026-10-14T19:59:37.277Z"
+    }
+  },
+  "sightings": {}
+}

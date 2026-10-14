@@ -65,7 +65,7 @@ docker compose up -d
 ```
 
 - **Data stays.** Database migrations run on start.
-- **No self-update.** The Admin update button and `neoagent update` are off inside the image.
+- **Admin guidance.** **Admin › Server › Updates** identifies Docker and provides copyable update commands to run on the host. In-container self-update and `neoagent update` stay off; Compose replaces the image.
 - **Switch channel or pin a version.** Change the `image:` tag, then run the two commands above.
 
 ## 🖥️ Cloud computer backends

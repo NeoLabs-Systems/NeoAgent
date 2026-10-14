@@ -42,8 +42,8 @@ class _AdminOpsServerInfo {
       // The channel and deployment flags sit at the top level of the payload,
       // the live update state under `updateStatus`.
       update: UpdateStatusSnapshot.fromJson(<String, dynamic>{
-        ...json,
         ...updateJson,
+        ...json,
       }),
     );
   }
@@ -63,8 +63,11 @@ class _AdminOpsServerInfo {
 
   String get shortSha => gitSha.length > 10 ? gitSha.substring(0, 10) : gitSha;
 
-  String get deploymentLabel =>
-      update.deploymentMode == 'managed' ? 'Managed' : 'Self-hosted';
+  String get deploymentLabel => update.containerImage
+      ? 'Docker'
+      : update.deploymentMode == 'managed'
+      ? 'Managed'
+      : 'Self-hosted';
 }
 
 class _AdminOpsHealthCheck {
@@ -103,6 +106,9 @@ class _AdminServerTabState extends State<_AdminServerTab> {
   String? _error;
   bool _updateBusy = false;
   String? _updateError;
+  bool _waitingForUpdate = false;
+  bool _pollingUpdate = false;
+  bool _updateDisconnected = false;
   Timer? _updatePoll;
   Timer? _overviewRefresh;
 
@@ -113,10 +119,9 @@ class _AdminServerTabState extends State<_AdminServerTab> {
     super.initState();
     _loadOverview();
     // Health and uptime stay current while the tab is open.
-    _overviewRefresh = Timer.periodic(
-      const Duration(seconds: 30),
-      (_) => _loadOverview(),
-    );
+    _overviewRefresh = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!_waitingForUpdate && !_updateBusy) _loadOverview();
+    });
   }
 
   @override
@@ -160,7 +165,7 @@ class _AdminServerTabState extends State<_AdminServerTab> {
 
   /// Polls the version endpoint while an update runs so progress stays live.
   void _syncUpdatePolling() {
-    if (_info?.isUpdating != true) {
+    if (_info?.isUpdating != true && !_waitingForUpdate) {
       _updatePoll?.cancel();
       _updatePoll = null;
       return;
@@ -172,16 +177,25 @@ class _AdminServerTabState extends State<_AdminServerTab> {
   }
 
   Future<void> _pollUpdateStatus() async {
+    if (_pollingUpdate) return;
+    _pollingUpdate = true;
     try {
       final json = await _controller.backendClient.fetchAdminVersion(
         _controller.backendUrl,
       );
       if (!mounted) return;
-      setState(() => _info = _AdminOpsServerInfo.fromJson(json));
+      setState(() {
+        _info = _AdminOpsServerInfo.fromJson(json);
+        _waitingForUpdate = _info!.isUpdating;
+        if (_info!.isUpdating) _updateError = null;
+        _updateDisconnected = false;
+        _error = null;
+      });
       _syncUpdatePolling();
     } catch (_) {
-      // The server restarts at the end of an update; keep polling until it
-      // answers again.
+      if (mounted) setState(() => _updateDisconnected = true);
+    } finally {
+      _pollingUpdate = false;
     }
   }
 
@@ -215,7 +229,9 @@ class _AdminServerTabState extends State<_AdminServerTab> {
       context,
       title: appStrings.updateTheServer,
       message:
-          appStrings.neoagentInstallsTheLatestArg1(info.update.releaseChannelLabel.toLowerCase()) +
+          appStrings.neoagentInstallsTheLatestArg1(
+            info.update.releaseChannelLabel.toLowerCase(),
+          ) +
           appStrings.releaseAndRestartsConnectedAppsReconnect,
       confirmLabel: appStrings.updateNow,
       onConfirm: () async {
@@ -224,6 +240,10 @@ class _AdminServerTabState extends State<_AdminServerTab> {
           _updateBusy = true;
           _updateError = null;
         });
+        // Start polling before the request: a successful update may restart
+        // the server before its response reaches this client.
+        _waitingForUpdate = true;
+        _syncUpdatePolling();
         await _controller.triggerUpdate();
         final error = _takeControllerError();
         if (!mounted) return;
@@ -231,7 +251,7 @@ class _AdminServerTabState extends State<_AdminServerTab> {
           _updateBusy = false;
           _updateError = error;
         });
-        await _loadOverview();
+        await _pollUpdateStatus();
       },
     );
   }
@@ -259,7 +279,10 @@ class _AdminServerTabState extends State<_AdminServerTab> {
                 _AdminOpsFactGrid(
                   facts: <(String, String)>[
                     ('Version', info.version),
-                    (appStrings.releaseChannel, info.update.releaseChannelLabel),
+                    (
+                      appStrings.releaseChannel,
+                      info.update.releaseChannelLabel,
+                    ),
                     ('Branch', info.gitBranch),
                     ('Commit', info.shortSha),
                     ('Deployment', info.deploymentLabel),
@@ -275,7 +298,8 @@ class _AdminServerTabState extends State<_AdminServerTab> {
         if (info != null) ...<Widget>[
           _AdminOpsUpdateCard(
             info: info,
-            busy: _updateBusy,
+            busy: _updateBusy || _waitingForUpdate,
+            disconnected: _updateDisconnected,
             error: _updateError,
             onDismissError: () => setState(() => _updateError = null),
             onChannelChanged: _setChannel,
@@ -361,6 +385,7 @@ class _AdminOpsUpdateCard extends StatelessWidget {
     required this.onDismissError,
     required this.onChannelChanged,
     required this.onUpdate,
+    required this.disconnected,
   });
 
   final _AdminOpsServerInfo info;
@@ -369,6 +394,7 @@ class _AdminOpsUpdateCard extends StatelessWidget {
   final VoidCallback onDismissError;
   final ValueChanged<String> onChannelChanged;
   final VoidCallback onUpdate;
+  final bool disconnected;
 
   @override
   Widget build(BuildContext context) {
@@ -380,8 +406,7 @@ class _AdminOpsUpdateCard extends StatelessWidget {
         : 'stable';
     return _SectionCard(
       title: appStrings.updates,
-      description:
-          appStrings.installNewReleasesAndChooseWhich,
+      description: appStrings.installNewReleasesAndChooseWhich,
       trailing: _StatusPill(label: update.badgeLabel, color: update.badgeColor),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -394,6 +419,14 @@ class _AdminOpsUpdateCard extends StatelessWidget {
               height: 1.4,
             ),
           ),
+          if (disconnected) ...<Widget>[
+            const SizedBox(height: 12),
+            const _InlineNote(
+              icon: Icons.sync_rounded,
+              message:
+                  'Waiting for the server to reconnect. Updates can take several minutes. Progress will resume automatically.',
+            ),
+          ],
           if (running) ...<Widget>[
             const SizedBox(height: 12),
             ClipRRect(
@@ -417,52 +450,130 @@ class _AdminOpsUpdateCard extends StatelessWidget {
           if (!update.allowSelfUpdate) ...<Widget>[
             const SizedBox(height: 14),
             _InlineNote(
-              icon: Icons.lock_outline_rounded,
+              icon: update.containerImage
+                  ? Icons.inventory_2_outlined
+                  : Icons.lock_outline_rounded,
               message:
-                  appStrings.thisIsAManagedDeploymentIts +
-                  appStrings.updatesSoSelfUpdateAndChannel,
+                  update.containerImage && update.deploymentMode != 'managed'
+                  ? 'Update from the Docker host, in the folder containing your Compose configuration. Your data volume is kept. To switch release channels, change the image tag in that configuration before updating.'
+                  : appStrings.thisIsAManagedDeploymentIts +
+                        appStrings.updatesSoSelfUpdateAndChannel,
+            ),
+          ],
+          if (update.containerImage &&
+              update.deploymentMode != 'managed') ...<Widget>[
+            const SizedBox(height: 12),
+            const SelectableText(
+              'docker compose pull\ndocker compose up -d',
+              style: TextStyle(fontFamily: 'monospace', height: 1.6),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () async {
+                  await Clipboard.setData(
+                    const ClipboardData(
+                      text: 'docker compose pull\ndocker compose up -d',
+                    ),
+                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Update commands copied')),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.copy_rounded, size: 16),
+                label: const Text('Copy update commands'),
+              ),
+            ),
+          ],
+          if (update.changelog.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 14),
+            Text(
+              'Changes',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: _textPrimary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            for (final change in update.changelog)
+              Text(
+                '• $change',
+                style: TextStyle(color: _textSecondary, height: 1.5),
+              ),
+          ],
+          if (update.logs.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 12),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: const Text('Update details'),
+              children: <Widget>[
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 240),
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      update.logs.join('\n'),
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        color: _textSecondary,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
           if (error != null) ...<Widget>[
             const SizedBox(height: 14),
             _InlineError(message: error!, onDismiss: onDismissError),
           ],
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: <Widget>[
-              SegmentedButton<String>(
-                segments: <ButtonSegment<String>>[
-                  ButtonSegment<String>(
-                    value: 'stable',
-                    label: Text(appStrings.stable),
-                    icon: Icon(Icons.verified_outlined),
+          if (update.allowSelfUpdate) ...<Widget>[
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: <Widget>[
+                SegmentedButton<String>(
+                  segments: <ButtonSegment<String>>[
+                    ButtonSegment<String>(
+                      value: 'stable',
+                      label: Text(appStrings.stable),
+                      icon: Icon(Icons.verified_outlined),
+                    ),
+                    ButtonSegment<String>(
+                      value: 'beta',
+                      label: Text(appStrings.beta),
+                      icon: Icon(Icons.science_outlined),
+                    ),
+                  ],
+                  selected: <String>{channel},
+                  onSelectionChanged: canControl
+                      ? (selection) => onChannelChanged(selection.first)
+                      : null,
+                ),
+                FilledButton.icon(
+                  onPressed: canControl ? onUpdate : null,
+                  icon: busy
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(Icons.system_update_alt_rounded, size: 18),
+                  label: Text(
+                    running
+                        ? 'Updating…'
+                        : busy
+                        ? 'Please wait…'
+                        : appStrings.updateNow,
                   ),
-                  ButtonSegment<String>(
-                    value: 'beta',
-                    label: Text(appStrings.beta),
-                    icon: Icon(Icons.science_outlined),
-                  ),
-                ],
-                selected: <String>{channel},
-                onSelectionChanged: canControl
-                    ? (selection) => onChannelChanged(selection.first)
-                    : null,
-              ),
-              FilledButton.icon(
-                onPressed: canControl ? onUpdate : null,
-                icon: busy
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Icon(Icons.system_update_alt_rounded, size: 18),
-                label: Text(running ? 'Updating…' : appStrings.updateNow),
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -483,7 +594,9 @@ class _AdminOpsHealthCard extends StatelessWidget {
       trailing: checks.isEmpty
           ? null
           : _StatusPill(
-              label: failing == 0 ? 'All passing' : appStrings.arg1Failing(failing),
+              label: failing == 0
+                  ? 'All passing'
+                  : appStrings.arg1Failing(failing),
               color: failing == 0 ? _success : _danger,
             ),
       child: checks.isEmpty
@@ -684,7 +797,11 @@ class _AdminOpsLogsPanelState extends State<_AdminOpsLogsPanel> {
   Future<void> _copyAll() async {
     final lines = _visibleLogs.reversed
         .map(
-          (entry) => appStrings.arg1Arg2Arg33(entry.timestamp, entry.level, entry.message),
+          (entry) => appStrings.arg1Arg2Arg33(
+            entry.timestamp,
+            entry.level,
+            entry.message,
+          ),
         )
         .join('\n');
     await Clipboard.setData(ClipboardData(text: lines));
@@ -758,7 +875,10 @@ class _AdminOpsLogsPanelState extends State<_AdminOpsLogsPanel> {
               : _StatusPill(
                   label: _issues.isEmpty
                       ? 'None'
-                      : appStrings.arg1Arg23(_issues.length, _issues.length == 1 ? 'issue' : 'issues'),
+                      : appStrings.arg1Arg23(
+                          _issues.length,
+                          _issues.length == 1 ? 'issue' : 'issues',
+                        ),
                   color: _issues.isEmpty ? _success : _danger,
                 ),
           child: initialLoad ? const _LoadingPlaceholder() : _buildIssues(),
@@ -785,7 +905,10 @@ class _AdminOpsLogsPanelState extends State<_AdminOpsLogsPanel> {
                   for (final filter in _AdminOpsLogFilter.values)
                     ChoiceChip(
                       label: Text(
-                        appStrings.arg1Arg2(_filterLabel(filter), _countFor(filter)),
+                        appStrings.arg1Arg2(
+                          _filterLabel(filter),
+                          _countFor(filter),
+                        ),
                       ),
                       selected: _filter == filter,
                       onSelected: (_) => setState(() => _filter = filter),
@@ -860,7 +983,9 @@ class _AdminOpsLogsPanelState extends State<_AdminOpsLogsPanel> {
               style: _adminOpsActionStyle(),
               onPressed: () => setState(() => _showAllIssues = !_showAllIssues),
               child: Text(
-                _showAllIssues ? 'Show fewer' : appStrings.showAllArg1(_issues.length),
+                _showAllIssues
+                    ? 'Show fewer'
+                    : appStrings.showAllArg1(_issues.length),
               ),
             ),
           ),
@@ -1251,7 +1376,9 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
     final count = _users.length;
     final noun = count == 1 ? 'account' : 'accounts';
     final query = _searchController.text.trim();
-    return query.isEmpty ? '$count $noun' : appStrings.arg1Arg2MatchingArg3(count, noun, query);
+    return query.isEmpty
+        ? '$count $noun'
+        : appStrings.arg1Arg2MatchingArg3(count, noun, query);
   }
 
   @override
@@ -1302,10 +1429,7 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
                 icon: Icons.gpp_maybe_outlined,
                 color: _warning,
                 message:
-                    appStrings.deletePermanentlyErasesAnAccountAnd +
-                    appStrings.runsMessagesMemoriesIntegrationsFilesAnd +
-                    appStrings.sessionsGdprArt17AdminAccounts +
-                    'here.',
+                    '${appStrings.deletePermanentlyErasesAnAccountAnd}${appStrings.runsMessagesMemoriesIntegrationsFilesAnd}${appStrings.sessionsGdprArt17AdminAccounts}here.',
               ),
             ],
           ),
@@ -1335,7 +1459,10 @@ class _AdminOpsUserRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final facts = <(IconData, String)>[
-      (Icons.event_outlined, appStrings.joinedArg1(_formatDate(user.createdAt))),
+      (
+        Icons.event_outlined,
+        appStrings.joinedArg1(_formatDate(user.createdAt)),
+      ),
       (
         Icons.login_rounded,
         user.lastLogin == null
@@ -1344,7 +1471,10 @@ class _AdminOpsUserRow extends StatelessWidget {
       ),
       (
         Icons.bolt_outlined,
-        appStrings.arg1Arg23(_formatNumber(user.runCount), user.runCount == 1 ? 'run' : 'runs'),
+        appStrings.arg1Arg23(
+          _formatNumber(user.runCount),
+          user.runCount == 1 ? 'run' : 'runs',
+        ),
       ),
       (Icons.folder_outlined, _formatBytes(user.storageBytes)),
       if (user.managedBy.isNotEmpty)
@@ -1469,8 +1599,9 @@ class _AdminOpsUserRow extends StatelessWidget {
               ),
               if (user.isAdmin)
                 Tooltip(
-                  message:
-                      appStrings.revokeAdminWithNeoagentAdminRevoke(user.username),
+                  message: appStrings.revokeAdminWithNeoagentAdminRevoke(
+                    user.username,
+                  ),
                   child: TextButton.icon(
                     style: _adminOpsActionStyle(),
                     onPressed: null,
@@ -1600,7 +1731,11 @@ class _AdminOpsDefaultLimitsCardState extends State<_AdminOpsDefaultLimitsCard>
           weeklyHelper: appStrings.tokensAnyAccountMayUseIn2,
         ),
         const SizedBox(height: 16),
-        _SaveButton(saving: _saving, onPressed: _save, label: appStrings.saveDefaults),
+        _SaveButton(
+          saving: _saving,
+          onPressed: _save,
+          label: appStrings.saveDefaults,
+        ),
         _saveFeedback(),
       ],
     );
@@ -1715,7 +1850,7 @@ class _AdminOpsUserLimitsDialogState extends State<_AdminOpsUserLimitsDialog> {
           children: <Widget>[
             Text(
               appStrings.tokenBudgetForArg1LeaveA(widget.user.username) +
-              appStrings.toUseTheServerDefault,
+                  appStrings.toUseTheServerDefault,
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 16),
@@ -1782,9 +1917,7 @@ class _AdminOpsResetPasswordDialogState
       _confirmation.text.isNotEmpty && _confirmation.text != _password.text;
 
   bool get _canSave =>
-      !_saving &&
-      _strength.acceptable &&
-      _confirmation.text == _password.text;
+      !_saving && _strength.acceptable && _confirmation.text == _password.text;
 
   @override
   void dispose() {
@@ -1942,8 +2075,8 @@ class _AdminOpsDeleteUserDialogState extends State<_AdminOpsDeleteUserDialog> {
           children: <Widget>[
             Text(
               appStrings.thisPermanentlyErasesTheAccountAnd +
-              appStrings.runsMessagesMemoriesIntegrationsFilesAnd2 +
-              appStrings.itCanTBeUndone,
+                  appStrings.runsMessagesMemoriesIntegrationsFilesAnd2 +
+                  appStrings.itCanTBeUndone,
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
             const SizedBox(height: 16),
@@ -2083,7 +2216,7 @@ class _AdminAnalyticsTab extends StatefulWidget {
 }
 
 class _AdminAnalyticsTabState extends State<_AdminAnalyticsTab> {
-  static List<(int, String, String)> _ranges = <(int, String, String)>[
+  static final List<(int, String, String)> _ranges = <(int, String, String)>[
     (7, '7d', appStrings.n7Days),
     (30, '30d', appStrings.n30Days),
     (90, '90d', appStrings.n90Days),
@@ -2193,8 +2326,13 @@ class _AdminAnalyticsTabState extends State<_AdminAnalyticsTab> {
           day: day,
           value: data.runsByDay[day]?.runs ?? 0,
           tooltip:
-              appStrings.arg1Arg2Runs(_formatIsoDate(day), _formatNumber(data.runsByDay[day]?.runs ?? 0)) +
-              appStrings.arg1Tokens(_formatTokenCount(data.runsByDay[day]?.tokens ?? 0)),
+              appStrings.arg1Arg2Runs(
+                _formatIsoDate(day),
+                _formatNumber(data.runsByDay[day]?.runs ?? 0),
+              ) +
+              appStrings.arg1Tokens(
+                _formatTokenCount(data.runsByDay[day]?.tokens ?? 0),
+              ),
         ),
     ];
     final tokenBars = <({String day, int value, String tooltip})>[
@@ -2202,8 +2340,10 @@ class _AdminAnalyticsTabState extends State<_AdminAnalyticsTab> {
         (
           day: day,
           value: data.runsByDay[day]?.tokens ?? 0,
-          tooltip:
-              appStrings.arg1Arg2Tokens(_formatIsoDate(day), _formatTokenCount(data.runsByDay[day]?.tokens ?? 0)),
+          tooltip: appStrings.arg1Arg2Tokens(
+            _formatIsoDate(day),
+            _formatTokenCount(data.runsByDay[day]?.tokens ?? 0),
+          ),
         ),
     ];
     final userBars = <({String day, int value, String tooltip})>[
@@ -2211,8 +2351,10 @@ class _AdminAnalyticsTabState extends State<_AdminAnalyticsTab> {
         (
           day: day,
           value: data.newUsersByDay[day] ?? 0,
-          tooltip:
-              appStrings.arg1Arg2NewAccounts(_formatIsoDate(day), data.newUsersByDay[day] ?? 0),
+          tooltip: appStrings.arg1Arg2NewAccounts(
+            _formatIsoDate(day),
+            data.newUsersByDay[day] ?? 0,
+          ),
         ),
     ];
     final rangeRuns = runBars.fold<int>(0, (sum, bar) => sum + bar.value);
@@ -2228,21 +2370,27 @@ class _AdminAnalyticsTabState extends State<_AdminAnalyticsTab> {
       _AdminOpsPair(
         first: _SectionCard(
           title: appStrings.runsPerDay,
-          description:
-              appStrings.arg1RunsInTheLastArg2(_formatNumber(rangeRuns), _rangeLabel),
+          description: appStrings.arg1RunsInTheLastArg2(
+            _formatNumber(rangeRuns),
+            _rangeLabel,
+          ),
           child: _AdminOpsBarChart(bars: runBars, color: _accent),
         ),
         second: _SectionCard(
           title: appStrings.tokensPerDay,
-          description:
-              appStrings.arg1TokensInTheLastArg2(_formatTokenCount(rangeTokens), _rangeLabel),
+          description: appStrings.arg1TokensInTheLastArg2(
+            _formatTokenCount(rangeTokens),
+            _rangeLabel,
+          ),
           child: _AdminOpsBarChart(bars: tokenBars, color: _info),
         ),
       ),
       _SectionCard(
         title: appStrings.newAccountsPerDay,
-        description:
-            appStrings.arg1NewAccountsInTheLast(_formatNumber(rangeUsers), _rangeLabel),
+        description: appStrings.arg1NewAccountsInTheLast(
+          _formatNumber(rangeUsers),
+          _rangeLabel,
+        ),
         child: _AdminOpsBarChart(bars: userBars, color: _accentAlt),
       ),
       _AdminOpsPair(
@@ -2257,7 +2405,9 @@ class _AdminAnalyticsTabState extends State<_AdminAnalyticsTab> {
                   label: entry.model,
                   value: entry.runs,
                   valueLabel: appStrings.arg1Runs(_formatNumber(entry.runs)),
-                  detail: appStrings.arg1Tokens(_formatTokenCount(entry.tokens)),
+                  detail: appStrings.arg1Tokens(
+                    _formatTokenCount(entry.tokens),
+                  ),
                   mono: true,
                 ),
             ],
@@ -2285,9 +2435,13 @@ class _AdminAnalyticsTabState extends State<_AdminAnalyticsTab> {
               _AdminOpsRankedItem(
                 label: entry.name,
                 value: entry.tokens,
-                valueLabel: appStrings.arg1Tokens(_formatTokenCount(entry.tokens)),
-                detail:
-                    appStrings.arg1RunsArg2(_formatNumber(entry.runs), _formatBytes(entry.storage)),
+                valueLabel: appStrings.arg1Tokens(
+                  _formatTokenCount(entry.tokens),
+                ),
+                detail: appStrings.arg1RunsArg2(
+                  _formatNumber(entry.runs),
+                  _formatBytes(entry.storage),
+                ),
               ),
           ],
         ),
@@ -2724,111 +2878,57 @@ class _AdminOpsSqlResult {
 }
 
 /// Starting points for common questions; picking one fills the editor.
-List<({String label, String query})> _adminOpsSqlTemplates =
-    <({String label, String query})>[
-      (
-        label: appStrings.userSummary,
-        query:
-            'SELECT u.id, u.username, u.email,\n' +
-            appStrings.uCreatedAtULastLogin +
-            appStrings.countDistinctRIdAsRuns +
-            '       COALESCE(SUM(r.total_tokens),0) AS tokens\n' +
-            appStrings.fromUsersU +
-            appStrings.leftJoinAgentRunsROn +
-            appStrings.groupByUId +
-            appStrings.orderByRunsDesc +
-            appStrings.limit50,
-      ),
-      (
-        label: appStrings.recentFailedRuns,
-        query:
-            'SELECT r.id, u.username, r.title, r.status,\n' +
-            appStrings.rErrorRCreatedAt +
-            appStrings.fromAgentRunsR +
-            appStrings.joinUsersUOnUId +
-            appStrings.whereRStatusFailed +
-            appStrings.orderByRCreatedAtDesc +
-            appStrings.limit50,
-      ),
-      (
-        label: appStrings.artifactStorageByUser,
-        query:
-            'SELECT u.username,\n' +
-            appStrings.countAIdAsFiles +
-            appStrings.sumAByteSizeAsBytes +
-            appStrings.roundSumAByteSize1048576 +
-            appStrings.fromUsersU +
-            appStrings.leftJoinArtifactsAOnA +
-            appStrings.groupByUId +
-            appStrings.orderByBytesDesc,
-      ),
-      (
-        label: appStrings.activeSessions,
-        query:
-            'SELECT u.username, s.ip_address,\n' +
-            appStrings.sUserAgentSCreatedAt +
-            appStrings.fromUserSessionsS +
-            appStrings.joinUsersUOnUId2 +
-            appStrings.whereSRevokedAtIsNull +
-            appStrings.andSExpiresAtDatetimeNow +
-            appStrings.orderBySLastSeenAt +
-            appStrings.limit50,
-      ),
-      (
-        label: appStrings.runsPerDay30Days,
-        query:
-            'SELECT DATE(created_at) AS day,\n' +
-            appStrings.countAsRuns +
-            '       COALESCE(SUM(total_tokens),0) AS tokens\n' +
-            appStrings.fromAgentRuns +
-            appStrings.whereCreatedAtDatetimeNow30 +
-            appStrings.groupByDay +
-            appStrings.orderByDayDesc,
-      ),
-      (
-        label: appStrings.mostUsedAgents,
-        query:
-            'SELECT a.slug, a.display_name, u.username AS owner,\n' +
-            appStrings.countRIdAsRuns +
-            appStrings.fromAgentsA +
-            appStrings.joinUsersUOnUId3 +
-            appStrings.leftJoinAgentRunsROn2 +
-            appStrings.groupByAId +
-            appStrings.orderByRunsDesc +
-            appStrings.limit20,
-      ),
-      (
-        label: appStrings.integrationConnections,
-        query:
-            'SELECT u.username, ic.provider_key,\n' +
-            appStrings.icStatusIcAccountEmailIc +
-            appStrings.fromIntegrationConnectionsIc +
-            appStrings.joinUsersUOnUId4 +
-            appStrings.orderByIcLastConnectedAt +
-            appStrings.limit50,
-      ),
-      (
-        label: appStrings.whoManagesWhom,
-        query:
-            'SELECT managed.username AS account,\n' +
-            appStrings.managerUsernameAsManagedBy +
-            appStrings.dAllowedPermissionsJsonAsAllowed +
-            appStrings.dCreatedAtAsSince +
-            appStrings.fromUserDelegationsD +
-            appStrings.joinUsersManagedOnManagedId +
-            appStrings.joinUsersManagerOnManagerId +
-            appStrings.orderByManagerUsernameManagedUsername,
-      ),
-      (
-        label: appStrings.allTables,
-        query:
-            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
-      ),
-      (
-        label: appStrings.tableInfoUsers,
-        query: "SELECT * FROM pragma_table_info('users')",
-      ),
-    ];
+List<({String label, String query})>
+_adminOpsSqlTemplates = <({String label, String query})>[
+  (
+    label: appStrings.userSummary,
+    query:
+        'SELECT u.id, u.username, u.email,\n${appStrings.uCreatedAtULastLogin}${appStrings.countDistinctRIdAsRuns}       COALESCE(SUM(r.total_tokens),0) AS tokens\n${appStrings.fromUsersU}${appStrings.leftJoinAgentRunsROn}${appStrings.groupByUId}${appStrings.orderByRunsDesc}${appStrings.limit50}',
+  ),
+  (
+    label: appStrings.recentFailedRuns,
+    query:
+        'SELECT r.id, u.username, r.title, r.status,\n${appStrings.rErrorRCreatedAt}${appStrings.fromAgentRunsR}${appStrings.joinUsersUOnUId}${appStrings.whereRStatusFailed}${appStrings.orderByRCreatedAtDesc}${appStrings.limit50}',
+  ),
+  (
+    label: appStrings.artifactStorageByUser,
+    query:
+        'SELECT u.username,\n${appStrings.countAIdAsFiles}${appStrings.sumAByteSizeAsBytes}${appStrings.roundSumAByteSize1048576}${appStrings.fromUsersU}${appStrings.leftJoinArtifactsAOnA}${appStrings.groupByUId}${appStrings.orderByBytesDesc}',
+  ),
+  (
+    label: appStrings.activeSessions,
+    query:
+        'SELECT u.username, s.ip_address,\n${appStrings.sUserAgentSCreatedAt}${appStrings.fromUserSessionsS}${appStrings.joinUsersUOnUId2}${appStrings.whereSRevokedAtIsNull}${appStrings.andSExpiresAtDatetimeNow}${appStrings.orderBySLastSeenAt}${appStrings.limit50}',
+  ),
+  (
+    label: appStrings.runsPerDay30Days,
+    query:
+        'SELECT DATE(created_at) AS day,\n${appStrings.countAsRuns}       COALESCE(SUM(total_tokens),0) AS tokens\n${appStrings.fromAgentRuns}${appStrings.whereCreatedAtDatetimeNow30}${appStrings.groupByDay}${appStrings.orderByDayDesc}',
+  ),
+  (
+    label: appStrings.mostUsedAgents,
+    query:
+        'SELECT a.slug, a.display_name, u.username AS owner,\n${appStrings.countRIdAsRuns}${appStrings.fromAgentsA}${appStrings.joinUsersUOnUId3}${appStrings.leftJoinAgentRunsROn2}${appStrings.groupByAId}${appStrings.orderByRunsDesc}${appStrings.limit20}',
+  ),
+  (
+    label: appStrings.integrationConnections,
+    query:
+        'SELECT u.username, ic.provider_key,\n${appStrings.icStatusIcAccountEmailIc}${appStrings.fromIntegrationConnectionsIc}${appStrings.joinUsersUOnUId4}${appStrings.orderByIcLastConnectedAt}${appStrings.limit50}',
+  ),
+  (
+    label: appStrings.whoManagesWhom,
+    query:
+        'SELECT managed.username AS account,\n${appStrings.managerUsernameAsManagedBy}${appStrings.dAllowedPermissionsJsonAsAllowed}${appStrings.dCreatedAtAsSince}${appStrings.fromUserDelegationsD}${appStrings.joinUsersManagedOnManagedId}${appStrings.joinUsersManagerOnManagerId}${appStrings.orderByManagerUsernameManagedUsername}',
+  ),
+  (
+    label: appStrings.allTables,
+    query: "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
+  ),
+  (
+    label: appStrings.tableInfoUsers,
+    query: "SELECT * FROM pragma_table_info('users')",
+  ),
+];
 
 /// RFC 4180 CSV: fields with a comma, quote or newline are quoted.
 String _adminOpsCsv(_AdminOpsSqlResult result) {
@@ -2901,8 +3001,7 @@ class _AdminSqlTabState extends State<_AdminSqlTab> {
         _SectionCard(
           title: appStrings.sqlConsole,
           description:
-              'Query the live database. Only read-only SELECT and WITH ' +
-              appStrings.queriesRunAnythingThatWritesIs,
+              'Query the live database. Only read-only SELECT and WITH ${appStrings.queriesRunAnythingThatWritesIs}',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
@@ -2934,7 +3033,10 @@ class _AdminSqlTabState extends State<_AdminSqlTab> {
                           color: _accent,
                         ),
                         const SizedBox(width: 6),
-                        Text(appStrings.templates, style: TextStyle(color: _accent)),
+                        Text(
+                          appStrings.templates,
+                          style: TextStyle(color: _accent),
+                        ),
                         Icon(Icons.arrow_drop_down, color: _accent),
                       ],
                     ),
@@ -2999,8 +3101,10 @@ class _AdminSqlTabState extends State<_AdminSqlTab> {
         if (result != null)
           _SectionCard(
             title: appStrings.results,
-            description:
-                appStrings.arg1Arg23(_formatNumber(result.rows.length), result.rows.length == 1 ? 'row' : 'rows'),
+            description: appStrings.arg1Arg23(
+              _formatNumber(result.rows.length),
+              result.rows.length == 1 ? 'row' : 'rows',
+            ),
             trailing: result.rows.isEmpty
                 ? null
                 : TextButton.icon(
@@ -3024,7 +3128,9 @@ class _AdminSqlTabState extends State<_AdminSqlTab> {
                   _InlineNote(
                     icon: Icons.info_outline_rounded,
                     message:
-                        appStrings.showingTheFirstArg1(_formatNumber(result.rows.length)) +
+                        appStrings.showingTheFirstArg1(
+                          _formatNumber(result.rows.length),
+                        ) +
                         appStrings.rowsAddALimitOrA +
                         appStrings.theRest,
                   ),

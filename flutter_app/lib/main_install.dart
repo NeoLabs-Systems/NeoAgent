@@ -85,7 +85,9 @@ class _ServerPanelState extends State<ServerPanel> {
       await _refresh();
     } on LocalBackendInstallerException catch (error) {
       if (!mounted) return;
-      setState(() => _errorMessage = appStrings.arg1Arg2(error.message, error.code));
+      setState(
+        () => _errorMessage = appStrings.arg1Arg2(error.message, error.code),
+      );
     } finally {
       if (mounted) setState(() => _installing = false);
     }
@@ -102,7 +104,9 @@ class _ServerPanelState extends State<ServerPanel> {
       setState(() => _status = status);
     } on LocalRuntimeManagerException catch (error) {
       if (!mounted) return;
-      setState(() => _errorMessage = appStrings.arg1Arg2(error.message, error.code));
+      setState(
+        () => _errorMessage = appStrings.arg1Arg2(error.message, error.code),
+      );
     } finally {
       if (mounted) setState(() => _actionRunning = false);
     }
@@ -134,8 +138,7 @@ class _ServerPanelState extends State<ServerPanel> {
         : logs
               .map(
                 (log) =>
-                    appStrings.arg1(log.path) +
-                    '${log.content.isEmpty ? '(empty)' : log.content}',
+                    '${appStrings.arg1(log.path)}${log.content.isEmpty ? '(empty)' : log.content}',
               )
               .join('\n\n');
 
@@ -298,7 +301,9 @@ class _ServerPanelState extends State<ServerPanel> {
               appStrings.connectedServer,
               trailing: _supportsDesktopShell
                   ? _StatusPill(
-                      label: usesLocalBackend ? appStrings.thisComputer : 'Remote',
+                      label: usesLocalBackend
+                          ? appStrings.thisComputer
+                          : 'Remote',
                       color: usesLocalBackend ? _success : _accentAlt,
                     )
                   : null,
@@ -388,7 +393,10 @@ class _ServerPanelState extends State<ServerPanel> {
               const SizedBox(height: 12),
               _InlineError(
                 message:
-                    appStrings.versionArg1IsInstalledButArg2(status?.version, status?.runningVersion) +
+                    appStrings.versionArg1IsInstalledButArg2(
+                      status?.version,
+                      status?.runningVersion,
+                    ) +
                     appStrings.restartToFinishTheUpdate,
               ),
             ],
@@ -479,7 +487,10 @@ class _ServerPanelState extends State<ServerPanel> {
         style: const TextStyle(fontWeight: FontWeight.w700),
       ),
       children: <Widget>[
-        Text(appStrings.setup, style: TextStyle(color: _textMuted, fontSize: 12)),
+        Text(
+          appStrings.setup,
+          style: TextStyle(color: _textMuted, fontSize: 12),
+        ),
         const SizedBox(height: 8),
         SegmentedButton<LocalBackendSetupProfile>(
           segments: <ButtonSegment<LocalBackendSetupProfile>>[
@@ -500,7 +511,10 @@ class _ServerPanelState extends State<ServerPanel> {
           },
         ),
         const SizedBox(height: 14),
-        Text(appStrings.channel, style: TextStyle(color: _textMuted, fontSize: 12)),
+        Text(
+          appStrings.channel,
+          style: TextStyle(color: _textMuted, fontSize: 12),
+        ),
         const SizedBox(height: 8),
         _channelPicker(
           value: _channel,
@@ -509,7 +523,10 @@ class _ServerPanelState extends State<ServerPanel> {
         const SizedBox(height: 8),
         Text(
           installedChannel != null && installedChannel != _channel
-              ? appStrings.thisSwitchesTheBackendFromTheArg1(installedChannel.toLowerCase(), _channel.toLowerCase())
+              ? appStrings.thisSwitchesTheBackendFromTheArg1(
+                  installedChannel.toLowerCase(),
+                  _channel.toLowerCase(),
+                )
               : _channel == 'beta'
               ? appStrings.betaInstallsTheNewestPrereleaseBackendExpect
               : appStrings.stableInstallsTheLatestPublishedBackend,
@@ -523,7 +540,9 @@ class _ServerPanelState extends State<ServerPanel> {
             icon: Icon(
               installed ? Icons.build_outlined : Icons.download_outlined,
             ),
-            label: Text(installed ? 'Update and repair' : appStrings.installNeoagent),
+            label: Text(
+              installed ? 'Update and repair' : appStrings.installNeoagent,
+            ),
           ),
         ),
         const SizedBox(height: 10),
@@ -547,7 +566,9 @@ class _ServerPanelState extends State<ServerPanel> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(_currentEvent?.message ?? appStrings.preparingNeoagent),
+              child: Text(
+                _currentEvent?.message ?? appStrings.preparingNeoagent,
+              ),
             ),
             TextButton(
               onPressed: _installer.cancel,
@@ -620,24 +641,31 @@ class _ServerPanelState extends State<ServerPanel> {
               children: <Widget>[
                 _MetaPill(
                   icon: Icons.desktop_windows_outlined,
-                  label:
-                      appStrings.versionArg1(controller.installedAppVersion ?? 'unknown'),
+                  label: appStrings.versionArg1(
+                    controller.installedAppVersion ?? 'unknown',
+                  ),
                 ),
                 _MetaPill(
                   icon: controller.appUpdateChannel == 'beta'
                       ? Icons.science_outlined
                       : Icons.verified_outlined,
-                  label:
-                      appStrings.arg1Channel(_channelLabel(controller.appUpdateChannel)),
+                  label: appStrings.arg1Channel(
+                    _channelLabel(controller.appUpdateChannel),
+                  ),
                 ),
                 _MetaPill(
                   icon: Icons.schedule_outlined,
-                  label: appStrings.checkedArg1(controller.appUpdateLastCheckedLabel),
+                  label: appStrings.checkedArg1(
+                    controller.appUpdateLastCheckedLabel,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            Text(appStrings.channel, style: TextStyle(color: _textMuted, fontSize: 12)),
+            Text(
+              appStrings.channel,
+              style: TextStyle(color: _textMuted, fontSize: 12),
+            ),
             const SizedBox(height: 8),
             _channelPicker(
               value: controller.appUpdateChannel,
@@ -647,7 +675,11 @@ class _ServerPanelState extends State<ServerPanel> {
             if (release != null) ...<Widget>[
               const SizedBox(height: 12),
               Text(
-                appStrings.arg1Arg2Arg3(release.title, release.channelLabel, release.asset.sizeLabel),
+                appStrings.arg1Arg2Arg3(
+                  release.title,
+                  release.channelLabel,
+                  release.asset.sizeLabel,
+                ),
                 style: TextStyle(color: _textSecondary, height: 1.45),
               ),
             ],
@@ -684,7 +716,9 @@ class _ServerPanelState extends State<ServerPanel> {
                         )
                       : Icon(Icons.sync_rounded),
                   label: Text(
-                    controller.isCheckingAppUpdate ? 'Checking…' : appStrings.checkNow,
+                    controller.isCheckingAppUpdate
+                        ? 'Checking…'
+                        : appStrings.checkNow,
                   ),
                 ),
               ],

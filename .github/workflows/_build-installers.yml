@@ -111,6 +111,34 @@ jobs:
         shell: pwsh
         run: flutter pub get
 
+      - name: Build Windows ARM64 audio codecs
+        if: matrix.architecture == 'arm64'
+        shell: pwsh
+        run: |
+          # flutter_soloud ships x64 codec binaries; keep codec support on ARM64
+          # by replacing them with libraries built for the runner architecture.
+          $triplet = "${{ matrix.architecture }}-windows"
+          $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
+          & "$vcpkgRoot/vcpkg.exe" install "libogg:$triplet" "libvorbis:$triplet" "opus:$triplet" "libflac:$triplet"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to build Windows ARM64 audio codecs."
+          }
+
+          $configPath = (Resolve-Path ".dart_tool/package_config.json").Path
+          $packages = (Get-Content $configPath -Raw | ConvertFrom-Json).packages
+          $soloud = $packages | Where-Object { $_.name -eq "flutter_soloud" }
+          if ($null -eq $soloud) {
+            throw "flutter_soloud was not found in the resolved packages."
+          }
+          $packageUri = [Uri]::new([Uri]::new($configPath), $soloud.rootUri)
+          $codecDir = Join-Path $packageUri.LocalPath "windows/libs"
+          $installedDir = Join-Path $vcpkgRoot "installed/$triplet"
+          foreach ($codec in @("ogg", "vorbis", "vorbisfile", "opus", "FLAC")) {
+            Copy-Item "$installedDir/lib/$codec.lib" "$codecDir/$codec.lib" -Force
+            Copy-Item "$installedDir/bin/$codec.dll" "$codecDir/$codec.dll" -Force
+          }
+          Copy-Item "$installedDir/include/*" (Join-Path $packageUri.LocalPath "windows/include") -Recurse -Force
+
       - name: Resolve runtime signing key
         working-directory: ${{ github.workspace }}
         shell: pwsh
@@ -704,6 +732,7 @@ jobs:
             libgstreamer1.0-dev \
             libgstreamer-plugins-base1.0-dev \
             libpulse-dev \
+            libasound2-dev \
             libkeybinder-3.0-dev \
             libayatana-appindicator3-dev
           sudo gem install --no-document fpm

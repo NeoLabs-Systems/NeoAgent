@@ -167,7 +167,7 @@ class LocalRuntimeManager {
 
   Directory _versionDirectory(String version) {
     return Directory(
-      '${_paths.runtimeHome}${_paths.separator}app' +
+      '${_paths.runtimeHome}${_paths.separator}app'
       '${_paths.separator}versions${_paths.separator}$version',
     );
   }
@@ -175,7 +175,7 @@ class LocalRuntimeManager {
   bool _runtimeFilesExist(Directory versionDirectory) {
     final node = _activationService.nodeExecutable(versionDirectory);
     final cli = File(
-      '${versionDirectory.path}${_paths.separator}app' +
+      '${versionDirectory.path}${_paths.separator}app'
       '${_paths.separator}bin${_paths.separator}neoagent.js',
     );
     return node.existsSync() && cli.existsSync();
@@ -188,7 +188,7 @@ class LocalRuntimeManager {
   }) async {
     final node = _activationService.nodeExecutable(versionDirectory);
     final cli =
-        '${versionDirectory.path}${_paths.separator}app' +
+        '${versionDirectory.path}${_paths.separator}app'
         '${_paths.separator}bin${_paths.separator}neoagent.js';
     final process = await Process.start(
       node.path,

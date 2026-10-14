@@ -134,7 +134,8 @@ class _DevicesPanelState extends State<DevicesPanel> {
     final runtime = controller.computerRuntimeFor(widget.deviceTarget);
     final rawState = runtime['state']?.toString() ?? 'stopped';
     final localHeld = local && controller.localComputerDisplayConnected;
-    final state = localHeld &&
+    final state =
+        localHeld &&
             !const <String>{
               'ready',
               'agent_control',
@@ -144,7 +145,8 @@ class _DevicesPanelState extends State<DevicesPanel> {
             }.contains(rawState)
         ? 'ready'
         : rawState;
-    final running = <String>{
+    final running =
+        <String>{
           'ready',
           'agent_control',
           'user_control',
@@ -291,8 +293,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
       content = _ComputerEmptyState(
         icon: Icons.desktop_windows_rounded,
         title: appStrings.yourDesktopIsReady,
-        message:
-            appStrings.chromiumFilesTheTextEditorAnd,
+        message: appStrings.chromiumFilesTheTextEditorAnd,
         action: FilledButton.icon(
           onPressed: controller.isRunningDeviceAction
               ? null
@@ -318,8 +319,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
       content = _ComputerEmptyState(
         icon: Icons.hourglass_top_rounded,
         title: appStrings.allComputerSlotsAreBusy,
-        message:
-            appStrings.noCloudComputerSlotIsFree,
+        message: appStrings.noCloudComputerSlotIsFree,
         action: FilledButton.icon(
           onPressed: () => controller.startComputerRuntime(
             deviceTarget: widget.deviceTarget,
@@ -330,8 +330,7 @@ class _DevicesPanelState extends State<DevicesPanel> {
       );
     } else if (state == 'error') {
       final storageError = errorCode == 'COMPUTER_STORAGE_CAPACITY';
-      final lastError =
-          runtime['lastError']?.toString().trim() ?? '';
+      final lastError = runtime['lastError']?.toString().trim() ?? '';
       content = _ComputerEmptyState(
         icon: storageError ? Icons.storage_rounded : Icons.cloud_off_rounded,
         title: storageError
@@ -356,14 +355,15 @@ class _DevicesPanelState extends State<DevicesPanel> {
         title: state == 'sleeping'
             ? appStrings.yourComputerIsAsleep
             : appStrings.yourLinuxComputer,
-        message:
-            appStrings.aPrivateDesktopWithChromiumFiles,
+        message: appStrings.aPrivateDesktopWithChromiumFiles,
         action: FilledButton.icon(
           onPressed: () => controller.startComputerRuntime(
             deviceTarget: widget.deviceTarget,
           ),
           icon: Icon(Icons.play_arrow_rounded),
-          label: Text(state == 'sleeping' ? 'Wake computer' : appStrings.startComputer),
+          label: Text(
+            state == 'sleeping' ? 'Wake computer' : appStrings.startComputer,
+          ),
         ),
       );
     }
@@ -710,11 +710,15 @@ class _AndroidKeyBar extends StatelessWidget {
   final bool enabled;
   final Future<void> Function(String key) onKey;
 
-  static List<({String key, IconData icon, String label})> _keys =
+  static final List<({String key, IconData icon, String label})> _keys =
       <({String key, IconData icon, String label})>[
         (key: 'back', icon: Icons.arrow_back_rounded, label: 'Back'),
         (key: 'home', icon: Icons.circle_outlined, label: appStrings.home),
-        (key: 'app_switch', icon: Icons.crop_square_rounded, label: appStrings.recents),
+        (
+          key: 'app_switch',
+          icon: Icons.crop_square_rounded,
+          label: appStrings.recents,
+        ),
       ];
 
   @override
@@ -840,10 +844,7 @@ class _ComputerActivityGlowState extends State<_ComputerActivityGlow>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     );
-    _pulse = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOutCubic,
-    );
+    _pulse = CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic);
     if (widget.active) _controller.repeat(reverse: true);
   }
 
@@ -880,22 +881,20 @@ class _ComputerActivityGlowState extends State<_ComputerActivityGlow>
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: const Color(0xFF7C5CFF).withValues(
-                alpha: 0.28 * strength,
-              ),
+              color: const Color(0xFF7C5CFF).withValues(alpha: 0.28 * strength),
             ),
             boxShadow: <BoxShadow>[
               BoxShadow(
-                color: const Color(0xFF4F8CFF).withValues(
-                  alpha: 0.34 * strength,
-                ),
+                color: const Color(
+                  0xFF4F8CFF,
+                ).withValues(alpha: 0.34 * strength),
                 blurRadius: 16 + (14 * strength),
                 spreadRadius: 1 + (2 * strength),
               ),
               BoxShadow(
-                color: const Color(0xFFB45CFF).withValues(
-                  alpha: 0.2 * strength,
-                ),
+                color: const Color(
+                  0xFFB45CFF,
+                ).withValues(alpha: 0.2 * strength),
                 blurRadius: 28 + (18 * strength),
                 spreadRadius: -2 + (2 * strength),
               ),
@@ -1189,7 +1188,9 @@ _computerStatusPresentation(
     case 'error':
       final storage = runtime['errorCode'] == 'COMPUTER_STORAGE_CAPACITY';
       return (
-        title: storage ? appStrings.moreFreeSpaceIsNeeded : appStrings.couldNotStart,
+        title: storage
+            ? appStrings.moreFreeSpaceIsNeeded
+            : appStrings.couldNotStart,
         subtitle: storage
             ? appStrings.freeSomeHostStorageAndTryAgain
             : appStrings.tryAgainOrRunNeoagentDoctor,
@@ -1213,7 +1214,7 @@ class _LocalComputerPermissionPanel extends StatelessWidget {
 
   final NeoAgentController controller;
 
-  static Map<String, ({IconData icon, String label, String detail})>
+  static final Map<String, ({IconData icon, String label, String detail})>
   _definitions = <String, ({IconData icon, String label, String detail})>{
     'screen': (
       icon: Icons.visibility_rounded,
@@ -1245,14 +1246,10 @@ class _LocalComputerPermissionPanel extends StatelessWidget {
     final system = _jsonMap(controller.localComputerStatus['permissions']);
     final gaps = <String>[];
     if (granted.contains('screen') && system['screenCapture'] == 'required') {
-      gaps.add(
-        appStrings.macosScreenRecordingIsNotGranted,
-      );
+      gaps.add(appStrings.macosScreenRecordingIsNotGranted);
     }
     if (granted.contains('input') && system['inputControl'] == 'required') {
-      gaps.add(
-        appStrings.macosAccessibilityIsNotGrantedTo,
-      );
+      gaps.add(appStrings.macosAccessibilityIsNotGrantedTo);
     }
     return gaps;
   }
@@ -1554,8 +1551,11 @@ class _TeachBar extends StatelessWidget {
                           ),
                         Text(
                           status == 'recording'
-                              ? appStrings.arg1WorkThroughTheTaskAsYou(elapsedLabel)
-                              : appStrings.neoagentIsTurningYourDemonstrationInto,
+                              ? appStrings.arg1WorkThroughTheTaskAsYou(
+                                  elapsedLabel,
+                                )
+                              : appStrings
+                                    .neoagentIsTurningYourDemonstrationInto,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],

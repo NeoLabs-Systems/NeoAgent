@@ -67,6 +67,7 @@ Each agent can use its own provider keys instead of the server's, under **Settin
 - **Encrypted.** Keys are stored encrypted and never shown again.
 - **No server limits.** Usage limits don't apply to models running on your own key.
 - **Sign in with OpenRouter.** Connects an OpenRouter account without copying a key; the key is stored like a pasted one.
+- **Register with OpenRouter.** The account registration option also connects OpenRouter models for your initial agent. See [Account sign-in](agents-and-users.md#account-sign-in).
 - **Plain-HTTP servers.** On `https://` or `localhost` the browser returns by itself; on a plain-HTTP LAN address, paste OpenRouter's one-time code.
 - **Custom endpoint.** Point an agent at any OpenAI-compatible endpoint. It must be reachable on the public internet; local and private-network addresses are refused.
 - **Server-only providers.** Account sign-ins and MiniMax Code can't be added per agent.

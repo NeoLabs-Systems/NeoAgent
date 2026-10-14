@@ -667,9 +667,7 @@ class _MainSecurityState extends State<MainSecurity> {
                   message: _lockedBy.isEmpty
                       ? appStrings.allToolsAreAllowedTheAgent +
                             appStrings.switchToDefaultOrAlwaysAskTo
-                      : appStrings.everyToolRunsWithoutAskingExcept +
-                            appStrings.whoManagesThisAccountTurnedOff +
-                            '${_lockedBy.keys.map((key) => _categoryInfo(key).label).join(', ')}.',
+                      : '${appStrings.everyToolRunsWithoutAskingExcept}${appStrings.whoManagesThisAccountTurnedOff}${_lockedBy.keys.map((key) => _categoryInfo(key).label).join(', ')}.',
                 ),
               ),
             if (_mode == 'always_ask')

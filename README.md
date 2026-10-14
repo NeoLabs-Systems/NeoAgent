@@ -79,10 +79,7 @@ docker compose up -d
 bash <(curl -fsSL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/install.sh)
 ```
 
-Then open **http://localhost:3333** (or your server's address). The first account becomes the admin.
-
-> [!NOTE]
-> The npm package is discontinued. Use one of the options above.
+Then open **http://localhost:3333** (or your server's address). The first account you create is automatically assigned administrator privileges.
 
 ## ✨ What it does
 

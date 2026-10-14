@@ -136,6 +136,7 @@ Each OAuth app takes `<PREFIX>_CLIENT_ID` and `<PREFIX>_CLIENT_SECRET` (both **r
 - **Default callback.** `<PUBLIC_URL>/api/integrations/oauth/callback`. Register exactly this URI with the provider.
 - **Trello.** `TRELLO_API_KEY` is a shared app key; each agent still connects its own Trello account in the app.
 - **In the app.** **Admin › Integrations** edits the OAuth apps and the Trello key.
+- **OpenRouter account sign-in.** The same category has an enable switch backed by `NEOAGENT_OPENROUTER_SIGN_IN_ENABLED` (default `true`). Disabling it blocks registration, login, and account linking immediately; existing sessions and model keys keep working.
 - **No server setup.** Home Assistant and Nextcloud are connected per account in the app.
 - **Messaging channels.** Configured per agent under **Settings › Messaging**, not here.
 

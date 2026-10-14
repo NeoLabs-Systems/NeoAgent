@@ -3,10 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:neoagent_flutter/main.dart';
 
 void main() {
-  testWidgets('SplashView renders loading progress and text', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: SplashView()));
-
-    expect(find.byType(LinearProgressIndicator), findsOneWidget);
-    expect(find.text('Loading NeoAgent'), findsOneWidget);
+  testWidgets('SplashView renders the branded loading screen', (tester) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(const MaterialApp(home: SplashView()));
+      expect(find.text('NEOAGENT'), findsOneWidget);
+      expect(find.bySemanticsLabel('Loading NeoAgent'), findsOneWidget);
+    } finally {
+      semantics.dispose();
+    }
   });
 }

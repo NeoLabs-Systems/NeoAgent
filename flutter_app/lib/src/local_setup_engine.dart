@@ -72,7 +72,9 @@ LocalBackendInstallStage setupEngineStage(String stage) {
         state: state,
         message: eventMessage.isNotEmpty
             ? eventMessage
-            : (errorDetail.isNotEmpty ? errorDetail : appStrings.preparingNeoagent2),
+            : (errorDetail.isNotEmpty
+                  ? errorDetail
+                  : appStrings.preparingNeoagent2),
         progress: (decoded['progress'] as num?)?.toDouble(),
         errorCode: error is Map ? error['code']?.toString() : null,
         retryable: error is! Map || error['retryable'] != false,
@@ -100,7 +102,7 @@ class LocalSetupEngine {
   }) async {
     _cancelled = false;
     final cli =
-        '${versionDirectory.path}${Platform.pathSeparator}app' +
+        '${versionDirectory.path}${Platform.pathSeparator}app'
         '${Platform.pathSeparator}bin${Platform.pathSeparator}neoagent.js';
     final process = await Process.start(
       nodeExecutable.path,

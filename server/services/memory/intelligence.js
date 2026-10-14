@@ -76,11 +76,11 @@ function trimCalendarWords(name) {
 
 // Structural noise left by older extraction: header labels ("Date: Fri"),
 // bracketed mail addresses, and names made only of date parts.
-function isNoiseEntityName(name) {
+function isNoiseEntityName(name, { inSentence = false } = {}) {
   const value = String(name || '').trim();
   return /^[<>(\["']/.test(value)
     || /^\p{L}+:\s/u.test(value)
-    || trimCalendarWords(value) !== value
+    || (!inSentence && trimCalendarWords(value) !== value)
     || value.replace(/[^\p{L}\p{N}]/gu, '').length < 2;
 }
 
@@ -120,9 +120,15 @@ function capitalizedCandidates(raw) {
     const after = raw.slice(match.index + match[0].length);
     if (after.startsWith(':') && /(?:^|\n)[ \t]*$/.test(before)) continue; // header label
     if (/^[A-Z]{2,5}$/.test(match[0]) && AFTER_CLOCK_TIME.test(before)) continue; // timezone
-    const name = trimCalendarWords(match[0]);
+    const inSentence = !SENTENCE_START.test(before);
+    // Calendar abbreviations can also be names. Only treat a mid-sentence
+    // name as a date part beside digits, or as an uppercase timezone label.
+    const hasCalendarContext = /\d[\s,./-]*$/.test(before)
+      || /^[\s,./-]*\d/.test(after)
+      || /^[A-Z\d\s]+$/.test(match[0]);
+    const name = inSentence && !hasCalendarContext ? match[0] : trimCalendarWords(match[0]);
     if (name.length < 3) continue;
-    if (!SENTENCE_START.test(before)) {
+    if (inSentence) {
       candidates.push({ name, inSentence: true });
       continue;
     }
@@ -157,7 +163,7 @@ function extractEntities(text, { maxEntities = 16 } = {}) {
   for (const candidate of candidates) {
     const name = candidate.name.trim().replace(/\s+/g, ' ').slice(0, 160);
     const key = canonicalEntityKey(name);
-    if (!key || key.length < 2 || isNoiseEntityName(name)) continue;
+    if (!key || key.length < 2 || isNoiseEntityName(name, candidate)) continue;
     const existing = byKey.get(key);
     if (existing) {
       existing.inSentence = existing.inSentence || candidate.inSentence;

@@ -13,6 +13,16 @@ description: How NeoAgent separates sign-in accounts from configured AI identiti
 | User | An account on your NeoAgent server | Sign-up, **Admin › Users** |
 | Agent | An AI identity owned by one user | **Settings › Agents** |
 
+## Account sign-in
+
+Google and OpenRouter can register, sign in, or link to an existing account through the same provider flow. One-time sign-up keys still apply when registration is restricted.
+
+OpenRouter needs an HTTPS or localhost server URL, with no OAuth client ID or secret. It identifies the account by OpenRouter's user ID; it does not provide an email, so new accounts start without one. You can set a password in account settings, then add an email. Each successful OpenRouter registration, sign-in, or account link saves the returned model API key encrypted for your default agent, replacing its previous OpenRouter key. Other agents keep their own keys.
+
+Connecting OpenRouter under **Settings › Models › Bring your own key** only connects models; it does not link an account sign-in method. To sign in to an existing NeoAgent account with OpenRouter, link it in account settings first.
+
+Admins can turn OpenRouter account sign-in off under **Admin › Integrations › OpenRouter account sign-in**, alongside the Google configuration. The switch defaults to on and is saved as `NEOAGENT_OPENROUTER_SIGN_IN_ENABLED`. Saving applies immediately to registration, login, account linking, and pending callbacks. Existing sessions and model API keys keep working.
+
 ## 🤖 Agents
 
 - **Main agent.** Created automatically for every account. It cannot be archived.

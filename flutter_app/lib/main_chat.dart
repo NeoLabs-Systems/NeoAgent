@@ -709,18 +709,19 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
                 constraints: const BoxConstraints(maxWidth: 720),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final cards = _promptStarters(
-                          hasRuns: controller.recentRuns.isNotEmpty,
-                        )
-                        .map(
-                          (starter) => _PromptStarter(
-                            icon: starter.icon,
-                            prompt: starter.prompt,
-                            caption: starter.caption,
-                            onTap: () => _useStarter(starter.prompt),
-                          ),
-                        )
-                        .toList(growable: false);
+                    final cards =
+                        _promptStarters(
+                              hasRuns: controller.recentRuns.isNotEmpty,
+                            )
+                            .map(
+                              (starter) => _PromptStarter(
+                                icon: starter.icon,
+                                prompt: starter.prompt,
+                                caption: starter.caption,
+                                onTap: () => _useStarter(starter.prompt),
+                              ),
+                            )
+                            .toList(growable: false);
                     // Side by side once there is room for two readable
                     // cards; stacked on a phone.
                     if (constraints.maxWidth < 560) {
@@ -1158,11 +1159,7 @@ class _RateLimitStatusCard extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          appStrings.arg1Arg2Tokens3(
-                _formatTokenCount(usageAmount),
-                _formatTokenCount(limit),
-              ) +
-              '${resetLabel == null ? '' : ' · $resetLabel'}',
+          '${appStrings.arg1Arg2Tokens3(_formatTokenCount(usageAmount), _formatTokenCount(limit))}${resetLabel == null ? '' : ' · $resetLabel'}',
           style: TextStyle(color: _textMuted, fontSize: 11),
         ),
       ],

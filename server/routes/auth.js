@@ -322,7 +322,7 @@ router.get('/api/auth/status', (req, res) => {
         configured: emailConfig.configured,
         signupConfirmationRequired: requireSignupEmailConfirmation(),
       },
-      providers: authProviderManager ? authProviderManager.listProviders() : [],
+      providers: authProviderManager ? authProviderManager.listProviders({ baseUrl: publicBaseUrlForRequest(req) }) : [],
     });
   }
   res.json({
@@ -336,7 +336,7 @@ router.get('/api/auth/status', (req, res) => {
       configured: emailConfig.configured,
       signupConfirmationRequired: requireSignupEmailConfirmation(),
     },
-    providers: authProviderManager ? authProviderManager.listProviders() : [],
+    providers: authProviderManager ? authProviderManager.listProviders({ baseUrl: publicBaseUrlForRequest(req) }) : [],
   });
 });
 
@@ -345,7 +345,7 @@ router.get('/api/auth/providers', (req, res) => {
   if (!authProviderManager) {
     return res.json({ providers: [] });
   }
-  return res.json({ providers: authProviderManager.listProviders() });
+  return res.json({ providers: authProviderManager.listProviders({ baseUrl: publicBaseUrlForRequest(req) }) });
 });
 
 router.post('/api/auth/providers/:provider/begin', authLimiter, requireSessionTransport, async (req, res) => {
@@ -360,6 +360,7 @@ router.post('/api/auth/providers/:provider/begin', authLimiter, requireSessionTr
       mode,
       userId: mode === 'link' ? req.session?.userId || null : null,
       signupKey: req.body?.signupKey,
+      baseUrl: publicBaseUrlForRequest(req),
     });
     bindOAuthState(req.session, result.state);
     res.json(result);
@@ -514,7 +515,7 @@ router.post('/api/auth/login', authLimiter, requireSessionTransport, async (req,
       return res.status(401).json({ error: 'Invalid credentials', code: 'INVALID_CREDENTIALS' });
     }
 
-    if (requireSignupEmailConfirmation() && !user.email_verified_at) {
+    if (requireSignupEmailConfirmation() && user.email && !user.email_verified_at) {
       return res.status(403).json({
         error: 'Email confirmation required before sign in',
         requiresEmailConfirmation: true,
@@ -560,7 +561,7 @@ router.post('/api/auth/login/2fa', authLimiter, requireSessionTransport, async (
       return res.status(401).json({ error: 'User not found' });
     }
 
-    if (requireSignupEmailConfirmation() && !user.email_verified_at) {
+    if (requireSignupEmailConfirmation() && user.email && !user.email_verified_at) {
       return res.status(403).json({
         error: 'Email confirmation required before sign in',
         requiresEmailConfirmation: true,
@@ -613,7 +614,7 @@ router.post('/api/auth/webauthn/login/verify', webauthnLimiter, requireSessionTr
       return res.status(401).json({ error: 'User not found' });
     }
 
-    if (requireSignupEmailConfirmation() && !user.email_verified_at) {
+    if (requireSignupEmailConfirmation() && user.email && !user.email_verified_at) {
       return res.status(403).json({
         error: 'Email confirmation required before sign in',
         requiresEmailConfirmation: true,

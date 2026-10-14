@@ -207,6 +207,12 @@ List<_AdminSearchEntry> _adminSearchIndex = <_AdminSearchEntry>[
     card: appStrings.googleWorkspace,
   ),
   _AdminSearchEntry(
+    'OpenRouter account sign-in',
+    _AdminTab.integrations,
+    'openrouter registration login account sign-in',
+    card: 'OpenRouter account sign-in',
+  ),
+  _AdminSearchEntry(
     appStrings.microsoft365,
     _AdminTab.integrations,
     appStrings.oauthOutlookTenantClientIdSecret,

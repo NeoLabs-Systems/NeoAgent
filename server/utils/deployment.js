@@ -77,6 +77,7 @@ function getDeploymentPolicy(env = process.env) {
   return {
     mode,
     managed: mode === DEPLOYMENT_MODE_MANAGED,
+    containerImage: isContainerImage(env),
     allowSelfUpdate: mode !== DEPLOYMENT_MODE_MANAGED && !isContainerImage(env),
     signupKeyRequired: !getAllowSignup(env),
     runtimeDefaults: {

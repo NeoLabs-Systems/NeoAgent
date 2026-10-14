@@ -51,8 +51,7 @@ class _NotManaged extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
-          appStrings.youReOnYourOwnYou +
-          appStrings.aTeammateSentYouAnInvite,
+          appStrings.youReOnYourOwnYou + appStrings.aTeammateSentYouAnInvite,
           style: TextStyle(color: _textSecondary, height: 1.45),
         ),
         const SizedBox(height: 14),
@@ -109,8 +108,10 @@ class _ManagedByDetails extends StatelessWidget {
         if (managedBy.chain.length > 1) ...<Widget>[
           const SizedBox(height: 10),
           Text(
-            appStrings.chainArg1(managedBy.chain.map((person) => person.label).join(' › ')) +
-            appStrings.aDecisionHigherUpTheChain,
+            appStrings.chainArg1(
+                  managedBy.chain.map((person) => person.label).join(' › '),
+                ) +
+                appStrings.aDecisionHigherUpTheChain,
             style: TextStyle(color: _textSecondary, fontSize: 13),
           ),
         ],
@@ -245,9 +246,9 @@ Future<void> _showRedeemInviteDialog(
     builder: (_) => _RedeemInviteDialog(controller: controller),
   );
   if (joined == null || !context.mounted) return;
-  ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(SnackBar(content: Text(appStrings.arg1NowManagesThisAccount(joined))));
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(appStrings.arg1NowManagesThisAccount(joined))),
+  );
 }
 
 class _RedeemInviteDialog extends StatefulWidget {
@@ -378,8 +379,8 @@ class _InvitePreviewDetails extends StatelessWidget {
       children: <Widget>[
         Text(
           appStrings.fromNowOnArg1DecidesWhich(issuer) +
-          appStrings.seeYourUsernameAndTheseSettings +
-          appStrings.orFiles,
+              appStrings.seeYourUsernameAndTheseSettings +
+              appStrings.orFiles,
           style: TextStyle(color: _textSecondary, height: 1.45),
         ),
         const SizedBox(height: 14),
@@ -492,7 +493,7 @@ class _TeamExplainer extends StatelessWidget {
 
   final bool initiallyExpanded;
 
-  static List<(IconData, String, String)> _points =
+  static final List<(IconData, String, String)> _points =
       <(IconData, String, String)>[
         (
           Icons.person_outline,
@@ -514,11 +515,7 @@ class _TeamExplainer extends StatelessWidget {
               appStrings.decisionHigherUpTheChainWins +
               appStrings.nameOfWhoeverMadeIt,
         ),
-        (
-          Icons.logout,
-          'Leaving',
-          appStrings.youCanLeaveATeamAt,
-        ),
+        (Icons.logout, 'Leaving', appStrings.youCanLeaveATeamAt),
         (
           Icons.admin_panel_settings_outlined,
           appStrings.notTheSameAsAdmin,
@@ -651,7 +648,7 @@ class _ManagingSection extends StatelessWidget {
       child: managing.isEmpty
           ? Text(
               appStrings.youDonTManageAnyoneYet +
-              appStrings.sendItToATeammateWith,
+                  appStrings.sendItToATeammateWith,
               style: TextStyle(color: _textSecondary, height: 1.45),
             )
           : Column(
@@ -721,8 +718,12 @@ class _ManagedAccountCardState extends State<_ManagedAccountCard> {
                     Text(
                       [
                         '@${person.username}',
-                        if (since != null) appStrings.sinceArg12(_formatDate(since)),
-                        appStrings.arg1OfArg2ToolsAllowed(allowed, account.permissions.length),
+                        if (since != null)
+                          appStrings.sinceArg12(_formatDate(since)),
+                        appStrings.arg1OfArg2ToolsAllowed(
+                          allowed,
+                          account.permissions.length,
+                        ),
                       ].join(' · '),
                       style: TextStyle(color: _textMuted, fontSize: 12.5),
                     ),
@@ -806,9 +807,7 @@ class _InviteLinksSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            appStrings.whoeverAcceptsALinkJoinsYour +
-            appStrings.allowsYouCanChangeThatPer +
-            'admin.',
+            '${appStrings.whoeverAcceptsALinkJoinsYour}${appStrings.allowsYouCanChangeThatPer}admin.',
             style: TextStyle(color: _textSecondary, height: 1.45),
           ),
           if (invites.isNotEmpty) const SizedBox(height: 8),
@@ -845,8 +844,12 @@ class _InviteRow extends StatelessWidget {
       invite.permissions.isEmpty
           ? appStrings.noTools
           : invite.permissions.map(_permissionLabel).join(', '),
-      invite.singleUse ? 'Single use' : appStrings.reusableUsedArg1(invite.useCount),
-      expiresAt == null ? 'No expiry' : appStrings.expiresArg1(_formatDate(expiresAt)),
+      invite.singleUse
+          ? 'Single use'
+          : appStrings.reusableUsedArg1(invite.useCount),
+      expiresAt == null
+          ? 'No expiry'
+          : appStrings.expiresArg1(_formatDate(expiresAt)),
     ];
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -999,7 +1002,11 @@ class _CreateInviteDialogState extends State<_CreateInviteDialog> {
     final link = _link;
     return AlertDialog(
       backgroundColor: _bgCard,
-      title: Text(link == null ? appStrings.authNewInviteLink : appStrings.inviteLinkReady),
+      title: Text(
+        link == null
+            ? appStrings.authNewInviteLink
+            : appStrings.inviteLinkReady,
+      ),
       content: SizedBox(
         width: 520,
         child: SingleChildScrollView(
@@ -1063,9 +1070,7 @@ class _CreateInviteDialogState extends State<_CreateInviteDialog> {
                 : null,
             secondary: Icon(_categoryInfo(key).icon, size: 18),
             title: Text(_permissionLabel(key)),
-            subtitle: holds
-                ? null
-                : Text(appStrings.turnedOffForYouSoYou),
+            subtitle: holds ? null : Text(appStrings.turnedOffForYouSoYou),
           );
         }),
         const SizedBox(height: 12),
@@ -1111,7 +1116,7 @@ class _CreateInviteDialogState extends State<_CreateInviteDialog> {
       children: <Widget>[
         Text(
           appStrings.sendThisLinkOnlyToThe +
-          appStrings.theServerKeepsOnlyAFingerprint,
+              appStrings.theServerKeepsOnlyAFingerprint,
           style: TextStyle(color: _textSecondary, height: 1.45),
         ),
         const SizedBox(height: 14),
@@ -1144,9 +1149,7 @@ class _AccessActivityList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (entries.isEmpty) {
-      return _EmptyText(
-        appStrings.adminGrantsInviteLinksAndManagement,
-      );
+      return _EmptyText(appStrings.adminGrantsInviteLinksAndManagement);
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1192,9 +1195,15 @@ class _AccessActivityList extends StatelessWidget {
     final subject = _person(entry['subject']);
     switch (entry['action']?.toString()) {
       case 'admin.grant':
-        return appStrings.arg1BecameAnAdminArg2(subject, detail['source'] ?? 'operator');
+        return appStrings.arg1BecameAnAdminArg2(
+          subject,
+          detail['source'] ?? 'operator',
+        );
       case 'admin.revoke':
-        return appStrings.arg1IsNoLongerAnAdmin(subject, detail['source'] ?? 'operator');
+        return appStrings.arg1IsNoLongerAnAdmin(
+          subject,
+          detail['source'] ?? 'operator',
+        );
       case 'account.password_reset':
         return appStrings.adminAuditPasswordResetArg1Arg2(actor, subject);
       case 'invite.create':
@@ -1212,13 +1221,25 @@ class _AccessActivityList extends StatelessWidget {
       case 'signup_keys.revoke':
         return appStrings.auditSignupKeyRevoked(actor);
       case 'delegation.create':
-        return appStrings.arg1JoinedUnderArg2(subject, _personById(detail['managerUserId']));
+        return appStrings.arg1JoinedUnderArg2(
+          subject,
+          _personById(detail['managerUserId']),
+        );
       case 'delegation.leave':
-        return appStrings.arg1LeftArg2(subject, _personById(detail['managerUserId']));
+        return appStrings.arg1LeftArg2(
+          subject,
+          _personById(detail['managerUserId']),
+        );
       case 'delegation.release':
-        return appStrings.arg1StoppedManagingArg2(_personById(detail['managerUserId']), subject);
+        return appStrings.arg1StoppedManagingArg2(
+          _personById(detail['managerUserId']),
+          subject,
+        );
       case 'delegation.reattach':
-        return appStrings.arg1MovedFromArg2(subject, _personById(detail['fromManagerUserId'])) +
+        return appStrings.arg1MovedFromArg2(
+              subject,
+              _personById(detail['fromManagerUserId']),
+            ) +
             appStrings.toArg1(_personById(detail['toManagerUserId']));
       case 'delegation.permission':
         final key = detail['permission']?.toString() ?? '';

@@ -18,7 +18,7 @@ class RuntimeActivationService {
   void validateExtractedRuntime(Directory directory) {
     final nodePath = nodeExecutable(directory);
     final cliPath = File(
-      '${directory.path}${Platform.pathSeparator}app' +
+      '${directory.path}${Platform.pathSeparator}app'
       '${Platform.pathSeparator}bin${Platform.pathSeparator}neoagent.js',
     );
     if (!nodePath.existsSync() || !cliPath.existsSync()) {
@@ -42,9 +42,9 @@ class RuntimeActivationService {
 
   File nodeExecutable(Directory directory) {
     final path = Platform.isWindows
-        ? '${directory.path}${Platform.pathSeparator}node' +
+        ? '${directory.path}${Platform.pathSeparator}node'
               '${Platform.pathSeparator}node.exe'
-        : '${directory.path}${Platform.pathSeparator}node' +
+        : '${directory.path}${Platform.pathSeparator}node'
               '${Platform.pathSeparator}bin${Platform.pathSeparator}node';
     return File(path);
   }
@@ -88,13 +88,13 @@ class RuntimeActivationService {
 
     final rollbackVersion = previousVersion ?? failedVersion;
     final rollbackDirectory = Directory(
-      '${runtimeRoot.path}${Platform.pathSeparator}app' +
-      '${Platform.pathSeparator}versions' +
+      '${runtimeRoot.path}${Platform.pathSeparator}app'
+      '${Platform.pathSeparator}versions'
       '${Platform.pathSeparator}$rollbackVersion',
     );
     try {
       final cli =
-          '${rollbackDirectory.path}${Platform.pathSeparator}app' +
+          '${rollbackDirectory.path}${Platform.pathSeparator}app'
           '${Platform.pathSeparator}bin${Platform.pathSeparator}neoagent.js';
       await Process.run(
         nodeExecutable(rollbackDirectory).path,
@@ -122,7 +122,7 @@ class RuntimeActivationService {
 
   File _currentMarker(Directory runtimeRoot) {
     return File(
-      '${runtimeRoot.path}${Platform.pathSeparator}app' +
+      '${runtimeRoot.path}${Platform.pathSeparator}app'
       '${Platform.pathSeparator}current.json',
     );
   }
@@ -192,9 +192,9 @@ void restoreExtractedRuntimePermissions(
   if (Platform.isWindows) return;
   _chmodUnixExecutable(nodeExecutable);
   final qemuBin = Directory(
-    '${directory.path}${Platform.pathSeparator}app' +
-    '${Platform.pathSeparator}computer-runtime' +
-    '${Platform.pathSeparator}qemu' +
+    '${directory.path}${Platform.pathSeparator}app'
+    '${Platform.pathSeparator}computer-runtime'
+    '${Platform.pathSeparator}qemu'
     '${Platform.pathSeparator}bin',
   );
   if (!qemuBin.existsSync()) return;

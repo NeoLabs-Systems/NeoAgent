@@ -71,6 +71,7 @@ function buildVersionInfo() {
     deploymentMode: deployment.mode,
     managedDeployment: deployment.managed,
     allowSelfUpdate: deployment.allowSelfUpdate,
+    containerImage: deployment.containerImage,
     runtimeDefaults: deployment.runtimeDefaults,
     allowHostRuntime: deployment.allowHostRuntime,
   };
@@ -78,13 +79,24 @@ function buildVersionInfo() {
 
 function getVersionInfo() {
   const now = Date.now();
-  if (cachedVersionInfo && now - cachedVersionInfoAt < VERSION_CACHE_TTL_MS) {
-    return { ...cachedVersionInfo };
+  if (!cachedVersionInfo || now - cachedVersionInfoAt >= VERSION_CACHE_TTL_MS) {
+    cachedVersionInfo = buildVersionInfo();
+    cachedVersionInfoAt = now;
   }
-
-  cachedVersionInfo = buildVersionInfo();
-  cachedVersionInfoAt = now;
-  return { ...cachedVersionInfo };
+  // Configuration changes apply immediately; only the Git inspection is cached.
+  const releaseChannel = readConfiguredReleaseChannel();
+  const deployment = getDeploymentInfo();
+  return {
+    ...cachedVersionInfo,
+    releaseChannel,
+    targetBranch: getReleaseChannelBranchPolicy(releaseChannel),
+    deploymentMode: deployment.mode,
+    managedDeployment: deployment.managed,
+    allowSelfUpdate: deployment.allowSelfUpdate,
+    containerImage: deployment.containerImage,
+    runtimeDefaults: deployment.runtimeDefaults,
+    allowHostRuntime: deployment.allowHostRuntime,
+  };
 }
 
 module.exports = { getVersionInfo };

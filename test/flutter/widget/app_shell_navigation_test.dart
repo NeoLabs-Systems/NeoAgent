@@ -23,6 +23,8 @@ Future<NeoAgentController> pumpShell(WidgetTester tester, Size size) async {
     backendClient: BackendClient(),
     healthBridge: HealthBridge(),
   );
+  controller.isBooting = false;
+  controller.hasLoadedInitialData = true;
   addTearDown(controller.dispose);
 
   await tester.pumpWidget(
@@ -143,6 +145,7 @@ void main() {
 
   testWidgets('desktop settings list the System page', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
     final controller = await pumpShell(tester, const Size(1440, 900));
 
     controller.setSelectedSection(AppSection.settings);

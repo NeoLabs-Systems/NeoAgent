@@ -335,7 +335,9 @@ class _LogsPanelState extends State<LogsPanel> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            appStrings.exportFailedArg1(widget.controller.friendlyErrorMessage(error)),
+            appStrings.exportFailedArg1(
+              widget.controller.friendlyErrorMessage(error),
+            ),
           ),
         ),
       );
@@ -354,8 +356,7 @@ class _LogsPanelState extends State<LogsPanel> {
         if (!widget.embedded)
           _PageTitle(
             title: appStrings.logs,
-            subtitle:
-                appStrings.mergedServerAndFlutterRuntimeLogs,
+            subtitle: appStrings.mergedServerAndFlutterRuntimeLogs,
             trailing: Wrap(
               spacing: 12,
               runSpacing: 12,
@@ -563,7 +564,10 @@ class SkillDetailView extends StatelessWidget {
                     }
                   },
                   icon: Icon(Icons.delete_outline, color: _danger),
-                  label: Text(appStrings.delete, style: TextStyle(color: _danger)),
+                  label: Text(
+                    appStrings.delete,
+                    style: TextStyle(color: _danger),
+                  ),
                 ),
               ],
             ),
@@ -743,7 +747,9 @@ Future<void> _confirmDeleteSkill(
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(appStrings.failedToDeleteArg1Arg2(name, _formatCaughtError(error))),
+        content: Text(
+          appStrings.failedToDeleteArg1Arg2(name, _formatCaughtError(error)),
+        ),
       ),
     );
   }
@@ -869,17 +875,16 @@ class _MemoryPanelState extends State<MemoryPanel>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            appStrings.importedArg1Memories(result.importedCount) +
-            appStrings.arg1CoreEntries(result.coreUpdatedCount) +
-            '${result.behaviorNotesUpdated ? ' Behavior notes updated.' : ''}' +
-            '$warningText',
+            '${appStrings.importedArg1Memories(result.importedCount)}${appStrings.arg1CoreEntries(result.coreUpdatedCount)}${result.behaviorNotesUpdated ? ' Behavior notes updated.' : ''}$warningText',
           ),
         ),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(appStrings.importFailedArg1(_formatCaughtError(error)))),
+        SnackBar(
+          content: Text(appStrings.importFailedArg1(_formatCaughtError(error))),
+        ),
       );
     } finally {
       if (mounted) setState(() => _llmImporting = false);
@@ -998,9 +1003,9 @@ class _MemoryPanelState extends State<MemoryPanel>
     } catch (error) {
       if (!mounted || _selectedEntity?.id != entity.id) return;
       setState(() => _entityMemories = const <MemoryItem>[]);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_formatCaughtError(error))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_formatCaughtError(error))));
     }
   }
 
@@ -1275,10 +1280,15 @@ class _MemoryPanelState extends State<MemoryPanel>
                                         onPressed: _bulkActionInFlight
                                             ? null
                                             : () => _runBulkMemoryAction(
-                                                title:
-                                                    appStrings.archiveSelectedMemories,
-                                                message:
-                                                    appStrings.archiveArg1Arg2(selectedCount, selectedCount == 1 ? 'memory' : 'memories'),
+                                                title: appStrings
+                                                    .archiveSelectedMemories,
+                                                message: appStrings
+                                                    .archiveArg1Arg2(
+                                                      selectedCount,
+                                                      selectedCount == 1
+                                                          ? 'memory'
+                                                          : 'memories',
+                                                    ),
                                                 confirmLabel: 'Archive',
                                                 onConfirm:
                                                     controller.archiveMemories,
@@ -1287,16 +1297,23 @@ class _MemoryPanelState extends State<MemoryPanel>
                                           Icons.archive_outlined,
                                           size: 16,
                                         ),
-                                        label: Text(appStrings.archiveArg1(selectedCount)),
+                                        label: Text(
+                                          appStrings.archiveArg1(selectedCount),
+                                        ),
                                       ),
                                       OutlinedButton.icon(
                                         onPressed: _bulkActionInFlight
                                             ? null
                                             : () => _runBulkMemoryAction(
-                                                title:
-                                                    appStrings.deleteSelectedMemories,
-                                                message:
-                                                    appStrings.deleteArg1Arg2Permanently(selectedCount, selectedCount == 1 ? 'memory' : 'memories'),
+                                                title: appStrings
+                                                    .deleteSelectedMemories,
+                                                message: appStrings
+                                                    .deleteArg1Arg2Permanently(
+                                                      selectedCount,
+                                                      selectedCount == 1
+                                                          ? 'memory'
+                                                          : 'memories',
+                                                    ),
                                                 confirmLabel: 'Delete',
                                                 onConfirm:
                                                     controller.deleteMemories,
@@ -1305,7 +1322,9 @@ class _MemoryPanelState extends State<MemoryPanel>
                                           Icons.delete_sweep_outlined,
                                           size: 16,
                                         ),
-                                        label: Text(appStrings.deleteArg12(selectedCount)),
+                                        label: Text(
+                                          appStrings.deleteArg12(selectedCount),
+                                        ),
                                       ),
                                     ],
                                   ],
@@ -1350,8 +1369,8 @@ class _MemoryPanelState extends State<MemoryPanel>
                                         : () => _confirmDelete(
                                             context,
                                             title: appStrings.deleteMemory,
-                                            message:
-                                                appStrings.thisMemoryWillBeRemovedPermanently,
+                                            message: appStrings
+                                                .thisMemoryWillBeRemovedPermanently,
                                             onConfirm: () =>
                                                 _deleteSingleMemory(
                                                   controller,
@@ -1443,10 +1462,12 @@ class _MemoryPanelState extends State<MemoryPanel>
                                             IconButton(
                                               onPressed: () => _confirmDelete(
                                                 context,
-                                                title:
-                                                    appStrings.deleteCoreMemoryEntry,
-                                                message:
-                                                    appStrings.removeArg1FromCoreMemory(entry.key),
+                                                title: appStrings
+                                                    .deleteCoreMemoryEntry,
+                                                message: appStrings
+                                                    .removeArg1FromCoreMemory(
+                                                      entry.key,
+                                                    ),
                                                 onConfirm: () =>
                                                     controller.deleteCoreMemory(
                                                       entry.key,
@@ -1505,7 +1526,8 @@ class _MemoryPanelState extends State<MemoryPanel>
                                 maxLines: 8,
                                 readOnly: true,
                                 decoration: InputDecoration(
-                                  labelText: appStrings.promptToPasteIntoAnotherAi,
+                                  labelText:
+                                      appStrings.promptToPasteIntoAnotherAi,
                                 ),
                               ),
                               const SizedBox(height: 16),
@@ -1519,7 +1541,8 @@ class _MemoryPanelState extends State<MemoryPanel>
                                       ),
                                 title: Text(appStrings.applyBehaviorNotes),
                                 subtitle: Text(
-                                  appStrings.overwriteBehaviorNotesFromTheImport,
+                                  appStrings
+                                      .overwriteBehaviorNotesFromTheImport,
                                 ),
                               ),
                               SwitchListTile.adaptive(
@@ -1637,7 +1660,10 @@ class _MemoryPanelState extends State<MemoryPanel>
               onPressed: () async {
                 final content = contentController.text.trim();
                 if (content.isEmpty) {
-                  _showFormError(context, appStrings.pleaseEnterTheMemoryContent);
+                  _showFormError(
+                    context,
+                    appStrings.pleaseEnterTheMemoryContent,
+                  );
                   return;
                 }
                 try {
@@ -2215,7 +2241,11 @@ class _TaskScheduleDraft {
       'hourly' => '0 * * * *',
       'daily' => appStrings.arg1Arg210(minute, hour),
       'weekdays' => appStrings.arg1Arg215(minute, hour),
-      'weekly' => appStrings.arg1Arg2Arg34(minute, hour, _cronWeekdays(weekdays)),
+      'weekly' => appStrings.arg1Arg2Arg34(
+        minute,
+        hour,
+        _cronWeekdays(weekdays),
+      ),
       'monthly' => appStrings.arg1Arg2Arg35(minute, hour, monthDay),
       'custom' => customCronExpression,
       _ => '*/30 * * * *',
@@ -2229,7 +2259,11 @@ class _TaskScheduleDraft {
     if (!usesTime) return preset.label;
     final timeLabel = _formatTaskScheduleTime(time);
     if (presetId == 'weekly') {
-      return appStrings.arg1Arg2AtArg3(preset.label, _formatTaskWeekdays(weekdays), timeLabel);
+      return appStrings.arg1Arg2AtArg3(
+        preset.label,
+        _formatTaskWeekdays(weekdays),
+        timeLabel,
+      );
     }
     if (presetId == 'monthly') {
       return appStrings.arg1OnDayArg2AtArg3(preset.label, monthDay, timeLabel);
@@ -2308,11 +2342,15 @@ String _formatTaskDuration(int seconds) {
   if (seconds < 60) return appStrings.arg1Sec(seconds);
   final minutes = seconds ~/ 60;
   final remainder = seconds % 60;
-  if (minutes < 60 && remainder != 0) return appStrings.arg1MinArg2Sec(minutes, remainder);
+  if (minutes < 60 && remainder != 0) {
+    return appStrings.arg1MinArg2Sec(minutes, remainder);
+  }
   if (minutes < 60) return appStrings.arg1Min(minutes);
   final hours = minutes ~/ 60;
   final leftoverMinutes = minutes % 60;
-  return leftoverMinutes == 0 ? '$hours h' : appStrings.arg1HArg2Min(hours, leftoverMinutes);
+  return leftoverMinutes == 0
+      ? '$hours h'
+      : appStrings.arg1HArg2Min(hours, leftoverMinutes);
 }
 
 bool _looksLikeCronExpression(String cron) {
@@ -2447,7 +2485,9 @@ List<_ModelPickerOption> _taskModelOverrideOptions({
     options.add(
       _ModelPickerOption(
         value: selectedModel,
-        label: appStrings.arg1UnavailableSavedOverride(saved?.label ?? selectedModel),
+        label: appStrings.arg1UnavailableSavedOverride(
+          saved?.label ?? selectedModel,
+        ),
         icon: Icons.history_rounded,
       ),
     );
@@ -2593,7 +2633,10 @@ class _TaskDeliveryTargetPickerSheetState
         style: const TextStyle(fontWeight: FontWeight.w700),
       ),
       subtitle: Text(
-        appStrings.arg1Arg22(target.platformLabel, target.subtitle.ifEmpty(target.to)),
+        appStrings.arg1Arg22(
+          target.platformLabel,
+          target.subtitle.ifEmpty(target.to),
+        ),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
       ),
@@ -2731,8 +2774,7 @@ class _TaskDeliveryTargetPickerSheetState
                     _TaskDeliveryNotice(
                       icon: Icons.search_off_rounded,
                       title: appStrings.noChannelsFound,
-                      detail:
-                          appStrings.tryAnotherSearchConnectAMessaging,
+                      detail: appStrings.tryAnotherSearchConnectAMessaging,
                     )
                   else
                     ...targets.take(40).map(_buildTargetTile),
@@ -2858,7 +2900,7 @@ class _TaskRecommendationsGallery extends StatelessWidget {
         SnackBar(
           content: Text(
             appStrings.arg1AddedEditItAnyTime(recommendation.title) +
-            appStrings.promptOrSchedule,
+                appStrings.promptOrSchedule,
           ),
         ),
       );
@@ -2904,7 +2946,7 @@ class _TaskRecommendationsGallery extends StatelessWidget {
                         const SizedBox(height: 3),
                         Text(
                           appStrings.tasksRunOnTheirOwnAnd +
-                          appStrings.resultOneClickAddsOneYou,
+                              appStrings.resultOneClickAddsOneYou,
                           style: TextStyle(color: _textSecondary, height: 1.4),
                         ),
                       ],
@@ -3081,8 +3123,7 @@ class _TasksPanelState extends State<TasksPanel> {
       children: <Widget>[
         _PageTitle(
           title: 'Tasks',
-          subtitle:
-              appStrings.premiumAutomationWithScheduleAndIntegration,
+          subtitle: appStrings.premiumAutomationWithScheduleAndIntegration,
           trailing: FilledButton.icon(
             onPressed: () => _openTaskEditor(
               context,
@@ -3121,7 +3162,9 @@ class _TasksPanelState extends State<TasksPanel> {
                             .where((task) => task.agentId == agent.id)
                             .length;
                         return ChoiceChip(
-                          label: Text(appStrings.arg1Arg2(agent.displayName, count)),
+                          label: Text(
+                            appStrings.arg1Arg2(agent.displayName, count),
+                          ),
                           selected: _agentFilterId == agent.id,
                           onSelected: (_) =>
                               setState(() => _agentFilterId = agent.id),
@@ -3203,13 +3246,17 @@ class _TasksPanelState extends State<TasksPanel> {
               if (task.hasModelOverride) ...<Widget>[
                 const SizedBox(height: 8),
                 Text(
-                  appStrings.modelArg1(_modelLabelForValue(task.model, controller.supportedModels)),
+                  appStrings.modelArg1(
+                    _modelLabelForValue(task.model, controller.supportedModels),
+                  ),
                   style: TextStyle(color: _textSecondary),
                 ),
               ],
               const SizedBox(height: 8),
               Text(
-                appStrings.assignedAgentArg1(controller.agentLabelFor(task.agentId)),
+                appStrings.assignedAgentArg1(
+                  controller.agentLabelFor(task.agentId),
+                ),
                 style: TextStyle(color: _textSecondary),
               ),
               const SizedBox(height: 8),
@@ -3243,7 +3290,9 @@ class _TasksPanelState extends State<TasksPanel> {
                     onPressed: remaining > 0
                         ? null
                         : () => controller.runTaskNow(task.id),
-                    child: Text(_manualRunButtonLabel(appStrings.runNow, remaining)),
+                    child: Text(
+                      _manualRunButtonLabel(appStrings.runNow, remaining),
+                    ),
                   ),
                   if (task.lastRunId.trim().isNotEmpty)
                     OutlinedButton(
@@ -3320,7 +3369,9 @@ class _TasksPanelState extends State<TasksPanel> {
           .map(
             (account) => DropdownMenuItem<int>(
               value: account.id,
-              child: Text(account.accountEmail ?? appStrings.accountArg1(account.id)),
+              child: Text(
+                account.accountEmail ?? appStrings.accountArg1(account.id),
+              ),
             ),
           )
           .toList(),
@@ -3343,7 +3394,9 @@ class _TasksPanelState extends State<TasksPanel> {
           appStrings.scheduledTimeOnceRunsAreMeasured;
     } else {
       subtitle =
-          appStrings.recentRunsTakeAboutArg1(_formatTaskDuration(averageRunSeconds)) +
+          appStrings.recentRunsTakeAboutArg1(
+            _formatTaskDuration(averageRunSeconds),
+          ) +
           appStrings.soTheRunStartsThatMuch;
     }
     return SwitchListTile(
@@ -3600,8 +3653,7 @@ class _TasksPanelState extends State<TasksPanel> {
                                     controller: runAtController,
                                     decoration: InputDecoration(
                                       labelText: appStrings.runAt,
-                                      helperText:
-                                          appStrings.useADateAndTimeFor,
+                                      helperText: appStrings.useADateAndTimeFor,
                                     ),
                                   )
                                 else ...<Widget>[
@@ -3650,8 +3702,8 @@ class _TasksPanelState extends State<TasksPanel> {
                                               value,
                                       decoration: InputDecoration(
                                         labelText: appStrings.cronExpression,
-                                        helperText:
-                                            appStrings.advancedMinuteHourDayMonthWeekday,
+                                        helperText: appStrings
+                                            .advancedMinuteHourDayMonthWeekday,
                                       ),
                                     ),
                                     const SizedBox(height: 12),
@@ -3684,9 +3736,7 @@ class _TasksPanelState extends State<TasksPanel> {
                                         ),
                                         child: Row(
                                           children: <Widget>[
-                                            Icon(
-                                              Icons.access_time_rounded,
-                                            ),
+                                            Icon(Icons.access_time_rounded),
                                             const SizedBox(width: 12),
                                             Expanded(
                                               child: Text(
@@ -3759,7 +3809,9 @@ class _TasksPanelState extends State<TasksPanel> {
                                             31,
                                             (index) => DropdownMenuItem<int>(
                                               value: index + 1,
-                                              child: Text(appStrings.dayArg1(index + 1)),
+                                              child: Text(
+                                                appStrings.dayArg1(index + 1),
+                                              ),
                                             ),
                                           ),
                                       onChanged: (value) {
@@ -3948,8 +4000,12 @@ class _TasksPanelState extends State<TasksPanel> {
                                         const SizedBox(height: 4),
                                         Text(
                                           deliveryTarget == null
-                                              ? appStrings.aiCreatedAndUnspecifiedTasksUseThe
-                                              : appStrings.arg1Arg22(deliveryTarget.platformLabel, deliveryTarget.to),
+                                              ? appStrings
+                                                    .aiCreatedAndUnspecifiedTasksUseThe
+                                              : appStrings.arg1Arg22(
+                                                  deliveryTarget.platformLabel,
+                                                  deliveryTarget.to,
+                                                ),
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
@@ -3965,10 +4021,7 @@ class _TasksPanelState extends State<TasksPanel> {
                                       tooltip: appStrings.useDefaultChannel,
                                       onPressed: () =>
                                           selectedDeliveryTarget.value = null,
-                                      icon: Icon(
-                                        Icons.close_rounded,
-                                        size: 18,
-                                      ),
+                                      icon: Icon(Icons.close_rounded, size: 18),
                                     )
                                   else
                                     Icon(
@@ -4119,7 +4172,9 @@ class _TasksPanelState extends State<TasksPanel> {
                             !_looksLikeCronExpression(cronExpression)) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(appStrings.customCronMustHave5Fields),
+                              content: Text(
+                                appStrings.customCronMustHave5Fields,
+                              ),
                               backgroundColor: Colors.red,
                             ),
                           );

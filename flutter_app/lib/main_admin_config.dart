@@ -12,6 +12,7 @@ Map<String, String> _adminCfgFieldLabels = <String, String>{
   'redirectUri': appStrings.redirectUri,
   'tenantId': appStrings.tenantId,
   'apiKey': appStrings.apiKey,
+  'enabled': appStrings.enabled,
 };
 
 /// What the server falls back to when an optional integration field is blank.
@@ -123,7 +124,8 @@ class _AdminCfgDirtyBar extends StatelessWidget {
       runSpacing: 10,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: <Widget>[
-        if (dirty) _StatusPill(label: appStrings.unsavedChanges, color: _warning),
+        if (dirty)
+          _StatusPill(label: appStrings.unsavedChanges, color: _warning),
         if (dirty)
           TextButton(
             onPressed: saving ? null : onDiscard,
@@ -293,7 +295,9 @@ class _AdminCfgProviderRow extends StatelessWidget {
   final VoidCallback onClear;
 
   String get _editLabel {
-    if (provider.isUrl) return provider.configured ? 'Change' : appStrings.setUrl;
+    if (provider.isUrl) {
+      return provider.configured ? 'Change' : appStrings.setUrl;
+    }
     return provider.configured ? 'Replace' : appStrings.addKey;
   }
 
@@ -437,8 +441,7 @@ class _AdminCfgProviderDialogState extends State<_AdminCfgProviderDialog> {
           children: <Widget>[
             Text(
               provider.isUrl
-                  ? appStrings.everyAccountOnThisServerUses +
-                        '${provider.label}.'
+                  ? '${appStrings.everyAccountOnThisServerUses}${provider.label}.'
                   : appStrings.usedByEveryAccountOnThis +
                         appStrings.ofItsOwnItIsNever,
               style: TextStyle(color: _textSecondary, height: 1.4),
@@ -1143,6 +1146,7 @@ class _AdminCfgIntegrationField {
     required this.secret,
     required this.value,
     required this.stored,
+    required this.isBoolean,
   });
 
   factory _AdminCfgIntegrationField.fromJson(Map<String, dynamic> json) {
@@ -1152,11 +1156,13 @@ class _AdminCfgIntegrationField {
       secret: json['secret'] == true,
       value: value,
       stored: json['configured'] == true || value.isNotEmpty,
+      isBoolean: json['type'] == 'boolean',
     );
   }
 
   final String name;
   final bool secret;
+  final bool isBoolean;
 
   /// The current value of a plain field; always empty for a secret.
   final String value;
@@ -1171,6 +1177,7 @@ class _AdminCfgIntegration {
     required this.label,
     required this.configured,
     required this.fields,
+    required this.description,
   });
 
   factory _AdminCfgIntegration.fromJson(Map<String, dynamic> json) {
@@ -1179,6 +1186,7 @@ class _AdminCfgIntegration {
       key: key,
       label: json['label']?.toString() ?? key,
       configured: json['configured'] == true,
+      description: json['description']?.toString(),
       fields: _jsonMapList(json['fields'])
           .map(_AdminCfgIntegrationField.fromJson)
           .where((field) => field.name.isNotEmpty)
@@ -1190,6 +1198,7 @@ class _AdminCfgIntegration {
   final String label;
   final bool configured;
   final List<_AdminCfgIntegrationField> fields;
+  final String? description;
 }
 
 class _AdminIntegrationsTab extends StatefulWidget {
@@ -1276,16 +1285,17 @@ class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
   /// Only what changed. Live voice goes whole because the server rewrites all
   /// three of its values together.
   Map<String, dynamic> _changes() {
-    final integrations = <String, Map<String, String>>{};
+    final integrations = <String, Map<String, Object>>{};
     for (final integration in _integrations) {
       for (final field in integration.fields) {
         final key = '${integration.key}.${field.name}';
         if (!_changed(key)) continue;
         final values = integrations.putIfAbsent(
           integration.key,
-          () => <String, String>{},
+          () => <String, Object>{},
         );
-        values[field.name] = _input(key).text.trim();
+        final value = _input(key).text.trim();
+        values[field.name] = field.isBoolean ? value == 'true' : value;
       }
     }
     final liveVoiceChanged = _adminCfgLiveVoiceFields.any(
@@ -1373,10 +1383,17 @@ class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
   }
 
   Widget _integrationCard(_AdminCfgIntegration integration) {
+    final disabled = integration.fields.any(
+      (field) =>
+          field.isBoolean && field.name == 'enabled' && field.value == 'false',
+    );
+    var statusLabel = integration.configured ? 'Configured' : appStrings.notSet;
+    if (disabled) statusLabel = appStrings.disabled;
     return _SectionCard(
       title: integration.label,
+      description: integration.description,
       trailing: _StatusPill(
-        label: integration.configured ? 'Configured' : appStrings.notSet,
+        label: statusLabel,
         color: integration.configured ? _success : _textMuted,
       ),
       child: _FieldGrid(
@@ -1390,6 +1407,19 @@ class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
 
   Widget _fieldInput(String integrationKey, _AdminCfgIntegrationField field) {
     final input = _input('$integrationKey.${field.name}');
+    if (field.isBoolean) {
+      return SwitchListTile.adaptive(
+        contentPadding: EdgeInsets.zero,
+        title: Text(field.label),
+        value: input.text == 'true',
+        onChanged: _saving
+            ? null
+            : (value) {
+                input.text = value.toString();
+                _edited();
+              },
+      );
+    }
     if (field.secret) {
       return _AdminCfgSecretField(
         controller: input,
@@ -1587,8 +1617,7 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
               label: appStrings.allowedOrigins,
               hint: 'https://app.example.com, https://…',
               helper:
-                  appStrings.exactWebOriginsAllowedToMake +
-                  'comma-separated.',
+                  '${appStrings.exactWebOriginsAllowedToMake}comma-separated.',
               keyboardType: TextInputType.url,
               onChanged: (_) => _onEdited(),
             ),
@@ -1604,9 +1633,7 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
         const SizedBox(height: 8),
         _SettingToggle(
           title: appStrings.secureCookies,
-          subtitle:
-              appStrings.requiredBehindHttpsOrATls +
-              'restart.',
+          subtitle: '${appStrings.requiredBehindHttpsOrATls}restart.',
           value: _secureCookies,
           onChanged: (value) => setState(() {
             _secureCookies = value;
@@ -1698,9 +1725,7 @@ class _AdminCfgVmCardState extends State<_AdminCfgVmCard>
     return _SectionCard(
       title: appStrings.cloudComputers,
       description:
-          appStrings.baseImageAndSizeOfThe +
-          appStrings.accountsCloudComputersChangesApplyAfter +
-          'restart.',
+          '${appStrings.baseImageAndSizeOfThe}${appStrings.accountsCloudComputersChangesApplyAfter}restart.',
       child: _loadGate(_fetch) ?? _form(),
     );
   }
@@ -1877,7 +1902,10 @@ class _AdminCfgEmailCardState extends State<_AdminCfgEmailCard>
       _field('publicUrl').text,
       appStrings.publicUrlOverride,
     );
-    problem ??= _adminCfgUrlProblem(_field('supportUrl').text, appStrings.supportUrl);
+    problem ??= _adminCfgUrlProblem(
+      _field('supportUrl').text,
+      appStrings.supportUrl,
+    );
     if (problem != null) {
       _rejectSave(problem);
       return;
@@ -1890,9 +1918,12 @@ class _AdminCfgEmailCardState extends State<_AdminCfgEmailCard>
       'smtpPassword': clearPassword ? '' : _smtpPassword.text.trim(),
       'clearSmtpPassword': clearPassword,
     };
-    await _runSave(() async {
-      _apply(await _client.saveAdminConfig(_baseUrl, 'email', payload));
-    }, clearPassword ? 'SMTP password removed.' : appStrings.emailSettingsSaved);
+    await _runSave(
+      () async {
+        _apply(await _client.saveAdminConfig(_baseUrl, 'email', payload));
+      },
+      clearPassword ? 'SMTP password removed.' : appStrings.emailSettingsSaved,
+    );
   }
 
   Future<void> _removePassword() {
@@ -1934,8 +1965,7 @@ class _AdminCfgEmailCardState extends State<_AdminCfgEmailCard>
             icon: Icons.warning_amber_rounded,
             color: _warning,
             message:
-                appStrings.accountEmailIsOffUntilThese +
-                '${_missing.join(', ')}.',
+                '${appStrings.accountEmailIsOffUntilThese}${_missing.join(', ')}.',
           ),
           const SizedBox(height: 16),
         ],

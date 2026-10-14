@@ -405,9 +405,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
               anchor: 'exportData',
               label: appStrings.exportMyData,
               description: controller.isAdmin
-                  ? appStrings.downloadACopyOfYourData +
-                        appStrings.themselvesTheServerOperatorRemovesAdmin +
-                        '`neoagent admin revoke <username>`.'
+                  ? '${appStrings.downloadACopyOfYourData}${appStrings.themselvesTheServerOperatorRemovesAdmin}`neoagent admin revoke <username>`.'
                   : appStrings.downloadACopyOfYourData2 +
                         appStrings.deletionRemovesAllYourConversationsMemories +
                         appStrings.settingsAndCannotBeUndone,
@@ -751,11 +749,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                     ? appStrings.limitReachedArg1(
                         resetLabel == null ? '' : ' · $resetLabel',
                       )
-                    : appStrings.arg1UsedArg2Remaining(
-                            (progress * 100).toStringAsFixed(0),
-                            _formatTokenCount(remaining),
-                          ) +
-                          '${resetLabel == null ? '' : ' · $resetLabel'}',
+                    : '${appStrings.arg1UsedArg2Remaining((progress * 100).toStringAsFixed(0), _formatTokenCount(remaining))}${resetLabel == null ? '' : ' · $resetLabel'}',
                 style: TextStyle(
                   fontSize: 11,
                   color: atLimit
@@ -1625,10 +1619,7 @@ class _QrLoginScannerDialogState extends State<_QrLoginScannerDialog> {
                     alignment: Alignment.topRight,
                     child: IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: Icon(
-                        Icons.close_rounded,
-                        color: Colors.white,
-                      ),
+                      icon: Icon(Icons.close_rounded, color: Colors.white),
                     ),
                   ),
                   const Spacer(),
@@ -1734,7 +1725,9 @@ class _QrLoginApprovalDialog extends StatelessWidget {
                                   text: preview.requestLocation.label,
                                   style: TextStyle(color: _textPrimary),
                                   children: <InlineSpan>[
-                                    if (preview.requestLocation.ipAddress
+                                    if (preview
+                                            .requestLocation
+                                            .ipAddress
                                             ?.isNotEmpty ==
                                         true)
                                       TextSpan(
@@ -1782,7 +1775,9 @@ class _QrLoginApprovalDialog extends StatelessWidget {
                 ),
                 if (preview.expiresAt != null)
                   _MetaPill(
-                    label: appStrings.expiresArg1(_formatTimestamp(preview.expiresAt!)),
+                    label: appStrings.expiresArg1(
+                      _formatTimestamp(preview.expiresAt!),
+                    ),
                     icon: Icons.timer_outlined,
                   ),
               ],

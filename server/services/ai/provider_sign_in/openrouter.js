@@ -1,5 +1,6 @@
 'use strict';
 
+const { isLoopbackOrigin } = require('../../../config/origins');
 const { fetchResponseText } = require('../../network/http');
 
 // Sign in with OpenRouter: OAuth PKCE that ends with OpenRouter minting a
@@ -8,6 +9,11 @@ const { fetchResponseText } = require('../../network/http');
 const AUTH_URL = 'https://openrouter.ai/auth';
 const KEY_EXCHANGE_URL = 'https://openrouter.ai/api/v1/auth/keys';
 const KEY_LABEL = 'NeoAgent';
+
+function callbackUrlFor(baseUrl = '') {
+  if (!baseUrl.startsWith('https://') && !isLoopbackOrigin(baseUrl)) return null;
+  return `${baseUrl}/api/integrations/oauth/callback`;
+}
 
 function authorizationUrl({ state, codeChallenge, callbackUrl }) {
   const url = new URL(AUTH_URL);
@@ -50,12 +56,14 @@ async function exchangeCode({ code, codeVerifier }) {
   if (!response.ok || !apiKey) {
     throw new Error(errorMessage(data) || `OpenRouter did not return a key (HTTP ${response.status}).`);
   }
-  return { apiKey };
+  const providerUserId = typeof data?.user_id === 'string' ? data.user_id.trim() : '';
+  return { apiKey, providerUserId };
 }
 
 module.exports = {
   providerId: 'openrouter',
   label: 'OpenRouter',
+  callbackUrlFor,
   authorizationUrl,
   exchangeCode,
 };

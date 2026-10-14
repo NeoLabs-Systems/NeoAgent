@@ -1,11 +1,12 @@
 'use strict';
 
-const { cleanLine, persistEnv } = require('./env_config');
+const { cleanLine, persistEnv, readEnvBool } = require('./env_config');
+const { httpError } = require('../../utils/http_error');
 const { LIVE_VOICE_PROVIDERS } = require('../voice/live/catalog');
 const { describeLiveVoiceCatalog } = require('../voice/live/models');
 
-// Server-wide OAuth app credentials that let accounts connect each integration.
-const OAUTH_INTEGRATIONS = [
+// Server-wide integration app credentials and account sign-in controls.
+const INTEGRATION_SETTINGS = [
   {
     key: 'google',
     label: 'Google Workspace',
@@ -13,6 +14,14 @@ const OAUTH_INTEGRATIONS = [
       { name: 'clientId', env: 'GOOGLE_OAUTH_CLIENT_ID', secret: false },
       { name: 'clientSecret', env: 'GOOGLE_OAUTH_CLIENT_SECRET', secret: true },
       { name: 'redirectUri', env: 'GOOGLE_OAUTH_REDIRECT_URI', secret: false },
+    ],
+  },
+  {
+    key: 'openrouter',
+    label: 'OpenRouter account sign-in',
+    description: 'Allow registration, login, and account linking with OpenRouter. Existing model keys keep working when disabled. No OAuth app credentials are needed.',
+    fields: [
+      { name: 'enabled', env: 'NEOAGENT_OPENROUTER_SIGN_IN_ENABLED', type: 'boolean', defaultValue: true },
     ],
   },
   {
@@ -81,13 +90,19 @@ const OAUTH_INTEGRATIONS = [
 
 // Secrets are reported as configured or not, never echoed back.
 async function getIntegrationSettings() {
-  const integrations = OAUTH_INTEGRATIONS.map(({ key, label, fields }) => ({
+  const integrations = INTEGRATION_SETTINGS.map(({ key, label, description, fields }) => ({
     key,
     label,
-    configured: fields.every(({ env }) => Boolean(process.env[env])),
-    fields: fields.map(({ name, env, secret }) => (secret
-      ? { name, secret: true, configured: Boolean(process.env[env]) }
-      : { name, secret: false, value: process.env[env] || '' })),
+    ...(description ? { description } : {}),
+    configured: fields.every((field) => field.type === 'boolean'
+      ? readEnvBool(field.env, field.defaultValue)
+      : Boolean(process.env[field.env])),
+    fields: fields.map(({ name, env, secret, type, defaultValue }) => {
+      if (type === 'boolean') return { name, type, value: readEnvBool(env, defaultValue) };
+      return secret
+        ? { name, secret: true, configured: Boolean(process.env[env]) }
+        : { name, secret: false, value: process.env[env] || '' };
+    }),
   }));
   // Server defaults for live voice; accounts that pick their own model in the
   // app keep it. A blank model is the newest one the server's key can reach.
@@ -105,15 +120,23 @@ async function getIntegrationSettings() {
  * integrations and fields are ignored; a blank secret keeps the stored one.
  */
 function updateIntegrationSettings(body = {}) {
+  const changes = [];
   for (const [integrationKey, values] of Object.entries(body.integrations || {})) {
-    const integration = OAUTH_INTEGRATIONS.find((item) => item.key === integrationKey);
+    const integration = INTEGRATION_SETTINGS.find((item) => item.key === integrationKey);
     if (!integration) continue;
     for (const [fieldName, value] of Object.entries(values || {})) {
       const field = integration.fields.find((item) => item.name === fieldName);
       if (!field) continue;
+      if (field.type === 'boolean') {
+        if (typeof value !== 'boolean') {
+          throw httpError(400, `${integrationKey}.${fieldName} must be a boolean.`);
+        }
+        changes.push([field.env, value ? 'true' : 'false']);
+        continue;
+      }
       const cleaned = cleanLine(value);
       if (field.secret && cleaned === '') continue;
-      persistEnv(field.env, cleaned);
+      changes.push([field.env, cleaned]);
     }
   }
 
@@ -122,10 +145,11 @@ function updateIntegrationSettings(body = {}) {
     if (provider && !LIVE_VOICE_PROVIDERS[provider]) {
       throw new Error(`Unknown live voice provider: ${provider}`);
     }
-    persistEnv('VOICE_LIVE_PROVIDER', provider);
-    persistEnv('VOICE_LIVE_MODEL', cleanLine(body.liveVoice.model));
-    persistEnv('VOICE_LIVE_VOICE', cleanLine(body.liveVoice.voice));
+    changes.push(['VOICE_LIVE_PROVIDER', provider]);
+    changes.push(['VOICE_LIVE_MODEL', cleanLine(body.liveVoice.model)]);
+    changes.push(['VOICE_LIVE_VOICE', cleanLine(body.liveVoice.voice)]);
   }
+  for (const [key, value] of changes) persistEnv(key, value);
   return { ok: true };
 }
 

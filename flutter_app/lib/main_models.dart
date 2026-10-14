@@ -2798,6 +2798,7 @@ class UpdateStatusSnapshot {
     this.releaseChannel = 'stable',
     this.allowSelfUpdate = true,
     this.deploymentMode = 'self_hosted',
+    this.containerImage = false,
     this.targetBranch,
     this.versionBefore,
     this.versionAfter,
@@ -2818,6 +2819,7 @@ class UpdateStatusSnapshot {
       releaseChannel: json['releaseChannel']?.toString() ?? 'stable',
       allowSelfUpdate: json['allowSelfUpdate'] != false,
       deploymentMode: json['deploymentMode']?.toString() ?? 'self_hosted',
+      containerImage: json['containerImage'] == true,
       targetBranch: json['targetBranch']?.toString(),
       versionBefore: json['versionBefore']?.toString(),
       versionAfter: json['versionAfter']?.toString(),
@@ -2845,6 +2847,7 @@ class UpdateStatusSnapshot {
   final String releaseChannel;
   final bool allowSelfUpdate;
   final String deploymentMode;
+  final bool containerImage;
   final String? targetBranch;
   final String? versionBefore;
   final String? versionAfter;

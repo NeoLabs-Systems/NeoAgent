@@ -86,7 +86,7 @@ class LocalBackendInstaller {
       );
       final runtimeRoot = Directory(paths.runtimeHome);
       final versionsRoot = Directory(
-        '${runtimeRoot.path}${Platform.pathSeparator}app' +
+        '${runtimeRoot.path}${Platform.pathSeparator}app'
         '${Platform.pathSeparator}versions',
       );
       final versionDirectory = Directory(

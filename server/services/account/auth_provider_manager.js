@@ -54,10 +54,10 @@ class AuthProviderManager {
     ).run();
   }
 
-  listProviders() {
+  listProviders({ baseUrl } = {}) {
     this.cleanupExpiredStates();
     return this.registry.list().map((provider) => {
-      const env = provider.getEnvStatus();
+      const env = provider.getEnvStatus({ baseUrl });
       return {
         id: provider.key,
         label: provider.label,
@@ -98,7 +98,7 @@ class AuthProviderManager {
     });
   }
 
-  async beginAuthorization({ providerKey, mode, userId = null, signupKey = null }) {
+  async beginAuthorization({ providerKey, mode, userId = null, signupKey = null, baseUrl }) {
     this.cleanupExpiredStates();
     const provider = this.getProvider(providerKey);
     if (!provider) {
@@ -118,7 +118,7 @@ class AuthProviderManager {
       ? assertSignupKeyUsable(signupKey)
       : null;
 
-    const env = provider.getEnvStatus();
+    const env = provider.getEnvStatus({ baseUrl });
     if (!env.configured) {
       throw new Error(env.summary);
     }
@@ -126,7 +126,7 @@ class AuthProviderManager {
     const state = `auth_${crypto.randomBytes(24).toString('hex')}`;
     const codeVerifier = crypto.randomBytes(48).toString('base64url');
     const expiresAt = new Date(Date.now() + OAUTH_STATE_TTL_MS).toISOString();
-    const { url } = await provider.beginOAuth({ state, codeVerifier });
+    const { url } = await provider.beginOAuth({ state, codeVerifier, baseUrl });
 
     db.prepare(
       `INSERT INTO auth_oauth_states (
@@ -158,7 +158,7 @@ class AuthProviderManager {
   }
 
   failAuthorization(state, message) {
-    const stateRow = this.#getStateRow(state, false);
+    const stateRow = this.#getStateRow(state);
     if (!stateRow) return;
     db.prepare(
       `UPDATE auth_oauth_states
@@ -194,6 +194,11 @@ class AuthProviderManager {
     if (!provider) {
       throw new Error(`Unknown sign-in provider: ${stateRow.provider_key}`);
     }
+
+    const claimed = db.prepare(
+      "UPDATE auth_oauth_states SET status = 'exchanging' WHERE id = ? AND status = 'pending'",
+    ).run(stateRow.id);
+    if (!claimed.changes) throw new Error('OAuth state is missing or expired.');
 
     try {
       const identity = await provider.finishOAuth({
@@ -235,7 +240,7 @@ class AuthProviderManager {
       throw error;
     }
 
-    if (stateRow.status === 'pending') {
+    if (stateRow.status === 'pending' || stateRow.status === 'exchanging') {
       return {
         status: 'pending',
         mode: stateRow.mode,
@@ -250,6 +255,8 @@ class AuthProviderManager {
       error.statusCode = 400;
       throw error;
     }
+
+    this.getProvider(stateRow.provider_key)?.assertEnabled?.();
 
     return {
       status: 'completed',
@@ -290,7 +297,7 @@ class AuthProviderManager {
     return { removed: true };
   }
 
-  #getStateRow(state, requirePending = true) {
+  #getStateRow(state) {
     const row = db.prepare(
       `SELECT *
        FROM auth_oauth_states
@@ -298,7 +305,7 @@ class AuthProviderManager {
          AND datetime(expires_at) > datetime('now')`,
     ).get(String(state || '').trim());
     if (!row) return null;
-    if (requirePending && row.status !== 'pending') return null;
+    if (row.status !== 'pending') return null;
     return row;
   }
 
@@ -352,28 +359,35 @@ class AuthProviderManager {
       };
     }
 
-    const emailOwner = db.prepare(
+    const emailOwner = identity.email && db.prepare(
       'SELECT id FROM users WHERE lower(email) = ?',
     ).get(identity.email.toLowerCase());
     if (emailOwner) {
       throw new Error('That email already belongs to an existing account. Sign in first and link this provider from account settings.');
     }
 
-    const userId = await this.#createUserFromIdentity(identity, stateRow.signup_key);
-    this.#upsertLink(userId, provider.key, identity);
+    const account = await this.#createUserFromIdentity(identity, stateRow.signup_key, provider.key);
     return {
       action: 'register',
-      userId,
+      userId: account.userId,
       provider: provider.key,
       providerLabel: provider.label,
       email: identity.email,
-      created: true,
+      created: account.created,
     };
   }
 
-  async #createUserFromIdentity(identity, signupKey) {
+  async #createUserFromIdentity(identity, signupKey, providerKey) {
     const passwordHash = await bcrypt.hash(crypto.randomUUID(), 12);
     return db.transaction(() => {
+      // Another callback can register this identity while password hashing yields.
+      const existing = db.prepare(
+        'SELECT user_id FROM user_auth_providers WHERE provider_key = ? AND provider_user_id = ?',
+      ).get(providerKey, identity.providerUserId);
+      if (existing) {
+        this.#upsertLink(existing.user_id, providerKey, identity);
+        return { userId: existing.user_id, created: false };
+      }
       const username = this.#generateUniqueUsername(identity);
       const result = db.prepare(
         `INSERT INTO users (
@@ -382,11 +396,17 @@ class AuthProviderManager {
            email_verified_at,
            password,
            password_login_enabled
-         ) VALUES (?, ?, datetime('now'), ?, 0)`,
-      ).run(username, identity.email.toLowerCase(), passwordHash);
+         ) VALUES (?, ?, ?, ?, 0)`,
+      ).run(
+        username,
+        identity.email?.toLowerCase() || null,
+        identity.email ? nowIso() : null,
+        passwordHash,
+      );
       const userId = Number(result.lastInsertRowid);
       redeemSignupKeyForNewUser(signupKey, userId);
-      return userId;
+      this.#upsertLink(userId, providerKey, identity);
+      return { userId, created: true };
     })();
   }
 
@@ -415,6 +435,13 @@ class AuthProviderManager {
   }
 
   #upsertLink(userId, providerKey, identity) {
+    db.transaction(() => {
+      this.#saveLink(userId, providerKey, identity);
+      this.getProvider(providerKey).saveCredentials?.(userId, identity);
+    })();
+  }
+
+  #saveLink(userId, providerKey, identity) {
     db.prepare(
       `INSERT INTO user_auth_providers (
          user_id,
@@ -435,7 +462,7 @@ class AuthProviderManager {
       userId,
       providerKey,
       identity.providerUserId,
-      identity.email.toLowerCase(),
+      identity.email?.toLowerCase() || null,
       JSON.stringify({
         displayName: identity.displayName || null,
         avatarUrl: identity.avatarUrl || null,
