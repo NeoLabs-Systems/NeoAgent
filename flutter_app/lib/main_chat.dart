@@ -1268,36 +1268,6 @@ class _ChatTopBar extends StatelessWidget {
               style: GoogleFonts.geistMono(fontSize: 11, color: _textMuted),
             ),
           ),
-          const SizedBox(width: 12),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Container(
-                width: 7,
-                height: 7,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: controller.isAgentWorking ? _success : _accentAlt,
-                  boxShadow: <BoxShadow>[
-                    BoxShadow(
-                      color: (controller.isAgentWorking ? _success : _accentAlt)
-                          .withValues(alpha: 0.18),
-                      blurRadius: 0,
-                      spreadRadius: 3,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 7),
-              Text(
-                controller.isAgentWorking ? 'live' : 'idle',
-                style: GoogleFonts.geistMono(
-                  fontSize: 12,
-                  color: _textSecondary,
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
