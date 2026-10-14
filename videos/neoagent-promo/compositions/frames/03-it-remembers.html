@@ -1,0 +1,189 @@
+<template>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+    }
+    .f03-ground {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(1200px 900px at 100% 0%, rgba(225, 176, 82, 0.13), rgba(225, 176, 82, 0) 70%),
+        radial-gradient(1100px 800px at 0% 100%, rgba(132, 186, 135, 0.07), rgba(132, 186, 135, 0) 70%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.28) 100%),
+        #0e1511;
+    }
+    .f03-stage {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+    /* World = the app-window in plate-css (1600×1000). Camera writes one transform here. */
+    .f03-world {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1600px;
+      height: 1000px;
+      transform-origin: 0 0;
+      will-change: transform;
+    }
+    .f03-glow {
+      position: absolute;
+      left: 600px;
+      top: 357px;
+      width: 760px;
+      height: 760px;
+      border-radius: 50%;
+      background: radial-gradient(
+        circle at 50% 50%,
+        rgba(225, 176, 82, 0.9) 0%,
+        rgba(205, 146, 48, 0.45) 26%,
+        rgba(180, 120, 30, 0) 62%
+      );
+      z-index: 1;
+    }
+    .f03-shadow {
+      position: absolute;
+      inset: 0;
+      border-radius: 28px;
+      box-shadow: 0 60px 120px -30px rgba(0, 0, 0, 0.75);
+      z-index: 0;
+    }
+    .f03-window {
+      position: absolute;
+      inset: 0;
+      border-radius: 28px;
+      overflow: hidden;
+      z-index: 2;
+    }
+    .f03-plate {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1600px;
+      height: 1000px;
+      display: block;
+    }
+    .f03-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 28px;
+      box-shadow: inset 0 0 0 1px rgba(224, 240, 224, 0.1);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 9%);
+      z-index: 3;
+      pointer-events: none;
+    }
+    .f03-grain {
+      position: absolute;
+      inset: 0;
+      opacity: 0.07;
+      mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch' seed='7'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+      background-size: 240px 240px;
+      pointer-events: none;
+    }
+  </style>
+
+  <div id="root" data-composition-id="03-it-remembers" data-width="1920" data-height="1080" data-duration="5.5">
+    <div id="f03-ground" class="clip f03-ground" data-start="0" data-duration="5.5" data-track-index="0"></div>
+
+    <div id="f03-stage" class="clip f03-stage" data-start="0" data-duration="5.5" data-track-index="1">
+      <div id="f03-world" class="f03-world">
+        <div id="f03-shadow" class="f03-shadow"></div>
+        <div id="f03-glow" class="f03-glow"></div>
+        <div id="f03-window" class="f03-window">
+          <img id="f03-plate" class="f03-plate" src="assets/memory.png" alt="" />
+        </div>
+        <div id="f03-ring" class="f03-ring"></div>
+      </div>
+    </div>
+
+    <div id="f03-grain" class="clip f03-grain" data-start="0" data-duration="5.5" data-track-index="2"></div>
+  </div>
+
+  <script>
+    (function () {
+      const FID = "03-it-remembers";
+      const W = 1920;
+      const H = 1080;
+      // Maya node centre in plate-css (layout.json memory.maya_node / 2).
+      const MAYA_X = 980.5;
+      const MAYA_Y = 737.5;
+      const FEATHER = 0.6; // solid core fraction of the mask radius
+
+      const world = document.getElementById("f03-world");
+      const win = document.getElementById("f03-window");
+
+      // cam(cx, cy, S): plate-css point (cx, cy) lands on canvas centre at scale S.
+      const cam = { cx: MAYA_X, cy: MAYA_Y, s: 2.0 };
+      const writeCam = () => {
+        const tx = W / 2 - cam.cx * cam.s;
+        const ty = H / 2 - cam.cy * cam.s;
+        world.style.transform = `translate(${tx}px, ${ty}px) scale(${cam.s})`;
+      };
+
+      // Radial reveal mask centred on Maya, radius in plate-css.
+      const mask = { r: 60 };
+      const writeMask = () => {
+        const r = mask.r;
+        const core = r * FEATHER;
+        const img = `radial-gradient(circle at ${MAYA_X}px ${MAYA_Y}px, #000 0px, #000 ${core}px, rgba(0,0,0,0) ${r}px)`;
+        win.style.webkitMaskImage = img;
+        win.style.maskImage = img;
+      };
+
+      writeCam();
+      writeMask();
+
+      const tl = gsap.timeline({ paused: true });
+
+      // Initial states (seek-safe: also set at t=0 on the timeline).
+      tl.set(cam, { cx: MAYA_X, cy: MAYA_Y, s: 2.0, onUpdate: writeCam }, 0);
+      tl.set(mask, { r: 60, onUpdate: writeMask }, 0);
+      writeCam();
+      writeMask();
+
+      // Scene 1 (0.0–1.0): tight on Maya. The point of light opens a little
+      // to show the first edges; gold glow blooms behind the node.
+      tl.fromTo(
+        "#f03-glow",
+        { opacity: 0, scale: 0.85 },
+        { opacity: 0.3, scale: 1, duration: 0.9, ease: "power2.out" },
+        0,
+      );
+      tl.to(mask, { r: 110, duration: 1.0, ease: "power2.out", onUpdate: writeMask }, 0);
+
+      // Scene 2 (1.0–3.9): one continuous decelerating pull-back to cam(800, 520, 1.02).
+      tl.to(
+        cam,
+        { cx: 800, cy: 520, s: 1.02, duration: 2.9, ease: "power3.out", onUpdate: writeCam },
+        1.0,
+      );
+      // Reveal radius spreads outward from Maya, ring by ring, until the plate is unmasked.
+      tl.to(
+        mask,
+        { r: 2100, duration: 2.7, ease: "power1.inOut", onUpdate: writeMask },
+        1.0,
+      );
+      // Window chrome arrives with the full page; the glow fades as the page lands.
+      tl.fromTo(
+        ["#f03-shadow", "#f03-ring"],
+        { opacity: 0 },
+        { opacity: 1, duration: 1.0, ease: "power2.out" },
+        2.6,
+      );
+      tl.to("#f03-glow", { opacity: 0, duration: 1.4, ease: "power2.inOut" }, 2.2);
+
+      // Scene 3 (3.9–5.0): still hold on the whole Memory page. Pad to full duration.
+      tl.set({}, {}, 5.0);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines[FID] = tl;
+    })();
+  </script>
+</template>

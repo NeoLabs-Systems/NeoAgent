@@ -1,0 +1,11 @@
+# HyperFrames caches and local renders (the published cut lives in docs/videos/)
+.hyperframes/
+.thumbnails/
+.waveform-cache/
+renders/
+# Raw capture plates; the staged copies in assets/ are what the film uses
+capture/
+# Full third-party music track and the raw voice take; only the cut bed and line clips are kept
+assets/audio/music-titanium-intent.mp3
+assets/audio/vo2-take.mp3
+.DS_Store
