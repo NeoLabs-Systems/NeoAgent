@@ -137,7 +137,7 @@ class _ModelsSettingsPage extends StatelessWidget {
           ],
         ),
         _AdvancedModelSettings(controller: controller, models: routingModels),
-        _ByokSettingsCard(controller: controller),
+        ByokSettingsCard(controller: controller),
       ],
     );
   }

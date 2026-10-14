@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const db = require('../../db/database');
 const { resolvePublicBaseUrl } = require('../integrations/env');
+const { hashPassword, validateNewPassword } = require('./credentials');
 
 const TOKEN_BYTES = 32;
 const DEFAULT_TOKEN_TTL_HOURS = 24;
@@ -318,7 +319,15 @@ function consumeEmailToken(token) {
   };
 }
 
-function consumePasswordResetToken(token, passwordHash) {
+function invalidPasswordResetLinkError() {
+  const error = new Error('Password reset link is invalid or expired');
+  error.statusCode = 400;
+  return error;
+}
+
+// Sets the new password if the token is still live. The password is checked
+// against the account's own username and email, like at sign-up.
+async function consumePasswordResetToken(token, password) {
   const hash = tokenHash(token);
   assertPasswordResetAttemptAllowed(hash);
   const row = db.prepare(`
@@ -332,20 +341,29 @@ function consumePasswordResetToken(token, passwordHash) {
   `).get(hash);
   if (!row) {
     registerPasswordResetAttempt(hash);
-    const error = new Error('Password reset link is invalid or expired');
-    error.statusCode = 400;
-    throw error;
+    throw invalidPasswordResetLinkError();
   }
 
-  db.transaction(() => {
-    db.prepare('UPDATE users SET password = ? WHERE id = ?')
+  validateNewPassword(password, { username: row.username, email: row.current_email });
+  const passwordHash = await hashPassword(password);
+  // The token is claimed inside the write so two submissions racing past the
+  // lookup above cannot both set a password.
+  const applied = db.transaction(() => {
+    const claimed = db.prepare(`
+      UPDATE user_email_tokens SET consumed_at = datetime('now')
+      WHERE id = ? AND consumed_at IS NULL
+    `).run(row.id);
+    if (claimed.changes === 0) return false;
+    db.prepare('UPDATE users SET password = ?, password_login_enabled = 1 WHERE id = ?')
       .run(passwordHash, row.user_id);
     db.prepare(`
       UPDATE user_email_tokens
       SET consumed_at = datetime('now')
       WHERE user_id = ? AND type = 'password_reset' AND consumed_at IS NULL
     `).run(row.user_id);
+    return true;
   })();
+  if (!applied) throw invalidPasswordResetLinkError();
 
   passwordResetAttemptState.delete(hash);
 

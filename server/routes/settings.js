@@ -33,10 +33,11 @@ const {
   serializeRuntimeSettingValue,
   validateRuntimeSettings,
 } = require('../services/runtime/settings');
-const { isManagedDeployment } = require('../utils/deployment');
+const { getDeploymentPolicy } = require('../utils/deployment');
 const { getAgentIdFromRequest, isMainAgent, resolveAgentId } = require('../services/agents/manager');
 const { getProviderHealthCatalog, getSupportedModels, PROVIDER_FACTORIES } = require('../services/ai/models');
 const { getSystemOneModels } = require('../services/ai/system_one');
+const { hasSignInMethod } = require('../services/ai/provider_sign_in');
 const { validateCloudUrlWithDns } = require('../utils/cloud-security');
 const { normalizeTimeZone } = require('../utils/timezone');
 
@@ -272,6 +273,7 @@ router.get('/byok', async (req, res) => {
         defaultBaseUrl: provider.defaultBaseUrl,
         isCustomEndpoint: provider.id === 'openai-compatible',
         configured: provider.isByok,
+        signInAvailable: hasSignInMethod(provider.id),
         baseUrl: provider.isByok ? provider.baseUrl : '',
         customLabel: provider.isByok ? (provider.customLabel || '') : '',
       })),
@@ -816,13 +818,21 @@ router.delete('/:key', (req, res) => {
   res.json({ success: true });
 });
 
+// Self-update is off for managed deployments and for the container image,
+// which updates by pulling a newer image.
+function selfUpdateBlockedReason() {
+  const policy = getDeploymentPolicy();
+  if (policy.allowSelfUpdate) return null;
+  return policy.managed
+    ? 'Updates are managed by this deployment.'
+    : 'This NeoAgent runs from a container image. Update it by pulling a newer image.';
+}
+
 // Trigger auto-update script
 router.post('/update', requireAuth, requireAdmin, updateTriggerLimiter, (req, res) => {
-  if (isManagedDeployment()) {
-    return res.status(403).json({
-      success: false,
-      error: 'Updates are managed by this deployment.',
-    });
+  const blockedReason = selfUpdateBlockedReason();
+  if (blockedReason) {
+    return res.status(403).json({ success: false, error: blockedReason });
   }
   const { spawn } = require('child_process');
   const status = readUpdateStatus();
@@ -866,11 +876,9 @@ router.post('/update', requireAuth, requireAdmin, updateTriggerLimiter, (req, re
 });
 
 router.put('/update/channel', requireAuth, requireAdmin, (req, res) => {
-  if (isManagedDeployment()) {
-    return res.status(403).json({
-      success: false,
-      error: 'Release channel changes are managed by this deployment.',
-    });
+  const blockedReason = selfUpdateBlockedReason();
+  if (blockedReason) {
+    return res.status(403).json({ success: false, error: blockedReason });
   }
   const requested = req.body?.channel;
   const releaseChannel = parseReleaseChannel(requested);

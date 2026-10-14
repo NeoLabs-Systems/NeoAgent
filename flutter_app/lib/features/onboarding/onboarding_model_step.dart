@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../main.dart';
+import '../../src/mascot/mascot_mood.dart';
 import '../../src/theme/palette.dart';
 import 'onboarding_chrome.dart';
 import 'package:neoagent_flutter/src/l10n/app_language.dart';
@@ -10,10 +10,12 @@ class OnboardingModelStep extends StatefulWidget {
   const OnboardingModelStep({
     super.key,
     required this.onNext,
+    required this.onBack,
     required this.controller,
   });
 
   final VoidCallback onNext;
+  final VoidCallback onBack;
   final NeoAgentController controller;
 
   @override
@@ -21,354 +23,146 @@ class OnboardingModelStep extends StatefulWidget {
 }
 
 class _OnboardingModelStepState extends State<OnboardingModelStep> {
-  String? _selectedModel;
+  static const String _autoModelId = 'auto';
 
-  List<ModelMeta> get _models => widget.controller.supportedModels
+  /// What the person picked here; null until they pick, so the highlight
+  /// follows the saved default as the catalog loads.
+  String? _pickedModel;
+  bool _saving = false;
+
+  NeoAgentController get _controller => widget.controller;
+
+  List<ModelMeta> get _models => _controller.supportedModels
       .where((m) => m.available && !m.id.startsWith('tool:'))
       .toList();
 
-  @override
-  void initState() {
-    super.initState();
-    final defaultChatModel = widget.controller.defaultChatModel;
-    if (defaultChatModel.isNotEmpty &&
-        _models.any((m) => m.id == defaultChatModel)) {
-      _selectedModel = defaultChatModel;
-    } else if (_models.isNotEmpty) {
-      _selectedModel = _models.first.id;
-    }
+  /// The highlighted choice, recomputed whenever the model list changes.
+  String _selection(List<ModelMeta> models) {
+    bool listed(String? id) =>
+        id == _autoModelId || models.any((model) => model.id == id);
+    if (listed(_pickedModel)) return _pickedModel!;
+    final saved = _controller.defaultChatModel;
+    return listed(saved) ? saved : _autoModelId;
   }
 
-  Color _getColorForModel(ModelMeta model) {
-    final value = model.provider.toLowerCase() + model.id.toLowerCase();
-    if (value.contains('google') || value.contains('gemini')) {
-      return const Color(0xFF4285F4);
+  Future<void> _continue(List<ModelMeta> models) async {
+    final selection = _selection(models);
+    if (models.isEmpty || selection == _controller.defaultChatModel) {
+      widget.onNext();
+      return;
     }
-    if (value.contains('openai') || value.contains('gpt')) {
-      return const Color(0xFF10A37F);
+    setState(() => _saving = true);
+    try {
+      await _controller.saveSettingsPayload(<String, Object?>{
+        'default_chat_model': selection,
+      });
+      if (!mounted) return;
+      widget.onNext();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            appStrings.failedToSaveSelectionArg1(
+              _controller.friendlyErrorMessage(error),
+            ),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-    if (value.contains('anthropic') || value.contains('claude')) {
-      return const Color(0xFFD97757);
-    }
-    if (value.contains('meta') || value.contains('llama')) {
-      return const Color(0xFF0668E1);
-    }
-    if (value.contains('mistral')) return const Color(0xFFF97316);
-    return const Color(0xFF7C8CFF);
-  }
-
-  IconData _getIconForModel(ModelMeta model) {
-    final value = model.provider.toLowerCase() + model.id.toLowerCase();
-    if (value.contains('google') || value.contains('gemini')) {
-      return Icons.auto_awesome_rounded;
-    }
-    if (value.contains('openai') || value.contains('gpt')) {
-      return Icons.bolt_rounded;
-    }
-    if (value.contains('anthropic') || value.contains('claude')) {
-      return Icons.menu_book_rounded;
-    }
-    if (value.contains('meta') || value.contains('llama')) {
-      return Icons.visibility_rounded;
-    }
-    return Icons.memory_rounded;
   }
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final useGrid = width >= 720;
-
-    return OnboardingScaffold(
-      step: 2,
-      totalSteps: 5,
-      eyebrow: 'INTELLIGENCE',
-      title: appStrings.chooseYourDefaultModel,
-      description:
-          appStrings.pickTheModelNeoagentShouldUse,
-      footer: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: <Widget>[
-          OnboardingPrimaryButton(
-            label: appStrings.continue2,
-            icon: Icons.arrow_forward_rounded,
-            onPressed: widget.onNext,
-          ),
-        ],
-      ),
-      child: _models.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Text(
-                    appStrings.noAvailableModelsYetCheckBack,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: paletteOf(context).textMuted,
-                      fontSize: 16,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          : useGrid
-          ? GridView.builder(
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 380,
-                crossAxisSpacing: 14,
-                mainAxisSpacing: 14,
-                mainAxisExtent: 214,
-              ),
-              itemCount: _models.length,
-              itemBuilder: (context, index) {
-                final model = _models[index];
-                return _ModelChoiceCard(
-                      model: model,
-                      color: _getColorForModel(model),
-                      icon: _getIconForModel(model),
-                      selected: _selectedModel == model.id,
-                      compact: true,
-                      onTap: () => _selectModel(context, model),
-                    )
-                    .animate()
-                    .fadeIn(
-                      duration: 420.ms,
-                      delay: (180 + (index.clamp(0, 5) * 70)).ms,
-                    )
-                    .slideY(begin: 0.16, end: 0);
-              },
-            )
-          : ListView.separated(
-              itemCount: _models.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 14),
-              itemBuilder: (context, index) {
-                final model = _models[index];
-                return _ModelChoiceCard(
-                      model: model,
-                      color: _getColorForModel(model),
-                      icon: _getIconForModel(model),
-                      selected: _selectedModel == model.id,
-                      onTap: () => _selectModel(context, model),
-                    )
-                    .animate()
-                    .fadeIn(
-                      duration: 420.ms,
-                      delay: (180 + (index.clamp(0, 5) * 70)).ms,
-                    )
-                    .slideY(begin: 0.16, end: 0);
-              },
+    return ListenableBuilder(
+      listenable: _controller,
+      builder: (context, _) {
+        final models = _models;
+        final loading =
+            models.isEmpty &&
+            (_controller.isRefreshing || !_controller.hasLoadedInitialData);
+        return OnboardingScaffold(
+          mood: MascotMood.thinking,
+          fill: models.isNotEmpty,
+          eyebrow: appStrings.onboardingEyebrowIntelligence,
+          title: appStrings.chooseYourDefaultModel,
+          description: appStrings.onboardingModelDescription,
+          footer: OnboardingFooter(
+            onBack: widget.onBack,
+            primary: OnboardingPrimaryButton(
+              label: appStrings.continue2,
+              icon: Icons.arrow_forward_rounded,
+              onPressed: _saving || loading ? null : () => _continue(models),
             ),
+          ),
+          child: loading
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 14),
+                      Text(
+                        appStrings.onboardingLoadingModels,
+                        style: TextStyle(color: paletteOf(context).textMuted),
+                      ),
+                    ],
+                  ),
+                )
+              : models.isEmpty
+              ? _NoModelsPanel(controller: _controller)
+              : ModelPickerPanel(
+                  models: models,
+                  value: _selection(models),
+                  allowAuto: true,
+                  onChanged: (id) => setState(() => _pickedModel = id),
+                ),
+        );
+      },
     );
-  }
-
-  Future<void> _selectModel(BuildContext context, ModelMeta model) async {
-    final previousModel = _selectedModel;
-    setState(() => _selectedModel = model.id);
-    try {
-      await widget.controller.saveSettingsPayload(<String, Object?>{
-        'default_chat_model': model.id,
-      });
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(appStrings.failedToSaveSelectionArg1(e))));
-      }
-      setState(() => _selectedModel = previousModel);
-    }
   }
 }
 
-class _ModelChoiceCard extends StatelessWidget {
-  const _ModelChoiceCard({
-    required this.model,
-    required this.color,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-    this.compact = false,
-  });
+/// Shown when no model can be used yet: the person adds a provider key right
+/// here, and the catalog refresh that follows a saved key fills the list.
+class _NoModelsPanel extends StatelessWidget {
+  const _NoModelsPanel({required this.controller});
 
-  final ModelMeta model;
-  final Color color;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-  final bool compact;
+  final NeoAgentController controller;
 
   @override
   Widget build(BuildContext context) {
     final p = paletteOf(context);
-    final shellSize = compact ? 48.0 : 58.0;
-    final iconSize = compact ? 24.0 : 30.0;
-    final titleSize = compact ? 17.0 : 20.0;
-    final purposeSize = compact ? 13.0 : 14.0;
-
-    return OnboardingOptionCard(
-      selected: selected,
-      accent: color,
-      compact: compact,
-      onTap: onTap,
-      child: compact
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Container(
-                      width: shellSize,
-                      height: shellSize,
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Icon(icon, color: color, size: iconSize),
-                    ),
-                    const Spacer(),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 220),
-                      child: selected
-                          ? Icon(
-                              Icons.check_circle_rounded,
-                              key: ValueKey<String>(model.id),
-                              color: color,
-                              size: 28,
-                            )
-                          : Icon(
-                              Icons.radio_button_unchecked_rounded,
-                              key: ValueKey<String>('idle-${model.id}'),
-                              color: p.textMuted.withValues(alpha: 0.5),
-                              size: 28,
-                            ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  model.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: p.textPrimary,
-                    fontSize: titleSize,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: p.bgSecondary,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    model.provider,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: p.textMuted,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  model.purpose,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: p.textMuted,
-                    fontSize: purposeSize,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            )
-          : Row(
-              children: <Widget>[
-                Container(
-                  width: shellSize,
-                  height: shellSize,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Icon(icon, color: color, size: iconSize),
-                ),
-                const SizedBox(width: 18),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 8,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: <Widget>[
-                          Text(
-                            model.label,
-                            style: TextStyle(
-                              color: p.textPrimary,
-                              fontSize: titleSize,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: p.bgSecondary,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              model.provider,
-                              style: TextStyle(
-                                color: p.textMuted,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        model.purpose,
-                        style: TextStyle(
-                          color: p.textMuted,
-                          fontSize: purposeSize,
-                          height: 1.45,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 220),
-                  child: selected
-                      ? Icon(
-                          Icons.check_circle_rounded,
-                          key: ValueKey<String>(model.id),
-                          color: color,
-                          size: 28,
-                        )
-                      : Icon(
-                          Icons.radio_button_unchecked_rounded,
-                          key: ValueKey<String>('idle-${model.id}'),
-                          color: p.textMuted.withValues(alpha: 0.5),
-                          size: 28,
-                        ),
-                ),
-              ],
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Text(
+            appStrings.noAiModelTitle,
+            style: TextStyle(
+              color: p.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
             ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            appStrings.noAiModelBody,
+            style: TextStyle(color: p.textSecondary, height: 1.5),
+          ),
+          if (controller.isAdmin) ...<Widget>[
+            const SizedBox(height: 6),
+            Text(
+              appStrings.noAiModelAdminHint,
+              style: TextStyle(color: p.textMuted, height: 1.5),
+            ),
+          ],
+          const SizedBox(height: 18),
+          ByokSettingsCard(controller: controller),
+        ],
+      ),
     );
   }
 }

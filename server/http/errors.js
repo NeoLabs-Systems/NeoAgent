@@ -2,14 +2,7 @@
 
 const { sanitizeError } = require('../utils/security');
 const { logRequestSummary } = require('../utils/logger');
-
-// Application error codes (e.g. INVITE_EXPIRED) are safe to hand to clients so
-// they can show the right state; anything else in `err.code` is not.
-function publicErrorCode(err) {
-  return typeof err?.code === 'string' && /^[A-Z][A-Z0-9_]{1,63}$/.test(err.code)
-    ? err.code
-    : undefined;
-}
+const { publicErrorCode } = require('../utils/http_error');
 
 function sendJsonError(res, err, fallbackStatus = 500) {
   const status = Number(err?.status || err?.statusCode || fallbackStatus) || fallbackStatus;

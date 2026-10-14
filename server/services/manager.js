@@ -43,6 +43,7 @@ const {
   runBackgroundTask,
 } = require('./bootstrap_helpers');
 const { startSetupDiscovery } = require('./setup/discovery');
+const { resumeInterruptedRuns } = require('./ai/runtime/restart_resume');
 const { DEFAULT_NEOAGENT_PORT } = require('../../lib/setup/contract');
 
 function registerLocal(app, key, value) {
@@ -350,7 +351,7 @@ function createWearableService(app) {
 }
 
 function restoreMessagingConnections(messagingManager) {
-  void runBackgroundTask('[Messaging] Restore error:', () =>
+  return runBackgroundTask('[Messaging] Restore error:', () =>
     messagingManager.restoreConnections(),
   );
 }
@@ -391,7 +392,9 @@ function configureRealtime(app, io, services) {
   logServiceReady('WebSocket handlers registered');
 }
 
-async function startServices(app, io) {
+// `resumeRuns` is for the long-lived server only: a one-shot process sharing
+// the database (`neoagent exec`) must not pick up the server's interrupted work.
+async function startServices(app, io, { resumeRuns = false } = {}) {
   console.log('[Services] Starting service initialization');
 
   try {
@@ -463,7 +466,7 @@ async function startServices(app, io) {
     createSocialReachService(app);
     createWearableService(app);
 
-    restoreMessagingConnections(messagingManager);
+    const messagingRestored = restoreMessagingConnections(messagingManager);
     restoreMcpClients(mcpClient);
 
     registerMessagingAutomation({
@@ -496,15 +499,12 @@ async function startServices(app, io) {
       }),
     );
 
-    // Sync billing rate limits for all active subscribers in case any
-    // Stripe webhooks were delivered while the server was offline.
-    try {
-      const { isBillingEnabled } = require('./billing/config');
-      if (isBillingEnabled()) {
-        require('./billing/subscriptions').syncAllSubscriberRateLimits();
-      }
-    } catch {
-      // Best-effort; never block startup.
+    // A resumed messaging run delivers through its platform, so it waits for
+    // the connections to come back.
+    if (resumeRuns) {
+      void messagingRestored.then(() => resumeInterruptedRuns(agentEngine)).catch((err) => {
+        console.error('[Runtime] Resuming interrupted runs failed:', getErrorMessage(err));
+      });
     }
 
     console.log('All services initialized');

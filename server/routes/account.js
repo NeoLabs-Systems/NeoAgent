@@ -36,7 +36,8 @@ const {
 } = require('../services/account/service_email');
 const {
   approveChallenge,
-  resolveChallengeForApproval,
+  declineChallenge,
+  markChallengeScanned,
 } = require('../services/account/qr_login');
 const {
   beginRegistration: beginWebAuthnRegistration,
@@ -335,7 +336,25 @@ router.post('/qr-login/resolve', accountLimiter, (req, res) => {
     if (!challengeId || !secret) {
       return res.status(400).json({ error: 'Challenge id and QR secret are required.' });
     }
-    res.json(resolveChallengeForApproval({ challengeId, secret }));
+    res.json(markChallengeScanned({
+      challengeId,
+      secret,
+      scannerMetadata: req.body?.scannerMetadata,
+    }));
+  } catch (err) {
+    sendRouteError(res, err);
+  }
+});
+
+router.post('/qr-login/decline', accountLimiter, (req, res) => {
+  try {
+    const challengeId = String(req.body?.challengeId || '').trim();
+    const secret = String(req.body?.secret || '').trim();
+    if (!challengeId || !secret) {
+      return res.status(400).json({ error: 'Challenge id and QR secret are required.' });
+    }
+    declineChallenge({ challengeId, secret });
+    res.json({ success: true });
   } catch (err) {
     sendRouteError(res, err);
   }

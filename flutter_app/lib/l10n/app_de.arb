@@ -1,5 +1,86 @@
 {
   "@@locale": "de",
+  "onboardingEyebrowWelcome": "Willkommen",
+  "onboardingEyebrowCommunication": "Kommunikation",
+  "onboardingEyebrowIntelligence": "Intelligenz",
+  "onboardingEyebrowComputer": "Computer",
+  "onboardingEyebrowAutomation": "Automatisierung",
+  "onboardingNext": "Weiter",
+  "onboardingIntroCouldNotLoad": "Die Einführung konnte nicht geladen werden.",
+  "onboardingModelDescription": "Wählen Sie das Modell, das NeoAgent standardmäßig nutzen soll, oder lassen Sie es automatisch wählen.",
+  "onboardingLoadingModels": "Modelle werden geladen…",
+  "noAiModelTitle": "Noch ist kein KI-Modell eingerichtet",
+  "noAiModelBody": "Fügen Sie einen API-Schlüssel eines Anbieters wie OpenAI, Anthropic oder Google hinzu. Danach zeigt NeoAgent die Modelle, die Sie nutzen können.",
+  "noAiModelChatBody": "NeoAgent braucht ein KI-Modell, um zu antworten. Fügen Sie einen API-Schlüssel eines Anbieters wie OpenAI, Anthropic oder Google hinzu.",
+  "noAiModelAdminHint": "Als Admin können Sie Anbieter auch für alle Nutzer unter Admin → Anbieter einrichten.",
+  "addApiKey": "API-Schlüssel hinzufügen",
+  "onboardingMessagingConnected": "{platform} ist verbunden.",
+  "@onboardingMessagingConnected": {
+    "placeholders": {
+      "platform": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingMessagingWaiting": "Warte auf die Verbindung mit {platform}…",
+  "@onboardingMessagingWaiting": {
+    "placeholders": {
+      "platform": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingFinishFailed": "Die Einrichtung konnte nicht gespeichert werden: {error}",
+  "@onboardingFinishFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingEyebrowReady": "Bereit",
+  "onboardingStepRequired": "Erforderlich",
+  "onboardingStepOptional": "Optional",
+  "onboardingStepCloudOrLocal": "Cloud oder lokal",
+  "onboardingStepComputer": "Computer",
+  "onboardingStepRoutines": "Routinen",
+  "onboardingComputerChoiceTitle": "Wo soll\nes arbeiten?",
+  "onboardingComputerChoiceDescription": "Das lässt sich pro Sitzung ändern.",
+  "onboardingCloudComputerSubtitle": "Private Sandbox · immer an",
+  "onboardingThisComputer": "Dieser Computer",
+  "onboardingThisComputerSubtitle": "Deine Dateien, Apps und dein Browser",
+  "onboardingSearchApps": "Apps suchen…",
+  "onboardingRoutinesDescription": "Ergebnisse kommen in deinen Chats an.",
+  "onboardingRoutinesDescriptionPhone": "Ergebnisse kommen als Mitteilungen.",
+  "onboardingNotifications": "Mitteilungen",
+  "onboardingReadyTitle": "Alles\nbereit.",
+  "onboardingReadyDescription": "Schick deine erste Nachricht.",
+  "onboardingMessageNeoagent": "Nachricht an NeoAgent",
+  "onboardingAskAnything": "Frag einfach…",
+  "onboardingOpenNeoagent": "NeoAgent öffnen",
+  "onboardingStarterTrip": "Plane einen Wochenendausflug",
+  "onboardingStarterLanding": "Bau eine Landingpage",
+  "onboardingQuickSteps": "{count} kurze Schritte",
+  "@onboardingQuickSteps": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "taskNeedsEmail": "Zuerst E-Mail verbinden",
+  "taskNeedsCalendar": "Zuerst einen Kalender verbinden",
+  "taskNeedsModel": "Zuerst ein KI-Modell einrichten",
+  "taskPromptDailyRecap": "Fasse meinen Tag zusammen: die Gespräche, erledigte Arbeit und Entscheidungen von heute. Liste dann auf, was ich morgen nachverfolgen sollte. Halte es kurz und sende es mir.",
+  "taskPromptInboxCheck": "Prüfe meinen E-Mail-Posteingang auf Nachrichten seit der letzten Prüfung. Schreibe mir nur zu E-Mails, die dringend sind oder eine Antwort brauchen, mit einer einzeiligen Zusammenfassung je Nachricht. Wenn nichts meine Aufmerksamkeit braucht, sende nichts.",
+  "taskPromptMorningBriefing": "Bereite mein Morgenbriefing vor: das heutige Wetter an meinem Standort, die Termine in meinem Kalender und die wichtigsten offenen Punkte, die ich kenne. Sende es als kurze, gut überblickbare Nachricht.",
+  "taskPromptTomorrowPrep": "Schau in meinen Kalender für morgen. Sag mir für jeden Termin, worum es geht, wer beteiligt ist und was ich vorbereiten sollte. Wenn morgen nichts ansteht, sende nichts.",
+  "taskPromptNewsDigest": "Suche im Web nach den wichtigsten heutigen Nachrichten zu den Themen, die mich interessieren (nutze, was du über meine Interessen weißt). Sende mir einen Überblick mit bis zu fünf Punkten, je einem Satz und einem Link.",
+  "taskPromptWeeklyReview": "Schau meine Woche durch: was erledigt wurde, was liegengeblieben ist und was noch offen ist. Schlage die drei wichtigsten Dinge vor, auf die ich mich nächste Woche konzentrieren sollte.",
+  "whatsappSeparateAccountDescription": "Verknüpfen Sie eine Telefonnummer, die dem Agenten gehört. Alle, die Sie zulassen, können damit in Direktchats und Gruppen chatten.",
+  "whatsappSelfChatDescription": "Verknüpfen Sie Ihre eigene Nummer und sprechen Sie mit dem Agenten in Ihrem „Nachricht an mich selbst“-Chat. Alle anderen Chats und Gruppen auf diesem Konto werden ignoriert.",
+  "chatSendHintMac": "⌘↵ zum Senden",
+  "chatSendHintOther": "Strg+Enter zum Senden",
   "aBaseUrlIsRequiredFor": "Für diesen Endpunkt ist eine Basis-URL erforderlich.",
   "aChangedEmailAddressIsConfirmed": "Eine geänderte E-Mail-Adresse wird bestätigt, bevor sie verwendet wird.",
   "aDecisionHigherUpTheChain": "Eine Entscheidung weiter oben in der Kette hat Vorrang.",
@@ -9,7 +90,6 @@
   "aLanguageModelJudgedThisMessage": "Ein Sprachmodell hat diese Nachricht beurteilt, weil SystemOne ausgeschaltet ist.",
   "aNeoagentSetupMetadataFileExceeded": "Eine NeoAgent-Einrichtungs-Metadatendatei hat das sichere Größenlimit überschritten.",
   "aNewerWebBuildIsAvailable": "Auf dem Server ist ein neueres Web-Build verfügbar. Neu laden, um das aktuelle Bundle zu holen.",
-  "aPlanSIdCanT": "Die ID eines Tarifs lässt sich nicht ändern.",
   "aPrivateDesktopWithChromiumFiles": "Ein privater Desktop mit Chromium, Dateien, Texteditor, Terminal und Python. Ihre Arbeit bleibt zwischen Sitzungen gespeichert.",
   "aPrivateLinuxComputerOrAn": "Ein privater Linux-Computer oder ein Android-Gerät.",
   "aRequiredNeoagentSetupFileCould": "Eine erforderliche NeoAgent-Einrichtungsdatei konnte nicht heruntergeladen werden.",
@@ -17,7 +97,6 @@
   "aTeammateSentYouAnInvite": "Ihnen ein Teammitglied einen Einladungslink geschickt hat, geben Sie ihn hier ein, um dem Team beizutreten.",
   "aTemporaryDownloadWillBeCleaned": "Ein temporärer Download wird später bereinigt.",
   "aValueIsStored": "Ein Wert ist gespeichert.",
-  "aboutUseWhatYouRememberAbout": "interessieren (nutze, was du über meine Interessen weißt). Sende mir einen Überblick ",
   "access": "Zugriff",
   "accessActivity": "Zugriffsaktivität",
   "accessArg1": "Zugriff: {arg1}",
@@ -135,7 +214,6 @@
   "agentModeEditsTheWorkspaceSend": "Agentenmodus bearbeitet den Workspace · ⌘↵ senden · ⌘N neue Sitzung",
   "agentPausesAndAsksYouBefore": "Der Agent pausiert und fragt Sie vor der Ausführung.",
   "agentProfile": "Agentenprofil",
-  "agentRuns7d": "Agentenläufe (7 T.)",
   "agentVisibleName": "Für den Agenten sichtbarer Name",
   "agentWantsToUseArg1Tap": "Der Agent möchte {arg1} verwenden. Tippen Sie, um zu entscheiden.",
   "@agentWantsToUseArg1Tap": {
@@ -174,6 +252,7 @@
   "allTime": "Gesamt",
   "allToolsAreAllowedTheAgent": "Alle Tools sind erlaubt — der Agent kann jede Funktion ohne Nachfrage nutzen. ",
   "allow": "Erlauben",
+  "allowedRunsWithoutAsking": "Erlaubt. Läuft ohne Nachfrage.",
   "allowAll": "Alles erlauben",
   "allowInstallUnknownAppsForNeoagent": "Erlauben Sie „Unbekannte Apps installieren“ für NeoAgent und versuchen Sie das Update erneut.",
   "allowNewSignUps": "Neue Registrierungen zulassen",
@@ -181,8 +260,6 @@
   "allowSender": "Absender zulassen",
   "allowSession": "Für Sitzung erlauben",
   "allowTheAgentToStartAn": "Erlauben Sie dem Agenten, einen In-App-Sprachanruf mit Ihnen zu starten.",
-  "allowedForThisRunWillAsk": "Für diese Ausführung erlaubt — fragt in der nächsten Sitzung erneut.",
-  "allowedModels": "Erlaubte Modelle",
   "allowedOrigins": "Erlaubte Origins",
   "allowedPathPrefix": "Erlaubtes Pfadpräfix",
   "allowsYouCanChangeThatPer": "erlaubt. Später können Sie das pro Person ändern. Links vergeben nie ",
@@ -199,7 +276,7 @@
   "anApiKeyIsRequired": "Ein API-Schlüssel ist erforderlich.",
   "anEveningSummaryOfWhatHappened": "Eine abendliche Zusammenfassung dessen, was passiert ist und was nachzuverfolgen ist.",
   "anHttpOrHttpsUrlIs": "Eine http- oder https-URL ist erforderlich.",
-  "andBillingTeamLinksLiveOn": "und Abrechnung. Team-Links finden Sie auf der Team-Seite.",
+  "andAnalyticsTeamLinksLiveOn": "und Analysen. Team-Links finden Sie auf der Team-Seite.",
   "andSExpiresAtDatetimeNow": "  AND s.expires_at > datetime(''now'')\n",
   "androidApkInstallIsUnavailableOn": "Android-APK-Installation ist auf dieser Plattform nicht verfügbar.",
   "androidApp": "Android-App",
@@ -240,7 +317,6 @@
     }
   },
   "anyoneWithTheLinkCanJoin": "Jeder mit dem Link kann beitreten, bis er abläuft oder Sie ihn widerrufen.",
-  "anyoneYouAllowCanChatWith": "Alle, die Sie zulassen, können damit in Direktchats und Gruppen chatten.",
   "apiHttpsOrigin": "API-HTTPS-Ursprung",
   "apiKey": "API-Schlüssel",
   "apiKey2": "API-Schlüssel",
@@ -536,17 +612,6 @@
       }
     }
   },
-  "arg1Arg29": "{arg1} / {arg2}",
-  "@arg1Arg29": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg2ActiveTools": "{arg1} ({arg2} aktive Tools)",
   "@arg1Arg2ActiveTools": {
     "placeholders": {
@@ -672,20 +737,6 @@
   },
   "arg1Arg2Arg37": "{arg1} {arg2} {arg3}",
   "@arg1Arg2Arg37": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
-  "arg1Arg2Arg38": "{arg1} · {arg2} {arg3}",
-  "@arg1Arg2Arg38": {
     "placeholders": {
       "arg1": {
         "type": "Object?"
@@ -866,20 +917,6 @@
       }
     }
   },
-  "arg1Arg2OfArg3": "{arg1}–{arg2} von {arg3}",
-  "@arg1Arg2OfArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg2Runs": "{arg1}\n{arg2} Läufe · ",
   "@arg1Arg2Runs": {
     "placeholders": {
@@ -926,17 +963,6 @@
   },
   "arg1Arg2Tokens": "{arg1}\n{arg2} Tokens",
   "@arg1Arg2Tokens": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
-  "arg1Arg2Tokens2": "{arg1}: {arg2} Tokens",
-  "@arg1Arg2Tokens2": {
     "placeholders": {
       "arg1": {
         "type": "Object?"
@@ -1051,22 +1077,6 @@
       }
     }
   },
-  "arg1Deactivated": "{arg1} deaktiviert.",
-  "@arg1Deactivated": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "arg1Default": "{arg1}: Standard",
-  "@arg1Default": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Desktop": "{arg1}-Desktop",
   "@arg1Desktop": {
     "placeholders": {
@@ -1107,17 +1117,6 @@
       }
     }
   },
-  "arg1FeatureArg2": "{arg1} Funktion{arg2}",
-  "@arg1FeatureArg2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1ForArg2": "{arg1} für {arg2}",
   "@arg1ForArg2": {
     "placeholders": {
@@ -1125,14 +1124,6 @@
         "type": "Object?"
       },
       "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
-  "arg1Forever": "{arg1} für immer",
-  "@arg1Forever": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -1374,17 +1365,6 @@
   },
   "arg1MinArg2Sec": "{arg1} Min. {arg2} Sek.",
   "@arg1MinArg2Sec": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
-  "arg1ModelArg2": "{arg1} Modell{arg2}",
-  "@arg1ModelArg2": {
     "placeholders": {
       "arg1": {
         "type": "Object?"
@@ -1908,20 +1888,10 @@
   "askAQuestionOrStartA": "Stellen Sie eine Frage oder starten Sie eine Aufgabe...",
   "askBeforeClosingToBackground": "Vor dem Wechsel in den Hintergrund fragen",
   "askMe": "Mich fragen",
-  "assignAPlanToAnAccount": "Tarif einem Konto zuweisen",
-  "assignPlan": "Plan zuweisen",
   "assignedAgent": "Zugewiesener Agent",
   "assignedAgent2": "Zugewiesener Agent",
   "assignedAgentArg1": "Zugewiesener Agent: {arg1}",
   "@assignedAgentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "assignedArg1": "{arg1} zugewiesen.",
-  "@assignedArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"
@@ -1933,7 +1903,6 @@
   "assistantKey131": "Assistententaste 131",
   "atLeast1": "Mindestens 1.",
   "atLeast1000AppliesAfterA": "Mindestens 1000. Gilt nach einem Serverneustart.",
-  "atLeast512": "Mindestens 512.",
   "attachFiles": "Dateien anhängen",
   "attentionArg1": "Aufmerksamkeit {arg1}",
   "@attentionArg1": {
@@ -2008,30 +1977,17 @@
   "backgroundSyncStaysScheduledOnAndroid": "Hintergrundsynchronisation bleibt unter Android geplant",
   "badState": "Ungültiger Zustand: ",
   "baseImageAndSizeOfThe": "Basis-Image und Größe der QEMU-VMs, die die ",
-  "baseImageUrl": "Basis-Image-URL",
   "baseUrlOptional": "Basis-URL (optional)",
   "baseUrlTokenLocal": "base url token lokal",
   "basicAuthentication": "Basisauthentifizierung",
   "behaviorModules": "Verhaltensmodule",
   "behaviorNotes": "Verhaltensnotizen",
   "beta": "Beta",
-  "billedThroughStripeSoItCan": "Wird über Stripe abgerechnet und kann hier nicht gekündigt werden.",
-  "billing": "Abrechnung",
-  "billingEnabled": "Abrechnung aktiviert",
-  "billingHistory": "Abrechnungsverlauf",
-  "billingInterval": "Abrechnungsintervall",
-  "billingIsOff": "Abrechnung ist aus",
-  "billingIsTurnedOffButStill": "Abrechnung ist deaktiviert, läuft aber noch. Starten Sie den ",
-  "billingIsTurnedOnButNot": "Abrechnung ist aktiviert, läuft aber noch nicht. Starten Sie den ",
-  "billingSetupSaved": "Abrechnungseinrichtung gespeichert.",
-  "billingStripeKeysWebhookSecretTrial": "abrechnung stripe keys webhook secret trial aktivieren",
-  "billingSubscription": "Abrechnung & Abonnement",
   "bitwardenCredentialBroker": "Bitwarden-Anmeldedaten-Broker",
   "bitwardenItem": "Bitwarden-Eintrag",
   "bitwardenServer": "Bitwarden-Server",
   "blankUsesCommon": "Leer verwendet \"common\"",
   "blankUsesTheDefaultCallback": "Leer verwendet den Standard-Callback",
-  "blankUsesTheServerDefault": "Leer nutzt den Serverstandard.",
   "blankValuesUseTheProviderDefaults": "Leere Werte nutzen die Anbieterstandards.",
   "block": "Blockieren",
   "blockedIncomingMessageFromArg1": "Eingehende Nachricht von {arg1} blockiert.",
@@ -2074,9 +2030,7 @@
   },
   "canReceiveDelegatedTasks": "Kann delegierte Aufgaben empfangen",
   "cancel": "Abbrechen",
-  "cancelSubscription": "Abonnement kündigen",
   "cancelTask": "Aufgabe abbrechen",
-  "cancelsAtPeriodEnd": "Wird zum Periodenende gekündigt",
   "candidateCountArg1": "Kandidatenanzahl: {arg1}",
   "@candidateCountArg1": {
     "placeholders": {
@@ -2098,7 +2052,6 @@
       }
     }
   },
-  "changePlan": "Tarif wechseln",
   "changeSetupMode": "Einrichtungsmodus ändern",
   "channel": "Kanal",
   "channelAccessToken": "Kanal-Zugriffstoken",
@@ -2131,7 +2084,6 @@
   "checkAutomaticallyOnLaunch": "Beim Start automatisch prüfen",
   "checkForMessagesEveryMs": "Nachrichten prüfen alle (ms)",
   "checkForNewMessagesAutomatically": "Automatisch nach neuen Nachrichten suchen",
-  "checkMyEmailInboxForMessages": "Prüfe meinen E-Mail-Posteingang auf Nachrichten seit der letzten Prüfung. ",
   "checkNow": "Jetzt prüfen",
   "checkYourEmailToConfirmYour": "Prüfen Sie Ihre E-Mail, um Ihr NeoAgent-Konto vor der Anmeldung zu bestätigen.",
   "checkedArg1": "Geprüft {arg1}",
@@ -2144,16 +2096,7 @@
   },
   "chooseACategoryOrSearchAcross": "Wählen Sie eine Kategorie oder suchen Sie in allen Einstellungen.",
   "chooseAPerson": "Person wählen",
-  "chooseAPlanToGetStarted": "Wählen Sie einen Tarif, um zu starten.",
   "chooseAProjectFolder": "Projektordner wählen",
-  "chooseArg1": "{arg1} wählen",
-  "@chooseArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "chooseDefaultsForChatAgentsFallback": "Standards für Chat, Agenten, Fallback-Verhalten und Smart Routing wählen.",
   "chooseGroups": "Gruppen wählen",
   "chooseHowMuchYouWantTo": "Wählen Sie, wie viel Sie jetzt konfigurieren möchten. Beide Optionen lassen sich später ändern.",
@@ -2280,7 +2223,6 @@
   "commandVXdotoolDevNull2": "command -v xdotool >/dev/null 2>&1",
   "commandsApps": "Befehle & Apps",
   "commandsRunInTheSamePersistent": "Befehle laufen im selben persistenten Computer wie der sichtbare Desktop.",
-  "commasOrLeaveBlankForEvery": "Kommas getrennt ein oder lassen Sie das Feld leer für jedes Modell.",
   "communityChatops": "Community & ChatOps",
   "completeSetup": "Einrichtung abschließen",
   "completeTheWorkflowOnTheDesktop": "Schließen Sie den Workflow auf dem Desktop ab.",
@@ -2473,7 +2415,6 @@
   "couldNotSaveTrelloSetup": "Trello-Einrichtung konnte nicht gespeichert werden.",
   "couldNotSendConfirmationEmail": "Bestätigungs-E-Mail konnte nicht gesendet werden",
   "couldNotStart": "Start fehlgeschlagen",
-  "couldNotStartCheckoutCheckStripe": "Checkout konnte nicht gestartet werden. Prüfen Sie die Stripe-Konfiguration.",
   "countAIdAsFiles": "       COUNT(a.id) AS files,\n",
   "countAsRuns": "       COUNT(*) AS runs,\n",
   "countDistinctRIdAsRuns": "       COUNT(DISTINCT r.id) AS runs,\n",
@@ -2495,8 +2436,6 @@
   "cronExpression": "Cron-Ausdruck",
   "ctrlEnterRunsTheQuery": "Strg/⌘ + Enter führt die Abfrage aus.",
   "ctrlShiftSpace": "Ctrl + Shift + Space",
-  "currency": "Währung",
-  "currencyMustBeA3Letter": "Die Währung muss ein dreistelliger Code wie usd sein.",
   "currentEmailArg1": "Aktuelle E-Mail: {arg1}",
   "@currentEmailArg1": {
     "placeholders": {
@@ -2507,8 +2446,6 @@
   },
   "currentPassword": "Aktuelles Passwort",
   "currentPasswordIsIncorrect": "aktuelles Passwort ist falsch",
-  "currentPlan": "Aktueller Plan",
-  "currentPlan2": "AKTUELLER TARIF",
   "currentTwoStepLoginCode": "Aktueller Zwei-Schritt-Anmeldecode",
   "customAccess": "Benutzerdefinierter Zugriff",
   "customCron": "Eigener Cron",
@@ -2520,7 +2457,6 @@
   "customOpenaiCompatible": "Eigene OpenAI-kompatible",
   "customOpenaiCompatibleEndpoint": "Eigener OpenAI-kompatibler Endpunkt",
   "customOutgoingUrl": "Eigene ausgehende URL",
-  "customersOverridePlanStatusCanceledTrialing": "kunden überschreibung tarif status gekündigt testphase",
   "dAllowedPermissionsJsonAsAllowed": "       d.allowed_permissions_json AS allowed,\n",
   "dCreatedAtAsSince": "       d.created_at AS since\n",
   "daily": "Täglich",
@@ -2535,18 +2471,8 @@
     }
   },
   "dayOfMonth": "Tag des Monats",
-  "deactivate": "Deaktivieren",
-  "deactivateArg1": "{arg1} deaktivieren?",
-  "@deactivateArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "decideWhichToolsYourAgentMay": "es, welche Tools Ihr Agent nutzen darf. Es sieht Ihren Namen und ",
   "decisionHigherUpTheChainWins": "Entscheidung weiter oben in der Kette hat Vorrang und zeigt ein Schloss mit dem ",
-  "decisionsFromTodayThenListAnything": "Entscheidungen von heute zusammen, und liste dann auf, was ich ",
   "decisionsShowUpHereAsArg1": "Entscheidungen erscheinen hier, während {arg1} freigegebene {arg2}-Gruppen liest. Nur die letzten 30 werden behalten und beim Neustart des Servers zurückgesetzt.",
   "@decisionsShowUpHereAsArg1": {
     "placeholders": {
@@ -2696,7 +2622,6 @@
       }
     }
   },
-  "desktopToFinishTheJob": "Desktop, um die Aufgabe zu erledigen.",
   "destinationId": "Ziel-ID",
   "deviceAccess": "Gerätezugriff",
   "deviceSettings": "Geräteeinstellungen",
@@ -2732,7 +2657,6 @@
       }
     }
   },
-  "downloadPdf": "PDF herunterladen",
   "downloadUpdate": "Update herunterladen",
   "downloadingTheNeoagentBackend": "NeoAgent-Backend wird heruntergeladen",
   "draft": "Entwurf",
@@ -2745,14 +2669,6 @@
   "eGMyLocalServer": "z. B. Mein lokaler Server",
   "edit": "Bearbeiten",
   "editAgent": "Agent bearbeiten",
-  "editArg1": "{arg1} bearbeiten",
-  "@editArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "editCoreMemoryEntry": "Kernspeicher-Eintrag bearbeiten",
   "editInstructions": "Anweisungen bearbeiten",
   "editMcpServer": "MCP-Server bearbeiten",
@@ -2853,15 +2769,12 @@
   "everyAccountOnThisServerLoses": "Jedes Konto auf diesem Server verliert diesen gemeinsamen Schlüssel. Konten, ",
   "everyAccountOnThisServerSecrets": "jedes Konto auf diesem Server. Geheimnisse sind nur schreibbar: lassen Sie ",
   "everyAccountOnThisServerUses": "Jedes Konto auf diesem Server verwendet diese Adresse für ",
-  "everyAccountSSubscriptionMostRecently": "Abonnement jedes Kontos, zuletzt geänderte zuerst. ",
   "everyActiveSessionForThisAccount": "Jede aktive Sitzung für dieses Konto wird beendet. Die Anmeldung ist ",
   "everyDay0800": "Täglich · 08:00",
   "everyDay2000": "Täglich · 20:00",
   "everyHour": "Stündlich",
-  "everyModel": "jedes Modell zu erlauben.",
   "everyRunOnThisServerAll": "Jeder Lauf auf diesem Server, insgesamt.",
   "everySensitiveToolRequiresApprovalEvery": "Jedes sensible Tool erfordert jedes Mal eine Freigabe.",
-  "everySessionGetsAPrivateCloud": "Jede Sitzung erhält einen privaten Cloud-Computer, damit NeoAgent echte ",
   "everyToolRunsWithoutAskingExcept": "Jedes Tool läuft ohne Nachfrage, außer denen, die die Person ",
   "everyoneInTheseGroupsChannelsOr": "Alle in diesen Gruppen, Kanälen oder Räumen können mit {arg1} sprechen.",
   "@everyoneInTheseGroupsChannelsOr": {
@@ -2904,7 +2817,6 @@
       }
     }
   },
-  "existingSubscribersKeepAccessUntilTheir": "bestehende Abonnenten behalten den Zugang bis zum Periodenende.",
   "exitArg1": "[exit {arg1}]",
   "@exitArg1": {
     "placeholders": {
@@ -2942,7 +2854,6 @@
     }
   },
   "exploredTheWorkspace": "Arbeitsbereich erkundet",
-  "exportAll": "Alle exportieren",
   "exportFailedArg1": "Export fehlgeschlagen: {arg1}",
   "@exportFailedArg1": {
     "placeholders": {
@@ -2997,14 +2908,6 @@
       }
     }
   },
-  "failedToDismissOnboardingArg1": "Onboarding konnte nicht geschlossen werden: {arg1}",
-  "@failedToDismissOnboardingArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "failedToFetch": "Abruf fehlgeschlagen",
   "failedToGeneratePromptArg1": "Prompt konnte nicht erzeugt werden: {arg1}",
   "@failedToGeneratePromptArg1": {
@@ -3044,7 +2947,6 @@
   },
   "fair": "Ausreichend",
   "fasterReplies": "Schnellere Antworten",
-  "features": "Funktionen",
   "fewerModelCalls": "Weniger Modellaufrufe",
   "fieldEmptyToRestoreTheBuilt": "Feld leer, um den integrierten Standard wiederherzustellen.",
   "fileExceedsThe1MibEditor": "Datei überschreitet das 1-MiB-Editorlimit.",
@@ -3059,11 +2961,9 @@
   "findAPlatform": "Plattform finden",
   "findAndFixABug": "Einen Fehler finden und beheben",
   "findRecentChats": "Letzte Chats finden",
-  "findTheseLaterInTasks": "finden Sie sie später unter Aufgaben.",
   "findingTheCorrectNeoagentRuntime": "Passende NeoAgent-Laufzeit wird gesucht",
   "finish": "Fertig",
   "finishAtTheScheduledTime": "Zur geplanten Zeit fertig sein",
-  "finishSetup": "Einrichtung abschließen",
   "finishSigningInToArg1In": "Schließen Sie die Anmeldung bei {arg1} in Ihrem Browser ab und verbinden Sie sich dann erneut.",
   "@finishSigningInToArg1In": {
     "placeholders": {
@@ -3082,8 +2982,6 @@
   "forLinksInEmailsBlankUses": "Für Links in E-Mails. Leer lässt die öffentliche Server-URL gelten.",
   "forgotPassword": "Passwort vergessen?",
   "frameUnavailable": "Frame nicht verfügbar",
-  "freeTrialDays": "Kostenlose Testphase (Tage)",
-  "freeTrialMustBeAWhole": "Die kostenlose Testphase muss eine ganze Zahl an Tagen sein (0 oder mehr).",
   "freshnessArg1": "Aktualität: {arg1}",
   "@freshnessArg1": {
     "placeholders": {
@@ -3137,7 +3035,6 @@
     }
   },
   "getInspired": "Inspiration holen",
-  "gitCloneRepoNpmTest": "git clone repo && npm test",
   "githubCopilot": "GitHub Copilot",
   "githubCopilotAndOpenaiCodex": "GitHub Copilot und OpenAI Codex",
   "githubIssueOpened": "GitHub-Issue eröffnet",
@@ -3152,7 +3049,6 @@
   },
   "githubReleasePayloadWasNotA": "GitHub-Release-Payload war keine Release-Liste.",
   "githubUsernameThatOpenedTheIssue": "GitHub-Benutzername, der das Issue eröffnet hat",
-  "giveThePlanAName": "Geben Sie dem Tarif einen Namen.",
   "globalSecurityMode": "Globaler Sicherheitsmodus",
   "gmailMessageReceived": "Gmail-Nachricht empfangen",
   "good": "Gut",
@@ -3223,7 +3119,6 @@
       }
     }
   },
-  "hereSecretsAreWriteOnlyLeave": "hier ein. Geheimnisse sind nur schreibbar: lassen Sie eines leer, um es zu behalten.",
   "higherValuesMakeNeoagentMoreSelective": "Höhere Werte machen NeoAgent in Gruppen selektiver.",
   "highlyRecommended": "Sehr empfohlen",
   "holdButton131ForTheAssistant": "Taste 131 für den Assistenten gedrückt halten.",
@@ -3371,8 +3266,6 @@
   "inviteLinkReady": "Einladungslink bereit",
   "inviteLinks": "Einladungslinks",
   "iphoneApp": "iPhone-App",
-  "isAboutWhoIsInvolvedAnd": "es geht, wer beteiligt ist und was ich vorbereiten sollte. Wenn morgen ",
-  "isEmptyDoNotSendAnything": "nichts ansteht, sende nichts.",
   "issues": "Probleme",
   "issuesAppearOnceTheLogLoads": "Probleme erscheinen, sobald das Protokoll geladen ist.",
   "itCanTBeUndone": "Dies kann nicht rückgängig gemacht werden.",
@@ -3400,7 +3293,6 @@
   "jumpToLatest": "Zur neuesten springen",
   "justNow": "gerade eben",
   "keepNeoagentRunning": "NeoAgent weiterlaufen lassen?",
-  "keepPlan": "Tarif behalten",
   "keepRunning": "Weiterlaufen lassen",
   "keepTaskRunning": "Aufgabe weiterlaufen lassen",
   "keepTheVaultAvailable": "Tresor verfügbar halten",
@@ -3589,7 +3481,6 @@
   },
   "limit20": "LIMIT 20",
   "limit50": "LIMIT 50",
-  "linkAPhoneNumberThatBelongs": "Verknüpfen Sie eine Telefonnummer, die dem Agenten gehört. ",
   "linkArg1": "{arg1} verknüpfen",
   "@linkArg1": {
     "placeholders": {
@@ -3610,7 +3501,6 @@
       }
     }
   },
-  "linkYourOwnNumberAndTalk": "Verknüpfen Sie Ihre eigene Nummer und sprechen Sie mit dem Agenten in Ihrem ",
   "linkedSignInProviders": "Verknüpfte Anmeldeanbieter",
   "linuxApp": "Linux-App",
   "listedArg1": "{arg1}/ aufgelistet",
@@ -3664,13 +3554,11 @@
   "logsOnThisComputer": "Protokolle auf diesem Computer",
   "longLivedAccessToken": "Long-Lived Access Token",
   "longTermRecallStructuredFactsAnd": "Langzeitgedächtnis, strukturierte Fakten und Wissensgraph.",
-  "lookAtMyCalendarForTomorrow": "Schau in meinen Kalender für morgen. Für jeden Termin sag mir, worum ",
   "lookedAtTheScreen": "Bildschirm angesehen",
   "lookingOnThisComputerAndYour": "Suche auf diesem Computer und in Ihrem lokalen Netzwerk…",
   "looksAheadAtTomorrowSMeetings": "Blickt auf die morgigen Termine, damit Sie nichts überrascht.",
   "loopExecution": "Schleifenausführung",
   "loopPaused": "Schleife pausiert",
-  "lowerNumbersAreListedFirst": "Niedrigere Zahlen werden zuerst gelistet.",
   "macOsX": "mac os x",
   "macosAccessibilityIsNotGrantedTo": "macOS-Bedienungshilfen sind NeoAgent nicht gewährt. Erlauben Sie sie unter Systemeinstellungen › Datenschutz & Sicherheit › Bedienungshilfen.",
   "macosApp": "macOS-App",
@@ -3679,11 +3567,7 @@
   "main": "Hauptagent",
   "makeDefault": "Als Standard festlegen",
   "manage": "Verwalten",
-  "managePayment": "Zahlung verwalten",
-  "manageViaStripeCustomerPortal": "Über das Stripe-Kundenportal verwalten",
   "manageYourAccountEmailTwoFactor": "Verwalten Sie Ihre Konto-E-Mail, Zwei-Faktor-Authentifizierung und aktiven Sitzungen.",
-  "manageYourPlanTrackUsageUpdate": "Verwalten Sie Ihren Tarif, verfolgen Sie die Nutzung, aktualisieren Sie die Zahlung und prüfen Sie Rechnungen.",
-  "manageYourPlanTrackUsageUpdate2": "Verwalten Sie Ihren Tarif, verfolgen Sie die Nutzung, aktualisieren Sie die Zahlung und prüfen Sie Rechnungen — alles an einem Ort.",
   "managedBy": "Verwaltet von",
   "managerUsernameAsManagedBy": "       manager.username AS managed_by,\n",
   "managersCanHaveManagersOfTheir": "Manager können selbst Manager haben (bis zu vier Ebenen). Eine ",
@@ -3723,15 +3607,11 @@
   "memoryIngestionIntervalMs": "Speicher-Ingestionsintervall (ms)",
   "memoryIngestionIntervalMustBeAt": "Das Speicher-Ingestionsintervall muss mindestens 1000 ms betragen.",
   "memoryInjected": "Gedächtnis eingefügt",
-  "memoryMb": "Speicher (MB)",
-  "memoryMustBeAtLeast512": "Der Speicher muss mindestens 512 MB betragen.",
   "mentionOrReplyOnly": "Nur Erwähnung oder Antwort",
   "mergedServerAndFlutterRuntimeLogs": "Zusammengeführte Server- und Flutter-Laufzeitlogs für diese App-Sitzung.",
   "messageBodyTemplateJson": "Nachrichtenkörper-Vorlage (JSON)",
   "messageNeedsAccess": "Nachricht benötigt Zugriff",
   "messageTextField": "Nachrichtentextfeld",
-  "messageYouWithTheResultAdd": "melden Ihnen dann das Ergebnis. Fügen Sie eine hinzu, um zu starten, oder überspringen Sie und ",
-  "messageYourselfChatEveryOtherChat": "„Nachricht an mich selbst“-Chat. Alle anderen Chats und Gruppen auf ",
   "messaging": "Nachrichten",
   "messagingApiPushAndWebhookEvents": "Messaging-API-Push und Webhook-Ereignisse",
   "messagingConnectionNeedsAttention": "Messaging-Verbindung braucht Aufmerksamkeit",
@@ -3799,7 +3679,6 @@
   "modelAvailability": "Modellverfügbarkeit",
   "modelAvailabilitySaved": "Modellverfügbarkeit gespeichert.",
   "modelForThisSession": "Modell für diese Sitzung",
-  "modelIds": "Modell-IDs",
   "modelOverride": "Modellüberschreibung",
   "modelPending": "Modell ausstehend",
   "modelTurn": "Modellschritt",
@@ -3825,15 +3704,12 @@
   "mouseKeyboard": "Maus & Tastatur",
   "mousemoveIsNotSupportedOnThis": "mouseMove wird auf dieser Plattform nicht unterstützt.",
   "mustBeReachableOnThePublic": "Muss über das öffentliche Internet erreichbar sein -- lokale und ",
-  "n0TurnsTrialsOff": "0 schaltet Testphasen aus.",
   "n24Hours": "24 Stunden",
   "n2faOrRecoveryCode": "2FA- oder Wiederherstellungscode",
   "n2faRequiresSessionSecretToBe": "2FA erfordert, dass SESSION_SECRET auf diesem NeoAgent-Deployment konfiguriert ist.",
   "n30Days": "30 Tage",
   "n365Days": "365 Tage",
-  "n42Passing": "✓ 42 bestanden",
   "n4HourLimitTokens": "4-Stunden-Limit (Tokens)",
-  "n4HourTokenLimit": "4-Stunden-Token-Limit",
   "n4HourUsage": "4-Stunden-Nutzung",
   "n4hLimitArg1": "4-Std.-Limit {arg1}",
   "@n4hLimitArg1": {
@@ -3843,7 +3719,6 @@
       }
     }
   },
-  "n4hTokenWindow": "4-h-Token-Fenster",
   "n7DayUsage": "7-Tage-Nutzung",
   "n7Days": "7 Tage",
   "n90Days": "90 Tage",
@@ -3889,7 +3764,6 @@
   "neoagentDebugInfo": "NeoAgent-Debug-Info",
   "neoagentDesktopInstaller": "NeoAgent-Desktop-Installer",
   "neoagentFlutterUpdater": "NeoAgent Flutter Updater",
-  "neoagentHasItsOwnComputer": "NeoAgent hat einen\neigenen Computer.",
   "neoagentInstallsTheLatestArg1": "NeoAgent installiert die neueste {arg1} ",
   "@neoagentInstallsTheLatestArg1": {
     "placeholders": {
@@ -3957,7 +3831,6 @@
   },
   "newLink": "Neuer Link",
   "newPasswordsDoNotMatch": "Die neuen Passwörter stimmen nicht überein.",
-  "newPlan": "Neuer Tarif",
   "newRecoveryCodes": "Neue Wiederherstellungscodes",
   "newSession": "Neue Sitzung",
   "newSessionN": "Neue Sitzung (⌘N)",
@@ -3966,7 +3839,6 @@
   "newSkill2": "Neuer Skill",
   "newThisWeek": "Neu diese Woche",
   "newsDigest": "Nachrichtenüberblick",
-  "nextPage": "Nächste Seite",
   "nextRetryArg1": "Nächster Versuch: {arg1}",
   "@nextRetryArg1": {
     "placeholders": {
@@ -3983,9 +3855,7 @@
   "nickname": "Spitzname",
   "noAccountsConnectedYet": "Noch keine Konten verbunden.",
   "noAccountsFound": "Keine Konten gefunden.",
-  "noActivePlansYetCreateOne": "Noch keine aktiven Pläne. Erstellen Sie einen im Reiter Abrechnung.",
   "noActiveSessionsFound": "Keine aktiven Sitzungen gefunden.",
-  "noActiveSubscription": "Kein aktives Abonnement",
   "noAgentsYet": "Noch keine Agenten",
   "noAiProviderIsConfiguredSo": "Kein KI-Anbieter ist konfiguriert, daher können Chat und Messaging ",
   "noApprovalPromptsAgentRunsWithout": "Keine Freigabeaufforderungen — der Agent läuft ohne Unterbrechung.",
@@ -3997,17 +3867,8 @@
       }
     }
   },
-  "noArg1Subscriptions": "Keine {arg1}-Abonnements.",
-  "@noArg1Subscriptions": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "noArguments": "(keine Argumente)",
   "noAuth": "Keine Authentifizierung",
-  "noAvailableModelsYetCheckBack": "Noch keine Modelle verfügbar.\nSchauen Sie erneut nach, sobald ein Anbieter konfiguriert ist.",
   "noBindingsYet": "Noch keine Bindungen.",
   "noChangesYet": "Noch keine Änderungen",
   "noChannelsFound": "Keine Kanäle gefunden",
@@ -4044,11 +3905,9 @@
   "noHttpClientImplementationForThis": "Keine HTTP-Client-Implementierung für diese Plattform.",
   "noInputOrOutputWasRecorded": "Für diesen Schritt wurden keine Ein- oder Ausgaben aufgezeichnet.",
   "noIntegrationsMatchThisSearch": "Keine Integrationen passen zu dieser Suche.",
-  "noInvoicesYet": "Noch keine Rechnungen.",
   "noLimit": "Kein Limit",
   "noLocalPasswordIsSetYet": "Noch kein lokales Passwort festgelegt. Erstellen Sie eines, um die Anmeldung mit Benutzername/Passwort zu aktivieren.",
   "noLogEntries": "Keine Protokolleinträge.",
-  "noMatches": "Keine Treffer",
   "noMatchingSettings": "Keine passenden Einstellungen",
   "noMcpServersMatchThisSearch": "Keine MCP-Server passen zu dieser Suche.",
   "noMemoryEntriesFound": "Keine Speichereinträge gefunden.",
@@ -4062,7 +3921,6 @@
     }
   },
   "noModelRequestWasRecordedFor": "Für diese Ausführung wurde keine Modellanfrage aufgezeichnet.",
-  "noModelsAreAvailableYet": "Noch keine Modelle verfügbar.",
   "noModelsDiscoveredYet": "Noch keine Modelle gefunden",
   "noModelsSelected": "Keine Modelle ausgewählt",
   "noModelsYet": "Noch keine Modelle",
@@ -4076,8 +3934,6 @@
   "noOneCanMessage": "Niemand kann schreiben",
   "noOtherNeoagentServerWasFound": "Kein anderer NeoAgent-Server gefunden. Sie können erneut suchen oder eine Adresse manuell eingeben.",
   "noPeopleAddedYet": "Noch keine Personen hinzugefügt.",
-  "noPlansConfiguredYet": "Noch keine Tarife konfiguriert.",
-  "noPlansYet": "Noch keine Tarife.",
   "noPlatformsMatch": "Keine passenden Plattformen",
   "noProvidersAreAvailableToConfigure": "Es sind noch keine Anbieter zum Konfigurieren verfügbar.",
   "noRecentChannelActivity": "Keine aktuelle Kanalaktivität",
@@ -4099,7 +3955,6 @@
   "noSessionsYet": "Noch keine Sitzungen",
   "noSkillsMatchTheseFilters": "Keine Skills passen zu diesen Filtern.",
   "noStepsWereRecordedForThis": "Für diese Ausführung wurden keine Schritte aufgezeichnet.",
-  "noSubscription": "Kein Abonnement.",
   "noSummaryAvailable": "Keine Zusammenfassung verfügbar.",
   "noTasksForArg1": "Keine Aufgaben für {arg1}",
   "@noTasksForArg1": {
@@ -4160,16 +4015,11 @@
     }
   },
   "ofItsOwnItIsNever": "hat. Nach dem Speichern wird er nicht mehr angezeigt.",
-  "ofUpToFiveItemsWith": "mit bis zu fünf Punkten, je einem Satz und einem Link.",
   "off": "Aus",
-  "offTakesEffectAfterAServer": "wird nach einem Serverneustart wirksam.",
-  "offerSubscriptionPlansThroughStripeTurning": "Abonnementtarife über Stripe anbieten. Ein- oder Ausschalten ",
-  "offeredToPeopleChoosingAPlan": "Wird Personen angeboten, die einen Tarif wählen.",
   "officialIntegration": "Offizielle Integration",
   "officialIntegrationDidNotReturnA": "Die offizielle Integration hat keine Verbindungs-URL zurückgegeben.",
   "on": "An",
   "onASignedInAndroidDevice": "Öffnen Sie auf einem angemeldeten Android-Gerät Einstellungen › Anmeldung & Sicherheit, scannen Sie diesen Code und bestätigen Sie die Anmeldung.",
-  "onAndTheServerHasRestarted": "ist und der Server neu gestartet wurde.",
   "onByDefaultForNewGroups": "Standardmäßig an für neue Gruppen",
   "onDemand": "Bei Bedarf",
   "onForArg1OfArg2Groups": "Aktiv für {arg1} von {arg2} Gruppen",
@@ -4183,28 +4033,22 @@
       }
     }
   },
-  "onMyCalendarAndTheMost": "in meinem Kalender und die wichtigsten offenen Punkte, die ich kenne. ",
   "onTheyCanJoinAgainOnly": "eingeschaltet. Erneut beitreten geht nur mit einem neuen Einladungslink.",
   "onYourOwnTheDefault": "Auf sich gestellt (Standard)",
   "once": "Einmal",
   "oneBlankToKeepWhatIs": "ein Feld leer, um den gespeicherten Wert zu behalten.",
   "oneIsSavedOtherChangesIn": "gespeichert ist. Andere Änderungen in diesem Formular werden ebenfalls gespeichert.",
-  "oneLineSummaryEachIfNothing": "einzeiligen Zusammenfassung je Nachricht. Wenn nichts meine Aufmerksamkeit braucht, sende ",
   "oneOrMoreAccountsExpiredReconnect": "Ein oder mehrere Konten sind abgelaufen. Verbinden Sie das betroffene Konto erneut, um den Werkzeugzugriff wiederherzustellen.",
-  "onePerLineShownOnThe": "Eine pro Zeile, wird auf der Preisseite angezeigt.",
   "oneRegister": "Registrierung immer zu.",
   "oneRuntimeControlsPersonaGroupTurn": "Eine Runtime steuert Persona, Gruppen-Rederecht, Raumgedächtnis, Normen, Theory of Mind und Zustellung.",
-  "oneTimeFree": "Einmalig / kostenlos",
   "oneTimeRun": "Einmaliger Lauf",
   "onlyApkOrApksFilesCan": "Nur .apk- oder .apks-Dateien können installiert werden.",
   "onlyInThisGroup": "Nur in dieser Gruppe",
-  "onlyMessageMeAboutEmailsThat": "Schreibe mir nur zu E-Mails, die dringend sind oder eine Antwort brauchen, mit einer ",
   "onlyNeededIfTheServiceAsks": "Nur nötig, wenn der Dienst zusätzliche HTTP-Header verlangt.",
   "onlyNeededIfYouWantTo": "Nur nötig, wenn Sie die ausgehende Nutzlast umformen möchten.",
   "onlyTheyCanChangeIt": "Nur diese Person kann das ändern.",
   "open": "Öffnen",
   "openAccountSettingsOnASigned": "Öffnen Sie Einstellungen › Anmeldung & Sicherheit auf einem angemeldeten Android-Gerät, scannen Sie diesen Code und bestätigen Sie die Anmeldung.",
-  "openBrowserCheckingDocs": "Browser öffnen → Docs prüfen",
   "openComputer": "Computer öffnen",
   "openDashboard": "Dashboard öffnen",
   "openFolder": "Ordner öffnen…",
@@ -4217,7 +4061,6 @@
       }
     }
   },
-  "openTheComputerTabNextTo": "Öffnen Sie den Computer-Tab neben einer Sitzung, um den Bildschirm ",
   "openTimeSettings": "Zeiteinstellungen öffnen",
   "openToAnyone": "Für alle offen",
   "openTrello": "Trello öffnen",
@@ -4263,8 +4106,6 @@
   "outgoingMessage": "Ausgehende Nachricht",
   "outgoingWebhookUrl": "Ausgehende Webhook-URL",
   "outlookEmailReceived": "Outlook-E-Mail empfangen",
-  "overrideAssignsAPlanWithoutGoing": "Überschreiben weist einen Tarif zu, ohne über Stripe zu gehen.",
-  "overridePlan": "Tarif überschreiben",
   "overwriteBehaviorNotesFromTheImport": "Verhaltensnotizen aus dem Import überschreiben.",
   "ownModel": "eigenes Modell",
   "packageName": "Paketname",
@@ -4284,7 +4125,6 @@
     }
   },
   "passwordsDoNotMatch": "Die Passwörter stimmen nicht überein.",
-  "pastDue": "Überfällig",
   "pasteAKey": "Schlüssel einfügen.",
   "pasteANewKeyToReplace": "Neuen Schlüssel einfügen, um {arg1} zu ersetzen",
   "@pasteANewKeyToReplace": {
@@ -4309,7 +4149,6 @@
   "pauseLiveUpdates": "Live-Updates pausieren",
   "pauseTaskLoop": "Aufgabenschleife pausieren",
   "paused": "Pausiert",
-  "paymentMethod": "Zahlungsmethode",
   "peakArg1": "Spitze {arg1}",
   "@peakArg1": {
     "placeholders": {
@@ -4322,15 +4161,6 @@
   "perAccountRateLimits": "Ratenlimits pro Konto",
   "perCategoryPermissions": "Berechtigungen nach Kategorie",
   "perToolPermissionPoliciesApprovalGates": "Berechtigungsrichtlinien pro Tool, Freigabeschritte und Prozessisolation für die Shell-Ausführung.",
-  "periodEndsArg1": "Periode endet {arg1}",
-  "@periodEndsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "permanentlyAllowedNeverAsksAgain": "Dauerhaft erlaubt — fragt nie wieder nach.",
   "permissionRequiredArg1": "Berechtigung erforderlich: {arg1}",
   "@permissionRequiredArg1": {
     "placeholders": {
@@ -4366,23 +4196,9 @@
     }
   },
   "pickOneToFillInThe": "Wählen Sie eine Vorlage für die Aufgabe. Sie können danach alles anpassen.",
-  "pickTheModelNeoagentShouldUse": "Wählen Sie das Modell, das NeoAgent standardmäßig nutzen soll. Anbieter werden auf dem Server konfiguriert.",
   "picksUpWhereYouLeftOff": "Macht dort weiter, wo Sie aufgehört haben",
-  "plan": "Tarif",
-  "planForArg1APlanAssigned": "Plan für @{arg1}. Ein hier zugewiesener Plan ",
-  "@planForArg1APlanAssigned": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "planId": "Tarif-ID",
-  "planIdMayOnlyUseLetters": "Die Tarif-ID darf nur Buchstaben, Zahlen, Unterstriche und Bindestriche enthalten.",
-  "planUsageAndAllowanceDetails": "Plannutzung und Kontingentdetails",
+  "plan": "Plan",
   "planning": "Planung",
-  "plans": "Tarife",
-  "plansAndSubscriptionsShowUpHere": "Tarife und Abonnements erscheinen hier, sobald die Abrechnung aktiviert ",
   "platform": "Plattform",
   "platformArg1Arg2": "Plattform {arg1}{arg2}",
   "@platformArg1Arg2": {
@@ -4408,7 +4224,6 @@
   "port": "Port",
   "portNodeEnvPublicUrlTrust": "port node_env public url trust proxy secure cookies deployment",
   "premiumAutomationWithScheduleAndIntegration": "Premium-Automatisierung mit Zeitplan- und Integrationsauslösern.",
-  "prepareMyMorningBriefingTodayS": "Bereite mein Morgenbriefing vor: das heutige Wetter an meinem Standort, die Termine ",
   "prepareQrCode": "QR-Code vorbereiten",
   "preparingNeoagent": "NeoAgent wird vorbereitet…",
   "preparingNeoagent2": "NeoAgent wird vorbereitet",
@@ -4422,13 +4237,8 @@
       }
     }
   },
-  "previousPage": "Vorherige Seite",
-  "priceInCents": "Preis in Cent",
-  "priceMustBeAWholeNumber": "Der Preis muss eine ganze Zahl in Cent sein (0 oder mehr).",
   "priceUnknown": "Preis unbekannt",
-  "pricingPriceSubscriptionTiersCreateEdit": "preise preis abo stufen erstellen bearbeiten",
   "primaryDisplay": "Hauptanzeige",
-  "privateAndIsolated": "Privat und isoliert",
   "privateChat": "Privater Chat",
   "privateChats": "Private Chats",
   "privateChats2": "private Chats",
@@ -4474,9 +4284,7 @@
   "publicIssueAndPullRequestThreads": "Öffentliche Issue- und Pull-Request-Threads, nur für freigegebene Personen beantwortet.",
   "publicUrl": "Öffentliche URL",
   "publicUrlAndAllowedOrigins": "Öffentliche URL und erlaubte Origins",
-  "publicUrlApiBillingWebhookAnd": "<public URL>/api/billing/webhook und fügen Sie das Signiergeheimnis ",
   "publicUrlOverride": "Öffentliche URL überschreiben",
-  "publishableKey": "Veröffentlichbarer Schlüssel",
   "pullsTogetherTheDayAhead": "Fasst den kommenden Tag zusammen",
   "pushToTalk": "Push-to-Talk",
   "qrBasedPhoneLinking": "QR-basierte Telefonverknüpfung",
@@ -4531,8 +4339,6 @@
   "ready": "Bereit",
   "readyForFirstTimeSetup": "Bereit für die Ersteinrichtung",
   "readyToConnect": "Bereit zur Verbindung",
-  "realWorkInsteadOfJustTalking": "Arbeit erledigen kann, statt nur darüber zu sprechen.",
-  "recapMyDaySummarizeTheConversations": "Fasse meinen Tag zusammen: fasse die Gespräche, erledigte Arbeit und ",
   "recentChannelActivity": "Letzte Kanalaktivität",
   "recentChats": "Letzte Chats",
   "recentDecisions": "Letzte Entscheidungen",
@@ -4551,7 +4357,6 @@
   "recentUsage4Hours": "Aktuelle Nutzung (4 Stunden)",
   "recents": "Zuletzt",
   "recipientField": "Empfängerfeld",
-  "recommended": "EMPFOHLEN",
   "reconnectOrFinishSetup": "Erneut verbinden oder Einrichtung abschließen",
   "reconnectingThisDevice": "Dieses Gerät wird erneut verbunden…",
   "recurring": "Wiederkehrend",
@@ -4675,14 +4480,6 @@
   "reset": "Zurücksetzen",
   "resetPassword": "Passwort zurücksetzen",
   "resetView": "Ansicht zurücksetzen",
-  "resetsArg1": "Zurücksetzen am {arg1}",
-  "@resetsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "responsibilities": "Zuständigkeiten",
   "restart": "Neu starten",
   "restartToFinishTheUpdate": " Neu starten, um die Aktualisierung abzuschließen.",
@@ -4702,7 +4499,6 @@
       }
     }
   },
-  "reviewMyWeekWhatGotDone": "Schau meine Woche durch: was erledigt wurde, was liegengeblieben ist und was noch offen ist. ",
   "reviewUncommittedChanges": "Nicht committete Änderungen prüfen",
   "revoke": "Widerrufen",
   "revokeAdminWithNeoagentAdminRevoke": "Zuerst Admin-Rechte mit `neoagent admin revoke {arg1}` entziehen",
@@ -4763,7 +4559,6 @@
   "runningTask": "Aufgabe wird ausgeführt",
   "runningTool": "Tool wird ausgeführt",
   "runs": "Läufe",
-  "runsCommandsBrowsesTheWebAnd": "Führt Befehle aus, durchsucht das Web und bearbeitet Dateien auf einem echten Linux-",
   "runsEveryDayAtTheSelected": "Läuft jeden Tag zur gewählten Uhrzeit.",
   "runsFourTimesPerHour": "Läuft viermal pro Stunde.",
   "runsMessagesMemoriesIntegrationsFilesAnd": "— Läufe, Nachrichten, Erinnerungen, Integrationen, Dateien und ",
@@ -4811,7 +4606,6 @@
   "save": "Speichern",
   "saveATrelloApiKeyFor": "Speichern Sie einen Trello-API-Schlüssel für diesen Agenten und verbinden Sie anschließend sicher ein Trello-Konto. Das Kontotoken wird auf dem Server gespeichert und nur für diesen Agenten verwendet.",
   "saveAccount": "Konto speichern",
-  "saveBillingSetup": "Abrechnungseinrichtung speichern",
   "saveChanges": "Änderungen speichern",
   "saveCloudComputerSettings": "Cloud-Computer-Einstellungen speichern",
   "saveConnect": "Speichern & Verbinden",
@@ -4823,17 +4617,8 @@
   "saveName": "Name speichern",
   "saveNeoagentSetupDiagnostics": "NeoAgent-Einrichtungsdiagnose speichern",
   "saveOnly": "Nur speichern",
-  "savePlan": "Tarif speichern",
   "saveSetup": "Einrichtung speichern",
   "saveTheseRecoveryCodesNowThey": "Speichern Sie diese Wiederherstellungscodes jetzt. Sie werden nicht erneut angezeigt.",
-  "saveUpToArg1Yearly": "Bis zu {arg1} % jährlich sparen",
-  "@saveUpToArg1Yearly": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "savedDeliveryDestination": "Gespeichertes Zustellziel",
   "savedRateLimitsForArg1": "Ratenlimits für @{arg1} gespeichert.",
   "@savedRateLimitsForArg1": {
@@ -4874,20 +4659,18 @@
   "scrollToBottom": "Nach unten scrollen",
   "search": "Suchen",
   "search2": "Suchen…",
-  "searchAdminSettingsEGStripe": "Admin-Einstellungen suchen (z. B. Stripe, SMTP, Ollama, Logs)",
+  "searchAdminSettingsEGSmtp": "Admin-Einstellungen suchen (z. B. SMTP, Ollama, Logs)",
   "searchAgain": "Erneut suchen",
   "searchByUsernameOrEmail": "Nach Benutzername oder E-Mail suchen",
   "searchChannels": "Kanäle suchen",
   "searchDiscoveredMessagingChannelsContactsGroups": "Durchsuchen Sie erkannte Messaging-Kanäle, Kontakte, Gruppen und aktuelle Unterhaltungen.",
   "searchGroups": "Gruppen suchen",
   "searchMemory": "Gedächtnis durchsuchen",
-  "searchModels": "Modelle suchen",
   "searchModelsOrProviders": "Modelle oder Anbieter suchen",
   "searchModelsOrProviders2": "Modelle oder Anbieter suchen…",
   "searchRecentPeopleAndGroups": "Letzte Personen und Gruppen suchen",
   "searchSessions": "Sitzungen suchen",
   "searchSettings": "Einstellungen suchen",
-  "searchTheWebForTodayS": "Suche im Web nach den wichtigsten heutigen Nachrichten zu den Themen, die mich ",
   "searchTitleModelTriggerRunId": "Titel, Modell, Auslöser, Ausführungs-ID suchen",
   "searchToolsIntegrationsAndSkills": "Tools, Integrationen und Skills suchen",
   "searchedCodeForArg1": "Code nach \"{arg1}\" durchsucht",
@@ -4907,7 +4690,6 @@
     }
   },
   "secretField": "Geheimfeld",
-  "secretKey": "Geheimschlüssel",
   "secureCookies": "Sichere Cookies",
   "security": "Sicherheit",
   "securityKey": "Sicherheitsschlüssel",
@@ -4943,7 +4725,6 @@
   "send": "Senden (⌘↵)",
   "send2": "Senden",
   "sendATaskFromChatAnd": "Senden Sie eine Aufgabe aus dem Chat – der Ausführungsverlauf erscheint hier.",
-  "sendItAsAShortScannable": "Sende es als kurze, gut überblickbare Nachricht.",
   "sendItToATeammateWith": "senden Sie ihn an ein Teammitglied mit einem Konto auf diesem Server.",
   "sendLink": "Link senden",
   "sendPath": "Sendepfad",
@@ -4967,7 +4748,6 @@
   "serverNickChannelAndOptionalTls": "Server, Nick, Kanal und optional TLS",
   "serverOutputConsoleWarningsErrorsCopy": "server ausgabe konsole warnungen fehler kopieren",
   "serverProviderCredentials": "Server-Anbieter-Zugangsdaten",
-  "serverToStopIt": "Server neu, um sie zu beenden.",
   "serverUrl": "Server-URL",
   "serverUsageLimitsDonTApply": "Servernutzungslimits gelten nicht für Modelle mit Ihrem eigenen Schlüssel.",
   "serverWithNoAccountsYetAlways": "Server ohne Konten lässt die erste ",
@@ -4975,7 +4755,6 @@
   "serviceEmailIsNotConfigured": "Service-E-Mail ist nicht konfiguriert",
   "serviceEmailSmtp": "Service-E-Mail (SMTP)",
   "sessionActions": "Sitzungsaktionen",
-  "sessionToThisDeviceWhenYou": "Sitzung auf Dieses Gerät um, wenn lokal gearbeitet werden soll.",
   "sessions": "Sitzungen",
   "sessions2": "SITZUNGEN",
   "sessionsArePinnedToAFolder": "Sitzungen sind an einen Ordner und einen Computer gebunden. Starten Sie eine, um von hier aus zu planen, zu bauen, zu testen und auszuliefern.",
@@ -4984,7 +4763,6 @@
   "setBlockAskAllowPerTool": "Blockieren / Fragen / Erlauben pro Tool-Kategorie festlegen oder einen globalen Modus wählen.",
   "setUpNeoagentOnThisComputer": "NeoAgent auf diesem Computer einrichten",
   "setUpOrConnectNeoagent": "NeoAgent einrichten oder verbinden",
-  "setUpYourWorkspaceInA": "Richten Sie Ihren Workspace in wenigen Schritten ein und nutzen Sie NeoAgent sofort.",
   "setUrl": "URL festlegen",
   "settings": "Einstellungen",
   "settingsAndCannotBeUndone": "Einstellungen und kann nicht rückgängig gemacht werden.",
@@ -5028,6 +4806,55 @@
   "signInWithASecurityKey": "Mit Sicherheitsschlüssel anmelden",
   "signInWithArg1": "Mit {arg1} anmelden",
   "@signInWithArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "approveNeoagentInYourArg1Account": "Erlauben Sie NeoAgent den Zugriff in Ihrem {arg1}-Konto. Kein Schlüssel zum Kopieren.",
+  "@approveNeoagentInYourArg1Account": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "waitingForArg1FinishInYourBrowser": "Warte auf {arg1}. Schließen Sie den Vorgang im Browser ab.",
+  "@waitingForArg1FinishInYourBrowser": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "pasteTheArg1Code": "{arg1}-Code einfügen",
+  "@pasteTheArg1Code": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "arg1ShowedAOneTimeCode": "Nach Ihrer Freigabe hat {arg1} einen Einmalcode angezeigt. Fügen Sie ihn hier ein.",
+  "@arg1ShowedAOneTimeCode": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "signInCode": "Anmeldecode",
+  "signedInWithArg1": "Mit {arg1} angemeldet.",
+  "@signedInWithArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "signInFailedArg1": "Anmeldung fehlgeschlagen: {arg1}",
+  "@signInFailedArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"
@@ -5084,7 +4911,6 @@
   "skip": "Überspringen",
   "skipForNow": "Vorerst überspringen",
   "skipThisTaskBeforeItCalls": "Diese Aufgabe überspringen, bevor sie das Modell aufruft.",
-  "skipsStripeCheckout": "überspringt den Stripe-Checkout.",
   "slackMessageReceived": "Slack-Nachricht empfangen",
   "sleepArg1Sessions": "Schlaf {arg1} Sitzungen",
   "@sleepArg1Sessions": {
@@ -5094,7 +4920,6 @@
       }
     }
   },
-  "smallestCurrencyUnit1900Is19": "Kleinste Währungseinheit: 1900 entspricht 19,00.",
   "smartSelector": "Smart Selector",
   "smartSelector2": "Smart Selector",
   "smartSelectorPool": "Smart-Selector-Pool",
@@ -5115,8 +4940,6 @@
   "socialReachUpdated": "Social Reach aktualisiert.",
   "socialSourcesAgentsCanReadDirectly": "Soziale Quellen, die Agenten direkt lesen können, einschließlich Feeds, Repositories, Reddit, X, Videos und cookiegestützter Marktdaten.",
   "somethingWentWrongPleaseTryAgain": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
-  "sortOrder": "Sortierreihenfolge",
-  "sortOrderMustBeAWhole": "Die Sortierreihenfolge muss eine ganze Zahl sein.",
   "source": "Quelle",
   "spaceOrChatIdUsedWhen": "Space- oder Chat-ID, die verwendet wird, wenn dieser Agent eine Unterhaltung startet.",
   "spaceWebhookAndAppCallbackSupport": "Space-Webhook und App-Callback-Unterstützung",
@@ -5209,32 +5032,15 @@
     }
   },
   "storage": "Speicher",
-  "storedArg1": "Gespeichert: {arg1}",
-  "@storedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "storedEncryptedAndOnlyUsedFor": "verschlüsselt gespeichert und nur für Ihre eigenen Läufe verwendet.",
   "storedMetrics": "Gespeicherte Metriken",
   "storesOnlyTheBitwardenSessionKey": "Speichert nur den Bitwarden-Sitzungsschlüssel verschlüsselt auf diesem Server, damit Verbindungen Neustarts überstehen. Sie können ihn jederzeit sperren.",
-  "stripeBilling": "Stripe-Abrechnung",
-  "stripeKeysForPaidPlansPoint": "Stripe-Schlüssel für kostenpflichtige Tarife. Richten Sie einen Stripe-Webhook auf ",
-  "stripePriceId": "Stripe-Preis-ID",
-  "stripeSetup": "Stripe-Einrichtung",
   "strong": "Stark",
   "strongPassword": "Starkes Passwort.",
   "subAgent": "Subagent",
   "subagentUpdate": "Subagent-Update",
   "subagentUpdate2": "Subagent-Update.",
-  "subscription": "Abonnement",
-  "subscriptionBillingOverrideComp": "abo abrechnung überschreibung gratis",
-  "subscriptionCanceled": "Abonnement gekündigt.",
-  "subscriptions": "Abonnements",
   "successRate": "Erfolgsrate",
-  "suggestTheThreeMostImportantThings": "Schlage die drei wichtigsten Dinge vor, auf die ich mich nächste Woche konzentrieren sollte.",
   "suggestionsArg1": "Vorschläge: {arg1}",
   "@suggestionsArg1": {
     "placeholders": {
@@ -5255,7 +5061,6 @@
   "tableInfoUsers": "Tabelleninfo (users)",
   "tagsOnly": "Nur Markierungen",
   "tasks": "Aufgaben",
-  "tasksRunOnAScheduleOr": "Aufgaben laufen nach Zeitplan oder bei Ereignissen und ",
   "tasksRunOnTheirOwnAnd": "Aufgaben laufen selbstständig und senden Ihnen das ",
   "teach": "Beibringen",
   "teachingInProgress": "Einlernen läuft",
@@ -5292,7 +5097,6 @@
     }
   },
   "theBrowserBlockedARequiredRequest": "Der Browser hat eine erforderliche Anfrage wegen der Content Security Policy blockiert.",
-  "theCloudComputerIsSandboxedFrom": "Der Cloud-Computer ist von Ihren Geräten abgeschirmt. Stellen Sie eine ",
   "theCloudWorkspace": "den Cloud-Arbeitsbereich",
   "theComputerCouldNotStart": "Der Computer konnte nicht gestartet werden",
   "theComputerNeedsMoreFreeDisk": "Der Computer braucht mehr freien Speicherplatz auf dem NeoAgent-Host. Geben Sie Speicherplatz frei und versuchen Sie es erneut.",
@@ -5341,7 +5145,6 @@
   "theMainAgentIsCreatedAutomatically": "Der Hauptagent wird bei Bedarf automatisch erstellt.",
   "theMatchingNeoagentRuntimeIsMissing": "Die passende NeoAgent-Laufzeit fehlt in diesem Release.",
   "theMattermostIncomingWebhookThisAgent": "Der eingehende Mattermost-Webhook, an den dieser Agent posten soll.",
-  "theModelListCouldNotBe": "Die Modellliste konnte nicht geladen werden. Geben Sie Modell-IDs durch ",
   "theModelsTheSmartSelectorRoutes": "Die Modelle, zwischen denen der Smart Selector automatisch routet.",
   "theNeoagentBackendDownloadDidNot": "Der NeoAgent-Backend-Download stimmt nicht mit dem Manifest überein.",
   "theNeoagentBackendDownloadWasIncomplete": "Der NeoAgent-Backend-Download war unvollständig.",
@@ -5373,7 +5176,6 @@
   "theNeoagentRuntimeManifestSignatureIs": "Die Signatur des NeoAgent-Laufzeitmanifests ist ungültig.",
   "thePasswordYouSetInBluebubbles": "Das Passwort, das Sie in BlueBubbles festgelegt haben.",
   "thePeopleYouManageStayWith": "Die Personen, die Sie verwalten, bleiben bei Ihnen.",
-  "thePlanStopsBeingOfferedIt": "Der Tarif wird nicht mehr angeboten. Er bleibt erhalten, wird nicht gelöscht, und ",
   "theProviderAnswers": "der Anbieter antwortet.",
   "theQueryReturnedNoRows": "Die Abfrage hat keine Zeilen zurückgegeben.",
   "theRequestedDesktopDisplayIsNot": "Die angeforderte Desktop-Anzeige ist nicht verfügbar.",
@@ -5387,7 +5189,6 @@
   "theServerOnThisComputerIs": "Der Server auf diesem Computer läuft nicht",
   "theServerReportedNoHealthChecks": "Der Server hat keine Gesundheitsprüfungen gemeldet.",
   "theSignalPhoneNumberThisBot": "Die Signal-Telefonnummer, die dieser Bot verwendet.",
-  "theSubscriptionPlansPeopleCanChoose": "Die Abonnementtarife, aus denen Personen wählen können.",
   "theTeamsIncomingWebhookThisAgent": "Der eingehende Teams-Webhook, an den dieser Agent posten soll.",
   "theTwoFactorChallengeExpiredSign": "Die Zwei-Faktor-Herausforderung ist abgelaufen. Melden Sie sich erneut an.",
   "theTwoFactorCodeIsNot": "Der Zwei-Faktor-Code ist ungültig.",
@@ -5432,7 +5233,6 @@
   },
   "thesePeopleInOneGroup": "Diese Personen, in einer Gruppe",
   "theseSwitchesNeverYourChatsMemories": "diese Schalter, nie Ihre Chats, Erinnerungen oder Dateien.",
-  "thisAccountIsIgnored": "diesem Konto werden ignoriert.",
   "thisAccountWillUnlockNeoagentOn": "Dieses Konto entsperrt NeoAgent auf diesem Gerät.",
   "thisAgentCanDelegateToAny": "Dieser Agent kann an jeden geeigneten empfangenden Agenten delegieren.",
   "thisAgentIsUsingAServer": "Dieser Agent verwendet einen serverseitig verwalteten Trello-API-Schlüssel. Sie müssen unten nur ein Kontotoken autorisieren.",
@@ -5491,7 +5291,6 @@
   "thisRunDidNotProduceA": "Dieser Lauf hat keine für den Nutzer sichtbare Antwort erzeugt.",
   "thisRunHasNoRecordedStep": "Diese Ausführung hat keine aufgezeichneten Schrittdaten.",
   "thisServer": "diesen Server erreichen.",
-  "thisServerIsAlreadySetUp": "Dieser Server ist bereits eingerichtet. Melden Sie sich mit einem bestehenden Konto an.",
   "thisServerReportsNoProviderSettings": "Dieser Server meldet keine Anbietereinstellungen.",
   "thisSkillIsNoLongerInstalled": "Dieser Skill ist nicht mehr installiert.",
   "thisTaskHasNoCompletedRun": "Diese Aufgabe hat noch keinen abgeschlossenen Lauf, startet also weiterhin zur ",
@@ -5521,7 +5320,6 @@
       }
     }
   },
-  "tickTheModelsThisPlanMay": "Haken Sie die Modelle an, die dieser Tarif nutzen darf. Alle unangehakt lassen, um ",
   "time": "Zeit",
   "timeZone": "Zeitzone",
   "timeZone2": "Zeitzone",
@@ -5578,7 +5376,6 @@
   "tokenBudgetForEveryAccountWithout": "Token-Kontingent für jedes Konto ohne eigene Überschreibung. Lassen Sie ein ",
   "tokenBudgetLimit4HourWeekly": "token budget limit 4 stunde wöchentlich kontingent benutzer",
   "tokenBudgetLimit4HourWeekly2": "token budget limit 4 stunde wöchentlich kontingent global",
-  "tokenLimitsMustBeWholeNumbers": "Token-Limits müssen ganze Zahlen sein oder leer für den Standard.",
   "tokenUsageUnavailableOnThisServer": "Token-Nutzung auf dieser Serverversion nicht verfügbar.",
   "tokensAnyAccountMayUseIn": "Tokens, die jedes Konto in 4 Stunden nutzen darf.",
   "tokensAnyAccountMayUseIn2": "Tokens, die jedes Konto in 7 Tagen nutzen darf.",
@@ -5586,7 +5383,6 @@
   "tokensPerRun": "Tokens pro Lauf",
   "tokensToday": "Tokens heute",
   "tokensUsed": " Tokens verbraucht",
-  "tomorrowKeepItShortAndSend": "morgen nachverfolgen sollte. Halte es kurz und sende es mir.",
   "tomorrowPrep": "Vorbereitung für morgen",
   "tooManyAttempts": "zu viele Versuche",
   "tooManySignInAttemptsPlease": "Zu viele Anmeldeversuche. Bitte warten Sie und versuchen Sie es erneut.",
@@ -5718,7 +5514,6 @@
   "unknownError": "unbekannter Fehler",
   "unknownLocalComputerPermission": "Unbekannte lokale Computerberechtigung.",
   "unknownLocation": "Unbekannter Standort",
-  "unknownPlan": "Unbekannter Tarif",
   "unknownPublishTime": "Unbekannter Veröffentlichungszeitpunkt",
   "unknownSize": "Unbekannte Größe",
   "unlink": "Trennen",
@@ -5741,7 +5536,6 @@
     }
   },
   "unusualSignInAlerts": "Hinweise zu ungewöhnlichen Anmeldungen",
-  "update": "Aktualisieren",
   "updateArg1": "Update {arg1}",
   "@updateArg1": {
     "placeholders": {
@@ -5783,7 +5577,6 @@
   "usageLeaderboard": "nutzung rangliste",
   "usageLimits": "Nutzung & Limits",
   "usageLimits2": "Nutzung & Limits",
-  "usageThisPeriod": "Nutzung in dieser Periode",
   "use8CharactersLongerPassphrasesWork": "Verwenden Sie mindestens 8 Zeichen. Längere Passphrasen eignen sich gut.",
   "useADateAndTimeFor": "Datum und Uhrzeit angeben, zum Beispiel 2026-07-03T09:00:00.",
   "useANamePhoneNumberOr": "Nutzen Sie einen Namen, eine Telefonnummer oder eine Chat-ID.",
@@ -5794,6 +5587,24 @@
   "useASecureConnectionTls": "Sichere Verbindung verwenden (TLS)",
   "useAnAuthenticatorAppSuchAs": "Verwenden Sie eine Authenticator-App wie Authy, 1Password oder Google Authenticator.",
   "useAtLeast1Vcpu": "Mindestens 1 vCPU verwenden.",
+  "maxMemoryPerComputerMb": "Max. Arbeitsspeicher pro Computer (MB)",
+  "maxVcpusPerComputer": "Max. vCPUs pro Computer",
+  "atLeastArg1ComputersGetLess": "Mindestens {arg1}. Computer bekommen weniger, wenn der Host ausgelastet ist.",
+  "@atLeastArg1ComputersGetLess": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "maxMemoryMustBeAtLeastArg1Mb": "Der maximale Arbeitsspeicher muss mindestens {arg1} MB betragen.",
+  "@maxMemoryMustBeAtLeastArg1Mb": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
   "useAtLeast8Characters": "Verwenden Sie mindestens 8 Zeichen.",
   "useDefault": "Standard verwenden",
   "useDefaultChannel": "Standardkanal verwenden",
@@ -5888,7 +5699,6 @@
   "viewDesktop": "Desktop anzeigen",
   "viewLastRun": "Letzten Lauf anzeigen",
   "viewLogs": "Protokolle anzeigen",
-  "viewPlans": "Tarife anzeigen",
   "vmImageMemoryCpuQemuRuntime": "vm image speicher cpu qemu laufzeit",
   "voice": "Stimme",
   "voiceAssistant": "Sprachassistent",
@@ -5922,7 +5732,6 @@
       }
     }
   },
-  "watchItLive": "Live zusehen",
   "weak": "Schwach",
   "weatherCalendarAndPrioritiesBeforeYour": "Wetter, Kalender und Prioritäten, bevor Ihr Tag beginnt.",
   "weatherEvent": "Wetterereignis",
@@ -5931,7 +5740,6 @@
   "webSearchApiKey": "websuche api key",
   "webhookOrRestChannelPosting": "Webhook- oder REST-Kanal-Posting",
   "webhookSecret": "Webhook-Geheimnis",
-  "webhookSigningSecret": "Webhook-Signiergeheimnis",
   "webhookUrlCopied": "Webhook-URL kopiert",
   "weekdays": "Wochentage",
   "weekdays0730": "Wochentags · 07:30",
@@ -5947,8 +5755,6 @@
   },
   "weeklyLimitTokens": "Wochenlimit (Tokens)",
   "weeklyReview": "Wochenrückblick",
-  "weeklyTokenLimit": "Wöchentliches Token-Limit",
-  "weeklyTokens": "Wöchentliche Tokens",
   "weeklyUsage": "Wöchentliche Nutzung",
   "weightArg1Records": "Gewicht {arg1} Einträge",
   "@weightArg1Records": {
@@ -5972,7 +5778,6 @@
   "whereRStatusFailed": "WHERE r.status = ''failed''\n",
   "whereSRevokedAtIsNull": "WHERE s.revoked_at IS NULL\n",
   "whereThisAgentShouldSendReplies": "Wohin dieser Agent Antworten senden soll.",
-  "whileItWorks": "während der Arbeit zu sehen.",
   "whoCanMessage": "Wer darf schreiben",
   "whoCanMessageOnArg1": "Wer darf auf {arg1} schreiben",
   "@whoCanMessageOnArg1": {
@@ -6042,7 +5847,6 @@
       }
     }
   },
-  "worksLikeYouWould": "Arbeitet, wie Sie es würden",
   "workspaceConfigurationAndAccountSecurityIn": "Arbeitsbereichskonfiguration und Kontosicherheit an einem Ort.",
   "workspaceFiles": "Workspace-Dateien",
   "workspaceModelsAndDiagnosticsControls": "Steuerung für Arbeitsbereich, Modelle und Diagnose.",
@@ -6057,7 +5861,6 @@
   },
   "xaiOauth": "xAI (OAuth)",
   "xmlhttprequestError": "XMLHttpRequest-Fehler",
-  "yearly": "Jährlich",
   "yesterday": "Gestern",
   "youAreInControl": "Sie haben die Kontrolle",
   "youCanFollowAlongOnThe": "Sie können auf dem Desktop mitverfolgen.",
@@ -6094,7 +5897,6 @@
   "yourMattermostSiteUrlIfYou": "Ihre Mattermost-Site-URL, falls Sie die REST API verwenden.",
   "yourSessionExpiredOrWasNot": "Ihre Sitzung ist abgelaufen oder wurde vom Browser nicht behalten. Bitte melden Sie sich erneut an.",
   "yourSessionExpiredPleaseSignIn": "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.",
-  "yourSubscriptionWillRemainActiveUntil": "Ihr Abonnement bleibt bis zum Ende der Abrechnungsperiode aktiv.",
   "yourUsernameOrPasswordIsIncorrect": "Ihr Benutzername oder Passwort ist falsch.",
   "yubikeyMacbookTouchId": "YubiKey, MacBook Touch ID, …",
   "yubikeyOtp": "YubiKey OTP",
@@ -6159,9 +5961,6 @@
   "setUp": "Einrichten",
   "leaveBlankToKeepTheStoredValue": "Leer lassen, um den gespeicherten Wert zu behalten",
   "thisRemovesTheAddressForEveryAccount": "Dadurch wird die Adresse für jedes Konto auf diesem Server entfernt.",
-  "allModels": "Alle Modelle",
-  "optionalAndPermanentBlankGeneratesOne": "Optional und dauerhaft. Leer erzeugt einen.",
-  "noSubscriptionsYet": "Noch keine Abonnements.",
   "justTalkYouCanInterruptAtAny": "Sprechen Sie einfach. Sie können jederzeit unterbrechen. Tippen Sie zum Stummschalten.",
   "tapAgainWhenYouAreDone": "Tippen Sie erneut, wenn Sie fertig sind.",
   "workingOnATaskInTheBackground": "Eine Aufgabe wird im Hintergrund bearbeitet.",
@@ -6174,7 +5973,6 @@
   "untitledLink": "Unbenannter Link",
   "stopsWorkingAfterOnePersonRedeemsIt": "Verliert die Gültigkeit, sobald eine Person den Link einlöst.",
   "theOperator": "Die Bedienperson",
-  "getStarted": "Loslegen",
   "smartSelectorOn": "Smart Selector an",
   "startASessionToBegin": "Starten Sie eine Sitzung, um zu beginnen",
   "steerTheActiveRun": "Aktiven Lauf steuern…",
@@ -6197,7 +5995,6 @@
   "clickTheMicToStartSpeaking": "Klicken Sie auf das Mikrofon, um zu sprechen",
   "connectACustomEndpoint": "Eigenen Endpunkt verbinden",
   "hostedProvider": "gehosteten Anbieter.",
-  "serverToStartIt": "Server neu, um sie zu starten.",
   "muted": " • stumm",
   "addWhoCanMessage": "Festlegen, wer schreiben darf",
   "joinsGroupConversations": "Nimmt an Gruppengesprächen teil",
@@ -6429,30 +6226,6 @@
         "type": "Object?"
       },
       "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
-  "trialEndsArg1": "Testphase endet {arg1}",
-  "@trialEndsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "cancelsAtEndOfPeriodArg1": "Endet zum Periodenende · {arg1}",
-  "@cancelsAtEndOfPeriodArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "renewsArg1": "Verlängert sich {arg1}",
-  "@renewsArg1": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -6716,14 +6489,6 @@
       }
     }
   },
-  "userArg1": "Benutzer #{arg1}",
-  "@userArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "inArg1": " in {arg1}",
   "@inArg1": {
     "placeholders": {
@@ -6776,14 +6541,14 @@
   "settingsSearchHint": "Alle Einstellungen durchsuchen",
   "settingsPageProfile": "Profil",
   "settingsPageSecurity": "Anmeldung & Sicherheit",
-  "settingsPageUsage": "Tarif & Nutzung",
+  "settingsPageUsage": "Nutzung",
   "settingsPagePermissions": "Berechtigungen",
   "settingsPageComputer": "Computer & Web",
   "settingsPageBehavior": "Verhalten",
   "settingsPageSystem": "System",
   "settingsPageProfileDescription": "Ihr Name und Ihre E-Mail, eine Kopie Ihrer Daten und das Abmelden.",
   "settingsPageSecurityDescription": "Passwort, Zwei-Faktor-Authentifizierung, Sicherheitsschlüssel und wo Sie angemeldet sind.",
-  "settingsPageUsageDescription": "Ihre Limits, Ihr Token-Verbrauch und Ihr Tarif an einem Ort.",
+  "settingsPageUsageDescription": "Ihre Limits und Ihr Token-Verbrauch an einem Ort.",
   "settingsPageAgentsDescription": "Agenten anlegen und festlegen, welcher standardmäßig antwortet.",
   "settingsPagePermissionsDescription": "Was Ihre Agenten tun dürfen, ohne vorher zu fragen.",
   "settingsPageComputerDescription": "Der Computer, auf dem Ihre Agenten arbeiten, und die Seiten, die sie in Ihrem Namen lesen können.",
@@ -6851,7 +6616,6 @@
   "settingsSignOutDescription": "Meldet Sie nur auf diesem Gerät ab.",
   "settingsDeleteAccountDescription": "Löscht Ihr Konto, Ihre Agenten, Erinnerungen und Einstellungen. Das lässt sich nicht rückgängig machen.",
   "settingsTokenUsage": "Token-Verbrauch",
-  "settingsAvailablePlans": "Verfügbare Tarife",
   "settingsSearchNoMatch": "Keine Einstellung passt zu „{query}“.",
   "settingsSearchResultCount": "{count, plural, =1{1 Treffer} other{{count} Treffer}}",
   "settingsAdvancedModels": "Erweiterte Modelleinstellungen",
@@ -7051,5 +6815,94 @@
         "type": "Object?"
       }
     }
-  }
+  },
+  "authVerify": "Bestätigen",
+  "authCreateAccount": "Konto erstellen",
+  "authNewInviteLink": "Neuer Einladungslink",
+  "authShowPassword": "Passwort anzeigen",
+  "authHidePassword": "Passwort verbergen",
+  "authPasswordWillBeRejected": "zu schwach, wird abgelehnt",
+  "authUsernameTooShort": "Der Benutzername muss mindestens 3 Zeichen lang sein.",
+  "authUsernameTaken": "Dieser Benutzername ist bereits vergeben.",
+  "authSignupsClosed": "Auf diesem Server sind keine Registrierungen möglich. Bitten Sie den Administrator um ein Konto.",
+  "authInsecureTransportArg1": "Dieser Server akzeptiert Anmeldungen nur über HTTPS. Öffnen Sie stattdessen {arg1}.",
+  "@authInsecureTransportArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "authInsecureTransport": "Dieser Server akzeptiert Anmeldungen nur über HTTPS. Verbinden Sie sich über eine https://-Adresse.",
+  "authAccountNotFound": "Dieses Konto existiert nicht mehr.",
+  "authQrRateLimited": "Zu viele QR-Anmeldeanfragen. Warten Sie einen Moment und aktualisieren Sie dann den Code.",
+  "authForgotPasswordAskAdmin": "Passwort vergessen? Bitten Sie Ihren Server-Administrator, es unter Admin → Users zurückzusetzen.",
+  "authChangeServer": "Server wechseln",
+  "authSigningInToArg1": "Anmeldung bei {arg1}",
+  "@authSigningInToArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "authNotANeoagentServer": "Unter dieser Adresse antwortet kein NeoAgent-Server. Prüfen Sie die URL und versuchen Sie es erneut.",
+  "authSecureConnectionFailedArg1": "Es konnte keine sichere HTTPS-Verbindung zu {arg1} hergestellt werden.",
+  "@authSecureConnectionFailedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "authNoHttpsOrHttpArg1": "{arg1} ist weder über HTTPS noch über unverschlüsseltes HTTP erreichbar. Prüfen Sie Adresse und Port.",
+  "@authNoHttpsOrHttpArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "adminResetPassword": "Passwort zurücksetzen",
+  "adminResetPasswordForArg1": "Passwort für {arg1} zurücksetzen",
+  "@adminResetPasswordForArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "adminResetPasswordBodyArg1": "Legen Sie ein neues Passwort für {arg1} fest. Das Konto wird auf allen Geräten abgemeldet und meldet sich danach mit diesem Passwort an.",
+  "@adminResetPasswordBodyArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "adminNewPassword": "Neues Passwort",
+  "adminSetPassword": "Passwort festlegen",
+  "authMissingFields": "Füllen Sie alle Pflichtfelder aus.",
+  "adminAuditPasswordResetArg1Arg2": "{arg1} hat das Passwort von {arg2} zurückgesetzt",
+  "@adminAuditPasswordResetArg1Arg2": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      },
+      "arg2": {
+        "type": "Object?"
+      }
+    }
+  },
+  "adminPasswordUpdated": "Passwort aktualisiert; der Benutzer wurde überall abgemeldet.",
+  "authSignInTitle": "Bei NeoAgent anmelden",
+  "authSignInSubtitle": "Scannen Sie mit Ihrem Handy oder verwenden Sie Ihr Passwort.",
+  "authOrUsePassword": "oder mit Passwort",
+  "qrLoginWaitingTitle": "Auf dem Handy bestätigen",
+  "qrLoginWaitingBody": "Ihr Handy hat den Code gescannt. Bestätigen Sie die Anmeldung dort, um fortzufahren.",
+  "qrLoginSigningInOn": "Anmeldung auf",
+  "qrLoginLocation": "Standort",
+  "qrLoginWaitingForApproval": "Warte auf Bestätigung",
+  "qrLoginCancelAndUsePassword": "Abbrechen und Passwort verwenden",
+  "qrLoginDeclinedOnPhone": "Die Anmeldung wurde auf dem Handy abgelehnt. Scannen Sie den neuen Code, um es erneut zu versuchen."
 }

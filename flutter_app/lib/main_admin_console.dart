@@ -7,7 +7,6 @@ enum _AdminTab {
   models,
   integrations,
   config,
-  billing,
   analytics,
   sql,
 }
@@ -27,8 +26,6 @@ extension on _AdminTab {
         return appStrings.integrations;
       case _AdminTab.config:
         return 'Configuration';
-      case _AdminTab.billing:
-        return appStrings.billing;
       case _AdminTab.analytics:
         return 'Analytics';
       case _AdminTab.sql:
@@ -50,8 +47,6 @@ extension on _AdminTab {
         return Icons.extension_outlined;
       case _AdminTab.config:
         return Icons.tune;
-      case _AdminTab.billing:
-        return Icons.credit_card;
       case _AdminTab.analytics:
         return Icons.insights_outlined;
       case _AdminTab.sql:
@@ -114,12 +109,6 @@ List<_AdminSearchEntry> _adminSearchIndex = <_AdminSearchEntry>[
     _AdminTab.users,
     appStrings.tokenBudgetLimit4HourWeekly2,
     card: appStrings.defaultRateLimits,
-  ),
-  _AdminSearchEntry(
-    appStrings.assignAPlanToAnAccount,
-    _AdminTab.users,
-    appStrings.subscriptionBillingOverrideComp,
-    card: 'Accounts',
   ),
   _AdminSearchEntry(
     appStrings.accessActivity,
@@ -272,24 +261,6 @@ List<_AdminSearchEntry> _adminSearchIndex = <_AdminSearchEntry>[
     card: appStrings.serviceEmail,
   ),
   _AdminSearchEntry(
-    appStrings.stripeSetup,
-    _AdminTab.billing,
-    appStrings.billingStripeKeysWebhookSecretTrial,
-    card: appStrings.stripeBilling,
-  ),
-  _AdminSearchEntry(
-    'Plans',
-    _AdminTab.billing,
-    appStrings.pricingPriceSubscriptionTiersCreateEdit,
-    card: 'Plans',
-  ),
-  _AdminSearchEntry(
-    'Subscriptions',
-    _AdminTab.billing,
-    appStrings.customersOverridePlanStatusCanceledTrialing,
-    card: 'Subscriptions',
-  ),
-  _AdminSearchEntry(
     appStrings.usageAnalytics,
     _AdminTab.analytics,
     appStrings.statsRunsTokensUsersChartsSuccess,
@@ -355,11 +326,11 @@ class _AdminPanelState extends State<AdminPanel> {
           title: 'Admin',
           subtitle:
               appStrings.runThisServerAccountsUpdatesProviders +
-              appStrings.andBillingTeamLinksLiveOn,
+              appStrings.andAnalyticsTeamLinksLiveOn,
         ),
         _SearchField(
           controller: _search,
-          hintText: appStrings.searchAdminSettingsEGStripe,
+          hintText: appStrings.searchAdminSettingsEGSmtp,
           onChanged: (_) => setState(() {}),
           onClear: () => setState(_search.clear),
           onSubmitted: (_) {
@@ -409,8 +380,6 @@ class _AdminPanelState extends State<AdminPanel> {
         return _AdminIntegrationsTab(controller: controller);
       case _AdminTab.config:
         return _AdminConfigTab(controller: controller);
-      case _AdminTab.billing:
-        return _AdminBillingTab(controller: controller);
       case _AdminTab.analytics:
         return _AdminAnalyticsTab(controller: controller);
       case _AdminTab.sql:

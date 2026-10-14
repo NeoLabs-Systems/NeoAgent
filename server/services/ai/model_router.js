@@ -151,7 +151,7 @@ function selectInitialModel({
       .some((model) => model?.runtimeUnavailable === true);
     throw routingUnavailableError(coolingDown
       ? 'All AI models are temporarily unavailable after provider errors. The next run will retry after their recovery window.'
-      : 'No AI providers are configured. Add a provider API key in the admin dashboard, then try again.');
+      : 'No AI model is available. Add a provider API key in Settings → API keys (or ask your server admin), then try again.');
   }
   if (pools.readyModels.length === 0) {
     throw routingUnavailableError('All discovered AI models are temporarily unavailable. The next run will retry after their recovery window.');

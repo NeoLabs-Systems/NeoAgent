@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const db = require('../../db/database');
 const { getDeploymentPolicy } = require('../../utils/deployment');
 const { isReservedAdminUsername } = require('../access/admin');
+const { isUsernameTaken } = require('./credentials');
 const { decryptValue, encryptValue } = require('../integrations/secrets');
 const { createAuthProviderRegistry } = require('./auth_providers/registry');
 const { parseJsonObject } = require('../../utils/text');
@@ -399,10 +400,7 @@ class AuthProviderManager {
     for (let attempt = 0; attempt < 1000; attempt += 1) {
       const suffix = attempt === 0 ? '' : String(attempt + 1);
       const username = `${normalizedBase}${suffix}`.slice(0, 32);
-      const existing = db.prepare(
-        'SELECT id FROM users WHERE username = ?',
-      ).get(username);
-      if (!existing && !isReservedAdminUsername(username)) return username;
+      if (!isUsernameTaken(username) && !isReservedAdminUsername(username)) return username;
     }
     return `user${Date.now().toString().slice(-6)}`;
   }

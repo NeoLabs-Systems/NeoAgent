@@ -1,0 +1,9 @@
+# Hardware-accelerated cloud computers on a Linux host with KVM.
+# KVM_GID=$(stat -c %g /dev/kvm) docker compose -f compose.yaml -f compose.kvm.yaml up -d
+services:
+  neoagent:
+    devices:
+      - /dev/kvm
+    group_add:
+      # The server runs as uid 1000; /dev/kvm is usually readable only by the kvm group.
+      - ${KVM_GID:?Set KVM_GID to the group of /dev/kvm, e.g. KVM_GID=$(stat -c %g /dev/kvm)}

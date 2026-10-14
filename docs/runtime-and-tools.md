@@ -6,67 +6,133 @@ description: One Computer provider contract, the QEMU guest, control leases, ADB
 
 # Runtime and tool execution
 
-*Tool security is checked before dispatch, independent of the model that asked.*
+**Browser, desktop, shell and file tools run on one computer per user, and every tool call passes the security hook before it is dispatched.**
 
-## 🧩 Unified computer runtime
+## Computer providers
 
-Browser, desktop, shell, and workspace tools use one provider selected for the
-user's **Computer**: `CloudQemuComputerProvider` or the outbound authenticated
-desktop-app bridge. Provider selection happens once at the runtime boundary;
-the agent tools, control leases, file panels, shell, and browser/desktop loop
-do not maintain parallel implementations or silently fall back.
+`RuntimeManager` (`services/runtime/manager.js`) resolves one provider per user and routes every computer tool to it.
 
-The local provider supports macOS, Windows, and Linux desktop apps. Screen,
-input, workspace files, and shell/app access are independent capabilities.
-The desktop app can grant each capability once or persistently, deny it, or
-revoke it later. Files exposed through the file tools are scoped to
-`NeoAgent Workspace` in the local user's home directory. Shell commands run as
-that signed-in OS user and never as the NeoAgent server host when the server is
-remote.
+| Provider | Backend | Runs on |
+|---|---|---|
+| `cloud`, `TERMINAL_ENV=qemu` | `LocalVmExecutionBackend` + `QemuVMManager` | Per-user Debian VM |
+| `cloud`, `TERMINAL_ENV=docker` | `LocalVmExecutionBackend` + `DockerVMManager` | Container `neoagent-guest-<user>`, home volume `neoagent-home-<user>` |
+| `cloud`, `TERMINAL_ENV=host` | `LocalComputerBackend` + `HostCompanionRegistrar` | The server's own OS session |
+| `local` | `LocalComputerBackend` + `DesktopCompanionRegistry` | A signed-in desktop app |
 
-Teach Mode remains cloud-only because its recorder depends on the guest's CDP,
-AT-SPI, shell, and file event collectors.
+- **One factory.** `services/runtime/backend_factory.js` turns `TERMINAL_ENV` into a backend for both the server and the CLI.
+- **Selection.** The user's choice is stored as `computer_provider` in `user_settings`; a run can target `cloud` or `local` with `deviceTarget`.
+- **No silent fallback.** A missing provider returns an error; switching is refused while an agent or Teach Mode holds control.
+- **Browser.** The browser runs inside the computer; the host browser controller is disabled.
 
-## ☁️ Cloud provider
+## Cloud computer on QEMU
 
-The immutable Debian base image is paired with a persistent system overlay and
-a separate sparse data disk for home, workspace, browser sessions, packages,
-and Python environments. Temporary caches and logs may be cleaned. The guest
-agent is authenticated with a generated token; VNC, QMP, and guest-agent ports
-bind only to loopback and are exposed through authenticated same-origin
-proxies.
+| Part | Detail |
+|---|---|
+| Base image | Digest-verified Debian 13 cloud image in `data/computers/images/` |
+| System disk | `system.qcow2` overlay on the base image; kept as `system.previous.qcow2` when the image revision changes |
+| Data disk | Sparse `data.qcow2` mounted at `/home/neo`; the agent works in `/home/neo/workspace` |
+| Guest agent | `server/guest_agent.js` on port 8421, authenticated with the per-instance `guest-token` |
+| Display and control | VNC and QMP on UNIX sockets in the instance directory, or loopback ports |
+| Boot | UEFI on first boot, then checksum-verified direct kernel boot from the cached `vmlinuz` and `initrd.img` |
+| Startup target | Ready desktop within 10 seconds with hardware acceleration |
+| Acceleration | KVM, HVF or WHPX; TCG compatibility mode allows one computer at a time |
 
-The scheduler derives capacity from host RAM, logical CPUs, free storage, and
-the configured reserves. Hardware acceleration uses KVM, HVF, or WHPX; TCG is
-an explicit compatibility mode with reduced parallelism.
+- **Instances.** Per-user disks live in `data/computers/instances/<user>/`.
+- **Capacity.** Concurrent computers are limited by host memory after the reserve and by logical CPUs minus one.
+- **Storage.** A start is refused (`COMPUTER_STORAGE_CAPACITY`) when free space minus the reserve cannot cover unwritten sparse disks.
+- **Settings.** The `NEOAGENT_COMPUTER_*` limits are listed in [Configuration](configuration.md).
 
-After the first provisioned boot, the runtime checksum-caches the guest kernel
-and initramfs beside the per-user disks. Normal starts use verified direct boot
-while retaining UEFI as the provisioning and recovery path. This keeps a
-hardware-accelerated ready desktop within the ten-second startup budget on the
-supported baseline.
+## Control leases
 
-## 🎛️ Control leases
+One owner at a time drives a computer's input.
 
-User, agent, and Teach Mode input is mutually exclusive. A user takeover asks
-the active run to pause and then grants user control. An active run keeps the
-computer awake; an idle computer is shut down without deleting its disks.
+| Owner | Acquired by | Effect |
+|---|---|---|
+| `agent` | Computer tools during a run | Viewers watch without input |
+| `user` | `POST /api/computer/control/acquire` | Pauses the run holding the lease first |
+| `teach` | `POST /api/computer/teach/start` | Records a Teach Mode session; cloud only |
 
-## 🤖 Android
+- **Expiry.** A lease lasts 35 minutes from its last acquire.
+- **Display sessions.** Viewer tokens last 5 minutes and are revoked when control changes or the computer stops.
+- **Idle shutdown.** A computer stops after `NEOAGENT_VM_IDLE_TIMEOUT_MS` (10 minutes) idle; a cloud control lease keeps it awake; disks are kept.
 
-Android remains a separate per-user provider that executes through ADB on the
-NeoAgent host. Its device selection, screenshots, UI observation, input,
-intents, application installation, and shell commands do not use the Linux
-computer.
+## Local computer
 
-## 🛂 Tool security hook
+The macOS, Windows and Linux desktop apps can act as the computer.
 
-`before_tool_call` runs before execution. Sensitive categories use the user's
-deny, approval, session-allow, or persistent-allow policy. Approval waits are
-delivered through Socket.IO, and denial or timeout is returned to the agent as
-a structured blocked result.
+1. The app connects outbound to `/api/computer/local/ws` with its signed-in session.
+2. The server sends commands from `services/desktop/protocol.js`: capture, observe, click, type, launch apps, file operations, shell commands.
+3. The app checks its own permission for each command before running it.
+
+| Permission | Covers |
+|---|---|
+| `screen` | Screenshots and streaming |
+| `input` | Mouse and keyboard |
+| `files` | List, read, write and search inside the workspace folder (`NeoAgent Workspace` by default) |
+| `shell` | Commands and app launches as the signed-in OS user |
+
+- **Grants.** Each permission can be allowed once, allowed always, denied or revoked in the app.
+- **Teach Mode.** Requires the cloud computer (`TEACH_MODE_CLOUD_REQUIRED`); its recorder depends on the guest's accessibility and browser collectors.
+
+## Android
+
+- **Controller.** `services/android/controller.js`, one instance per user, driven through ADB on the server host.
+- **SDK.** Command-line tools download into `NEOAGENT_HOME/android-sdk`; emulators live in `NEOAGENT_HOME/android/avd`.
+- **Separate.** Android tools never touch the computer provider; routes are under `/api/android`.
+
+## Tool sources
+
+| Source | Defined in |
+|---|---|
+| Built-in tools | `services/ai/tools.js`, larger handlers in `services/ai/integrated_tools/` |
+| Integration tools | Providers in `services/integrations/`, exposed only for connected apps |
+| Skills | `SkillRunner` (`services/ai/toolRunner.js`), loaded from `agent-data/skills` |
+| MCP tools | `services/mcp/client.js`; remote `http(s)` servers only |
+
+## Dispatch path
+
+`runToolCall()` in `services/ai/runtime/tool_turn.js`:
+
+1. **Scrub.** Invisible characters are removed from the arguments, so approvals show what will run.
+2. **Record.** An `agent_steps` row and `run:tool_start` event are written.
+3. **Hook.** `before_tool_call` runs the security hooks.
+4. **Repeat check.** The repetition guard blocks an exact call that already failed twice.
+5. **Execute.** The tool runs with the run's user, agent, computer target and abort signal.
+6. **Compact.** `compactToolResult()` trims large results before they reach the model.
+7. **Finish.** The step, `run:tool_end` and the run's trust record are updated.
+
+## Security hooks
+
+`services/security/tool_security_hook.js` registers three `before_tool_call` hooks; a hook that throws blocks the call.
+
+| Priority | Hook | Blocks when |
+|---|---|---|
+| 1 | `tool-delegation-check` | The account's manager removed the tool's category |
+| 5 | `tool-policy-check` | The category policy is `deny` |
+| 10 | `tool-approval-gate` | Approval is needed and the owner denies it or does not answer in 30 seconds |
+
+| Setting | Values | Stored in |
+|---|---|---|
+| Category policy | `allow`, `deny`, `require_approval` | `tool_policies` |
+| Security mode | `default`, `allow_all`, `always_ask` | `tool_security_mode` user setting, or `NEOAGENT_TOOL_SECURITY_MODE` for the process |
+
+The approval gate also asks when `services/security/trust_policy.js` flags a call:
+
+- **Audience review.** Someone other than the owner is steering the run; applies even in `allow_all`.
+- **Taint review.** The run read outside content, and the call would reach a new recipient or host, persist an instruction, or send a credential.
+
+- **Delivery.** Approvals arrive as `tool:approval_required` and resolve as `tool:approval_resolved`.
+- **Result.** A blocked call returns a structured reason to the model instead of an error.
+
+## Credential broker
+
+- **Tools.** `credential_fill_browser`, `credential_submit_browser`, `credential_cancel_browser`, `credential_http_request`.
+- **Source.** Bitwarden items bound to an HTTPS origin and path prefix (`credential_bindings`).
+- **Secrecy.** The model handles an opaque fill ID or the HTTP response, never the secret; each use is logged in `credential_usage_audit`.
 
 :::warning No destination-level egress filtering
-The runtime does not currently provide destination-level network egress
-filtering. See [Security](security-boundaries.md) for deployment guidance.
+- **Any host.** Outbound traffic from the cloud computer is not filtered by destination.
+- **Private hosts.** `http_request` refuses private, loopback and reserved addresses.
+- **Taint review.** The approval gate asks before a tainted run sends data somewhere new.
+- **Deployment.** See [Security](security-boundaries.md).
 :::

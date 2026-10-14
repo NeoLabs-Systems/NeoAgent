@@ -4,17 +4,22 @@ part of 'main.dart';
 /// per-provider API keys, or a custom OpenAI-compatible endpoint, instead of
 /// relying on the shared server keys. Keys are encrypted server-side and are
 /// never shown again once saved -- only a "configured" state is displayed.
-class _ByokSettingsCard extends StatefulWidget {
-  const _ByokSettingsCard({required this.controller});
+class ByokSettingsCard extends StatefulWidget {
+  const ByokSettingsCard({super.key, required this.controller});
 
   final NeoAgentController controller;
 
   @override
-  State<_ByokSettingsCard> createState() => _ByokSettingsCardState();
+  State<ByokSettingsCard> createState() => _ByokSettingsCardState();
 }
 
-class _ByokSettingsCardState extends State<_ByokSettingsCard> {
+class _ByokSettingsCardState extends State<ByokSettingsCard> {
   bool _loadedOnce = false;
+  String? _signingInProviderId;
+
+  /// Bumped by every start and cancel, so a cancelled sign-in that is still
+  /// polling can never touch a newer one.
+  int _signInAttempt = 0;
 
   @override
   void initState() {
@@ -25,6 +30,56 @@ class _ByokSettingsCardState extends State<_ByokSettingsCard> {
   Future<void> _load() async {
     await widget.controller.refreshByokProviders();
     if (mounted) setState(() => _loadedOnce = true);
+  }
+
+  Future<void> _signIn(String providerId, String providerLabel) async {
+    final controller = widget.controller;
+    final attempt = ++_signInAttempt;
+    bool isCurrent() => attempt == _signInAttempt;
+    setState(() => _signingInProviderId = providerId);
+    try {
+      final signIn = await controller.startProviderSignIn(providerId);
+      if (!mounted || !isCurrent()) return;
+      if (signIn.needsCode) {
+        final completed = await showDialog<bool>(
+          context: context,
+          builder: (_) => _ProviderSignInCodeDialog(
+            controller: controller,
+            signIn: signIn,
+            providerLabel: providerLabel,
+          ),
+        );
+        if (completed != true) return;
+      } else {
+        await controller.waitForProviderSignIn(
+          signIn,
+          isActive: () => mounted && isCurrent(),
+        );
+      }
+      if (!mounted || !isCurrent()) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(appStrings.signedInWithArg1(providerLabel))),
+      );
+    } catch (error) {
+      // A cancelled attempt already cleared the busy state; stay quiet then.
+      if (!mounted || !isCurrent()) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            appStrings.signInFailedArg1(controller.friendlyErrorMessage(error)),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted && isCurrent()) setState(() => _signingInProviderId = null);
+    }
+  }
+
+  void _cancelSignIn() {
+    setState(() {
+      _signInAttempt++;
+      _signingInProviderId = null;
+    });
   }
 
   @override
@@ -57,9 +112,170 @@ class _ByokSettingsCardState extends State<_ByokSettingsCard> {
               style: TextStyle(color: _textSecondary),
             ),
           )
-        else
+        else ...<Widget>[
+          for (final provider in providers)
+            if (provider['signInAvailable'] == true &&
+                provider['configured'] != true)
+              _ProviderSignInRow(
+                providerLabel: provider['label']?.toString() ?? '',
+                waiting: _signingInProviderId == provider['id'],
+                enabled: _signingInProviderId == null,
+                onSignIn: () => _signIn(
+                  provider['id']?.toString() ?? '',
+                  provider['label']?.toString() ?? '',
+                ),
+                onCancel: _cancelSignIn,
+              ),
           for (final provider in providers)
             _ByokProviderRow(controller: controller, provider: provider),
+        ],
+      ],
+    );
+  }
+}
+
+/// "Sign in with OpenRouter" and similar: adds a provider without copying a key.
+class _ProviderSignInRow extends StatelessWidget {
+  const _ProviderSignInRow({
+    required this.providerLabel,
+    required this.waiting,
+    required this.enabled,
+    required this.onSignIn,
+    required this.onCancel,
+  });
+
+  final String providerLabel;
+  final bool waiting;
+  final bool enabled;
+  final VoidCallback onSignIn;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsRow(
+      label: appStrings.signInWithArg1(providerLabel),
+      description: waiting
+          ? appStrings.waitingForArg1FinishInYourBrowser(providerLabel)
+          : appStrings.approveNeoagentInYourArg1Account(providerLabel),
+      control: waiting
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 8),
+                TextButton(onPressed: onCancel, child: Text(appStrings.cancel)),
+              ],
+            )
+          : FilledButton.icon(
+              onPressed: enabled ? onSignIn : null,
+              icon: const Icon(Icons.login_rounded, size: 18),
+              label: Text(appStrings.signInWithArg1(providerLabel)),
+            ),
+    );
+  }
+}
+
+/// Paste flow for servers the provider can't redirect back to (plain http on
+/// a LAN address): the provider shows a one-time code instead.
+class _ProviderSignInCodeDialog extends StatefulWidget {
+  const _ProviderSignInCodeDialog({
+    required this.controller,
+    required this.signIn,
+    required this.providerLabel,
+  });
+
+  final NeoAgentController controller;
+  final ProviderSignIn signIn;
+  final String providerLabel;
+
+  @override
+  State<_ProviderSignInCodeDialog> createState() =>
+      _ProviderSignInCodeDialogState();
+}
+
+class _ProviderSignInCodeDialogState extends State<_ProviderSignInCodeDialog> {
+  final TextEditingController _codeController = TextEditingController();
+  bool _submitting = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final code = _codeController.text.trim();
+    if (code.isEmpty) return;
+    setState(() {
+      _submitting = true;
+      _errorMessage = null;
+    });
+    try {
+      await widget.controller.completeProviderSignIn(widget.signIn, code);
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(
+        () => _errorMessage = widget.controller.friendlyErrorMessage(error),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(appStrings.pasteTheArg1Code(widget.providerLabel)),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              appStrings.arg1ShowedAOneTimeCode(widget.providerLabel),
+              style: TextStyle(color: _textSecondary, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _codeController,
+              autofocus: true,
+              autocorrect: false,
+              enabled: !_submitting,
+              decoration: InputDecoration(labelText: appStrings.signInCode),
+              onSubmitted: (_) => _submit(),
+            ),
+            if (_errorMessage != null) ...<Widget>[
+              const SizedBox(height: 8),
+              Text(_errorMessage!, style: TextStyle(color: _danger)),
+            ],
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: _submitting
+              ? null
+              : () => Navigator.of(context).pop(false),
+          child: Text(appStrings.cancel),
+        ),
+        FilledButton(
+          onPressed: _submitting ? null : _submit,
+          child: _submitting
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Text(appStrings.continue2),
+        ),
       ],
     );
   }
@@ -178,7 +394,13 @@ class _ByokProviderRow extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(appStrings.couldNotRemoveKeyArg1(e))),
+          SnackBar(
+            content: Text(
+              appStrings.couldNotRemoveKeyArg1(
+                controller.friendlyErrorMessage(e),
+              ),
+            ),
+          ),
         );
       }
     }
@@ -265,6 +487,7 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
         apiKey: widget.supportsApiKey ? apiKey : null,
         baseUrl: widget.supportsBaseUrl ? _baseUrlController.text.trim() : null,
       );
+      if (!mounted) return;
       setState(() {
         _testOk = result['ok'] == true;
         _testMessage = result['ok'] == true
@@ -272,9 +495,10 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
             : (result['error']?.toString() ?? appStrings.couldNotConnect);
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _testOk = false;
-        _testMessage = e.toString();
+        _testMessage = widget.controller.friendlyErrorMessage(e);
       });
     } finally {
       if (mounted) setState(() => _testing = false);
@@ -306,7 +530,11 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
       );
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
-      if (mounted) setState(() => _errorMessage = e.toString());
+      if (mounted) {
+        setState(
+          () => _errorMessage = widget.controller.friendlyErrorMessage(e),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }

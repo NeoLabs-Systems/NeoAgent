@@ -63,12 +63,19 @@ function getAllowSignup(env = process.env) {
   return true;
 }
 
+// Set by the official container image. Its code is replaced by pulling a newer
+// image, never rewritten in place, so self-update stays off.
+function isContainerImage(env = process.env) {
+  const raw = String(env.NEOAGENT_CONTAINER_IMAGE ?? '').trim().toLowerCase();
+  return raw === '1' || raw === 'true';
+}
+
 function getDeploymentPolicy(env = process.env) {
   const mode = getDeploymentMode(env);
   return {
     mode,
     managed: mode === DEPLOYMENT_MODE_MANAGED,
-    allowSelfUpdate: mode !== DEPLOYMENT_MODE_MANAGED,
+    allowSelfUpdate: mode !== DEPLOYMENT_MODE_MANAGED && !isContainerImage(env),
     registrationOpen: getAllowSignup(env),
     runtimeDefaults: {
       runtime_profile: 'cloud-computer',
@@ -99,6 +106,7 @@ module.exports = {
   getDeploymentMode,
   getDeploymentPolicy,
   getTerminalEnv,
+  isContainerImage,
   isHostTerminalEnv,
   isManagedDeployment,
   parseDeploymentMode,

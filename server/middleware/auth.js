@@ -21,6 +21,23 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+// With secure cookies on (the default when PUBLIC_URL is https), a request that
+// arrived over plain http never gets its session cookie back: express-session
+// silently skips Set-Cookie. Refuse up front instead of "signing in" an account
+// that is logged out again on the next request.
+function requireSessionTransport(req, res, next) {
+  if (req.session?.cookie?.secure !== true || req.secure) return next();
+  const publicUrl = String(req.app?.locals?.httpRuntimeConfig?.publicUrl || '');
+  const httpsUrl = publicUrl.startsWith('https://')
+    ? new URL(publicUrl).origin
+    : `https://${req.get('host')}`;
+  return res.status(400).json({
+    error: `Sign-in needs a secure connection. Open ${httpsUrl} instead.`,
+    code: 'INSECURE_TRANSPORT',
+    httpsUrl,
+  });
+}
+
 function requireNoAuth(req, res, next) {
   if (req.session && req.session.userId) {
     console.log(`[Auth] Redirecting authenticated user ${req.session.userId} away from ${req.method} ${req.originalUrl || req.url}`);
@@ -29,4 +46,4 @@ function requireNoAuth(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, requireAdmin, requireNoAuth };
+module.exports = { requireAuth, requireAdmin, requireNoAuth, requireSessionTransport };

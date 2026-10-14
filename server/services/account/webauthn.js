@@ -8,6 +8,7 @@ const {
 } = require('@simplewebauthn/server');
 const db = require('../../db/database');
 const { isAllowedOrigin } = require('../../config/origins');
+const { findUserForSignIn } = require('./credentials');
 
 const RP_NAME = 'NeoAgent';
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
@@ -226,7 +227,7 @@ async function beginLogin({ req, username }) {
   // the allow-list stays empty and no account existence is leaked.
   let allowCredentials = [];
   if (account) {
-    const user = db.prepare('SELECT id FROM users WHERE username = ?').get(account);
+    const user = findUserForSignIn(account);
     if (user) {
       allowCredentials = getCredentialsForRelyingParty(user.id, rpId).map((row) => ({
         id: row.credential_id,

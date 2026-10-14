@@ -38,7 +38,9 @@ router.get('/policies', (req, res) => {
 });
 
 router.put('/policies', (req, res) => {
-  const { category, policy } = req.body;
+  const { category } = req.body;
+  // App versions from before "Always" merged into "Allow" still send allow_always.
+  const policy = req.body.policy === 'allow_always' ? 'allow' : req.body.policy;
   if (!category || !policy) {
     return res.status(400).json({ error: 'category and policy are required' });
   }

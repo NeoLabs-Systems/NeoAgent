@@ -12,7 +12,7 @@ const {
   encryptValue,
   isEncryptedValue,
 } = require('../services/integrations/secrets');
-const { runSchemaMigrations } = require('../../lib/schema_migrations');
+const { runSchemaMigrations, runVersionedMigrations } = require('../../lib/schema_migrations');
 const { SKILL_VERSIONING_TABLES } = require('../../lib/shared_schema');
 ensureRuntimeDirs();
 
@@ -233,7 +233,9 @@ db.exec(`
     approved_by_user_id INTEGER,
     approved_session_hash TEXT,
     approved_metadata_json TEXT DEFAULT '{}',
+    scanned_metadata_json TEXT DEFAULT '{}',
     expires_at TEXT NOT NULL,
+    scanned_at TEXT,
     approved_at TEXT,
     claimed_at TEXT,
     created_at TEXT DEFAULT (datetime('now')),
@@ -1016,8 +1018,6 @@ function interruptStaleAgentRuns(reason = STALE_RUN_INTERRUPTED_ERROR) {
   return runsResult.changes || 0;
 }
 
-interruptStaleAgentRuns();
-
 try {
   db.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS conversation_history_fts USING fts5(
@@ -1153,7 +1153,8 @@ for (const col of [
   "ALTER TABLE memory_facts ADD COLUMN invalidated_at TEXT",
   "ALTER TABLE memory_facts ADD COLUMN status TEXT DEFAULT 'active'",
   "ALTER TABLE memory_facts ADD COLUMN supersedes_fact_id TEXT",
-  "ALTER TABLE users ADD COLUMN billing_override_plan_id TEXT",
+  "ALTER TABLE user_qr_login_challenges ADD COLUMN scanned_at TEXT",
+  "ALTER TABLE user_qr_login_challenges ADD COLUMN scanned_metadata_json TEXT DEFAULT '{}'",
 ]) {
   try { db.exec(col); } catch { /* column already exists */ }
 }
@@ -1750,21 +1751,6 @@ function migrateIntegrationSecretStorage() {
   }
 }
 
-function backfillVerifiedAccountEmails() {
-  try {
-    if (!tableHasColumn('users', 'email_verified_at')) return;
-    db.prepare(`
-      UPDATE users
-      SET email_verified_at = COALESCE(created_at, datetime('now'))
-      WHERE email IS NOT NULL
-        AND trim(email) != ''
-        AND email_verified_at IS NULL
-    `).run();
-  } catch {
-    // Existing local accounts should not be locked out by a best-effort backfill.
-  }
-}
-
 function backfillTaskTriggers() {
   try {
     db.prepare(
@@ -1860,7 +1846,9 @@ try {
   // Keep startup resilient for partially migrated local databases.
 }
 migrateIntegrationSecretStorage();
-backfillVerifiedAccountEmails();
+// After the column migrations above: the one-shot migrations read columns
+// that older databases only gain there.
+runVersionedMigrations(db);
 rebuildFtsForAgents();
 
 function migrateUsersOnboarding() {

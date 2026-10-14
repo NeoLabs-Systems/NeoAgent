@@ -97,6 +97,324 @@ abstract class AppL10n {
     Locale('en'),
   ];
 
+  /// No description provided for @onboardingEyebrowWelcome.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome'**
+  String get onboardingEyebrowWelcome;
+
+  /// No description provided for @onboardingEyebrowCommunication.
+  ///
+  /// In en, this message translates to:
+  /// **'Communication'**
+  String get onboardingEyebrowCommunication;
+
+  /// No description provided for @onboardingEyebrowIntelligence.
+  ///
+  /// In en, this message translates to:
+  /// **'Intelligence'**
+  String get onboardingEyebrowIntelligence;
+
+  /// No description provided for @onboardingEyebrowComputer.
+  ///
+  /// In en, this message translates to:
+  /// **'Computer'**
+  String get onboardingEyebrowComputer;
+
+  /// No description provided for @onboardingEyebrowAutomation.
+  ///
+  /// In en, this message translates to:
+  /// **'Automation'**
+  String get onboardingEyebrowAutomation;
+
+  /// No description provided for @onboardingNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get onboardingNext;
+
+  /// No description provided for @onboardingIntroCouldNotLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'The intro couldn’t be loaded.'**
+  String get onboardingIntroCouldNotLoad;
+
+  /// No description provided for @onboardingModelDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick the model NeoAgent should use by default, or let it choose automatically.'**
+  String get onboardingModelDescription;
+
+  /// No description provided for @onboardingLoadingModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading models…'**
+  String get onboardingLoadingModels;
+
+  /// No description provided for @noAiModelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No AI model is set up yet'**
+  String get noAiModelTitle;
+
+  /// No description provided for @noAiModelBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Add an API key from a provider such as OpenAI, Anthropic or Google. NeoAgent then shows the models you can use.'**
+  String get noAiModelBody;
+
+  /// No description provided for @noAiModelChatBody.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent needs an AI model to answer. Add an API key from a provider such as OpenAI, Anthropic or Google.'**
+  String get noAiModelChatBody;
+
+  /// No description provided for @noAiModelAdminHint.
+  ///
+  /// In en, this message translates to:
+  /// **'As an admin you can also set up providers for everyone under Admin → Providers.'**
+  String get noAiModelAdminHint;
+
+  /// No description provided for @addApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Add API key'**
+  String get addApiKey;
+
+  /// No description provided for @onboardingMessagingConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'{platform} is connected.'**
+  String onboardingMessagingConnected(String platform);
+
+  /// No description provided for @onboardingMessagingWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for {platform} to connect…'**
+  String onboardingMessagingWaiting(String platform);
+
+  /// No description provided for @onboardingFinishFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Setup couldn’t be saved: {error}'**
+  String onboardingFinishFailed(String error);
+
+  /// No description provided for @onboardingEyebrowReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready'**
+  String get onboardingEyebrowReady;
+
+  /// No description provided for @onboardingStepRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Required'**
+  String get onboardingStepRequired;
+
+  /// No description provided for @onboardingStepOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional'**
+  String get onboardingStepOptional;
+
+  /// No description provided for @onboardingStepCloudOrLocal.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud or local'**
+  String get onboardingStepCloudOrLocal;
+
+  /// No description provided for @onboardingStepComputer.
+  ///
+  /// In en, this message translates to:
+  /// **'Computer'**
+  String get onboardingStepComputer;
+
+  /// No description provided for @onboardingStepRoutines.
+  ///
+  /// In en, this message translates to:
+  /// **'Routines'**
+  String get onboardingStepRoutines;
+
+  /// No description provided for @onboardingComputerChoiceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Where should\nit work?'**
+  String get onboardingComputerChoiceTitle;
+
+  /// No description provided for @onboardingComputerChoiceDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'You can switch per session.'**
+  String get onboardingComputerChoiceDescription;
+
+  /// No description provided for @onboardingCloudComputerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Private sandbox · always on'**
+  String get onboardingCloudComputerSubtitle;
+
+  /// No description provided for @onboardingThisComputer.
+  ///
+  /// In en, this message translates to:
+  /// **'This computer'**
+  String get onboardingThisComputer;
+
+  /// No description provided for @onboardingThisComputerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your files, apps and browser'**
+  String get onboardingThisComputerSubtitle;
+
+  /// No description provided for @onboardingSearchApps.
+  ///
+  /// In en, this message translates to:
+  /// **'Search apps…'**
+  String get onboardingSearchApps;
+
+  /// No description provided for @onboardingRoutinesDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Results arrive in your chats.'**
+  String get onboardingRoutinesDescription;
+
+  /// No description provided for @onboardingRoutinesDescriptionPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Results arrive as notifications.'**
+  String get onboardingRoutinesDescriptionPhone;
+
+  /// No description provided for @onboardingNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get onboardingNotifications;
+
+  /// No description provided for @onboardingReadyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You’re\nall set.'**
+  String get onboardingReadyTitle;
+
+  /// No description provided for @onboardingReadyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Send your first message.'**
+  String get onboardingReadyDescription;
+
+  /// No description provided for @onboardingMessageNeoagent.
+  ///
+  /// In en, this message translates to:
+  /// **'Message NeoAgent'**
+  String get onboardingMessageNeoagent;
+
+  /// No description provided for @onboardingAskAnything.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask anything…'**
+  String get onboardingAskAnything;
+
+  /// No description provided for @onboardingOpenNeoagent.
+  ///
+  /// In en, this message translates to:
+  /// **'Open NeoAgent'**
+  String get onboardingOpenNeoagent;
+
+  /// No description provided for @onboardingStarterTrip.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan a weekend trip'**
+  String get onboardingStarterTrip;
+
+  /// No description provided for @onboardingStarterLanding.
+  ///
+  /// In en, this message translates to:
+  /// **'Build a landing page'**
+  String get onboardingStarterLanding;
+
+  /// No description provided for @onboardingQuickSteps.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} quick steps'**
+  String onboardingQuickSteps(int count);
+
+  /// No description provided for @taskNeedsEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect email first'**
+  String get taskNeedsEmail;
+
+  /// No description provided for @taskNeedsCalendar.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect a calendar first'**
+  String get taskNeedsCalendar;
+
+  /// No description provided for @taskNeedsModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up an AI model first'**
+  String get taskNeedsModel;
+
+  /// No description provided for @taskPromptDailyRecap.
+  ///
+  /// In en, this message translates to:
+  /// **'Recap my day: summarize the conversations, finished work and decisions from today, then list anything I should follow up on tomorrow. Keep it short and send it to me.'**
+  String get taskPromptDailyRecap;
+
+  /// No description provided for @taskPromptInboxCheck.
+  ///
+  /// In en, this message translates to:
+  /// **'Check my email inbox for messages that arrived since the last check. Only message me about emails that are urgent or need a reply, with a one-line summary each. If nothing needs my attention, do not send anything.'**
+  String get taskPromptInboxCheck;
+
+  /// No description provided for @taskPromptMorningBriefing.
+  ///
+  /// In en, this message translates to:
+  /// **'Prepare my morning briefing: today’s weather where I am, the events on my calendar, and the most important open items I know about. Send it as a short, scannable message.'**
+  String get taskPromptMorningBriefing;
+
+  /// No description provided for @taskPromptTomorrowPrep.
+  ///
+  /// In en, this message translates to:
+  /// **'Look at my calendar for tomorrow. For each meeting, tell me what it is about, who is involved and anything I should prepare. If tomorrow is empty, do not send anything.'**
+  String get taskPromptTomorrowPrep;
+
+  /// No description provided for @taskPromptNewsDigest.
+  ///
+  /// In en, this message translates to:
+  /// **'Search the web for today’s most important news on the topics I care about (use what you remember about my interests). Send me a digest of up to five items with one sentence each and a link.'**
+  String get taskPromptNewsDigest;
+
+  /// No description provided for @taskPromptWeeklyReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Review my week: what got done, what slipped and what is still open. Suggest the three most important things to focus on next week.'**
+  String get taskPromptWeeklyReview;
+
+  /// No description provided for @whatsappSeparateAccountDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Link a phone number that belongs to the agent. Anyone you allow can chat with it, in direct chats and groups.'**
+  String get whatsappSeparateAccountDescription;
+
+  /// No description provided for @whatsappSelfChatDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Link your own number and talk to the agent in your “Message yourself” chat. Every other chat and group on this account is ignored.'**
+  String get whatsappSelfChatDescription;
+
+  /// No description provided for @chatSendHintMac.
+  ///
+  /// In en, this message translates to:
+  /// **'⌘↵ to send'**
+  String get chatSendHintMac;
+
+  /// No description provided for @chatSendHintOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Ctrl+Enter to send'**
+  String get chatSendHintOther;
+
   /// No description provided for @aBaseUrlIsRequiredFor.
   ///
   /// In en, this message translates to:
@@ -151,12 +469,6 @@ abstract class AppL10n {
   /// **'A newer web build is available on the server. Reload to fetch the latest bundle.'**
   String get aNewerWebBuildIsAvailable;
 
-  /// No description provided for @aPlanSIdCanT.
-  ///
-  /// In en, this message translates to:
-  /// **'A plan’s ID can’t change.'**
-  String get aPlanSIdCanT;
-
   /// No description provided for @aPrivateDesktopWithChromiumFiles.
   ///
   /// In en, this message translates to:
@@ -198,12 +510,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'A value is stored.'**
   String get aValueIsStored;
-
-  /// No description provided for @aboutUseWhatYouRememberAbout.
-  ///
-  /// In en, this message translates to:
-  /// **'about (use what you remember about my interests). Send me a digest '**
-  String get aboutUseWhatYouRememberAbout;
 
   /// No description provided for @access.
   ///
@@ -595,12 +901,6 @@ abstract class AppL10n {
   /// **'Agent profile'**
   String get agentProfile;
 
-  /// No description provided for @agentRuns7d.
-  ///
-  /// In en, this message translates to:
-  /// **'Agent runs (7d)'**
-  String get agentRuns7d;
-
   /// No description provided for @agentVisibleName.
   ///
   /// In en, this message translates to:
@@ -703,6 +1003,12 @@ abstract class AppL10n {
   /// **'Allow'**
   String get allow;
 
+  /// No description provided for @allowedRunsWithoutAsking.
+  ///
+  /// In en, this message translates to:
+  /// **'Allowed. Runs without asking.'**
+  String get allowedRunsWithoutAsking;
+
   /// No description provided for @allowAll.
   ///
   /// In en, this message translates to:
@@ -744,18 +1050,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Allow the agent to start an in-app voice call with you.'**
   String get allowTheAgentToStartAn;
-
-  /// No description provided for @allowedForThisRunWillAsk.
-  ///
-  /// In en, this message translates to:
-  /// **'Allowed for this run — will ask again next session.'**
-  String get allowedForThisRunWillAsk;
-
-  /// No description provided for @allowedModels.
-  ///
-  /// In en, this message translates to:
-  /// **'Allowed models'**
-  String get allowedModels;
 
   /// No description provided for @allowedOrigins.
   ///
@@ -853,11 +1147,11 @@ abstract class AppL10n {
   /// **'An http or https URL is required.'**
   String get anHttpOrHttpsUrlIs;
 
-  /// No description provided for @andBillingTeamLinksLiveOn.
+  /// No description provided for @andAnalyticsTeamLinksLiveOn.
   ///
   /// In en, this message translates to:
-  /// **'and billing. Team links live on the Team page.'**
-  String get andBillingTeamLinksLiveOn;
+  /// **'and analytics. Team links live on the Team page.'**
+  String get andAnalyticsTeamLinksLiveOn;
 
   /// No description provided for @andSExpiresAtDatetimeNow.
   ///
@@ -954,12 +1248,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Anyone with the link can join until it expires or you revoke it.'**
   String get anyoneWithTheLinkCanJoin;
-
-  /// No description provided for @anyoneYouAllowCanChatWith.
-  ///
-  /// In en, this message translates to:
-  /// **'Anyone you allow can chat with it, in direct chats and groups.'**
-  String get anyoneYouAllowCanChatWith;
 
   /// No description provided for @apiHttpsOrigin.
   ///
@@ -1297,12 +1585,6 @@ abstract class AppL10n {
   /// **'{arg1} {arg2} '**
   String arg1Arg28(Object? arg1, Object? arg2);
 
-  /// No description provided for @arg1Arg29.
-  ///
-  /// In en, this message translates to:
-  /// **'{arg1} / {arg2}'**
-  String arg1Arg29(Object? arg1, Object? arg2);
-
   /// No description provided for @arg1Arg2ActiveTools.
   ///
   /// In en, this message translates to:
@@ -1362,12 +1644,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'{arg1} {arg2} {arg3}'**
   String arg1Arg2Arg37(Object? arg1, Object? arg2, Object? arg3);
-
-  /// No description provided for @arg1Arg2Arg38.
-  ///
-  /// In en, this message translates to:
-  /// **'{arg1} · {arg2} {arg3}'**
-  String arg1Arg2Arg38(Object? arg1, Object? arg2, Object? arg3);
 
   /// No description provided for @arg1Arg2Arg39.
   ///
@@ -1457,12 +1733,6 @@ abstract class AppL10n {
   /// **'{arg1}\n{arg2} new accounts'**
   String arg1Arg2NewAccounts(Object? arg1, Object? arg2);
 
-  /// No description provided for @arg1Arg2OfArg3.
-  ///
-  /// In en, this message translates to:
-  /// **'{arg1}–{arg2} of {arg3}'**
-  String arg1Arg2OfArg3(Object? arg1, Object? arg2, Object? arg3);
-
   /// No description provided for @arg1Arg2Runs.
   ///
   /// In en, this message translates to:
@@ -1492,12 +1762,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'{arg1}\n{arg2} tokens'**
   String arg1Arg2Tokens(Object? arg1, Object? arg2);
-
-  /// No description provided for @arg1Arg2Tokens2.
-  ///
-  /// In en, this message translates to:
-  /// **'{arg1}: {arg2} tokens'**
-  String arg1Arg2Tokens2(Object? arg1, Object? arg2);
 
   /// No description provided for @arg1Arg2Tokens3.
   ///
@@ -1571,18 +1835,6 @@ abstract class AppL10n {
   /// **'{arg1} created an invite link'**
   String arg1CreatedAnInviteLink(Object? arg1);
 
-  /// No description provided for @arg1Deactivated.
-  ///
-  /// In en, this message translates to:
-  /// **'{arg1} deactivated.'**
-  String arg1Deactivated(Object? arg1);
-
-  /// No description provided for @arg1Default.
-  ///
-  /// In en, this message translates to:
-  /// **'{arg1}: default'**
-  String arg1Default(Object? arg1);
-
   /// No description provided for @arg1Desktop.
   ///
   /// In en, this message translates to:
@@ -1613,23 +1865,11 @@ abstract class AppL10n {
   /// **'{arg1} failing'**
   String arg1Failing(Object? arg1);
 
-  /// No description provided for @arg1FeatureArg2.
-  ///
-  /// In en, this message translates to:
-  /// **'{arg1} feature{arg2}'**
-  String arg1FeatureArg2(Object? arg1, Object? arg2);
-
   /// No description provided for @arg1ForArg2.
   ///
   /// In en, this message translates to:
   /// **'{arg1} for {arg2}'**
   String arg1ForArg2(Object? arg1, Object? arg2);
-
-  /// No description provided for @arg1Forever.
-  ///
-  /// In en, this message translates to:
-  /// **'{arg1} forever'**
-  String arg1Forever(Object? arg1);
 
   /// No description provided for @arg1Gb.
   ///
@@ -1792,12 +2032,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'{arg1} min {arg2} sec'**
   String arg1MinArg2Sec(Object? arg1, Object? arg2);
-
-  /// No description provided for @arg1ModelArg2.
-  ///
-  /// In en, this message translates to:
-  /// **'{arg1} model{arg2}'**
-  String arg1ModelArg2(Object? arg1, Object? arg2);
 
   /// No description provided for @arg1ModelsReady.
   ///
@@ -2165,18 +2399,6 @@ abstract class AppL10n {
   /// **'Ask me'**
   String get askMe;
 
-  /// No description provided for @assignAPlanToAnAccount.
-  ///
-  /// In en, this message translates to:
-  /// **'Assign a plan to an account'**
-  String get assignAPlanToAnAccount;
-
-  /// No description provided for @assignPlan.
-  ///
-  /// In en, this message translates to:
-  /// **'Assign plan'**
-  String get assignPlan;
-
   /// No description provided for @assignedAgent.
   ///
   /// In en, this message translates to:
@@ -2194,12 +2416,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Assigned agent: {arg1}'**
   String assignedAgentArg1(Object? arg1);
-
-  /// No description provided for @assignedArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Assigned {arg1}.'**
-  String assignedArg1(Object? arg1);
 
   /// No description provided for @assigneeOptional.
   ///
@@ -2230,12 +2446,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'At least 1000. Applies after a server restart.'**
   String get atLeast1000AppliesAfterA;
-
-  /// No description provided for @atLeast512.
-  ///
-  /// In en, this message translates to:
-  /// **'At least 512.'**
-  String get atLeast512;
 
   /// No description provided for @attachFiles.
   ///
@@ -2513,12 +2723,6 @@ abstract class AppL10n {
   /// **'Base image and size of the QEMU virtual machines that run '**
   String get baseImageAndSizeOfThe;
 
-  /// No description provided for @baseImageUrl.
-  ///
-  /// In en, this message translates to:
-  /// **'Base image URL'**
-  String get baseImageUrl;
-
   /// No description provided for @baseUrlOptional.
   ///
   /// In en, this message translates to:
@@ -2555,72 +2759,6 @@ abstract class AppL10n {
   /// **'Beta'**
   String get beta;
 
-  /// No description provided for @billedThroughStripeSoItCan.
-  ///
-  /// In en, this message translates to:
-  /// **'Billed through Stripe, so it can’t be canceled here.'**
-  String get billedThroughStripeSoItCan;
-
-  /// No description provided for @billing.
-  ///
-  /// In en, this message translates to:
-  /// **'Billing'**
-  String get billing;
-
-  /// No description provided for @billingEnabled.
-  ///
-  /// In en, this message translates to:
-  /// **'Billing enabled'**
-  String get billingEnabled;
-
-  /// No description provided for @billingHistory.
-  ///
-  /// In en, this message translates to:
-  /// **'Billing history'**
-  String get billingHistory;
-
-  /// No description provided for @billingInterval.
-  ///
-  /// In en, this message translates to:
-  /// **'Billing interval'**
-  String get billingInterval;
-
-  /// No description provided for @billingIsOff.
-  ///
-  /// In en, this message translates to:
-  /// **'Billing is off'**
-  String get billingIsOff;
-
-  /// No description provided for @billingIsTurnedOffButStill.
-  ///
-  /// In en, this message translates to:
-  /// **'Billing is turned off but still running. Restart the '**
-  String get billingIsTurnedOffButStill;
-
-  /// No description provided for @billingIsTurnedOnButNot.
-  ///
-  /// In en, this message translates to:
-  /// **'Billing is turned on but not running yet. Restart the '**
-  String get billingIsTurnedOnButNot;
-
-  /// No description provided for @billingSetupSaved.
-  ///
-  /// In en, this message translates to:
-  /// **'Billing setup saved.'**
-  String get billingSetupSaved;
-
-  /// No description provided for @billingStripeKeysWebhookSecretTrial.
-  ///
-  /// In en, this message translates to:
-  /// **'billing stripe keys webhook secret trial enable'**
-  String get billingStripeKeysWebhookSecretTrial;
-
-  /// No description provided for @billingSubscription.
-  ///
-  /// In en, this message translates to:
-  /// **'Billing & subscription'**
-  String get billingSubscription;
-
   /// No description provided for @bitwardenCredentialBroker.
   ///
   /// In en, this message translates to:
@@ -2650,12 +2788,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Blank uses the default callback'**
   String get blankUsesTheDefaultCallback;
-
-  /// No description provided for @blankUsesTheServerDefault.
-  ///
-  /// In en, this message translates to:
-  /// **'Blank uses the server default.'**
-  String get blankUsesTheServerDefault;
 
   /// No description provided for @blankValuesUseTheProviderDefaults.
   ///
@@ -2825,23 +2957,11 @@ abstract class AppL10n {
   /// **'Cancel'**
   String get cancel;
 
-  /// No description provided for @cancelSubscription.
-  ///
-  /// In en, this message translates to:
-  /// **'Cancel subscription'**
-  String get cancelSubscription;
-
   /// No description provided for @cancelTask.
   ///
   /// In en, this message translates to:
   /// **'Cancel task'**
   String get cancelTask;
-
-  /// No description provided for @cancelsAtPeriodEnd.
-  ///
-  /// In en, this message translates to:
-  /// **'Cancels at period end'**
-  String get cancelsAtPeriodEnd;
 
   /// No description provided for @candidateCountArg1.
   ///
@@ -2884,12 +3004,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Chain: {arg1}. '**
   String chainArg1(Object? arg1);
-
-  /// No description provided for @changePlan.
-  ///
-  /// In en, this message translates to:
-  /// **'Change plan'**
-  String get changePlan;
 
   /// No description provided for @changeSetupMode.
   ///
@@ -2975,12 +3089,6 @@ abstract class AppL10n {
   /// **'Check for new messages automatically'**
   String get checkForNewMessagesAutomatically;
 
-  /// No description provided for @checkMyEmailInboxForMessages.
-  ///
-  /// In en, this message translates to:
-  /// **'Check my email inbox for messages that arrived since the last check. '**
-  String get checkMyEmailInboxForMessages;
-
   /// No description provided for @checkNow.
   ///
   /// In en, this message translates to:
@@ -3011,23 +3119,11 @@ abstract class AppL10n {
   /// **'Choose a person'**
   String get chooseAPerson;
 
-  /// No description provided for @chooseAPlanToGetStarted.
-  ///
-  /// In en, this message translates to:
-  /// **'Choose a plan to get started.'**
-  String get chooseAPlanToGetStarted;
-
   /// No description provided for @chooseAProjectFolder.
   ///
   /// In en, this message translates to:
   /// **'Choose a project folder'**
   String get chooseAProjectFolder;
-
-  /// No description provided for @chooseArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Choose {arg1}'**
-  String chooseArg1(Object? arg1);
 
   /// No description provided for @chooseDefaultsForChatAgentsFallback.
   ///
@@ -3352,12 +3448,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Commands run in the same persistent computer used by the visible desktop.'**
   String get commandsRunInTheSamePersistent;
-
-  /// No description provided for @commasOrLeaveBlankForEvery.
-  ///
-  /// In en, this message translates to:
-  /// **'commas, or leave blank for every model.'**
-  String get commasOrLeaveBlankForEvery;
 
   /// No description provided for @communityChatops.
   ///
@@ -4049,12 +4139,6 @@ abstract class AppL10n {
   /// **'Could not start'**
   String get couldNotStart;
 
-  /// No description provided for @couldNotStartCheckoutCheckStripe.
-  ///
-  /// In en, this message translates to:
-  /// **'Could not start checkout. Check Stripe configuration.'**
-  String get couldNotStartCheckoutCheckStripe;
-
   /// No description provided for @countAIdAsFiles.
   ///
   /// In en, this message translates to:
@@ -4181,18 +4265,6 @@ abstract class AppL10n {
   /// **'Ctrl + Shift + Space'**
   String get ctrlShiftSpace;
 
-  /// No description provided for @currency.
-  ///
-  /// In en, this message translates to:
-  /// **'Currency'**
-  String get currency;
-
-  /// No description provided for @currencyMustBeA3Letter.
-  ///
-  /// In en, this message translates to:
-  /// **'Currency must be a 3-letter code such as usd.'**
-  String get currencyMustBeA3Letter;
-
   /// No description provided for @currentEmailArg1.
   ///
   /// In en, this message translates to:
@@ -4210,18 +4282,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'current password is incorrect'**
   String get currentPasswordIsIncorrect;
-
-  /// No description provided for @currentPlan.
-  ///
-  /// In en, this message translates to:
-  /// **'Current plan'**
-  String get currentPlan;
-
-  /// No description provided for @currentPlan2.
-  ///
-  /// In en, this message translates to:
-  /// **'CURRENT PLAN'**
-  String get currentPlan2;
 
   /// No description provided for @currentTwoStepLoginCode.
   ///
@@ -4289,12 +4349,6 @@ abstract class AppL10n {
   /// **'Custom outgoing URL'**
   String get customOutgoingUrl;
 
-  /// No description provided for @customersOverridePlanStatusCanceledTrialing.
-  ///
-  /// In en, this message translates to:
-  /// **'customers override plan status canceled trialing'**
-  String get customersOverridePlanStatusCanceledTrialing;
-
   /// No description provided for @dAllowedPermissionsJsonAsAllowed.
   ///
   /// In en, this message translates to:
@@ -4337,18 +4391,6 @@ abstract class AppL10n {
   /// **'Day of month'**
   String get dayOfMonth;
 
-  /// No description provided for @deactivate.
-  ///
-  /// In en, this message translates to:
-  /// **'Deactivate'**
-  String get deactivate;
-
-  /// No description provided for @deactivateArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Deactivate {arg1}?'**
-  String deactivateArg1(Object? arg1);
-
   /// No description provided for @decideWhichToolsYourAgentMay.
   ///
   /// In en, this message translates to:
@@ -4360,12 +4402,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'decision higher up the chain wins and shows a lock with the '**
   String get decisionHigherUpTheChainWins;
-
-  /// No description provided for @decisionsFromTodayThenListAnything.
-  ///
-  /// In en, this message translates to:
-  /// **'decisions from today, then list anything I should follow up on '**
-  String get decisionsFromTodayThenListAnything;
 
   /// No description provided for @decisionsShowUpHereAsArg1.
   ///
@@ -4763,12 +4799,6 @@ abstract class AppL10n {
   /// **'Desktop stream capture failed: {arg1}'**
   String desktopStreamCaptureFailedArg1(Object? arg1);
 
-  /// No description provided for @desktopToFinishTheJob.
-  ///
-  /// In en, this message translates to:
-  /// **'desktop to finish the job.'**
-  String get desktopToFinishTheJob;
-
   /// No description provided for @destinationId.
   ///
   /// In en, this message translates to:
@@ -4937,12 +4967,6 @@ abstract class AppL10n {
   /// **'Download {arg1}'**
   String downloadArg1(Object? arg1);
 
-  /// No description provided for @downloadPdf.
-  ///
-  /// In en, this message translates to:
-  /// **'Download PDF'**
-  String get downloadPdf;
-
   /// No description provided for @downloadUpdate.
   ///
   /// In en, this message translates to:
@@ -5014,12 +5038,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Edit Agent'**
   String get editAgent;
-
-  /// No description provided for @editArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Edit {arg1}'**
-  String editArg1(Object? arg1);
 
   /// No description provided for @editCoreMemoryEntry.
   ///
@@ -5351,12 +5369,6 @@ abstract class AppL10n {
   /// **'Every account on this server uses this address for '**
   String get everyAccountOnThisServerUses;
 
-  /// No description provided for @everyAccountSSubscriptionMostRecently.
-  ///
-  /// In en, this message translates to:
-  /// **'Every account’s subscription, most recently changed first. '**
-  String get everyAccountSSubscriptionMostRecently;
-
   /// No description provided for @everyActiveSessionForThisAccount.
   ///
   /// In en, this message translates to:
@@ -5381,12 +5393,6 @@ abstract class AppL10n {
   /// **'Every hour'**
   String get everyHour;
 
-  /// No description provided for @everyModel.
-  ///
-  /// In en, this message translates to:
-  /// **'every model.'**
-  String get everyModel;
-
   /// No description provided for @everyRunOnThisServerAll.
   ///
   /// In en, this message translates to:
@@ -5398,12 +5404,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Every sensitive tool requires approval, every time.'**
   String get everySensitiveToolRequiresApprovalEvery;
-
-  /// No description provided for @everySessionGetsAPrivateCloud.
-  ///
-  /// In en, this message translates to:
-  /// **'Every session gets a private cloud computer, so NeoAgent can do '**
-  String get everySessionGetsAPrivateCloud;
 
   /// No description provided for @everyToolRunsWithoutAskingExcept.
   ///
@@ -5489,12 +5489,6 @@ abstract class AppL10n {
   /// **'Exercise {arg1} sessions'**
   String exerciseArg1Sessions(Object? arg1);
 
-  /// No description provided for @existingSubscribersKeepAccessUntilTheir.
-  ///
-  /// In en, this message translates to:
-  /// **'existing subscribers keep access until their period ends.'**
-  String get existingSubscribersKeepAccessUntilTheir;
-
   /// No description provided for @exitArg1.
   ///
   /// In en, this message translates to:
@@ -5530,12 +5524,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Explored the workspace'**
   String get exploredTheWorkspace;
-
-  /// No description provided for @exportAll.
-  ///
-  /// In en, this message translates to:
-  /// **'Export all'**
-  String get exportAll;
 
   /// No description provided for @exportFailedArg1.
   ///
@@ -5615,12 +5603,6 @@ abstract class AppL10n {
   /// **'Failed to delete \"{arg1}\": {arg2}'**
   String failedToDeleteArg1Arg2(Object? arg1, Object? arg2);
 
-  /// No description provided for @failedToDismissOnboardingArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Failed to dismiss onboarding: {arg1}'**
-  String failedToDismissOnboardingArg1(Object? arg1);
-
   /// No description provided for @failedToFetch.
   ///
   /// In en, this message translates to:
@@ -5686,12 +5668,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Faster replies'**
   String get fasterReplies;
-
-  /// No description provided for @features.
-  ///
-  /// In en, this message translates to:
-  /// **'Features'**
-  String get features;
 
   /// No description provided for @fewerModelCalls.
   ///
@@ -5777,12 +5753,6 @@ abstract class AppL10n {
   /// **'Find recent chats'**
   String get findRecentChats;
 
-  /// No description provided for @findTheseLaterInTasks.
-  ///
-  /// In en, this message translates to:
-  /// **'find these later in Tasks.'**
-  String get findTheseLaterInTasks;
-
   /// No description provided for @findingTheCorrectNeoagentRuntime.
   ///
   /// In en, this message translates to:
@@ -5800,12 +5770,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Finish at the scheduled time'**
   String get finishAtTheScheduledTime;
-
-  /// No description provided for @finishSetup.
-  ///
-  /// In en, this message translates to:
-  /// **'Finish setup'**
-  String get finishSetup;
 
   /// No description provided for @finishSigningInToArg1In.
   ///
@@ -5872,18 +5836,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Frame unavailable'**
   String get frameUnavailable;
-
-  /// No description provided for @freeTrialDays.
-  ///
-  /// In en, this message translates to:
-  /// **'Free trial (days)'**
-  String get freeTrialDays;
-
-  /// No description provided for @freeTrialMustBeAWhole.
-  ///
-  /// In en, this message translates to:
-  /// **'Free trial must be a whole number of days (0 or more).'**
-  String get freeTrialMustBeAWhole;
 
   /// No description provided for @freshnessArg1.
   ///
@@ -6035,12 +5987,6 @@ abstract class AppL10n {
   /// **'Get inspired'**
   String get getInspired;
 
-  /// No description provided for @gitCloneRepoNpmTest.
-  ///
-  /// In en, this message translates to:
-  /// **'git clone repo && npm test'**
-  String get gitCloneRepoNpmTest;
-
   /// No description provided for @githubCopilot.
   ///
   /// In en, this message translates to:
@@ -6082,12 +6028,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'GitHub username that opened the issue'**
   String get githubUsernameThatOpenedTheIssue;
-
-  /// No description provided for @giveThePlanAName.
-  ///
-  /// In en, this message translates to:
-  /// **'Give the plan a name.'**
-  String get giveThePlanAName;
 
   /// No description provided for @globalSecurityMode.
   ///
@@ -6298,12 +6238,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'here. Revoke admin with `neoagent admin revoke {arg1}` first.'**
   String hereRevokeAdminWithNeoagentAdmin(Object? arg1);
-
-  /// No description provided for @hereSecretsAreWriteOnlyLeave.
-  ///
-  /// In en, this message translates to:
-  /// **'here. Secrets are write-only: leave one blank to keep it.'**
-  String get hereSecretsAreWriteOnlyLeave;
 
   /// No description provided for @higherValuesMakeNeoagentMoreSelective.
   ///
@@ -6815,18 +6749,6 @@ abstract class AppL10n {
   /// **'iPhone app'**
   String get iphoneApp;
 
-  /// No description provided for @isAboutWhoIsInvolvedAnd.
-  ///
-  /// In en, this message translates to:
-  /// **'is about, who is involved and anything I should prepare. If tomorrow '**
-  String get isAboutWhoIsInvolvedAnd;
-
-  /// No description provided for @isEmptyDoNotSendAnything.
-  ///
-  /// In en, this message translates to:
-  /// **'is empty, do not send anything.'**
-  String get isEmptyDoNotSendAnything;
-
   /// No description provided for @issues.
   ///
   /// In en, this message translates to:
@@ -6946,12 +6868,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Keep NeoAgent running?'**
   String get keepNeoagentRunning;
-
-  /// No description provided for @keepPlan.
-  ///
-  /// In en, this message translates to:
-  /// **'Keep plan'**
-  String get keepPlan;
 
   /// No description provided for @keepRunning.
   ///
@@ -7271,12 +7187,6 @@ abstract class AppL10n {
   /// **'LIMIT 50'**
   String get limit50;
 
-  /// No description provided for @linkAPhoneNumberThatBelongs.
-  ///
-  /// In en, this message translates to:
-  /// **'Link a phone number that belongs to the agent. '**
-  String get linkAPhoneNumberThatBelongs;
-
   /// No description provided for @linkArg1.
   ///
   /// In en, this message translates to:
@@ -7312,12 +7222,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Link valid until {arg1}.'**
   String linkValidUntilArg1(Object? arg1);
-
-  /// No description provided for @linkYourOwnNumberAndTalk.
-  ///
-  /// In en, this message translates to:
-  /// **'Link your own number and talk to the agent in your '**
-  String get linkYourOwnNumberAndTalk;
 
   /// No description provided for @linkedSignInProviders.
   ///
@@ -7553,12 +7457,6 @@ abstract class AppL10n {
   /// **'Long-term recall, structured facts, and knowledge graph.'**
   String get longTermRecallStructuredFactsAnd;
 
-  /// No description provided for @lookAtMyCalendarForTomorrow.
-  ///
-  /// In en, this message translates to:
-  /// **'Look at my calendar for tomorrow. For each meeting, tell me what it '**
-  String get lookAtMyCalendarForTomorrow;
-
   /// No description provided for @lookedAtTheScreen.
   ///
   /// In en, this message translates to:
@@ -7588,12 +7486,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Loop paused'**
   String get loopPaused;
-
-  /// No description provided for @lowerNumbersAreListedFirst.
-  ///
-  /// In en, this message translates to:
-  /// **'Lower numbers are listed first.'**
-  String get lowerNumbersAreListedFirst;
 
   /// No description provided for @macOsX.
   ///
@@ -7643,35 +7535,11 @@ abstract class AppL10n {
   /// **'Manage'**
   String get manage;
 
-  /// No description provided for @managePayment.
-  ///
-  /// In en, this message translates to:
-  /// **'Manage payment'**
-  String get managePayment;
-
-  /// No description provided for @manageViaStripeCustomerPortal.
-  ///
-  /// In en, this message translates to:
-  /// **'Manage via Stripe Customer Portal'**
-  String get manageViaStripeCustomerPortal;
-
   /// No description provided for @manageYourAccountEmailTwoFactor.
   ///
   /// In en, this message translates to:
   /// **'Manage your account email, two-factor authentication, and active sessions.'**
   String get manageYourAccountEmailTwoFactor;
-
-  /// No description provided for @manageYourPlanTrackUsageUpdate.
-  ///
-  /// In en, this message translates to:
-  /// **'Manage your plan, track usage, update payment, and review invoices.'**
-  String get manageYourPlanTrackUsageUpdate;
-
-  /// No description provided for @manageYourPlanTrackUsageUpdate2.
-  ///
-  /// In en, this message translates to:
-  /// **'Manage your plan, track usage, update payment, and review invoices — all in one place.'**
-  String get manageYourPlanTrackUsageUpdate2;
 
   /// No description provided for @managedBy.
   ///
@@ -7823,18 +7691,6 @@ abstract class AppL10n {
   /// **'Memory injected'**
   String get memoryInjected;
 
-  /// No description provided for @memoryMb.
-  ///
-  /// In en, this message translates to:
-  /// **'Memory (MB)'**
-  String get memoryMb;
-
-  /// No description provided for @memoryMustBeAtLeast512.
-  ///
-  /// In en, this message translates to:
-  /// **'Memory must be at least 512 MB.'**
-  String get memoryMustBeAtLeast512;
-
   /// No description provided for @mentionOrReplyOnly.
   ///
   /// In en, this message translates to:
@@ -7864,18 +7720,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Message text field'**
   String get messageTextField;
-
-  /// No description provided for @messageYouWithTheResultAdd.
-  ///
-  /// In en, this message translates to:
-  /// **'message you with the result. Add one to start, or skip and '**
-  String get messageYouWithTheResultAdd;
-
-  /// No description provided for @messageYourselfChatEveryOtherChat.
-  ///
-  /// In en, this message translates to:
-  /// **'\"Message yourself\" chat. Every other chat and group on '**
-  String get messageYourselfChatEveryOtherChat;
 
   /// No description provided for @messaging.
   ///
@@ -8027,12 +7871,6 @@ abstract class AppL10n {
   /// **'Model for this session'**
   String get modelForThisSession;
 
-  /// No description provided for @modelIds.
-  ///
-  /// In en, this message translates to:
-  /// **'Model IDs'**
-  String get modelIds;
-
   /// No description provided for @modelOverride.
   ///
   /// In en, this message translates to:
@@ -8141,12 +7979,6 @@ abstract class AppL10n {
   /// **'Must be reachable on the public internet -- local and '**
   String get mustBeReachableOnThePublic;
 
-  /// No description provided for @n0TurnsTrialsOff.
-  ///
-  /// In en, this message translates to:
-  /// **'0 turns trials off.'**
-  String get n0TurnsTrialsOff;
-
   /// No description provided for @n24Hours.
   ///
   /// In en, this message translates to:
@@ -8177,23 +8009,11 @@ abstract class AppL10n {
   /// **'365 days'**
   String get n365Days;
 
-  /// No description provided for @n42Passing.
-  ///
-  /// In en, this message translates to:
-  /// **'✓ 42 passing'**
-  String get n42Passing;
-
   /// No description provided for @n4HourLimitTokens.
   ///
   /// In en, this message translates to:
   /// **'4-hour limit (tokens)'**
   String get n4HourLimitTokens;
-
-  /// No description provided for @n4HourTokenLimit.
-  ///
-  /// In en, this message translates to:
-  /// **'4-hour token limit'**
-  String get n4HourTokenLimit;
 
   /// No description provided for @n4HourUsage.
   ///
@@ -8206,12 +8026,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'4h limit {arg1}'**
   String n4hLimitArg1(Object? arg1);
-
-  /// No description provided for @n4hTokenWindow.
-  ///
-  /// In en, this message translates to:
-  /// **'4h token window'**
-  String get n4hTokenWindow;
 
   /// No description provided for @n7DayUsage.
   ///
@@ -8356,12 +8170,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'NeoAgent Flutter Updater'**
   String get neoagentFlutterUpdater;
-
-  /// No description provided for @neoagentHasItsOwnComputer.
-  ///
-  /// In en, this message translates to:
-  /// **'NeoAgent has its\nown computer.'**
-  String get neoagentHasItsOwnComputer;
 
   /// No description provided for @neoagentInstallsTheLatestArg1.
   ///
@@ -8561,12 +8369,6 @@ abstract class AppL10n {
   /// **'New passwords do not match.'**
   String get newPasswordsDoNotMatch;
 
-  /// No description provided for @newPlan.
-  ///
-  /// In en, this message translates to:
-  /// **'New plan'**
-  String get newPlan;
-
   /// No description provided for @newRecoveryCodes.
   ///
   /// In en, this message translates to:
@@ -8614,12 +8416,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'News digest'**
   String get newsDigest;
-
-  /// No description provided for @nextPage.
-  ///
-  /// In en, this message translates to:
-  /// **'Next page'**
-  String get nextPage;
 
   /// No description provided for @nextRetryArg1.
   ///
@@ -8675,23 +8471,11 @@ abstract class AppL10n {
   /// **'No accounts found.'**
   String get noAccountsFound;
 
-  /// No description provided for @noActivePlansYetCreateOne.
-  ///
-  /// In en, this message translates to:
-  /// **'No active plans yet. Create one in the Billing tab.'**
-  String get noActivePlansYetCreateOne;
-
   /// No description provided for @noActiveSessionsFound.
   ///
   /// In en, this message translates to:
   /// **'No active sessions found.'**
   String get noActiveSessionsFound;
-
-  /// No description provided for @noActiveSubscription.
-  ///
-  /// In en, this message translates to:
-  /// **'No active subscription'**
-  String get noActiveSubscription;
 
   /// No description provided for @noAgentsYet.
   ///
@@ -8717,12 +8501,6 @@ abstract class AppL10n {
   /// **'No {arg1} release asset matched this platform.'**
   String noArg1ReleaseAssetMatchedThis(Object? arg1);
 
-  /// No description provided for @noArg1Subscriptions.
-  ///
-  /// In en, this message translates to:
-  /// **'No {arg1} subscriptions.'**
-  String noArg1Subscriptions(Object? arg1);
-
   /// No description provided for @noArguments.
   ///
   /// In en, this message translates to:
@@ -8734,12 +8512,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'No auth'**
   String get noAuth;
-
-  /// No description provided for @noAvailableModelsYetCheckBack.
-  ///
-  /// In en, this message translates to:
-  /// **'No available models yet.\nCheck back once a provider is configured.'**
-  String get noAvailableModelsYetCheckBack;
 
   /// No description provided for @noBindingsYet.
   ///
@@ -8873,12 +8645,6 @@ abstract class AppL10n {
   /// **'No integrations match this search.'**
   String get noIntegrationsMatchThisSearch;
 
-  /// No description provided for @noInvoicesYet.
-  ///
-  /// In en, this message translates to:
-  /// **'No invoices yet.'**
-  String get noInvoicesYet;
-
   /// No description provided for @noLimit.
   ///
   /// In en, this message translates to:
@@ -8896,12 +8662,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'No log entries.'**
   String get noLogEntries;
-
-  /// No description provided for @noMatches.
-  ///
-  /// In en, this message translates to:
-  /// **'No matches'**
-  String get noMatches;
 
   /// No description provided for @noMatchingSettings.
   ///
@@ -8938,12 +8698,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'No model request was recorded for this run.'**
   String get noModelRequestWasRecordedFor;
-
-  /// No description provided for @noModelsAreAvailableYet.
-  ///
-  /// In en, this message translates to:
-  /// **'No models are available yet.'**
-  String get noModelsAreAvailableYet;
 
   /// No description provided for @noModelsDiscoveredYet.
   ///
@@ -9022,18 +8776,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'No people added yet.'**
   String get noPeopleAddedYet;
-
-  /// No description provided for @noPlansConfiguredYet.
-  ///
-  /// In en, this message translates to:
-  /// **'No plans configured yet.'**
-  String get noPlansConfiguredYet;
-
-  /// No description provided for @noPlansYet.
-  ///
-  /// In en, this message translates to:
-  /// **'No plans yet.'**
-  String get noPlansYet;
 
   /// No description provided for @noPlatformsMatch.
   ///
@@ -9118,12 +8860,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'No steps were recorded for this run.'**
   String get noStepsWereRecordedForThis;
-
-  /// No description provided for @noSubscription.
-  ///
-  /// In en, this message translates to:
-  /// **'No subscription.'**
-  String get noSubscription;
 
   /// No description provided for @noSummaryAvailable.
   ///
@@ -9359,35 +9095,11 @@ abstract class AppL10n {
   /// **'of its own. It is never shown again after saving.'**
   String get ofItsOwnItIsNever;
 
-  /// No description provided for @ofUpToFiveItemsWith.
-  ///
-  /// In en, this message translates to:
-  /// **'of up to five items with one sentence each and a link.'**
-  String get ofUpToFiveItemsWith;
-
   /// No description provided for @off.
   ///
   /// In en, this message translates to:
   /// **'Off'**
   String get off;
-
-  /// No description provided for @offTakesEffectAfterAServer.
-  ///
-  /// In en, this message translates to:
-  /// **'off takes effect after a server restart.'**
-  String get offTakesEffectAfterAServer;
-
-  /// No description provided for @offerSubscriptionPlansThroughStripeTurning.
-  ///
-  /// In en, this message translates to:
-  /// **'Offer subscription plans through Stripe. Turning this on or '**
-  String get offerSubscriptionPlansThroughStripeTurning;
-
-  /// No description provided for @offeredToPeopleChoosingAPlan.
-  ///
-  /// In en, this message translates to:
-  /// **'Offered to people choosing a plan.'**
-  String get offeredToPeopleChoosingAPlan;
 
   /// No description provided for @officialIntegration.
   ///
@@ -9413,12 +9125,6 @@ abstract class AppL10n {
   /// **'On a signed-in Android device, open Settings › Sign-in & security, scan this code, and approve the login.'**
   String get onASignedInAndroidDevice;
 
-  /// No description provided for @onAndTheServerHasRestarted.
-  ///
-  /// In en, this message translates to:
-  /// **'on and the server has restarted.'**
-  String get onAndTheServerHasRestarted;
-
   /// No description provided for @onByDefaultForNewGroups.
   ///
   /// In en, this message translates to:
@@ -9436,12 +9142,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'On for {arg1} of {arg2} groups'**
   String onForArg1OfArg2Groups(Object? arg1, Object? arg2);
-
-  /// No description provided for @onMyCalendarAndTheMost.
-  ///
-  /// In en, this message translates to:
-  /// **'on my calendar, and the most important open items I know about. '**
-  String get onMyCalendarAndTheMost;
 
   /// No description provided for @onTheyCanJoinAgainOnly.
   ///
@@ -9473,23 +9173,11 @@ abstract class AppL10n {
   /// **'one is saved. Other changes in this form are saved too.'**
   String get oneIsSavedOtherChangesIn;
 
-  /// No description provided for @oneLineSummaryEachIfNothing.
-  ///
-  /// In en, this message translates to:
-  /// **'one-line summary each. If nothing needs my attention, do not send '**
-  String get oneLineSummaryEachIfNothing;
-
   /// No description provided for @oneOrMoreAccountsExpiredReconnect.
   ///
   /// In en, this message translates to:
   /// **'One or more accounts expired. Reconnect the affected account to restore tool access.'**
   String get oneOrMoreAccountsExpiredReconnect;
-
-  /// No description provided for @onePerLineShownOnThe.
-  ///
-  /// In en, this message translates to:
-  /// **'One per line, shown on the pricing page.'**
-  String get onePerLineShownOnThe;
 
   /// No description provided for @oneRegister.
   ///
@@ -9502,12 +9190,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'One runtime controls persona, group turn-taking, room memory, norms, Theory of Mind, and delivery.'**
   String get oneRuntimeControlsPersonaGroupTurn;
-
-  /// No description provided for @oneTimeFree.
-  ///
-  /// In en, this message translates to:
-  /// **'One-time / free'**
-  String get oneTimeFree;
 
   /// No description provided for @oneTimeRun.
   ///
@@ -9526,12 +9208,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Only in this group'**
   String get onlyInThisGroup;
-
-  /// No description provided for @onlyMessageMeAboutEmailsThat.
-  ///
-  /// In en, this message translates to:
-  /// **'Only message me about emails that are urgent or need a reply, with a '**
-  String get onlyMessageMeAboutEmailsThat;
 
   /// No description provided for @onlyNeededIfTheServiceAsks.
   ///
@@ -9563,12 +9239,6 @@ abstract class AppL10n {
   /// **'Open Settings › Sign-in & security on a signed-in Android device, scan this code, and approve the login.'**
   String get openAccountSettingsOnASigned;
 
-  /// No description provided for @openBrowserCheckingDocs.
-  ///
-  /// In en, this message translates to:
-  /// **'open browser → checking docs'**
-  String get openBrowserCheckingDocs;
-
   /// No description provided for @openComputer.
   ///
   /// In en, this message translates to:
@@ -9598,12 +9268,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Open NeoAgent and reconnect {arg1} to restore messaging.'**
   String openNeoagentAndReconnectArg1To(Object? arg1);
-
-  /// No description provided for @openTheComputerTabNextTo.
-  ///
-  /// In en, this message translates to:
-  /// **'Open the Computer tab next to any session to see the screen '**
-  String get openTheComputerTabNextTo;
 
   /// No description provided for @openTimeSettings.
   ///
@@ -9833,18 +9497,6 @@ abstract class AppL10n {
   /// **'Outlook Email Received'**
   String get outlookEmailReceived;
 
-  /// No description provided for @overrideAssignsAPlanWithoutGoing.
-  ///
-  /// In en, this message translates to:
-  /// **'Override assigns a plan without going through Stripe.'**
-  String get overrideAssignsAPlanWithoutGoing;
-
-  /// No description provided for @overridePlan.
-  ///
-  /// In en, this message translates to:
-  /// **'Override plan'**
-  String get overridePlan;
-
   /// No description provided for @overwriteBehaviorNotesFromTheImport.
   ///
   /// In en, this message translates to:
@@ -9917,12 +9569,6 @@ abstract class AppL10n {
   /// **'Passwords do not match.'**
   String get passwordsDoNotMatch;
 
-  /// No description provided for @pastDue.
-  ///
-  /// In en, this message translates to:
-  /// **'Past due'**
-  String get pastDue;
-
   /// No description provided for @pasteAKey.
   ///
   /// In en, this message translates to:
@@ -9983,12 +9629,6 @@ abstract class AppL10n {
   /// **'Paused'**
   String get paused;
 
-  /// No description provided for @paymentMethod.
-  ///
-  /// In en, this message translates to:
-  /// **'Payment method'**
-  String get paymentMethod;
-
   /// No description provided for @peakArg1.
   ///
   /// In en, this message translates to:
@@ -10018,18 +9658,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Per-tool permission policies, approval gates, and process isolation for shell execution.'**
   String get perToolPermissionPoliciesApprovalGates;
-
-  /// No description provided for @periodEndsArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Period ends {arg1}'**
-  String periodEndsArg1(Object? arg1);
-
-  /// No description provided for @permanentlyAllowedNeverAsksAgain.
-  ///
-  /// In en, this message translates to:
-  /// **'Permanently allowed — never asks again.'**
-  String get permanentlyAllowedNeverAsksAgain;
 
   /// No description provided for @permissionRequiredArg1.
   ///
@@ -10115,12 +9743,6 @@ abstract class AppL10n {
   /// **'Pick one to fill in the task. You can tweak everything afterwards.'**
   String get pickOneToFillInThe;
 
-  /// No description provided for @pickTheModelNeoagentShouldUse.
-  ///
-  /// In en, this message translates to:
-  /// **'Pick the model NeoAgent should use by default. Providers are configured on the server.'**
-  String get pickTheModelNeoagentShouldUse;
-
   /// No description provided for @picksUpWhereYouLeftOff.
   ///
   /// In en, this message translates to:
@@ -10133,47 +9755,11 @@ abstract class AppL10n {
   /// **'Plan'**
   String get plan;
 
-  /// No description provided for @planForArg1APlanAssigned.
-  ///
-  /// In en, this message translates to:
-  /// **'Plan for @{arg1}. A plan assigned here '**
-  String planForArg1APlanAssigned(Object? arg1);
-
-  /// No description provided for @planId.
-  ///
-  /// In en, this message translates to:
-  /// **'Plan ID'**
-  String get planId;
-
-  /// No description provided for @planIdMayOnlyUseLetters.
-  ///
-  /// In en, this message translates to:
-  /// **'Plan ID may only use letters, numbers, underscores and hyphens.'**
-  String get planIdMayOnlyUseLetters;
-
-  /// No description provided for @planUsageAndAllowanceDetails.
-  ///
-  /// In en, this message translates to:
-  /// **'Plan usage and allowance details'**
-  String get planUsageAndAllowanceDetails;
-
   /// No description provided for @planning.
   ///
   /// In en, this message translates to:
   /// **'Planning'**
   String get planning;
-
-  /// No description provided for @plans.
-  ///
-  /// In en, this message translates to:
-  /// **'Plans'**
-  String get plans;
-
-  /// No description provided for @plansAndSubscriptionsShowUpHere.
-  ///
-  /// In en, this message translates to:
-  /// **'Plans and subscriptions show up here once billing is turned '**
-  String get plansAndSubscriptionsShowUpHere;
 
   /// No description provided for @platform.
   ///
@@ -10265,12 +9851,6 @@ abstract class AppL10n {
   /// **'Premium automation with schedule and integration triggers.'**
   String get premiumAutomationWithScheduleAndIntegration;
 
-  /// No description provided for @prepareMyMorningBriefingTodayS.
-  ///
-  /// In en, this message translates to:
-  /// **'Prepare my morning briefing: today\'\'s weather where I am, the events '**
-  String get prepareMyMorningBriefingTodayS;
-
   /// No description provided for @prepareQrCode.
   ///
   /// In en, this message translates to:
@@ -10307,47 +9887,17 @@ abstract class AppL10n {
   /// **'Pressed {arg1}'**
   String pressedArg1(Object? arg1);
 
-  /// No description provided for @previousPage.
-  ///
-  /// In en, this message translates to:
-  /// **'Previous page'**
-  String get previousPage;
-
-  /// No description provided for @priceInCents.
-  ///
-  /// In en, this message translates to:
-  /// **'Price in cents'**
-  String get priceInCents;
-
-  /// No description provided for @priceMustBeAWholeNumber.
-  ///
-  /// In en, this message translates to:
-  /// **'Price must be a whole number of cents (0 or more).'**
-  String get priceMustBeAWholeNumber;
-
   /// No description provided for @priceUnknown.
   ///
   /// In en, this message translates to:
   /// **'Price unknown'**
   String get priceUnknown;
 
-  /// No description provided for @pricingPriceSubscriptionTiersCreateEdit.
-  ///
-  /// In en, this message translates to:
-  /// **'pricing price subscription tiers create edit'**
-  String get pricingPriceSubscriptionTiersCreateEdit;
-
   /// No description provided for @primaryDisplay.
   ///
   /// In en, this message translates to:
   /// **'Primary Display'**
   String get primaryDisplay;
-
-  /// No description provided for @privateAndIsolated.
-  ///
-  /// In en, this message translates to:
-  /// **'Private and isolated'**
-  String get privateAndIsolated;
 
   /// No description provided for @privateChat.
   ///
@@ -10475,23 +10025,11 @@ abstract class AppL10n {
   /// **'Public URL and allowed origins'**
   String get publicUrlAndAllowedOrigins;
 
-  /// No description provided for @publicUrlApiBillingWebhookAnd.
-  ///
-  /// In en, this message translates to:
-  /// **'<public URL>/api/billing/webhook and paste its signing secret '**
-  String get publicUrlApiBillingWebhookAnd;
-
   /// No description provided for @publicUrlOverride.
   ///
   /// In en, this message translates to:
   /// **'Public URL override'**
   String get publicUrlOverride;
-
-  /// No description provided for @publishableKey.
-  ///
-  /// In en, this message translates to:
-  /// **'Publishable key'**
-  String get publishableKey;
 
   /// No description provided for @pullsTogetherTheDayAhead.
   ///
@@ -10691,18 +10229,6 @@ abstract class AppL10n {
   /// **'Ready to connect'**
   String get readyToConnect;
 
-  /// No description provided for @realWorkInsteadOfJustTalking.
-  ///
-  /// In en, this message translates to:
-  /// **'real work instead of just talking about it.'**
-  String get realWorkInsteadOfJustTalking;
-
-  /// No description provided for @recapMyDaySummarizeTheConversations.
-  ///
-  /// In en, this message translates to:
-  /// **'Recap my day: summarize the conversations, finished work and '**
-  String get recapMyDaySummarizeTheConversations;
-
   /// No description provided for @recentChannelActivity.
   ///
   /// In en, this message translates to:
@@ -10768,12 +10294,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Recipient field'**
   String get recipientField;
-
-  /// No description provided for @recommended.
-  ///
-  /// In en, this message translates to:
-  /// **'RECOMMENDED'**
-  String get recommended;
 
   /// No description provided for @reconnectOrFinishSetup.
   ///
@@ -11093,12 +10613,6 @@ abstract class AppL10n {
   /// **'Reset view'**
   String get resetView;
 
-  /// No description provided for @resetsArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Resets {arg1}'**
-  String resetsArg1(Object? arg1);
-
   /// No description provided for @responsibilities.
   ///
   /// In en, this message translates to:
@@ -11170,12 +10684,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Reusable · used {arg1}×'**
   String reusableUsedArg1(Object? arg1);
-
-  /// No description provided for @reviewMyWeekWhatGotDone.
-  ///
-  /// In en, this message translates to:
-  /// **'Review my week: what got done, what slipped and what is still open. '**
-  String get reviewMyWeekWhatGotDone;
 
   /// No description provided for @reviewUncommittedChanges.
   ///
@@ -11411,12 +10919,6 @@ abstract class AppL10n {
   /// **'Runs'**
   String get runs;
 
-  /// No description provided for @runsCommandsBrowsesTheWebAnd.
-  ///
-  /// In en, this message translates to:
-  /// **'Runs commands, browses the web and edits files on a real Linux '**
-  String get runsCommandsBrowsesTheWebAnd;
-
   /// No description provided for @runsEveryDayAtTheSelected.
   ///
   /// In en, this message translates to:
@@ -11573,12 +11075,6 @@ abstract class AppL10n {
   /// **'Save account'**
   String get saveAccount;
 
-  /// No description provided for @saveBillingSetup.
-  ///
-  /// In en, this message translates to:
-  /// **'Save billing setup'**
-  String get saveBillingSetup;
-
   /// No description provided for @saveChanges.
   ///
   /// In en, this message translates to:
@@ -11645,12 +11141,6 @@ abstract class AppL10n {
   /// **'Save Only'**
   String get saveOnly;
 
-  /// No description provided for @savePlan.
-  ///
-  /// In en, this message translates to:
-  /// **'Save plan'**
-  String get savePlan;
-
   /// No description provided for @saveSetup.
   ///
   /// In en, this message translates to:
@@ -11662,12 +11152,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Save these recovery codes now. They will not be shown again.'**
   String get saveTheseRecoveryCodesNowThey;
-
-  /// No description provided for @saveUpToArg1Yearly.
-  ///
-  /// In en, this message translates to:
-  /// **'Save up to {arg1}% yearly'**
-  String saveUpToArg1Yearly(Object? arg1);
 
   /// No description provided for @savedDeliveryDestination.
   ///
@@ -11783,11 +11267,11 @@ abstract class AppL10n {
   /// **'Search…'**
   String get search2;
 
-  /// No description provided for @searchAdminSettingsEGStripe.
+  /// No description provided for @searchAdminSettingsEGSmtp.
   ///
   /// In en, this message translates to:
-  /// **'Search admin settings (e.g. Stripe, SMTP, Ollama, logs)'**
-  String get searchAdminSettingsEGStripe;
+  /// **'Search admin settings (e.g. SMTP, Ollama, logs)'**
+  String get searchAdminSettingsEGSmtp;
 
   /// No description provided for @searchAgain.
   ///
@@ -11825,12 +11309,6 @@ abstract class AppL10n {
   /// **'Search memory'**
   String get searchMemory;
 
-  /// No description provided for @searchModels.
-  ///
-  /// In en, this message translates to:
-  /// **'Search models'**
-  String get searchModels;
-
   /// No description provided for @searchModelsOrProviders.
   ///
   /// In en, this message translates to:
@@ -11861,12 +11339,6 @@ abstract class AppL10n {
   /// **'Search settings'**
   String get searchSettings;
 
-  /// No description provided for @searchTheWebForTodayS.
-  ///
-  /// In en, this message translates to:
-  /// **'Search the web for today\'\'s most important news on the topics I care '**
-  String get searchTheWebForTodayS;
-
   /// No description provided for @searchTitleModelTriggerRunId.
   ///
   /// In en, this message translates to:
@@ -11896,12 +11368,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Secret field'**
   String get secretField;
-
-  /// No description provided for @secretKey.
-  ///
-  /// In en, this message translates to:
-  /// **'Secret key'**
-  String get secretKey;
 
   /// No description provided for @secureCookies.
   ///
@@ -12029,12 +11495,6 @@ abstract class AppL10n {
   /// **'Send a task from chat and its execution history will show up here.'**
   String get sendATaskFromChatAnd;
 
-  /// No description provided for @sendItAsAShortScannable.
-  ///
-  /// In en, this message translates to:
-  /// **'Send it as a short, scannable message.'**
-  String get sendItAsAShortScannable;
-
   /// No description provided for @sendItToATeammateWith.
   ///
   /// In en, this message translates to:
@@ -12131,12 +11591,6 @@ abstract class AppL10n {
   /// **'Server provider credentials'**
   String get serverProviderCredentials;
 
-  /// No description provided for @serverToStopIt.
-  ///
-  /// In en, this message translates to:
-  /// **'server to stop it.'**
-  String get serverToStopIt;
-
   /// No description provided for @serverUrl.
   ///
   /// In en, this message translates to:
@@ -12178,12 +11632,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Session actions'**
   String get sessionActions;
-
-  /// No description provided for @sessionToThisDeviceWhenYou.
-  ///
-  /// In en, this message translates to:
-  /// **'session to This device when you want it to work locally.'**
-  String get sessionToThisDeviceWhenYou;
 
   /// No description provided for @sessions.
   ///
@@ -12232,12 +11680,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Set up or connect NeoAgent'**
   String get setUpOrConnectNeoagent;
-
-  /// No description provided for @setUpYourWorkspaceInA.
-  ///
-  /// In en, this message translates to:
-  /// **'Set up your workspace in a few steps and start using NeoAgent immediately.'**
-  String get setUpYourWorkspaceInA;
 
   /// No description provided for @setUrl.
   ///
@@ -12407,6 +11849,48 @@ abstract class AppL10n {
   /// **'Sign in with {arg1}'**
   String signInWithArg1(Object? arg1);
 
+  /// No description provided for @approveNeoagentInYourArg1Account.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve NeoAgent in your {arg1} account. No key to copy.'**
+  String approveNeoagentInYourArg1Account(Object? arg1);
+
+  /// No description provided for @waitingForArg1FinishInYourBrowser.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for {arg1}. Finish in your browser.'**
+  String waitingForArg1FinishInYourBrowser(Object? arg1);
+
+  /// No description provided for @pasteTheArg1Code.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste the {arg1} code'**
+  String pasteTheArg1Code(Object? arg1);
+
+  /// No description provided for @arg1ShowedAOneTimeCode.
+  ///
+  /// In en, this message translates to:
+  /// **'After you approved NeoAgent, {arg1} showed a one-time code. Paste it here.'**
+  String arg1ShowedAOneTimeCode(Object? arg1);
+
+  /// No description provided for @signInCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in code'**
+  String get signInCode;
+
+  /// No description provided for @signedInWithArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Signed in with {arg1}.'**
+  String signedInWithArg1(Object? arg1);
+
+  /// No description provided for @signInFailedArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in failed: {arg1}'**
+  String signInFailedArg1(Object? arg1);
+
   /// No description provided for @signInWithTheSameEmail.
   ///
   /// In en, this message translates to:
@@ -12539,12 +12023,6 @@ abstract class AppL10n {
   /// **'Skip this task before it calls the model.'**
   String get skipThisTaskBeforeItCalls;
 
-  /// No description provided for @skipsStripeCheckout.
-  ///
-  /// In en, this message translates to:
-  /// **'skips Stripe checkout.'**
-  String get skipsStripeCheckout;
-
   /// No description provided for @slackMessageReceived.
   ///
   /// In en, this message translates to:
@@ -12556,12 +12034,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Sleep {arg1} sessions'**
   String sleepArg1Sessions(Object? arg1);
-
-  /// No description provided for @smallestCurrencyUnit1900Is19.
-  ///
-  /// In en, this message translates to:
-  /// **'Smallest currency unit: 1900 is 19.00.'**
-  String get smallestCurrencyUnit1900Is19;
 
   /// No description provided for @smartSelector.
   ///
@@ -12682,18 +12154,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Something went wrong. Please try again.'**
   String get somethingWentWrongPleaseTryAgain;
-
-  /// No description provided for @sortOrder.
-  ///
-  /// In en, this message translates to:
-  /// **'Sort order'**
-  String get sortOrder;
-
-  /// No description provided for @sortOrderMustBeAWhole.
-  ///
-  /// In en, this message translates to:
-  /// **'Sort order must be a whole number.'**
-  String get sortOrderMustBeAWhole;
 
   /// No description provided for @source.
   ///
@@ -12977,12 +12437,6 @@ abstract class AppL10n {
   /// **'Storage'**
   String get storage;
 
-  /// No description provided for @storedArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Stored: {arg1}'**
-  String storedArg1(Object? arg1);
-
   /// No description provided for @storedEncryptedAndOnlyUsedFor.
   ///
   /// In en, this message translates to:
@@ -13000,30 +12454,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Stores only the Bitwarden session key encrypted on this server, so connections survive restarts. You can lock it at any time.'**
   String get storesOnlyTheBitwardenSessionKey;
-
-  /// No description provided for @stripeBilling.
-  ///
-  /// In en, this message translates to:
-  /// **'Stripe billing'**
-  String get stripeBilling;
-
-  /// No description provided for @stripeKeysForPaidPlansPoint.
-  ///
-  /// In en, this message translates to:
-  /// **'Stripe keys for paid plans. Point a Stripe webhook at '**
-  String get stripeKeysForPaidPlansPoint;
-
-  /// No description provided for @stripePriceId.
-  ///
-  /// In en, this message translates to:
-  /// **'Stripe price ID'**
-  String get stripePriceId;
-
-  /// No description provided for @stripeSetup.
-  ///
-  /// In en, this message translates to:
-  /// **'Stripe setup'**
-  String get stripeSetup;
 
   /// No description provided for @strong.
   ///
@@ -13055,41 +12485,11 @@ abstract class AppL10n {
   /// **'Subagent update.'**
   String get subagentUpdate2;
 
-  /// No description provided for @subscription.
-  ///
-  /// In en, this message translates to:
-  /// **'Subscription'**
-  String get subscription;
-
-  /// No description provided for @subscriptionBillingOverrideComp.
-  ///
-  /// In en, this message translates to:
-  /// **'subscription billing override comp'**
-  String get subscriptionBillingOverrideComp;
-
-  /// No description provided for @subscriptionCanceled.
-  ///
-  /// In en, this message translates to:
-  /// **'Subscription canceled.'**
-  String get subscriptionCanceled;
-
-  /// No description provided for @subscriptions.
-  ///
-  /// In en, this message translates to:
-  /// **'Subscriptions'**
-  String get subscriptions;
-
   /// No description provided for @successRate.
   ///
   /// In en, this message translates to:
   /// **'Success rate'**
   String get successRate;
-
-  /// No description provided for @suggestTheThreeMostImportantThings.
-  ///
-  /// In en, this message translates to:
-  /// **'Suggest the three most important things to focus on next week.'**
-  String get suggestTheThreeMostImportantThings;
 
   /// No description provided for @suggestionsArg1.
   ///
@@ -13168,12 +12568,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Tasks'**
   String get tasks;
-
-  /// No description provided for @tasksRunOnAScheduleOr.
-  ///
-  /// In en, this message translates to:
-  /// **'Tasks run on a schedule or when something happens, then '**
-  String get tasksRunOnAScheduleOr;
 
   /// No description provided for @tasksRunOnTheirOwnAnd.
   ///
@@ -13349,12 +12743,6 @@ abstract class AppL10n {
   /// **'The browser blocked a required request because of Content Security Policy.'**
   String get theBrowserBlockedARequiredRequest;
 
-  /// No description provided for @theCloudComputerIsSandboxedFrom.
-  ///
-  /// In en, this message translates to:
-  /// **'The cloud computer is sandboxed from your devices. Switch a '**
-  String get theCloudComputerIsSandboxedFrom;
-
   /// No description provided for @theCloudWorkspace.
   ///
   /// In en, this message translates to:
@@ -13517,12 +12905,6 @@ abstract class AppL10n {
   /// **'The Mattermost incoming webhook this agent should post to.'**
   String get theMattermostIncomingWebhookThisAgent;
 
-  /// No description provided for @theModelListCouldNotBe.
-  ///
-  /// In en, this message translates to:
-  /// **'The model list could not be loaded. Enter model IDs separated by '**
-  String get theModelListCouldNotBe;
-
   /// No description provided for @theModelsTheSmartSelectorRoutes.
   ///
   /// In en, this message translates to:
@@ -13625,12 +13007,6 @@ abstract class AppL10n {
   /// **'The people you manage stay with you.'**
   String get thePeopleYouManageStayWith;
 
-  /// No description provided for @thePlanStopsBeingOfferedIt.
-  ///
-  /// In en, this message translates to:
-  /// **'The plan stops being offered. It is kept, not erased, and '**
-  String get thePlanStopsBeingOfferedIt;
-
   /// No description provided for @theProviderAnswers.
   ///
   /// In en, this message translates to:
@@ -13708,12 +13084,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'The Signal phone number this bot uses.'**
   String get theSignalPhoneNumberThisBot;
-
-  /// No description provided for @theSubscriptionPlansPeopleCanChoose.
-  ///
-  /// In en, this message translates to:
-  /// **'The subscription plans people can choose from.'**
-  String get theSubscriptionPlansPeopleCanChoose;
 
   /// No description provided for @theTeamsIncomingWebhookThisAgent.
   ///
@@ -13810,12 +13180,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'these switches, never your chats, memories or files.'**
   String get theseSwitchesNeverYourChatsMemories;
-
-  /// No description provided for @thisAccountIsIgnored.
-  ///
-  /// In en, this message translates to:
-  /// **'this account is ignored.'**
-  String get thisAccountIsIgnored;
 
   /// No description provided for @thisAccountWillUnlockNeoagentOn.
   ///
@@ -14039,12 +13403,6 @@ abstract class AppL10n {
   /// **'this server.'**
   String get thisServer;
 
-  /// No description provided for @thisServerIsAlreadySetUp.
-  ///
-  /// In en, this message translates to:
-  /// **'This server is already set up. Sign in with an existing account.'**
-  String get thisServerIsAlreadySetUp;
-
   /// No description provided for @thisServerReportsNoProviderSettings.
   ///
   /// In en, this message translates to:
@@ -14092,12 +13450,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'This will remove \"{arg1}\" from the server list.'**
   String thisWillRemoveArg1FromThe(Object? arg1);
-
-  /// No description provided for @tickTheModelsThisPlanMay.
-  ///
-  /// In en, this message translates to:
-  /// **'Tick the models this plan may use. Leave all unticked to allow '**
-  String get tickTheModelsThisPlanMay;
 
   /// No description provided for @time.
   ///
@@ -14183,12 +13535,6 @@ abstract class AppL10n {
   /// **'token budget limit 4 hour weekly quota global'**
   String get tokenBudgetLimit4HourWeekly2;
 
-  /// No description provided for @tokenLimitsMustBeWholeNumbers.
-  ///
-  /// In en, this message translates to:
-  /// **'Token limits must be whole numbers, or blank for the default.'**
-  String get tokenLimitsMustBeWholeNumbers;
-
   /// No description provided for @tokenUsageUnavailableOnThisServer.
   ///
   /// In en, this message translates to:
@@ -14230,12 +13576,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **' tokens used'**
   String get tokensUsed;
-
-  /// No description provided for @tomorrowKeepItShortAndSend.
-  ///
-  /// In en, this message translates to:
-  /// **'tomorrow. Keep it short and send it to me.'**
-  String get tomorrowKeepItShortAndSend;
 
   /// No description provided for @tomorrowPrep.
   ///
@@ -14669,12 +14009,6 @@ abstract class AppL10n {
   /// **'Unknown location'**
   String get unknownLocation;
 
-  /// No description provided for @unknownPlan.
-  ///
-  /// In en, this message translates to:
-  /// **'Unknown plan'**
-  String get unknownPlan;
-
   /// No description provided for @unknownPublishTime.
   ///
   /// In en, this message translates to:
@@ -14722,12 +14056,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Unusual sign-in alerts'**
   String get unusualSignInAlerts;
-
-  /// No description provided for @update.
-  ///
-  /// In en, this message translates to:
-  /// **'Update'**
-  String get update;
 
   /// No description provided for @updateArg1.
   ///
@@ -14849,12 +14177,6 @@ abstract class AppL10n {
   /// **'Usage & limits'**
   String get usageLimits2;
 
-  /// No description provided for @usageThisPeriod.
-  ///
-  /// In en, this message translates to:
-  /// **'Usage this period'**
-  String get usageThisPeriod;
-
   /// No description provided for @use8CharactersLongerPassphrasesWork.
   ///
   /// In en, this message translates to:
@@ -14914,6 +14236,30 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Use at least 1 vCPU.'**
   String get useAtLeast1Vcpu;
+
+  /// No description provided for @maxMemoryPerComputerMb.
+  ///
+  /// In en, this message translates to:
+  /// **'Max memory per computer (MB)'**
+  String get maxMemoryPerComputerMb;
+
+  /// No description provided for @maxVcpusPerComputer.
+  ///
+  /// In en, this message translates to:
+  /// **'Max vCPUs per computer'**
+  String get maxVcpusPerComputer;
+
+  /// No description provided for @atLeastArg1ComputersGetLess.
+  ///
+  /// In en, this message translates to:
+  /// **'At least {arg1}. Computers get less when the host is busy.'**
+  String atLeastArg1ComputersGetLess(Object? arg1);
+
+  /// No description provided for @maxMemoryMustBeAtLeastArg1Mb.
+  ///
+  /// In en, this message translates to:
+  /// **'Max memory must be at least {arg1} MB.'**
+  String maxMemoryMustBeAtLeastArg1Mb(Object? arg1);
 
   /// No description provided for @useAtLeast8Characters.
   ///
@@ -15167,12 +14513,6 @@ abstract class AppL10n {
   /// **'View logs'**
   String get viewLogs;
 
-  /// No description provided for @viewPlans.
-  ///
-  /// In en, this message translates to:
-  /// **'View plans'**
-  String get viewPlans;
-
   /// No description provided for @vmImageMemoryCpuQemuRuntime.
   ///
   /// In en, this message translates to:
@@ -15287,12 +14627,6 @@ abstract class AppL10n {
   /// **'Wants to talk with you · {arg1}s'**
   String wantsToTalkWithYouArg1(Object? arg1);
 
-  /// No description provided for @watchItLive.
-  ///
-  /// In en, this message translates to:
-  /// **'Watch it live'**
-  String get watchItLive;
-
   /// No description provided for @weak.
   ///
   /// In en, this message translates to:
@@ -15341,12 +14675,6 @@ abstract class AppL10n {
   /// **'Webhook secret'**
   String get webhookSecret;
 
-  /// No description provided for @webhookSigningSecret.
-  ///
-  /// In en, this message translates to:
-  /// **'Webhook signing secret'**
-  String get webhookSigningSecret;
-
   /// No description provided for @webhookUrlCopied.
   ///
   /// In en, this message translates to:
@@ -15394,18 +14722,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Weekly review'**
   String get weeklyReview;
-
-  /// No description provided for @weeklyTokenLimit.
-  ///
-  /// In en, this message translates to:
-  /// **'Weekly token limit'**
-  String get weeklyTokenLimit;
-
-  /// No description provided for @weeklyTokens.
-  ///
-  /// In en, this message translates to:
-  /// **'Weekly tokens'**
-  String get weeklyTokens;
 
   /// No description provided for @weeklyUsage.
   ///
@@ -15502,12 +14818,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Where this agent should send replies.'**
   String get whereThisAgentShouldSendReplies;
-
-  /// No description provided for @whileItWorks.
-  ///
-  /// In en, this message translates to:
-  /// **'while it works.'**
-  String get whileItWorks;
 
   /// No description provided for @whoCanMessage.
   ///
@@ -15611,12 +14921,6 @@ abstract class AppL10n {
   /// **'Working in the background: {arg1}'**
   String workingInTheBackgroundArg1(Object? arg1);
 
-  /// No description provided for @worksLikeYouWould.
-  ///
-  /// In en, this message translates to:
-  /// **'Works like you would'**
-  String get worksLikeYouWould;
-
   /// No description provided for @workspaceConfigurationAndAccountSecurityIn.
   ///
   /// In en, this message translates to:
@@ -15658,12 +14962,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'xmlhttprequest error'**
   String get xmlhttprequestError;
-
-  /// No description provided for @yearly.
-  ///
-  /// In en, this message translates to:
-  /// **'Yearly'**
-  String get yearly;
 
   /// No description provided for @yesterday.
   ///
@@ -15838,12 +15136,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Your session expired. Please sign in again.'**
   String get yourSessionExpiredPleaseSignIn;
-
-  /// No description provided for @yourSubscriptionWillRemainActiveUntil.
-  ///
-  /// In en, this message translates to:
-  /// **'Your subscription will remain active until the end of the billing period.'**
-  String get yourSubscriptionWillRemainActiveUntil;
 
   /// No description provided for @yourUsernameOrPasswordIsIncorrect.
   ///
@@ -16229,24 +15521,6 @@ abstract class AppL10n {
   /// **'This removes the address for every account on this server.'**
   String get thisRemovesTheAddressForEveryAccount;
 
-  /// No description provided for @allModels.
-  ///
-  /// In en, this message translates to:
-  /// **'All models'**
-  String get allModels;
-
-  /// No description provided for @optionalAndPermanentBlankGeneratesOne.
-  ///
-  /// In en, this message translates to:
-  /// **'Optional and permanent. Blank generates one.'**
-  String get optionalAndPermanentBlankGeneratesOne;
-
-  /// No description provided for @noSubscriptionsYet.
-  ///
-  /// In en, this message translates to:
-  /// **'No subscriptions yet.'**
-  String get noSubscriptionsYet;
-
   /// No description provided for @justTalkYouCanInterruptAtAny.
   ///
   /// In en, this message translates to:
@@ -16318,12 +15592,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'The operator'**
   String get theOperator;
-
-  /// No description provided for @getStarted.
-  ///
-  /// In en, this message translates to:
-  /// **'Get started'**
-  String get getStarted;
 
   /// No description provided for @smartSelectorOn.
   ///
@@ -16456,12 +15724,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'hosted provider.'**
   String get hostedProvider;
-
-  /// No description provided for @serverToStartIt.
-  ///
-  /// In en, this message translates to:
-  /// **'server to start it.'**
-  String get serverToStartIt;
 
   /// No description provided for @muted.
   ///
@@ -17021,24 +16283,6 @@ abstract class AppL10n {
   /// **'{arg1} invite links from {arg2} were revoked'**
   String arg1InviteLinksFromArg2WereRevoked(Object? arg1, Object? arg2);
 
-  /// No description provided for @trialEndsArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Trial ends {arg1}'**
-  String trialEndsArg1(Object? arg1);
-
-  /// No description provided for @cancelsAtEndOfPeriodArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Cancels at end of period · {arg1}'**
-  String cancelsAtEndOfPeriodArg1(Object? arg1);
-
-  /// No description provided for @renewsArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Renews {arg1}'**
-  String renewsArg1(Object? arg1);
-
   /// No description provided for @addThePeopleAndGroupsArg1Should.
   ///
   /// In en, this message translates to:
@@ -17230,12 +16474,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'\n...[artifact bounded, {arg1} bytes total]...\n'**
   String artifactBoundedArg1BytesTotal(Object? arg1);
-
-  /// No description provided for @userArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'User #{arg1}'**
-  String userArg1(Object? arg1);
 
   /// No description provided for @inArg1.
   ///
@@ -17510,7 +16748,7 @@ abstract class AppL10n {
   /// No description provided for @settingsPageUsage.
   ///
   /// In en, this message translates to:
-  /// **'Plan & usage'**
+  /// **'Usage'**
   String get settingsPageUsage;
 
   /// No description provided for @settingsPagePermissions.
@@ -17552,7 +16790,7 @@ abstract class AppL10n {
   /// No description provided for @settingsPageUsageDescription.
   ///
   /// In en, this message translates to:
-  /// **'Your limits, token spend and plan, all in one place.'**
+  /// **'Your limits and token spend, all in one place.'**
   String get settingsPageUsageDescription;
 
   /// No description provided for @settingsPageAgentsDescription.
@@ -17956,12 +17194,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Token usage'**
   String get settingsTokenUsage;
-
-  /// No description provided for @settingsAvailablePlans.
-  ///
-  /// In en, this message translates to:
-  /// **'Available plans'**
-  String get settingsAvailablePlans;
 
   /// No description provided for @settingsSearchNoMatch.
   ///
@@ -19078,6 +18310,228 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'{arg1} installs'**
   String skillsShInstallsArg1(Object? arg1);
+
+  /// No description provided for @authVerify.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify'**
+  String get authVerify;
+
+  /// No description provided for @authCreateAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Create account'**
+  String get authCreateAccount;
+
+  /// No description provided for @authNewInviteLink.
+  ///
+  /// In en, this message translates to:
+  /// **'New invite link'**
+  String get authNewInviteLink;
+
+  /// No description provided for @authShowPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Show password'**
+  String get authShowPassword;
+
+  /// No description provided for @authHidePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide password'**
+  String get authHidePassword;
+
+  /// No description provided for @authPasswordWillBeRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'too weak, will be rejected'**
+  String get authPasswordWillBeRejected;
+
+  /// No description provided for @authUsernameTooShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Usernames need at least 3 characters.'**
+  String get authUsernameTooShort;
+
+  /// No description provided for @authUsernameTaken.
+  ///
+  /// In en, this message translates to:
+  /// **'That username is already taken.'**
+  String get authUsernameTaken;
+
+  /// No description provided for @authSignupsClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-ups are closed on this server. Ask the admin for an account.'**
+  String get authSignupsClosed;
+
+  /// No description provided for @authInsecureTransportArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'This server only accepts sign-ins over HTTPS. Open {arg1} instead.'**
+  String authInsecureTransportArg1(Object? arg1);
+
+  /// No description provided for @authInsecureTransport.
+  ///
+  /// In en, this message translates to:
+  /// **'This server only accepts sign-ins over HTTPS. Connect to it with an https:// address.'**
+  String get authInsecureTransport;
+
+  /// No description provided for @authAccountNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'That account no longer exists.'**
+  String get authAccountNotFound;
+
+  /// No description provided for @authQrRateLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many QR sign-in requests. Wait a moment, then refresh the code.'**
+  String get authQrRateLimited;
+
+  /// No description provided for @authForgotPasswordAskAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot your password? Ask your server admin to reset it in Admin → Users.'**
+  String get authForgotPasswordAskAdmin;
+
+  /// No description provided for @authChangeServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Change server'**
+  String get authChangeServer;
+
+  /// No description provided for @authSigningInToArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Signing in to {arg1}'**
+  String authSigningInToArg1(Object? arg1);
+
+  /// No description provided for @authNotANeoagentServer.
+  ///
+  /// In en, this message translates to:
+  /// **'This address doesn\'t answer like a NeoAgent server. Check the URL and try again.'**
+  String get authNotANeoagentServer;
+
+  /// No description provided for @authSecureConnectionFailedArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open a secure (HTTPS) connection to {arg1}.'**
+  String authSecureConnectionFailedArg1(Object? arg1);
+
+  /// No description provided for @authNoHttpsOrHttpArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t reach {arg1} over HTTPS, and plain HTTP didn\'t answer either. Check the address and port.'**
+  String authNoHttpsOrHttpArg1(Object? arg1);
+
+  /// No description provided for @adminResetPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset password'**
+  String get adminResetPassword;
+
+  /// No description provided for @adminResetPasswordForArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset password for {arg1}'**
+  String adminResetPasswordForArg1(Object? arg1);
+
+  /// No description provided for @adminResetPasswordBodyArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a new password for {arg1}. They will be signed out on every device and sign in again with this password.'**
+  String adminResetPasswordBodyArg1(Object? arg1);
+
+  /// No description provided for @adminNewPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'New password'**
+  String get adminNewPassword;
+
+  /// No description provided for @adminSetPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Set password'**
+  String get adminSetPassword;
+
+  /// No description provided for @authMissingFields.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill in every required field.'**
+  String get authMissingFields;
+
+  /// No description provided for @adminAuditPasswordResetArg1Arg2.
+  ///
+  /// In en, this message translates to:
+  /// **'{arg1} reset the password of {arg2}'**
+  String adminAuditPasswordResetArg1Arg2(Object? arg1, Object? arg2);
+
+  /// No description provided for @adminPasswordUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Password updated; the user was signed out everywhere.'**
+  String get adminPasswordUpdated;
+
+  /// No description provided for @authSignInTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to NeoAgent'**
+  String get authSignInTitle;
+
+  /// No description provided for @authSignInSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan with your phone, or use your password.'**
+  String get authSignInSubtitle;
+
+  /// No description provided for @authOrUsePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'or use your password'**
+  String get authOrUsePassword;
+
+  /// No description provided for @qrLoginWaitingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve on your phone'**
+  String get qrLoginWaitingTitle;
+
+  /// No description provided for @qrLoginWaitingBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your phone scanned the code. Confirm the login there to finish signing in.'**
+  String get qrLoginWaitingBody;
+
+  /// No description provided for @qrLoginSigningInOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Signing in on'**
+  String get qrLoginSigningInOn;
+
+  /// No description provided for @qrLoginLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Location'**
+  String get qrLoginLocation;
+
+  /// No description provided for @qrLoginWaitingForApproval.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for approval'**
+  String get qrLoginWaitingForApproval;
+
+  /// No description provided for @qrLoginCancelAndUsePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel and use a password'**
+  String get qrLoginCancelAndUsePassword;
+
+  /// No description provided for @qrLoginDeclinedOnPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'The login was declined on your phone. Scan the new code to try again.'**
+  String get qrLoginDeclinedOnPhone;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

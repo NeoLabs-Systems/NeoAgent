@@ -1,375 +1,385 @@
 part of 'main.dart';
 
-final messagingPlatforms = <MessagingPlatformDescriptor>[
-  MessagingPlatformDescriptor(
-    id: 'whatsapp',
-    label: 'WhatsApp',
-    subtitle: appStrings.qrBasedPhoneLinking,
-    accent: Color(0xFF25D366),
-    connectMethod: MessagingConnectMethod.qr,
-    icon: Icons.chat_bubble,
-  ),
-  MessagingPlatformDescriptor(
-    id: 'telegram',
-    label: 'Telegram',
-    subtitle: appStrings.botTokenAndApprovedChats,
-    accent: Color(0xFF2AABEE),
-    connectMethod: MessagingConnectMethod.config,
-    icon: Icons.send_rounded,
-    configFields: <MessagingConfigField>[
-      MessagingConfigField(
-        key: 'botToken',
-        label: appStrings.botToken,
-        hint: appStrings.fromBotfatherAfterYouCreateThe,
-        obscure: true,
+/// Built on each read so labels follow the current app language.
+List<MessagingPlatformDescriptor> get messagingPlatforms =>
+    <MessagingPlatformDescriptor>[
+      MessagingPlatformDescriptor(
+        id: 'whatsapp',
+        label: 'WhatsApp',
+        subtitle: appStrings.qrBasedPhoneLinking,
+        accent: Color(0xFF25D366),
+        connectMethod: MessagingConnectMethod.qr,
+        icon: Icons.chat_bubble,
       ),
-    ],
-  ),
-  MessagingPlatformDescriptor(
-    id: 'discord',
-    label: 'Discord',
-    subtitle: appStrings.botTokenAndServerChannelAccess,
-    accent: Color(0xFF5865F2),
-    connectMethod: MessagingConnectMethod.config,
-    icon: Icons.sports_esports_rounded,
-    configFields: <MessagingConfigField>[
-      MessagingConfigField(
-        key: 'token',
-        label: appStrings.botToken,
-        hint: appStrings.fromTheDiscordDeveloperPortalUnder,
-        obscure: true,
+      MessagingPlatformDescriptor(
+        id: 'telegram',
+        label: 'Telegram',
+        subtitle: appStrings.botTokenAndApprovedChats,
+        accent: Color(0xFF2AABEE),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.send_rounded,
+        configFields: <MessagingConfigField>[
+          MessagingConfigField(
+            key: 'botToken',
+            label: appStrings.botToken,
+            hint: appStrings.fromBotfatherAfterYouCreateThe,
+            obscure: true,
+          ),
+        ],
       ),
-    ],
-  ),
-  MessagingPlatformDescriptor(
-    id: 'slack',
-    label: 'Slack',
-    subtitle: appStrings.botTokenEventsApiAndChannel,
-    accent: Color(0xFF36C5F0),
-    connectMethod: MessagingConnectMethod.config,
-    icon: Icons.tag_rounded,
-    configFields: <MessagingConfigField>[
-      MessagingConfigField(
-        key: 'botToken',
-        label: appStrings.botToken,
-        hint: appStrings.startsWithXoxbFromYourSlack,
-        obscure: true,
+      MessagingPlatformDescriptor(
+        id: 'discord',
+        label: 'Discord',
+        subtitle: appStrings.botTokenAndServerChannelAccess,
+        accent: Color(0xFF5865F2),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.sports_esports_rounded,
+        configFields: <MessagingConfigField>[
+          MessagingConfigField(
+            key: 'token',
+            label: appStrings.botToken,
+            hint: appStrings.fromTheDiscordDeveloperPortalUnder,
+            obscure: true,
+          ),
+        ],
       ),
-      MessagingConfigField(
-        key: 'signingSecret',
-        label: appStrings.signingSecret,
-        hint: appStrings.usedToVerifyThatIncomingSlack,
-        obscure: true,
+      MessagingPlatformDescriptor(
+        id: 'slack',
+        label: 'Slack',
+        subtitle: appStrings.botTokenEventsApiAndChannel,
+        accent: Color(0xFF36C5F0),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.tag_rounded,
+        configFields: <MessagingConfigField>[
+          MessagingConfigField(
+            key: 'botToken',
+            label: appStrings.botToken,
+            hint: appStrings.startsWithXoxbFromYourSlack,
+            obscure: true,
+          ),
+          MessagingConfigField(
+            key: 'signingSecret',
+            label: appStrings.signingSecret,
+            hint: appStrings.usedToVerifyThatIncomingSlack,
+            obscure: true,
+          ),
+          MessagingConfigField(
+            key: 'inboundSecret',
+            label: appStrings.webhookSecret,
+            hint: appStrings.optionalExtraSecretIfYouProtect,
+            obscure: true,
+          ),
+        ],
       ),
-      MessagingConfigField(
-        key: 'inboundSecret',
-        label: appStrings.webhookSecret,
-        hint: appStrings.optionalExtraSecretIfYouProtect,
-        obscure: true,
+      MessagingPlatformDescriptor(
+        id: 'google_chat',
+        label: appStrings.googleChat,
+        subtitle: appStrings.spaceWebhookAndAppCallbackSupport,
+        accent: Color(0xFF34A853),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.forum_rounded,
+        configFields: <MessagingConfigField>[
+          MessagingConfigField(
+            key: 'webhookUrl',
+            label: appStrings.outgoingWebhookUrl,
+            hint: appStrings.theGoogleChatSpaceWebhookThis,
+            obscure: true,
+          ),
+          MessagingConfigField(
+            key: 'inboundSecret',
+            label: appStrings.webhookSecret,
+            hint: appStrings.optionalSecretToVerifyIncomingChat,
+            obscure: true,
+          ),
+          MessagingConfigField(
+            key: 'defaultTo',
+            label: appStrings.defaultSpace,
+            hint: appStrings.spaceOrChatIdUsedWhen,
+          ),
+        ],
       ),
-    ],
-  ),
-  MessagingPlatformDescriptor(
-    id: 'google_chat',
-    label: appStrings.googleChat,
-    subtitle: appStrings.spaceWebhookAndAppCallbackSupport,
-    accent: Color(0xFF34A853),
-    connectMethod: MessagingConnectMethod.config,
-    icon: Icons.forum_rounded,
-    configFields: <MessagingConfigField>[
-      MessagingConfigField(
-        key: 'webhookUrl',
-        label: appStrings.outgoingWebhookUrl,
-        hint: appStrings.theGoogleChatSpaceWebhookThis,
-        obscure: true,
+      MessagingPlatformDescriptor(
+        id: 'teams',
+        label: appStrings.microsoftTeams,
+        subtitle: appStrings.incomingWebhookAndOutgoingCallbackSupport,
+        accent: Color(0xFF6264A7),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.groups_rounded,
+        configFields: <MessagingConfigField>[
+          MessagingConfigField(
+            key: 'webhookUrl',
+            label: appStrings.outgoingWebhookUrl,
+            hint: appStrings.theTeamsIncomingWebhookThisAgent,
+            obscure: true,
+          ),
+          MessagingConfigField(
+            key: 'inboundSecret',
+            label: appStrings.webhookSecret,
+            hint: appStrings.optionalSecretToVerifyIncomingTeams,
+            obscure: true,
+          ),
+          MessagingConfigField(
+            key: 'defaultTo',
+            label: appStrings.defaultConversation,
+            hint: appStrings.conversationIdUsedWhenThisAgent,
+          ),
+        ],
       ),
-      MessagingConfigField(
-        key: 'inboundSecret',
-        label: appStrings.webhookSecret,
-        hint: appStrings.optionalSecretToVerifyIncomingChat,
-        obscure: true,
+      MessagingPlatformDescriptor(
+        id: 'matrix',
+        label: 'Matrix',
+        subtitle: appStrings.homeserverTokenWithRoomPolling,
+        accent: Color(0xFF0DBD8B),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.grid_view_rounded,
+        configFields: <MessagingConfigField>[
+          MessagingConfigField(
+            key: 'homeserver',
+            label: appStrings.homeserverUrl,
+            hint: appStrings.forExampleHttpsMatrixOrg,
+          ),
+          MessagingConfigField(
+            key: 'accessToken',
+            label: appStrings.accessToken2,
+            hint: appStrings.fromTheMatrixClientOrBot,
+            obscure: true,
+          ),
+          MessagingConfigField(
+            key: 'userId',
+            label: appStrings.botUserId,
+            hint: appStrings.usuallyLooksLikeBotMatrixOrg,
+          ),
+          MessagingConfigField(
+            key: 'pollIntervalMs',
+            label: appStrings.checkForMessagesEveryMs,
+            hint: appStrings.howOftenThisAgentLooksFor,
+            defaultValue: '5000',
+          ),
+        ],
       ),
-      MessagingConfigField(
-        key: 'defaultTo',
-        label: appStrings.defaultSpace,
-        hint: appStrings.spaceOrChatIdUsedWhen,
+      MessagingPlatformDescriptor(
+        id: 'signal',
+        label: 'Signal',
+        subtitle: appStrings.signalCliRestApiBridge,
+        accent: Color(0xFF3A76F0),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.lock_rounded,
+        configFields: <MessagingConfigField>[
+          MessagingConfigField(
+            key: 'restUrl',
+            label: appStrings.signalCliServerUrl,
+            hint: appStrings.theRestEndpointForYourSignal,
+          ),
+          MessagingConfigField(
+            key: 'account',
+            label: appStrings.accountNumber,
+            hint: appStrings.theSignalPhoneNumberThisBot,
+          ),
+          MessagingConfigField(
+            key: 'pollEnabled',
+            label: appStrings.checkForNewMessagesAutomatically,
+            hint: appStrings.turnOnIfSignalShouldKeep,
+            kind: MessagingConfigFieldKind.boolean,
+          ),
+          MessagingConfigField(
+            key: 'pollIntervalMs',
+            label: appStrings.checkForMessagesEveryMs,
+            hint: appStrings.howOftenThisAgentLooksFor2,
+            defaultValue: '10000',
+          ),
+        ],
       ),
-    ],
-  ),
-  MessagingPlatformDescriptor(
-    id: 'teams',
-    label: appStrings.microsoftTeams,
-    subtitle: appStrings.incomingWebhookAndOutgoingCallbackSupport,
-    accent: Color(0xFF6264A7),
-    connectMethod: MessagingConnectMethod.config,
-    icon: Icons.groups_rounded,
-    configFields: <MessagingConfigField>[
-      MessagingConfigField(
-        key: 'webhookUrl',
-        label: appStrings.outgoingWebhookUrl,
-        hint: appStrings.theTeamsIncomingWebhookThisAgent,
-        obscure: true,
+      MessagingPlatformDescriptor(
+        id: 'imessage',
+        label: 'iMessage',
+        subtitle: appStrings.bluebubblesCompatibleBridge,
+        accent: Color(0xFF007AFF),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.sms_rounded,
+        configFields: <MessagingConfigField>[
+          MessagingConfigField(
+            key: 'serverUrl',
+            label: appStrings.bluebubblesServerUrl,
+            hint: appStrings.theAddressOfYourBluebubblesServer,
+          ),
+          MessagingConfigField(
+            key: 'password',
+            label: appStrings.passwordOrApiKey,
+            hint: appStrings.thePasswordYouSetInBluebubbles,
+            obscure: true,
+          ),
+          MessagingConfigField(
+            key: 'sendPath',
+            label: appStrings.sendPath,
+            hint: appStrings.leaveAsTheDefaultUnlessYou,
+            defaultValue: '/api/v1/message/text',
+          ),
+          MessagingConfigField(
+            key: 'inboundSecret',
+            label: appStrings.webhookSecret,
+            hint: appStrings.optionalSecretToVerifyIncomingImessage,
+            obscure: true,
+          ),
+        ],
       ),
-      MessagingConfigField(
-        key: 'inboundSecret',
-        label: appStrings.webhookSecret,
-        hint: appStrings.optionalSecretToVerifyIncomingTeams,
-        obscure: true,
+      MessagingPlatformDescriptor(
+        id: 'bluebubbles',
+        label: 'BlueBubbles',
+        subtitle: appStrings.directBluebubblesImessageBridge,
+        accent: Color(0xFF0A84FF),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.bubble_chart_rounded,
+        configFields: <MessagingConfigField>[
+          MessagingConfigField(
+            key: 'serverUrl',
+            label: appStrings.bluebubblesServerUrl,
+            hint: appStrings.theAddressOfYourBluebubblesServer,
+          ),
+          MessagingConfigField(
+            key: 'password',
+            label: appStrings.passwordOrApiKey,
+            hint: appStrings.thePasswordYouSetInBluebubbles,
+            obscure: true,
+          ),
+          MessagingConfigField(
+            key: 'sendPath',
+            label: appStrings.sendPath,
+            hint: appStrings.leaveAsTheDefaultUnlessYou,
+            defaultValue: '/api/v1/message/text',
+          ),
+          MessagingConfigField(
+            key: 'inboundSecret',
+            label: appStrings.webhookSecret,
+            hint: appStrings.optionalSecretToVerifyIncomingImessage,
+            obscure: true,
+          ),
+        ],
       ),
-      MessagingConfigField(
-        key: 'defaultTo',
-        label: appStrings.defaultConversation,
-        hint: appStrings.conversationIdUsedWhenThisAgent,
+      MessagingPlatformDescriptor(
+        id: 'irc',
+        label: 'IRC',
+        subtitle: appStrings.serverNickChannelAndOptionalTls,
+        accent: Color(0xFF7E57C2),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.terminal_rounded,
+        configFields: <MessagingConfigField>[
+          MessagingConfigField(
+            key: 'server',
+            label: 'Server',
+            hint: appStrings.hostnameOfTheIrcNetworkFor,
+          ),
+          MessagingConfigField(
+            key: 'port',
+            label: appStrings.port,
+            defaultValue: '6667',
+          ),
+          MessagingConfigField(key: 'nick', label: appStrings.nickname),
+          MessagingConfigField(
+            key: 'password',
+            label: appStrings.password,
+            obscure: true,
+          ),
+          MessagingConfigField(
+            key: 'channels',
+            label: appStrings.channels,
+            hint: appStrings.commaSeparatedForExampleGeneralHelp,
+          ),
+          MessagingConfigField(
+            key: 'tls',
+            label: appStrings.useASecureConnectionTls,
+            kind: MessagingConfigFieldKind.boolean,
+          ),
+        ],
       ),
-    ],
-  ),
-  MessagingPlatformDescriptor(
-    id: 'matrix',
-    label: 'Matrix',
-    subtitle: appStrings.homeserverTokenWithRoomPolling,
-    accent: Color(0xFF0DBD8B),
-    connectMethod: MessagingConnectMethod.config,
-    icon: Icons.grid_view_rounded,
-    configFields: <MessagingConfigField>[
-      MessagingConfigField(
-        key: 'homeserver',
-        label: appStrings.homeserverUrl,
-        hint: appStrings.forExampleHttpsMatrixOrg,
+      MessagingPlatformDescriptor(
+        id: 'twitch',
+        label: 'Twitch',
+        subtitle: appStrings.twitchChatOverIrc,
+        accent: Color(0xFF9146FF),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.live_tv_rounded,
+        configFields: <MessagingConfigField>[
+          MessagingConfigField(key: 'nick', label: appStrings.botUsername),
+          MessagingConfigField(
+            key: 'oauthToken',
+            label: appStrings.oauthToken,
+            hint: appStrings.fromTwitchappsComTmiOrYour,
+            obscure: true,
+          ),
+          MessagingConfigField(
+            key: 'channels',
+            label: appStrings.channels,
+            hint: appStrings.commaSeparatedChannelNamesWithoutThe,
+          ),
+        ],
       ),
-      MessagingConfigField(
-        key: 'accessToken',
-        label: appStrings.accessToken2,
-        hint: appStrings.fromTheMatrixClientOrBot,
-        obscure: true,
+      MessagingPlatformDescriptor(
+        id: 'line',
+        label: 'LINE',
+        subtitle: appStrings.messagingApiPushAndWebhookEvents,
+        accent: Color(0xFF06C755),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.chat_rounded,
+        configFields: <MessagingConfigField>[
+          MessagingConfigField(
+            key: 'channelAccessToken',
+            label: appStrings.channelAccessToken,
+            hint: appStrings.fromTheLineDevelopersConsole,
+            obscure: true,
+          ),
+          MessagingConfigField(
+            key: 'inboundSecret',
+            label: appStrings.webhookSecret,
+            hint: appStrings.optionalSecretToVerifyIncomingLine,
+            obscure: true,
+          ),
+        ],
       ),
-      MessagingConfigField(
-        key: 'userId',
-        label: appStrings.botUserId,
-        hint: appStrings.usuallyLooksLikeBotMatrixOrg,
+      MessagingPlatformDescriptor(
+        id: 'mattermost',
+        label: 'Mattermost',
+        subtitle: appStrings.webhookOrRestChannelPosting,
+        accent: Color(0xFF0058CC),
+        connectMethod: MessagingConnectMethod.config,
+        icon: Icons.forum_outlined,
+        configFields: <MessagingConfigField>[
+          MessagingConfigField(
+            key: 'webhookUrl',
+            label: appStrings.outgoingWebhookUrl,
+            hint: appStrings.theMattermostIncomingWebhookThisAgent,
+            obscure: true,
+          ),
+          MessagingConfigField(
+            key: 'baseUrl',
+            label: appStrings.serverUrl,
+            hint: appStrings.yourMattermostSiteUrlIfYou,
+          ),
+          MessagingConfigField(
+            key: 'token',
+            label: appStrings.accessToken2,
+            hint: appStrings.personalAccessTokenForTheMattermost,
+            obscure: true,
+          ),
+          MessagingConfigField(
+            key: 'inboundSecret',
+            label: appStrings.webhookSecret,
+            hint: appStrings.optionalSecretToVerifyIncomingMattermost,
+            obscure: true,
+          ),
+        ],
       ),
-      MessagingConfigField(
-        key: 'pollIntervalMs',
-        label: appStrings.checkForMessagesEveryMs,
-        hint: appStrings.howOftenThisAgentLooksFor,
-        defaultValue: '5000',
+      MessagingPlatformDescriptor(
+        id: 'github',
+        label: 'GitHub',
+        subtitle: appStrings.answersMentionsOnIssuesAndPull,
+        accent: Color(0xFF8B949E),
+        connectMethod: MessagingConnectMethod.integration,
+        icon: Icons.code_rounded,
+        integrationProvider: 'github',
+        integrationApp: 'mentions',
       ),
-    ],
-  ),
-  MessagingPlatformDescriptor(
-    id: 'signal',
-    label: 'Signal',
-    subtitle: appStrings.signalCliRestApiBridge,
-    accent: Color(0xFF3A76F0),
-    connectMethod: MessagingConnectMethod.config,
-    icon: Icons.lock_rounded,
-    configFields: <MessagingConfigField>[
-      MessagingConfigField(
-        key: 'restUrl',
-        label: appStrings.signalCliServerUrl,
-        hint: appStrings.theRestEndpointForYourSignal,
-      ),
-      MessagingConfigField(
-        key: 'account',
-        label: appStrings.accountNumber,
-        hint: appStrings.theSignalPhoneNumberThisBot,
-      ),
-      MessagingConfigField(
-        key: 'pollEnabled',
-        label: appStrings.checkForNewMessagesAutomatically,
-        hint: appStrings.turnOnIfSignalShouldKeep,
-        kind: MessagingConfigFieldKind.boolean,
-      ),
-      MessagingConfigField(
-        key: 'pollIntervalMs',
-        label: appStrings.checkForMessagesEveryMs,
-        hint: appStrings.howOftenThisAgentLooksFor2,
-        defaultValue: '10000',
-      ),
-    ],
-  ),
-  MessagingPlatformDescriptor(
-    id: 'imessage',
-    label: 'iMessage',
-    subtitle: appStrings.bluebubblesCompatibleBridge,
-    accent: Color(0xFF007AFF),
-    connectMethod: MessagingConnectMethod.config,
-    icon: Icons.sms_rounded,
-    configFields: <MessagingConfigField>[
-      MessagingConfigField(
-        key: 'serverUrl',
-        label: appStrings.bluebubblesServerUrl,
-        hint: appStrings.theAddressOfYourBluebubblesServer,
-      ),
-      MessagingConfigField(
-        key: 'password',
-        label: appStrings.passwordOrApiKey,
-        hint: appStrings.thePasswordYouSetInBluebubbles,
-        obscure: true,
-      ),
-      MessagingConfigField(
-        key: 'sendPath',
-        label: appStrings.sendPath,
-        hint: appStrings.leaveAsTheDefaultUnlessYou,
-        defaultValue: '/api/v1/message/text',
-      ),
-      MessagingConfigField(
-        key: 'inboundSecret',
-        label: appStrings.webhookSecret,
-        hint: appStrings.optionalSecretToVerifyIncomingImessage,
-        obscure: true,
-      ),
-    ],
-  ),
-  MessagingPlatformDescriptor(
-    id: 'bluebubbles',
-    label: 'BlueBubbles',
-    subtitle: appStrings.directBluebubblesImessageBridge,
-    accent: Color(0xFF0A84FF),
-    connectMethod: MessagingConnectMethod.config,
-    icon: Icons.bubble_chart_rounded,
-    configFields: <MessagingConfigField>[
-      MessagingConfigField(
-        key: 'serverUrl',
-        label: appStrings.bluebubblesServerUrl,
-        hint: appStrings.theAddressOfYourBluebubblesServer,
-      ),
-      MessagingConfigField(
-        key: 'password',
-        label: appStrings.passwordOrApiKey,
-        hint: appStrings.thePasswordYouSetInBluebubbles,
-        obscure: true,
-      ),
-      MessagingConfigField(
-        key: 'sendPath',
-        label: appStrings.sendPath,
-        hint: appStrings.leaveAsTheDefaultUnlessYou,
-        defaultValue: '/api/v1/message/text',
-      ),
-      MessagingConfigField(
-        key: 'inboundSecret',
-        label: appStrings.webhookSecret,
-        hint: appStrings.optionalSecretToVerifyIncomingImessage,
-        obscure: true,
-      ),
-    ],
-  ),
-  MessagingPlatformDescriptor(
-    id: 'irc',
-    label: 'IRC',
-    subtitle: appStrings.serverNickChannelAndOptionalTls,
-    accent: Color(0xFF7E57C2),
-    connectMethod: MessagingConnectMethod.config,
-    icon: Icons.terminal_rounded,
-    configFields: <MessagingConfigField>[
-      MessagingConfigField(
-        key: 'server',
-        label: 'Server',
-        hint: appStrings.hostnameOfTheIrcNetworkFor,
-      ),
-      MessagingConfigField(key: 'port', label: appStrings.port, defaultValue: '6667'),
-      MessagingConfigField(key: 'nick', label: appStrings.nickname),
-      MessagingConfigField(key: 'password', label: appStrings.password, obscure: true),
-      MessagingConfigField(
-        key: 'channels',
-        label: appStrings.channels,
-        hint: appStrings.commaSeparatedForExampleGeneralHelp,
-      ),
-      MessagingConfigField(
-        key: 'tls',
-        label: appStrings.useASecureConnectionTls,
-        kind: MessagingConfigFieldKind.boolean,
-      ),
-    ],
-  ),
-  MessagingPlatformDescriptor(
-    id: 'twitch',
-    label: 'Twitch',
-    subtitle: appStrings.twitchChatOverIrc,
-    accent: Color(0xFF9146FF),
-    connectMethod: MessagingConnectMethod.config,
-    icon: Icons.live_tv_rounded,
-    configFields: <MessagingConfigField>[
-      MessagingConfigField(key: 'nick', label: appStrings.botUsername),
-      MessagingConfigField(
-        key: 'oauthToken',
-        label: appStrings.oauthToken,
-        hint: appStrings.fromTwitchappsComTmiOrYour,
-        obscure: true,
-      ),
-      MessagingConfigField(
-        key: 'channels',
-        label: appStrings.channels,
-        hint: appStrings.commaSeparatedChannelNamesWithoutThe,
-      ),
-    ],
-  ),
-  MessagingPlatformDescriptor(
-    id: 'line',
-    label: 'LINE',
-    subtitle: appStrings.messagingApiPushAndWebhookEvents,
-    accent: Color(0xFF06C755),
-    connectMethod: MessagingConnectMethod.config,
-    icon: Icons.chat_rounded,
-    configFields: <MessagingConfigField>[
-      MessagingConfigField(
-        key: 'channelAccessToken',
-        label: appStrings.channelAccessToken,
-        hint: appStrings.fromTheLineDevelopersConsole,
-        obscure: true,
-      ),
-      MessagingConfigField(
-        key: 'inboundSecret',
-        label: appStrings.webhookSecret,
-        hint: appStrings.optionalSecretToVerifyIncomingLine,
-        obscure: true,
-      ),
-    ],
-  ),
-  MessagingPlatformDescriptor(
-    id: 'mattermost',
-    label: 'Mattermost',
-    subtitle: appStrings.webhookOrRestChannelPosting,
-    accent: Color(0xFF0058CC),
-    connectMethod: MessagingConnectMethod.config,
-    icon: Icons.forum_outlined,
-    configFields: <MessagingConfigField>[
-      MessagingConfigField(
-        key: 'webhookUrl',
-        label: appStrings.outgoingWebhookUrl,
-        hint: appStrings.theMattermostIncomingWebhookThisAgent,
-        obscure: true,
-      ),
-      MessagingConfigField(
-        key: 'baseUrl',
-        label: appStrings.serverUrl,
-        hint: appStrings.yourMattermostSiteUrlIfYou,
-      ),
-      MessagingConfigField(
-        key: 'token',
-        label: appStrings.accessToken2,
-        hint: appStrings.personalAccessTokenForTheMattermost,
-        obscure: true,
-      ),
-      MessagingConfigField(
-        key: 'inboundSecret',
-        label: appStrings.webhookSecret,
-        hint: appStrings.optionalSecretToVerifyIncomingMattermost,
-        obscure: true,
-      ),
-    ],
-  ),
-  MessagingPlatformDescriptor(
-    id: 'github',
-    label: 'GitHub',
-    subtitle: appStrings.answersMentionsOnIssuesAndPull,
-    accent: Color(0xFF8B949E),
-    connectMethod: MessagingConnectMethod.integration,
-    icon: Icons.code_rounded,
-    integrationProvider: 'github',
-    integrationApp: 'mentions',
-  ),
-  ...longTailMessagingPlatforms,
-];
+      ...longTailMessagingPlatforms,
+    ];
 
 List<MessagingPlatformDescriptor> longTailMessagingPlatforms =
     <MessagingPlatformDescriptor>[
@@ -4082,7 +4092,8 @@ class QrLoginApprovalPreview {
   final QrLoginRequestedDevice requestedDevice;
   final QrLoginRequestLocation requestLocation;
 
-  bool get canApprove => status == 'pending' || status == 'approved';
+  bool get canApprove =>
+      status == 'pending' || status == 'scanned' || status == 'approved';
   bool get isClaimed => status == 'claimed';
   bool get isExpired =>
       status == 'expired' ||
@@ -4152,6 +4163,36 @@ class QrLoginRequestLocation {
   final String? region;
   final String? country;
   final String? timezone;
+}
+
+/// A signed-in phone has scanned this screen's code and is deciding.
+///
+/// Comes from the status poll, which names only the scanning device and what
+/// the phone is shown about this screen, never the account.
+class QrLoginScan {
+  const QrLoginScan({
+    required this.scannerLabel,
+    required this.scannerDeviceClass,
+    required this.requestedDeviceLabel,
+    required this.requestLocationLabel,
+  });
+
+  factory QrLoginScan.fromStatus(Map<String, dynamic> json) {
+    Map<String, dynamic> section(String key) =>
+        Map<String, dynamic>.from(json[key] as Map? ?? const <String, dynamic>{});
+    final scanner = section('scannedBy');
+    return QrLoginScan(
+      scannerLabel: scanner['label']?.toString() ?? '',
+      scannerDeviceClass: scanner['deviceClass']?.toString() ?? '',
+      requestedDeviceLabel: section('requestedDevice')['label']?.toString() ?? '',
+      requestLocationLabel: section('requestLocation')['label']?.toString() ?? '',
+    );
+  }
+
+  final String scannerLabel;
+  final String scannerDeviceClass;
+  final String requestedDeviceLabel;
+  final String requestLocationLabel;
 }
 
 class QrLoginScanPayload {
@@ -4672,4 +4713,14 @@ class DelegationInvitePreview {
   final List<String> permissions;
   final DateTime? expiresAt;
   final bool singleUse;
+}
+
+/// A started "Sign in with OpenRouter"-style flow for a model provider. With
+/// [needsCode] the provider shows a one-time code to paste back instead of
+/// redirecting to this server.
+class ProviderSignIn {
+  const ProviderSignIn({required this.state, required this.needsCode});
+
+  final String state;
+  final bool needsCode;
 }

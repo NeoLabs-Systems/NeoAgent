@@ -30,14 +30,44 @@ bool _looksLikeEmail(String value) {
       !email.contains('..');
 }
 
+/// The sign-in and registration fields, for inline errors.
+enum _AuthField { username, email, password, confirmPassword }
+
+/// Which field a server error code concerns during registration.
+_AuthField? _authFieldForCode(String? code) {
+  switch (code) {
+    case 'USERNAME_TOO_SHORT':
+    case 'USERNAME_TAKEN':
+      return _AuthField.username;
+    case 'EMAIL_TAKEN':
+    case 'INVALID_EMAIL':
+      return _AuthField.email;
+    case 'PASSWORD_TOO_SHORT':
+    case 'PASSWORD_WEAK':
+      return _AuthField.password;
+  }
+  return null;
+}
+
 class _AuthViewState extends State<AuthView> {
   late final TextEditingController _usernameController;
   late final TextEditingController _emailController;
   late final TextEditingController _passwordController;
   late final TextEditingController _confirmPasswordController;
   late final TextEditingController _twoFactorController;
+  final FocusNode _emailFocus = FocusNode();
+  final FocusNode _passwordFocus = FocusNode();
+  final FocusNode _confirmPasswordFocus = FocusNode();
+  late final AppLifecycleListener _lifecycle;
   bool _registerMode = false;
-  bool _qrAutoRequestedForVisibleMode = false;
+  bool _obscurePassword = true;
+  Map<_AuthField, String> _fieldErrors = const <_AuthField, String>{};
+
+  /// Whether a QR code is on screen, inline or in the dialog; the challenge
+  /// is only created and polled while one is and the app is in front.
+  bool _inlineQrVisible = false;
+  bool _qrDialogOpen = false;
+  bool _appInForeground = true;
   LocalRuntimeStatus? _localRuntimeStatus;
 
   @override
@@ -54,7 +84,32 @@ class _AuthViewState extends State<AuthView> {
     );
     _confirmPasswordController = TextEditingController();
     _twoFactorController = TextEditingController();
+    _lifecycle = AppLifecycleListener(onStateChange: _onLifecycleChanged);
     unawaited(_refreshLocalRuntimeStatus());
+  }
+
+  void _onLifecycleChanged(AppLifecycleState state) {
+    // Inactive is an unfocused but visible desktop window; keep polling.
+    _appInForeground =
+        state == AppLifecycleState.resumed ||
+        state == AppLifecycleState.inactive;
+    _applyQrVisibility();
+  }
+
+  void _setInlineQrVisible(bool visible) {
+    if (_inlineQrVisible == visible) return;
+    _inlineQrVisible = visible;
+    // Called during build and layout; start or pause after the frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _applyQrVisibility());
+  }
+
+  void _applyQrVisibility() {
+    if (!mounted) return;
+    if ((_inlineQrVisible || _qrDialogOpen) && _appInForeground) {
+      unawaited(widget.controller.prepareQrLoginChallenge());
+    } else {
+      widget.controller.pauseQrLoginPolling();
+    }
   }
 
   Future<void> _refreshLocalRuntimeStatus() async {
@@ -107,6 +162,11 @@ class _AuthViewState extends State<AuthView> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _twoFactorController.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
+    _confirmPasswordFocus.dispose();
+    _lifecycle.dispose();
+    widget.controller.pauseQrLoginPolling();
     super.dispose();
   }
 
@@ -192,11 +252,20 @@ class _AuthViewState extends State<AuthView> {
   }
 
   Future<void> _showQrLoginDialog() async {
-    _qrAutoRequestedForVisibleMode = true;
-    await widget.controller.prepareQrLoginChallenge();
-    if (!mounted) {
-      return;
+    _qrDialogOpen = true;
+    try {
+      await widget.controller.prepareQrLoginChallenge();
+      if (!mounted) {
+        return;
+      }
+      await _showQrLoginDialogBody();
+    } finally {
+      _qrDialogOpen = false;
+      _applyQrVisibility();
     }
+  }
+
+  Future<void> _showQrLoginDialogBody() async {
     final controller = widget.controller;
     await showDialog<void>(
       context: context,
@@ -209,40 +278,11 @@ class _AuthViewState extends State<AuthView> {
             final countdown = challenge?.secondsRemaining ?? 0;
 
             Widget buildQrSurface() {
-              return Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: AspectRatio(
-                  aspectRatio: 1,
-                  child: Center(
-                    child: canShowQr
-                        ? QrImageView(
-                            data: challenge!.qrPayload,
-                            version: QrVersions.auto,
-                            eyeStyle: const QrEyeStyle(
-                              eyeShape: QrEyeShape.square,
-                              color: _qrDarkColor,
-                            ),
-                            dataModuleStyle: const QrDataModuleStyle(
-                              dataModuleShape: QrDataModuleShape.square,
-                              color: _qrDarkColor,
-                            ),
-                          )
-                        : controller.isPreparingQrLogin
-                        ? const SizedBox.square(
-                            dimension: 40,
-                            child: CircularProgressIndicator(strokeWidth: 3),
-                          )
-                        : Icon(
-                            Icons.qr_code_2_rounded,
-                            size: 84,
-                            color: _textMuted,
-                          ),
-                  ),
+              return Center(
+                child: _AuthQrPlate(
+                  size: 280,
+                  payload: canShowQr ? challenge!.qrPayload : null,
+                  preparing: controller.isPreparingQrLogin,
                 ),
               );
             }
@@ -281,7 +321,6 @@ class _AuthViewState extends State<AuthView> {
                   onPressed: controller.isPreparingQrLogin
                       ? null
                       : () async {
-                          _qrAutoRequestedForVisibleMode = true;
                           await widget.controller.prepareQrLoginChallenge(
                             force: true,
                           );
@@ -303,173 +342,830 @@ class _AuthViewState extends State<AuthView> {
     );
   }
 
-  void _ensureQrLoginChallenge({bool force = false}) {
-    if (!mounted) return;
-    if (force) {
-      _qrAutoRequestedForVisibleMode = true;
-    }
-    unawaited(widget.controller.prepareQrLoginChallenge(force: force));
+
+  void _setRegisterMode(bool registerMode) {
+    widget.controller.clearInlineError();
+    setState(() {
+      _registerMode = registerMode;
+      _fieldErrors = const <_AuthField, String>{};
+    });
   }
 
-  Widget _buildAuthFormPane({
+  /// Clears what the user just started fixing: the field's own error and the
+  /// banner.
+  void _onFieldEdited(_AuthField field) {
+    widget.controller.clearInlineError();
+    setState(() {
+      if (_fieldErrors.containsKey(field)) {
+        _fieldErrors = Map<_AuthField, String>.of(_fieldErrors)
+          ..remove(field);
+      }
+    });
+  }
+
+  /// The inline error for [field]: the form's own check, else a server error
+  /// whose code concerns this field.
+  String? _errorFor(_AuthField field) {
+    final local = _fieldErrors[field];
+    if (local != null) return local;
+    final controller = widget.controller;
+    if (_registerMode &&
+        _authFieldForCode(controller.authErrorCode) == field) {
+      return controller.errorMessage;
+    }
+    return null;
+  }
+
+  _PasswordStrengthInfo get _registerPasswordStrength => _passwordStrengthInfo(
+    password: _passwordController.text,
+    username: _usernameController.text,
+    email: _emailController.text,
+  );
+
+  /// Checks every registration field at once so all problems show together.
+  bool _validateRegistration() {
+    final username = _usernameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final strength = _registerPasswordStrength;
+    final errors = <_AuthField, String>{
+      if (username.isEmpty)
+        _AuthField.username: appStrings.enterAUsername
+      else if (username.length < 3)
+        _AuthField.username: appStrings.authUsernameTooShort,
+      if (!_looksLikeEmail(email))
+        _AuthField.email: appStrings.enterAValidEmailAddress,
+      if (password.isEmpty)
+        _AuthField.password: appStrings.enterAPassword
+      else if (!strength.acceptable)
+        _AuthField.password: strength.message,
+      if (password != _confirmPasswordController.text)
+        _AuthField.confirmPassword: appStrings.passwordsDoNotMatch,
+    };
+    setState(() => _fieldErrors = errors);
+    return errors.isEmpty;
+  }
+
+  bool _validateLogin() {
+    final errors = <_AuthField, String>{
+      if (_usernameController.text.trim().isEmpty)
+        _AuthField.username: appStrings.enterYourUsernameOrEmail,
+      if (_passwordController.text.isEmpty)
+        _AuthField.password: appStrings.enterAPassword,
+    };
+    setState(() => _fieldErrors = errors);
+    return errors.isEmpty;
+  }
+
+  Future<void> _submit() async {
+    final controller = widget.controller;
+    if (controller.isAuthenticating) return;
+    if (controller.isAwaitingTwoFactor) {
+      final code = _twoFactorController.text.trim();
+      if (code.isEmpty) {
+        controller.showInlineError(appStrings.enterYour2faOrRecoveryCode);
+        return;
+      }
+      await controller.completeTwoFactorLogin(code: code);
+      if (!controller.isAwaitingTwoFactor) {
+        _twoFactorController.clear();
+      }
+    } else if (_registerMode) {
+      if (!_validateRegistration()) return;
+      await controller.register(
+        username: _usernameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+      // Created but waiting on email confirmation: sign in once confirmed.
+      if (mounted &&
+          !controller.isAuthenticated &&
+          controller.authInfoMessage != null) {
+        _passwordController.clear();
+        _confirmPasswordController.clear();
+        setState(() {
+          _registerMode = false;
+          _fieldErrors = const <_AuthField, String>{};
+        });
+      }
+    } else {
+      if (!_validateLogin()) return;
+      await controller.login(
+        username: _usernameController.text.trim(),
+        password: _passwordController.text,
+      );
+    }
+    if (controller.isAuthenticated) {
+      TextInput.finishAutofillContext();
+    }
+  }
+
+  Widget _passwordVisibilityToggle() {
+    return IconButton(
+      tooltip: _obscurePassword
+          ? appStrings.authShowPassword
+          : appStrings.authHidePassword,
+      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+      icon: Icon(
+        _obscurePassword
+            ? Icons.visibility_outlined
+            : Icons.visibility_off_outlined,
+      ),
+    );
+  }
+
+  /// The mascot's face on the sign-in card follows what the form is doing.
+  MascotMood get _authMood {
+    final controller = widget.controller;
+    if (controller.qrLoginScan != null && !_registerMode) {
+      return MascotMood.waiting;
+    }
+    if (controller.isAuthenticating) return MascotMood.thinking;
+    if (controller.errorMessage != null) return MascotMood.blocked;
+    if (controller.isAwaitingTwoFactor) return MascotMood.listening;
+    if (_registerMode &&
+        _passwordController.text.isNotEmpty &&
+        _registerPasswordStrength.acceptable) {
+      return MascotMood.done;
+    }
+    return MascotMood.idle;
+  }
+
+  /// The theme's field, filled with the page color so it reads on the card.
+  InputDecoration _authInputDecoration({
+    String? errorText,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      filled: true,
+      fillColor: _bgPrimary,
+      errorText: errorText,
+      suffixIcon: suffixIcon,
+    );
+  }
+
+  /// A field with its label above it; [trailing] ends the label row. The
+  /// label is the field's accessible name.
+  Widget _labeledField(String label, Widget field, {Widget? trailing}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              // The field announces the label itself, below.
+              child: ExcludeSemantics(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: _textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+            if (trailing != null) trailing,
+          ],
+        ),
+        const SizedBox(height: 6),
+        Semantics(label: label, child: field),
+      ],
+    );
+  }
+
+  ButtonStyle get _inlineLinkStyle => TextButton.styleFrom(
+    padding: const EdgeInsets.symmetric(horizontal: 4),
+    minimumSize: const Size(0, 32),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+  );
+
+  Widget _orDivider(String label) {
+    return Row(
+      children: <Widget>[
+        Expanded(child: Divider(color: _border)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(
+            label,
+            style: TextStyle(color: _textMuted, fontSize: 12),
+          ),
+        ),
+        Expanded(child: Divider(color: _border)),
+      ],
+    );
+  }
+
+  List<Widget> _buildCredentialFields() {
+    final controller = widget.controller;
+    final usernameField = TextField(
+      controller: _usernameController,
+      autofillHints: const <String>[AutofillHints.username],
+      keyboardType: _registerMode
+          ? TextInputType.text
+          : TextInputType.emailAddress,
+      autocorrect: false,
+      enableSuggestions: false,
+      textInputAction: TextInputAction.next,
+      onChanged: (_) => _onFieldEdited(_AuthField.username),
+      onSubmitted: (_) => (_registerMode ? _emailFocus : _passwordFocus)
+          .requestFocus(),
+      decoration: _authInputDecoration(
+        errorText: _errorFor(_AuthField.username),
+      ),
+    );
+    final passwordField = TextField(
+      controller: _passwordController,
+      focusNode: _passwordFocus,
+      obscureText: _obscurePassword,
+      autocorrect: false,
+      enableSuggestions: false,
+      autofillHints: <String>[
+        _registerMode ? AutofillHints.newPassword : AutofillHints.password,
+      ],
+      textInputAction: _registerMode
+          ? TextInputAction.next
+          : TextInputAction.done,
+      onChanged: (_) => _onFieldEdited(_AuthField.password),
+      onSubmitted: (_) => _registerMode
+          ? _confirmPasswordFocus.requestFocus()
+          : unawaited(_submit()),
+      decoration: _authInputDecoration(
+        errorText: _errorFor(_AuthField.password),
+        suffixIcon: _passwordVisibilityToggle(),
+      ),
+    );
+    if (!_registerMode) {
+      final forgotPassword =
+          controller.hasUser && controller.serviceEmailConfigured
+          ? TextButton(
+              onPressed: controller.isAuthenticating
+                  ? null
+                  : _showForgotPasswordDialog,
+              style: _inlineLinkStyle,
+              child: Text(appStrings.forgotPassword),
+            )
+          : null;
+      return <Widget>[
+        _labeledField(appStrings.usernameOrEmail, usernameField),
+        const SizedBox(height: 14),
+        _labeledField(
+          appStrings.password,
+          passwordField,
+          trailing: forgotPassword,
+        ),
+      ];
+    }
+    return <Widget>[
+      _labeledField(appStrings.username, usernameField),
+      const SizedBox(height: 14),
+      _labeledField(
+        appStrings.email,
+        TextField(
+          controller: _emailController,
+          focusNode: _emailFocus,
+          keyboardType: TextInputType.emailAddress,
+          autocorrect: false,
+          enableSuggestions: false,
+          autofillHints: const <String>[AutofillHints.email],
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => _onFieldEdited(_AuthField.email),
+          onSubmitted: (_) => _passwordFocus.requestFocus(),
+          decoration: _authInputDecoration(
+            errorText: _errorFor(_AuthField.email),
+          ),
+        ),
+      ),
+      const SizedBox(height: 14),
+      _labeledField(appStrings.password, passwordField),
+      const SizedBox(height: 10),
+      _PasswordStrengthIndicator(info: _registerPasswordStrength),
+      const SizedBox(height: 14),
+      _labeledField(
+        appStrings.confirmPassword2,
+        TextField(
+          controller: _confirmPasswordController,
+          focusNode: _confirmPasswordFocus,
+          obscureText: _obscurePassword,
+          autocorrect: false,
+          enableSuggestions: false,
+          autofillHints: const <String>[AutofillHints.newPassword],
+          textInputAction: TextInputAction.done,
+          onChanged: (_) => _onFieldEdited(_AuthField.confirmPassword),
+          onSubmitted: (_) => unawaited(_submit()),
+          decoration: _authInputDecoration(
+            errorText: _errorFor(_AuthField.confirmPassword),
+            suffixIcon: _passwordVisibilityToggle(),
+          ),
+        ),
+      ),
+    ];
+  }
+
+  /// Phone sign-in, the quickest way in: the code itself where the card has
+  /// room, else a row that opens it in a dialog.
+  Widget _buildQrLoginBlock(NeoAgentController controller) {
+    final challenge = controller.qrLoginChallenge;
+    final canShowQr =
+        challenge?.isUsable == true && !(challenge?.isExpired ?? true);
+    final countdown = challenge?.secondsRemaining ?? 0;
+    final decoration = BoxDecoration(
+      color: _bgPrimary,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: _accent.withValues(alpha: 0.38)),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final inline = constraints.maxWidth >= 340;
+        _setInlineQrVisible(inline);
+        final Widget block;
+        if (inline) {
+          block = Container(
+            padding: const EdgeInsets.all(16),
+            decoration: decoration,
+            child: Row(
+              children: <Widget>[
+                _AuthQrPlate(
+                  size: 116,
+                  payload: canShowQr ? challenge!.qrPayload : null,
+                  preparing: controller.isPreparingQrLogin,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        appStrings.scanWithNeoagentOnYourPhone,
+                        style: TextStyle(
+                          color: _textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          height: 1.25,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        appStrings.onASignedInAndroidDevice,
+                        style: TextStyle(
+                          color: _textSecondary,
+                          fontSize: 12.5,
+                          height: 1.45,
+                        ),
+                      ),
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              canShowQr
+                                  ? appStrings.refreshesInArg1S(countdown)
+                                  : appStrings.waitingForCode,
+                              style: GoogleFonts.geistMono(
+                                color: _textMuted,
+                                fontSize: 11,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: appStrings.refreshCode,
+                            onPressed: controller.isPreparingQrLogin
+                                ? null
+                                : () => unawaited(
+                                    controller.prepareQrLoginChallenge(
+                                      force: true,
+                                    ),
+                                  ),
+                            color: _textSecondary,
+                            icon: const Icon(Icons.refresh_rounded, size: 18),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        } else {
+          block = Material(
+            color: Colors.transparent,
+            child: Ink(
+              decoration: decoration,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: controller.isPreparingQrLogin
+                    ? null
+                    : _showQrLoginDialog,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: <Widget>[
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: _AuthQrPlate.paper,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.qr_code_2_rounded,
+                          color: _qrDarkColor,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              canShowQr
+                                  ? appStrings.showQrCode
+                                  : appStrings.prepareQrCode,
+                              style: TextStyle(
+                                color: _textPrimary,
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              appStrings.scanWithNeoagentOnYourPhone,
+                              style: TextStyle(
+                                color: _textSecondary,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.chevron_right_rounded, color: _textMuted),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            block,
+            if (controller.qrLoginErrorMessage != null) ...<Widget>[
+              const SizedBox(height: 10),
+              _InlineError(message: controller.qrLoginErrorMessage!),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  /// Google, other providers and security keys; two fit side by side.
+  Widget _buildAlternativeSignIns(
+    NeoAgentController controller,
+    List<AuthProviderCatalogItem> providers,
+    bool showSecurityKeySignIn,
+  ) {
+    final style = OutlinedButton.styleFrom(
+      minimumSize: const Size.fromHeight(46),
+      foregroundColor: _textPrimary,
+      side: BorderSide(color: _borderLight),
+    );
+    final buttons = <Widget>[
+      for (final provider in providers)
+        OutlinedButton.icon(
+          onPressed: controller.isAuthenticating
+              ? null
+              : () => controller.authenticateWithProvider(
+                  provider: provider.id,
+                  register: _registerMode,
+                ),
+          style: style,
+          icon: provider.icon == 'google'
+              ? const Text(
+                  'G',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    // Google brand blue — required by Google Sign-In
+                    // branding guidelines, not a palette deviation.
+                    color: Color(0xFF4285F4),
+                  ),
+                )
+              : const Icon(Icons.link, size: 18),
+          label: Text(
+            _registerMode
+                ? appStrings.registerWithArg1(provider.label)
+                : provider.label,
+          ),
+        ),
+      if (showSecurityKeySignIn)
+        OutlinedButton.icon(
+          onPressed: controller.isAuthenticating
+              ? null
+              : () => controller.signInWithSecurityKey(
+                  username: _usernameController.text,
+                ),
+          style: style,
+          icon: const Icon(Icons.key, size: 18),
+          label: Text(appStrings.securityKey),
+        ),
+    ];
+    if (buttons.length == 2 && !_registerMode) {
+      return Row(
+        children: <Widget>[
+          Expanded(child: buttons[0]),
+          const SizedBox(width: 10),
+          Expanded(child: buttons[1]),
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        for (final (index, button) in buttons.indexed) ...<Widget>[
+          if (index > 0) const SizedBox(height: 10),
+          button,
+        ],
+      ],
+    );
+  }
+
+  /// A phone scanned the code: the card waits for its decision.
+  Widget _buildQrWaitingContent(
+    NeoAgentController controller,
+    QrLoginScan scan,
+  ) {
+    final location = scan.requestLocationLabel.trim();
+    final showLocation =
+        location.isNotEmpty && location.toLowerCase() != 'unknown';
+    Widget detail(String label, String value) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(label, style: TextStyle(color: _textMuted, fontSize: 12.5)),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: TextStyle(color: _textPrimary, fontSize: 12.5),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Text(
+          appStrings.qrLoginWaitingTitle,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: _textPrimary,
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.5,
+            height: 1.15,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          appStrings.qrLoginWaitingBody,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: _textSecondary, fontSize: 14, height: 1.45),
+        ),
+        const SizedBox(height: 24),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _bgPrimary,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: _accentMuted,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      scan.scannerDeviceClass == 'tablet'
+                          ? Icons.tablet_mac_rounded
+                          : Icons.smartphone_rounded,
+                      color: _accent,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      scan.scannerLabel,
+                      style: TextStyle(
+                        color: _textPrimary,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (scan.requestedDeviceLabel.isNotEmpty || showLocation) ...[
+                const SizedBox(height: 14),
+                Divider(height: 1, color: _border),
+                const SizedBox(height: 14),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    if (scan.requestedDeviceLabel.isNotEmpty)
+                      Expanded(
+                        child: detail(
+                          appStrings.qrLoginSigningInOn,
+                          scan.requestedDeviceLabel,
+                        ),
+                      ),
+                    if (showLocation)
+                      Expanded(
+                        child: detail(appStrings.qrLoginLocation, location),
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            _WaitingDots(color: _accent),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                appStrings.qrLoginWaitingForApproval.toUpperCase(),
+                style: GoogleFonts.geistMono(
+                  color: _accentHover,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (controller.qrLoginErrorMessage != null) ...<Widget>[
+          const SizedBox(height: 14),
+          _InlineError(message: controller.qrLoginErrorMessage!),
+        ],
+        const SizedBox(height: 22),
+        OutlinedButton(
+          onPressed: controller.isPreparingQrLogin
+              ? null
+              : () => unawaited(controller.cancelQrLoginScan()),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(46),
+            foregroundColor: _textPrimary,
+            side: BorderSide(color: _borderLight),
+          ),
+          child: Text(appStrings.qrLoginCancelAndUsePassword),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAuthCardContent({
     required NeoAgentController controller,
     required List<AuthProviderCatalogItem> availableProviders,
     required bool awaitingTwoFactor,
-    required bool showRegisterToggle,
+    required bool showQrLogin,
     required String title,
     required String subtitle,
   }) {
     final showSecurityKeySignIn =
         !_registerMode && controller.supportsSecurityKeys;
+    // Field-specific server errors sit under their field, not in the banner.
+    final showErrorBanner =
+        controller.errorMessage != null &&
+        !(_registerMode &&
+            _authFieldForCode(controller.authErrorCode) != null);
+    final submitBlocked =
+        _registerMode &&
+        !awaitingTwoFactor &&
+        !_registerPasswordStrength.acceptable;
+    final hasAlternatives =
+        availableProviders.isNotEmpty || showSecurityKeySignIn;
+    final scan = controller.qrLoginScan;
+    if (showQrLogin && scan != null) {
+      return _buildQrWaitingContent(controller, scan);
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Column(children: <Widget>[const _BrandLockup(logoSize: 58)]),
-        const SizedBox(height: 26),
-        Text(
-          awaitingTwoFactor ? appStrings.verification : title.toUpperCase(),
-          style: _sectionEyebrowStyle(),
-        ),
-        const SizedBox(height: 8),
+        if (awaitingTwoFactor) ...<Widget>[
+          Text(
+            appStrings.verification.toUpperCase(),
+            textAlign: TextAlign.center,
+            style: _sectionEyebrowStyle(),
+          ),
+          const SizedBox(height: 8),
+        ],
         Text(
           awaitingTwoFactor ? appStrings.enter2faCode : title,
-          style: _displayTitleStyle(30),
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: _textPrimary,
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.5,
+            height: 1.15,
+          ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Text(
           awaitingTwoFactor
               ? appStrings.openYourAuthenticatorAppAndEnterThe
               : subtitle,
-          style: TextStyle(color: _textSecondary, height: 1.5),
+          textAlign: TextAlign.center,
+          style: TextStyle(color: _textSecondary, fontSize: 14, height: 1.45),
         ),
-        const SizedBox(height: 20),
-        if (controller.errorMessage != null) ...<Widget>[
+        if (showErrorBanner) ...<Widget>[
+          const SizedBox(height: 20),
           _InlineError(
             message: controller.errorMessage!,
             onDismiss: controller.clearInlineError,
           ),
-          const SizedBox(height: 16),
         ],
         if (controller.authInfoMessage != null) ...<Widget>[
+          const SizedBox(height: 16),
           _InlineSuccess(message: controller.authInfoMessage!),
+        ],
+        if (showQrLogin) ...<Widget>[
+          const SizedBox(height: 26),
+          _buildQrLoginBlock(controller),
+          const SizedBox(height: 22),
+          _orDivider(appStrings.authOrUsePassword),
+          const SizedBox(height: 16),
+        ] else
           const SizedBox(height: 24),
-        ],
-        if (awaitingTwoFactor) ...<Widget>[
-          TextField(
-            controller: _twoFactorController,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: appStrings.n2faOrRecoveryCode,
-            ),
-          ),
-        ] else ...<Widget>[
-          TextField(
-            controller: _usernameController,
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(labelText: appStrings.username),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _passwordController,
-            onChanged: (_) => setState(() {}),
-            obscureText: true,
-            decoration: InputDecoration(labelText: appStrings.password),
-          ),
-          if (_registerMode) ...<Widget>[
-            const SizedBox(height: 10),
-            _PasswordStrengthIndicator(
-              info: _passwordStrengthInfo(
-                password: _passwordController.text,
-                username: _usernameController.text,
-                email: _emailController.text,
+        if (awaitingTwoFactor)
+          _labeledField(
+            appStrings.n2faOrRecoveryCode,
+            TextField(
+              controller: _twoFactorController,
+              autofocus: true,
+              // Recovery codes are alphanumeric (XXXXX-XXXXX).
+              keyboardType: TextInputType.visiblePassword,
+              autocorrect: false,
+              enableSuggestions: false,
+              autofillHints: const <String>[AutofillHints.oneTimeCode],
+              textInputAction: TextInputAction.done,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.geistMono(
+                color: _textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 4,
               ),
+              onSubmitted: (_) => unawaited(_submit()),
+              decoration: _authInputDecoration(),
             ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _emailController,
-              onChanged: (_) => setState(() {}),
-              keyboardType: TextInputType.emailAddress,
-              autofillHints: const <String>[AutofillHints.email],
-              decoration: InputDecoration(labelText: appStrings.email),
+          )
+        else
+          AutofillGroup(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: _buildCredentialFields(),
             ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _confirmPasswordController,
-              obscureText: true,
-              decoration: InputDecoration(labelText: appStrings.confirmPassword2),
-            ),
-          ],
-        ],
-        const SizedBox(height: 22),
+          ),
+        const SizedBox(height: 20),
         FilledButton(
-          onPressed: controller.isAuthenticating
+          onPressed: controller.isAuthenticating || submitBlocked
               ? null
-              : () async {
-                  if (awaitingTwoFactor) {
-                    final code = _twoFactorController.text.trim();
-                    if (code.isEmpty) {
-                      widget.controller.showInlineError(
-                        appStrings.enterYour2faOrRecoveryCode,
-                      );
-                      return;
-                    }
-                    await controller.completeTwoFactorLogin(code: code);
-                    return;
-                  }
-                  final username = _usernameController.text.trim();
-                  final password = _passwordController.text;
-                  if (username.isEmpty) {
-                    widget.controller.showInlineError(appStrings.enterAUsername);
-                    return;
-                  }
-                  if (password.isEmpty) {
-                    widget.controller.showInlineError(appStrings.enterAPassword);
-                    return;
-                  }
-                  if (_registerMode) {
-                    final email = _emailController.text.trim();
-                    if (email.isEmpty || !_looksLikeEmail(email)) {
-                      widget.controller.showInlineError(
-                        appStrings.enterAValidEmailAddress,
-                      );
-                      return;
-                    }
-                    if (password != _confirmPasswordController.text) {
-                      widget.controller.showInlineError(
-                        appStrings.passwordsDoNotMatch,
-                      );
-                      return;
-                    }
-                    await controller.register(
-                      username: username,
-                      email: email,
-                      password: password,
-                    );
-                  } else {
-                    await controller.login(
-                      username: username,
-                      password: password,
-                    );
-                  }
-                },
-          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58)),
+              : () => unawaited(_submit()),
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
           child: controller.isAuthenticating
               ? const SizedBox.square(
                   dimension: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : Text(
                   awaitingTwoFactor
-                      ? 'Verify'
-                      : (_registerMode ? 'Create account' : appStrings.signIn),
+                      ? appStrings.authVerify
+                      : (_registerMode
+                            ? appStrings.authCreateAccount
+                            : appStrings.signIn),
                 ),
         ),
         if (awaitingTwoFactor) ...<Widget>[
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           TextButton(
             onPressed: controller.isAuthenticating
                 ? null
@@ -477,112 +1173,36 @@ class _AuthViewState extends State<AuthView> {
             child: Text(appStrings.backToSignIn),
           ),
         ] else ...<Widget>[
-          if (availableProviders.isNotEmpty ||
-              showSecurityKeySignIn) ...<Widget>[
-            const SizedBox(height: 16),
-            Row(
-              children: <Widget>[
-                Expanded(child: Divider(color: _borderLight)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Text(
-                    appStrings.orContinueWith,
-                    style: TextStyle(color: _textSecondary, fontSize: 12),
-                  ),
-                ),
-                Expanded(child: Divider(color: _borderLight)),
-              ],
+          if (hasAlternatives) ...<Widget>[
+            if (showQrLogin)
+              const SizedBox(height: 12)
+            else ...<Widget>[
+              const SizedBox(height: 20),
+              _orDivider(appStrings.orContinueWith),
+              const SizedBox(height: 14),
+            ],
+            _buildAlternativeSignIns(
+              controller,
+              availableProviders,
+              showSecurityKeySignIn,
             ),
+          ],
+          if (!_registerMode &&
+              controller.hasUser &&
+              !controller.serviceEmailConfigured) ...<Widget>[
             const SizedBox(height: 14),
-            ...availableProviders.map(
-              (provider) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: OutlinedButton.icon(
-                  onPressed: controller.isAuthenticating
-                      ? null
-                      : () => controller.authenticateWithProvider(
-                          provider: provider.id,
-                          register: _registerMode,
-                        ),
-                  icon: provider.icon == 'google'
-                      ? Text(
-                          'G',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            // Google brand blue — required by Google Sign-In
-                            // branding guidelines, not a palette deviation.
-                            color: Color(0xFF4285F4),
-                          ),
-                        )
-                      : Icon(Icons.link),
-                  label: Text(
-                    _registerMode
-                        ? appStrings.registerWithArg1(provider.label)
-                        : appStrings.signInWithArg1(provider.label),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(54),
-                    backgroundColor: _bgPrimary.withValues(alpha: 0.18),
-                  ),
-                ),
-              ),
-            ),
-            if (showSecurityKeySignIn)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: OutlinedButton.icon(
-                  onPressed: controller.isAuthenticating
-                      ? null
-                      : () => controller.signInWithSecurityKey(
-                          username: _usernameController.text,
-                        ),
-                  icon: Icon(Icons.key),
-                  label: Text(appStrings.signInWithASecurityKey),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(54),
-                    backgroundColor: _bgPrimary.withValues(alpha: 0.18),
-                  ),
-                ),
-              ),
-          ],
-          if (!_registerMode && controller.serviceEmailConfigured) ...<Widget>[
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: controller.isAuthenticating
-                  ? null
-                  : _showForgotPasswordDialog,
-              child: Text(appStrings.forgotPassword),
-            ),
-            if (!showRegisterToggle) const SizedBox(height: 12),
-          ],
-          if (showRegisterToggle) ...<Widget>[
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: controller.isAuthenticating
-                  ? null
-                  : () {
-                      setState(() {
-                        _registerMode = !_registerMode;
-                      });
-                      if (!_registerMode) {
-                        _qrAutoRequestedForVisibleMode = false;
-                        _ensureQrLoginChallenge(force: true);
-                      }
-                    },
-              child: Text(
-                _registerMode
-                    ? appStrings.alreadyHaveAnAccountSignIn
-                    : appStrings.needANewAccountRegister,
-              ),
+            Text(
+              appStrings.authForgotPasswordAskAdmin,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _textMuted, fontSize: 12, height: 1.45),
             ),
           ],
         ],
         if (_showsLocalServerRepair) ...<Widget>[
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           OutlinedButton.icon(
             onPressed: _openLocalServerSettings,
-            icon: Icon(Icons.dns_outlined, size: 18),
+            icon: const Icon(Icons.dns_outlined, size: 18),
             label: Text(
               _localRuntimeStatus?.running == true
                   ? appStrings.serverOnThisComputer
@@ -594,248 +1214,94 @@ class _AuthViewState extends State<AuthView> {
     );
   }
 
-  Widget _buildQrLoginPane(NeoAgentController controller) {
-    final challenge = controller.qrLoginChallenge;
-    final countdown = challenge?.secondsRemaining ?? 0;
-    final canShowQr =
-        challenge?.isUsable == true && !(challenge?.isExpired ?? true);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isLight = Theme.of(context).brightness == Brightness.light;
-        final compact = constraints.maxWidth < 420;
-        final narrow = constraints.maxWidth < 520;
-        final showInlineQr = !narrow;
-        final panelPadding = compact ? 18.0 : 24.0;
-        final qrShellPadding = compact ? 14.0 : 18.0;
-        final qrCardPadding = compact ? 14.0 : 18.0;
-        final titleSize = compact ? 22.0 : 28.0;
-        final titleAlignment = compact ? TextAlign.center : TextAlign.left;
-        final contentAlignment = compact
-            ? CrossAxisAlignment.center
-            : CrossAxisAlignment.start;
-
-        Widget buildInfoSection() {
-          return _InfoChip(
-            icon: Icons.timer_outlined,
-            label: canShowQr
-                ? appStrings.refreshesInArg1S(countdown)
-                : appStrings.waitingForCode,
-          );
-        }
-
-        return Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(compact ? 24 : 28),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: <Color>[
-                Color.lerp(_bgCard, _accentAlt, isLight ? 0.05 : 0.11)!,
-                _bgSecondary.withValues(alpha: isLight ? 0.92 : 0.96),
-                Color.lerp(_bgCard, _accent, isLight ? 0.04 : 0.08)!,
-              ],
+  /// The card, with the mascot set into its top edge.
+  Widget _buildAuthCard({required Widget child, required bool compact}) {
+    const mascotSize = 76.0;
+    const ring = 6.0;
+    const overlap = mascotSize / 2 + ring;
+    final side = compact ? 20.0 : 32.0;
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.topCenter,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.only(top: overlap),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: _bgCard,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: _border),
+              boxShadow: _softPanelShadow,
             ),
-            border: Border.all(color: _borderLight.withValues(alpha: 0.45)),
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: _accent.withValues(alpha: isLight ? 0.08 : 0.12),
-                blurRadius: 36,
-                spreadRadius: 2,
-              ),
-            ],
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(side, overlap + 18, side, 28),
+              child: child,
+            ),
           ),
-          child: Stack(
-            children: <Widget>[
-              Positioned(
-                top: compact ? -18 : -24,
-                right: compact ? -24 : -12,
-                child: IgnorePointer(
-                  child: Container(
-                    width: compact ? 86 : 120,
-                    height: compact ? 86 : 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _accent.withValues(alpha: isLight ? 0.07 : 0.12),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: compact ? -34 : -36,
-                left: compact ? -28 : -18,
-                child: IgnorePointer(
-                  child: Container(
-                    width: compact ? 110 : 140,
-                    height: compact ? 110 : 140,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _accentAlt.withValues(
-                        alpha: isLight ? 0.06 : 0.10,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.all(panelPadding),
-                child: Column(
-                  crossAxisAlignment: contentAlignment,
-                  children: <Widget>[
-                    Text(
-                      appStrings.scanWithNeoagentOnYourPhone,
-                      textAlign: titleAlignment,
-                      style: GoogleFonts.geist(
-                        fontSize: titleSize,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: compact ? -0.3 : -0.6,
-                        color: _textPrimary,
-                        height: compact ? 1.05 : null,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 440),
-                      child: Text(
-                        appStrings.onASignedInAndroidDevice,
-                        textAlign: titleAlignment,
-                        style: TextStyle(color: _textSecondary, height: 1.5),
-                      ),
-                    ),
-                    SizedBox(height: compact ? 18 : 22),
-                    Container(
-                      width: double.infinity,
-                      padding: EdgeInsets.all(qrShellPadding),
-                      decoration: BoxDecoration(
-                        color: _bgCard.withValues(alpha: isLight ? 0.72 : 0.48),
-                        borderRadius: BorderRadius.circular(compact ? 20 : 24),
-                        border: Border.all(color: _borderLight),
-                      ),
-                      child: Column(
-                        children: <Widget>[
-                          if (showInlineQr)
-                            Container(
-                              width: double.infinity,
-                              padding: EdgeInsets.all(qrCardPadding),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(
-                                  compact ? 18 : 22,
-                                ),
-                                boxShadow: <BoxShadow>[
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.12),
-                                    blurRadius: 26,
-                                    offset: const Offset(0, 10),
-                                  ),
-                                ],
-                              ),
-                              child: AspectRatio(
-                                aspectRatio: 1,
-                                child: Center(
-                                  child: canShowQr
-                                      ? QrImageView(
-                                          data: challenge!.qrPayload,
-                                          version: QrVersions.auto,
-                                          eyeStyle: const QrEyeStyle(
-                                            eyeShape: QrEyeShape.square,
-                                            color: _qrDarkColor,
-                                          ),
-                                          dataModuleStyle:
-                                              const QrDataModuleStyle(
-                                                dataModuleShape:
-                                                    QrDataModuleShape.square,
-                                                color: _qrDarkColor,
-                                              ),
-                                        )
-                                      : controller.isPreparingQrLogin
-                                      ? const SizedBox.square(
-                                          dimension: 40,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 3,
-                                          ),
-                                        )
-                                      : Icon(
-                                          Icons.qr_code_2_rounded,
-                                          size: narrow ? 72 : 84,
-                                          color: _textMuted,
-                                        ),
-                                ),
-                              ),
-                            )
-                          else
-                            SizedBox(
-                              width: double.infinity,
-                              child: FilledButton.icon(
-                                onPressed: controller.isPreparingQrLogin
-                                    ? null
-                                    : _showQrLoginDialog,
-                                style: FilledButton.styleFrom(
-                                  minimumSize: const Size.fromHeight(56),
-                                  backgroundColor: Colors.white,
-                                  foregroundColor: _qrDarkColor,
-                                ),
-                                icon: controller.isPreparingQrLogin
-                                    ? const SizedBox.square(
-                                        dimension: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: _qrDarkColor,
-                                        ),
-                                      )
-                                    : Icon(Icons.qr_code_2_rounded),
-                                label: Text(
-                                  canShowQr
-                                      ? appStrings.showQrCode
-                                      : appStrings.prepareQrCode,
-                                ),
-                              ),
-                            ),
-                          const SizedBox(height: 16),
-                          buildInfoSection(),
-                        ],
-                      ),
-                    ),
-                    if (controller.qrLoginErrorMessage != null) ...<Widget>[
-                      const SizedBox(height: 14),
-                      _InlineError(message: controller.qrLoginErrorMessage!),
-                    ],
-                    const SizedBox(height: 16),
-                    Text(
-                      appStrings.approvalStaysInsideYourAuthenticatedMobile,
-                      textAlign: titleAlignment,
-                      style: TextStyle(color: _textSecondary, height: 1.45),
-                    ),
-                    const SizedBox(height: 18),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: controller.isPreparingQrLogin
-                            ? null
-                            : () => _ensureQrLoginChallenge(force: true),
-                        icon: controller.isPreparingQrLogin
-                            ? const SizedBox.square(
-                                dimension: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : Icon(Icons.refresh_rounded),
-                        label: Text(appStrings.refreshCode),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(52),
-                          foregroundColor: _textPrimary,
-                          side: BorderSide(color: _borderLight),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+        ),
+        Container(
+          padding: const EdgeInsets.all(ring),
+          decoration: BoxDecoration(
+            color: _bgCard,
+            borderRadius: BorderRadius.circular(34),
           ),
-        );
-      },
+          child: NeoMascot(mood: _authMood, size: mascotSize),
+        ),
+      ],
     );
+  }
+
+  List<Widget> _buildAuthFooter(
+    NeoAgentController controller, {
+    required bool awaitingTwoFactor,
+    required bool showRegisterToggle,
+  }) {
+    if (awaitingTwoFactor) return const <Widget>[];
+    final backendHost =
+        Uri.tryParse(controller.backendUrl)?.authority ?? controller.backendUrl;
+    return <Widget>[
+      if (showRegisterToggle) ...<Widget>[
+        const SizedBox(height: 16),
+        TextButton(
+          onPressed: controller.isAuthenticating
+              ? null
+              : () => _setRegisterMode(!_registerMode),
+          child: Text(
+            _registerMode
+                ? appStrings.alreadyHaveAnAccountSignIn
+                : appStrings.needANewAccountRegister,
+          ),
+        ),
+      ] else if (!_registerMode && controller.hasUser) ...<Widget>[
+        const SizedBox(height: 18),
+        Text(
+          appStrings.authSignupsClosed,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: _textMuted, fontSize: 12, height: 1.45),
+        ),
+      ],
+      if (controller.canChangeBackend) ...<Widget>[
+        const SizedBox(height: 4),
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 2,
+          children: <Widget>[
+            Text(
+              appStrings.authSigningInToArg1(backendHost),
+              style: TextStyle(color: _textMuted, fontSize: 12),
+            ),
+            TextButton(
+              onPressed: controller.isAuthenticating
+                  ? null
+                  : () => unawaited(controller.changeBackend()),
+              style: _inlineLinkStyle,
+              child: Text(appStrings.authChangeServer),
+            ),
+          ],
+        ),
+      ],
+    ];
   }
 
   @override
@@ -848,120 +1314,78 @@ class _AuthViewState extends State<AuthView> {
       _registerMode = true;
     }
 
-    final title = _registerMode
-        ? (controller.hasUser ? 'Create account' : appStrings.createTheFirstAccount)
-        : appStrings.signIn;
-    final subtitle = _registerMode
-        ? (controller.hasUser
-              ? appStrings.createAnotherNeoagentAccount
-              : appStrings.thisAccountWillUnlockNeoagentOn)
-        : appStrings.enterYourNeoagentAccountDetails;
     final awaitingTwoFactor = controller.isAwaitingTwoFactor;
     final showRegisterToggle =
         controller.registrationOpen && controller.hasUser;
     final showQrLogin = !awaitingTwoFactor && !_registerMode;
-
-    if (showQrLogin &&
-        !controller.isPreparingQrLogin &&
-        !controller.isAuthenticated &&
-        !_qrAutoRequestedForVisibleMode) {
-      _qrAutoRequestedForVisibleMode = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _ensureQrLoginChallenge();
-      });
-    }
+    final waitingForPhone = showQrLogin && controller.qrLoginScan != null;
     if (!showQrLogin) {
-      _qrAutoRequestedForVisibleMode = false;
+      _setInlineQrVisible(false);
+    } else if (waitingForPhone) {
+      // The challenge is still live while the phone decides; keep polling,
+      // and the card takes over from a code dialog.
+      _setInlineQrVisible(true);
+      if (_qrDialogOpen) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _qrDialogOpen) Navigator.of(context).pop();
+        });
+      }
     }
+    final title = _registerMode
+        ? (controller.hasUser
+              ? appStrings.authCreateAccount
+              : appStrings.createTheFirstAccount)
+        : appStrings.authSignInTitle;
+    final subtitle = _registerMode
+        ? (controller.hasUser
+              ? appStrings.createAnotherNeoagentAccount
+              : appStrings.thisAccountWillUnlockNeoagentOn)
+        : appStrings.authSignInSubtitle;
 
-    return _ControlSurfaceBackdrop(
+    return _AuthBackdrop(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: LayoutBuilder(
             builder: (context, viewportConstraints) {
+              final compact =
+                  viewportConstraints.maxWidth < AppBreakpoints.mobile;
               return SingleChildScrollView(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
                     minHeight: viewportConstraints.maxHeight,
                   ),
                   child: Padding(
-                    padding: EdgeInsets.all(
-                      viewportConstraints.maxWidth < AppBreakpoints.mobile
-                          ? 14
-                          : 24,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: compact ? 14 : 24,
+                      vertical: compact ? 20 : 32,
                     ),
                     child: Center(
                       child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: showQrLogin ? 980 : 468,
-                        ),
+                        constraints: const BoxConstraints(maxWidth: 440),
                         child: _EntranceMotion(
-                          child: _PanelSurface(
-                            borderRadius: BorderRadius.circular(32),
-                            boxShadow: _softPanelShadow,
-                            child: Padding(
-                              padding: EdgeInsets.fromLTRB(
-                                viewportConstraints.maxWidth <
-                                        AppBreakpoints.mobile
-                                    ? 18
-                                    : 34,
-                                viewportConstraints.maxWidth <
-                                        AppBreakpoints.mobile
-                                    ? 20
-                                    : 30,
-                                viewportConstraints.maxWidth <
-                                        AppBreakpoints.mobile
-                                    ? 18
-                                    : 34,
-                                viewportConstraints.maxWidth <
-                                        AppBreakpoints.mobile
-                                    ? 20
-                                    : 30,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: <Widget>[
+                              _buildAuthCard(
+                                compact: compact,
+                                child: _buildAuthCardContent(
+                                  controller: controller,
+                                  availableProviders: availableProviders,
+                                  awaitingTwoFactor: awaitingTwoFactor,
+                                  showQrLogin: showQrLogin,
+                                  title: title,
+                                  subtitle: subtitle,
+                                ),
                               ),
-                              child: LayoutBuilder(
-                                builder: (context, panelConstraints) {
-                                  final useWideQrLayout =
-                                      showQrLogin &&
-                                      panelConstraints.maxWidth >= 820;
-                                  final formPane = _buildAuthFormPane(
-                                    controller: controller,
-                                    availableProviders: availableProviders,
-                                    awaitingTwoFactor: awaitingTwoFactor,
-                                    showRegisterToggle: showRegisterToggle,
-                                    title: title,
-                                    subtitle: subtitle,
-                                  );
-                                  if (!showQrLogin) {
-                                    return formPane;
-                                  }
-                                  if (useWideQrLayout) {
-                                    return Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: <Widget>[
-                                        Expanded(flex: 11, child: formPane),
-                                        const SizedBox(width: 24),
-                                        Expanded(
-                                          flex: 10,
-                                          child: _buildQrLoginPane(controller),
-                                        ),
-                                      ],
-                                    );
-                                  }
-                                  return Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: <Widget>[
-                                      formPane,
-                                      const SizedBox(height: 22),
-                                      _buildQrLoginPane(controller),
-                                    ],
-                                  );
-                                },
+                              ..._buildAuthFooter(
+                                controller,
+                                awaitingTwoFactor:
+                                    awaitingTwoFactor || waitingForPhone,
+                                showRegisterToggle: showRegisterToggle,
                               ),
-                            ),
+                            ],
                           ),
                         ),
                       ),
@@ -975,6 +1399,187 @@ class _AuthViewState extends State<AuthView> {
       ),
     );
   }
+}
+
+/// Three dots stepping in turn while the phone decides; still when the
+/// platform asks for reduced motion.
+class _WaitingDots extends StatefulWidget {
+  const _WaitingDots({required this.color});
+
+  final Color color;
+
+  @override
+  State<_WaitingDots> createState() => _WaitingDotsState();
+}
+
+class _WaitingDotsState extends State<_WaitingDots> {
+  Timer? _timer;
+  int _step = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final still = MediaQuery.disableAnimationsOf(context);
+    if (still) {
+      _timer?.cancel();
+      _timer = null;
+    } else {
+      _timer ??= Timer.periodic(
+        const Duration(milliseconds: 400),
+        (_) => setState(() => _step = (_step + 1) % 3),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final still = _timer == null;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        for (var i = 0; i < 3; i++) ...<Widget>[
+          if (i > 0) const SizedBox(width: 4),
+          Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: still || i == _step
+                  ? widget.color
+                  : widget.color.withValues(alpha: 0.25),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// The QR code on its paper plate: dark modules on a light ground so phone
+/// cameras read it in either theme.
+class _AuthQrPlate extends StatelessWidget {
+  const _AuthQrPlate({
+    required this.size,
+    required this.payload,
+    required this.preparing,
+  });
+
+  static const Color paper = Color(0xFFF4F1E8);
+
+  final double size;
+  final String? payload;
+  final bool preparing;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = payload;
+    return Container(
+      width: size,
+      height: size,
+      padding: EdgeInsets.all(size * 0.07),
+      decoration: BoxDecoration(
+        color: paper,
+        borderRadius: BorderRadius.circular(size * 0.12),
+      ),
+      child: data != null
+          ? QrImageView(
+              data: data,
+              version: QrVersions.auto,
+              padding: EdgeInsets.zero,
+              eyeStyle: const QrEyeStyle(
+                eyeShape: QrEyeShape.square,
+                color: _qrDarkColor,
+              ),
+              dataModuleStyle: const QrDataModuleStyle(
+                dataModuleShape: QrDataModuleShape.square,
+                color: _qrDarkColor,
+              ),
+            )
+          : Center(
+              child: preparing
+                  ? const SizedBox.square(
+                      dimension: 28,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: _qrDarkColor,
+                      ),
+                    )
+                  : Icon(
+                      Icons.qr_code_2_rounded,
+                      size: size * 0.4,
+                      color: _qrDarkColor.withValues(alpha: 0.35),
+                    ),
+            ),
+    );
+  }
+}
+
+/// The sign-in page ground: the mascot's dot matrix, faint, with a soft glow
+/// where the card sits.
+class _AuthBackdrop extends StatelessWidget {
+  const _AuthBackdrop({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    return DecoratedBox(
+      decoration: BoxDecoration(color: _bgPrimary),
+      child: CustomPaint(
+        painter: _AuthBackdropPainter(
+          dot: _textPrimary.withValues(alpha: isLight ? 0.09 : 0.07),
+          glow: _accent.withValues(alpha: isLight ? 0.08 : 0.10),
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _AuthBackdropPainter extends CustomPainter {
+  const _AuthBackdropPainter({required this.dot, required this.glow});
+
+  static const double _pitch = 22;
+  static const double _glowRadius = 380;
+
+  final Color dot;
+  final Color glow;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centre = Offset(size.width / 2, size.height * 0.3);
+    canvas.drawCircle(
+      centre,
+      _glowRadius,
+      Paint()
+        ..shader = RadialGradient(
+          colors: <Color>[glow, glow.withValues(alpha: 0)],
+        ).createShader(Rect.fromCircle(center: centre, radius: _glowRadius)),
+    );
+    final points = <Offset>[
+      for (var y = _pitch / 2; y < size.height; y += _pitch)
+        for (var x = _pitch / 2; x < size.width; x += _pitch) Offset(x, y),
+    ];
+    canvas.drawPoints(
+      PointMode.points,
+      points,
+      Paint()
+        ..color = dot
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_AuthBackdropPainter oldDelegate) =>
+      oldDelegate.dot != dot || oldDelegate.glow != glow;
 }
 
 class HomeView extends StatefulWidget {

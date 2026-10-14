@@ -999,7 +999,7 @@ class _CreateInviteDialogState extends State<_CreateInviteDialog> {
     final link = _link;
     return AlertDialog(
       backgroundColor: _bgCard,
-      title: Text(link == null ? 'New invite link' : appStrings.inviteLinkReady),
+      title: Text(link == null ? appStrings.authNewInviteLink : appStrings.inviteLinkReady),
       content: SizedBox(
         width: 520,
         child: SingleChildScrollView(
@@ -1195,6 +1195,8 @@ class _AccessActivityList extends StatelessWidget {
         return appStrings.arg1BecameAnAdminArg2(subject, detail['source'] ?? 'operator');
       case 'admin.revoke':
         return appStrings.arg1IsNoLongerAnAdmin(subject, detail['source'] ?? 'operator');
+      case 'account.password_reset':
+        return appStrings.adminAuditPasswordResetArg1Arg2(actor, subject);
       case 'invite.create':
         return appStrings.arg1CreatedAnInviteLink(actor);
       case 'invite.revoke':

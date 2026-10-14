@@ -874,11 +874,6 @@ class _PolicyCard extends StatelessWidget {
                   label: Text(appStrings.allow),
                   icon: Icon(Icons.check_rounded, size: 13),
                 ),
-                ButtonSegment<String>(
-                  value: 'allow_always',
-                  label: Text(appStrings.always),
-                  icon: Icon(Icons.verified_rounded, size: 13),
-                ),
               ],
               selected: <String>{locked ? 'deny' : policy},
               onSelectionChanged: dimmed || locked
@@ -924,8 +919,7 @@ class _PolicyHint extends StatelessWidget {
     final (text, color) = switch (policy) {
       'deny' => (appStrings.completelyBlockedTheAgentCannotUse, _danger),
       'require_approval' => (appStrings.agentPausesAndAsksYouBefore, _warning),
-      'allow' => (appStrings.allowedForThisRunWillAsk, _accentAlt),
-      'allow_always' => (appStrings.permanentlyAllowedNeverAsksAgain, _info),
+      'allow' => (appStrings.allowedRunsWithoutAsking, _accentAlt),
       _ => ('', _textSecondary),
     };
     if (text.isEmpty) return const SizedBox.shrink();

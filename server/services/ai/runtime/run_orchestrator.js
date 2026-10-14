@@ -36,6 +36,7 @@ const {
 const { globalHooks } = require('../hooks');
 const { isAbortError, throwIfAborted } = require('../../../utils/abort');
 const { createServiceLogger } = require('../../../utils/logger');
+const { publicErrorCode } = require('../../../utils/http_error');
 
 const { NARRATION_MAX_TOKENS, RUNTIME_STATES } = require('./constants');
 const { RunEventBus } = require('./events/run_event_bus');
@@ -52,6 +53,7 @@ const {
 const { createContextPressureController } = require('./context/context_pressure');
 const { createRunGuards } = require('./run_guards');
 const { runAgentLoop, setSteeringIntake } = require('./agent_loop');
+const { buildResumeEnvelope, clearResumeEnvelope } = require('./restart_resume');
 
 const logger = createServiceLogger('Runtime');
 
@@ -231,6 +233,7 @@ class DurableRunRuntime {
 
     try {
       // ── Accept immediately ─────────────────────────────────────────────
+      const resume = buildResumeEnvelope(userMessage, options);
       try {
         db.prepare(
           `INSERT INTO agent_runs(
@@ -253,6 +256,8 @@ class DurableRunRuntime {
             ...(options.latencyPriority ? { latencyPriority: options.latencyPriority } : {}),
             ...(conversationId ? { conversationId } : {}),
             ...(deviceTarget ? { deviceTarget } : {}),
+            ...(resume ? { resume } : {}),
+            ...(options.resumedFromRunId ? { resumedFromRunId: options.resumedFromRunId } : {}),
             runtimeKernel: 'v2',
           }),
           conversationId || null,
@@ -648,7 +653,8 @@ class DurableRunRuntime {
       const userTurn = this.engine.buildUserMessage(userMessage, options);
       messages.push(userTurn);
       session.messages = sanitizeConversationMessages(messages);
-      if (conversationId) this.#storeUserMessage(session);
+      // A resumed run's request is the turn the interrupted run already stored.
+      if (conversationId && !options.resumedFromRunId) this.#storeUserMessage(session);
       this.engine.getRunMeta(runId).trust = options.parentTrust || createRunTrust({
         audience: publicScope ? 'public' : (options.audience || 'owner'),
         triggerSource,
@@ -750,6 +756,7 @@ class DurableRunRuntime {
           : 'run:error', {
           runId,
           error: error?.message || String(error),
+          code: publicErrorCode(error),
         });
       }
       if (isAbortError(error, runSignal)) {
@@ -761,6 +768,9 @@ class DurableRunRuntime {
       throw error;
     } finally {
       session.progressBroker?.stop();
+      // Only a run the shutdown cut off is resumed; one that ended while the
+      // process keeps going is finished, however it ended.
+      if (runRecordCreated && !this.engine.shuttingDown) clearResumeEnvelope(runId);
       try {
         leases.release(runId, workerId);
       } catch {
@@ -1083,13 +1093,20 @@ class DurableRunRuntime {
     const { runId } = session;
     const run = stateMachine.loadRun(runId);
     if (run && !stateMachine.isTerminal(run)) {
-      applyTransition({
+      const cancelled = applyTransition({
         runId,
         toState: RUNTIME_STATES.CANCELLED,
         reason: 'cancelled',
         eventBus: this.eventBus,
         patch: { totalTokens: session.totalTokens },
       });
+      // As in the abort path: an interruption (a shutdown) stays recorded as
+      // one, not as a stop, so a restart can tell it apart.
+      if (cancelled?.ok && this.engine.getRunMeta(runId)?.status === 'interrupted') {
+        db.prepare(
+          "UPDATE agent_runs SET status = 'interrupted' WHERE id = ? AND runtime_state = ?",
+        ).run(runId, RUNTIME_STATES.CANCELLED);
+      }
     }
     if (run) {
       this.engine.emit(run.userId, 'run:stopped', {

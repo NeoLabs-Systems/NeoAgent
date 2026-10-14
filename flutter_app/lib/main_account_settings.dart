@@ -6,12 +6,17 @@ class _PasswordStrengthInfo {
     required this.label,
     required this.message,
     required this.color,
+    required this.acceptable,
   });
 
   final int score;
   final String label;
   final String message;
   final Color color;
+
+  /// Whether the server will accept the password; forms disable submit
+  /// otherwise.
+  final bool acceptable;
 }
 
 _PasswordStrengthInfo _passwordStrengthInfo({
@@ -19,13 +24,13 @@ _PasswordStrengthInfo _passwordStrengthInfo({
   String username = '',
   String email = '',
 }) {
-  final value = password.trim();
-  if (value.isEmpty) {
+  if (password.isEmpty) {
     return _PasswordStrengthInfo(
       score: 0,
       label: appStrings.empty,
       message: appStrings.use8CharactersLongerPassphrasesWork,
       color: _borderLight,
+      acceptable: false,
     );
   }
   final evaluation = evaluatePasswordStrength(
@@ -35,28 +40,23 @@ _PasswordStrengthInfo _passwordStrengthInfo({
   );
   final score = evaluation.score;
 
-  if (!evaluation.hasMinimumLength) {
+  if (!evaluation.isAcceptable) {
+    final String reason;
+    if (!evaluation.hasMinimumLength) {
+      reason = appStrings.useAtLeast8Characters;
+    } else if (evaluation.containsUserInfo) {
+      reason = appStrings.doNotIncludeYourUsernameOr;
+    } else if (evaluation.obviousPattern) {
+      reason = appStrings.avoidRepeatedCharactersAndObviousSequences;
+    } else {
+      reason = appStrings.addMoreLengthOrAnotherCharacter;
+    }
     return _PasswordStrengthInfo(
-      score: 1,
-      label: appStrings.weak,
-      message: appStrings.useAtLeast8Characters,
+      score: score.clamp(1, 2),
+      label: appStrings.authPasswordWillBeRejected,
+      message: reason,
       color: _danger,
-    );
-  }
-  if (evaluation.containsUserInfo) {
-    return _PasswordStrengthInfo(
-      score: 2,
-      label: appStrings.fair,
-      message: appStrings.doNotIncludeYourUsernameOr,
-      color: _warning,
-    );
-  }
-  if (evaluation.obviousPattern) {
-    return _PasswordStrengthInfo(
-      score: 2,
-      label: appStrings.fair,
-      message: appStrings.avoidRepeatedCharactersAndObviousSequences,
-      color: _warning,
+      acceptable: false,
     );
   }
   if (score >= 4) {
@@ -65,21 +65,15 @@ _PasswordStrengthInfo _passwordStrengthInfo({
       label: appStrings.strong,
       message: appStrings.strongPassword,
       color: _success,
-    );
-  }
-  if (score >= 3) {
-    return _PasswordStrengthInfo(
-      score: 3,
-      label: appStrings.good,
-      message: appStrings.goodPasswordALittleMoreLength,
-      color: _success,
+      acceptable: true,
     );
   }
   return _PasswordStrengthInfo(
-    score: 2,
-    label: appStrings.fair,
-    message: appStrings.addMoreLengthOrAnotherCharacter,
-    color: _warning,
+    score: 3,
+    label: appStrings.good,
+    message: appStrings.goodPasswordALittleMoreLength,
+    color: _success,
+    acceptable: true,
   );
 }
 
@@ -129,9 +123,9 @@ class _PasswordStrengthIndicator extends StatelessWidget {
   }
 }
 
-/// The account pages of Settings: Profile, Sign-in & security, and Plan &
-/// usage. One state backs all three, so a half-typed form survives switching
-/// between them.
+/// The account pages of Settings: Profile, Sign-in & security, and Usage.
+/// One state backs all three, so a half-typed form survives switching between
+/// them.
 class AccountSettingsPanel extends StatefulWidget {
   const AccountSettingsPanel({
     super.key,
@@ -259,9 +253,11 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           );
         },
       );
-      if (approved != true || !mounted) {
+      if (approved != true) {
+        unawaited(widget.controller.declineQrLogin(payload));
         return;
       }
+      if (!mounted) return;
       await widget.controller.approveQrLogin(payload);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -874,7 +870,6 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
             ),
           ],
         ),
-        if (controller.showBillingSection) BillingPanel(controller: controller),
       ],
     );
   }

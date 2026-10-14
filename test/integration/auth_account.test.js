@@ -103,4 +103,89 @@ describe('auth and account routes', () => {
 
     await client.post('/api/account/2fa/setup').send({ currentPassword: 'wrong' }).expect(401);
   });
+
+  test('sign-up failures name the field with a stable code', async () => {
+    const attempt = (body) => request(app).post('/api/auth/register').set('X-Forwarded-For', '10.77.0.2').send({
+      username: 'code_user',
+      email: 'code_user@example.com',
+      password: 'AutonomousPass1!',
+      ...body,
+    });
+    const shortName = await attempt({ username: 'ab' }).expect(400);
+    assert.equal(shortName.body.code, 'USERNAME_TOO_SHORT');
+    assert.match(shortName.body.error, /Username/);
+    assert.equal((await attempt({ password: 'Ab1!' }).expect(400)).body.code, 'PASSWORD_TOO_SHORT');
+    const weak = await attempt({ password: 'Zq9!codeuserW' }).expect(400);
+    assert.equal(weak.body.code, 'PASSWORD_WEAK');
+    assert.match(weak.body.error, /username or email/);
+    assert.equal((await attempt({ email: 'not-an-email' }).expect(400)).body.code, 'INVALID_EMAIL');
+
+    await attempt({}).expect(200);
+    assert.equal(
+      (await attempt({ username: 'CODE_USER', email: 'other@example.com' }).expect(409)).body.code,
+      'USERNAME_TAKEN',
+    );
+    assert.equal(
+      (await attempt({ username: 'code_user_2', email: 'Code_User@Example.com' }).expect(409)).body.code,
+      'EMAIL_TAKEN',
+    );
+    const login = await request(app).post('/api/auth/login').set('X-Forwarded-For', '10.77.0.2')
+      .send({ username: 'code_user', password: 'wrong' }).expect(401);
+    assert.equal(login.body.code, 'INVALID_CREDENTIALS');
+  });
+
+  test('sign-in takes the username or the email in any letter case', async () => {
+    const user = await createTestUser(ctx.db, { username: 'MixedCase_User', email: 'mixed.case@example.com' });
+    for (const account of ['mixedcase_user', 'MIXEDCASE_USER', 'Mixed.Case@Example.com']) {
+      const res = await request(app).post('/api/auth/login').set('X-Forwarded-For', '10.77.0.3')
+        .send({ username: account, password: user.password }).expect(200);
+      assert.equal(res.body.user.username, 'MixedCase_User');
+    }
+  });
+
+  test('sign-in over plain http is refused when session cookies are https-only', async () => {
+    const session = require('express-session');
+    const secureApp = createTestApp({
+      sessionMiddleware: session({
+        secret: 'test-secret-32-chars-long-for-suite',
+        name: 'neoagent.sid',
+        resave: false,
+        saveUninitialized: false,
+        proxy: true,
+        cookie: { httpOnly: true, sameSite: 'lax', secure: true },
+      }),
+    }).app;
+    secureApp.locals.httpRuntimeConfig.publicUrl = 'https://agent.example.com/app';
+    const user = await createTestUser(ctx.db, { username: 'insecure_transport_user' });
+
+    const refused = await request(secureApp).post('/api/auth/login').set('X-Forwarded-For', '10.77.0.4')
+      .send({ username: user.username, password: user.password }).expect(400);
+    assert.equal(refused.body.code, 'INSECURE_TRANSPORT');
+    assert.equal(refused.body.httpsUrl, 'https://agent.example.com');
+    assert.match(refused.body.error, /https:\/\/agent\.example\.com/);
+    const register = await request(secureApp).post('/api/auth/register').set('X-Forwarded-For', '10.77.0.4').send({
+      username: 'insecure_signup', email: 'insecure_signup@example.com', password: 'AutonomousPass1!',
+    }).expect(400);
+    assert.equal(register.body.code, 'INSECURE_TRANSPORT');
+    assert.equal(ctx.db.prepare('SELECT 1 FROM users WHERE username = ?').get('insecure_signup'), undefined);
+
+    const proxied = await request(secureApp).post('/api/auth/login')
+      .set('X-Forwarded-For', '10.77.0.4')
+      .set('X-Forwarded-Proto', 'https')
+      .send({ username: user.username, password: user.password }).expect(200);
+    assert.ok(String(proxied.headers['set-cookie'] || '').includes('neoagent.sid'));
+  });
+
+  test('showing sign-in QR codes does not use up the sign-in rate limit', async () => {
+    const ip = '10.77.0.1';
+    for (let index = 0; index < 20; index += 1) {
+      await request(app).post('/api/auth/qr-login/challenge')
+        .set('X-Forwarded-For', ip).send({}).expect(200);
+    }
+    const user = await createTestUser(ctx.db, { username: 'qr_then_login' });
+    await request(app).post('/api/auth/login')
+      .set('X-Forwarded-For', ip)
+      .send({ username: user.username, password: user.password })
+      .expect(200);
+  });
 });

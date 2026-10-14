@@ -52,12 +52,12 @@ void main() {
       expect(find.text('Quickstart'), findsOneWidget);
       expect(find.text('Recommended'), findsOneWidget);
       expect(find.text('Start Quickstart'), findsOneWidget);
-      expect(find.textContaining('admin dashboard'), findsNWidgets(2));
+      expect(find.textContaining('AI provider keys'), findsNWidgets(2));
 
       await tester.tap(find.text('Full setup'));
       await tester.pump();
       expect(find.text('Start full setup'), findsOneWidget);
-      expect(find.textContaining('admin dashboard'), findsNWidgets(2));
+      expect(find.textContaining('AI provider keys'), findsNWidgets(2));
 
       await tester.pumpWidget(
         MaterialApp(

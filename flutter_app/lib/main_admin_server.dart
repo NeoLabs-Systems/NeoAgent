@@ -1198,6 +1198,19 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
     );
   }
 
+  Future<void> _resetPassword(_AdminOpsUser user) async {
+    final updated = await showDialog<bool>(
+      context: context,
+      builder: (_) =>
+          _AdminOpsResetPasswordDialog(controller: _controller, user: user),
+    );
+    if (updated != true || !mounted) return;
+    setState(() {
+      _error = null;
+      _notice = appStrings.adminPasswordUpdated;
+    });
+  }
+
   Future<void> _editRateLimits(_AdminOpsUser user) async {
     final saved = await showDialog<bool>(
       context: context,
@@ -1210,17 +1223,6 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
       _notice = appStrings.savedRateLimitsForArg1(user.username);
     });
     await _loadUsers();
-  }
-
-  Future<void> _manageSubscription(_AdminOpsUser user) {
-    return showDialog<void>(
-      context: context,
-      builder: (_) => _AdminOpsSubscriptionDialog(
-        controller: _controller,
-        userId: user.id,
-        username: user.username,
-      ),
-    );
   }
 
   Future<void> _deleteUser(_AdminOpsUser user) async {
@@ -1254,7 +1256,6 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
 
   @override
   Widget build(BuildContext context) {
-    final showSubscription = _controller.showBillingSection;
     return _SectionStack(
       children: <Widget>[
         _AdminOpsDefaultLimitsCard(controller: _controller),
@@ -1290,10 +1291,9 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
                     child: _AdminOpsUserRow(
                       user: user,
                       busy: _busyUserIds.contains(user.id),
-                      showSubscription: showSubscription,
                       onSignOut: () => _signOutEverywhere(user),
+                      onResetPassword: () => _resetPassword(user),
                       onRateLimits: () => _editRateLimits(user),
-                      onSubscription: () => _manageSubscription(user),
                       onDelete: () => _deleteUser(user),
                     ),
                   ),
@@ -1319,19 +1319,17 @@ class _AdminOpsUserRow extends StatelessWidget {
   const _AdminOpsUserRow({
     required this.user,
     required this.busy,
-    required this.showSubscription,
     required this.onSignOut,
+    required this.onResetPassword,
     required this.onRateLimits,
-    required this.onSubscription,
     required this.onDelete,
   });
 
   final _AdminOpsUser user;
   final bool busy;
-  final bool showSubscription;
   final VoidCallback onSignOut;
+  final VoidCallback onResetPassword;
   final VoidCallback onRateLimits;
-  final VoidCallback onSubscription;
   final VoidCallback onDelete;
 
   @override
@@ -1459,17 +1457,16 @@ class _AdminOpsUserRow extends StatelessWidget {
               ),
               TextButton.icon(
                 style: _adminOpsActionStyle(),
+                onPressed: busy ? null : onResetPassword,
+                icon: Icon(Icons.password_rounded, size: 16),
+                label: Text(appStrings.adminResetPassword),
+              ),
+              TextButton.icon(
+                style: _adminOpsActionStyle(),
                 onPressed: busy ? null : onRateLimits,
                 icon: Icon(Icons.speed_rounded, size: 16),
                 label: Text(appStrings.rateLimits),
               ),
-              if (showSubscription)
-                TextButton.icon(
-                  style: _adminOpsActionStyle(),
-                  onPressed: busy ? null : onSubscription,
-                  icon: Icon(Icons.credit_card_outlined, size: 16),
-                  label: Text(appStrings.subscription),
-                ),
               if (user.isAdmin)
                 Tooltip(
                   message:
@@ -1749,6 +1746,164 @@ class _AdminOpsUserLimitsDialogState extends State<_AdminOpsUserLimitsDialog> {
   }
 }
 
+/// Sets a new password for an account; the server signs it out everywhere.
+class _AdminOpsResetPasswordDialog extends StatefulWidget {
+  const _AdminOpsResetPasswordDialog({
+    required this.controller,
+    required this.user,
+  });
+
+  final NeoAgentController controller;
+  final _AdminOpsUser user;
+
+  @override
+  State<_AdminOpsResetPasswordDialog> createState() =>
+      _AdminOpsResetPasswordDialogState();
+}
+
+class _AdminOpsResetPasswordDialogState
+    extends State<_AdminOpsResetPasswordDialog> {
+  final TextEditingController _password = TextEditingController();
+  final TextEditingController _confirmation = TextEditingController();
+  final FocusNode _confirmationFocus = FocusNode();
+  bool _obscure = true;
+  bool _saving = false;
+  String? _error;
+
+  NeoAgentController get _controller => widget.controller;
+
+  _PasswordStrengthInfo get _strength => _passwordStrengthInfo(
+    password: _password.text,
+    username: widget.user.username,
+    email: widget.user.email,
+  );
+
+  bool get _mismatch =>
+      _confirmation.text.isNotEmpty && _confirmation.text != _password.text;
+
+  bool get _canSave =>
+      !_saving &&
+      _strength.acceptable &&
+      _confirmation.text == _password.text;
+
+  @override
+  void dispose() {
+    _password.dispose();
+    _confirmation.dispose();
+    _confirmationFocus.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_canSave) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await _controller.backendClient.resetAdminUserPassword(
+        _controller.backendUrl,
+        widget.user.id,
+        password: _password.text,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = _controller._friendlyErrorMessage(error);
+      });
+    }
+  }
+
+  Widget _visibilityToggle() {
+    return IconButton(
+      tooltip: _obscure
+          ? appStrings.authShowPassword
+          : appStrings.authHidePassword,
+      onPressed: () => setState(() => _obscure = !_obscure),
+      icon: Icon(
+        _obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: _bgCard,
+      title: Text(appStrings.adminResetPasswordForArg1(widget.user.username)),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Text(
+              appStrings.adminResetPasswordBodyArg1(widget.user.username),
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _password,
+              autofocus: true,
+              obscureText: _obscure,
+              autocorrect: false,
+              enableSuggestions: false,
+              autofillHints: const <String>[AutofillHints.newPassword],
+              textInputAction: TextInputAction.next,
+              onChanged: (_) => setState(() => _error = null),
+              onSubmitted: (_) => _confirmationFocus.requestFocus(),
+              decoration: InputDecoration(
+                labelText: appStrings.adminNewPassword,
+                suffixIcon: _visibilityToggle(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _PasswordStrengthIndicator(info: _strength),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _confirmation,
+              focusNode: _confirmationFocus,
+              obscureText: _obscure,
+              autocorrect: false,
+              enableSuggestions: false,
+              textInputAction: TextInputAction.done,
+              onChanged: (_) => setState(() => _error = null),
+              onSubmitted: (_) => _save(),
+              decoration: InputDecoration(
+                labelText: appStrings.confirmNewPassword,
+                errorText: _mismatch ? appStrings.passwordsDoNotMatch : null,
+                suffixIcon: _visibilityToggle(),
+              ),
+            ),
+            if (_error != null) ...<Widget>[
+              const SizedBox(height: 12),
+              _InlineError(message: _error!),
+            ],
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        OutlinedButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          child: Text(appStrings.cancel),
+        ),
+        FilledButton(
+          onPressed: _canSave ? _save : null,
+          child: _saving
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(appStrings.adminSetPassword),
+        ),
+      ],
+    );
+  }
+}
+
 class _AdminOpsDeleteUserDialog extends StatefulWidget {
   const _AdminOpsDeleteUserDialog({required this.username});
 
@@ -1818,249 +1973,6 @@ class _AdminOpsDeleteUserDialogState extends State<_AdminOpsDeleteUserDialog> {
           ),
           onPressed: _matches ? _confirm : null,
           child: Text(appStrings.deleteAccount),
-        ),
-      ],
-    );
-  }
-}
-
-/// Shows an account's plan and lets an admin assign or cancel one. Opened
-/// from the Users tab and from Billing › Subscriptions.
-class _AdminOpsSubscriptionDialog extends StatefulWidget {
-  const _AdminOpsSubscriptionDialog({
-    required this.controller,
-    required this.userId,
-    required this.username,
-  });
-
-  final NeoAgentController controller;
-  final int userId;
-  final String username;
-
-  @override
-  State<_AdminOpsSubscriptionDialog> createState() =>
-      _AdminOpsSubscriptionDialogState();
-}
-
-class _AdminOpsSubscriptionDialogState
-    extends State<_AdminOpsSubscriptionDialog> {
-  _BillingSubscription? _subscription;
-  List<_BillingPlan> _plans = const <_BillingPlan>[];
-  String? _selectedPlanId;
-  bool _loading = true;
-  bool _busy = false;
-  String? _error;
-  String? _notice;
-
-  NeoAgentController get _controller => widget.controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final client = _controller.backendClient;
-      final url = _controller.backendUrl;
-      final results = await Future.wait(<Future<Map<String, dynamic>>>[
-        client.fetchAdminUserSubscription(url, widget.userId),
-        client.fetchAdminBillingPlans(url),
-      ]);
-      if (!mounted) return;
-      final subscription = _BillingSubscription.fromResponse(results[0]);
-      final plans = _jsonMapList(results[1]['plans'])
-          .map(_BillingPlan.fromJson)
-          .where((plan) => plan.isActive || plan.id == subscription?.planId)
-          .toList(growable: false);
-      setState(() {
-        _subscription = subscription;
-        _plans = plans;
-        _selectedPlanId = plans.any((plan) => plan.id == subscription?.planId)
-            ? subscription?.planId
-            : (plans.isEmpty ? null : plans.first.id);
-        _loading = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = _controller._friendlyErrorMessage(error);
-      });
-    }
-  }
-
-  Future<void> _run(
-    Future<_BillingSubscription?> Function() action,
-    String notice,
-  ) async {
-    setState(() {
-      _busy = true;
-      _error = null;
-      _notice = null;
-    });
-    try {
-      final subscription = await action();
-      if (!mounted) return;
-      setState(() {
-        _subscription = subscription;
-        _notice = notice;
-        _busy = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _error = _controller._friendlyErrorMessage(error);
-      });
-    }
-  }
-
-  Future<void> _assign() {
-    final planId = _selectedPlanId;
-    if (planId == null) return Future<void>.value();
-    final planName = _plans.firstWhere((plan) => plan.id == planId).displayName;
-    return _run(() async {
-      final json = await _controller.backendClient.setAdminUserSubscription(
-        _controller.backendUrl,
-        userId: widget.userId,
-        planId: planId,
-      );
-      return _BillingSubscription.fromResponse(json);
-    }, appStrings.assignedArg1(planName));
-  }
-
-  Future<void> _cancel() {
-    return _run(() async {
-      final client = _controller.backendClient;
-      final url = _controller.backendUrl;
-      await client.cancelAdminUserSubscription(url, widget.userId);
-      // Another subscription (e.g. a Stripe one) may still apply.
-      final json = await client.fetchAdminUserSubscription(url, widget.userId);
-      return _BillingSubscription.fromResponse(json);
-    }, appStrings.subscriptionCanceled);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final subscription = _subscription;
-    return AlertDialog(
-      backgroundColor: _bgCard,
-      title: Text(appStrings.subscription),
-      content: SizedBox(
-        width: 440,
-        child: _loading
-            ? const _LoadingPlaceholder()
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  Text(
-                    appStrings.planForArg1APlanAssigned(widget.username) +
-                    appStrings.skipsStripeCheckout,
-                    style: TextStyle(color: _textSecondary, height: 1.45),
-                  ),
-                  const SizedBox(height: 18),
-                  _SectionTitle(appStrings.currentPlan),
-                  const SizedBox(height: 10),
-                  if (subscription == null)
-                    _EmptyText(appStrings.noSubscription)
-                  else
-                    _AdminOpsSubscriptionSummary(subscription: subscription),
-                  const SizedBox(height: 18),
-                  if (_plans.isEmpty)
-                    _EmptyText(
-                      appStrings.noActivePlansYetCreateOne,
-                    )
-                  else
-                    DropdownButtonFormField<String>(
-                      initialValue: _selectedPlanId,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: appStrings.assignPlan,
-                      ),
-                      items: <DropdownMenuItem<String>>[
-                        for (final plan in _plans)
-                          DropdownMenuItem<String>(
-                            value: plan.id,
-                            child: Text(
-                              appStrings.arg1Arg22(plan.displayName, plan.priceLabel),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                      ],
-                      onChanged: _busy
-                          ? null
-                          : (value) => setState(() => _selectedPlanId = value),
-                    ),
-                  _SaveFeedback(error: _error, notice: _notice),
-                ],
-              ),
-      ),
-      actions: <Widget>[
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(appStrings.close),
-        ),
-        if (subscription != null && subscription.cancelable)
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: _danger),
-            onPressed: _busy ? null : _cancel,
-            child: Text(appStrings.cancelSubscription),
-          ),
-        FilledButton(
-          onPressed: _loading || _busy || _selectedPlanId == null
-              ? null
-              : _assign,
-          child: Text(appStrings.assignPlan),
-        ),
-      ],
-    );
-  }
-}
-
-class _AdminOpsSubscriptionSummary extends StatelessWidget {
-  const _AdminOpsSubscriptionSummary({required this.subscription});
-
-  final _BillingSubscription subscription;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                subscription.planName,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: _textPrimary,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subscription.priceLabel,
-                style: TextStyle(fontSize: 12.5, color: _textMuted),
-              ),
-              if (subscription.billedByStripe) ...<Widget>[
-                const SizedBox(height: 4),
-                Text(
-                  appStrings.billedThroughStripeSoItCan,
-                  style: TextStyle(fontSize: 12, color: _textMuted),
-                ),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        _StatusPill(
-          label: _titleCase(subscription.status.replaceAll('_', ' ')),
-          color: _statusColor(subscription.status),
         ),
       ],
     );

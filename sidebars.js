@@ -8,6 +8,7 @@ const sidebars = {
       collapsed: false,
       items: [
         'getting-started',
+        'docker',
         'models',
         'agents-and-users',
         'mascot',
@@ -19,7 +20,6 @@ const sidebars = {
         'skills',
         'security-boundaries',
         'operations',
-        'billing',
         'migration',
         'configuration',
         'why-neoagent',

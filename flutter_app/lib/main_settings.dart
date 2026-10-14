@@ -412,13 +412,6 @@ final List<_SettingsEntry> _settingsEntries = <_SettingsEntry>[
     keywords: const <String>['tokens', 'cost', 'cache', 'diagnostics'],
   ),
   _SettingsEntry(
-    SettingsPage.usage,
-    'billing',
-    () => appStrings.billing,
-    keywords: const <String>['plan', 'subscription', 'invoice', 'payment'],
-    visible: (controller) => controller.showBillingSection,
-  ),
-  _SettingsEntry(
     SettingsPage.agents,
     'agentList',
     () => appStrings.settingsYourAgents,
@@ -1026,7 +1019,6 @@ class _SettingsGroup extends StatelessWidget {
 /// its own layout, like the messaging channel grid.
 class _SettingsHeading extends StatelessWidget {
   const _SettingsHeading({
-    super.key,
     required this.title,
     this.description,
     this.trailing,

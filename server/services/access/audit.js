@@ -2,7 +2,8 @@
 
 const db = require('../../db/database');
 
-// Every change to who is admin or who manages whom lands here. Rows keep user
+// Every change to who is admin or who manages whom lands here, as do admin
+// actions taken on someone else's account (e.g. a password reset). Rows keep user
 // ids only (set to NULL when an account is erased), never names or emails, so
 // the log survives account deletion without retaining personal data.
 

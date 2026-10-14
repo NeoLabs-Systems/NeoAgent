@@ -1202,31 +1202,6 @@ class _GreetingHeader extends StatelessWidget {
 
   final String subtitle;
 
-  static const List<String> _weekdays = <String>[
-    'MONDAY',
-    'TUESDAY',
-    'WEDNESDAY',
-    'THURSDAY',
-    'FRIDAY',
-    'SATURDAY',
-    'SUNDAY',
-  ];
-
-  static const List<String> _months = <String>[
-    'JAN',
-    'FEB',
-    'MAR',
-    'APR',
-    'MAY',
-    'JUNE',
-    'JULY',
-    'AUG',
-    'SEPT',
-    'OCT',
-    'NOV',
-    'DEC',
-  ];
-
   static String greetingFor(int hour) {
     if (hour < 5) {
       return appStrings.goodEvening;
@@ -1240,10 +1215,12 @@ class _GreetingHeader extends StatelessWidget {
     return appStrings.goodEvening;
   }
 
-  static String dateLabelFor(DateTime moment) {
-    final weekday = _weekdays[moment.weekday - 1];
-    final month = _months[moment.month - 1];
-    return appStrings.arg1Arg2Arg38(weekday, moment.day, month);
+  /// Weekday and date in the app language, e.g. "WEDNESDAY · OCT 14" or
+  /// "MITTWOCH · 14. OKT.".
+  static String dateLabelFor(DateTime moment, String locale) {
+    final weekday = DateFormat.EEEE(locale).format(moment);
+    final date = DateFormat.MMMd(locale).format(moment);
+    return '$weekday · $date'.toUpperCase();
   }
 
   @override
@@ -1255,7 +1232,7 @@ class _GreetingHeader extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         Text(
-          dateLabelFor(moment),
+          dateLabelFor(moment, Localizations.localeOf(context).toString()),
           style: GoogleFonts.geistMono(
             fontSize: 11,
             fontWeight: FontWeight.w600,
@@ -2430,35 +2407,6 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-/// A small label for dense lists where [_MetaPill] is too heavy.
-class _Tag extends StatelessWidget {
-  const _Tag(this.label, {this.color});
-
-  final String label;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final tint = color ?? _textSecondary;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: tint.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-        border: Border.all(color: tint.withValues(alpha: 0.22)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: tint,
-          fontSize: 11.5,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
 // ── Section cards ────────────────────────────────────────────────────────────
 // The titled cards that admin, Team and settings-style pages are built from,
 // and the rows, fields and request bookkeeping that go inside them.
@@ -2634,19 +2582,14 @@ class _RowHeader extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.trailing,
-    this.monospaceSubtitle = false,
   });
 
   final String title;
   final String subtitle;
   final Widget trailing;
-  final bool monospaceSubtitle;
 
   @override
   Widget build(BuildContext context) {
-    final subtitleStyle = monospaceSubtitle
-        ? _monoStyle(size: 11.5, color: _textMuted)
-        : TextStyle(color: _textSecondary, fontSize: 12.5);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -2667,7 +2610,7 @@ class _RowHeader extends StatelessWidget {
                   subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: subtitleStyle,
+                  style: TextStyle(color: _textSecondary, fontSize: 12.5),
                 ),
               ],
             ],
@@ -2724,8 +2667,6 @@ class _FormTextField extends StatelessWidget {
     this.helper,
     this.keyboardType,
     this.wholeNumber = false,
-    this.enabled = true,
-    this.maxLines = 1,
     this.onChanged,
   });
 
@@ -2735,21 +2676,17 @@ class _FormTextField extends StatelessWidget {
   final String? helper;
   final TextInputType? keyboardType;
   final bool wholeNumber;
-  final bool enabled;
-  final int maxLines;
   final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
-      enabled: enabled,
       keyboardType: wholeNumber ? TextInputType.number : keyboardType,
       inputFormatters: wholeNumber
           ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
           : null,
       autocorrect: false,
-      maxLines: maxLines,
       onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,

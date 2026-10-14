@@ -12,9 +12,24 @@ const {
   releaseOAuthState,
   takeOAuthCallback,
 } = require('../services/account/oauth_handoff');
+const providerSignIn = require('../services/ai/provider_sign_in');
 
 const INTEGRATION_STATE_RE = /^[a-f0-9]{48}$/;
 const AUTH_PROVIDER_STATE_RE = /^auth_[a-f0-9]{48}$/;
+const OAUTH_ERROR_TYPES = {
+  auth: 'auth_oauth_error',
+  model: 'model_sign_in_error',
+  integration: 'integration_oauth_error',
+};
+
+// Which flow an OAuth state belongs to: account sign-in, model provider
+// sign-in, or an integration connection. Null for anything malformed.
+function oauthStateKind(state) {
+  if (AUTH_PROVIDER_STATE_RE.test(state)) return 'auth';
+  if (providerSignIn.isSignInState(state)) return 'model';
+  if (INTEGRATION_STATE_RE.test(state)) return 'integration';
+  return null;
+}
 
 function getIntegrationManager(req) {
   return req.app?.locals?.integrationManager;
@@ -104,7 +119,8 @@ function renderOAuthPopupResult({ success, payload, message }) {
 }
 
 function describeOAuthRequest(req, state) {
-  if (state.startsWith('auth_')) {
+  const kind = oauthStateKind(state);
+  if (kind === 'auth') {
     const pending = getAuthProviderManager(req)?.describePendingAuthorization(state);
     if (!pending) return null;
     const provider = escapeHtml(pending.providerLabel);
@@ -112,6 +128,14 @@ function describeOAuthRequest(req, state) {
       ? `link ${provider} to the NeoAgent account <strong>${escapeHtml(pending.username)}</strong>`
       : `finish signing in to NeoAgent with ${provider}`;
     return { what, startedAt: pending.startedAt };
+  }
+  if (kind === 'model') {
+    const pending = providerSignIn.describePending(state);
+    if (!pending) return null;
+    return {
+      what: `connect your ${escapeHtml(pending.providerLabel)} account to the NeoAgent account <strong>${escapeHtml(pending.username)}</strong>`,
+      startedAt: pending.startedAt,
+    };
   }
   const pending = getIntegrationManager(req)?.describePendingOAuth(state);
   if (!pending) return null;
@@ -139,7 +163,7 @@ function renderOAuthFailure(state, message) {
   return renderOAuthPopupResult({
     success: false,
     payload: {
-      type: state.startsWith('auth_') ? 'auth_oauth_error' : 'integration_oauth_error',
+      type: OAUTH_ERROR_TYPES[oauthStateKind(state)],
       error: message,
     },
     message,
@@ -147,9 +171,9 @@ function renderOAuthFailure(state, message) {
 }
 
 async function finishOAuthCallback(req, res, state, callback) {
-  const isAuthProviderState = state.startsWith('auth_');
+  const kind = oauthStateKind(state);
   try {
-    if (isAuthProviderState) {
+    if (kind === 'auth') {
       const authProviderManager = getAuthProviderManager(req);
       if (!authProviderManager) {
         throw new Error('Auth provider manager is not available on app.locals.authProviderManager.');
@@ -163,6 +187,16 @@ async function finishOAuthCallback(req, res, state, callback) {
           mode: result.action,
           email: result.email,
         },
+        message: 'You can close this window and return to NeoAgent.',
+      }));
+    }
+
+    if (kind === 'model') {
+      const result = await providerSignIn.complete(state, callback.code);
+      releaseOAuthState(req.session, state);
+      return res.type('html').send(renderOAuthPopupResult({
+        success: true,
+        payload: { type: 'model_sign_in_success', provider: result.providerId },
         message: 'You can close this window and return to NeoAgent.',
       }));
     }
@@ -186,7 +220,7 @@ async function finishOAuthCallback(req, res, state, callback) {
     }));
   } catch (err) {
     const message = sanitizeError(err);
-    if (isAuthProviderState) {
+    if (kind === 'auth') {
       getAuthProviderManager(req)?.failAuthorization(state, message);
     }
     return res.status(500).type('html').send(renderOAuthFailure(state, message));
@@ -197,21 +231,28 @@ router.get('/oauth/callback', async (req, res) => {
   const state = String(req.query.state || '');
   const code = String(req.query.code || '');
   const error = String(req.query.error || '');
-  const isAuthProviderState = state.startsWith('auth_');
+  const kind = oauthStateKind(state);
 
-  if (!state) return res.status(400).send('Missing state parameter');
-  if (isAuthProviderState && !AUTH_PROVIDER_STATE_RE.test(state)) {
-    return res.status(400).send('Invalid OAuth state parameter');
+  if (!state) {
+    // Providers such as OpenRouter drop the state when the person declines.
+    if (error) {
+      return res.status(400).type('html').send(renderOAuthPage(
+        'Sign-in canceled',
+        '<p><strong>Sign-in was canceled.</strong> You can close this window and return to NeoAgent.</p>',
+      ));
+    }
+    return res.status(400).send('Missing state parameter');
   }
-  if (!isAuthProviderState && !INTEGRATION_STATE_RE.test(state)) {
-    return res.status(400).send('Invalid OAuth state parameter');
-  }
+  if (!kind) return res.status(400).send('Invalid OAuth state parameter');
   if (!error && !code) {
     return res.status(400).send('Missing code parameter');
   }
   if (error) {
-    if (isAuthProviderState) {
+    if (kind === 'auth') {
       getAuthProviderManager(req)?.failAuthorization(state, error);
+    }
+    if (kind === 'model') {
+      providerSignIn.fail(state, error);
     }
     return res.status(400).type('html').send(renderOAuthFailure(state, error));
   }

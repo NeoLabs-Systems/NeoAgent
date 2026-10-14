@@ -266,7 +266,7 @@ class _ModelPickerButton extends StatelessWidget {
 // Model Picker Dialog
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _ModelPickerDialog extends StatefulWidget {
+class _ModelPickerDialog extends StatelessWidget {
   const _ModelPickerDialog({
     required this.title,
     required this.options,
@@ -280,51 +280,7 @@ class _ModelPickerDialog extends StatefulWidget {
   final ValueChanged<String> onChanged;
 
   @override
-  State<_ModelPickerDialog> createState() => _ModelPickerDialogState();
-}
-
-class _ModelPickerDialogState extends State<_ModelPickerDialog> {
-  final TextEditingController _searchCtrl = TextEditingController();
-  String _query = '';
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
-  List<_ModelPickerOption> get _filtered {
-    if (_query.isEmpty) return widget.options;
-    final String q = _query.toLowerCase();
-    return widget.options.where((_ModelPickerOption o) {
-      return o.label.toLowerCase().contains(q) ||
-          (o.subtitle?.toLowerCase().contains(q) ?? false) ||
-          o.group.toLowerCase().contains(q) ||
-          o.value.toLowerCase().contains(q);
-    }).toList();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final List<_ModelPickerOption> filtered = _filtered;
-    final _ModelPickerOption? autoOption =
-        filtered.where((o) => o.isAuto).firstOrNull;
-    final List<_ModelPickerOption> regularOptions =
-        filtered.where((o) => !o.isAuto).toList();
-
-    final List<String> groups = <String>[];
-    final Map<String, List<_ModelPickerOption>> grouped =
-        <String, List<_ModelPickerOption>>{};
-    for (final _ModelPickerOption opt in regularOptions) {
-      if (!grouped.containsKey(opt.group)) {
-        groups.add(opt.group);
-        grouped[opt.group] = <_ModelPickerOption>[];
-      }
-      grouped[opt.group]!.add(opt);
-    }
-
-    final bool hasGroups = groups.any((String g) => g.isNotEmpty);
-
     return Center(
       child: ConstrainedBox(
         constraints: BoxConstraints(
@@ -357,7 +313,7 @@ class _ModelPickerDialogState extends State<_ModelPickerDialog> {
                         children: <Widget>[
                           Expanded(
                             child: Text(
-                              widget.title,
+                              title,
                               style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w700,
@@ -381,126 +337,318 @@ class _ModelPickerDialogState extends State<_ModelPickerDialog> {
                         ],
                       ),
                     ),
-                    // Search bar
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-                      child: TextField(
-                        controller: _searchCtrl,
-                        autofocus: true,
-                        onChanged: (String v) =>
-                            setState(() => _query = v.trim()),
-                        style: TextStyle(color: _textPrimary, fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: appStrings.search2,
-                          hintStyle: TextStyle(color: _textMuted, fontSize: 14),
-                          prefixIcon: Icon(
-                            Icons.search_rounded,
-                            size: 18,
-                            color: _textMuted,
-                          ),
-                          suffixIcon: _query.isNotEmpty
-                              ? GestureDetector(
-                                  onTap: () => setState(() {
-                                    _searchCtrl.clear();
-                                    _query = '';
-                                  }),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(10),
-                                    child: Icon(
-                                      Icons.cancel_rounded,
-                                      size: 16,
-                                      color: _textMuted,
-                                    ),
-                                  ),
-                                )
-                              : null,
-                          isDense: true,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 10),
-                          filled: true,
-                          fillColor: _bgSecondary,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: _border),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: _border),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: _accent, width: 1.5),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Divider(height: 1, thickness: 1, color: _border),
-                    // List
                     Flexible(
-                      child: filtered.isEmpty
-                          ? Padding(
-                              padding: const EdgeInsets.all(36),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: <Widget>[
-                                  Icon(
-                                    Icons.search_off_rounded,
-                                    size: 36,
-                                    color: _textMuted,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    appStrings.noResultsForArg1(_query),
-                                    style: TextStyle(
-                                      color: _textSecondary,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : ListView(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 6),
-                              shrinkWrap: true,
-                              children: <Widget>[
-                                if (autoOption != null) ...<Widget>[
-                                  _PickerRow(
-                                    option: autoOption,
-                                    selected:
-                                        widget.currentValue == autoOption.value,
-                                    onTap: () =>
-                                        widget.onChanged(autoOption.value),
-                                  ),
-                                  if (regularOptions.isNotEmpty)
-                                    Divider(
-                                      height: 1,
-                                      indent: 14,
-                                      endIndent: 14,
-                                      color: _border,
-                                    ),
-                                ],
-                                for (final String group in groups) ...<Widget>[
-                                  if (hasGroups && group.isNotEmpty)
-                                    _PickerGroupHeader(
-                                      label: _providerPickerLabel(group),
-                                      color: _providerPickerColor(group),
-                                    ),
-                                  for (final _ModelPickerOption opt
-                                      in grouped[group]!)
-                                    _PickerRow(
-                                      option: opt,
-                                      selected:
-                                          widget.currentValue == opt.value,
-                                      onTap: () => widget.onChanged(opt.value),
-                                    ),
-                                ],
-                              ],
-                            ),
+                      child: _ModelPickerList(
+                        options: options,
+                        currentValue: currentValue,
+                        onChanged: onChanged,
+                        autofocus: true,
+                      ),
                     ),
                   ],
                 ),
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The picker's model list on its own, for screens that embed it instead of
+/// opening the dialog, such as onboarding.
+class ModelPickerPanel extends StatelessWidget {
+  const ModelPickerPanel({
+    super.key,
+    required this.models,
+    required this.value,
+    required this.onChanged,
+    this.allowAuto = false,
+  });
+
+  final List<ModelMeta> models;
+  final String value;
+  final ValueChanged<String> onChanged;
+  final bool allowAuto;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ModelPickerList(
+      options: _modelPickerOptions(models, allowAuto: allowAuto),
+      currentValue: value,
+      onChanged: onChanged,
+    );
+  }
+}
+
+/// Search, provider filter and the grouped model rows. Scales to catalogs
+/// with hundreds of models across many providers.
+class _ModelPickerList extends StatefulWidget {
+  const _ModelPickerList({
+    required this.options,
+    required this.currentValue,
+    required this.onChanged,
+    this.autofocus = false,
+  });
+
+  final List<_ModelPickerOption> options;
+  final String currentValue;
+  final ValueChanged<String> onChanged;
+  final bool autofocus;
+
+  @override
+  State<_ModelPickerList> createState() => _ModelPickerListState();
+}
+
+class _ModelPickerListState extends State<_ModelPickerList> {
+  /// The provider filter only appears once there are this many providers;
+  /// below that the group headers are enough to scan the list.
+  static const int _providerFilterThreshold = 3;
+
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _query = '';
+
+  /// The provider group shown alone, or null for every provider.
+  String? _provider;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<_ModelPickerOption> get _filtered {
+    final String q = _query.toLowerCase();
+    return widget.options.where((_ModelPickerOption o) {
+      if (_provider != null && (o.isAuto || o.group != _provider)) {
+        return false;
+      }
+      if (q.isEmpty) return true;
+      return o.label.toLowerCase().contains(q) ||
+          (o.subtitle?.toLowerCase().contains(q) ?? false) ||
+          o.group.toLowerCase().contains(q) ||
+          o.value.toLowerCase().contains(q);
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List<String> providers = <String>[];
+    for (final _ModelPickerOption opt in widget.options) {
+      if (!opt.isAuto && opt.group.isNotEmpty && !providers.contains(opt.group)) {
+        providers.add(opt.group);
+      }
+    }
+    final List<_ModelPickerOption> filtered = _filtered;
+    final _ModelPickerOption? autoOption =
+        filtered.where((o) => o.isAuto).firstOrNull;
+    final List<_ModelPickerOption> regularOptions =
+        filtered.where((o) => !o.isAuto).toList();
+
+    final List<String> groups = <String>[];
+    final Map<String, List<_ModelPickerOption>> grouped =
+        <String, List<_ModelPickerOption>>{};
+    for (final _ModelPickerOption opt in regularOptions) {
+      if (!grouped.containsKey(opt.group)) {
+        groups.add(opt.group);
+        grouped[opt.group] = <_ModelPickerOption>[];
+      }
+      grouped[opt.group]!.add(opt);
+    }
+
+    final bool hasGroups = groups.any((String g) => g.isNotEmpty);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        // Search bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+          child: TextField(
+            controller: _searchCtrl,
+            autofocus: widget.autofocus,
+            onChanged: (String v) => setState(() => _query = v.trim()),
+            style: TextStyle(color: _textPrimary, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: appStrings.search2,
+              hintStyle: TextStyle(color: _textMuted, fontSize: 14),
+              prefixIcon: Icon(
+                Icons.search_rounded,
+                size: 18,
+                color: _textMuted,
+              ),
+              suffixIcon: _query.isNotEmpty
+                  ? GestureDetector(
+                      onTap: () => setState(() {
+                        _searchCtrl.clear();
+                        _query = '';
+                      }),
+                      child: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Icon(
+                          Icons.cancel_rounded,
+                          size: 16,
+                          color: _textMuted,
+                        ),
+                      ),
+                    )
+                  : null,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+              filled: true,
+              fillColor: _bgSecondary,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: _border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: _border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: _accent, width: 1.5),
+              ),
+            ),
+          ),
+        ),
+        if (providers.length >= _providerFilterThreshold)
+          SizedBox(
+            height: 46,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+              children: <Widget>[
+                _ProviderFilterChip(
+                  label: appStrings.all,
+                  selected: _provider == null,
+                  onTap: () => setState(() => _provider = null),
+                ),
+                for (final String provider in providers)
+                  _ProviderFilterChip(
+                    label: _providerPickerLabel(provider),
+                    color: _providerPickerColor(provider),
+                    selected: _provider == provider,
+                    onTap: () => setState(() => _provider = provider),
+                  ),
+              ],
+            ),
+          ),
+        Divider(height: 1, thickness: 1, color: _border),
+        // List
+        Flexible(
+          child: filtered.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.all(36),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Icon(
+                        Icons.search_off_rounded,
+                        size: 36,
+                        color: _textMuted,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        appStrings.noResultsForArg1(_query),
+                        style: TextStyle(color: _textSecondary, fontSize: 14),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  shrinkWrap: true,
+                  children: <Widget>[
+                    if (autoOption != null) ...<Widget>[
+                      _PickerRow(
+                        option: autoOption,
+                        selected: widget.currentValue == autoOption.value,
+                        onTap: () => widget.onChanged(autoOption.value),
+                      ),
+                      if (regularOptions.isNotEmpty)
+                        Divider(
+                          height: 1,
+                          indent: 14,
+                          endIndent: 14,
+                          color: _border,
+                        ),
+                    ],
+                    for (final String group in groups) ...<Widget>[
+                      if (hasGroups && group.isNotEmpty)
+                        _PickerGroupHeader(
+                          label: _providerPickerLabel(group),
+                          color: _providerPickerColor(group),
+                        ),
+                      for (final _ModelPickerOption opt in grouped[group]!)
+                        _PickerRow(
+                          option: opt,
+                          selected: widget.currentValue == opt.value,
+                          onTap: () => widget.onChanged(opt.value),
+                        ),
+                    ],
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProviderFilterChip extends StatelessWidget {
+  const _ProviderFilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.color,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: Material(
+        color: selected ? _accent.withValues(alpha: 0.14) : Colors.transparent,
+        shape: StadiumBorder(
+          side: BorderSide(
+            color: selected ? _accent.withValues(alpha: 0.5) : _borderLight,
+          ),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const StadiumBorder(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                if (color != null) ...<Widget>[
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                ],
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: selected ? _accentHover : _textSecondary,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

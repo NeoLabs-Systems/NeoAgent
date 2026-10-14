@@ -195,22 +195,6 @@ async function buildSystemPromptSections(userId, context = {}, memoryManager) {
     dynamic.push(`Additional context:\n${clampSection(context.additionalContext, 1800)}`);
   }
 
-  // Inject subscription context when billing is enabled.
-  try {
-    const { isBillingEnabled } = require('../billing/config');
-    if (isBillingEnabled()) {
-      const { getActiveSubscription } = require('../billing/subscriptions');
-      const sub = getActiveSubscription(userId);
-      if (sub?.plan) {
-        const trialSuffix = sub.status === 'trialing' && sub.trial_ends_at
-          ? ` (trial ends ${sub.trial_ends_at.slice(0, 10)})`
-          : '';
-        dynamic.push(`SUBSCRIPTION: User is on the "${sub.plan.name}" plan, status: ${sub.status}${trialSuffix}.`);
-      }
-    }
-  } catch {
-    // Billing info is non-critical; never fail the prompt build.
-  }
   dynamic.push([
     'FINAL EXECUTION CONTRACT',
     'Follow the latest user request within the priority, safety, and trust rules above.',

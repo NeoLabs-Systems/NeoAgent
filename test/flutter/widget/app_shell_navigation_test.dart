@@ -116,7 +116,7 @@ void main() {
 
     // Moving between app and account pages once remounted the whole settings
     // screen, which then always reopened on the account page.
-    await tester.tap(find.text('Plan & usage'));
+    await tester.tap(find.text('Usage'));
     await tester.pumpAndSettle();
     expect(controller.settingsPage, SettingsPage.usage);
     expect(find.text('Usage & limits'), findsOneWidget);
@@ -157,6 +157,7 @@ void main() {
 
     expect(find.textContaining('Good '), findsOneWidget);
     expect(find.text('How can I help?'), findsNothing);
-    expect(find.text('Summarise my last run'), findsOneWidget);
+    // A fresh account has no run to pick up yet.
+    expect(find.text('Summarise my last run'), findsNothing);
   });
 }

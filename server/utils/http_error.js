@@ -9,4 +9,12 @@ function httpError(status, message, code = null) {
   return error;
 }
 
-module.exports = { httpError };
+// Application error codes (e.g. INVITE_EXPIRED) are safe to hand to clients so
+// they can show the right state; anything else in `err.code` is not.
+function publicErrorCode(err) {
+  return typeof err?.code === 'string' && /^[A-Z][A-Z0-9_]{1,63}$/.test(err.code)
+    ? err.code
+    : undefined;
+}
+
+module.exports = { httpError, publicErrorCode };

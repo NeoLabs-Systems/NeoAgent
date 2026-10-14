@@ -6,6 +6,31 @@ import 'app_http_client.dart';
 
 AppHttpClient createPlatformHttpClient() => IoAppHttpClient();
 
+/// The server's session cookie name (server/http/middleware.js).
+const String sessionCookieName = 'neoagent.sid';
+
+/// Picks the session cookie out of a `set-cookie` header.
+///
+/// `package:http` joins repeated `set-cookie` headers with commas, and
+/// `Expires=` dates contain commas too, so split only where a new
+/// `name=value` pair starts. Other cookies (load balancer affinity and the
+/// like) are ignored, and an emptied session cookie keeps the current one.
+String? sessionCookieFromSetCookie(String rawHeader) {
+  for (final cookie in rawHeader.split(RegExp(r',(?=\s*[^;,=\s]+=)'))) {
+    final pair = cookie.split(';').first.trim();
+    final separatorIndex = pair.indexOf('=');
+    if (separatorIndex <= 0) {
+      continue;
+    }
+    final name = pair.substring(0, separatorIndex).trim();
+    final value = pair.substring(separatorIndex + 1).trim();
+    if (name == sessionCookieName && value.isNotEmpty) {
+      return '$name=$value';
+    }
+  }
+  return null;
+}
+
 class IoAppHttpClient implements AppHttpClient {
   final http.Client _client = http.Client();
   String? _sessionCookie;
@@ -119,17 +144,10 @@ class IoAppHttpClient implements AppHttpClient {
     if (rawCookie == null || rawCookie.isEmpty) {
       return;
     }
-    final firstCookieField = rawCookie.split(';').first.trim();
-    final separatorIndex = firstCookieField.indexOf('=');
-    if (separatorIndex <= 0) {
-      return;
+    final sessionCookie = sessionCookieFromSetCookie(rawCookie);
+    if (sessionCookie != null) {
+      _sessionCookie = sessionCookie;
     }
-    final name = firstCookieField.substring(0, separatorIndex).trim();
-    final value = firstCookieField.substring(separatorIndex + 1).trim();
-    if (name.isEmpty || value.isEmpty) {
-      return;
-    }
-    _sessionCookie = '$name=$value';
   }
 
   @override

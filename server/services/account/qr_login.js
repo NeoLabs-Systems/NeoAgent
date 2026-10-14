@@ -115,6 +115,15 @@ function parseClientDescriptor(userAgent, metadata = {}) {
   };
 }
 
+/** The scanning device as the signing-in screen may show it. */
+function scannerDescriptor(metadata) {
+  return {
+    label: trimmedString(metadata.deviceLabel || metadata.platformLabel, 120) || 'Phone',
+    platformLabel: trimmedString(metadata.platformLabel, 60) || null,
+    deviceClass: trimmedString(metadata.deviceClass, 24) || null,
+  };
+}
+
 function challengeIsExpired(row, nowMs = Date.now()) {
   const expiresAtMs = parseSqliteUtcMs(row?.expires_at);
   return !Number.isFinite(expiresAtMs) || expiresAtMs <= nowMs;
@@ -136,7 +145,7 @@ function pruneExpiredChallenges() {
   db.prepare(`
     UPDATE user_qr_login_challenges
     SET status = 'expired'
-    WHERE status IN ('pending', 'approved')
+    WHERE status IN ('pending', 'scanned', 'approved')
       AND datetime(expires_at) <= datetime('now')
   `).run();
   const retentionCutoff = sqliteDateFromMs(
@@ -144,7 +153,7 @@ function pruneExpiredChallenges() {
   );
   db.prepare(`
     DELETE FROM user_qr_login_challenges
-    WHERE status IN ('expired', 'claimed')
+    WHERE status IN ('expired', 'claimed', 'declined')
       AND datetime(COALESCE(claimed_at, expires_at, created_at)) <= datetime(?)
   `).run(retentionCutoff);
 }
@@ -174,6 +183,7 @@ function getChallengeRowByPollToken(challengeId, pollToken) {
 function serializeChallenge(row) {
   const requestMetadata = parseJsonObject(row.request_metadata_json);
   const approvedMetadata = parseJsonObject(row.approved_metadata_json);
+  const scannedMetadata = parseJsonObject(row.scanned_metadata_json);
   const requestLocation = parseJsonObject(row.request_location_json);
   const descriptor = parseClientDescriptor(row.request_user_agent, requestMetadata);
 
@@ -182,8 +192,10 @@ function serializeChallenge(row) {
     status: row.status || 'pending',
     requestedAt: row.created_at || null,
     expiresAt: row.expires_at || null,
+    scannedAt: row.scanned_at || null,
     approvedAt: row.approved_at || null,
     claimedAt: row.claimed_at || null,
+    scannedBy: row.scanned_at ? scannerDescriptor(scannedMetadata) : null,
     requestedDevice: {
       label: descriptor.label,
       platformLabel: descriptor.platformLabel,
@@ -260,6 +272,61 @@ function resolveChallengeForApproval({ challengeId, secret }) {
   return serializeChallenge(row);
 }
 
+/**
+ * A signed-in phone opened the approval preview. The signing-in screen sees
+ * this on its next poll and waits for the decision instead of showing the code.
+ */
+function markChallengeScanned({ challengeId, secret, scannerMetadata }) {
+  const row = getChallengeRowByApproveSecret(challengeId, secret);
+  if (!row || challengeIsExpired(row) || row.status === 'expired') {
+    throw challengeNotFoundError();
+  }
+  if (row.status === 'declined') {
+    throw challengeStateError('This QR login request was cancelled.');
+  }
+  if (row.status === 'pending') {
+    db.prepare(`
+      UPDATE user_qr_login_challenges
+      SET status = 'scanned',
+          scanned_at = ?,
+          scanned_metadata_json = ?
+      WHERE id = ?
+        AND status = 'pending'
+    `).run(
+      sqliteDateFromMs(Date.now()),
+      JSON.stringify(normalizeMetadata(scannerMetadata)),
+      row.id,
+    );
+  }
+  return resolveChallengeForApproval({ challengeId, secret });
+}
+
+function declineRow(row) {
+  if (!row || challengeIsExpired(row) || row.status === 'expired') {
+    throw challengeNotFoundError();
+  }
+  if (row.status === 'declined') return;
+  if (row.status !== 'pending' && row.status !== 'scanned') {
+    throw challengeStateError('This QR login request was already approved.');
+  }
+  db.prepare(`
+    UPDATE user_qr_login_challenges
+    SET status = 'declined'
+    WHERE id = ?
+      AND status IN ('pending', 'scanned')
+  `).run(row.id);
+}
+
+/** The phone turned the request down. */
+function declineChallenge({ challengeId, secret }) {
+  declineRow(getChallengeRowByApproveSecret(challengeId, secret));
+}
+
+/** The signing-in screen gave up on this code, so a late approval fails. */
+function cancelChallenge({ challengeId, pollToken }) {
+  declineRow(getChallengeRowByPollToken(challengeId, pollToken));
+}
+
 function approveChallenge({
   challengeId,
   secret,
@@ -274,6 +341,9 @@ function approveChallenge({
   }
   if (row.status === 'claimed') {
     throw challengeStateError('This QR login request was already used.');
+  }
+  if (row.status === 'declined') {
+    throw challengeStateError('This QR login request was cancelled.');
   }
   if (row.status === 'approved' &&
       row.approved_by_user_id &&
@@ -292,7 +362,7 @@ function approveChallenge({
         approved_metadata_json = ?,
         approved_at = ?
     WHERE id = ?
-      AND status IN ('pending', 'approved')
+      AND status IN ('pending', 'scanned', 'approved')
   `).run(
     userId,
     approvedSessionHash,
@@ -313,13 +383,24 @@ function getChallengeStatusForPoll({ challengeId, pollToken }) {
       expiresAt: row?.expires_at || null,
     };
   }
-  return {
+  const status = row.status || 'pending';
+  const result = {
     challengeId: row.id,
-    status: row.status || 'pending',
+    status,
     expiresAt: row.expires_at || null,
     approvedAt: row.approved_at || null,
     claimedAt: row.claimed_at || null,
   };
+  if (status === 'scanned') {
+    // Only what this screen already knows about itself, plus which device of
+    // the account holder is deciding; the account stays unnamed until approval.
+    const challenge = serializeChallenge(row);
+    result.scannedAt = challenge.scannedAt;
+    result.scannedBy = challenge.scannedBy;
+    result.requestedDevice = { label: challenge.requestedDevice.label };
+    result.requestLocation = { label: challenge.requestLocation.label };
+  }
+  return result;
 }
 
 function claimApprovedChallenge({ challengeId, pollToken }) {
@@ -370,8 +451,11 @@ function claimApprovedChallenge({ challengeId, pollToken }) {
 module.exports = {
   createChallenge,
   approveChallenge,
+  cancelChallenge,
   claimApprovedChallenge,
+  declineChallenge,
   getChallengeStatusForPoll,
+  markChallengeScanned,
   resolveChallengeForApproval,
   __test: {
     challengeIsExpired,

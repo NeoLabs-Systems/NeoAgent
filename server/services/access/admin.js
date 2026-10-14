@@ -59,11 +59,13 @@ function envAdminUsernames(env = process.env) {
 }
 
 // A name in NEOAGENT_ADMIN_USERS with no account behind it would hand admin to
-// whoever registers it before the next start, so nobody may take it.
+// whoever registers it before the next start, so nobody may take it -- in any
+// letter case, since usernames are unique regardless of case.
 function isReservedAdminUsername(username, env = process.env) {
-  const name = String(username || '').trim();
-  if (!envAdminUsernames(env).includes(name)) return false;
-  return !db.prepare('SELECT 1 FROM users WHERE username = ?').get(name);
+  const name = String(username || '').trim().toLowerCase();
+  const reserved = envAdminUsernames(env).find((item) => item.toLowerCase() === name);
+  if (!reserved) return false;
+  return !db.prepare('SELECT 1 FROM users WHERE username = ?').get(reserved);
 }
 
 function wasRevokedByOperator(userId) {

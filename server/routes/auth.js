@@ -5,13 +5,19 @@ const rateLimit = require('express-rate-limit');
 const db = require('../db/database');
 const { getDeploymentPolicy } = require('../utils/deployment');
 const { publicBaseUrlForRequest } = require('../utils/public_url');
-const { requireValidEmail } = require('../services/account/email');
+const { isValidEmail, normalizeEmail } = require('../services/account/email');
 const {
-  evaluatePasswordStrength,
-  passwordStrengthError,
-} = require('../services/account/password_policy');
+  assertEmailAvailable,
+  findUserForSignIn,
+  hashPassword,
+  validateNewPassword,
+  validateNewUsername,
+} = require('../services/account/credentials');
 const { getTwoFactorStatus, verifyLoginCode } = require('../services/account/two_factor');
-const { isAdminUser, isReservedAdminUsername } = require('../services/access/admin');
+const { isAdminUser } = require('../services/access/admin');
+const { requireSessionTransport } = require('../middleware/auth');
+const { sendJsonError } = require('../http/errors');
+const { httpError } = require('../utils/http_error');
 const { recordCurrentSession, revokeAllSessionsForUser } = require('../services/account/sessions');
 const {
   consumeEmailToken,
@@ -27,6 +33,7 @@ const {
   sendUnusualLoginNotice,
 } = require('../services/account/service_email');
 const {
+  cancelChallenge,
   claimApprovedChallenge,
   createChallenge,
   getChallengeStatusForPoll,
@@ -45,9 +52,20 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Showing a sign-in QR code is not a credential attempt, so it gets its own
+// budget instead of eating into authLimiter. A visible code rotates every two
+// minutes and is polled about every five seconds.
+const qrLoginChallengeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: { error: 'Too many QR login requests, try again shortly' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const qrLoginPollLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 180,
+  max: 400,
   message: { error: 'Too many QR login status checks, try again shortly' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -310,7 +328,7 @@ router.get('/api/auth/providers', (req, res) => {
   return res.json({ providers: authProviderManager.listProviders() });
 });
 
-router.post('/api/auth/providers/:provider/begin', authLimiter, async (req, res) => {
+router.post('/api/auth/providers/:provider/begin', authLimiter, requireSessionTransport, async (req, res) => {
   try {
     const authProviderManager = getAuthProviderManager(req);
     if (!authProviderManager) {
@@ -375,46 +393,36 @@ router.get('/api/auth/providers/complete', async (req, res) => {
   }
 });
 
-router.post('/api/auth/register', authLimiter, async (req, res) => {
+router.post('/api/auth/register', authLimiter, requireSessionTransport, async (req, res) => {
   try {
     const policy = getDeploymentPolicy();
     const username = String(req.body?.username || '').trim();
     const password = String(req.body?.password || '');
-    const email = requireValidEmail(req.body?.email);
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username, email, and password required' });
+    const email = normalizeEmail(req.body?.email);
+    if (!username || !password || !email) {
+      throw httpError(400, 'Username, email, and password required', 'MISSING_FIELDS');
     }
-    if (username.length < 3 || password.length < 8) {
-      return res.status(400).json({ error: 'Username min 3 chars, password min 8' });
+    if (!isValidEmail(email)) {
+      throw httpError(400, 'A valid email is required', 'INVALID_EMAIL');
     }
-    if (isReservedAdminUsername(username)) {
-      return res.status(409).json({ error: 'Username is already taken' });
-    }
-
-    const passwordStrength = evaluatePasswordStrength(password, { username, email });
-    if (!passwordStrength.isAcceptable) {
-      return res.status(400).json({ error: passwordStrengthError(passwordStrength) });
-    }
+    validateNewUsername(username);
+    validateNewPassword(password, { username, email });
 
     const confirmationRequired = requireSignupEmailConfirmation();
     if (confirmationRequired && !isServiceEmailConfigured()) {
       return res.status(503).json({ error: 'Service email is not configured for account confirmation' });
     }
 
-    const hash = await bcrypt.hash(password, 12);
+    const hash = await hashPassword(password);
     const createUser = db.transaction(() => {
       const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
       if (userCount.count > 0 && !policy.registrationOpen) {
-        const error = new Error('Registration is closed');
-        error.code = 'REGISTRATION_CLOSED';
-        throw error;
+        throw httpError(403, 'Registration is closed', 'SIGNUP_DISABLED');
       }
-      const emailTaken = db.prepare('SELECT id FROM users WHERE lower(email) = ?').get(email);
-      if (emailTaken) {
-        const error = new Error('Email is already in use');
-        error.code = 'EMAIL_TAKEN';
-        throw error;
-      }
+      // Checked again inside the transaction: the hash above takes long
+      // enough for a concurrent sign-up to claim either name.
+      validateNewUsername(username);
+      assertEmailAvailable(email);
       return db.prepare(`
         INSERT INTO users (username, email, email_verified_at, password, password_login_enabled)
         VALUES (?, ?, CASE WHEN ? THEN NULL ELSE datetime('now') END, ?, 1)
@@ -453,46 +461,31 @@ router.post('/api/auth/register', authLimiter, async (req, res) => {
       has_completed_onboarding: 0,
     });
   } catch (err) {
-    if (err?.statusCode) {
-      return res.status(err.statusCode).json({ error: err.message });
-    }
-    if (err?.code === 'REGISTRATION_CLOSED') {
-      return res.status(403).json({ error: 'Registration is closed' });
-    }
-    if (err?.code === 'EMAIL_TAKEN') {
-      return res.status(409).json({ error: 'Email is already in use' });
-    }
+    // The unique indexes are the last line against a race the checks above
+    // did not see.
     if (String(err?.code || '').startsWith('SQLITE_CONSTRAINT')) {
-      if (String(err?.message || '').toLowerCase().includes('users.email')) {
-        return res.status(409).json({ error: 'Email is already in use' });
-      }
-      return res.status(409).json({ error: 'Username is already taken' });
+      return String(err?.message || '').toLowerCase().includes('email')
+        ? res.status(409).json({ error: 'Email is already in use', code: 'EMAIL_TAKEN' })
+        : res.status(409).json({ error: 'Username is already taken', code: 'USERNAME_TAKEN' });
     }
-    console.error('Register error:', err);
-    res.status(500).json({ error: 'Registration failed' });
+    if (!err?.status) console.error('Register error:', err);
+    sendJsonError(res, err);
   }
 });
 
-router.post('/api/auth/login', authLimiter, async (req, res) => {
+router.post('/api/auth/login', authLimiter, requireSessionTransport, async (req, res) => {
   try {
-    const username = String(req.body?.username || '').trim();
+    // `username` also accepts the account email; both ignore case.
+    const account = String(req.body?.username || '').trim();
     const password = String(req.body?.password || '');
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password required' });
+    if (!account || !password) {
+      return res.status(400).json({ error: 'Username and password required', code: 'MISSING_FIELDS' });
     }
 
-    const user = db.prepare(
-      `SELECT id, username, display_name, email, email_verified_at, password, password_login_enabled, created_at, last_login, has_completed_onboarding
-       FROM users
-       WHERE username = ?`,
-    ).get(username);
-    if (!user || Number(user.password_login_enabled || 0) !== 1) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    const user = findUserForSignIn(account);
+    const passwordLogin = user && Number(user.password_login_enabled || 0) === 1;
+    if (!passwordLogin || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ error: 'Invalid credentials', code: 'INVALID_CREDENTIALS' });
     }
 
     if (requireSignupEmailConfirmation() && !user.email_verified_at) {
@@ -514,7 +507,7 @@ router.post('/api/auth/login', authLimiter, async (req, res) => {
   }
 });
 
-router.post('/api/auth/login/2fa', authLimiter, async (req, res) => {
+router.post('/api/auth/login/2fa', authLimiter, requireSessionTransport, async (req, res) => {
   try {
     const pendingUserId = req.session?.pendingTwoFactorUserId;
     const startedAt = Number(req.session?.pendingTwoFactorStartedAt || 0);
@@ -556,7 +549,7 @@ router.post('/api/auth/login/2fa', authLimiter, async (req, res) => {
   }
 });
 
-router.post('/api/auth/webauthn/login/options', webauthnLimiter, async (req, res) => {
+router.post('/api/auth/webauthn/login/options', webauthnLimiter, requireSessionTransport, async (req, res) => {
   try {
     const { options, challenge } = await beginWebAuthnLogin({
       req,
@@ -575,7 +568,7 @@ router.post('/api/auth/webauthn/login/options', webauthnLimiter, async (req, res
   }
 });
 
-router.post('/api/auth/webauthn/login/verify', webauthnLimiter, async (req, res) => {
+router.post('/api/auth/webauthn/login/verify', webauthnLimiter, requireSessionTransport, async (req, res) => {
   try {
     const pending = req.session?.pendingWebAuthnLogin;
     const result = await completeWebAuthnLogin({
@@ -683,7 +676,7 @@ router.post('/api/auth/password/forgot', authLimiter, async (req, res) => {
   }
 });
 
-router.post('/api/auth/qr-login/challenge', authLimiter, (req, res) => {
+router.post('/api/auth/qr-login/challenge', qrLoginChallengeLimiter, (req, res) => {
   try {
     const challenge = createChallenge(req, {
       requestMetadata: req.body?.requestMetadata,
@@ -727,7 +720,22 @@ router.post('/api/auth/qr-login/challenge/:id/status', qrLoginPollLimiter, (req,
   }
 });
 
-router.post('/api/auth/qr-login/challenge/:id/claim', qrLoginClaimLimiter, (req, res) => {
+router.post('/api/auth/qr-login/challenge/:id/cancel', qrLoginPollLimiter, (req, res) => {
+  try {
+    const pollToken = String(req.body?.token || '').trim();
+    if (!pollToken) {
+      return res.status(400).json({ error: 'QR login poll token is required.' });
+    }
+    cancelChallenge({ challengeId: req.params.id, pollToken });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(Number(error?.statusCode || 500)).json({
+      error: error?.message || 'Could not cancel QR login.',
+    });
+  }
+});
+
+router.post('/api/auth/qr-login/challenge/:id/claim', qrLoginClaimLimiter, requireSessionTransport, (req, res) => {
   try {
     const pollToken = String(req.body?.token || '').trim();
     if (!pollToken) {
@@ -773,28 +781,13 @@ router.post('/api/auth/password/reset', passwordResetLimiter, async (req, res) =
         error: 'Open the full password reset link from your NeoAgent email.',
       });
     }
-    const passwordStrength = evaluatePasswordStrength(password);
-    if (!passwordStrength.hasMinimumLength) {
-      return sendPasswordResetPage(res, {
-        token,
-        error: 'Use a password with at least 8 characters.',
-      });
-    }
-    if (!passwordStrength.isAcceptable) {
-      return sendPasswordResetPage(res, {
-        token,
-        error: passwordStrengthError(passwordStrength),
-      });
-    }
     if (password !== confirmPassword) {
       return sendPasswordResetPage(res, {
         token,
         error: 'Passwords do not match.',
       });
     }
-    const hash = await bcrypt.hash(password, 12);
-    const result = consumePasswordResetToken(token, hash);
-    db.prepare('UPDATE users SET password_login_enabled = 1 WHERE id = ?').run(result.user.id);
+    const result = await consumePasswordResetToken(token, password);
     revokeAllSessionsForUser(result.user.id);
     sendPasswordChangedNotice(result.user).catch((noticeError) => {
       console.warn('Password reset notification failed:', noticeError.message);

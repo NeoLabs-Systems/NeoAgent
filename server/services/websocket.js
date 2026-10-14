@@ -1,6 +1,7 @@
 const { randomUUID } = require('crypto');
 const db = require('../db/database');
 const { sanitizeError } = require('../utils/security');
+const { publicErrorCode } = require('../utils/http_error');
 const { asObject, toOptionalString } = require('../utils/text');
 const { clientRunOptions } = require('../utils/client_run_options');
 const { listRunEvents } = require('./ai/runEvents');
@@ -297,7 +298,7 @@ function setupWebSocket(io, services) {
         }
 
         const { ensureDefaultAiSettings, getAiSettings } = require('./ai/settings');
-        const { getWebChatContext } = require('./ai/history');
+        const { getWebChatContext, storeWebRunReply } = require('./ai/history');
         ensureDefaultAiSettings(userId, agentId);
         const aiSettings = getAiSettings(userId, agentId);
         const conversationId = requestedConversationId
@@ -335,26 +336,13 @@ function setupWebSocket(io, services) {
           totalTokens: result?.totalTokens || null
         });
 
-        if (result?.status === 'completed' && result?.content) {
-          db.prepare(
-            `INSERT INTO conversation_history (
-              user_id, agent_id, agent_run_id, conversation_id, role, content, metadata
-            ) VALUES (?, ?, ?, ?, 'assistant', ?, ?)`,
-          ).run(
-            userId,
-            agentId,
-            result.runId,
-            conversationId,
-            result.content,
-            JSON.stringify({ tokens: result.totalTokens, platform: triggerSource }),
-          );
-        }
+        storeWebRunReply({ userId, agentId, conversationId, result, platform: triggerSource });
       } catch (err) {
         console.error(`[WS] agent:run failed for user ${userId}:`, err);
         socket.emit('run:error', {
           runId,
           error: sanitizeError(err),
-          code: err?.code,
+          code: publicErrorCode(err),
           rateLimit: err?.rateLimit,
           conversationId: requestedConversationId || null,
         });

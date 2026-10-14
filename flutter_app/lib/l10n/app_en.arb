@@ -1,5 +1,86 @@
 {
   "@@locale": "en",
+  "onboardingEyebrowWelcome": "Welcome",
+  "onboardingEyebrowCommunication": "Communication",
+  "onboardingEyebrowIntelligence": "Intelligence",
+  "onboardingEyebrowComputer": "Computer",
+  "onboardingEyebrowAutomation": "Automation",
+  "onboardingNext": "Next",
+  "onboardingIntroCouldNotLoad": "The intro couldn’t be loaded.",
+  "onboardingModelDescription": "Pick the model NeoAgent should use by default, or let it choose automatically.",
+  "onboardingLoadingModels": "Loading models…",
+  "noAiModelTitle": "No AI model is set up yet",
+  "noAiModelBody": "Add an API key from a provider such as OpenAI, Anthropic or Google. NeoAgent then shows the models you can use.",
+  "noAiModelChatBody": "NeoAgent needs an AI model to answer. Add an API key from a provider such as OpenAI, Anthropic or Google.",
+  "noAiModelAdminHint": "As an admin you can also set up providers for everyone under Admin → Providers.",
+  "addApiKey": "Add API key",
+  "onboardingMessagingConnected": "{platform} is connected.",
+  "@onboardingMessagingConnected": {
+    "placeholders": {
+      "platform": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingMessagingWaiting": "Waiting for {platform} to connect…",
+  "@onboardingMessagingWaiting": {
+    "placeholders": {
+      "platform": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingFinishFailed": "Setup couldn’t be saved: {error}",
+  "@onboardingFinishFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingEyebrowReady": "Ready",
+  "onboardingStepRequired": "Required",
+  "onboardingStepOptional": "Optional",
+  "onboardingStepCloudOrLocal": "Cloud or local",
+  "onboardingStepComputer": "Computer",
+  "onboardingStepRoutines": "Routines",
+  "onboardingComputerChoiceTitle": "Where should\nit work?",
+  "onboardingComputerChoiceDescription": "You can switch per session.",
+  "onboardingCloudComputerSubtitle": "Private sandbox · always on",
+  "onboardingThisComputer": "This computer",
+  "onboardingThisComputerSubtitle": "Your files, apps and browser",
+  "onboardingSearchApps": "Search apps…",
+  "onboardingRoutinesDescription": "Results arrive in your chats.",
+  "onboardingRoutinesDescriptionPhone": "Results arrive as notifications.",
+  "onboardingNotifications": "Notifications",
+  "onboardingReadyTitle": "You’re\nall set.",
+  "onboardingReadyDescription": "Send your first message.",
+  "onboardingMessageNeoagent": "Message NeoAgent",
+  "onboardingAskAnything": "Ask anything…",
+  "onboardingOpenNeoagent": "Open NeoAgent",
+  "onboardingStarterTrip": "Plan a weekend trip",
+  "onboardingStarterLanding": "Build a landing page",
+  "onboardingQuickSteps": "{count} quick steps",
+  "@onboardingQuickSteps": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "taskNeedsEmail": "Connect email first",
+  "taskNeedsCalendar": "Connect a calendar first",
+  "taskNeedsModel": "Set up an AI model first",
+  "taskPromptDailyRecap": "Recap my day: summarize the conversations, finished work and decisions from today, then list anything I should follow up on tomorrow. Keep it short and send it to me.",
+  "taskPromptInboxCheck": "Check my email inbox for messages that arrived since the last check. Only message me about emails that are urgent or need a reply, with a one-line summary each. If nothing needs my attention, do not send anything.",
+  "taskPromptMorningBriefing": "Prepare my morning briefing: today’s weather where I am, the events on my calendar, and the most important open items I know about. Send it as a short, scannable message.",
+  "taskPromptTomorrowPrep": "Look at my calendar for tomorrow. For each meeting, tell me what it is about, who is involved and anything I should prepare. If tomorrow is empty, do not send anything.",
+  "taskPromptNewsDigest": "Search the web for today’s most important news on the topics I care about (use what you remember about my interests). Send me a digest of up to five items with one sentence each and a link.",
+  "taskPromptWeeklyReview": "Review my week: what got done, what slipped and what is still open. Suggest the three most important things to focus on next week.",
+  "whatsappSeparateAccountDescription": "Link a phone number that belongs to the agent. Anyone you allow can chat with it, in direct chats and groups.",
+  "whatsappSelfChatDescription": "Link your own number and talk to the agent in your “Message yourself” chat. Every other chat and group on this account is ignored.",
+  "chatSendHintMac": "⌘↵ to send",
+  "chatSendHintOther": "Ctrl+Enter to send",
   "aBaseUrlIsRequiredFor": "A base URL is required for this endpoint.",
   "aChangedEmailAddressIsConfirmed": "A changed email address is confirmed before it is used.",
   "aDecisionHigherUpTheChain": "A decision higher up the chain wins.",
@@ -9,7 +90,6 @@
   "aLanguageModelJudgedThisMessage": "A language model judged this message because SystemOne is off.",
   "aNeoagentSetupMetadataFileExceeded": "A NeoAgent setup metadata file exceeded its safe size limit.",
   "aNewerWebBuildIsAvailable": "A newer web build is available on the server. Reload to fetch the latest bundle.",
-  "aPlanSIdCanT": "A plan’s ID can’t change.",
   "aPrivateDesktopWithChromiumFiles": "A private desktop with Chromium, files, a text editor, terminal and Python. Your work stays saved between sessions.",
   "aPrivateLinuxComputerOrAn": "A private Linux computer or an Android device.",
   "aRequiredNeoagentSetupFileCould": "A required NeoAgent setup file could not be downloaded.",
@@ -17,7 +97,6 @@
   "aTeammateSentYouAnInvite": "a teammate sent you an invite link, enter it here to join their team.",
   "aTemporaryDownloadWillBeCleaned": "A temporary download will be cleaned up later.",
   "aValueIsStored": "A value is stored.",
-  "aboutUseWhatYouRememberAbout": "about (use what you remember about my interests). Send me a digest ",
   "access": "Access",
   "accessActivity": "Access activity",
   "accessArg1": "Access: {arg1}",
@@ -135,7 +214,6 @@
   "agentModeEditsTheWorkspaceSend": "Agent mode edits the workspace · ⌘↵ send · ⌘N new session",
   "agentPausesAndAsksYouBefore": "Agent pauses and asks you before running.",
   "agentProfile": "Agent profile",
-  "agentRuns7d": "Agent runs (7d)",
   "agentVisibleName": "Agent-visible name",
   "agentWantsToUseArg1Tap": "Agent wants to use {arg1}. Tap to decide.",
   "@agentWantsToUseArg1Tap": {
@@ -174,6 +252,7 @@
   "allTime": "All time",
   "allToolsAreAllowedTheAgent": "All tools are allowed — the agent can use any capability without asking. ",
   "allow": "Allow",
+  "allowedRunsWithoutAsking": "Allowed. Runs without asking.",
   "allowAll": "Allow all",
   "allowInstallUnknownAppsForNeoagent": "Allow \"Install unknown apps\" for NeoAgent, then retry the update.",
   "allowNewSignUps": "Allow new sign-ups",
@@ -181,8 +260,6 @@
   "allowSender": "Allow sender",
   "allowSession": "Allow session",
   "allowTheAgentToStartAn": "Allow the agent to start an in-app voice call with you.",
-  "allowedForThisRunWillAsk": "Allowed for this run — will ask again next session.",
-  "allowedModels": "Allowed models",
   "allowedOrigins": "Allowed origins",
   "allowedPathPrefix": "Allowed path prefix",
   "allowsYouCanChangeThatPer": "allows. You can change that per person later. Links never grant ",
@@ -199,7 +276,7 @@
   "anApiKeyIsRequired": "An API key is required.",
   "anEveningSummaryOfWhatHappened": "An evening summary of what happened and what to follow up on.",
   "anHttpOrHttpsUrlIs": "An http or https URL is required.",
-  "andBillingTeamLinksLiveOn": "and billing. Team links live on the Team page.",
+  "andAnalyticsTeamLinksLiveOn": "and analytics. Team links live on the Team page.",
   "andSExpiresAtDatetimeNow": "  AND s.expires_at > datetime(''now'')\n",
   "androidApkInstallIsUnavailableOn": "Android APK install is unavailable on this platform.",
   "androidApp": "Android app",
@@ -240,7 +317,6 @@
     }
   },
   "anyoneWithTheLinkCanJoin": "Anyone with the link can join until it expires or you revoke it.",
-  "anyoneYouAllowCanChatWith": "Anyone you allow can chat with it, in direct chats and groups.",
   "apiHttpsOrigin": "API HTTPS origin",
   "apiKey": "API key",
   "apiKey2": "api key",
@@ -536,17 +612,6 @@
       }
     }
   },
-  "arg1Arg29": "{arg1} / {arg2}",
-  "@arg1Arg29": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg2ActiveTools": "{arg1} ({arg2} active tools)",
   "@arg1Arg2ActiveTools": {
     "placeholders": {
@@ -672,20 +737,6 @@
   },
   "arg1Arg2Arg37": "{arg1} {arg2} {arg3}",
   "@arg1Arg2Arg37": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
-  "arg1Arg2Arg38": "{arg1} · {arg2} {arg3}",
-  "@arg1Arg2Arg38": {
     "placeholders": {
       "arg1": {
         "type": "Object?"
@@ -866,20 +917,6 @@
       }
     }
   },
-  "arg1Arg2OfArg3": "{arg1}–{arg2} of {arg3}",
-  "@arg1Arg2OfArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg2Runs": "{arg1}\n{arg2} runs · ",
   "@arg1Arg2Runs": {
     "placeholders": {
@@ -926,17 +963,6 @@
   },
   "arg1Arg2Tokens": "{arg1}\n{arg2} tokens",
   "@arg1Arg2Tokens": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
-  "arg1Arg2Tokens2": "{arg1}: {arg2} tokens",
-  "@arg1Arg2Tokens2": {
     "placeholders": {
       "arg1": {
         "type": "Object?"
@@ -1051,22 +1077,6 @@
       }
     }
   },
-  "arg1Deactivated": "{arg1} deactivated.",
-  "@arg1Deactivated": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "arg1Default": "{arg1}: default",
-  "@arg1Default": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Desktop": "{arg1} desktop",
   "@arg1Desktop": {
     "placeholders": {
@@ -1107,17 +1117,6 @@
       }
     }
   },
-  "arg1FeatureArg2": "{arg1} feature{arg2}",
-  "@arg1FeatureArg2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1ForArg2": "{arg1} for {arg2}",
   "@arg1ForArg2": {
     "placeholders": {
@@ -1125,14 +1124,6 @@
         "type": "Object?"
       },
       "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
-  "arg1Forever": "{arg1} forever",
-  "@arg1Forever": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -1374,17 +1365,6 @@
   },
   "arg1MinArg2Sec": "{arg1} min {arg2} sec",
   "@arg1MinArg2Sec": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
-  "arg1ModelArg2": "{arg1} model{arg2}",
-  "@arg1ModelArg2": {
     "placeholders": {
       "arg1": {
         "type": "Object?"
@@ -1908,20 +1888,10 @@
   "askAQuestionOrStartA": "Ask a question or start a task...",
   "askBeforeClosingToBackground": "Ask before closing to background",
   "askMe": "Ask me",
-  "assignAPlanToAnAccount": "Assign a plan to an account",
-  "assignPlan": "Assign plan",
   "assignedAgent": "Assigned agent",
   "assignedAgent2": "Assigned Agent",
   "assignedAgentArg1": "Assigned agent: {arg1}",
   "@assignedAgentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "assignedArg1": "Assigned {arg1}.",
-  "@assignedArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"
@@ -1933,7 +1903,6 @@
   "assistantKey131": "Assistant key 131",
   "atLeast1": "At least 1.",
   "atLeast1000AppliesAfterA": "At least 1000. Applies after a server restart.",
-  "atLeast512": "At least 512.",
   "attachFiles": "Attach files",
   "attentionArg1": "Attention {arg1}",
   "@attentionArg1": {
@@ -2008,30 +1977,17 @@
   "backgroundSyncStaysScheduledOnAndroid": "Background sync stays scheduled on Android",
   "badState": "Bad state: ",
   "baseImageAndSizeOfThe": "Base image and size of the QEMU virtual machines that run ",
-  "baseImageUrl": "Base image URL",
   "baseUrlOptional": "Base URL (optional)",
   "baseUrlTokenLocal": "base url token local",
   "basicAuthentication": "Basic authentication",
   "behaviorModules": "Behavior Modules",
   "behaviorNotes": "behavior notes",
   "beta": "Beta",
-  "billedThroughStripeSoItCan": "Billed through Stripe, so it can’t be canceled here.",
-  "billing": "Billing",
-  "billingEnabled": "Billing enabled",
-  "billingHistory": "Billing history",
-  "billingInterval": "Billing interval",
-  "billingIsOff": "Billing is off",
-  "billingIsTurnedOffButStill": "Billing is turned off but still running. Restart the ",
-  "billingIsTurnedOnButNot": "Billing is turned on but not running yet. Restart the ",
-  "billingSetupSaved": "Billing setup saved.",
-  "billingStripeKeysWebhookSecretTrial": "billing stripe keys webhook secret trial enable",
-  "billingSubscription": "Billing & subscription",
   "bitwardenCredentialBroker": "Bitwarden credential broker",
   "bitwardenItem": "Bitwarden item",
   "bitwardenServer": "Bitwarden server",
   "blankUsesCommon": "Blank uses \"common\"",
   "blankUsesTheDefaultCallback": "Blank uses the default callback",
-  "blankUsesTheServerDefault": "Blank uses the server default.",
   "blankValuesUseTheProviderDefaults": "Blank values use the provider defaults.",
   "block": "Block",
   "blockedIncomingMessageFromArg1": "Blocked incoming message from {arg1}.",
@@ -2074,9 +2030,7 @@
   },
   "canReceiveDelegatedTasks": "Can receive delegated tasks",
   "cancel": "Cancel",
-  "cancelSubscription": "Cancel subscription",
   "cancelTask": "Cancel task",
-  "cancelsAtPeriodEnd": "Cancels at period end",
   "candidateCountArg1": "Candidate Count: {arg1}",
   "@candidateCountArg1": {
     "placeholders": {
@@ -2098,7 +2052,6 @@
       }
     }
   },
-  "changePlan": "Change plan",
   "changeSetupMode": "Change setup mode",
   "channel": "Channel",
   "channelAccessToken": "Channel access token",
@@ -2131,7 +2084,6 @@
   "checkAutomaticallyOnLaunch": "Check automatically on launch",
   "checkForMessagesEveryMs": "Check for messages every (ms)",
   "checkForNewMessagesAutomatically": "Check for new messages automatically",
-  "checkMyEmailInboxForMessages": "Check my email inbox for messages that arrived since the last check. ",
   "checkNow": "Check now",
   "checkYourEmailToConfirmYour": "Check your email to confirm your NeoAgent account before signing in.",
   "checkedArg1": "Checked {arg1}",
@@ -2144,16 +2096,7 @@
   },
   "chooseACategoryOrSearchAcross": "Choose a category or search across all settings.",
   "chooseAPerson": "Choose a person",
-  "chooseAPlanToGetStarted": "Choose a plan to get started.",
   "chooseAProjectFolder": "Choose a project folder",
-  "chooseArg1": "Choose {arg1}",
-  "@chooseArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "chooseDefaultsForChatAgentsFallback": "Choose defaults for chat, agents, fallback behavior, and smart routing.",
   "chooseGroups": "Choose groups",
   "chooseHowMuchYouWantTo": "Choose how much you want to configure now. Both options can be changed later.",
@@ -2280,7 +2223,6 @@
   "commandVXdotoolDevNull2": "command -v xdotool >/dev/null 2>&1",
   "commandsApps": "Commands & apps",
   "commandsRunInTheSamePersistent": "Commands run in the same persistent computer used by the visible desktop.",
-  "commasOrLeaveBlankForEvery": "commas, or leave blank for every model.",
   "communityChatops": "Community & ChatOps",
   "completeSetup": "Complete Setup",
   "completeTheWorkflowOnTheDesktop": "Complete the workflow on the desktop.",
@@ -2473,7 +2415,6 @@
   "couldNotSaveTrelloSetup": "Could not save Trello setup.",
   "couldNotSendConfirmationEmail": "could not send confirmation email",
   "couldNotStart": "Could not start",
-  "couldNotStartCheckoutCheckStripe": "Could not start checkout. Check Stripe configuration.",
   "countAIdAsFiles": "       COUNT(a.id) AS files,\n",
   "countAsRuns": "       COUNT(*) AS runs,\n",
   "countDistinctRIdAsRuns": "       COUNT(DISTINCT r.id) AS runs,\n",
@@ -2495,8 +2436,6 @@
   "cronExpression": "Cron expression",
   "ctrlEnterRunsTheQuery": "Ctrl/⌘ + Enter runs the query.",
   "ctrlShiftSpace": "Ctrl + Shift + Space",
-  "currency": "Currency",
-  "currencyMustBeA3Letter": "Currency must be a 3-letter code such as usd.",
   "currentEmailArg1": "Current email: {arg1}",
   "@currentEmailArg1": {
     "placeholders": {
@@ -2507,8 +2446,6 @@
   },
   "currentPassword": "Current password",
   "currentPasswordIsIncorrect": "current password is incorrect",
-  "currentPlan": "Current plan",
-  "currentPlan2": "CURRENT PLAN",
   "currentTwoStepLoginCode": "Current two-step login code",
   "customAccess": "Custom access",
   "customCron": "Custom Cron",
@@ -2520,7 +2457,6 @@
   "customOpenaiCompatible": "Custom OpenAI-compatible",
   "customOpenaiCompatibleEndpoint": "Custom OpenAI-compatible endpoint",
   "customOutgoingUrl": "Custom outgoing URL",
-  "customersOverridePlanStatusCanceledTrialing": "customers override plan status canceled trialing",
   "dAllowedPermissionsJsonAsAllowed": "       d.allowed_permissions_json AS allowed,\n",
   "dCreatedAtAsSince": "       d.created_at AS since\n",
   "daily": "Daily",
@@ -2535,18 +2471,8 @@
     }
   },
   "dayOfMonth": "Day of month",
-  "deactivate": "Deactivate",
-  "deactivateArg1": "Deactivate {arg1}?",
-  "@deactivateArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "decideWhichToolsYourAgentMay": "decide which tools your agent may use. They see your name and ",
   "decisionHigherUpTheChainWins": "decision higher up the chain wins and shows a lock with the ",
-  "decisionsFromTodayThenListAnything": "decisions from today, then list anything I should follow up on ",
   "decisionsShowUpHereAsArg1": "Decisions show up here as {arg1} reads approved {arg2} groups. Only the latest 30 are kept, and they reset when the server restarts.",
   "@decisionsShowUpHereAsArg1": {
     "placeholders": {
@@ -2696,7 +2622,6 @@
       }
     }
   },
-  "desktopToFinishTheJob": "desktop to finish the job.",
   "destinationId": "Destination ID",
   "deviceAccess": "Device access",
   "deviceSettings": "Device Settings",
@@ -2732,7 +2657,6 @@
       }
     }
   },
-  "downloadPdf": "Download PDF",
   "downloadUpdate": "Download update",
   "downloadingTheNeoagentBackend": "Downloading the NeoAgent backend",
   "draft": "Draft",
@@ -2745,14 +2669,6 @@
   "eGMyLocalServer": "e.g. My local server",
   "edit": "Edit",
   "editAgent": "Edit Agent",
-  "editArg1": "Edit {arg1}",
-  "@editArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "editCoreMemoryEntry": "Edit Core Memory Entry",
   "editInstructions": "Edit instructions",
   "editMcpServer": "Edit MCP Server",
@@ -2853,15 +2769,12 @@
   "everyAccountOnThisServerLoses": "Every account on this server loses this shared key. Accounts ",
   "everyAccountOnThisServerSecrets": "every account on this server. Secrets are write-only: leave ",
   "everyAccountOnThisServerUses": "Every account on this server uses this address for ",
-  "everyAccountSSubscriptionMostRecently": "Every account’s subscription, most recently changed first. ",
   "everyActiveSessionForThisAccount": "Every active session for this account ends. They can sign in ",
   "everyDay0800": "Every day · 08:00",
   "everyDay2000": "Every day · 20:00",
   "everyHour": "Every hour",
-  "everyModel": "every model.",
   "everyRunOnThisServerAll": "Every run on this server, all time.",
   "everySensitiveToolRequiresApprovalEvery": "Every sensitive tool requires approval, every time.",
-  "everySessionGetsAPrivateCloud": "Every session gets a private cloud computer, so NeoAgent can do ",
   "everyToolRunsWithoutAskingExcept": "Every tool runs without asking, except the ones the person ",
   "everyoneInTheseGroupsChannelsOr": "Everyone in these groups, channels, or rooms can talk to {arg1}.",
   "@everyoneInTheseGroupsChannelsOr": {
@@ -2904,7 +2817,6 @@
       }
     }
   },
-  "existingSubscribersKeepAccessUntilTheir": "existing subscribers keep access until their period ends.",
   "exitArg1": "[exit {arg1}]",
   "@exitArg1": {
     "placeholders": {
@@ -2942,7 +2854,6 @@
     }
   },
   "exploredTheWorkspace": "Explored the workspace",
-  "exportAll": "Export all",
   "exportFailedArg1": "Export failed: {arg1}",
   "@exportFailedArg1": {
     "placeholders": {
@@ -2997,14 +2908,6 @@
       }
     }
   },
-  "failedToDismissOnboardingArg1": "Failed to dismiss onboarding: {arg1}",
-  "@failedToDismissOnboardingArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "failedToFetch": "failed to fetch",
   "failedToGeneratePromptArg1": "Failed to generate prompt: {arg1}",
   "@failedToGeneratePromptArg1": {
@@ -3044,7 +2947,6 @@
   },
   "fair": "Fair",
   "fasterReplies": "Faster replies",
-  "features": "Features",
   "fewerModelCalls": "Fewer model calls",
   "fieldEmptyToRestoreTheBuilt": "field empty to restore the built-in default.",
   "fileExceedsThe1MibEditor": "File exceeds the 1 MiB editor limit.",
@@ -3059,11 +2961,9 @@
   "findAPlatform": "Find a platform",
   "findAndFixABug": "Find and fix a bug",
   "findRecentChats": "Find recent chats",
-  "findTheseLaterInTasks": "find these later in Tasks.",
   "findingTheCorrectNeoagentRuntime": "Finding the correct NeoAgent runtime",
   "finish": "Finish",
   "finishAtTheScheduledTime": "Finish at the scheduled time",
-  "finishSetup": "Finish setup",
   "finishSigningInToArg1In": "Finish signing in to {arg1} in your browser, then connect again.",
   "@finishSigningInToArg1In": {
     "placeholders": {
@@ -3082,8 +2982,6 @@
   "forLinksInEmailsBlankUses": "For links in emails. Blank uses the server public URL.",
   "forgotPassword": "Forgot password?",
   "frameUnavailable": "Frame unavailable",
-  "freeTrialDays": "Free trial (days)",
-  "freeTrialMustBeAWhole": "Free trial must be a whole number of days (0 or more).",
   "freshnessArg1": "freshness: {arg1}",
   "@freshnessArg1": {
     "placeholders": {
@@ -3137,7 +3035,6 @@
     }
   },
   "getInspired": "Get inspired",
-  "gitCloneRepoNpmTest": "git clone repo && npm test",
   "githubCopilot": "GitHub Copilot",
   "githubCopilotAndOpenaiCodex": "GitHub Copilot and OpenAI Codex",
   "githubIssueOpened": "GitHub Issue Opened",
@@ -3152,7 +3049,6 @@
   },
   "githubReleasePayloadWasNotA": "GitHub release payload was not a release list.",
   "githubUsernameThatOpenedTheIssue": "GitHub username that opened the issue",
-  "giveThePlanAName": "Give the plan a name.",
   "globalSecurityMode": "Global security mode",
   "gmailMessageReceived": "Gmail Message Received",
   "good": "Good",
@@ -3223,7 +3119,6 @@
       }
     }
   },
-  "hereSecretsAreWriteOnlyLeave": "here. Secrets are write-only: leave one blank to keep it.",
   "higherValuesMakeNeoagentMoreSelective": "Higher values make NeoAgent more selective in groups.",
   "highlyRecommended": "Highly recommended",
   "holdButton131ForTheAssistant": "Hold button 131 for the assistant.",
@@ -3371,8 +3266,6 @@
   "inviteLinkReady": "Invite link ready",
   "inviteLinks": "Invite links",
   "iphoneApp": "iPhone app",
-  "isAboutWhoIsInvolvedAnd": "is about, who is involved and anything I should prepare. If tomorrow ",
-  "isEmptyDoNotSendAnything": "is empty, do not send anything.",
   "issues": "Issues",
   "issuesAppearOnceTheLogLoads": "Issues appear once the log loads.",
   "itCanTBeUndone": "It can’t be undone.",
@@ -3400,7 +3293,6 @@
   "jumpToLatest": "Jump to latest",
   "justNow": "just now",
   "keepNeoagentRunning": "Keep NeoAgent running?",
-  "keepPlan": "Keep plan",
   "keepRunning": "Keep running",
   "keepTaskRunning": "Keep task running",
   "keepTheVaultAvailable": "Keep the vault available",
@@ -3589,7 +3481,6 @@
   },
   "limit20": "LIMIT 20",
   "limit50": "LIMIT 50",
-  "linkAPhoneNumberThatBelongs": "Link a phone number that belongs to the agent. ",
   "linkArg1": "Link {arg1}",
   "@linkArg1": {
     "placeholders": {
@@ -3610,7 +3501,6 @@
       }
     }
   },
-  "linkYourOwnNumberAndTalk": "Link your own number and talk to the agent in your ",
   "linkedSignInProviders": "Linked sign-in providers",
   "linuxApp": "Linux app",
   "listedArg1": "Listed {arg1}/",
@@ -3664,13 +3554,11 @@
   "logsOnThisComputer": "Logs on this computer",
   "longLivedAccessToken": "Long-Lived Access Token",
   "longTermRecallStructuredFactsAnd": "Long-term recall, structured facts, and knowledge graph.",
-  "lookAtMyCalendarForTomorrow": "Look at my calendar for tomorrow. For each meeting, tell me what it ",
   "lookedAtTheScreen": "Looked at the screen",
   "lookingOnThisComputerAndYour": "Looking on this computer and your local network…",
   "looksAheadAtTomorrowSMeetings": "Looks ahead at tomorrow''s meetings so nothing surprises you.",
   "loopExecution": "Loop execution",
   "loopPaused": "Loop paused",
-  "lowerNumbersAreListedFirst": "Lower numbers are listed first.",
   "macOsX": "mac os x",
   "macosAccessibilityIsNotGrantedTo": "macOS Accessibility is not granted to NeoAgent. Allow it in System Settings › Privacy & Security › Accessibility.",
   "macosApp": "macOS app",
@@ -3679,11 +3567,7 @@
   "main": "Main",
   "makeDefault": "Make default",
   "manage": "Manage",
-  "managePayment": "Manage payment",
-  "manageViaStripeCustomerPortal": "Manage via Stripe Customer Portal",
   "manageYourAccountEmailTwoFactor": "Manage your account email, two-factor authentication, and active sessions.",
-  "manageYourPlanTrackUsageUpdate": "Manage your plan, track usage, update payment, and review invoices.",
-  "manageYourPlanTrackUsageUpdate2": "Manage your plan, track usage, update payment, and review invoices — all in one place.",
   "managedBy": "Managed by",
   "managerUsernameAsManagedBy": "       manager.username AS managed_by,\n",
   "managersCanHaveManagersOfTheir": "Managers can have managers of their own (up to four levels). A ",
@@ -3723,15 +3607,11 @@
   "memoryIngestionIntervalMs": "Memory ingestion interval (ms)",
   "memoryIngestionIntervalMustBeAt": "Memory ingestion interval must be at least 1000 ms.",
   "memoryInjected": "Memory injected",
-  "memoryMb": "Memory (MB)",
-  "memoryMustBeAtLeast512": "Memory must be at least 512 MB.",
   "mentionOrReplyOnly": "Mention or reply only",
   "mergedServerAndFlutterRuntimeLogs": "Merged server and Flutter runtime logs for this app session.",
   "messageBodyTemplateJson": "Message body template (JSON)",
   "messageNeedsAccess": "Message needs access",
   "messageTextField": "Message text field",
-  "messageYouWithTheResultAdd": "message you with the result. Add one to start, or skip and ",
-  "messageYourselfChatEveryOtherChat": "\"Message yourself\" chat. Every other chat and group on ",
   "messaging": "Messaging",
   "messagingApiPushAndWebhookEvents": "Messaging API push and webhook events",
   "messagingConnectionNeedsAttention": "Messaging connection needs attention",
@@ -3799,7 +3679,6 @@
   "modelAvailability": "Model availability",
   "modelAvailabilitySaved": "Model availability saved.",
   "modelForThisSession": "Model for this session",
-  "modelIds": "Model IDs",
   "modelOverride": "Model Override",
   "modelPending": "Model pending",
   "modelTurn": "Model turn",
@@ -3825,15 +3704,12 @@
   "mouseKeyboard": "Mouse & keyboard",
   "mousemoveIsNotSupportedOnThis": "mouseMove is not supported on this platform.",
   "mustBeReachableOnThePublic": "Must be reachable on the public internet -- local and ",
-  "n0TurnsTrialsOff": "0 turns trials off.",
   "n24Hours": "24 hours",
   "n2faOrRecoveryCode": "2FA or recovery code",
   "n2faRequiresSessionSecretToBe": "2FA requires SESSION_SECRET to be configured on this NeoAgent deployment.",
   "n30Days": "30 days",
   "n365Days": "365 days",
-  "n42Passing": "✓ 42 passing",
   "n4HourLimitTokens": "4-hour limit (tokens)",
-  "n4HourTokenLimit": "4-hour token limit",
   "n4HourUsage": "4-hour usage",
   "n4hLimitArg1": "4h limit {arg1}",
   "@n4hLimitArg1": {
@@ -3843,7 +3719,6 @@
       }
     }
   },
-  "n4hTokenWindow": "4h token window",
   "n7DayUsage": "7-day usage",
   "n7Days": "7 days",
   "n90Days": "90 days",
@@ -3889,7 +3764,6 @@
   "neoagentDebugInfo": "NeoAgent debug info",
   "neoagentDesktopInstaller": "NeoAgent Desktop Installer",
   "neoagentFlutterUpdater": "NeoAgent Flutter Updater",
-  "neoagentHasItsOwnComputer": "NeoAgent has its\nown computer.",
   "neoagentInstallsTheLatestArg1": "NeoAgent installs the latest {arg1} ",
   "@neoagentInstallsTheLatestArg1": {
     "placeholders": {
@@ -3957,7 +3831,6 @@
   },
   "newLink": "New link",
   "newPasswordsDoNotMatch": "New passwords do not match.",
-  "newPlan": "New plan",
   "newRecoveryCodes": "New recovery codes",
   "newSession": "New session",
   "newSessionN": "New session (⌘N)",
@@ -3966,7 +3839,6 @@
   "newSkill2": "New Skill",
   "newThisWeek": "New this week",
   "newsDigest": "News digest",
-  "nextPage": "Next page",
   "nextRetryArg1": "Next retry: {arg1}",
   "@nextRetryArg1": {
     "placeholders": {
@@ -3983,9 +3855,7 @@
   "nickname": "Nickname",
   "noAccountsConnectedYet": "No accounts connected yet.",
   "noAccountsFound": "No accounts found.",
-  "noActivePlansYetCreateOne": "No active plans yet. Create one in the Billing tab.",
   "noActiveSessionsFound": "No active sessions found.",
-  "noActiveSubscription": "No active subscription",
   "noAgentsYet": "No agents yet",
   "noAiProviderIsConfiguredSo": "No AI provider is configured, so chat and messaging ",
   "noApprovalPromptsAgentRunsWithout": "No approval prompts — agent runs without interruption.",
@@ -3997,17 +3867,8 @@
       }
     }
   },
-  "noArg1Subscriptions": "No {arg1} subscriptions.",
-  "@noArg1Subscriptions": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "noArguments": "(no arguments)",
   "noAuth": "No auth",
-  "noAvailableModelsYetCheckBack": "No available models yet.\nCheck back once a provider is configured.",
   "noBindingsYet": "No bindings yet.",
   "noChangesYet": "No changes yet",
   "noChannelsFound": "No channels found",
@@ -4044,11 +3905,9 @@
   "noHttpClientImplementationForThis": "No HTTP client implementation for this platform.",
   "noInputOrOutputWasRecorded": "No input or output was recorded for this step.",
   "noIntegrationsMatchThisSearch": "No integrations match this search.",
-  "noInvoicesYet": "No invoices yet.",
   "noLimit": "No limit",
   "noLocalPasswordIsSetYet": "No local password is set yet. Create one to enable username/password sign-in.",
   "noLogEntries": "No log entries.",
-  "noMatches": "No matches",
   "noMatchingSettings": "No matching settings",
   "noMcpServersMatchThisSearch": "No MCP servers match this search.",
   "noMemoryEntriesFound": "No memory entries found.",
@@ -4062,7 +3921,6 @@
     }
   },
   "noModelRequestWasRecordedFor": "No model request was recorded for this run.",
-  "noModelsAreAvailableYet": "No models are available yet.",
   "noModelsDiscoveredYet": "No models discovered yet",
   "noModelsSelected": "No models selected",
   "noModelsYet": "No models yet",
@@ -4076,8 +3934,6 @@
   "noOneCanMessage": "No one can message",
   "noOtherNeoagentServerWasFound": "No other NeoAgent server was found. You can search again or enter an address manually.",
   "noPeopleAddedYet": "No people added yet.",
-  "noPlansConfiguredYet": "No plans configured yet.",
-  "noPlansYet": "No plans yet.",
   "noPlatformsMatch": "No platforms match",
   "noProvidersAreAvailableToConfigure": "No providers are available to configure yet.",
   "noRecentChannelActivity": "No recent channel activity",
@@ -4099,7 +3955,6 @@
   "noSessionsYet": "No sessions yet",
   "noSkillsMatchTheseFilters": "No skills match these filters.",
   "noStepsWereRecordedForThis": "No steps were recorded for this run.",
-  "noSubscription": "No subscription.",
   "noSummaryAvailable": "No summary available.",
   "noTasksForArg1": "No tasks for {arg1}",
   "@noTasksForArg1": {
@@ -4160,16 +4015,11 @@
     }
   },
   "ofItsOwnItIsNever": "of its own. It is never shown again after saving.",
-  "ofUpToFiveItemsWith": "of up to five items with one sentence each and a link.",
   "off": "Off",
-  "offTakesEffectAfterAServer": "off takes effect after a server restart.",
-  "offerSubscriptionPlansThroughStripeTurning": "Offer subscription plans through Stripe. Turning this on or ",
-  "offeredToPeopleChoosingAPlan": "Offered to people choosing a plan.",
   "officialIntegration": "Official integration",
   "officialIntegrationDidNotReturnA": "Official integration did not return a connection URL.",
   "on": "On",
   "onASignedInAndroidDevice": "On a signed-in Android device, open Settings › Sign-in & security, scan this code, and approve the login.",
-  "onAndTheServerHasRestarted": "on and the server has restarted.",
   "onByDefaultForNewGroups": "On by default for new groups",
   "onDemand": "On Demand",
   "onForArg1OfArg2Groups": "On for {arg1} of {arg2} groups",
@@ -4183,28 +4033,22 @@
       }
     }
   },
-  "onMyCalendarAndTheMost": "on my calendar, and the most important open items I know about. ",
   "onTheyCanJoinAgainOnly": "on. They can join again only with a new invite link.",
   "onYourOwnTheDefault": "On your own (the default)",
   "once": "Once",
   "oneBlankToKeepWhatIs": "one blank to keep what is stored.",
   "oneIsSavedOtherChangesIn": "one is saved. Other changes in this form are saved too.",
-  "oneLineSummaryEachIfNothing": "one-line summary each. If nothing needs my attention, do not send ",
   "oneOrMoreAccountsExpiredReconnect": "One or more accounts expired. Reconnect the affected account to restore tool access.",
-  "onePerLineShownOnThe": "One per line, shown on the pricing page.",
   "oneRegister": "one register.",
   "oneRuntimeControlsPersonaGroupTurn": "One runtime controls persona, group turn-taking, room memory, norms, Theory of Mind, and delivery.",
-  "oneTimeFree": "One-time / free",
   "oneTimeRun": "One-time run",
   "onlyApkOrApksFilesCan": "Only .apk or .apks files can be installed.",
   "onlyInThisGroup": "Only in this group",
-  "onlyMessageMeAboutEmailsThat": "Only message me about emails that are urgent or need a reply, with a ",
   "onlyNeededIfTheServiceAsks": "Only needed if the service asks for extra HTTP headers.",
   "onlyNeededIfYouWantTo": "Only needed if you want to reshape the outgoing payload.",
   "onlyTheyCanChangeIt": "Only they can change it.",
   "open": "Open",
   "openAccountSettingsOnASigned": "Open Settings › Sign-in & security on a signed-in Android device, scan this code, and approve the login.",
-  "openBrowserCheckingDocs": "open browser → checking docs",
   "openComputer": "Open computer",
   "openDashboard": "Open dashboard",
   "openFolder": "Open folder…",
@@ -4217,7 +4061,6 @@
       }
     }
   },
-  "openTheComputerTabNextTo": "Open the Computer tab next to any session to see the screen ",
   "openTimeSettings": "Open time settings",
   "openToAnyone": "Open to anyone",
   "openTrello": "Open Trello",
@@ -4263,8 +4106,6 @@
   "outgoingMessage": "Outgoing message",
   "outgoingWebhookUrl": "Outgoing webhook URL",
   "outlookEmailReceived": "Outlook Email Received",
-  "overrideAssignsAPlanWithoutGoing": "Override assigns a plan without going through Stripe.",
-  "overridePlan": "Override plan",
   "overwriteBehaviorNotesFromTheImport": "Overwrite behavior notes from the import.",
   "ownModel": "own model",
   "packageName": "Package name",
@@ -4284,7 +4125,6 @@
     }
   },
   "passwordsDoNotMatch": "Passwords do not match.",
-  "pastDue": "Past due",
   "pasteAKey": "Paste a key.",
   "pasteANewKeyToReplace": "Paste a new key to replace {arg1}",
   "@pasteANewKeyToReplace": {
@@ -4309,7 +4149,6 @@
   "pauseLiveUpdates": "Pause live updates",
   "pauseTaskLoop": "Pause task loop",
   "paused": "Paused",
-  "paymentMethod": "Payment method",
   "peakArg1": "peak {arg1}",
   "@peakArg1": {
     "placeholders": {
@@ -4322,15 +4161,6 @@
   "perAccountRateLimits": "Per-account rate limits",
   "perCategoryPermissions": "Per-category permissions",
   "perToolPermissionPoliciesApprovalGates": "Per-tool permission policies, approval gates, and process isolation for shell execution.",
-  "periodEndsArg1": "Period ends {arg1}",
-  "@periodEndsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "permanentlyAllowedNeverAsksAgain": "Permanently allowed — never asks again.",
   "permissionRequiredArg1": "Permission required: {arg1}",
   "@permissionRequiredArg1": {
     "placeholders": {
@@ -4366,23 +4196,9 @@
     }
   },
   "pickOneToFillInThe": "Pick one to fill in the task. You can tweak everything afterwards.",
-  "pickTheModelNeoagentShouldUse": "Pick the model NeoAgent should use by default. Providers are configured on the server.",
   "picksUpWhereYouLeftOff": "Picks up where you left off",
   "plan": "Plan",
-  "planForArg1APlanAssigned": "Plan for @{arg1}. A plan assigned here ",
-  "@planForArg1APlanAssigned": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "planId": "Plan ID",
-  "planIdMayOnlyUseLetters": "Plan ID may only use letters, numbers, underscores and hyphens.",
-  "planUsageAndAllowanceDetails": "Plan usage and allowance details",
   "planning": "Planning",
-  "plans": "Plans",
-  "plansAndSubscriptionsShowUpHere": "Plans and subscriptions show up here once billing is turned ",
   "platform": "Platform",
   "platformArg1Arg2": "Platform {arg1}{arg2}",
   "@platformArg1Arg2": {
@@ -4408,7 +4224,6 @@
   "port": "Port",
   "portNodeEnvPublicUrlTrust": "port node_env public url trust proxy secure cookies deployment",
   "premiumAutomationWithScheduleAndIntegration": "Premium automation with schedule and integration triggers.",
-  "prepareMyMorningBriefingTodayS": "Prepare my morning briefing: today''s weather where I am, the events ",
   "prepareQrCode": "Prepare QR code",
   "preparingNeoagent": "Preparing NeoAgent…",
   "preparingNeoagent2": "Preparing NeoAgent",
@@ -4422,13 +4237,8 @@
       }
     }
   },
-  "previousPage": "Previous page",
-  "priceInCents": "Price in cents",
-  "priceMustBeAWholeNumber": "Price must be a whole number of cents (0 or more).",
   "priceUnknown": "Price unknown",
-  "pricingPriceSubscriptionTiersCreateEdit": "pricing price subscription tiers create edit",
   "primaryDisplay": "Primary Display",
-  "privateAndIsolated": "Private and isolated",
   "privateChat": "Private chat",
   "privateChats": "Private chats",
   "privateChats2": "private chats",
@@ -4474,9 +4284,7 @@
   "publicIssueAndPullRequestThreads": "Public issue and pull request threads, answered only for approved people.",
   "publicUrl": "Public URL",
   "publicUrlAndAllowedOrigins": "Public URL and allowed origins",
-  "publicUrlApiBillingWebhookAnd": "<public URL>/api/billing/webhook and paste its signing secret ",
   "publicUrlOverride": "Public URL override",
-  "publishableKey": "Publishable key",
   "pullsTogetherTheDayAhead": "Pulls together the day ahead",
   "pushToTalk": "Push-to-talk",
   "qrBasedPhoneLinking": "QR-based phone linking",
@@ -4531,8 +4339,6 @@
   "ready": "Ready",
   "readyForFirstTimeSetup": "Ready for first-time setup",
   "readyToConnect": "Ready to connect",
-  "realWorkInsteadOfJustTalking": "real work instead of just talking about it.",
-  "recapMyDaySummarizeTheConversations": "Recap my day: summarize the conversations, finished work and ",
   "recentChannelActivity": "Recent Channel Activity",
   "recentChats": "Recent chats",
   "recentDecisions": "Recent decisions",
@@ -4551,7 +4357,6 @@
   "recentUsage4Hours": "Recent Usage (4 Hours)",
   "recents": "Recents",
   "recipientField": "Recipient field",
-  "recommended": "RECOMMENDED",
   "reconnectOrFinishSetup": "Reconnect or finish setup",
   "reconnectingThisDevice": "Reconnecting this device…",
   "recurring": "Recurring",
@@ -4675,14 +4480,6 @@
   "reset": "Reset",
   "resetPassword": "Reset password",
   "resetView": "Reset view",
-  "resetsArg1": "Resets {arg1}",
-  "@resetsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "responsibilities": "Responsibilities",
   "restart": "Restart",
   "restartToFinishTheUpdate": " Restart to finish the update.",
@@ -4702,7 +4499,6 @@
       }
     }
   },
-  "reviewMyWeekWhatGotDone": "Review my week: what got done, what slipped and what is still open. ",
   "reviewUncommittedChanges": "Review uncommitted changes",
   "revoke": "Revoke",
   "revokeAdminWithNeoagentAdminRevoke": "Revoke admin with `neoagent admin revoke {arg1}` first",
@@ -4763,7 +4559,6 @@
   "runningTask": "Running task",
   "runningTool": "Running tool",
   "runs": "Runs",
-  "runsCommandsBrowsesTheWebAnd": "Runs commands, browses the web and edits files on a real Linux ",
   "runsEveryDayAtTheSelected": "Runs every day at the selected time.",
   "runsFourTimesPerHour": "Runs four times per hour.",
   "runsMessagesMemoriesIntegrationsFilesAnd": "— runs, messages, memories, integrations, files and ",
@@ -4811,7 +4606,6 @@
   "save": "Save",
   "saveATrelloApiKeyFor": "Save a Trello API key for this agent, then connect one Trello account securely. The account token is stored on the server and used only for this agent.",
   "saveAccount": "Save account",
-  "saveBillingSetup": "Save billing setup",
   "saveChanges": "Save changes",
   "saveCloudComputerSettings": "Save cloud computer settings",
   "saveConnect": "Save & Connect",
@@ -4823,17 +4617,8 @@
   "saveName": "Save name",
   "saveNeoagentSetupDiagnostics": "Save NeoAgent setup diagnostics",
   "saveOnly": "Save Only",
-  "savePlan": "Save plan",
   "saveSetup": "Save Setup",
   "saveTheseRecoveryCodesNowThey": "Save these recovery codes now. They will not be shown again.",
-  "saveUpToArg1Yearly": "Save up to {arg1}% yearly",
-  "@saveUpToArg1Yearly": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "savedDeliveryDestination": "Saved delivery destination",
   "savedRateLimitsForArg1": "Saved rate limits for @{arg1}.",
   "@savedRateLimitsForArg1": {
@@ -4874,20 +4659,18 @@
   "scrollToBottom": "Scroll to bottom",
   "search": "Search",
   "search2": "Search…",
-  "searchAdminSettingsEGStripe": "Search admin settings (e.g. Stripe, SMTP, Ollama, logs)",
+  "searchAdminSettingsEGSmtp": "Search admin settings (e.g. SMTP, Ollama, logs)",
   "searchAgain": "Search again",
   "searchByUsernameOrEmail": "Search by username or email",
   "searchChannels": "Search channels",
   "searchDiscoveredMessagingChannelsContactsGroups": "Search discovered messaging channels, contacts, groups, and recent conversations.",
   "searchGroups": "Search groups",
   "searchMemory": "Search memory",
-  "searchModels": "Search models",
   "searchModelsOrProviders": "Search models or providers",
   "searchModelsOrProviders2": "Search models or providers…",
   "searchRecentPeopleAndGroups": "Search recent people and groups",
   "searchSessions": "Search sessions",
   "searchSettings": "Search settings",
-  "searchTheWebForTodayS": "Search the web for today''s most important news on the topics I care ",
   "searchTitleModelTriggerRunId": "Search title, model, trigger, run ID",
   "searchToolsIntegrationsAndSkills": "Search tools, integrations, and skills",
   "searchedCodeForArg1": "Searched code for \"{arg1}\"",
@@ -4907,7 +4690,6 @@
     }
   },
   "secretField": "Secret field",
-  "secretKey": "Secret key",
   "secureCookies": "Secure cookies",
   "security": "Security",
   "securityKey": "Security key",
@@ -4943,7 +4725,6 @@
   "send": "Send (⌘↵)",
   "send2": "Send",
   "sendATaskFromChatAnd": "Send a task from chat and its execution history will show up here.",
-  "sendItAsAShortScannable": "Send it as a short, scannable message.",
   "sendItToATeammateWith": "send it to a teammate with an account on this server.",
   "sendLink": "Send link",
   "sendPath": "Send path",
@@ -4967,7 +4748,6 @@
   "serverNickChannelAndOptionalTls": "Server, nick, channel, and optional TLS",
   "serverOutputConsoleWarningsErrorsCopy": "server output console warnings errors copy",
   "serverProviderCredentials": "Server provider credentials",
-  "serverToStopIt": "server to stop it.",
   "serverUrl": "Server URL",
   "serverUsageLimitsDonTApply": "Server usage limits don''t apply to models running on your own key.",
   "serverWithNoAccountsYetAlways": "server with no accounts yet always lets the first ",
@@ -4975,7 +4755,6 @@
   "serviceEmailIsNotConfigured": "service email is not configured",
   "serviceEmailSmtp": "Service email (SMTP)",
   "sessionActions": "Session actions",
-  "sessionToThisDeviceWhenYou": "session to This device when you want it to work locally.",
   "sessions": "Sessions",
   "sessions2": "SESSIONS",
   "sessionsArePinnedToAFolder": "Sessions are pinned to a folder and a computer. Start one to plan, build, test and ship from here.",
@@ -4984,7 +4763,6 @@
   "setBlockAskAllowPerTool": "Set block / ask / allow per tool category, or pick a global mode.",
   "setUpNeoagentOnThisComputer": "Set up NeoAgent on this computer",
   "setUpOrConnectNeoagent": "Set up or connect NeoAgent",
-  "setUpYourWorkspaceInA": "Set up your workspace in a few steps and start using NeoAgent immediately.",
   "setUrl": "Set URL",
   "settings": "Settings",
   "settingsAndCannotBeUndone": "settings and cannot be undone.",
@@ -5028,6 +4806,55 @@
   "signInWithASecurityKey": "Sign in with a security key",
   "signInWithArg1": "Sign in with {arg1}",
   "@signInWithArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "approveNeoagentInYourArg1Account": "Approve NeoAgent in your {arg1} account. No key to copy.",
+  "@approveNeoagentInYourArg1Account": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "waitingForArg1FinishInYourBrowser": "Waiting for {arg1}. Finish in your browser.",
+  "@waitingForArg1FinishInYourBrowser": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "pasteTheArg1Code": "Paste the {arg1} code",
+  "@pasteTheArg1Code": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "arg1ShowedAOneTimeCode": "After you approved NeoAgent, {arg1} showed a one-time code. Paste it here.",
+  "@arg1ShowedAOneTimeCode": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "signInCode": "Sign-in code",
+  "signedInWithArg1": "Signed in with {arg1}.",
+  "@signedInWithArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "signInFailedArg1": "Sign-in failed: {arg1}",
+  "@signInFailedArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"
@@ -5084,7 +4911,6 @@
   "skip": "Skip",
   "skipForNow": "Skip for now",
   "skipThisTaskBeforeItCalls": "Skip this task before it calls the model.",
-  "skipsStripeCheckout": "skips Stripe checkout.",
   "slackMessageReceived": "Slack Message Received",
   "sleepArg1Sessions": "Sleep {arg1} sessions",
   "@sleepArg1Sessions": {
@@ -5094,7 +4920,6 @@
       }
     }
   },
-  "smallestCurrencyUnit1900Is19": "Smallest currency unit: 1900 is 19.00.",
   "smartSelector": "smart selector",
   "smartSelector2": "Smart Selector",
   "smartSelectorPool": "Smart Selector Pool",
@@ -5115,8 +4940,6 @@
   "socialReachUpdated": "Social Reach updated.",
   "socialSourcesAgentsCanReadDirectly": "Social sources agents can read directly, including feeds, repositories, Reddit, X, videos, and cookie-backed market data.",
   "somethingWentWrongPleaseTryAgain": "Something went wrong. Please try again.",
-  "sortOrder": "Sort order",
-  "sortOrderMustBeAWhole": "Sort order must be a whole number.",
   "source": "Source",
   "spaceOrChatIdUsedWhen": "Space or chat ID used when this agent starts a conversation.",
   "spaceWebhookAndAppCallbackSupport": "Space webhook and app callback support",
@@ -5209,32 +5032,15 @@
     }
   },
   "storage": "Storage",
-  "storedArg1": "Stored: {arg1}",
-  "@storedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "storedEncryptedAndOnlyUsedFor": "stored encrypted and only used for your own runs.",
   "storedMetrics": "Stored Metrics",
   "storesOnlyTheBitwardenSessionKey": "Stores only the Bitwarden session key encrypted on this server, so connections survive restarts. You can lock it at any time.",
-  "stripeBilling": "Stripe billing",
-  "stripeKeysForPaidPlansPoint": "Stripe keys for paid plans. Point a Stripe webhook at ",
-  "stripePriceId": "Stripe price ID",
-  "stripeSetup": "Stripe setup",
   "strong": "Strong",
   "strongPassword": "Strong password.",
   "subAgent": "Sub-agent",
   "subagentUpdate": "Subagent update",
   "subagentUpdate2": "Subagent update.",
-  "subscription": "Subscription",
-  "subscriptionBillingOverrideComp": "subscription billing override comp",
-  "subscriptionCanceled": "Subscription canceled.",
-  "subscriptions": "Subscriptions",
   "successRate": "Success rate",
-  "suggestTheThreeMostImportantThings": "Suggest the three most important things to focus on next week.",
   "suggestionsArg1": "Suggestions: {arg1}",
   "@suggestionsArg1": {
     "placeholders": {
@@ -5255,7 +5061,6 @@
   "tableInfoUsers": "Table info (users)",
   "tagsOnly": "Tags only",
   "tasks": "Tasks",
-  "tasksRunOnAScheduleOr": "Tasks run on a schedule or when something happens, then ",
   "tasksRunOnTheirOwnAnd": "Tasks run on their own and message you with the ",
   "teach": "Teach",
   "teachingInProgress": "Teaching in progress",
@@ -5292,7 +5097,6 @@
     }
   },
   "theBrowserBlockedARequiredRequest": "The browser blocked a required request because of Content Security Policy.",
-  "theCloudComputerIsSandboxedFrom": "The cloud computer is sandboxed from your devices. Switch a ",
   "theCloudWorkspace": "the cloud workspace",
   "theComputerCouldNotStart": "The computer could not start",
   "theComputerNeedsMoreFreeDisk": "The computer needs more free disk space on the NeoAgent host. Free some space, then try again.",
@@ -5341,7 +5145,6 @@
   "theMainAgentIsCreatedAutomatically": "The main agent is created automatically when needed.",
   "theMatchingNeoagentRuntimeIsMissing": "The matching NeoAgent runtime is missing from this release.",
   "theMattermostIncomingWebhookThisAgent": "The Mattermost incoming webhook this agent should post to.",
-  "theModelListCouldNotBe": "The model list could not be loaded. Enter model IDs separated by ",
   "theModelsTheSmartSelectorRoutes": "The models the Smart Selector routes between automatically.",
   "theNeoagentBackendDownloadDidNot": "The NeoAgent backend download did not match its manifest.",
   "theNeoagentBackendDownloadWasIncomplete": "The NeoAgent backend download was incomplete.",
@@ -5373,7 +5176,6 @@
   "theNeoagentRuntimeManifestSignatureIs": "The NeoAgent runtime manifest signature is invalid.",
   "thePasswordYouSetInBluebubbles": "The password you set in BlueBubbles.",
   "thePeopleYouManageStayWith": "The people you manage stay with you.",
-  "thePlanStopsBeingOfferedIt": "The plan stops being offered. It is kept, not erased, and ",
   "theProviderAnswers": "the provider answers.",
   "theQueryReturnedNoRows": "The query returned no rows.",
   "theRequestedDesktopDisplayIsNot": "The requested desktop display is not available.",
@@ -5387,7 +5189,6 @@
   "theServerOnThisComputerIs": "The server on this computer is not running",
   "theServerReportedNoHealthChecks": "The server reported no health checks.",
   "theSignalPhoneNumberThisBot": "The Signal phone number this bot uses.",
-  "theSubscriptionPlansPeopleCanChoose": "The subscription plans people can choose from.",
   "theTeamsIncomingWebhookThisAgent": "The Teams incoming webhook this agent should post to.",
   "theTwoFactorChallengeExpiredSign": "The two-factor challenge expired. Sign in again.",
   "theTwoFactorCodeIsNot": "The two-factor code is not valid.",
@@ -5432,7 +5233,6 @@
   },
   "thesePeopleInOneGroup": "These people, in one group",
   "theseSwitchesNeverYourChatsMemories": "these switches, never your chats, memories or files.",
-  "thisAccountIsIgnored": "this account is ignored.",
   "thisAccountWillUnlockNeoagentOn": "This account will unlock NeoAgent on this machine.",
   "thisAgentCanDelegateToAny": "This agent can delegate to any eligible receiving agent.",
   "thisAgentIsUsingAServer": "This agent is using a server-managed Trello API key. You only need to authorize an account token below.",
@@ -5491,7 +5291,6 @@
   "thisRunDidNotProduceA": "This run did not produce a user-facing response.",
   "thisRunHasNoRecordedStep": "This run has no recorded step data.",
   "thisServer": "this server.",
-  "thisServerIsAlreadySetUp": "This server is already set up. Sign in with an existing account.",
   "thisServerReportsNoProviderSettings": "This server reports no provider settings.",
   "thisSkillIsNoLongerInstalled": "This skill is no longer installed.",
   "thisTaskHasNoCompletedRun": "This task has no completed run yet, so it still starts at the ",
@@ -5521,7 +5320,6 @@
       }
     }
   },
-  "tickTheModelsThisPlanMay": "Tick the models this plan may use. Leave all unticked to allow ",
   "time": "Time",
   "timeZone": "time zone",
   "timeZone2": "Time zone",
@@ -5578,7 +5376,6 @@
   "tokenBudgetForEveryAccountWithout": "Token budget for every account without its own override. Leave a ",
   "tokenBudgetLimit4HourWeekly": "token budget limit 4 hour weekly quota user",
   "tokenBudgetLimit4HourWeekly2": "token budget limit 4 hour weekly quota global",
-  "tokenLimitsMustBeWholeNumbers": "Token limits must be whole numbers, or blank for the default.",
   "tokenUsageUnavailableOnThisServer": "Token usage unavailable on this server version.",
   "tokensAnyAccountMayUseIn": "Tokens any account may use in 4 hours.",
   "tokensAnyAccountMayUseIn2": "Tokens any account may use in 7 days.",
@@ -5586,7 +5383,6 @@
   "tokensPerRun": "Tokens per run",
   "tokensToday": "Tokens today",
   "tokensUsed": " tokens used",
-  "tomorrowKeepItShortAndSend": "tomorrow. Keep it short and send it to me.",
   "tomorrowPrep": "Tomorrow prep",
   "tooManyAttempts": "too many attempts",
   "tooManySignInAttemptsPlease": "Too many sign-in attempts. Please wait and try again.",
@@ -5718,7 +5514,6 @@
   "unknownError": "unknown error",
   "unknownLocalComputerPermission": "Unknown local computer permission.",
   "unknownLocation": "Unknown location",
-  "unknownPlan": "Unknown plan",
   "unknownPublishTime": "Unknown publish time",
   "unknownSize": "Unknown size",
   "unlink": "Unlink",
@@ -5741,7 +5536,6 @@
     }
   },
   "unusualSignInAlerts": "Unusual sign-in alerts",
-  "update": "Update",
   "updateArg1": "Update {arg1}",
   "@updateArg1": {
     "placeholders": {
@@ -5783,7 +5577,6 @@
   "usageLeaderboard": "usage leaderboard",
   "usageLimits": "Usage & Limits",
   "usageLimits2": "Usage & limits",
-  "usageThisPeriod": "Usage this period",
   "use8CharactersLongerPassphrasesWork": "Use 8+ characters. Longer passphrases work well.",
   "useADateAndTimeFor": "Use a date and time, for example 2026-07-03T09:00:00.",
   "useANamePhoneNumberOr": "Use a name, phone number, or chat ID.",
@@ -5794,6 +5587,24 @@
   "useASecureConnectionTls": "Use a secure connection (TLS)",
   "useAnAuthenticatorAppSuchAs": "Use an authenticator app such as Authy, 1Password, or Google Authenticator.",
   "useAtLeast1Vcpu": "Use at least 1 vCPU.",
+  "maxMemoryPerComputerMb": "Max memory per computer (MB)",
+  "maxVcpusPerComputer": "Max vCPUs per computer",
+  "atLeastArg1ComputersGetLess": "At least {arg1}. Computers get less when the host is busy.",
+  "@atLeastArg1ComputersGetLess": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "maxMemoryMustBeAtLeastArg1Mb": "Max memory must be at least {arg1} MB.",
+  "@maxMemoryMustBeAtLeastArg1Mb": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
   "useAtLeast8Characters": "Use at least 8 characters.",
   "useDefault": "Use default",
   "useDefaultChannel": "Use default channel",
@@ -5888,7 +5699,6 @@
   "viewDesktop": "View desktop",
   "viewLastRun": "View last run",
   "viewLogs": "View logs",
-  "viewPlans": "View plans",
   "vmImageMemoryCpuQemuRuntime": "vm image memory cpu qemu runtime",
   "voice": "Voice",
   "voiceAssistant": "Voice assistant",
@@ -5922,7 +5732,6 @@
       }
     }
   },
-  "watchItLive": "Watch it live",
   "weak": "Weak",
   "weatherCalendarAndPrioritiesBeforeYour": "Weather, calendar and priorities before your day starts.",
   "weatherEvent": "Weather Event",
@@ -5931,7 +5740,6 @@
   "webSearchApiKey": "web search api key",
   "webhookOrRestChannelPosting": "Webhook or REST channel posting",
   "webhookSecret": "Webhook secret",
-  "webhookSigningSecret": "Webhook signing secret",
   "webhookUrlCopied": "Webhook URL copied",
   "weekdays": "Weekdays",
   "weekdays0730": "Weekdays · 07:30",
@@ -5947,8 +5755,6 @@
   },
   "weeklyLimitTokens": "Weekly limit (tokens)",
   "weeklyReview": "Weekly review",
-  "weeklyTokenLimit": "Weekly token limit",
-  "weeklyTokens": "Weekly tokens",
   "weeklyUsage": "Weekly Usage",
   "weightArg1Records": "Weight {arg1} records",
   "@weightArg1Records": {
@@ -5972,7 +5778,6 @@
   "whereRStatusFailed": "WHERE r.status = ''failed''\n",
   "whereSRevokedAtIsNull": "WHERE s.revoked_at IS NULL\n",
   "whereThisAgentShouldSendReplies": "Where this agent should send replies.",
-  "whileItWorks": "while it works.",
   "whoCanMessage": "Who can message",
   "whoCanMessageOnArg1": "Who can message on {arg1}",
   "@whoCanMessageOnArg1": {
@@ -6042,7 +5847,6 @@
       }
     }
   },
-  "worksLikeYouWould": "Works like you would",
   "workspaceConfigurationAndAccountSecurityIn": "Workspace configuration and account security in one place.",
   "workspaceFiles": "Workspace files",
   "workspaceModelsAndDiagnosticsControls": "Workspace, models, and diagnostics controls.",
@@ -6057,7 +5861,6 @@
   },
   "xaiOauth": "xAI (OAuth)",
   "xmlhttprequestError": "xmlhttprequest error",
-  "yearly": "Yearly",
   "yesterday": "Yesterday",
   "youAreInControl": "You are in control",
   "youCanFollowAlongOnThe": "You can follow along on the desktop.",
@@ -6094,7 +5897,6 @@
   "yourMattermostSiteUrlIfYou": "Your Mattermost site URL, if you use the REST API.",
   "yourSessionExpiredOrWasNot": "Your session expired or was not retained by the browser. Please sign in again.",
   "yourSessionExpiredPleaseSignIn": "Your session expired. Please sign in again.",
-  "yourSubscriptionWillRemainActiveUntil": "Your subscription will remain active until the end of the billing period.",
   "yourUsernameOrPasswordIsIncorrect": "Your username or password is incorrect.",
   "yubikeyMacbookTouchId": "YubiKey, MacBook Touch ID, …",
   "yubikeyOtp": "YubiKey OTP",
@@ -6159,9 +5961,6 @@
   "setUp": "Set up",
   "leaveBlankToKeepTheStoredValue": "Leave blank to keep the stored value",
   "thisRemovesTheAddressForEveryAccount": "This removes the address for every account on this server.",
-  "allModels": "All models",
-  "optionalAndPermanentBlankGeneratesOne": "Optional and permanent. Blank generates one.",
-  "noSubscriptionsYet": "No subscriptions yet.",
   "justTalkYouCanInterruptAtAny": "Just talk. You can interrupt at any time. Tap to mute.",
   "tapAgainWhenYouAreDone": "Tap again when you are done.",
   "workingOnATaskInTheBackground": "Working on a task in the background.",
@@ -6174,7 +5973,6 @@
   "untitledLink": "Untitled link",
   "stopsWorkingAfterOnePersonRedeemsIt": "Stops working after one person redeems it.",
   "theOperator": "The operator",
-  "getStarted": "Get started",
   "smartSelectorOn": "Smart selector on",
   "startASessionToBegin": "Start a session to begin",
   "steerTheActiveRun": "Steer the active run…",
@@ -6197,7 +5995,6 @@
   "clickTheMicToStartSpeaking": "Click the mic to start speaking",
   "connectACustomEndpoint": "Connect a custom endpoint",
   "hostedProvider": "hosted provider.",
-  "serverToStartIt": "server to start it.",
   "muted": " • muted",
   "addWhoCanMessage": "Add who can message",
   "joinsGroupConversations": "Joins group conversations",
@@ -6429,30 +6226,6 @@
         "type": "Object?"
       },
       "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
-  "trialEndsArg1": "Trial ends {arg1}",
-  "@trialEndsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "cancelsAtEndOfPeriodArg1": "Cancels at end of period · {arg1}",
-  "@cancelsAtEndOfPeriodArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "renewsArg1": "Renews {arg1}",
-  "@renewsArg1": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -6716,14 +6489,6 @@
       }
     }
   },
-  "userArg1": "User #{arg1}",
-  "@userArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "inArg1": " in {arg1}",
   "@inArg1": {
     "placeholders": {
@@ -6790,14 +6555,14 @@
   "settingsSearchHint": "Search all settings",
   "settingsPageProfile": "Profile",
   "settingsPageSecurity": "Sign-in & security",
-  "settingsPageUsage": "Plan & usage",
+  "settingsPageUsage": "Usage",
   "settingsPagePermissions": "Permissions",
   "settingsPageComputer": "Computer & web",
   "settingsPageBehavior": "Behavior",
   "settingsPageSystem": "System",
   "settingsPageProfileDescription": "Your name and email, a copy of your data, and signing out.",
   "settingsPageSecurityDescription": "Password, two-factor authentication, security keys and where you're signed in.",
-  "settingsPageUsageDescription": "Your limits, token spend and plan, all in one place.",
+  "settingsPageUsageDescription": "Your limits and token spend, all in one place.",
   "settingsPageAgentsDescription": "Create agents and choose which one answers by default.",
   "settingsPagePermissionsDescription": "What your agents may do without asking you first.",
   "settingsPageComputerDescription": "The computer your agents work on and the sites they can read as you.",
@@ -6865,7 +6630,6 @@
   "settingsSignOutDescription": "Signs you out on this device only.",
   "settingsDeleteAccountDescription": "Erases your account, agents, memory and settings. This can't be undone.",
   "settingsTokenUsage": "Token usage",
-  "settingsAvailablePlans": "Available plans",
   "settingsSearchNoMatch": "No setting matches “{query}”.",
   "@settingsSearchNoMatch": {
     "placeholders": {
@@ -7100,5 +6864,94 @@
         "type": "Object?"
       }
     }
-  }
+  },
+  "authVerify": "Verify",
+  "authCreateAccount": "Create account",
+  "authNewInviteLink": "New invite link",
+  "authShowPassword": "Show password",
+  "authHidePassword": "Hide password",
+  "authPasswordWillBeRejected": "too weak, will be rejected",
+  "authUsernameTooShort": "Usernames need at least 3 characters.",
+  "authUsernameTaken": "That username is already taken.",
+  "authSignupsClosed": "Sign-ups are closed on this server. Ask the admin for an account.",
+  "authInsecureTransportArg1": "This server only accepts sign-ins over HTTPS. Open {arg1} instead.",
+  "@authInsecureTransportArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "authInsecureTransport": "This server only accepts sign-ins over HTTPS. Connect to it with an https:// address.",
+  "authAccountNotFound": "That account no longer exists.",
+  "authQrRateLimited": "Too many QR sign-in requests. Wait a moment, then refresh the code.",
+  "authForgotPasswordAskAdmin": "Forgot your password? Ask your server admin to reset it in Admin → Users.",
+  "authChangeServer": "Change server",
+  "authSigningInToArg1": "Signing in to {arg1}",
+  "@authSigningInToArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "authNotANeoagentServer": "This address doesn't answer like a NeoAgent server. Check the URL and try again.",
+  "authSecureConnectionFailedArg1": "Couldn't open a secure (HTTPS) connection to {arg1}.",
+  "@authSecureConnectionFailedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "authNoHttpsOrHttpArg1": "Couldn't reach {arg1} over HTTPS, and plain HTTP didn't answer either. Check the address and port.",
+  "@authNoHttpsOrHttpArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "adminResetPassword": "Reset password",
+  "adminResetPasswordForArg1": "Reset password for {arg1}",
+  "@adminResetPasswordForArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "adminResetPasswordBodyArg1": "Choose a new password for {arg1}. They will be signed out on every device and sign in again with this password.",
+  "@adminResetPasswordBodyArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "adminNewPassword": "New password",
+  "adminSetPassword": "Set password",
+  "authMissingFields": "Fill in every required field.",
+  "adminAuditPasswordResetArg1Arg2": "{arg1} reset the password of {arg2}",
+  "@adminAuditPasswordResetArg1Arg2": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      },
+      "arg2": {
+        "type": "Object?"
+      }
+    }
+  },
+  "adminPasswordUpdated": "Password updated; the user was signed out everywhere.",
+  "authSignInTitle": "Sign in to NeoAgent",
+  "authSignInSubtitle": "Scan with your phone, or use your password.",
+  "authOrUsePassword": "or use your password",
+  "qrLoginWaitingTitle": "Approve on your phone",
+  "qrLoginWaitingBody": "Your phone scanned the code. Confirm the login there to finish signing in.",
+  "qrLoginSigningInOn": "Signing in on",
+  "qrLoginLocation": "Location",
+  "qrLoginWaitingForApproval": "Waiting for approval",
+  "qrLoginCancelAndUsePassword": "Cancel and use a password",
+  "qrLoginDeclinedOnPhone": "The login was declined on your phone. Scan the new code to try again."
 }

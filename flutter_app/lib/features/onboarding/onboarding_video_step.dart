@@ -19,10 +19,15 @@ class OnboardingVideoStep extends StatefulWidget {
 }
 
 class _OnboardingVideoStepState extends State<OnboardingVideoStep> {
+  /// A slow or stuck load falls back to the continue screen instead of
+  /// leaving a spinner on screen indefinitely.
+  static const Duration _initTimeout = Duration(seconds: 8);
+
   VideoPlayerController? _controller;
   bool _isInitialized = false;
-  bool _hasError = false;
+  String? _errorText;
   bool _hasCompleted = false;
+  Orientation? _orientation;
 
   @override
   void initState() {
@@ -30,28 +35,50 @@ class _OnboardingVideoStepState extends State<OnboardingVideoStep> {
     _initVideo();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final orientation = MediaQuery.orientationOf(context);
+    if (orientation != _orientation) {
+      _orientation = orientation;
+      _syncPlayback();
+    }
+  }
+
   Future<void> _initVideo() async {
     if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
-      setState(() => _hasError = true);
+      _errorText = appStrings.theIntroIsNotAvailableOn;
       return;
     }
 
+    final controller = VideoPlayerController.asset(
+      'assets/branding/onboarding_intro.mp4',
+    );
+    _controller = controller;
     try {
-      _controller = VideoPlayerController.asset(
-        'assets/branding/onboarding_intro.mp4',
-      );
-      await _controller!.initialize();
+      await controller.initialize().timeout(_initTimeout);
       if (!mounted) return;
-      _controller!
+      controller
         ..setLooping(false)
         ..setVolume(1)
         ..addListener(_videoListener);
       setState(() => _isInitialized = true);
-      await _controller!.play();
+      _syncPlayback();
     } catch (_) {
-      if (mounted) {
-        setState(() => _hasError = true);
-      }
+      if (!mounted) return;
+      setState(() => _errorText = appStrings.onboardingIntroCouldNotLoad);
+    }
+  }
+
+  /// The intro only plays in landscape; portrait shows a rotate prompt, so
+  /// playback follows orientation changes rather than every rebuild.
+  void _syncPlayback() {
+    final controller = _controller;
+    if (!_isInitialized || controller == null || _hasCompleted) return;
+    if (_orientation == Orientation.portrait) {
+      if (controller.value.isPlaying) controller.pause();
+    } else if (!controller.value.isPlaying) {
+      controller.play();
     }
   }
 
@@ -63,10 +90,16 @@ class _OnboardingVideoStepState extends State<OnboardingVideoStep> {
     // Duration can be zero until metadata is ready; treating that as "ended"
     // auto-skips the intro immediately after it appears.
     if (duration > Duration.zero && position >= duration) {
-      _hasCompleted = true;
-      _controller!.removeListener(_videoListener);
-      widget.onComplete();
+      _complete();
     }
+  }
+
+  void _complete() {
+    if (_hasCompleted) return;
+    _hasCompleted = true;
+    _controller?.removeListener(_videoListener);
+    _controller?.pause();
+    widget.onComplete();
   }
 
   @override
@@ -78,147 +111,152 @@ class _OnboardingVideoStepState extends State<OnboardingVideoStep> {
 
   @override
   Widget build(BuildContext context) {
-    final orientation = MediaQuery.orientationOf(context);
+    final p = paletteOf(context);
 
-    if (_hasError) {
-      final p = paletteOf(context);
+    if (_errorText != null) {
       return Scaffold(
         backgroundColor: p.bgPrimary,
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Icon(
-                  Icons.play_circle_outline_rounded,
-                  color: p.accent,
-                  size: 56,
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  appStrings.continueToSetup,
-                  style: TextStyle(
-                    color: p.textPrimary,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  appStrings.theIntroIsNotAvailableOn,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: p.textMuted,
-                    fontSize: 15,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                OnboardingPrimaryButton(
-                  label: appStrings.continue2,
-                  icon: Icons.arrow_forward_rounded,
-                  onPressed: widget.onComplete,
-                ),
-              ],
-            ),
+        body: _CenteredMessage(
+          icon: Icons.play_circle_outline_rounded,
+          title: appStrings.continueToSetup,
+          body: _errorText!,
+          action: OnboardingPrimaryButton(
+            label: appStrings.continue2,
+            icon: Icons.arrow_forward_rounded,
+            onPressed: _complete,
           ),
         ),
       );
     }
 
     if (!_isInitialized || _controller == null) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: Colors.black,
-        body: Center(child: CircularProgressIndicator(color: Colors.white)),
+        body: Stack(
+          children: <Widget>[
+            const Center(child: CircularProgressIndicator(color: Colors.white)),
+            Positioned(
+              top: 28,
+              right: 28,
+              child: SafeArea(child: _SkipButton(onPressed: _complete)),
+            ),
+          ],
+        ),
       );
     }
 
-    final portrait = orientation == Orientation.portrait;
-    if (portrait && _controller!.value.isPlaying) {
-      _controller!.pause();
-    } else if (!portrait && !_controller!.value.isPlaying) {
-      _controller!.play();
+    if (_orientation == Orientation.portrait) {
+      return Scaffold(
+        backgroundColor: p.bgPrimary,
+        body: _CenteredMessage(
+          icon: Icons.screen_rotation,
+          title: appStrings.rotateToContinue,
+          body: appStrings.thisIntroIsDesignedForFull,
+          action: OnboardingPrimaryButton(
+            label: appStrings.skip,
+            icon: Icons.arrow_forward_rounded,
+            onPressed: _complete,
+          ),
+        ),
+      );
     }
 
     return Scaffold(
-      backgroundColor: portrait ? paletteOf(context).bgPrimary : Colors.black,
-      body: portrait
-          ? const _RotatePrompt()
-          : Stack(
-              fit: StackFit.expand,
-              children: <Widget>[
-                FittedBox(
-                  fit: BoxFit.cover,
-                  child: SizedBox(
-                    width: _controller!.value.size.width,
-                    height: _controller!.value.size.height,
-                    child: VideoPlayer(_controller!),
-                  ),
-                ),
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: <Color>[
-                          Colors.transparent,
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.22),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 28,
-                  right: 28,
-                  child: OnboardingGhostButton(
-                    label: appStrings.skip,
-                    onPressed: widget.onComplete,
-                  ).animate().fadeIn(duration: 280.ms, delay: 220.ms),
-                ),
-              ],
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          FittedBox(
+            fit: BoxFit.cover,
+            child: SizedBox(
+              width: _controller!.value.size.width,
+              height: _controller!.value.size.height,
+              child: VideoPlayer(_controller!),
             ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: <Color>[
+                    Colors.transparent,
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.22),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 28,
+            right: 28,
+            child: _SkipButton(
+              onPressed: _complete,
+            ).animate().fadeIn(duration: 280.ms, delay: 220.ms),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _RotatePrompt extends StatelessWidget {
-  const _RotatePrompt();
+class _SkipButton extends StatelessWidget {
+  const _SkipButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OnboardingGhostButton(label: appStrings.skip, onPressed: onPressed);
+  }
+}
+
+class _CenteredMessage extends StatelessWidget {
+  const _CenteredMessage({
+    required this.icon,
+    required this.title,
+    required this.body,
+    required this.action,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+  final Widget action;
 
   @override
   Widget build(BuildContext context) {
     final p = paletteOf(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(Icons.screen_rotation, color: p.accent, size: 54),
-            const SizedBox(height: 18),
-            Text(
-              appStrings.rotateToContinue,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: p.textPrimary,
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
+    return SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(icon, color: p.accent, size: 54),
+              const SizedBox(height: 18),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: p.textPrimary,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              appStrings.thisIntroIsDesignedForFull,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: p.textMuted,
-                fontSize: 15,
-                height: 1.5,
+              const SizedBox(height: 10),
+              Text(
+                body,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: p.textMuted, fontSize: 15, height: 1.5),
               ),
-            ),
-          ],
+              const SizedBox(height: 28),
+              action,
+            ],
+          ),
         ),
       ),
     );

@@ -9,6 +9,190 @@ class AppL10nDe extends AppL10n {
   AppL10nDe([String locale = 'de']) : super(locale);
 
   @override
+  String get onboardingEyebrowWelcome => 'Willkommen';
+
+  @override
+  String get onboardingEyebrowCommunication => 'Kommunikation';
+
+  @override
+  String get onboardingEyebrowIntelligence => 'Intelligenz';
+
+  @override
+  String get onboardingEyebrowComputer => 'Computer';
+
+  @override
+  String get onboardingEyebrowAutomation => 'Automatisierung';
+
+  @override
+  String get onboardingNext => 'Weiter';
+
+  @override
+  String get onboardingIntroCouldNotLoad =>
+      'Die Einführung konnte nicht geladen werden.';
+
+  @override
+  String get onboardingModelDescription =>
+      'Wählen Sie das Modell, das NeoAgent standardmäßig nutzen soll, oder lassen Sie es automatisch wählen.';
+
+  @override
+  String get onboardingLoadingModels => 'Modelle werden geladen…';
+
+  @override
+  String get noAiModelTitle => 'Noch ist kein KI-Modell eingerichtet';
+
+  @override
+  String get noAiModelBody =>
+      'Fügen Sie einen API-Schlüssel eines Anbieters wie OpenAI, Anthropic oder Google hinzu. Danach zeigt NeoAgent die Modelle, die Sie nutzen können.';
+
+  @override
+  String get noAiModelChatBody =>
+      'NeoAgent braucht ein KI-Modell, um zu antworten. Fügen Sie einen API-Schlüssel eines Anbieters wie OpenAI, Anthropic oder Google hinzu.';
+
+  @override
+  String get noAiModelAdminHint =>
+      'Als Admin können Sie Anbieter auch für alle Nutzer unter Admin → Anbieter einrichten.';
+
+  @override
+  String get addApiKey => 'API-Schlüssel hinzufügen';
+
+  @override
+  String onboardingMessagingConnected(String platform) {
+    return '$platform ist verbunden.';
+  }
+
+  @override
+  String onboardingMessagingWaiting(String platform) {
+    return 'Warte auf die Verbindung mit $platform…';
+  }
+
+  @override
+  String onboardingFinishFailed(String error) {
+    return 'Die Einrichtung konnte nicht gespeichert werden: $error';
+  }
+
+  @override
+  String get onboardingEyebrowReady => 'Bereit';
+
+  @override
+  String get onboardingStepRequired => 'Erforderlich';
+
+  @override
+  String get onboardingStepOptional => 'Optional';
+
+  @override
+  String get onboardingStepCloudOrLocal => 'Cloud oder lokal';
+
+  @override
+  String get onboardingStepComputer => 'Computer';
+
+  @override
+  String get onboardingStepRoutines => 'Routinen';
+
+  @override
+  String get onboardingComputerChoiceTitle => 'Wo soll\nes arbeiten?';
+
+  @override
+  String get onboardingComputerChoiceDescription =>
+      'Das lässt sich pro Sitzung ändern.';
+
+  @override
+  String get onboardingCloudComputerSubtitle => 'Private Sandbox · immer an';
+
+  @override
+  String get onboardingThisComputer => 'Dieser Computer';
+
+  @override
+  String get onboardingThisComputerSubtitle =>
+      'Deine Dateien, Apps und dein Browser';
+
+  @override
+  String get onboardingSearchApps => 'Apps suchen…';
+
+  @override
+  String get onboardingRoutinesDescription =>
+      'Ergebnisse kommen in deinen Chats an.';
+
+  @override
+  String get onboardingRoutinesDescriptionPhone =>
+      'Ergebnisse kommen als Mitteilungen.';
+
+  @override
+  String get onboardingNotifications => 'Mitteilungen';
+
+  @override
+  String get onboardingReadyTitle => 'Alles\nbereit.';
+
+  @override
+  String get onboardingReadyDescription => 'Schick deine erste Nachricht.';
+
+  @override
+  String get onboardingMessageNeoagent => 'Nachricht an NeoAgent';
+
+  @override
+  String get onboardingAskAnything => 'Frag einfach…';
+
+  @override
+  String get onboardingOpenNeoagent => 'NeoAgent öffnen';
+
+  @override
+  String get onboardingStarterTrip => 'Plane einen Wochenendausflug';
+
+  @override
+  String get onboardingStarterLanding => 'Bau eine Landingpage';
+
+  @override
+  String onboardingQuickSteps(int count) {
+    return '$count kurze Schritte';
+  }
+
+  @override
+  String get taskNeedsEmail => 'Zuerst E-Mail verbinden';
+
+  @override
+  String get taskNeedsCalendar => 'Zuerst einen Kalender verbinden';
+
+  @override
+  String get taskNeedsModel => 'Zuerst ein KI-Modell einrichten';
+
+  @override
+  String get taskPromptDailyRecap =>
+      'Fasse meinen Tag zusammen: die Gespräche, erledigte Arbeit und Entscheidungen von heute. Liste dann auf, was ich morgen nachverfolgen sollte. Halte es kurz und sende es mir.';
+
+  @override
+  String get taskPromptInboxCheck =>
+      'Prüfe meinen E-Mail-Posteingang auf Nachrichten seit der letzten Prüfung. Schreibe mir nur zu E-Mails, die dringend sind oder eine Antwort brauchen, mit einer einzeiligen Zusammenfassung je Nachricht. Wenn nichts meine Aufmerksamkeit braucht, sende nichts.';
+
+  @override
+  String get taskPromptMorningBriefing =>
+      'Bereite mein Morgenbriefing vor: das heutige Wetter an meinem Standort, die Termine in meinem Kalender und die wichtigsten offenen Punkte, die ich kenne. Sende es als kurze, gut überblickbare Nachricht.';
+
+  @override
+  String get taskPromptTomorrowPrep =>
+      'Schau in meinen Kalender für morgen. Sag mir für jeden Termin, worum es geht, wer beteiligt ist und was ich vorbereiten sollte. Wenn morgen nichts ansteht, sende nichts.';
+
+  @override
+  String get taskPromptNewsDigest =>
+      'Suche im Web nach den wichtigsten heutigen Nachrichten zu den Themen, die mich interessieren (nutze, was du über meine Interessen weißt). Sende mir einen Überblick mit bis zu fünf Punkten, je einem Satz und einem Link.';
+
+  @override
+  String get taskPromptWeeklyReview =>
+      'Schau meine Woche durch: was erledigt wurde, was liegengeblieben ist und was noch offen ist. Schlage die drei wichtigsten Dinge vor, auf die ich mich nächste Woche konzentrieren sollte.';
+
+  @override
+  String get whatsappSeparateAccountDescription =>
+      'Verknüpfen Sie eine Telefonnummer, die dem Agenten gehört. Alle, die Sie zulassen, können damit in Direktchats und Gruppen chatten.';
+
+  @override
+  String get whatsappSelfChatDescription =>
+      'Verknüpfen Sie Ihre eigene Nummer und sprechen Sie mit dem Agenten in Ihrem „Nachricht an mich selbst“-Chat. Alle anderen Chats und Gruppen auf diesem Konto werden ignoriert.';
+
+  @override
+  String get chatSendHintMac => '⌘↵ zum Senden';
+
+  @override
+  String get chatSendHintOther => 'Strg+Enter zum Senden';
+
+  @override
   String get aBaseUrlIsRequiredFor =>
       'Für diesen Endpunkt ist eine Basis-URL erforderlich.';
 
@@ -44,9 +228,6 @@ class AppL10nDe extends AppL10n {
       'Auf dem Server ist ein neueres Web-Build verfügbar. Neu laden, um das aktuelle Bundle zu holen.';
 
   @override
-  String get aPlanSIdCanT => 'Die ID eines Tarifs lässt sich nicht ändern.';
-
-  @override
   String get aPrivateDesktopWithChromiumFiles =>
       'Ein privater Desktop mit Chromium, Dateien, Texteditor, Terminal und Python. Ihre Arbeit bleibt zwischen Sitzungen gespeichert.';
 
@@ -72,10 +253,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get aValueIsStored => 'Ein Wert ist gespeichert.';
-
-  @override
-  String get aboutUseWhatYouRememberAbout =>
-      'interessieren (nutze, was du über meine Interessen weißt). Sende mir einen Überblick ';
 
   @override
   String get access => 'Zugriff';
@@ -304,9 +481,6 @@ class AppL10nDe extends AppL10n {
   String get agentProfile => 'Agentenprofil';
 
   @override
-  String get agentRuns7d => 'Agentenläufe (7 T.)';
-
-  @override
   String get agentVisibleName => 'Für den Agenten sichtbarer Name';
 
   @override
@@ -368,6 +542,9 @@ class AppL10nDe extends AppL10n {
   String get allow => 'Erlauben';
 
   @override
+  String get allowedRunsWithoutAsking => 'Erlaubt. Läuft ohne Nachfrage.';
+
+  @override
   String get allowAll => 'Alles erlauben';
 
   @override
@@ -389,13 +566,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get allowTheAgentToStartAn =>
       'Erlauben Sie dem Agenten, einen In-App-Sprachanruf mit Ihnen zu starten.';
-
-  @override
-  String get allowedForThisRunWillAsk =>
-      'Für diese Ausführung erlaubt — fragt in der nächsten Sitzung erneut.';
-
-  @override
-  String get allowedModels => 'Erlaubte Modelle';
 
   @override
   String get allowedOrigins => 'Erlaubte Origins';
@@ -453,8 +623,8 @@ class AppL10nDe extends AppL10n {
       'Eine http- oder https-URL ist erforderlich.';
 
   @override
-  String get andBillingTeamLinksLiveOn =>
-      'und Abrechnung. Team-Links finden Sie auf der Team-Seite.';
+  String get andAnalyticsTeamLinksLiveOn =>
+      'und Analysen. Team-Links finden Sie auf der Team-Seite.';
 
   @override
   String get andSExpiresAtDatetimeNow =>
@@ -516,10 +686,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get anyoneWithTheLinkCanJoin =>
       'Jeder mit dem Link kann beitreten, bis er abläuft oder Sie ihn widerrufen.';
-
-  @override
-  String get anyoneYouAllowCanChatWith =>
-      'Alle, die Sie zulassen, können damit in Direktchats und Gruppen chatten.';
 
   @override
   String get apiHttpsOrigin => 'API-HTTPS-Ursprung';
@@ -756,11 +922,6 @@ class AppL10nDe extends AppL10n {
   }
 
   @override
-  String arg1Arg29(Object? arg1, Object? arg2) {
-    return '$arg1 / $arg2';
-  }
-
-  @override
   String arg1Arg2ActiveTools(Object? arg1, Object? arg2) {
     return '$arg1 ($arg2 aktive Tools)';
   }
@@ -808,11 +969,6 @@ class AppL10nDe extends AppL10n {
   @override
   String arg1Arg2Arg37(Object? arg1, Object? arg2, Object? arg3) {
     return '$arg1 $arg2 $arg3';
-  }
-
-  @override
-  String arg1Arg2Arg38(Object? arg1, Object? arg2, Object? arg3) {
-    return '$arg1 · $arg2 $arg3';
   }
 
   @override
@@ -892,11 +1048,6 @@ class AppL10nDe extends AppL10n {
   }
 
   @override
-  String arg1Arg2OfArg3(Object? arg1, Object? arg2, Object? arg3) {
-    return '$arg1–$arg2 von $arg3';
-  }
-
-  @override
   String arg1Arg2Runs(Object? arg1, Object? arg2) {
     return '$arg1\n$arg2 Läufe · ';
   }
@@ -919,11 +1070,6 @@ class AppL10nDe extends AppL10n {
   @override
   String arg1Arg2Tokens(Object? arg1, Object? arg2) {
     return '$arg1\n$arg2 Tokens';
-  }
-
-  @override
-  String arg1Arg2Tokens2(Object? arg1, Object? arg2) {
-    return '$arg1: $arg2 Tokens';
   }
 
   @override
@@ -987,16 +1133,6 @@ class AppL10nDe extends AppL10n {
   }
 
   @override
-  String arg1Deactivated(Object? arg1) {
-    return '$arg1 deaktiviert.';
-  }
-
-  @override
-  String arg1Default(Object? arg1) {
-    return '$arg1: Standard';
-  }
-
-  @override
   String arg1Desktop(Object? arg1) {
     return '$arg1-Desktop';
   }
@@ -1022,18 +1158,8 @@ class AppL10nDe extends AppL10n {
   }
 
   @override
-  String arg1FeatureArg2(Object? arg1, Object? arg2) {
-    return '$arg1 Funktion$arg2';
-  }
-
-  @override
   String arg1ForArg2(Object? arg1, Object? arg2) {
     return '$arg1 für $arg2';
-  }
-
-  @override
-  String arg1Forever(Object? arg1) {
-    return '$arg1 für immer';
   }
 
   @override
@@ -1169,11 +1295,6 @@ class AppL10nDe extends AppL10n {
   @override
   String arg1MinArg2Sec(Object? arg1, Object? arg2) {
     return '$arg1 Min. $arg2 Sek.';
-  }
-
-  @override
-  String arg1ModelArg2(Object? arg1, Object? arg2) {
-    return '$arg1 Modell$arg2';
   }
 
   @override
@@ -1476,12 +1597,6 @@ class AppL10nDe extends AppL10n {
   String get askMe => 'Mich fragen';
 
   @override
-  String get assignAPlanToAnAccount => 'Tarif einem Konto zuweisen';
-
-  @override
-  String get assignPlan => 'Plan zuweisen';
-
-  @override
   String get assignedAgent => 'Zugewiesener Agent';
 
   @override
@@ -1490,11 +1605,6 @@ class AppL10nDe extends AppL10n {
   @override
   String assignedAgentArg1(Object? arg1) {
     return 'Zugewiesener Agent: $arg1';
-  }
-
-  @override
-  String assignedArg1(Object? arg1) {
-    return '$arg1 zugewiesen.';
   }
 
   @override
@@ -1512,9 +1622,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get atLeast1000AppliesAfterA =>
       'Mindestens 1000. Gilt nach einem Serverneustart.';
-
-  @override
-  String get atLeast512 => 'Mindestens 512.';
 
   @override
   String get attachFiles => 'Dateien anhängen';
@@ -1676,9 +1783,6 @@ class AppL10nDe extends AppL10n {
       'Basis-Image und Größe der QEMU-VMs, die die ';
 
   @override
-  String get baseImageUrl => 'Basis-Image-URL';
-
-  @override
   String get baseUrlOptional => 'Basis-URL (optional)';
 
   @override
@@ -1697,43 +1801,6 @@ class AppL10nDe extends AppL10n {
   String get beta => 'Beta';
 
   @override
-  String get billedThroughStripeSoItCan =>
-      'Wird über Stripe abgerechnet und kann hier nicht gekündigt werden.';
-
-  @override
-  String get billing => 'Abrechnung';
-
-  @override
-  String get billingEnabled => 'Abrechnung aktiviert';
-
-  @override
-  String get billingHistory => 'Abrechnungsverlauf';
-
-  @override
-  String get billingInterval => 'Abrechnungsintervall';
-
-  @override
-  String get billingIsOff => 'Abrechnung ist aus';
-
-  @override
-  String get billingIsTurnedOffButStill =>
-      'Abrechnung ist deaktiviert, läuft aber noch. Starten Sie den ';
-
-  @override
-  String get billingIsTurnedOnButNot =>
-      'Abrechnung ist aktiviert, läuft aber noch nicht. Starten Sie den ';
-
-  @override
-  String get billingSetupSaved => 'Abrechnungseinrichtung gespeichert.';
-
-  @override
-  String get billingStripeKeysWebhookSecretTrial =>
-      'abrechnung stripe keys webhook secret trial aktivieren';
-
-  @override
-  String get billingSubscription => 'Abrechnung & Abonnement';
-
-  @override
   String get bitwardenCredentialBroker => 'Bitwarden-Anmeldedaten-Broker';
 
   @override
@@ -1748,9 +1815,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get blankUsesTheDefaultCallback =>
       'Leer verwendet den Standard-Callback';
-
-  @override
-  String get blankUsesTheServerDefault => 'Leer nutzt den Serverstandard.';
 
   @override
   String get blankValuesUseTheProviderDefaults =>
@@ -1847,13 +1911,7 @@ class AppL10nDe extends AppL10n {
   String get cancel => 'Abbrechen';
 
   @override
-  String get cancelSubscription => 'Abonnement kündigen';
-
-  @override
   String get cancelTask => 'Aufgabe abbrechen';
-
-  @override
-  String get cancelsAtPeriodEnd => 'Wird zum Periodenende gekündigt';
 
   @override
   String candidateCountArg1(Object? arg1) {
@@ -1880,9 +1938,6 @@ class AppL10nDe extends AppL10n {
   String chainArg1(Object? arg1) {
     return 'Kette: $arg1. ';
   }
-
-  @override
-  String get changePlan => 'Tarif wechseln';
 
   @override
   String get changeSetupMode => 'Einrichtungsmodus ändern';
@@ -1933,10 +1988,6 @@ class AppL10nDe extends AppL10n {
       'Automatisch nach neuen Nachrichten suchen';
 
   @override
-  String get checkMyEmailInboxForMessages =>
-      'Prüfe meinen E-Mail-Posteingang auf Nachrichten seit der letzten Prüfung. ';
-
-  @override
   String get checkNow => 'Jetzt prüfen';
 
   @override
@@ -1956,16 +2007,7 @@ class AppL10nDe extends AppL10n {
   String get chooseAPerson => 'Person wählen';
 
   @override
-  String get chooseAPlanToGetStarted =>
-      'Wählen Sie einen Tarif, um zu starten.';
-
-  @override
   String get chooseAProjectFolder => 'Projektordner wählen';
-
-  @override
-  String chooseArg1(Object? arg1) {
-    return '$arg1 wählen';
-  }
 
   @override
   String get chooseDefaultsForChatAgentsFallback =>
@@ -2167,10 +2209,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get commandsRunInTheSamePersistent =>
       'Befehle laufen im selben persistenten Computer wie der sichtbare Desktop.';
-
-  @override
-  String get commasOrLeaveBlankForEvery =>
-      'Kommas getrennt ein oder lassen Sie das Feld leer für jedes Modell.';
 
   @override
   String get communityChatops => 'Community & ChatOps';
@@ -2582,10 +2620,6 @@ class AppL10nDe extends AppL10n {
   String get couldNotStart => 'Start fehlgeschlagen';
 
   @override
-  String get couldNotStartCheckoutCheckStripe =>
-      'Checkout konnte nicht gestartet werden. Prüfen Sie die Stripe-Konfiguration.';
-
-  @override
   String get countAIdAsFiles => '       COUNT(a.id) AS files,\n';
 
   @override
@@ -2656,13 +2690,6 @@ class AppL10nDe extends AppL10n {
   String get ctrlShiftSpace => 'Ctrl + Shift + Space';
 
   @override
-  String get currency => 'Währung';
-
-  @override
-  String get currencyMustBeA3Letter =>
-      'Die Währung muss ein dreistelliger Code wie usd sein.';
-
-  @override
   String currentEmailArg1(Object? arg1) {
     return 'Aktuelle E-Mail: $arg1';
   }
@@ -2672,12 +2699,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get currentPasswordIsIncorrect => 'aktuelles Passwort ist falsch';
-
-  @override
-  String get currentPlan => 'Aktueller Plan';
-
-  @override
-  String get currentPlan2 => 'AKTUELLER TARIF';
 
   @override
   String get currentTwoStepLoginCode => 'Aktueller Zwei-Schritt-Anmeldecode';
@@ -2714,10 +2735,6 @@ class AppL10nDe extends AppL10n {
   String get customOutgoingUrl => 'Eigene ausgehende URL';
 
   @override
-  String get customersOverridePlanStatusCanceledTrialing =>
-      'kunden überschreibung tarif status gekündigt testphase';
-
-  @override
   String get dAllowedPermissionsJsonAsAllowed =>
       '       d.allowed_permissions_json AS allowed,\n';
 
@@ -2743,24 +2760,12 @@ class AppL10nDe extends AppL10n {
   String get dayOfMonth => 'Tag des Monats';
 
   @override
-  String get deactivate => 'Deaktivieren';
-
-  @override
-  String deactivateArg1(Object? arg1) {
-    return '$arg1 deaktivieren?';
-  }
-
-  @override
   String get decideWhichToolsYourAgentMay =>
       'es, welche Tools Ihr Agent nutzen darf. Es sieht Ihren Namen und ';
 
   @override
   String get decisionHigherUpTheChainWins =>
       'Entscheidung weiter oben in der Kette hat Vorrang und zeigt ein Schloss mit dem ';
-
-  @override
-  String get decisionsFromTodayThenListAnything =>
-      'Entscheidungen von heute zusammen, und liste dann auf, was ich ';
 
   @override
   String decisionsShowUpHereAsArg1(Object? arg1, Object? arg2) {
@@ -3000,9 +3005,6 @@ class AppL10nDe extends AppL10n {
   }
 
   @override
-  String get desktopToFinishTheJob => 'Desktop, um die Aufgabe zu erledigen.';
-
-  @override
   String get destinationId => 'Ziel-ID';
 
   @override
@@ -3095,9 +3097,6 @@ class AppL10nDe extends AppL10n {
   }
 
   @override
-  String get downloadPdf => 'PDF herunterladen';
-
-  @override
   String get downloadUpdate => 'Update herunterladen';
 
   @override
@@ -3136,11 +3135,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get editAgent => 'Agent bearbeiten';
-
-  @override
-  String editArg1(Object? arg1) {
-    return '$arg1 bearbeiten';
-  }
 
   @override
   String get editCoreMemoryEntry => 'Kernspeicher-Eintrag bearbeiten';
@@ -3336,10 +3330,6 @@ class AppL10nDe extends AppL10n {
       'Jedes Konto auf diesem Server verwendet diese Adresse für ';
 
   @override
-  String get everyAccountSSubscriptionMostRecently =>
-      'Abonnement jedes Kontos, zuletzt geänderte zuerst. ';
-
-  @override
   String get everyActiveSessionForThisAccount =>
       'Jede aktive Sitzung für dieses Konto wird beendet. Die Anmeldung ist ';
 
@@ -3353,19 +3343,12 @@ class AppL10nDe extends AppL10n {
   String get everyHour => 'Stündlich';
 
   @override
-  String get everyModel => 'jedes Modell zu erlauben.';
-
-  @override
   String get everyRunOnThisServerAll =>
       'Jeder Lauf auf diesem Server, insgesamt.';
 
   @override
   String get everySensitiveToolRequiresApprovalEvery =>
       'Jedes sensible Tool erfordert jedes Mal eine Freigabe.';
-
-  @override
-  String get everySessionGetsAPrivateCloud =>
-      'Jede Sitzung erhält einen privaten Cloud-Computer, damit NeoAgent echte ';
 
   @override
   String get everyToolRunsWithoutAskingExcept =>
@@ -3424,10 +3407,6 @@ class AppL10nDe extends AppL10n {
   }
 
   @override
-  String get existingSubscribersKeepAccessUntilTheir =>
-      'bestehende Abonnenten behalten den Zugang bis zum Periodenende.';
-
-  @override
   String exitArg1(Object? arg1) {
     return '[exit $arg1]';
   }
@@ -3452,9 +3431,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get exploredTheWorkspace => 'Arbeitsbereich erkundet';
-
-  @override
-  String get exportAll => 'Alle exportieren';
 
   @override
   String exportFailedArg1(Object? arg1) {
@@ -3508,11 +3484,6 @@ class AppL10nDe extends AppL10n {
   }
 
   @override
-  String failedToDismissOnboardingArg1(Object? arg1) {
-    return 'Onboarding konnte nicht geschlossen werden: $arg1';
-  }
-
-  @override
   String get failedToFetch => 'Abruf fehlgeschlagen';
 
   @override
@@ -3555,9 +3526,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get fasterReplies => 'Schnellere Antworten';
-
-  @override
-  String get features => 'Funktionen';
 
   @override
   String get fewerModelCalls => 'Weniger Modellaufrufe';
@@ -3607,9 +3575,6 @@ class AppL10nDe extends AppL10n {
   String get findRecentChats => 'Letzte Chats finden';
 
   @override
-  String get findTheseLaterInTasks => 'finden Sie sie später unter Aufgaben.';
-
-  @override
   String get findingTheCorrectNeoagentRuntime =>
       'Passende NeoAgent-Laufzeit wird gesucht';
 
@@ -3618,9 +3583,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get finishAtTheScheduledTime => 'Zur geplanten Zeit fertig sein';
-
-  @override
-  String get finishSetup => 'Einrichtung abschließen';
 
   @override
   String finishSigningInToArg1In(Object? arg1) {
@@ -3658,13 +3620,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get frameUnavailable => 'Frame nicht verfügbar';
-
-  @override
-  String get freeTrialDays => 'Kostenlose Testphase (Tage)';
-
-  @override
-  String get freeTrialMustBeAWhole =>
-      'Die kostenlose Testphase muss eine ganze Zahl an Tagen sein (0 oder mehr).';
 
   @override
   String freshnessArg1(Object? arg1) {
@@ -3756,9 +3711,6 @@ class AppL10nDe extends AppL10n {
   String get getInspired => 'Inspiration holen';
 
   @override
-  String get gitCloneRepoNpmTest => 'git clone repo && npm test';
-
-  @override
   String get githubCopilot => 'GitHub Copilot';
 
   @override
@@ -3782,9 +3734,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get githubUsernameThatOpenedTheIssue =>
       'GitHub-Benutzername, der das Issue eröffnet hat';
-
-  @override
-  String get giveThePlanAName => 'Geben Sie dem Tarif einen Namen.';
 
   @override
   String get globalSecurityMode => 'Globaler Sicherheitsmodus';
@@ -3909,10 +3858,6 @@ class AppL10nDe extends AppL10n {
   String hereRevokeAdminWithNeoagentAdmin(Object? arg1) {
     return 'gelöscht werden. Entziehen Sie zuerst die Admin-Rechte mit `neoagent admin revoke $arg1`.';
   }
-
-  @override
-  String get hereSecretsAreWriteOnlyLeave =>
-      'hier ein. Geheimnisse sind nur schreibbar: lassen Sie eines leer, um es zu behalten.';
 
   @override
   String get higherValuesMakeNeoagentMoreSelective =>
@@ -4214,13 +4159,6 @@ class AppL10nDe extends AppL10n {
   String get iphoneApp => 'iPhone-App';
 
   @override
-  String get isAboutWhoIsInvolvedAnd =>
-      'es geht, wer beteiligt ist und was ich vorbereiten sollte. Wenn morgen ';
-
-  @override
-  String get isEmptyDoNotSendAnything => 'nichts ansteht, sende nichts.';
-
-  @override
   String get issues => 'Probleme';
 
   @override
@@ -4286,9 +4224,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get keepNeoagentRunning => 'NeoAgent weiterlaufen lassen?';
-
-  @override
-  String get keepPlan => 'Tarif behalten';
 
   @override
   String get keepRunning => 'Weiterlaufen lassen';
@@ -4504,10 +4439,6 @@ class AppL10nDe extends AppL10n {
   String get limit50 => 'LIMIT 50';
 
   @override
-  String get linkAPhoneNumberThatBelongs =>
-      'Verknüpfen Sie eine Telefonnummer, die dem Agenten gehört. ';
-
-  @override
   String linkArg1(Object? arg1) {
     return '$arg1 verknüpfen';
   }
@@ -4529,10 +4460,6 @@ class AppL10nDe extends AppL10n {
   String linkValidUntilArg1(Object? arg1) {
     return 'Link gültig bis $arg1.';
   }
-
-  @override
-  String get linkYourOwnNumberAndTalk =>
-      'Verknüpfen Sie Ihre eigene Nummer und sprechen Sie mit dem Agenten in Ihrem ';
 
   @override
   String get linkedSignInProviders => 'Verknüpfte Anmeldeanbieter';
@@ -4667,10 +4594,6 @@ class AppL10nDe extends AppL10n {
       'Langzeitgedächtnis, strukturierte Fakten und Wissensgraph.';
 
   @override
-  String get lookAtMyCalendarForTomorrow =>
-      'Schau in meinen Kalender für morgen. Für jeden Termin sag mir, worum ';
-
-  @override
   String get lookedAtTheScreen => 'Bildschirm angesehen';
 
   @override
@@ -4686,10 +4609,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get loopPaused => 'Schleife pausiert';
-
-  @override
-  String get lowerNumbersAreListedFirst =>
-      'Niedrigere Zahlen werden zuerst gelistet.';
 
   @override
   String get macOsX => 'mac os x';
@@ -4719,23 +4638,8 @@ class AppL10nDe extends AppL10n {
   String get manage => 'Verwalten';
 
   @override
-  String get managePayment => 'Zahlung verwalten';
-
-  @override
-  String get manageViaStripeCustomerPortal =>
-      'Über das Stripe-Kundenportal verwalten';
-
-  @override
   String get manageYourAccountEmailTwoFactor =>
       'Verwalten Sie Ihre Konto-E-Mail, Zwei-Faktor-Authentifizierung und aktiven Sitzungen.';
-
-  @override
-  String get manageYourPlanTrackUsageUpdate =>
-      'Verwalten Sie Ihren Tarif, verfolgen Sie die Nutzung, aktualisieren Sie die Zahlung und prüfen Sie Rechnungen.';
-
-  @override
-  String get manageYourPlanTrackUsageUpdate2 =>
-      'Verwalten Sie Ihren Tarif, verfolgen Sie die Nutzung, aktualisieren Sie die Zahlung und prüfen Sie Rechnungen — alles an einem Ort.';
 
   @override
   String get managedBy => 'Verwaltet von';
@@ -4821,13 +4725,6 @@ class AppL10nDe extends AppL10n {
   String get memoryInjected => 'Gedächtnis eingefügt';
 
   @override
-  String get memoryMb => 'Speicher (MB)';
-
-  @override
-  String get memoryMustBeAtLeast512 =>
-      'Der Speicher muss mindestens 512 MB betragen.';
-
-  @override
   String get mentionOrReplyOnly => 'Nur Erwähnung oder Antwort';
 
   @override
@@ -4842,14 +4739,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get messageTextField => 'Nachrichtentextfeld';
-
-  @override
-  String get messageYouWithTheResultAdd =>
-      'melden Ihnen dann das Ergebnis. Fügen Sie eine hinzu, um zu starten, oder überspringen Sie und ';
-
-  @override
-  String get messageYourselfChatEveryOtherChat =>
-      '„Nachricht an mich selbst“-Chat. Alle anderen Chats und Gruppen auf ';
 
   @override
   String get messaging => 'Nachrichten';
@@ -4949,9 +4838,6 @@ class AppL10nDe extends AppL10n {
   String get modelForThisSession => 'Modell für diese Sitzung';
 
   @override
-  String get modelIds => 'Modell-IDs';
-
-  @override
   String get modelOverride => 'Modellüberschreibung';
 
   @override
@@ -5013,9 +4899,6 @@ class AppL10nDe extends AppL10n {
       'Muss über das öffentliche Internet erreichbar sein -- lokale und ';
 
   @override
-  String get n0TurnsTrialsOff => '0 schaltet Testphasen aus.';
-
-  @override
   String get n24Hours => '24 Stunden';
 
   @override
@@ -5032,13 +4915,7 @@ class AppL10nDe extends AppL10n {
   String get n365Days => '365 Tage';
 
   @override
-  String get n42Passing => '✓ 42 bestanden';
-
-  @override
   String get n4HourLimitTokens => '4-Stunden-Limit (Tokens)';
-
-  @override
-  String get n4HourTokenLimit => '4-Stunden-Token-Limit';
 
   @override
   String get n4HourUsage => '4-Stunden-Nutzung';
@@ -5047,9 +4924,6 @@ class AppL10nDe extends AppL10n {
   String n4hLimitArg1(Object? arg1) {
     return '4-Std.-Limit $arg1';
   }
-
-  @override
-  String get n4hTokenWindow => '4-h-Token-Fenster';
 
   @override
   String get n7DayUsage => '7-Tage-Nutzung';
@@ -5131,10 +5005,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get neoagentFlutterUpdater => 'NeoAgent Flutter Updater';
-
-  @override
-  String get neoagentHasItsOwnComputer =>
-      'NeoAgent hat einen\neigenen Computer.';
 
   @override
   String neoagentInstallsTheLatestArg1(Object? arg1) {
@@ -5258,9 +5128,6 @@ class AppL10nDe extends AppL10n {
       'Die neuen Passwörter stimmen nicht überein.';
 
   @override
-  String get newPlan => 'Neuer Tarif';
-
-  @override
   String get newRecoveryCodes => 'Neue Wiederherstellungscodes';
 
   @override
@@ -5284,9 +5151,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get newsDigest => 'Nachrichtenüberblick';
-
-  @override
-  String get nextPage => 'Nächste Seite';
 
   @override
   String nextRetryArg1(Object? arg1) {
@@ -5318,14 +5182,7 @@ class AppL10nDe extends AppL10n {
   String get noAccountsFound => 'Keine Konten gefunden.';
 
   @override
-  String get noActivePlansYetCreateOne =>
-      'Noch keine aktiven Pläne. Erstellen Sie einen im Reiter Abrechnung.';
-
-  @override
   String get noActiveSessionsFound => 'Keine aktiven Sitzungen gefunden.';
-
-  @override
-  String get noActiveSubscription => 'Kein aktives Abonnement';
 
   @override
   String get noAgentsYet => 'Noch keine Agenten';
@@ -5344,19 +5201,10 @@ class AppL10nDe extends AppL10n {
   }
 
   @override
-  String noArg1Subscriptions(Object? arg1) {
-    return 'Keine $arg1-Abonnements.';
-  }
-
-  @override
   String get noArguments => '(keine Argumente)';
 
   @override
   String get noAuth => 'Keine Authentifizierung';
-
-  @override
-  String get noAvailableModelsYetCheckBack =>
-      'Noch keine Modelle verfügbar.\nSchauen Sie erneut nach, sobald ein Anbieter konfiguriert ist.';
 
   @override
   String get noBindingsYet => 'Noch keine Bindungen.';
@@ -5439,9 +5287,6 @@ class AppL10nDe extends AppL10n {
       'Keine Integrationen passen zu dieser Suche.';
 
   @override
-  String get noInvoicesYet => 'Noch keine Rechnungen.';
-
-  @override
   String get noLimit => 'Kein Limit';
 
   @override
@@ -5450,9 +5295,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get noLogEntries => 'Keine Protokolleinträge.';
-
-  @override
-  String get noMatches => 'Keine Treffer';
 
   @override
   String get noMatchingSettings => 'Keine passenden Einstellungen';
@@ -5475,9 +5317,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get noModelRequestWasRecordedFor =>
       'Für diese Ausführung wurde keine Modellanfrage aufgezeichnet.';
-
-  @override
-  String get noModelsAreAvailableYet => 'Noch keine Modelle verfügbar.';
 
   @override
   String get noModelsDiscoveredYet => 'Noch keine Modelle gefunden';
@@ -5522,12 +5361,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get noPeopleAddedYet => 'Noch keine Personen hinzugefügt.';
-
-  @override
-  String get noPlansConfiguredYet => 'Noch keine Tarife konfiguriert.';
-
-  @override
-  String get noPlansYet => 'Noch keine Tarife.';
 
   @override
   String get noPlatformsMatch => 'Keine passenden Plattformen';
@@ -5578,9 +5411,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get noStepsWereRecordedForThis =>
       'Für diese Ausführung wurden keine Schritte aufgezeichnet.';
-
-  @override
-  String get noSubscription => 'Kein Abonnement.';
 
   @override
   String get noSummaryAvailable => 'Keine Zusammenfassung verfügbar.';
@@ -5715,23 +5545,7 @@ class AppL10nDe extends AppL10n {
       'hat. Nach dem Speichern wird er nicht mehr angezeigt.';
 
   @override
-  String get ofUpToFiveItemsWith =>
-      'mit bis zu fünf Punkten, je einem Satz und einem Link.';
-
-  @override
   String get off => 'Aus';
-
-  @override
-  String get offTakesEffectAfterAServer =>
-      'wird nach einem Serverneustart wirksam.';
-
-  @override
-  String get offerSubscriptionPlansThroughStripeTurning =>
-      'Abonnementtarife über Stripe anbieten. Ein- oder Ausschalten ';
-
-  @override
-  String get offeredToPeopleChoosingAPlan =>
-      'Wird Personen angeboten, die einen Tarif wählen.';
 
   @override
   String get officialIntegration => 'Offizielle Integration';
@@ -5748,10 +5562,6 @@ class AppL10nDe extends AppL10n {
       'Öffnen Sie auf einem angemeldeten Android-Gerät Einstellungen › Anmeldung & Sicherheit, scannen Sie diesen Code und bestätigen Sie die Anmeldung.';
 
   @override
-  String get onAndTheServerHasRestarted =>
-      'ist und der Server neu gestartet wurde.';
-
-  @override
   String get onByDefaultForNewGroups => 'Standardmäßig an für neue Gruppen';
 
   @override
@@ -5761,10 +5571,6 @@ class AppL10nDe extends AppL10n {
   String onForArg1OfArg2Groups(Object? arg1, Object? arg2) {
     return 'Aktiv für $arg1 von $arg2 Gruppen';
   }
-
-  @override
-  String get onMyCalendarAndTheMost =>
-      'in meinem Kalender und die wichtigsten offenen Punkte, die ich kenne. ';
 
   @override
   String get onTheyCanJoinAgainOnly =>
@@ -5785,16 +5591,8 @@ class AppL10nDe extends AppL10n {
       'gespeichert ist. Andere Änderungen in diesem Formular werden ebenfalls gespeichert.';
 
   @override
-  String get oneLineSummaryEachIfNothing =>
-      'einzeiligen Zusammenfassung je Nachricht. Wenn nichts meine Aufmerksamkeit braucht, sende ';
-
-  @override
   String get oneOrMoreAccountsExpiredReconnect =>
       'Ein oder mehrere Konten sind abgelaufen. Verbinden Sie das betroffene Konto erneut, um den Werkzeugzugriff wiederherzustellen.';
-
-  @override
-  String get onePerLineShownOnThe =>
-      'Eine pro Zeile, wird auf der Preisseite angezeigt.';
 
   @override
   String get oneRegister => 'Registrierung immer zu.';
@@ -5802,9 +5600,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'Eine Runtime steuert Persona, Gruppen-Rederecht, Raumgedächtnis, Normen, Theory of Mind und Zustellung.';
-
-  @override
-  String get oneTimeFree => 'Einmalig / kostenlos';
 
   @override
   String get oneTimeRun => 'Einmaliger Lauf';
@@ -5815,10 +5610,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get onlyInThisGroup => 'Nur in dieser Gruppe';
-
-  @override
-  String get onlyMessageMeAboutEmailsThat =>
-      'Schreibe mir nur zu E-Mails, die dringend sind oder eine Antwort brauchen, mit einer ';
 
   @override
   String get onlyNeededIfTheServiceAsks =>
@@ -5839,9 +5630,6 @@ class AppL10nDe extends AppL10n {
       'Öffnen Sie Einstellungen › Anmeldung & Sicherheit auf einem angemeldeten Android-Gerät, scannen Sie diesen Code und bestätigen Sie die Anmeldung.';
 
   @override
-  String get openBrowserCheckingDocs => 'Browser öffnen → Docs prüfen';
-
-  @override
   String get openComputer => 'Computer öffnen';
 
   @override
@@ -5857,10 +5645,6 @@ class AppL10nDe extends AppL10n {
   String openNeoagentAndReconnectArg1To(Object? arg1) {
     return 'Öffnen Sie NeoAgent und verbinden Sie $arg1 erneut, um Messaging wiederherzustellen.';
   }
-
-  @override
-  String get openTheComputerTabNextTo =>
-      'Öffnen Sie den Computer-Tab neben einer Sitzung, um den Bildschirm ';
 
   @override
   String get openTimeSettings => 'Zeiteinstellungen öffnen';
@@ -5994,13 +5778,6 @@ class AppL10nDe extends AppL10n {
   String get outlookEmailReceived => 'Outlook-E-Mail empfangen';
 
   @override
-  String get overrideAssignsAPlanWithoutGoing =>
-      'Überschreiben weist einen Tarif zu, ohne über Stripe zu gehen.';
-
-  @override
-  String get overridePlan => 'Tarif überschreiben';
-
-  @override
   String get overwriteBehaviorNotesFromTheImport =>
       'Verhaltensnotizen aus dem Import überschreiben.';
 
@@ -6041,9 +5818,6 @@ class AppL10nDe extends AppL10n {
   String get passwordsDoNotMatch => 'Die Passwörter stimmen nicht überein.';
 
   @override
-  String get pastDue => 'Überfällig';
-
-  @override
   String get pasteAKey => 'Schlüssel einfügen.';
 
   @override
@@ -6080,9 +5854,6 @@ class AppL10nDe extends AppL10n {
   String get paused => 'Pausiert';
 
   @override
-  String get paymentMethod => 'Zahlungsmethode';
-
-  @override
   String peakArg1(Object? arg1) {
     return 'Spitze $arg1';
   }
@@ -6099,15 +5870,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get perToolPermissionPoliciesApprovalGates =>
       'Berechtigungsrichtlinien pro Tool, Freigabeschritte und Prozessisolation für die Shell-Ausführung.';
-
-  @override
-  String periodEndsArg1(Object? arg1) {
-    return 'Periode endet $arg1';
-  }
-
-  @override
-  String get permanentlyAllowedNeverAsksAgain =>
-      'Dauerhaft erlaubt — fragt nie wieder nach.';
 
   @override
   String permissionRequiredArg1(Object? arg1) {
@@ -6164,41 +5926,14 @@ class AppL10nDe extends AppL10n {
       'Wählen Sie eine Vorlage für die Aufgabe. Sie können danach alles anpassen.';
 
   @override
-  String get pickTheModelNeoagentShouldUse =>
-      'Wählen Sie das Modell, das NeoAgent standardmäßig nutzen soll. Anbieter werden auf dem Server konfiguriert.';
-
-  @override
   String get picksUpWhereYouLeftOff =>
       'Macht dort weiter, wo Sie aufgehört haben';
 
   @override
-  String get plan => 'Tarif';
-
-  @override
-  String planForArg1APlanAssigned(Object? arg1) {
-    return 'Plan für @$arg1. Ein hier zugewiesener Plan ';
-  }
-
-  @override
-  String get planId => 'Tarif-ID';
-
-  @override
-  String get planIdMayOnlyUseLetters =>
-      'Die Tarif-ID darf nur Buchstaben, Zahlen, Unterstriche und Bindestriche enthalten.';
-
-  @override
-  String get planUsageAndAllowanceDetails =>
-      'Plannutzung und Kontingentdetails';
+  String get plan => 'Plan';
 
   @override
   String get planning => 'Planung';
-
-  @override
-  String get plans => 'Tarife';
-
-  @override
-  String get plansAndSubscriptionsShowUpHere =>
-      'Tarife und Abonnements erscheinen hier, sobald die Abrechnung aktiviert ';
 
   @override
   String get platform => 'Plattform';
@@ -6255,10 +5990,6 @@ class AppL10nDe extends AppL10n {
       'Premium-Automatisierung mit Zeitplan- und Integrationsauslösern.';
 
   @override
-  String get prepareMyMorningBriefingTodayS =>
-      'Bereite mein Morgenbriefing vor: das heutige Wetter an meinem Standort, die Termine ';
-
-  @override
   String get prepareQrCode => 'QR-Code vorbereiten';
 
   @override
@@ -6281,27 +6012,10 @@ class AppL10nDe extends AppL10n {
   }
 
   @override
-  String get previousPage => 'Vorherige Seite';
-
-  @override
-  String get priceInCents => 'Preis in Cent';
-
-  @override
-  String get priceMustBeAWholeNumber =>
-      'Der Preis muss eine ganze Zahl in Cent sein (0 oder mehr).';
-
-  @override
   String get priceUnknown => 'Preis unbekannt';
 
   @override
-  String get pricingPriceSubscriptionTiersCreateEdit =>
-      'preise preis abo stufen erstellen bearbeiten';
-
-  @override
   String get primaryDisplay => 'Hauptanzeige';
-
-  @override
-  String get privateAndIsolated => 'Privat und isoliert';
 
   @override
   String get privateChat => 'Privater Chat';
@@ -6383,14 +6097,7 @@ class AppL10nDe extends AppL10n {
       'Öffentliche URL und erlaubte Origins';
 
   @override
-  String get publicUrlApiBillingWebhookAnd =>
-      '<public URL>/api/billing/webhook und fügen Sie das Signiergeheimnis ';
-
-  @override
   String get publicUrlOverride => 'Öffentliche URL überschreiben';
-
-  @override
-  String get publishableKey => 'Veröffentlichbarer Schlüssel';
 
   @override
   String get pullsTogetherTheDayAhead => 'Fasst den kommenden Tag zusammen';
@@ -6505,14 +6212,6 @@ class AppL10nDe extends AppL10n {
   String get readyToConnect => 'Bereit zur Verbindung';
 
   @override
-  String get realWorkInsteadOfJustTalking =>
-      'Arbeit erledigen kann, statt nur darüber zu sprechen.';
-
-  @override
-  String get recapMyDaySummarizeTheConversations =>
-      'Fasse meinen Tag zusammen: fasse die Gespräche, erledigte Arbeit und ';
-
-  @override
   String get recentChannelActivity => 'Letzte Kanalaktivität';
 
   @override
@@ -6547,9 +6246,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get recipientField => 'Empfängerfeld';
-
-  @override
-  String get recommended => 'EMPFOHLEN';
 
   @override
   String get reconnectOrFinishSetup =>
@@ -6741,11 +6437,6 @@ class AppL10nDe extends AppL10n {
   String get resetView => 'Ansicht zurücksetzen';
 
   @override
-  String resetsArg1(Object? arg1) {
-    return 'Zurücksetzen am $arg1';
-  }
-
-  @override
   String get responsibilities => 'Zuständigkeiten';
 
   @override
@@ -6785,10 +6476,6 @@ class AppL10nDe extends AppL10n {
   String reusableUsedArg1(Object? arg1) {
     return 'Wiederverwendbar · $arg1× genutzt';
   }
-
-  @override
-  String get reviewMyWeekWhatGotDone =>
-      'Schau meine Woche durch: was erledigt wurde, was liegengeblieben ist und was noch offen ist. ';
 
   @override
   String get reviewUncommittedChanges => 'Nicht committete Änderungen prüfen';
@@ -6931,10 +6618,6 @@ class AppL10nDe extends AppL10n {
   String get runs => 'Läufe';
 
   @override
-  String get runsCommandsBrowsesTheWebAnd =>
-      'Führt Befehle aus, durchsucht das Web und bearbeitet Dateien auf einem echten Linux-';
-
-  @override
   String get runsEveryDayAtTheSelected =>
       'Läuft jeden Tag zur gewählten Uhrzeit.';
 
@@ -7030,9 +6713,6 @@ class AppL10nDe extends AppL10n {
   String get saveAccount => 'Konto speichern';
 
   @override
-  String get saveBillingSetup => 'Abrechnungseinrichtung speichern';
-
-  @override
   String get saveChanges => 'Änderungen speichern';
 
   @override
@@ -7068,19 +6748,11 @@ class AppL10nDe extends AppL10n {
   String get saveOnly => 'Nur speichern';
 
   @override
-  String get savePlan => 'Tarif speichern';
-
-  @override
   String get saveSetup => 'Einrichtung speichern';
 
   @override
   String get saveTheseRecoveryCodesNowThey =>
       'Speichern Sie diese Wiederherstellungscodes jetzt. Sie werden nicht erneut angezeigt.';
-
-  @override
-  String saveUpToArg1Yearly(Object? arg1) {
-    return 'Bis zu $arg1 % jährlich sparen';
-  }
 
   @override
   String get savedDeliveryDestination => 'Gespeichertes Zustellziel';
@@ -7152,8 +6824,8 @@ class AppL10nDe extends AppL10n {
   String get search2 => 'Suchen…';
 
   @override
-  String get searchAdminSettingsEGStripe =>
-      'Admin-Einstellungen suchen (z. B. Stripe, SMTP, Ollama, Logs)';
+  String get searchAdminSettingsEGSmtp =>
+      'Admin-Einstellungen suchen (z. B. SMTP, Ollama, Logs)';
 
   @override
   String get searchAgain => 'Erneut suchen';
@@ -7175,9 +6847,6 @@ class AppL10nDe extends AppL10n {
   String get searchMemory => 'Gedächtnis durchsuchen';
 
   @override
-  String get searchModels => 'Modelle suchen';
-
-  @override
   String get searchModelsOrProviders => 'Modelle oder Anbieter suchen';
 
   @override
@@ -7192,10 +6861,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get searchSettings => 'Einstellungen suchen';
-
-  @override
-  String get searchTheWebForTodayS =>
-      'Suche im Web nach den wichtigsten heutigen Nachrichten zu den Themen, die mich ';
 
   @override
   String get searchTitleModelTriggerRunId =>
@@ -7217,9 +6882,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get secretField => 'Geheimfeld';
-
-  @override
-  String get secretKey => 'Geheimschlüssel';
 
   @override
   String get secureCookies => 'Sichere Cookies';
@@ -7297,10 +6959,6 @@ class AppL10nDe extends AppL10n {
       'Senden Sie eine Aufgabe aus dem Chat – der Ausführungsverlauf erscheint hier.';
 
   @override
-  String get sendItAsAShortScannable =>
-      'Sende es als kurze, gut überblickbare Nachricht.';
-
-  @override
   String get sendItToATeammateWith =>
       'senden Sie ihn an ein Teammitglied mit einem Konto auf diesem Server.';
 
@@ -7358,9 +7016,6 @@ class AppL10nDe extends AppL10n {
   String get serverProviderCredentials => 'Server-Anbieter-Zugangsdaten';
 
   @override
-  String get serverToStopIt => 'Server neu, um sie zu beenden.';
-
-  @override
   String get serverUrl => 'Server-URL';
 
   @override
@@ -7383,10 +7038,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get sessionActions => 'Sitzungsaktionen';
-
-  @override
-  String get sessionToThisDeviceWhenYou =>
-      'Sitzung auf Dieses Gerät um, wenn lokal gearbeitet werden soll.';
 
   @override
   String get sessions => 'Sitzungen';
@@ -7416,10 +7067,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get setUpOrConnectNeoagent => 'NeoAgent einrichten oder verbinden';
-
-  @override
-  String get setUpYourWorkspaceInA =>
-      'Richten Sie Ihren Workspace in wenigen Schritten ein und nutzen Sie NeoAgent sofort.';
 
   @override
   String get setUrl => 'URL festlegen';
@@ -7521,6 +7168,39 @@ class AppL10nDe extends AppL10n {
   }
 
   @override
+  String approveNeoagentInYourArg1Account(Object? arg1) {
+    return 'Erlauben Sie NeoAgent den Zugriff in Ihrem $arg1-Konto. Kein Schlüssel zum Kopieren.';
+  }
+
+  @override
+  String waitingForArg1FinishInYourBrowser(Object? arg1) {
+    return 'Warte auf $arg1. Schließen Sie den Vorgang im Browser ab.';
+  }
+
+  @override
+  String pasteTheArg1Code(Object? arg1) {
+    return '$arg1-Code einfügen';
+  }
+
+  @override
+  String arg1ShowedAOneTimeCode(Object? arg1) {
+    return 'Nach Ihrer Freigabe hat $arg1 einen Einmalcode angezeigt. Fügen Sie ihn hier ein.';
+  }
+
+  @override
+  String get signInCode => 'Anmeldecode';
+
+  @override
+  String signedInWithArg1(Object? arg1) {
+    return 'Mit $arg1 angemeldet.';
+  }
+
+  @override
+  String signInFailedArg1(Object? arg1) {
+    return 'Anmeldung fehlgeschlagen: $arg1';
+  }
+
+  @override
   String get signInWithTheSameEmail =>
       'Melden Sie sich mit derselben E-Mail-Adresse und demselben Master-Passwort an, die Sie in Bitwarden verwenden. Master-Passwort und Zwei-Schritt-Code werden nur zur Anmeldung verwendet und nie gespeichert oder an die KI gesendet.';
 
@@ -7597,19 +7277,12 @@ class AppL10nDe extends AppL10n {
       'Diese Aufgabe überspringen, bevor sie das Modell aufruft.';
 
   @override
-  String get skipsStripeCheckout => 'überspringt den Stripe-Checkout.';
-
-  @override
   String get slackMessageReceived => 'Slack-Nachricht empfangen';
 
   @override
   String sleepArg1Sessions(Object? arg1) {
     return 'Schlaf $arg1 Sitzungen';
   }
-
-  @override
-  String get smallestCurrencyUnit1900Is19 =>
-      'Kleinste Währungseinheit: 1900 entspricht 19,00.';
 
   @override
   String get smartSelector => 'Smart Selector';
@@ -7675,13 +7348,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get somethingWentWrongPleaseTryAgain =>
       'Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.';
-
-  @override
-  String get sortOrder => 'Sortierreihenfolge';
-
-  @override
-  String get sortOrderMustBeAWhole =>
-      'Die Sortierreihenfolge muss eine ganze Zahl sein.';
 
   @override
   String get source => 'Quelle';
@@ -7849,11 +7515,6 @@ class AppL10nDe extends AppL10n {
   String get storage => 'Speicher';
 
   @override
-  String storedArg1(Object? arg1) {
-    return 'Gespeichert: $arg1';
-  }
-
-  @override
   String get storedEncryptedAndOnlyUsedFor =>
       'verschlüsselt gespeichert und nur für Ihre eigenen Läufe verwendet.';
 
@@ -7863,19 +7524,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get storesOnlyTheBitwardenSessionKey =>
       'Speichert nur den Bitwarden-Sitzungsschlüssel verschlüsselt auf diesem Server, damit Verbindungen Neustarts überstehen. Sie können ihn jederzeit sperren.';
-
-  @override
-  String get stripeBilling => 'Stripe-Abrechnung';
-
-  @override
-  String get stripeKeysForPaidPlansPoint =>
-      'Stripe-Schlüssel für kostenpflichtige Tarife. Richten Sie einen Stripe-Webhook auf ';
-
-  @override
-  String get stripePriceId => 'Stripe-Preis-ID';
-
-  @override
-  String get stripeSetup => 'Stripe-Einrichtung';
 
   @override
   String get strong => 'Stark';
@@ -7893,24 +7541,7 @@ class AppL10nDe extends AppL10n {
   String get subagentUpdate2 => 'Subagent-Update.';
 
   @override
-  String get subscription => 'Abonnement';
-
-  @override
-  String get subscriptionBillingOverrideComp =>
-      'abo abrechnung überschreibung gratis';
-
-  @override
-  String get subscriptionCanceled => 'Abonnement gekündigt.';
-
-  @override
-  String get subscriptions => 'Abonnements';
-
-  @override
   String get successRate => 'Erfolgsrate';
-
-  @override
-  String get suggestTheThreeMostImportantThings =>
-      'Schlage die drei wichtigsten Dinge vor, auf die ich mich nächste Woche konzentrieren sollte.';
 
   @override
   String suggestionsArg1(Object? arg1) {
@@ -7954,10 +7585,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get tasks => 'Aufgaben';
-
-  @override
-  String get tasksRunOnAScheduleOr =>
-      'Aufgaben laufen nach Zeitplan oder bei Ereignissen und ';
 
   @override
   String get tasksRunOnTheirOwnAnd =>
@@ -8064,10 +7691,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get theBrowserBlockedARequiredRequest =>
       'Der Browser hat eine erforderliche Anfrage wegen der Content Security Policy blockiert.';
-
-  @override
-  String get theCloudComputerIsSandboxedFrom =>
-      'Der Cloud-Computer ist von Ihren Geräten abgeschirmt. Stellen Sie eine ';
 
   @override
   String get theCloudWorkspace => 'den Cloud-Arbeitsbereich';
@@ -8179,10 +7802,6 @@ class AppL10nDe extends AppL10n {
       'Der eingehende Mattermost-Webhook, an den dieser Agent posten soll.';
 
   @override
-  String get theModelListCouldNotBe =>
-      'Die Modellliste konnte nicht geladen werden. Geben Sie Modell-IDs durch ';
-
-  @override
   String get theModelsTheSmartSelectorRoutes =>
       'Die Modelle, zwischen denen der Smart Selector automatisch routet.';
 
@@ -8253,10 +7872,6 @@ class AppL10nDe extends AppL10n {
       'Die Personen, die Sie verwalten, bleiben bei Ihnen.';
 
   @override
-  String get thePlanStopsBeingOfferedIt =>
-      'Der Tarif wird nicht mehr angeboten. Er bleibt erhalten, wird nicht gelöscht, und ';
-
-  @override
   String get theProviderAnswers => 'der Anbieter antwortet.';
 
   @override
@@ -8305,10 +7920,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get theSignalPhoneNumberThisBot =>
       'Die Signal-Telefonnummer, die dieser Bot verwendet.';
-
-  @override
-  String get theSubscriptionPlansPeopleCanChoose =>
-      'Die Abonnementtarife, aus denen Personen wählen können.';
 
   @override
   String get theTeamsIncomingWebhookThisAgent =>
@@ -8374,9 +7985,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get theseSwitchesNeverYourChatsMemories =>
       'diese Schalter, nie Ihre Chats, Erinnerungen oder Dateien.';
-
-  @override
-  String get thisAccountIsIgnored => 'diesem Konto werden ignoriert.';
 
   @override
   String get thisAccountWillUnlockNeoagentOn =>
@@ -8522,10 +8130,6 @@ class AppL10nDe extends AppL10n {
   String get thisServer => 'diesen Server erreichen.';
 
   @override
-  String get thisServerIsAlreadySetUp =>
-      'Dieser Server ist bereits eingerichtet. Melden Sie sich mit einem bestehenden Konto an.';
-
-  @override
   String get thisServerReportsNoProviderSettings =>
       'Dieser Server meldet keine Anbietereinstellungen.';
 
@@ -8558,10 +8162,6 @@ class AppL10nDe extends AppL10n {
   String thisWillRemoveArg1FromThe(Object? arg1) {
     return 'Dadurch wird „$arg1“ aus der Serverliste entfernt.';
   }
-
-  @override
-  String get tickTheModelsThisPlanMay =>
-      'Haken Sie die Modelle an, die dieser Tarif nutzen darf. Alle unangehakt lassen, um ';
 
   @override
   String get time => 'Zeit';
@@ -8621,10 +8221,6 @@ class AppL10nDe extends AppL10n {
       'token budget limit 4 stunde wöchentlich kontingent global';
 
   @override
-  String get tokenLimitsMustBeWholeNumbers =>
-      'Token-Limits müssen ganze Zahlen sein oder leer für den Standard.';
-
-  @override
   String get tokenUsageUnavailableOnThisServer =>
       'Token-Nutzung auf dieser Serverversion nicht verfügbar.';
 
@@ -8647,10 +8243,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get tokensUsed => ' Tokens verbraucht';
-
-  @override
-  String get tomorrowKeepItShortAndSend =>
-      'morgen nachverfolgen sollte. Halte es kurz und sende es mir.';
 
   @override
   String get tomorrowPrep => 'Vorbereitung für morgen';
@@ -8907,9 +8499,6 @@ class AppL10nDe extends AppL10n {
   String get unknownLocation => 'Unbekannter Standort';
 
   @override
-  String get unknownPlan => 'Unbekannter Tarif';
-
-  @override
   String get unknownPublishTime => 'Unbekannter Veröffentlichungszeitpunkt';
 
   @override
@@ -8936,9 +8525,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get unusualSignInAlerts => 'Hinweise zu ungewöhnlichen Anmeldungen';
-
-  @override
-  String get update => 'Aktualisieren';
 
   @override
   String updateArg1(Object? arg1) {
@@ -9014,9 +8600,6 @@ class AppL10nDe extends AppL10n {
   String get usageLimits2 => 'Nutzung & Limits';
 
   @override
-  String get usageThisPeriod => 'Nutzung in dieser Periode';
-
-  @override
   String get use8CharactersLongerPassphrasesWork =>
       'Verwenden Sie mindestens 8 Zeichen. Längere Passphrasen eignen sich gut.';
 
@@ -9053,6 +8636,22 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get useAtLeast1Vcpu => 'Mindestens 1 vCPU verwenden.';
+
+  @override
+  String get maxMemoryPerComputerMb => 'Max. Arbeitsspeicher pro Computer (MB)';
+
+  @override
+  String get maxVcpusPerComputer => 'Max. vCPUs pro Computer';
+
+  @override
+  String atLeastArg1ComputersGetLess(Object? arg1) {
+    return 'Mindestens $arg1. Computer bekommen weniger, wenn der Host ausgelastet ist.';
+  }
+
+  @override
+  String maxMemoryMustBeAtLeastArg1Mb(Object? arg1) {
+    return 'Der maximale Arbeitsspeicher muss mindestens $arg1 MB betragen.';
+  }
 
   @override
   String get useAtLeast8Characters => 'Verwenden Sie mindestens 8 Zeichen.';
@@ -9210,9 +8809,6 @@ class AppL10nDe extends AppL10n {
   String get viewLogs => 'Protokolle anzeigen';
 
   @override
-  String get viewPlans => 'Tarife anzeigen';
-
-  @override
   String get vmImageMemoryCpuQemuRuntime =>
       'vm image speicher cpu qemu laufzeit';
 
@@ -9280,9 +8876,6 @@ class AppL10nDe extends AppL10n {
   }
 
   @override
-  String get watchItLive => 'Live zusehen';
-
-  @override
   String get weak => 'Schwach';
 
   @override
@@ -9306,9 +8899,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get webhookSecret => 'Webhook-Geheimnis';
-
-  @override
-  String get webhookSigningSecret => 'Webhook-Signiergeheimnis';
 
   @override
   String get webhookUrlCopied => 'Webhook-URL kopiert';
@@ -9335,12 +8925,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get weeklyReview => 'Wochenrückblick';
-
-  @override
-  String get weeklyTokenLimit => 'Wöchentliches Token-Limit';
-
-  @override
-  String get weeklyTokens => 'Wöchentliche Tokens';
 
   @override
   String get weeklyUsage => 'Wöchentliche Nutzung';
@@ -9397,9 +8981,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get whereThisAgentShouldSendReplies =>
       'Wohin dieser Agent Antworten senden soll.';
-
-  @override
-  String get whileItWorks => 'während der Arbeit zu sehen.';
 
   @override
   String get whoCanMessage => 'Wer darf schreiben';
@@ -9470,9 +9051,6 @@ class AppL10nDe extends AppL10n {
   }
 
   @override
-  String get worksLikeYouWould => 'Arbeitet, wie Sie es würden';
-
-  @override
   String get workspaceConfigurationAndAccountSecurityIn =>
       'Arbeitsbereichskonfiguration und Kontosicherheit an einem Ort.';
 
@@ -9497,9 +9075,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get xmlhttprequestError => 'XMLHttpRequest-Fehler';
-
-  @override
-  String get yearly => 'Jährlich';
 
   @override
   String get yesterday => 'Gestern';
@@ -9606,10 +9181,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get yourSessionExpiredPleaseSignIn =>
       'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.';
-
-  @override
-  String get yourSubscriptionWillRemainActiveUntil =>
-      'Ihr Abonnement bleibt bis zum Ende der Abrechnungsperiode aktiv.';
 
   @override
   String get yourUsernameOrPasswordIsIncorrect =>
@@ -9832,16 +9403,6 @@ class AppL10nDe extends AppL10n {
       'Dadurch wird die Adresse für jedes Konto auf diesem Server entfernt.';
 
   @override
-  String get allModels => 'Alle Modelle';
-
-  @override
-  String get optionalAndPermanentBlankGeneratesOne =>
-      'Optional und dauerhaft. Leer erzeugt einen.';
-
-  @override
-  String get noSubscriptionsYet => 'Noch keine Abonnements.';
-
-  @override
   String get justTalkYouCanInterruptAtAny =>
       'Sprechen Sie einfach. Sie können jederzeit unterbrechen. Tippen Sie zum Stummschalten.';
 
@@ -9882,9 +9443,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get theOperator => 'Die Bedienperson';
-
-  @override
-  String get getStarted => 'Loslegen';
 
   @override
   String get smartSelectorOn => 'Smart Selector an';
@@ -9957,9 +9515,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get hostedProvider => 'gehosteten Anbieter.';
-
-  @override
-  String get serverToStartIt => 'Server neu, um sie zu starten.';
 
   @override
   String get muted => ' • stumm';
@@ -10301,21 +9856,6 @@ class AppL10nDe extends AppL10n {
   }
 
   @override
-  String trialEndsArg1(Object? arg1) {
-    return 'Testphase endet $arg1';
-  }
-
-  @override
-  String cancelsAtEndOfPeriodArg1(Object? arg1) {
-    return 'Endet zum Periodenende · $arg1';
-  }
-
-  @override
-  String renewsArg1(Object? arg1) {
-    return 'Verlängert sich $arg1';
-  }
-
-  @override
   String addThePeopleAndGroupsArg1Should(Object? arg1) {
     return 'Fügen Sie die Personen und Gruppen hinzu, mit denen $arg1 sprechen soll';
   }
@@ -10473,11 +10013,6 @@ class AppL10nDe extends AppL10n {
   @override
   String artifactBoundedArg1BytesTotal(Object? arg1) {
     return '\n...[Artefakt begrenzt, insgesamt $arg1 Bytes]...\n';
-  }
-
-  @override
-  String userArg1(Object? arg1) {
-    return 'Benutzer #$arg1';
   }
 
   @override
@@ -10641,7 +10176,7 @@ class AppL10nDe extends AppL10n {
   String get settingsPageSecurity => 'Anmeldung & Sicherheit';
 
   @override
-  String get settingsPageUsage => 'Tarif & Nutzung';
+  String get settingsPageUsage => 'Nutzung';
 
   @override
   String get settingsPagePermissions => 'Berechtigungen';
@@ -10665,7 +10200,7 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get settingsPageUsageDescription =>
-      'Ihre Limits, Ihr Token-Verbrauch und Ihr Tarif an einem Ort.';
+      'Ihre Limits und Ihr Token-Verbrauch an einem Ort.';
 
   @override
   String get settingsPageAgentsDescription =>
@@ -10899,9 +10434,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get settingsTokenUsage => 'Token-Verbrauch';
-
-  @override
-  String get settingsAvailablePlans => 'Verfügbare Tarife';
 
   @override
   String settingsSearchNoMatch(String query) {
@@ -11526,4 +11058,139 @@ class AppL10nDe extends AppL10n {
   String skillsShInstallsArg1(Object? arg1) {
     return '$arg1 Installationen';
   }
+
+  @override
+  String get authVerify => 'Bestätigen';
+
+  @override
+  String get authCreateAccount => 'Konto erstellen';
+
+  @override
+  String get authNewInviteLink => 'Neuer Einladungslink';
+
+  @override
+  String get authShowPassword => 'Passwort anzeigen';
+
+  @override
+  String get authHidePassword => 'Passwort verbergen';
+
+  @override
+  String get authPasswordWillBeRejected => 'zu schwach, wird abgelehnt';
+
+  @override
+  String get authUsernameTooShort =>
+      'Der Benutzername muss mindestens 3 Zeichen lang sein.';
+
+  @override
+  String get authUsernameTaken => 'Dieser Benutzername ist bereits vergeben.';
+
+  @override
+  String get authSignupsClosed =>
+      'Auf diesem Server sind keine Registrierungen möglich. Bitten Sie den Administrator um ein Konto.';
+
+  @override
+  String authInsecureTransportArg1(Object? arg1) {
+    return 'Dieser Server akzeptiert Anmeldungen nur über HTTPS. Öffnen Sie stattdessen $arg1.';
+  }
+
+  @override
+  String get authInsecureTransport =>
+      'Dieser Server akzeptiert Anmeldungen nur über HTTPS. Verbinden Sie sich über eine https://-Adresse.';
+
+  @override
+  String get authAccountNotFound => 'Dieses Konto existiert nicht mehr.';
+
+  @override
+  String get authQrRateLimited =>
+      'Zu viele QR-Anmeldeanfragen. Warten Sie einen Moment und aktualisieren Sie dann den Code.';
+
+  @override
+  String get authForgotPasswordAskAdmin =>
+      'Passwort vergessen? Bitten Sie Ihren Server-Administrator, es unter Admin → Users zurückzusetzen.';
+
+  @override
+  String get authChangeServer => 'Server wechseln';
+
+  @override
+  String authSigningInToArg1(Object? arg1) {
+    return 'Anmeldung bei $arg1';
+  }
+
+  @override
+  String get authNotANeoagentServer =>
+      'Unter dieser Adresse antwortet kein NeoAgent-Server. Prüfen Sie die URL und versuchen Sie es erneut.';
+
+  @override
+  String authSecureConnectionFailedArg1(Object? arg1) {
+    return 'Es konnte keine sichere HTTPS-Verbindung zu $arg1 hergestellt werden.';
+  }
+
+  @override
+  String authNoHttpsOrHttpArg1(Object? arg1) {
+    return '$arg1 ist weder über HTTPS noch über unverschlüsseltes HTTP erreichbar. Prüfen Sie Adresse und Port.';
+  }
+
+  @override
+  String get adminResetPassword => 'Passwort zurücksetzen';
+
+  @override
+  String adminResetPasswordForArg1(Object? arg1) {
+    return 'Passwort für $arg1 zurücksetzen';
+  }
+
+  @override
+  String adminResetPasswordBodyArg1(Object? arg1) {
+    return 'Legen Sie ein neues Passwort für $arg1 fest. Das Konto wird auf allen Geräten abgemeldet und meldet sich danach mit diesem Passwort an.';
+  }
+
+  @override
+  String get adminNewPassword => 'Neues Passwort';
+
+  @override
+  String get adminSetPassword => 'Passwort festlegen';
+
+  @override
+  String get authMissingFields => 'Füllen Sie alle Pflichtfelder aus.';
+
+  @override
+  String adminAuditPasswordResetArg1Arg2(Object? arg1, Object? arg2) {
+    return '$arg1 hat das Passwort von $arg2 zurückgesetzt';
+  }
+
+  @override
+  String get adminPasswordUpdated =>
+      'Passwort aktualisiert; der Benutzer wurde überall abgemeldet.';
+
+  @override
+  String get authSignInTitle => 'Bei NeoAgent anmelden';
+
+  @override
+  String get authSignInSubtitle =>
+      'Scannen Sie mit Ihrem Handy oder verwenden Sie Ihr Passwort.';
+
+  @override
+  String get authOrUsePassword => 'oder mit Passwort';
+
+  @override
+  String get qrLoginWaitingTitle => 'Auf dem Handy bestätigen';
+
+  @override
+  String get qrLoginWaitingBody =>
+      'Ihr Handy hat den Code gescannt. Bestätigen Sie die Anmeldung dort, um fortzufahren.';
+
+  @override
+  String get qrLoginSigningInOn => 'Anmeldung auf';
+
+  @override
+  String get qrLoginLocation => 'Standort';
+
+  @override
+  String get qrLoginWaitingForApproval => 'Warte auf Bestätigung';
+
+  @override
+  String get qrLoginCancelAndUsePassword => 'Abbrechen und Passwort verwenden';
+
+  @override
+  String get qrLoginDeclinedOnPhone =>
+      'Die Anmeldung wurde auf dem Handy abgelehnt. Scannen Sie den neuen Code, um es erneut zu versuchen.';
 }

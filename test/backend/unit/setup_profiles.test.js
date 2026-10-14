@@ -11,6 +11,7 @@ const {
   clearSetupState,
   createInstallPlan,
   findAvailablePort,
+  isPortAvailable,
   normalizeSetupProfile,
   parseSetupArguments,
   readSetupState,
@@ -87,6 +88,17 @@ test('findAvailablePort skips a listener and install plan records the result', a
   assert.equal(plan.installOptionalCapabilities, false);
   assert.equal(plan.runtimePackage, true);
 });
+
+for (const host of ['::', '0.0.0.0']) {
+  test(`isPortAvailable reports a port held on ${host} as busy`, async (t) => {
+    const listener = net.createServer();
+    await new Promise((resolve) => listener.listen({ port: 0, host }, resolve));
+    t.after(() => listener.close());
+    const busyPort = listener.address().port;
+    assert.equal(await isPortAvailable(busyPort), false);
+    assert.notEqual(await findAvailablePort(busyPort, { attempts: 20 }), busyPort);
+  });
+}
 
 test('JSON setup events expose a stable machine-readable contract', () => {
   let output = '';

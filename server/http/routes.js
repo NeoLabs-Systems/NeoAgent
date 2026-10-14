@@ -14,6 +14,7 @@ const routeRegistry = [
   { basePath: '/api/delegation', modulePath: '../routes/delegation' },
   { basePath: '/api/admin', modulePath: '../routes/admin' },
   { basePath: '/api/settings', modulePath: '../routes/settings' },
+  { basePath: '/api/provider-sign-in', modulePath: '../routes/provider_sign_in' },
   { basePath: '/api/behavior', modulePath: '../routes/behavior' },
   { basePath: '/api/agent-profiles', modulePath: '../routes/agent_profiles' },
   { basePath: '/api/agents', modulePath: '../routes/agents' },
@@ -45,22 +46,6 @@ function registerApiRoutes(app) {
     } else {
       app.use(handler);
     }
-  }
-
-  // Billing routes are mounted conditionally — only when billing is enabled.
-  // The webhook must be mounted before express.json() consumes the raw body;
-  // billing_webhook.js applies express.raw() inline for its own route.
-  const { isBillingEnabled } = require('../services/billing/config');
-  if (isBillingEnabled()) {
-    app.use('/api/billing/webhook', require('../routes/billing_webhook'));
-    app.use('/api/billing', require('../routes/billing'));
-  } else {
-    // The Flutter client probes this public endpoint to decide whether to show
-    // billing. Return an explicit disabled state instead of generating a noisy
-    // 404 on every client startup.
-    app.get('/api/billing/plans', (_req, res) => {
-      res.json({ enabled: false, plans: null });
-    });
   }
 
   app.get('/api/health', (req, res) => {

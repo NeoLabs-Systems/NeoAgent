@@ -5,6 +5,7 @@ const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 const { listRunEvents } = require('../services/ai/runEvents');
+const { storeWebRunReply } = require('../services/ai/history');
 const { listRunPromptTurns, getRunPromptTurn } = require('../services/ai/runtime/prompt_inspector');
 const { isInterimAssistantMetadata } = require('../services/ai/interim');
 const { buildAgentRunContext } = require('./_helpers/agentRunContext');
@@ -299,17 +300,7 @@ router.post('/', async (req, res) => {
       priorSummary,
     });
 
-    if (result?.status === 'completed' && result?.content) {
-      db.prepare('INSERT INTO conversation_history (user_id, agent_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?, ?)')
-        .run(
-          req.session.userId,
-          agentId,
-          result.runId,
-          'assistant',
-          result.content,
-          JSON.stringify({ tokens: result.totalTokens, platform: 'flutter' })
-        );
-    }
+    storeWebRunReply({ userId: req.session.userId, agentId, result, platform: 'flutter' });
 
     res.json(result);
   } catch (err) {

@@ -7,14 +7,13 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { sendJsonError } = require('../http/errors');
-const { isBillingEnabled } = require('../services/billing/config');
 const { getSupportedModels } = require('../services/ai/models');
 const { getSystemOneModels } = require('../services/ai/system_one');
 const { reconcileModelVisibility, setDisabledModelIds } = require('../services/ai/model_visibility');
 const { getAdminEmailSettings, updateAdminEmailSettings } = require('../services/account/service_email_settings');
 const { getServerVersion, runHealthChecks } = require('../services/admin/health');
 const { getAnalytics } = require('../services/admin/analytics');
-const { listUsers, deleteUser, revokeUserSessions } = require('../services/admin/users');
+const { listUsers, deleteUser, revokeUserSessions, resetUserPassword } = require('../services/admin/users');
 const {
   getUserRateLimits,
   setUserRateLimits,
@@ -28,8 +27,6 @@ const {
   updateGeneralSettings,
   getVmSettings,
   updateVmSettings,
-  getBillingSetup,
-  updateBillingSetup,
   getAccessSettings,
   setSignupEnabled,
 } = require('../services/admin/server_config');
@@ -76,6 +73,12 @@ router.delete('/users/:id', jsonHandler((req) => deleteUser(userIdParam(req.para
 })));
 
 router.delete('/users/:id/sessions', jsonHandler((req) => revokeUserSessions(userIdParam(req.params.id))));
+
+router.post('/users/:id/password', settingsLimiter, jsonHandler((req) => resetUserPassword(
+  userIdParam(req.params.id),
+  req.body?.password,
+  { actorUserId: req.session.userId },
+)));
 
 router.get('/users/:id/rate-limits', jsonHandler((req) => getUserRateLimits(userIdParam(req.params.id))));
 
@@ -141,63 +144,8 @@ router.get('/config/integrations', jsonHandler(() => getIntegrationSettings()));
 
 router.put('/config/integrations', settingsLimiter, jsonHandler((req) => updateIntegrationSettings(req.body)));
 
-router.get('/config/billing-setup', jsonHandler(() => getBillingSetup()));
-
-router.put('/config/billing-setup', settingsLimiter, jsonHandler((req) => updateBillingSetup(req.body)));
-
 router.get('/config/email', jsonHandler(() => getAdminEmailSettings()));
 
 router.put('/config/email', settingsLimiter, jsonHandler((req) => ({ ok: true, ...updateAdminEmailSettings(req.body) })));
-
-// --- Billing (only when billing is enabled) ---
-
-if (isBillingEnabled()) {
-  const billingPlans = require('../services/billing/plans');
-  const billingSubscriptions = require('../services/billing/subscriptions');
-  const { listSubscriptions } = require('../services/admin/billing');
-
-  router.get('/billing/plans', jsonHandler(() => ({ plans: billingPlans.listPlans({ includeInactive: true }) })));
-
-  router.post('/billing/plans', (req, res) => {
-    try {
-      res.status(201).json({ plan: billingPlans.createPlan(req.body) });
-    } catch (err) {
-      res.status(400).json({ error: err.message });
-    }
-  });
-
-  router.put('/billing/plans/:id', (req, res) => {
-    try {
-      const plan = billingPlans.updatePlan(req.params.id, req.body);
-      if (!plan) return res.status(404).json({ error: 'Plan not found.' });
-      res.json({ plan });
-    } catch (err) {
-      res.status(400).json({ error: err.message });
-    }
-  });
-
-  router.delete('/billing/plans/:id', jsonHandler((req) => {
-    billingPlans.deletePlan(req.params.id);
-    return { ok: true };
-  }));
-
-  router.get('/billing/subscriptions', jsonHandler((req) => listSubscriptions(req.query)));
-
-  router.get('/billing/users/:id/subscription', jsonHandler((req) => ({
-    subscription: billingSubscriptions.getActiveSubscription(userIdParam(req.params.id)),
-  })));
-
-  router.post('/billing/users/:id/subscription', jsonHandler((req) => {
-    const userId = userIdParam(req.params.id);
-    const { planId, status } = req.body || {};
-    if (!planId) throw httpError(400, 'planId is required.');
-    return { subscription: billingSubscriptions.adminSetSubscription(userId, planId, status) };
-  }));
-
-  router.delete('/billing/users/:id/subscription', jsonHandler((req) => {
-    billingSubscriptions.adminCancelSubscription(userIdParam(req.params.id));
-    return { ok: true };
-  }));
-}
 
 module.exports = router;

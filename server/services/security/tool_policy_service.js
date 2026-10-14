@@ -3,7 +3,7 @@
 const db = require('../../db/database');
 const { SAFE_TOOLS, DEFAULT_POLICY, getCategoryForTool } = require('./tool_categories');
 
-const VALID_POLICIES = new Set(['allow', 'allow_always', 'deny', 'require_approval']);
+const VALID_POLICIES = new Set(['allow', 'deny', 'require_approval']);
 const VALID_CATEGORIES = new Set(Object.keys(DEFAULT_POLICY));
 const VALID_MODES = new Set(['default', 'allow_all', 'always_ask']);
 const SECURITY_MODE_SETTING_KEY = 'tool_security_mode';
@@ -55,7 +55,7 @@ class ToolPolicyService {
    * Fast path: SAFE_TOOLS bypass everything.
    * Otherwise: DB row → DEFAULT_POLICY fallback.
    *
-   * @returns {'allow'|'allow_always'|'deny'|'require_approval'}
+   * @returns {'allow'|'deny'|'require_approval'}
    */
   getPolicy(userId, toolName, toolArgs = {}) {
     if (SAFE_TOOLS.has(toolName)) return 'allow';
@@ -78,7 +78,7 @@ class ToolPolicyService {
       throw new Error(`Unknown tool category: ${category}`);
     }
     if (!VALID_POLICIES.has(policy)) {
-      throw new Error(`Invalid policy value: ${policy}. Must be allow, allow_always, deny, or require_approval`);
+      throw new Error(`Invalid policy value: ${policy}. Must be allow, deny, or require_approval`);
     }
     db.prepare(`
       INSERT INTO tool_policies (user_id, category, policy, updated_at)

@@ -2,68 +2,59 @@
 slug: /
 title: NeoAgent documentation
 sidebar_label: Overview
-description: Self-hosted AI agent that runs continuously on your own server — install it, connect it, and let it work.
+description: The personal AI agent you host yourself. Install it, connect a model, put it to work.
 ---
 
 # NeoAgent documentation
 
-*Everything you need to install, operate, and extend a self-hosted NeoAgent service.*
-
-NeoAgent is a self-hosted AI agent that runs continuously on a macOS or Linux
-server. It provides an operator interface for chat, automation, integrations,
-memory, and connected devices.
+**NeoAgent is a personal AI agent you host yourself.**
 
 :::warning Beta software
-Install it on a machine you administer, start with restricted tool permissions,
-and read the [security guide](security-boundaries.md) before connecting
-sensitive accounts.
+Run it on a machine you administer, start with restricted tool permissions, and read [Security and permissions](security-boundaries.md) before connecting sensitive accounts.
 :::
 
 ## 🚀 Start here
 
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/install.sh)
-```
-
-On a new machine, the bare command detects that NeoAgent is not installed, runs
-the installer, and guides you through AI provider API keys. It starts the
-service and prints any host-specific action items. Open
-`http://localhost:3333` when it finishes.
-
-Continue with:
-
-- [Install and complete the first run](getting-started.md)
-- [Choose and configure a model](models.md)
-- [Understand the security boundaries](security-boundaries.md)
-- [Migrate from OpenClaw or Hermes](migration.md)
+| Step | Guide |
+| --- | --- |
+| **1. Install** | [Desktop app, Docker or script](getting-started.md) |
+| **2. Connect a model** | [Models](models.md), or **Sign in with OpenRouter** during onboarding |
+| **3. Set limits** | [Security and permissions](security-boundaries.md) |
+| **4. Bring your setup** | [Migrate from OpenClaw or Hermes](migration.md) |
 
 ## 🧭 User guide
 
-| Guide | Use it for |
+| Guide | Covers |
 | --- | --- |
-| [Installation](getting-started.md) | Host requirements, installation, first run |
-| [Models](models.md) | Local, API-key, and account-backed model providers |
-| [Agents and users](agents-and-users.md) | Specialist agents and multi-user administration |
-| [Automation](automation.md) | Schedules, event triggers, delivery, and run history |
-| [Memory](memory.md) | What NeoAgent remembers and how to manage it |
-| [Integrations](integrations.md) | Connected app accounts and messaging channels |
-| [Devices and interfaces](devices.md) | Android, desktop, Chrome, launcher, and wearable surfaces |
+| [Installation](getting-started.md) | Install options, first run, onboarding |
+| [Docker](docker.md) | Compose setup, data volume, cloud computer backends |
+| [Models](models.md) | Providers, your own keys, local models, Auto routing |
+| [Agents and users](agents-and-users.md) | Specialist agents, accounts, admin |
+| [Automation](automation.md) | Schedules, event triggers, delivery |
+| [Memory](memory.md) | What it remembers and how to edit it |
+| [Integrations](integrations.md) | App accounts and messaging channels |
+| [Devices](devices.md) | Cloud computer, desktop, Android, wearable |
 | [Health](health.md) | Health Connect |
-| [Skills and MCP](skills.md) | Reusable instructions and external tool servers |
-| [Operations](operations.md) | Updates, backups, logs, and recovery |
-| [Billing](billing.md) | Stripe subscriptions, plans, trials, and webhooks |
-| [Configuration](configuration.md) | Environment and runtime reference |
-| [Why NeoAgent](why-neoagent.md) | Factual comparison with OpenClaw and Hermes |
+| [Skills and MCP](skills.md) | Skills, Teach Mode, MCP servers |
+| [Security and permissions](security-boundaries.md) | Tool permissions, credentials, isolation |
+| [Operations](operations.md) | Updates, backups, logs, recovery |
+| [Configuration](configuration.md) | Environment variable reference |
+| [Why NeoAgent](why-neoagent.md) | Comparison with other agents |
 
 ## 🛠️ Developer guide
 
-The developer guide explains the implementation rather than the product setup.
-Start with [Architecture](architecture.md), then follow the subsystem links in
-the developer section of the sidebar.
+| Guide | Covers |
+| --- | --- |
+| [Architecture](architecture.md) | How the server, clients and services fit together |
+| [Agent run lifecycle](agent-run-lifecycle.md) | What happens from message to final reply |
+| [Memory architecture](memory-architecture.md) | Storage, retrieval, consolidation |
+| [Runtime and tools](runtime-and-tools.md) | Tool registry and the cloud computer |
+| [Automation architecture](automation-architecture.md) | Trigger adapters and task runs |
+| [Integrations architecture](integrations-architecture.md) | Providers, OAuth, connections |
+| [Clients and devices](clients-and-devices.md) | App, desktop, launcher, wearable |
+| [Persistence](persistence.md) | Database and data directories |
+| [Development](development.md) | Local setup, tests, release flow |
 
 :::info Contributing
-Contributors must also follow
-[GUIDELINES.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/GUIDELINES.md)
-and
-[CONTRIBUTING.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/CONTRIBUTING.md).
+Follow [GUIDELINES.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/GUIDELINES.md) and [CONTRIBUTING.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/CONTRIBUTING.md).
 :::

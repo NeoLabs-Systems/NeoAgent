@@ -79,6 +79,39 @@ test('runtime defaults drop the retired admin dashboard credentials', (t) => {
   assert.equal(repeatWarnings.length, 0);
 });
 
+test('runtime defaults drop settings nothing reads anymore', (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'neoagent-runtime-retired-'),
+  );
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const envFile = path.join(directory, '.env');
+  fs.writeFileSync(
+    envFile,
+    [
+      'PORT=3333',
+      'NEOAGENT_VM_MEMORY_MB=4096',
+      'NEOAGENT_VM_CPUS=2',
+      'NEOAGENT_BILLING_ENABLED=true',
+      'STRIPE_SECRET_KEY=sk_test_old',
+      '',
+    ].join('\n'),
+  );
+  const env = { NEOAGENT_VM_MEMORY_MB: '4096' };
+  const notes = [];
+
+  ensureSecureRuntimeEnv({
+    envFile,
+    env,
+    logger: { info: (message) => notes.push(message), warn() {} },
+  });
+
+  const contents = fs.readFileSync(envFile, 'utf8');
+  assert.doesNotMatch(contents, /NEOAGENT_VM_(MEMORY_MB|CPUS)=|BILLING|STRIPE/);
+  assert.match(contents, /^PORT=3333$/m);
+  assert.equal(env.NEOAGENT_VM_MEMORY_MB, undefined);
+  assert.ok(notes.some((message) => message.includes('no longer uses')));
+});
+
 test('legacy desktop config migrates without rotating persistent identity', (t) => {
   const directory = fs.mkdtempSync(
     path.join(os.tmpdir(), 'neoagent-desktop-config-'),

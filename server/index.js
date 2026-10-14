@@ -22,6 +22,9 @@ const express = require('express');
 const { createServer } = require('http');
 
 const db = require('./db/database');
+// Only the server owns run state: CLI commands open the same database while
+// it runs, so the sweep for runs a dead process left behind happens here.
+db.interruptStaleAgentRuns();
 const { applyEnvAdminGrants, needsAdminGrant } = require('./services/access/admin');
 const { setupConsoleInterceptor } = require('./utils/logger');
 const { validateOrigin } = require('./config/origins');
@@ -288,7 +291,7 @@ httpServer.on('error', (error) => {
 httpServer.listen(PORT, () => {
   const startupUrl = PUBLIC_URL || `http://localhost:${PORT}`;
   console.log(`NeoAgent running on ${startupUrl}`);
-  startServices(app, io).catch(async (err) => {
+  startServices(app, io, { resumeRuns: true }).catch(async (err) => {
     console.error('[Startup] Service initialization failed:', err);
     await shutdown(1);
   });

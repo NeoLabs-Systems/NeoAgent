@@ -4,6 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../src/theme/palette.dart';
 import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
+/// What a recommendation needs before it can do anything useful.
+enum TaskRequirement { email, calendar }
+
 /// A ready-made scheduled task offered to users who have none yet.
 class TaskRecommendation {
   const TaskRecommendation({
@@ -14,6 +17,7 @@ class TaskRecommendation {
     required this.prompt,
     required this.icon,
     required this.accent,
+    this.requirement,
   });
 
   final String title;
@@ -23,82 +27,66 @@ class TaskRecommendation {
   final String prompt;
   final IconData icon;
   final Color accent;
+  final TaskRequirement? requirement;
 }
 
-List<TaskRecommendation> taskRecommendations = <TaskRecommendation>[
+/// Built on each read so the texts follow the current app language.
+List<TaskRecommendation> get taskRecommendations => <TaskRecommendation>[
   TaskRecommendation(
     title: appStrings.dailyRecap,
-    description:
-        appStrings.anEveningSummaryOfWhatHappened,
+    description: appStrings.anEveningSummaryOfWhatHappened,
     scheduleLabel: appStrings.everyDay2000,
     cronExpression: '0 20 * * *',
-    prompt:
-        appStrings.recapMyDaySummarizeTheConversations +
-        appStrings.decisionsFromTodayThenListAnything +
-        appStrings.tomorrowKeepItShortAndSend,
+    prompt: appStrings.taskPromptDailyRecap,
     icon: Icons.nightlight_round,
-    accent: Color(0xFF8B7CF6),
+    accent: const Color(0xFF8B7CF6),
   ),
   TaskRecommendation(
     title: appStrings.hourlyInboxCheck,
     description: appStrings.scansNewEmailAndOnlyPings,
     scheduleLabel: appStrings.everyHour,
     cronExpression: '0 * * * *',
-    prompt:
-        appStrings.checkMyEmailInboxForMessages +
-        appStrings.onlyMessageMeAboutEmailsThat +
-        appStrings.oneLineSummaryEachIfNothing +
-        'anything.',
+    prompt: appStrings.taskPromptInboxCheck,
     icon: Icons.mark_email_unread_rounded,
-    accent: Color(0xFF3B82F6),
+    accent: const Color(0xFF3B82F6),
+    requirement: TaskRequirement.email,
   ),
   TaskRecommendation(
     title: appStrings.morningBriefing,
     description: appStrings.weatherCalendarAndPrioritiesBeforeYour,
     scheduleLabel: appStrings.weekdays0730,
     cronExpression: '30 7 * * 1-5',
-    prompt:
-        appStrings.prepareMyMorningBriefingTodayS +
-        appStrings.onMyCalendarAndTheMost +
-        appStrings.sendItAsAShortScannable,
+    prompt: appStrings.taskPromptMorningBriefing,
     icon: Icons.wb_sunny_rounded,
-    accent: Color(0xFFF59E0B),
+    accent: const Color(0xFFF59E0B),
   ),
   TaskRecommendation(
     title: appStrings.tomorrowPrep,
-    description:
-        appStrings.looksAheadAtTomorrowSMeetings,
+    description: appStrings.looksAheadAtTomorrowSMeetings,
     scheduleLabel: appStrings.weekdays1800,
     cronExpression: '0 18 * * 1-5',
-    prompt:
-        appStrings.lookAtMyCalendarForTomorrow +
-        appStrings.isAboutWhoIsInvolvedAnd +
-        appStrings.isEmptyDoNotSendAnything,
+    prompt: appStrings.taskPromptTomorrowPrep,
     icon: Icons.event_note_rounded,
-    accent: Color(0xFF10B981),
+    accent: const Color(0xFF10B981),
+    requirement: TaskRequirement.calendar,
   ),
   TaskRecommendation(
     title: appStrings.newsDigest,
     description: appStrings.headlinesOnTheTopicsYouCare,
     scheduleLabel: appStrings.everyDay0800,
     cronExpression: '0 8 * * *',
-    prompt:
-        appStrings.searchTheWebForTodayS +
-        appStrings.aboutUseWhatYouRememberAbout +
-        appStrings.ofUpToFiveItemsWith,
+    prompt: appStrings.taskPromptNewsDigest,
     icon: Icons.newspaper_rounded,
-    accent: Color(0xFFEF4444),
+    accent: const Color(0xFFEF4444),
   ),
   TaskRecommendation(
     title: appStrings.weeklyReview,
     description: appStrings.aFridayLookBackAtThe,
     scheduleLabel: appStrings.fridays1700,
     cronExpression: '0 17 * * 5',
-    prompt:
-        appStrings.reviewMyWeekWhatGotDone +
-        appStrings.suggestTheThreeMostImportantThings,
+    prompt: appStrings.taskPromptWeeklyReview,
     icon: Icons.insights_rounded,
-    accent: Color(0xFF14B8A6),
+    accent: const Color(0xFF14B8A6),
   ),
 ];
 
@@ -111,11 +99,16 @@ class TaskRecommendationCard extends StatelessWidget {
     required this.recommendation,
     required this.status,
     required this.onAdd,
+    this.blockedReason,
   });
 
   final TaskRecommendation recommendation;
   final TaskRecommendationStatus status;
   final VoidCallback onAdd;
+
+  /// Why this task cannot be added yet, such as a missing email connection.
+  /// The card shows it in place of the add button.
+  final String? blockedReason;
 
   @override
   Widget build(BuildContext context) {
@@ -135,6 +128,7 @@ class TaskRecommendationCard extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           Row(
             children: <Widget>[
@@ -154,11 +148,12 @@ class TaskRecommendationCard extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       recommendation.title,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.geist(
                         color: p.textPrimary,
                         fontSize: 15,
+                        height: 1.25,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -180,23 +175,37 @@ class TaskRecommendationCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Expanded(
-            child: Text(
-              recommendation.description,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.geist(
-                color: p.textSecondary,
-                fontSize: 13,
-                height: 1.45,
-              ),
+          Text(
+            recommendation.description,
+            style: GoogleFonts.geist(
+              color: p.textSecondary,
+              fontSize: 13,
+              height: 1.45,
             ),
           ),
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
-            child: _AddButton(status: status, accent: accent, onAdd: onAdd),
-          ),
+          const SizedBox(height: 12),
+          if (blockedReason != null && !added)
+            Row(
+              children: <Widget>[
+                Icon(Icons.link_off_rounded, size: 16, color: p.textMuted),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    blockedReason!,
+                    style: GoogleFonts.geist(
+                      color: p.textMuted,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          else
+            Align(
+              alignment: Alignment.centerRight,
+              child: _AddButton(status: status, accent: accent, onAdd: onAdd),
+            ),
         ],
       ),
     );
@@ -342,7 +351,7 @@ Future<TaskRecommendation?> showTaskInspirationPicker(BuildContext context) {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Close',
+                      tooltip: appStrings.close,
                       onPressed: () => Navigator.of(context).pop(),
                       icon: Icon(Icons.close_rounded, color: p.textMuted),
                     ),

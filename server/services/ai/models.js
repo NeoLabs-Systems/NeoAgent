@@ -438,21 +438,6 @@ async function getSupportedModels(userId, agentId = null, options = {}) {
     const globalDisabledSet = globalDisabledIds.length ? new Set(globalDisabledIds) : null;
     const runtimeHealth = getModelHealthSnapshot(userId, agentId);
 
-    // Plan-based model allowlist (billing optional feature).
-    let planAllowedModels = null;
-    try {
-        const { isBillingEnabled } = require('../billing/config');
-        if (isBillingEnabled()) {
-            const { getActiveSubscription } = require('../billing/subscriptions');
-            const sub = getActiveSubscription(userId);
-            if (sub?.plan?.allowed_models?.length) {
-                planAllowedModels = new Set(sub.plan.allowed_models);
-            }
-        }
-    } catch {
-        // Billing restrictions are non-critical.
-    }
-
     return all.map((model) => {
         const selectableModel = toSelectableModel(model);
         const provider = providerById.get(model.provider);
@@ -464,9 +449,6 @@ async function getSupportedModels(userId, agentId = null, options = {}) {
 
         let available = provider?.available !== false;
         if (available && modelMatchesConfiguredId(selectableModel, globalDisabledSet)) {
-            available = false;
-        }
-        if (available && planAllowedModels !== null && !modelMatchesConfiguredId(selectableModel, planAllowedModels)) {
             available = false;
         }
         const runtimeUnavailable = isHealthBlocked(runtimeHealth, { ...selectableModel, priceTier });

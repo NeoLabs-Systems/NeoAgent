@@ -30,6 +30,7 @@ const PUBLIC_ROUTES = new Set([
   'POST /api/auth/providers/:provider/begin',
   'POST /api/auth/qr-login/challenge',
   'POST /api/auth/qr-login/challenge/:id/status',
+  'POST /api/auth/qr-login/challenge/:id/cancel',
   'POST /api/auth/qr-login/challenge/:id/claim',
   'POST /api/auth/register',
   'POST /api/auth/webauthn/login/options',

@@ -5,18 +5,36 @@ part of 'main.dart';
 /// presses send.
 typedef _ChatStarter = ({IconData icon, String prompt, String caption});
 
-List<_ChatStarter> _promptStarters = <_ChatStarter>[
-  (
-    icon: Icons.restart_alt_rounded,
-    prompt: appStrings.summariseMyLastRun,
-    caption: appStrings.picksUpWhereYouLeftOff,
-  ),
+/// Built on each call so the texts follow the current app language. The
+/// last-run starter only makes sense once there is a run to pick up.
+List<_ChatStarter> _promptStarters({required bool hasRuns}) => <_ChatStarter>[
+  if (hasRuns)
+    (
+      icon: Icons.restart_alt_rounded,
+      prompt: appStrings.summariseMyLastRun,
+      caption: appStrings.picksUpWhereYouLeftOff,
+    ),
   (
     icon: Icons.event_outlined,
     prompt: appStrings.whatIsOnTomorrow,
     caption: appStrings.pullsTogetherTheDayAhead,
   ),
 ];
+
+/// The send shortcut hint under the composer, on platforms with a keyboard.
+String? _composerSendHint() {
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.android:
+    case TargetPlatform.iOS:
+    case TargetPlatform.fuchsia:
+      return null;
+    case TargetPlatform.macOS:
+      return appStrings.chatSendHintMac;
+    case TargetPlatform.linux:
+    case TargetPlatform.windows:
+      return appStrings.chatSendHintOther;
+  }
+}
 
 class ChatPanel extends StatefulWidget {
   const ChatPanel({super.key, required this.controller});
@@ -116,6 +134,7 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     widget.controller.removeListener(_updateConnectionBanner);
     _composerController.removeListener(_handleComposerLayoutChanged);
     _scrollController.removeListener(_handleScrollPositionChanged);
+    widget.controller.holdChatDraftAfterSessionExpiry(_composerController.text);
     _composerController.dispose();
     _scrollController.dispose();
     _dictationCapture?.dispose();
@@ -659,6 +678,10 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 16),
       ],
+      if (controller.needsModelSetup) ...<Widget>[
+        _ModelSetupCard(controller: controller),
+        const SizedBox(height: 16),
+      ],
       if (controller.activeRun != null || controller.toolEvents.isNotEmpty)
         Padding(
           padding: const EdgeInsets.only(bottom: 16),
@@ -686,7 +709,9 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
                 constraints: const BoxConstraints(maxWidth: 720),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final cards = _promptStarters
+                    final cards = _promptStarters(
+                          hasRuns: controller.recentRuns.isNotEmpty,
+                        )
                         .map(
                           (starter) => _PromptStarter(
                             icon: starter.icon,
@@ -1012,6 +1037,16 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
                           ],
                         ),
                       ),
+                      if (_composerSendHint() case final hint?) ...<Widget>[
+                        const SizedBox(width: 12),
+                        Text(
+                          hint,
+                          style: GoogleFonts.geistMono(
+                            fontSize: 12,
+                            color: _textMuted,
+                          ),
+                        ),
+                      ],
                       const SizedBox(width: 12),
                       GestureDetector(
                         onTap: controller.hasLiveRun ? null : _openModelPicker,
@@ -1663,7 +1698,7 @@ class _MessagingPanelState extends State<MessagingPanel> {
         ),
         if (controller.pendingMessagingQr != null) ...[
           const SizedBox(height: 18),
-          _MessagingQrPanel(qrState: controller.pendingMessagingQr!),
+          MessagingQrPanel(qrState: controller.pendingMessagingQr!),
         ],
         const SizedBox(height: 18),
         for (final group in groups)
@@ -2066,8 +2101,67 @@ class _MessagingToolbar extends StatelessWidget {
   }
 }
 
-class _MessagingQrPanel extends StatelessWidget {
-  const _MessagingQrPanel({required this.qrState});
+/// Shown in chat while no AI model can answer: before the first message on a
+/// fresh install, or after a run failed because no model is set up.
+class _ModelSetupCard extends StatelessWidget {
+  const _ModelSetupCard({required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _warning.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: _warning.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(Icons.key_rounded, color: _warning, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  appStrings.noAiModelTitle,
+                  style: TextStyle(
+                    color: _textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            appStrings.noAiModelChatBody,
+            style: TextStyle(color: _textSecondary, height: 1.45),
+          ),
+          if (controller.isAdmin) ...<Widget>[
+            const SizedBox(height: 6),
+            Text(
+              appStrings.noAiModelAdminHint,
+              style: TextStyle(color: _textMuted, height: 1.45),
+            ),
+          ],
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: () => controller.openSettings(SettingsPage.models),
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: Text(appStrings.addApiKey),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class MessagingQrPanel extends StatelessWidget {
+  const MessagingQrPanel({super.key, required this.qrState});
 
   final MessagingQrState qrState;
 
@@ -5021,17 +5115,13 @@ Future<void> _openWhatsAppModeDialog(
                       icon: Icons.smartphone_rounded,
                       title: appStrings.separateAccount,
                       description:
-                          appStrings.linkAPhoneNumberThatBelongs +
-                          appStrings.anyoneYouAllowCanChatWith,
+                          appStrings.whatsappSeparateAccountDescription,
                     ),
                     modeTile(
                       value: true,
                       icon: Icons.bookmark_border_rounded,
                       title: appStrings.personalSelfChat,
-                      description:
-                          appStrings.linkYourOwnNumberAndTalk +
-                          appStrings.messageYourselfChatEveryOtherChat +
-                          appStrings.thisAccountIsIgnored,
+                      description: appStrings.whatsappSelfChatDescription,
                     ),
                     const SizedBox(height: 4),
                     Text(

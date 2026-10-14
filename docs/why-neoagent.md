@@ -1,57 +1,62 @@
 ---
-title: NeoAgent, OpenClaw, and Hermes
+title: How NeoAgent compares
 sidebar_label: Why NeoAgent
-description: A dated, source-based comparison of product emphasis — not a universal ranking.
+description: A dated, source-based comparison with self-hosted and hosted personal agents.
 ---
 
-# NeoAgent, OpenClaw, and Hermes
+# How NeoAgent compares
 
-*A dated comparison of product emphasis — not a universal ranking.*
+**A dated comparison of product emphasis, not a ranking.**
 
-This page describes product emphasis, not a universal ranking. The projects
-change quickly, and the right choice depends on the interfaces and operating
-model you need.
+:::note Reviewed October 14, 2026
+These projects change weekly. Check the linked sources before relying on a detail.
+:::
 
-The comparison was reviewed on June 14, 2026 against the public
-[OpenClaw repository](https://github.com/openclaw/openclaw),
-[Hermes Agent repository](https://github.com/NousResearch/hermes-agent), and
-the current NeoAgent source.
+## 🏠 Self-hosted agents
 
-| Area | NeoAgent | OpenClaw | Hermes Agent |
+| | NeoAgent | OpenClaw | Hermes Agent |
 | --- | --- | --- | --- |
-| Primary experience | Operator UI backed by a self-hosted service | Gateway and assistant across channels, nodes, and companion surfaces | Terminal UI or messaging gateway |
-| Persistent memory | Local structured facts, temporal updates, provenance, hybrid retrieval | Project-defined memory and plugin surfaces | Built-in Markdown memory with optional external memory providers |
-| Android operation | Direct ADB control of a host-attached device or emulator | Android companion/node capabilities | Android and Termux-oriented capabilities |
-| Desktop and browser | Persistent lightweight Linux computer | QEMU, noVNC, Chromium, and guest agent | One adaptive browser/desktop/files/terminal flow |
-| Multi-user administration | User accounts, admin interface, optional service email, per-user runtime | Gateway-centered deployment model | Primarily personal-agent configuration |
-| Automation | Schedules, account events, weather events, webhooks, notification runs | Cron, hooks, webhooks, and channel/node events | Cron, gateway events, and tool-driven workflows |
-| Interfaces | Web, Android, desktop, launcher, messaging, extension, wearable firmware | Broad channel, platform, node, and companion ecosystem | Terminal plus Telegram, Discord, Slack, WhatsApp, Signal, email, and other integrations |
-| Migration into NeoAgent | Native importer target | Skills, memory files, and selected keys can be imported | Skills, memory files, and selected keys can be imported |
+| **Main interface** | Web, desktop and Android app | Chat apps plus companion apps | Terminal UI plus chat apps |
+| **Computer use** | Per-user cloud computer you can watch and take over | Headless browser on the host | Terminal backends: local, Docker, SSH or cloud sandboxes |
+| **Memory** | Structured facts with history and provenance, editable graph | Memory files and plugins | `MEMORY.md` and `USER.md`, optional memory providers |
+| **Learned skills** | Auto-learned skills, Teach Mode | Community skills (ClawHub) | Self-written `SKILL.md` files |
+| **Multi-user** | Accounts, admin, per-user cloud computer | Single owner per gateway | Single owner |
+| **Android** | Built-in emulator it controls over ADB | Companion app | Termux-oriented |
+| **Voice and hardware** | Live voice, in-app calls, ESP32 wearable | Voice wake and talk mode | Voice mode in the CLI, chat apps and Discord calls |
+| **License** | AGPL-3.0 | MIT | MIT |
+
+`neoagent migrate` imports skills, memory files and selected keys from OpenClaw and Hermes. See [Migration](migration.md).
+
+## ☁️ Hosted agents
+
+| | Runs on | Your own model | Open source | EU consumers | Price |
+| --- | --- | --- | --- | --- | --- |
+| **NeoAgent** | Your hardware | ✅ Any, local included | ✅ AGPL-3.0 | ✅ Anywhere you host it | Free, plus model costs |
+| **Meta Muse** | Meta's cloud | ❌ Meta's model | ❌ | ❌ US and Canada only | Free tier, $20 or $100/month |
+| **OpenAI Dots** | OpenAI's cloud | ❌ OpenAI's model | ❌ | ❌ Pro excluded in EEA, CH, UK | ChatGPT Pro or Business Premium |
+| **Gemini Spark** | Google's cloud | ❌ Gemini | ❌ | ❌ Excluded in EEA, CH, UK | Google AI Pro or Ultra |
+| **Grok Bot** | xAI's cloud | ❌ xAI's model | ❌ | Not confirmed | SuperGrok or Cursor plans |
+| **Poke** | Poke's cloud | ❌ | ❌ | ✅ | Free, $19 or $199/month |
 
 ## ✅ Choose NeoAgent when
 
-- You want a visual operator interface for agents, runs, memory, tasks,
-  accounts, devices, and administration.
-- Direct Android control over ADB is central to the deployment.
-- You want structured memory and integration ingestion without a separate
-  memory service.
-- You need multiple users or specialist agents with separate state.
-- Launcher mode, Health Connect, or the bundled device interfaces
-  are part of the use case.
+- **You want to host it.** Your server, your data, your choice of model.
+- **You want a real app.** Runs, memory, tasks, devices and admin in one interface.
+- **Several people share one install.** Separate accounts, memory and cloud computers.
+- **It should reach your own things.** Your desktop, Home Assistant, your network, plus its own Android emulator.
+- **You want guardrails in code.** Per-tool approval, read-only integrations, credentials the model never sees.
 
-## 🤔 Consider OpenClaw when
+## 🤔 Consider something else when
 
-- Its larger gateway, node, channel, plugin, or companion ecosystem is the main
-  requirement.
-- You need an existing OpenClaw-specific integration or community resource.
-- Its distributed assistant architecture better matches your devices.
+- **OpenClaw:** you need its channel, plugin or companion ecosystem.
+- **Hermes:** you prefer a terminal-first agent.
+- **A hosted agent:** you want zero setup and are fine with its cloud, its model and its region list.
 
-## 🤔 Consider Hermes when
+## 📎 Sources
 
-- A terminal-first workflow is preferable.
-- Its skill ecosystem, remote execution options, or model workflow fits the
-  task.
-- Built-in Markdown memory or one of its external memory providers is already
-  part of your setup.
-
-NeoAgent's memory architecture is documented in [Memory](memory.md).
+- [OpenClaw repository](https://github.com/openclaw/openclaw) · [Hermes Agent repository](https://github.com/NousResearch/hermes-agent)
+- [Muse, Dots and Siri AI in Europe](https://trendingtopics.eu/dots-muse-siri-ai-europe) (Trending Topics)
+- [OpenAI Dots vs. Meta Muse](https://www.engadget.com/2281289/openai-dot-vs-meta-muse-ai-agents-comparison/) (Engadget)
+- [Gemini Spark availability](https://www.clubic.com/actualite-623695-gemini-spark-google-ouvre-son-agent-ia-personnel-au-reste-du-monde-sauf-chez-nous.html) (Clubic)
+- [Introducing Grok Bot](https://x.ai/news/introducing-grok-bot) (xAI)
+- [Meta Muse vs. Poke](https://www.usecarly.com/blog/meta-muse-vs-poke/) (Carly)

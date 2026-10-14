@@ -9,6 +9,187 @@ class AppL10nEn extends AppL10n {
   AppL10nEn([String locale = 'en']) : super(locale);
 
   @override
+  String get onboardingEyebrowWelcome => 'Welcome';
+
+  @override
+  String get onboardingEyebrowCommunication => 'Communication';
+
+  @override
+  String get onboardingEyebrowIntelligence => 'Intelligence';
+
+  @override
+  String get onboardingEyebrowComputer => 'Computer';
+
+  @override
+  String get onboardingEyebrowAutomation => 'Automation';
+
+  @override
+  String get onboardingNext => 'Next';
+
+  @override
+  String get onboardingIntroCouldNotLoad => 'The intro couldn’t be loaded.';
+
+  @override
+  String get onboardingModelDescription =>
+      'Pick the model NeoAgent should use by default, or let it choose automatically.';
+
+  @override
+  String get onboardingLoadingModels => 'Loading models…';
+
+  @override
+  String get noAiModelTitle => 'No AI model is set up yet';
+
+  @override
+  String get noAiModelBody =>
+      'Add an API key from a provider such as OpenAI, Anthropic or Google. NeoAgent then shows the models you can use.';
+
+  @override
+  String get noAiModelChatBody =>
+      'NeoAgent needs an AI model to answer. Add an API key from a provider such as OpenAI, Anthropic or Google.';
+
+  @override
+  String get noAiModelAdminHint =>
+      'As an admin you can also set up providers for everyone under Admin → Providers.';
+
+  @override
+  String get addApiKey => 'Add API key';
+
+  @override
+  String onboardingMessagingConnected(String platform) {
+    return '$platform is connected.';
+  }
+
+  @override
+  String onboardingMessagingWaiting(String platform) {
+    return 'Waiting for $platform to connect…';
+  }
+
+  @override
+  String onboardingFinishFailed(String error) {
+    return 'Setup couldn’t be saved: $error';
+  }
+
+  @override
+  String get onboardingEyebrowReady => 'Ready';
+
+  @override
+  String get onboardingStepRequired => 'Required';
+
+  @override
+  String get onboardingStepOptional => 'Optional';
+
+  @override
+  String get onboardingStepCloudOrLocal => 'Cloud or local';
+
+  @override
+  String get onboardingStepComputer => 'Computer';
+
+  @override
+  String get onboardingStepRoutines => 'Routines';
+
+  @override
+  String get onboardingComputerChoiceTitle => 'Where should\nit work?';
+
+  @override
+  String get onboardingComputerChoiceDescription =>
+      'You can switch per session.';
+
+  @override
+  String get onboardingCloudComputerSubtitle => 'Private sandbox · always on';
+
+  @override
+  String get onboardingThisComputer => 'This computer';
+
+  @override
+  String get onboardingThisComputerSubtitle => 'Your files, apps and browser';
+
+  @override
+  String get onboardingSearchApps => 'Search apps…';
+
+  @override
+  String get onboardingRoutinesDescription => 'Results arrive in your chats.';
+
+  @override
+  String get onboardingRoutinesDescriptionPhone =>
+      'Results arrive as notifications.';
+
+  @override
+  String get onboardingNotifications => 'Notifications';
+
+  @override
+  String get onboardingReadyTitle => 'You’re\nall set.';
+
+  @override
+  String get onboardingReadyDescription => 'Send your first message.';
+
+  @override
+  String get onboardingMessageNeoagent => 'Message NeoAgent';
+
+  @override
+  String get onboardingAskAnything => 'Ask anything…';
+
+  @override
+  String get onboardingOpenNeoagent => 'Open NeoAgent';
+
+  @override
+  String get onboardingStarterTrip => 'Plan a weekend trip';
+
+  @override
+  String get onboardingStarterLanding => 'Build a landing page';
+
+  @override
+  String onboardingQuickSteps(int count) {
+    return '$count quick steps';
+  }
+
+  @override
+  String get taskNeedsEmail => 'Connect email first';
+
+  @override
+  String get taskNeedsCalendar => 'Connect a calendar first';
+
+  @override
+  String get taskNeedsModel => 'Set up an AI model first';
+
+  @override
+  String get taskPromptDailyRecap =>
+      'Recap my day: summarize the conversations, finished work and decisions from today, then list anything I should follow up on tomorrow. Keep it short and send it to me.';
+
+  @override
+  String get taskPromptInboxCheck =>
+      'Check my email inbox for messages that arrived since the last check. Only message me about emails that are urgent or need a reply, with a one-line summary each. If nothing needs my attention, do not send anything.';
+
+  @override
+  String get taskPromptMorningBriefing =>
+      'Prepare my morning briefing: today’s weather where I am, the events on my calendar, and the most important open items I know about. Send it as a short, scannable message.';
+
+  @override
+  String get taskPromptTomorrowPrep =>
+      'Look at my calendar for tomorrow. For each meeting, tell me what it is about, who is involved and anything I should prepare. If tomorrow is empty, do not send anything.';
+
+  @override
+  String get taskPromptNewsDigest =>
+      'Search the web for today’s most important news on the topics I care about (use what you remember about my interests). Send me a digest of up to five items with one sentence each and a link.';
+
+  @override
+  String get taskPromptWeeklyReview =>
+      'Review my week: what got done, what slipped and what is still open. Suggest the three most important things to focus on next week.';
+
+  @override
+  String get whatsappSeparateAccountDescription =>
+      'Link a phone number that belongs to the agent. Anyone you allow can chat with it, in direct chats and groups.';
+
+  @override
+  String get whatsappSelfChatDescription =>
+      'Link your own number and talk to the agent in your “Message yourself” chat. Every other chat and group on this account is ignored.';
+
+  @override
+  String get chatSendHintMac => '⌘↵ to send';
+
+  @override
+  String get chatSendHintOther => 'Ctrl+Enter to send';
+
+  @override
   String get aBaseUrlIsRequiredFor =>
       'A base URL is required for this endpoint.';
 
@@ -44,9 +225,6 @@ class AppL10nEn extends AppL10n {
       'A newer web build is available on the server. Reload to fetch the latest bundle.';
 
   @override
-  String get aPlanSIdCanT => 'A plan’s ID can’t change.';
-
-  @override
   String get aPrivateDesktopWithChromiumFiles =>
       'A private desktop with Chromium, files, a text editor, terminal and Python. Your work stays saved between sessions.';
 
@@ -72,10 +250,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get aValueIsStored => 'A value is stored.';
-
-  @override
-  String get aboutUseWhatYouRememberAbout =>
-      'about (use what you remember about my interests). Send me a digest ';
 
   @override
   String get access => 'Access';
@@ -302,9 +476,6 @@ class AppL10nEn extends AppL10n {
   String get agentProfile => 'Agent profile';
 
   @override
-  String get agentRuns7d => 'Agent runs (7d)';
-
-  @override
   String get agentVisibleName => 'Agent-visible name';
 
   @override
@@ -366,6 +537,9 @@ class AppL10nEn extends AppL10n {
   String get allow => 'Allow';
 
   @override
+  String get allowedRunsWithoutAsking => 'Allowed. Runs without asking.';
+
+  @override
   String get allowAll => 'Allow all';
 
   @override
@@ -387,13 +561,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get allowTheAgentToStartAn =>
       'Allow the agent to start an in-app voice call with you.';
-
-  @override
-  String get allowedForThisRunWillAsk =>
-      'Allowed for this run — will ask again next session.';
-
-  @override
-  String get allowedModels => 'Allowed models';
 
   @override
   String get allowedOrigins => 'Allowed origins';
@@ -450,8 +617,8 @@ class AppL10nEn extends AppL10n {
   String get anHttpOrHttpsUrlIs => 'An http or https URL is required.';
 
   @override
-  String get andBillingTeamLinksLiveOn =>
-      'and billing. Team links live on the Team page.';
+  String get andAnalyticsTeamLinksLiveOn =>
+      'and analytics. Team links live on the Team page.';
 
   @override
   String get andSExpiresAtDatetimeNow =>
@@ -512,10 +679,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get anyoneWithTheLinkCanJoin =>
       'Anyone with the link can join until it expires or you revoke it.';
-
-  @override
-  String get anyoneYouAllowCanChatWith =>
-      'Anyone you allow can chat with it, in direct chats and groups.';
 
   @override
   String get apiHttpsOrigin => 'API HTTPS origin';
@@ -752,11 +915,6 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String arg1Arg29(Object? arg1, Object? arg2) {
-    return '$arg1 / $arg2';
-  }
-
-  @override
   String arg1Arg2ActiveTools(Object? arg1, Object? arg2) {
     return '$arg1 ($arg2 active tools)';
   }
@@ -804,11 +962,6 @@ class AppL10nEn extends AppL10n {
   @override
   String arg1Arg2Arg37(Object? arg1, Object? arg2, Object? arg3) {
     return '$arg1 $arg2 $arg3';
-  }
-
-  @override
-  String arg1Arg2Arg38(Object? arg1, Object? arg2, Object? arg3) {
-    return '$arg1 · $arg2 $arg3';
   }
 
   @override
@@ -888,11 +1041,6 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String arg1Arg2OfArg3(Object? arg1, Object? arg2, Object? arg3) {
-    return '$arg1–$arg2 of $arg3';
-  }
-
-  @override
   String arg1Arg2Runs(Object? arg1, Object? arg2) {
     return '$arg1\n$arg2 runs · ';
   }
@@ -915,11 +1063,6 @@ class AppL10nEn extends AppL10n {
   @override
   String arg1Arg2Tokens(Object? arg1, Object? arg2) {
     return '$arg1\n$arg2 tokens';
-  }
-
-  @override
-  String arg1Arg2Tokens2(Object? arg1, Object? arg2) {
-    return '$arg1: $arg2 tokens';
   }
 
   @override
@@ -983,16 +1126,6 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String arg1Deactivated(Object? arg1) {
-    return '$arg1 deactivated.';
-  }
-
-  @override
-  String arg1Default(Object? arg1) {
-    return '$arg1: default';
-  }
-
-  @override
   String arg1Desktop(Object? arg1) {
     return '$arg1 desktop';
   }
@@ -1018,18 +1151,8 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String arg1FeatureArg2(Object? arg1, Object? arg2) {
-    return '$arg1 feature$arg2';
-  }
-
-  @override
   String arg1ForArg2(Object? arg1, Object? arg2) {
     return '$arg1 for $arg2';
-  }
-
-  @override
-  String arg1Forever(Object? arg1) {
-    return '$arg1 forever';
   }
 
   @override
@@ -1165,11 +1288,6 @@ class AppL10nEn extends AppL10n {
   @override
   String arg1MinArg2Sec(Object? arg1, Object? arg2) {
     return '$arg1 min $arg2 sec';
-  }
-
-  @override
-  String arg1ModelArg2(Object? arg1, Object? arg2) {
-    return '$arg1 model$arg2';
   }
 
   @override
@@ -1470,12 +1588,6 @@ class AppL10nEn extends AppL10n {
   String get askMe => 'Ask me';
 
   @override
-  String get assignAPlanToAnAccount => 'Assign a plan to an account';
-
-  @override
-  String get assignPlan => 'Assign plan';
-
-  @override
   String get assignedAgent => 'Assigned agent';
 
   @override
@@ -1484,11 +1596,6 @@ class AppL10nEn extends AppL10n {
   @override
   String assignedAgentArg1(Object? arg1) {
     return 'Assigned agent: $arg1';
-  }
-
-  @override
-  String assignedArg1(Object? arg1) {
-    return 'Assigned $arg1.';
   }
 
   @override
@@ -1506,9 +1613,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get atLeast1000AppliesAfterA =>
       'At least 1000. Applies after a server restart.';
-
-  @override
-  String get atLeast512 => 'At least 512.';
 
   @override
   String get attachFiles => 'Attach files';
@@ -1670,9 +1774,6 @@ class AppL10nEn extends AppL10n {
       'Base image and size of the QEMU virtual machines that run ';
 
   @override
-  String get baseImageUrl => 'Base image URL';
-
-  @override
   String get baseUrlOptional => 'Base URL (optional)';
 
   @override
@@ -1691,43 +1792,6 @@ class AppL10nEn extends AppL10n {
   String get beta => 'Beta';
 
   @override
-  String get billedThroughStripeSoItCan =>
-      'Billed through Stripe, so it can’t be canceled here.';
-
-  @override
-  String get billing => 'Billing';
-
-  @override
-  String get billingEnabled => 'Billing enabled';
-
-  @override
-  String get billingHistory => 'Billing history';
-
-  @override
-  String get billingInterval => 'Billing interval';
-
-  @override
-  String get billingIsOff => 'Billing is off';
-
-  @override
-  String get billingIsTurnedOffButStill =>
-      'Billing is turned off but still running. Restart the ';
-
-  @override
-  String get billingIsTurnedOnButNot =>
-      'Billing is turned on but not running yet. Restart the ';
-
-  @override
-  String get billingSetupSaved => 'Billing setup saved.';
-
-  @override
-  String get billingStripeKeysWebhookSecretTrial =>
-      'billing stripe keys webhook secret trial enable';
-
-  @override
-  String get billingSubscription => 'Billing & subscription';
-
-  @override
   String get bitwardenCredentialBroker => 'Bitwarden credential broker';
 
   @override
@@ -1741,9 +1805,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get blankUsesTheDefaultCallback => 'Blank uses the default callback';
-
-  @override
-  String get blankUsesTheServerDefault => 'Blank uses the server default.';
 
   @override
   String get blankValuesUseTheProviderDefaults =>
@@ -1840,13 +1901,7 @@ class AppL10nEn extends AppL10n {
   String get cancel => 'Cancel';
 
   @override
-  String get cancelSubscription => 'Cancel subscription';
-
-  @override
   String get cancelTask => 'Cancel task';
-
-  @override
-  String get cancelsAtPeriodEnd => 'Cancels at period end';
 
   @override
   String candidateCountArg1(Object? arg1) {
@@ -1872,9 +1927,6 @@ class AppL10nEn extends AppL10n {
   String chainArg1(Object? arg1) {
     return 'Chain: $arg1. ';
   }
-
-  @override
-  String get changePlan => 'Change plan';
 
   @override
   String get changeSetupMode => 'Change setup mode';
@@ -1925,10 +1977,6 @@ class AppL10nEn extends AppL10n {
       'Check for new messages automatically';
 
   @override
-  String get checkMyEmailInboxForMessages =>
-      'Check my email inbox for messages that arrived since the last check. ';
-
-  @override
   String get checkNow => 'Check now';
 
   @override
@@ -1948,15 +1996,7 @@ class AppL10nEn extends AppL10n {
   String get chooseAPerson => 'Choose a person';
 
   @override
-  String get chooseAPlanToGetStarted => 'Choose a plan to get started.';
-
-  @override
   String get chooseAProjectFolder => 'Choose a project folder';
-
-  @override
-  String chooseArg1(Object? arg1) {
-    return 'Choose $arg1';
-  }
 
   @override
   String get chooseDefaultsForChatAgentsFallback =>
@@ -2157,10 +2197,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get commandsRunInTheSamePersistent =>
       'Commands run in the same persistent computer used by the visible desktop.';
-
-  @override
-  String get commasOrLeaveBlankForEvery =>
-      'commas, or leave blank for every model.';
 
   @override
   String get communityChatops => 'Community & ChatOps';
@@ -2556,10 +2592,6 @@ class AppL10nEn extends AppL10n {
   String get couldNotStart => 'Could not start';
 
   @override
-  String get couldNotStartCheckoutCheckStripe =>
-      'Could not start checkout. Check Stripe configuration.';
-
-  @override
   String get countAIdAsFiles => '       COUNT(a.id) AS files,\n';
 
   @override
@@ -2629,13 +2661,6 @@ class AppL10nEn extends AppL10n {
   String get ctrlShiftSpace => 'Ctrl + Shift + Space';
 
   @override
-  String get currency => 'Currency';
-
-  @override
-  String get currencyMustBeA3Letter =>
-      'Currency must be a 3-letter code such as usd.';
-
-  @override
   String currentEmailArg1(Object? arg1) {
     return 'Current email: $arg1';
   }
@@ -2645,12 +2670,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get currentPasswordIsIncorrect => 'current password is incorrect';
-
-  @override
-  String get currentPlan => 'Current plan';
-
-  @override
-  String get currentPlan2 => 'CURRENT PLAN';
 
   @override
   String get currentTwoStepLoginCode => 'Current two-step login code';
@@ -2687,10 +2706,6 @@ class AppL10nEn extends AppL10n {
   String get customOutgoingUrl => 'Custom outgoing URL';
 
   @override
-  String get customersOverridePlanStatusCanceledTrialing =>
-      'customers override plan status canceled trialing';
-
-  @override
   String get dAllowedPermissionsJsonAsAllowed =>
       '       d.allowed_permissions_json AS allowed,\n';
 
@@ -2716,24 +2731,12 @@ class AppL10nEn extends AppL10n {
   String get dayOfMonth => 'Day of month';
 
   @override
-  String get deactivate => 'Deactivate';
-
-  @override
-  String deactivateArg1(Object? arg1) {
-    return 'Deactivate $arg1?';
-  }
-
-  @override
   String get decideWhichToolsYourAgentMay =>
       'decide which tools your agent may use. They see your name and ';
 
   @override
   String get decisionHigherUpTheChainWins =>
       'decision higher up the chain wins and shows a lock with the ';
-
-  @override
-  String get decisionsFromTodayThenListAnything =>
-      'decisions from today, then list anything I should follow up on ';
 
   @override
   String decisionsShowUpHereAsArg1(Object? arg1, Object? arg2) {
@@ -2968,9 +2971,6 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String get desktopToFinishTheJob => 'desktop to finish the job.';
-
-  @override
   String get destinationId => 'Destination ID';
 
   @override
@@ -3063,9 +3063,6 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String get downloadPdf => 'Download PDF';
-
-  @override
   String get downloadUpdate => 'Download update';
 
   @override
@@ -3104,11 +3101,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get editAgent => 'Edit Agent';
-
-  @override
-  String editArg1(Object? arg1) {
-    return 'Edit $arg1';
-  }
 
   @override
   String get editCoreMemoryEntry => 'Edit Core Memory Entry';
@@ -3301,10 +3293,6 @@ class AppL10nEn extends AppL10n {
       'Every account on this server uses this address for ';
 
   @override
-  String get everyAccountSSubscriptionMostRecently =>
-      'Every account’s subscription, most recently changed first. ';
-
-  @override
   String get everyActiveSessionForThisAccount =>
       'Every active session for this account ends. They can sign in ';
 
@@ -3318,18 +3306,11 @@ class AppL10nEn extends AppL10n {
   String get everyHour => 'Every hour';
 
   @override
-  String get everyModel => 'every model.';
-
-  @override
   String get everyRunOnThisServerAll => 'Every run on this server, all time.';
 
   @override
   String get everySensitiveToolRequiresApprovalEvery =>
       'Every sensitive tool requires approval, every time.';
-
-  @override
-  String get everySessionGetsAPrivateCloud =>
-      'Every session gets a private cloud computer, so NeoAgent can do ';
 
   @override
   String get everyToolRunsWithoutAskingExcept =>
@@ -3388,10 +3369,6 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String get existingSubscribersKeepAccessUntilTheir =>
-      'existing subscribers keep access until their period ends.';
-
-  @override
   String exitArg1(Object? arg1) {
     return '[exit $arg1]';
   }
@@ -3416,9 +3393,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get exploredTheWorkspace => 'Explored the workspace';
-
-  @override
-  String get exportAll => 'Export all';
 
   @override
   String exportFailedArg1(Object? arg1) {
@@ -3472,11 +3446,6 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String failedToDismissOnboardingArg1(Object? arg1) {
-    return 'Failed to dismiss onboarding: $arg1';
-  }
-
-  @override
   String get failedToFetch => 'failed to fetch';
 
   @override
@@ -3517,9 +3486,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get fasterReplies => 'Faster replies';
-
-  @override
-  String get features => 'Features';
 
   @override
   String get fewerModelCalls => 'Fewer model calls';
@@ -3568,9 +3534,6 @@ class AppL10nEn extends AppL10n {
   String get findRecentChats => 'Find recent chats';
 
   @override
-  String get findTheseLaterInTasks => 'find these later in Tasks.';
-
-  @override
   String get findingTheCorrectNeoagentRuntime =>
       'Finding the correct NeoAgent runtime';
 
@@ -3579,9 +3542,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get finishAtTheScheduledTime => 'Finish at the scheduled time';
-
-  @override
-  String get finishSetup => 'Finish setup';
 
   @override
   String finishSigningInToArg1In(Object? arg1) {
@@ -3619,13 +3579,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get frameUnavailable => 'Frame unavailable';
-
-  @override
-  String get freeTrialDays => 'Free trial (days)';
-
-  @override
-  String get freeTrialMustBeAWhole =>
-      'Free trial must be a whole number of days (0 or more).';
 
   @override
   String freshnessArg1(Object? arg1) {
@@ -3718,9 +3671,6 @@ class AppL10nEn extends AppL10n {
   String get getInspired => 'Get inspired';
 
   @override
-  String get gitCloneRepoNpmTest => 'git clone repo && npm test';
-
-  @override
   String get githubCopilot => 'GitHub Copilot';
 
   @override
@@ -3744,9 +3694,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get githubUsernameThatOpenedTheIssue =>
       'GitHub username that opened the issue';
-
-  @override
-  String get giveThePlanAName => 'Give the plan a name.';
 
   @override
   String get globalSecurityMode => 'Global security mode';
@@ -3870,10 +3817,6 @@ class AppL10nEn extends AppL10n {
   String hereRevokeAdminWithNeoagentAdmin(Object? arg1) {
     return 'here. Revoke admin with `neoagent admin revoke $arg1` first.';
   }
-
-  @override
-  String get hereSecretsAreWriteOnlyLeave =>
-      'here. Secrets are write-only: leave one blank to keep it.';
 
   @override
   String get higherValuesMakeNeoagentMoreSelective =>
@@ -4172,13 +4115,6 @@ class AppL10nEn extends AppL10n {
   String get iphoneApp => 'iPhone app';
 
   @override
-  String get isAboutWhoIsInvolvedAnd =>
-      'is about, who is involved and anything I should prepare. If tomorrow ';
-
-  @override
-  String get isEmptyDoNotSendAnything => 'is empty, do not send anything.';
-
-  @override
   String get issues => 'Issues';
 
   @override
@@ -4243,9 +4179,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get keepNeoagentRunning => 'Keep NeoAgent running?';
-
-  @override
-  String get keepPlan => 'Keep plan';
 
   @override
   String get keepRunning => 'Keep running';
@@ -4458,10 +4391,6 @@ class AppL10nEn extends AppL10n {
   String get limit50 => 'LIMIT 50';
 
   @override
-  String get linkAPhoneNumberThatBelongs =>
-      'Link a phone number that belongs to the agent. ';
-
-  @override
   String linkArg1(Object? arg1) {
     return 'Link $arg1';
   }
@@ -4483,10 +4412,6 @@ class AppL10nEn extends AppL10n {
   String linkValidUntilArg1(Object? arg1) {
     return 'Link valid until $arg1.';
   }
-
-  @override
-  String get linkYourOwnNumberAndTalk =>
-      'Link your own number and talk to the agent in your ';
 
   @override
   String get linkedSignInProviders => 'Linked sign-in providers';
@@ -4621,10 +4546,6 @@ class AppL10nEn extends AppL10n {
       'Long-term recall, structured facts, and knowledge graph.';
 
   @override
-  String get lookAtMyCalendarForTomorrow =>
-      'Look at my calendar for tomorrow. For each meeting, tell me what it ';
-
-  @override
   String get lookedAtTheScreen => 'Looked at the screen';
 
   @override
@@ -4640,9 +4561,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get loopPaused => 'Loop paused';
-
-  @override
-  String get lowerNumbersAreListedFirst => 'Lower numbers are listed first.';
 
   @override
   String get macOsX => 'mac os x';
@@ -4672,23 +4590,8 @@ class AppL10nEn extends AppL10n {
   String get manage => 'Manage';
 
   @override
-  String get managePayment => 'Manage payment';
-
-  @override
-  String get manageViaStripeCustomerPortal =>
-      'Manage via Stripe Customer Portal';
-
-  @override
   String get manageYourAccountEmailTwoFactor =>
       'Manage your account email, two-factor authentication, and active sessions.';
-
-  @override
-  String get manageYourPlanTrackUsageUpdate =>
-      'Manage your plan, track usage, update payment, and review invoices.';
-
-  @override
-  String get manageYourPlanTrackUsageUpdate2 =>
-      'Manage your plan, track usage, update payment, and review invoices — all in one place.';
 
   @override
   String get managedBy => 'Managed by';
@@ -4774,12 +4677,6 @@ class AppL10nEn extends AppL10n {
   String get memoryInjected => 'Memory injected';
 
   @override
-  String get memoryMb => 'Memory (MB)';
-
-  @override
-  String get memoryMustBeAtLeast512 => 'Memory must be at least 512 MB.';
-
-  @override
   String get mentionOrReplyOnly => 'Mention or reply only';
 
   @override
@@ -4794,14 +4691,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get messageTextField => 'Message text field';
-
-  @override
-  String get messageYouWithTheResultAdd =>
-      'message you with the result. Add one to start, or skip and ';
-
-  @override
-  String get messageYourselfChatEveryOtherChat =>
-      '\"Message yourself\" chat. Every other chat and group on ';
 
   @override
   String get messaging => 'Messaging';
@@ -4899,9 +4788,6 @@ class AppL10nEn extends AppL10n {
   String get modelForThisSession => 'Model for this session';
 
   @override
-  String get modelIds => 'Model IDs';
-
-  @override
   String get modelOverride => 'Model Override';
 
   @override
@@ -4962,9 +4848,6 @@ class AppL10nEn extends AppL10n {
       'Must be reachable on the public internet -- local and ';
 
   @override
-  String get n0TurnsTrialsOff => '0 turns trials off.';
-
-  @override
   String get n24Hours => '24 hours';
 
   @override
@@ -4981,13 +4864,7 @@ class AppL10nEn extends AppL10n {
   String get n365Days => '365 days';
 
   @override
-  String get n42Passing => '✓ 42 passing';
-
-  @override
   String get n4HourLimitTokens => '4-hour limit (tokens)';
-
-  @override
-  String get n4HourTokenLimit => '4-hour token limit';
 
   @override
   String get n4HourUsage => '4-hour usage';
@@ -4996,9 +4873,6 @@ class AppL10nEn extends AppL10n {
   String n4hLimitArg1(Object? arg1) {
     return '4h limit $arg1';
   }
-
-  @override
-  String get n4hTokenWindow => '4h token window';
 
   @override
   String get n7DayUsage => '7-day usage';
@@ -5080,9 +4954,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get neoagentFlutterUpdater => 'NeoAgent Flutter Updater';
-
-  @override
-  String get neoagentHasItsOwnComputer => 'NeoAgent has its\nown computer.';
 
   @override
   String neoagentInstallsTheLatestArg1(Object? arg1) {
@@ -5204,9 +5075,6 @@ class AppL10nEn extends AppL10n {
   String get newPasswordsDoNotMatch => 'New passwords do not match.';
 
   @override
-  String get newPlan => 'New plan';
-
-  @override
   String get newRecoveryCodes => 'New recovery codes';
 
   @override
@@ -5229,9 +5097,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get newsDigest => 'News digest';
-
-  @override
-  String get nextPage => 'Next page';
 
   @override
   String nextRetryArg1(Object? arg1) {
@@ -5263,14 +5128,7 @@ class AppL10nEn extends AppL10n {
   String get noAccountsFound => 'No accounts found.';
 
   @override
-  String get noActivePlansYetCreateOne =>
-      'No active plans yet. Create one in the Billing tab.';
-
-  @override
   String get noActiveSessionsFound => 'No active sessions found.';
-
-  @override
-  String get noActiveSubscription => 'No active subscription';
 
   @override
   String get noAgentsYet => 'No agents yet';
@@ -5289,19 +5147,10 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String noArg1Subscriptions(Object? arg1) {
-    return 'No $arg1 subscriptions.';
-  }
-
-  @override
   String get noArguments => '(no arguments)';
 
   @override
   String get noAuth => 'No auth';
-
-  @override
-  String get noAvailableModelsYetCheckBack =>
-      'No available models yet.\nCheck back once a provider is configured.';
 
   @override
   String get noBindingsYet => 'No bindings yet.';
@@ -5381,9 +5230,6 @@ class AppL10nEn extends AppL10n {
       'No integrations match this search.';
 
   @override
-  String get noInvoicesYet => 'No invoices yet.';
-
-  @override
   String get noLimit => 'No limit';
 
   @override
@@ -5392,9 +5238,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get noLogEntries => 'No log entries.';
-
-  @override
-  String get noMatches => 'No matches';
 
   @override
   String get noMatchingSettings => 'No matching settings';
@@ -5416,9 +5259,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get noModelRequestWasRecordedFor =>
       'No model request was recorded for this run.';
-
-  @override
-  String get noModelsAreAvailableYet => 'No models are available yet.';
 
   @override
   String get noModelsDiscoveredYet => 'No models discovered yet';
@@ -5465,12 +5305,6 @@ class AppL10nEn extends AppL10n {
   String get noPeopleAddedYet => 'No people added yet.';
 
   @override
-  String get noPlansConfiguredYet => 'No plans configured yet.';
-
-  @override
-  String get noPlansYet => 'No plans yet.';
-
-  @override
   String get noPlatformsMatch => 'No platforms match';
 
   @override
@@ -5515,9 +5349,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get noStepsWereRecordedForThis =>
       'No steps were recorded for this run.';
-
-  @override
-  String get noSubscription => 'No subscription.';
 
   @override
   String get noSummaryAvailable => 'No summary available.';
@@ -5652,23 +5483,7 @@ class AppL10nEn extends AppL10n {
       'of its own. It is never shown again after saving.';
 
   @override
-  String get ofUpToFiveItemsWith =>
-      'of up to five items with one sentence each and a link.';
-
-  @override
   String get off => 'Off';
-
-  @override
-  String get offTakesEffectAfterAServer =>
-      'off takes effect after a server restart.';
-
-  @override
-  String get offerSubscriptionPlansThroughStripeTurning =>
-      'Offer subscription plans through Stripe. Turning this on or ';
-
-  @override
-  String get offeredToPeopleChoosingAPlan =>
-      'Offered to people choosing a plan.';
 
   @override
   String get officialIntegration => 'Official integration';
@@ -5685,9 +5500,6 @@ class AppL10nEn extends AppL10n {
       'On a signed-in Android device, open Settings › Sign-in & security, scan this code, and approve the login.';
 
   @override
-  String get onAndTheServerHasRestarted => 'on and the server has restarted.';
-
-  @override
   String get onByDefaultForNewGroups => 'On by default for new groups';
 
   @override
@@ -5697,10 +5509,6 @@ class AppL10nEn extends AppL10n {
   String onForArg1OfArg2Groups(Object? arg1, Object? arg2) {
     return 'On for $arg1 of $arg2 groups';
   }
-
-  @override
-  String get onMyCalendarAndTheMost =>
-      'on my calendar, and the most important open items I know about. ';
 
   @override
   String get onTheyCanJoinAgainOnly =>
@@ -5720,15 +5528,8 @@ class AppL10nEn extends AppL10n {
       'one is saved. Other changes in this form are saved too.';
 
   @override
-  String get oneLineSummaryEachIfNothing =>
-      'one-line summary each. If nothing needs my attention, do not send ';
-
-  @override
   String get oneOrMoreAccountsExpiredReconnect =>
       'One or more accounts expired. Reconnect the affected account to restore tool access.';
-
-  @override
-  String get onePerLineShownOnThe => 'One per line, shown on the pricing page.';
 
   @override
   String get oneRegister => 'one register.';
@@ -5736,9 +5537,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get oneRuntimeControlsPersonaGroupTurn =>
       'One runtime controls persona, group turn-taking, room memory, norms, Theory of Mind, and delivery.';
-
-  @override
-  String get oneTimeFree => 'One-time / free';
 
   @override
   String get oneTimeRun => 'One-time run';
@@ -5749,10 +5547,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get onlyInThisGroup => 'Only in this group';
-
-  @override
-  String get onlyMessageMeAboutEmailsThat =>
-      'Only message me about emails that are urgent or need a reply, with a ';
 
   @override
   String get onlyNeededIfTheServiceAsks =>
@@ -5773,9 +5567,6 @@ class AppL10nEn extends AppL10n {
       'Open Settings › Sign-in & security on a signed-in Android device, scan this code, and approve the login.';
 
   @override
-  String get openBrowserCheckingDocs => 'open browser → checking docs';
-
-  @override
   String get openComputer => 'Open computer';
 
   @override
@@ -5791,10 +5582,6 @@ class AppL10nEn extends AppL10n {
   String openNeoagentAndReconnectArg1To(Object? arg1) {
     return 'Open NeoAgent and reconnect $arg1 to restore messaging.';
   }
-
-  @override
-  String get openTheComputerTabNextTo =>
-      'Open the Computer tab next to any session to see the screen ';
 
   @override
   String get openTimeSettings => 'Open time settings';
@@ -5927,13 +5714,6 @@ class AppL10nEn extends AppL10n {
   String get outlookEmailReceived => 'Outlook Email Received';
 
   @override
-  String get overrideAssignsAPlanWithoutGoing =>
-      'Override assigns a plan without going through Stripe.';
-
-  @override
-  String get overridePlan => 'Override plan';
-
-  @override
   String get overwriteBehaviorNotesFromTheImport =>
       'Overwrite behavior notes from the import.';
 
@@ -5974,9 +5754,6 @@ class AppL10nEn extends AppL10n {
   String get passwordsDoNotMatch => 'Passwords do not match.';
 
   @override
-  String get pastDue => 'Past due';
-
-  @override
   String get pasteAKey => 'Paste a key.';
 
   @override
@@ -6013,9 +5790,6 @@ class AppL10nEn extends AppL10n {
   String get paused => 'Paused';
 
   @override
-  String get paymentMethod => 'Payment method';
-
-  @override
   String peakArg1(Object? arg1) {
     return 'peak $arg1';
   }
@@ -6032,15 +5806,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get perToolPermissionPoliciesApprovalGates =>
       'Per-tool permission policies, approval gates, and process isolation for shell execution.';
-
-  @override
-  String periodEndsArg1(Object? arg1) {
-    return 'Period ends $arg1';
-  }
-
-  @override
-  String get permanentlyAllowedNeverAsksAgain =>
-      'Permanently allowed — never asks again.';
 
   @override
   String permissionRequiredArg1(Object? arg1) {
@@ -6097,39 +5862,13 @@ class AppL10nEn extends AppL10n {
       'Pick one to fill in the task. You can tweak everything afterwards.';
 
   @override
-  String get pickTheModelNeoagentShouldUse =>
-      'Pick the model NeoAgent should use by default. Providers are configured on the server.';
-
-  @override
   String get picksUpWhereYouLeftOff => 'Picks up where you left off';
 
   @override
   String get plan => 'Plan';
 
   @override
-  String planForArg1APlanAssigned(Object? arg1) {
-    return 'Plan for @$arg1. A plan assigned here ';
-  }
-
-  @override
-  String get planId => 'Plan ID';
-
-  @override
-  String get planIdMayOnlyUseLetters =>
-      'Plan ID may only use letters, numbers, underscores and hyphens.';
-
-  @override
-  String get planUsageAndAllowanceDetails => 'Plan usage and allowance details';
-
-  @override
   String get planning => 'Planning';
-
-  @override
-  String get plans => 'Plans';
-
-  @override
-  String get plansAndSubscriptionsShowUpHere =>
-      'Plans and subscriptions show up here once billing is turned ';
 
   @override
   String get platform => 'Platform';
@@ -6185,10 +5924,6 @@ class AppL10nEn extends AppL10n {
       'Premium automation with schedule and integration triggers.';
 
   @override
-  String get prepareMyMorningBriefingTodayS =>
-      'Prepare my morning briefing: today\'\'s weather where I am, the events ';
-
-  @override
   String get prepareQrCode => 'Prepare QR code';
 
   @override
@@ -6210,27 +5945,10 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String get previousPage => 'Previous page';
-
-  @override
-  String get priceInCents => 'Price in cents';
-
-  @override
-  String get priceMustBeAWholeNumber =>
-      'Price must be a whole number of cents (0 or more).';
-
-  @override
   String get priceUnknown => 'Price unknown';
 
   @override
-  String get pricingPriceSubscriptionTiersCreateEdit =>
-      'pricing price subscription tiers create edit';
-
-  @override
   String get primaryDisplay => 'Primary Display';
-
-  @override
-  String get privateAndIsolated => 'Private and isolated';
 
   @override
   String get privateChat => 'Private chat';
@@ -6309,14 +6027,7 @@ class AppL10nEn extends AppL10n {
   String get publicUrlAndAllowedOrigins => 'Public URL and allowed origins';
 
   @override
-  String get publicUrlApiBillingWebhookAnd =>
-      '<public URL>/api/billing/webhook and paste its signing secret ';
-
-  @override
   String get publicUrlOverride => 'Public URL override';
-
-  @override
-  String get publishableKey => 'Publishable key';
 
   @override
   String get pullsTogetherTheDayAhead => 'Pulls together the day ahead';
@@ -6429,14 +6140,6 @@ class AppL10nEn extends AppL10n {
   String get readyToConnect => 'Ready to connect';
 
   @override
-  String get realWorkInsteadOfJustTalking =>
-      'real work instead of just talking about it.';
-
-  @override
-  String get recapMyDaySummarizeTheConversations =>
-      'Recap my day: summarize the conversations, finished work and ';
-
-  @override
   String get recentChannelActivity => 'Recent Channel Activity';
 
   @override
@@ -6471,9 +6174,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get recipientField => 'Recipient field';
-
-  @override
-  String get recommended => 'RECOMMENDED';
 
   @override
   String get reconnectOrFinishSetup => 'Reconnect or finish setup';
@@ -6663,11 +6363,6 @@ class AppL10nEn extends AppL10n {
   String get resetView => 'Reset view';
 
   @override
-  String resetsArg1(Object? arg1) {
-    return 'Resets $arg1';
-  }
-
-  @override
   String get responsibilities => 'Responsibilities';
 
   @override
@@ -6706,10 +6401,6 @@ class AppL10nEn extends AppL10n {
   String reusableUsedArg1(Object? arg1) {
     return 'Reusable · used $arg1×';
   }
-
-  @override
-  String get reviewMyWeekWhatGotDone =>
-      'Review my week: what got done, what slipped and what is still open. ';
 
   @override
   String get reviewUncommittedChanges => 'Review uncommitted changes';
@@ -6852,10 +6543,6 @@ class AppL10nEn extends AppL10n {
   String get runs => 'Runs';
 
   @override
-  String get runsCommandsBrowsesTheWebAnd =>
-      'Runs commands, browses the web and edits files on a real Linux ';
-
-  @override
   String get runsEveryDayAtTheSelected =>
       'Runs every day at the selected time.';
 
@@ -6949,9 +6636,6 @@ class AppL10nEn extends AppL10n {
   String get saveAccount => 'Save account';
 
   @override
-  String get saveBillingSetup => 'Save billing setup';
-
-  @override
   String get saveChanges => 'Save changes';
 
   @override
@@ -6985,19 +6669,11 @@ class AppL10nEn extends AppL10n {
   String get saveOnly => 'Save Only';
 
   @override
-  String get savePlan => 'Save plan';
-
-  @override
   String get saveSetup => 'Save Setup';
 
   @override
   String get saveTheseRecoveryCodesNowThey =>
       'Save these recovery codes now. They will not be shown again.';
-
-  @override
-  String saveUpToArg1Yearly(Object? arg1) {
-    return 'Save up to $arg1% yearly';
-  }
 
   @override
   String get savedDeliveryDestination => 'Saved delivery destination';
@@ -7068,8 +6744,8 @@ class AppL10nEn extends AppL10n {
   String get search2 => 'Search…';
 
   @override
-  String get searchAdminSettingsEGStripe =>
-      'Search admin settings (e.g. Stripe, SMTP, Ollama, logs)';
+  String get searchAdminSettingsEGSmtp =>
+      'Search admin settings (e.g. SMTP, Ollama, logs)';
 
   @override
   String get searchAgain => 'Search again';
@@ -7091,9 +6767,6 @@ class AppL10nEn extends AppL10n {
   String get searchMemory => 'Search memory';
 
   @override
-  String get searchModels => 'Search models';
-
-  @override
   String get searchModelsOrProviders => 'Search models or providers';
 
   @override
@@ -7107,10 +6780,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get searchSettings => 'Search settings';
-
-  @override
-  String get searchTheWebForTodayS =>
-      'Search the web for today\'\'s most important news on the topics I care ';
 
   @override
   String get searchTitleModelTriggerRunId =>
@@ -7132,9 +6801,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get secretField => 'Secret field';
-
-  @override
-  String get secretKey => 'Secret key';
 
   @override
   String get secureCookies => 'Secure cookies';
@@ -7212,10 +6878,6 @@ class AppL10nEn extends AppL10n {
       'Send a task from chat and its execution history will show up here.';
 
   @override
-  String get sendItAsAShortScannable =>
-      'Send it as a short, scannable message.';
-
-  @override
   String get sendItToATeammateWith =>
       'send it to a teammate with an account on this server.';
 
@@ -7273,9 +6935,6 @@ class AppL10nEn extends AppL10n {
   String get serverProviderCredentials => 'Server provider credentials';
 
   @override
-  String get serverToStopIt => 'server to stop it.';
-
-  @override
   String get serverUrl => 'Server URL';
 
   @override
@@ -7297,10 +6956,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get sessionActions => 'Session actions';
-
-  @override
-  String get sessionToThisDeviceWhenYou =>
-      'session to This device when you want it to work locally.';
 
   @override
   String get sessions => 'Sessions';
@@ -7328,10 +6983,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get setUpOrConnectNeoagent => 'Set up or connect NeoAgent';
-
-  @override
-  String get setUpYourWorkspaceInA =>
-      'Set up your workspace in a few steps and start using NeoAgent immediately.';
 
   @override
   String get setUrl => 'Set URL';
@@ -7432,6 +7083,39 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
+  String approveNeoagentInYourArg1Account(Object? arg1) {
+    return 'Approve NeoAgent in your $arg1 account. No key to copy.';
+  }
+
+  @override
+  String waitingForArg1FinishInYourBrowser(Object? arg1) {
+    return 'Waiting for $arg1. Finish in your browser.';
+  }
+
+  @override
+  String pasteTheArg1Code(Object? arg1) {
+    return 'Paste the $arg1 code';
+  }
+
+  @override
+  String arg1ShowedAOneTimeCode(Object? arg1) {
+    return 'After you approved NeoAgent, $arg1 showed a one-time code. Paste it here.';
+  }
+
+  @override
+  String get signInCode => 'Sign-in code';
+
+  @override
+  String signedInWithArg1(Object? arg1) {
+    return 'Signed in with $arg1.';
+  }
+
+  @override
+  String signInFailedArg1(Object? arg1) {
+    return 'Sign-in failed: $arg1';
+  }
+
+  @override
   String get signInWithTheSameEmail =>
       'Sign in with the same email and master password you use in Bitwarden. The master password and two-step code are used only for sign-in and are never stored or sent to the AI.';
 
@@ -7508,19 +7192,12 @@ class AppL10nEn extends AppL10n {
       'Skip this task before it calls the model.';
 
   @override
-  String get skipsStripeCheckout => 'skips Stripe checkout.';
-
-  @override
   String get slackMessageReceived => 'Slack Message Received';
 
   @override
   String sleepArg1Sessions(Object? arg1) {
     return 'Sleep $arg1 sessions';
   }
-
-  @override
-  String get smallestCurrencyUnit1900Is19 =>
-      'Smallest currency unit: 1900 is 19.00.';
 
   @override
   String get smartSelector => 'smart selector';
@@ -7585,12 +7262,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get somethingWentWrongPleaseTryAgain =>
       'Something went wrong. Please try again.';
-
-  @override
-  String get sortOrder => 'Sort order';
-
-  @override
-  String get sortOrderMustBeAWhole => 'Sort order must be a whole number.';
 
   @override
   String get source => 'Source';
@@ -7757,11 +7428,6 @@ class AppL10nEn extends AppL10n {
   String get storage => 'Storage';
 
   @override
-  String storedArg1(Object? arg1) {
-    return 'Stored: $arg1';
-  }
-
-  @override
   String get storedEncryptedAndOnlyUsedFor =>
       'stored encrypted and only used for your own runs.';
 
@@ -7771,19 +7437,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get storesOnlyTheBitwardenSessionKey =>
       'Stores only the Bitwarden session key encrypted on this server, so connections survive restarts. You can lock it at any time.';
-
-  @override
-  String get stripeBilling => 'Stripe billing';
-
-  @override
-  String get stripeKeysForPaidPlansPoint =>
-      'Stripe keys for paid plans. Point a Stripe webhook at ';
-
-  @override
-  String get stripePriceId => 'Stripe price ID';
-
-  @override
-  String get stripeSetup => 'Stripe setup';
 
   @override
   String get strong => 'Strong';
@@ -7801,24 +7454,7 @@ class AppL10nEn extends AppL10n {
   String get subagentUpdate2 => 'Subagent update.';
 
   @override
-  String get subscription => 'Subscription';
-
-  @override
-  String get subscriptionBillingOverrideComp =>
-      'subscription billing override comp';
-
-  @override
-  String get subscriptionCanceled => 'Subscription canceled.';
-
-  @override
-  String get subscriptions => 'Subscriptions';
-
-  @override
   String get successRate => 'Success rate';
-
-  @override
-  String get suggestTheThreeMostImportantThings =>
-      'Suggest the three most important things to focus on next week.';
 
   @override
   String suggestionsArg1(Object? arg1) {
@@ -7862,10 +7498,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get tasks => 'Tasks';
-
-  @override
-  String get tasksRunOnAScheduleOr =>
-      'Tasks run on a schedule or when something happens, then ';
 
   @override
   String get tasksRunOnTheirOwnAnd =>
@@ -7972,10 +7604,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get theBrowserBlockedARequiredRequest =>
       'The browser blocked a required request because of Content Security Policy.';
-
-  @override
-  String get theCloudComputerIsSandboxedFrom =>
-      'The cloud computer is sandboxed from your devices. Switch a ';
 
   @override
   String get theCloudWorkspace => 'the cloud workspace';
@@ -8085,10 +7713,6 @@ class AppL10nEn extends AppL10n {
       'The Mattermost incoming webhook this agent should post to.';
 
   @override
-  String get theModelListCouldNotBe =>
-      'The model list could not be loaded. Enter model IDs separated by ';
-
-  @override
   String get theModelsTheSmartSelectorRoutes =>
       'The models the Smart Selector routes between automatically.';
 
@@ -8159,10 +7783,6 @@ class AppL10nEn extends AppL10n {
       'The people you manage stay with you.';
 
   @override
-  String get thePlanStopsBeingOfferedIt =>
-      'The plan stops being offered. It is kept, not erased, and ';
-
-  @override
   String get theProviderAnswers => 'the provider answers.';
 
   @override
@@ -8209,10 +7829,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get theSignalPhoneNumberThisBot =>
       'The Signal phone number this bot uses.';
-
-  @override
-  String get theSubscriptionPlansPeopleCanChoose =>
-      'The subscription plans people can choose from.';
 
   @override
   String get theTeamsIncomingWebhookThisAgent =>
@@ -8278,9 +7894,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get theseSwitchesNeverYourChatsMemories =>
       'these switches, never your chats, memories or files.';
-
-  @override
-  String get thisAccountIsIgnored => 'this account is ignored.';
 
   @override
   String get thisAccountWillUnlockNeoagentOn =>
@@ -8425,10 +8038,6 @@ class AppL10nEn extends AppL10n {
   String get thisServer => 'this server.';
 
   @override
-  String get thisServerIsAlreadySetUp =>
-      'This server is already set up. Sign in with an existing account.';
-
-  @override
   String get thisServerReportsNoProviderSettings =>
       'This server reports no provider settings.';
 
@@ -8461,10 +8070,6 @@ class AppL10nEn extends AppL10n {
   String thisWillRemoveArg1FromThe(Object? arg1) {
     return 'This will remove \"$arg1\" from the server list.';
   }
-
-  @override
-  String get tickTheModelsThisPlanMay =>
-      'Tick the models this plan may use. Leave all unticked to allow ';
 
   @override
   String get time => 'Time';
@@ -8524,10 +8129,6 @@ class AppL10nEn extends AppL10n {
       'token budget limit 4 hour weekly quota global';
 
   @override
-  String get tokenLimitsMustBeWholeNumbers =>
-      'Token limits must be whole numbers, or blank for the default.';
-
-  @override
   String get tokenUsageUnavailableOnThisServer =>
       'Token usage unavailable on this server version.';
 
@@ -8550,10 +8151,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get tokensUsed => ' tokens used';
-
-  @override
-  String get tomorrowKeepItShortAndSend =>
-      'tomorrow. Keep it short and send it to me.';
 
   @override
   String get tomorrowPrep => 'Tomorrow prep';
@@ -8806,9 +8403,6 @@ class AppL10nEn extends AppL10n {
   String get unknownLocation => 'Unknown location';
 
   @override
-  String get unknownPlan => 'Unknown plan';
-
-  @override
   String get unknownPublishTime => 'Unknown publish time';
 
   @override
@@ -8835,9 +8429,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get unusualSignInAlerts => 'Unusual sign-in alerts';
-
-  @override
-  String get update => 'Update';
 
   @override
   String updateArg1(Object? arg1) {
@@ -8913,9 +8504,6 @@ class AppL10nEn extends AppL10n {
   String get usageLimits2 => 'Usage & limits';
 
   @override
-  String get usageThisPeriod => 'Usage this period';
-
-  @override
   String get use8CharactersLongerPassphrasesWork =>
       'Use 8+ characters. Longer passphrases work well.';
 
@@ -8951,6 +8539,22 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get useAtLeast1Vcpu => 'Use at least 1 vCPU.';
+
+  @override
+  String get maxMemoryPerComputerMb => 'Max memory per computer (MB)';
+
+  @override
+  String get maxVcpusPerComputer => 'Max vCPUs per computer';
+
+  @override
+  String atLeastArg1ComputersGetLess(Object? arg1) {
+    return 'At least $arg1. Computers get less when the host is busy.';
+  }
+
+  @override
+  String maxMemoryMustBeAtLeastArg1Mb(Object? arg1) {
+    return 'Max memory must be at least $arg1 MB.';
+  }
 
   @override
   String get useAtLeast8Characters => 'Use at least 8 characters.';
@@ -9104,9 +8708,6 @@ class AppL10nEn extends AppL10n {
   String get viewLogs => 'View logs';
 
   @override
-  String get viewPlans => 'View plans';
-
-  @override
   String get vmImageMemoryCpuQemuRuntime => 'vm image memory cpu qemu runtime';
 
   @override
@@ -9173,9 +8774,6 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String get watchItLive => 'Watch it live';
-
-  @override
   String get weak => 'Weak';
 
   @override
@@ -9199,9 +8797,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get webhookSecret => 'Webhook secret';
-
-  @override
-  String get webhookSigningSecret => 'Webhook signing secret';
 
   @override
   String get webhookUrlCopied => 'Webhook URL copied';
@@ -9228,12 +8823,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get weeklyReview => 'Weekly review';
-
-  @override
-  String get weeklyTokenLimit => 'Weekly token limit';
-
-  @override
-  String get weeklyTokens => 'Weekly tokens';
 
   @override
   String get weeklyUsage => 'Weekly Usage';
@@ -9290,9 +8879,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get whereThisAgentShouldSendReplies =>
       'Where this agent should send replies.';
-
-  @override
-  String get whileItWorks => 'while it works.';
 
   @override
   String get whoCanMessage => 'Who can message';
@@ -9362,9 +8948,6 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String get worksLikeYouWould => 'Works like you would';
-
-  @override
   String get workspaceConfigurationAndAccountSecurityIn =>
       'Workspace configuration and account security in one place.';
 
@@ -9389,9 +8972,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get xmlhttprequestError => 'xmlhttprequest error';
-
-  @override
-  String get yearly => 'Yearly';
 
   @override
   String get yesterday => 'Yesterday';
@@ -9495,10 +9075,6 @@ class AppL10nEn extends AppL10n {
   @override
   String get yourSessionExpiredPleaseSignIn =>
       'Your session expired. Please sign in again.';
-
-  @override
-  String get yourSubscriptionWillRemainActiveUntil =>
-      'Your subscription will remain active until the end of the billing period.';
 
   @override
   String get yourUsernameOrPasswordIsIncorrect =>
@@ -9721,16 +9297,6 @@ class AppL10nEn extends AppL10n {
       'This removes the address for every account on this server.';
 
   @override
-  String get allModels => 'All models';
-
-  @override
-  String get optionalAndPermanentBlankGeneratesOne =>
-      'Optional and permanent. Blank generates one.';
-
-  @override
-  String get noSubscriptionsYet => 'No subscriptions yet.';
-
-  @override
   String get justTalkYouCanInterruptAtAny =>
       'Just talk. You can interrupt at any time. Tap to mute.';
 
@@ -9770,9 +9336,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get theOperator => 'The operator';
-
-  @override
-  String get getStarted => 'Get started';
 
   @override
   String get smartSelectorOn => 'Smart selector on';
@@ -9843,9 +9406,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get hostedProvider => 'hosted provider.';
-
-  @override
-  String get serverToStartIt => 'server to start it.';
 
   @override
   String get muted => ' • muted';
@@ -10178,21 +9738,6 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String trialEndsArg1(Object? arg1) {
-    return 'Trial ends $arg1';
-  }
-
-  @override
-  String cancelsAtEndOfPeriodArg1(Object? arg1) {
-    return 'Cancels at end of period · $arg1';
-  }
-
-  @override
-  String renewsArg1(Object? arg1) {
-    return 'Renews $arg1';
-  }
-
-  @override
   String addThePeopleAndGroupsArg1Should(Object? arg1) {
     return 'Add the people and groups $arg1 should talk to';
   }
@@ -10353,11 +9898,6 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String userArg1(Object? arg1) {
-    return 'User #$arg1';
-  }
-
-  @override
   String inArg1(Object? arg1) {
     return ' in $arg1';
   }
@@ -10512,7 +10052,7 @@ class AppL10nEn extends AppL10n {
   String get settingsPageSecurity => 'Sign-in & security';
 
   @override
-  String get settingsPageUsage => 'Plan & usage';
+  String get settingsPageUsage => 'Usage';
 
   @override
   String get settingsPagePermissions => 'Permissions';
@@ -10536,7 +10076,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get settingsPageUsageDescription =>
-      'Your limits, token spend and plan, all in one place.';
+      'Your limits and token spend, all in one place.';
 
   @override
   String get settingsPageAgentsDescription =>
@@ -10767,9 +10307,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get settingsTokenUsage => 'Token usage';
-
-  @override
-  String get settingsAvailablePlans => 'Available plans';
 
   @override
   String settingsSearchNoMatch(String query) {
@@ -11388,4 +10925,138 @@ class AppL10nEn extends AppL10n {
   String skillsShInstallsArg1(Object? arg1) {
     return '$arg1 installs';
   }
+
+  @override
+  String get authVerify => 'Verify';
+
+  @override
+  String get authCreateAccount => 'Create account';
+
+  @override
+  String get authNewInviteLink => 'New invite link';
+
+  @override
+  String get authShowPassword => 'Show password';
+
+  @override
+  String get authHidePassword => 'Hide password';
+
+  @override
+  String get authPasswordWillBeRejected => 'too weak, will be rejected';
+
+  @override
+  String get authUsernameTooShort => 'Usernames need at least 3 characters.';
+
+  @override
+  String get authUsernameTaken => 'That username is already taken.';
+
+  @override
+  String get authSignupsClosed =>
+      'Sign-ups are closed on this server. Ask the admin for an account.';
+
+  @override
+  String authInsecureTransportArg1(Object? arg1) {
+    return 'This server only accepts sign-ins over HTTPS. Open $arg1 instead.';
+  }
+
+  @override
+  String get authInsecureTransport =>
+      'This server only accepts sign-ins over HTTPS. Connect to it with an https:// address.';
+
+  @override
+  String get authAccountNotFound => 'That account no longer exists.';
+
+  @override
+  String get authQrRateLimited =>
+      'Too many QR sign-in requests. Wait a moment, then refresh the code.';
+
+  @override
+  String get authForgotPasswordAskAdmin =>
+      'Forgot your password? Ask your server admin to reset it in Admin → Users.';
+
+  @override
+  String get authChangeServer => 'Change server';
+
+  @override
+  String authSigningInToArg1(Object? arg1) {
+    return 'Signing in to $arg1';
+  }
+
+  @override
+  String get authNotANeoagentServer =>
+      'This address doesn\'t answer like a NeoAgent server. Check the URL and try again.';
+
+  @override
+  String authSecureConnectionFailedArg1(Object? arg1) {
+    return 'Couldn\'t open a secure (HTTPS) connection to $arg1.';
+  }
+
+  @override
+  String authNoHttpsOrHttpArg1(Object? arg1) {
+    return 'Couldn\'t reach $arg1 over HTTPS, and plain HTTP didn\'t answer either. Check the address and port.';
+  }
+
+  @override
+  String get adminResetPassword => 'Reset password';
+
+  @override
+  String adminResetPasswordForArg1(Object? arg1) {
+    return 'Reset password for $arg1';
+  }
+
+  @override
+  String adminResetPasswordBodyArg1(Object? arg1) {
+    return 'Choose a new password for $arg1. They will be signed out on every device and sign in again with this password.';
+  }
+
+  @override
+  String get adminNewPassword => 'New password';
+
+  @override
+  String get adminSetPassword => 'Set password';
+
+  @override
+  String get authMissingFields => 'Fill in every required field.';
+
+  @override
+  String adminAuditPasswordResetArg1Arg2(Object? arg1, Object? arg2) {
+    return '$arg1 reset the password of $arg2';
+  }
+
+  @override
+  String get adminPasswordUpdated =>
+      'Password updated; the user was signed out everywhere.';
+
+  @override
+  String get authSignInTitle => 'Sign in to NeoAgent';
+
+  @override
+  String get authSignInSubtitle =>
+      'Scan with your phone, or use your password.';
+
+  @override
+  String get authOrUsePassword => 'or use your password';
+
+  @override
+  String get qrLoginWaitingTitle => 'Approve on your phone';
+
+  @override
+  String get qrLoginWaitingBody =>
+      'Your phone scanned the code. Confirm the login there to finish signing in.';
+
+  @override
+  String get qrLoginSigningInOn => 'Signing in on';
+
+  @override
+  String get qrLoginLocation => 'Location';
+
+  @override
+  String get qrLoginWaitingForApproval => 'Waiting for approval';
+
+  @override
+  String get qrLoginCancelAndUsePassword => 'Cancel and use a password';
+
+  @override
+  String get qrLoginDeclinedOnPhone =>
+      'The login was declined on your phone. Scan the new code to try again.';
 }

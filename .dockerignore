@@ -1,0 +1,20 @@
+# Allowlist: the build context holds only what the image runs. Everything else,
+# including the repository's .env with live secrets, never leaves this machine.
+*
+!bin/
+!lib/
+!runtime/
+!server/
+!landing/
+!LICENSE
+!package.json
+!package-lock.json
+
+# Secrets and local state can still sit inside the allowed folders.
+**/.env
+**/.env.*
+**/*.env
+**/node_modules
+**/.DS_Store
+server/services/social_video/__fixtures__
+server/services/social_video/__tests__

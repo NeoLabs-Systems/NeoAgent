@@ -5,9 +5,9 @@ const {
   persistEnv,
   readEnvBool,
   readEnvInt,
-  maskSecret,
 } = require('./env_config');
 const { httpError } = require('../../utils/http_error');
+const { getComputerResourceProfile } = require('../runtime/resource_profile');
 
 function assertOptionalUrl(value, field) {
   if (!value) return;
@@ -56,62 +56,31 @@ function updateGeneralSettings(body = {}) {
   return { ok: true };
 }
 
-// --- Cloud VM runtime ---
+// --- Cloud computers ---
 
+// The memory and vCPU caps are upper limits: each computer gets less when the
+// host is busy (see services/runtime/resource_profile.js).
 function getVmSettings() {
+  const profile = getComputerResourceProfile();
   return {
     settings: {
-      vmBaseImageUrl: process.env.NEOAGENT_VM_BASE_IMAGE_URL || '',
       vmBaseImage: process.env.NEOAGENT_VM_BASE_IMAGE || '',
-      vmMemoryMb: readEnvInt('NEOAGENT_VM_MEMORY_MB', 4096),
-      vmCpus: readEnvInt('NEOAGENT_VM_CPUS', 2),
+      minMemoryMb: profile.minimumGuestMemoryMb,
+      maxMemoryMb: profile.maximumGuestMemoryMb,
+      maxCpus: profile.maximumGuestCpus,
     },
   };
 }
 
 function updateVmSettings(body = {}) {
-  const vmBaseImageUrl = cleanLine(body.vmBaseImageUrl);
   const vmBaseImage = cleanLine(body.vmBaseImage);
-  assertOptionalUrl(vmBaseImageUrl, 'vmBaseImageUrl');
-  const vmMemoryMb = parseMinInt(body.vmMemoryMb, 512, 'vmMemoryMb');
-  const vmCpus = parseMinInt(body.vmCpus, 1, 'vmCpus');
+  const { minimumGuestMemoryMb } = getComputerResourceProfile();
+  const maxMemoryMb = parseMinInt(body.maxMemoryMb, minimumGuestMemoryMb, 'maxMemoryMb');
+  const maxCpus = parseMinInt(body.maxCpus, 1, 'maxCpus');
 
-  persistEnv('NEOAGENT_VM_BASE_IMAGE_URL', vmBaseImageUrl);
   persistEnv('NEOAGENT_VM_BASE_IMAGE', vmBaseImage);
-  persistEnv('NEOAGENT_VM_MEMORY_MB', vmMemoryMb);
-  persistEnv('NEOAGENT_VM_CPUS', vmCpus);
-  return { ok: true };
-}
-
-// --- Stripe / billing setup ---
-
-function getBillingSetup() {
-  const secretKey = process.env.STRIPE_SECRET_KEY || '';
-  return {
-    settings: {
-      billingEnabled: readEnvBool('NEOAGENT_BILLING_ENABLED', false),
-      stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
-      stripeSecretKeyConfigured: Boolean(secretKey),
-      stripeSecretKeyHint: maskSecret(secretKey, 7),
-      stripeWebhookSecretConfigured: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
-      trialDays: readEnvInt('BILLING_TRIAL_DAYS', 14),
-    },
-  };
-}
-
-// Blank secret fields keep the stored secret.
-function updateBillingSetup(body = {}) {
-  assertBoolean(body.billingEnabled, 'billingEnabled');
-  const publishableKey = cleanLine(body.stripePublishableKey);
-  const secretKey = cleanLine(body.stripeSecretKey);
-  const webhookSecret = cleanLine(body.stripeWebhookSecret);
-  const trialDays = parseMinInt(body.trialDays, 0, 'trialDays');
-
-  persistEnv('NEOAGENT_BILLING_ENABLED', body.billingEnabled ? 'true' : 'false');
-  persistEnv('STRIPE_PUBLISHABLE_KEY', publishableKey);
-  if (secretKey) persistEnv('STRIPE_SECRET_KEY', secretKey);
-  if (webhookSecret) persistEnv('STRIPE_WEBHOOK_SECRET', webhookSecret);
-  persistEnv('BILLING_TRIAL_DAYS', trialDays);
+  persistEnv('NEOAGENT_COMPUTER_MAX_MEMORY_MB', maxMemoryMb);
+  persistEnv('NEOAGENT_COMPUTER_MAX_CPUS', maxCpus);
   return { ok: true };
 }
 
@@ -133,8 +102,6 @@ module.exports = {
   updateGeneralSettings,
   getVmSettings,
   updateVmSettings,
-  getBillingSetup,
-  updateBillingSetup,
   getAccessSettings,
   setSignupEnabled,
 };
