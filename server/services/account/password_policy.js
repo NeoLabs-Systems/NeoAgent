@@ -3,6 +3,9 @@
 const MIN_PASSWORD_LENGTH = 8;
 const MIN_PASSWORD_SCORE = 3;
 
+const PERSONAL_INFO_FEEDBACK = 'Avoid using your username or email in the password.';
+const COMMON_PATTERN_FEEDBACK = 'Avoid common words, repeated characters, or obvious sequences.';
+
 const COMMON_PATTERNS = [
   'password',
   '123456',
@@ -92,10 +95,10 @@ function evaluatePasswordStrength(password, context = {}) {
     feedback.push('Mix uppercase, lowercase, numbers, or symbols.');
   }
   if (containsPersonalInfo) {
-    feedback.push('Avoid using your username or email in the password.');
+    feedback.push(PERSONAL_INFO_FEEDBACK);
   }
   if (usesCommonPattern || sequential || repeatedRuns) {
-    feedback.push('Avoid common words, repeated characters, or obvious sequences.');
+    feedback.push(COMMON_PATTERN_FEEDBACK);
   }
   if (feedback.length === 0 && score >= MIN_PASSWORD_SCORE) {
     feedback.push('Password looks strong.');
@@ -123,8 +126,13 @@ function evaluatePasswordStrength(password, context = {}) {
   };
 }
 
+// Names the reason that actually rejected the password: personal info and
+// common patterns reject on their own, so they beat general length/variety tips.
 function passwordStrengthError(result) {
-  const details = Array.isArray(result?.feedback) ? result.feedback[0] : '';
+  const feedback = Array.isArray(result?.feedback) ? result.feedback : [];
+  const details = feedback.find((item) => item === PERSONAL_INFO_FEEDBACK)
+    || feedback.find((item) => item === COMMON_PATTERN_FEEDBACK)
+    || feedback[0];
   return details
     ? `Password is too weak. ${details}`
     : 'Password is too weak.';

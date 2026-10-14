@@ -14,8 +14,8 @@ void main() {
   test('looksLikeStackTrace ignores prose that merely contains "at"', () {
     expect(
       looksLikeStackTrace(
-        'No AI providers are configured. Add a provider API key in the admin '
-        'dashboard, then try again.',
+        'No AI model is available. Add a provider API key in Settings → API '
+        'keys (or ask your server admin), then try again.',
       ),
       isFalse,
     );

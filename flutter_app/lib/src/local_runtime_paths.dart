@@ -1,3 +1,5 @@
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
+
 class LocalRuntimePaths {
   LocalRuntimePaths._({
     required this.homeDirectory,
@@ -15,7 +17,7 @@ class LocalRuntimePaths {
     final homeKey = isWindows ? 'USERPROFILE' : 'HOME';
     final homeDirectory = (environment[homeKey] ?? '').trim();
     if (homeDirectory.isEmpty) {
-      throw StateError('$homeKey is required to locate NeoAgent runtime data.');
+      throw StateError(appStrings.arg1IsRequiredToLocateNeoagentRuntime(homeKey));
     }
 
     final configuredRuntimeHome = (environment['NEOAGENT_HOME'] ?? '').trim();

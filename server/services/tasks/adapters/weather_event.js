@@ -4,6 +4,7 @@ const {
   ensureOwnedIntegrationConnection,
   normalizeTrimmedText,
 } = require('../security');
+const { sortByTimestamp } = require('./shared');
 
 const WEATHER_EVENT_TYPES = new Set([
   'rain_start',
@@ -36,6 +37,7 @@ module.exports = {
   label: 'Weather Event',
   providerKey: 'weather',
   appKey: 'forecast',
+  configHint: '{ connectionId, location, eventTypes: [rain_start|snow_start|wind_alert|temperature_above|temperature_below], windAlertKph?, temperatureAboveC?, temperatureBelowC? }',
   async validateConfig(config = {}, context = {}) {
     const connection = ensureOwnedIntegrationConnection(context.integrationManager, {
       userId: context.userId,
@@ -80,5 +82,91 @@ module.exports = {
       parts.push(config.eventTypes.join(', '));
     }
     return parts.join(' · ');
+  },
+  poll: {
+    intervalMinutes: 1,
+    cursor: 'list',
+    async fetchRows({ tool, config }) {
+      const forecast = await tool('weather_get_forecast', {
+        ...(config.location ? { location: config.location } : {}),
+        forecast_hours: Math.max(1, Math.min(Number(config.horizonHours) || 12, 48)),
+      });
+      const hourly = Array.isArray(forecast?.hourly) ? forecast.hourly : [];
+      const eventTypes = Array.isArray(config.eventTypes) ? config.eventTypes : [];
+      const rows = [];
+
+      for (let index = 0; index < hourly.length; index += 1) {
+        const row = hourly[index] || {};
+        const previous = index > 0 ? (hourly[index - 1] || {}) : null;
+        const time = String(row.time || '').trim();
+        if (!time) continue;
+
+        const rain = Number(row.rain || row.precipitation || 0);
+        const prevRain = Number(previous?.rain || previous?.precipitation || 0);
+        const snowfall = Number(row.snowfall || 0);
+        const prevSnow = Number(previous?.snowfall || 0);
+        const windSpeed = Number(row.windSpeed || 0);
+        const temperature = Number(row.temperature);
+
+        const candidates = [
+          {
+            type: 'rain_start',
+            active:
+              eventTypes.includes('rain_start')
+              && rain >= Number(config.minPrecipitationMm || 0.4)
+              && prevRain < Number(config.minPrecipitationMm || 0.4),
+          },
+          {
+            type: 'snow_start',
+            active:
+              eventTypes.includes('snow_start')
+              && snowfall >= Number(config.minSnowfallCm || 0.2)
+              && prevSnow < Number(config.minSnowfallCm || 0.2),
+          },
+          {
+            type: 'wind_alert',
+            active:
+              eventTypes.includes('wind_alert')
+              && windSpeed >= Number(config.windAlertKph || 40),
+          },
+          {
+            type: 'temperature_above',
+            active:
+              eventTypes.includes('temperature_above')
+              && Number.isFinite(temperature)
+              && temperature >= Number(config.temperatureAboveC || 32),
+          },
+          {
+            type: 'temperature_below',
+            active:
+              eventTypes.includes('temperature_below')
+              && Number.isFinite(temperature)
+              && temperature <= Number(config.temperatureBelowC || 0),
+          },
+        ];
+
+        for (const candidate of candidates) {
+          if (!candidate.active) continue;
+          rows.push({
+            fingerprint: `weather:${config.connectionId}:${candidate.type}:${time}`,
+            timestamp: time,
+            context: {
+              triggerEvent: {
+                provider: 'weather',
+                eventType: candidate.type,
+                location: forecast?.location?.label || config.location || null,
+                time,
+                rain,
+                snowfall,
+                windSpeed,
+                temperature,
+              },
+            },
+          });
+        }
+      }
+
+      return rows.sort(sortByTimestamp);
+    },
   },
 };

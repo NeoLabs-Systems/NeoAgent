@@ -1,150 +1,134 @@
 ---
 title: Integrations and messaging
 sidebar_label: Integrations
-description: Connect app accounts for structured tools, and messaging channels so people can talk to the agent.
+description: Connect accounts so the agent gets structured tools, and messaging channels so people can talk to it.
 ---
 
 # Integrations and messaging
 
-*Two connection layers: tools for accounts, and channels for people.*
+**Integrations give the agent tools for your accounts; messaging channels let people talk to it and receive task results.**
 
-NeoAgent has two connection layers with different purposes.
+- **Two separate layers.** Connecting Slack as an integration does not set up Slack messaging, and the reverse.
+- **One exception.** The GitHub messaging channel reuses the GitHub integration's **Mentions** app.
 
-**Integrations** give the agent structured tools for an account. **Messaging
-channels** let people talk to the agent and receive automation results.
-Connecting Slack or WhatsApp in one layer does not automatically configure the
-other.
+## 🔌 Integrations
 
-## 🔌 Official integrations
+Connect accounts under **Tools › Integrations**; each agent keeps its own connections.
 
-Connect accounts in **Integrations**.
+| Provider | What the agent can use | Setup |
+| --- | --- | --- |
+| Google Workspace | Gmail, Calendar, Drive, Docs, Sheets | Server OAuth app (`GOOGLE_OAUTH_*`) |
+| Microsoft 365 | Outlook, Calendar, OneDrive, Teams | Server OAuth app (`MICROSOFT_OAUTH_*`) |
+| GitHub | Repositories, issues, pull requests, files, branches, workflows; **Mentions** channel | Server OAuth app (`GITHUB_OAUTH_*`) |
+| Notion | Pages, databases, blocks, search | Server OAuth app (`NOTION_OAUTH_*`) |
+| Slack | Conversations, history, search, messages | Server OAuth app (`SLACK_OAUTH_*`) |
+| Figma | Files, nodes, rendered images, comments | Server OAuth app (`FIGMA_OAUTH_*`) |
+| Spotify | Playback control, recently played, search | Server OAuth app (`SPOTIFY_OAUTH_*`) |
+| NeoRecall | Read-only search, memories, daily summaries, conversations | Your NeoRecall URL, then NeoRecall sign-in |
+| Nextcloud | Files, shares, Calendar, Contacts, other apps via OCS | Your Nextcloud URL, then Nextcloud sign-in |
+| Home Assistant | Entity states and service calls | HTTPS URL and a Long-Lived Access Token |
+| Trello | Boards, lists, cards, comments, search | Trello API key and account token |
+| Weather | Location search, current conditions, forecasts | One click (Open-Meteo, no key) |
+| World News | Top headlines by keyword or category | GNews API key |
+| Personal WhatsApp | Your own chats: history, profile, sending | Scan a QR code |
+| Bitwarden | [Credential broker](security-boundaries.md); no tools of its own | Email, then master password once (never stored) |
 
-| Provider | Available areas |
+- **Several accounts.** Most providers accept many accounts per agent. Home Assistant, World News, Trello and Bitwarden take one.
+- **Approval.** Integration tools fall under **External & MCP Tools**, which asks first by default.
+- **Hidden until configured.** An OAuth provider only appears once its server credentials are set.
+
+### Read Only accounts
+
+- **Set it per account.** **Access mode** offers **Read / Write** (default) and **Read Only**.
+- **Enforced on the server.** Write tools of a Read Only account are blocked, whatever the model attempts.
+- **Unknown means write.** A tool that does not declare itself read-only counts as a write.
+
+### OAuth setup on the server
+
+1. Register an OAuth app with the provider.
+2. Set its callback URL to `PUBLIC_URL/api/integrations/oauth/callback`.
+3. Enter the client ID and secret under **Admin › Integrations**, or set `<PREFIX>_OAUTH_CLIENT_ID` and `<PREFIX>_OAUTH_CLIENT_SECRET` with `neoagent env set`.
+
+- **Prefixes.** `GOOGLE`, `MICROSOFT`, `GITHUB`, `NOTION`, `SLACK`, `FIGMA`, `SPOTIFY`.
+- **Microsoft tenant.** `MICROSOFT_OAUTH_TENANT_ID` defaults to `common`.
+- **Optional redirect.** `<PREFIX>_OAUTH_REDIRECT_URI` overrides the default callback.
+- **Trello.** A shared `TRELLO_API_KEY` set here spares users from entering their own key.
+
+Full variable list: [Configuration](configuration.md).
+
+### NeoRecall
+
+1. Choose **NeoRecall** and enter your NeoRecall server's base URL.
+2. Sign in on NeoRecall's own page and approve the read-only access.
+
+- **Seven read-only tools.** Search, memories, mini-memories, daily summaries, conversations and transcript evidence.
+- **No mutation.** No audio, recording, memory changes or NeoRecall Ask.
+- **Ready for daily questions.** Once connected, its search, daily-summary and conversation tools are active in every run.
+- **Reachable callback.** Sign-in opens the URL you entered; NeoAgent's `PUBLIC_URL` must be reachable from your browser.
+
+### Nextcloud
+
+1. Choose **Nextcloud** and enter your instance URL; NeoAgent checks its `status.php`.
+2. Sign in through Nextcloud Login Flow v2 with password, SSO or 2FA; there is no app password to paste.
+
+- **One login, three apps.** Files, Calendar and Contacts.
+- **Other apps.** `nextcloud_ocs_request` reaches any API under `/ocs/v2.php/`.
+- **Talk** is a messaging channel, set up under **Settings › Messaging**.
+
+### Home Assistant
+
+- **HTTPS only**, on port 443 or 8123.
+- **Private addresses are blocked.** Local, loopback and private-network addresses are refused, also after DNS resolution.
+
+## 💬 Messaging channels {#messaging-channels}
+
+Configure channels for the selected agent under **Settings › Messaging**.
+
+| Connection | Platforms |
 | --- | --- |
-| Google Workspace | Gmail, Calendar, Drive, Docs, Sheets |
-| Microsoft 365 | Outlook, Calendar, OneDrive, Teams |
-| GitHub | Repositories, issues, pull requests, files, branches, workflows |
-| Notion | Pages, databases, blocks, search |
-| Slack | Conversations, history, search, messages |
-| Figma | Files, nodes, rendered images, comments |
-| NeoRecall | Local hybrid recall search, memories, mini-memories, daily summaries, conversations, transcript evidence |
-| Home Assistant | Entity state and service calls |
-| Trello | Boards, lists, cards, comments, search |
-| Spotify | Playback, history, search, queue |
-| Weather | Location search, current conditions, forecasts |
-| Personal WhatsApp | Private account chat history and send tools |
-| Nextcloud | Files, shares, trash, Calendar, Contacts, OCS apps |
+| Linked account or bot, no public URL needed | WhatsApp (QR), Telegram (bot token), Discord (bot token), Matrix, IRC, Twitch, GitHub |
+| Webhook, needs a reachable `PUBLIC_URL` | Slack, Google Chat, Microsoft Teams, LINE, Signal, iMessage, BlueBubbles, Mattermost |
+| Generic webhook bridges | Feishu, Nextcloud Talk, Nostr, Synology Chat, Tlon, Zalo, Zalo Personal, WeChat, WebChat |
 
-Available operations are discovered from the current server implementation and
-connected account. They may differ by provider permissions.
+- **24 platforms.** No SMS, phone telephony or email inbox channel.
+- **Webhook path.** `POST PUBLIC_URL/api/messaging/webhook/<platform>`, checked against the channel's secret or signature.
 
-### 👀 Read-only accounts
+### Who can message
 
-Connected accounts can be set to **Read Only**. NeoAgent blocks their write
-tools server-side. Use read-only mode unless an agent must create, send, update,
-or delete data.
+Each channel has a **Who can message** dialog with two settings.
 
-### 🔧 Setup
+| Setting | Options |
+| --- | --- |
+| **Private chats** | **Approved only** (default), **Anyone**, **No one** |
+| **Groups and channels** | **Approved only** (default), **Anyone**, **No one** |
 
-Google, Microsoft, GitHub, Notion, Slack, Figma, and Spotify require OAuth
-application credentials on the server. The callback URL for every provider is
-`PUBLIC_URL/api/integrations/oauth/callback`.
+- **Approved only** admits the people, chats, groups or roles you add.
+- **Anyone** lets strangers start runs; those runs act for someone else and ask before touching your data. See [run trust](security-boundaries.md#run-trust).
 
-GitHub as the example:
+### WhatsApp modes
 
-1. Create an **OAuth App** under GitHub Developer Settings.
-2. Set the authorization callback URL to the one above.
-3. Add the credentials to the server environment:
-   - `GITHUB_OAUTH_CLIENT_ID`
-   - `GITHUB_OAUTH_CLIENT_SECRET`
+Pick the mode before scanning the QR code, and switch later with **Chat mode** on the WhatsApp card.
 
-The other providers follow the same pattern with their own `*_OAUTH_`
-prefixes, listed in [Configuration](configuration.md).
+| Mode | Behaviour |
+| --- | --- |
+| **Separate account** (default) | Links a number that belongs to the agent. Direct chats and groups, gated by **Who can message**. |
+| **Personal self-chat** | Links your own number. Only your "Message yourself" chat reaches the agent; every other chat is ignored. |
 
-NeoRecall, Nextcloud, Home Assistant, and Trello need no server-side app
-registration; users configure them from the application.
+### GitHub mentions
 
-### 🧠 NeoRecall
+Approved people @mention the agent's GitHub account on an issue or pull request, and the agent replies in that thread.
 
-Open **Integrations**, choose **NeoRecall**, and enter the base URL of the
-NeoRecall server. NeoAgent validates the server and opens NeoRecall's own
-authorization page. Sign in there and approve the three read-only scopes.
-
-NeoRecall contributes seven on-demand tools for local hybrid search and for
-reading memories, mini-memories, daily summaries, conversations, and transcript
-evidence. It does not expose audio, recording, memory mutation, consolidation,
-or NeoRecall Ask. This keeps the products isolated and avoids a second LLM call
-when NeoAgent only needs retrieval context.
-
-When a NeoRecall account is connected, NeoAgent injects connected-integration
-guidance into the run and keeps daily-summary, search, and conversation tools
-active so questions about the user's day can be answered from NeoRecall without
-manual tool discovery.
-
-OAuth authorize always opens the NeoRecall base URL you configured (not a
-possibly-local `NEORECALL_PUBLIC_URL`). NeoAgent's own `PUBLIC_URL` must still
-be reachable from the browser so the callback can finish.
-
-### ☁️ Nextcloud
-
-Open **Integrations**, choose **Nextcloud**, and enter the URL of your
-Nextcloud instance (Nextcloud.com or self-hosted). NeoAgent checks `status.php`,
-then opens Nextcloud Login Flow v2. Sign in there with password, SSO, or 2FA;
-NeoAgent never asks you to paste an app password.
-
-One login enables Files, Calendar, and Contacts tools for that account. File
-writes, shares, and event or contact changes honor the connection's read-only
-setting. Use `nextcloud_ocs_request` for other Nextcloud apps under `/ocs/v2.php/`.
-Talk chat stays in **Settings > Messaging**.
-
-## 💬 Messaging channels
-
-Configure messaging under **Settings > Messaging**. Supported bridges include
-WhatsApp, Telegram, Discord, Slack, Google Chat, Teams, Matrix, Signal,
-iMessage through BlueBubbles, IRC, Twitch, LINE, Mattermost, GitHub, and
-several webhook-backed services.
-
-Each channel has its own authentication and allowlist behavior. Restrict which
-chats, rooms, groups, and senders may start agent runs.
-
-WhatsApp links in one of two modes, chosen before you scan the QR code and
-switchable later with **Chat mode** on the WhatsApp card:
-
-- **Separate account** (default) links a number that belongs to the agent.
-  Direct chats and groups work, gated by the allowlist.
-- **Personal self-chat** links your own number and confines the agent to your
-  "Message yourself" chat. Notes you write there start a run and replies land in
-  the same chat; every other chat and group on the account is ignored, and the
-  allowlist no longer applies.
-
-GitHub works as a public channel: approved people @mention the agent's account
-on an issue or pull request, and the agent replies in that thread.
-
-- Connecting it runs the same OAuth flow as the GitHub integration, under its
-  own **Mentions** app. Connect a dedicated account (for example a bot user) to
-  keep its comments and commits apart from your own. To do that, sign into that
-  account on github.com first.
-- Under **Who can message**, add the repositories to watch and the people or
-  roles (such as `COLLABORATOR`) who may ask. A watched repository alone admits
-  no one, "Anyone" is not offered, and the agent only answers when tagged.
-- Runs started from GitHub are restricted. They see none of your memory or
-  other integrations, get no shell, and cannot reply outside the thread. They
-  keep their own memory for each repository. GitHub access is
-  limited to the thread's repository. Commits can go only to the pull
-  request's own branch or a new `neoagent/*` branch, never the default branch.
-- Each agent polls with its own connection every 30 seconds, so no webhook or
-  `PUBLIC_URL` is needed.
-
-Webhook-based channels require a reachable `PUBLIC_URL`. The generic inbound
-path is:
-
-```text
-PUBLIC_URL/api/messaging/webhook/:platform
-```
+- **Connect** through the GitHub integration's **Mentions** app. Use a dedicated bot account, signed in on github.com first.
+- **Who can message.** Add watched repositories plus the people or roles (`OWNER`, `MEMBER`, `COLLABORATOR`) who may ask.
+- **Mention only.** A watched repository alone admits no one, and **Anyone** is not offered.
+- **Restricted runs.** No memory of yours, no other integrations, no shell; replies only in the same thread.
+- **Per-repository memory.** Each repository gets its own memory, and requests stay inside that repository.
+- **Safe branches.** Commits go only to a `neoagent/*` branch or the pull request's own branch, never the default branch.
+- **Polling.** Each agent checks every 30 seconds with its own connection, so no webhook or `PUBLIC_URL` is needed.
 
 ## 🩺 Troubleshooting
 
-For failed OAuth connections, confirm the public URL, callback, client
-credentials, and provider scopes. For messaging failures, inspect **Runs** and
-server logs on the NeoAgent host, then verify the channel allowlist and webhook
-reachability.
+- **OAuth fails.** Check `PUBLIC_URL`, the callback URL, client credentials and provider scopes.
+- **Provider missing in Tools.** Its server OAuth credentials are not set.
+- **Messages ignored.** Check **Who can message**, then the run list under **Runs** and the server logs.
+- **Webhook channel silent.** Confirm `PUBLIC_URL` is reachable from the platform and the shared secret matches.

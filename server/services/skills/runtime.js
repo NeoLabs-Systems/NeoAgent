@@ -20,7 +20,7 @@ function serializeInstalledSkill(skill) {
     source: skill.metadata?.source || 'local',
     autoCreated: skill.metadata?.auto_created === true,
     filePath: skill.filePath,
-    storeId: skill.metadata?.store_id || '',
+    skillsShId: skill.metadata?.skills_sh_id || '',
     readOnly: skill.readOnly === true,
     ownerType: skill.ownerType || 'global',
   };

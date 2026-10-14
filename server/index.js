@@ -22,6 +22,9 @@ const express = require('express');
 const { createServer } = require('http');
 
 const db = require('./db/database');
+// Only the server owns run state: CLI commands open the same database while
+// it runs, so the sweep for runs a dead process left behind happens here.
+db.interruptStaleAgentRuns();
 const { applyEnvAdminGrants, needsAdminGrant } = require('./services/access/admin');
 const { setupConsoleInterceptor } = require('./utils/logger');
 const { validateOrigin } = require('./config/origins');
@@ -66,6 +69,8 @@ function logStartupConfig() {
     OPENAI_COMPATIBLE_API_KEY: Boolean(process.env.OPENAI_COMPATIBLE_API_KEY),
     OPENAI_COMPATIBLE_BASE_URL: Boolean(process.env.OPENAI_COMPATIBLE_BASE_URL),
     DEEPGRAM_API_KEY: Boolean(process.env.DEEPGRAM_API_KEY),
+    VOICE_LIVE_PROVIDER: Boolean(process.env.VOICE_LIVE_PROVIDER),
+    TYPESAFE_API_KEY: Boolean(process.env.TYPESAFE_API_KEY),
     GOOGLE_OAUTH_CLIENT_ID: Boolean(process.env.GOOGLE_OAUTH_CLIENT_ID),
     GOOGLE_OAUTH_CLIENT_SECRET: Boolean(process.env.GOOGLE_OAUTH_CLIENT_SECRET),
     NOTION_OAUTH_CLIENT_ID: Boolean(process.env.NOTION_OAUTH_CLIENT_ID),
@@ -286,7 +291,7 @@ httpServer.on('error', (error) => {
 httpServer.listen(PORT, () => {
   const startupUrl = PUBLIC_URL || `http://localhost:${PORT}`;
   console.log(`NeoAgent running on ${startupUrl}`);
-  startServices(app, io).catch(async (err) => {
+  startServices(app, io, { resumeRuns: true }).catch(async (err) => {
     console.error('[Startup] Service initialization failed:', err);
     await shutdown(1);
   });

@@ -1,3 +1,4 @@
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 class BackendDiscoveryCandidate {
   const BackendDiscoveryCandidate({
     required this.backendUrl,
@@ -24,21 +25,21 @@ class BackendDiscoveryCandidate {
     required bool isLocal,
   }) {
     if (handshake['product'] != 'NeoAgent') {
-      throw const FormatException('The discovered service is not NeoAgent.');
+      throw FormatException(appStrings.theDiscoveredServiceIsNotNeoagent);
     }
     final protocolVersion = int.tryParse(
       handshake['protocolVersion']?.toString() ?? '',
     );
     if (protocolVersion != 1) {
-      throw const FormatException(
-        'The discovered NeoAgent uses an unsupported setup protocol.',
+      throw FormatException(
+        appStrings.theDiscoveredNeoagentUsesAnUnsupported,
       );
     }
     final instanceId = handshake['instanceId']?.toString().trim() ?? '';
     final displayName = handshake['displayName']?.toString().trim() ?? '';
     if (instanceId.isEmpty || displayName.isEmpty) {
-      throw const FormatException(
-        'The discovered NeoAgent returned incomplete identity data.',
+      throw FormatException(
+        appStrings.theDiscoveredNeoagentReturnedIncompleteIdentity,
       );
     }
     return BackendDiscoveryCandidate(

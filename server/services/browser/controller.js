@@ -299,6 +299,7 @@ class BrowserController {
     this._closePromise = null;
     this._cdpAttached = false;
     this._protectedCredentialFill = null;
+    this._blockedNavigation = null;
     this.headless = false;
     this.profileDir = path.join(BROWSER_PROFILE_ROOT, this.userId || 'default');
     if (!fs.existsSync(this.profileDir)) fs.mkdirSync(this.profileDir, { recursive: true });
@@ -360,23 +361,23 @@ class BrowserController {
     for (const page of context.pages?.() || []) this._bindPage(page, { makeActive: false });
   }
 
-  async _networkUrlAllowed(url) {
+  async _checkNetworkUrl(url) {
     let parsed;
     try {
       parsed = new URL(String(url || ''));
     } catch {
-      return false;
+      return { allowed: false, reason: 'Not a valid URL.' };
     }
     const protocol = parsed.protocol.toLowerCase();
-    if (protocol === 'about:' && parsed.href === 'about:blank') return true;
-    if (protocol === 'blob:' || protocol === 'data:') return true;
+    if (protocol === 'about:' && parsed.href === 'about:blank') return { allowed: true };
+    if (protocol === 'blob:' || protocol === 'data:') return { allowed: true };
     if (protocol === 'ws:' || protocol === 'wss:') {
       parsed.protocol = protocol === 'ws:' ? 'http:' : 'https:';
     } else if (protocol !== 'http:' && protocol !== 'https:') {
-      return false;
+      return { allowed: false, reason: `The ${protocol} scheme is not allowed.` };
     }
     const result = await this._urlValidator(parsed.href);
-    return result?.allowed === true;
+    return result?.allowed === true ? { allowed: true } : { allowed: false, reason: result?.reason };
   }
 
   async _assertNavigationAllowed(url, options = {}) {
@@ -387,7 +388,7 @@ class BrowserController {
       if (isAbortError(error, options.signal)) throw error;
     }
     if (result?.allowed !== true) {
-      const error = new Error('This URL is not permitted.');
+      const error = new Error(result?.reason || 'This URL is not permitted.');
       error.code = 'URL_BLOCKED';
       throw error;
     }
@@ -395,11 +396,17 @@ class BrowserController {
 
   async _installNetworkGuard(context) {
     await context.route('**/*', async (route) => {
-      let allowed = false;
+      const request = route.request();
+      let check = { allowed: false };
       try {
-        allowed = await this._networkUrlAllowed(route.request().url());
+        check = await this._checkNetworkUrl(request.url());
       } catch {}
-      if (!allowed) {
+      if (!check.allowed) {
+        // A blocked page load (e.g. a redirect into a private address) surfaces
+        // in page.goto as a bare ERR_BLOCKED_BY_CLIENT; keep the reason for navigate().
+        if (request.isNavigationRequest?.()) {
+          this._blockedNavigation = { url: request.url(), reason: check.reason };
+        }
         await route.abort('blockedbyclient').catch(() => {});
         return;
       }
@@ -410,7 +417,7 @@ class BrowserController {
       await context.routeWebSocket('**', async (webSocket) => {
         let allowed = false;
         try {
-          allowed = await this._networkUrlAllowed(webSocket.url());
+          allowed = (await this._checkNetworkUrl(webSocket.url())).allowed;
         } catch {}
         if (!allowed) {
           await webSocket.close({ code: 1008, reason: 'Blocked by network policy' }).catch(() => {});
@@ -863,6 +870,7 @@ class BrowserController {
 
   async navigate(url, options = {}) {
     let page = null;
+    this._blockedNavigation = null;
     try {
       await this._assertNavigationAllowed(url, options);
       page = await this.ensurePage(options);
@@ -938,8 +946,11 @@ class BrowserController {
       if (page && !page.isClosed()) {
         try { screenshot = await this.takeScreenshot(); } catch {}
       }
+      const blocked = /ERR_BLOCKED_BY_CLIENT/.test(err.message) ? this._blockedNavigation : null;
       return {
-        error: err.message,
+        error: blocked
+          ? `The page tried to load ${blocked.url}, which is blocked: ${blocked.reason || 'not permitted.'}`
+          : err.message,
         url,
         botDetection: { detected: false, provider: null },
         screenshotPath: screenshot?.screenshotPath || null,

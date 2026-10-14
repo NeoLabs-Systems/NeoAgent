@@ -113,14 +113,17 @@ class ApprovalGateService {
   /**
    * Emits tool:approval_required and waits for a decision.
    * Resolves to 'approved', 'denied', 'timeout', or 'expired'.
+   * @param {object} [options]
+   * @param {string|null} [options.reason] why this call needs the owner, when
+   *   the run's trust (not the category policy) asked for approval
    */
-  requestApproval(userId, runId, toolName, toolArgs) {
+  requestApproval(userId, runId, toolName, toolArgs, { reason = null } = {}) {
     const approvalId = randomUUID();
     const expiresAt = new Date(Date.now() + APPROVAL_TIMEOUT_MS).toISOString();
     const category = getCategoryForTool(toolName, toolArgs) ?? 'unknown';
     this._persistPendingApproval(approvalId, userId, runId, toolName, toolArgs, category, expiresAt);
 
-    const payload = { approvalId, runId, toolName, toolArgs, category, expiresAt };
+    const payload = { approvalId, runId, toolName, toolArgs, category, expiresAt, reason };
     this._io.to(`user:${userId}`).emit('tool:approval_required', payload);
 
     return new Promise((resolve) => {
@@ -143,42 +146,60 @@ class ApprovalGateService {
         runId,
         toolName,
         toolArgs: toolArgs ?? {},
+        category,
+        escalated: Boolean(reason),
       });
     });
   }
 
   /**
-   * Called from the REST/notification endpoint when the user decides.
+   * Called from the REST/notification endpoint when the user decides. The
+   * grant and the log use the pending call, never client-supplied values.
    * @param {'approved'|'denied'} decision
    * @param {'once'|'session'|'always'} scope
+   * @returns {{runId: string|null, toolName: string, toolArgs: object}|null}
+   *   the call that was decided, or null when nothing was pending
    */
-  resolve(approvalId, userId, runId, toolName, toolArgs, decision, scope) {
+  resolve(approvalId, userId, decision, scope) {
     const entry = this._pending.get(approvalId);
-    if (!entry) return false;
-
-    clearTimeout(entry.timer);
-    this._pending.delete(approvalId);
+    if (!entry || String(entry.userId) !== String(userId)) return null;
+    const { runId, toolName, toolArgs, category } = entry;
 
     const normalizedDecision = decision === 'approved' ? 'approved' : 'denied';
     const normalizedScope = ['once', 'session', 'always'].includes(scope) ? scope : 'once';
 
-    if (normalizedDecision === 'approved' && normalizedScope === 'session') {
-      this._sessionGrants.add(this._grantKey(userId, runId, toolName));
-      this._persistSessionGrant(userId, runId, toolName);
-    }
     // 'always' scope is handled by the route (sets policy to 'allow') and
     // also acts as a session grant for the current run.
-    if (normalizedDecision === 'approved' && normalizedScope === 'always') {
+    if (normalizedDecision === 'approved' && normalizedScope !== 'once') {
       this._sessionGrants.add(this._grantKey(userId, runId, toolName));
       this._persistSessionGrant(userId, runId, toolName);
     }
 
-    this._updatePendingApprovalStatus(approvalId, normalizedDecision, normalizedScope);
-    const logScope = normalizedScope === 'always' ? 'session' : normalizedScope;
-    this._logDecision(userId, runId, toolName, toolArgs, normalizedDecision, logScope);
-    this._io.to(`user:${userId}`).emit('tool:approval_resolved', { approvalId, decision: normalizedDecision });
-    entry.resolve(normalizedDecision);
-    return true;
+    this._settle(approvalId, entry, normalizedDecision, normalizedScope);
+
+    // Parallel calls ask at the same moment. A wider grant also answers the
+    // ones still waiting that it covers, or they would sit until they time out.
+    if (normalizedDecision === 'approved' && normalizedScope !== 'once') {
+      for (const [otherId, other] of Array.from(this._pending.entries())) {
+        if (String(other.userId) !== String(userId)) continue;
+        const sameTool = other.runId === runId && other.toolName === toolName;
+        const sameCategory = normalizedScope === 'always'
+          && !other.escalated
+          && other.category === category;
+        if (sameTool || sameCategory) this._settle(otherId, other, 'approved', normalizedScope);
+      }
+    }
+    return { runId, toolName, toolArgs };
+  }
+
+  _settle(approvalId, entry, decision, scope) {
+    clearTimeout(entry.timer);
+    this._pending.delete(approvalId);
+    this._updatePendingApprovalStatus(approvalId, decision, scope);
+    const logScope = scope === 'always' ? 'session' : scope;
+    this._logDecision(entry.userId, entry.runId, entry.toolName, entry.toolArgs, decision, logScope);
+    this._io.to(`user:${entry.userId}`).emit('tool:approval_resolved', { approvalId, decision });
+    entry.resolve(decision);
   }
 
   _logDecision(userId, runId, toolName, toolArgs, decision, scope) {

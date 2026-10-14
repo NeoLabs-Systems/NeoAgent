@@ -15,6 +15,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   late final WebAppUpdateMonitor _webAppUpdateMonitor;
   final AppLaunchBridge _appLaunchBridge = AppLaunchBridge();
   StreamSubscription<AppLaunchRequest>? _appLaunchSubscription;
+  _HomeWidgetSync? _homeWidgetSync;
   GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   String? _navigatorScopeSignature;
   Menu? _trayMenu;
@@ -49,6 +50,9 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     _appLaunchSubscription = _appLaunchBridge.launchRequests.listen(
       _handleAppLaunchRequest,
     );
+    if (HomeWidgetBridge.isSupported) {
+      _homeWidgetSync = _HomeWidgetSync(_controller);
+    }
     if (_supportsDesktopShell) {
       unawaited(_initializeDesktopShell());
     }
@@ -57,6 +61,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   @override
   void dispose() {
     _appLaunchSubscription?.cancel();
+    _homeWidgetSync?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _controller.removeListener(_handleControllerChanged);
     if (_supportsDesktopShell) {
@@ -89,8 +94,8 @@ class _NeoAgentAppState extends State<NeoAgentApp>
 
   void _handleAppLaunchRequest(AppLaunchRequest request) {
     final action = request.action;
-    if (action == AppLaunchBridge.voiceAssistantAction) {
-      _controller.openVoiceAssistantSurface();
+    if (action == AppLaunchBridge.startCallAction) {
+      _controller.requestVoiceCall();
       return;
     }
     if (action == AppLaunchBridge.shareToChatAction) {
@@ -155,9 +160,12 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     _trayMenu = Menu(
       items: <MenuItem>[
         MenuItem(key: 'open', label: 'Open'),
-        MenuItem(key: 'open_voice_assistant', label: 'Open voice assistant'),
+        MenuItem(
+          key: 'open_voice_assistant',
+          label: appStrings.openVoiceAssistant,
+        ),
         MenuItem.separator(),
-        MenuItem(key: 'quit', label: 'Quit'),
+        MenuItem(key: 'quit', label: appStrings.quit),
       ],
     );
     await trayManager.setContextMenu(_trayMenu!);
@@ -330,7 +338,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
         _desktopAssistantPopupWindowMode = true;
       });
     }
-    await windowManager.setTitle('NeoAgent Assistant');
+    await windowManager.setTitle(appStrings.neoagentAssistant);
     await windowManager.setBackgroundColor(Colors.transparent);
     await windowManager.setTitleBarStyle(
       TitleBarStyle.hidden,
@@ -410,6 +418,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
             '|auth:${_controller.isAuthenticated}'
             '|onboarding:${_controller.showOnboarding}'
             '|section:${_controller.selectedSection.name}'
+            '|theme:${_controller.themeMode.name}'
             '|assistantPopupMode:$_desktopAssistantPopupWindowMode'
             '|assistantPttActive:${_controller.isLiveVoiceCaptureActive}'
             '|assistantPttStarting:${_controller.isLiveVoiceCaptureStarting}';
@@ -423,14 +432,26 @@ class _NeoAgentAppState extends State<NeoAgentApp>
           title: widget.mode == NeoAgentAppMode.launcher
               ? 'NeoAgent Launcher'
               : 'NeoAgent',
+          locale: _controller.language.locale,
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
           debugShowCheckedModeBanner: false,
           theme: _buildNeoAgentTheme(_lightPalette, Brightness.light),
           darkTheme: _buildNeoAgentTheme(_darkPalette, Brightness.dark),
-          themeMode: ThemeMode.system,
+          themeMode: _controller.themeMode,
           builder: (context, child) {
+            // Widgets that resolve their palette from the platform brightness
+            // follow the theme picked in Settings too.
+            final mediaQuery = MediaQuery.of(context);
             return Stack(
               children: <Widget>[
-                if (child != null) child,
+                if (child != null)
+                  MediaQuery(
+                    data: mediaQuery.copyWith(
+                      platformBrightness: _appBrightness,
+                    ),
+                    child: child,
+                  ),
                 if (!_desktopAssistantPopupWindowMode &&
                     _controller.showOfflineBanner)
                   Positioned(
@@ -549,7 +570,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
             builder: (context, setDialogState) {
               return AlertDialog(
                 backgroundColor: _bgCard,
-                title: Text('Keep NeoAgent running?'),
+                title: Text(appStrings.keepNeoagentRunning),
                 content: SizedBox(
                   width: 440,
                   child: Column(
@@ -557,7 +578,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        'Closing the window can either keep NeoAgent running in the background with tray access, or fully quit the desktop runtime.',
+                        appStrings.closingTheWindowCanEitherKeep,
                         style: TextStyle(color: _textSecondary, height: 1.45),
                       ),
                       const SizedBox(height: 16),
@@ -569,7 +590,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
                             rememberChoice = value == true;
                           });
                         },
-                        title: Text('Remember this choice'),
+                        title: Text(appStrings.rememberThisChoice),
                         controlAffinity: ListTileControlAffinity.leading,
                       ),
                     ],
@@ -583,7 +604,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
                         rememberChoice: rememberChoice,
                       ),
                     ),
-                    child: Text('Quit'),
+                    child: Text(appStrings.quit),
                   ),
                   FilledButton(
                     onPressed: () => Navigator.of(context).pop(
@@ -592,7 +613,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
                         rememberChoice: rememberChoice,
                       ),
                     ),
-                    child: Text('Keep running'),
+                    child: Text(appStrings.keepRunning),
                   ),
                 ],
               );
@@ -647,11 +668,6 @@ class NeoAgentRoot extends StatelessWidget {
     }
     if (controller.isLauncherMode) {
       return LauncherHomeView(controller: controller);
-    }
-    if (_supportsDesktopShell) {
-      return controller.desktopCoworkMode
-          ? CoworkHomeView(controller: controller)
-          : DesktopStandardWorkspace(controller: controller);
     }
     return HomeView(controller: controller);
   }

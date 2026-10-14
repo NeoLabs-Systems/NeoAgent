@@ -12,6 +12,12 @@ function parseEnv(raw) {
   return map;
 }
 
+function readEnvBool(key, defaultValue) {
+  const value = String(process.env[key] || '').trim().toLowerCase();
+  return value ? ['1', 'true', 'yes', 'on'].includes(value) : defaultValue;
+}
+
 module.exports = {
   parseEnv,
+  readEnvBool,
 };

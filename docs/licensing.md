@@ -6,49 +6,43 @@ description: Why NeoAgent stays on AGPL-3.0-only, and what MPL-2.0 would change.
 
 # Licensing decision
 
-*Why the project stays on AGPL-3.0-only.*
+**NeoAgent is licensed under the GNU Affero General Public License version 3 only (`AGPL-3.0-only`), and stays there.**
 
-NeoAgent remains licensed under the **GNU Affero General Public License
-version 3 only** (`AGPL-3.0-only`).
+## 📄 Where it is declared
 
-The package metadata and README already declared AGPL-3.0-only. The repository's
-`LICENSE` file contained the standard GPLv3 text instead of the Affero GPLv3
-text; that inconsistency has been corrected.
+| File | Declares |
+| --- | --- |
+| `LICENSE` | The full GNU Affero GPL v3 text |
+| `package.json` | `"license": "AGPL-3.0-only"` |
+| `README.md` | AGPL-3.0-only, linking to this page |
 
-## ⚖️ Why retain AGPL
+The `LICENSE` file once held the plain GPLv3 text instead of the Affero text; that mismatch is fixed.
 
-NeoAgent is primarily a networked, self-hosted service. AGPLv3 requires an
-operator who modifies the program and makes that modified version available to
-users over a network to offer those users the corresponding source. That
-reciprocity matches the project's goal of keeping improvements to deployed
-NeoAgent services available to their users and the community.
+## ⚖️ Why AGPL
 
-The Mozilla Public License 2.0 is a weaker, file-level copyleft license. Changes
-to MPL-covered files remain under the MPL when distributed, while separate new
-files can be combined into a larger work under different terms. That can make
-commercial embedding and proprietary extensions easier, but it does not provide
-AGPL's network-interaction source requirement.
+- **NeoAgent is a network service.** People mostly use it through a server, not a copy on their own machine.
+- **Network reciprocity.** Anyone who runs a modified NeoAgent for others over a network must offer those users the source.
+- **Improvements stay open.** Changes to deployed NeoAgent servers stay available to their users and the community.
+
+## 🔍 AGPL-3.0-only compared with MPL-2.0
 
 | Consideration | AGPL-3.0-only | MPL-2.0 |
 | --- | --- | --- |
-| Copyleft scope | Program-level | File-level |
-| Modified hosted service | Must offer corresponding source to network users | Hosting alone does not trigger source distribution |
-| Separate proprietary files | Generally constrained when part of the covered program | Permitted in a larger work when kept in separate files |
+| Copyleft scope | Whole program | Per file |
+| Modified hosted service | Must offer source to network users | Hosting alone triggers nothing |
+| Separate proprietary files | Generally constrained when part of the program | Allowed in a larger work if kept in separate files |
 | Patent grant | Included | Included |
 | Warranty disclaimer | Included | Included |
 
-## 🧾 Legal-risk considerations
+MPL-2.0 would make commercial embedding and proprietary extensions easier, but it drops AGPL's network-use source requirement.
 
-Changing licenses does not remove copyright, provenance, patent, trademark, or
-third-party dependency obligations. Relicensing existing material also requires
-the necessary rights from its copyright holders. For those reasons, adopting
-MPL-2.0 should be treated as a separate relicensing project if the project's
-commercial-integration goals later outweigh AGPL's network reciprocity.
+## 🧾 If this ever changes
+
+- **Not a fix for other obligations.** A new license leaves copyright, provenance, patent, trademark and dependency obligations in place.
+- **Needs every holder's consent.** Relicensing existing code requires the rights from its copyright holders.
+- **A separate project.** Moving to MPL-2.0 would be its own relicensing effort, taken on only if commercial integration ever outweighs network reciprocity.
 
 :::note Not legal advice
-This document records the project decision and is not legal advice. The
-authoritative terms are in the repository's root `LICENSE` file. Useful primary
-references are Mozilla's [MPL 2.0 FAQ](https://www.mozilla.org/MPL/2.0/FAQ/) and
-the GNU Project's
-[explanation of the Affero GPL](https://www.gnu.org/licenses/why-affero-gpl.html).
+- **A project decision.** The binding terms are in the root `LICENSE` file.
+- **Primary references.** Mozilla's [MPL 2.0 FAQ](https://www.mozilla.org/MPL/2.0/FAQ/) and the GNU Project's [explanation of the Affero GPL](https://www.gnu.org/licenses/why-affero-gpl.html).
 :::

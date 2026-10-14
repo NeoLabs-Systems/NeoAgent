@@ -3,8 +3,21 @@
 const { BaseProvider } = require('./base');
 const { createJsonPrefixTracker, createStreamGuard, degenerateOutputError } = require('./stream_guard');
 
-function visibleText(part) {
-  return String(part?.content || part?.reasoning_content || '');
+function textField(value) {
+  return typeof value === 'string' ? value : '';
+}
+
+// reasoning_content / reasoning is the model's private thought. A streaming
+// delta often carries only that field while the reply is still empty, so
+// treating it as the reply pastes the thought into the chat and then appends
+// the real answer after it. Use it only when the turn produced no reply text
+// at all: some endpoints put the whole answer in that field.
+function replyText(part) {
+  return textField(part?.content);
+}
+
+function thoughtText(part) {
+  return textField(part?.reasoning_content) || textField(part?.reasoning);
 }
 
 class OpenAICompatibleProvider extends BaseProvider {
@@ -20,6 +33,7 @@ class OpenAICompatibleProvider extends BaseProvider {
         : null,
     ]));
     let content = '';
+    let reasoning = '';
     let finishReason = null;
     let usage = null;
 
@@ -31,12 +45,14 @@ class OpenAICompatibleProvider extends BaseProvider {
       if (chunk.usage) usage = this.normalizeUsage(chunk.usage);
       const choice = chunk.choices?.[0];
       const delta = choice?.delta;
-      const text = visibleText(delta);
+      const text = replyText(delta);
       if (text) {
         content += text;
         check(contentGuard.feed(text));
         yield { type: 'content', content: text };
       }
+      const thought = thoughtText(delta);
+      if (thought) reasoning += thought;
       for (const tc of delta?.tool_calls || []) {
         const index = Number.isInteger(tc.index) ? tc.index : toolCalls.length;
         if (!toolCalls[index]) {
@@ -68,6 +84,13 @@ class OpenAICompatibleProvider extends BaseProvider {
     }
 
     const calls = toolCalls.filter(Boolean);
+    // No reply text and no tool call: the thought field is the answer.
+    // A thought next to a real reply or a tool call stays out of the chat.
+    if (!content && calls.length === 0 && reasoning) {
+      check(contentGuard.feed(reasoning));
+      content = reasoning;
+      yield { type: 'content', content };
+    }
     yield {
       type: calls.length > 0 ? 'tool_calls' : 'done',
       content,
@@ -107,7 +130,7 @@ class OpenAICompatibleProvider extends BaseProvider {
     }
     const msg = choice.message || {};
     return {
-      content: visibleText(msg),
+      content: replyText(msg) || (msg.tool_calls?.length ? '' : thoughtText(msg)),
       toolCalls: (msg.tool_calls || [])
         .filter((tc) => tc?.function)
         .map((tc) => ({

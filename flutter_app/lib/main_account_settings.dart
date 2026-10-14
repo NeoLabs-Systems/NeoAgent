@@ -6,12 +6,17 @@ class _PasswordStrengthInfo {
     required this.label,
     required this.message,
     required this.color,
+    required this.acceptable,
   });
 
   final int score;
   final String label;
   final String message;
   final Color color;
+
+  /// Whether the server will accept the password; forms disable submit
+  /// otherwise.
+  final bool acceptable;
 }
 
 _PasswordStrengthInfo _passwordStrengthInfo({
@@ -19,13 +24,13 @@ _PasswordStrengthInfo _passwordStrengthInfo({
   String username = '',
   String email = '',
 }) {
-  final value = password.trim();
-  if (value.isEmpty) {
+  if (password.isEmpty) {
     return _PasswordStrengthInfo(
       score: 0,
-      label: 'Empty',
-      message: 'Use 8+ characters. Longer passphrases work well.',
+      label: appStrings.empty,
+      message: appStrings.use8CharactersLongerPassphrasesWork,
       color: _borderLight,
+      acceptable: false,
     );
   }
   final evaluation = evaluatePasswordStrength(
@@ -35,51 +40,40 @@ _PasswordStrengthInfo _passwordStrengthInfo({
   );
   final score = evaluation.score;
 
-  if (!evaluation.hasMinimumLength) {
+  if (!evaluation.isAcceptable) {
+    final String reason;
+    if (!evaluation.hasMinimumLength) {
+      reason = appStrings.useAtLeast8Characters;
+    } else if (evaluation.containsUserInfo) {
+      reason = appStrings.doNotIncludeYourUsernameOr;
+    } else if (evaluation.obviousPattern) {
+      reason = appStrings.avoidRepeatedCharactersAndObviousSequences;
+    } else {
+      reason = appStrings.addMoreLengthOrAnotherCharacter;
+    }
     return _PasswordStrengthInfo(
-      score: 1,
-      label: 'Weak',
-      message: 'Use at least 8 characters.',
+      score: score.clamp(1, 2),
+      label: appStrings.authPasswordWillBeRejected,
+      message: reason,
       color: _danger,
-    );
-  }
-  if (evaluation.containsUserInfo) {
-    return _PasswordStrengthInfo(
-      score: 2,
-      label: 'Fair',
-      message: 'Do not include your username or email.',
-      color: _warning,
-    );
-  }
-  if (evaluation.obviousPattern) {
-    return _PasswordStrengthInfo(
-      score: 2,
-      label: 'Fair',
-      message: 'Avoid repeated characters and obvious sequences.',
-      color: _warning,
+      acceptable: false,
     );
   }
   if (score >= 4) {
     return _PasswordStrengthInfo(
       score: 4,
-      label: 'Strong',
-      message: 'Strong password.',
+      label: appStrings.strong,
+      message: appStrings.strongPassword,
       color: _success,
-    );
-  }
-  if (score >= 3) {
-    return _PasswordStrengthInfo(
-      score: 3,
-      label: 'Good',
-      message: 'Good password. A little more length makes it stronger.',
-      color: _success,
+      acceptable: true,
     );
   }
   return _PasswordStrengthInfo(
-    score: 2,
-    label: 'Fair',
-    message: 'Add more length or another character type.',
-    color: _warning,
+    score: 3,
+    label: appStrings.good,
+    message: appStrings.goodPasswordALittleMoreLength,
+    color: _success,
+    acceptable: true,
   );
 }
 
@@ -97,7 +91,7 @@ class _PasswordStrengthIndicator extends StatelessWidget {
           children: <Widget>[
             Flexible(
               child: Text(
-                'Password strength: ${info.label}',
+                appStrings.passwordStrengthArg1(info.label),
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: info.color,
@@ -129,27 +123,24 @@ class _PasswordStrengthIndicator extends StatelessWidget {
   }
 }
 
-enum AccountSettingsTab { account, usage, security }
-
+/// The account pages of Settings: Profile, Sign-in & security, and Usage.
+/// One state backs all three, so a half-typed form survives switching between
+/// them.
 class AccountSettingsPanel extends StatefulWidget {
   const AccountSettingsPanel({
     super.key,
     required this.controller,
-    this.embedded = false,
-    this.initialTab,
+    required this.page,
   });
 
   final NeoAgentController controller;
-  final bool embedded;
-  final AccountSettingsTab? initialTab;
+  final SettingsPage page;
 
   @override
   State<AccountSettingsPanel> createState() => _AccountSettingsPanelState();
 }
 
 class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
-  late AccountSettingsTab _selectedTab;
-  late final TextEditingController _displayNameController;
   late final TextEditingController _emailController;
   late final TextEditingController _emailPasswordController;
   late final TextEditingController _setupPasswordController;
@@ -162,7 +153,6 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
   late final TextEditingController _securityKeyLabelController;
   Map<String, dynamic>? _pendingSetup;
   List<String> _recoveryCodes = const <String>[];
-  String? _displayNameSuccessMessage;
   String? _displayNameInlineError;
   String? _emailSuccessMessage;
   String? _emailInlineError;
@@ -174,10 +164,6 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
   @override
   void initState() {
     super.initState();
-    _selectedTab = widget.initialTab ?? AccountSettingsTab.account;
-    _displayNameController = TextEditingController(
-      text: widget.controller.user?['display_name']?.toString() ?? '',
-    );
     _emailController = TextEditingController(
       text: widget.controller.user?['email']?.toString() ?? '',
     );
@@ -196,15 +182,6 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
   @override
   void didUpdateWidget(covariant AccountSettingsPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialTab != null &&
-        oldWidget.initialTab != widget.initialTab) {
-      _selectedTab = widget.initialTab!;
-    }
-    final displayName =
-        widget.controller.user?['display_name']?.toString() ?? '';
-    if (_displayNameController.text.isEmpty && displayName.isNotEmpty) {
-      _displayNameController.text = displayName;
-    }
     final email = widget.controller.user?['email']?.toString() ?? '';
     if (_emailController.text.isEmpty && email.isNotEmpty) {
       _emailController.text = email;
@@ -213,7 +190,6 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
 
   @override
   void dispose() {
-    _displayNameController.dispose();
     _emailController.dispose();
     _emailPasswordController.dispose();
     _setupPasswordController.dispose();
@@ -242,11 +218,9 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
 
     final payload = QrLoginScanPayload.tryParse(scanned);
     if (payload == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('That QR code is not a NeoAgent login request.'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(appStrings.thatQrCodeIsNotA)));
       return;
     }
 
@@ -260,7 +234,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'This code belongs to a different NeoAgent server: ${payload.backendUrl}',
+            appStrings.thisCodeBelongsToADifferent(payload.backendUrl),
           ),
         ),
       );
@@ -279,20 +253,24 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           );
         },
       );
-      if (approved != true || !mounted) {
+      if (approved != true) {
+        unawaited(widget.controller.declineQrLogin(payload));
         return;
       }
+      if (!mounted) return;
       await widget.controller.approveQrLogin(payload);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Approved login for ${preview.requestedDevice.label}.'),
+          content: Text(
+            appStrings.approvedLoginForArg1(preview.requestedDevice.label),
+          ),
         ),
       );
     } catch (_) {
       if (!mounted) return;
       final message =
-          widget.controller.errorMessage ?? 'Could not approve QR login.';
+          widget.controller.errorMessage ?? appStrings.couldNotApproveQrLogin;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
@@ -301,359 +279,210 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < 860;
-    final showTabSwitcher = widget.initialTab == null;
-    return ListView(
-      padding: widget.embedded ? EdgeInsets.zero : _pagePadding(context),
-      children: <Widget>[
-        if (!widget.embedded)
-          _PageTitle(
-            title: 'Account settings',
-            subtitle:
-                'Manage your account email, two-factor authentication, and active sessions.',
-            trailing: _refreshButton(),
-          )
-        else
-          Align(
-            alignment: Alignment.centerRight,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _refreshButton(),
-            ),
-          ),
-        if (widget.controller.errorMessage != null) ...<Widget>[
-          _InlineError(
-            message: widget.controller.errorMessage!,
-            onDismiss: widget.controller.clearInlineError,
-          ),
-          const SizedBox(height: 16),
-        ],
-        if (showTabSwitcher && compact)
-          _AccountSettingsTabs(
-            selected: _selectedTab,
-            onSelected: (value) => setState(() => _selectedTab = value),
-          )
-        else
-          const SizedBox.shrink(),
-        if (showTabSwitcher && compact) const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: !showTabSwitcher
-                ? _buildSelectedPanel()
-                : compact
-                ? _buildSelectedPanel()
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      SizedBox(
-                        width: 220,
-                        child: _AccountSettingsTabs(
-                          selected: _selectedTab,
-                          onSelected: (value) =>
-                              setState(() => _selectedTab = value),
-                          vertical: true,
-                        ),
-                      ),
-                      const SizedBox(width: 24),
-                      Expanded(child: _buildSelectedPanel()),
-                    ],
-                  ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSelectedPanel() {
-    switch (_selectedTab) {
-      case AccountSettingsTab.account:
-        return _buildAccountPanel();
-      case AccountSettingsTab.usage:
-        return _buildUsagePanel();
-      case AccountSettingsTab.security:
-        return _buildSecurityPanel();
+    switch (widget.page) {
+      case SettingsPage.security:
+        return _buildSecurityPage();
+      case SettingsPage.usage:
+        return _buildUsagePage();
+      default:
+        return _buildProfilePage();
     }
   }
 
-  Widget _refreshButton() {
-    return OutlinedButton.icon(
-      onPressed: widget.controller.isLoadingAccountSettings
-          ? null
-          : widget.controller.refreshAccountSettings,
-      icon: widget.controller.isLoadingAccountSettings
-          ? const SizedBox.square(
-              dimension: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : Icon(Icons.refresh),
-      label: Text('Refresh'),
-    );
-  }
-
-  Widget _buildAccountPanel() {
+  Widget _buildProfilePage() {
     final controller = widget.controller;
-    final username = controller.user?['username']?.toString() ?? 'Account';
+    final username =
+        controller.user?['username']?.toString() ?? appStrings.account;
     final currentEmail =
-        controller.user?['email']?.toString() ?? 'No email linked';
+        controller.user?['email']?.toString() ?? appStrings.noEmailLinked;
     final hasPassword = controller.user?['hasPassword'] == true;
-    final availableProviders = controller.authProviders
-        .where((provider) => provider.configured)
-        .toList();
-    final linkedProviderKeys = controller.linkedAuthProviders
-        .map((provider) => provider.provider)
-        .toSet();
-    final linkableProviders = availableProviders
-        .where((provider) => !linkedProviderKeys.contains(provider.id))
-        .toList();
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        const _SectionTitle('Account'),
-        const SizedBox(height: 12),
-        _MetaPill(label: username, icon: Icons.person_outline),
-        const SizedBox(height: 18),
-        TextField(
-          controller: _displayNameController,
-          decoration: const InputDecoration(
-            labelText: 'Display name',
-            helperText:
-                'Shown in the sidebar. Leave blank to use your username.',
-          ),
-        ),
-        if (_displayNameInlineError != null) ...<Widget>[
-          const SizedBox(height: 10),
-          _InlineError(message: _displayNameInlineError!),
-        ],
-        if (_displayNameSuccessMessage != null) ...<Widget>[
-          const SizedBox(height: 10),
-          _InlineSuccess(message: _displayNameSuccessMessage!),
-        ],
-        const SizedBox(height: 14),
-        FilledButton.icon(
-          onPressed: controller.isSavingAccountSettings
-              ? null
-              : () async {
-                  setState(() {
-                    _displayNameInlineError = null;
-                    _displayNameSuccessMessage = null;
-                  });
-                  final trimmed = _displayNameController.text.trim();
-                  if (trimmed.length > 64) {
-                    setState(() {
-                      _displayNameInlineError =
-                          'Display name must be 64 characters or fewer.';
-                    });
-                    return;
-                  }
-                  final saved = await controller.updateAccountDisplayName(
-                    displayName: trimmed,
-                  );
-                  if (saved && mounted) {
-                    setState(() {
-                      _displayNameSuccessMessage = 'Display name saved.';
-                    });
-                  }
-                },
-          icon: controller.isSavingAccountSettings
-              ? const SizedBox.square(
-                  dimension: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Icon(Icons.save_outlined),
-          label: Text('Save name'),
-        ),
-        const SizedBox(height: 22),
-        Text('Current email: $currentEmail'),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _emailController,
-          keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(labelText: 'Email'),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _emailPasswordController,
-          obscureText: true,
-          enabled: hasPassword,
-          decoration: InputDecoration(
-            labelText: 'Current password',
-            helperText: hasPassword
-                ? 'Required to add or change your account email.'
-                : 'Create a password first to change your account email.',
-          ),
-        ),
-        if (_emailInlineError != null) ...<Widget>[
-          const SizedBox(height: 10),
-          _InlineError(message: _emailInlineError!),
-        ],
-        if (_emailSuccessMessage != null) ...<Widget>[
-          const SizedBox(height: 10),
-          _InlineSuccess(message: _emailSuccessMessage!),
-        ],
-        const SizedBox(height: 14),
-        FilledButton.icon(
-          onPressed: controller.isSavingAccountSettings || !hasPassword
-              ? null
-              : () async {
-                  setState(() {
-                    _emailInlineError = null;
-                    _emailSuccessMessage = null;
-                  });
-                  if (_emailPasswordController.text.trim().isEmpty) {
-                    setState(() {
-                      _emailInlineError =
-                          'Enter your current password to save email changes.';
-                    });
-                    return;
-                  }
-                  final trimmedEmail = _emailController.text.trim();
-                  final saved = await controller.updateAccountEmail(
-                    email: trimmedEmail,
-                    currentPassword: _emailPasswordController.text,
-                  );
-                  if (saved && mounted) {
-                    setState(() {
-                      _emailPasswordController.clear();
-                      _emailSuccessMessage =
-                          'Email saved. If confirmation is required, check the new address for a NeoAgent confirmation link.';
-                    });
-                  }
-                },
-          icon: controller.isSavingAccountSettings
-              ? const SizedBox.square(
-                  dimension: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Icon(Icons.save_outlined),
-          label: Text('Save email'),
-        ),
-        const SizedBox(height: 28),
-        Row(
+        _SettingsGroup(
+          title: appStrings.settingsPageProfile,
           children: <Widget>[
-            const Expanded(child: _SectionTitle('Linked sign-in providers')),
-            if (controller.linkedAuthProviders.isNotEmpty)
-              Text(
-                '${controller.linkedAuthProviders.length} linked',
-                style: TextStyle(color: _textSecondary),
+            _SettingsRow(
+              label: appStrings.username,
+              description: appStrings.settingsUsernameDescription,
+              control: Text(
+                '@$username',
+                style: GoogleFonts.geistMono(
+                  fontSize: 13.5,
+                  color: _textPrimary,
+                ),
               ),
+            ),
+            _SettingsRow(
+              anchor: 'displayName',
+              label: appStrings.displayName,
+              description:
+                  _displayNameInlineError ??
+                  appStrings.shownInTheSidebarLeaveBlank,
+              fillControl: true,
+              control: _AutosaveTextField(
+                value: controller.user?['display_name']?.toString() ?? '',
+                maxLength: 64,
+                onSave: (name) async {
+                  setState(() => _displayNameInlineError = null);
+                  final saved = await controller.updateAccountDisplayName(
+                    displayName: name.trim(),
+                  );
+                  if (!saved && mounted) {
+                    setState(
+                      () => _displayNameInlineError =
+                          controller.errorMessage ??
+                          appStrings.displayNameMustBe64Characters,
+                    );
+                  }
+                },
+              ),
+            ),
+            _SettingsBlock(
+              anchor: 'email',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Text(
+                    appStrings.email,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: _textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    appStrings.currentEmailArg1(currentEmail),
+                    style: TextStyle(fontSize: 13, color: _textSecondary),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(labelText: appStrings.email),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _emailPasswordController,
+                    obscureText: true,
+                    enabled: hasPassword,
+                    decoration: InputDecoration(
+                      labelText: appStrings.currentPassword,
+                      helperText: hasPassword
+                          ? appStrings.requiredToAddOrChangeYourAccount
+                          : appStrings.createAPasswordFirstToChange,
+                    ),
+                  ),
+                  if (_emailInlineError != null) ...<Widget>[
+                    const SizedBox(height: 10),
+                    _InlineError(message: _emailInlineError!),
+                  ],
+                  if (_emailSuccessMessage != null) ...<Widget>[
+                    const SizedBox(height: 10),
+                    _InlineSuccess(message: _emailSuccessMessage!),
+                  ],
+                  const SizedBox(height: 14),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: FilledButton(
+                      onPressed:
+                          controller.isSavingAccountSettings || !hasPassword
+                          ? null
+                          : _saveEmail,
+                      child: Text(appStrings.saveEmail),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
-        const SizedBox(height: 12),
-        if (controller.linkedAuthProviders.isEmpty)
-          Text(
-            'No external sign-in providers linked.',
-            style: TextStyle(color: _textSecondary),
-          )
-        else
-          ...controller.linkedAuthProviders.map(
-            (provider) => Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                leading: provider.icon == 'google'
-                    ? const CircleAvatar(
-                        backgroundColor: Color(0x1A4285F4),
-                        child: Text(
-                          'G',
-                          style: TextStyle(
-                            color: Color(0xFF4285F4),
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      )
-                    : const CircleAvatar(child: Icon(Icons.link)),
-                title: Text(provider.label),
-                subtitle: Text(
-                  provider.email.isNotEmpty
-                      ? '${provider.email}\nLast used: ${provider.lastUsedLabel}'
-                      : 'Last used: ${provider.lastUsedLabel}',
-                ),
-                isThreeLine: provider.email.isNotEmpty,
-                trailing: TextButton(
-                  onPressed:
-                      controller.isSavingAccountSettings || !provider.canUnlink
-                      ? null
-                      : () => controller.unlinkAccountProvider(provider.id),
-                  child: const Text('Unlink'),
-                ),
-              ),
-            ),
-          ),
-        if (linkableProviders.isNotEmpty) ...<Widget>[
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: linkableProviders
-                .map(
-                  (provider) => OutlinedButton.icon(
-                    onPressed: controller.isSavingAccountSettings
-                        ? null
-                        : () => controller.linkAccountProvider(provider.id),
-                    icon: provider.icon == 'google'
-                        ? const Text(
-                            'G',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF4285F4),
-                            ),
-                          )
-                        : const Icon(Icons.link),
-                    label: Text('Link ${provider.label}'),
-                  ),
-                )
-                .toList(),
-          ),
-        ],
-        const SizedBox(height: 28),
-        const _SectionTitle('Your data'),
-        const SizedBox(height: 10),
-        Text(
-          controller.isAdmin
-              ? 'Download a copy of your data. Admin accounts can’t delete '
-                    'themselves; the server operator removes admin first with '
-                    '`neoagent admin revoke <username>`.'
-              : 'Download a copy of your data, or permanently delete your account. '
-                    'Deletion removes all your conversations, memories, files, tasks and '
-                    'settings and cannot be undone.',
-          style: TextStyle(color: _textSecondary, height: 1.45),
-        ),
-        const SizedBox(height: 14),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
+        _SettingsGroup(
+          title: appStrings.yourData,
           children: <Widget>[
-            OutlinedButton.icon(
-              onPressed: _isExportingData ? null : _exportMyData,
-              icon: _isExportingData
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.download_outlined),
-              label: const Text('Export my data'),
-            ),
-            OutlinedButton.icon(
-              onPressed: _isDeletingAccount || controller.isAdmin
-                  ? null
-                  : _confirmDeleteAccount,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: _danger,
-                side: BorderSide(color: _danger.withValues(alpha: 0.6)),
+            _SettingsRow(
+              anchor: 'exportData',
+              label: appStrings.exportMyData,
+              description: controller.isAdmin
+                  ? '${appStrings.downloadACopyOfYourData}${appStrings.themselvesTheServerOperatorRemovesAdmin}`neoagent admin revoke <username>`.'
+                  : appStrings.downloadACopyOfYourData2 +
+                        appStrings.deletionRemovesAllYourConversationsMemories +
+                        appStrings.settingsAndCannotBeUndone,
+              control: OutlinedButton.icon(
+                onPressed: _isExportingData ? null : _exportMyData,
+                icon: _isExportingData
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(Icons.download_outlined, size: 18),
+                label: Text(appStrings.settingsExport),
               ),
-              icon: _isDeletingAccount
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.delete_forever_outlined),
-              label: const Text('Delete account'),
+            ),
+          ],
+        ),
+        _SettingsGroup(
+          title: appStrings.settingsLeave,
+          children: <Widget>[
+            _SettingsRow(
+              anchor: 'signOut',
+              label: appStrings.signOut,
+              description: appStrings.settingsSignOutDescription,
+              control: OutlinedButton.icon(
+                onPressed: controller.logout,
+                icon: Icon(Icons.logout, size: 18),
+                label: Text(appStrings.signOut),
+              ),
+            ),
+            _SettingsRow(
+              anchor: 'deleteAccount',
+              label: appStrings.deleteAccount,
+              description: appStrings.settingsDeleteAccountDescription,
+              control: OutlinedButton.icon(
+                onPressed: _isDeletingAccount || controller.isAdmin
+                    ? null
+                    : _confirmDeleteAccount,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _danger,
+                  side: BorderSide(color: _danger.withValues(alpha: 0.6)),
+                ),
+                icon: _isDeletingAccount
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(Icons.delete_forever_outlined, size: 18),
+                label: Text(appStrings.deleteAccount),
+              ),
             ),
           ],
         ),
       ],
     );
+  }
+
+  Future<void> _saveEmail() async {
+    setState(() {
+      _emailInlineError = null;
+      _emailSuccessMessage = null;
+    });
+    if (_emailPasswordController.text.trim().isEmpty) {
+      setState(() {
+        _emailInlineError = appStrings.enterYourCurrentPasswordToSave;
+      });
+      return;
+    }
+    final saved = await widget.controller.updateAccountEmail(
+      email: _emailController.text.trim(),
+      currentPassword: _emailPasswordController.text,
+    );
+    if (saved && mounted) {
+      setState(() {
+        _emailPasswordController.clear();
+        _emailSuccessMessage = appStrings.emailSavedIfConfirmationIsRequired;
+      });
+    }
   }
 
   Future<void> _exportMyData() async {
@@ -666,14 +495,16 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
       await Clipboard.setData(ClipboardData(text: pretty));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Your data export was copied to the clipboard.'),
-        ),
+        SnackBar(content: Text(appStrings.yourDataExportWasCopiedTo)),
       );
     } catch (err) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not export your data: ${_formatCaughtError(err)}')),
+        SnackBar(
+          content: Text(
+            appStrings.couldNotExportYourDataArg1(_formatCaughtError(err)),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isExportingData = false);
@@ -690,14 +521,14 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           builder: (context, setDialogState) {
             final matches = confirmController.text.trim() == username;
             return AlertDialog(
-              title: const Text('Delete account permanently?'),
+              title: Text(appStrings.deleteAccountPermanently),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  const Text(
-                    'This permanently erases all of your data and cannot be '
-                    'undone. Type your username to confirm.',
+                  Text(
+                    appStrings.thisPermanentlyErasesAllOfYour +
+                        appStrings.undoneTypeYourUsernameToConfirm,
                   ),
                   const SizedBox(height: 14),
                   TextField(
@@ -705,7 +536,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                     autofocus: true,
                     onChanged: (_) => setDialogState(() {}),
                     decoration: InputDecoration(
-                      labelText: 'Username',
+                      labelText: appStrings.username,
                       hintText: username,
                     ),
                   ),
@@ -714,14 +545,14 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
               actions: <Widget>[
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('Cancel'),
+                  child: Text(appStrings.cancel),
                 ),
                 FilledButton(
                   style: FilledButton.styleFrom(backgroundColor: _danger),
                   onPressed: matches
                       ? () => Navigator.of(dialogContext).pop(true)
                       : null,
-                  child: const Text('Delete forever'),
+                  child: Text(appStrings.deleteForever),
                 ),
               ],
             );
@@ -740,14 +571,18 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Your account has been deleted.')),
+        SnackBar(content: Text(appStrings.yourAccountHasBeenDeleted)),
       );
       await widget.controller.logout();
     } catch (err) {
       if (!mounted) return;
       setState(() => _isDeletingAccount = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not delete your account: ${_formatCaughtError(err)}')),
+        SnackBar(
+          content: Text(
+            appStrings.couldNotDeleteYourAccountArg1(_formatCaughtError(err)),
+          ),
+        ),
       );
     }
   }
@@ -772,11 +607,11 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
             children: <Widget>[
               Icon(Icons.error_outline, size: 48, color: _textSecondary),
               const SizedBox(height: 16),
-              const Text('Could not load usage data.'),
+              Text(appStrings.couldNotLoadUsageData),
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: widget.controller.refreshAccountSettings,
-                child: const Text('Retry'),
+                child: Text(appStrings.retry),
               ),
             ],
           ),
@@ -874,19 +709,19 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 3),
                   child: Text(
-                    ' tokens used',
+                    appStrings.tokensUsed,
                     style: TextStyle(color: _textSecondary, fontSize: 14),
                   ),
                 ),
                 const Spacer(),
                 if (limit != null)
                   Text(
-                    'of ${_formatTokenCount(limit)}',
+                    appStrings.ofArg1(_formatTokenCount(limit)),
                     style: TextStyle(color: _textMuted, fontSize: 13),
                   )
                 else
                   Text(
-                    'No limit',
+                    appStrings.noLimit,
                     style: TextStyle(color: _textMuted, fontSize: 13),
                   ),
               ],
@@ -911,9 +746,10 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
               const SizedBox(height: 6),
               Text(
                 atLimit
-                    ? 'Limit reached${resetLabel == null ? '' : ' · $resetLabel'}'
-                    : '${(progress * 100).toStringAsFixed(0)}% used · ${_formatTokenCount(remaining)} remaining'
-                          '${resetLabel == null ? '' : ' · $resetLabel'}',
+                    ? appStrings.limitReachedArg1(
+                        resetLabel == null ? '' : ' · $resetLabel',
+                      )
+                    : '${appStrings.arg1UsedArg2Remaining((progress * 100).toStringAsFixed(0), _formatTokenCount(remaining))}${resetLabel == null ? '' : ' · $resetLabel'}',
                 style: TextStyle(
                   fontSize: 11,
                   color: atLimit
@@ -932,15 +768,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const _SectionTitle('Usage & Limits'),
-        const SizedBox(height: 12),
-        Text(
-          'Keep track of your AI usage. Limits are enforced to ensure fair usage across the platform.',
-          style: TextStyle(color: _textSecondary, height: 1.4),
-        ),
-        const SizedBox(height: 24),
         buildStatBox(
-          'Recent Usage (4 Hours)',
+          appStrings.recentUsage4Hours,
           usage.fourHourUsage,
           usage.fourHourLimit,
           remaining: usage.fourHourRemaining,
@@ -951,7 +780,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
         ),
         const SizedBox(height: 16),
         buildStatBox(
-          'Weekly Usage',
+          appStrings.weeklyUsage,
           usage.weeklyUsage,
           usage.weeklyLimit,
           remaining: usage.weeklyRemaining,
@@ -964,49 +793,109 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     );
   }
 
-  Widget _buildSecurityPanel() {
+  Widget _buildUsagePage() {
+    final controller = widget.controller;
+    final tokenUsage = controller.tokenUsage;
+    final lineStyle = TextStyle(color: _textPrimary, height: 1.4);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _SettingsGroup(
+          anchor: 'limits',
+          title: appStrings.usageLimits2,
+          description: appStrings.keepTrackOfYourAiUsage,
+          children: <Widget>[_SettingsBlock(child: _buildUsagePanel())],
+        ),
+        _SettingsGroup(
+          anchor: 'tokenUsage',
+          title: appStrings.settingsTokenUsage,
+          description: appStrings.usageAndHealthSignalsThatHelp,
+          children: <Widget>[
+            _SettingsBlock(
+              child: tokenUsage == null
+                  ? Text(
+                      appStrings.tokenUsageUnavailableOnThisServer,
+                      style: TextStyle(color: _textSecondary),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          appStrings.totalArg1TokensAcrossArg2Runs(
+                            tokenUsage.totalTokensLabel,
+                            tokenUsage.totalRunsLabel,
+                          ),
+                          style: lineStyle,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          appStrings.last7DaysArg1TokensIn(
+                            tokenUsage.last7DaysTokensLabel,
+                            tokenUsage.last7DaysRunsLabel,
+                          ),
+                          style: lineStyle,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          appStrings.avgRunArg1Tokens(
+                            tokenUsage.avgTokensPerRunLabel,
+                          ),
+                          style: lineStyle,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          appStrings.promptCacheArg1CachedTokens(
+                                tokenUsage.cachedReadTokensLabel,
+                              ) +
+                              appStrings.arg1HitRatio(
+                                tokenUsage.cacheHitRatioLabel,
+                              ),
+                          style: lineStyle,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          appStrings.measuredModelCostArg1(
+                            tokenUsage.estimatedCostLabel,
+                          ),
+                          style: lineStyle,
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSecurityPage() {
     final controller = widget.controller;
     final twoFactorEnabled = controller.accountTwoFactor['enabled'] == true;
     final recoveryCount = _asInt(
       controller.accountTwoFactor['recoveryCodesRemaining'],
     );
+    final keys = controller.accountSecurityKeys;
+    final linkedProviderKeys = controller.linkedAuthProviders
+        .map((provider) => provider.provider)
+        .toSet();
+    final linkableProviders = controller.authProviders
+        .where(
+          (provider) =>
+              provider.configured && !linkedProviderKeys.contains(provider.id),
+        )
+        .toList();
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        if (_supportsQrLoginApproval) ...<Widget>[
-          Row(
+        if (_supportsQrLoginApproval)
+          _SettingsGroup(
+            title: appStrings.approveQrLogin,
             children: <Widget>[
-              const Expanded(child: _SectionTitle('Approve QR login')),
-              _StatusPill(label: 'Android only', color: _accent),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Scan QR login requests from signed-out devices and approve them from this authenticated mobile session.',
-            style: TextStyle(color: _textSecondary, height: 1.4),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: <Color>[
-                  _accent.withValues(alpha: 0.16),
-                  _success.withValues(alpha: 0.10),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: _borderLight),
-            ),
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: <Widget>[
-                FilledButton.icon(
+              _SettingsRow(
+                anchor: 'qrLogin',
+                label: appStrings.scanLoginQr,
+                description: appStrings.scanQrLoginRequestsFromSigned,
+                control: FilledButton.icon(
                   onPressed: controller.isApprovingQrLogin
                       ? null
                       : _startQrLoginApproval,
@@ -1015,67 +904,139 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                           dimension: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.camera_alt_outlined),
-                  label: const Text('Scan login QR'),
+                      : Icon(Icons.camera_alt_outlined, size: 18),
+                  label: Text(appStrings.scanLoginQr),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
-        ],
-        _buildPasswordPanel(),
-        const SizedBox(height: 24),
-        Row(
+        _SettingsGroup(
+          anchor: 'password',
+          title: appStrings.password,
+          children: <Widget>[_SettingsBlock(child: _buildPasswordPanel())],
+        ),
+        _SettingsGroup(
+          anchor: 'twoFactor',
+          title: appStrings.twoFactorAuthentication,
+          description: twoFactorEnabled
+              ? appStrings.arg1RecoveryCodesAreStillAvailable(recoveryCount)
+              : appStrings.useAnAuthenticatorAppSuchAs,
+          trailing: _StatusPill(
+            label: twoFactorEnabled ? 'Enabled' : 'Disabled',
+            color: twoFactorEnabled ? _success : _warning,
+          ),
           children: <Widget>[
-            Expanded(child: _SectionTitle('Two-factor authentication')),
-            _StatusPill(
-              label: twoFactorEnabled ? 'Enabled' : 'Disabled',
-              color: twoFactorEnabled ? _success : _warning,
+            _SettingsBlock(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  if (twoFactorEnabled)
+                    _buildDisableTwoFactorPanel()
+                  else
+                    _buildEnableTwoFactorPanel(),
+                  if (_recoveryCodes.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 16),
+                    _RecoveryCodesCard(codes: _recoveryCodes),
+                  ],
+                ],
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        Text(
-          twoFactorEnabled
-              ? '$recoveryCount recovery codes are still available.'
-              : 'Use an authenticator app such as Authy, 1Password, or Google Authenticator.',
-          style: TextStyle(color: _textSecondary, height: 1.4),
-        ),
-        const SizedBox(height: 16),
-        if (!twoFactorEnabled) _buildEnableTwoFactorPanel(),
-        if (twoFactorEnabled) _buildDisableTwoFactorPanel(),
-        if (_recoveryCodes.isNotEmpty) ...<Widget>[
-          const SizedBox(height: 16),
-          _RecoveryCodesCard(codes: _recoveryCodes),
-        ],
-        const SizedBox(height: 24),
-        _buildSecurityKeysPanel(),
-        const SizedBox(height: 24),
-        Row(
+        _SettingsGroup(
+          anchor: 'securityKeys',
+          title: appStrings.securityKeys,
+          description:
+              appStrings.signInWithAHardwareKey + appStrings.aKeyThatAsksForA,
+          trailing: _StatusPill(
+            label: keys.isEmpty
+                ? 'None'
+                : appStrings.arg1Registered(keys.length),
+            color: keys.isEmpty ? _warning : _success,
+          ),
           children: <Widget>[
-            Expanded(child: _SectionTitle('Active sessions')),
-            Text(
-              '${controller.accountSessions.length} active',
-              style: TextStyle(color: _textSecondary),
-            ),
+            for (final key in keys)
+              _SecurityKeyCard(
+                securityKey: key,
+                busy: controller.isConfiguringTwoFactor,
+                onRename: () => _renameSecurityKey(key),
+                onRemove: () => controller.removeSecurityKey(key.id),
+              ),
+            _SettingsBlock(child: _buildAddSecurityKey()),
           ],
         ),
-        const SizedBox(height: 12),
-        if (controller.accountSessions.isEmpty)
-          Text(
-            'No active sessions found.',
+        _SettingsGroup(
+          anchor: 'linkedProviders',
+          title: appStrings.linkedSignInProviders,
+          children: <Widget>[
+            if (controller.linkedAuthProviders.isEmpty)
+              _SettingsBlock(
+                child: Text(
+                  appStrings.noExternalSignInProvidersLinked,
+                  style: TextStyle(color: _textSecondary),
+                ),
+              ),
+            for (final provider in controller.linkedAuthProviders)
+              _SettingsRow(
+                label: provider.label,
+                description: provider.email.isNotEmpty
+                    ? appStrings.arg1LastUsedArg2(
+                        provider.email,
+                        provider.lastUsedLabel,
+                      )
+                    : appStrings.lastUsedArg1(provider.lastUsedLabel),
+                control: TextButton(
+                  onPressed:
+                      controller.isSavingAccountSettings || !provider.canUnlink
+                      ? null
+                      : () => controller.unlinkAccountProvider(provider.id),
+                  child: Text(appStrings.unlink),
+                ),
+              ),
+            if (linkableProviders.isNotEmpty)
+              _SettingsBlock(
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: <Widget>[
+                    for (final provider in linkableProviders)
+                      OutlinedButton.icon(
+                        onPressed: controller.isSavingAccountSettings
+                            ? null
+                            : () => controller.linkAccountProvider(provider.id),
+                        icon: AuthProviderIcon(provider: provider.icon),
+                        label: Text(appStrings.linkArg1(provider.label)),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        _SettingsGroup(
+          anchor: 'sessions',
+          title: appStrings.activeSessions,
+          trailing: Text(
+            appStrings.arg1Active(controller.accountSessions.length),
             style: TextStyle(color: _textSecondary),
-          )
-        else
-          ...controller.accountSessions.map(
-            (session) => _AccountSessionCard(
-              session: session,
-              busy: controller.isRevokingSession,
-              onRevoke: session.current
-                  ? null
-                  : () => controller.revokeAccountSession(session.id),
-            ),
           ),
+          children: <Widget>[
+            if (controller.accountSessions.isEmpty)
+              _SettingsBlock(
+                child: Text(
+                  appStrings.noActiveSessionsFound,
+                  style: TextStyle(color: _textSecondary),
+                ),
+              ),
+            for (final session in controller.accountSessions)
+              _AccountSessionCard(
+                session: session,
+                busy: controller.isRevokingSession,
+                onRevoke: session.current
+                    ? null
+                    : () => controller.revokeAccountSession(session.id),
+              ),
+          ],
+        ),
       ],
     );
   }
@@ -1085,7 +1046,9 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     final label = _securityKeyLabelController.text.trim();
     await controller.registerSecurityKey(
       label: label.isEmpty
-          ? 'Security key ${controller.accountSecurityKeys.length + 1}'
+          ? appStrings.securityKeyArg1(
+              controller.accountSecurityKeys.length + 1,
+            )
           : label,
     );
     if (!mounted) return;
@@ -1098,21 +1061,21 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     final nextLabel = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Rename security key'),
+        title: Text(appStrings.renameSecurityKey),
         content: TextField(
           controller: renameController,
           autofocus: true,
-          decoration: const InputDecoration(labelText: 'Name'),
+          decoration: InputDecoration(labelText: appStrings.name),
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
+            child: Text(appStrings.cancel),
           ),
           FilledButton(
             onPressed: () =>
                 Navigator.of(dialogContext).pop(renameController.text.trim()),
-            child: const Text('Save'),
+            child: Text(appStrings.save),
           ),
         ],
       ),
@@ -1122,100 +1085,65 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     await widget.controller.renameSecurityKey(id: key.id, label: nextLabel);
   }
 
-  Widget _buildSecurityKeysPanel() {
+  /// Adding a key needs an authenticator this device can talk to. Keys
+  /// registered elsewhere stay listed and manageable either way.
+  Widget _buildAddSecurityKey() {
     final controller = widget.controller;
-    final keys = controller.accountSecurityKeys;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Row(
+    if (!controller.supportsSecurityKeys) {
+      return Text(
+        appStrings.thisDeviceCannotRegisterSecurityKeys,
+        style: TextStyle(color: _textSecondary, height: 1.4),
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final nameField = TextField(
+          controller: _securityKeyLabelController,
+          decoration: InputDecoration(
+            labelText: appStrings.nameOptional,
+            hintText: appStrings.yubikeyMacbookTouchId,
+          ),
+        );
+        // Side by side the button leaves the name field unusably narrow
+        // below this width, so the two stack instead.
+        final stacked = constraints.maxWidth < 520;
+        final addButton = FilledButton.icon(
+          onPressed: controller.isConfiguringTwoFactor ? null : _addSecurityKey,
+          icon: controller.isConfiguringTwoFactor
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(Icons.key),
+          label: Text(appStrings.addSecurityKey),
+          style: FilledButton.styleFrom(
+            // Size.fromHeight also pins the width to infinity, which is
+            // what a full-width stacked button wants and what would
+            // starve the name field beside it in a row.
+            minimumSize: stacked
+                ? const Size.fromHeight(56)
+                : const Size(0, 56),
+          ),
+        );
+        if (stacked) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              nameField,
+              const SizedBox(height: 12),
+              addButton,
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Expanded(child: _SectionTitle('Security keys')),
-            _StatusPill(
-              label: keys.isEmpty ? 'None' : '${keys.length} registered',
-              color: keys.isEmpty ? _warning : _success,
-            ),
+            Expanded(child: nameField),
+            const SizedBox(width: 12),
+            addButton,
           ],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'Sign in with a hardware key or passkey instead of your password. '
-          'A key that asks for a PIN or fingerprint also replaces your two-factor code.',
-          style: TextStyle(color: _textSecondary, height: 1.4),
-        ),
-        const SizedBox(height: 14),
-        if (keys.isNotEmpty) ...<Widget>[
-          ...keys.map(
-            (key) => _SecurityKeyCard(
-              securityKey: key,
-              busy: controller.isConfiguringTwoFactor,
-              onRename: () => _renameSecurityKey(key),
-              onRemove: () => controller.removeSecurityKey(key.id),
-            ),
-          ),
-          const SizedBox(height: 4),
-        ],
-        // Keys registered elsewhere stay manageable here; only adding one needs
-        // an authenticator this device can actually talk to.
-        if (!controller.supportsSecurityKeys)
-          Text(
-            'This device cannot register security keys. Open NeoAgent in a browser over HTTPS to add one.',
-            style: TextStyle(color: _textSecondary, height: 1.4),
-          )
-        else
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final nameField = TextField(
-                controller: _securityKeyLabelController,
-                decoration: const InputDecoration(
-                  labelText: 'Name (optional)',
-                  hintText: 'YubiKey, MacBook Touch ID, …',
-                ),
-              );
-              // Side by side the button leaves the name field unusably narrow
-              // below this width, so the two stack instead.
-              final stacked = constraints.maxWidth < 520;
-              final addButton = FilledButton.icon(
-                onPressed: controller.isConfiguringTwoFactor
-                    ? null
-                    : _addSecurityKey,
-                icon: controller.isConfiguringTwoFactor
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.key),
-                label: const Text('Add security key'),
-                style: FilledButton.styleFrom(
-                  // Size.fromHeight also pins the width to infinity, which is
-                  // what a full-width stacked button wants and what would
-                  // starve the name field beside it in a row.
-                  minimumSize: stacked
-                      ? const Size.fromHeight(56)
-                      : const Size(0, 56),
-                ),
-              );
-              if (stacked) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    nameField,
-                    const SizedBox(height: 12),
-                    addButton,
-                  ],
-                );
-              }
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Expanded(child: nameField),
-                  const SizedBox(width: 12),
-                  addButton,
-                ],
-              );
-            },
-          ),
-      ],
+        );
+      },
     );
   }
 
@@ -1230,18 +1158,16 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const _SectionTitle('Password'),
-        const SizedBox(height: 12),
         if (hasPassword) ...<Widget>[
           TextField(
             controller: _currentPasswordController,
             obscureText: true,
-            decoration: const InputDecoration(labelText: 'Current password'),
+            decoration: InputDecoration(labelText: appStrings.currentPassword),
           ),
           const SizedBox(height: 12),
         ] else ...<Widget>[
           Text(
-            'No local password is set yet. Create one to enable username/password sign-in.',
+            appStrings.noLocalPasswordIsSetYet,
             style: TextStyle(color: _textSecondary, height: 1.4),
           ),
           const SizedBox(height: 12),
@@ -1251,7 +1177,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           onChanged: (_) => setState(() {}),
           obscureText: true,
           decoration: InputDecoration(
-            labelText: hasPassword ? 'New password' : 'Create password',
+            labelText: hasPassword ? 'New password' : appStrings.createPassword,
           ),
         ),
         const SizedBox(height: 10),
@@ -1262,8 +1188,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           obscureText: true,
           decoration: InputDecoration(
             labelText: hasPassword
-                ? 'Confirm new password'
-                : 'Confirm password',
+                ? appStrings.confirmNewPassword
+                : appStrings.confirmPassword,
           ),
         ),
         if (_passwordInlineError != null) ...<Widget>[
@@ -1286,21 +1212,20 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                   if (hasPassword && _currentPasswordController.text.isEmpty) {
                     setState(() {
                       _passwordInlineError =
-                          'Enter your current password to change it.';
+                          appStrings.enterYourCurrentPasswordToChange;
                     });
                     return;
                   }
                   if (_newPasswordController.text.length < 8) {
                     setState(() {
-                      _passwordInlineError =
-                          'Use a new password with at least 8 characters.';
+                      _passwordInlineError = appStrings.useANewPasswordWithAt;
                     });
                     return;
                   }
                   if (_newPasswordController.text !=
                       _confirmNewPasswordController.text) {
                     setState(() {
-                      _passwordInlineError = 'New passwords do not match.';
+                      _passwordInlineError = appStrings.newPasswordsDoNotMatch;
                     });
                     return;
                   }
@@ -1314,8 +1239,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                       _newPasswordController.clear();
                       _confirmNewPasswordController.clear();
                       _passwordSuccessMessage = hasPassword
-                          ? 'Password changed.'
-                          : 'Password created.';
+                          ? appStrings.passwordChanged
+                          : appStrings.passwordCreated;
                     });
                   }
                 },
@@ -1325,7 +1250,9 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : Icon(Icons.password_outlined),
-          label: Text(hasPassword ? 'Change password' : 'Create password'),
+          label: Text(
+            hasPassword ? 'Change password' : appStrings.createPassword,
+          ),
         ),
       ],
     );
@@ -1341,7 +1268,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           TextField(
             controller: _setupPasswordController,
             obscureText: true,
-            decoration: const InputDecoration(labelText: 'Current password'),
+            decoration: InputDecoration(labelText: appStrings.currentPassword),
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
@@ -1356,7 +1283,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                     }
                   },
             icon: Icon(Icons.qr_code_2_outlined),
-            label: Text('Start setup'),
+            label: Text(appStrings.startSetup),
           ),
         ] else ...<Widget>[
           Center(
@@ -1376,7 +1303,9 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
           TextField(
             controller: _setupCodeController,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Authenticator code'),
+            decoration: InputDecoration(
+              labelText: appStrings.authenticatorCode,
+            ),
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
@@ -1396,7 +1325,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                     }
                   },
             icon: Icon(Icons.verified_user_outlined),
-            label: Text('Enable 2FA'),
+            label: Text(appStrings.enable2fa),
           ),
         ],
       ],
@@ -1410,12 +1339,12 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
         TextField(
           controller: _disablePasswordController,
           obscureText: true,
-          decoration: const InputDecoration(labelText: 'Current password'),
+          decoration: InputDecoration(labelText: appStrings.currentPassword),
         ),
         const SizedBox(height: 12),
         TextField(
           controller: _disableCodeController,
-          decoration: const InputDecoration(labelText: '2FA or recovery code'),
+          decoration: InputDecoration(labelText: appStrings.n2faOrRecoveryCode),
         ),
         const SizedBox(height: 12),
         Wrap(
@@ -1430,7 +1359,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                       code: _disableCodeController.text,
                     ),
               icon: Icon(Icons.lock_open_outlined),
-              label: Text('Disable 2FA'),
+              label: Text(appStrings.disable2fa),
             ),
             OutlinedButton.icon(
               onPressed: widget.controller.isConfiguringTwoFactor
@@ -1446,55 +1375,11 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                       }
                     },
               icon: Icon(Icons.password_outlined),
-              label: Text('New recovery codes'),
+              label: Text(appStrings.newRecoveryCodes),
             ),
           ],
         ),
       ],
-    );
-  }
-}
-
-class _AccountSettingsTabs extends StatelessWidget {
-  const _AccountSettingsTabs({
-    required this.selected,
-    required this.onSelected,
-    this.vertical = false,
-  });
-
-  final AccountSettingsTab selected;
-  final ValueChanged<AccountSettingsTab> onSelected;
-  final bool vertical;
-
-  @override
-  Widget build(BuildContext context) {
-    final buttons = <Widget>[
-      _tabButton(AccountSettingsTab.account, Icons.person_outline, 'Account'),
-      _tabButton(
-        AccountSettingsTab.usage,
-        Icons.data_usage_outlined,
-        'Usage & Limits',
-      ),
-      _tabButton(
-        AccountSettingsTab.security,
-        Icons.security_outlined,
-        'Security',
-      ),
-    ];
-    return vertical
-        ? Column(children: buttons)
-        : Wrap(spacing: 8, runSpacing: 8, children: buttons);
-  }
-
-  Widget _tabButton(AccountSettingsTab tab, IconData icon, String label) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: vertical ? 8 : 0),
-      child: _SidebarButton(
-        label: label,
-        icon: icon,
-        active: selected == tab,
-        onTap: () => onSelected(tab),
-      ),
     );
   }
 }
@@ -1518,7 +1403,7 @@ class _RecoveryCodesCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            'Save these recovery codes now. They will not be shown again.',
+            appStrings.saveTheseRecoveryCodesNowThey,
             style: TextStyle(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 10),
@@ -1539,7 +1424,7 @@ class _RecoveryCodesCard extends StatelessWidget {
             onPressed: () =>
                 Clipboard.setData(ClipboardData(text: codes.join('\n'))),
             icon: Icon(Icons.copy_outlined),
-            label: Text('Copy codes'),
+            label: Text(appStrings.copyCodes),
           ),
         ],
       ),
@@ -1560,14 +1445,8 @@ class _AccountSessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _border),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -1582,7 +1461,7 @@ class _AccountSessionCard extends StatelessWidget {
               children: <Widget>[
                 Text(
                   session.current
-                      ? '${session.clientLabel} · Current session'
+                      ? appStrings.arg1CurrentSession(session.clientLabel)
                       : session.clientLabel,
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
@@ -1590,14 +1469,18 @@ class _AccountSessionCard extends StatelessWidget {
                 Text(
                   [
                     session.locationSummary,
-                    'Last seen ${session.lastSeenLabel}',
+                    appStrings.lastSeenArg1(session.lastSeenLabel),
                   ].join(' · '),
                   style: TextStyle(color: _textSecondary),
                 ),
                 if (session.userAgent.isNotEmpty) ...<Widget>[
                   const SizedBox(height: 4),
                   Text(
-                    '${session.clientPlatformLabel} · ${session.clientBrowserLabel} · Created ${session.createdLabel}',
+                    appStrings.arg1Arg2CreatedArg3(
+                      session.clientPlatformLabel,
+                      session.clientBrowserLabel,
+                      session.createdLabel,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: _textMuted, fontSize: 12),
@@ -1609,7 +1492,7 @@ class _AccountSessionCard extends StatelessWidget {
           if (!session.current)
             TextButton(
               onPressed: busy ? null : onRevoke,
-              child: Text('Revoke'),
+              child: Text(appStrings.revoke),
             ),
         ],
       ),
@@ -1632,14 +1515,8 @@ class _SecurityKeyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _border),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -1658,7 +1535,10 @@ class _SecurityKeyCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Added ${securityKey.addedLabel} · Last used ${securityKey.lastUsedLabel}',
+                  appStrings.addedArg1LastUsedArg2(
+                    securityKey.addedLabel,
+                    securityKey.lastUsedLabel,
+                  ),
                   style: TextStyle(color: _textSecondary),
                 ),
               ],
@@ -1669,9 +1549,15 @@ class _SecurityKeyCard extends StatelessWidget {
             icon: Icon(Icons.more_horiz, color: _textSecondary),
             onSelected: (action) =>
                 action == 'rename' ? onRename() : onRemove(),
-            itemBuilder: (context) => const <PopupMenuEntry<String>>[
-              PopupMenuItem<String>(value: 'rename', child: Text('Rename')),
-              PopupMenuItem<String>(value: 'remove', child: Text('Remove')),
+            itemBuilder: (context) => <PopupMenuEntry<String>>[
+              PopupMenuItem<String>(
+                value: 'rename',
+                child: Text(appStrings.rename),
+              ),
+              PopupMenuItem<String>(
+                value: 'remove',
+                child: Text(appStrings.remove),
+              ),
             ],
           ),
         ],
@@ -1733,10 +1619,7 @@ class _QrLoginScannerDialogState extends State<_QrLoginScannerDialog> {
                     alignment: Alignment.topRight,
                     child: IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(
-                        Icons.close_rounded,
-                        color: Colors.white,
-                      ),
+                      icon: Icon(Icons.close_rounded, color: Colors.white),
                     ),
                   ),
                   const Spacer(),
@@ -1752,7 +1635,7 @@ class _QrLoginScannerDialogState extends State<_QrLoginScannerDialog> {
                   ),
                   const SizedBox(height: 28),
                   Text(
-                    'Scan a NeoAgent login QR',
+                    appStrings.scanANeoagentLoginQr,
                     style: GoogleFonts.geist(
                       fontSize: 28,
                       fontWeight: FontWeight.w700,
@@ -1761,7 +1644,7 @@ class _QrLoginScannerDialogState extends State<_QrLoginScannerDialog> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Point the camera at the code shown on the signed-out device. Approval stays on this phone.',
+                    appStrings.pointTheCameraAtTheCode,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.82),
                       height: 1.5,
@@ -1798,7 +1681,7 @@ class _QrLoginApprovalDialog extends StatelessWidget {
         preview.canApprove && !preview.isExpired && !preview.isClaimed;
     return AlertDialog(
       backgroundColor: _bgCard,
-      title: const Text('Approve QR login'),
+      title: Text(appStrings.approveQrLogin),
       content: SizedBox(
         width: 460,
         child: Column(
@@ -1826,15 +1709,51 @@ class _QrLoginApprovalDialog extends StatelessWidget {
                           preview.requestedDevice.label,
                           style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          [
-                            preview.requestLocation.label,
-                            if (preview.requestedAt != null)
-                              'Requested ${_formatTimestamp(preview.requestedAt!)}',
-                          ].join(' · '),
-                          style: TextStyle(color: _textSecondary, height: 1.4),
+                        const SizedBox(height: 8),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Icon(
+                              Icons.place_outlined,
+                              size: 16,
+                              color: _textSecondary,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text.rich(
+                                TextSpan(
+                                  text: preview.requestLocation.label,
+                                  style: TextStyle(color: _textPrimary),
+                                  children: <InlineSpan>[
+                                    if (preview
+                                            .requestLocation
+                                            .ipAddress
+                                            ?.isNotEmpty ==
+                                        true)
+                                      TextSpan(
+                                        text:
+                                            ' · ${preview.requestLocation.ipAddress}',
+                                        style: TextStyle(color: _textMuted),
+                                      ),
+                                  ],
+                                ),
+                                style: const TextStyle(height: 1.4),
+                              ),
+                            ),
+                          ],
                         ),
+                        if (preview.requestedAt != null) ...<Widget>[
+                          const SizedBox(height: 4),
+                          Text(
+                            appStrings.requestedArg1(
+                              _formatTimestamp(preview.requestedAt!),
+                            ),
+                            style: TextStyle(
+                              color: _textSecondary,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -1856,7 +1775,9 @@ class _QrLoginApprovalDialog extends StatelessWidget {
                 ),
                 if (preview.expiresAt != null)
                   _MetaPill(
-                    label: 'Expires ${_formatTimestamp(preview.expiresAt!)}',
+                    label: appStrings.expiresArg1(
+                      _formatTimestamp(preview.expiresAt!),
+                    ),
                     icon: Icons.timer_outlined,
                   ),
               ],
@@ -1864,10 +1785,10 @@ class _QrLoginApprovalDialog extends StatelessWidget {
             const SizedBox(height: 14),
             Text(
               preview.isClaimed
-                  ? 'This request has already been used.'
+                  ? appStrings.thisRequestHasAlreadyBeenUsed
                   : preview.isExpired
-                  ? 'This request has expired. Ask the other device to generate a new code.'
-                  : 'Approve this only if you started the login on that device just now.',
+                  ? appStrings.thisRequestHasExpiredAskTheOther
+                  : appStrings.approveThisOnlyIfYouStarted,
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
           ],
@@ -1876,7 +1797,7 @@ class _QrLoginApprovalDialog extends StatelessWidget {
       actions: <Widget>[
         TextButton(
           onPressed: busy ? null : () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
+          child: Text(appStrings.cancel),
         ),
         FilledButton.icon(
           onPressed: !canApprove || busy
@@ -1887,8 +1808,8 @@ class _QrLoginApprovalDialog extends StatelessWidget {
                   dimension: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Icon(Icons.verified_user_outlined),
-          label: const Text('Approve login'),
+              : Icon(Icons.verified_user_outlined),
+          label: Text(appStrings.approveLogin),
         ),
       ],
     );

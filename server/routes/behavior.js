@@ -77,4 +77,18 @@ router.get('/diagnostics', (req, res) => {
   return res.json(pipeline.getDiagnostics(userId, agentId, platform, chatId));
 });
 
+router.get('/decisions', (req, res) => {
+  const platform = String(req.query.platform || '').trim();
+  if (!platform) {
+    return res.status(400).json({ error: 'platform is required' });
+  }
+  const pipeline = req.app?.locals?.behaviorPipeline;
+  if (!pipeline?.listDecisions) {
+    return res.status(503).json({ error: 'Behavior runtime is not initialized' });
+  }
+  return res.json({
+    decisions: pipeline.listDecisions(req.session.userId, requestAgentId(req), platform),
+  });
+});
+
 module.exports = router;

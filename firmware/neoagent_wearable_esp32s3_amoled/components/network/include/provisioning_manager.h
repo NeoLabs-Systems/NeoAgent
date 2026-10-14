@@ -43,3 +43,6 @@ const char *provisioning_manager_ap_ssid(const provisioning_manager_t *manager);
 const char *provisioning_manager_ap_password(const provisioning_manager_t *manager);
 bool provisioning_manager_portal_saved_config(const provisioning_manager_t *manager);
 bool provisioning_manager_is_connected(const provisioning_manager_t *manager);
+// Modem sleep while associated. A live voice turn turns it off so audio is not
+// delayed behind DTIM beacons. The setup hotspot stays fully awake.
+void provisioning_manager_set_station_power_save(bool enabled);

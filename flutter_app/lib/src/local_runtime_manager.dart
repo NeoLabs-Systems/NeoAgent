@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'local_runtime_paths.dart';
 import 'runtime_activation_service.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 enum LocalRuntimeAction { start, stop, restart }
 
@@ -145,16 +146,16 @@ class LocalRuntimeManager {
     final runtimeRoot = Directory(_paths.runtimeHome);
     final version = _activationService.readCurrentVersion(runtimeRoot);
     if (version == null) {
-      throw const LocalRuntimeManagerException(
+      throw LocalRuntimeManagerException(
         'SETUP_RUNTIME_NOT_INSTALLED',
-        'NeoAgent is not installed on this computer.',
+        appStrings.neoagentIsNotInstalledOnThis,
       );
     }
     final versionDirectory = _versionDirectory(version);
     if (!_runtimeFilesExist(versionDirectory)) {
-      throw const LocalRuntimeManagerException(
+      throw LocalRuntimeManagerException(
         'SETUP_RUNTIME_INCOMPLETE',
-        'The local NeoAgent runtime needs repair.',
+        appStrings.theLocalNeoagentRuntimeNeedsRepair,
       );
     }
     await _runCli(versionDirectory, <String>[
@@ -217,9 +218,9 @@ class LocalRuntimeManager {
         timeout,
         onTimeout: () {
           process.kill(ProcessSignal.sigterm);
-          throw const LocalRuntimeManagerException(
+          throw LocalRuntimeManagerException(
             'SETUP_COMMAND_TIMEOUT',
-            'The local NeoAgent command timed out.',
+            appStrings.theLocalNeoagentCommandTimedOut,
           );
         },
       );
@@ -230,7 +231,7 @@ class LocalRuntimeManager {
     if (exitCode != 0) {
       throw LocalRuntimeManagerException(
         'SETUP_COMMAND_FAILED',
-        'The local NeoAgent command exited with code $exitCode.',
+        appStrings.theLocalNeoagentCommandExitedWith(exitCode),
       );
     }
     return events;

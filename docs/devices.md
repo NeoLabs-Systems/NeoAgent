@@ -1,62 +1,104 @@
 ---
 title: Devices and interfaces
 sidebar_label: Devices
-description: The Computer and Android surfaces NeoAgent can drive, plus every client that talks to the same server.
+description: The computers and Android device NeoAgent can operate, plus every app and device that talks to your server.
 ---
 
 # Devices and interfaces
 
-*One server, several surfaces — a Linux desktop, your own machine, and Android.*
+**NeoAgent can operate a cloud computer, your own desktop and an Android emulator, and every app talks to the same server.**
 
-NeoAgent exposes two agent-controlled devices: **Computer** and **Android**.
-The web, mobile, and desktop clients all connect to the same NeoAgent server
-and show the same device model.
+Open **Devices** in the app, which has a **Computer** tab and an **Android** tab.
 
-## 🖥️ Computer
+## ☁️ Cloud computer
 
-Computer offers two locations without splitting the tools or UI: a persistent,
-isolated Linux cloud computer or **This device** in the NeoAgent desktop app.
-Browser, desktop, files, terminal, and Python-capable shell tools all go
-through the same agent loop and selected provider.
+Each account gets its own Linux computer on the NeoAgent server, where the agent's browser, shell and file tools run.
 
-The guest is a deliberately small Debian desktop with Openbox, Tint2, PCManFM,
-Chromium, Mousepad, LXTerminal, Python, Git, and standard Unix tools. A
-same-origin noVNC display lets the user watch the agent or take an exclusive
-control lease. Files and terminal are panels within Computer, not separate
-devices.
+| Backend (`TERMINAL_ENV`) | What you get |
+| --- | --- |
+| `qemu` (default) | A Debian desktop VM with live view. Uses KVM, HVF or WHPX when available, otherwise slower software emulation. |
+| `docker` | A per-user container with shell, browser and files. No desktop view. |
+| `host` | Shell and workspace files on the server itself. No isolation, browser or desktop. |
 
-Teach Mode records a user demonstration in this computer. It combines input
-events with browser semantics, Linux accessibility, shell events, file changes,
-and masked screenshots. NeoAgent synthesizes and validates an adaptive skill,
-then deletes the encrypted recording data.
+- **Desktop.** Openbox with a tint2 launcher, PCManFM, Chromium, Mousepad, LXTerminal, Python and Git.
+- **Live view.** **View desktop** opens a noVNC display in the app to follow the agent.
+- **Take control.** **Interrupt AI** pauses the agent's run and hands you the mouse and keyboard.
+- **Shared control.** The agent takes control back on its next computer action. Control lapses after 35 idle minutes.
+- **Persistent.** Files and signed-in browser sessions survive between runs.
 
-On macOS, Windows, and Linux, **This device** uses an outbound authenticated
-connection from the signed-in desktop app. The user separately approves screen
-observation, mouse/keyboard input, the scoped `NeoAgent Workspace`, and local
-CLI/app access. Every permission can be granted once, remembered, denied, or
-revoked. Teach Mode currently remains available only for the cloud provider.
+See [Security and permissions](security-boundaries.md#cloud-computer-backends) for what each backend isolates.
+
+### Browser on protected sites
+
+- **Referrer modes.** `browser_navigate` accepts `referrerMode` `direct` (default), `google` or `current`.
+- **One retry.** When a bot challenge is detected on a direct visit, it retries once with a Google referrer.
+- **Reported, not hidden.** Results include `botDetection`, so a blocked page is reported as blocked.
+- **Your responsibility.** Automation must follow each site's terms and applicable law.
+
+### Teach Mode {#teach-mode}
+
+- **Show, then reuse.** Press **Teach**, answer **What should NeoAgent learn?**, do the task on the desktop, then press **Finish**.
+- **Cloud only.** Teach Mode needs the cloud computer with its desktop view (QEMU backend).
+- **What it records.** Clicks, keys, navigation, windows, commands, file changes, accessibility and page context.
+- **Private by default.** Typed text is replaced by a placeholder; screenshots are skipped while a password field is visible.
+- **Deleted afterwards.** The encrypted recording is purged once the skill is created.
+
+The result is a skill; see [Skills and MCP](skills.md).
+
+## 💻 This device
+
+The desktop app for macOS, Windows and Linux can lend your own computer: switch the provider from **Cloud** to **This device**.
+
+| Grant | Lets the agent |
+| --- | --- |
+| Screen | See what is on your screen |
+| Mouse & keyboard | Click, type and move through your apps |
+| Workspace files | Read and edit files in `~/NeoAgent Workspace` |
+| Commands & apps | Run terminal commands and open apps or web pages |
+
+- **Asked per grant.** Each prompt offers **Allow once**, **Always allow** or **Not now**.
+- **Revoke any time.** Deselect a grant under **Access permissions**.
+- **Outbound connection.** The app connects to your server; nothing listens on your machine.
+- **No Teach Mode** on this device.
 
 ## 🤖 Android
 
-NeoAgent controls a server-attached emulator or physical Android device over
-ADB. It can inspect screenshots and UI nodes, tap, swipe, type, launch apps and
-intents, install application bundles, and run `adb shell`.
+- **Emulator, not your phone.** Each account gets its own Android emulator on the NeoAgent server, controlled over ADB.
+- **Start it** with **Start Android**, or let the agent start it. The screen view accepts taps and swipes.
+- **What the agent can do.** Screenshots, UI dumps, tap, long-press, swipe, type, keys, open apps and intents, install `.apk`/`.apks`, and `adb shell`.
+- **Approvals.** `android_shell`, app installs and app or intent launches ask first by default.
 
-:::note Remote server, remote device
-If NeoAgent runs on a remote server, it controls the Android device attached to
-that server, not the phone displaying the NeoAgent client. Android Teach Mode
-is not part of the first release.
-:::
+## 📱 Apps
 
-## 📱 Client interfaces
+| App | Platforms | Notes |
+| --- | --- | --- |
+| Web | Any browser | Served by your server at `/app` |
+| Desktop | macOS, Windows, Linux | Adds **This device** control |
+| Android | APK | Health Connect, phone triggers, home-screen widgets, incoming agent calls |
+| Android launcher | APK | Replaces the home screen with a voice-first assistant |
 
-The Flutter web, Android, desktop, and Android launcher applications are user
-interfaces for the same server. The standard Android client can additionally
-synchronize Health Connect data and forward notifications. Wearable firmware
-remains a separate source-level hardware target; see [Hardware](hardware.md).
+- **No iOS app yet.** There is no browser extension.
+- **Voice assistant.** Live spoken calls through OpenAI GPT-Live or Google Gemini Live, hands-free or hold-to-talk.
+- **Phone triggers.** **Location triggers** and **Notification triggers** (Android only) feed [automation](automation.md).
+- **Widgets.** **NeoAgent status** and **Call NeoAgent** for the Android home screen.
+- **Android Auto.** A **Voice mode** tile starts a voice call.
+
+### When the agent calls you
+
+- **`call_user` rings the app.** Signed-in NeoAgent apps ring for 30 seconds. It never dials a phone number.
+- **Full-screen on Android.** An incoming call with **Answer** and **Decline**, shown over the lock screen.
+- **Live on answer.** The agent speaks first in a live voice call.
+- **Approval.** The **Call User** category asks first by default.
+
+## ⌚ Wearable
+
+- **Board.** Waveshare ESP32-S3-Touch-AMOLED-1.8, firmware in the repository. See [Hardware](hardware.md).
+- **Push-to-talk.** Hold the mascot (or BOOT) to talk, release to send, tap to stop the reply. There is no wake word.
+- **Setup.** Enter Wi-Fi and your server URL on its setup hotspot, then pair by QR sign-in.
+- **Live voice.** The wearable opens a live voice session with your agent and hangs up after 60 idle seconds.
 
 ## 🔗 Related
 
-- [Health](health.md) — Health Connect data from the Android client
-- [Security and permissions](security-boundaries.md) — what each capability is allowed to do
-- [Clients and device bridges](clients-and-devices.md) — implementation details
+- [Health](health.md): Health Connect data from the Android app
+- [Security and permissions](security-boundaries.md): what each capability may do
+- [Clients and device bridges](clients-and-devices.md): implementation details

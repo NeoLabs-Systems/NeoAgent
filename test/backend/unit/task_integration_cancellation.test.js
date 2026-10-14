@@ -5,7 +5,7 @@ const { test } = require('node:test');
 
 const {
   fetchTriggerRows,
-} = require('../../../server/services/tasks/integration_runtime');
+} = require('../../../server/services/tasks/trigger_polling');
 
 test('integration trigger polling forwards caller cancellation to the provider', async () => {
   const controller = new AbortController();

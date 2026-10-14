@@ -54,6 +54,21 @@ function parseJsonObject(value, fallback = {}) {
   }
 }
 
+// The JSON object inside a model reply, which may wrap it in prose or code
+// fences. Returns null when there is none.
+function extractJsonObject(text) {
+  const raw = String(text || '').trim();
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end <= start) return null;
+  try {
+    const parsed = JSON.parse(raw.slice(start, end + 1));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 // Settings and trigger payloads sometimes arrive JSON-encoded more than once
 // (a string stored as `"\"value\""`). Unwrap at most twice, and treat anything
 // that decodes to a non-string as absent rather than leaking a serialized blob.
@@ -82,6 +97,7 @@ function normalizeStoredString(value) {
 
 module.exports = {
   asObject,
+  extractJsonObject,
   normalizeStoredString,
   parseJsonObject,
   parseMaybeJson,

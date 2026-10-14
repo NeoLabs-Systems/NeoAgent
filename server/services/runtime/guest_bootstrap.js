@@ -744,19 +744,21 @@ function createFatSeedImage(sourceDir, imagePath) {
   }
 }
 
+// Pure-JS writer for hosts without any of the ISO tools below, such as a slim
+// container. @gcu/iso9660 is ESM; require() loads it synchronously on Node
+// 20.19+ and 22.12+, which every shipped runtime uses. Joliet keeps the
+// lowercase cloud-init file names.
+function writeSeedIsoWithJavascript(sourceDir, isoPath) {
+  const { ISOWriter } = require('@gcu/iso9660');
+  const writer = new ISOWriter({ volumeId: 'CIDATA' });
+  for (const name of fs.readdirSync(sourceDir)) {
+    const file = path.join(sourceDir, name);
+    if (fs.statSync(file).isFile()) writer.add(name, fs.readFileSync(file));
+  }
+  fs.writeFileSync(isoPath, writer.toUint8Array());
+}
+
 function createSeedIso(sourceDir, isoPath) {
-  const javascriptIsoWriter = [
-    "import fs from 'node:fs';",
-    "import path from 'node:path';",
-    "import { ISOWriter } from '@gcu/iso9660';",
-    'const [source, output] = process.argv.slice(1);',
-    "const writer = new ISOWriter({ volumeId: 'CIDATA' });",
-    'for (const name of fs.readdirSync(source)) {',
-    '  const file = path.join(source, name);',
-    "  if (fs.statSync(file).isFile()) writer.addFile('/' + name, fs.readFileSync(file));",
-    '}',
-    'fs.writeFileSync(output, Buffer.from(writer.build()));',
-  ].join('\n');
   const candidates = [
     {
       command: 'xorriso',
@@ -774,15 +776,11 @@ function createSeedIso(sourceDir, isoPath) {
       command: 'mkisofs',
       args: ['-o', isoPath, '-V', 'CIDATA', '-J', '-r', sourceDir],
     },
-    {
-      command: process.execPath,
-      args: ['--input-type=module', '--eval', javascriptIsoWriter, sourceDir, isoPath],
-    },
   ];
 
   let lastError = null;
   for (const candidate of candidates) {
-    if (candidate.command !== process.execPath && !commandExists(candidate.command)) {
+    if (!commandExists(candidate.command)) {
       continue;
     }
 
@@ -798,7 +796,14 @@ function createSeedIso(sourceDir, isoPath) {
     );
   }
 
-  throw new Error(`Unable to create cloud-init seed ISO: ${lastError ? lastError.message : 'no supported ISO writer was found.'}`);
+  try {
+    writeSeedIsoWithJavascript(sourceDir, isoPath);
+    return isoPath;
+  } catch (error) {
+    lastError = error;
+  }
+
+  throw new Error(`Unable to create cloud-init seed ISO: ${lastError.message}`);
 }
 
 function ensureGuestBootstrapSeed({
@@ -893,4 +898,5 @@ module.exports = {
   REPO_ROOT,
   normalizeRuntimeProfile,
   stageGuestPayload,
+  writeSeedIsoWithJavascript,
 };

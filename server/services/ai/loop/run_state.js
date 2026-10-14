@@ -5,9 +5,10 @@ const db = require('../../../db/database');
 const { activateTools, searchTools } = require('../toolSelector');
 const { recordRunEvent } = require('../runEvents');
 const { parseMaybeJson } = require('../logFormat');
-const { mergeGoalContracts } = require('./completion_judge');
 const { buildInitialProgressLedger } = require('./progress_monitor');
+const { moveRunToBackground } = require('./background_runs');
 const { getPublicRunScope } = require('../../messaging/public_audience');
+const { addTrustedText } = require('../../security/run_trust');
 const {
   createDeliveryState,
   markInterimDelivered,
@@ -25,18 +26,6 @@ function persistRunMetadata(_engine, runId, patch = {}) {
   const next = { ...current, ...patch };
   db.prepare('UPDATE agent_runs SET metadata_json = ? WHERE id = ?')
     .run(JSON.stringify(next), runId);
-}
-
-function updateRunGoalContract(engine, runId, patch = {}, options = {}) {
-  const runMeta = engine.getRunMeta(runId);
-  if (!runMeta) return null;
-  runMeta.goalContract = mergeGoalContracts(runMeta.goalContract, patch);
-  if (options.persist !== false) {
-    persistRunMetadata(engine, runId, {
-      goalContract: runMeta.goalContract,
-    });
-  }
-  return runMeta.goalContract;
 }
 
 function buildProgressLedgerSnapshot(_engine, runMeta) {
@@ -113,6 +102,7 @@ function markRunVisibleProgress(engine, runId, timestamp = isoNow()) {
     persist: false,
   });
   persistProgressLedger(engine, runId);
+  moveRunToBackground(engine, runId);
   return ledger;
 }
 
@@ -254,6 +244,8 @@ function findSteerableRunForUser(engine, userId, triggerSource = 'web', conversa
     userId,
     (runMeta) => runMeta.triggerSource === triggerSource
       && runMeta.triggerType === 'user'
+      && !runMeta.background
+      && !runMeta.steeringClosed
       && (!conversationId || runMeta.conversationId === conversationId)
   );
 }
@@ -261,7 +253,7 @@ function findSteerableRunForUser(engine, userId, triggerSource = 'web', conversa
 function enqueueSteering(engine, runId, content, metadata = {}) {
   const runMeta = engine.getRunMeta(runId);
   const trimmed = typeof content === 'string' ? content.trim() : '';
-  if (!runMeta || runMeta.aborted || !trimmed) return null;
+  if (!runMeta || runMeta.aborted || runMeta.steeringClosed || !trimmed) return null;
 
   const item = {
     id: uuidv4(),
@@ -343,6 +335,7 @@ function applyQueuedSteering(engine, runId, messages, { userId, conversationId }
 
   for (const entry of queued) {
     messages.push({ role: 'user', content: entry.content });
+    addTrustedText(runMeta.trust, entry.content);
     if (conversationId) {
       db.prepare(
         `INSERT INTO conversation_messages (
@@ -413,6 +406,5 @@ module.exports = {
   persistProgressLedger,
   persistRunMetadata,
   recordRunEventSafe,
-  updateRunGoalContract,
   updateRunProgress,
 };

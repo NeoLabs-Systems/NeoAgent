@@ -5,11 +5,24 @@ part of 'main.dart';
 const NeoAgentPalette _darkPalette = darkPalette;
 const NeoAgentPalette _lightPalette = lightPalette;
 
+/// The theme picked in Settings › General. The controller owns the preference
+/// and mirrors it here because the color tokens below are read without a
+/// BuildContext.
+ThemeMode _appThemeMode = ThemeMode.system;
+
+Brightness get _appBrightness {
+  switch (_appThemeMode) {
+    case ThemeMode.light:
+      return Brightness.light;
+    case ThemeMode.dark:
+      return Brightness.dark;
+    case ThemeMode.system:
+      return WidgetsBinding.instance.platformDispatcher.platformBrightness;
+  }
+}
+
 NeoAgentPalette get _palette =>
-    WidgetsBinding.instance.platformDispatcher.platformBrightness ==
-        Brightness.light
-    ? _lightPalette
-    : _darkPalette;
+    _appBrightness == Brightness.light ? _lightPalette : _darkPalette;
 
 Color get _bgPrimary => _palette.bgPrimary;
 Color get _bgSecondary => _palette.bgSecondary;

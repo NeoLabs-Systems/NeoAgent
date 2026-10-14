@@ -2,9 +2,7 @@ part of 'main.dart';
 
 /// Filters for the Tools page. `all` is the overview: a short, ranked preview
 /// of every group with a "See all" jump into the full list.
-enum _ToolsSegment { all, integrations, mcp, skills, store }
-
-enum _SettingsWorkspaceSection { app, account, usage, security }
+enum _ToolsSegment { all, integrations, mcp, skills, skillsSh }
 
 /// How many rows a group shows in the overview before it is cut off.
 const int _toolsOverviewLimit = 3;
@@ -20,12 +18,18 @@ class ToolsPanel extends StatefulWidget {
 
 class _ToolsPanelState extends State<ToolsPanel> {
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
   late _ToolsSegment _segment;
   late AppSection _lastSection;
   String _query = '';
   String _skillStatus = 'all';
   String _skillSource = 'all';
-  String _storeCategory = 'all';
+  Timer? _skillsShDebounce;
+  int _skillsShRequest = 0;
+  String _skillsShQuery = '';
+  List<SkillsShItem> _skillsShResults = const <SkillsShItem>[];
+  bool _skillsShLoading = false;
+  String? _skillsShError;
 
   @override
   void initState() {
@@ -34,6 +38,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
     _segment = _segmentForSection(_lastSection);
     _searchController.addListener(() {
       setState(() => _query = _searchController.text.trim().toLowerCase());
+      _scheduleSkillsShSearch();
     });
   }
 
@@ -49,8 +54,60 @@ class _ToolsPanelState extends State<ToolsPanel> {
 
   @override
   void dispose() {
+    _skillsShDebounce?.cancel();
     _searchController.dispose();
+    _searchFocus.dispose();
     super.dispose();
+  }
+
+  /// skills.sh is searched only where its results show: the overview and the
+  /// skills.sh segment.
+  bool get _showsSkillsSh =>
+      _segment == _ToolsSegment.all || _segment == _ToolsSegment.skillsSh;
+
+  void _scheduleSkillsShSearch() {
+    final query = _searchController.text.trim();
+    if (!_showsSkillsSh || query == _skillsShQuery) return;
+    _skillsShDebounce?.cancel();
+    _skillsShQuery = query;
+    if (query.length < 2) {
+      setState(() {
+        _skillsShResults = const <SkillsShItem>[];
+        _skillsShLoading = false;
+        _skillsShError = null;
+      });
+      return;
+    }
+    setState(() => _skillsShLoading = true);
+    _skillsShDebounce = Timer(
+      const Duration(milliseconds: 350),
+      () => _runSkillsShSearch(query),
+    );
+  }
+
+  Future<void> _runSkillsShSearch(String query) async {
+    final request = ++_skillsShRequest;
+    try {
+      final results = await widget.controller.searchSkillsSh(query);
+      if (!mounted || request != _skillsShRequest) return;
+      setState(() {
+        _skillsShResults = results;
+        _skillsShError = null;
+        _skillsShLoading = false;
+      });
+    } catch (error) {
+      if (!mounted || request != _skillsShRequest) return;
+      setState(() {
+        _skillsShResults = const <SkillsShItem>[];
+        _skillsShError = formatCaughtError(error);
+        _skillsShLoading = false;
+      });
+    }
+  }
+
+  void _browseSkillsSh() {
+    _selectSegment(_ToolsSegment.skillsSh);
+    _searchFocus.requestFocus();
   }
 
   /// The sidebar's "Tools" entry is [AppSection.integrations] and opens the
@@ -127,29 +184,9 @@ class _ToolsPanelState extends State<ToolsPanel> {
     }).toList();
   }
 
-  List<StoreSkillItem> _visibleStoreSkills() {
-    final items =
-        widget.controller.storeSkills
-            .where(
-              (item) =>
-                  _matches(<String>[
-                    item.name,
-                    item.description,
-                    item.category,
-                  ]) &&
-                  (_segment != _ToolsSegment.store ||
-                      _storeCategory == 'all' ||
-                      item.category == _storeCategory),
-            )
-            .toList()
-          ..sort(
-            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-          );
-    return items;
-  }
-
   void _selectSegment(_ToolsSegment segment) {
     setState(() => _segment = segment);
+    _scheduleSkillsShSearch();
   }
 
   @override
@@ -158,7 +195,6 @@ class _ToolsPanelState extends State<ToolsPanel> {
     final integrations = _visibleIntegrations();
     final servers = _visibleServers();
     final skills = _visibleSkills();
-    final storeSkills = _visibleStoreSkills();
 
     return Padding(
       padding: _pagePadding(context),
@@ -173,21 +209,25 @@ class _ToolsPanelState extends State<ToolsPanel> {
               _PageTitle(
                 title: 'Tools',
                 subtitle:
-                    'Everything the agent can use: official integrations, MCP servers, and skills.',
-                trailing: _ToolsAddMenu(controller: controller),
+                    appStrings.everythingTheAgentCanUseOfficial,
+                trailing: _ToolsAddMenu(
+                  controller: controller,
+                  onBrowseSkillsSh: _browseSkillsSh,
+                ),
               ),
               TextField(
                 controller: _searchController,
+                focusNode: _searchFocus,
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
-                  hintText: 'Search tools, integrations, and skills',
-                  prefixIcon: const Icon(Icons.search_rounded),
+                  hintText: appStrings.searchToolsIntegrationsAndSkills,
+                  prefixIcon: Icon(Icons.search_rounded),
                   suffixIcon: _searchController.text.isEmpty
                       ? null
                       : IconButton(
-                          tooltip: 'Clear search',
+                          tooltip: appStrings.clearSearch,
                           onPressed: _searchController.clear,
-                          icon: const Icon(Icons.close_rounded),
+                          icon: Icon(Icons.close_rounded),
                         ),
                 ),
               ),
@@ -199,11 +239,11 @@ class _ToolsPanelState extends State<ToolsPanel> {
                       integrations.length +
                       servers.length +
                       skills.length +
-                      storeSkills.length,
+                      _skillsShResults.length,
                   _ToolsSegment.integrations: integrations.length,
                   _ToolsSegment.mcp: servers.length,
                   _ToolsSegment.skills: skills.length,
-                  _ToolsSegment.store: storeSkills.length,
+                  _ToolsSegment.skillsSh: _skillsShResults.length,
                 },
                 onSelected: _selectSegment,
               ),
@@ -217,7 +257,6 @@ class _ToolsPanelState extends State<ToolsPanel> {
                     integrations: integrations,
                     servers: servers,
                     skills: skills,
-                    storeSkills: storeSkills,
                   ),
                 ),
               ),
@@ -234,7 +273,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
       filters.add(
         _ToolsFilterMenu(
           icon: Icons.tune_rounded,
-          label: 'Status',
+          label: appStrings.status,
           value: _skillStatus,
           options: const <String>['all', 'active', 'draft', 'disabled'],
           onSelected: (value) => setState(() => _skillStatus = value),
@@ -243,31 +282,16 @@ class _ToolsPanelState extends State<ToolsPanel> {
       filters.add(
         _ToolsFilterMenu(
           icon: Icons.source_outlined,
-          label: 'Source',
+          label: appStrings.source,
           value: _skillSource,
           options: const <String>[
             'all',
             'built-in',
             'learned',
             'user',
-            'store',
+            'skills.sh',
           ],
           onSelected: (value) => setState(() => _skillSource = value),
-        ),
-      );
-    }
-    if (_segment == _ToolsSegment.store) {
-      final categories = <String>{
-        'all',
-        ...controller.storeSkills.map((item) => item.category),
-      }.toList();
-      filters.add(
-        _ToolsFilterMenu(
-          icon: Icons.grid_view_rounded,
-          label: 'Category',
-          value: _storeCategory,
-          options: categories,
-          onSelected: (value) => setState(() => _storeCategory = value),
         ),
       );
     }
@@ -285,49 +309,17 @@ class _ToolsPanelState extends State<ToolsPanel> {
     required List<OfficialIntegrationItem> integrations,
     required List<McpServerItem> servers,
     required List<SkillItem> skills,
-    required List<StoreSkillItem> storeSkills,
   }) {
     final overview = _segment == _ToolsSegment.all;
     final children = <Widget>[];
-
-    if (overview && _query.isEmpty) {
-      final discover = storeSkills
-          .where((item) => !item.installed)
-          .take(8)
-          .toList();
-      if (discover.isNotEmpty) {
-        children.add(
-          _ToolsSectionHeader(
-            title: 'Discover',
-            count: discover.length,
-            onSeeAll: () => _selectSegment(_ToolsSegment.store),
-          ),
-        );
-        children.add(
-          SizedBox(
-            height: 196,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: discover.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (context, index) => _StoreSkillCard(
-                controller: controller,
-                item: discover[index],
-              ),
-            ),
-          ),
-        );
-        children.add(const SizedBox(height: 26));
-      }
-    }
 
     children.addAll(
       _buildGroup(
         segment: _ToolsSegment.integrations,
         title: 'Integrations',
         emptyMessage: _query.isEmpty
-            ? 'No official integrations are available yet.'
-            : 'No integrations match this search.',
+            ? appStrings.noOfficialIntegrationsAreAvailableYet
+            : appStrings.noIntegrationsMatchThisSearch,
         overview: overview,
         tiles: integrations
             .map((item) => _IntegrationTile(controller: controller, item: item))
@@ -337,10 +329,10 @@ class _ToolsPanelState extends State<ToolsPanel> {
     children.addAll(
       _buildGroup(
         segment: _ToolsSegment.mcp,
-        title: 'MCP servers',
+        title: appStrings.mcpServers,
         emptyMessage: _query.isEmpty
-            ? 'No MCP servers configured yet. Add one to expose its tools.'
-            : 'No MCP servers match this search.',
+            ? appStrings.noMcpServersConfiguredYetAddOne
+            : appStrings.noMcpServersMatchThisSearch,
         overview: overview,
         tiles: servers
             .map(
@@ -356,43 +348,66 @@ class _ToolsPanelState extends State<ToolsPanel> {
         title: 'Skills',
         emptyMessage:
             _query.isEmpty && _skillStatus == 'all' && _skillSource == 'all'
-            ? 'No skills installed yet. Install one from the store or write your own.'
-            : 'No skills match these filters.',
+            ? 'No skills installed yet. Install one from skills.sh or write your own.'
+            : appStrings.noSkillsMatchTheseFilters,
         overview: overview,
         tiles: skills
             .map((skill) => _SkillTile(controller: controller, skill: skill))
             .toList(),
       ),
     );
-    // On the overview the Discover strip already carries the store, so the
-    // group only reappears there to show search matches.
-    if (!overview || _query.isNotEmpty) {
-      children.addAll(
-        _buildGroup(
-          segment: _ToolsSegment.store,
-          title: 'Store',
-          emptyMessage: 'No store skills match this search.',
-          overview: overview,
-          tiles: storeSkills
-              .map(
-                (item) => _StoreSkillTile(controller: controller, item: item),
-              )
-              .toList(),
-        ),
-      );
-    }
+    children.addAll(_buildSkillsShGroup(controller, overview: overview));
 
     if (children.isEmpty) {
       children.add(
         _EmptyCard(
-          title: 'Nothing found',
+          title: appStrings.nothingFound,
           subtitle: _query.isEmpty
-              ? 'Add an MCP server or install a skill to get started.'
-              : 'No tool matches "${_searchController.text.trim()}".',
+              ? appStrings.addAnMcpServerOrInstallA
+              : appStrings.noToolMatchesArg1(_searchController.text.trim()),
         ),
       );
     }
     return children;
+  }
+
+  List<Widget> _buildSkillsShGroup(
+    NeoAgentController controller, {
+    required bool overview,
+  }) {
+    if (_skillsShQuery.length < 2) {
+      return overview
+          ? const <Widget>[]
+          : <Widget>[
+              _ToolsSectionHeader(title: 'skills.sh', count: 0),
+              _EmptyCard(
+                title: appStrings.addFromSkillsSh,
+                subtitle: appStrings.skillsShHint,
+              ),
+            ];
+    }
+    if (_skillsShLoading && _skillsShResults.isEmpty) {
+      return <Widget>[
+        _ToolsSectionHeader(title: 'skills.sh', count: 0),
+        const LinearProgressIndicator(),
+        const SizedBox(height: 26),
+      ];
+    }
+    return _buildGroup(
+      segment: _ToolsSegment.skillsSh,
+      title: 'skills.sh',
+      emptyMessage: _skillsShError ?? appStrings.noSkillsShMatches,
+      overview: overview,
+      tiles: _skillsShResults
+          .map(
+            (item) => _SkillsShTile(
+              key: ValueKey<String>(item.id),
+              controller: controller,
+              item: item,
+            ),
+          )
+          .toList(),
+    );
   }
 
   /// One titled group of rows. In the overview only the first few rows show,
@@ -413,7 +428,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
       }
       return <Widget>[
         _ToolsSectionHeader(title: title, count: 0),
-        _EmptyCard(title: 'Nothing here yet', subtitle: emptyMessage),
+        _EmptyCard(title: appStrings.nothingHereYet2, subtitle: emptyMessage),
       ];
     }
     final shown = overview && tiles.length > _toolsOverviewLimit
@@ -437,9 +452,13 @@ class _ToolsPanelState extends State<ToolsPanel> {
 }
 
 class _ToolsAddMenu extends StatelessWidget {
-  const _ToolsAddMenu({required this.controller});
+  const _ToolsAddMenu({
+    required this.controller,
+    required this.onBrowseSkillsSh,
+  });
 
   final NeoAgentController controller;
+  final VoidCallback onBrowseSkillsSh;
 
   @override
   Widget build(BuildContext context) {
@@ -448,19 +467,24 @@ class _ToolsAddMenu extends StatelessWidget {
         onPressed: () => menuController.isOpen
             ? menuController.close()
             : menuController.open(),
-        icon: const Icon(Icons.add_rounded, size: 18),
-        label: const Text('Add'),
+        icon: Icon(Icons.add_rounded, size: 18),
+        label: Text(appStrings.add),
       ),
       menuChildren: <Widget>[
         MenuItemButton(
-          leadingIcon: const Icon(Icons.dns_outlined, size: 18),
+          leadingIcon: Icon(Icons.dns_outlined, size: 18),
           onPressed: () => _openMcpEditor(context, controller),
-          child: const Text('Add MCP server'),
+          child: Text(appStrings.addMcpServer),
         ),
         MenuItemButton(
-          leadingIcon: const Icon(Icons.auto_awesome_outlined, size: 18),
+          leadingIcon: Icon(Icons.auto_awesome_outlined, size: 18),
           onPressed: () => _openCreateSkill(context, controller),
-          child: const Text('New skill'),
+          child: Text(appStrings.newSkill),
+        ),
+        MenuItemButton(
+          leadingIcon: Icon(Icons.travel_explore_rounded, size: 18),
+          onPressed: onBrowseSkillsSh,
+          child: Text(appStrings.addFromSkillsSh),
         ),
       ],
     );
@@ -483,7 +507,7 @@ class _ToolsSegmentBar extends StatelessWidget {
     _ToolsSegment.integrations: 'Integrations',
     _ToolsSegment.mcp: 'MCP',
     _ToolsSegment.skills: 'Skills',
-    _ToolsSegment.store: 'Store',
+    _ToolsSegment.skillsSh: 'skills.sh',
   };
 
   @override
@@ -582,7 +606,7 @@ class _ToolsFilterMenu extends StatelessWidget {
   final ValueChanged<String> onSelected;
 
   static String _optionLabel(String option) {
-    if (option == 'all') return 'All';
+    if (option == 'all') return appStrings.all;
     return option[0].toUpperCase() + option.substring(1);
   }
 
@@ -616,7 +640,7 @@ class _ToolsFilterMenu extends StatelessWidget {
             Icon(icon, size: 15, color: _textSecondary),
             const SizedBox(width: 8),
             Text(
-              '$label: ${_optionLabel(value)}',
+              appStrings.arg1Arg24(label, _optionLabel(value)),
               style: TextStyle(
                 color: value == 'all' ? _textSecondary : _accent,
                 fontWeight: FontWeight.w600,
@@ -668,7 +692,7 @@ class _ToolsSectionHeader extends StatelessWidget {
           ),
           const Spacer(),
           if (onSeeAll != null)
-            TextButton(onPressed: onSeeAll, child: const Text('See all')),
+            TextButton(onPressed: onSeeAll, child: Text(appStrings.seeAll)),
         ],
       ),
     );
@@ -866,14 +890,14 @@ class _IntegrationTile extends StatelessWidget {
           : _textMuted,
       meta: <String>[
         item.statusLabel,
-        '${item.availableToolCount} tools',
-        '${item.connection.accountCount} accounts',
+        appStrings.arg1Tools(item.availableToolCount),
+        appStrings.arg1Accounts(item.connection.accountCount),
       ],
       trailing: _ToolActionButton(
         label: item.isConnected
             ? 'Manage'
             : needsSetup && item.env.setupMode != 'user'
-            ? 'Set up'
+            ? appStrings.setUp
             : 'Connect',
         primary: !item.isConnected,
         onPressed: () => _openIntegrationDetail(context, controller, item),
@@ -892,7 +916,7 @@ void _openIntegrationDetail(
     context,
     icon: _OfficialIntegrationIcon(item: item),
     title: item.label,
-    subtitle: 'Official integration',
+    subtitle: appStrings.officialIntegration,
     child: IntegrationDetailView(controller: controller, providerId: item.id),
   );
 }
@@ -917,7 +941,7 @@ class _McpServerTile extends StatelessWidget {
     return _ToolTile(
       icon: icon,
       title: server.name,
-      subtitle: server.command.ifEmpty('No server URL set'),
+      subtitle: server.command.ifEmpty(appStrings.noServerUrlSet),
       statusColor: running
           ? _success
           : server.hasError
@@ -929,7 +953,7 @@ class _McpServerTile extends StatelessWidget {
             : server.hasError
             ? 'Error'
             : 'Stopped',
-        '${server.toolCount} tools',
+        appStrings.arg1Tools(server.toolCount),
         server.authMethodLabel,
       ],
       trailing: _ToolActionButton(
@@ -943,7 +967,7 @@ class _McpServerTile extends StatelessWidget {
         context,
         icon: icon,
         title: server.name,
-        subtitle: 'MCP server',
+        subtitle: appStrings.mcpServer,
         child: McpServerDetailView(controller: controller, serverId: server.id),
       ),
     );
@@ -973,7 +997,7 @@ class _SkillTile extends StatelessWidget {
     return _ToolTile(
       icon: icon,
       title: skill.name,
-      subtitle: skill.description.ifEmpty('No description'),
+      subtitle: skill.description.ifEmpty(appStrings.noDescription),
       statusColor: skill.enabled ? _success : _textMuted,
       meta: <String>[
         skill.enabled ? 'Enabled' : 'Disabled',
@@ -989,147 +1013,117 @@ class _SkillTile extends StatelessWidget {
         context,
         icon: icon,
         title: skill.name,
-        subtitle: 'Skill',
+        subtitle: appStrings.skill,
         child: SkillDetailView(controller: controller, skillName: skill.name),
       ),
     );
   }
 }
 
-class _StoreSkillTile extends StatelessWidget {
-  const _StoreSkillTile({required this.controller, required this.item});
+/// A skills.sh search hit. Installing makes it a regular user skill, so once
+/// installed it opens the same detail view as any other skill.
+class _SkillsShTile extends StatefulWidget {
+  const _SkillsShTile({
+    super.key,
+    required this.controller,
+    required this.item,
+  });
 
   final NeoAgentController controller;
-  final StoreSkillItem item;
+  final SkillsShItem item;
+
+  @override
+  State<_SkillsShTile> createState() => _SkillsShTileState();
+}
+
+class _SkillsShTileState extends State<_SkillsShTile> {
+  late String _installedName = widget.item.installedName;
+  bool _installing = false;
+
+  Future<void> _install() async {
+    setState(() => _installing = true);
+    try {
+      final name = await widget.controller.installSkillsShSkill(widget.item);
+      if (!mounted) return;
+      setState(() => _installedName = name);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(appStrings.installedSkillArg1(name))),
+      );
+    } catch (error) {
+      if (mounted) _showFormError(context, formatCaughtError(error));
+    } finally {
+      if (mounted) setState(() => _installing = false);
+    }
+  }
+
+  void _open(Widget icon) {
+    if (_installedName.isEmpty) {
+      url_launcher.launchUrl(
+        Uri.parse('https://skills.sh/${widget.item.id}'),
+        mode: url_launcher.LaunchMode.externalApplication,
+      );
+      return;
+    }
+    _showToolDetail(
+      context,
+      icon: icon,
+      title: _installedName,
+      subtitle: appStrings.skill,
+      child: SkillDetailView(
+        controller: widget.controller,
+        skillName: _installedName,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final item = widget.item;
+    final installed = _installedName.isNotEmpty;
+    final color = _toolAccentFor(item.name);
     final icon = _ToolIconTile(
-      color: _toolAccentFor(item.name),
-      child: Text(item.icon, style: const TextStyle(fontSize: 22)),
+      color: color,
+      child: Text(
+        item.name.isEmpty ? '?' : item.name[0].toUpperCase(),
+        style: TextStyle(
+          color: color,
+          fontSize: 20,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
     );
     return _ToolTile(
       icon: icon,
       title: item.name,
-      subtitle: item.description,
-      statusColor: item.installed ? _success : null,
-      meta: <String>[if (item.installed) 'Installed', item.category],
+      subtitle: item.source,
+      statusColor: installed ? _success : null,
+      meta: <String>[
+        if (installed) 'Installed',
+        if (item.installs != null)
+          appStrings.skillsShInstallsArg1(_formatInstallCount(item.installs!)),
+      ],
       trailing: _ToolActionButton(
-        label: item.installed ? 'Open' : 'Get',
-        primary: !item.installed,
-        onPressed: () => item.installed
-            ? _openStoreSkillDetail(context, controller, item, icon)
-            : controller.installStoreSkill(item.id),
+        label: installed
+            ? appStrings.open
+            : _installing
+            ? appStrings.installingSkill
+            : 'Get',
+        primary: !installed,
+        onPressed: _installing
+            ? null
+            : installed
+            ? () => _open(icon)
+            : _install,
       ),
-      onTap: () => _openStoreSkillDetail(context, controller, item, icon),
+      onTap: () => _open(icon),
     );
   }
 }
 
-/// Wide store card used by the Discover strip on the overview.
-class _StoreSkillCard extends StatelessWidget {
-  const _StoreSkillCard({required this.controller, required this.item});
-
-  final NeoAgentController controller;
-  final StoreSkillItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final icon = _ToolIconTile(
-      color: _toolAccentFor(item.name),
-      child: Text(item.icon, style: const TextStyle(fontSize: 22)),
-    );
-    return SizedBox(
-      width: 268,
-      child: Material(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(18),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: () => _openStoreSkillDetail(context, controller, item, icon),
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: _border),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    icon,
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        item.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 15.5,
-                          fontWeight: FontWeight.w700,
-                          color: _textPrimary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Expanded(
-                  child: Text(
-                    item.description,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: _textSecondary,
-                      fontSize: 13,
-                      height: 1.35,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        item.category,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: _textMuted,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    _ToolActionButton(
-                      label: 'Get',
-                      onPressed: () => controller.installStoreSkill(item.id),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-void _openStoreSkillDetail(
-  BuildContext context,
-  NeoAgentController controller,
-  StoreSkillItem item,
-  Widget icon,
-) {
-  _showToolDetail(
-    context,
-    icon: icon,
-    title: item.name,
-    subtitle: 'Store skill',
-    child: StoreSkillDetailView(controller: controller, skillId: item.id),
-  );
+String _formatInstallCount(int count) {
+  if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
+  if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}K';
+  return '$count';
 }
 
 /// Stable per-name accent so skill tiles stay visually distinguishable.
@@ -1199,7 +1193,7 @@ Future<void> _showToolDetail(
                   IconButton(
                     tooltip: 'Close',
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
+                    icon: Icon(Icons.close_rounded),
                   ),
                 ],
               ),
@@ -1235,280 +1229,4 @@ class _RunsAndLogsPanelState extends State<RunsAndLogsPanel> {
       child: RunsPanel(controller: widget.controller),
     );
   }
-}
-
-class SettingsWorkspacePanel extends StatefulWidget {
-  const SettingsWorkspacePanel({super.key, required this.controller});
-
-  final NeoAgentController controller;
-
-  @override
-  State<SettingsWorkspacePanel> createState() => _SettingsWorkspacePanelState();
-}
-
-class _SettingsWorkspacePanelState extends State<SettingsWorkspacePanel> {
-  late _SettingsWorkspaceSection _selectedSection;
-  late AppSection _lastControllerSection;
-
-  @override
-  void initState() {
-    super.initState();
-    _lastControllerSection = widget.controller.selectedSection;
-    _selectedSection = _sectionForAppSection(_lastControllerSection);
-  }
-
-  @override
-  void didUpdateWidget(covariant SettingsWorkspacePanel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final controllerSection = widget.controller.selectedSection;
-    if (controllerSection != _lastControllerSection) {
-      _lastControllerSection = controllerSection;
-      _selectedSection = _sectionForAppSection(controllerSection);
-    }
-  }
-
-  _SettingsWorkspaceSection _sectionForAppSection(AppSection section) {
-    return section == AppSection.accountSettings
-        ? _SettingsWorkspaceSection.account
-        : _SettingsWorkspaceSection.app;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < AppBreakpoints.tablet;
-    return Padding(
-      padding: _pagePadding(context),
-      child: Column(
-        children: <Widget>[
-          const _PageTitle(
-            title: 'Settings',
-            subtitle:
-                'Workspace configuration and account security in one place.',
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: compact
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      _SettingsWorkspaceNav(
-                        selected: _selectedSection,
-                        compact: true,
-                        onSelected: _selectSection,
-                      ),
-                      const SizedBox(height: 16),
-                      Expanded(child: _buildContent()),
-                    ],
-                  )
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      SizedBox(
-                        width: 240,
-                        child: _SettingsWorkspaceNav(
-                          selected: _selectedSection,
-                          compact: false,
-                          onSelected: _selectSection,
-                        ),
-                      ),
-                      const SizedBox(width: 24),
-                      Expanded(child: _buildContent()),
-                    ],
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _selectSection(_SettingsWorkspaceSection section) {
-    setState(() => _selectedSection = section);
-    final appSection = section == _SettingsWorkspaceSection.app
-        ? AppSection.settings
-        : AppSection.accountSettings;
-    _lastControllerSection = appSection;
-    if (widget.controller.selectedSection != appSection) {
-      widget.controller.setSelectedSection(appSection);
-    }
-  }
-
-  Widget _buildContent() {
-    switch (_selectedSection) {
-      case _SettingsWorkspaceSection.app:
-        return SettingsPanel(controller: widget.controller, embedded: true);
-      case _SettingsWorkspaceSection.account:
-        return AccountSettingsPanel(
-          controller: widget.controller,
-          embedded: true,
-          initialTab: AccountSettingsTab.account,
-        );
-      case _SettingsWorkspaceSection.usage:
-        return AccountSettingsPanel(
-          controller: widget.controller,
-          embedded: true,
-          initialTab: AccountSettingsTab.usage,
-        );
-      case _SettingsWorkspaceSection.security:
-        return AccountSettingsPanel(
-          controller: widget.controller,
-          embedded: true,
-          initialTab: AccountSettingsTab.security,
-        );
-    }
-  }
-}
-
-class _SettingsWorkspaceNav extends StatelessWidget {
-  const _SettingsWorkspaceNav({
-    required this.selected,
-    required this.compact,
-    required this.onSelected,
-  });
-
-  final _SettingsWorkspaceSection selected;
-  final bool compact;
-  final ValueChanged<_SettingsWorkspaceSection> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = <_SettingsWorkspaceNavItem>[
-      const _SettingsWorkspaceNavItem(
-        section: _SettingsWorkspaceSection.app,
-        icon: Icons.tune,
-        label: 'General',
-        description: 'Models, behavior, voice, and workspace',
-      ),
-      const _SettingsWorkspaceNavItem(
-        section: _SettingsWorkspaceSection.account,
-        icon: Icons.person_outline,
-        label: 'Account',
-        description: 'Profile, email, and personal data',
-      ),
-      const _SettingsWorkspaceNavItem(
-        section: _SettingsWorkspaceSection.usage,
-        icon: Icons.data_usage_outlined,
-        label: 'Usage & limits',
-        description: 'Plan usage and allowance details',
-      ),
-      const _SettingsWorkspaceNavItem(
-        section: _SettingsWorkspaceSection.security,
-        icon: Icons.security_outlined,
-        label: 'Security',
-        description: 'Password, 2FA, and active sessions',
-      ),
-    ];
-    if (compact) {
-      return DropdownButtonFormField<_SettingsWorkspaceSection>(
-        key: ValueKey<_SettingsWorkspaceSection>(selected),
-        initialValue: selected,
-        isExpanded: true,
-        decoration: const InputDecoration(
-          labelText: 'Settings area',
-          prefixIcon: Icon(Icons.settings_outlined),
-        ),
-        items: items
-            .map(
-              (item) => DropdownMenuItem<_SettingsWorkspaceSection>(
-                value: item.section,
-                child: Text(item.label),
-              ),
-            )
-            .toList(),
-        onChanged: (section) {
-          if (section != null) onSelected(section);
-        },
-      );
-    }
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 4, 8, 10),
-            child: Text(
-              'Settings areas',
-              style: TextStyle(
-                color: _textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          for (final item in items) _navButton(item),
-        ],
-      ),
-    );
-  }
-
-  Widget _navButton(_SettingsWorkspaceNavItem item) {
-    final active = selected == item.section;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Material(
-        color: active ? _accent.withValues(alpha: 0.12) : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: () => onSelected(item.section),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Icon(
-                  item.icon,
-                  size: 20,
-                  color: active ? _accent : _textSecondary,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        item.label,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: active ? _accent : _textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        item.description,
-                        style: TextStyle(
-                          color: _textSecondary,
-                          fontSize: 11,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SettingsWorkspaceNavItem {
-  const _SettingsWorkspaceNavItem({
-    required this.section,
-    required this.icon,
-    required this.label,
-    required this.description,
-  });
-
-  final _SettingsWorkspaceSection section;
-  final IconData icon;
-  final String label;
-  final String description;
 }

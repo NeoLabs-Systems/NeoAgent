@@ -308,7 +308,7 @@ test('requestStructuredJson aborts a timed-out provider call without retrying it
   assert.equal(providerSignal.aborted, true);
 });
 
-test('requestModelResponse retries a stalled stream with a fresh attempt controller', async () => {
+test('requestModelResponse hands a stalled stream to failover instead of retrying the same model', async () => {
   const engine = new AgentEngine(null);
   let calls = 0;
 
@@ -337,7 +337,7 @@ test('requestModelResponse retries a stalled stream with a fresh attempt control
     (error) => error.code === 'MODEL_CALL_TIMEOUT',
   );
 
-  assert.equal(calls, 3);
+  assert.equal(calls, 1);
 });
 
 test('requestModelResponse returns promptly when the parent aborts even if the provider ignores signals', async () => {

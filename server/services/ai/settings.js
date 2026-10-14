@@ -2,22 +2,18 @@ const db = require('../../db/database');
 const { decryptValue, encryptValue } = require('../integrations/secrets');
 const { isMainAgent, resolveAgentId } = require('../agents/manager');
 const {
-  normalizeInputMode,
-  normalizeMediaMode,
-} = require('../voice/voice_config');
-const {
   normalizeSttProvider,
-  normalizeTtsProvider,
   resolveSttModel,
-  resolveTtsModel,
-  resolveTtsVoice,
-  DEFAULT_STT_PROVIDER,
-  DEFAULT_TTS_PROVIDER,
-  DEFAULT_STT_MODELS,
-  DEFAULT_TTS_MODELS,
-  DEFAULT_TTS_VOICES,
+  AUTO_STT_PROVIDER,
 } = require('../voice/providers');
+const {
+  DEFAULT_INPUT_MODE,
+  LIVE_VOICE_PROVIDERS,
+  normalizeInputMode,
+} = require('../voice/live/catalog');
 const { AI_PROVIDER_DEFINITIONS } = require('./provider_definitions');
+const { parseModelSelectionId } = require('./model_identity');
+const { normalizeTaskModels } = require('./task_models');
 
 function createDefaultProviderConfigs() {
   return Object.fromEntries(
@@ -29,6 +25,13 @@ function createDefaultProviderConfigs() {
       }
     ])
   );
+}
+
+// Anything other than 'auto' or a provider-scoped model id reads as off.
+function normalizeSystemOneModel(value) {
+  const selection = String(value ?? '').trim();
+  if (selection === 'auto' || parseModelSelectionId(selection)) return selection;
+  return 'off';
 }
 
 function createDefaultAiSettings() {
@@ -44,19 +47,22 @@ function createDefaultAiSettings() {
     subagent_max_children_per_run: 10,
     assistant_behavior_notes: '',
     auto_skill_learning: true,
-    smarter_model_selector: true,
+    // 'off', 'auto', or a SystemOne model selection id (provider::model).
+    system_one_model: 'off',
     enabled_models: [],
     default_chat_model: 'auto',
     default_subagent_model: 'auto',
     default_speech_model: 'auto',
+    // Optional per-kind model pins ({coding: 'provider::model', ...}); empty follows the defaults.
+    task_models: {},
     ai_provider_configs: createDefaultProviderConfigs(),
-    voice_stt_provider: DEFAULT_STT_PROVIDER,
-    voice_stt_model: DEFAULT_STT_MODELS.openai,
-    voice_tts_provider: DEFAULT_TTS_PROVIDER,
-    voice_tts_model: DEFAULT_TTS_MODELS.openai,
-    voice_tts_voice: DEFAULT_TTS_VOICES.openai,
-    voice_media_mode: 'auto',
-    voice_input_mode: 'ptt',
+    voice_stt_provider: AUTO_STT_PROVIDER,
+    voice_stt_model: '',
+    // Empty live voice values follow the server defaults (VOICE_LIVE_*).
+    voice_live_provider: '',
+    voice_live_model: '',
+    voice_live_voice: '',
+    voice_input_mode: DEFAULT_INPUT_MODE,
   };
 }
 
@@ -280,7 +286,7 @@ function getAiSettings(userId, agentId = null) {
     ? settings.assistant_behavior_notes
     : DEFAULT_AI_SETTINGS.assistant_behavior_notes;
   settings.auto_skill_learning = settings.auto_skill_learning !== false && settings.auto_skill_learning !== 'false';
-  settings.smarter_model_selector = settings.smarter_model_selector !== false && settings.smarter_model_selector !== 'false';
+  settings.system_one_model = normalizeSystemOneModel(settings.system_one_model);
   settings.enabled_models = Array.isArray(settings.enabled_models) ? settings.enabled_models : DEFAULT_AI_SETTINGS.enabled_models;
   settings.default_chat_model = typeof settings.default_chat_model === 'string' && settings.default_chat_model.trim()
     ? settings.default_chat_model
@@ -288,15 +294,17 @@ function getAiSettings(userId, agentId = null) {
   settings.default_subagent_model = typeof settings.default_subagent_model === 'string' && settings.default_subagent_model.trim()
     ? settings.default_subagent_model
     : DEFAULT_AI_SETTINGS.default_subagent_model;
+  settings.task_models = normalizeTaskModels(settings.task_models);
   settings.default_speech_model = typeof settings.default_speech_model === 'string' && settings.default_speech_model.trim()
     ? settings.default_speech_model.trim()
     : DEFAULT_AI_SETTINGS.default_speech_model;
   settings.voice_stt_provider = normalizeSttProvider(settings.voice_stt_provider);
   settings.voice_stt_model = resolveSttModel(settings.voice_stt_provider, settings.voice_stt_model);
-  settings.voice_tts_provider = normalizeTtsProvider(settings.voice_tts_provider);
-  settings.voice_tts_model = resolveTtsModel(settings.voice_tts_provider, settings.voice_tts_model);
-  settings.voice_tts_voice = resolveTtsVoice(settings.voice_tts_provider, settings.voice_tts_voice);
-  settings.voice_media_mode = normalizeMediaMode(settings.voice_media_mode);
+  settings.voice_live_provider = LIVE_VOICE_PROVIDERS[settings.voice_live_provider]
+    ? settings.voice_live_provider
+    : '';
+  settings.voice_live_model = String(settings.voice_live_model || '').trim();
+  settings.voice_live_voice = String(settings.voice_live_voice || '').trim();
   settings.voice_input_mode = normalizeInputMode(settings.voice_input_mode);
   settings.ai_provider_configs = normalizeProviderConfigs(settings.ai_provider_configs);
 
@@ -312,6 +320,7 @@ module.exports = {
   getProviderConfigs,
   getProviderSecrets,
   normalizeProviderConfigs,
+  normalizeSystemOneModel,
   setProviderConfig,
   setProviderSecret,
 };

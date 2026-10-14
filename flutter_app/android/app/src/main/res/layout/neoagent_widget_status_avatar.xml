@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Just the mascot on the wallpaper, sized from code to the widget's smaller side. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="@dimen/neoagent_widget_avatar_inset">
+
+    <FrameLayout
+        android:id="@+id/neoagent_widget_avatar"
+        android:layout_width="@dimen/neoagent_widget_avatar_size"
+        android:layout_height="@dimen/neoagent_widget_avatar_size"
+        android:layout_gravity="center">
+
+        <FrameLayout
+            android:id="@+id/neoagent_widget_face"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <include layout="@layout/neoagent_widget_face_idle" />
+        </FrameLayout>
+    </FrameLayout>
+</FrameLayout>

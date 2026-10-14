@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'android_app_installer.dart';
 import 'error_text.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 const MethodChannel _androidAppInstallerChannel = MethodChannel(
   'neoagent/app_update',
@@ -32,9 +33,9 @@ class _IoAndroidAppInstaller implements AndroidAppInstaller {
     Map<String, String> headers = const <String, String>{},
   }) async {
     if (!supported) {
-      return const AndroidAppInstallResult(
+      return AndroidAppInstallResult(
         launched: false,
-        error: 'Android APK install is unavailable on this platform.',
+        error: appStrings.androidApkInstallIsUnavailableOn,
       );
     }
 
@@ -46,10 +47,10 @@ class _IoAndroidAppInstaller implements AndroidAppInstaller {
         await _androidAppInstallerChannel.invokeMethod<void>(
           'openInstallUnknownAppsSettings',
         );
-        return const AndroidAppInstallResult(
+        return AndroidAppInstallResult(
           launched: false,
           error:
-              'Allow "Install unknown apps" for NeoAgent, then retry the update.',
+              appStrings.allowInstallUnknownAppsForNeoagent,
         );
       }
 
@@ -65,9 +66,9 @@ class _IoAndroidAppInstaller implements AndroidAppInstaller {
       if (launched == true) {
         return const AndroidAppInstallResult(launched: true);
       }
-      return const AndroidAppInstallResult(
+      return AndroidAppInstallResult(
         launched: false,
-        error: 'Android package installer could not be opened.',
+        error: appStrings.androidPackageInstallerCouldNotBe,
       );
     } on PlatformException catch (error) {
       return AndroidAppInstallResult(
@@ -89,7 +90,7 @@ class _IoAndroidAppInstaller implements AndroidAppInstaller {
     final response = await _client.send(request);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw HttpException(
-        'APK download failed with HTTP ${response.statusCode}.',
+        appStrings.apkDownloadFailedWithHttpArg1(response.statusCode),
         uri: Uri.parse(downloadUrl),
       );
     }

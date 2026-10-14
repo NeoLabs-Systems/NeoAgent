@@ -227,8 +227,6 @@ function getFileHealth(app, engine, options = {}) {
   let summary = 'Per-user workspace service is not available.';
   if (workspaceManager && workspaceRoot && folderName) {
     summary = `The selected project folder "${folderName}" is already mounted as the workspace.`;
-  } else if (workspaceManager && options.triggerSource === 'cowork') {
-    summary = 'The Cowork workspace is already attached. List the workspace root instead of asking for a URL.';
   } else if (workspaceManager) {
     summary = 'Per-user workspace access is available.';
   }

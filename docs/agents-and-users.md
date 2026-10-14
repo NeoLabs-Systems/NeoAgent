@@ -1,76 +1,92 @@
 ---
 title: Agents and users
 sidebar_label: Agents and users
-description: How NeoAgent separates sign-in accounts from configured AI identities, and how multi-user deployments stay isolated.
+description: How NeoAgent separates sign-in accounts from configured AI identities, and how admins and teams work on one server.
 ---
 
 # Agents and users
 
-*Two separate concepts: who signs in, and which AI identity does the work.*
+**A user is an account that signs in; an agent is an AI identity that a user owns and configures.**
 
-NeoAgent separates two concepts:
+| Concept | What it is | Managed in |
+| --- | --- | --- |
+| User | An account on your NeoAgent server | Sign-up, **Admin › Users** |
+| Agent | An AI identity owned by one user | **Settings › Agents** |
 
-- A **user** is an account that can sign in to the server.
-- An **agent** is a configured AI identity owned by a user.
+## Account sign-in
+
+Google and OpenRouter can register, sign in, or link to an existing account through the same provider flow. One-time sign-up keys still apply when registration is restricted.
+
+OpenRouter needs an HTTPS or localhost server URL, with no OAuth client ID or secret. It identifies the account by OpenRouter's user ID; it does not provide an email, so new accounts start without one. On first registration, NeoAgent asks you to choose an available username before creating the account. Providers with no usable username or profile name use this same step; returning users skip it. You can set a password in account settings, then add an email. Each successful OpenRouter registration, sign-in, or account link saves the returned model API key encrypted for your default agent, replacing its previous OpenRouter key. Other agents keep their own keys.
+
+Connecting OpenRouter under **Settings › Models › Bring your own key** only connects models; it does not link an account sign-in method. To sign in to an existing NeoAgent account with OpenRouter, link it in account settings first.
+
+Admins can turn OpenRouter account sign-in off under **Admin › Integrations › OpenRouter account sign-in**, alongside the Google configuration. The switch defaults to on and is saved as `NEOAGENT_OPENROUTER_SIGN_IN_ENABLED`. Saving applies immediately to registration, login, account linking, and pending callbacks. Existing sessions and model API keys keep working.
 
 ## 🤖 Agents
 
-The main agent is created automatically. Additional agents are managed in the
-operator interface and can be used as specialists.
+- **Main agent.** Created automatically for every account. It cannot be archived.
+- **Default agent.** The one that answers when you do not pick another; set it under **Settings › Agents**.
+- **Separate state.** Each agent has its own conversations, memory, runs, tasks, integration accounts, messaging channels and MCP servers.
+- **Profile.** Name, description, responsibilities, instructions, and a status of active or paused.
+- **Per-agent settings.** **Models**, **Behavior**, **Voice** and **Messaging** apply to the selected agent.
+- **Shared settings.** **Permissions** and **Computer & web** apply to all of your agents.
 
-Each agent has its own conversations, memory, model settings, integrations,
-messaging assignments, tasks, and run history. This separation lets one user
-maintain, for example, a personal agent and a work agent without merging their
-context.
+Use separate agents to keep contexts apart, for example a personal agent and a work agent.
 
-Agents can also be marked for orchestrator use. An orchestrator can delegate
-work to other agents; a normal specialist is intended to complete its assigned
-run directly.
+### Delegation
+
+- **Can delegate tasks to other agents.** On for the main agent by default. Use it for orchestrator agents.
+- **Can receive delegated tasks.** On for every other agent by default. Turn it off to keep an agent fully separate.
+- **Restrict delegation targets.** Limits which agents a delegating agent may hand work to.
+- **Shared trust.** A delegated run keeps the caller's run trust; see [Security and permissions](security-boundaries.md).
 
 ## 👤 User accounts
 
-Self-hosted installations can support more than one account. Administrative
-controls include account management, provider configuration, logs, and runtime
-updates.
+- **One account per person.** Each account has its own agents, data and cloud computer.
+- **Sign-up keys.** Turn on **Admin › Configuration › Access › Require a sign-up key** (or set `NEOAGENT_ALLOW_SIGNUP=false`) and new accounts need a one-time key. Admins create keys one at a time or in batches under **Sign-up keys**, then copy or export them as `.txt`.
+- **Not a hostile-tenant boundary.** Read the [isolation notes](#isolation) before giving accounts to people you do not trust.
 
-## Admins
+## 🛡️ Admins
 
-- **First account is admin** — on a fresh install the first account created becomes the admin.
-- **More admins** — `neoagent admin grant <username>`, or list usernames in `NEOAGENT_ADMIN_USERS`.
-- **Revoke** — `neoagent admin revoke <username>`; it applies on the next request.
-- **Admin tab** — admins get an **Admin** tab in the app with a search box: users, server, providers, models, integrations, configuration, billing, analytics, SQL, and the access activity log.
-- **No self-delete** — an admin account can't delete itself; revoke admin first.
-- **Existing installs** — a single-account install promotes its only account; with several accounts, run `neoagent admin grant <username>` (startup and `neoagent status` remind you).
+- **First account is admin.** The first account that can sign in becomes admin. An email sign-up counts once confirmed.
+- **More admins.** `neoagent admin grant <username>`, or list usernames in `NEOAGENT_ADMIN_USERS`.
+- **Revoke.** `neoagent admin revoke <username>` takes effect on the next request.
+- **Env list is additive.** Removing a name from `NEOAGENT_ADMIN_USERS` does not revoke it; a CLI revoke stays in force.
+- **Reserved names.** A listed username with no account cannot be registered by anyone.
+- **Admin tab.** Users, Server, Providers, Models, Integrations, Configuration, Analytics and SQL, with a search box.
+- **No self-delete.** An admin account cannot delete itself; revoke admin first.
+- **Older installs.** A single-account install promotes its only account. With several, run `neoagent admin grant <username>`.
 
-## Teams
+Admin changes are made by the operator from the CLI or the env list, never from inside the app.
 
-- **Team tab** — every account has a **Team** tab: who manages you, whom you manage, and your invite links.
-- **On your own** — by default you decide which tools your agent may use (Tool Permissions).
-- **Invite links** — anyone can create a link listing which tools the recipient's agent may use, with an expiry and single-use or reusable. A link can only hand out tools you hold yourself, and never grants admin.
-- **Joining** — the recipient enters the link on the **Team** tab, sees who will manage them and what they'll be allowed, and confirms.
-- **What a manager controls** — the tool permission categories (shell, file writes, desktop control, …). A manager's "off" beats the account's own Tool Permissions setting, including "Allow all".
-- **What a manager sees** — username, display name and those permissions. Never chats, memories, files or email.
-- **Chains** — A manages B, B manages C (up to four levels). A decision higher up wins and shows as locked, with the name of whoever made it.
-- **Leaving** — a managed account can leave at any time; the manager can also stop managing it.
-- **Removing a manager** — when a manager's account is deleted, the people they managed move up to their manager (or become independent at the top).
-- **Audit** — admin grants, invite links and team changes are logged under **Admin › Users › Access activity**.
+## 🤝 Teams
 
-## 🧱 Isolation model
+- **Team tab.** Shows who manages you, whom you manage, and your invite links.
+- **Unmanaged by default.** You decide which tool categories your agents may use under **Settings › Permissions**.
+- **Invite links.** List the tool categories the recipient may use, with an expiry (up to 90 days) and single-use or reusable.
+- **Only what you hold.** A link cannot hand out a category you lack, and never grants admin.
+- **Joining.** The recipient enters the link on the **Team** tab, reviews the manager and permissions, and confirms.
+- **What a manager controls.** Tool categories such as shell, file writes and desktop control. A manager's "off" beats the account's own setting, including allow-all.
+- **What a manager sees.** Username, display name and those permissions. Never chats, memories, files or email.
+- **Chains.** Up to four managers above an account. A decision higher up wins and shows as locked, with who made it.
+- **Leaving.** A managed account can leave at any time; the manager can also stop managing it.
+- **Deleted managers.** The people they managed move up to the next manager, or become independent.
+- **Audit.** Admin grants, invite links and team changes appear under **Admin › Users › Access activity**.
 
-Application data is scoped by user and, where applicable, agent. The default
-Linux computer is created per user. Official integration credentials remain
-server-side and are assigned to a particular user and agent.
+## 🧱 Isolation {#isolation}
+
+- **Data scope.** Application data is scoped per user and, where it applies, per agent.
+- **Cloud computer.** One per user; QEMU and Docker backends separate users, `TERMINAL_ENV=host` does not.
+- **Integration credentials.** Stored on the server and bound to one user and agent.
+- **Android.** ADB commands run on the NeoAgent host against the attached device.
 
 :::caution Not a hostile-tenant boundary
-This is application and runtime isolation, not a promise that every capability
-runs inside a VM. Android commands run through ADB on the NeoAgent host, while
-the persistent Linux computer grants access to its guest data and sessions.
-Read [Security boundaries](security-boundaries.md) before hosting untrusted
-users.
+Accounts are separated at the application level only; read [Security and permissions](security-boundaries.md) before hosting people you do not trust.
 :::
 
 ## 🔗 Related
 
-- [Automation and triggers](automation.md) — tasks are owned by an agent
-- [Memory](memory.md) — recall is scoped per user and agent
-- [Architecture](architecture.md) — how agent scope is enforced
+- [Automation and triggers](automation.md): tasks belong to an agent
+- [Memory](memory.md): recall is scoped per user and agent
+- [Architecture](architecture.md): how agent scope is enforced

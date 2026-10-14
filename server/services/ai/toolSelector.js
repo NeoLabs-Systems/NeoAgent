@@ -10,13 +10,12 @@
 
 const MAX_TOOLS = 20;
 const ALWAYS_INCLUDE_BUILT_INS = [
-  'task_complete',
   'search_tools',
   'activate_tools',
   'think',
   'send_message',
+  'react_to_message',
   'send_interim_update',
-  'request_user_input',
   'call_user',
 ];
 const CORE_FILE_TOOLS = [
@@ -32,15 +31,21 @@ const CORE_FILE_TOOLS = [
   'execute_command',
 ];
 
+// What a personal agent needs most turns, whatever language the request is
+// in: search, fetching a page, the shell, memory, and scheduling.
+const DEFAULT_ACTIVE_TOOLS = [
+  'web_search',
+  'http_request',
+  'execute_command',
+  'memory_recall',
+  'memory_save',
+  'create_task',
+];
+
 function requiredToolNames(options = {}) {
   const requiredNames = [...ALWAYS_INCLUDE_BUILT_INS];
   if (options.includeCoreFileTools) requiredNames.push(...CORE_FILE_TOOLS);
   return requiredNames;
-}
-
-function suggestsCoreFileWork(suggestedNames = []) {
-  return (Array.isArray(suggestedNames) ? suggestedNames : [])
-    .some((name) => CORE_FILE_TOOLS.includes(String(name || '').trim()));
 }
 
 function toolFamily(tool) {
@@ -200,10 +205,21 @@ function ensureRequiredTools(selectedTools = [], builtInTools = [], options = {}
   return selected;
 }
 
-function selectInitialTools(allTools = [], suggestedNames = [], options = {}) {
-  const requested = new Set(expandNamesByFamily(suggestedNames, allTools));
-  const selected = allTools.filter((tool) => requested.has(tool?.name));
-  return ensureRequiredTools(selected.slice(0, MAX_TOOLS), allTools, options).slice(0, MAX_TOOLS);
+// A catalog within the schema cap is simply all active. A larger one starts
+// with the control tools, the defaults, and whatever the run's setup names
+// (in that order of priority); the model activates the rest from the listed
+// catalog itself.
+function selectInitialTools(allTools = [], preferredNames = [], options = {}) {
+  if (allTools.length <= MAX_TOOLS) return allTools.slice();
+  const byName = new Map(allTools.map((tool) => [tool?.name, tool]));
+  return expandNamesByFamily([
+    ...requiredToolNames(options),
+    ...DEFAULT_ACTIVE_TOOLS,
+    ...preferredNames,
+  ], allTools)
+    .map((name) => byName.get(name))
+    .filter(Boolean)
+    .slice(0, MAX_TOOLS);
 }
 
 function activateTools(currentTools = [], allTools = [], requestedNames = [], options = {}) {
@@ -247,18 +263,7 @@ function activateTools(currentTools = [], allTools = [], requestedNames = [], op
   };
 }
 
-function selectMcpTools(_task, mcpTools = []) {
-  return Array.isArray(mcpTools) ? mcpTools : [];
-}
-
-function selectToolsForTask(task, builtInTools = [], mcpTools = [], _options = {}) {
-  const selectedMcp = selectMcpTools(task, mcpTools);
-  void _options;
-  return [...builtInTools, ...selectedMcp];
-}
-
 module.exports = {
-  suggestsCoreFileWork,
   expandNamesByFamily,
   ALWAYS_INCLUDE_BUILT_INS,
   CORE_FILE_TOOLS,
@@ -267,7 +272,4 @@ module.exports = {
   buildToolDiscoverySummary,
   searchTools,
   selectInitialTools,
-  summarizeToolCatalog,
-  selectToolsForTask,
-  selectMcpTools,
 };

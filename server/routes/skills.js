@@ -10,6 +10,8 @@ const {
   sortInstalledSkills,
 } = require('../services/skills/runtime');
 const { markLearningUserEdited } = require('../services/skills/learning_documents');
+const { installSkillsShSkill, searchSkillsSh } = require('../services/skills/skills_sh');
+const { sendJsonError } = require('../http/errors');
 
 router.use(requireAuth);
 
@@ -103,6 +105,38 @@ router.get('/audit/summary', (req, res) => {
     res.json(req.app.locals.capabilityAuditService.auditSkills());
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.get('/skills-sh/search', async (req, res) => {
+  try {
+    const runner = await getSkillRunner(req.app);
+    const installed = new Map(
+      runner.getAll(req.session.userId)
+        .filter((skill) => skill.ownerType === 'user' && skill.metadata?.skills_sh_id)
+        .map((skill) => [skill.metadata.skills_sh_id, skill.name]),
+    );
+    const results = await searchSkillsSh(String(req.query.q || ''));
+    res.json(results.map((result) => ({
+      ...result,
+      installedName: installed.get(result.id) || '',
+    })));
+  } catch (err) {
+    sendJsonError(res, err);
+  }
+});
+
+router.post('/skills-sh/install', async (req, res) => {
+  try {
+    const runner = await getSkillRunner(req.app);
+    const result = await installSkillsShSkill(runner, req.session.userId, {
+      source: String(req.body?.source || ''),
+      skillId: String(req.body?.skillId || ''),
+      name: String(req.body?.name || req.body?.skillId || ''),
+    });
+    res.status(201).json({ success: true, ...result });
+  } catch (err) {
+    sendJsonError(res, err);
   }
 });
 

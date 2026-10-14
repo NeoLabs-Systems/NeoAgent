@@ -29,8 +29,12 @@ echo
 
 RUNTIME_DIR="${NEOAGENT_HOME:-$HOME/.neoagent}"
 EXISTING_RUNTIME=false
-if [[ -f "$RUNTIME_DIR/.env" || -f "$RUNTIME_DIR/data/neoagent.db" \
-  || ( -d "$RUNTIME_DIR/agent-data" && -n "$(ls -A "$RUNTIME_DIR/agent-data" 2>/dev/null)" ) ]]; then
+# A .env alone is not an installation: an earlier, interrupted run of this
+# installer creates it. setup-state.json means setup never finished, so it
+# runs again instead of adopting the half-configured runtime.
+if [[ ! -f "$RUNTIME_DIR/setup-state.json" ]] \
+  && [[ -f "$RUNTIME_DIR/data/neoagent.db" \
+    || ( -d "$RUNTIME_DIR/agent-data" && -n "$(ls -A "$RUNTIME_DIR/agent-data" 2>/dev/null)" ) ]]; then
   EXISTING_RUNTIME=true
   info "Existing runtime data found at ${RUNTIME_DIR}; it will be preserved."
 fi
@@ -63,7 +67,14 @@ else
 fi
 ok "Channel: ${RELEASE_CHANNEL} (git branch ${INSTALL_BRANCH})"
 
+NEOAGENT_ORIGIN_PATTERN='^(https://github\.com/|ssh://git@github\.com/|git@github\.com:)NeoLabs-Systems/NeoAgent(\.git)?/?$'
 if [[ -d "$INSTALL_DIR/.git" ]]; then
+  ORIGIN_URL="$(git -C "$INSTALL_DIR" remote get-url origin 2>/dev/null || true)"
+  if [[ ! "$ORIGIN_URL" =~ $NEOAGENT_ORIGIN_PATTERN ]]; then
+    err "${INSTALL_DIR} is a git repository but not a NeoAgent checkout (origin: ${ORIGIN_URL:-none})."
+    echo "     Choose a different install directory; this one was left untouched." >&2
+    exit 1
+  fi
   info "Existing repo found at ${INSTALL_DIR} — replacing it with origin/${INSTALL_BRANCH}..."
   git -C "$INSTALL_DIR" fetch origin --tags
   git -C "$INSTALL_DIR" reset --hard HEAD
@@ -112,12 +123,9 @@ hash -r
 ok "Global CLI ready: ${GLOBAL_CLI}"
 
 echo
-info "Persisting release channel (${RELEASE_CHANNEL})..."
-"$GLOBAL_CLI" channel "$RELEASE_CHANNEL"
-
-echo
 info "Running the global NeoAgent manager..."
 if [[ "$EXISTING_RUNTIME" == "true" ]]; then
+  "$GLOBAL_CLI" channel "$RELEASE_CHANNEL"
   exec "$GLOBAL_CLI" install --adopt-existing
 fi
-exec "$GLOBAL_CLI" install
+exec "$GLOBAL_CLI" install --channel "$RELEASE_CHANNEL"

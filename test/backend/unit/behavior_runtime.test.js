@@ -47,6 +47,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   require('../../../server/services/behavior/state').clearThreadStates();
+  require('../../../server/services/behavior/gate/decision_log').clearDecisionLogs();
   teardownTestRuntime(ctx);
 });
 
@@ -110,7 +111,6 @@ test('low need score holds back without full run or memory work', async () => {
             confidence: 0.99,
             reasonCodes: ['could_comment'],
             urgency: 'low',
-            rationale: 'A reply is possible but unnecessary.',
           },
           modelSelectionId: 'fast-model',
           usage: 42,
@@ -165,7 +165,6 @@ test('a zero need threshold is honored without truthy-default coercion', async (
             confidence: 1,
             reasonCodes: ['configured_threshold'],
             urgency: 'low',
-            rationale: 'The configured threshold permits this response.',
           },
         };
       },
@@ -224,6 +223,69 @@ test('mention-only rooms make zero model calls', async () => {
   assert.equal(mentioned.engage, true);
   assert.equal(mentioned.decision.tokenPath, 'gate_skip');
   assert.equal(inferenceCalls, 0);
+});
+
+test('group decisions are logged newest first per platform', async () => {
+  behavior.setBehaviorConfig(user.userId, agentId, {
+    participationMode: 'mention_only',
+  });
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: {
+      trackBackgroundTask() {
+        return Promise.resolve();
+      },
+    },
+  });
+
+  await pipeline.handleInbound({ userId: user.userId, agentId, msg: groupMessage('humans talking') });
+  await pipeline.handleInbound({
+    userId: user.userId,
+    agentId,
+    msg: groupMessage('direct question', { wasMentioned: true }),
+  });
+
+  const entries = pipeline.listDecisions(user.userId, agentId, 'telegram');
+  assert.deepEqual(entries.map((entry) => entry.decision), ['speak', 'stay_silent']);
+  assert.equal(entries[0].preview, 'direct question');
+  assert.equal(entries[0].wasMentioned, true);
+  assert.deepEqual(entries[1].reasonCodes, ['mention_only']);
+  assert.deepEqual(pipeline.listDecisions(user.userId, agentId, 'discord'), []);
+});
+
+test('platform context turns by the agent reach the gate as the assistant', () => {
+  const { buildDecisionPacket } = require('../../../server/services/behavior/signals');
+  const packet = buildDecisionPacket({
+    msg: groupMessage('what do you think of it', {
+      channelContext: [
+        { author: '[bot] NeoLabs (NeoLabs#4821)', content: 'posted the changelog', mine: true },
+        { author: 'Neo (neo)', content: 'what do you think of it', mine: false },
+      ],
+    }),
+    config: {},
+    threadState: {},
+  });
+  // The judged message leaves the history and keeps the history's name for its sender.
+  assert.deepEqual(packet.room.recentMessages.map((item) => item.sender), ['assistant']);
+  assert.equal(packet.sender.name, 'Neo (neo)');
+});
+
+test('a reply to another person reaches the SystemOne gate with what it replies to', () => {
+  const { buildDecisionPacket } = require('../../../server/services/behavior/signals');
+  const packet = buildDecisionPacket({
+    msg: groupMessage('did you finish them?', {
+      messageId: 'm3',
+      replyTo: { sender: 'Lisa (lisa)', content: "i'll finish the slides tonight" },
+      channelContext: [
+        { id: 'm1', author: 'Lisa (lisa)', content: "i'll finish the slides tonight", mine: false },
+        { id: 'm2', author: '[bot] NeoLabs', content: 'api is green again', mine: true },
+        { id: 'm3', author: 'Neo (neo)', content: 'did you finish them? <@123>', mine: false },
+      ],
+    }),
+    config: {},
+    threadState: {},
+  });
+  assert.deepEqual(packet.room.recentMessages.map((item) => item.sender), ['Lisa (lisa)', 'assistant']);
+  assert.deepEqual(packet.event.replyTo, { sender: 'Lisa (lisa)', content: "i'll finish the slides tonight" });
 });
 
 test('plain name address engages without a mention tag', async () => {
@@ -324,7 +386,6 @@ test('a recent follow-up uses a slightly lower need threshold', async () => {
             confidence: 0.8,
             reasonCodes: ['follow_up'],
             urgency: 'medium',
-            rationale: 'The room is waiting on a reply.',
           },
         };
       },
@@ -385,7 +446,6 @@ test('per-group untagged policy is a hard gate before social intelligence', asyn
             confidence: 1,
             reasonCodes: ['worthwhile'],
             urgency: 'medium',
-            rationale: 'The message warrants a response.',
           },
         };
       },
@@ -509,7 +569,7 @@ test('group batching merges rapid messages from different participants', async (
   assert.match(executed[0].content, /\[Two\]: second/);
 });
 
-test('a newer room turn suppresses stale delivery before Theory of Mind or send', async () => {
+test('a newer room turn suppresses stale delivery before anything is sent', async () => {
   let inferenceCalls = 0;
   let sendCalls = 0;
   const pipeline = behavior.createBehaviorPipeline({
@@ -545,7 +605,7 @@ test('a newer room turn suppresses stale delivery before Theory of Mind or send'
   });
   assert.equal(silentDecision.engage, false);
 
-  const stillCurrent = await pipeline.refineAndMaybeDeliver({
+  const stillCurrent = await pipeline.deliverReply({
     userId: user.userId,
     agentId,
     msg: original,
@@ -554,7 +614,7 @@ test('a newer room turn suppresses stale delivery before Theory of Mind or send'
       chatId: original.chatId,
       isGroup: true,
     }),
-    draft: 'active reply',
+    content: 'active reply',
     messagingManager: {
       async sendMessage() {
         sendCalls += 1;
@@ -562,7 +622,6 @@ test('a newer room turn suppresses stale delivery before Theory of Mind or send'
       },
     },
     turnEpoch: originalEpoch,
-    deliver: true,
   });
   assert.equal(stillCurrent.suppressed, false);
   assert.equal(sendCalls, 1);
@@ -576,7 +635,7 @@ test('a newer room turn suppresses stale delivery before Theory of Mind or send'
   });
   assert.equal(next.engage, true);
 
-  const result = await pipeline.refineAndMaybeDeliver({
+  const result = await pipeline.deliverReply({
     userId: user.userId,
     agentId,
     msg: original,
@@ -585,7 +644,7 @@ test('a newer room turn suppresses stale delivery before Theory of Mind or send'
       chatId: original.chatId,
       isGroup: true,
     }),
-    draft: 'obsolete reply',
+    content: 'obsolete reply',
     messagingManager: {
       async sendMessage() {
         sendCalls += 1;
@@ -593,29 +652,13 @@ test('a newer room turn suppresses stale delivery before Theory of Mind or send'
       },
     },
     turnEpoch: originalEpoch,
-    deliver: true,
   });
 
   assert.equal(result.suppressed, true);
-  assert.deepEqual(result.reasonCodes, ['stale_turn']);
+  assert.equal(result.reason, 'stale_turn');
   assert.equal(sendCalls, 1);
+  assert.equal(inferenceCalls, 0);
 });
-
-function writerEngine(calls, message, runModel = 'provider::main-model') {
-  return {
-    getRunMeta() {
-      return { modelSelectionId: runModel };
-    },
-    async inferStructured(request) {
-      calls.push(request);
-      return {
-        parsed: { message },
-        modelSelectionId: request.modelId,
-        usage: 40,
-      };
-    },
-  };
-}
 
 function directConfig(msg) {
   return behavior.resolveBehaviorConfig(user.userId, agentId, {
@@ -625,342 +668,87 @@ function directConfig(msg) {
   });
 }
 
-function storeChat(msg, rows) {
-  const insert = ctx.db.prepare(
-    `INSERT INTO messages (user_id, agent_id, role, content, platform, platform_chat_id, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, datetime('now', ?))`,
-  );
-  rows.forEach(([role, content], index) => {
-    insert.run(user.userId, agentId, role, content, msg.platform, msg.chatId, `-${rows.length - index} minutes`);
-  });
-}
+// The agent writes every reply itself; delivery never asks another model.
+const noModelEngine = {
+  async inferStructured() {
+    throw new Error('delivery must not call a model');
+  },
+  async decide() {
+    throw new Error('delivery must not call a model');
+  },
+};
 
-test('direct messaging writes the final text from the chat, not from a chat-only draft', async () => {
-  const calls = [];
-  const pipeline = behavior.createBehaviorPipeline({
-    agentEngine: writerEngine(calls, 'haha fair'),
-  });
-  const msg = directMessage('that was a joke btw');
-  storeChat(msg, [
-    ['user', 'working from home tomorrow, zero plans'],
-    ['assistant', 'sounds relaxed'],
-  ]);
+test('a direct reply is delivered exactly as the agent wrote it', async () => {
+  const pipeline = behavior.createBehaviorPipeline({ agentEngine: noModelEngine });
+  const msg = directMessage('antworte doch');
+  const sent = [];
 
-  const result = await pipeline.refineAndMaybeDeliver({
+  const result = await pipeline.deliverReply({
     userId: user.userId,
     agentId,
     msg,
-    config: directConfig(msg),
-    draft: 'Understood! Let me know if you need anything else.',
-    runId: 'run-chat',
+    config: { ...directConfig(msg), deliveryStyle: 'single' },
+    content: 'Bin da. Was brauchst du?',
+    messagingManager: {
+      async sendMessage(_userId, _platform, _chatId, content) {
+        sent.push(content);
+        return { success: true };
+      },
+    },
   });
 
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].modelId, 'provider::main-model');
-  assert.equal(calls[0].purpose, 'general');
-  assert.match(calls[0].system, /you're texting with Participant/);
-  assert.match(calls[0].system, /working from home tomorrow, zero plans/);
-  assert.match(calls[0].prompt, /you: sounds relaxed/);
-  assert.match(calls[0].prompt, /Participant: that was a joke btw/);
-  assert.doesNotMatch(calls[0].prompt, /Let me know if you need anything else/);
-  assert.equal(result.content, 'haha fair');
-  assert.equal(result.personaAction, 'revise');
-  assert.deepEqual(result.reasonCodes, ['persona_writer', 'tom_disabled_or_direct']);
+  assert.equal(result.delivered, true);
+  assert.deepEqual(sent, ['Bin da. Was brauchst du?']);
 });
 
-test('the writer receives the draft as results when the run did real work, on the voice model', async () => {
-  ctx.db.prepare('INSERT INTO agent_runs (id, user_id, agent_id) VALUES (?, ?, ?)').run('run-work', user.userId, agentId);
-  const insertStep = ctx.db.prepare(
-    `INSERT INTO agent_steps (id, run_id, step_index, type, tool_name)
-     VALUES (?, 'run-work', ?, ?, ?)`,
-  );
-  insertStep.run('step-1', 0, 'tool', 'web_search');
-  insertStep.run('step-2', 1, 'messaging', 'send_message');
-  behavior.setBehaviorConfig(user.userId, agentId, { voiceModelId: 'provider::voice-model' });
-  const calls = [];
-  const pipeline = behavior.createBehaviorPipeline({
-    agentEngine: writerEngine(calls, 'last s3 at 00:47, platform 1'),
-  });
-  const msg = directMessage('when is the last train');
+test('a group reply is delivered as written, without a reviewer pass', async () => {
+  const pipeline = behavior.createBehaviorPipeline({ agentEngine: noModelEngine });
+  const msg = groupMessage('@neo is the api down?', { wasMentioned: true });
+  const engaged = await pipeline.handleInbound({ userId: user.userId, agentId, msg });
+  assert.equal(engaged.engage, true);
+  const sent = [];
 
-  const result = await pipeline.refineAndMaybeDeliver({
+  const result = await pipeline.deliverReply({
     userId: user.userId,
     agentId,
     msg,
-    config: directConfig(msg),
-    draft: 'The last S3 departs at 00:47 from platform 1.',
-    runId: 'run-work',
+    config: { ...engaged.config, deliveryStyle: 'single' },
+    content: 'yeah, 502s since 14:10. looks like the gateway.',
+    messagingManager: {
+      async sendMessage(_userId, _platform, _chatId, content) {
+        sent.push(content);
+        return { success: true };
+      },
+    },
+    turnEpoch: engaged.decision.turnEpoch,
   });
 
-  assert.equal(calls[0].modelId, 'provider::voice-model');
-  assert.match(calls[0].prompt, /your results from this turn[^\n]*\nThe last S3 departs at 00:47 from platform 1\./);
-  assert.equal(result.content, 'last s3 at 00:47, platform 1');
+  assert.equal(result.delivered, true);
+  assert.deepEqual(sent, ['yeah, 502s since 14:10. looks like the gateway.']);
 });
 
-test('the writer can end a direct chat without a reply', async () => {
-  const pipeline = behavior.createBehaviorPipeline({
-    agentEngine: writerEngine([], '[NO RESPONSE]'),
-  });
+test('[NO RESPONSE] from the agent sends nothing', async () => {
+  const pipeline = behavior.createBehaviorPipeline({ agentEngine: noModelEngine });
   const msg = directMessage('k');
   let sendCalls = 0;
 
-  const result = await pipeline.refineAndMaybeDeliver({
+  const result = await pipeline.deliverReply({
     userId: user.userId,
     agentId,
     msg,
     config: directConfig(msg),
-    draft: 'Okay! Let me know if there is anything else.',
+    content: '[NO RESPONSE]',
     messagingManager: {
       async sendMessage() {
         sendCalls += 1;
         return { success: true };
       },
     },
-    deliver: true,
   });
 
   assert.equal(result.suppressed, true);
+  assert.equal(result.reason, 'no_response');
   assert.equal(sendCalls, 0);
-});
-
-test('owner agent instructions reach the writer as additions to its voice', async () => {
-  ctx.db.prepare('UPDATE agents SET instructions = ? WHERE id = ?').run('You are Nova.', agentId);
-  const calls = [];
-  const pipeline = behavior.createBehaviorPipeline({
-    agentEngine: writerEngine(calls, 'ja bin da'),
-  });
-  const msg = directMessage('hallo?');
-
-  await pipeline.refineAndMaybeDeliver({
-    userId: user.userId,
-    agentId,
-    msg,
-    config: directConfig(msg),
-    draft: 'Hello! How can I help?',
-  });
-
-  assert.match(calls[0].system, /## from the owner \(adds to how you text; it doesn't replace it\)\nYou are Nova\./);
-});
-
-test('the writer can answer with a reaction alone, sent before any text', async () => {
-  const calls = [];
-  const pipeline = behavior.createBehaviorPipeline({
-    agentEngine: {
-      async inferStructured(request) {
-        calls.push(request);
-        return { parsed: { message: '[NO RESPONSE]', reaction: '❤️' } };
-      },
-    },
-  });
-  const msg = directMessage('good night');
-  const reacted = [];
-  let sendCalls = 0;
-
-  const result = await pipeline.refineAndMaybeDeliver({
-    userId: user.userId,
-    agentId,
-    msg,
-    config: directConfig(msg),
-    draft: 'Good night! Sleep well.',
-    messagingManager: {
-      supportsReactions: () => true,
-      async sendReaction(_userId, platform, chatId, messageId, emoji) {
-        reacted.push([platform, chatId, messageId, emoji]);
-        return { success: true };
-      },
-      async sendMessage() {
-        sendCalls += 1;
-        return { success: true };
-      },
-    },
-    deliver: true,
-  });
-
-  assert.match(calls[0].system, /react to their last message with one emoji/);
-  assert.match(calls[0].prompt, /"reaction": "<one emoji, or empty>"/);
-  assert.deepEqual(reacted, [['telegram', 'direct-1', msg.messageId, '❤️']]);
-  assert.equal(sendCalls, 0);
-  assert.equal(result.suppressed, true);
-  assert.equal(result.reacted, true);
-});
-
-test('the writer is not offered reactions where the platform cannot send them', async () => {
-  const calls = [];
-  const pipeline = behavior.createBehaviorPipeline({
-    agentEngine: {
-      async inferStructured(request) {
-        calls.push(request);
-        return { parsed: { message: 'night', reaction: '❤️' } };
-      },
-    },
-  });
-  const msg = directMessage('good night');
-
-  const result = await pipeline.refineAndMaybeDeliver({
-    userId: user.userId,
-    agentId,
-    msg,
-    config: directConfig(msg),
-    draft: 'Good night!',
-    messagingManager: { supportsReactions: () => false },
-  });
-
-  assert.doesNotMatch(calls[0].system, /react to their last message/);
-  assert.doesNotMatch(calls[0].prompt, /"reaction"/);
-  assert.equal(result.content, 'night');
-});
-
-test('the writer sees profile facts, memories related to the message, and reactions in the chat', async () => {
-  const calls = [];
-  const recallQueries = [];
-  const pipeline = behavior.createBehaviorPipeline({
-    agentEngine: writerEngine(calls, 'lol'),
-    memoryManager: {
-      getCoreMemory: () => ({ name: 'Sam', active_context: 'scheduler run log' }),
-      getUserProfile: () => ({ static: ['Works as a junior developer'], dynamic: ['Is shopping for a home server'] }),
-      async recallMemory(_userId, query) {
-        recallQueries.push(query);
-        return [{ content: 'Promised to stop coding past midnight' }];
-      },
-    },
-  });
-  const msg = directMessage('who even pushes code at 2am');
-  storeChat(msg, [['assistant', 'build is green']]);
-  ctx.db.prepare(
-    `INSERT INTO messages (user_id, agent_id, role, content, platform, platform_chat_id, metadata, created_at)
-     VALUES (?, ?, 'user', '😂', ?, ?, ?, datetime('now', '-30 seconds'))`,
-  ).run(user.userId, agentId, msg.platform, msg.chatId, JSON.stringify({ kind: 'reaction', targetText: 'build is green' }));
-
-  await pipeline.refineAndMaybeDeliver({
-    userId: user.userId,
-    agentId,
-    msg,
-    config: directConfig(msg),
-    draft: 'Committing late at night is common.',
-  });
-
-  assert.deepEqual(recallQueries, ['who even pushes code at 2am']);
-  assert.match(calls[0].system, /- name: Sam/);
-  assert.doesNotMatch(calls[0].system, /scheduler run log/);
-  assert.match(calls[0].system, /- Is shopping for a home server/);
-  assert.match(calls[0].system, /- Promised to stop coding past midnight/);
-  assert.doesNotMatch(calls[0].system, /how they text[^#]*😂/);
-  assert.match(calls[0].prompt, /Participant reacted 😂 to "build is green"/);
-});
-
-test('group replies without theory of mind bypass the direct-chat writer', async () => {
-  behavior.setBehaviorConfig(user.userId, agentId, {
-    modules: { theory_of_mind: { enabled: false } },
-  });
-  let inferenceCalls = 0;
-  const pipeline = behavior.createBehaviorPipeline({
-    agentEngine: {
-      async inferStructured() {
-        inferenceCalls += 1;
-        return { parsed: { message: 'unused' } };
-      },
-    },
-  });
-  const msg = groupMessage('anyone around');
-  const turnEpoch = pipeline.noteInbound({ userId: user.userId, agentId, msg });
-
-  const result = await pipeline.refineAndMaybeDeliver({
-    userId: user.userId,
-    agentId,
-    msg,
-    config: behavior.resolveBehaviorConfig(user.userId, agentId, {
-      platform: msg.platform,
-      chatId: msg.chatId,
-      isGroup: true,
-    }),
-    draft: 'here',
-    turnEpoch,
-  });
-
-  assert.equal(inferenceCalls, 0);
-  assert.equal(result.content, 'here');
-  assert.equal(result.reasonCodes[0], 'persona_writer_direct_only');
-});
-
-test('group messaging combines interaction voice and theory of mind in one model call', async () => {
-  const calls = [];
-  const pipeline = behavior.createBehaviorPipeline({
-    agentEngine: {
-      async inferStructured(request) {
-        calls.push(request);
-        return {
-          parsed: {
-            action: 'revise',
-            revisedContent: 'one useful room reply',
-            risk: 'low',
-            reasonCodes: ['kept_group_reply_brief'],
-            rationale: 'The original draft was too long for the room.',
-          },
-          modelSelectionId: 'provider::review-model',
-        };
-      },
-    },
-  });
-  const msg = groupMessage('can someone settle this');
-  const turnEpoch = pipeline.noteInbound({ userId: user.userId, agentId, msg });
-  const config = behavior.resolveBehaviorConfig(user.userId, agentId, {
-    platform: msg.platform,
-    chatId: msg.chatId,
-    isGroup: true,
-  });
-
-  const result = await pipeline.refineAndMaybeDeliver({
-    userId: user.userId,
-    agentId,
-    msg,
-    config,
-    draft: 'A long, assistant-like answer that should not dominate the room.',
-    turnEpoch,
-  });
-
-  assert.equal(calls.length, 1);
-  assert.match(calls[0].system, /Mandatory interaction-voice editing rules/);
-  assert.match(calls[0].system, /multi-party chat/);
-  assert.equal(result.content, 'one useful room reply');
-  assert.deepEqual(result.reasonCodes, [
-    'persona_refine_combined_with_tom',
-    'kept_group_reply_brief',
-  ]);
-});
-
-test('large messaging deliverables bypass the lightweight interaction-voice pass', async () => {
-  let inferenceCalls = 0;
-  const pipeline = behavior.createBehaviorPipeline({
-    agentEngine: {
-      async inferStructured() {
-        inferenceCalls += 1;
-        throw new Error('large deliverables should not be rewritten');
-      },
-    },
-  });
-  const msg = directMessage('send the detailed report');
-  const config = behavior.resolveBehaviorConfig(user.userId, agentId, {
-    platform: msg.platform,
-    chatId: msg.chatId,
-    isGroup: false,
-  });
-  const draft = 'x'.repeat(2801);
-
-  const result = await pipeline.refineAndMaybeDeliver({
-    userId: user.userId,
-    agentId,
-    msg,
-    config,
-    draft,
-  });
-
-  assert.equal(inferenceCalls, 0);
-  assert.equal(result.content, draft);
-  assert.equal(result.personaAction, 'send');
-  assert.deepEqual(result.reasonCodes, [
-    'persona_refine_large_passthrough',
-    'tom_disabled_or_direct',
-  ]);
 });
 
 test('natural bubble delivery rechecks the room epoch after each inter-bubble gap', async () => {
@@ -1096,14 +884,15 @@ test('system prompt injects behavior notes once and excludes owner memory for sh
   }, memoryManager);
   const prompt = `${sections.stable}\n${sections.dynamic}`;
 
-  assert.equal(prompt.match(/MESSAGING VOICE/g)?.length, 1);
+  assert.equal(prompt.match(/how you text:/g)?.length, 1);
+  assert.match(prompt, /you're texting with the people in this chat/);
   assert.equal(prompt.match(/Keep replies compact\./g)?.length, 1);
   assert.doesNotMatch(prompt, /private owner fact/);
   assert.doesNotMatch(prompt, /owner only/);
   assert.equal(calls[0].audience, 'shared');
 });
 
-test('the persona module owns and can disable the legacy behavior prompt', async () => {
+test('the persona module owns the persona and can disable it', async () => {
   behavior.setBehaviorConfig(user.userId, agentId, {
     modules: {
       persona: { enabled: false },
@@ -1121,7 +910,7 @@ test('the persona module owns and can disable the legacy behavior prompt', async
   });
   const prompt = `${sections.stable}\n${sections.dynamic}`;
 
-  assert.doesNotMatch(prompt, /MESSAGING VOICE/);
+  assert.doesNotMatch(prompt, /how you text:/);
 });
 
 test('system prompt caching keeps room-scoped behavior overrides isolated', async () => {
@@ -1165,6 +954,153 @@ test('system prompt caching keeps room-scoped behavior overrides isolated', asyn
     memoryAudience: 'shared',
   }, memoryManager);
 
-  assert.doesNotMatch(`${quiet.stable}\n${quiet.dynamic}`, /MESSAGING VOICE/);
-  assert.match(`${normal.stable}\n${normal.dynamic}`, /MESSAGING VOICE/);
+  assert.doesNotMatch(`${quiet.stable}\n${quiet.dynamic}`, /how you text:/);
+  assert.match(`${normal.stable}\n${normal.dynamic}`, /how you text:/);
+});
+
+function systemOneGateEngine(answers, onModelCall = () => {}) {
+  return {
+    async decide({ phase, questions }) {
+      assert.equal(phase, 'system_one_turn_taking');
+      assert.deepEqual(Object.keys(questions), ['speak', 'for_someone_else', 'urgency']);
+      return answers;
+    },
+    async inferStructured() {
+      onModelCall();
+      return { parsed: { decision: 'stay_silent', needScore: 0 } };
+    },
+    trackBackgroundTask() {
+      return Promise.resolve();
+    },
+  };
+}
+
+function systemOneAnswers(speak, forSomeoneElse, urgency = 1) {
+  return {
+    speak: { type: 'noul', noul: speak },
+    for_someone_else: { type: 'noul', noul: forSomeoneElse },
+    urgency: { type: 'score', score: urgency, confidence: 0.9, probabilities: {}, legend: {} },
+  };
+}
+
+test('SystemOne decides the group gate without a model call', async () => {
+  let modelCalls = 0;
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: systemOneGateEngine(systemOneAnswers(0.78, 0.12, 1.03), () => { modelCalls += 1; }),
+  });
+  const msg = groupMessage('Does anyone know if the 11:40 train from Bern still runs on Sundays?');
+  pipeline.noteInbound({ userId: user.userId, agentId, msg });
+
+  const result = await pipeline.handleInbound({ userId: user.userId, agentId, msg });
+
+  assert.equal(result.engage, true);
+  assert.equal(result.decision.tokenPath, 'system_one_gate');
+  assert.equal(result.decision.urgency, 'medium');
+  assert.ok(Math.abs(result.decision.needScore - 0.6864) < 1e-9);
+  assert.equal(modelCalls, 0);
+});
+
+test('SystemOne sees who a reply is aimed at and no internal room ids', async () => {
+  let seen = null;
+  const engine = systemOneGateEngine(systemOneAnswers(0.2, 0.8));
+  engine.decide = async ({ state }) => {
+    seen = state;
+    return systemOneAnswers(0.2, 0.8);
+  };
+  const pipeline = behavior.createBehaviorPipeline({ agentEngine: engine });
+  const msg = groupMessage('what time does it start?', {
+    replyTo: { sender: 'Lisa', content: 'the meetup is on thursday' },
+  });
+
+  await pipeline.handleInbound({ userId: user.userId, agentId, msg });
+
+  assert.deepEqual(seen.latest_message.reply_to, { sender: 'Lisa', content: 'the meetup is on thursday' });
+  assert.equal('room_hints' in seen, false);
+});
+
+test('SystemOne scores clear a slightly lower need threshold than model scores', async () => {
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: systemOneGateEngine(systemOneAnswers(0.8, 0.35)),
+  });
+  const msg = groupMessage('What was that movie with the time loop again?');
+  pipeline.noteInbound({ userId: user.userId, agentId, msg });
+
+  const result = await pipeline.handleInbound({ userId: user.userId, agentId, msg });
+
+  // 0.8 * (1 - 0.35) = 0.52: under the 0.58 room default, over SystemOne's 0.50.
+  assert.equal(result.engage, true);
+});
+
+test('messages meant for someone else stay quiet under SystemOne', async () => {
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: systemOneGateEngine(systemOneAnswers(0.59, 0.41)),
+  });
+  const msg = groupMessage('Around 9pm, can you pick me up?');
+  pipeline.noteInbound({ userId: user.userId, agentId, msg });
+
+  const result = await pipeline.handleInbound({ userId: user.userId, agentId, msg });
+
+  assert.equal(result.engage, false);
+  assert.ok(result.decision.reasonCodes.includes('below_need_threshold'));
+  // The held-back turn keeps SystemOne's scores so the settings can explain it.
+  const [logged] = pipeline.listDecisions(user.userId, agentId, 'telegram');
+  assert.deepEqual(logged.systemOneScores, { speak: 0.59, forSomeoneElse: 0.41 });
+  assert.ok(Math.abs(logged.needThreshold - 0.5) < 1e-9);
+});
+
+test('the model gate still decides when SystemOne has no answer', async () => {
+  let modelCalls = 0;
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: systemOneGateEngine(null, () => { modelCalls += 1; }),
+  });
+  const msg = groupMessage();
+  pipeline.noteInbound({ userId: user.userId, agentId, msg });
+
+  const result = await pipeline.handleInbound({ userId: user.userId, agentId, msg });
+
+  assert.equal(modelCalls, 1);
+  assert.equal(result.engage, false);
+  assert.notEqual(result.decision.tokenPath, 'system_one_gate');
+});
+
+// SystemOne counts as on when the engine has a model ready to answer.
+function readySystemOneEngine(answers, onModelCall) {
+  return { ...systemOneGateEngine(answers, onModelCall), isSystemOneReady: async () => true };
+}
+
+test('with SystemOne on, an outage holds back instead of asking the model', async () => {
+  let modelCalls = 0;
+  const pipeline = behavior.createBehaviorPipeline({
+    agentEngine: readySystemOneEngine(null, () => { modelCalls += 1; }),
+  });
+  const msg = groupMessage();
+  pipeline.noteInbound({ userId: user.userId, agentId, msg });
+
+  const result = await pipeline.handleInbound({ userId: user.userId, agentId, msg });
+
+  assert.equal(modelCalls, 0);
+  assert.equal(result.engage, false);
+  assert.equal(result.decision.failureCode, 'system_one_unavailable');
+  assert.deepEqual(result.decision.reasonCodes, ['prefer_hold_back', 'system_one_unavailable']);
+});
+
+test('with SystemOne on, background analysis waits for SystemOne to say speak', async () => {
+  let answers = systemOneAnswers(0.1, 0.1);
+  let backgroundTasks = 0;
+  const engine = readySystemOneEngine(null);
+  engine.decide = async () => answers;
+  engine.trackBackgroundTask = () => {
+    backgroundTasks += 1;
+    return Promise.resolve();
+  };
+  const pipeline = behavior.createBehaviorPipeline({ agentEngine: engine });
+
+  const quiet = await pipeline.handleInbound({ userId: user.userId, agentId, msg: groupMessage('side chatter') });
+  assert.equal(quiet.engage, false);
+  assert.equal(backgroundTasks, 0);
+
+  answers = systemOneAnswers(0.9, 0.05);
+  const spoke = await pipeline.handleInbound({ userId: user.userId, agentId, msg: groupMessage('can you check this?') });
+  assert.equal(spoke.engage, true);
+  assert.equal(backgroundTasks, 1);
 });

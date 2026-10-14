@@ -6,10 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const test = require('node:test');
-const {
-  parseProviderChoices,
-  scanForInstalledInstance,
-} = require('../../../lib/manager');
+const { scanForInstalledInstance } = require('../../../lib/manager');
 
 function createFixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-cli-'));
@@ -74,16 +71,6 @@ test('installation scan uses the platform-specific service registration', (t) =>
   assert.equal(linuxResult.installed, false);
 });
 
-test('provider wizard accepts unique comma-separated choices and rejects invalid input', () => {
-  assert.deepEqual(parseProviderChoices('1, 3, 1'), [1, 3]);
-  assert.deepEqual(parseProviderChoices('0'), []);
-  assert.deepEqual(parseProviderChoices(''), []);
-  assert.throws(
-    () => parseProviderChoices('1,8', 7),
-    /Choose provider numbers from 1 to 7/,
-  );
-});
-
 test('bare CLI invocation diagnoses an incomplete existing instance without reinstalling', (t) => {
   const fixture = createFixture(t);
   fs.mkdirSync(path.dirname(fixture.databaseFile), { recursive: true });
@@ -107,10 +94,9 @@ test('bare CLI invocation diagnoses an incomplete existing instance without rein
   const output = `${result.stdout}\n${result.stderr}`;
 
   assert.equal(result.status, 0, output);
-  assert.match(output, /Existing NeoAgent installation found/);
-  assert.match(output, /installation needs attention/i);
-  assert.match(output, /NeoAgent Doctor/);
-  assert.doesNotMatch(output, /\nDependencies\n/);
+  assert.match(output, /NeoAgent isn't running/);
+  assert.match(output, /run neoagent start/);
+  assert.doesNotMatch(output, /Installing NeoAgent/);
 });
 
 test('status --json writes only versioned structured events', (t) => {

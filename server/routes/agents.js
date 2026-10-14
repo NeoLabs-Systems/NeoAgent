@@ -5,9 +5,11 @@ const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 const { listRunEvents } = require('../services/ai/runEvents');
+const { storeWebRunReply } = require('../services/ai/history');
 const { listRunPromptTurns, getRunPromptTurn } = require('../services/ai/runtime/prompt_inspector');
 const { isInterimAssistantMetadata } = require('../services/ai/interim');
 const { buildAgentRunContext } = require('./_helpers/agentRunContext');
+const { clientRunOptions } = require('../utils/client_run_options');
 
 router.use(requireAuth);
 
@@ -274,39 +276,31 @@ router.post('/', async (req, res) => {
       }
     }
 
-    db.prepare('INSERT INTO conversation_history (user_id, agent_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)')
-      .run(req.session.userId, agentId, 'user', task, JSON.stringify({ platform: 'flutter' }));
-
     const engine = req.app?.locals?.agentEngine;
     const memoryManager = req.app?.locals?.memoryManager;
     if (!engine || !memoryManager) {
       return res.status(500).json({ error: 'Agent engine or memory manager is not initialized.' });
     }
-    const conversationId = options?.conversationId || memoryManager.getDefaultWebConversationId(req.session.userId, { agentId });
+    const conversationId = options?.conversationId
+      ? memoryManager.assertOwnedConversation(req.session.userId, options.conversationId)
+      : memoryManager.getDefaultWebConversationId(req.session.userId, { agentId });
+
+    db.prepare('INSERT INTO conversation_history (user_id, agent_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)')
+      .run(req.session.userId, agentId, 'user', task, JSON.stringify({ platform: 'flutter' }));
     const { priorMessages, priorSummary } = buildAgentRunContext({
       userId: req.session.userId,
       agentId,
       task,
     });
     const result = await engine.run(req.session.userId, task, {
-      ...(options || {}),
+      ...clientRunOptions(options),
       agentId,
       conversationId,
       priorMessages,
       priorSummary,
     });
 
-    if (result?.status === 'completed' && result?.content) {
-      db.prepare('INSERT INTO conversation_history (user_id, agent_id, agent_run_id, role, content, metadata) VALUES (?, ?, ?, ?, ?, ?)')
-        .run(
-          req.session.userId,
-          agentId,
-          result.runId,
-          'assistant',
-          result.content,
-          JSON.stringify({ tokens: result.totalTokens, platform: 'flutter' })
-        );
-    }
+    storeWebRunReply({ userId: req.session.userId, agentId, result, platform: 'flutter' });
 
     res.json(result);
   } catch (err) {
@@ -458,10 +452,9 @@ router.post('/multi-step', async (req, res) => {
       return res.status(500).json({ error: 'Multi-step orchestrator is not initialized.' });
     }
     const result = await multiStep.planAndExecute(req.session.userId, task, {
-      ...(options || {}),
+      ...clientRunOptions(options),
       agentId,
       requestedSteps: Array.isArray(steps) ? steps : [],
-      forceMode: 'plan_execute',
     });
     res.json(result);
   } catch (err) {

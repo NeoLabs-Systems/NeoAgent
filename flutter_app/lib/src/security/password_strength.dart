@@ -1,31 +1,60 @@
+// Mirrors server/services/account/password_policy.js rule for rule, so the
+// client accepts exactly the passwords the server will accept. Change both
+// together.
+
+const int minPasswordLength = 8;
+const int minPasswordScore = 3;
+
+const List<String> _commonPatterns = <String>[
+  'password',
+  '123456',
+  'qwerty',
+  'letmein',
+  'welcome',
+  'admin',
+  'neoagent',
+];
+
+const List<String> _sequences = <String>[
+  'abcdefghijklmnopqrstuvwxyz',
+  '0123456789',
+  'qwertyuiopasdfghjklzxcvbnm',
+];
+
 class PasswordStrengthEvaluation {
   const PasswordStrengthEvaluation({
     required this.score,
     required this.containsUserInfo,
     required this.obviousPattern,
     required this.hasMinimumLength,
+    required this.isAcceptable,
   });
 
   final int score;
   final bool containsUserInfo;
   final bool obviousPattern;
   final bool hasMinimumLength;
+
+  /// Whether the server's policy accepts this password.
+  final bool isAcceptable;
 }
 
-bool hasSequentialPattern(String input) {
-  if (input.length < 4) return false;
-  
-  // check for ascending/descending sequences of length >= 4
-  for (int i = 0; i <= input.length - 4; i++) {
-    bool asc = true;
-    bool desc = true;
-    for (int j = 0; j < 3; j++) {
-      if (input.codeUnitAt(i + j + 1) != input.codeUnitAt(i + j) + 1) asc = false;
-      if (input.codeUnitAt(i + j + 1) != input.codeUnitAt(i + j) - 1) desc = false;
+bool hasSequentialPattern(String password) {
+  final value = password.toLowerCase();
+  for (final sequence in _sequences) {
+    for (var index = 0; index <= sequence.length - 4; index += 1) {
+      final fragment = sequence.substring(index, index + 4);
+      final reverse = fragment.split('').reversed.join();
+      if (value.contains(fragment) || value.contains(reverse)) {
+        return true;
+      }
     }
-    if (asc || desc) return true;
   }
   return false;
+}
+
+String _normalizeContextValue(String value) {
+  return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
 }
 
 PasswordStrengthEvaluation evaluatePasswordStrength({
@@ -33,52 +62,46 @@ PasswordStrengthEvaluation evaluatePasswordStrength({
   String username = '',
   String email = '',
 }) {
-  final value = password.trim();
-  if (value.isEmpty) {
-    return const PasswordStrengthEvaluation(
-      score: 0,
-      containsUserInfo: false,
-      obviousPattern: false,
-      hasMinimumLength: false,
-    );
-  }
-
-  final lower = RegExp(r'[a-z]').hasMatch(value);
-  final upper = RegExp(r'[A-Z]').hasMatch(value);
-  final digits = RegExp(r'[0-9]').hasMatch(value);
-  final symbols = RegExp(r'[^A-Za-z0-9]').hasMatch(value);
-  final variety = <bool>[lower, upper, digits, symbols]
-      .where((item) => item)
-      .length;
+  final value = password;
   final normalized = value.toLowerCase();
-  final userHints = <String>{
-    username.trim().toLowerCase(),
-    email.trim().toLowerCase(),
-    email.trim().toLowerCase().split('@').first,
-  }.where((item) => item.length >= 3);
-  final containsUserInfo = userHints.any(normalized.contains);
-  final obviousPattern =
-      RegExp(r'(.)\1\1').hasMatch(value) ||
-      normalized.contains('password') ||
-      normalized.contains('123456') ||
-      normalized.contains('qwerty') ||
-      normalized.contains('letmein') ||
-      normalized.contains('welcome') ||
-      normalized.contains('admin') ||
-      normalized.contains('neoagent') ||
-      hasSequentialPattern(normalized);
+  final length = value.length;
+  final varietyCount = <RegExp>[
+    RegExp(r'[a-z]'),
+    RegExp(r'[A-Z]'),
+    RegExp(r'[0-9]'),
+    RegExp(r'[^A-Za-z0-9]'),
+  ].where((pattern) => pattern.hasMatch(value)).length;
+  final uniqueChars = value.runes.toSet().length;
+
+  final identifiers = <String>[
+    _normalizeContextValue(username),
+    _normalizeContextValue(email),
+    _normalizeContextValue(email.split('@').first),
+  ].where((item) => item.length >= 3);
+  final containsUserInfo = identifiers.any(normalized.contains);
+  final usesCommonPattern = _commonPatterns.any(normalized.contains);
+  final sequential = hasSequentialPattern(value);
+  final repeatedRuns = RegExp(r'(.)\1{2,}').hasMatch(value);
+  final obviousPattern = usesCommonPattern || sequential || repeatedRuns;
 
   var score = 0;
-  if (value.length >= 8) score += 1;
-  if (value.length >= 12) score += 1;
-  if (variety >= 3) score += 1;
-  if (variety == 4 || value.length >= 16) score += 1;
+  if (length >= minPasswordLength) score += 1;
+  if (length >= 12) score += 1;
+  if (varietyCount >= 3) score += 1;
+  if (varietyCount == 4 || length >= 16 || uniqueChars >= 10) score += 1;
   if (containsUserInfo || obviousPattern) score -= 1;
+  score = score.clamp(0, 4);
 
+  final hasMinimumLength = length >= minPasswordLength;
   return PasswordStrengthEvaluation(
-    score: score.clamp(0, 4),
+    score: score,
     containsUserInfo: containsUserInfo,
     obviousPattern: obviousPattern,
-    hasMinimumLength: value.length >= 8,
+    hasMinimumLength: hasMinimumLength,
+    isAcceptable:
+        hasMinimumLength &&
+        score >= minPasswordScore &&
+        !containsUserInfo &&
+        !obviousPattern,
   );
 }

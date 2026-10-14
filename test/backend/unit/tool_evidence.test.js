@@ -5,15 +5,9 @@ const { test } = require('node:test');
 
 const {
   classifyToolExecution,
-  deriveEvidenceSource,
   gatheredNewEvidence,
-  isSubstantiveProgressEvidence,
-  isSubstantiveProgressToolName,
   summarizeProgressToolExecutions,
-  summarizeToolExecutions,
-  summarizeAvailableTools,
   inferToolFailureMessage,
-  buildAutonomousRecoveryContext,
 } = require('../../../server/services/ai/toolEvidence');
 const {
   isReadOnlyToolCall,
@@ -28,7 +22,11 @@ function toolCall(name, args = {}) {
   };
 }
 
-test('deriveEvidenceSource maps each tool family to its bucket', () => {
+function evidenceSource(name) {
+  return classifyToolExecution(name, {}, { ok: true }).evidenceSource;
+}
+
+test('classifyToolExecution maps each tool family to its evidence bucket', () => {
   const cases = {
     browser_click: 'browser',
     android_shell: 'android',
@@ -49,15 +47,15 @@ test('deriveEvidenceSource maps each tool family to its bucket', () => {
     some_unknown_tool: 'tool',
   };
   for (const [name, expected] of Object.entries(cases)) {
-    assert.equal(deriveEvidenceSource(name), expected, `${name} -> ${expected}`);
+    assert.equal(evidenceSource(name), expected, `${name} -> ${expected}`);
   }
 });
 
-test('deriveEvidenceSource respects rule precedence over substring overlap', () => {
+test('evidence buckets respect rule precedence over substring overlap', () => {
   // 'browser_' prefix wins even though the name also contains 'skill'.
-  assert.equal(deriveEvidenceSource('browser_skill_probe'), 'browser');
+  assert.equal(evidenceSource('browser_skill_probe'), 'browser');
   // 'memory_' prefix wins over the later 'subagent' substring rule.
-  assert.equal(deriveEvidenceSource('memory_subagent_sync'), 'memory');
+  assert.equal(evidenceSource('memory_subagent_sync'), 'memory');
 });
 
 test('classifyToolExecution tags evidence source, relevance, and state change', () => {
@@ -236,41 +234,19 @@ test('classifyToolExecution treats success=false and skipped as errors', () => {
   assert.equal(classifyToolExecution('send_message', {}, { skipped: true }).error, 'Tool reported skipped outcome.');
 });
 
-test('summarizeToolExecutions renders a numbered status list', () => {
-  const text = summarizeToolExecutions([
-    { toolName: 'read_file', evidenceSource: 'files', ok: true, summary: 'read 10 lines' },
-    { toolName: 'execute_command', evidenceSource: 'command', ok: false, error: 'boom', summary: '' },
-  ]);
-  assert.match(text, /1\. read_file \[files\] ok :: read 10 lines/);
-  assert.match(text, /2\. execute_command \[command\] error=boom/);
-});
-
 test('progress evidence excludes communication and meta-only tool activity', () => {
-  assert.equal(isSubstantiveProgressToolName('send_message'), false);
-  assert.equal(isSubstantiveProgressToolName('send_interim_update'), false);
-  assert.equal(isSubstantiveProgressToolName('notify_user'), false);
-  assert.equal(isSubstantiveProgressToolName('think'), false);
-  assert.equal(isSubstantiveProgressToolName('read_file'), true);
-
   const sentReply = classifyToolExecution('send_message', { content: 'done' }, { success: true });
+  const interim = classifyToolExecution('send_interim_update', { message: 'on it' }, { sent: true });
   const thought = classifyToolExecution('think', { thought: 'considering' }, { thought: 'considering' });
   const inspectedFile = classifyToolExecution('read_file', { path: 'server/index.js' }, { content: 'ok' });
+  const failedCommand = classifyToolExecution('execute_command', { command: 'make' }, { exitCode: 2, stderr: 'boom' });
 
-  assert.equal(isSubstantiveProgressEvidence(sentReply), false);
-  assert.equal(isSubstantiveProgressEvidence(thought), false);
-  assert.equal(isSubstantiveProgressEvidence(inspectedFile), true);
-
-  const summary = summarizeProgressToolExecutions([sentReply, thought, inspectedFile]);
+  const summary = summarizeProgressToolExecutions([sentReply, interim, thought, inspectedFile, failedCommand]);
   assert.doesNotMatch(summary, /send_message/);
+  assert.doesNotMatch(summary, /send_interim_update/);
   assert.doesNotMatch(summary, /think/);
-  assert.match(summary, /read_file/);
-});
-
-test('summarizeAvailableTools excludes a tool and caps the list', () => {
-  const tools = Array.from({ length: 30 }, (_, i) => ({ name: `tool_${i}` }));
-  const summary = summarizeAvailableTools(tools, { exclude: 'tool_0' });
-  assert.ok(!summary.includes('tool_0'));
-  assert.equal(summary.split(', ').length, 24);
+  assert.match(summary, /1\. read_file \[files\] ok ::/);
+  assert.match(summary, /2\. execute_command \[command\] error=boom/);
 });
 
 test('inferToolFailureMessage surfaces http and command failures', () => {
@@ -280,18 +256,4 @@ test('inferToolFailureMessage surfaces http and command failures', () => {
     /status 503: unavailable/,
   );
   assert.equal(inferToolFailureMessage('read_file', { content: 'fine' }), '');
-});
-
-test('buildAutonomousRecoveryContext references the last failure and alternatives', () => {
-  const context = buildAutonomousRecoveryContext({
-    err: { message: 'run aborted' },
-    toolExecutions: [{ toolName: 'web_search', ok: false, error: 'rate limited' }],
-    tools: [{ name: 'web_search' }, { name: 'http_request' }],
-    userMessage: 'find the weather',
-    visibleMessageSent: true,
-  });
-  assert.match(context, /failed on tool: web_search/);
-  assert.match(context, /Concrete failure: rate limited/);
-  assert.match(context, /Other available tools in this run: http_request/);
-  assert.match(context, /user-facing message was already sent/);
 });

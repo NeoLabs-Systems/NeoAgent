@@ -7,9 +7,12 @@ const {
   isTurnCurrent,
   markSpoke,
 } = require('./state');
+const { recordDecision, listDecisions } = require('./gate/decision_log');
 const { createBehaviorRegistry } = require('./registry');
 const { BEHAVIOR_MODULES } = require('./modules');
 const { createServiceLogger } = require('../../utils/logger');
+const { ruleDecision } = require('./gate/decisions');
+const { isSystemOneReady } = require('./model_client');
 
 const logger = createServiceLogger('Behavior');
 
@@ -63,53 +66,53 @@ function createBehaviorPipeline(deps = {}) {
     });
   }
 
-  async function handleInbound({ userId, agentId, msg, signal = null }) {
+  function emitDecision(userId, agentId, msg, decision) {
+    if (!io || !userId) return;
+    io.to(`user:${userId}`).emit('behavior:decision', {
+      platform: msg.platform,
+      chatId: msg.chatId,
+      agentId,
+      isGroup: Boolean(msg.isGroup),
+      decision: decision.decision,
+      confidence: decision.confidence,
+      needScore: decision.needScore,
+      reasonCodes: decision.reasonCodes || [],
+      urgency: decision.urgency,
+      tokenPath: decision.tokenPath || 'gate_only',
+      turnEpoch: decision.turnEpoch,
+      model: decision.model || null,
+      at: new Date().toISOString(),
+    });
+  }
+
+  async function decideInbound({ userId, agentId, msg, signal = null }) {
     const config = effectiveConfig(userId, agentId, msg);
     const turnEpoch = Number(msg.behaviorTurnEpoch)
       || noteInbound({ userId, agentId, msg });
+    const skipped = (engage, decision) => ({
+      engage,
+      decision: { ...decision, latencyMs: 0 },
+      config,
+      promptBlocks: [],
+      observeResult: null,
+    });
+
     if (
       msg.isGroup
       && msg.accessPolicyAllowUntagged === false
       && !msg.wasMentioned
       && !msg.repliedToAgent
     ) {
-      return {
-        engage: false,
-        decision: {
-          decision: 'stay_silent',
-          needScore: 0,
-          confidence: 1,
-          reasonCodes: ['untagged_disabled_for_shared_space'],
-          urgency: 'low',
-          rationale: 'Untagged responses are disabled for this shared space.',
-          tokenPath: 'gate_skip',
-          latencyMs: 0,
-          turnEpoch,
-        },
-        config,
-        promptBlocks: [],
-        observeResult: null,
-      };
+      return skipped(false, {
+        ...ruleDecision('stay_silent', 'untagged_disabled_for_shared_space'),
+        turnEpoch,
+      });
     }
     if (config.enabled === false) {
-      const speakTurnEpoch = claimSpeakTurn({ userId, agentId, msg });
-      return {
-        engage: true,
-        decision: {
-          decision: 'speak',
-          needScore: 1,
-          confidence: 1,
-          reasonCodes: ['behavior_disabled'],
-          urgency: 'medium',
-          rationale: 'Behavior modules are disabled; using the standard response path.',
-          tokenPath: 'gate_skip',
-          latencyMs: 0,
-          turnEpoch: speakTurnEpoch,
-        },
-        config,
-        promptBlocks: [],
-        observeResult: null,
-      };
+      return skipped(true, {
+        ...ruleDecision('speak', 'behavior_disabled'),
+        turnEpoch: claimSpeakTurn({ userId, agentId, msg }),
+      });
     }
 
     const baseCtx = {
@@ -126,52 +129,23 @@ function createBehaviorPipeline(deps = {}) {
 
     const observations = await registry.run('observe', baseCtx);
     const observeResult = observations.find((item) => item.moduleId === 'social_memory')?.value || null;
-    if (msg.isGroup) scheduleBackground(baseCtx);
+    // With SystemOne on, no model runs for a group message until SystemOne says speak.
+    const systemOneEnabled = Boolean(msg.isGroup)
+      && await isSystemOneReady({ agentEngine, userId, agentId, signal });
+    if (msg.isGroup && !systemOneEnabled) scheduleBackground(baseCtx);
 
-    const memoryHints = [];
-    if (observeResult?.scopeId) memoryHints.push(`channel:${observeResult.scopeId}`);
-
-    let decision;
-    if (!isModuleEnabled(config, 'turn_taking')) {
-      decision = {
-        decision: 'speak',
-        needScore: 1,
-        confidence: 1,
-        reasonCodes: ['turn_taking_disabled'],
-        urgency: 'medium',
-        rationale: 'Turn-taking is disabled; using the standard response path.',
-        tokenPath: 'gate_skip',
+    const decision = isModuleEnabled(config, 'turn_taking')
+      ? (await registry.run('decide', { ...baseCtx, systemOneEnabled }))
+        .find((item) => item.moduleId === 'turn_taking')?.value
+      : {
+        ...ruleDecision('speak', 'turn_taking_disabled'),
         latencyMs: 0,
         turnEpoch,
       };
-    } else {
-      decision = (await registry.run('decide', {
-        ...baseCtx,
-        memoryHints,
-      })).find((item) => item.moduleId === 'turn_taking')?.value;
-    }
     if (!decision) {
       throw new Error('The turn-taking module did not return a decision.');
     }
-
-    if (io && userId) {
-      io.to(`user:${userId}`).emit('behavior:decision', {
-        platform: msg.platform,
-        chatId: msg.chatId,
-        agentId,
-        isGroup: Boolean(msg.isGroup),
-        decision: decision.decision,
-        confidence: decision.confidence,
-        needScore: decision.needScore,
-        reasonCodes: decision.reasonCodes || [],
-        urgency: decision.urgency,
-        rationale: decision.rationale || '',
-        tokenPath: decision.tokenPath || 'gate_only',
-        turnEpoch: decision.turnEpoch,
-        model: decision.model || null,
-        at: new Date().toISOString(),
-      });
-    }
+    emitDecision(userId, agentId, msg, decision);
 
     if (decision.decision !== 'speak') {
       return {
@@ -186,6 +160,7 @@ function createBehaviorPipeline(deps = {}) {
     // Claim the speak turn only after engagement is confirmed.
     const speakTurnEpoch = claimSpeakTurn({ userId, agentId, msg });
     decision.turnEpoch = speakTurnEpoch;
+    if (systemOneEnabled) scheduleBackground(baseCtx);
 
     const promptBlocks = await registry.composeContext({
       ...baseCtx,
@@ -201,108 +176,41 @@ function createBehaviorPipeline(deps = {}) {
     };
   }
 
-  async function refineAndMaybeDeliver({
+  async function handleInbound(input) {
+    const result = await decideInbound(input);
+    if (input.msg.isGroup) recordDecision(input.userId, input.agentId, input.msg, result.decision);
+    return result;
+  }
+
+  // Delivers the reply the agent wrote, exactly as written. The only checks
+  // are about the room, not the text: a group reply is dropped when newer room
+  // traffic made the turn stale, and [NO RESPONSE] sends nothing.
+  async function deliverReply({
     userId,
     agentId,
     msg,
     config,
-    draft,
+    content,
     messagingManager,
     runId = null,
     signal = null,
     mediaPath = null,
-    deliver = false,
     turnEpoch = null,
   }) {
+    const text = String(content || '').trim();
     const expectedEpoch = Number(turnEpoch || msg.behaviorTurnEpoch || 0);
-    if (msg.isGroup && !isTurnCurrent(
+    const turnIsCurrent = () => !msg.isGroup || isTurnCurrent(
       userId,
       agentId,
       msg.platform,
       msg.chatId,
       expectedEpoch,
-    )) {
-      return {
-        action: 'suppress',
-        content: '[NO RESPONSE]',
-        delivered: false,
-        suppressed: true,
-        reasonCodes: ['stale_turn'],
-      };
+    );
+    if (!turnIsCurrent()) {
+      return { delivered: false, suppressed: true, content: text, reason: 'stale_turn' };
     }
-    const combinedGroupReview = msg.isGroup
-      && isModuleEnabled(config, 'persona')
-      && isModuleEnabled(config, 'theory_of_mind');
-    const persona = combinedGroupReview
-      ? {
-        action: 'send',
-        content: draft,
-        reasonCodes: ['persona_refine_combined_with_tom'],
-      }
-      : await registry.get('persona').refineDraft({
-        userId,
-        agentId,
-        msg,
-        config,
-        draft,
-        signal,
-        agentEngine,
-        memoryManager,
-        messagingManager,
-        runId,
-      });
-    const tom = await registry.get('theory_of_mind').refineDraft({
-      userId,
-      agentId,
-      msg,
-      config,
-      draft: persona.content,
-      signal,
-      agentEngine,
-      runId,
-    });
-
-    const content = tom.content;
-    const reasonCodes = [
-      ...(persona.reasonCodes || []),
-      ...(tom.reasonCodes || []),
-    ];
-    if (!deliver || !messagingManager) {
-      return {
-        ...tom,
-        delivered: false,
-        content,
-        reasonCodes,
-        personaAction: persona.action,
-      };
-    }
-
-    // A reaction lands before any text, the way people tap one and then reply.
-    let reacted = false;
-    if (persona.reaction && msg.messageId) {
-      try {
-        await messagingManager.sendReaction(userId, msg.platform, msg.chatId, msg.messageId, persona.reaction, {
-          agentId,
-          runId,
-          signal,
-        });
-        reacted = true;
-      } catch (error) {
-        if (signal?.aborted) throw error;
-        logger.warn('reaction delivery failed:', error?.message || error);
-      }
-    }
-
-    if (!content || content.toUpperCase() === '[NO RESPONSE]') {
-      return {
-        ...tom,
-        delivered: false,
-        suppressed: true,
-        reacted,
-        content,
-        reasonCodes,
-        personaAction: persona.action,
-      };
+    if (!text || text.toUpperCase() === '[NO RESPONSE]') {
+      return { delivered: false, suppressed: true, content: text, reason: 'no_response' };
     }
 
     const deliveryConfig = isModuleEnabled(config, 'delivery')
@@ -314,37 +222,25 @@ function createBehaviorPipeline(deps = {}) {
       agentId,
       platform: msg.platform,
       chatId: msg.chatId,
-      content,
+      content: text,
       config: deliveryConfig,
       runId,
       signal,
       mediaPath,
       turnEpoch: expectedEpoch,
-      beforeBubble: () => !msg.isGroup || isTurnCurrent(
-        userId,
-        agentId,
-        msg.platform,
-        msg.chatId,
-        expectedEpoch,
-      ),
+      beforeBubble: turnIsCurrent,
     });
 
-    if (
-      (delivery?.success !== false && delivery?.suppressed !== true)
-      || Number(delivery?.deliveredBubbles || 0) > 0
-    ) {
+    const delivered = delivery?.success !== false && delivery?.suppressed !== true;
+    if (delivered || Number(delivery?.deliveredBubbles || 0) > 0) {
       markSpoke(userId, agentId, msg.platform, msg.chatId);
     }
-
     return {
-      ...tom,
-      delivered: delivery?.success !== false && delivery?.suppressed !== true,
+      delivered,
       suppressed: delivery?.suppressed === true,
-      reacted,
       delivery,
-      content,
-      reasonCodes,
-      personaAction: persona.action,
+      content: text,
+      reason: delivered ? null : (delivery?.reason || delivery?.error || null),
     };
   }
 
@@ -368,8 +264,9 @@ function createBehaviorPipeline(deps = {}) {
     registry,
     noteInbound,
     handleInbound,
-    refineAndMaybeDeliver,
+    deliverReply,
     getDiagnostics,
+    listDecisions,
   };
 }
 

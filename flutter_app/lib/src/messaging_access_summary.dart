@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 String messagingSubjectName(String? name) {
   final trimmed = (name ?? '').trim();
@@ -8,11 +9,11 @@ String messagingSubjectName(String? name) {
 String messagingAccessModeLabel(String mode) {
   switch (mode) {
     case 'open':
-      return 'Anyone';
+      return appStrings.anyone;
     case 'disabled':
-      return 'No one';
+      return appStrings.noOne;
     default:
-      return 'Approved only';
+      return appStrings.approvedOnly;
   }
 }
 
@@ -22,16 +23,16 @@ String messagingAccessModeHelp(
   String? agentName,
 }) {
   final name = messagingSubjectName(agentName);
-  final place = shared ? 'groups and channels' : 'private chats';
+  final place = shared ? 'groups and channels' : appStrings.privateChats2;
   switch (mode) {
     case 'open':
-      return 'Anyone on this platform can message $name in $place.';
+      return appStrings.anyoneOnThisPlatformCanMessage2(name, place);
     case 'disabled':
-      return '$name will not reply to $place.';
+      return appStrings.arg1WillNotReplyToArg2(name, place);
     default:
       return shared
-          ? '$name only joins the groups and channels you add below.'
-          : '$name only replies to the people you add below.';
+          ? appStrings.arg1OnlyJoinsTheGroupsAndChannels(name)
+          : appStrings.arg1OnlyRepliesToThePeople(name);
   }
 }
 
@@ -54,7 +55,7 @@ String messagingRuleDisplayLabel({
   if (named.isNotEmpty && !looksLikeRawMessagingId(named)) return named;
   if (looksLikeDirectMessagingValue(value) ||
       looksLikeDirectMessagingValue(named)) {
-    return 'Private chat';
+    return appStrings.privateChat;
   }
   if (named.isNotEmpty) return named;
   return value;
@@ -63,11 +64,11 @@ String messagingRuleDisplayLabel({
 String messagingScopePickerLabel(String scope) {
   switch (scope) {
     case 'phone_number':
-      return 'Phone number';
+      return appStrings.phoneNumber;
     case 'server':
-      return 'Server';
+      return appStrings.server;
     case 'channel':
-      return 'Channel';
+      return appStrings.channel;
     case 'group':
       return 'Group';
     case 'room':
@@ -75,11 +76,11 @@ String messagingScopePickerLabel(String scope) {
     case 'role':
       return 'Role';
     case 'dm':
-      return 'Private chat';
+      return appStrings.privateChat;
     case 'user':
       return 'Person';
     default:
-      return 'Chat';
+      return appStrings.chat;
   }
 }
 

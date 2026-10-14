@@ -29,10 +29,18 @@ const PERSISTENT_IDENTITY_ENV_KEYS = new Set([
 // The standalone admin dashboard's login and API key. Admin is now a flag on a
 // user account, so these are dropped from the env file when found.
 const RETIRED_ADMIN_ENV_KEYS = ['ADMIN_USERNAME', 'ADMIN_PASSWORD', 'ADMIN_API_KEY'];
-const DEFAULT_VM_BASE_IMAGE_URLS = Object.freeze({
-  arm64: 'https://cloud.debian.org/images/cloud/trixie/20260810-2566/debian-13-generic-arm64-20260810-2566.qcow2',
-  x64: 'https://cloud.debian.org/images/cloud/trixie/20260810-2566/debian-13-generic-amd64-20260810-2566.qcow2',
-});
+// Settings nothing reads anymore: VM sizing moved to NEOAGENT_COMPUTER_*, the
+// guest image URL is pinned in code, and Stripe billing was removed.
+const RETIRED_ENV_KEYS = [
+  'NEOAGENT_VM_MEMORY_MB',
+  'NEOAGENT_VM_CPUS',
+  'NEOAGENT_VM_BASE_IMAGE_URL',
+  'NEOAGENT_BILLING_ENABLED',
+  'STRIPE_SECRET_KEY',
+  'STRIPE_PUBLISHABLE_KEY',
+  'STRIPE_WEBHOOK_SECRET',
+  'BILLING_TRIAL_DAYS',
+];
 
 function ensureRuntimeDirs() {
   for (const dir of [RUNTIME_HOME, DATA_DIR, LOG_DIR, AGENT_DATA_DIR]) {
@@ -250,10 +258,6 @@ function generateSecret(bytes = 32) {
   return crypto.randomBytes(bytes).toString('hex');
 }
 
-function getDefaultVmBaseImageUrl(arch = 'x64') {
-  return arch === 'arm64' ? DEFAULT_VM_BASE_IMAGE_URLS.arm64 : DEFAULT_VM_BASE_IMAGE_URLS.x64;
-}
-
 function isPlaceholderValue(value, placeholders) {
   const secret = String(value || '').trim();
   return !secret || placeholders.has(secret);
@@ -268,6 +272,15 @@ function isValidVmGuestToken(value) {
   return true;
 }
 
+function logRuntimeNote(logger, level, message) {
+  if (!logger) return;
+  if (typeof logger[level] === 'function') {
+    logger[level](message);
+  } else if (typeof logger.log === 'function') {
+    logger.log(message);
+  }
+}
+
 function ensureSecureRuntimeEnv({ envFile = ENV_FILE, env = process.env, logger = console } = {}) {
   const raw = readEnvFileRaw(envFile);
   const parsed = parseEnv(raw);
@@ -278,31 +291,6 @@ function ensureSecureRuntimeEnv({ envFile = ENV_FILE, env = process.env, logger 
     'change-me-to-something-random',
   ]);
 
-  let vmBaseImageUrl = String(env.NEOAGENT_VM_BASE_IMAGE_URL || parsed.get('NEOAGENT_VM_BASE_IMAGE_URL') || '').trim();
-  const preferredVmBaseImageUrl = getDefaultVmBaseImageUrl();
-  if (!vmBaseImageUrl || /arm64|aarch64/i.test(vmBaseImageUrl)) {
-    vmBaseImageUrl = preferredVmBaseImageUrl;
-    upsertEnvValue(envFile, 'NEOAGENT_VM_BASE_IMAGE_URL', vmBaseImageUrl);
-    changes.push('NEOAGENT_VM_BASE_IMAGE_URL');
-  }
-  env.NEOAGENT_VM_BASE_IMAGE_URL = vmBaseImageUrl;
-
-  let vmMemoryMb = String(env.NEOAGENT_VM_MEMORY_MB || parsed.get('NEOAGENT_VM_MEMORY_MB') || '').trim();
-  if (!vmMemoryMb) {
-    vmMemoryMb = '4096';
-    upsertEnvValue(envFile, 'NEOAGENT_VM_MEMORY_MB', vmMemoryMb);
-    changes.push('NEOAGENT_VM_MEMORY_MB');
-  }
-  env.NEOAGENT_VM_MEMORY_MB = vmMemoryMb;
-
-  let vmCpus = String(env.NEOAGENT_VM_CPUS || parsed.get('NEOAGENT_VM_CPUS') || '').trim();
-  if (!vmCpus) {
-    vmCpus = '2';
-    upsertEnvValue(envFile, 'NEOAGENT_VM_CPUS', vmCpus);
-    changes.push('NEOAGENT_VM_CPUS');
-  }
-  env.NEOAGENT_VM_CPUS = vmCpus;
-
   let sessionSecret = String(env.SESSION_SECRET || parsed.get('SESSION_SECRET') || '').trim();
   if (isPlaceholderValue(sessionSecret, sessionPlaceholders)) {
     sessionSecret = generateSecret(32);
@@ -312,8 +300,10 @@ function ensureSecureRuntimeEnv({ envFile = ENV_FILE, env = process.env, logger 
   env.SESSION_SECRET = sessionSecret;
 
   const retiredAdminKeys = RETIRED_ADMIN_ENV_KEYS.filter((key) => parsed.has(key));
-  for (const key of retiredAdminKeys) {
+  const retiredKeys = RETIRED_ENV_KEYS.filter((key) => parsed.has(key));
+  for (const key of [...retiredAdminKeys, ...retiredKeys]) {
     removeEnvValue(envFile, key);
+    delete env[key];
   }
 
   let guestToken = String(env.NEOAGENT_VM_GUEST_TOKEN || parsed.get('NEOAGENT_VM_GUEST_TOKEN') || '').trim();
@@ -324,23 +314,15 @@ function ensureSecureRuntimeEnv({ envFile = ENV_FILE, env = process.env, logger 
   }
   env.NEOAGENT_VM_GUEST_TOKEN = guestToken;
 
-  if (retiredAdminKeys.length > 0 && logger) {
-    const message = `Removed retired admin dashboard credentials from ${envFile}: ${retiredAdminKeys.join(', ')}. `
-      + 'Admin is now a user-account flag; manage it with `neoagent admin`.';
-    if (typeof logger.warn === 'function') {
-      logger.warn(message);
-    } else if (typeof logger.log === 'function') {
-      logger.log(message);
-    }
+  if (retiredAdminKeys.length > 0) {
+    logRuntimeNote(logger, 'warn', `Removed retired admin dashboard credentials from ${envFile}: ${retiredAdminKeys.join(', ')}. `
+      + 'Admin is now a user-account flag; manage it with `neoagent admin`.');
   }
-
-  if (changes.length > 0 && logger) {
-    const message = `Initialized runtime defaults: ${changes.join(', ')}`;
-    if (typeof logger.info === 'function') {
-      logger.info(message);
-    } else if (typeof logger.log === 'function') {
-      logger.log(message);
-    }
+  if (retiredKeys.length > 0) {
+    logRuntimeNote(logger, 'info', `Removed settings NeoAgent no longer uses from ${envFile}: ${retiredKeys.join(', ')}`);
+  }
+  if (changes.length > 0) {
+    logRuntimeNote(logger, 'info', `Initialized runtime defaults: ${changes.join(', ')}`);
   }
 
   return {
@@ -367,13 +349,11 @@ module.exports = {
   LEGACY_AGENT_DATA_DIR,
   LEGACY_DESKTOP_RUNTIME_DIR,
   LEGACY_DESKTOP_ENV_FILE,
-  DEFAULT_VM_BASE_IMAGE_URLS,
   applySecureUmask,
   ensurePrivateDirectory,
   ensurePrivateFile,
   ensureRuntimeDirs,
   ensureSecureRuntimeEnv,
-  getDefaultVmBaseImageUrl,
   migrateLegacyDesktopEnv,
   migrateLegacyRuntime,
   removeEnvValue,

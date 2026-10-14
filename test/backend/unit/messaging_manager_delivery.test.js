@@ -581,6 +581,51 @@ test('reconnecting a disconnected WhatsApp session keeps saved auth files', asyn
   await manager.shutdown();
 });
 
+test('a legacy WhatsApp session moves once, so a logout is followed by fresh pairing', async () => {
+  const seenCreds = [];
+  class FakeWhatsApp extends EventEmitter {
+    constructor(config) {
+      super();
+      this.authDir = config.authDir;
+      this.status = 'disconnected';
+    }
+
+    async connect() {
+      const credsPath = path.join(this.authDir, 'creds.json');
+      seenCreds.push(fs.existsSync(credsPath) ? fs.readFileSync(credsPath, 'utf8') : null);
+      this.status = 'connected';
+    }
+
+    async disconnect() {
+      this.status = 'disconnected';
+    }
+
+    getStatus() {
+      return this.status;
+    }
+  }
+
+  const { DATA_DIR } = require('../../../runtime/paths');
+  const legacyDir = path.join(DATA_DIR, 'whatsapp-auth');
+  fs.mkdirSync(legacyDir, { recursive: true });
+  fs.writeFileSync(path.join(legacyDir, 'creds.json'), '{"legacy":true}');
+  const manager = new MessagingManager({ to() { return { emit() {} }; } });
+  manager.platformTypes.whatsapp = FakeWhatsApp;
+  const agentId = manager._agentId(user.userId, {});
+
+  await manager.connectPlatform(user.userId, 'whatsapp', {}, { agentId });
+  assert.equal(seenCreds[0], '{"legacy":true}');
+  assert.equal(fs.existsSync(legacyDir), false);
+
+  // WhatsApp revoked the device: the adapter deletes the scoped session.
+  const scopedDir = manager.platforms.get(manager._key(user.userId, agentId, 'whatsapp')).authDir;
+  fs.rmSync(scopedDir, { recursive: true, force: true });
+
+  await manager.connectPlatform(user.userId, 'whatsapp', {}, { agentId });
+  assert.equal(seenCreds[1], null, 'revoked legacy credentials came back instead of a fresh pairing');
+  await manager.shutdown();
+});
+
 test('outgoing messages keep their platform id so a later reaction resolves to its text without starting a run', async () => {
   const io = { to() { return { emit() {} }; } };
   const manager = new MessagingManager(io);

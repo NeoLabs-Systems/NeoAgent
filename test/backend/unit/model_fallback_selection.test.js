@@ -36,7 +36,7 @@ describe('model fallback selection', () => {
       { id: 'openai/gpt-5-nano', provider: 'openai', available: true },
     ]);
 
-    ({ getFailureFallbackModelId } = require('../../../server/services/ai/loop/conversation_loop'));
+    ({ getFailureFallbackModelId } = require('../../../server/services/ai/runtime/model_fallback'));
   });
 
   afterEach(() => {

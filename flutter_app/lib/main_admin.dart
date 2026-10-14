@@ -7,129 +7,106 @@ class AgentsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: _pagePadding(context),
+    return _SettingsGroup(
+      anchor: 'agentList',
+      title: appStrings.settingsYourAgents,
+      description: appStrings.createSpecialistBotsWithSeparateMemory,
+      trailing: FilledButton.icon(
+        onPressed: () => openAgentEditor(context, controller),
+        icon: Icon(Icons.add, size: 18),
+        label: Text(appStrings.addAgent),
+      ),
       children: <Widget>[
-        _PageTitle(
-          title: 'Agents',
-          subtitle:
-              'Create specialist bots with separate memory, settings, tools, and account assignments.',
-          trailing: FilledButton.icon(
-            onPressed: () => openAgentEditor(context, controller),
-            icon: Icon(Icons.add),
-            label: Text('Add Agent'),
-          ),
-        ),
-        if (controller.errorMessage != null) ...<Widget>[
-          _InlineError(
-            message: controller.errorMessage!,
-            onDismiss: controller.clearInlineError,
-          ),
-          const SizedBox(height: 16),
-        ],
         if (controller.agentProfiles.isEmpty)
-          const _EmptyCard(
-            title: 'No agents yet',
-            subtitle: 'The main agent is created automatically when needed.',
-          )
-        else
-          ...controller.agentProfiles.map(
-            (agent) => Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: Text(
-                              agent.displayName,
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          if (agent.isDefault)
-                            _StatusPill(label: 'Default', color: _accentHover),
-                          const SizedBox(width: 8),
-                          _StatusPill(
-                            label: agent.status,
-                            color: agent.status == 'active'
-                                ? _success
-                                : _textSecondary,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '@${agent.slug}',
-                        style: TextStyle(color: _textSecondary),
-                      ),
-                      if (agent.description.trim().isNotEmpty) ...<Widget>[
-                        const SizedBox(height: 10),
-                        Text(agent.description),
-                      ],
-                      if (agent.responsibilities.trim().isNotEmpty) ...<Widget>[
-                        const SizedBox(height: 10),
-                        Text(
-                          agent.responsibilities,
-                          style: TextStyle(color: _textSecondary),
+          _SettingsBlock(
+            child: _EmptyState(
+              title: appStrings.noAgentsYet,
+              subtitle: appStrings.theMainAgentIsCreatedAutomatically,
+            ),
+          ),
+        for (final agent in controller.agentProfiles)
+          _SettingsBlock(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        agent.displayName,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
                         ),
-                      ],
-                      const SizedBox(height: 10),
-                      Text(
-                        _communicationSummary(controller, agent),
-                        style: TextStyle(color: _textSecondary),
                       ),
-                      const SizedBox(height: 14),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: <Widget>[
-                          OutlinedButton(
-                            onPressed: () => controller.switchAgent(agent.id),
-                            child: Text(
-                              controller.selectedAgentId == agent.id
-                                  ? 'Selected'
-                                  : 'Switch',
-                            ),
-                          ),
-                          OutlinedButton(
-                            onPressed: () => openAgentEditor(
-                              context,
-                              controller,
-                              agent: agent,
-                            ),
-                            child: Text('Edit'),
-                          ),
-                          if (!agent.isDefault)
-                            OutlinedButton(
-                              onPressed: () =>
-                                  controller.makeAgentDefault(agent.id),
-                              child: Text('Make default'),
-                            ),
-                          if (!agent.isMain && !agent.isDefault)
-                            TextButton(
-                              onPressed: () => _confirmDelete(
-                                context,
-                                title: 'Archive agent?',
-                                message:
-                                    'This hides "${agent.displayName}" from routing and selection.',
-                                onConfirm: () =>
-                                    controller.archiveAgent(agent.id),
-                              ),
-                              child: Text('Archive'),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
+                    ),
+                    if (agent.isDefault)
+                      _StatusPill(label: 'Default', color: _accentHover),
+                    const SizedBox(width: 8),
+                    _StatusPill(
+                      label: agent.status,
+                      color: agent.status == 'active'
+                          ? _success
+                          : _textSecondary,
+                    ),
+                  ],
                 ),
-              ),
+                const SizedBox(height: 8),
+                Text('@${agent.slug}', style: TextStyle(color: _textSecondary)),
+                if (agent.description.trim().isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 10),
+                  Text(agent.description),
+                ],
+                if (agent.responsibilities.trim().isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 10),
+                  Text(
+                    agent.responsibilities,
+                    style: TextStyle(color: _textSecondary),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                Text(
+                  _communicationSummary(controller, agent),
+                  style: TextStyle(color: _textSecondary),
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: <Widget>[
+                    OutlinedButton(
+                      onPressed: () => controller.switchAgent(agent.id),
+                      child: Text(
+                        controller.selectedAgentId == agent.id
+                            ? 'Selected'
+                            : 'Switch',
+                      ),
+                    ),
+                    OutlinedButton(
+                      onPressed: () =>
+                          openAgentEditor(context, controller, agent: agent),
+                      child: Text(appStrings.edit),
+                    ),
+                    if (!agent.isDefault)
+                      OutlinedButton(
+                        onPressed: () => controller.makeAgentDefault(agent.id),
+                        child: Text(appStrings.makeDefault),
+                      ),
+                    if (!agent.isMain && !agent.isDefault)
+                      TextButton(
+                        onPressed: () => _confirmDelete(
+                          context,
+                          title: appStrings.archiveAgent,
+                          message: appStrings.thisHidesArg1FromRoutingAnd(
+                            agent.displayName,
+                          ),
+                          onConfirm: () => controller.archiveAgent(agent.id),
+                        ),
+                        child: Text(appStrings.archive),
+                      ),
+                  ],
+                ),
+              ],
             ),
           ),
       ],
@@ -168,7 +145,7 @@ class AgentsPanel extends StatelessWidget {
           builder: (context, setLocalState) {
             return AlertDialog(
               backgroundColor: _bgCard,
-              title: Text(agent == null ? 'Add Agent' : 'Edit Agent'),
+              title: Text(agent == null ? 'Add Agent' : appStrings.editAgent),
               content: SizedBox(
                 width: 720,
                 child: SingleChildScrollView(
@@ -177,7 +154,7 @@ class AgentsPanel extends StatelessWidget {
                     children: <Widget>[
                       TextField(
                         controller: nameController,
-                        decoration: const InputDecoration(labelText: 'Name'),
+                        decoration: InputDecoration(labelText: appStrings.name),
                         onChanged: (value) {
                           if (agent == null && slugController.text.isEmpty) {
                             slugController.text = value
@@ -196,8 +173,8 @@ class AgentsPanel extends StatelessWidget {
                       const SizedBox(height: 12),
                       TextField(
                         controller: descriptionController,
-                        decoration: const InputDecoration(
-                          labelText: 'Description',
+                        decoration: InputDecoration(
+                          labelText: appStrings.description,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -205,8 +182,8 @@ class AgentsPanel extends StatelessWidget {
                         controller: responsibilitiesController,
                         minLines: 3,
                         maxLines: 6,
-                        decoration: const InputDecoration(
-                          labelText: 'Responsibilities',
+                        decoration: InputDecoration(
+                          labelText: appStrings.responsibilities,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -214,25 +191,25 @@ class AgentsPanel extends StatelessWidget {
                         controller: instructionsController,
                         minLines: 4,
                         maxLines: 8,
-                        decoration: const InputDecoration(
-                          labelText: 'Instructions',
+                        decoration: InputDecoration(
+                          labelText: appStrings.instructions,
                           helperText:
-                              'Optional. The agent already has its own personality. Anything you add about tone is layered on top of it, so you never have to define one.',
+                              appStrings.optionalTheAgentAlreadyHasIts,
                           helperMaxLines: 3,
                         ),
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
                         initialValue: status,
-                        decoration: const InputDecoration(labelText: 'Status'),
-                        items: const <DropdownMenuItem<String>>[
+                        decoration: InputDecoration(labelText: appStrings.status),
+                        items: <DropdownMenuItem<String>>[
                           DropdownMenuItem(
                             value: 'active',
-                            child: Text('Active'),
+                            child: Text(appStrings.active),
                           ),
                           DropdownMenuItem(
                             value: 'paused',
-                            child: Text('Paused'),
+                            child: Text(appStrings.paused),
                           ),
                         ],
                         onChanged: (value) =>
@@ -242,7 +219,7 @@ class AgentsPanel extends StatelessWidget {
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          'Agent communication',
+                          appStrings.agentCommunication,
                           style: Theme.of(context).textTheme.titleSmall,
                         ),
                       ),
@@ -250,9 +227,9 @@ class AgentsPanel extends StatelessWidget {
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         value: canDelegate,
-                        title: Text('Can delegate tasks to other agents'),
+                        title: Text(appStrings.canDelegateTasksToOtherAgents),
                         subtitle: Text(
-                          'Use this for orchestrator agents. Leave off for isolated work bots that should finish direct messages themselves.',
+                          appStrings.useThisForOrchestratorAgentsLeave,
                         ),
                         onChanged: (value) =>
                             setLocalState(() => canDelegate = value),
@@ -260,9 +237,9 @@ class AgentsPanel extends StatelessWidget {
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         value: canBeDelegatedTo,
-                        title: Text('Can receive delegated tasks'),
+                        title: Text(appStrings.canReceiveDelegatedTasks),
                         subtitle: Text(
-                          'Turn this off to keep this agent fully separate from other agents.',
+                          appStrings.turnThisOffToKeepThis,
                         ),
                         onChanged: (value) =>
                             setLocalState(() => canBeDelegatedTo = value),
@@ -271,11 +248,11 @@ class AgentsPanel extends StatelessWidget {
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
                           value: restrictDelegateTargets,
-                          title: Text('Restrict delegation targets'),
+                          title: Text(appStrings.restrictDelegationTargets),
                           subtitle: Text(
                             restrictDelegateTargets
                                 ? 'Only selected agents can receive tasks from this agent.'
-                                : 'This agent can delegate to any eligible receiving agent.',
+                                : appStrings.thisAgentCanDelegateToAny,
                           ),
                           onChanged: (value) => setLocalState(() {
                             restrictDelegateTargets = value;
@@ -319,7 +296,7 @@ class AgentsPanel extends StatelessWidget {
               actions: <Widget>[
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: Text('Cancel'),
+                  child: Text(appStrings.cancel),
                 ),
                 FilledButton(
                   onPressed: () async {
@@ -343,11 +320,11 @@ class AgentsPanel extends StatelessWidget {
                     } else {
                       _showFormError(
                         context,
-                        controller.errorMessage ?? 'Could not save agent.',
+                        controller.errorMessage ?? appStrings.couldNotSaveAgent,
                       );
                     }
                   },
-                  child: Text('Save'),
+                  child: Text(appStrings.save),
                 ),
               ],
             );
@@ -365,16 +342,16 @@ class AgentsPanel extends StatelessWidget {
     parts.add(
       agent.canDelegate
           ? (agent.delegatesToAnyEligibleAgent
-                ? 'Can delegate to any receiving agent'
-                : 'Can delegate to ${agent.delegateTargets.map(controller.agentLabelFor).join(', ')}')
-          : 'Handles direct tasks itself',
+                ? appStrings.canDelegateToAnyReceivingAgent
+                : appStrings.canDelegateToArg1(agent.delegateTargets.map(controller.agentLabelFor).join(', ')))
+          : appStrings.handlesDirectTasksItself,
     );
     parts.add(
       agent.canBeDelegatedTo
-          ? 'can receive delegated tasks'
-          : 'cannot receive delegated tasks',
+          ? appStrings.canReceiveDelegatedTasks2
+          : appStrings.cannotReceiveDelegatedTasks,
     );
-    return 'Agent communication: ${parts.join('; ')}.';
+    return appStrings.agentCommunicationArg1(parts.join('; '));
   }
 }
 
@@ -401,7 +378,7 @@ class McpServerDetailView extends StatelessWidget {
             .firstOrNull;
         if (server == null) {
           return Text(
-            'This MCP server is no longer configured.',
+            appStrings.thisMcpServerIsNoLonger,
             style: TextStyle(color: _textSecondary),
           );
         }
@@ -433,7 +410,7 @@ class McpServerDetailView extends StatelessWidget {
                   icon: Icons.toggle_on_outlined,
                 ),
                 _MetaPill(
-                  label: '${server.toolCount} tools',
+                  label: appStrings.arg1Tools(server.toolCount),
                   icon: Icons.build_outlined,
                 ),
                 _MetaPill(
@@ -441,7 +418,7 @@ class McpServerDetailView extends StatelessWidget {
                   icon: Icons.lock_outline,
                 ),
                 _MetaPill(
-                  label: 'Agent: ${controller.agentLabelFor(server.agentId)}',
+                  label: appStrings.agentArg1(controller.agentLabelFor(server.agentId)),
                   icon: Icons.smart_toy_outlined,
                 ),
               ],
@@ -465,27 +442,27 @@ class McpServerDetailView extends StatelessWidget {
                 if (server.status == 'running')
                   FilledButton.icon(
                     onPressed: () => controller.stopMcpServer(server.id),
-                    icon: const Icon(Icons.stop_rounded),
-                    label: const Text('Stop'),
+                    icon: Icon(Icons.stop_rounded),
+                    label: Text(appStrings.stop),
                   )
                 else
                   FilledButton.icon(
                     onPressed: () => controller.startMcpServer(server.id),
-                    icon: const Icon(Icons.play_arrow_rounded),
-                    label: const Text('Start'),
+                    icon: Icon(Icons.play_arrow_rounded),
+                    label: Text(appStrings.start),
                   ),
                 OutlinedButton.icon(
                   onPressed: () =>
                       _openMcpEditor(context, controller, server: server),
-                  icon: const Icon(Icons.edit_outlined),
-                  label: const Text('Edit'),
+                  icon: Icon(Icons.edit_outlined),
+                  label: Text(appStrings.edit),
                 ),
                 OutlinedButton.icon(
                   onPressed: () => _confirmDelete(
                     context,
-                    title: 'Delete MCP server?',
+                    title: appStrings.deleteMcpServer,
                     message:
-                        'This will remove "${server.name}" from the server list.',
+                        appStrings.thisWillRemoveArg1FromThe(server.name),
                     onConfirm: () async {
                       await controller.deleteMcpServer(server.id);
                       if (context.mounted) {
@@ -494,7 +471,7 @@ class McpServerDetailView extends StatelessWidget {
                     },
                   ),
                   icon: Icon(Icons.delete_outline, color: _danger),
-                  label: Text('Delete', style: TextStyle(color: _danger)),
+                  label: Text(appStrings.delete, style: TextStyle(color: _danger)),
                 ),
               ],
             ),
@@ -543,7 +520,7 @@ Future<void> _openMcpEditor(
         builder: (context, setLocalState) {
           return AlertDialog(
             backgroundColor: _bgCard,
-            title: Text(server == null ? 'Add MCP Server' : 'Edit MCP Server'),
+            title: Text(server == null ? 'Add MCP Server' : appStrings.editMcpServer),
             content: SizedBox(
               width: 720,
               child: SingleChildScrollView(
@@ -552,26 +529,26 @@ Future<void> _openMcpEditor(
                   children: <Widget>[
                     TextField(
                       controller: nameController,
-                      decoration: const InputDecoration(labelText: 'Name'),
+                      decoration: InputDecoration(labelText: appStrings.name),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: urlController,
-                      decoration: const InputDecoration(
-                        labelText: 'MCP Server URL',
+                      decoration: InputDecoration(
+                        labelText: appStrings.mcpServerUrl,
                       ),
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       initialValue: authType,
-                      decoration: const InputDecoration(
-                        labelText: 'Auth Method',
+                      decoration: InputDecoration(
+                        labelText: appStrings.authMethod,
                       ),
-                      items: const <DropdownMenuItem<String>>[
-                        DropdownMenuItem(value: 'none', child: Text('None')),
+                      items: <DropdownMenuItem<String>>[
+                        DropdownMenuItem(value: 'none', child: Text(appStrings.none)),
                         DropdownMenuItem(
                           value: 'bearer',
-                          child: Text('Bearer Token'),
+                          child: Text(appStrings.bearerToken2),
                         ),
                         DropdownMenuItem(value: 'oauth', child: Text('OAuth')),
                       ],
@@ -586,8 +563,8 @@ Future<void> _openMcpEditor(
                       TextField(
                         controller: tokenController,
                         obscureText: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Bearer Token',
+                        decoration: InputDecoration(
+                          labelText: appStrings.bearerToken2,
                         ),
                       ),
                     ],
@@ -595,15 +572,15 @@ Future<void> _openMcpEditor(
                       const SizedBox(height: 12),
                       TextField(
                         controller: clientIdController,
-                        decoration: const InputDecoration(
-                          labelText: 'OAuth Client ID',
+                        decoration: InputDecoration(
+                          labelText: appStrings.oauthClientId,
                         ),
                       ),
                       const SizedBox(height: 12),
                       TextField(
                         controller: authServerUrlController,
-                        decoration: const InputDecoration(
-                          labelText: 'Auth Server URL',
+                        decoration: InputDecoration(
+                          labelText: appStrings.authServerUrl,
                         ),
                       ),
                     ],
@@ -612,8 +589,8 @@ Future<void> _openMcpEditor(
                       DropdownButtonFormField<String>(
                         initialValue: selectedAgentId,
                         isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Assigned Agent',
+                        decoration: InputDecoration(
+                          labelText: appStrings.assignedAgent2,
                         ),
                         items: controller.agentProfiles
                             .map(
@@ -631,7 +608,7 @@ Future<void> _openMcpEditor(
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        'Matches the old NeoAgent MCP flow: URL plus auth method.',
+                        appStrings.matchesTheOldNeoagentMcpFlow,
                         style: TextStyle(color: _textSecondary),
                       ),
                     ),
@@ -639,7 +616,7 @@ Future<void> _openMcpEditor(
                     SwitchListTile(
                       value: enabled,
                       contentPadding: EdgeInsets.zero,
-                      title: Text('Enabled'),
+                      title: Text(appStrings.enabled),
                       onChanged: (value) =>
                           setLocalState(() => enabled = value),
                     ),
@@ -647,7 +624,7 @@ Future<void> _openMcpEditor(
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        'Start the server later from the list once the config is saved.',
+                        appStrings.startTheServerLaterFromThe,
                         style: TextStyle(color: _textSecondary, fontSize: 12),
                       ),
                     ),
@@ -658,7 +635,7 @@ Future<void> _openMcpEditor(
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: Text('Cancel'),
+                child: Text(appStrings.cancel),
               ),
               FilledButton(
                 onPressed: () async {
@@ -694,13 +671,13 @@ Future<void> _openMcpEditor(
                       SnackBar(
                         content: Text(
                           controller.errorMessage ??
-                              'Failed to save MCP server.',
+                              appStrings.failedToSaveMcpServer,
                         ),
                       ),
                     );
                   }
                 },
-                child: Text('Save'),
+                child: Text(appStrings.save),
               ),
             ],
           );
@@ -739,9 +716,9 @@ class HealthPanel extends StatelessWidget {
     return ListView(
       padding: _pagePadding(context),
       children: <Widget>[
-        const _PageTitle(
+        _PageTitle(
           title: 'Health',
-          subtitle: 'Health Connect sync status and stored backend metrics.',
+          subtitle: appStrings.healthConnectSyncStatusAndStored,
         ),
         if (controller.errorMessage != null) ...<Widget>[
           _InlineError(
@@ -754,33 +731,33 @@ class HealthPanel extends StatelessWidget {
           children: <Widget>[
             Expanded(
               child: _OverviewCard(
-                title: 'Device access',
+                title: appStrings.deviceAccess,
                 value: deviceStatus == null
                     ? 'Checking...'
                     : !deviceStatus.available
                     ? 'Unavailable'
                     : deviceStatus.permissionsGranted
                     ? 'Ready'
-                    : 'Permissions needed',
+                    : appStrings.permissionsNeeded,
                 helper:
                     deviceStatus?.message ??
-                    'Reads steps, heart rate, sleep, exercise, and weight.',
+                    appStrings.readsStepsHeartRateSleepExercise,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _OverviewCard(
-                title: 'Backend sync',
+                title: appStrings.backendSync,
                 value: lastRun.isEmpty
-                    ? 'No sync yet'
+                    ? appStrings.noSyncYet
                     : lastSyncEmpty
-                    ? 'No new data'
-                    : '$lastRunRecordCount records',
+                    ? appStrings.noNewData
+                    : appStrings.arg1Records(lastRunRecordCount),
                 helper: lastRun.isEmpty
-                    ? 'Sync once to seed your backend.'
+                    ? appStrings.syncOnceToSeedYourBackend
                     : lastWindowEnd == null
-                    ? 'Last window end is unknown.'
-                    : 'Last window ended ${_formatTimestamp(lastWindowEnd)}',
+                    ? appStrings.lastWindowEndIsUnknown
+                    : appStrings.lastWindowEndedArg1(_formatTimestamp(lastWindowEnd)),
               ),
             ),
           ],
@@ -796,7 +773,7 @@ class HealthPanel extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: controller.requestHealthPermissions,
                   icon: Icon(Icons.health_and_safety_outlined),
-                  label: Text('Request permissions'),
+                  label: Text(appStrings.requestPermissions),
                 ),
                 FilledButton.icon(
                   onPressed: controller.isSyncingHealth
@@ -812,10 +789,10 @@ class HealthPanel extends StatelessWidget {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : Icon(Icons.sync),
-                  label: Text('Sync now'),
+                  label: Text(appStrings.syncNow),
                 ),
                 _MetaPill(
-                  label: 'Background sync stays scheduled on Android',
+                  label: appStrings.backgroundSyncStaysScheduledOnAndroid,
                   icon: Icons.sync_lock_outlined,
                 ),
               ],
@@ -829,11 +806,11 @@ class HealthPanel extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const _SectionTitle('Last Sync Summary'),
+                _SectionTitle(appStrings.lastSyncSummary),
                 const SizedBox(height: 12),
                 if (lastSummary.isEmpty)
                   Text(
-                    'No detailed sync summary yet.',
+                    appStrings.noDetailedSyncSummaryYet,
                     style: TextStyle(color: _textSecondary),
                   )
                 else ...<Widget>[
@@ -843,7 +820,7 @@ class HealthPanel extends StatelessWidget {
                       child: Text(
                         lastWindowEnd == null
                             ? 'The latest sync completed successfully but did not find any new Health Connect records. Stored metrics below came from earlier syncs.'
-                            : 'The latest sync window ended ${_formatTimestamp(lastWindowEnd)} and did not find any new Health Connect records. Stored metrics below came from earlier syncs.',
+                            : appStrings.theLatestSyncWindowEndedArg1(_formatTimestamp(lastWindowEnd)),
                         style: TextStyle(color: _textSecondary),
                       ),
                     ),
@@ -854,8 +831,8 @@ class HealthPanel extends StatelessWidget {
                   const SizedBox(height: 18),
                   Text(
                     lastNonEmptyWindowEnd == null
-                        ? 'Last non-empty sync'
-                        : 'Last non-empty sync · ${_formatTimestamp(lastNonEmptyWindowEnd)}',
+                        ? appStrings.lastNonEmptySync
+                        : appStrings.lastNonEmptySyncArg1(_formatTimestamp(lastNonEmptyWindowEnd)),
                     style: TextStyle(
                       color: _textSecondary,
                       fontWeight: FontWeight.w700,
@@ -865,10 +842,10 @@ class HealthPanel extends StatelessWidget {
                   _buildHealthSummaryPills(lastNonEmptySummary),
                 ],
                 const SizedBox(height: 18),
-                const _SectionTitle('Stored Metrics'),
+                _SectionTitle(appStrings.storedMetrics),
                 const SizedBox(height: 12),
                 if (metrics.isEmpty)
-                  Text('No health samples stored yet.')
+                  Text(appStrings.noHealthSamplesStoredYet)
                 else
                   Wrap(
                     spacing: 10,
@@ -879,7 +856,7 @@ class HealthPanel extends StatelessWidget {
                       return _MetaPill(
                         icon: Icons.favorite_border,
                         label:
-                            '${map['metricType']} · ${map['sampleCount']} samples',
+                            appStrings.arg1Arg2Samples(map['metricType'], map['sampleCount']),
                       );
                     }).toList(),
                   ),

@@ -18,7 +18,7 @@ const {
   getSparseDiskLiabilityBytes,
   normalizeArchitecture,
   resolveQemuImgBinary,
-  waitForLoopbackPort,
+  waitForSocket,
 } = require('../../../server/services/runtime/qemu_vm_manager');
 const { isProcessAlive } = require('../../../server/services/runtime/vm_session');
 
@@ -33,14 +33,14 @@ test('QEMU computer exposes display and guest agent only on loopback', () => {
     seedImage: '/runtime/user/seed.img',
     guestAgentPort: 8421,
     hostAgentPort: 18421,
-    vncDisplay: 10,
-    websocketPort: 16080,
+    vncSocket: '/runtime/user/vnc.sock',
     qmpSocket: '/runtime/user/qmp.sock',
   });
   const joined = args.join(' ');
 
   assert.match(joined, /hostfwd=tcp:127\.0\.0\.1:18421-:8421/);
-  assert.match(joined, /127\.0\.0\.1:10,websocket=127\.0\.0\.1:16080/);
+  assert.match(joined, /-vnc unix:\/runtime\/user\/vnc\.sock/);
+  assert.doesNotMatch(joined, /websocket=/);
   assert.match(joined, /unix:\/runtime\/user\/qmp\.sock/);
   assert.doesNotMatch(joined, /0\.0\.0\.0/);
   assert.match(joined, /system\.qcow2/);
@@ -90,8 +90,7 @@ test('ARM64 computer uses a virtio GPU so guest redraws reach the host', () => {
       seedImage: '/runtime/user/seed.img',
       guestAgentPort: 8421,
       hostAgentPort: 18421,
-      vncDisplay: 10,
-      websocketPort: 16080,
+      vncSocket: 5910,
       qmpSocket: '/runtime/user/qmp.sock',
       armFirmwareVariables: variables,
     });
@@ -151,8 +150,7 @@ test('QMP falls back to loopback when a UNIX socket path would be too long', () 
     seedImage: '/runtime/user/seed.img',
     guestAgentPort: 8421,
     hostAgentPort: 18421,
-    vncDisplay: 10,
-    websocketPort: 16080,
+    vncSocket: 5910,
     qmpSocket,
   }).join(' ');
 
@@ -252,8 +250,7 @@ test('cached direct boot bypasses firmware disk discovery', () => {
     seedImage: '/runtime/cidata.img',
     guestAgentPort: 8421,
     hostAgentPort: 18421,
-    vncDisplay: 10,
-    websocketPort: 16080,
+    vncSocket: 5910,
     qmpSocket: '/runtime/qmp.sock',
     kernelImage: '/runtime/vmlinuz',
     initrdImage: '/runtime/initrd.img',
@@ -310,7 +307,7 @@ test('a non-executable QEMU binary is not treated as ready', (t) => {
 
 test('display wait fails immediately when QEMU is already dead', async () => {
   const startedAt = Date.now();
-  const ready = await waitForLoopbackPort(1, 5000, {
+  const ready = await waitForSocket(1, 5000, {
     isDead: () => !isProcessAlive({ pid: -1, exitCode: 1, killed: false }),
   });
   assert.equal(ready, false);

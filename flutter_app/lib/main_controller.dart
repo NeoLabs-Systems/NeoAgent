@@ -3,6 +3,7 @@ part of 'main.dart';
 /// Run socket events that change a run's status or recorded steps.
 const Set<String> _runActivityEvents = <String>{
   'run:start',
+  'run:background',
   'run:analysis',
   'run:plan',
   'run:tool_start',
@@ -29,8 +30,12 @@ class NeoAgentController extends ChangeNotifier {
        _healthBridge = healthBridge,
        _oauthLauncher = oauthLauncher ?? createOAuthLauncher(),
        _webAuthnClient = webAuthnClient ?? createWebAuthnClient() {
+    _backendClient.onSessionExpired = handleSessionExpired;
     _desktopCompanion.addListener(_onDesktopCompanionChanged);
     AndroidAutoBridge.instance.onStartVoiceMode = startLiveVoiceCapture;
+    _AppNotificationService.onCallAction = _handleCallNotificationAction;
+    _AppNotificationService.onApprovalAction = _resolveApprovalFromNotification;
+    _AppNotificationService.listenForActions();
     AndroidAutoBridge.instance.onStopVoiceMode = interruptLiveVoiceAssistant;
 
     _clientLogs = AppDiagnostics.recentEntries
@@ -67,25 +72,28 @@ class NeoAgentController extends ChangeNotifier {
   );
   static const String _selectedSectionPrefsKey = 'ui.selectedSection';
   static const String _selectedAgentPrefsKey = 'ui.selectedAgentId';
-  static const String _desktopWorkspaceModePrefsKey = 'desktop.workspaceMode';
-  static const String _coworkThreadDetailPrefsKey = 'cowork.threadDetail';
-  static const Set<String> _workspaceToolNames = <String>{
-    'read_file',
-    'read_files',
-    'write_file',
-    'edit_file',
-    'replace_file_range',
-    'list_directory',
-    'search_files',
-  };
 
   SharedPreferences? _prefs;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   io.Socket? _socket;
   Timer? _updatePollTimer;
   Timer? _qrLoginPollTimer;
+  static const Duration _qrLoginPollInterval = Duration(seconds: 5);
+  static const Duration _qrLoginHeldPollGap = Duration(milliseconds: 300);
+  static const Duration _qrLoginPollMaxInterval = Duration(seconds: 60);
+  Duration _qrLoginPollDelay = _qrLoginPollInterval;
+  bool _qrLoginPollingActive = false;
+
+  /// The account whose session expired while a chat draft was being typed;
+  /// the draft is restored only if that same account signs back in.
+  String? _draftHeldForUserId;
+  String? _authErrorCode;
+  String? _authErrorMessage;
   Timer? _manualRunCooldownTimer;
   final Set<String> _backgroundRunIds = <String>{};
+  // Chat runs the server moved to the background: the composer is free again,
+  // but their final answer still belongs in this chat.
+  final Set<String> _detachedChatRunIds = <String>{};
   final Set<String> _voiceRunIds = <String>{};
   final Set<String> _busyOfficialIntegrationKeys = <String>{};
   final Set<String> _busyMessagingPlatformKeys = <String>{};
@@ -94,17 +102,47 @@ class NeoAgentController extends ChangeNotifier {
   static const Duration _manualRunCooldownDuration = Duration(seconds: 10);
   static const int _chatHistoryPageSize = 20;
   int _authCycle = 0;
-  bool _isPollingQrLogin = false;
+  /// The challenge whose status check is in flight; a held check for an old
+  /// code must not block the new one.
+  String? _qrLoginPollingChallengeId;
+
+  /// Whether the server holds status checks open until something changes;
+  /// then the next check can follow straight away.
+  bool _qrLoginServerHoldsPolls = false;
   bool _socketHasConnectedOnce = false;
   bool _onboardingManuallyReopened = false;
+  bool _onboardingCompletedLocally = false;
   List<LogEntry> _clientLogs = const <LogEntry>[];
 
   bool isBooting = true;
+  AppLanguage language = currentAppLanguage;
+  int _languageRevision = 0;
   bool showOnboarding = false;
+  bool isCompletingOnboarding = false;
+  String? onboardingCompletionError;
+
+  /// Set when a run failed because no AI model is set up. The chat shows a
+  /// setup card instead of the raw error until a usable model appears.
+  bool aiModelsUnavailable = false;
   bool isAuthenticated = false;
   bool isAuthenticating = false;
+  String? pendingProviderRegistrationState;
+  String pendingRegistrationProvider = '';
+  bool get isAwaitingProviderUsername =>
+      pendingProviderRegistrationState != null;
+
   bool isAwaitingTwoFactor = false;
   bool isRefreshing = false;
+
+  /// True from a bot switch until that bot's data has loaded. The switch
+  /// clears the previous bot's lists, so pages would otherwise flash their
+  /// empty states ("No runs yet") before the new data arrives.
+  bool isSwitchingAgent = false;
+
+  /// False from sign-in until the first refresh settles. Every list is empty
+  /// until then, which pages would otherwise present as "nothing here".
+  bool hasLoadedInitialData = false;
+  int _refreshSeq = 0;
   bool isRefreshingDevices = false;
   bool isSendingMessage = false;
   bool isSavingSettings = false;
@@ -128,23 +166,19 @@ class NeoAgentController extends ChangeNotifier {
   bool isApprovingQrLogin = false;
   bool isCheckingAppUpdate = false;
   bool isOpeningAppUpdate = false;
-  bool isLoadingBilling = false;
-  bool showBillingSection = false;
   bool isLoadingAccess = false;
   bool socketConnected = false;
   bool hasNetworkConnection = true;
   bool networkStatusKnown = false;
   bool isDiscoveringBackends = false;
-  bool desktopCoworkMode = false;
-
-  /// Cowork transcript density: summaries per run (false) or every step (true).
-  bool coworkThreadDetailed = false;
-  bool isLoadingCowork = false;
 
   io.Socket? get streamSocket => socketConnected ? _socket : null;
 
   bool hasUser = true;
-  bool registrationOpen = false;
+
+  /// New accounts need a one-time sign-up key from an admin; the first
+  /// account on a server never does.
+  bool signupKeyRequired = false;
   bool serviceEmailConfigured = false;
   String backendUrl = _defaultBackendUrl;
   String username = '';
@@ -168,6 +202,10 @@ class NeoAgentController extends ChangeNotifier {
   List<String> setupOpenSections = const <String>[];
 
   AppSection selectedSection = AppSection.chat;
+
+  /// The open Settings page. Null on a phone means the page list is showing;
+  /// wider layouts show the profile page in its place.
+  SettingsPage? settingsPage;
   Map<String, dynamic>? user;
   Map<String, dynamic> accountTwoFactor = const <String, dynamic>{};
   List<AccountSessionItem> accountSessions = const <AccountSessionItem>[];
@@ -179,6 +217,9 @@ class NeoAgentController extends ChangeNotifier {
       const <LinkedAuthProviderItem>[];
   List<SecurityKeyItem> accountSecurityKeys = const <SecurityKeyItem>[];
   QrLoginChallenge? qrLoginChallenge;
+
+  /// Set while a phone that scanned [qrLoginChallenge] decides on it.
+  QrLoginScan? qrLoginScan;
   Map<String, dynamic> settings = const <String, dynamic>{};
   Map<String, dynamic> behaviorConfig = const <String, dynamic>{};
   Map<String, dynamic>? versionInfo;
@@ -186,17 +227,14 @@ class NeoAgentController extends ChangeNotifier {
   HealthBridgeStatus? deviceHealthStatus;
 
   List<ChatEntry> chatMessages = const <ChatEntry>[];
-  List<CoworkChat> coworkChats = const <CoworkChat>[];
-  String? selectedCoworkChatId;
-  final Map<String, CoworkThreadState> _coworkThreads =
-      <String, CoworkThreadState>{};
-  CoworkDeviceSelection? coworkDefaultDevice;
-  bool coworkWorkSurfacePinned = false;
   bool chatHistoryHasMore = false;
   bool isLoadingOlderChatHistory = false;
   List<AgentProfile> agentProfiles = const <AgentProfile>[];
   String? selectedAgentId;
   List<ModelMeta> supportedModels = const <ModelMeta>[];
+
+  /// SystemOne decision models, offered only in their own picker.
+  List<ModelMeta> systemOneModels = const <ModelMeta>[];
   List<AiProviderMeta> aiProviders = const <AiProviderMeta>[];
   List<Map<String, dynamic>> byokProviders = const <Map<String, dynamic>>[];
   bool isLoadingByokProviders = false;
@@ -207,11 +245,7 @@ class NeoAgentController extends ChangeNotifier {
   /// themselves without the whole app polling.
   final ValueNotifier<({int seq, String runId})> runActivity =
       ValueNotifier<({int seq, String runId})>((seq: 0, runId: ''));
-  List<TimelineEventItem> timelineItems = const <TimelineEventItem>[];
   TokenUsageSnapshot? tokenUsage;
-  Map<String, dynamic>? billingSubscription;
-  List<Map<String, dynamic>> billingPlans = const <Map<String, dynamic>>[];
-  List<Map<String, dynamic>> billingInvoices = const <Map<String, dynamic>>[];
   UpdateStatusSnapshot updateStatus = const UpdateStatusSnapshot();
   List<LogEntry> logs = const <LogEntry>[];
   Map<String, MessagingPlatformStatus> messagingStatuses =
@@ -224,7 +258,6 @@ class NeoAgentController extends ChangeNotifier {
   final List<BlockedSenderNotice> _blockedSenderQueue = <BlockedSenderNotice>[];
   final Set<String> _ignoredChats = <String>{};
   List<SkillItem> skills = const <SkillItem>[];
-  List<StoreSkillItem> storeSkills = const <StoreSkillItem>[];
   List<OfficialIntegrationItem> officialIntegrations =
       const <OfficialIntegrationItem>[];
   MemoryOverview memoryOverview = const MemoryOverview();
@@ -269,21 +302,6 @@ class NeoAgentController extends ChangeNotifier {
   String? _chatHistoryBeforeId;
   String? _requestedRunFocusId;
 
-  CoworkChat? get selectedCoworkChat {
-    final id = selectedCoworkChatId;
-    if (id == null) return null;
-    for (final chat in coworkChats) {
-      if (chat.id == id) return chat;
-    }
-    return null;
-  }
-
-  CoworkThreadState get selectedCoworkThread =>
-      _coworkThreads[selectedCoworkChatId] ?? const CoworkThreadState();
-
-  CoworkThreadState coworkThreadFor(String conversationId) =>
-      _coworkThreads[conversationId] ?? const CoworkThreadState();
-
   ActiveRunState? activeRun;
   // The foreground run that last ended in an error, cleared when the next one
   // starts. The mascot plays its blocked face once for it.
@@ -294,31 +312,40 @@ class NeoAgentController extends ChangeNotifier {
   // rather than appearing to edit the previous one.
   int _streamingIteration = 0;
   bool _isStartingLiveVoice = false;
-  bool _isStoppingLiveVoice = false;
   bool _liveVoiceCaptureActive = false;
-  DateTime? _liveVoiceCaptureStartedAt;
   bool _pendingLiveVoiceStop = false;
-  int _liveVoiceTurnCounter = 0;
-  String? _liveVoiceTurnId;
-  final List<LiveVoiceBufferedChunk> _liveVoiceBufferedChunks =
-      <LiveVoiceBufferedChunk>[];
-  final Set<String> _liveVoiceAudioKeys = <String>{};
-  int _liveVoiceAckThrough = -1;
-  int _liveVoiceFinalSequence = -1;
-  bool _liveVoiceCommitPending = false;
-  bool _liveVoiceAwaitingResponse = false;
-  Map<String, dynamic>? _liveVoicePendingCommitPayload;
-  DateTime? _liveVoiceRecoverableUntil;
-  Timer? _liveVoiceRecoveryTimer;
+  bool _liveVoiceTelecomRouting = false;
+  DateTime? _liveVoiceSessionStartedAt;
+  bool _voiceCallRequested = false;
+  bool _returnHomeAfterCall = false;
+  final HomeWidgetBridge _homeWidgetBridge = HomeWidgetBridge();
   Timer? _incomingCallExpiryTimer;
   Completer<void>? _liveVoiceSessionOpenCompleter;
+  final LiveVoicePlayer _liveVoicePlayer = LiveVoicePlayer();
+  VoiceWorkClicks? _voiceWorkClicks;
+  List<Uint8List>? _voiceKeyClickPcm;
+  Timer? _voiceWorkClickArm;
+  int _voiceWorkClickGeneration = 0;
+  bool _liveVoiceHearingSpeech = false;
   VoiceAssistantLiveState voiceAssistantLiveState = VoiceAssistantLiveState();
   IncomingAgentCall? incomingAgentCall;
+
+  /// The call that just ended, shown as a recap until the user moves on.
+  EndedAgentCall? lastEndedCall;
+  bool callSpeakerphoneOn = false;
+
+  /// Ringing brought the app forward from the background, so a call that is
+  /// not answered sends it back there.
+  bool _callBroughtAppForward = false;
+
+  /// A call hung up while it was still connecting; its session is closed as
+  /// soon as the server reports it ready.
+  String? _abandonedCallId;
   bool _desktopAskOnClose = true;
   bool _desktopKeepRunningOnClose = true;
   bool _desktopAssistantHotkeyEnabled = true;
-  bool isRefreshingTimeline = false;
-  Set<String> selectedTimelineSources = <String>{'tasks', 'runs'};
+  bool _locationTriggersEnabled = true;
+  bool _notificationTriggersEnabled = true;
 
   bool get isLauncherMode => appMode == NeoAgentAppMode.launcher;
   bool get localComputerSupported => _desktopCompanion.supported;
@@ -346,8 +373,8 @@ class NeoAgentController extends ChangeNotifier {
       _busyMessagingPlatformKeys.contains('$platform:$action');
 
   String get chatComposerHint => hasLiveRun
-      ? 'Send a steering update or next-up note for the current run...'
-      : 'Ask a question or start a task...';
+      ? appStrings.sendASteeringUpdateOrNextUp
+      : appStrings.askAQuestionOrStartA;
 
   AgentProfile? get activeAgent {
     for (final agent in agentProfiles) {
@@ -358,7 +385,7 @@ class NeoAgentController extends ChangeNotifier {
     return agentProfiles.isEmpty ? null : agentProfiles.first;
   }
 
-  String get activeAgentLabel => activeAgent?.displayName ?? 'Main';
+  String get activeAgentLabel => activeAgent?.displayName ?? appStrings.main;
 
   String? get _scopedAgentId => selectedAgentId;
 
@@ -382,27 +409,43 @@ class NeoAgentController extends ChangeNotifier {
       backendUrl.trim().isEmpty;
 
   String agentLabelFor(String? id) {
-    if (id == null || id.isEmpty) return 'Main';
+    if (id == null || id.isEmpty) return appStrings.main;
     for (final agent in agentProfiles) {
       if (agent.id == id) return agent.displayName;
     }
-    return 'Unknown agent';
+    return appStrings.unknownAgent;
   }
 
+  /// Tasks still running after the server moved them off the chat; the chat
+  /// stays free while they work.
+  List<RunSummary> get backgroundTasks => recentRuns
+      .where((run) => run.isActive && run.ranInBackground)
+      .toList(growable: false);
+
+  bool get isAgentWorking => hasLiveRun || backgroundTasks.isNotEmpty;
+
   String get chatStatusLabel {
+    final backgroundCount = backgroundTasks.length;
+    final background = backgroundCount > 0
+        ? appStrings.backgroundTaskCount(backgroundCount)
+        : '';
     if (activeRun == null) {
-      return 'Idle';
+      return background.ifEmpty(appStrings.idle);
     }
 
-    final base =
-        '${activeRun!.phase} (${toolEvents.where((event) => event.status == 'running').length} active tools)';
+    var label = appStrings.arg1Arg2ActiveTools(
+      activeRun!.phase,
+      toolEvents.where((event) => event.status == 'running').length,
+    );
     if (activeRun!.pendingSteeringCount > 0) {
-      return '$base · ${activeRun!.pendingSteeringCount} steering queued';
+      label = appStrings.arg1Arg2SteeringQueued(
+        label,
+        activeRun!.pendingSteeringCount,
+      );
+    } else if (hasLiveRun) {
+      label = appStrings.arg1NewMessagesSteerThisRun(label);
     }
-    if (hasLiveRun) {
-      return '$base · new messages steer this run';
-    }
-    return base;
+    return background.isEmpty ? label : '$label · $background';
   }
 
   static String get _defaultBackendUrl {
@@ -445,11 +488,15 @@ class NeoAgentController extends ChangeNotifier {
   @override
   void dispose() {
     AndroidAutoBridge.instance.onStartVoiceMode = null;
+    _AppNotificationService.onCallAction = null;
+    _AppNotificationService.onApprovalAction = null;
+    _AppNotificationService.stopListeningForActions();
+    unawaited(CallBridge.dismiss());
     AndroidAutoBridge.instance.onStopVoiceMode = null;
     _updatePollTimer?.cancel();
     _qrLoginPollTimer?.cancel();
+    _backendClient.onSessionExpired = null;
     _manualRunCooldownTimer?.cancel();
-    _liveVoiceRecoveryTimer?.cancel();
     _incomingCallExpiryTimer?.cancel();
     _socket?.dispose();
     runActivity.dispose();
@@ -461,6 +508,8 @@ class NeoAgentController extends ChangeNotifier {
     _localDisconnectHoldTimer?.cancel();
     unawaited(_desktopCompanion.disconnect());
     unawaited(_liveVoiceCapture.dispose());
+    _haltVoiceWorkClicks();
+    unawaited(_liveVoicePlayer.stop());
     _oauthLauncher.dispose();
     super.dispose();
   }
@@ -471,6 +520,14 @@ class NeoAgentController extends ChangeNotifier {
 
   bool get desktopAssistantHotkeyEnabled => _desktopAssistantHotkeyEnabled;
 
+  ThemeMode get themeMode => _appThemeMode;
+
+  /// Whether this phone checks its location against the account's geofences.
+  bool get locationTriggersEnabled => _locationTriggersEnabled;
+
+  /// Whether this Android phone forwards other apps' notifications as triggers.
+  bool get notificationTriggersEnabled => _notificationTriggersEnabled;
+
   String? get sessionCookie => _backendClient.sessionCookie;
 
   BackendClient get backendClient => _backendClient;
@@ -478,6 +535,39 @@ class NeoAgentController extends ChangeNotifier {
   void clearPendingApproval() {
     pendingApproval = null;
     notifyListeners();
+  }
+
+  /// Allow or Deny tapped on the approval's notification. Allowing there is
+  /// always for this once; wider scopes are chosen in the app.
+  Future<void> _resolveApprovalFromNotification(
+    String approvalId,
+    String decision,
+  ) async {
+    final request = pendingApproval?.approvalId == approvalId
+        ? pendingApproval
+        : null;
+    unawaited(_AppNotificationService.cancelApprovalNotification(approvalId));
+    try {
+      await _backendClient.resolveToolApproval(
+        backendUrl,
+        approvalId: approvalId,
+        decision: decision,
+        scope: 'once',
+        runId: request?.runId,
+        toolName: request?.toolName,
+        toolArgs: request?.toolArgs,
+      );
+    } catch (error) {
+      AppDiagnostics.log(
+        'approvals',
+        'notification_resolve.failed',
+        error: error,
+      );
+    }
+    if (pendingApproval?.approvalId == approvalId) {
+      pendingApproval = null;
+      notifyListeners();
+    }
   }
 
   void clearPendingApprovalForRun(String runId) {
@@ -500,8 +590,8 @@ class NeoAgentController extends ChangeNotifier {
   bool get showOfflineBanner => networkStatusKnown && !hasNetworkConnection;
 
   String get offlineBannerMessage => isAuthenticated
-      ? 'No network connection. NeoAgent will reconnect when the device is back online.'
-      : 'No network connection. Connect to keep using NeoAgent.';
+      ? appStrings.noNetworkConnectionNeoagentWillReconnectWhen
+      : appStrings.noNetworkConnectionConnectToKeep;
 
   String get appUpdateChannelLabel =>
       appUpdateChannel == 'beta' ? 'Beta' : 'Stable';
@@ -509,11 +599,17 @@ class NeoAgentController extends ChangeNotifier {
   String get appUpdateLastCheckedLabel {
     final checkedAt = appUpdateLastCheckedAt;
     if (checkedAt == null) {
-      return 'Not checked yet';
+      return appStrings.notCheckedYet;
     }
     final local = checkedAt.toLocal();
     final minute = local.minute.toString().padLeft(2, '0');
-    return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} ${local.hour.toString().padLeft(2, '0')}:$minute';
+    return appStrings.arg1Arg2Arg3Arg4Arg5(
+      local.year,
+      local.month.toString().padLeft(2, '0'),
+      local.day.toString().padLeft(2, '0'),
+      local.hour.toString().padLeft(2, '0'),
+      minute,
+    );
   }
 
   void _appendChatMessage(
@@ -662,12 +758,12 @@ class NeoAgentController extends ChangeNotifier {
   List<String> get ignoredChats => _ignoredChats.toList();
 
   static LogEntry _logEntryFromDiagnostic(AppDiagnosticEntry entry) {
-    final buffer = StringBuffer('[${entry.area}] ${entry.event}');
+    final buffer = StringBuffer(appStrings.arg1Arg25(entry.area, entry.event));
     if (entry.data.isNotEmpty) {
       buffer.write(' ${jsonEncode(entry.data)}');
     }
     if (entry.error != null && entry.error!.trim().isNotEmpty) {
-      buffer.write('\nerror: ${entry.error}');
+      buffer.write(appStrings.errorArg1(entry.error));
     }
     if (entry.stackTrace != null && entry.stackTrace!.trim().isNotEmpty) {
       buffer.write('\n${entry.stackTrace}');
@@ -695,6 +791,8 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> bootstrap() async {
     _prefs = await SharedPreferences.getInstance();
+    await ensureAppLanguageLoaded();
+    language = currentAppLanguage;
     _ignoredChats.addAll(
       _prefs?.getStringList('messaging.ignored_chats') ?? <String>[],
     );
@@ -709,10 +807,14 @@ class NeoAgentController extends ChangeNotifier {
         _prefs?.getBool('desktop.keepRunningOnClose') ?? true;
     _desktopAssistantHotkeyEnabled =
         _prefs?.getBool('desktop.assistantHotkeyEnabled') ?? true;
-    desktopCoworkMode = _supportsDesktopShell
-        ? _prefs?.getString(_desktopWorkspaceModePrefsKey) == 'cowork'
-        : false;
-    coworkThreadDetailed = _prefs?.getBool(_coworkThreadDetailPrefsKey) ?? false;
+    _appThemeMode = ThemeMode.values.firstWhere(
+      (mode) => mode.name == _prefs?.getString('app.themeMode'),
+      orElse: () => ThemeMode.system,
+    );
+    _locationTriggersEnabled =
+        _prefs?.getBool('mobile.locationTriggersEnabled') ?? true;
+    _notificationTriggersEnabled =
+        _prefs?.getBool('mobile.notificationTriggersEnabled') ?? true;
     _restoreSelectedSectionFromPrefs();
     appUpdateChannel =
         _prefs?.getString('app.update.channel')?.trim().toLowerCase() == 'beta'
@@ -789,7 +891,7 @@ class NeoAgentController extends ChangeNotifier {
     try {
       final status = await _authStatusStartingLocalBackend();
       hasUser = status['hasUser'] != false;
-      registrationOpen = status['registrationOpen'] == true;
+      signupKeyRequired = status['signupKeyRequired'] == true;
       serviceEmailConfigured =
           (status['email'] is Map &&
           (status['email'] as Map)['configured'] == true);
@@ -853,9 +955,7 @@ class NeoAgentController extends ChangeNotifier {
       if (!status.installed || status.running) {
         return false;
       }
-      final local = Uri.tryParse(
-        _normalizeBackendUrl(status.backendUrl ?? ''),
-      );
+      final local = Uri.tryParse(_normalizeBackendUrl(status.backendUrl ?? ''));
       if (local == null || !_isSameLoopbackBackend(target, local)) {
         return false;
       }
@@ -935,7 +1035,7 @@ class NeoAgentController extends ChangeNotifier {
     hasNetworkConnection = connected;
     if (connected &&
         appUpdateErrorMessage ==
-            'No network connection. Reconnect to check for updates.') {
+            appStrings.noNetworkConnectionReconnectToCheck) {
       appUpdateErrorMessage = null;
     }
     if (changed) {
@@ -981,15 +1081,14 @@ class NeoAgentController extends ChangeNotifier {
     if (!appUpdaterConfigured) {
       appUpdateErrorMessage = kIsWeb
           ? null
-          : 'App updates are not configured for this build.';
+          : appStrings.appUpdatesAreNotConfiguredFor;
       if (!silent) {
         notifyListeners();
       }
       return;
     }
     if (!hasNetworkConnection) {
-      appUpdateErrorMessage =
-          'No network connection. Reconnect to check for updates.';
+      appUpdateErrorMessage = appStrings.noNetworkConnectionReconnectToCheck;
       if (!silent) {
         notifyListeners();
       }
@@ -1035,7 +1134,7 @@ class NeoAgentController extends ChangeNotifier {
       );
       if (!result.launched) {
         appUpdateErrorMessage =
-            result.error ?? 'Could not open the release asset.';
+            result.error ?? appStrings.couldNotOpenTheReleaseAsset;
       }
     } finally {
       isOpeningAppUpdate = false;
@@ -1052,7 +1151,7 @@ class NeoAgentController extends ChangeNotifier {
       discoveredBackends = await _backendDiscoveryService.discover();
     } catch (_) {
       backendDiscoveryErrorMessage =
-          'Local NeoAgent discovery is temporarily unavailable.';
+          appStrings.localNeoagentDiscoveryIsTemporarilyUnavailable;
     } finally {
       isDiscoveringBackends = false;
       notifyListeners();
@@ -1063,9 +1162,9 @@ class NeoAgentController extends ChangeNotifier {
     String rawValue, {
     String? setupClaimToken,
   }) async {
-    final normalized = _normalizeBackendUrl(rawValue);
+    var normalized = _normalizeBackendUrl(rawValue);
     if (normalized.isEmpty) {
-      errorMessage = 'Enter the address of a NeoAgent server.';
+      errorMessage = appStrings.enterTheAddressOfANeoagent;
       notifyListeners();
       return false;
     }
@@ -1075,7 +1174,7 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _backendClient.getAuthStatus(normalized);
+      normalized = await _probeBackend(rawValue, normalized);
       await _prefs?.setString('backend_url', normalized);
       if (backendUrl != normalized) {
         _backendClient.clearSessionCookie();
@@ -1119,38 +1218,67 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  String _normalizeBackendUrl(String rawValue) {
-    final trimmed = rawValue.trim();
-    if (trimmed.isEmpty) {
-      return '';
-    }
-    if (trimmed.contains('://')) {
-      return trimmed.replaceFirst(RegExp(r'/$'), '');
-    }
+  String _normalizeBackendUrl(String rawValue) => normalizeBackendUrl(rawValue);
 
-    final lower = trimmed.toLowerCase();
-    final is172Private = RegExp(
-      r'^172\.(1[6-9]|2[0-9]|3[0-1])\.',
-    ).hasMatch(lower);
-    final isLocal =
-        lower.startsWith('localhost') ||
-        lower.startsWith('127.0.0.1') ||
-        lower.startsWith('10.') ||
-        lower.startsWith('192.168.') ||
-        is172Private;
-    final scheme = isLocal ? 'http://' : 'https://';
-    return '$scheme${trimmed.replaceFirst(RegExp(r'/$'), '')}';
+  /// Probes the typed server and returns the address that answered. When the
+  /// user typed no scheme and the guessed https:// fails its TLS handshake,
+  /// plain http:// is tried once — an explicit https:// is never downgraded.
+  Future<String> _probeBackend(String rawValue, String normalized) async {
+    try {
+      await _backendClient.probeServer(normalized);
+      return normalized;
+    } on BackendException catch (error) {
+      if (error.code != BackendException.tlsHandshakeFailed ||
+          !backendUrlSchemeWasInferred(rawValue) ||
+          !normalized.startsWith('https://')) {
+        rethrow;
+      }
+    }
+    final plain = normalized.replaceFirst('https://', 'http://');
+    try {
+      await _backendClient.probeServer(plain);
+    } on BackendException catch (error) {
+      if (error.code == BackendException.notNeoAgentServer) {
+        rethrow;
+      }
+      throw BackendException(
+        appStrings.authNoHttpsOrHttpArg1(Uri.parse(normalized).host),
+        code: BackendException.tlsHandshakeFailed,
+      );
+    }
+    return plain;
+  }
+
+  /// Native builds whose server address the user entered (not one baked in
+  /// at build time) can switch to another server from the sign-in screen.
+  bool get canChangeBackend => !kIsWeb && _configuredBackendUrl.trim().isEmpty;
+
+  /// Forgets the saved server and its session and returns to server setup.
+  Future<void> changeBackend() async {
+    _authCycle += 1;
+    _clearAuthenticatedState();
+    _backendClient.clearSessionCookie();
+    backendUrl = '';
+    await _prefs?.remove('backend_url');
+    await _persistCredentials();
+    notifyListeners();
+    unawaited(discoverBackends());
   }
 
   Map<String, dynamic> _qrLoginClientMetadata() {
     final platformLabel = switch (true) {
-      _ when kIsWeb => 'Web browser',
-      _ when defaultTargetPlatform == TargetPlatform.android => 'Android app',
-      _ when defaultTargetPlatform == TargetPlatform.iOS => 'iPhone app',
-      _ when defaultTargetPlatform == TargetPlatform.macOS => 'macOS app',
-      _ when defaultTargetPlatform == TargetPlatform.windows => 'Windows app',
-      _ when defaultTargetPlatform == TargetPlatform.linux => 'Linux app',
-      _ => 'NeoAgent app',
+      _ when kIsWeb => appStrings.webBrowser,
+      _ when defaultTargetPlatform == TargetPlatform.android =>
+        appStrings.androidApp,
+      _ when defaultTargetPlatform == TargetPlatform.iOS =>
+        appStrings.iphoneApp,
+      _ when defaultTargetPlatform == TargetPlatform.macOS =>
+        appStrings.macosApp,
+      _ when defaultTargetPlatform == TargetPlatform.windows =>
+        appStrings.windowsApp,
+      _ when defaultTargetPlatform == TargetPlatform.linux =>
+        appStrings.linuxApp,
+      _ => appStrings.neoagentApp,
     };
     final deviceClass = switch (true) {
       _ when kIsWeb => 'desktop',
@@ -1168,7 +1296,7 @@ class NeoAgentController extends ChangeNotifier {
     return <String, dynamic>{
       'deviceLabel': platformLabel,
       'platformLabel': platformLabel,
-      'browserLabel': kIsWeb ? 'Browser' : 'Flutter app',
+      'browserLabel': kIsWeb ? 'Browser' : appStrings.flutterApp,
       'deviceClass': deviceClass,
       'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
       'appMode': appMode.name,
@@ -1178,13 +1306,19 @@ class NeoAgentController extends ChangeNotifier {
   void _stopQrLoginPolling() {
     _qrLoginPollTimer?.cancel();
     _qrLoginPollTimer = null;
+    _qrLoginPollingActive = false;
   }
+
+  /// Stops checking the QR challenge while nobody can see the code (the
+  /// pane is off screen or the app is in the background). The challenge is
+  /// kept, and [prepareQrLoginChallenge] resumes polling.
+  void pauseQrLoginPolling() => _stopQrLoginPolling();
 
   void _clearQrLoginChallenge() {
     _stopQrLoginPolling();
     qrLoginChallenge = null;
+    qrLoginScan = null;
     qrLoginErrorMessage = null;
-    _isPollingQrLogin = false;
   }
 
   void _ensureQrLoginPolling() {
@@ -1193,8 +1327,34 @@ class NeoAgentController extends ChangeNotifier {
     if (challenge == null || !challenge.isUsable || isAuthenticated) {
       return;
     }
-    _qrLoginPollTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      unawaited(_pollQrLoginChallenge());
+    _qrLoginPollingActive = true;
+    _scheduleQrLoginPoll();
+  }
+
+  /// Polls right after each held check returns, or every
+  /// [_qrLoginPollInterval] against servers that answer at once; failures
+  /// (including rate limits) double the wait up to [_qrLoginPollMaxInterval].
+  void _scheduleQrLoginPoll() {
+    _qrLoginPollTimer = Timer(_qrLoginPollDelay, () async {
+      _qrLoginPollTimer = null;
+      final succeeded = await _pollQrLoginChallenge();
+      // Skipped or outdated: another chain owns the polling.
+      if (succeeded == null) return;
+      final doubled = _qrLoginPollDelay * 2;
+      _qrLoginPollDelay = succeeded
+          ? (_qrLoginServerHoldsPolls
+                ? _qrLoginHeldPollGap
+                : _qrLoginPollInterval)
+          : (doubled > _qrLoginPollMaxInterval
+                ? _qrLoginPollMaxInterval
+                : doubled);
+      // A poll that replaced, claimed or paused the challenge has already
+      // rescheduled or stopped polling itself.
+      if (_qrLoginPollingActive &&
+          _qrLoginPollTimer == null &&
+          qrLoginChallenge != null) {
+        _scheduleQrLoginPoll();
+      }
     });
   }
 
@@ -1205,7 +1365,8 @@ class NeoAgentController extends ChangeNotifier {
       return;
     }
     if (isPreparingQrLogin) return;
-    if (!force && qrLoginChallenge?.isUsable == true) {
+    final current = qrLoginChallenge;
+    if (!force && current != null && current.isUsable && !current.isExpired) {
       _ensureQrLoginPolling();
       return;
     }
@@ -1215,6 +1376,7 @@ class NeoAgentController extends ChangeNotifier {
     if (force) {
       qrLoginChallenge = null;
     }
+    qrLoginScan = null;
     notifyListeners();
 
     try {
@@ -1224,45 +1386,82 @@ class NeoAgentController extends ChangeNotifier {
       );
       final challenge = QrLoginChallenge.fromJson(response);
       if (!challenge.isUsable) {
-        throw Exception('QR login could not be started.');
+        throw Exception(appStrings.qrLoginCouldNotBeStarted);
       }
       qrLoginChallenge = challenge;
       qrLoginErrorMessage = null;
+      _qrLoginPollDelay = _qrLoginHeldPollGap;
       _ensureQrLoginPolling();
     } catch (error) {
       _clearQrLoginChallenge();
-      qrLoginErrorMessage = _friendlyErrorMessage(error);
+      qrLoginErrorMessage = _qrLoginErrorMessage(error);
     } finally {
       isPreparingQrLogin = false;
       notifyListeners();
     }
   }
 
-  Future<void> _pollQrLoginChallenge() async {
-    final challenge = qrLoginChallenge;
-    if (_isPollingQrLogin || challenge == null || !challenge.isUsable) {
-      return;
+  String _qrLoginErrorMessage(Object error) {
+    if (error is BackendException && error.statusCode == 429) {
+      return appStrings.authQrRateLimited;
     }
-    _isPollingQrLogin = true;
+    return _friendlyErrorMessage(error);
+  }
+
+  /// Returns whether the status check reached the server, or null when it
+  /// was skipped or its code was replaced while it waited.
+  Future<bool?> _pollQrLoginChallenge() async {
+    final challenge = qrLoginChallenge;
+    if (challenge == null ||
+        !challenge.isUsable ||
+        _qrLoginPollingChallengeId == challenge.challengeId) {
+      return null;
+    }
+    _qrLoginPollingChallengeId = challenge.challengeId;
     try {
       final status = await _backendClient.getQrLoginChallengeStatus(
         baseUrl: backendUrl,
         challengeId: challenge.challengeId,
         pollToken: challenge.pollToken,
+        knownStatus: qrLoginScan != null ? 'scanned' : 'pending',
       );
+      if (qrLoginChallenge?.challengeId != challenge.challengeId) return null;
+      _qrLoginServerHoldsPolls = status['longPoll'] == true;
+      if (qrLoginErrorMessage != null) {
+        qrLoginErrorMessage = null;
+        notifyListeners();
+      }
       final nextStatus = status['status']?.toString() ?? 'pending';
       if (nextStatus == 'approved') {
         await _claimQrLoginChallenge(challenge);
-        return;
+        return true;
+      }
+      if (nextStatus == 'scanned') {
+        if (qrLoginScan == null) {
+          qrLoginScan = QrLoginScan.fromStatus(status);
+          notifyListeners();
+        }
+        return true;
+      }
+      if (nextStatus == 'declined') {
+        await prepareQrLoginChallenge(force: true);
+        qrLoginErrorMessage = appStrings.qrLoginDeclinedOnPhone;
+        notifyListeners();
+        return true;
       }
       if (nextStatus == 'expired' || nextStatus == 'claimed') {
         await prepareQrLoginChallenge(force: true);
       }
+      return true;
     } catch (error) {
-      qrLoginErrorMessage = _friendlyErrorMessage(error);
+      if (qrLoginChallenge?.challengeId != challenge.challengeId) return null;
+      qrLoginErrorMessage = _qrLoginErrorMessage(error);
       notifyListeners();
+      return false;
     } finally {
-      _isPollingQrLogin = false;
+      if (_qrLoginPollingChallengeId == challenge.challengeId) {
+        _qrLoginPollingChallengeId = null;
+      }
     }
   }
 
@@ -1276,15 +1475,16 @@ class NeoAgentController extends ChangeNotifier {
       _clearQrLoginChallenge();
       await _completeAuthenticatedResponse(
         response,
-        retentionErrorMessage:
-            'QR login completed, but NeoAgent could not keep the session. Please try again.',
+        retentionErrorMessage: appStrings.qrLoginCompletedButNeoagentCould,
         authMethod: 'qr',
       );
     } catch (error) {
       final message = _friendlyErrorMessage(error);
       qrLoginErrorMessage = message;
-      if (message.toLowerCase().contains('expired') ||
-          message.toLowerCase().contains('already used')) {
+      final loweredMessage = message.toLowerCase();
+      if (loweredMessage.contains('expired') ||
+          loweredMessage.contains('abgelaufen') ||
+          loweredMessage.contains(appStrings.alreadyUsed.toLowerCase())) {
         await prepareQrLoginChallenge(force: true);
       } else {
         notifyListeners();
@@ -1299,8 +1499,40 @@ class NeoAgentController extends ChangeNotifier {
       baseUrl: backendUrl,
       challengeId: payload.challengeId,
       secret: payload.secret,
+      scannerMetadata: _qrLoginClientMetadata(),
     );
     return QrLoginApprovalPreview.fromJson(response);
+  }
+
+  /// Tells the waiting screen this phone said no, so it stops waiting.
+  Future<void> declineQrLogin(QrLoginScanPayload payload) async {
+    try {
+      await _backendClient.declineQrLoginChallenge(
+        baseUrl: backendUrl,
+        challengeId: payload.challengeId,
+        secret: payload.secret,
+      );
+    } on Object {
+      // The request expires on its own; the waiting screen then moves on.
+    }
+  }
+
+  /// Gives up on a scanned code and shows a fresh one, so an approval the
+  /// phone sends late cannot sign this screen in behind the user's back.
+  Future<void> cancelQrLoginScan() async {
+    final challenge = qrLoginChallenge;
+    if (challenge != null) {
+      try {
+        await _backendClient.cancelQrLoginChallenge(
+          baseUrl: backendUrl,
+          challengeId: challenge.challengeId,
+          pollToken: challenge.pollToken,
+        );
+      } on Object {
+        // A fresh code replaces it either way; the old one expires.
+      }
+    }
+    await prepareQrLoginChallenge(force: true);
   }
 
   Future<QrLoginApprovalPreview> approveQrLogin(
@@ -1343,8 +1575,15 @@ class NeoAgentController extends ChangeNotifier {
     hasUser = true;
     isAuthenticated = true;
     isAwaitingTwoFactor = false;
+    pendingProviderRegistrationState = null;
+    pendingRegistrationProvider = '';
     pendingTwoFactorUsername = '';
     password = '';
+    if (_draftHeldForUserId != null &&
+        _draftHeldForUserId != user?['id']?.toString()) {
+      _pendingChatDraft = null;
+    }
+    _draftHeldForUserId = null;
 
     _syncOnboardingFromAccount();
 
@@ -1369,16 +1608,87 @@ class NeoAgentController extends ChangeNotifier {
     required String username,
     required String email,
     required String password,
+    String? signupKey,
   }) async {
     this.username = username.trim();
     this.email = email.trim();
     this.password = password;
-    await _authenticate(register: true);
+    await _authenticate(register: true, signupKey: signupKey);
+  }
+
+  /// Whether [key] can still create an account. On failure the reason is the
+  /// inline error, under [authErrorCode].
+  Future<bool> checkSignupKey(String key) async {
+    isAuthenticating = true;
+    errorMessage = null;
+    authInfoMessage = null;
+    notifyListeners();
+    try {
+      await _backendClient.checkSignupKey(baseUrl: backendUrl, key: key);
+      return true;
+    } catch (error) {
+      _setAuthError(error);
+      return false;
+    } finally {
+      isAuthenticating = false;
+      notifyListeners();
+    }
+  }
+
+  void _setAuthError(Object error) {
+    errorMessage = _friendlyErrorMessage(error);
+    _authErrorCode = error is BackendException ? error.code : null;
+    _authErrorMessage = errorMessage;
+  }
+
+  void cancelProviderRegistration() {
+    pendingProviderRegistrationState = null;
+    pendingRegistrationProvider = '';
+    clearInlineError();
+    notifyListeners();
+  }
+
+  Future<void> completeProviderRegistration(String username) async {
+    final state = pendingProviderRegistrationState;
+    if (state == null || isAuthenticating) return;
+    isAuthenticating = true;
+    clearInlineError();
+    notifyListeners();
+    try {
+      await _backendClient.finishProviderRegistration(
+        baseUrl: backendUrl,
+        state: state,
+        username: username.trim(),
+      );
+      final response = await _backendClient.completeProviderAuth(
+        baseUrl: backendUrl,
+        state: state,
+      );
+      pendingProviderRegistrationState = null;
+      pendingRegistrationProvider = '';
+      await _completeAuthenticatedResponse(
+        response,
+        isRegistration: true,
+        authMethod: 'oauth',
+        retentionErrorMessage: appStrings.signInCompletedButNeoagentCould,
+      );
+    } catch (error) {
+      _setAuthError(error);
+      if (error is BackendException &&
+          (error.statusCode == 404 || error.statusCode == 403)) {
+        pendingProviderRegistrationState = null;
+        pendingRegistrationProvider = '';
+      }
+    } finally {
+      isAuthenticating = false;
+      notifyListeners();
+    }
   }
 
   Future<void> authenticateWithProvider({
     required String provider,
     required bool register,
+    String? signupKey,
   }) async {
     isAuthenticating = true;
     errorMessage = null;
@@ -1390,11 +1700,12 @@ class NeoAgentController extends ChangeNotifier {
         baseUrl: backendUrl,
         provider: provider,
         mode: register ? 'register' : 'login',
+        signupKey: signupKey,
       );
       final url = begin['url']?.toString();
       final state = begin['state']?.toString();
       if (url == null || state == null || url.isEmpty || state.isEmpty) {
-        throw Exception('Provider sign-in could not be started.');
+        throw Exception(appStrings.providerSignInCouldNotBe);
       }
       final launchResult = await _oauthLauncher.launch(
         url: url,
@@ -1402,10 +1713,18 @@ class NeoAgentController extends ChangeNotifier {
       );
       if (!launchResult.launched) {
         throw Exception(
-          launchResult.error ?? 'Could not open the provider sign-in page.',
+          launchResult.error ?? appStrings.couldNotOpenTheProviderSign,
         );
       }
-      final response = await _pollForProviderAuthCompletion(state);
+      final response = await _pollForProviderAuthCompletion(
+        state,
+        isActive: () => isAuthenticating,
+      );
+      if (response['requiresUsername'] == true) {
+        pendingProviderRegistrationState = state;
+        pendingRegistrationProvider = provider;
+        return;
+      }
       if (response['requiresTwoFactor'] == true) {
         final responseUser =
             response['user'] as Map<dynamic, dynamic>? ??
@@ -1421,11 +1740,10 @@ class NeoAgentController extends ChangeNotifier {
         response,
         isRegistration: register,
         authMethod: 'oauth',
-        retentionErrorMessage:
-            'Sign-in completed, but NeoAgent could not keep the browser session. Please sign in again. If this keeps happening, check backend session cookie settings.',
+        retentionErrorMessage: appStrings.signInCompletedButNeoagentCould,
       );
     } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
+      _setAuthError(error);
       isAuthenticated = false;
     } finally {
       isAuthenticating = false;
@@ -1448,12 +1766,20 @@ class NeoAgentController extends ChangeNotifier {
         response,
         fallbackUsername: pendingTwoFactorUsername,
         authMethod: 'two_factor',
-        retentionErrorMessage:
-            'Two-factor sign-in completed, but NeoAgent could not keep the browser session. Please sign in again.',
+        retentionErrorMessage: appStrings.twoFactorSignInCompletedBut,
       );
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
       isAuthenticated = false;
+      // The pending sign-in is gone server-side; only a fresh password
+      // sign-in can start a new challenge.
+      if (error is BackendException &&
+          error.message.toLowerCase().contains(
+            'two-factor challenge expired',
+          )) {
+        isAwaitingTwoFactor = false;
+        pendingTwoFactorUsername = '';
+      }
     } finally {
       isAuthenticating = false;
       notifyListeners();
@@ -1472,7 +1798,7 @@ class NeoAgentController extends ChangeNotifier {
       );
       authInfoMessage =
           response['message']?.toString() ??
-          'If that account has a confirmed email, NeoAgent will send a password reset link.';
+          appStrings.ifThatAccountHasAConfirmed;
       return true;
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -1492,6 +1818,7 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> _authenticate({
     required bool register,
+    String? signupKey,
     bool silent = false,
   }) async {
     isAuthenticating = true;
@@ -1508,6 +1835,7 @@ class NeoAgentController extends ChangeNotifier {
               username: username,
               email: email,
               password: password,
+              signupKey: signupKey,
             )
           : await _backendClient.login(
               baseUrl: backendUrl,
@@ -1530,7 +1858,7 @@ class NeoAgentController extends ChangeNotifier {
         password = '';
         authInfoMessage =
             response['message']?.toString() ??
-            'Check your email to confirm your NeoAgent account before signing in.';
+            appStrings.checkYourEmailToConfirmYour;
         await _persistCredentials();
         return;
       }
@@ -1539,11 +1867,10 @@ class NeoAgentController extends ChangeNotifier {
         fallbackUsername: username,
         isRegistration: register,
         authMethod: 'password',
-        retentionErrorMessage:
-            'Sign-in completed, but NeoAgent could not keep the browser session. Please sign in again. If this keeps happening, the backend session cookie is likely not being retained.',
+        retentionErrorMessage: appStrings.signInCompletedButNeoagentCould2,
       );
     } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
+      _setAuthError(error);
       isAuthenticated = false;
     } finally {
       isAuthenticating = false;
@@ -1566,18 +1893,39 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The onboarding page to reopen on, so a reload or restart resumes where
+  /// the person left off instead of replaying the intro.
+  int get onboardingResumeStep => _prefs?.getInt(_onboardingStepPrefsKey) ?? 0;
+
+  /// Per account, so a second person signing in on this device starts fresh.
+  String get _onboardingStepPrefsKey => 'onboarding.step.${user?['id'] ?? ''}';
+
+  void rememberOnboardingStep(int step) {
+    unawaited(_prefs?.setInt(_onboardingStepPrefsKey, step));
+  }
+
+  /// Marks onboarding complete on the server. Onboarding stays on screen until
+  /// the server confirms, so a failure leaves the person on the last step with
+  /// [onboardingCompletionError] instead of restarting the flow.
   Future<void> dismissOnboarding() async {
-    _onboardingManuallyReopened = false;
-    showOnboarding = false;
+    if (isCompletingOnboarding) return;
+    isCompletingOnboarding = true;
+    onboardingCompletionError = null;
     notifyListeners();
     try {
       await _backendClient.completeOnboarding(backendUrl);
+      _onboardingCompletedLocally = true;
       if (isAuthenticated && user != null) {
         user!['hasCompletedOnboarding'] = true;
       }
-    } catch (e) {
-      debugPrint('Failed to dismiss onboarding: $e');
-      showOnboarding = true;
+      _onboardingManuallyReopened = false;
+      showOnboarding = false;
+      errorMessage = null;
+      unawaited(_prefs?.remove(_onboardingStepPrefsKey));
+    } catch (error) {
+      onboardingCompletionError = _friendlyErrorMessage(error);
+    } finally {
+      isCompletingOnboarding = false;
       notifyListeners();
     }
   }
@@ -1594,6 +1942,12 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   void _syncOnboardingFromAccount() {
+    // A refresh that fetched the account before completion was confirmed
+    // carries a stale flag; the in-flight or confirmed completion wins.
+    if (isCompletingOnboarding) return;
+    if (_onboardingCompletedLocally && user != null) {
+      user!['hasCompletedOnboarding'] = true;
+    }
     final hasCompletedOnboarding = _userHasCompletedOnboarding(user);
     if (hasCompletedOnboarding) {
       if (!_onboardingManuallyReopened) {
@@ -1606,16 +1960,24 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   void _clearAuthenticatedState() {
+    unawaited(BackgroundKeepAlive.stop());
     _disconnectSocket();
     _updatePollTimer?.cancel();
     _updatePollTimer = null;
     _clearQrLoginChallenge();
     isAuthenticated = false;
     isRefreshing = false;
+    isSwitchingAgent = false;
+    hasLoadedInitialData = false;
     showOnboarding = false;
     _onboardingManuallyReopened = false;
+    _onboardingCompletedLocally = false;
+    onboardingCompletionError = null;
+    aiModelsUnavailable = false;
     _busyMessagingPlatformKeys.clear();
     isAwaitingTwoFactor = false;
+    pendingProviderRegistrationState = null;
+    pendingRegistrationProvider = '';
     pendingTwoFactorUsername = '';
     errorMessage = null;
     authInfoMessage = null;
@@ -1634,15 +1996,9 @@ class NeoAgentController extends ChangeNotifier {
     selectedAgentId = null;
     unawaited(_persistSelectedAgentId(null));
     supportedModels = const <ModelMeta>[];
+    systemOneModels = const <ModelMeta>[];
     aiProviders = const <AiProviderMeta>[];
     recentRuns = const <RunSummary>[];
-    coworkChats = const <CoworkChat>[];
-    selectedCoworkChatId = null;
-    _coworkThreads.clear();
-    coworkDefaultDevice = null;
-    isLoadingCowork = false;
-    timelineItems = const <TimelineEventItem>[];
-    isRefreshingTimeline = false;
     tokenUsage = null;
     updateStatus = const UpdateStatusSnapshot();
     _clientLogs = const <LogEntry>[];
@@ -1652,7 +2008,6 @@ class NeoAgentController extends ChangeNotifier {
     messagingAccessCatalogs = const <String, MessagingAccessCatalog>{};
     pendingMessagingQr = null;
     skills = const <SkillItem>[];
-    storeSkills = const <StoreSkillItem>[];
     officialIntegrations = const <OfficialIntegrationItem>[];
     setupProfile = 'quick';
     setupComplete = true;
@@ -1680,6 +2035,7 @@ class NeoAgentController extends ChangeNotifier {
     );
     unawaited(_syncDesktopCompanionSession());
     _pendingChatDraft = null;
+    _draftHeldForUserId = null;
     _runDetailsCache.clear();
     unawaited(
       _healthBridge.configureBackgroundSync(
@@ -1810,12 +2166,6 @@ class NeoAgentController extends ChangeNotifier {
       (section) => section.name == rawSection,
       orElse: () => AppSection.chat,
     );
-    if (restoredSection == AppSection.server && !_supportsDesktopShell) {
-      // Stored preferences are editable outside the app (localStorage on web),
-      // so restoring one never reaches a desktop-only section.
-      selectedSection = AppSection.chat;
-      return;
-    }
     selectedSection = restoredSection;
   }
 
@@ -1828,434 +2178,24 @@ class NeoAgentController extends ChangeNotifier {
     if (section == AppSection.devices) {
       unawaited(refreshDevices());
     }
-    if (section == AppSection.timeline) {
-      unawaited(refreshTimeline());
-    }
-    if (section == AppSection.accountSettings) {
-      unawaited(refreshAccountSettings());
-    }
-    if (section == AppSection.billing) {
-      unawaited(refreshBilling());
-    }
     if (section == AppSection.settings) {
       unawaited(refreshAiCatalog());
     }
     notifyListeners();
   }
 
-  Future<void> setDesktopCoworkMode(bool enabled) async {
-    if (!_supportsDesktopShell || desktopCoworkMode == enabled) return;
-    desktopCoworkMode = enabled;
-    await _prefs?.setString(
-      _desktopWorkspaceModePrefsKey,
-      enabled ? 'cowork' : 'standard',
-    );
+  /// Opens Settings, on [page] when one is given and otherwise on the page
+  /// that was open last.
+  void openSettings([SettingsPage? page]) {
+    if (page != null) settingsPage = page;
+    setSelectedSection(AppSection.settings);
+  }
+
+  void setSettingsPage(SettingsPage? page) {
+    if (settingsPage == page) return;
+    settingsPage = page;
+    errorMessage = null;
     notifyListeners();
-    if (enabled) await refreshCowork();
-  }
-
-  Future<void> refreshCowork({bool selectFirst = true}) async {
-    if (!isAuthenticated || !_supportsDesktopShell || isLoadingCowork) return;
-    isLoadingCowork = true;
-    notifyListeners();
-    try {
-      final responses = await Future.wait(<Future<Map<String, dynamic>>>[
-        _backendClient.fetchCoworkChats(backendUrl),
-        _backendClient.fetchCoworkCapabilities(backendUrl),
-      ]);
-      coworkChats = _decodeModelList(
-        'cowork_chats',
-        responses[0]['chats'],
-        (json) => CoworkChat.fromJson(Map<String, dynamic>.from(json)),
-        fallbackToMapValues: true,
-      );
-      coworkDefaultDevice = CoworkDeviceSelection.fromJson(
-        _jsonMap(responses[1]['device']),
-      );
-      if (selectFirst) {
-        final selectedStillExists = coworkChats.any(
-          (chat) => chat.id == selectedCoworkChatId,
-        );
-        if (!selectedStillExists) {
-          selectedCoworkChatId = coworkChats.isEmpty
-              ? null
-              : coworkChats.first.id;
-        }
-      }
-      final selectedId = selectedCoworkChatId;
-      if (selectedId != null && !_coworkThreads.containsKey(selectedId)) {
-        await _loadCoworkChat(selectedId);
-      }
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-    } finally {
-      isLoadingCowork = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> _loadCoworkChat(String conversationId) async {
-    _coworkThreads[conversationId] = coworkThreadFor(
-      conversationId,
-    ).copyWith(loading: true);
-    notifyListeners();
-    try {
-      final response = await _backendClient.fetchCoworkChat(
-        backendUrl,
-        conversationId,
-      );
-      final messages =
-          _jsonMapList(response['messages'], fallbackToMapValues: true)
-              .map((message) {
-                return ChatEntry(
-                  id: message['id']?.toString() ?? '',
-                  role: message['role']?.toString() ?? 'assistant',
-                  content: message['content']?.toString() ?? '',
-                  platform: 'cowork',
-                  runId: message['runId']?.toString(),
-                  senderName: message['agentName']?.toString(),
-                  metadata: _jsonMap(message['metadata']),
-                  createdAt: _parseTimestamp(message['createdAt']?.toString()),
-                );
-              })
-              .toList(growable: false);
-      final inputRequests = _jsonMapList(
-        response['inputRequests'],
-        fallbackToMapValues: true,
-      ).map(CoworkInputRequest.fromJson).toList(growable: false);
-      final activity = <CoworkActivityItem>[];
-      String? activeRunId;
-      String? runStatus;
-      DateTime? runStartedAt;
-      final runs = _jsonMapList(response['activity'], fallbackToMapValues: true)
-          .reversed;
-      for (final run in runs) {
-        final runId = run['id']?.toString() ?? '';
-        final status = run['status']?.toString() ?? 'pending';
-        if (activeRunId == null &&
-            <String>{
-              'pending',
-              'running',
-              'pausing',
-              'paused',
-              'resuming',
-            }.contains(status)) {
-          activeRunId = runId;
-          runStatus = status;
-          runStartedAt = _parseTimestamp(run['createdAt']?.toString());
-        }
-        for (final step in _jsonMapList(
-          run['steps'],
-          fallbackToMapValues: true,
-        )) {
-          final toolName = step['toolName']?.toString() ?? '';
-          final result = step['result'];
-          final startedAt = _parseTimestamp(step['startedAt']?.toString());
-          final completedAt = step['completedAt']?.toString();
-          activity.add(
-            CoworkActivityItem(
-              id: step['id']?.toString() ?? 'step-${step['index']}',
-              runId: runId,
-              kind: step['type']?.toString() ?? 'tool',
-              label: toolName.isEmpty
-                  ? (step['type']?.toString() ?? 'step')
-                  : toolName,
-              status: step['status']?.toString() ?? 'completed',
-              summary:
-                  step['error']?.toString() ?? _summarizeToolResult(result),
-              createdAt: startedAt,
-              durationMs: completedAt == null
-                  ? null
-                  : _parseTimestamp(completedAt)
-                        .difference(startedAt)
-                        .inMilliseconds,
-              toolArgs: _jsonMap(step['toolInput']),
-              detail: _coworkToolDetail(toolName, result),
-              screenshotPath: result is Map
-                  ? result['screenshotPath']?.toString()
-                  : null,
-            ),
-          );
-        }
-      }
-      _coworkThreads[conversationId] = CoworkThreadState(
-        messages: messages,
-        activity: activity,
-        inputRequests: inputRequests,
-        changes: _jsonMapList(response['changes'], fallbackToMapValues: true)
-            .map(CoworkChangedFile.fromJson)
-            .toList(growable: false),
-        activeRunId: activeRunId,
-        runStatus: runStatus,
-        runStartedAt: runStartedAt,
-      );
-    } catch (error) {
-      _coworkThreads[conversationId] = coworkThreadFor(
-        conversationId,
-      ).copyWith(loading: false);
-      errorMessage = _friendlyErrorMessage(error);
-    }
-  }
-
-  Future<void> _refreshCoworkConversation(String conversationId) async {
-    await refreshCowork(selectFirst: false);
-    if (coworkChats.any((chat) => chat.id == conversationId)) {
-      await _loadCoworkChat(conversationId);
-      notifyListeners();
-    }
-  }
-
-  Future<void> selectCoworkChat(String conversationId) async {
-    if (selectedCoworkChatId == conversationId) return;
-    selectedCoworkChatId = conversationId;
-    notifyListeners();
-    if (!_coworkThreads.containsKey(conversationId)) {
-      await _loadCoworkChat(conversationId);
-      notifyListeners();
-    }
-  }
-
-  /// Starts a session. When [template] is given the new chat inherits its
-  /// agent, mode, device, workspace folder and model, so "New session" keeps
-  /// working in the same project.
-  Future<void> createCoworkChat({CoworkChat? template}) async {
-    try {
-      final response = await _backendClient.createCoworkChat(
-        backendUrl,
-        template == null
-            ? <String, dynamic>{}
-            : <String, dynamic>{
-                'agentId': template.agentId,
-                'mode': template.mode == CoworkInteractionMode.plan
-                    ? 'plan'
-                    : 'agent',
-                'deviceTargetOverride': template.device.override,
-                'workspacePathOverride': template.workspacePathOverride,
-                'modelOverride': template.modelOverride,
-              },
-      );
-      final chat = CoworkChat.fromJson(_jsonMap(response['chat']));
-      coworkChats = <CoworkChat>[chat, ...coworkChats];
-      selectedCoworkChatId = chat.id;
-      _coworkThreads[chat.id] = const CoworkThreadState();
-      notifyListeners();
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
-  Future<bool> updateCoworkChat(
-    String conversationId,
-    Map<String, dynamic> patch,
-  ) async {
-    try {
-      final response = await _backendClient.updateCoworkChat(
-        backendUrl,
-        conversationId,
-        patch,
-      );
-      final updated = CoworkChat.fromJson(_jsonMap(response['chat']));
-      coworkChats = coworkChats
-          .map((chat) => chat.id == updated.id ? updated : chat)
-          .toList(growable: false);
-      notifyListeners();
-      return true;
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-      return false;
-    }
-  }
-
-  Future<void> implementSelectedCoworkPlan() async {
-    final chat = selectedCoworkChat;
-    if (chat == null || chat.mode != CoworkInteractionMode.plan) return;
-    final updated = await updateCoworkChat(chat.id, <String, dynamic>{
-      'mode': 'agent',
-    });
-    if (!updated) return;
-    if (selectedCoworkChatId == chat.id) {
-      await sendCoworkMessage('Implement the plan above.');
-    }
-  }
-
-  Future<void> deleteCoworkChat(String conversationId) async {
-    try {
-      await _backendClient.deleteCoworkChat(backendUrl, conversationId);
-      coworkChats = coworkChats
-          .where((chat) => chat.id != conversationId)
-          .toList(growable: false);
-      _coworkThreads.remove(conversationId);
-      if (selectedCoworkChatId == conversationId) {
-        selectedCoworkChatId = coworkChats.isEmpty
-            ? null
-            : coworkChats.first.id;
-      }
-      notifyListeners();
-      final selectedId = selectedCoworkChatId;
-      if (selectedId != null && !_coworkThreads.containsKey(selectedId)) {
-        await _loadCoworkChat(selectedId);
-      }
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
-  void setCoworkWorkSurfacePinned(bool pinned) {
-    coworkWorkSurfacePinned = pinned;
-    notifyListeners();
-  }
-
-  void setCoworkThreadDetailed(bool detailed) {
-    coworkThreadDetailed = detailed;
-    unawaited(_prefs?.setBool(_coworkThreadDetailPrefsKey, detailed));
-    notifyListeners();
-  }
-
-  Future<void> refreshCoworkChanges(String conversationId) async {
-    try {
-      final response = await _backendClient.fetchCoworkChanges(
-        backendUrl,
-        conversationId,
-      );
-      _coworkThreads[conversationId] = coworkThreadFor(conversationId).copyWith(
-        changes: _jsonMapList(response['changes'], fallbackToMapValues: true)
-            .map(CoworkChangedFile.fromJson)
-            .toList(growable: false),
-      );
-      notifyListeners();
-    } catch (_) {
-      // The list is rebuilt on the next full thread load.
-    }
-  }
-
-  /// Lists a folder of the chat's workspace on the chat's device. Throws on
-  /// failure so the workbench can show the error inline.
-  Future<List<CoworkWorkspaceEntry>> browseCoworkWorkspace(
-    CoworkChat chat,
-    String path,
-  ) async {
-    final response = await _backendClient.fetchWorkspaceDirectory(
-      backendUrl,
-      path: path.isEmpty ? '.' : path,
-      deviceTarget: chat.device.effective,
-      workspaceRoot: chat.isLocal ? chat.workspacePathOverride : null,
-    );
-    final error = response['error']?.toString() ?? '';
-    if (error.isNotEmpty) throw Exception(error);
-    return _jsonMapList(response['entries'], fallbackToMapValues: true)
-        .map(CoworkWorkspaceEntry.fromJson)
-        .toList(growable: false);
-  }
-
-  Future<String> readCoworkWorkspaceFile(CoworkChat chat, String path) async {
-    final response = await _backendClient.fetchWorkspaceFile(
-      backendUrl,
-      path: path,
-      deviceTarget: chat.device.effective,
-      workspaceRoot: chat.isLocal ? chat.workspacePathOverride : null,
-    );
-    final error = response['error']?.toString() ?? '';
-    if (error.isNotEmpty) throw Exception(error);
-    return response['content']?.toString() ?? '';
-  }
-
-  Future<void> sendCoworkMessage(
-    String content, {
-    List<SharedChatAttachment> sharedAttachments =
-        const <SharedChatAttachment>[],
-  }) async {
-    final chat = selectedCoworkChat;
-    if (chat == null) return;
-    await _sendCoworkMessageToChat(
-      chat,
-      content,
-      sharedAttachments: sharedAttachments,
-    );
-  }
-
-  Future<void> _sendCoworkMessageToChat(
-    CoworkChat chat,
-    String content, {
-    List<SharedChatAttachment> sharedAttachments =
-        const <SharedChatAttachment>[],
-  }) async {
-    final trimmed = content.trim();
-    final normalizedAttachments = sharedAttachments
-        .where((item) => item.isValid)
-        .toList(growable: false);
-    final outgoingTask = _taskWithSharedAttachments(
-      trimmed,
-      normalizedAttachments,
-    );
-    if (outgoingTask.isEmpty || _socket == null) return;
-    final current = coworkThreadFor(chat.id);
-    _coworkThreads[chat.id] = current.copyWith(
-      messages: <ChatEntry>[
-        ...current.messages,
-        ChatEntry(
-          id: 'local-${DateTime.now().microsecondsSinceEpoch}',
-          role: 'user',
-          content: trimmed.isNotEmpty ? trimmed : 'Sent shared attachments.',
-          platform: 'cowork',
-          createdAt: DateTime.now(),
-          transient: true,
-          metadata: normalizedAttachments.isEmpty
-              ? const <String, dynamic>{}
-              : <String, dynamic>{
-                  'sharedAttachments': normalizedAttachments
-                      .map((item) => item.toJson())
-                      .toList(growable: false),
-                },
-        ),
-      ],
-      sending: true,
-      phase: current.hasLiveRun ? 'Steering' : 'Queued',
-    );
-    notifyListeners();
-    _socket!.emit('agent:run', <String, dynamic>{
-      'task': outgoingTask,
-      'options': <String, dynamic>{
-        'conversationId': chat.id,
-        'coworkDisplayContent': trimmed.isNotEmpty
-            ? trimmed
-            : 'Sent shared attachments.',
-        if (normalizedAttachments.isNotEmpty)
-          'coworkSharedAttachments': normalizedAttachments
-              .map((item) => item.toJson())
-              .toList(growable: false),
-      },
-    });
-  }
-
-  Future<void> pauseCoworkRun() async {
-    final runId = selectedCoworkThread.activeRunId;
-    if (runId == null) return;
-    try {
-      await _backendClient.pauseAgentRun(backendUrl, runId);
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
-  Future<void> resumeCoworkRun() async {
-    final runId = selectedCoworkThread.activeRunId;
-    if (runId == null) return;
-    try {
-      await _backendClient.resumeAgentRun(backendUrl, runId);
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
-  Future<void> stopCoworkRun() async {
-    final runId = selectedCoworkThread.activeRunId;
-    if (runId == null) return;
-    await stopRun(runId);
   }
 
   Future<void> stopRun(String runId) async {
@@ -2265,321 +2205,6 @@ class NeoAgentController extends ChangeNotifier {
       errorMessage = _friendlyErrorMessage(error);
       notifyListeners();
     }
-  }
-
-  Future<void> answerCoworkInput(
-    CoworkInputRequest request,
-    Map<String, String> answers,
-  ) async {
-    final chat = selectedCoworkChat;
-    if (chat == null) return;
-    try {
-      final response = await _backendClient.answerCoworkInput(
-        backendUrl,
-        conversationId: chat.id,
-        requestId: request.id,
-        answers: answers,
-      );
-      final prompt = _jsonMap(response['answer'])['prompt']?.toString() ?? '';
-      await _loadCoworkChat(chat.id);
-      notifyListeners();
-      if (prompt.isNotEmpty) {
-        await _sendCoworkMessageToChat(chat, prompt);
-      }
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-      notifyListeners();
-    }
-  }
-
-  String? _coworkConversationId(Map<String, dynamic> payload) {
-    final direct = payload['conversationId']?.toString().trim() ?? '';
-    if (direct.isNotEmpty && coworkChats.any((chat) => chat.id == direct)) {
-      return direct;
-    }
-    final runId = payload['runId']?.toString().trim() ?? '';
-    if (runId.isEmpty) return null;
-    for (final entry in _coworkThreads.entries) {
-      if (entry.value.activeRunId == runId ||
-          entry.value.activity.any((item) => item.runId == runId) ||
-          entry.value.messages.any((message) => message.runId == runId)) {
-        return entry.key;
-      }
-    }
-    return null;
-  }
-
-  void _updateCoworkRunEvent(String event, Map<String, dynamic> payload) {
-    final conversationId = _coworkConversationId(payload);
-    if (conversationId == null) return;
-    final current = coworkThreadFor(conversationId);
-    final runId = payload['runId']?.toString() ?? current.activeRunId ?? '';
-    var next = current;
-
-    switch (event) {
-      case 'start':
-        next = current.copyWith(
-          activeRunId: runId,
-          runStatus: 'running',
-          runStartedAt: DateTime.now(),
-          phase: 'Starting',
-          sending: true,
-          streamingContent: '',
-        );
-      case 'phase':
-        final label = payload['label']?.toString().trim() ?? '';
-        if (label.isNotEmpty) next = current.copyWith(phase: label);
-      case 'thinking':
-        next = current.copyWith(phase: 'Thinking');
-      case 'analysis':
-        next = current.copyWith(phase: 'Analyzing');
-      case 'plan':
-        next = current.copyWith(phase: 'Planning');
-      case 'stopping':
-        next = current.copyWith(phase: 'Stopping', runStatus: 'stopping');
-      case 'pausing':
-        next = current.copyWith(phase: 'Pausing', runStatus: 'pausing');
-      case 'stream':
-        next = current.copyWith(
-          phase: 'Streaming',
-          streamingContent: payload['content']?.toString() ?? '',
-        );
-      case 'tool_start':
-        final toolName = payload['toolName']?.toString() ?? 'tool';
-        final item = CoworkActivityItem(
-          id:
-              payload['stepId']?.toString().ifEmpty(
-                'tool-${DateTime.now().microsecondsSinceEpoch}',
-              ) ??
-              'tool-${DateTime.now().microsecondsSinceEpoch}',
-          runId: runId,
-          kind: payload['type']?.toString() ?? 'tool',
-          label: toolName,
-          status: 'running',
-          summary: _summarizeToolArgs(payload['toolArgs']),
-          createdAt: DateTime.now(),
-          toolArgs: _jsonMap(payload['toolArgs']),
-        );
-        next = current.copyWith(
-          phase: 'Running $toolName',
-          activity: <CoworkActivityItem>[
-            ...current.activity.where((entry) => entry.id != item.id),
-            item,
-          ],
-        );
-      case 'tool_end':
-        final stepId = payload['stepId']?.toString() ?? '';
-        final toolName = payload['toolName']?.toString() ?? 'tool';
-        final toolResult = _jsonMap(payload['result']);
-        final itemId = stepId.isEmpty
-            ? 'tool-${DateTime.now().microsecondsSinceEpoch}'
-            : stepId;
-        final started = current.activity
-            .where((entry) => entry.id == itemId)
-            .firstOrNull;
-        final status = payload['status']?.toString() ?? 'completed';
-        final summary =
-            payload['error']?.toString() ??
-            _summarizeToolResult(payload['result']);
-        final detail = _coworkToolDetail(toolName, payload['result']);
-        final screenshot = toolResult['screenshotPath']?.toString();
-        final item = started == null
-            ? CoworkActivityItem(
-                id: itemId,
-                runId: runId,
-                kind: payload['type']?.toString() ?? 'tool',
-                label: toolName,
-                status: status,
-                summary: summary,
-                createdAt: DateTime.now(),
-                detail: detail,
-                screenshotPath: screenshot,
-              )
-            : started.copyWith(
-                status: status,
-                summary: summary,
-                durationMs: DateTime.now()
-                    .difference(started.createdAt)
-                    .inMilliseconds,
-                detail: detail,
-                screenshotPath: screenshot,
-              );
-        next = current.copyWith(
-          phase: 'Working',
-          activity: <CoworkActivityItem>[
-            ...current.activity.where((entry) => entry.id != item.id),
-            item,
-          ],
-        );
-        if (CoworkActivityItem.writeTools.contains(toolName)) {
-          unawaited(refreshCoworkChanges(conversationId));
-        }
-        final selectedChat = selectedCoworkChatId == conversationId
-            ? selectedCoworkChat
-            : null;
-        if (selectedChat != null) {
-          final target = selectedChat.device.effective;
-          final screenshotPath =
-              payload['screenshotPath']?.toString() ??
-              toolResult['screenshotPath']?.toString() ??
-              toolResult['path']?.toString();
-          if (toolName.startsWith('browser_') &&
-              screenshotPath?.trim().isNotEmpty == true) {
-            computerBrowserScreenshotPath = screenshotPath;
-          }
-          if (toolName == 'execute_command') {
-            computerTerminalOutput =
-                toolResult['stdout']?.toString() ??
-                toolResult['output']?.toString() ??
-                computerTerminalOutput;
-          }
-          if (_workspaceToolNames.contains(toolName)) {
-            unawaited(refreshWorkspaceFiles(deviceTarget: target));
-          }
-          if (toolName.startsWith('browser_') ||
-              toolName.startsWith('desktop_') ||
-              toolName == 'execute_command' ||
-              _workspaceToolNames.contains(toolName)) {
-            unawaited(
-              refreshComputerRuntime(silent: true, deviceTarget: target),
-            );
-          }
-        }
-      case 'verification' || 'subagent' || 'steer_queued' || 'steer_applied':
-        final kind = event == 'verification'
-            ? 'verification'
-            : event == 'subagent'
-            ? 'subagent'
-            : 'steering';
-        final status = event == 'verification'
-            ? (payload['status']?.toString() == 'verified'
-                  ? 'completed'
-                  : 'failed')
-            : payload['status']?.toString() == 'failed'
-            ? 'failed'
-            : payload['status']?.toString() == 'running'
-            ? 'running'
-            : 'completed';
-        final summary = event == 'verification'
-            ? (payload['notes']?.toString() ??
-                  'Verification: ${payload['status']?.toString() ?? 'unknown'}')
-            : event == 'subagent'
-            ? (payload['task']?.toString() ??
-                  payload['error']?.toString() ??
-                  payload['result']?.toString() ??
-                  'Subagent update')
-            : event == 'steer_queued'
-            ? 'Queued steering: ${payload['content']?.toString() ?? ''}'
-            : 'Applied ${_asInt(payload['count'])} steering update(s).';
-        final item = CoworkActivityItem(
-          id: '$kind-${payload['handle']?.toString() ?? DateTime.now().microsecondsSinceEpoch}',
-          runId: runId,
-          kind: kind,
-          label: kind == 'subagent'
-              ? 'Subagent'
-              : kind == 'steering'
-              ? 'Steering'
-              : 'Verification',
-          status: status,
-          summary: summary,
-          createdAt: DateTime.now(),
-        );
-        next = current.copyWith(
-          phase: event == 'verification'
-              ? 'Verifying'
-              : event == 'steer_applied'
-              ? 'Incorporating steering'
-              : current.phase,
-          activity: <CoworkActivityItem>[...current.activity, item],
-        );
-      case 'interim':
-        final content =
-            payload['content']?.toString() ??
-            payload['message']?.toString() ??
-            '';
-        if (content.trim().isNotEmpty) {
-          next = current.copyWith(
-            phase: 'Working',
-            messages: <ChatEntry>[
-              ...current.messages,
-              ChatEntry(
-                id: 'interim-${DateTime.now().microsecondsSinceEpoch}',
-                role: 'assistant',
-                content: content,
-                platform: 'cowork',
-                runId: runId,
-                createdAt: DateTime.now(),
-                transient: true,
-                metadata: <String, dynamic>{
-                  'interim': true,
-                  'kind': payload['kind']?.toString() ?? 'progress',
-                },
-              ),
-            ],
-          );
-        }
-      case 'input_required':
-        final request = CoworkInputRequest.fromJson(
-          _jsonMap(payload['request']),
-        );
-        next = current.copyWith(
-          phase: 'Waiting for input',
-          runStatus: 'waiting_input',
-          sending: false,
-          inputRequests: <CoworkInputRequest>[
-            ...current.inputRequests.where((entry) => entry.id != request.id),
-            request,
-          ],
-        );
-      case 'complete':
-        final content = payload['content']?.toString().trim() ?? '';
-        next = current.copyWith(
-          messages: content.isEmpty
-              ? current.messages
-              : <ChatEntry>[
-                  ...current.messages,
-                  ChatEntry(
-                    id: 'final-${DateTime.now().microsecondsSinceEpoch}',
-                    role: 'assistant',
-                    content: content,
-                    platform: 'cowork',
-                    runId: runId,
-                    createdAt: DateTime.now(),
-                    transient: true,
-                  ),
-                ],
-          phase: 'Completed',
-          runStatus: 'completed',
-          sending: false,
-          streamingContent: '',
-          clearActiveRunId: true,
-        );
-        unawaited(_refreshCoworkConversation(conversationId));
-      case 'paused':
-        next = current.copyWith(phase: 'Paused', runStatus: 'paused');
-      case 'resumed':
-        next = current.copyWith(phase: 'Working', runStatus: 'running');
-      case 'stopped':
-        next = current.copyWith(
-          phase: 'Stopped',
-          runStatus: 'stopped',
-          sending: false,
-          streamingContent: '',
-          clearActiveRunId: true,
-        );
-        unawaited(_refreshCoworkConversation(conversationId));
-      case 'error':
-        next = current.copyWith(
-          phase: payload['error']?.toString() ?? 'Failed',
-          runStatus: 'failed',
-          sending: false,
-          streamingContent: '',
-          clearActiveRunId: true,
-        );
-        unawaited(_refreshCoworkConversation(conversationId));
-    }
-    _coworkThreads[conversationId] = next;
-    notifyListeners();
   }
 
   Future<void> openRunDetails(String runId) async {
@@ -2642,6 +2267,7 @@ class NeoAgentController extends ChangeNotifier {
     }
     selectedAgentId = id;
     unawaited(_persistSelectedAgentId(id));
+    isSwitchingAgent = true;
     chatMessages = const <ChatEntry>[];
     _resetChatHistoryPagination();
     recentRuns = const <RunSummary>[];
@@ -2656,6 +2282,11 @@ class NeoAgentController extends ChangeNotifier {
     _runDetailsCache.clear();
     notifyListeners();
     await refresh();
+    // A later switch owns the flag until its own refresh lands.
+    if (selectedAgentId == id && isSwitchingAgent) {
+      isSwitchingAgent = false;
+      notifyListeners();
+    }
   }
 
   Future<bool> saveAgentProfile({
@@ -2727,6 +2358,38 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  /// The server's code for the error currently shown, when a password
+  /// sign-in or registration produced it; the form shows it on the field it
+  /// concerns.
+  String? get authErrorCode =>
+      errorMessage != null && errorMessage == _authErrorMessage
+      ? _authErrorCode
+      : null;
+
+  /// A signed-in request came back 401: the server no longer knows this
+  /// session (expired, revoked, or the password was reset). Returns to
+  /// sign-in once; requests still in flight find the session already gone.
+  void handleSessionExpired() {
+    if (!isAuthenticated) return;
+    final heldUserId = user?['id']?.toString();
+    final draft = _pendingChatDraft;
+    _authCycle += 1;
+    _clearAuthenticatedState();
+    _draftHeldForUserId = heldUserId;
+    _pendingChatDraft = draft;
+    errorMessage = appStrings.yourSessionExpiredPleaseSignIn;
+    unawaited(_persistCredentials());
+    notifyListeners();
+  }
+
+  /// Keeps an unsent chat draft through a session expiry so signing back in
+  /// restores it. A deliberate sign-out drops it.
+  void holdChatDraftAfterSessionExpiry(String text) {
+    final normalized = text.trim();
+    if (_draftHeldForUserId == null || normalized.isEmpty) return;
+    _pendingChatDraft = normalized;
+  }
+
   void showInlineError(String message) {
     errorMessage = message;
     authInfoMessage = null;
@@ -2740,30 +2403,29 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<Map<String, dynamic>> _pollForProviderAuthCompletion(
-    String state,
-  ) async {
+    String state, {
+    required bool Function() isActive,
+  }) async {
     final deadline = DateTime.now().add(const Duration(minutes: 2));
     final authCycle = _authCycle;
     while (DateTime.now().isBefore(deadline)) {
-      if (!isAuthenticating || _authCycle != authCycle) {
-        throw Exception('Authentication was canceled before completion.');
+      if (!isActive() || _authCycle != authCycle) {
+        throw Exception(appStrings.authenticationWasCanceledBeforeCompletion);
       }
       final response = await _backendClient.completeProviderAuth(
         baseUrl: backendUrl,
         state: state,
       );
       if (response['status']?.toString() == 'pending') {
-        if (!isAuthenticating || _authCycle != authCycle) {
-          throw Exception('Authentication was canceled before completion.');
+        if (!isActive() || _authCycle != authCycle) {
+          throw Exception(appStrings.authenticationWasCanceledBeforeCompletion);
         }
         await Future<void>.delayed(const Duration(seconds: 2));
         continue;
       }
       return response;
     }
-    throw Exception(
-      'Authentication is still pending. Finish the browser flow and try again.',
-    );
+    throw Exception(appStrings.authenticationIsStillPendingFinishThe);
   }
 
   void clearLogs() {
@@ -2866,6 +2528,26 @@ class NeoAgentController extends ChangeNotifier {
     return catalog;
   }
 
+  Future<List<BehaviorDecisionEntry>> loadBehaviorDecisions(
+    String platform,
+  ) async {
+    final data = await _backendClient.fetchBehaviorDecisions(
+      backendUrl,
+      platform: platform,
+      agentId: _scopedAgentId,
+    );
+    final items = data['decisions'] is List
+        ? data['decisions'] as List
+        : const <dynamic>[];
+    return items
+        .whereType<Map>()
+        .map(
+          (item) =>
+              BehaviorDecisionEntry.fromJson(Map<String, dynamic>.from(item)),
+        )
+        .toList(growable: false);
+  }
+
   Future<void> allowMessagingSuggestion(
     String platform,
     QuickAllowSuggestion suggestion, {
@@ -2946,12 +2628,69 @@ class NeoAgentController extends ChangeNotifier {
     return null;
   }
 
+  /// Switches the interface immediately, remembers the choice on this device,
+  /// and, once signed in, saves it on the account so the next device follows.
+  Future<void> setLanguage(AppLanguage value) async {
+    if (value == language) return;
+    _languageRevision += 1;
+    final revision = _languageRevision;
+    language = value;
+    currentAppLanguage = value;
+    notifyListeners();
+    final preferences = _prefs ?? await SharedPreferences.getInstance();
+    _prefs = preferences;
+    await preferences.setString(appLanguagePreferenceKey, value.code);
+    if (revision != _languageRevision || !isAuthenticated) return;
+    if (backendUrl.trim().isEmpty) return;
+    try {
+      await _backendClient.saveSettings(backendUrl, <String, dynamic>{
+        'ui_language': value.code,
+      });
+      if (revision != _languageRevision) return;
+      settings = <String, dynamic>{...settings, 'ui_language': value.code};
+    } catch (_) {
+      // The interface is already in the new language and the choice is stored
+      // on this device. The next settings read will try the account again.
+    }
+  }
+
+  /// An account that has chosen a language is authoritative, so the choice
+  /// follows somebody to a second device. An account that has never chosen
+  /// adopts what this device detected at first launch.
+  void _reconcileLanguage(int revision) {
+    if (revision != _languageRevision || !isAuthenticated) return;
+    final stored = AppLanguage.fromCode(settings['ui_language']?.toString());
+    if (stored == null) {
+      settings = <String, dynamic>{...settings, 'ui_language': language.code};
+      unawaited(
+        _backendClient
+            .saveSettings(backendUrl, <String, dynamic>{
+              'ui_language': language.code,
+            })
+            .catchError((Object _) => <String, dynamic>{}),
+      );
+      return;
+    }
+    if (stored == language) return;
+    language = stored;
+    currentAppLanguage = stored;
+    unawaited(_rememberLanguage(stored.code));
+  }
+
+  Future<void> _rememberLanguage(String code) async {
+    final preferences = _prefs ?? await SharedPreferences.getInstance();
+    _prefs = preferences;
+    await preferences.setString(appLanguagePreferenceKey, code);
+  }
+
   Future<void> refresh() async {
     if (!isAuthenticated) {
       return;
     }
 
     final authCycle = _authCycle;
+    final languageRevision = _languageRevision;
+    final refreshSeq = ++_refreshSeq;
     isRefreshing = true;
     errorMessage = null;
     notifyListeners();
@@ -2967,8 +2706,7 @@ class NeoAgentController extends ChangeNotifier {
         _authCycle += 1;
         _clearAuthenticatedState();
         if (hadAuthenticatedSession) {
-          errorMessage =
-              'Your session expired or was not retained by the browser. Please sign in again.';
+          errorMessage = appStrings.yourSessionExpiredOrWasNot;
           notifyListeners();
         }
         return;
@@ -3013,6 +2751,11 @@ class NeoAgentController extends ChangeNotifier {
         _backendClient.fetchAiProviders(backendUrl, agentId: agentId),
         const <String, dynamic>{'providers': <dynamic>[]},
       );
+      final systemOneModelsFuture = _softRefreshLoad<Map<String, dynamic>>(
+        'system_one_models',
+        _backendClient.fetchSystemOneModels(backendUrl, agentId: agentId),
+        const <String, dynamic>{'models': <dynamic>[]},
+      );
       final settingsMutationId = _settingsMutationId;
       final settingsWriteWasPending = _pendingSettingsWrites > 0;
       final settingsFuture = _softRefreshLoad<Map<String, dynamic>>(
@@ -3029,15 +2772,6 @@ class NeoAgentController extends ChangeNotifier {
         'runs',
         _backendClient.fetchRuns(backendUrl, agentId: agentId),
         const <String, dynamic>{'runs': <dynamic>[]},
-      );
-      final timelineFuture = _softRefreshLoad<Map<String, dynamic>>(
-        'timeline',
-        _backendClient.fetchTimeline(
-          backendUrl,
-          sources: selectedTimelineSources,
-          limit: 50,
-        ),
-        const <String, dynamic>{'items': <dynamic>[]},
       );
       final versionFuture = _softRefreshLoad<Map<String, dynamic>>(
         'version',
@@ -3078,11 +2812,6 @@ class NeoAgentController extends ChangeNotifier {
         _backendClient.fetchSkills(backendUrl),
         const <Map<String, dynamic>>[],
       );
-      final storeSkillsFuture = _softRefreshLoad<List<Map<String, dynamic>>>(
-        'skill_store',
-        _backendClient.fetchSkillStore(backendUrl),
-        const <Map<String, dynamic>>[],
-      );
       final officialIntegrationsFuture =
           _softRefreshLoad<List<Map<String, dynamic>>>(
             'official_integrations',
@@ -3117,7 +2846,6 @@ class NeoAgentController extends ChangeNotifier {
         _backendClient.fetchMcpServers(backendUrl, agentId: agentId),
         const <Map<String, dynamic>>[],
       );
-      unawaited(checkBillingEnabled());
       final computerFuture = _backendClient
           .fetchComputerStatus(backendUrl)
           .catchError((_) => const <String, dynamic>{});
@@ -3158,10 +2886,10 @@ class NeoAgentController extends ChangeNotifier {
       final history = await historyFuture;
       final modelsResponse = await modelsFuture;
       final providersResponse = await providersFuture;
+      final systemOneModelsResponse = await systemOneModelsFuture;
       final settingsResponse = await settingsFuture;
       final behaviorResponse = await behaviorFuture;
       final runsResponse = await runsFuture;
-      final timelineResponse = await timelineFuture;
       final versionResponse = await versionFuture;
       final setupStatusResponse = await setupStatusFuture;
       final tokenResponse = await tokenFuture;
@@ -3170,7 +2898,6 @@ class NeoAgentController extends ChangeNotifier {
       final messagingResponse = await messagingFuture;
       final messagingMessagesResponse = await messagingMessagesFuture;
       final skillsResponse = await skillsFuture;
-      final storeSkillsResponse = await storeSkillsFuture;
       final memoryResponse = await memoryFuture;
       final memoriesResponse = await memoriesFuture;
       final conversationsResponse = await conversationsFuture;
@@ -3193,6 +2920,11 @@ class NeoAgentController extends ChangeNotifier {
         ModelMeta.fromJson,
         fallbackToMapValues: true,
       );
+      systemOneModels = _decodeModelList(
+        'system_one_models',
+        systemOneModelsResponse['models'],
+        ModelMeta.fromJson,
+      );
 
       aiProviders = _decodeModelList(
         'ai_providers',
@@ -3205,6 +2937,7 @@ class NeoAgentController extends ChangeNotifier {
           settingsMutationId == _settingsMutationId &&
           agentId == _scopedAgentId) {
         settings = Map<String, dynamic>.from(settingsResponse);
+        _reconcileLanguage(languageRevision);
       }
       behaviorConfig = behaviorResponse['config'] is Map
           ? Map<String, dynamic>.from(behaviorResponse['config'] as Map)
@@ -3213,12 +2946,6 @@ class NeoAgentController extends ChangeNotifier {
         'runs',
         runsResponse['runs'],
         RunSummary.fromJson,
-        fallbackToMapValues: true,
-      );
-      timelineItems = _decodeModelList(
-        'timeline',
-        timelineResponse['items'],
-        TimelineEventItem.fromJson,
         fallbackToMapValues: true,
       );
       versionInfo = versionResponse;
@@ -3245,11 +2972,6 @@ class NeoAgentController extends ChangeNotifier {
         MessagingMessage.fromJson,
       );
       skills = _decodeModelList('skills', skillsResponse, SkillItem.fromJson);
-      storeSkills = _decodeModelList(
-        'skill_store',
-        storeSkillsResponse,
-        StoreSkillItem.fromJson,
-      );
       memoryOverview = MemoryOverview.fromJson(memoryResponse);
       memories = _decodeModelList(
         'memories',
@@ -3291,9 +3013,19 @@ class NeoAgentController extends ChangeNotifier {
       }
     } finally {
       isRefreshing = false;
+      // An older refresh that bailed out for a stale agent has applied
+      // nothing; the newest one decides when the first load is done.
+      if (refreshSeq == _refreshSeq && _isCurrentAuthCycle(authCycle)) {
+        hasLoadedInitialData = true;
+      }
       notifyListeners();
     }
   }
+
+  /// Whether [section] has no real data to show yet: nothing has loaded since
+  /// sign-in, or a bot switch emptied that bot's lists.
+  bool isAwaitingDataFor(AppSection section) =>
+      !hasLoadedInitialData || (isSwitchingAgent && section.isAgentScoped);
 
   bool _isCurrentAuthCycle(int authCycle) =>
       isAuthenticated && _authCycle == authCycle;
@@ -3361,11 +3093,14 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> refreshRunsOnly() async {
+    final agentId = _scopedAgentId;
     try {
       final runsResponse = await _backendClient.fetchRuns(
         backendUrl,
-        agentId: _scopedAgentId,
+        agentId: agentId,
       );
+      // A poll started before a bot switch must not land the old bot's runs.
+      if (agentId != _scopedAgentId) return;
       recentRuns = _decodeModelList(
         'runs',
         runsResponse['runs'],
@@ -3374,70 +3109,14 @@ class NeoAgentController extends ChangeNotifier {
       );
       _runDetailsCache.clear();
       runsRefreshedAt = DateTime.now();
-      tokenUsage = TokenUsageSnapshot.fromJson(
-        await _backendClient.fetchTokenUsageSummary(
-          backendUrl,
-          agentId: _scopedAgentId,
-        ),
+      final usage = await _backendClient.fetchTokenUsageSummary(
+        backendUrl,
+        agentId: agentId,
       );
+      if (agentId != _scopedAgentId) return;
+      tokenUsage = TokenUsageSnapshot.fromJson(usage);
       notifyListeners();
     } catch (_) {}
-  }
-
-  Future<void> refreshTimeline({
-    Set<String>? sources,
-    bool notify = true,
-  }) async {
-    if (!isAuthenticated) {
-      return;
-    }
-    if (sources != null) {
-      selectedTimelineSources = sources
-          .map((value) => value.trim().toLowerCase())
-          .where((value) => value.isNotEmpty)
-          .toSet();
-    }
-    isRefreshingTimeline = true;
-    if (notify) {
-      notifyListeners();
-    }
-    try {
-      final response = await _backendClient.fetchTimeline(
-        backendUrl,
-        sources: selectedTimelineSources,
-        limit: 50,
-      );
-      timelineItems = _decodeModelList(
-        'timeline',
-        response['items'],
-        TimelineEventItem.fromJson,
-        fallbackToMapValues: true,
-      );
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-    } finally {
-      isRefreshingTimeline = false;
-      if (notify) {
-        notifyListeners();
-      }
-    }
-  }
-
-  Future<void> toggleTimelineSource(String sourceKind) async {
-    final normalized = sourceKind.trim().toLowerCase();
-    if (normalized.isEmpty) {
-      return;
-    }
-    final next = <String>{...selectedTimelineSources};
-    if (next.contains(normalized)) {
-      if (next.length == 1) {
-        return;
-      }
-      next.remove(normalized);
-    } else {
-      next.add(normalized);
-    }
-    await refreshTimeline(sources: next);
   }
 
   Future<void> refreshMessaging() async {
@@ -3502,11 +3181,6 @@ class NeoAgentController extends ChangeNotifier {
       await _backendClient.fetchSkills(backendUrl),
       SkillItem.fromJson,
     );
-    storeSkills = _decodeModelList(
-      'skill_store',
-      await _backendClient.fetchSkillStore(backendUrl),
-      StoreSkillItem.fromJson,
-    );
     try {
       officialIntegrations = _decodeModelList(
         'official_integrations',
@@ -3543,6 +3217,28 @@ class NeoAgentController extends ChangeNotifier {
       ConversationItem.fromJson,
     );
     notifyListeners();
+  }
+
+  Future<MemoryGraph> fetchMemoryGraph({required int limit}) async {
+    return MemoryGraph.fromJson(
+      await _backendClient.fetchMemoryGraph(
+        backendUrl,
+        limit: limit,
+        agentId: _scopedAgentId,
+      ),
+    );
+  }
+
+  Future<List<MemoryItem>> fetchEntityMemories(String entityId) async {
+    return _decodeModelList(
+      'entity_memories',
+      await _backendClient.fetchEntityMemories(
+        backendUrl,
+        entityId,
+        agentId: _scopedAgentId,
+      ),
+      MemoryItem.fromJson,
+    );
   }
 
   Future<String> fetchMemoryTransferPrompt() async {
@@ -3592,7 +3288,7 @@ class NeoAgentController extends ChangeNotifier {
     );
   }
 
-    Future<List<TaskDeliveryTarget>> fetchTaskDeliveryTargets({
+  Future<List<TaskDeliveryTarget>> fetchTaskDeliveryTargets({
     String? query,
     String? platform,
     String? agentId,
@@ -3672,8 +3368,7 @@ class NeoAgentController extends ChangeNotifier {
     final normalized = provider.trim().toLowerCase();
     if (normalized == computerProvider || isRunningDeviceAction) return;
     if (normalized == 'local' && !_desktopCompanion.supported) {
-      errorMessage =
-          'Local computer control is available in the NeoAgent desktop app on macOS, Windows and Linux.';
+      errorMessage = appStrings.localComputerControlIsAvailableIn;
       notifyListeners();
       return;
     }
@@ -3990,10 +3685,10 @@ class NeoAgentController extends ChangeNotifier {
       final stderr = result['stderr']?.toString() ?? '';
       final exitCode = result['exitCode'];
       computerTerminalOutput = <String>[
-        '\$ $normalized',
+        appStrings.arg13(normalized),
         if (stdout.isNotEmpty) stdout.trimRight(),
         if (stderr.isNotEmpty) stderr.trimRight(),
-        if (exitCode != null) '[exit $exitCode]',
+        if (exitCode != null) appStrings.exitArg1(exitCode),
       ].join('\n');
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -4483,7 +4178,8 @@ class NeoAgentController extends ChangeNotifier {
       label: 'neoagent_workspace_file_download',
     );
     if (!result.launched) {
-      errorMessage = result.error ?? 'Could not open workspace file download.';
+      errorMessage =
+          result.error ?? appStrings.couldNotOpenWorkspaceFileDownload;
       notifyListeners();
     }
   }
@@ -4529,6 +4225,24 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setThemeMode(ThemeMode mode) async {
+    _appThemeMode = mode;
+    await _prefs?.setString('app.themeMode', mode.name);
+    notifyListeners();
+  }
+
+  Future<void> setLocationTriggersEnabled(bool value) async {
+    _locationTriggersEnabled = value;
+    await _prefs?.setBool('mobile.locationTriggersEnabled', value);
+    notifyListeners();
+  }
+
+  Future<void> setNotificationTriggersEnabled(bool value) async {
+    _notificationTriggersEnabled = value;
+    await _prefs?.setBool('mobile.notificationTriggersEnabled', value);
+    notifyListeners();
+  }
+
   Future<bool> _ensureSocketReady({
     Duration timeout = const Duration(seconds: 5),
   }) async {
@@ -4556,10 +4270,16 @@ class NeoAgentController extends ChangeNotifier {
     }
     final ready = await _ensureSocketReady();
     if (!ready || _socket == null) {
-      throw StateError('Live voice connection is not available.');
+      throw StateError(appStrings.liveVoiceConnectionIsNotAvailable);
     }
     final completer = Completer<void>();
     _liveVoiceSessionOpenCompleter = completer;
+    await _startLiveVoiceTelecomRouting();
+    voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+      state: 'connecting',
+      clearError: true,
+    );
+    notifyListeners();
     _socket!.emit('voice:session_open', <String, dynamic>{
       'agentId': _scopedAgentId,
       if (voiceAssistantLiveState.sessionId.trim().isNotEmpty)
@@ -4567,11 +4287,19 @@ class NeoAgentController extends ChangeNotifier {
     });
     try {
       await completer.future.timeout(
-        const Duration(seconds: 8),
+        const Duration(seconds: 20),
         onTimeout: () {
-          throw StateError('Live voice session did not initialize.');
+          throw StateError(appStrings.theLiveVoiceModelDidNot);
         },
       );
+    } catch (error) {
+      await _stopLiveVoiceTelecomRouting();
+      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+        state: 'idle',
+        error: _friendlyErrorMessage(error),
+      );
+      notifyListeners();
+      rethrow;
     } finally {
       if (identical(_liveVoiceSessionOpenCompleter, completer)) {
         _liveVoiceSessionOpenCompleter = null;
@@ -4579,10 +4307,25 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  /// On Android the call runs as a Telecom call: the earpiece unless the
+  /// speaker is chosen, the call's echo canceller, and the screen turning off
+  /// at the ear.
+  Future<void> _startLiveVoiceTelecomRouting() async {
+    if (_liveVoiceTelecomRouting) return;
+    try {
+      _liveVoiceTelecomRouting = await AndroidAutoBridge.instance
+          .startTelecomCallRouting();
+    } catch (_) {
+      // Call routing is an Android nicety; the session works without it.
+    }
+  }
+
   void acceptIncomingAgentCall() {
     final call = incomingAgentCall;
     if (call == null || call.accepting || _socket == null) return;
     incomingAgentCall = call.copyWith(accepting: true);
+    lastEndedCall = null;
+    unawaited(CallBridge.stopRinging());
     unawaited(
       _AppNotificationService.cancelIncomingCallNotification(call.callId),
     );
@@ -4592,17 +4335,20 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void declineIncomingAgentCall() {
+  /// With [later] the agent hears that the user wants a call back.
+  void declineIncomingAgentCall({bool later = false}) {
     final call = incomingAgentCall;
     if (call == null) return;
+    if (call.accepting) _abandonedCallId = call.callId;
     _socket?.emit('voice:call_decline', <String, dynamic>{
       'callId': call.callId,
+      if (later) 'later': true,
     });
     _clearIncomingAgentCall(call.callId);
     notifyListeners();
   }
 
-  void _clearIncomingAgentCall([String? callId]) {
+  void _clearIncomingAgentCall(String? callId, {bool sessionStarted = false}) {
     final current = incomingAgentCall;
     if (current == null || (callId != null && current.callId != callId)) return;
     _incomingCallExpiryTimer?.cancel();
@@ -4612,173 +4358,70 @@ class NeoAgentController extends ChangeNotifier {
     unawaited(
       _AppNotificationService.cancelIncomingCallNotification(current.callId),
     );
+    // A started call keeps the screen over the lock screen until it ends.
+    if (!sessionStarted) _releaseCallPresentation();
   }
 
-  String _createLiveVoiceTurnId() {
-    _liveVoiceTurnCounter += 1;
-    return 'live_${DateTime.now().millisecondsSinceEpoch}_$_liveVoiceTurnCounter';
-  }
-
-  bool _hasRecoverableLiveVoiceTurn() {
-    final recoverableUntil = _liveVoiceRecoverableUntil;
-    if ((_liveVoiceTurnId ?? '').trim().isEmpty) {
-      return false;
+  Future<void> _ringIncomingAgentCall(IncomingAgentCall call) async {
+    showIncomingCallBrowserAlert(call.callId, call.agentName);
+    if (_supportsDesktopShell) {
+      unawaited(windowManager.show());
+      unawaited(windowManager.focus());
     }
-    if (recoverableUntil == null || !recoverableUntil.isAfter(DateTime.now())) {
-      return false;
+    unawaited(CallBridge.startRinging());
+    unawaited(_AppNotificationService.showIncomingCallNotification(call));
+    final broughtForward = await CallBridge.present();
+    if (incomingAgentCall?.callId == call.callId) {
+      _callBroughtAppForward = _callBroughtAppForward || broughtForward;
+    } else if (broughtForward) {
+      // The call ended while the app was coming forward.
+      unawaited(CallBridge.dismiss(moveToBack: true));
     }
-    return _liveVoiceBufferedChunks.isNotEmpty ||
-        _liveVoiceCaptureActive ||
-        _liveVoiceCommitPending ||
-        _liveVoiceAwaitingResponse;
   }
 
-  void _setLiveVoiceRecoveryWindow() {
-    _liveVoiceRecoveryTimer?.cancel();
-    final recoverableUntil = DateTime.now().add(const Duration(seconds: 15));
-    _liveVoiceRecoverableUntil = recoverableUntil;
-    _liveVoiceRecoveryTimer = Timer(const Duration(seconds: 15), () {
-      if (!_hasRecoverableLiveVoiceTurn()) {
-        return;
-      }
-      _liveVoiceCaptureActive = false;
-      _pendingLiveVoiceStop = false;
-      unawaited(_liveVoiceCapture.stop());
-      _resetLiveVoiceTurnBuffer();
-      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-        sessionId: '',
-        transportState: 'disconnected',
-        state: 'error',
-        error: 'Live voice reconnect timed out. Try again.',
-        clearAudio: true,
-        clearRecoverableUntil: true,
-      );
+  void _releaseCallPresentation() {
+    final moveToBack = _callBroughtAppForward;
+    _callBroughtAppForward = false;
+    unawaited(CallBridge.dismiss(moveToBack: moveToBack));
+  }
+
+  void _handleCallNotificationAction(String callId, String action) {
+    if (incomingAgentCall?.callId != callId) return;
+    if (action == _AppNotificationService.callAnswerActionId) {
+      acceptIncomingAgentCall();
+    } else if (action == _AppNotificationService.callDeclineActionId) {
+      declineIncomingAgentCall();
       notifyListeners();
-    });
-    voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-      recoverableUntil: recoverableUntil,
-    );
-  }
-
-  void _resetLiveVoiceTurnBuffer({bool clearRecovery = true}) {
-    _liveVoiceTurnId = null;
-    _liveVoiceBufferedChunks.clear();
-    _liveVoiceAckThrough = -1;
-    _liveVoiceFinalSequence = -1;
-    _liveVoiceCommitPending = false;
-    _liveVoiceAwaitingResponse = false;
-    _liveVoicePendingCommitPayload = null;
-    _liveVoiceCaptureStartedAt = null;
-    if (clearRecovery) {
-      _liveVoiceRecoveryTimer?.cancel();
-      _liveVoiceRecoveryTimer = null;
-      _liveVoiceRecoverableUntil = null;
-      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-        clearRecoverableUntil: true,
-      );
     }
   }
 
-  void _markLiveVoiceChunksForReplay() {
-    _liveVoiceAckThrough = -1;
-    for (final chunk in _liveVoiceBufferedChunks) {
-      chunk.sent = false;
-    }
+  /// The name on the call screen: the agent that is calling, or the one the
+  /// call is with.
+  String get callAgentName {
+    final ringing = incomingAgentCall?.agentName.trim() ?? '';
+    if (ringing.isNotEmpty) return ringing;
+    final active = activeAgent?.displayName.trim() ?? '';
+    return active.isNotEmpty ? active : 'NeoAgent';
   }
 
-  void _sendLiveVoiceInputStart({
-    required String sessionId,
-    required String turnId,
-  }) {
-    final socket = _socket;
-    if (socket == null) {
-      return;
-    }
-    socket.emit('voice:input_start', <String, dynamic>{
-      'sessionId': sessionId,
-      'turnId': turnId,
-      'mimeType':
-          'audio/pcm;rate=${voiceAssistantLiveState.inputSampleRate};channels=1',
-    });
+  Future<void> toggleCallSpeakerphone() async {
+    callSpeakerphoneOn = !callSpeakerphoneOn;
+    notifyListeners();
+    await CallBridge.setSpeakerphone(callSpeakerphoneOn);
   }
 
-  Future<void> _flushLiveVoiceBufferedChunks() async {
-    final socket = _socket;
-    final sessionId = voiceAssistantLiveState.sessionId.trim();
-    final turnId = (_liveVoiceTurnId ?? '').trim();
-    if (socket == null ||
-        !socketConnected ||
-        sessionId.isEmpty ||
-        turnId.isEmpty) {
-      return;
-    }
-    for (final chunk in _liveVoiceBufferedChunks) {
-      if (chunk.sent) {
-        continue;
-      }
-      socket.emit('voice:audio_chunk', <String, dynamic>{
-        'sessionId': sessionId,
-        'turnId': turnId,
-        'sequence': chunk.sequence,
-        'mimeType':
-            'audio/pcm;rate=${voiceAssistantLiveState.inputSampleRate};channels=1',
-        'audioBase64': base64Encode(chunk.bytes),
-      });
-      chunk.sent = true;
-    }
+  void dismissCallRecap() {
+    if (lastEndedCall == null) return;
+    lastEndedCall = null;
+    notifyListeners();
   }
 
-  Future<void> _emitPendingLiveVoiceCommitIfReady() async {
-    final socket = _socket;
-    final sessionId = voiceAssistantLiveState.sessionId.trim();
-    final turnId = (_liveVoiceTurnId ?? '').trim();
-    if (!_liveVoiceCommitPending ||
-        socket == null ||
-        !socketConnected ||
-        sessionId.isEmpty ||
-        turnId.isEmpty ||
-        _liveVoiceFinalSequence < 0 ||
-        _liveVoiceAckThrough < _liveVoiceFinalSequence) {
-      return;
-    }
-    final payload = <String, dynamic>{
-      'sessionId': sessionId,
-      'turnId': turnId,
-      'finalSequence': _liveVoiceFinalSequence,
-      ...?_liveVoicePendingCommitPayload,
-    };
-    _liveVoiceCommitPending = false;
-    _liveVoiceAwaitingResponse = true;
-    socket.emit('voice:input_commit', payload);
-  }
-
-  Future<void> _restoreBufferedLiveVoiceTurnToActiveSession() async {
-    final sessionId = voiceAssistantLiveState.sessionId.trim();
-    final turnId = (_liveVoiceTurnId ?? '').trim();
-    if (sessionId.isEmpty ||
-        turnId.isEmpty ||
-        !_hasRecoverableLiveVoiceTurn()) {
-      return;
-    }
-    _markLiveVoiceChunksForReplay();
-    _sendLiveVoiceInputStart(sessionId: sessionId, turnId: turnId);
-    await _flushLiveVoiceBufferedChunks();
-    await _emitPendingLiveVoiceCommitIfReady();
-  }
-
+  // The microphone streams straight to the live model, which decides when a
+  // turn ends; there is nothing to buffer or commit on the client.
   Future<void> startLiveVoiceCapture() async {
-    if (_isStartingLiveVoice || _isStoppingLiveVoice) {
+    if (_isStartingLiveVoice || _liveVoiceCaptureActive) {
       return;
     }
-
-    bool routingStarted = false;
-    try {
-      routingStarted = await AndroidAutoBridge.instance
-          .startTelecomCallRouting();
-    } catch (_) {
-      // Swallowed safely
-    }
-
     _isStartingLiveVoice = true;
     _pendingLiveVoiceStop = false;
     errorMessage = null;
@@ -4791,100 +4434,89 @@ class NeoAgentController extends ChangeNotifier {
       },
     );
     notifyListeners();
-
+    // Browsers only let audio start from a user gesture, so the player comes
+    // up with the press, before the session answers. Both live providers
+    // speak 24 kHz PCM.
+    unawaited(
+      _liveVoicePlayer.start(sampleRate: 24000).catchError((Object error) {
+        AppDiagnostics.log('voice', 'playback.start_failed', error: error);
+      }),
+    );
     try {
       await ensureLiveVoiceSession();
       final sessionId = voiceAssistantLiveState.sessionId.trim();
-      if (sessionId.isEmpty || _socket == null) {
-        throw StateError('Live voice session did not initialize.');
+      if (!voiceAssistantLiveState.isHandsFree) {
+        // Talking over the assistant stops it right away.
+        await _liveVoicePlayer.flush();
       }
-      final turnId = _createLiveVoiceTurnId();
-      _resetLiveVoiceTurnBuffer(clearRecovery: false);
-      _liveVoiceTurnId = turnId;
-      _setLiveVoiceRecoveryWindow();
-      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-        transportState: 'connected',
-        state: 'listening',
-        clearAudio: true,
-        clearError: true,
-      );
-      notifyListeners();
-      _sendLiveVoiceInputStart(sessionId: sessionId, turnId: turnId);
+      _socket?.emit('voice:input_start', <String, dynamic>{
+        'sessionId': sessionId,
+      });
       await _liveVoiceCapture.start(
         sampleRate: voiceAssistantLiveState.inputSampleRate,
-        onChunk: (Uint8List chunk) {
-          final sequence = _liveVoiceBufferedChunks.length;
-          _liveVoiceBufferedChunks.add(
-            LiveVoiceBufferedChunk(sequence: sequence, bytes: chunk),
-          );
-          _setLiveVoiceRecoveryWindow();
-          unawaited(_flushLiveVoiceBufferedChunks());
-        },
+        onChunk: _sendLiveVoiceAudio,
         onError: (Object error, StackTrace stackTrace) {
-          if (routingStarted) {
-            AndroidAutoBridge.instance.stopTelecomCallRouting();
-          }
           AppDiagnostics.log(
             'desktop.assistant',
             'ptt.capture_error',
             error: error,
             stackTrace: stackTrace,
           );
-          if (!_liveVoiceCaptureActive && !_isStartingLiveVoice) {
-            return;
-          }
-          _liveVoiceCaptureActive = false;
-          _resetLiveVoiceTurnBuffer();
-          voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-            state: 'error',
-            error: _friendlyErrorMessage(error),
-          );
-          notifyListeners();
+          _handleLiveVoiceCaptureLost(_friendlyErrorMessage(error));
         },
-        onStoppedUnexpectedly: () {
-          if (routingStarted) {
-            AndroidAutoBridge.instance.stopTelecomCallRouting();
-          }
-          AppDiagnostics.log(
-            'desktop.assistant',
-            'ptt.capture_stopped_unexpectedly',
-          );
-          if (!_liveVoiceCaptureActive && !_isStartingLiveVoice) {
-            return;
-          }
-          _liveVoiceCaptureActive = false;
-          _resetLiveVoiceTurnBuffer();
-          voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-            state: 'error',
-            error:
-                'Microphone capture stopped unexpectedly. Re-open the assistant and try again.',
-          );
-          notifyListeners();
-        },
+        onStoppedUnexpectedly: () => _handleLiveVoiceCaptureLost(
+          appStrings.microphoneCaptureStoppedUnexpectedlyTryAgain,
+        ),
       );
       _liveVoiceCaptureActive = true;
-      _liveVoiceCaptureStartedAt = DateTime.now();
       AppDiagnostics.log(
         'desktop.assistant',
         'ptt.capture_started',
-        data: <String, Object?>{'sessionId': sessionId},
+        data: <String, Object?>{
+          'sessionId': voiceAssistantLiveState.sessionId.trim(),
+        },
       );
       if (_pendingLiveVoiceStop) {
         _pendingLiveVoiceStop = false;
         await stopLiveVoiceCapture();
-        return;
       }
     } catch (error) {
-      if (routingStarted) {
-        await AndroidAutoBridge.instance.stopTelecomCallRouting();
-      }
-      _liveVoiceCaptureActive = false;
-      _pendingLiveVoiceStop = false;
+      // A denied or missing microphone must be visible, not look like mute.
+      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+        error: _friendlyErrorMessage(error),
+      );
       rethrow;
     } finally {
       _isStartingLiveVoice = false;
       notifyListeners();
     }
+  }
+
+  void _sendLiveVoiceAudio(Uint8List chunk) {
+    final socket = _socket;
+    final sessionId = voiceAssistantLiveState.sessionId.trim();
+    if (socket == null || !socketConnected || sessionId.isEmpty) {
+      return;
+    }
+    socket.emit('voice:audio', <String, dynamic>{
+      'sessionId': sessionId,
+      'audioBase64': base64Encode(chunk),
+    });
+  }
+
+  void _handleLiveVoiceCaptureLost(String message) {
+    if (!_liveVoiceCaptureActive && !_isStartingLiveVoice) {
+      return;
+    }
+    _liveVoiceCaptureActive = false;
+    voiceAssistantLiveState = voiceAssistantLiveState.copyWith(error: message);
+    notifyListeners();
+  }
+
+  Future<void> _stopLiveVoiceTelecomRouting() async {
+    if (!_liveVoiceTelecomRouting) return;
+    _liveVoiceTelecomRouting = false;
+    await AndroidAutoBridge.instance.stopTelecomCallRouting();
   }
 
   Future<void> toggleLiveVoiceCapture() async {
@@ -4895,19 +4527,8 @@ class NeoAgentController extends ChangeNotifier {
     await startLiveVoiceCapture();
   }
 
+  /// Push-to-talk release, or muting a hands-free call.
   Future<void> stopLiveVoiceCapture() async {
-    await AndroidAutoBridge.instance.stopTelecomCallRouting();
-    AppDiagnostics.log(
-      'desktop.assistant',
-      'ptt.stop_request',
-      data: <String, Object?>{
-        'isStarting': _isStartingLiveVoice,
-        'isActive': _liveVoiceCaptureActive,
-      },
-    );
-    if (_isStoppingLiveVoice) {
-      return;
-    }
     if (_isStartingLiveVoice && !_liveVoiceCaptureActive) {
       _pendingLiveVoiceStop = true;
       return;
@@ -4915,96 +4536,185 @@ class NeoAgentController extends ChangeNotifier {
     if (!_liveVoiceCaptureActive) {
       return;
     }
-    _isStoppingLiveVoice = true;
-    try {
-      _liveVoiceCaptureActive = false;
-      _liveVoiceCaptureStartedAt = null;
-      await _liveVoiceCapture.stop();
-      if (_liveVoiceBufferedChunks.isEmpty) {
-        _resetLiveVoiceTurnBuffer();
-        voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-          state: 'idle',
-          clearRecoverableUntil: true,
-        );
-        return;
-      }
-      AppDiagnostics.log(
-        'desktop.assistant',
-        'ptt.capture_committing',
-        data: <String, Object?>{
-          'sessionId': voiceAssistantLiveState.sessionId.trim(),
-          'turnId': _liveVoiceTurnId,
-        },
-      );
-      _liveVoiceFinalSequence = _liveVoiceBufferedChunks.length - 1;
-      _liveVoiceCommitPending = true;
-      _liveVoicePendingCommitPayload = <String, dynamic>{};
-      _setLiveVoiceRecoveryWindow();
-      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-        state: 'transcribing',
-      );
-      await _flushLiveVoiceBufferedChunks();
-      await _emitPendingLiveVoiceCommitIfReady();
-    } finally {
-      _isStoppingLiveVoice = false;
-      notifyListeners();
+    _liveVoiceCaptureActive = false;
+    await _liveVoiceCapture.stop();
+    final sessionId = voiceAssistantLiveState.sessionId.trim();
+    if (sessionId.isNotEmpty) {
+      _socket?.emit('voice:input_end', <String, dynamic>{
+        'sessionId': sessionId,
+      });
     }
+    AppDiagnostics.log('desktop.assistant', 'ptt.capture_stopped');
+    notifyListeners();
   }
 
+  /// Silences the assistant and the microphone (Android Auto stop, desktop
+  /// popup cancel).
   Future<void> interruptLiveVoiceAssistant() async {
-    await AndroidAutoBridge.instance.stopTelecomCallRouting();
-    final sessionId = voiceAssistantLiveState.sessionId.trim();
-    if (sessionId.isEmpty || _socket == null) {
-      return;
-    }
-    _socket!.emit('voice:interrupt', <String, dynamic>{'sessionId': sessionId});
-    _liveVoiceCaptureActive = false;
-    _liveVoiceCaptureStartedAt = null;
-    _pendingLiveVoiceStop = false;
-    _resetLiveVoiceTurnBuffer();
-    voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-      state: 'idle',
-      clearRecoverableUntil: true,
-    );
-    notifyListeners();
+    await stopLiveVoiceCapture();
+    await stopLiveVoicePlayback();
   }
 
   Future<void> stopLiveVoicePlayback() async {
     final sessionId = voiceAssistantLiveState.sessionId.trim();
     if (sessionId.isEmpty || _socket == null) return;
+    await _liveVoicePlayer.flush();
     _socket!.emit('voice:interrupt', <String, dynamic>{'sessionId': sessionId});
-    voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-      state: voiceAssistantLiveState.activeRunId.trim().isNotEmpty
-          ? 'working'
-          : 'idle',
-      clearAudio: true,
-    );
-    notifyListeners();
   }
 
+  /// Stops the task the call screen shows, the newest one.
   Future<void> cancelLiveVoiceTask() async {
     final sessionId = voiceAssistantLiveState.sessionId.trim();
     if (sessionId.isEmpty || _socket == null) return;
     _socket!.emit('voice:cancel_task', <String, dynamic>{
       'sessionId': sessionId,
+      'runId': voiceAssistantLiveState.activeRunId,
     });
   }
 
-  Future<void> closeLiveVoiceSession({bool cancelTask = false}) async {
-    final sessionId = voiceAssistantLiveState.sessionId.trim();
-    if (sessionId.isEmpty || _socket == null) {
+  /// The call's running tasks, as a (re)connected session reports them.
+  List<VoiceCallTask> _voiceCallTasksFrom(Map<String, dynamic> payload) {
+    final listed = payload['tasks'];
+    if (listed is List) {
+      return <VoiceCallTask>[
+        for (final entry in listed.whereType<Map>())
+          VoiceCallTask(
+            runId: entry['runId']?.toString() ?? '',
+            request: entry['request']?.toString() ?? '',
+          ),
+      ];
+    }
+    final runId = payload['activeRunId']?.toString() ?? '';
+    return runId.isEmpty
+        ? const <VoiceCallTask>[]
+        : <VoiceCallTask>[VoiceCallTask(runId: runId)];
+  }
+
+  /// Keyboard clicks fill the quiet while a handed-off task runs. Speech,
+  /// reconnecting, and an idle call stay silent.
+  void _syncVoiceWorkClicks() {
+    final play =
+        !_liveVoiceHearingSpeech && voiceAssistantLiveState.isWorkingSilently;
+    if (!play) {
+      _haltVoiceWorkClicks();
       return;
     }
-    _socket!.emit('voice:session_close', <String, dynamic>{
-      'sessionId': sessionId,
-      'cancelTask': cancelTask,
+    if (_voiceWorkClicks?.isPlaying == true) return;
+    _voiceWorkClickArm?.cancel();
+    // Typing waits until speech still playing is heard out: the server stops
+    // reporting speech once it has sent it, and on Android typing shares the
+    // call track, so speech arriving after it would flush both.
+    final delay =
+        const Duration(milliseconds: 180) + _liveVoicePlayer.speechRemaining;
+    _voiceWorkClickArm = Timer(delay, () {
+      _voiceWorkClickArm = null;
+      if (_liveVoiceHearingSpeech ||
+          !voiceAssistantLiveState.isWorkingSilently) {
+        return;
+      }
+      unawaited(_ensureVoiceWorkClicks());
     });
+  }
+
+  Future<void> _ensureVoiceWorkClicks() async {
+    final generation = ++_voiceWorkClickGeneration;
+    if (_liveVoiceHearingSpeech || !voiceAssistantLiveState.isWorkingSilently) {
+      return;
+    }
+    final List<Uint8List> clicks;
+    try {
+      final cached = _voiceKeyClickPcm;
+      if (cached != null) {
+        clicks = cached;
+      } else {
+        clicks = <Uint8List>[
+          for (final asset in voiceWorkTypingAssets)
+            voiceWorkTypingFromWav(await _loadAssetBytes(asset)),
+        ];
+        _voiceKeyClickPcm = clicks;
+      }
+      await _liveVoicePlayer.prepareWorkClicks(clicks);
+    } catch (error, stackTrace) {
+      AppDiagnostics.log(
+        'voice',
+        'work_clicks.unavailable',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return;
+    }
+    if (generation != _voiceWorkClickGeneration ||
+        _liveVoiceHearingSpeech ||
+        !voiceAssistantLiveState.isWorkingSilently) {
+      return;
+    }
+    final sampleRate = voiceAssistantLiveState.outputSampleRate;
+    final existing = _voiceWorkClicks;
+    if (existing == null || existing.sampleRate != sampleRate) {
+      existing?.dispose();
+      _voiceWorkClicks = VoiceWorkClicks(
+        sampleRate: sampleRate,
+        clicks: clicks,
+      );
+    }
+    _voiceWorkClicks!.start(_liveVoicePlayer.addWorkClick);
+  }
+
+  static Future<Uint8List> _loadAssetBytes(String asset) async {
+    final data = await rootBundle.load(asset);
+    return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+  }
+
+  void _haltVoiceWorkClicks() {
+    _voiceWorkClickArm?.cancel();
+    _voiceWorkClickArm = null;
+    _voiceWorkClickGeneration++;
+    _voiceWorkClicks?.stop();
+    unawaited(_liveVoicePlayer.stopWorkClicks());
+  }
+
+  /// The state resets before the async teardown, so an error that arrives
+  /// meanwhile (a failed connect reports closed, then why) is not wiped.
+  /// [error] keeps the reason a server-ended call stopped on screen.
+  Future<void> closeLiveVoiceSession({
+    bool cancelTask = false,
+    String? error,
+  }) async {
+    final sessionId = voiceAssistantLiveState.sessionId.trim();
+    final startedAt = _liveVoiceSessionStartedAt;
+    if (startedAt != null) {
+      final request = voiceAssistantLiveState.activeTaskRequest.trim();
+      lastEndedCall = EndedAgentCall(
+        agentName: callAgentName,
+        duration: DateTime.now().difference(startedAt),
+        backgroundTask: voiceAssistantLiveState.hasActiveTask && !cancelTask
+            ? request
+            : null,
+      );
+    }
+    if (callSpeakerphoneOn) {
+      callSpeakerphoneOn = false;
+      unawaited(CallBridge.setSpeakerphone(false));
+    }
+    _callBroughtAppForward = false;
+    unawaited(CallBridge.dismiss());
+    _liveVoiceHearingSpeech = false;
+    _haltVoiceWorkClicks();
     _liveVoiceCaptureActive = false;
-    _liveVoiceCaptureStartedAt = null;
     _pendingLiveVoiceStop = false;
-    _resetLiveVoiceTurnBuffer();
-    voiceAssistantLiveState = VoiceAssistantLiveState();
+    _returnHomeAfterCall = false;
+    _liveVoiceSessionStartedAt = null;
+    voiceAssistantLiveState = VoiceAssistantLiveState(error: error);
     notifyListeners();
+    if (sessionId.isNotEmpty) {
+      _socket?.emit('voice:session_close', <String, dynamic>{
+        'sessionId': sessionId,
+        'cancelTask': cancelTask,
+      });
+    }
+    await _liveVoiceCapture.stop();
+    await _liveVoicePlayer.stop();
+    await _stopLiveVoiceTelecomRouting();
   }
 
   bool _matchesLiveVoiceSessionPayload(Map<String, dynamic> payload) {
@@ -5019,49 +4729,27 @@ class NeoAgentController extends ChangeNotifier {
     return payloadSessionId == activeSessionId;
   }
 
-  void _upsertVoiceTimelineItem({
-    required Map<String, dynamic> payload,
-    required String role,
-    required String kind,
-    required String content,
-    required bool isFinal,
-  }) {
-    final sessionId = payload['sessionId']?.toString().trim().isNotEmpty == true
-        ? payload['sessionId'].toString()
-        : voiceAssistantLiveState.sessionId;
-    final turnId = payload['turnId']?.toString().trim().isNotEmpty == true
-        ? payload['turnId'].toString()
-        : (_liveVoiceTurnId ?? '');
-    final runId = payload['runId']?.toString() ?? '';
-    final messageId =
-        payload['messageId']?.toString() ??
-        payload['outboxId']?.toString() ??
-        '';
-    final id = role == 'user' && turnId.isNotEmpty
-        ? '$sessionId:$turnId:user'
-        : messageId.isNotEmpty
-        ? messageId
-        : '$sessionId:$turnId:$role:$kind:${content.hashCode}';
+  /// Transcripts stream in as growing partials of the current speaker's turn;
+  /// a final one closes the turn and joins the chat like a typed message.
+  void _applyLiveVoiceTranscript(Map<String, dynamic> payload) {
+    final role = payload['role']?.toString() == 'assistant'
+        ? 'assistant'
+        : 'user';
+    final content = payload['content']?.toString().trim() ?? '';
+    if (content.isEmpty) return;
+    final isFinal = payload['final'] == true;
     final timeline = voiceAssistantLiveState.timeline.toList(growable: true);
-    final index = timeline.indexWhere((item) => item.id == id);
-    if (index >= 0) {
-      timeline[index] = timeline[index].copyWith(
-        runId: runId,
-        messageId: messageId,
-        kind: kind,
+    final last = timeline.isEmpty ? null : timeline.last;
+    if (last != null && last.role == role && !last.isFinal) {
+      timeline[timeline.length - 1] = last.copyWith(
         content: content,
         isFinal: isFinal,
       );
     } else {
       timeline.add(
         VoiceTimelineItem(
-          id: id,
-          sessionId: sessionId,
-          turnId: turnId,
-          runId: runId,
-          messageId: messageId,
+          id: '${voiceAssistantLiveState.sessionId}:${DateTime.now().microsecondsSinceEpoch}',
           role: role,
-          kind: kind,
           content: content,
           isFinal: isFinal,
           createdAt: DateTime.now(),
@@ -5072,10 +4760,10 @@ class NeoAgentController extends ChangeNotifier {
       timeline: timeline.length > 100
           ? timeline.sublist(timeline.length - 100)
           : timeline,
-      activeRunId: runId.isNotEmpty
-          ? runId
-          : voiceAssistantLiveState.activeRunId,
     );
+    if (isFinal) {
+      _appendChatMessage(content, role: role, platform: 'voice_live');
+    }
   }
 
   void _appendAssistantChatMessage(
@@ -5143,7 +4831,10 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<List<RunPromptTurn>> fetchRunPromptTurns(String runId) async {
-    final response = await _backendClient.fetchRunPromptTurns(backendUrl, runId);
+    final response = await _backendClient.fetchRunPromptTurns(
+      backendUrl,
+      runId,
+    );
     final turns = response['turns'];
     if (turns is! List) {
       return const <RunPromptTurn>[];
@@ -5225,6 +4916,7 @@ class NeoAgentController extends ChangeNotifier {
     );
     chatMessages = <ChatEntry>[...chatMessages, optimistic];
     errorMessage = null;
+    aiModelsUnavailable = false;
     if (!canSteerLiveRun) {
       isSendingMessage = true;
       toolEvents = const <ToolEventItem>[];
@@ -5256,6 +4948,11 @@ class NeoAgentController extends ChangeNotifier {
       await refreshRunsOnly();
       await refreshRateLimitUsage();
     } catch (error) {
+      if (error is BackendException && error.code == _aiModelsUnavailableCode) {
+        activeRun = null;
+        _showModelSetupNotice();
+        return;
+      }
       final friendlyError = _friendlyErrorMessage(error);
       chatMessages = <ChatEntry>[
         ...chatMessages,
@@ -5280,51 +4977,15 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
-  Future<void> saveSettings({
-    required bool smarterSelector,
-    required List<String> enabledModels,
-    required String defaultChatModel,
-    required String defaultSubagentModel,
-    required String defaultSpeechModel,
-    required String voiceSttProvider,
-    required String voiceSttModel,
-    required String voiceTtsProvider,
-    required String voiceTtsModel,
-    required String voiceTtsVoice,
-    required String voiceMediaMode,
-    required String voiceInputMode,
-  }) async {
-    _beginSettingsSave();
-
-    final payload = <String, dynamic>{
-      'headless_browser': true,
-      'runtime_profile': 'cloud-computer',
-      'runtime_backend': 'qemu',
-      'smarter_model_selector': smarterSelector,
-      'enabled_models': enabledModels,
-      'default_chat_model': defaultChatModel,
-      'default_subagent_model': defaultSubagentModel,
-      'default_speech_model': defaultSpeechModel,
-      'voice_stt_provider': voiceSttProvider,
-      'voice_stt_model': voiceSttModel,
-      'voice_tts_provider': voiceTtsProvider,
-      'voice_tts_model': voiceTtsModel,
-      'voice_tts_voice': voiceTtsVoice,
-      'voice_media_mode': voiceMediaMode,
-      'voice_input_mode': voiceInputMode,
-    };
-
-    final agentId = _scopedAgentId;
-    final mutationId = ++_settingsMutationId;
-    try {
-      await _queueSettingsWrite(payload, agentId: agentId);
-      if (mutationId == _settingsMutationId && agentId == _scopedAgentId) {
-        settings = <String, dynamic>{...settings, ...payload};
-      }
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-    } finally {
-      _finishSettingsSave();
+  /// Merges [patch] into this agent's behavior config and saves it. The change
+  /// shows at once; a failed save restores the previous config.
+  Future<void> updateBehaviorConfig(Map<String, dynamic> patch) async {
+    final previous = behaviorConfig;
+    behaviorConfig = <String, dynamic>{...behaviorConfig, ...patch};
+    await saveBehaviorConfig(behaviorConfig);
+    if (errorMessage != null) {
+      behaviorConfig = previous;
+      notifyListeners();
     }
   }
 
@@ -5389,6 +5050,44 @@ class NeoAgentController extends ChangeNotifier {
         .toList(growable: false);
   }
 
+  static const String _aiModelsUnavailableCode = 'AI_MODELS_UNAVAILABLE';
+
+  /// Whether at least one chat model can actually be used right now.
+  bool get hasUsableChatModel => supportedModels.any(
+    (model) => model.available && !model.id.startsWith('tool:'),
+  );
+
+  /// True when chat cannot work until someone adds an AI provider key.
+  bool get needsModelSetup =>
+      aiModelsUnavailable || (hasLoadedInitialData && !hasUsableChatModel);
+
+  void _showModelSetupNotice() {
+    aiModelsUnavailable = true;
+    errorMessage = null;
+    unawaited(refreshAiCatalog());
+  }
+
+  /// Whether any connected integration provides one of [appIds], for example
+  /// `gmail`/`outlook` for email or `calendar`.
+  bool hasConnectedIntegrationApp(Set<String> appIds) =>
+      officialIntegrations.any(
+        (integration) => integration.apps.any(
+          (app) => appIds.contains(app.id) && app.connection.connected,
+        ),
+      );
+
+  /// Whether the agent's own computer can run: null until the first status
+  /// arrives, then whether the runtime reports itself ready.
+  bool? get computerRuntimeAvailable {
+    if (!hasLoadedInitialData) return null;
+    if (computerRuntime['state']?.toString() == 'error') return false;
+    if (computerRuntime['provider']?.toString() == 'local') {
+      final local = _jsonMap(_jsonMap(computerRuntime['providers'])['local']);
+      return local['connected'] == true;
+    }
+    return _jsonMap(computerRuntime['readiness'])['ready'] == true;
+  }
+
   Future<void> refreshAiCatalog() async {
     if (!isAuthenticated) return;
     try {
@@ -5401,11 +5100,20 @@ class NeoAgentController extends ChangeNotifier {
         backendUrl,
         agentId: agentId,
       );
+      final systemOneModelsResponse = await _backendClient.fetchSystemOneModels(
+        backendUrl,
+        agentId: agentId,
+      );
       supportedModels = _decodeModelList(
         'supported_models',
         modelsResponse['models'],
         ModelMeta.fromJson,
         fallbackToMapValues: true,
+      );
+      systemOneModels = _decodeModelList(
+        'system_one_models',
+        systemOneModelsResponse['models'],
+        ModelMeta.fromJson,
       );
       aiProviders = _decodeModelList(
         'ai_providers',
@@ -5556,96 +5264,6 @@ class NeoAgentController extends ChangeNotifier {
     );
   }
 
-  // ── Billing ──────────────────────────────────────────────────────────────
-
-  Future<void> checkBillingEnabled() async {
-    try {
-      final r = await _backendClient.getBillingPlans(backendUrl);
-      final enabled = r['plans'] != null;
-      if (showBillingSection != enabled) {
-        showBillingSection = enabled;
-        notifyListeners();
-      }
-    } catch (_) {
-      if (showBillingSection) {
-        showBillingSection = false;
-        notifyListeners();
-      }
-    }
-  }
-
-  Future<void> refreshBilling() async {
-    if (!isAuthenticated || !showBillingSection) return;
-    isLoadingBilling = true;
-    notifyListeners();
-    try {
-      final results = await Future.wait(<Future<Map<String, dynamic>>>[
-        _backendClient.getBillingInfo(backendUrl),
-        _backendClient.getBillingPlans(backendUrl),
-        _backendClient.getBillingInvoices(backendUrl),
-      ]);
-      billingSubscription = results[0]['subscription'] as Map<String, dynamic>?;
-      billingPlans = _asDynList(
-        results[1]['plans'],
-      ).cast<Map<String, dynamic>>();
-      billingInvoices = _asDynList(
-        results[2]['invoices'],
-      ).cast<Map<String, dynamic>>();
-    } catch (_) {
-      // retain previous data on error
-    } finally {
-      isLoadingBilling = false;
-      notifyListeners();
-    }
-  }
-
-  Future<String?> createCheckoutSession(String planId) async {
-    try {
-      final serverUrl = backendUrl;
-      final result = await _backendClient.createCheckoutSession(
-        baseUrl: serverUrl,
-        planId: planId,
-        successUrl: '$serverUrl/',
-        cancelUrl: '$serverUrl/',
-      );
-      return result['url'] as String?;
-    } catch (e) {
-      errorMessage = _friendlyErrorMessage(e);
-      notifyListeners();
-      return null;
-    }
-  }
-
-  Future<String?> createPortalSession() async {
-    try {
-      final serverUrl = backendUrl;
-      final result = await _backendClient.createPortalSession(
-        baseUrl: serverUrl,
-        returnUrl: '$serverUrl/',
-      );
-      return result['url'] as String?;
-    } catch (e) {
-      errorMessage = _friendlyErrorMessage(e);
-      notifyListeners();
-      return null;
-    }
-  }
-
-  Future<bool> cancelBillingSubscription() async {
-    try {
-      await _backendClient.cancelBillingSubscription(backendUrl);
-      await refreshBilling();
-      return true;
-    } catch (e) {
-      errorMessage = _friendlyErrorMessage(e);
-      notifyListeners();
-      return false;
-    }
-  }
-
-  List<dynamic> _asDynList(dynamic val) =>
-      val is List ? val : const <dynamic>[];
-
   Future<bool> updateAccountEmail({
     required String email,
     required String currentPassword,
@@ -5730,7 +5348,7 @@ class NeoAgentController extends ChangeNotifier {
       final url = begin['url']?.toString();
       final state = begin['state']?.toString();
       if (url == null || state == null || url.isEmpty || state.isEmpty) {
-        throw Exception('Provider linking could not be started.');
+        throw Exception(appStrings.providerLinkingCouldNotBeStarted);
       }
       final launchResult = await _oauthLauncher.launch(
         url: url,
@@ -5738,10 +5356,13 @@ class NeoAgentController extends ChangeNotifier {
       );
       if (!launchResult.launched) {
         throw Exception(
-          launchResult.error ?? 'Could not open the provider linking page.',
+          launchResult.error ?? appStrings.couldNotOpenTheProviderLinking,
         );
       }
-      await _pollForProviderAuthCompletion(state);
+      await _pollForProviderAuthCompletion(
+        state,
+        isActive: () => isSavingAccountSettings,
+      );
       await refreshAccountSettings();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -5787,7 +5408,7 @@ class NeoAgentController extends ChangeNotifier {
       );
       final options = _asJsonMap(begin['options']);
       if (options.isEmpty) {
-        throw Exception('The security key registration could not be started.');
+        throw Exception(appStrings.theSecurityKeyRegistrationCouldNot);
       }
       final attestation = await _webAuthnClient.createCredential(options);
       _applyAccountResponse(
@@ -5862,7 +5483,7 @@ class NeoAgentController extends ChangeNotifier {
       );
       final options = _asJsonMap(begin['options']);
       if (options.isEmpty) {
-        throw Exception('Security key sign-in could not be started.');
+        throw Exception(appStrings.securityKeySignInCouldNot);
       }
       final assertion = await _webAuthnClient.getAssertion(options);
       final response = await _backendClient.completeSecurityKeyLogin(
@@ -5881,8 +5502,7 @@ class NeoAgentController extends ChangeNotifier {
         response,
         fallbackUsername: username,
         authMethod: 'security_key',
-        retentionErrorMessage:
-            'Security key sign-in completed, but NeoAgent could not keep the browser session. Please sign in again.',
+        retentionErrorMessage: appStrings.securityKeySignInCompletedBut,
       );
     } on WebAuthnException catch (error) {
       if (!error.cancelled) {
@@ -6042,7 +5662,9 @@ class NeoAgentController extends ChangeNotifier {
     errorMessage = null;
     notifyListeners();
     try {
-      await _backendClient.triggerUpdate(backendUrl);
+      updateStatus = UpdateStatusSnapshot.fromJson(
+        await _backendClient.triggerUpdate(backendUrl),
+      );
       await refreshUpdateStatus();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
@@ -6141,14 +5763,21 @@ class NeoAgentController extends ChangeNotifier {
     await refreshSkills();
   }
 
-  Future<void> installStoreSkill(String id) async {
-    await _backendClient.installStoreSkill(backendUrl, id);
-    await refreshSkills();
+  Future<List<SkillsShItem>> searchSkillsSh(String query) async {
+    final rows = await _backendClient.searchSkillsSh(backendUrl, query);
+    return rows.map(SkillsShItem.fromJson).toList();
   }
 
-  Future<void> uninstallStoreSkill(String id) async {
-    await _backendClient.uninstallStoreSkill(backendUrl, id);
+  /// Installs a skills.sh skill as a user skill and returns its local name.
+  Future<String> installSkillsShSkill(SkillsShItem item) async {
+    final result = await _backendClient.installSkillsShSkill(
+      backendUrl,
+      source: item.source,
+      skillId: item.skillId,
+      name: item.name,
+    );
     await refreshSkills();
+    return result['name']?.toString() ?? item.name;
   }
 
   Future<void> connectOfficialIntegration(
@@ -6188,9 +5817,7 @@ class NeoAgentController extends ChangeNotifier {
       if ((status != 'oauth_redirect' && status != 'interactive_connect') ||
           url == null ||
           url.isEmpty) {
-        throw Exception(
-          'Official integration did not return a connection URL.',
-        );
+        throw Exception(appStrings.officialIntegrationDidNotReturnA);
       }
 
       final launchResult = await _oauthLauncher.launch(
@@ -6200,7 +5827,9 @@ class NeoAgentController extends ChangeNotifier {
         timeout: const Duration(minutes: 5),
       );
       if (!launchResult.launched) {
-        throw Exception(launchResult.error ?? 'Failed to launch OAuth flow.');
+        throw Exception(
+          launchResult.error ?? appStrings.failedToLaunchOauthFlow,
+        );
       }
       if (launchResult.completed) {
         await refreshSkills();
@@ -6532,9 +6161,7 @@ class NeoAgentController extends ChangeNotifier {
       await Future<void>.delayed(const Duration(seconds: 2));
     }
 
-    throw Exception(
-      'Authentication is still pending. Finish the browser flow and refresh.',
-    );
+    throw Exception(appStrings.authenticationIsStillPendingFinishThe2);
   }
 
   Future<void> connectMessagingPlatform({
@@ -6568,9 +6195,7 @@ class NeoAgentController extends ChangeNotifier {
       final failure = errorMessage;
       if (failure != null) throw Exception(failure);
       if (_findOfficialIntegrationApp(providerId, appId)?.isConnected != true) {
-        throw Exception(
-          'Finish signing in to ${platform.label} in your browser, then connect again.',
-        );
+        throw Exception(appStrings.finishSigningInToArg1In(platform.label));
       }
     }
     await connectMessagingPlatform(platform: platform.id);
@@ -6613,7 +6238,7 @@ class NeoAgentController extends ChangeNotifier {
       final zone = (await FlutterTimezone.getLocalTimezone()).identifier.trim();
       return zone.isEmpty ? null : zone;
     } catch (error) {
-      debugPrint('[TimeZone] Could not read the device time zone: $error');
+      debugPrint(appStrings.timezoneCouldNotReadTheDevice(error));
       return null;
     }
   }
@@ -6633,7 +6258,7 @@ class NeoAgentController extends ChangeNotifier {
       settings = <String, dynamic>{...settings, 'timezone': zone};
       notifyListeners();
     } catch (error) {
-      debugPrint('[TimeZone] Could not save the device time zone: $error');
+      debugPrint(appStrings.timezoneCouldNotSaveTheDevice(error));
     }
   }
 
@@ -6694,9 +6319,78 @@ class NeoAgentController extends ChangeNotifier {
       label: label,
       agentId: _scopedAgentId,
     );
+    await _refreshAfterProviderKeySaved();
+    return response;
+  }
+
+  Future<void> _refreshAfterProviderKeySaved() async {
+    aiModelsUnavailable = false;
     await refreshByokProviders();
     await refreshAiCatalog();
-    return response;
+  }
+
+  /// Opens the provider's consent page for a provider sign-in. The page opens
+  /// without waiting on it; the server says when the sign-in finished.
+  Future<ProviderSignIn> startProviderSignIn(String providerId) async {
+    final begin = await _backendClient.beginProviderSignIn(
+      backendUrl,
+      providerId,
+      agentId: _scopedAgentId,
+    );
+    final url = begin['url']?.toString() ?? '';
+    final state = begin['state']?.toString() ?? '';
+    if (url.isEmpty || state.isEmpty) {
+      throw Exception(appStrings.providerSignInCouldNotBe);
+    }
+    final launch = await _oauthLauncher.openExternal(
+      url: url,
+      label: providerId,
+    );
+    if (!launch.launched) {
+      throw Exception(launch.error ?? appStrings.couldNotOpenTheProviderSign);
+    }
+    return ProviderSignIn(state: state, needsCode: begin['mode'] == 'code');
+  }
+
+  /// Waits for a redirect sign-in to finish on the server.
+  Future<void> waitForProviderSignIn(
+    ProviderSignIn signIn, {
+    required bool Function() isActive,
+  }) async {
+    final deadline = DateTime.now().add(const Duration(minutes: 10));
+    while (DateTime.now().isBefore(deadline)) {
+      if (!isActive()) {
+        throw Exception(appStrings.authenticationWasCanceledBeforeCompletion);
+      }
+      final response = await _backendClient.fetchProviderSignIn(
+        backendUrl,
+        signIn.state,
+      );
+      switch (response['status']?.toString()) {
+        case 'completed':
+          await _refreshAfterProviderKeySaved();
+          return;
+        case 'failed':
+          throw Exception(
+            response['error']?.toString() ?? appStrings.authenticationFailed,
+          );
+      }
+      await Future<void>.delayed(const Duration(seconds: 2));
+    }
+    throw Exception(appStrings.authenticationIsStillPendingFinishThe);
+  }
+
+  /// Finishes a sign-in with the one-time code the provider showed.
+  Future<void> completeProviderSignIn(
+    ProviderSignIn signIn,
+    String code,
+  ) async {
+    await _backendClient.submitProviderSignInCode(
+      backendUrl,
+      signIn.state,
+      code.trim(),
+    );
+    await _refreshAfterProviderKeySaved();
   }
 
   Future<Map<String, dynamic>> clearByokProvider(String providerId) async {
@@ -6822,7 +6516,7 @@ class NeoAgentController extends ChangeNotifier {
       'suggestedTargets': currentMessagingAccessCatalog(
         platform,
       ).suggestedTargets.map((item) => item.toJson()).toList(growable: false),
-      'summary': response['summary']?.toString() ?? 'Who can message',
+      'summary': response['summary']?.toString() ?? appStrings.whoCanMessage,
     });
     messagingAccessCatalogs = <String, MessagingAccessCatalog>{
       ...messagingAccessCatalogs,
@@ -6978,6 +6672,25 @@ class NeoAgentController extends ChangeNotifier {
         : TaskRecommendationStatus.idle;
   }
 
+  /// Why [recommendation] cannot run yet, or null when it can be added.
+  String? taskRecommendationBlockedReason(TaskRecommendation recommendation) {
+    if (hasLoadedInitialData && !hasUsableChatModel) {
+      return appStrings.taskNeedsModel;
+    }
+    return switch (recommendation.requirement) {
+      TaskRequirement.email
+          when !hasConnectedIntegrationApp(const <String>{
+            'gmail',
+            'outlook',
+          }) =>
+        appStrings.taskNeedsEmail,
+      TaskRequirement.calendar
+          when !hasConnectedIntegrationApp(const <String>{'calendar'}) =>
+        appStrings.taskNeedsCalendar,
+      _ => null,
+    };
+  }
+
   Future<void> addRecommendedTask(TaskRecommendation recommendation) async {
     if (!_addingTaskRecommendations.add(recommendation.title)) return;
     notifyListeners();
@@ -6997,6 +6710,27 @@ class NeoAgentController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  /// Removes the task an earlier [addRecommendedTask] created.
+  Future<void> removeRecommendedTask(TaskRecommendation recommendation) async {
+    final task = taskItems
+        .where((task) => task.name == recommendation.title)
+        .firstOrNull;
+    if (task == null || !_addingTaskRecommendations.add(recommendation.title)) {
+      return;
+    }
+    notifyListeners();
+    try {
+      await deleteTask(task.id);
+    } finally {
+      _addingTaskRecommendations.remove(recommendation.title);
+      notifyListeners();
+    }
+  }
+
+  /// Asks the OS to let NeoAgent show notifications, where it has to ask.
+  Future<void> requestNotificationPermission() =>
+      _AppNotificationService.requestPermission();
 
   String _manualRunCooldownKey(String scope, String id) => '$scope:$id';
 
@@ -7117,13 +6851,13 @@ class NeoAgentController extends ChangeNotifier {
           final type = item.mimeType.trim().isEmpty
               ? 'unknown'
               : item.mimeType.trim();
-          return '- ${item.name} ($type) [local uri: ${item.uri}]';
+          return appStrings.arg1Arg2LocalUriArg3(item.name, type, item.uri);
         })
         .join('\n');
     final attachmentBlock = [
-      'Shared attachments from the NeoAgent client:',
+      appStrings.sharedAttachmentsFromTheNeoagentClient,
       lines,
-      'Use these for context. If a local URI is not directly accessible from the server, ask me to provide the file through an accessible workspace.',
+      appStrings.useTheseForContextIfA,
     ].join('\n');
     if (base.isEmpty) {
       return attachmentBlock;
@@ -7133,6 +6867,49 @@ class NeoAgentController extends ChangeNotifier {
 
   void openVoiceAssistantSurface() {
     setSelectedSection(AppSection.voiceAssistant);
+  }
+
+  /// A call asked for from outside the app (the home-screen call widget).
+  /// It starts the way the call button does, once signed in and connected:
+  /// a cold start has neither yet, so the socket connecting picks it up.
+  /// Hanging up then returns to the home screen, as a phone call does.
+  void requestVoiceCall() {
+    openVoiceAssistantSurface();
+    if (voiceAssistantLiveState.hasActiveSession) return;
+    _voiceCallRequested = true;
+    _returnHomeAfterCall = true;
+    _startRequestedVoiceCall();
+  }
+
+  void _startRequestedVoiceCall() {
+    if (!_voiceCallRequested || !isAuthenticated || !socketConnected) return;
+    _voiceCallRequested = false;
+    unawaited(
+      startVoiceCall().catchError((Object error) {
+        // The controller records the error on the live state, which stays on
+        // screen rather than leaving the app.
+        _returnHomeAfterCall = false;
+        AppDiagnostics.log('voice', 'requested_call.failed', error: error);
+      }),
+    );
+  }
+
+  /// Places a call the way the configured input mode expects: hands-free
+  /// opens the microphone at once, push-to-talk waits for the first hold.
+  Future<void> startVoiceCall() {
+    lastEndedCall = null;
+    return voiceInputMode == 'hands_free'
+        ? startLiveVoiceCapture()
+        : ensureLiveVoiceSession();
+  }
+
+  /// The user hanging up.
+  Future<void> hangUpVoiceCall({bool cancelTask = false}) async {
+    final returnHome = _returnHomeAfterCall;
+    await closeLiveVoiceSession(cancelTask: cancelTask);
+    if (returnHome) {
+      await _homeWidgetBridge.returnToHomeScreen();
+    }
   }
 
   Future<void> toggleTask(TaskItem task) async {
@@ -7240,13 +7017,11 @@ class NeoAgentController extends ChangeNotifier {
       final deviceStatus = await _healthBridge.getStatus();
       deviceHealthStatus = deviceStatus;
       if (!deviceStatus.available) {
-        throw const HealthBridgeException(
-          'Health Connect is not available on this device.',
-        );
+        throw HealthBridgeException(appStrings.healthConnectIsNotAvailableOn);
       }
       if (!deviceStatus.permissionsGranted) {
-        throw const HealthBridgeException(
-          'Grant Health Connect permissions before syncing.',
+        throw HealthBridgeException(
+          appStrings.grantHealthConnectPermissionsBeforeSyncing,
         );
       }
 
@@ -7284,79 +7059,86 @@ class NeoAgentController extends ChangeNotifier {
     final backendCode = error is BackendException ? error.code : null;
 
     if (backendCode == 'COMPUTER_STORAGE_CAPACITY') {
-      return 'The computer needs more free disk space on the NeoAgent host. Free some space, then try again.';
+      return appStrings.theComputerNeedsMoreFreeDisk;
     }
     if (backendCode == 'COMPUTER_CAPACITY') {
-      return 'All cloud-computer slots are currently in use. Try again in a moment.';
+      return appStrings.allCloudComputerSlotsAreCurrently;
     }
     if (backendCode == 'COMPUTER_RUNTIME_UNAVAILABLE' ||
         backendCode == 'COMPUTER_FIRMWARE_MISSING') {
-      return 'The computer runtime needs repair. Run NeoAgent Doctor, then try again.';
+      return appStrings.theComputerRuntimeNeedsRepairRun;
+    }
+    final codeMessage = _authCodeMessage(error);
+    if (codeMessage != null) {
+      return codeMessage;
     }
 
     if (backendStatusCode == 402) {
       final details = _extractMeaningfulErrorDetails(text);
       if (lower.contains('invalid credentials')) {
-        return 'The NeoAgent deployment responded with HTTP 402 instead of the normal 401 for invalid credentials. Check reverse-proxy, auth gateway, or payment-related rules on that server.';
+        return appStrings.theNeoagentDeploymentRespondedWithHttp;
       }
       if (details.isNotEmpty &&
           details.toLowerCase() !=
               'request failed with http $backendStatusCode') {
-        return 'The NeoAgent deployment responded with HTTP 402.\n\n$details';
+        return appStrings.theNeoagentDeploymentRespondedWithHttp2(details);
       }
-      return 'The NeoAgent deployment responded with HTTP 402. Check reverse-proxy, auth gateway, or payment-related rules on that server.';
+      return appStrings.theNeoagentDeploymentRespondedWithHttp3;
     }
 
     if (lower.contains('invalid credentials')) {
-      return 'Your username or password is incorrect.';
+      return appStrings.yourUsernameOrPasswordIsIncorrect;
     }
     if (lower.contains('registration is closed')) {
-      return 'This server is already set up. Sign in with an existing account.';
+      return appStrings.authSignupsClosed;
+    }
+    if (lower.contains('username is already taken')) {
+      return appStrings.authUsernameTaken;
     }
     if (lower.contains('too many attempts')) {
-      return 'Too many sign-in attempts. Please wait and try again.';
+      return appStrings.tooManySignInAttemptsPlease;
     }
     if (lower.contains('qr login request was not found') ||
         lower.contains('qr login request has expired') ||
         lower.contains('this qr login request has expired')) {
-      return 'This QR login request expired. Generate a new code and try again.';
+      return appStrings.thisQrLoginRequestExpiredGenerate;
     }
     if (lower.contains('already used')) {
-      return 'This QR login request was already used.';
+      return appStrings.thisQrLoginRequestWasAlready;
     }
     if (lower.contains('not approved yet')) {
-      return 'This QR login request is still waiting for approval.';
+      return appStrings.thisQrLoginRequestIsStill;
     }
     if (lower.contains('valid email')) {
-      return 'Enter a valid email address.';
+      return appStrings.enterAValidEmailAddress;
     }
     if (lower.contains('email is already in use')) {
-      return 'That email is already linked to another account.';
+      return appStrings.thatEmailIsAlreadyLinkedTo;
     }
     if (lower.contains('current password is incorrect')) {
-      return 'Your current password is incorrect.';
+      return appStrings.yourCurrentPasswordIsIncorrect;
     }
     if (lower.contains('email confirmation required')) {
-      return 'Confirm your email before signing in. Check the service email message from NeoAgent.';
+      return appStrings.confirmYourEmailBeforeSigningIn;
     }
     if (lower.contains('could not send confirmation email') ||
         lower.contains('service email is not configured')) {
-      return 'NeoAgent service email is not ready. Ask the server operator to check the email environment settings.';
+      return appStrings.neoagentServiceEmailIsNotReady;
     }
     if (lower.contains('password min 8')) {
-      return 'Use a password with at least 8 characters.';
+      return appStrings.useAPasswordWithAtLeast;
     }
     if (lower.contains('password is too weak')) {
       return text;
     }
     if (lower.contains('invalid 2fa') || lower.contains('two-factor code')) {
-      return 'The two-factor code is not valid.';
+      return appStrings.theTwoFactorCodeIsNot;
     }
     if (lower.contains('two-factor challenge expired')) {
-      return 'The two-factor challenge expired. Sign in again.';
+      return appStrings.theTwoFactorChallengeExpiredSign;
     }
     if (lower.contains('session_secret')) {
-      return '2FA requires SESSION_SECRET to be configured on this NeoAgent deployment.';
+      return appStrings.n2faRequiresSessionSecretToBe;
     }
     if (lower.contains('cors') ||
         lower.contains('xmlhttprequest error') ||
@@ -7364,36 +7146,30 @@ class NeoAgentController extends ChangeNotifier {
         lower.contains('network request failed') ||
         lower.contains('clientexception') ||
         lower.contains('socketexception')) {
-      return 'The app could not reach this NeoAgent deployment. Check your network connection or confirm the service URL is correct.';
+      return appStrings.theAppCouldNotReachThis;
     }
     if (lower.contains('origin not allowed')) {
-      return 'This build is not allowed to talk to this NeoAgent deployment.';
+      return appStrings.thisBuildIsNotAllowedTo;
     }
-    if (lower.contains('not authenticated')) {
-      return 'Your session expired. Please sign in again.';
-    }
-    if (lower.contains('no neoagent account is linked to this provider')) {
-      return 'This Google account is not linked yet. Use provider registration first, or sign in normally and link it from account settings.';
+    if (lower.contains('not authenticated') ||
+        (backendStatusCode == 401 && lower == 'unauthorized')) {
+      return appStrings.yourSessionExpiredPleaseSignIn;
     }
     if (lower.contains('already belongs to an existing account')) {
-      return 'That email already belongs to an existing account. Sign in first, then link Google from account settings.';
-    }
-    if (lower.contains('already linked to another neoagent account') ||
-        lower.contains('already linked to another account')) {
-      return 'That Google account is already linked to a different NeoAgent account.';
+      return appStrings.thatEmailAlreadyBelongsToAn;
     }
     if (lower.contains(
       'create a password or link another provider before removing this sign-in method',
     )) {
-      return 'Add another sign-in method before removing this one.';
+      return appStrings.addAnotherSignInMethodBefore;
     }
     if (lower.contains('unable to locate a java runtime') ||
         lower.contains('java runtime')) {
       final details = _extractMeaningfulErrorDetails(text);
       if (details.isNotEmpty) {
-        return 'Mobile setup failed because Java is not available on the machine running NeoAgent.\n\n$details';
+        return appStrings.mobileSetupFailedBecauseJavaIs(details);
       }
-      return 'Mobile setup failed because Java is not available on the machine running NeoAgent. Install a JDK and try again.';
+      return appStrings.mobileSetupFailedBecauseJavaIs2;
     }
     if (lower.contains('android sdk') ||
         lower.contains('sdkmanager') ||
@@ -7402,9 +7178,9 @@ class NeoAgentController extends ChangeNotifier {
         lower.contains('gradle')) {
       final details = _extractMeaningfulErrorDetails(text);
       if (details.isNotEmpty) {
-        return 'Mobile setup failed.\n\n$details';
+        return appStrings.mobileSetupFailedArg1(details);
       }
-      return 'Mobile setup failed. Check that Android tooling is installed correctly and try again.';
+      return appStrings.mobileSetupFailedCheckThatAndroid;
     }
     if (lower.contains('health connect')) {
       return text;
@@ -7415,24 +7191,66 @@ class NeoAgentController extends ChangeNotifier {
         lower.contains('load failed')) {
       final details = _extractMeaningfulErrorDetails(text);
       return details.isNotEmpty
-          ? 'The web app could not reach the NeoAgent backend.\n\n$details'
-          : 'The web app could not reach the NeoAgent backend.';
+          ? appStrings.theWebAppCouldNotReachThe(details)
+          : appStrings.theWebAppCouldNotReach;
     }
     if (lower.contains('content security policy') ||
         lower.contains('connect-src')) {
       final details = _extractMeaningfulErrorDetails(text);
       return details.isNotEmpty
-          ? 'The browser blocked a required request because of Content Security Policy.\n\n$details'
-          : 'The browser blocked a required request because of Content Security Policy.';
+          ? appStrings.theBrowserBlockedARequiredRequestBecause(details)
+          : appStrings.theBrowserBlockedARequiredRequest;
     }
     if (_shouldExposeErrorText(text)) {
       return _extractMeaningfulErrorDetails(text);
     }
 
-    return 'Something went wrong. Please try again.';
+    return appStrings.somethingWentWrongPleaseTryAgain;
   }
 
   String friendlyErrorMessage(Object error) => _friendlyErrorMessage(error);
+
+  /// Localized text for the sign-in, registration and account error codes
+  /// the server sends as `{error, code}`.
+  String? _authCodeMessage(Object error) {
+    if (error is! BackendException) return null;
+    switch (error.code) {
+      case 'MISSING_FIELDS':
+        return appStrings.authMissingFields;
+      case 'USERNAME_TOO_SHORT':
+        return appStrings.authUsernameTooShort;
+      case 'PASSWORD_TOO_SHORT':
+        return appStrings.useAPasswordWithAtLeast;
+      case 'PASSWORD_WEAK':
+        // The server names the specific weakness in the message.
+        return error.message;
+      case 'USERNAME_TAKEN':
+        return appStrings.authUsernameTaken;
+      case 'EMAIL_TAKEN':
+        return appStrings.thatEmailIsAlreadyLinkedTo;
+      case 'INVALID_EMAIL':
+        return appStrings.enterAValidEmailAddress;
+      case 'SIGNUP_KEY_REQUIRED':
+        return appStrings.signupKeyRequiredError;
+      case 'SIGNUP_KEY_INVALID':
+        return appStrings.signupKeyInvalidError;
+      case 'SIGNUP_KEY_USED':
+        return appStrings.signupKeyUsedError;
+      case 'INVALID_CREDENTIALS':
+        return appStrings.yourUsernameOrPasswordIsIncorrect;
+      case 'USER_NOT_FOUND':
+        return appStrings.authAccountNotFound;
+      case 'INSECURE_TRANSPORT':
+        final httpsUrl = error.httpsUrl?.trim() ?? '';
+        return httpsUrl.isEmpty
+            ? appStrings.authInsecureTransport
+            : appStrings.authInsecureTransportArg1(httpsUrl);
+      case BackendException.notNeoAgentServer:
+      case BackendException.tlsHandshakeFailed:
+        return error.message;
+    }
+    return null;
+  }
 
   String _normalizeErrorText(Object error) {
     var text = _formatCaughtError(error);
@@ -7487,7 +7305,16 @@ class NeoAgentController extends ChangeNotifier {
 
   bool get headlessBrowser => true;
 
-  bool get smarterSelector => settings['smarter_model_selector'] != false;
+  /// This agent's SystemOne choice: `off`, `auto`, or a model id.
+  String get systemOneModel {
+    final value = settings['system_one_model']?.toString().trim() ?? '';
+    return value.isEmpty ? 'off' : value;
+  }
+
+  /// A provider this agent can use (the server's key or its own) serves a
+  /// SystemOne model the admin has not switched off.
+  bool get systemOneAvailable =>
+      systemOneModels.any((model) => model.available);
 
   String get timeZone => settings['timezone']?.toString().trim() ?? '';
 
@@ -7532,6 +7359,18 @@ class NeoAgentController extends ChangeNotifier {
     preserveUnknown: true,
   );
 
+  /// Models pinned to one kind of work (coding, research, ...). A kind with no
+  /// entry follows the chat or sub-agent model.
+  Map<String, String> get taskModels {
+    final raw = settings['task_models'];
+    if (raw is! Map) return const <String, String>{};
+    return <String, String>{
+      for (final entry in raw.entries)
+        if (entry.value.toString().trim().isNotEmpty)
+          entry.key.toString(): entry.value.toString(),
+    };
+  }
+
   String get defaultSpeechModel => _ensureModelValue(
     settings['default_speech_model']?.toString() ?? 'auto',
     supportedModels,
@@ -7540,22 +7379,20 @@ class NeoAgentController extends ChangeNotifier {
   );
 
   String get voiceSttProvider =>
-      _settingString('voice_stt_provider', '', lowercase: true);
+      _settingString('voice_stt_provider', 'auto', lowercase: true);
 
   String get voiceSttModel => _settingString('voice_stt_model', '');
 
-  String get voiceTtsProvider =>
-      _settingString('voice_tts_provider', '', lowercase: true);
+  /// Empty live voice values follow the server defaults in voiceCapabilities.
+  String get voiceLiveProvider =>
+      _settingString('voice_live_provider', '', lowercase: true);
 
-  String get voiceTtsModel => _settingString('voice_tts_model', '');
+  String get voiceLiveModel => _settingString('voice_live_model', '');
 
-  String get voiceTtsVoice => _settingString('voice_tts_voice', '');
-
-  String get voiceMediaMode =>
-      _settingString('voice_media_mode', 'auto', lowercase: true);
+  String get voiceLiveVoice => _settingString('voice_live_voice', '');
 
   String get voiceInputMode =>
-      _settingString('voice_input_mode', 'ptt', lowercase: true);
+      _settingString('voice_input_mode', 'hands_free', lowercase: true);
 
   Map<String, dynamic> get voiceCapabilities =>
       _jsonMap(settings['voice_capabilities']);
@@ -7564,7 +7401,7 @@ class NeoAgentController extends ChangeNotifier {
 
   bool get isLiveVoiceCaptureActive => _liveVoiceCaptureActive;
 
-  DateTime? get liveVoiceCaptureStartedAt => _liveVoiceCaptureStartedAt;
+  DateTime? get liveVoiceSessionStartedAt => _liveVoiceSessionStartedAt;
 
   /// Mirrors the server's per-request admin flag; only decides what the UI
   /// shows. Every admin endpoint re-checks it server-side.
@@ -7573,7 +7410,8 @@ class NeoAgentController extends ChangeNotifier {
   String get accountLabel {
     final displayName = user?['display_name']?.toString().trim() ?? '';
     if (displayName.isNotEmpty) return displayName;
-    return user?['username']?.toString() ?? username.ifEmpty('NeoAgent User');
+    return user?['username']?.toString() ??
+        username.ifEmpty(appStrings.neoagentUser);
   }
 
   String get modelIndicator {
@@ -7581,7 +7419,7 @@ class NeoAgentController extends ChangeNotifier {
       final selected = _modelById(defaultChatModel);
       return selected?.label ?? defaultChatModel;
     }
-    return smarterSelector ? 'Smart selector active' : 'Manual routing';
+    return appStrings.smartSelector2;
   }
 
   bool get showHealthSection =>
@@ -7652,7 +7490,7 @@ class NeoAgentController extends ChangeNotifier {
     if (_liveVoiceSessionOpenCompleter != null &&
         !_liveVoiceSessionOpenCompleter!.isCompleted) {
       _liveVoiceSessionOpenCompleter!.completeError(
-        StateError('Live voice connection was closed.'),
+        StateError(appStrings.liveVoiceConnectionWasClosed),
       );
     }
     _liveVoiceSessionOpenCompleter = null;
@@ -7661,6 +7499,12 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   void _ensureSocketConnected() {
+    unawaited(
+      BackgroundKeepAlive.start(
+        title: 'NeoAgent',
+        body: 'Connected so calls and approvals can reach you',
+      ),
+    );
     final origin = _socketOrigin();
     final existing = _socket?.io.uri;
     if (_socket != null && existing == origin) {
@@ -7704,19 +7548,17 @@ class NeoAgentController extends ChangeNotifier {
         unawaited(refresh());
       }
       _socketHasConnectedOnce = true;
-      final shouldRebindVoiceSession =
-          voiceAssistantLiveState.hasActiveSession ||
-          _hasRecoverableLiveVoiceTurn();
-      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-        transportState: shouldRebindVoiceSession ? 'reconnecting' : 'connected',
-        clearError: _hasRecoverableLiveVoiceTurn(),
-      );
-      if (shouldRebindVoiceSession) {
+      _startRequestedVoiceCall();
+      // A live call survives a socket drop: reopening the same session id
+      // reattaches it on the server.
+      if (voiceAssistantLiveState.hasActiveSession) {
+        voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+          transportState: 'reconnecting',
+        );
         unawaited(
           ensureLiveVoiceSession().catchError((Object error) {
             voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
               transportState: 'disconnected',
-              state: 'error',
               error: _friendlyErrorMessage(error),
             );
             notifyListeners();
@@ -7734,21 +7576,8 @@ class NeoAgentController extends ChangeNotifier {
           pendingSteeringCount: 0,
         );
       }
-      final hasVoiceSession = voiceAssistantLiveState.hasActiveSession;
-      if (_hasRecoverableLiveVoiceTurn()) {
-        _setLiveVoiceRecoveryWindow();
-      }
-      if (hasVoiceSession) {
+      if (voiceAssistantLiveState.hasActiveSession) {
         voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-          transportState: hasNetworkConnection
-              ? 'reconnecting'
-              : 'disconnected',
-          state: _liveVoiceCaptureActive ? 'listening' : 'reconnecting',
-        );
-      } else {
-        _liveVoiceCaptureActive = false;
-        _pendingLiveVoiceStop = false;
-        voiceAssistantLiveState = VoiceAssistantLiveState(
           transportState: hasNetworkConnection
               ? 'reconnecting'
               : 'disconnected',
@@ -7758,8 +7587,7 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.onConnectError((dynamic _) {
       socketConnected = false;
-      if (voiceAssistantLiveState.hasActiveSession ||
-          _hasRecoverableLiveVoiceTurn()) {
+      if (voiceAssistantLiveState.hasActiveSession) {
         voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
           transportState: 'reconnecting',
         );
@@ -7853,18 +7681,18 @@ class NeoAgentController extends ChangeNotifier {
       final blocked = MessagingMessage.fromBlockedNotice(blockedNotice);
       messagingMessages = <MessagingMessage>[blocked, ...messagingMessages];
       _enqueueBlockedSenderNotice(blockedNotice);
-      errorMessage =
-          '${blocked.senderLabel} is blocked on ${blocked.platform.toUpperCase()}. Update the access list to allow replies.';
+      errorMessage = appStrings.arg1IsBlockedOnArg2Update(
+        blocked.senderLabel,
+        blocked.platform.toUpperCase(),
+      );
       notifyListeners();
     });
     socket.on('messaging:error', (dynamic data) {
       final payload = _jsonMap(data);
       errorMessage =
-          payload['error']?.toString() ?? 'Messaging error. Please try again.';
+          payload['error']?.toString() ??
+          appStrings.messagingErrorPleaseTryAgain;
       notifyListeners();
-    });
-    socket.on('timeline:updated', (dynamic _) {
-      unawaited(refreshTimeline());
     });
     socket.on('voice:incoming_call', (dynamic data) {
       final call = IncomingAgentCall.fromJson(_jsonMap(data));
@@ -7879,12 +7707,8 @@ class NeoAgentController extends ChangeNotifier {
           notifyListeners();
         },
       );
-      unawaited(_AppNotificationService.showIncomingCallNotification(call));
-      showIncomingCallBrowserAlert(call.callId, call.agentName);
-      if (_supportsDesktopShell) {
-        unawaited(windowManager.show());
-        unawaited(windowManager.focus());
-      }
+      lastEndedCall = null;
+      unawaited(_ringIncomingAgentCall(call));
       notifyListeners();
     });
     socket.on('voice:call_cancelled', (dynamic data) {
@@ -7897,214 +7721,162 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('voice:session_ready', (dynamic data) {
       final payload = _jsonMap(data);
+      final readySessionId = payload['sessionId']?.toString();
+      if (readySessionId != null && readySessionId == _abandonedCallId) {
+        _abandonedCallId = null;
+        socket.emit('voice:session_close', <String, dynamic>{
+          'sessionId': readySessionId,
+          'cancelTask': false,
+        });
+        return;
+      }
       final acceptedCall = incomingAgentCall;
       final acceptedCallId = acceptedCall?.callId;
-      if (acceptedCallId != null &&
-          payload['sessionId']?.toString() == acceptedCallId) {
+      final isAcceptedCall =
+          acceptedCallId != null &&
+          payload['sessionId']?.toString() == acceptedCallId;
+      if (isAcceptedCall) {
         if (acceptedCall!.agentId.isNotEmpty &&
             agentProfiles.any((agent) => agent.id == acceptedCall.agentId)) {
           selectedAgentId = acceptedCall.agentId;
           unawaited(_persistSelectedAgentId(acceptedCall.agentId));
         }
-        _clearIncomingAgentCall(acceptedCallId);
+        _clearIncomingAgentCall(acceptedCallId, sessionStarted: true);
         setSelectedSection(AppSection.voiceAssistant);
+        // The server opened this session, so ensureLiveVoiceSession, which
+        // starts call routing for calls the owner places, never ran.
+        unawaited(_startLiveVoiceTelecomRouting());
       }
+      final outputSampleRate = _asInt(payload['outputSampleRate']) >= 8000
+          ? _asInt(payload['outputSampleRate'])
+          : 24000;
+      _liveVoiceHearingSpeech = false;
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
         sessionId: payload['sessionId']?.toString() ?? '',
-        mediaMode:
-            payload['mediaMode']?.toString().ifEmpty('composed') ?? 'composed',
-        inputMode: payload['inputMode']?.toString().ifEmpty('ptt') ?? 'ptt',
+        inputMode:
+            payload['inputMode']?.toString().ifEmpty('hands_free') ??
+            'hands_free',
         inputSampleRate: _asInt(payload['inputSampleRate']) >= 8000
             ? _asInt(payload['inputSampleRate'])
             : 24000,
-        provider:
-            payload['provider']?.toString().ifEmpty(voiceSttProvider) ??
-            voiceSttProvider,
-        model:
-            payload['model']?.toString().ifEmpty(voiceSttModel) ??
-            voiceSttModel,
-        voice:
-            payload['voice']?.toString().ifEmpty(voiceTtsVoice) ??
-            voiceTtsVoice,
-        activeRunId: payload['activeRunId']?.toString() ?? '',
+        outputSampleRate: outputSampleRate,
+        provider: payload['provider']?.toString() ?? '',
+        model: payload['model']?.toString() ?? '',
+        voice: payload['voice']?.toString() ?? '',
+        tasks: _voiceCallTasksFrom(payload),
         transportState: 'connected',
-        state: 'idle',
+        state: 'listening',
         clearError: true,
       );
+      unawaited(
+        _liveVoicePlayer.start(sampleRate: outputSampleRate).catchError((
+          Object error,
+          StackTrace stackTrace,
+        ) {
+          AppDiagnostics.log(
+            'voice',
+            'playback.start_failed',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
+            error: appStrings.voicePlaybackIsUnavailableOnThis,
+          );
+          _syncVoiceWorkClicks();
+          notifyListeners();
+        }),
+      );
+      _liveVoiceSessionStartedAt ??= DateTime.now();
+      _syncVoiceWorkClicks();
       if (_liveVoiceSessionOpenCompleter != null &&
           !_liveVoiceSessionOpenCompleter!.isCompleted) {
         _liveVoiceSessionOpenCompleter!.complete();
       }
-      if (_hasRecoverableLiveVoiceTurn()) {
-        unawaited(_restoreBufferedLiveVoiceTurnToActiveSession());
+      // An answered call is a phone call: in hands-free mode the microphone
+      // opens right away.
+      if (isAcceptedCall && voiceAssistantLiveState.isHandsFree) {
+        unawaited(startLiveVoiceCapture().catchError((Object _) {}));
       }
       notifyListeners();
     });
-    socket.on('voice:assistant_state', (dynamic data) {
+    socket.on('voice:state', (dynamic data) {
       final payload = _jsonMap(data);
-      if (!_matchesLiveVoiceSessionPayload(payload)) {
+      if (!_matchesLiveVoiceSessionPayload(payload)) return;
+      final state = payload['state']?.toString() ?? 'idle';
+      if (state == 'closed') {
+        unawaited(closeLiveVoiceSession(error: voiceAssistantLiveState.error));
         return;
       }
-      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-        state: payload['state']?.toString().ifEmpty('idle') ?? 'idle',
-        activeRunId: payload['clearRunId'] == true
-            ? ''
-            : payload['runId']?.toString().trim().isNotEmpty == true
-            ? payload['runId'].toString()
-            : voiceAssistantLiveState.activeRunId,
-      );
+      if (state == 'listening' && voiceAssistantLiveState.isSpeaking) {
+        _liveVoicePlayer.drain();
+      }
+      _liveVoiceHearingSpeech = state == 'speaking';
+      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(state: state);
+      _syncVoiceWorkClicks();
       notifyListeners();
     });
-    socket.on('voice:task_cancelled', (dynamic data) {
+    socket.on('voice:audio', (dynamic data) {
       final payload = _jsonMap(data);
-      if (!_matchesLiveVoiceSessionPayload(payload)) {
-        return;
-      }
+      if (!_matchesLiveVoiceSessionPayload(payload)) return;
+      final encoded = payload['audioBase64']?.toString() ?? '';
+      if (encoded.isEmpty) return;
+      _liveVoiceHearingSpeech = true;
+      _haltVoiceWorkClicks();
+      _liveVoicePlayer.add(base64Decode(encoded));
+    });
+    socket.on('voice:interrupted', (dynamic data) {
+      if (!_matchesLiveVoiceSessionPayload(_jsonMap(data))) return;
+      _liveVoiceHearingSpeech = false;
+      unawaited(_liveVoicePlayer.flush());
+      _syncVoiceWorkClicks();
+    });
+    socket.on('voice:transcript', (dynamic data) {
+      final payload = _jsonMap(data);
+      if (!_matchesLiveVoiceSessionPayload(payload)) return;
+      _applyLiveVoiceTranscript(payload);
+      notifyListeners();
+    });
+    socket.on('voice:task', (dynamic data) {
+      final payload = _jsonMap(data);
+      if (!_matchesLiveVoiceSessionPayload(payload)) return;
       final runId = payload['runId']?.toString() ?? '';
-      if (runId.isNotEmpty) {
-        _voiceRunIds.remove(runId);
+      final tasks = voiceAssistantLiveState.tasks
+          .where((task) => task.runId != runId)
+          .toList();
+      if (payload['status']?.toString() == 'running') {
+        tasks.add(
+          VoiceCallTask(
+            runId: runId,
+            request: payload['request']?.toString() ?? '',
+          ),
+        );
       }
-      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-        activeRunId: '',
-        state: 'idle',
-      );
-      notifyListeners();
-    });
-    socket.on('voice:chunk_ack', (dynamic data) {
-      final payload = _jsonMap(data);
-      if (!_matchesLiveVoiceSessionPayload(payload)) {
-        return;
-      }
-      final ackTurnId = payload['turnId']?.toString().trim() ?? '';
-      if (ackTurnId.isEmpty || ackTurnId != (_liveVoiceTurnId ?? '').trim()) {
-        return;
-      }
-      _liveVoiceAckThrough = math.max(
-        _liveVoiceAckThrough,
-        _asInt(payload['receivedThrough']),
-      );
-      for (final chunk in _liveVoiceBufferedChunks) {
-        if (chunk.sequence <= _liveVoiceAckThrough) {
-          chunk.sent = true;
-        }
-      }
-      unawaited(_emitPendingLiveVoiceCommitIfReady());
-    });
-    socket.on('voice:transcript_partial', (dynamic data) {
-      final payload = _jsonMap(data);
-      if (!_matchesLiveVoiceSessionPayload(payload)) {
-        return;
-      }
-      final content = payload['content']?.toString() ?? '';
-      _upsertVoiceTimelineItem(
-        payload: payload,
-        role: 'user',
-        kind: 'transcript_partial',
-        content: content,
-        isFinal: false,
-      );
-      notifyListeners();
-    });
-    socket.on('voice:transcript_final', (dynamic data) {
-      final payload = _jsonMap(data);
-      if (!_matchesLiveVoiceSessionPayload(payload)) {
-        return;
-      }
-      final content = payload['content']?.toString() ?? '';
-      _upsertVoiceTimelineItem(
-        payload: payload,
-        role: 'user',
-        kind: 'transcript_final',
-        content: content,
-        isFinal: true,
-      );
-      if (content.trim().isNotEmpty) {
-        _appendUserChatMessage(content, platform: 'voice_live');
-      }
-      notifyListeners();
-    });
-    socket.on('voice:assistant_text', (dynamic data) {
-      final payload = _jsonMap(data);
-      if (!_matchesLiveVoiceSessionPayload(payload)) {
-        return;
-      }
-      final content = payload['content']?.toString() ?? '';
-      final kind = payload['kind']?.toString() ?? 'final';
-      final isFinal = kind == 'final' || kind == 'opening';
-      if (content.trim().isEmpty) {
-        return;
-      }
-      _upsertVoiceTimelineItem(
-        payload: payload,
-        role: 'assistant',
-        kind: kind,
-        content: content,
-        isFinal: isFinal,
-      );
-      if (isFinal && content.trim().isNotEmpty) {
-        _resetLiveVoiceTurnBuffer();
-        _appendAssistantChatMessage(content, platform: 'voice_live');
-      }
-      notifyListeners();
-    });
-    socket.on('voice:audio_chunk', (dynamic data) {
-      final payload = _jsonMap(data);
-      if (!_matchesLiveVoiceSessionPayload(payload)) {
-        return;
-      }
-      final audioBase64 = payload['audioBase64']?.toString() ?? '';
-      if (audioBase64.trim().isEmpty) return;
-      final sequence = _asInt(payload['sequence']);
-      final messageId = payload['messageId']?.toString() ?? '';
-      final runId = payload['runId']?.toString() ?? '';
-      final turnId = payload['turnId']?.toString() ?? '';
-      final kind = payload['kind']?.toString() ?? 'audio';
-      final audioKey = '$messageId:$runId:$turnId:$kind:$sequence';
-      if (!_liveVoiceAudioKeys.add(audioKey)) return;
-      if (_liveVoiceAudioKeys.length > 512) {
-        _liveVoiceAudioKeys.remove(_liveVoiceAudioKeys.first);
-      }
-      final chunk = base64Decode(audioBase64);
-      if (chunk.isEmpty) return;
-      final mimeType = payload['mimeType']?.toString() ?? 'audio/mpeg';
-      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-        audioMimeType: mimeType,
-        audioQueue: <Uint8List>[...voiceAssistantLiveState.audioQueue, chunk],
-        audioStreamDone: false,
-      );
-      notifyListeners();
-    });
-    socket.on('voice:audio_done', (dynamic data) {
-      final payload = _jsonMap(data);
-      if (!_matchesLiveVoiceSessionPayload(payload)) {
-        return;
-      }
-      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-        audioStreamDone: true,
-      );
+      voiceAssistantLiveState = voiceAssistantLiveState.copyWith(tasks: tasks);
+      _syncVoiceWorkClicks();
       notifyListeners();
     });
     socket.on('voice:error', (dynamic data) {
       final payload = _jsonMap(data);
-      if (!_matchesLiveVoiceSessionPayload(payload)) {
+      if (!_matchesLiveVoiceSessionPayload(payload)) return;
+      // A session-scoped error with no session on this side is a late reply
+      // about a call that already ended (trailing audio after hang-up).
+      final errorSessionId = payload['sessionId']?.toString().trim() ?? '';
+      if (errorSessionId.isNotEmpty &&
+          voiceAssistantLiveState.sessionId.trim().isEmpty) {
         return;
       }
-      _resetLiveVoiceTurnBuffer();
-      final message = payload['error']?.toString() ?? 'Live voice failed.';
-      if (_liveVoiceSessionOpenCompleter != null &&
-          !_liveVoiceSessionOpenCompleter!.isCompleted) {
-        _liveVoiceSessionOpenCompleter!.completeError(StateError(message));
+      final message =
+          payload['error']?.toString() ?? appStrings.liveVoiceFailed;
+      final opening = _liveVoiceSessionOpenCompleter;
+      if (payload['recoverable'] != true &&
+          opening != null &&
+          !opening.isCompleted) {
+        opening.completeError(StateError(message));
       }
-      _liveVoiceSessionOpenCompleter = null;
       voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
         error: message,
-        state: payload['phase']?.toString() == 'tts' ? 'degraded' : 'idle',
-        clearAudio: true,
-        clearRecoverableUntil: true,
       );
-      _liveVoiceCaptureActive = false;
-      _pendingLiveVoiceStop = false;
-      errorMessage = message;
+      _syncVoiceWorkClicks();
       notifyListeners();
     });
     socket.on('run:start', (dynamic data) {
@@ -8115,15 +7887,6 @@ class NeoAgentController extends ChangeNotifier {
           payload['agentId']?.toString() ?? payload['agent_id']?.toString();
       if (triggerSource == 'voice_live') {
         _voiceRunIds.add(runId);
-        voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-          activeRunId: runId,
-          state: 'working',
-        );
-        notifyListeners();
-        return;
-      }
-      if (triggerSource == 'cowork' || _coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('start', payload);
         return;
       }
       final pendingSteeringCount = activeRun?.pendingSteeringCount ?? 0;
@@ -8140,8 +7903,8 @@ class NeoAgentController extends ChangeNotifier {
       activeRun = ActiveRunState(
         runId: runId,
         title:
-            payload['title']?.toString().ifEmpty('Running task') ??
-            'Running task',
+            payload['title']?.toString().ifEmpty(appStrings.runningTask) ??
+            appStrings.runningTask,
         model: payload['model']?.toString() ?? '',
         triggerSource: triggerSource,
         phase: 'Starting',
@@ -8154,18 +7917,24 @@ class NeoAgentController extends ChangeNotifier {
       isSendingMessage = true;
       notifyListeners();
     });
-    socket.on('run:phase', (dynamic data) {
-      final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('phase', payload);
+    socket.on('run:background', (dynamic data) {
+      final runId = _jsonMap(data)['runId']?.toString() ?? '';
+      // Any run moving to the background (chat or messaging) joins the
+      // background task list, which comes from the run list.
+      unawaited(refreshRunsOnly());
+      if (runId.isEmpty || activeRun?.runId != runId) {
+        return;
       }
+      _backgroundRunIds.add(runId);
+      _detachedChatRunIds.add(runId);
+      activeRun = null;
+      streamingAssistant = '';
+      toolEvents = const <ToolEventItem>[];
+      isSendingMessage = false;
+      notifyListeners();
     });
     socket.on('run:thinking', (dynamic data) {
       final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('thinking', payload);
-        return;
-      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -8183,10 +7952,6 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:analysis', (dynamic data) {
       final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('analysis', payload);
-        return;
-      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -8195,9 +7960,13 @@ class NeoAgentController extends ChangeNotifier {
         return;
       }
       final summary = [
-        'mode: ${payload['mode']?.toString() ?? 'execute'}',
-        'verification: ${payload['verification_need']?.toString() ?? 'none'}',
-        'freshness: ${payload['freshness_risk']?.toString() ?? 'none'}',
+        appStrings.modeArg1(payload['mode']?.toString() ?? 'execute'),
+        appStrings.verificationArg12(
+          payload['verification_need']?.toString() ?? 'none',
+        ),
+        appStrings.freshnessArg1(
+          payload['freshness_risk']?.toString() ?? 'none',
+        ),
       ].join(' | ');
       toolEvents = _capToolEvents(<ToolEventItem>[
         ...toolEvents,
@@ -8216,10 +7985,6 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:plan', (dynamic data) {
       final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('plan', payload);
-        return;
-      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -8244,7 +8009,7 @@ class NeoAgentController extends ChangeNotifier {
           toolName: 'plan',
           type: 'planning',
           status: 'completed',
-          summary: steps.ifEmpty('Execution plan created.'),
+          summary: steps.ifEmpty(appStrings.executionPlanCreated),
         ),
       ]);
       if (activeRun?.runId == runId) {
@@ -8254,10 +8019,6 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:stopping', (dynamic data) {
       final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('stopping', payload);
-        return;
-      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -8272,10 +8033,6 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:pausing', (dynamic data) {
       final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('pausing', payload);
-        return;
-      }
       final runId = payload['runId']?.toString() ?? '';
       if (activeRun?.runId == runId) {
         activeRun = activeRun!.copyWith(phase: 'Pausing');
@@ -8284,10 +8041,6 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:tool_start', (dynamic data) {
       final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('tool_start', payload);
-        return;
-      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -8319,16 +8072,12 @@ class NeoAgentController extends ChangeNotifier {
         streamingAssistant = '';
       }
       if (activeRun?.runId == runId) {
-        activeRun = activeRun!.copyWith(phase: 'Running tool');
+        activeRun = activeRun!.copyWith(phase: appStrings.runningTool);
       }
       notifyListeners();
     });
     socket.on('run:verification', (dynamic data) {
       final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('verification', payload);
-        return;
-      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -8347,9 +8096,11 @@ class NeoAgentController extends ChangeNotifier {
               : 'failed',
           summary:
               payload['notes']?.toString().ifEmpty(
-                'Verification status: ${payload['status']?.toString() ?? 'unknown'}',
+                appStrings.verificationStatusArg1(
+                  payload['status']?.toString() ?? 'unknown',
+                ),
               ) ??
-              'Verification completed.',
+              appStrings.verificationCompleted,
         ),
       ]);
       if (activeRun?.runId == runId) {
@@ -8359,10 +8110,6 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:subagent', (dynamic data) {
       final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('subagent', payload);
-        return;
-      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -8390,9 +8137,9 @@ class NeoAgentController extends ChangeNotifier {
               payload['task']?.toString().ifEmpty(
                 payload['error']?.toString() ??
                     payload['result']?.toString() ??
-                    'Subagent update.',
+                    appStrings.subagentUpdate2,
               ) ??
-              'Subagent update.',
+              appStrings.subagentUpdate2,
         ),
       );
       toolEvents = _capToolEvents(nextEvents);
@@ -8400,10 +8147,6 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:tool_end', (dynamic data) {
       final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('tool_end', payload);
-        return;
-      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -8452,6 +8195,8 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('tool:approval_required', (dynamic data) {
       final payload = _jsonMap(data);
       final req = ToolApprovalRequest.fromJson(payload);
+      // An already-expired request must not be presented as actionable.
+      if (!req.expiresAt.isAfter(DateTime.now())) return;
       pendingApproval = req;
       notifyListeners();
       // Show interactive push notification when app is backgrounded
@@ -8470,10 +8215,6 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:steer_queued', (dynamic data) {
       final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('steer_queued', payload);
-        return;
-      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -8488,8 +8229,9 @@ class NeoAgentController extends ChangeNotifier {
           toolName: 'steering',
           type: 'note',
           status: 'completed',
-          summary:
-              'Queued as steering for the current run: ${payload['content']?.toString() ?? ''}',
+          summary: appStrings.queuedAsSteeringForTheCurrent(
+            payload['content']?.toString() ?? '',
+          ),
         ),
       ]);
       if (activeRun?.runId == runId || activeRun?.runId == 'pending') {
@@ -8501,10 +8243,6 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:steer_applied', (dynamic data) {
       final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('steer_applied', payload);
-        return;
-      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -8520,24 +8258,22 @@ class NeoAgentController extends ChangeNotifier {
           type: 'note',
           status: 'completed',
           summary: payload['count'] == 1
-              ? 'Applied the latest steering update to the current run.'
-              : 'Applied ${_asInt(payload['count'])} queued steering updates to the current run.',
+              ? appStrings.appliedTheLatestSteeringUpdateToThe
+              : appStrings.appliedArg1QueuedSteeringUpdatesTo(
+                  _asInt(payload['count']),
+                ),
         ),
       ]);
       if (activeRun?.runId == runId || activeRun?.runId == 'pending') {
         activeRun = activeRun!.copyWith(
           pendingSteeringCount: _asInt(payload['pendingCount']),
-          phase: 'Incorporating steering',
+          phase: appStrings.incorporatingSteering,
         );
       }
       notifyListeners();
     });
     socket.on('run:interim', (dynamic data) {
       final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('interim', payload);
-        return;
-      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -8553,10 +8289,6 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:assistant_interim', (dynamic data) {
       final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('interim', payload);
-        return;
-      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -8572,28 +8304,8 @@ class NeoAgentController extends ChangeNotifier {
       }
       notifyListeners();
     });
-    socket.on('run:input_required', (dynamic data) {
-      final payload = _jsonMap(data);
-      _updateCoworkRunEvent('input_required', payload);
-    });
-    socket.on('run:paused', (dynamic data) {
-      final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('paused', payload);
-      }
-    });
-    socket.on('run:resumed', (dynamic data) {
-      final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('resumed', payload);
-      }
-    });
     socket.on('run:stream', (dynamic data) {
       final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('stream', payload);
-        return;
-      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.contains(runId)) {
         return;
@@ -8614,7 +8326,7 @@ class NeoAgentController extends ChangeNotifier {
       if (activeRun?.runId == runId) {
         activeRun = activeRun!.copyWith(
           phase: toolEvents.any((event) => event.status == 'running')
-              ? 'Running tool'
+              ? appStrings.runningTool
               : 'Streaming',
         );
       }
@@ -8622,21 +8334,25 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:complete', (dynamic data) {
       final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('complete', payload);
-        return;
-      }
       final runId = payload['runId']?.toString() ?? '';
       if (_voiceRunIds.remove(runId)) {
-        voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-          activeRunId: '',
-          state: voiceAssistantLiveState.state == 'speaking'
-              ? 'speaking'
-              : 'idle',
-        );
+        // A hand-off that finished after the call ended arrives as a chat
+        // delivery instead of speech.
+        final content = payload['content']?.toString().trim() ?? '';
+        if (!voiceAssistantLiveState.hasActiveSession &&
+            payload['outboxId'] != null &&
+            content.isNotEmpty) {
+          _appendAssistantChatMessage(content, platform: 'voice_live');
+        }
         unawaited(refreshRateLimitUsage());
         notifyListeners();
         return;
+      }
+      if (_detachedChatRunIds.remove(runId)) {
+        final content = payload['content']?.toString().trim() ?? '';
+        if (content.isNotEmpty) {
+          _appendAssistantChatMessage(content, platform: 'web');
+        }
       }
       if (_backgroundRunIds.remove(runId)) {
         unawaited(refreshRunsOnly());
@@ -8656,8 +8372,10 @@ class NeoAgentController extends ChangeNotifier {
               : const <String, dynamic>{},
         );
       }
-      streamingAssistant = '';
-      isSendingMessage = false;
+      if (!_isNewerRunActive(runId)) {
+        streamingAssistant = '';
+        isSendingMessage = false;
+      }
       if (activeRun?.runId == runId) {
         activeRun = activeRun!.copyWith(
           phase: 'Completed',
@@ -8670,15 +8388,12 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:stopped', (dynamic data) {
       final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('stopped', payload);
-        return;
-      }
       final runId = payload['runId']?.toString() ?? '';
       clearPendingApprovalForRun(runId);
       if (_voiceRunIds.remove(runId)) {
         return;
       }
+      _detachedChatRunIds.remove(runId);
       if (_backgroundRunIds.remove(runId)) {
         unawaited(refreshRunsOnly());
         unawaited(refreshMemory());
@@ -8698,15 +8413,12 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:interrupted', (dynamic data) {
       final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('stopped', payload);
-        return;
-      }
       final runId = payload['runId']?.toString() ?? '';
       clearPendingApprovalForRun(runId);
       if (_voiceRunIds.remove(runId)) {
         return;
       }
+      _detachedChatRunIds.remove(runId);
       if (_backgroundRunIds.remove(runId)) {
         unawaited(refreshRunsOnly());
         unawaited(refreshMemory());
@@ -8726,29 +8438,32 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('run:error', (dynamic data) {
       final payload = _jsonMap(data);
-      if (_coworkConversationId(payload) != null) {
-        _updateCoworkRunEvent('error', payload);
-        return;
-      }
       final runId = payload['runId']?.toString();
       if (runId != null && _voiceRunIds.remove(runId)) {
-        _resetLiveVoiceTurnBuffer();
-        voiceAssistantLiveState = voiceAssistantLiveState.copyWith(
-          error:
-              payload['error']?.toString() ??
-              'I could not complete that voice request.',
-          state: 'idle',
-          clearRecoverableUntil: true,
-        );
-        notifyListeners();
         return;
       }
       if (runId != null) {
+        if (_detachedChatRunIds.remove(runId)) {
+          if (payload['code'] == _aiModelsUnavailableCode) {
+            _showModelSetupNotice();
+          } else {
+            errorMessage = _friendlyErrorMessage(
+              BackendException(
+                payload['error']?.toString().trim() ??
+                    appStrings.iCouldNotCompleteThatRequest,
+              ),
+            );
+          }
+        }
         if (_backgroundRunIds.remove(runId)) {
           unawaited(refreshRunsOnly());
           notifyListeners();
           return;
         }
+      }
+      if (_isNewerRunActive(runId ?? '')) {
+        unawaited(refreshRunsOnly());
+        return;
       }
       streamingAssistant = '';
       _failedForegroundRunId =
@@ -8756,9 +8471,14 @@ class NeoAgentController extends ChangeNotifier {
       activeRun = null;
       isSendingMessage = false;
       unawaited(refreshRunsOnly());
+      if (payload['code'] == _aiModelsUnavailableCode) {
+        _showModelSetupNotice();
+        notifyListeners();
+        return;
+      }
       final message =
           payload['error']?.toString().trim() ??
-          'I could not complete that request right now. Please try again in a moment.';
+          appStrings.iCouldNotCompleteThatRequest;
       errorMessage = _friendlyErrorMessage(
         BackendException(
           message,
@@ -8790,6 +8510,16 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.connect();
     _socket = socket;
+  }
+
+  // A follow-up sent while a run was finishing starts its own run; the older
+  // run's completion or error must not end the newer run's live state.
+  bool _isNewerRunActive(String runId) {
+    final current = activeRun;
+    return runId.isNotEmpty &&
+        current != null &&
+        current.runId != runId &&
+        current.runId != 'pending';
   }
 
   bool _isBackgroundRun(String triggerSource) {

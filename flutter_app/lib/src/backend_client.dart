@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'diagnostics_logger.dart';
 import 'network/app_http_client.dart';
 import 'network/app_http_client_factory.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 class BackendClient {
   BackendClient({AppHttpClient? httpClient})
@@ -13,6 +14,10 @@ class BackendClient {
   static const Duration _requestTimeout = Duration(seconds: 120);
 
   final AppHttpClient _httpClient;
+
+  /// Called when a signed-in request comes back 401 outside `/api/auth/*`,
+  /// meaning the server no longer knows this session.
+  void Function()? onSessionExpired;
 
   void _log(
     String event, {
@@ -85,6 +90,48 @@ class BackendClient {
     return getMap(baseUrl, '/api/auth/status', allowUnauthorized: true);
   }
 
+  /// Confirms [baseUrl] is a NeoAgent server before the app commits to it.
+  ///
+  /// Only a JSON auth status carrying `hasUser` counts: a web page, a proxy
+  /// login wall (401) or any other JSON API is rejected with
+  /// [BackendException.notNeoAgentServer].
+  Future<Map<String, dynamic>> probeServer(String baseUrl) async {
+    final response = await _request(
+      'GET',
+      _resolveUri(baseUrl, '/api/auth/status'),
+      allowUnauthorized: true,
+    );
+    if (response.statusCode >= 500) {
+      _throwIfError(response);
+    }
+    if (response.statusCode >= 300) {
+      final code = _errorCode(response.body);
+      if (code != null) {
+        _throwIfError(response);
+      }
+      throw _notNeoAgentServer();
+    }
+    final decoded = _decodeJson(response.body);
+    if (decoded is! Map || !decoded.containsKey('hasUser')) {
+      throw _notNeoAgentServer();
+    }
+    return Map<String, dynamic>.from(decoded);
+  }
+
+  BackendException _notNeoAgentServer() => BackendException(
+    appStrings.authNotANeoagentServer,
+    code: BackendException.notNeoAgentServer,
+  );
+
+  String? _errorCode(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      return decoded is Map ? decoded['code']?.toString() : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
   Future<Map<String, dynamic>> getSetupHandshake(String baseUrl) async {
     return getMap(baseUrl, '/api/setup/handshake', allowUnauthorized: true);
   }
@@ -131,11 +178,23 @@ class BackendClient {
     required String username,
     required String email,
     required String password,
+    String? signupKey,
   }) async {
     return postMap(baseUrl, '/api/auth/register', <String, dynamic>{
       'username': username,
       'email': email,
       'password': password,
+      if (signupKey != null) 'signupKey': signupKey,
+    });
+  }
+
+  /// Confirms a sign-up key can still be redeemed, without spending it.
+  Future<Map<String, dynamic>> checkSignupKey({
+    required String baseUrl,
+    required String key,
+  }) async {
+    return postMap(baseUrl, '/api/auth/signup-key/check', <String, dynamic>{
+      'key': key,
     });
   }
 
@@ -143,11 +202,15 @@ class BackendClient {
     required String baseUrl,
     required String provider,
     required String mode,
+    String? signupKey,
   }) async {
     return postMap(
       baseUrl,
       '/api/auth/providers/$provider/begin',
-      <String, dynamic>{'mode': mode},
+      <String, dynamic>{
+        'mode': mode,
+        if (signupKey != null) 'signupKey': signupKey,
+      },
       allowUnauthorized: mode != 'link',
     );
   }
@@ -162,6 +225,15 @@ class BackendClient {
       allowUnauthorized: true,
     );
   }
+
+  Future<Map<String, dynamic>> finishProviderRegistration({
+    required String baseUrl,
+    required String state,
+    required String username,
+  }) => postMap(baseUrl, '/api/auth/providers/register', <String, dynamic>{
+    'state': state,
+    'username': username,
+  }, allowUnauthorized: true);
 
   Future<Map<String, dynamic>> completeTwoFactorLogin({
     required String baseUrl,
@@ -255,14 +327,33 @@ class BackendClient {
     }, allowUnauthorized: true);
   }
 
+  /// With [knownStatus], the server holds the request until the status
+  /// differs from it (at most about 25 seconds).
   Future<Map<String, dynamic>> getQrLoginChallengeStatus({
+    required String baseUrl,
+    required String challengeId,
+    required String pollToken,
+    String? knownStatus,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/auth/qr-login/challenge/${Uri.encodeComponent(challengeId)}/status',
+      <String, dynamic>{
+        'token': pollToken,
+        if (knownStatus != null) 'knownStatus': knownStatus,
+      },
+      allowUnauthorized: true,
+    );
+  }
+
+  Future<Map<String, dynamic>> cancelQrLoginChallenge({
     required String baseUrl,
     required String challengeId,
     required String pollToken,
   }) async {
     return postMap(
       baseUrl,
-      '/api/auth/qr-login/challenge/${Uri.encodeComponent(challengeId)}/status',
+      '/api/auth/qr-login/challenge/${Uri.encodeComponent(challengeId)}/cancel',
       <String, dynamic>{'token': pollToken},
       allowUnauthorized: true,
     );
@@ -411,8 +502,21 @@ class BackendClient {
     required String baseUrl,
     required String challengeId,
     required String secret,
+    required Map<String, dynamic> scannerMetadata,
   }) async {
     return postMap(baseUrl, '/api/account/qr-login/resolve', <String, dynamic>{
+      'challengeId': challengeId,
+      'secret': secret,
+      'scannerMetadata': scannerMetadata,
+    });
+  }
+
+  Future<Map<String, dynamic>> declineQrLoginChallenge({
+    required String baseUrl,
+    required String challengeId,
+    required String secret,
+  }) async {
+    return postMap(baseUrl, '/api/account/qr-login/decline', <String, dynamic>{
       'challengeId': challengeId,
       'secret': secret,
     });
@@ -443,57 +547,6 @@ class BackendClient {
     int sessionId,
   ) async {
     return deleteMap(baseUrl, '/api/account/sessions/$sessionId');
-  }
-
-  // ── Billing ──────────────────────────────────────────────────────────────
-
-  Future<Map<String, dynamic>> getBillingPlans(String baseUrl) async {
-    return getMap(baseUrl, '/api/billing/plans', allowUnauthorized: true);
-  }
-
-  Future<Map<String, dynamic>> getBillingInfo(String baseUrl) async {
-    return getMap(baseUrl, '/api/billing/');
-  }
-
-  Future<Map<String, dynamic>> getBillingInvoices(String baseUrl) async {
-    return getMap(baseUrl, '/api/billing/invoices');
-  }
-
-  Future<Map<String, dynamic>> createCheckoutSession({
-    required String baseUrl,
-    required String planId,
-    required String successUrl,
-    required String cancelUrl,
-  }) async {
-    return postMap(baseUrl, '/api/billing/checkout', <String, dynamic>{
-      'planId': planId,
-      'successUrl': successUrl,
-      'cancelUrl': cancelUrl,
-    });
-  }
-
-  Future<Map<String, dynamic>> createPortalSession({
-    required String baseUrl,
-    required String returnUrl,
-  }) async {
-    return postMap(baseUrl, '/api/billing/portal', <String, dynamic>{
-      'returnUrl': returnUrl,
-    });
-  }
-
-  Future<Map<String, dynamic>> cancelBillingSubscription(String baseUrl) async {
-    return postMap(baseUrl, '/api/billing/cancel', const <String, dynamic>{});
-  }
-
-  Future<Map<String, dynamic>> startBillingTrial({
-    required String baseUrl,
-    required String planId,
-    String? deviceFingerprint,
-  }) async {
-    return postMap(baseUrl, '/api/billing/trial', <String, dynamic>{
-      'planId': planId,
-      if (deviceFingerprint != null) 'deviceFingerprint': deviceFingerprint,
-    });
   }
 
   // ── Delegation (managed / managing accounts) ─────────────────────────────
@@ -531,9 +584,11 @@ class BackendClient {
     String baseUrl,
     String link,
   ) async {
-    return postMap(baseUrl, '/api/delegation/invites/preview', <String, dynamic>{
-      'link': link,
-    });
+    return postMap(
+      baseUrl,
+      '/api/delegation/invites/preview',
+      <String, dynamic>{'link': link},
+    );
   }
 
   Future<Map<String, dynamic>> redeemDelegationInvite(
@@ -602,11 +657,16 @@ class BackendClient {
     String query = '',
   }) async {
     final trimmed = query.trim();
-    final suffix = trimmed.isEmpty ? '' : '?q=${Uri.encodeQueryComponent(trimmed)}';
+    final suffix = trimmed.isEmpty
+        ? ''
+        : '?q=${Uri.encodeQueryComponent(trimmed)}';
     return getMap(baseUrl, '/api/admin/users$suffix');
   }
 
-  Future<Map<String, dynamic>> deleteAdminUser(String baseUrl, int userId) async {
+  Future<Map<String, dynamic>> deleteAdminUser(
+    String baseUrl,
+    int userId,
+  ) async {
     return deleteMap(baseUrl, '/api/admin/users/$userId');
   }
 
@@ -615,6 +675,18 @@ class BackendClient {
     int userId,
   ) async {
     return deleteMap(baseUrl, '/api/admin/users/$userId/sessions');
+  }
+
+  Future<Map<String, dynamic>> resetAdminUserPassword(
+    String baseUrl,
+    int userId, {
+    required String password,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/admin/users/$userId/password',
+      <String, dynamic>{'password': password},
+    );
   }
 
   Future<Map<String, dynamic>> fetchAdminUserRateLimits(
@@ -664,13 +736,35 @@ class BackendClient {
     return getMap(baseUrl, '/api/admin/access');
   }
 
-  Future<Map<String, dynamic>> setAdminSignupEnabled(
+  Future<Map<String, dynamic>> setAdminSignupKeyRequired(
     String baseUrl,
-    bool enabled,
+    bool required,
   ) async {
     return putMap(baseUrl, '/api/admin/access/signup', <String, dynamic>{
-      'enabled': enabled,
+      'keyRequired': required,
     });
+  }
+
+  Future<Map<String, dynamic>> fetchAdminSignupKeys(String baseUrl) async {
+    return getMap(baseUrl, '/api/admin/signup-keys');
+  }
+
+  Future<Map<String, dynamic>> createAdminSignupKeys(
+    String baseUrl, {
+    required int count,
+    required String label,
+  }) async {
+    return postMap(baseUrl, '/api/admin/signup-keys', <String, dynamic>{
+      'count': count,
+      'label': label,
+    });
+  }
+
+  Future<Map<String, dynamic>> revokeAdminSignupKey(
+    String baseUrl,
+    int id,
+  ) async {
+    return deleteMap(baseUrl, '/api/admin/signup-keys/$id');
   }
 
   Future<Map<String, dynamic>> fetchAdminProviders(String baseUrl) async {
@@ -701,8 +795,8 @@ class BackendClient {
     });
   }
 
-  /// [section] is one of `general`, `vm`, `integrations`, `billing-setup`,
-  /// `email` (the `/api/admin/config/<section>` endpoints).
+  /// [section] is one of `general`, `vm`, `integrations`, `email` (the
+  /// `/api/admin/config/<section>` endpoints).
   Future<Map<String, dynamic>> fetchAdminConfig(
     String baseUrl,
     String section,
@@ -716,83 +810,6 @@ class BackendClient {
     Map<String, dynamic> payload,
   ) async {
     return putMap(baseUrl, '/api/admin/config/$section', payload);
-  }
-
-  Future<Map<String, dynamic>> fetchAdminBillingPlans(String baseUrl) async {
-    return getMap(baseUrl, '/api/admin/billing/plans');
-  }
-
-  Future<Map<String, dynamic>> createAdminBillingPlan(
-    String baseUrl,
-    Map<String, dynamic> plan,
-  ) async {
-    return postMap(baseUrl, '/api/admin/billing/plans', plan);
-  }
-
-  Future<Map<String, dynamic>> updateAdminBillingPlan(
-    String baseUrl,
-    String planId,
-    Map<String, dynamic> plan,
-  ) async {
-    return putMap(
-      baseUrl,
-      '/api/admin/billing/plans/${Uri.encodeComponent(planId)}',
-      plan,
-    );
-  }
-
-  Future<Map<String, dynamic>> deleteAdminBillingPlan(
-    String baseUrl,
-    String planId,
-  ) async {
-    return deleteMap(
-      baseUrl,
-      '/api/admin/billing/plans/${Uri.encodeComponent(planId)}',
-    );
-  }
-
-  Future<Map<String, dynamic>> fetchAdminSubscriptions(
-    String baseUrl, {
-    int limit = 50,
-    int offset = 0,
-    String? status,
-  }) async {
-    final query = <String, String>{
-      'limit': '$limit',
-      'offset': '$offset',
-      if (status != null && status.isNotEmpty) 'status': status,
-    };
-    return getMap(
-      baseUrl,
-      '/api/admin/billing/subscriptions?${Uri(queryParameters: query).query}',
-    );
-  }
-
-  Future<Map<String, dynamic>> fetchAdminUserSubscription(
-    String baseUrl,
-    int userId,
-  ) async {
-    return getMap(baseUrl, '/api/admin/billing/users/$userId/subscription');
-  }
-
-  Future<Map<String, dynamic>> setAdminUserSubscription(
-    String baseUrl, {
-    required int userId,
-    required String planId,
-    String? status,
-  }) async {
-    return postMap(
-      baseUrl,
-      '/api/admin/billing/users/$userId/subscription',
-      <String, dynamic>{'planId': planId, if (status != null) 'status': status},
-    );
-  }
-
-  Future<Map<String, dynamic>> cancelAdminUserSubscription(
-    String baseUrl,
-    int userId,
-  ) async {
-    return deleteMap(baseUrl, '/api/admin/billing/users/$userId/subscription');
   }
 
   // ── Agent profiles ────────────────────────────────────────────────────────
@@ -877,6 +894,16 @@ class BackendClient {
     );
   }
 
+  Future<Map<String, dynamic>> fetchSystemOneModels(
+    String baseUrl, {
+    String? agentId,
+  }) async {
+    return getMap(
+      baseUrl,
+      _withAgentQuery('/api/settings/meta/system-one-models', agentId),
+    );
+  }
+
   Future<Map<String, dynamic>> fetchAiProviders(
     String baseUrl, {
     String? agentId,
@@ -948,11 +975,56 @@ class BackendClient {
     );
   }
 
+  Future<Map<String, dynamic>> beginProviderSignIn(
+    String baseUrl,
+    String providerId, {
+    String? agentId,
+  }) async {
+    return postMap(
+      baseUrl,
+      _withAgentQuery('/api/provider-sign-in/$providerId', agentId),
+      _withAgentId(<String, dynamic>{}, agentId),
+    );
+  }
+
+  Future<Map<String, dynamic>> fetchProviderSignIn(
+    String baseUrl,
+    String state,
+  ) async {
+    return getMap(baseUrl, '/api/provider-sign-in/$state');
+  }
+
+  Future<Map<String, dynamic>> submitProviderSignInCode(
+    String baseUrl,
+    String state,
+    String code,
+  ) async {
+    return postMap(
+      baseUrl,
+      '/api/provider-sign-in/$state/code',
+      <String, dynamic>{'code': code},
+    );
+  }
+
   Future<Map<String, dynamic>> fetchBehaviorConfig(
     String baseUrl, {
     String? agentId,
   }) async {
     return getMap(baseUrl, _withAgentQuery('/api/behavior', agentId));
+  }
+
+  Future<Map<String, dynamic>> fetchBehaviorDecisions(
+    String baseUrl, {
+    required String platform,
+    String? agentId,
+  }) async {
+    return getMap(
+      baseUrl,
+      _withAgentQuery(
+        '/api/behavior/decisions?platform=${Uri.encodeQueryComponent(platform)}',
+        agentId,
+      ),
+    );
   }
 
   Future<Map<String, dynamic>> saveBehaviorConfig(
@@ -1031,32 +1103,6 @@ class BackendClient {
     return getMap(baseUrl, _withAgentQuery('/api/agents?limit=20', agentId));
   }
 
-  Future<Map<String, dynamic>> fetchTimeline(
-    String baseUrl, {
-    Iterable<String>? sources,
-    String? agentId,
-    int limit = 50,
-    String? beforeOccurredAt,
-    int? beforeId,
-  }) async {
-    final query = <String>[
-      'limit=${limit.clamp(1, 200)}',
-      if (agentId?.trim().isNotEmpty == true)
-        'agentId=${Uri.encodeQueryComponent(agentId!.trim())}',
-      if (beforeOccurredAt?.trim().isNotEmpty == true)
-        'beforeOccurredAt=${Uri.encodeQueryComponent(beforeOccurredAt!.trim())}',
-      if (beforeId != null && beforeId > 0) 'beforeId=$beforeId',
-    ];
-    for (final source in (sources ?? const <String>[])) {
-      final normalized = source.trim().toLowerCase();
-      if (normalized.isEmpty) {
-        continue;
-      }
-      query.add('source=${Uri.encodeQueryComponent(normalized)}');
-    }
-    return getMap(baseUrl, '/api/timeline?${query.join('&')}');
-  }
-
   Future<Map<String, dynamic>> fetchRunSteps(
     String baseUrl,
     String runId,
@@ -1125,74 +1171,6 @@ class BackendClient {
     return getMap(
       baseUrl,
       _withDeviceTarget('/api/computer/status', deviceTarget),
-    );
-  }
-
-  Future<Map<String, dynamic>> fetchCoworkCapabilities(String baseUrl) {
-    return getMap(baseUrl, '/api/cowork/capabilities');
-  }
-
-  Future<Map<String, dynamic>> fetchCoworkChats(String baseUrl) {
-    return getMap(baseUrl, '/api/cowork/chats');
-  }
-
-  Future<Map<String, dynamic>> fetchCoworkChat(
-    String baseUrl,
-    String conversationId,
-  ) {
-    return getMap(
-      baseUrl,
-      '/api/cowork/chats/${Uri.encodeComponent(conversationId)}',
-    );
-  }
-
-  Future<Map<String, dynamic>> fetchCoworkChanges(
-    String baseUrl,
-    String conversationId,
-  ) {
-    return getMap(
-      baseUrl,
-      '/api/cowork/chats/${Uri.encodeComponent(conversationId)}/changes',
-    );
-  }
-
-  Future<Map<String, dynamic>> createCoworkChat(
-    String baseUrl,
-    Map<String, dynamic> payload,
-  ) {
-    return postMap(baseUrl, '/api/cowork/chats', payload);
-  }
-
-  Future<Map<String, dynamic>> updateCoworkChat(
-    String baseUrl,
-    String conversationId,
-    Map<String, dynamic> payload,
-  ) {
-    return patchMap(
-      baseUrl,
-      '/api/cowork/chats/${Uri.encodeComponent(conversationId)}',
-      payload,
-    );
-  }
-
-  Future<void> deleteCoworkChat(String baseUrl, String conversationId) async {
-    await deleteMap(
-      baseUrl,
-      '/api/cowork/chats/${Uri.encodeComponent(conversationId)}',
-    );
-  }
-
-  Future<Map<String, dynamic>> answerCoworkInput(
-    String baseUrl, {
-    required String conversationId,
-    required String requestId,
-    required Map<String, String> answers,
-  }) {
-    return postMap(
-      baseUrl,
-      '/api/cowork/chats/${Uri.encodeComponent(conversationId)}'
-      '/input-requests/${Uri.encodeComponent(requestId)}/answer',
-      <String, dynamic>{'answers': answers},
     );
   }
 
@@ -1633,10 +1611,6 @@ class BackendClient {
     return getList(baseUrl, '/api/skills/audit/summary');
   }
 
-  Future<List<Map<String, dynamic>>> fetchSkillStore(String baseUrl) async {
-    return getList(baseUrl, '/api/store');
-  }
-
   Future<List<Map<String, dynamic>>> fetchOfficialIntegrations(
     String baseUrl, {
     String? agentId,
@@ -1686,19 +1660,27 @@ class BackendClient {
     await deleteMap(baseUrl, '/api/skills/$name');
   }
 
-  Future<Map<String, dynamic>> installStoreSkill(
+  Future<List<Map<String, dynamic>>> searchSkillsSh(
     String baseUrl,
-    String id,
-  ) async {
-    return postMap(
+    String query,
+  ) {
+    return getList(
       baseUrl,
-      '/api/store/$id/install',
-      const <String, dynamic>{},
+      '/api/skills/skills-sh/search?q=${Uri.encodeQueryComponent(query)}',
     );
   }
 
-  Future<void> uninstallStoreSkill(String baseUrl, String id) async {
-    await deleteMap(baseUrl, '/api/store/$id/uninstall');
+  Future<Map<String, dynamic>> installSkillsShSkill(
+    String baseUrl, {
+    required String source,
+    required String skillId,
+    required String name,
+  }) {
+    return postMap(baseUrl, '/api/skills/skills-sh/install', <String, dynamic>{
+      'source': source,
+      'skillId': skillId,
+      'name': name,
+    });
   }
 
   Future<Map<String, dynamic>> connectOfficialIntegration(
@@ -2023,6 +2005,31 @@ class BackendClient {
     String? agentId,
   }) async {
     return getMap(baseUrl, _withAgentQuery('/api/memory', agentId));
+  }
+
+  Future<Map<String, dynamic>> fetchMemoryGraph(
+    String baseUrl, {
+    required int limit,
+    String? agentId,
+  }) async {
+    return getMap(
+      baseUrl,
+      _withAgentQuery('/api/memory/graph?limit=$limit', agentId),
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> fetchEntityMemories(
+    String baseUrl,
+    String entityId, {
+    String? agentId,
+  }) async {
+    return getList(
+      baseUrl,
+      _withAgentQuery(
+        '/api/memory/entities/${Uri.encodeComponent(entityId)}/memories',
+        agentId,
+      ),
+    );
   }
 
   Future<Map<String, dynamic>> fetchMemoryTransferPrompt(
@@ -2430,10 +2437,15 @@ class BackendClient {
       case 'DELETE':
         request = _httpClient.delete(uri, headers: headers, body: encodedBody);
       default:
-        throw BackendException('Unsupported method: $method');
+        throw BackendException(appStrings.unsupportedMethodArg1(method));
     }
     try {
       final response = await request.timeout(_requestTimeout);
+      if (response.statusCode == 401 &&
+          !allowUnauthorized &&
+          !uri.path.contains('/api/auth/')) {
+        onSessionExpired?.call();
+      }
       if (response.statusCode >= 400) {
         _log(
           'request.error',
@@ -2458,7 +2470,7 @@ class BackendClient {
         stackTrace: stackTrace,
       );
       throw BackendException(
-        'The NeoAgent backend took too long to respond for ${uri.path}.',
+        appStrings.theNeoagentBackendTookTooLong(uri.path),
       );
     } catch (error, stackTrace) {
       _log(
@@ -2471,8 +2483,24 @@ class BackendClient {
         error: error,
         stackTrace: stackTrace,
       );
-      throw BackendException(_describeTransportError(error, uri));
+      final tlsFailure = isTlsHandshakeFailure(error);
+      throw BackendException(
+        tlsFailure
+            ? appStrings.authSecureConnectionFailedArg1(uri.host)
+            : _describeTransportError(error, uri),
+        code: tlsFailure ? BackendException.tlsHandshakeFailed : null,
+      );
     }
+  }
+
+  /// Whether [error] is an HTTPS handshake that failed, for example because
+  /// the server only speaks plain HTTP on that port.
+  static bool isTlsHandshakeFailure(Object error) {
+    final lower = error.toString().toLowerCase();
+    return lower.contains('handshakeexception') ||
+        lower.contains('handshake error') ||
+        lower.contains('wrong_version_number') ||
+        lower.contains('certificate_verify_failed');
   }
 
   String _describeTransportError(Object error, Uri uri) {
@@ -2482,26 +2510,31 @@ class BackendClient {
         lower.contains('failed to fetch') ||
         lower.contains('networkerror') ||
         lower.contains('load failed')) {
-      return 'The web app could not reach the NeoAgent backend at ${uri.path}. Check the browser console and reverse-proxy/network configuration.';
+      return appStrings.theWebAppCouldNotReach2(uri.path);
     }
     if (lower.contains('content security policy') ||
         lower.contains('connect-src')) {
-      return 'The browser blocked a request to ${uri.path} because of Content Security Policy.';
+      return appStrings.theBrowserBlockedARequestTo(uri.path);
     }
     if (uri.host == 'localhost' ||
         uri.host == '127.0.0.1' ||
         uri.host == '::1') {
-      return 'The NeoAgent backend on this computer is not answering on port '
-          '${uri.port}. Make sure it is running, then try again.';
+      return appStrings.theNeoagentBackendOnThisComputer +
+          appStrings.arg1MakeSureItIsRunning(uri.port);
     }
-    return 'Request to ${uri.path} failed before the backend responded.';
+    return appStrings.requestToArg1FailedBeforeThe(uri.path);
   }
 
   dynamic _decodeJson(String body) {
     if (body.trim().isEmpty) {
       return const <String, dynamic>{};
     }
-    return jsonDecode(body);
+    try {
+      return jsonDecode(body);
+    } on FormatException {
+      // An HTML page or other non-JSON answer: wrong address or a proxy page.
+      throw _notNeoAgentServer();
+    }
   }
 
   Map<String, dynamic> _asMap(dynamic decoded) {
@@ -2556,18 +2589,21 @@ class BackendClient {
       return;
     }
 
-    var message = 'Request failed with HTTP ${response.statusCode}';
+    var message = appStrings.requestFailedWithHttpArg12(response.statusCode);
     String? code;
+    String? httpsUrl;
     try {
       final decoded = _asMap(_decodeJson(response.body));
       message = decoded['error']?.toString() ?? message;
       code = decoded['code']?.toString();
+      httpsUrl = decoded['httpsUrl']?.toString();
     } catch (_) {}
 
     throw BackendException(
       message,
       statusCode: response.statusCode,
       code: code,
+      httpsUrl: httpsUrl,
     );
   }
 
@@ -2629,28 +2665,39 @@ class BackendClient {
 
   Future<Map<String, dynamic>> triggerGeofenceEvent(
     String baseUrl, {
-    required String label,
+    required int fenceId,
+    required String transition,
     required double latitude,
     required double longitude,
-    int? radiusMeters,
-    String? action,
   }) {
     return postMap(baseUrl, '/api/triggers/geofence', <String, dynamic>{
-      'label': label,
+      'fence_id': fenceId,
+      'transition': transition,
       'latitude': latitude,
       'longitude': longitude,
-      if (radiusMeters != null) 'radius_meters': radiusMeters,
-      if (action != null && action.trim().isNotEmpty) 'action': action,
     });
   }
 }
 
 class BackendException implements Exception {
-  const BackendException(this.message, {this.statusCode, this.code});
+  const BackendException(
+    this.message, {
+    this.statusCode,
+    this.code,
+    this.httpsUrl,
+  });
+
+  /// Client-side codes for failures the server never got to answer.
+  static const String notNeoAgentServer = 'NOT_NEOAGENT_SERVER';
+  static const String tlsHandshakeFailed = 'TLS_HANDSHAKE_FAILED';
 
   final String message;
   final int? statusCode;
   final String? code;
+
+  /// Where to sign in instead when the server rejects plain HTTP
+  /// (`INSECURE_TRANSPORT`).
+  final String? httpsUrl;
 
   @override
   String toString() => message;

@@ -190,16 +190,14 @@ async function transmit(engine, entry, run) {
   const recipient = entry.recipient;
 
   try {
+    // A live voice call that has ended hands its result to the chat below, so a
+    // task finishing after the owner hung up is still seen.
     if (channel === 'voice_live') {
       const manager = engine?.voiceRuntimeManager || engine?.app?.locals?.voiceRuntimeManager;
-      if (!manager || typeof manager.presentDelivery !== 'function') {
-        return { ok: false, error: 'voice_runtime_unavailable' };
+      const result = manager?.presentDelivery(entry);
+      if (result && !result.detached) {
+        return { ok: true, platformMessageId: `voice:${entry.id}` };
       }
-      const result = await manager.presentDelivery(entry);
-      return {
-        ok: result?.delivered !== false,
-        platformMessageId: `voice:${entry.id}`,
-      };
     }
 
     if (channel === 'messaging' || channel === 'telegram' || channel === 'discord' || channel === 'whatsapp') {

@@ -1,35 +1,33 @@
 <p align="center">
-  <img src="marketing/final/github-banner.png" alt="NeoAgent — an AI assistant that keeps working" width="100%">
+  <img src=".github/banner.jpg" alt="NeoAgent: the personal AI agent you host yourself" width="100%">
 </p>
 
 <h1 align="center">NeoAgent</h1>
 
-<p align="center"><strong>A self-hosted AI agent that can keep working after the chat ends.</strong></p>
+<p align="center"><strong>The personal AI agent you host yourself.</strong></p>
 
 <p align="center">
-  NeoAgent runs as a service on your server. It can use a browser and terminal,
-  control Android devices, connect to your accounts, remember useful context,
-  and run scheduled or event-triggered work.
+  Its own computer, a memory, a schedule and a voice.<br>
+  On your hardware, with the model you choose.
 </p>
 
 <p align="center">
-  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node.js-20%2B-5fa04e?style=flat-square" alt="Node.js 20 or newer"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-a855f7?style=flat-square" alt="AGPL-3.0 license"></a>
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/NeoLabs-Systems/NeoAgent?style=flat-square&label=release&color=111827"></a>
+  <a href="LICENSE"><img alt="AGPL-3.0 license" src="https://img.shields.io/badge/license-AGPL--3.0-a855f7?style=flat-square"></a>
+  <a href="docs/docker.md"><img alt="Docker image" src="https://img.shields.io/badge/docker-ghcr.io-2496ed?style=flat-square&logo=docker&logoColor=white"></a>
+  <a href="https://nodejs.org"><img alt="Node.js 20.19 or newer" src="https://img.shields.io/badge/node-20.19%2B-5fa04e?style=flat-square&logo=nodedotjs&logoColor=white"></a>
 </p>
 
-> [!IMPORTANT]
-> **npm registry distribution has been shut down.** Install NeoAgent directly
-> from GitHub using the repository installer below. The npm command is still
-> used locally to install Node.js dependencies and link the CLI to the checkout.
+<p align="center">
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="macOS" src="https://img.shields.io/badge/macOS-DMG-000000?style=for-the-badge&logo=apple&logoColor=white"></a>
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Windows" src="https://img.shields.io/badge/Windows-EXE-0078d4?style=for-the-badge&logo=windows&logoColor=white"></a>
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Linux" src="https://img.shields.io/badge/Linux-AppImage-fcc624?style=for-the-badge&logo=linux&logoColor=black"></a>
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Android" src="https://img.shields.io/badge/Android-APK-3ddc84?style=for-the-badge&logo=android&logoColor=white"></a>
+  <img alt="iOS coming soon" src="https://img.shields.io/badge/iOS-coming_soon-6b7280?style=for-the-badge&logo=apple&logoColor=white">
+</p>
 
 <p align="center">
   <a href="https://discord.gg/f59rg2RwUT"><img src="https://img.shields.io/badge/Join%20NeoLabs-Discord-5865F2?style=for-the-badge&amp;logo=discord&amp;logoColor=white" alt="Join the NeoLabs Discord"></a>
-</p>
-
-<p align="center">
-  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Android" src="https://img.shields.io/badge/Android-APK-3ddc84?style=flat-square&logo=android&logoColor=white"></a>
-  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="iOS" src="https://img.shields.io/badge/iOS-coming_soon-lightgrey?style=flat-square&logo=apple&logoColor=white"></a>
-  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Windows" src="https://img.shields.io/badge/Windows-EXE-0078d4?style=flat-square&logo=windows&logoColor=white"></a>
 </p>
 
 <p align="center">
@@ -37,39 +35,90 @@
 </p>
 
 <p align="center">
-  <img src="marketing/final/trailer.gif" alt="NeoAgent trailer" width="100%">
+
+
+https://github.com/user-attachments/assets/ba50e0a5-1846-4738-9720-3fbf732d3659
+
+
 </p>
+
+
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <h3>🏠 On your hardware</h3>
+      Home server, NAS, VPS or your own PC.<br>
+      Desktop app, Docker or one script.
+    </td>
+    <td width="33%" valign="top">
+      <h3>🔐 Yours</h3>
+      Open source under AGPL-3.0.<br>
+      Any model, local ones included.<br>
+      No telemetry.
+    </td>
+    <td width="33%" valign="top">
+      <h3>✅ Asks, then acts</h3>
+      Approval before risky actions.<br>
+      Passwords it never sees.<br>
+      Tasks end with a result, a blocker or silence.
+    </td>
+  </tr>
+</table>
 
 ---
 
 ## 🚀 Install
 
-The repository installer clones NeoAgent directly from GitHub (requires Git,
-Node.js 20+, and npm for dependencies):
+| | | |
+| --- | --- | --- |
+| 🖥️ **Desktop app** | macOS, Windows, Linux. Installs and runs the server for you, no terminal. | [Download](https://github.com/NeoLabs-Systems/NeoAgent/releases/latest) |
+| 🐳 **Docker** | Home servers, NAS boxes and VPS. | [Guide](docs/docker.md) |
+| 📜 **Script** | Linux or macOS with Git and Node.js 20.19+. | [Guide](docs/getting-started.md) |
+
+**Docker**
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/compose.yaml
+docker compose up -d
+```
+
+**Script**
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/install.sh)
 ```
 
-Good to know:
+Then open **http://localhost:3333** (or your server's address). The first account you create is automatically assigned administrator privileges.
 
-- Read the [installation guide](docs/getting-started.md) before exposing the service to a network.
+## ✨ What it does
 
-## ✨ What makes it different
+<table>
+  <tr>
+    <td width="33%" valign="top"><b>🖐️ Its own computer</b><br>A private Linux desktop with browser and terminal. Watch it work or take over.</td>
+    <td width="33%" valign="top"><b>🧠 Memory</b><br>People, preferences and decisions, kept apart from chat history. Browse it as a graph.</td>
+    <td width="33%" valign="top"><b>⏰ 42 triggers</b><br>Schedules, new mail, calendar, GitHub, Home Assistant, location, weather and more.</td>
+  </tr>
+  <tr>
+    <td valign="top"><b>🎙️ Voice</b><br>Live voice chats, a ringing call when it needs you, and an ESP32 wearable.</td>
+    <td valign="top"><b>💬 24 chat channels</b><br>WhatsApp, Telegram, Signal, Discord, Slack, Teams, Matrix, iMessage and more.</td>
+    <td valign="top"><b>📱 Devices</b><br>Its own Android emulator, plus your desktop with per-capability permission.</td>
+  </tr>
+  <tr>
+    <td valign="top"><b>🎓 Learns by example</b><br>Teach Mode turns one demonstration into a reusable skill.</td>
+    <td valign="top"><b>🛡️ Guardrails</b><br>Per-tool permissions, read-only integrations, Bitwarden logins the model never sees.</td>
+    <td valign="top"><b>👥 Multi-user</b><br>Each account gets its own memory, agents and cloud computer.</td>
+  </tr>
+</table>
 
-- **Runs as a service.** Tasks, memory, integrations, devices, and messaging channels stay live between sessions.
-- **Structured local memory.** Durable facts kept apart from chat history, scoped per user and agent. See [How memory works](docs/memory.md).
-- **Operates real devices.** A persistent Linux cloud computer, optionally your own desktop (per-capability opt-in), and Android over ADB.
-- **Automation without a message.** Schedules, plus Gmail, Outlook, Slack, Teams, WhatsApp, weather, and Android-notification triggers.
-- **Multi-user and multi-agent.** Specialist agents with their own memory, tools, and history; admin controls for deployments.
-- **Optional SaaS billing.** Stripe subscriptions behind `NEOAGENT_BILLING_ENABLED=true` — invisible when off. See [Billing](docs/billing.md).
-- **Many interfaces, one server.** Web, Android, desktop, and launcher clients, messaging bridges, and ESP32-S3 wearable firmware.
+**Models:** OpenAI, Anthropic, Google, xAI, OpenRouter (one-click sign-in), NVIDIA NIM, MiniMax, GitHub Copilot, Ollama and any OpenAI-compatible endpoint.
 
 ## 🧭 Explore it
 
-| Operator interface | Memory | Remote devices |
-| --- | --- | --- |
-| ![NeoAgent dashboard](landing/images/dashboard-dark.png) | ![NeoAgent memory view](landing/images/memory-dark.png) | ![NeoAgent device controls](landing/images/remote-devices-dark.png) |
+| 💬 Chat | ⏰ Automation |
+| --- | --- |
+| ![NeoAgent comparing three flats in a table](docs/images/marketing/chat.jpg) | ![NeoAgent turning one sentence into a scheduled task](docs/images/marketing/automation.jpg) |
+| **🧠 Memory** | **🔎 Runs** |
+| ![NeoAgent memory knowledge graph](docs/images/marketing/memory.jpg) | ![NeoAgent run timeline with tool steps](docs/images/marketing/runs.jpg) |
 
 ## 🤖 Meet the mascot
 
@@ -77,23 +126,26 @@ Good to know:
   <img src="docs/images/mascot.gif" alt="The NeoAgent mascot cycling through idle, listening, thinking, working, waiting, blocked, done and asleep" width="100%">
 </p>
 
-**Your agent's face.** A dot-matrix tile in the sidebar, chat, and wearable.
+<p align="center">One face across the app, the widgets and the wearable.</p>
+
+## 📚 Docs
+
+| Start | Use | Run |
+| --- | --- | --- |
+| [Installation](docs/getting-started.md) | [Automation](docs/automation.md) | [Docker](docs/docker.md) |
+| [Models](docs/models.md) | [Memory](docs/memory.md) | [Operations](docs/operations.md) |
+| [Why NeoAgent](docs/why-neoagent.md) | [Integrations](docs/integrations.md) | [Security](docs/security-boundaries.md) |
+
+Full docs: **[neolabs-systems.github.io/NeoAgent/docs](https://neolabs-systems.github.io/NeoAgent/docs/)**
 
 ## 🧪 Project status
 
-Beta software, maintained primarily by one person — expect breaking changes
-and rough edges. Review the
-[security boundaries](docs/security-boundaries.md) before connecting sensitive
-accounts.
-
-- 📚 [Documentation](https://neolabs-systems.github.io/NeoAgent/docs/)
-- 💬 [Discussions](https://github.com/NeoLabs-Systems/NeoAgent/discussions) for questions
-- 🐛 [Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues) for reproducible bugs
-- 🔒 [SECURITY.md](SECURITY.md) for vulnerability reports
+- **Beta.** Maintained mainly by one person. Expect breaking changes.
+- **Security.** Read the [security boundaries](docs/security-boundaries.md) before connecting sensitive accounts.
+- **Help.** [Discussions](https://github.com/NeoLabs-Systems/NeoAgent/discussions) for questions, [Issues](https://github.com/NeoLabs-Systems/NeoAgent/issues) for bugs, [SECURITY.md](SECURITY.md) for vulnerabilities.
 
 ## 📄 License
 
-[AGPL-3.0-only](LICENSE) — the [licensing decision](docs/licensing.md)
-explains why.
+[AGPL-3.0-only](LICENSE). The [licensing decision](docs/licensing.md) explains why.
 
-*Made with ❤️ by [Neo](https://github.com/neooriginal) · [NeoLabs Systems](https://github.com/NeoLabs-Systems)*
+<p align="center"><sub>Made with ❤️ by <a href="https://github.com/neooriginal">Neo</a> · <a href="https://github.com/NeoLabs-Systems">NeoLabs Systems</a></sub></p>

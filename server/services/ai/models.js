@@ -12,6 +12,7 @@ const { ClaudeCodeProvider } = require('./providers/claudeCode');
 const { GrokOAuthProvider } = require('./providers/grokOauth');
 const { NvidiaProvider } = require('./providers/nvidia');
 const { OpenRouterProvider } = require('./providers/openrouter');
+const { TypeSafeProvider } = require('./providers/typesafe');
 const {
     AI_PROVIDER_DEFINITIONS,
     getAiSettings,
@@ -25,13 +26,16 @@ const {
     toSelectableModel,
 } = require('./model_identity');
 const {
-    classifyPriceTier,
-    getInputCostPerM,
     refreshOllamaModels,
     refreshProviderModelList,
 } = require('./model_discovery');
+const {
+    lookupModelFacts,
+    priceTierForCost,
+    refreshReferenceCatalog,
+} = require('./model_reference');
 const { getDisabledModelIds } = require('./model_visibility');
-const { getModelHealthSnapshot } = require('./model_failure_cache');
+const { getModelHealthSnapshot, isHealthBlocked } = require('./model_failure_cache');
 const { fetchResponseText } = require('../network/http');
 const { createAbortError, isAbortError, throwIfAborted } = require('../../utils/abort');
 const { isPrivateHost } = require('../../utils/cloud-security');
@@ -56,6 +60,7 @@ const PROVIDER_FACTORIES = Object.freeze({
     'grok-oauth': { Provider: GrokOAuthProvider, apiKey: true, baseUrl: false },
     nvidia: { Provider: NvidiaProvider, apiKey: true, baseUrl: true },
     openrouter: { Provider: OpenRouterProvider, apiKey: true, baseUrl: true },
+    typesafe: { Provider: TypeSafeProvider, apiKey: true, baseUrl: false },
 });
 
 // Ollama has a shorter cache lifetime and dedicated discovery path. Every other
@@ -161,10 +166,12 @@ function getProviderRuntimeConfig(userId, providerId, agentId = null) {
         ? Boolean(scopedApiKey)
         : Boolean(definition.supportsBaseUrl && configBaseUrl);
     const apiKey = scopedApiKey || envApiKey;
+    // A stored user URL belongs to that user's own key. The server key is
+    // sent only to the operator-configured origin.
     const baseUrl = definition.supportsBaseUrl
         ? (isByok
             ? (configBaseUrl || envBaseUrl || definition.defaultBaseUrl || '')
-            : (envBaseUrl || configBaseUrl || definition.defaultBaseUrl || ''))
+            : (envBaseUrl || definition.defaultBaseUrl || ''))
         : '';
 
     return {
@@ -347,6 +354,7 @@ function configuredModelRefs(userId, agentId) {
         ...(Array.isArray(settings.enabled_models) ? settings.enabled_models : []),
         settings.default_chat_model,
         settings.default_subagent_model,
+        ...Object.values(settings.task_models || {}),
     ]) {
         const parsed = parseModelSelectionId(value);
         if (!parsed) continue;
@@ -421,53 +429,39 @@ async function getSupportedModels(userId, agentId = null, options = {}) {
     }
 
     addConfiguredModelFallbacks(all, seenModelIds, providerById, userId, agentId);
+    if (all.some((model) => model.provider !== 'ollama')) {
+        await refreshReferenceCatalog();
+        throwIfAborted(options.signal);
+    }
 
     const globalDisabledIds = getDisabledModelIds();
     const globalDisabledSet = globalDisabledIds.length ? new Set(globalDisabledIds) : null;
     const runtimeHealth = getModelHealthSnapshot(userId, agentId);
 
-    // Plan-based model allowlist (billing optional feature).
-    let planAllowedModels = null;
-    try {
-        const { isBillingEnabled } = require('../billing/config');
-        if (isBillingEnabled()) {
-            const { getActiveSubscription } = require('../billing/subscriptions');
-            const sub = getActiveSubscription(userId);
-            if (sub?.plan?.allowed_models?.length) {
-                planAllowedModels = new Set(sub.plan.allowed_models);
-            }
-        }
-    } catch {
-        // Billing restrictions are non-critical.
-    }
-
     return all.map((model) => {
         const selectableModel = toSelectableModel(model);
         const provider = providerById.get(model.provider);
-        // Ollama models are always local/free; all others look up the OpenRouter
-        // pricing cache (populated above by Promise.allSettled).
-        const priceTier = model.provider === 'ollama'
-            ? 'free'
-            : (model.priceTier ?? classifyPriceTier(model.id));
+        // Local models cost nothing per token; every other model is looked up
+        // in the reference catalog by name.
+        const facts = model.provider === 'ollama' ? null : lookupModelFacts(model.id);
+        const inputCostPerM = model.provider === 'ollama' ? 0 : (facts?.inputCostPerM ?? null);
+        const priceTier = model.priceTier ?? priceTierForCost(inputCostPerM);
 
         let available = provider?.available !== false;
         if (available && modelMatchesConfiguredId(selectableModel, globalDisabledSet)) {
             available = false;
         }
-        if (available && planAllowedModels !== null && !modelMatchesConfiguredId(selectableModel, planAllowedModels)) {
-            available = false;
-        }
-        const runtimeUnavailable = runtimeHealth.modelIds.has(selectableModel.id)
-            || runtimeHealth.providerIds.has(selectableModel.provider);
+        const runtimeUnavailable = isHealthBlocked(runtimeHealth, { ...selectableModel, priceTier });
         if (available && runtimeUnavailable) available = false;
-
-        const bareId = model.id.includes('/') ? model.id.slice(model.id.indexOf('/') + 1) : null;
-        const inputCostPerM = model.provider === 'ollama'
-            ? 0
-            : (getInputCostPerM(model.id) ?? (bareId ? getInputCostPerM(bareId) : undefined) ?? null);
 
         return {
             ...selectableModel,
+            // The public release date; a provider's own `created` can be when
+            // the model was added there.
+            createdAt: facts?.createdAt ?? model.createdAt ?? null,
+            supportsTools: model.supportsTools ?? facts?.supportsTools ?? null,
+            // A provider's small models are the ones it sells cheaply.
+            purpose: priceTier === 'cheap' ? 'fast' : 'general',
             priceTier,
             inputCostPerM,
             available,

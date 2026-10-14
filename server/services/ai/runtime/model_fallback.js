@@ -17,7 +17,7 @@ async function getFailureFallbackModelId(
   const aiSettings = getAiSettings(userId, agentId);
   const models = await getSupportedModels(userId, agentId, { signal });
   const currentModel = resolveModelSelection(models, currentModelId);
-  const disposition = getFailureDisposition(failureError);
+  const disposition = getFailureDisposition(failureError, Date.now(), currentModel?.provider);
   const excludedProviderIds = disposition?.scope === 'provider' && currentModel?.provider
     ? [currentModel.provider]
     : [];
@@ -35,6 +35,11 @@ async function getFailureFallbackModelId(
     excludedModelIds: failedModelIds,
     excludedProviderIds,
   });
+  console.warn(
+    `[ModelRouter] user=${userId} agent=${agentId || 'main'} ${currentModelId} failed`
+    + ` (${disposition?.failureClass || 'unclassified'}: ${String(failureError?.message || failureError).slice(0, 200)});`
+    + ` ${fallback ? `switching to ${fallback.id}` : 'no fallback model left'}`,
+  );
   return fallback?.id || null;
 }
 

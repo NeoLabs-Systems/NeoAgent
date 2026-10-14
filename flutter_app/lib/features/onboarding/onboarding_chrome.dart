@@ -1,32 +1,60 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../src/mascot/mascot_mood.dart';
+import '../../src/mascot/neo_mascot.dart';
 import '../../src/theme/palette.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
+
+/// Where a page sits in the onboarding flow. The shell decides which steps a
+/// platform gets, so the pages read their position from here instead of
+/// hard-coding it.
+class OnboardingStepScope extends InheritedWidget {
+  const OnboardingStepScope({
+    super.key,
+    required this.step,
+    required this.totalSteps,
+    required super.child,
+  });
+
+  /// Zero-based step, -1 before the first step and [totalSteps] once done.
+  final int step;
+  final int totalSteps;
+
+  static OnboardingStepScope of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<OnboardingStepScope>()!;
+
+  @override
+  bool updateShouldNotify(OnboardingStepScope oldWidget) =>
+      step != oldWidget.step || totalSteps != oldWidget.totalSteps;
+}
 
 /// Shared chrome for the onboarding flow.
 class OnboardingScaffold extends StatelessWidget {
   const OnboardingScaffold({
     super.key,
-    required this.step,
-    required this.totalSteps,
+    required this.mood,
     required this.eyebrow,
     required this.title,
     required this.description,
     required this.child,
     required this.footer,
     this.sidePanel,
-    this.dense = false,
+    this.fill = false,
   });
 
-  final int step;
-  final int totalSteps;
+  /// The mascot's face for this step.
+  final MascotMood mood;
   final String eyebrow;
   final String title;
   final String description;
   final Widget child;
   final Widget footer;
   final Widget? sidePanel;
-  final bool dense;
+
+  /// The step's content is a long list that should take the full height
+  /// instead of sitting centred.
+  final bool fill;
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +114,7 @@ class _NarrativePane extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                _Brand(step: scaffold.step, totalSteps: scaffold.totalSteps),
+                const _Brand(),
                 Expanded(
                   child: Center(
                     child: SingleChildScrollView(
@@ -95,6 +123,8 @@ class _NarrativePane extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
                           const SizedBox(height: 24),
+                          NeoMascot(mood: scaffold.mood, size: 96),
+                          const SizedBox(height: 32),
                           OnboardingEyebrow(scaffold.eyebrow),
                           const SizedBox(height: 18),
                           Text(
@@ -129,10 +159,7 @@ class _NarrativePane extends StatelessWidget {
                     ),
                   ),
                 ),
-                _ProgressRail(
-                  step: scaffold.step,
-                  totalSteps: scaffold.totalSteps,
-                ),
+                const _ProgressRail(),
               ],
             ),
           ),
@@ -156,14 +183,24 @@ class _InteractionPane extends StatelessWidget {
         border: Border(left: BorderSide(color: p.border)),
       ),
       child: Padding(
-        padding: EdgeInsets.all(scaffold.dense ? 36 : 44),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Expanded(child: scaffold.child),
-            const SizedBox(height: 26),
-            scaffold.footer,
-          ],
+        padding: const EdgeInsets.all(44),
+        child: Center(
+          child: ConstrainedBox(
+            // Choices read as one group instead of stretching across the pane.
+            constraints: BoxConstraints(maxWidth: scaffold.fill ? 560 : 500),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Expanded(
+                  child: scaffold.fill
+                      ? scaffold.child
+                      : Center(child: scaffold.child),
+                ),
+                const SizedBox(height: 26),
+                scaffold.footer,
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -180,58 +217,87 @@ class _CompactBody extends StatelessWidget {
     final p = paletteOf(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 18, 22, 22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          _Brand(step: scaffold.step, totalSteps: scaffold.totalSteps),
-          const SizedBox(height: 16),
-          _ProgressRail(step: scaffold.step, totalSteps: scaffold.totalSteps),
-          const SizedBox(height: 24),
-          OnboardingEyebrow(scaffold.eyebrow),
-          const SizedBox(height: 12),
-          Text(
-            scaffold.title,
-            style: GoogleFonts.geist(
-              color: p.textPrimary,
-              fontSize: 28,
-              height: 1.06,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.8,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            scaffold.description,
-            style: GoogleFonts.geist(
-              color: p.textSecondary,
-              fontSize: 14.5,
-              height: 1.55,
-            ),
-          ),
-          if (scaffold.sidePanel != null) ...<Widget>[
-            const SizedBox(height: 18),
-            scaffold.sidePanel!,
-          ],
-          const SizedBox(height: 22),
-          Expanded(child: scaffold.child),
-          const SizedBox(height: 18),
-          scaffold.footer,
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Short screens (a phone in landscape after the intro) cap the
+          // header and let it scroll, so the step's own content keeps room.
+          final short = constraints.maxHeight < 600;
+          final header = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const _Brand(),
+              const SizedBox(height: 16),
+              const _ProgressRail(),
+              SizedBox(height: short ? 14 : 24),
+              // Long lists need the room more than the face does.
+              if (!short && !scaffold.fill) ...<Widget>[
+                NeoMascot(mood: scaffold.mood, size: 56),
+                const SizedBox(height: 18),
+              ],
+              OnboardingEyebrow(scaffold.eyebrow),
+              const SizedBox(height: 12),
+              Text(
+                scaffold.title,
+                style: GoogleFonts.geist(
+                  color: p.textPrimary,
+                  fontSize: short ? 22 : 28,
+                  height: 1.06,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.8,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                scaffold.description,
+                style: GoogleFonts.geist(
+                  color: p.textSecondary,
+                  fontSize: 14.5,
+                  height: 1.55,
+                ),
+              ),
+              if (scaffold.sidePanel != null) ...<Widget>[
+                const SizedBox(height: 18),
+                scaffold.sidePanel!,
+              ],
+            ],
+          );
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: constraints.maxHeight * (short ? 0.34 : 0.45),
+                ),
+                child: SingleChildScrollView(child: header),
+              ),
+              SizedBox(height: short ? 12 : 22),
+              Expanded(child: scaffold.child),
+              SizedBox(height: short ? 10 : 18),
+              scaffold.footer,
+            ],
+          );
+        },
       ),
     );
   }
 }
 
 class _Brand extends StatelessWidget {
-  const _Brand({required this.step, required this.totalSteps});
-
-  final int step;
-  final int totalSteps;
+  const _Brand();
 
   @override
   Widget build(BuildContext context) {
     final p = paletteOf(context);
-    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final scope = OnboardingStepScope.of(context);
+    final String? counter;
+    if (scope.step < 0) {
+      counter = appStrings.onboardingQuickSteps(scope.totalSteps);
+    } else if (scope.step < scope.totalSteps) {
+      counter = appStrings.stepArg1OfArg2(scope.step + 1, scope.totalSteps);
+    } else {
+      counter = null;
+    }
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
@@ -273,16 +339,18 @@ class _Brand extends StatelessWidget {
                 letterSpacing: -0.3,
               ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              'STEP ${step + 1} OF $totalSteps',
-              style: GoogleFonts.geistMono(
-                color: p.textMuted,
-                fontSize: 10.5,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.6,
+            if (counter != null) ...<Widget>[
+              const SizedBox(height: 2),
+              Text(
+                counter.toUpperCase(),
+                style: GoogleFonts.geistMono(
+                  color: p.textMuted,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.6,
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ],
@@ -291,17 +359,16 @@ class _Brand extends StatelessWidget {
 }
 
 class _ProgressRail extends StatelessWidget {
-  const _ProgressRail({required this.step, required this.totalSteps});
-
-  final int step;
-  final int totalSteps;
+  const _ProgressRail();
 
   @override
   Widget build(BuildContext context) {
     final p = paletteOf(context);
+    final scope = OnboardingStepScope.of(context);
+    final step = scope.step;
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: List<Widget>.generate(totalSteps, (index) {
+      children: List<Widget>.generate(scope.totalSteps, (index) {
         final active = index == step;
         final done = index < step;
         return AnimatedContainer(
@@ -316,31 +383,6 @@ class _ProgressRail extends StatelessWidget {
           ),
         );
       }),
-    );
-  }
-}
-
-class OnboardingPanel extends StatelessWidget {
-  const OnboardingPanel({
-    super.key,
-    required this.child,
-    this.padding = const EdgeInsets.all(24),
-  });
-
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = paletteOf(context);
-    return Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        color: p.bgCard,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: p.border),
-      ),
-      child: child,
     );
   }
 }
@@ -448,6 +490,10 @@ class OnboardingPrimaryButton extends StatelessWidget {
     final p = paletteOf(context);
     final enabled = onPressed != null;
     final gold = p.accent;
+    // Dark ink on the bright dark-theme gold; white on the deeper light one.
+    final ink = Theme.of(context).brightness == Brightness.dark
+        ? p.bgPrimary
+        : Colors.white;
     return Opacity(
       opacity: enabled ? 1 : 0.5,
       child: DecoratedBox(
@@ -455,10 +501,7 @@ class OnboardingPrimaryButton extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: <Color>[
-              Color.lerp(gold, Colors.white, 0.16)!,
-              gold,
-            ],
+            colors: <Color>[Color.lerp(gold, Colors.white, 0.16)!, gold],
           ),
           borderRadius: BorderRadius.circular(14),
           boxShadow: <BoxShadow>[
@@ -474,77 +517,36 @@ class OnboardingPrimaryButton extends StatelessWidget {
           child: InkWell(
             onTap: onPressed,
             borderRadius: BorderRadius.circular(14),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 17),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Text(
-                    label,
-                    style: GoogleFonts.geist(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.1,
+            // Centred when a narrow footer stretches the button full width.
+            child: Center(
+              heightFactor: 1,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 26,
+                  vertical: 17,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      label,
+                      style: GoogleFonts.geist(
+                        color: ink,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.1,
+                      ),
                     ),
-                  ),
-                  if (icon != null) ...<Widget>[
-                    const SizedBox(width: 9),
-                    Icon(icon, size: 18, color: Colors.white),
+                    if (icon != null) ...<Widget>[
+                      const SizedBox(width: 9),
+                      Icon(icon, size: 18, color: ink),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class OnboardingMetricPill extends StatelessWidget {
-  const OnboardingMetricPill({
-    super.key,
-    required this.label,
-    required this.value,
-  });
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = paletteOf(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: p.bgCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: p.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Text(
-            label.toUpperCase(),
-            style: GoogleFonts.geistMono(
-              color: p.textMuted,
-              fontSize: 10.5,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.4,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: GoogleFonts.geist(
-              color: p.textPrimary,
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -567,6 +569,66 @@ class OnboardingEyebrow extends StatelessWidget {
         fontWeight: FontWeight.w600,
         letterSpacing: 1.8,
       ),
+    );
+  }
+}
+
+/// Footer actions for an onboarding step: an optional Back button, optional
+/// secondary actions and the primary action. Lays out in one row where there
+/// is room and stacks with the primary action on top on narrow screens.
+class OnboardingFooter extends StatelessWidget {
+  const OnboardingFooter({
+    super.key,
+    required this.primary,
+    this.onBack,
+    this.secondary = const <Widget>[],
+  });
+
+  final Widget primary;
+  final VoidCallback? onBack;
+  final List<Widget> secondary;
+
+  @override
+  Widget build(BuildContext context) {
+    final leading = <Widget>[
+      if (onBack != null)
+        OnboardingGhostButton(
+          label: appStrings.back,
+          icon: Icons.arrow_back_rounded,
+          onPressed: onBack,
+        ),
+      ...secondary,
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= 520) {
+          return Row(
+            children: <Widget>[
+              Expanded(
+                child: Wrap(spacing: 12, runSpacing: 12, children: leading),
+              ),
+              const SizedBox(width: 12),
+              primary,
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            primary,
+            if (leading.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 10),
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                spacing: 10,
+                runSpacing: 10,
+                children: leading,
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

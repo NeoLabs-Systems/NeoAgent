@@ -1,34 +1,42 @@
 ---
 title: Health
 sidebar_label: Health
-description: Optional Health Connect sync from the Android client into the NeoAgent backend.
+description: Optional Health Connect sync from the Android app to your NeoAgent server, readable by your agent.
 ---
 
 # Health
 
-*Optional Health Connect data, readable by the owning agent.*
+**The Android app can copy Health Connect data to your NeoAgent server, where your agent can read it.**
 
-Health data is an optional feature of the NeoAgent clients. It stores processed
-data on the NeoAgent backend.
+## ❤️ Set it up
 
-## ❤️ Health Connect
+1. Open **Health** in the Android app. The page only appears on Android.
+2. Under **Device access**, press **Request permissions** and grant access in Health Connect.
+3. Under **Backend sync**, press **Sync now** for a first upload.
 
-The Android app can read Health Connect records after the user grants Android
-permissions. Supported data includes steps, heart rate, sleep, exercise, and
-weight.
+- **Background sync.** While you are signed in and permissions are granted, the app syncs about every 15 minutes.
+- **Status.** **Last Sync Summary** and **Stored Metrics** show what reached the server.
 
-The app uploads granted records to the user's NeoAgent backend. Stored metrics
-appear in **Health** and are available to the owning agent through the health
-tool.
+## 📊 What is synced
 
-:::caution Revoking access keeps existing records
-Health Connect access can be revoked in Android settings. Revoking access stops
-future reads but does not remove records already uploaded to NeoAgent; delete
-stored server data separately when required.
-:::
+| Data | Health Connect record |
+| --- | --- |
+| Steps | `StepsRecord` |
+| Heart rate | `HeartRateRecord` |
+| Sleep | `SleepSessionRecord` |
+| Exercise | `ExerciseSessionRecord` |
+| Weight | `WeightRecord` |
+
+- **No iOS or HealthKit.** Health sync is Android only.
+
+## 🤖 How the agent uses it
+
+- **Ask in chat.** The agent reads stored metrics with its `read_health_data` tool.
+- **Automate.** The `health_metric_recorded` [trigger](automation.md) runs a task when a sync holds a matching metric, optionally above or below a value.
 
 ## 🔐 Privacy
 
-Health records are sensitive personal data. Protect the server account, use
-HTTPS for remote clients, restrict agents and integrations, and include this
-data store in backup and deletion procedures.
+- **Stays on your server.** Records go to your NeoAgent server only. A hosted model sees what the agent reads.
+- **Revoking stops future reads.** Removing Health Connect access in Android settings keeps records already uploaded.
+- **No selective delete.** Stored health records are removed only when the account is deleted.
+- **Treat it as sensitive.** Use HTTPS for remote access, protect the account, and include the database in backup and deletion plans.

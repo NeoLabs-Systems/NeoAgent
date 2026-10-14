@@ -3,6 +3,7 @@
 module.exports = {
   type: 'webhook',
   label: 'Signed Webhook',
+  configHint: '{ sourceLabel? }',
   async validateConfig(config = {}) {
     return {
       sourceLabel: String(config.sourceLabel || config.source_label || '').trim() || null,

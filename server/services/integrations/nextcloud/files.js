@@ -187,7 +187,10 @@ async function executeFilesTool(toolName, args, credentials, options = {}) {
       return { result: { deleted: true, path: normalizeRemotePath(args.path) } };
     case 'nextcloud_list_shares': {
       const result = await ocsRequest(auth, '/ocs/v2.php/apps/files_sharing/api/v1/shares', {
-        query: text(args.path) ? { path: `/${normalizeRemotePath(args.path)}` } : {},
+        query: {
+          ...(text(args.path) ? { path: `/${normalizeRemotePath(args.path)}` } : {}),
+          ...(args.shared_with_me === true ? { shared_with_me: 'true' } : {}),
+        },
         signal,
         serviceName: 'Nextcloud shares',
       });

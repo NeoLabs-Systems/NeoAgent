@@ -4,17 +4,22 @@ part of 'main.dart';
 /// per-provider API keys, or a custom OpenAI-compatible endpoint, instead of
 /// relying on the shared server keys. Keys are encrypted server-side and are
 /// never shown again once saved -- only a "configured" state is displayed.
-class _ByokSettingsCard extends StatefulWidget {
-  const _ByokSettingsCard({required this.controller});
+class ByokSettingsCard extends StatefulWidget {
+  const ByokSettingsCard({super.key, required this.controller});
 
   final NeoAgentController controller;
 
   @override
-  State<_ByokSettingsCard> createState() => _ByokSettingsCardState();
+  State<ByokSettingsCard> createState() => _ByokSettingsCardState();
 }
 
-class _ByokSettingsCardState extends State<_ByokSettingsCard> {
+class _ByokSettingsCardState extends State<ByokSettingsCard> {
   bool _loadedOnce = false;
+  String? _signingInProviderId;
+
+  /// Bumped by every start and cancel, so a cancelled sign-in that is still
+  /// polling can never touch a newer one.
+  int _signInAttempt = 0;
 
   @override
   void initState() {
@@ -27,85 +32,254 @@ class _ByokSettingsCardState extends State<_ByokSettingsCard> {
     if (mounted) setState(() => _loadedOnce = true);
   }
 
+  Future<void> _signIn(String providerId, String providerLabel) async {
+    final controller = widget.controller;
+    final attempt = ++_signInAttempt;
+    bool isCurrent() => attempt == _signInAttempt;
+    setState(() => _signingInProviderId = providerId);
+    try {
+      final signIn = await controller.startProviderSignIn(providerId);
+      if (!mounted || !isCurrent()) return;
+      if (signIn.needsCode) {
+        final completed = await showDialog<bool>(
+          context: context,
+          builder: (_) => _ProviderSignInCodeDialog(
+            controller: controller,
+            signIn: signIn,
+            providerLabel: providerLabel,
+          ),
+        );
+        if (completed != true) return;
+      } else {
+        await controller.waitForProviderSignIn(
+          signIn,
+          isActive: () => mounted && isCurrent(),
+        );
+      }
+      if (!mounted || !isCurrent()) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(appStrings.signedInWithArg1(providerLabel))),
+      );
+    } catch (error) {
+      // A cancelled attempt already cleared the busy state; stay quiet then.
+      if (!mounted || !isCurrent()) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            appStrings.signInFailedArg1(controller.friendlyErrorMessage(error)),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted && isCurrent()) setState(() => _signingInProviderId = null);
+    }
+  }
+
+  void _cancelSignIn() {
+    setState(() {
+      _signInAttempt++;
+      _signingInProviderId = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final providers = controller.byokProviders;
-    final configuredCount = providers
-        .where((p) => p['configured'] == true)
-        .length;
+    return _SettingsGroup(
+      anchor: 'apiKeys',
+      title: appStrings.bringYourOwnKey2,
+      description: appStrings.settingsApiKeysDescription,
+      trailing: IconButton(
+        tooltip: appStrings.refresh,
+        onPressed: controller.isLoadingByokProviders ? null : _load,
+        icon: controller.isLoadingByokProviders
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Icon(Icons.refresh_rounded),
+      ),
+      children: <Widget>[
+        if (!_loadedOnce && controller.isLoadingByokProviders)
+          const _SettingsBlock(
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (providers.isEmpty)
+          _SettingsBlock(
+            child: Text(
+              appStrings.noProvidersAreAvailableToConfigure,
+              style: TextStyle(color: _textSecondary),
+            ),
+          )
+        else ...<Widget>[
+          for (final provider in providers)
+            if (provider['signInAvailable'] == true &&
+                provider['configured'] != true)
+              _ProviderSignInRow(
+                providerId: provider['id']?.toString() ?? '',
+                providerLabel: provider['label']?.toString() ?? '',
+                waiting: _signingInProviderId == provider['id'],
+                enabled: _signingInProviderId == null,
+                onSignIn: () => _signIn(
+                  provider['id']?.toString() ?? '',
+                  provider['label']?.toString() ?? '',
+                ),
+                onCancel: _cancelSignIn,
+              ),
+          for (final provider in providers)
+            _ByokProviderRow(controller: controller, provider: provider),
+        ],
+      ],
+    );
+  }
+}
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
+/// "Sign in with OpenRouter" and similar: adds a provider without copying a key.
+class _ProviderSignInRow extends StatelessWidget {
+  const _ProviderSignInRow({
+    required this.providerId,
+    required this.providerLabel,
+    required this.waiting,
+    required this.enabled,
+    required this.onSignIn,
+    required this.onCancel,
+  });
+
+  final String providerLabel;
+  final String providerId;
+  final bool waiting;
+  final bool enabled;
+  final VoidCallback onSignIn;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsRow(
+      label: appStrings.signInWithArg1(providerLabel),
+      description: waiting
+          ? appStrings.waitingForArg1FinishInYourBrowser(providerLabel)
+          : appStrings.approveNeoagentInYourArg1Account(providerLabel),
+      control: waiting
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 8),
+                TextButton(onPressed: onCancel, child: Text(appStrings.cancel)),
+              ],
+            )
+          : FilledButton.icon(
+              onPressed: enabled ? onSignIn : null,
+              icon: AuthProviderIcon(provider: providerId),
+              label: Text(appStrings.signInWithArg1(providerLabel)),
+            ),
+    );
+  }
+}
+
+/// Paste flow for servers the provider can't redirect back to (plain http on
+/// a LAN address): the provider shows a one-time code instead.
+class _ProviderSignInCodeDialog extends StatefulWidget {
+  const _ProviderSignInCodeDialog({
+    required this.controller,
+    required this.signIn,
+    required this.providerLabel,
+  });
+
+  final NeoAgentController controller;
+  final ProviderSignIn signIn;
+  final String providerLabel;
+
+  @override
+  State<_ProviderSignInCodeDialog> createState() =>
+      _ProviderSignInCodeDialogState();
+}
+
+class _ProviderSignInCodeDialogState extends State<_ProviderSignInCodeDialog> {
+  final TextEditingController _codeController = TextEditingController();
+  bool _submitting = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final code = _codeController.text.trim();
+    if (code.isEmpty) return;
+    setState(() {
+      _submitting = true;
+      _errorMessage = null;
+    });
+    try {
+      await widget.controller.completeProviderSignIn(widget.signIn, code);
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(
+        () => _errorMessage = widget.controller.friendlyErrorMessage(error),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(appStrings.pasteTheArg1Code(widget.providerLabel)),
+      content: SizedBox(
+        width: 420,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Row(
-              children: <Widget>[
-                const Expanded(child: _SectionTitle('Bring your own key')),
-                IconButton(
-                  tooltip: 'Refresh',
-                  onPressed: controller.isLoadingByokProviders ? null : _load,
-                  icon: controller.isLoadingByokProviders
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.refresh_rounded),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
             Text(
-              "Use your own API key for a provider, or connect a custom "
-              "OpenAI-compatible endpoint (your own server, or another "
-              "hosted service). Your keys are encrypted and only usable by "
-              "your account -- and usage on a model backed by your own key "
-              "never counts against the shared usage limits.",
-              style: TextStyle(color: _textSecondary, height: 1.45),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: <Widget>[
-                _MetaPill(
-                  icon: Icons.vpn_key_outlined,
-                  label: '$configuredCount key${configuredCount == 1 ? '' : 's'} configured',
-                  color: configuredCount > 0 ? _success : _textMuted,
-                ),
-                _MetaPill(
-                  icon: Icons.shield_outlined,
-                  label: 'Encrypted, private to your account',
-                  color: _info,
-                ),
-              ],
+              appStrings.arg1ShowedAOneTimeCode(widget.providerLabel),
+              style: TextStyle(color: _textSecondary, height: 1.4),
             ),
             const SizedBox(height: 16),
-            if (!_loadedOnce && controller.isLoadingByokProviders)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (providers.isEmpty)
-              Text(
-                'No providers are available to configure yet.',
-                style: TextStyle(color: _textSecondary),
-              )
-            else
-              ...providers.map(
-                (provider) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _ByokProviderRow(
-                    controller: controller,
-                    provider: provider,
-                  ),
-                ),
-              ),
+            TextField(
+              controller: _codeController,
+              autofocus: true,
+              autocorrect: false,
+              enabled: !_submitting,
+              decoration: InputDecoration(labelText: appStrings.signInCode),
+              onSubmitted: (_) => _submit(),
+            ),
+            if (_errorMessage != null) ...<Widget>[
+              const SizedBox(height: 8),
+              Text(_errorMessage!, style: TextStyle(color: _danger)),
+            ],
           ],
         ),
       ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: _submitting
+              ? null
+              : () => Navigator.of(context).pop(false),
+          child: Text(appStrings.cancel),
+        ),
+        FilledButton(
+          onPressed: _submitting ? null : _submit,
+          child: _submitting
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Text(appStrings.continue2),
+        ),
+      ],
     );
   }
 }
@@ -131,78 +305,37 @@ class _ByokProviderRow extends StatelessWidget {
     final customLabel = provider['customLabel']?.toString() ?? '';
     final baseUrl = provider['baseUrl']?.toString() ?? '';
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final title = isUrlOnly && customLabel.isNotEmpty ? customLabel : label;
+    return _SettingsRow(
+      label: title,
+      description: configured && isUrlOnly && baseUrl.isNotEmpty
+          ? baseUrl
+          : description.isEmpty
+          ? null
+          : description,
+      control: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      isUrlOnly && customLabel.isNotEmpty
-                          ? customLabel
-                          : label,
-                      style: TextStyle(
-                        color: _textPrimary,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    if (description.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 4),
-                      Text(
-                        description,
-                        style: TextStyle(color: _textSecondary, fontSize: 12.5, height: 1.35),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              _StatusPill(
-                label: configured ? 'Using your key' : 'Not set up',
-                color: configured ? _success : _textMuted,
-              ),
-            ],
+          _StatusPill(
+            label: configured ? 'Using your key' : appStrings.notSetUp,
+            color: configured ? _success : _textMuted,
           ),
-          if (configured && isUrlOnly && baseUrl.isNotEmpty) ...<Widget>[
-            const SizedBox(height: 8),
-            Text(
-              baseUrl,
-              style: TextStyle(color: _textSecondary, fontSize: 12),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          OutlinedButton(
+            onPressed: () => _openEditDialog(context),
+            child: Text(
+              configured
+                  ? 'Update'
+                  : (isUrlOnly ? 'Connect endpoint' : appStrings.addKey),
             ),
-          ],
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: <Widget>[
-              FilledButton.icon(
-                onPressed: () => _openEditDialog(context),
-                icon: Icon(
-                  configured ? Icons.edit_outlined : Icons.add_circle_outline,
-                  size: 18,
-                ),
-                label: Text(configured ? 'Update' : (isUrlOnly ? 'Connect endpoint' : 'Add key')),
-              ),
-              if (configured)
-                OutlinedButton.icon(
-                  onPressed: () => _confirmRemove(context),
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text('Remove'),
-                ),
-            ],
           ),
+          if (configured)
+            IconButton(
+              tooltip: appStrings.remove,
+              onPressed: () => _confirmRemove(context),
+              icon: Icon(Icons.delete_outline, size: 18),
+            ),
         ],
       ),
     );
@@ -236,19 +369,17 @@ class _ByokProviderRow extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('Remove $providerLabel key?'),
-        content: Text(
-          'Runs will fall back to the shared server key for $providerLabel, if one is configured. This can\'t be undone.',
-        ),
+        title: Text(appStrings.removeArg1Key(providerLabel)),
+        content: Text(appStrings.runsWillFallBackToThe(providerLabel)),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(appStrings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             style: FilledButton.styleFrom(backgroundColor: _danger),
-            child: const Text('Remove'),
+            child: Text(appStrings.remove),
           ),
         ],
       ),
@@ -258,13 +389,19 @@ class _ByokProviderRow extends StatelessWidget {
       await controller.clearByokProvider(providerId);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$providerLabel key removed.')),
+          SnackBar(content: Text(appStrings.arg1KeyRemoved(providerLabel))),
         );
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not remove key: $e')),
+          SnackBar(
+            content: Text(
+              appStrings.couldNotRemoveKeyArg1(
+                controller.friendlyErrorMessage(e),
+              ),
+            ),
+          ),
         );
       }
     }
@@ -336,7 +473,7 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
     if (widget.supportsApiKey && apiKey.isEmpty) {
       setState(() {
         _testOk = false;
-        _testMessage = 'Enter an API key first.';
+        _testMessage = appStrings.enterAnApiKeyFirst;
       });
       return;
     }
@@ -351,16 +488,18 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
         apiKey: widget.supportsApiKey ? apiKey : null,
         baseUrl: widget.supportsBaseUrl ? _baseUrlController.text.trim() : null,
       );
+      if (!mounted) return;
       setState(() {
         _testOk = result['ok'] == true;
         _testMessage = result['ok'] == true
-            ? (result['message']?.toString() ?? 'Connection looks good.')
-            : (result['error']?.toString() ?? 'Could not connect.');
+            ? (result['message']?.toString() ?? appStrings.connectionLooksGood)
+            : (result['error']?.toString() ?? appStrings.couldNotConnect);
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _testOk = false;
-        _testMessage = e.toString();
+        _testMessage = widget.controller.friendlyErrorMessage(e);
       });
     } finally {
       if (mounted) setState(() => _testing = false);
@@ -370,13 +509,13 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
   Future<void> _save() async {
     final apiKey = _apiKeyController.text.trim();
     if (widget.supportsApiKey && apiKey.isEmpty) {
-      setState(() => _errorMessage = 'An API key is required.');
+      setState(() => _errorMessage = appStrings.anApiKeyIsRequired);
       return;
     }
     final baseUrl = _baseUrlController.text.trim();
     final baseUrlRequired = widget.requiresBaseUrl || !widget.supportsApiKey;
     if (baseUrlRequired && baseUrl.isEmpty) {
-      setState(() => _errorMessage = 'A base URL is required for this endpoint.');
+      setState(() => _errorMessage = appStrings.aBaseUrlIsRequiredFor);
       return;
     }
     setState(() {
@@ -392,7 +531,11 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
       );
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
-      if (mounted) setState(() => _errorMessage = e.toString());
+      if (mounted) {
+        setState(
+          () => _errorMessage = widget.controller.friendlyErrorMessage(e),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -405,8 +548,8 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
     return AlertDialog(
       title: Text(
         widget.isCustomEndpoint
-            ? 'Connect a custom endpoint'
-            : 'Your ${widget.providerLabel} key',
+            ? appStrings.connectACustomEndpoint
+            : appStrings.yourArg1Key(widget.providerLabel),
       ),
       content: SizedBox(
         width: 420,
@@ -416,20 +559,20 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
           children: <Widget>[
             Text(
               widget.isCustomEndpoint
-                  ? 'Point NeoAgent at any OpenAI-compatible Chat Completions '
-                      'API -- your own server, a self-hosted model, or another '
-                      'hosted provider.'
-                  : "Paste your ${widget.providerLabel} API key below. It's "
-                      "stored encrypted and only used for your own runs.",
+                  ? appStrings.pointNeoagentAtAnyOpenaiCompatible +
+                        appStrings.apiYourOwnServerASelf +
+                        appStrings.hostedProvider
+                  : appStrings.pasteYourArg1ApiKeyBelow(widget.providerLabel) +
+                        appStrings.storedEncryptedAndOnlyUsedFor,
               style: TextStyle(color: _textSecondary, height: 1.4),
             ),
             const SizedBox(height: 16),
             if (widget.isCustomEndpoint) ...<Widget>[
               TextField(
                 controller: _labelController,
-                decoration: const InputDecoration(
-                  labelText: 'Name (optional)',
-                  hintText: 'e.g. My local server',
+                decoration: InputDecoration(
+                  labelText: appStrings.nameOptional,
+                  hintText: appStrings.eGMyLocalServer,
                 ),
               ),
               const SizedBox(height: 12),
@@ -438,12 +581,15 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
               TextField(
                 controller: _baseUrlController,
                 decoration: InputDecoration(
-                  labelText: baseUrlRequired ? 'Base URL' : 'Base URL (optional)',
+                  labelText: baseUrlRequired
+                      ? 'Base URL'
+                      : appStrings.baseUrlOptional,
                   hintText: widget.defaultBaseUrl.isNotEmpty
                       ? widget.defaultBaseUrl
                       : 'https://api.example.com/v1',
-                  helperText: 'Must be reachable on the public internet -- local and '
-                      'private network addresses aren\'t allowed.',
+                  helperText:
+                      appStrings.mustBeReachableOnThePublic +
+                      appStrings.privateNetworkAddressesArenTAllowed,
                   helperMaxLines: 2,
                 ),
                 keyboardType: TextInputType.url,
@@ -456,11 +602,13 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
                 obscureText: _obscureKey,
                 autocorrect: false,
                 decoration: InputDecoration(
-                  labelText: 'API key',
+                  labelText: appStrings.apiKey,
                   hintText: 'sk-...',
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscureKey ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                      _obscureKey
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
                     ),
                     onPressed: () => setState(() => _obscureKey = !_obscureKey),
                   ),
@@ -477,8 +625,8 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
                         dimension: 14,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.wifi_tethering_rounded, size: 16),
-                label: const Text('Test connection'),
+                    : Icon(Icons.wifi_tethering_rounded, size: 16),
+                label: Text(appStrings.testConnection),
               ),
             ),
             if (_testMessage != null)
@@ -495,8 +643,12 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
             ],
             const SizedBox(height: 4),
             Text(
-              'Server usage limits don\'t apply to models running on your own key.',
-              style: TextStyle(color: _textMuted, fontSize: 11.5, fontStyle: FontStyle.italic),
+              appStrings.serverUsageLimitsDonTApply,
+              style: TextStyle(
+                color: _textMuted,
+                fontSize: 11.5,
+                fontStyle: FontStyle.italic,
+              ),
             ),
           ],
         ),
@@ -504,16 +656,19 @@ class _ByokEditDialogState extends State<_ByokEditDialog> {
       actions: <Widget>[
         TextButton(
           onPressed: busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(appStrings.cancel),
         ),
         FilledButton(
           onPressed: busy ? null : _save,
           child: _saving
               ? const SizedBox.square(
                   dimension: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 )
-              : const Text('Save'),
+              : Text(appStrings.save),
         ),
       ],
     );

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:record/record.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 class LiveVoiceCapture {
   LiveVoiceCapture() : _recorder = AudioRecorder();
@@ -22,7 +23,7 @@ class LiveVoiceCapture {
 
     final hasPermission = await _recorder.hasPermission();
     if (!hasPermission) {
-      throw StateError('Microphone permission is required for live voice.');
+      throw StateError(appStrings.microphonePermissionIsRequiredForLive);
     }
 
     _stopping = false;
@@ -43,11 +44,19 @@ class LiveVoiceCapture {
       },
     );
 
+    // Voice processing keeps the assistant's own playback out of the
+    // microphone, which a full-duplex live call depends on.
     final stream = await _recorder.startStream(
       RecordConfig(
         encoder: AudioEncoder.pcm16bits,
         sampleRate: sampleRate,
         numChannels: channels,
+        echoCancel: true,
+        noiseSuppress: true,
+        autoGain: true,
+        androidConfig: const AndroidRecordConfig(
+          audioSource: AndroidAudioSource.voiceCommunication,
+        ),
       ),
     );
 

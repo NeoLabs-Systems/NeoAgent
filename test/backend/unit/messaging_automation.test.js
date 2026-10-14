@@ -430,4 +430,64 @@ describe('messaging automation queue', () => {
     });
     assert.ok(manager.typingCalls.some((entry) => entry.isTyping === true));
   });
+
+  test('a run that moves to the background frees the chat for the next message', async () => {
+    const manager = new MessagingManagerStub();
+    const userQueues = Object.create(null);
+    const prompts = [];
+    let finishFirst;
+    const firstRun = new Promise((resolve) => {
+      finishFirst = resolve;
+    });
+    const agentEngine = {
+      async run(userId, prompt, options) {
+        prompts.push(prompt);
+        if (prompts.length === 1) {
+          options.onBackground();
+          return firstRun;
+        }
+        return { status: 'completed', content: 'quick answer' };
+      },
+    };
+
+    const first = await automation.processQueuedMessage({
+      userQueues,
+      messagingManager: manager,
+      agentEngine,
+      userId: user.userId,
+      msg: createMessage(mainAgentId, 'research laptops'),
+    });
+    assert.equal(first.processedCount, 1);
+    assert.equal(first.outcome.result.status, 'background');
+    assert.deepEqual(Object.keys(userQueues), []);
+
+    const second = await automation.processQueuedMessage({
+      userQueues,
+      messagingManager: manager,
+      agentEngine,
+      userId: user.userId,
+      msg: createMessage(mainAgentId, 'what time is it'),
+    });
+    assert.equal(second.processedCount, 1);
+    assert.equal(second.outcome.result.content, 'quick answer');
+    assert.match(prompts[1], /what time is it/);
+
+    finishFirst({ status: 'completed', content: 'laptop comparison' });
+  });
+});
+
+test('incoming prompt tells the agent when an attachment could not be retrieved', () => {
+  const { buildIncomingPrompt } = require('../../../server/services/messaging/automation');
+  const failed = buildIncomingPrompt({
+    platform: 'whatsapp', content: 'summarize this', mediaType: 'document',
+    mediaFileName: 'report.pdf', mediaError: 'download failed',
+  });
+  assert.match(failed, /could not be retrieved/);
+  assert.match(failed, /report\.pdf/);
+  const ok = buildIncomingPrompt({
+    platform: 'whatsapp', content: 'summarize this', mediaType: 'document',
+    mediaFileName: 'report.pdf', localMediaPath: '/tmp/x.pdf',
+  });
+  assert.match(ok, /\/tmp\/x\.pdf/);
+  assert.match(ok, /summarize this/);
 });

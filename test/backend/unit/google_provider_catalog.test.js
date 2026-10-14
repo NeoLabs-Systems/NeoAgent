@@ -60,7 +60,12 @@ test('Google requests set thinking only on catalog thinking models, in the shape
   http.fetchResponseText = async () => ({
     response: { ok: true, status: 200, headers: {} },
     text: JSON.stringify({
-      models: [model('gemini-2.5-flash', true), model('gemini-3.1-pro-preview', true), model('gemma-3-27b-it', false)],
+      models: [
+        model('gemini-2.5-flash', true),
+        model('gemini-3.1-pro-preview', true),
+        model('gemma-3-27b-it', false),
+        model('gemma-4-26b-a4b-it', true),
+      ],
     }),
   });
   delete require.cache[googlePath];
@@ -75,6 +80,8 @@ test('Google requests set thinking only on catalog thinking models, in the shape
     assert.deepEqual(thinkingFor('gemini-2.5-flash', 'low'), { thinkingBudget: 1024 });
     assert.deepEqual(thinkingFor('gemini-3.1-pro-preview', 'low'), { thinkingLevel: 'LOW' });
     assert.equal(thinkingFor('gemma-3-27b-it', 'low'), undefined);
+    // Gemma thinks but rejects both thinking settings.
+    assert.equal(thinkingFor('gemma-4-26b-a4b-it', 'low'), undefined);
     assert.equal(thinkingFor('gemini-3.1-pro-preview', 'minimal'), undefined);
     assert.equal(thinkingFor('gemini-unlisted', 'low'), undefined);
   } finally {

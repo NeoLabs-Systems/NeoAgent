@@ -1,0 +1,15 @@
+# Cloud computers as containers on this host's Docker daemon (TERMINAL_ENV=docker). Linux hosts.
+# DOCKER_GID=$(stat -c %g /var/run/docker.sock) docker compose -f compose.yaml -f compose.docker.yaml up -d
+# Security: access to the Docker socket gives NeoAgent root-level control of this host.
+services:
+  neoagent:
+    environment:
+      TERMINAL_ENV: docker
+    # Each computer container publishes its agent port on the host's loopback,
+    # which the server reaches only from the host network.
+    network_mode: host
+    ports: !reset []
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    group_add:
+      - ${DOCKER_GID:?Set DOCKER_GID to the group of the Docker socket, e.g. DOCKER_GID=$(stat -c %g /var/run/docker.sock)}

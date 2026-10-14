@@ -5,6 +5,7 @@
 // restart (for code that reads the value at use time).
 
 const { ENV_FILE, upsertEnvValue } = require('../../../runtime/paths');
+const { readEnvBool } = require('../../../runtime/env');
 
 function cleanLine(value) {
   return String(value ?? '').trim().replace(/[\r\n]/g, '');
@@ -18,11 +19,6 @@ function persistEnv(key, value) {
   } else {
     process.env[key] = text;
   }
-}
-
-function readEnvBool(key, defaultValue) {
-  const value = (process.env[key] || '').toLowerCase();
-  return value ? ['1', 'true', 'yes', 'on'].includes(value) : defaultValue;
 }
 
 function readEnvInt(key, defaultValue) {

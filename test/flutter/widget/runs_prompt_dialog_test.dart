@@ -6,7 +6,10 @@ import 'package:neoagent_flutter/src/health_bridge.dart';
 
 class _PromptBackendClient extends BackendClient {
   @override
-  Future<Map<String, dynamic>> fetchRunSteps(String baseUrl, String runId) async {
+  Future<Map<String, dynamic>> fetchRunSteps(
+    String baseUrl,
+    String runId,
+  ) async {
     return <String, dynamic>{
       'run': <String, dynamic>{
         'id': runId,
@@ -108,7 +111,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Show full prompt'));
+    await tester.tap(find.text('Check the deployment').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('More actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Full prompt'));
     await tester.pumpAndSettle();
 
     expect(find.text('Full prompt'), findsOneWidget);

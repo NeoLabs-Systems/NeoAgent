@@ -3,6 +3,8 @@
 const db = require('../../db/database');
 const { isAdminUser } = require('../access/admin');
 const { eraseUserData } = require('../account/erasure');
+const { recordAccessEvent } = require('../access/audit');
+const { hashPassword, validateNewPassword } = require('../account/credentials');
 const { revokeAllSessionsForUser } = require('../account/sessions');
 const { createServiceLogger } = require('../../utils/logger');
 const { httpError } = require('../../utils/http_error');
@@ -57,4 +59,28 @@ function revokeUserSessions(userId) {
   return { ok: true };
 }
 
-module.exports = { listUsers, deleteUser, revokeUserSessions };
+/**
+ * Sets a new password for an account -- the way back in when the server has
+ * no email to send a reset link. Signs the account out everywhere and voids
+ * any reset link still waiting in its inbox.
+ */
+async function resetUserPassword(userId, password, { actorUserId }) {
+  const user = db.prepare('SELECT id, username, email FROM users WHERE id = ?').get(userId);
+  if (!user) throw httpError(404, 'User not found', 'USER_NOT_FOUND');
+  const value = String(password || '');
+  validateNewPassword(value, { username: user.username, email: user.email });
+  const hash = await hashPassword(value);
+  db.transaction(() => {
+    db.prepare('UPDATE users SET password = ?, password_login_enabled = 1 WHERE id = ?').run(hash, user.id);
+    db.prepare(`
+      UPDATE user_email_tokens SET consumed_at = datetime('now')
+      WHERE user_id = ? AND type = 'password_reset' AND consumed_at IS NULL
+    `).run(user.id);
+    recordAccessEvent('account.password_reset', { actorUserId, subjectUserId: user.id });
+  })();
+  revokeAllSessionsForUser(user.id);
+  logger.info(`Admin ${actorUserId} reset the password of account ${user.id}`);
+  return { success: true };
+}
+
+module.exports = { listUsers, deleteUser, revokeUserSessions, resetUserPassword };

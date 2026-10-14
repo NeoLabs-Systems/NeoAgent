@@ -1,4 +1,5 @@
 import 'android_app_installer.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 AndroidAppInstaller createPlatformAndroidAppInstaller() =>
     _UnsupportedAndroidAppInstaller();
@@ -13,9 +14,9 @@ class _UnsupportedAndroidAppInstaller implements AndroidAppInstaller {
     required String fileName,
     Map<String, String> headers = const <String, String>{},
   }) async {
-    return const AndroidAppInstallResult(
+    return AndroidAppInstallResult(
       launched: false,
-      error: 'Android APK install is unavailable on this platform.',
+      error: appStrings.androidApkInstallIsUnavailableOn,
     );
   }
 }

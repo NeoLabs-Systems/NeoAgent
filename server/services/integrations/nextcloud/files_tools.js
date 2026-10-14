@@ -133,11 +133,12 @@ const FILE_TOOLS = Object.freeze([
   {
     name: 'nextcloud_list_shares',
     access: 'read',
-    description: 'List Nextcloud shares for the connected account, optionally filtered by path.',
+    description: 'List Nextcloud shares the connected account made, or those shared with it, optionally filtered by path.',
     parameters: {
       type: 'object',
       properties: {
         path: { type: 'string', description: 'Optional file or folder path to filter shares.' },
+        shared_with_me: { type: 'boolean', description: 'List shares other people made with this account instead.' },
       },
     },
   },

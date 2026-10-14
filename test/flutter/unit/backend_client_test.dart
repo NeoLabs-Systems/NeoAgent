@@ -113,25 +113,6 @@ void main() {
     expect(fake.lastUri.toString(), 'https://neo.test/api/settings');
   });
 
-  test('BackendClient encodes timeline filters and cursor params', () async {
-    final fake = FakeHttpClient();
-    final client = BackendClient(httpClient: fake);
-
-    await client.fetchTimeline(
-      'https://neo.test',
-      sources: const <String>['screen', 'runs'],
-      agentId: 'agent one/two',
-      beforeOccurredAt: '2026-06-23T10:00:00.000Z',
-      beforeId: 42,
-      limit: 25,
-    );
-
-    expect(
-      fake.lastUri.toString(),
-      'https://neo.test/api/timeline?limit=25&agentId=agent+one%2Ftwo&beforeOccurredAt=2026-06-23T10%3A00%3A00.000Z&beforeId=42&source=screen&source=runs',
-    );
-  });
-
   test(
     'BackendClient sends user-facing integration test and Bitwarden login requests',
     () async {

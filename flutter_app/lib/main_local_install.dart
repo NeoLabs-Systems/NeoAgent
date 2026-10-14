@@ -61,7 +61,7 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
     } on LocalBackendInstallerException catch (error) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = '${error.message} (${error.code})';
+        _errorMessage = appStrings.arg1Arg2(error.message, error.code);
         _phase = _LocalInstallPhase.failed;
       });
     }
@@ -76,7 +76,7 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Diagnostics saved.')));
+    ).showSnackBar(SnackBar(content: Text(appStrings.diagnosticsSaved)));
   }
 
   @override
@@ -101,8 +101,8 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
                         children: <Widget>[
                           TextButton.icon(
                             onPressed: widget.onBack,
-                            icon: const Icon(Icons.arrow_back, size: 16),
-                            label: const Text('Back'),
+                            icon: Icon(Icons.arrow_back, size: 16),
+                            label: Text(appStrings.back),
                             style: TextButton.styleFrom(
                               padding: EdgeInsets.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -111,10 +111,10 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
                           const SizedBox(height: 16),
                           const _BrandLockup(logoSize: 60),
                           const SizedBox(height: 22),
-                          Text('LOCAL SETUP', style: _sectionEyebrowStyle()),
+                          Text(appStrings.localSetup, style: _sectionEyebrowStyle()),
                           const SizedBox(height: 10),
                           Text(
-                            'Set up NeoAgent on this computer',
+                            appStrings.setUpNeoagentOnThisComputer,
                             style: _displayTitleStyle(28),
                           ),
                           const SizedBox(height: 20),
@@ -139,16 +139,16 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
-              'Choose how much you want to configure now. Both options can be changed later.',
+              appStrings.chooseHowMuchYouWantTo,
               style: TextStyle(color: _textSecondary, height: 1.55),
             ),
             const SizedBox(height: 18),
             _SetupModeCard(
               selected: _profile == LocalBackendSetupProfile.quick,
               icon: Icons.bolt_rounded,
-              title: 'Quickstart',
+              title: appStrings.quickstart,
               description:
-                  'Install the secure core, then create your account. Add AI provider keys afterwards.',
+                  appStrings.installTheSecureCoreThenCreate,
               badge: 'Recommended',
               onTap: () =>
                   setState(() => _profile = LocalBackendSetupProfile.quick),
@@ -157,25 +157,25 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
             _SetupModeCard(
               selected: _profile == LocalBackendSetupProfile.full,
               icon: Icons.tune_rounded,
-              title: 'Full setup',
+              title: appStrings.fullSetup,
               description:
-                  'Install the core with extra optional setup. AI provider keys are added afterwards, same as Quickstart.',
+                  appStrings.installTheCoreWithExtraOptional,
               onTap: () =>
                   setState(() => _profile = LocalBackendSetupProfile.full),
             ),
             const SizedBox(height: 20),
-            Text('Backend channel', style: _sectionEyebrowStyle()),
+            Text(appStrings.backendChannel, style: _sectionEyebrowStyle()),
             const SizedBox(height: 10),
             SegmentedButton<String>(
-              segments: const <ButtonSegment<String>>[
+              segments: <ButtonSegment<String>>[
                 ButtonSegment<String>(
                   value: 'stable',
-                  label: Text('Stable'),
+                  label: Text(appStrings.stable),
                   icon: Icon(Icons.verified_outlined),
                 ),
                 ButtonSegment<String>(
                   value: 'beta',
-                  label: Text('Beta'),
+                  label: Text(appStrings.beta),
                   icon: Icon(Icons.science_outlined),
                 ),
               ],
@@ -187,8 +187,8 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
             const SizedBox(height: 8),
             Text(
               _channel == 'beta'
-                  ? 'Beta installs the newest prerelease backend. Expect rough edges.'
-                  : 'Stable installs the latest published backend release.',
+                  ? appStrings.betaInstallsTheNewestPrereleaseBackendExpect
+                  : appStrings.stableInstallsTheLatestPublishedBackend,
               style: TextStyle(
                 color: _textSecondary,
                 fontSize: 12,
@@ -204,11 +204,11 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
                   backgroundColor: _accent,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                icon: const Icon(Icons.auto_awesome_rounded),
+                icon: Icon(Icons.auto_awesome_rounded),
                 label: Text(
                   _profile == LocalBackendSetupProfile.quick
-                      ? 'Start Quickstart'
-                      : 'Start full setup',
+                      ? appStrings.startQuickstart
+                      : appStrings.startFullSetup,
                 ),
               ),
             ),
@@ -227,14 +227,14 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(_currentEvent?.message ?? 'Preparing NeoAgent…'),
+                  child: Text(_currentEvent?.message ?? appStrings.preparingNeoagent),
                 ),
                 TextButton(
                   onPressed: () {
                     _installer.cancel();
                     setState(() => _phase = _LocalInstallPhase.choose);
                   },
-                  child: const Text('Cancel'),
+                  child: Text(appStrings.cancel),
                 ),
               ],
             ),
@@ -250,7 +250,7 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
               onExpansionChanged: (value) =>
                   setState(() => _showDetails = value),
               tilePadding: EdgeInsets.zero,
-              title: const Text('Setup details'),
+              title: Text(appStrings.setupDetails),
               children: <Widget>[
                 for (final event in _events)
                   Padding(
@@ -276,7 +276,7 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
                           child: Text(
                             event.errorCode == null
                                 ? event.message
-                                : '${event.message} (${event.errorCode})',
+                                : appStrings.arg1Arg2(event.message, event.errorCode),
                             style: TextStyle(
                               color: _textSecondary,
                               fontSize: 12,
@@ -298,8 +298,8 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
               children: <Widget>[
                 Icon(Icons.check_circle_outline, color: _success),
                 const SizedBox(width: 8),
-                const Expanded(
-                  child: Text('NeoAgent is installed and running.'),
+                Expanded(
+                  child: Text(appStrings.neoagentIsInstalledAndRunning),
                 ),
               ],
             ),
@@ -317,11 +317,11 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
                   backgroundColor: _accent,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                icon: const Icon(Icons.arrow_forward_rounded),
+                icon: Icon(Icons.arrow_forward_rounded),
                 label: Text(
                   _profile == LocalBackendSetupProfile.quick
-                      ? 'Create your account'
-                      : 'Continue full setup',
+                      ? appStrings.createYourAccount
+                      : appStrings.continueFullSetup,
                 ),
               ),
             ),
@@ -332,7 +332,7 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             _InlineError(
-              message: _errorMessage ?? 'NeoAgent setup could not finish.',
+              message: _errorMessage ?? appStrings.neoagentSetupCouldNotFinish,
             ),
             const SizedBox(height: 16),
             Row(
@@ -340,23 +340,23 @@ class _LocalInstallWidgetState extends State<_LocalInstallWidget> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _install,
-                    icon: const Icon(Icons.build_outlined),
-                    label: const Text('Repair and retry'),
+                    icon: Icon(Icons.build_outlined),
+                    label: Text(appStrings.repairAndRetry),
                   ),
                 ),
                 const SizedBox(width: 10),
                 TextButton(
                   onPressed: () =>
                       setState(() => _phase = _LocalInstallPhase.choose),
-                  child: const Text('Change setup mode'),
+                  child: Text(appStrings.changeSetupMode),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             TextButton.icon(
               onPressed: _saveDiagnostics,
-              icon: const Icon(Icons.download_outlined),
-              label: const Text('Save diagnostic report'),
+              icon: Icon(Icons.download_outlined),
+              label: Text(appStrings.saveDiagnosticReport),
             ),
           ],
         );
@@ -386,7 +386,7 @@ class _SetupModeCard extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      label: '$title. $description',
+      label: appStrings.arg1Arg27(title, description),
       child: Material(
         color: selected
             ? _accent.withValues(alpha: 0.08)

@@ -35,7 +35,7 @@ class AppLaunchRequest {
 }
 
 class AppLaunchBridge {
-  static const String voiceAssistantAction = 'voice_assistant';
+  static const String startCallAction = 'start_call';
   static const String shareToChatAction = 'share_to_chat';
   static const EventChannel _events = EventChannel(
     'neoagent/app_launch/events',

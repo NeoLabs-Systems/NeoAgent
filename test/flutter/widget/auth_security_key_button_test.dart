@@ -10,20 +10,22 @@ class _SupportedWebAuthnClient implements WebAuthnClient {
   bool get isSupported => true;
 
   @override
-  Future<Map<String, dynamic>> createCredential(Map<String, dynamic> options) async =>
-      const <String, dynamic>{};
+  Future<Map<String, dynamic>> createCredential(
+    Map<String, dynamic> options,
+  ) async => const <String, dynamic>{};
 
   @override
-  Future<Map<String, dynamic>> getAssertion(Map<String, dynamic> options) async =>
-      const <String, dynamic>{};
+  Future<Map<String, dynamic>> getAssertion(
+    Map<String, dynamic> options,
+  ) async => const <String, dynamic>{};
 }
 
 NeoAgentController _controller({required bool supported}) {
   return NeoAgentController(
-    backendClient: BackendClient(),
-    healthBridge: HealthBridge(),
-    webAuthnClient: supported ? _SupportedWebAuthnClient() : null,
-  )
+      backendClient: BackendClient(),
+      healthBridge: HealthBridge(),
+      webAuthnClient: supported ? _SupportedWebAuthnClient() : null,
+    )
     ..hasUser = true
     ..authProviders = const <AuthProviderCatalogItem>[
       AuthProviderCatalogItem(
@@ -37,7 +39,9 @@ NeoAgentController _controller({required bool supported}) {
 }
 
 void main() {
-  testWidgets('security key sign-in sits under the provider buttons', (tester) async {
+  testWidgets('security key sign-in sits beside the provider button', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1200, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -46,19 +50,26 @@ void main() {
     final controller = _controller(supported: true);
     addTearDown(controller.dispose);
 
-    await tester.pumpWidget(MaterialApp(home: AuthView(controller: controller)));
+    await tester.pumpWidget(
+      MaterialApp(home: AuthView(controller: controller)),
+    );
     await tester.pump();
 
-    expect(find.text('or continue with'), findsOneWidget);
-    final divider = tester.getRect(find.text('or continue with'));
-    final google = tester.getRect(find.text('Sign in with Google'));
-    final securityKey = tester.getRect(find.text('Sign in with a security key'));
+    final buttons = find.byWidgetPredicate((widget) => widget is OutlinedButton);
+    final google = tester.getRect(
+      find.ancestor(of: find.text('Google'), matching: buttons),
+    );
+    final securityKey = tester.getRect(
+      find.ancestor(of: find.text('Security key'), matching: buttons),
+    );
 
-    expect(divider.top, lessThan(google.top));
-    expect(google.top, lessThan(securityKey.top));
+    expect(google.top, closeTo(securityKey.top, 1));
+    expect(google.right, lessThan(securityKey.left));
   });
 
-  testWidgets('unsupported platforms show no security key sign-in', (tester) async {
+  testWidgets('unsupported platforms show no security key sign-in', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1200, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -67,10 +78,12 @@ void main() {
     final controller = _controller(supported: false);
     addTearDown(controller.dispose);
 
-    await tester.pumpWidget(MaterialApp(home: AuthView(controller: controller)));
+    await tester.pumpWidget(
+      MaterialApp(home: AuthView(controller: controller)),
+    );
     await tester.pump();
 
-    expect(find.text('Sign in with a security key'), findsNothing);
-    expect(find.text('Sign in with Google'), findsOneWidget);
+    expect(find.text('Security key'), findsNothing);
+    expect(find.text('Google'), findsOneWidget);
   });
 }

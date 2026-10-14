@@ -1,3 +1,4 @@
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 Never createPlatformHttpClient() {
-  throw UnsupportedError('No HTTP client implementation for this platform.');
+  throw UnsupportedError(appStrings.noHttpClientImplementationForThis);
 }

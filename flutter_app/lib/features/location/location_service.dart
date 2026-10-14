@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../src/backend_client.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 class LocationService {
   static final LocationService _instance = LocationService._internal();
@@ -9,6 +10,10 @@ class LocationService {
   LocationService._internal();
 
   bool _isTracking = false;
+
+  /// Bumped on every start and stop, so a loop still sleeping from an earlier
+  /// start ends instead of running beside a new one.
+  int _trackingGeneration = 0;
   final Set<int> _insideFenceIds = <int>{};
 
   Future<void> initialize(BuildContext context) async {
@@ -42,15 +47,15 @@ class LocationService {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
-            title: const Text('Background Location Needed'),
-            content: const Text(
-              'NeoAgent uses your approximate background location to trigger geofence reminders (e.g. "Remind me to buy milk when I walk past the supermarket").\n\n'
-              'Your location is never tracked continuously or stored on our servers. We only use it locally to check against your active tasks.',
+            title: Text(appStrings.backgroundLocationNeeded),
+            content: Text(
+              appStrings.neoagentUsesYourApproximateBackgroundLocation +
+              appStrings.yourLocationIsNeverTrackedContinuously,
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Not Now'),
+                child: Text(appStrings.notNow2),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -59,7 +64,7 @@ class LocationService {
                   ),
                 ),
                 onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Allow'),
+                child: Text(appStrings.allow),
               ),
             ],
           ),
@@ -73,11 +78,21 @@ class LocationService {
   ) async {
     if (_isTracking) return;
     _isTracking = true;
-    _trackLoop(client, backendUrl);
+    _trackLoop(client, backendUrl, ++_trackingGeneration);
   }
 
-  Future<void> _trackLoop(BackendClient client, String backendUrl) async {
-    while (_isTracking) {
+  void stopGeofenceTracking() {
+    _isTracking = false;
+    _trackingGeneration++;
+    _insideFenceIds.clear();
+  }
+
+  Future<void> _trackLoop(
+    BackendClient client,
+    String backendUrl,
+    int generation,
+  ) async {
+    while (_isTracking && generation == _trackingGeneration) {
       try {
         final response = await client.fetchGeofences(backendUrl);
         final raw = response['geofences'];
@@ -104,7 +119,7 @@ class LocationService {
           final latitude = (fence['latitude'] as num?)?.toDouble();
           final longitude = (fence['longitude'] as num?)?.toDouble();
           final radius = (fence['radius_meters'] as num?)?.toDouble() ?? 100;
-          if (latitude == null || longitude == null) continue;
+          if (id == null || latitude == null || longitude == null) continue;
 
           final distance = Geolocator.distanceBetween(
             position.latitude,
@@ -113,24 +128,21 @@ class LocationService {
             longitude,
           );
           final inside = distance <= radius;
-          if (inside) {
-            final firstEntry = id == null || _insideFenceIds.add(id);
-            if (firstEntry) {
-              await client.triggerGeofenceEvent(
-                backendUrl,
-                label: fence['label']?.toString() ?? 'unknown',
-                latitude: position.latitude,
-                longitude: position.longitude,
-                radiusMeters: radius.round(),
-                action: fence['trigger_action']?.toString(),
-              );
-            }
-          } else if (id != null) {
-            _insideFenceIds.remove(id);
+          final crossed = inside
+              ? _insideFenceIds.add(id)
+              : _insideFenceIds.remove(id);
+          if (crossed) {
+            await client.triggerGeofenceEvent(
+              backendUrl,
+              fenceId: id,
+              transition: inside ? 'enter' : 'exit',
+              latitude: position.latitude,
+              longitude: position.longitude,
+            );
           }
         }
       } catch (e) {
-        debugPrint('Geofence tracking error: $e');
+        debugPrint(appStrings.geofenceTrackingErrorArg1(e));
       }
 
       await Future<void>.delayed(const Duration(minutes: 5));

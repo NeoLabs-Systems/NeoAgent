@@ -6,35 +6,22 @@ extension _MascotReading on NeoAgentController {
   (MascotMood, Object?) get _mascotReading {
     if (!socketConnected) return (MascotMood.asleep, null);
 
-    final threads = _coworkThreads.values;
-    if (pendingApproval != null ||
-        threads.any((thread) => thread.runStatus == 'waiting_input')) {
-      return (MascotMood.waiting, null);
-    }
+    if (pendingApproval != null) return (MascotMood.waiting, null);
 
-    final voice = voiceAssistantLiveState.state;
-    if (isLiveVoiceCaptureEngaged ||
-        voice == 'listening' ||
-        voice == 'speaking') {
+    // An open call that is just waiting is not a conversation.
+    if (isLiveVoiceCaptureEngaged || voiceAssistantLiveState.isSpeaking) {
       return (MascotMood.listening, null);
     }
 
     final run = activeRun;
     final foregroundLive = isSendingMessage && run != null;
-    final coworkRunning = threads
-        .where((thread) => thread.runStatus == 'running')
-        .toList(growable: false);
     if ((foregroundLive &&
             toolEvents.any((event) => event.status == 'running')) ||
-        voice == 'working' ||
-        coworkRunning.any((thread) => thread.phase.startsWith('Running')) ||
+        voiceAssistantLiveState.hasActiveTask ||
         _hasUnwatchedLiveRun) {
       return (MascotMood.working, null);
     }
-    if (foregroundLive ||
-        coworkRunning.isNotEmpty ||
-        voice == 'transcribing' ||
-        voice == 'triaging') {
+    if (foregroundLive) {
       return (MascotMood.thinking, null);
     }
 
@@ -55,7 +42,6 @@ extension _MascotReading on NeoAgentController {
       activeRun?.runId,
       _failedForegroundRunId,
       ..._voiceRunIds,
-      for (final thread in _coworkThreads.values) thread.activeRunId,
     };
     return recentRuns.any(
       (run) => run.status == 'running' && !watched.contains(run.id),

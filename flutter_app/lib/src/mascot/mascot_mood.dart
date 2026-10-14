@@ -1,3 +1,4 @@
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 /// What the NeoAgent mascot is showing.
 enum MascotMood {
   idle,
@@ -14,7 +15,7 @@ enum MascotMood {
     MascotMood.listening => 'listening',
     MascotMood.thinking => 'thinking',
     MascotMood.working => 'working',
-    MascotMood.waiting => 'waiting for you',
+    MascotMood.waiting => appStrings.waitingForYou,
     MascotMood.blocked => 'blocked',
     MascotMood.done => 'done',
     MascotMood.asleep => 'offline',

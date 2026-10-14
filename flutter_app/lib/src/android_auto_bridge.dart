@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 class AndroidAutoBridge {
   AndroidAutoBridge._() {
@@ -37,7 +38,7 @@ class AndroidAutoBridge {
       } on MissingPluginException {
         return false;
       } catch (e) {
-        debugPrint('startTelecomCallRouting Error: $e');
+        debugPrint(appStrings.starttelecomcallroutingErrorArg1(e));
         rethrow;
       }
     }
@@ -50,7 +51,7 @@ class AndroidAutoBridge {
         await _telecomChannel.invokeMethod<void>('stopCallRouting');
         return true;
       } catch (e) {
-        debugPrint('stopTelecomCallRouting Error: $e');
+        debugPrint(appStrings.stoptelecomcallroutingErrorArg1(e));
         return false;
       }
     }

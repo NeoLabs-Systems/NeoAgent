@@ -241,3 +241,15 @@ test('protected credential fill never returns secrets and clears fields after su
   assert.equal(values.get('#password'), '');
   assert.equal(controller.hasProtectedCredentialFill(), false);
 });
+
+test('browser navigation reports why a URL was blocked', async () => {
+  const controller = controllerWithValidator(async () => ({
+    allowed: false,
+    reason: 'typo.example could not be resolved.',
+  }));
+
+  await assert.rejects(
+    controller._assertNavigationAllowed('https://typo.example/'),
+    (error) => error.code === 'URL_BLOCKED' && error.message === 'typo.example could not be resolved.',
+  );
+});

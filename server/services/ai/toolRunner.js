@@ -21,6 +21,14 @@ function isValidCommandTemplate(template) {
   return !SHELL_METACHAR_RE.test(bare);
 }
 
+// The built-in skill store was removed; skills it installed carry a
+// `store_id` frontmatter key and are deleted when skills load.
+function isRetiredStoreSkill(filePath) {
+  const content = fs.readFileSync(filePath, 'utf-8').replace(/\r\n/g, '\n');
+  const frontmatter = content.match(/^---\n([\s\S]*?)\n---/);
+  return Boolean(frontmatter && /^store_id\s*:/m.test(frontmatter[1]));
+}
+
 function clampText(value, maxChars) {
   const text = String(value || '').trim().replace(/\s+/g, ' ');
   if (!text) return '';
@@ -107,6 +115,10 @@ class SkillRunner {
         if (entry.isDirectory()) {
           const skillFile = path.join(fullPath, 'SKILL.md');
           if (fs.existsSync(skillFile) && !dbSkillPaths.has(path.resolve(skillFile))) {
+            if (isRetiredStoreSkill(skillFile)) {
+              fs.rmSync(fullPath, { recursive: true, force: true });
+              continue;
+            }
             this.loadSkillFile(skillFile, { ownerType: 'global' });
             loadedPaths.add(path.resolve(skillFile));
           }
@@ -116,6 +128,10 @@ class SkillRunner {
           && !loadedPaths.has(path.resolve(fullPath))
           && !dbSkillPaths.has(path.resolve(fullPath))
         ) {
+          if (isRetiredStoreSkill(fullPath)) {
+            fs.rmSync(fullPath, { force: true });
+            continue;
+          }
           this.loadSkillFile(fullPath, { ownerType: 'global' });
           loadedPaths.add(path.resolve(fullPath));
         }
@@ -493,11 +509,16 @@ class SkillRunner {
     }
 
     try {
-      fs.unlinkSync(skill.filePath);
       const dir = path.dirname(skill.filePath);
-      if (path.basename(skill.filePath) === 'SKILL.md') {
-        const remaining = fs.readdirSync(dir);
-        if (remaining.length === 0) fs.rmdirSync(dir);
+      // A user skill owns its whole directory, including bundled scripts and
+      // references (skills.sh installs carry those).
+      if (
+        path.basename(skill.filePath) === 'SKILL.md'
+        && path.resolve(dir) === path.resolve(USER_SKILLS_DIR, String(ownerId), skill.name)
+      ) {
+        fs.rmSync(dir, { recursive: true, force: true });
+      } else {
+        fs.unlinkSync(skill.filePath);
       }
     } catch (e) { /* ignore */ }
 

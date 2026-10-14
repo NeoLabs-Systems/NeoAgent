@@ -163,7 +163,6 @@ describe('scheduled task result delivery', () => {
     assert.equal(optionsSeen[0].bypassUserRateLimits, true);
     assert.equal(optionsSeen[0].triggerSource, 'schedule');
     assert.equal(optionsSeen[0].stageProactiveMessages, true);
-    assert.equal(optionsSeen[0].skipVerifier, false);
   });
 
   test('manual task runs bypass user token admission limits', async () => {
@@ -634,7 +633,7 @@ describe('scheduled task result delivery', () => {
     assert.deepEqual(runState.sentMessages, []);
   });
 
-  test('explicit messaging delivery is terminal only for the originating chat', async () => {
+  test('a reply in the originating chat is progress, not the run\'s final delivery', async () => {
     const { executeTool } = require('../../../server/services/ai/tools');
     const runState = {
       messagingSent: false,
@@ -678,10 +677,8 @@ describe('scheduled task result delivery', () => {
     }, context, engine);
 
     assert.equal(sent.length, 2);
-    assert.equal(runState.messagingSent, true);
     assert.equal(runState.explicitMessageSent, true);
-    assert.equal(runState.finalDeliverySent, true);
-    assert.deepEqual(runState.sentMessages, ['Finished result.']);
+    assert.equal(runState.finalDeliverySent, false);
   });
 
   test('send_message does not use phrase matching to classify an origin reply', async () => {
@@ -719,7 +716,7 @@ describe('scheduled task result delivery', () => {
 
     assert.equal(result.success, true);
     assert.equal(sent.length, 1);
-    assert.equal(runState.finalDeliverySent, true);
+    assert.equal(runState.explicitMessageSent, true);
 
     await executeTool('send_message', {
       platform: 'whatsapp',
@@ -1041,7 +1038,7 @@ describe('scheduled task result delivery', () => {
       },
     });
 
-    await runtime._runDueOneTimeTasks();
+    await Promise.all(runtime._runDueOneTimeTasks());
 
     assert.equal(runtime.taskRepository.getTaskById(task.id, user.userId), undefined);
     assert.ok(io.events.some((event) =>
@@ -1068,9 +1065,57 @@ describe('scheduled task result delivery', () => {
     });
     runtime.runningTaskExecutions.add(`${user.userId}:${task.id}`);
 
-    await runtime._runDueOneTimeTasks();
+    await Promise.all(runtime._runDueOneTimeTasks());
 
     assert.ok(runtime.taskRepository.getTaskById(task.id, user.userId));
+  });
+
+  test('a hung one-time run does not block later one-time tasks', async () => {
+    const releaseHung = deferred();
+    runtime = new TaskRuntime(createIoRecorder(), {
+      async runWithModel(_userId, prompt) {
+        if (String(prompt).includes('Hang')) await releaseHung.promise;
+        return { content: 'Done.' };
+      },
+    });
+    const createOneTime = (name, prompt) => runtime.createTask(user.userId, {
+      name,
+      triggerType: 'schedule',
+      triggerConfig: { mode: 'one_time', runAt: new Date(Date.now() - 60_000).toISOString() },
+      taskConfig: { prompt },
+    });
+    const hung = await createOneTime('Hung check', 'Hang forever.');
+    const firstPoll = runtime._runDueOneTimeTasks();
+    assert.equal(firstPoll.length, 1);
+
+    const later = await createOneTime('Later check', 'Run the later check.');
+    const secondPoll = runtime._runDueOneTimeTasks();
+    assert.equal(secondPoll.length, 1);
+    await Promise.all(secondPoll);
+    assert.equal(runtime.taskRepository.getTaskById(later.id, user.userId), undefined);
+    assert.ok(runtime.taskRepository.getTaskById(hung.id, user.userId));
+
+    releaseHung.resolve();
+    await Promise.all(firstPoll);
+    assert.equal(runtime.taskRepository.getTaskById(hung.id, user.userId), undefined);
+  });
+
+  test('deletes a one-time task whose run failed', async () => {
+    runtime = new TaskRuntime(createIoRecorder(), {
+      async runWithModel() {
+        throw new Error('model exploded');
+      },
+    });
+    const task = await runtime.createTask(user.userId, {
+      name: 'Failing one-time check',
+      triggerType: 'schedule',
+      triggerConfig: { mode: 'one_time', runAt: new Date(Date.now() - 60_000).toISOString() },
+      taskConfig: { prompt: 'Run the failing check.' },
+    });
+
+    await Promise.all(runtime._runDueOneTimeTasks());
+
+    assert.equal(runtime.taskRepository.getTaskById(task.id, user.userId), undefined);
   });
 
   test('checkpoints integration events only after successful execution', async () => {
@@ -1115,7 +1160,7 @@ describe('scheduled task result delivery', () => {
   });
 
   test('stops an integration poll batch after a retryable execution failure', async () => {
-    const { pollIntegrationTask } = require('../../../server/services/tasks/integration_runtime');
+    const { pollTriggerTask } = require('../../../server/services/tasks/trigger_polling');
     const fired = [];
     const task = {
       id: 42,
@@ -1146,7 +1191,7 @@ describe('scheduled task result delivery', () => {
       },
     };
 
-    await pollIntegrationTask(fakeRuntime, task);
+    await pollTriggerTask(fakeRuntime, task);
 
     assert.equal(fired.length, 1);
     assert.equal(fired[0].payload.fingerprint, 'slack:connection-id:channel-id:2');

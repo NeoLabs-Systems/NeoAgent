@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:html' as html;
 
 import 'oauth_launcher.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 OAuthLauncher createPlatformOAuthLauncher() => _WebOAuthLauncher();
 
@@ -72,7 +73,7 @@ class _WebOAuthLauncher extends OAuthLauncher {
           OAuthLaunchResult(
             launched: true,
             completed: false,
-            error: data['error']?.toString() ?? 'Authentication failed.',
+            error: data['error']?.toString() ?? appStrings.authenticationFailed,
           ),
         );
       }
@@ -96,10 +97,10 @@ class _WebOAuthLauncher extends OAuthLauncher {
 
     _timeoutTimer = Timer(timeout, () {
       finish(
-        const OAuthLaunchResult(
+        OAuthLaunchResult(
           launched: true,
           completed: false,
-          error: 'Authentication timed out.',
+          error: appStrings.authenticationTimedOut,
         ),
       );
     });

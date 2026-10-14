@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
+import 'dart:isolate';
 import 'dart:math' as math;
+import 'dart:ui' show IsolateNameServer, PointMode;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
@@ -17,19 +19,22 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart' as url_launcher;
 import 'package:socket_io_client/socket_io_client.dart' as io;
-import 'package:audioplayers/audioplayers.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'src/android_launcher_bridge.dart';
 import 'src/app_launch_bridge.dart';
 import 'src/app_release_updater.dart' as app_release_updater;
+import 'src/background_keepalive.dart';
+import 'src/call/call_bridge.dart';
 import 'src/backend_client.dart';
+import 'src/backend_url.dart';
 import 'src/backend_discovery_service.dart';
 import 'src/computer_display.dart';
 import 'src/desktop_companion.dart';
@@ -37,64 +42,76 @@ import 'src/error_text.dart';
 import 'src/desktop_screen_capture.dart';
 import 'src/diagnostics_logger.dart';
 import 'src/health_bridge.dart';
+import 'src/home_widget_bridge.dart';
 import 'src/incoming_call_alert.dart';
 import 'src/live_voice_capture.dart';
+import 'src/live_voice_player.dart';
+import 'src/voice_work_clicks.dart';
 import 'src/local_backend_installer.dart';
 import 'src/local_runtime_manager.dart';
+import 'src/loading/app_splash.dart';
+import 'src/loading/page_skeletons.dart';
 import 'src/mascot/mascot_mood.dart';
 import 'src/mascot/neo_mascot.dart';
 import 'src/messaging_access_summary.dart';
 import 'src/oauth_launcher.dart';
+import 'src/auth/auth_provider_icon.dart';
 import 'src/security/password_strength.dart';
 import 'src/setup_diagnostics_service.dart';
+import 'src/signup_keys.dart';
+import 'src/text_file_saver.dart';
 import 'src/theme/palette.dart';
 import 'src/web_app_update_monitor.dart';
 import 'src/webauthn_client.dart';
 import 'src/android_auto_bridge.dart';
-import 'src/workspace_recents.dart';
 
 import 'features/location/location_service.dart';
 import 'features/notifications/notification_interceptor.dart';
 import 'features/onboarding/onboarding_shell.dart';
 import 'features/tasks/task_recommendations.dart';
 import 'features/memory/views/retrieval_inspector_view.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
+import 'package:neoagent_flutter/src/l10n/widget_localizations.dart';
 
 part 'main_spacing.dart';
 part 'main_theme.dart';
 part 'main_setup.dart';
 part 'main_local_install.dart';
 part 'main_app_shell.dart';
+part 'main_provider_auth.dart';
+
 part 'main_launcher.dart';
 part 'main_integrations.dart';
 part 'main_models.dart';
 part 'main_shared.dart';
 part 'main_mascot.dart';
-part 'main_voice_assistant.dart';
-part 'main_incoming_call.dart';
+part 'main_home_widgets.dart';
+part 'main_call_screen.dart';
+part 'main_call_parts.dart';
+part 'main_call_permissions.dart';
 part 'main_navigation.dart';
-part 'main_timeline.dart';
 part 'main_runtime.dart';
 part 'main_controller.dart';
 part 'main_devices.dart';
 part 'main_chat.dart';
+part 'main_group_decisions.dart';
 part 'main_runs.dart';
-part 'main_cowork.dart';
-part 'main_cowork_sessions.dart';
-part 'main_cowork_thread.dart';
-part 'main_cowork_composer.dart';
-part 'main_cowork_workbench.dart';
 part 'main_account_settings.dart';
 part 'main_settings.dart';
+part 'main_settings_pages.dart';
 part 'main_byok_settings.dart';
 part 'main_security.dart';
 part 'main_model_picker.dart';
 part 'main_operations.dart';
+part 'main_task_triggers.dart';
+part 'main_memory_graph.dart';
+part 'main_memory_graph_layout.dart';
 part 'main_admin.dart';
 part 'main_admin_console.dart';
 part 'main_delegation.dart';
 part 'main_admin_server.dart';
 part 'main_admin_config.dart';
-part 'main_billing.dart';
+part 'main_admin_signup_keys.dart';
 part 'main_unified.dart';
 part 'main_install.dart';
 
@@ -106,6 +123,7 @@ Future<void> runNeoAgentApp({
   NeoAgentAppMode mode = NeoAgentAppMode.standard,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
+  await ensureAppLanguageLoaded();
   if (_supportsDesktopShell) {
     await windowManager.ensureInitialized();
     await hotKeyManager.unregisterAll();
@@ -114,7 +132,7 @@ Future<void> runNeoAgentApp({
 }
 
 const String _androidDefaultLaunchPackage = 'com.android.settings';
-const String _desktopAssistantHotkeyLabel = 'Ctrl + Shift + Space';
+String get _desktopAssistantHotkeyLabel => appStrings.ctrlShiftSpace;
 const String _desktopWindowIconAsset = 'assets/branding/app_icon_256.png';
 const String _desktopTrayTemplateIconAsset =
     'assets/branding/tray_icon_template.png';

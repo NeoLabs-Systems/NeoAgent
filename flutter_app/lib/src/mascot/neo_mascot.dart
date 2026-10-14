@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 
 import 'mascot_frames.dart';
 import 'mascot_mood.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 /// The NeoAgent mascot: a dark tile whose screen is a 9×9 dot-matrix face.
 ///
@@ -167,11 +169,34 @@ class _NeoMascotState extends State<NeoMascot>
   Widget build(BuildContext context) {
     return Semantics(
       image: true,
-      label: 'NeoAgent, ${widget.mood.semanticLabel}',
+      label: appStrings.neoagentArg1(widget.mood.semanticLabel),
       child: RepaintBoundary(
         child: CustomPaint(size: Size.square(widget.size), painter: _painter),
       ),
     );
+  }
+}
+
+/// [frame] as a square PNG of [size] pixels, painted exactly as [NeoMascot]
+/// paints it, for surfaces Flutter does not draw (Android home-screen
+/// widgets, via `tool/render_widget_faces.dart`).
+Future<Uint8List> renderMascotFramePng(
+  MascotFrame frame, {
+  required int size,
+}) async {
+  final picture = _MascotPicture()..retarget(frame, 1);
+  final recorder = ui.PictureRecorder();
+  _MascotPainter(
+    picture: picture,
+    mix: const AlwaysStoppedAnimation<double>(1),
+  ).paint(Canvas(recorder), Size.square(size.toDouble()));
+  final image = await recorder.endRecording().toImage(size, size);
+  try {
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    return data!.buffer.asUint8List();
+  } finally {
+    image.dispose();
+    picture.dispose();
   }
 }
 
@@ -249,7 +274,11 @@ class _MascotPainter extends CustomPainter {
     final screen = tile.deflate(tileSide * 0.06);
     final pitch = screen.width * 10 / 102;
     final firstDot = screen.width * 11 / 102;
-    final lit = Color.lerp(_gold, _alert, lerpDouble(p.fromAlert, p.toAlert, t)!)!;
+    final lit = Color.lerp(
+      _gold,
+      _alert,
+      lerpDouble(p.fromAlert, p.toAlert, t)!,
+    )!;
     final rim = lerpDouble(p.fromRim, p.toRim, t)!;
     final scale = lerpDouble(p.fromScale, p.toScale, t)!;
     final shift = lerpDouble(p.fromShift, p.toShift, t)! * pitch;

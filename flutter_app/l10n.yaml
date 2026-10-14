@@ -1,0 +1,11 @@
+# Localization is generated into the source tree rather than a synthetic
+# package so that the generated classes are importable from plain Dart files —
+# the controller and other non-widget code format user-facing text outside any
+# widget.
+arb-dir: lib/l10n
+template-arb-file: app_en.arb
+output-dir: lib/l10n/gen
+output-localization-file: app_l10n.dart
+output-class: AppL10n
+nullable-getter: false
+untranslated-messages-file: l10n_untranslated.json

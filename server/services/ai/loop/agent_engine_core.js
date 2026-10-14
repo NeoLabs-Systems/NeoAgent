@@ -7,20 +7,13 @@ const {
   getConversationContext,
 } = require('../history');
 const { getAiSettings } = require('../settings');
-const {
-  buildPlanPrompt,
-  buildVerifierPrompt,
-  normalizeExecutionPlan,
-  normalizeVerificationResult,
-  parseJsonObject,
-} = require('../taskAnalysis');
-const { shouldAcceptTaskComplete } = require('../completion');
+const { extractJsonObject } = require('../../../utils/text');
 const { getProviderForUser } = require('../provider_selector');
 const {
   recordModelFailure,
   recordModelSuccess,
 } = require('../model_failure_cache');
-const { runConversation } = require('./conversation_loop');
+const { runOrchestrator } = require('../runtime/run_orchestrator');
 const {
   TERMINAL_STATUSES,
   checkpointRun,
@@ -29,15 +22,6 @@ const {
   requestRunControl,
   transitionRun,
 } = require('./lifecycle');
-const {
-  buildChurnAssessmentPrompt,
-  buildCompletionDecisionPrompt,
-  enforceTerminalReplyDecision,
-  enforceChurnAssessment,
-  normalizeChurnAssessment,
-  normalizeCompletionDecision,
-  resolveRunGoalContext,
-} = require('./completion_judge');
 const {
   activateToolsForRun: activateToolsForRunImpl,
   applyQueuedSteering: applyQueuedSteeringImpl,
@@ -59,9 +43,9 @@ const {
   persistRunMetadata: persistRunMetadataImpl,
   recordRunEventSafe,
   searchToolsForRun: searchToolsForRunImpl,
-  updateRunGoalContract: updateRunGoalContractImpl,
   updateRunProgress: updateRunProgressImpl,
 } = require('./run_state');
+const { manageBackgroundRun: manageBackgroundRunImpl } = require('./background_runs');
 const {
   deliverMessagingFinalFallback: deliverMessagingFinalFallbackImpl,
   shouldSendMessagingFinalFallback: shouldSendMessagingFinalFallbackImpl,
@@ -75,28 +59,16 @@ const {
   publishInterimUpdate: publishInterimUpdateImpl,
 } = require('./callbacks');
 const {
-  executeReadOnlyBatch: executeReadOnlyBatchImpl,
   executeTool: executeToolImpl,
   getAvailableTools: getAvailableToolsImpl,
   isReadOnlyToolCall: isReadOnlyToolCallImpl,
 } = require('./tool_dispatch');
 const { clampRunContext } = require('../messagingFallback');
 const {
-  assessResearchAdequacy,
-  summarizeToolExecutions,
-} = require('../toolEvidence');
-const {
   buildMemoryConsolidationInstructions,
   normalizeMemoryCandidates,
 } = require('../../memory/consolidation');
-const {
-  buildPlannerPrompt,
-  buildRerankerPrompt,
-  mergeRetrievalResults,
-  normalizeRerankResult,
-  normalizeRetrievalPlan,
-  shouldEnhanceRetrieval,
-} = require('../../memory/retrieval_reasoning');
+const systemOne = require('../system_one');
 const {
   createAbortError,
   createLinkedAbortController,
@@ -125,10 +97,6 @@ function estimateTokenValue(value) {
   if (typeof value === 'string') return Math.ceil(value.length / 4);
   return Math.ceil(JSON.stringify(value).length / 4);
 }
-
-// Enhanced recall sits on the path to the first reply. A slow or stuck helper
-// model falls back to the direct retrieval results instead of holding the run.
-const MEMORY_ENHANCEMENT_BUDGET_MS = 15_000;
 
 const FILE_TOOL_NAMES = new Set([
   'read_file',
@@ -292,6 +260,9 @@ class AgentEngine {
     };
   }
 
+  // Memories relevant to the request, found by direct search and handed to the
+  // agent before its first turn. Deeper recall (other phrasings, a past point
+  // in time) is the agent's own call through memory_recall.
   async buildMemoryRecall({
     memoryManager,
     userId,
@@ -301,12 +272,10 @@ class AgentEngine {
     providerName,
     model,
     runId,
-    stepId = null,
     options = {},
-    returnDetails = false,
   }) {
     const signal = options.signal || this.getRunMeta(runId)?.abortController?.signal || null;
-    const initial = await memoryManager.recallMemory(userId, query, 12, {
+    const recalled = await memoryManager.recallMemory(userId, query, 5, {
       agentId,
       signal,
     });
@@ -335,110 +304,7 @@ class AgentEngine {
       });
     }
 
-    const decision = shouldEnhanceRetrieval(initial);
-    if (!decision.enhance || options.enhanceRecall === false) {
-      const message = await memoryManager.buildRecallMessage(userId, query, {
-        agentId,
-        recalled: initial.slice(0, 5),
-      });
-      return returnDetails
-        ? { message, results: initial.slice(0, 12), enhanced: false, reason: decision.reason }
-        : message;
-    }
-
-    const stats = memoryManager.getMemoryStats?.(userId, { agentId })
-      || { total: initial.length };
-    if (!Number(stats.total || 0)) {
-      return returnDetails
-        ? { message: null, results: [], enhanced: false, reason: 'empty_memory' }
-        : null;
-    }
-
-    const startedAt = Date.now();
-    let plan = null;
-    let merged = initial;
-    let reranked = initial;
-    try {
-      ({ plan, merged, reranked } = await runWithAbortTimeout(async (budgetSignal) => {
-        const planned = await this.requestStructuredJson({
-          provider,
-          providerName,
-          model,
-          messages: [],
-          prompt: buildPlannerPrompt(query, initial, new Date().toISOString()),
-          maxTokens: 650,
-          normalize: (raw) => normalizeRetrievalPlan(raw, query),
-          fallback: normalizeRetrievalPlan({}, query),
-          reasoningEffort: this.getReasoningEffort(providerName, options),
-          telemetry: { runId, stepId, userId, agentId, signal: budgetSignal },
-          phase: 'memory_retrieval_plan',
-        });
-        const resultSets = [initial];
-        for (const variant of planned.value.queryVariants) {
-          if (variant === query && initial.length) continue;
-          resultSets.push(await memoryManager.recallMemory(userId, variant, 20, {
-            agentId,
-            validAt: planned.value.validAt,
-            includeHistory: planned.value.temporalMode === 'historical',
-            signal: budgetSignal,
-          }));
-        }
-        const mergedResults = mergeRetrievalResults(resultSets, 30);
-        if (mergedResults.length <= 1) {
-          return { plan: planned.value, merged: mergedResults, reranked: mergedResults };
-        }
-        const rerankResponse = await this.requestStructuredJson({
-          provider,
-          providerName,
-          model,
-          messages: [],
-          prompt: buildRerankerPrompt(query, planned.value, mergedResults.slice(0, 24)),
-          maxTokens: 1200,
-          normalize: (raw) => normalizeRerankResult(raw, mergedResults),
-          fallback: mergedResults,
-          reasoningEffort: this.getReasoningEffort(providerName, options),
-          telemetry: { runId, stepId, userId, agentId, signal: budgetSignal },
-          phase: 'memory_retrieval_rerank',
-        });
-        return { plan: planned.value, merged: mergedResults, reranked: rerankResponse.value };
-      }, {
-        signal,
-        timeoutMs: MEMORY_ENHANCEMENT_BUDGET_MS,
-        label: 'Memory retrieval enhancement',
-        timeoutCode: 'MEMORY_ENHANCEMENT_TIMEOUT',
-      }));
-    } catch (error) {
-      // Only a cancelled run stops here; a budget timeout keeps the direct results.
-      if (signal?.aborted) throw error;
-      console.warn('[Memory] Retrieval enhancement failed:', error.message);
-      plan = null;
-      merged = initial;
-      reranked = initial;
-    }
-
-    memoryManager.recordRetrievalEnhancement?.(userId, {
-      query,
-      reason: decision.reason,
-      plan,
-      initialCount: initial.length,
-      mergedCount: merged.length,
-      resultIds: reranked.slice(0, 5).map((result) => result.id),
-      latencyMs: Date.now() - startedAt,
-    }, { agentId, runId });
-
-    const message = await memoryManager.buildRecallMessage(userId, query, {
-      agentId,
-      recalled: reranked.slice(0, 5),
-    });
-    return returnDetails
-      ? {
-        message,
-        results: reranked.slice(0, 12),
-        enhanced: plan !== null,
-        reason: decision.reason,
-        plan,
-      }
-      : message;
+    return memoryManager.buildRecallMessage(userId, query, { agentId, recalled });
   }
 
   async extractPendingChunks(chunks, {
@@ -513,10 +379,6 @@ class AgentEngine {
 
   persistRunMetadata(runId, patch = {}) {
     return persistRunMetadataImpl(this, runId, patch);
-  }
-
-  updateRunGoalContract(runId, patch = {}, options = {}) {
-    return updateRunGoalContractImpl(this, runId, patch, options);
   }
 
   buildProgressLedgerSnapshot(runMeta) {
@@ -706,6 +568,17 @@ class AgentEngine {
     };
   }
 
+  // A SystemOne decision for a behind-the-scenes choice. Null means SystemOne
+  // is off or did not answer, and the caller takes its model path.
+  decide(request) {
+    return systemOne.decide(request);
+  }
+
+  // Whether a SystemOne model can answer for this agent right now.
+  isSystemOneReady(userId, agentId, signal) {
+    return systemOne.isSystemOneReady(userId, agentId, signal);
+  }
+
   async requestModelResponse({
     provider,
     providerName,
@@ -728,257 +601,6 @@ class AgentEngine {
     });
   }
 
-  async createExecutionPlan({
-    provider,
-    providerName,
-    model,
-    messages,
-    analysis,
-    options,
-  }) {
-    const response = await this.requestStructuredJson({
-      provider,
-      providerName,
-      model,
-      messages,
-      prompt: buildPlanPrompt(analysis),
-      maxTokens: 1400,
-      normalize: normalizeExecutionPlan,
-      fallback: {
-        success_criteria: analysis.success_criteria,
-      },
-      reasoningEffort: this.getReasoningEffort(providerName, options),
-      telemetry: options,
-      phase: 'execution_plan',
-    });
-
-    return {
-      plan: response.value,
-      raw: response.raw,
-      usage: response.usage,
-    };
-  }
-
-  async verifyFinalResponse({
-    provider,
-    providerName,
-    model,
-    messages,
-    analysis,
-    tools,
-    toolExecutions,
-    finalReply,
-    options,
-  }) {
-    const evidenceSources = [...new Set(
-      toolExecutions
-        .map((item) => item.evidenceSource)
-        .filter(Boolean)
-    )];
-    const response = await this.requestStructuredJson({
-      provider,
-      providerName,
-      model,
-      messages,
-      prompt: buildVerifierPrompt({
-        analysis,
-        tools,
-        toolExecutionSummary: summarizeToolExecutions(toolExecutions),
-        evidenceSources,
-        finalReply,
-      }),
-      maxTokens: 1200,
-      normalize: (raw) => normalizeVerificationResult(raw, finalReply),
-      fallback: {
-        status: analysis.freshness_risk === 'none' ? 'verified' : 'insufficient_evidence',
-        final_reply: finalReply,
-      },
-      reasoningEffort: this.getReasoningEffort(providerName, options),
-      telemetry: options,
-      phase: 'verification',
-    });
-
-    return {
-      verification: response.value,
-      raw: response.raw,
-      usage: response.usage,
-      evidenceSources,
-    };
-  }
-
-  async decideLoopState({
-    provider,
-    providerName,
-    model,
-    messages,
-    analysis,
-    plan,
-    tools,
-    toolExecutions,
-    lastReply,
-    iteration,
-    maxIterations,
-    options,
-    messagingSent = false,
-  }) {
-    const runMeta = options?.runId ? this.getRunMeta(options.runId) : null;
-    const goalContext = resolveRunGoalContext(runMeta, analysis, plan);
-    const researchAdequacy = assessResearchAdequacy({
-      analysis,
-      goalContext,
-      toolExecutions,
-    });
-    const response = await this.requestStructuredJson({
-      provider,
-      providerName,
-      model,
-      messages,
-      prompt: buildCompletionDecisionPrompt({
-        triggerSource: options?.triggerSource || 'web',
-        messagingSent,
-        goalContext,
-        parallelWork: analysis?.parallel_work === true,
-        tools,
-        toolExecutions,
-        lastReply,
-        iteration,
-        maxIterations,
-        analysis,
-        researchAdequacy,
-      }),
-      maxTokens: 500,
-      normalize: (raw) => normalizeCompletionDecision(raw, 'continue'),
-      fallback: { status: 'continue', reason: 'completion decision unavailable' },
-      reasoningEffort: this.getReasoningEffort(providerName, options),
-      telemetry: options,
-      phase: 'completion_decision',
-    });
-    return {
-      decision: enforceTerminalReplyDecision(response.value, lastReply, {
-        analysis,
-        goalContext,
-        toolExecutions,
-        researchAdequacy,
-      }),
-      usage: response.usage,
-      raw: response.raw,
-      researchAdequacy,
-    };
-  }
-
-  async evaluateTaskCompleteSignal({
-    provider,
-    providerName,
-    model,
-    messages,
-    analysis,
-    plan,
-    tools,
-    toolExecutions,
-    finalMessage,
-    confidence,
-    iteration,
-    maxIterations,
-    options,
-    messagingSent = false,
-  }) {
-    const goalContext = resolveRunGoalContext(this.getRunMeta(options?.runId), analysis, plan);
-    const confidenceDecision = shouldAcceptTaskComplete({
-      confidence,
-      requiredConfidence: goalContext.effectiveCompletionConfidence,
-      iteration,
-      maxIterations,
-    });
-    if (!confidenceDecision.accept) {
-      return {
-        accepted: false,
-        status: 'continue',
-        reason: confidenceDecision.reason,
-        usage: 0,
-      };
-    }
-
-    const judged = await this.decideLoopState({
-      provider,
-      providerName,
-      model,
-      messages,
-      analysis,
-      plan,
-      tools,
-      toolExecutions,
-      lastReply: finalMessage,
-      iteration,
-      maxIterations,
-      options,
-      messagingSent,
-    });
-    return {
-      accepted: judged.decision.status === 'complete' || judged.decision.status === 'blocked',
-      status: judged.decision.status,
-      reason: judged.decision.reason,
-      usage: judged.usage,
-      raw: judged.raw,
-    };
-  }
-
-  async assessChurnState({
-    provider,
-    providerName,
-    model,
-    messages,
-    analysis,
-    plan,
-    toolExecutions,
-    readOnlyCount,
-    alreadyRead,
-    iteration,
-    options,
-  }) {
-    const runMeta = options?.runId ? this.getRunMeta(options.runId) : null;
-    const goalContext = resolveRunGoalContext(runMeta, analysis, plan);
-    const response = await this.requestStructuredJson({
-      provider,
-      providerName,
-      model,
-      messages,
-      prompt: buildChurnAssessmentPrompt({
-        readOnlyCount,
-        alreadyRead,
-        goalContext,
-        toolExecutions,
-        iteration,
-        analysis,
-        researchAdequacy: assessResearchAdequacy({
-          analysis,
-          goalContext,
-          toolExecutions,
-        }),
-      }),
-      maxTokens: 200,
-      normalize: normalizeChurnAssessment,
-      fallback: { assessment: 'churn', reason: 'churn assessment unavailable' },
-      reasoningEffort: this.getReasoningEffort(providerName, options),
-      telemetry: options,
-      phase: 'churn_assessment',
-    });
-    const researchAdequacy = assessResearchAdequacy({
-      analysis,
-      goalContext,
-      toolExecutions,
-    });
-    return {
-      assessment: enforceChurnAssessment(response.value, {
-        analysis,
-        goalContext,
-        toolExecutions,
-        researchAdequacy,
-      }),
-      usage: response.usage,
-      researchAdequacy,
-    };
-  }
-
   async refreshConversationState({
     conversationId,
     runId,
@@ -986,8 +608,6 @@ class AgentEngine {
     providerName,
     model,
     finalReply,
-    analysis,
-    verification,
     historyWindow,
     options,
   }) {
@@ -1044,10 +664,7 @@ class AgentEngine {
           context.summary ? `Conversation summary:\n${context.summary}` : 'Conversation summary: none',
           `Recent thread messages:\n${JSON.stringify(context.recentMessages.slice(-8), null, 2)}`,
           `Latest final reply:\n${finalReply || '(empty)'}`,
-          verification?.status ? `Verification status: ${verification.status}` : '',
-          verification?.final_reply && verification.final_reply !== finalReply ? `Verified reply:\n${verification.final_reply}` : '',
-          analysis?.goal ? `Thread goal: ${analysis.goal}` : '',
-        ].filter(Boolean).join('\n\n')
+        ].join('\n\n')
       }
     ];
 
@@ -1061,7 +678,7 @@ class AgentEngine {
       options,
       'Conversation state refresh',
     );
-    const parsed = parseJsonObject(response.content || '') || {};
+    const parsed = extractJsonObject(response.content || '') || {};
     const nextState = {
       summary: String(parsed.summary || existingState?.summary || '').trim(),
       open_commitments: Array.isArray(parsed.open_commitments) ? parsed.open_commitments.slice(0, 8).map((item) => String(item || '').trim()).filter(Boolean) : [],
@@ -1069,13 +686,6 @@ class AgentEngine {
       referenced_entities: Array.isArray(parsed.referenced_entities) ? parsed.referenced_entities.slice(0, 12).map((item) => String(item || '').trim()).filter(Boolean) : [],
       last_verified_facts: Array.isArray(parsed.last_verified_facts) ? parsed.last_verified_facts.slice(0, 10).map((item) => String(item || '').trim()).filter(Boolean) : [],
     };
-
-    if (verification?.status === 'verified' && String(finalReply || '').trim()) {
-      nextState.last_verified_facts = [...new Set([
-        ...nextState.last_verified_facts,
-        clampRunContext(verification.final_reply || finalReply, 280),
-      ])].slice(-10);
-    }
 
     memoryManager.updateConversationState(conversationId, nextState);
     const memoryCandidates = normalizeMemoryCandidates(parsed.memory_candidates);
@@ -1114,10 +724,6 @@ class AgentEngine {
 
   isReadOnlyToolCall(toolCall, toolDefinition = null) {
     return isReadOnlyToolCallImpl(toolCall, toolDefinition);
-  }
-
-  async executeReadOnlyBatch(toolCalls, context = {}) {
-    return executeReadOnlyBatchImpl(this, toolCalls, context);
   }
 
   async persistRunContext(userId, {
@@ -1182,6 +788,10 @@ class AgentEngine {
     return enqueueSystemSteeringImpl(this, runId, content, metadata);
   }
 
+  manageBackgroundRun(callerRunId, args = {}) {
+    return manageBackgroundRunImpl(this, callerRunId, args);
+  }
+
   applyQueuedSystemSteering(runId, messages) {
     return applyQueuedSystemSteeringImpl(this, runId, messages);
   }
@@ -1214,7 +824,6 @@ class AgentEngine {
       stepIndex: Number(state.stepIndex) || 0,
       currentPhase: runMeta.progressLedger?.currentPhase || phase,
       activeTools: (runMeta.activeTools || []).map((tool) => tool.name),
-      goalContract: runMeta.goalContract || null,
       progressLedger: this.buildProgressLedgerSnapshot(runMeta),
     });
     transitionRun(runId, 'paused', {}, ['running', 'pausing']);
@@ -1410,7 +1019,7 @@ class AgentEngine {
       error.code = error.code || 'AGENT_ENGINE_SHUTTING_DOWN';
       throw error;
     }
-    const runPromise = runConversation(this, userId, userMessage, options, _modelOverride);
+    const runPromise = runOrchestrator(this, userId, userMessage, options, _modelOverride);
     this.activeRunPromises.add(runPromise);
     try {
       return await runPromise;
@@ -1577,12 +1186,16 @@ class AgentEngine {
           subagentContract,
           {
             app: options.app || this.app,
+            title: task,
             triggerType: 'subagent',
             triggerSource: 'agent',
             runId: childRunId,
             agentId: options.agentId || null,
             subagentDepth: parentDepth + 1,
             disallowedToolNames: ['spawn_subagent'],
+            // The child's task is model-written, so it works under the
+            // parent's trust and any taint it picks up flows back.
+            parentTrust: parentRunMeta?.trust || null,
             signal: childLink.signal,
           },
           options.model || null
@@ -1716,12 +1329,13 @@ class AgentEngine {
           app: app || this.app,
           runId: childRunId,
           agentId: targetAgent.id,
+          title: taskText,
           triggerType: 'agent_delegation',
           triggerSource: 'agent_delegation',
           skipConversationHistory: true,
-          skipConversationMaintenance: true,
           context: { additionalContext: `Parent run: ${parentRunId || 'unknown'}` },
           allowExternalSideEffects,
+          parentTrust: this.getRunMeta(parentRunId)?.trust || null,
         },
         null,
       );
@@ -2053,7 +1667,6 @@ class AgentEngine {
     if (FILE_TOOL_NAMES.has(toolName)) return 'files';
     if (toolName.startsWith('memory_')) return 'memory';
     if (toolName === 'send_interim_update') return 'note';
-    if (toolName === 'request_user_input') return 'question';
     if (toolName === 'send_message') return 'messaging';
     if (toolName === 'call_user') return 'voice';
     if (toolName.startsWith('mcp_') || toolName.includes('mcp')) return 'mcp';
@@ -2072,26 +1685,17 @@ class AgentEngine {
       let persisted = null;
       if (!runMeta) {
         persisted = db.prepare(
-          `SELECT conversation_id, interaction_mode, device_target
+          `SELECT conversation_id, device_target
            FROM agent_runs WHERE id = ?`,
         ).get(payload.runId);
       }
       const conversationId = runMeta?.conversationId || persisted?.conversation_id || null;
       if (conversationId) {
         payload.conversationId = conversationId;
-        payload.interactionMode = runMeta?.interactionMode
-          || persisted?.interaction_mode
-          || 'agent';
         payload.deviceTarget = runMeta?.deviceTarget
           || persisted?.device_target
           || null;
       }
-    }
-    if (
-      ['run:complete', 'run:error', 'run:stopped', 'run:interrupted'].includes(event)
-      && payload?.runId
-    ) {
-      this.voiceRuntimeManager?.handleRunTerminal?.(payload.runId);
     }
     if (this.io) {
       this.io.to(`user:${userId}`).emit(event, payload);

@@ -6,179 +6,198 @@ description: Every environment variable NeoAgent reads, grouped by purpose.
 
 # Configuration reference
 
-*The full list of server variables, grouped by what they configure.*
+**Every server setting NeoAgent reads from its environment file, with its default and what needs it.**
 
-NeoAgent reads server configuration from `~/.neoagent/.env`. Set
-`NEOAGENT_HOME` before installation to use another runtime root.
+## 🛠️ Change a setting
 
-Prefer the setup wizard or environment CLI over manual file edits:
+- **The file.** `~/.neoagent/.env`, or `.env` under `NEOAGENT_HOME`.
+- **The app.** The **Admin** tabs (Providers, Integrations, Configuration) write the same file. Desktop installs have no CLI, so use these.
+- **Restart afterwards.** Most values are read once at startup.
 
 ```bash
-neoagent setup
-neoagent setup --quick
-neoagent setup --full
-neoagent env list
+neoagent env list               # every value, secrets masked
+neoagent env get PORT           # one value, unmasked
+neoagent env set PORT 3400
+neoagent env unset PORT
+neoagent restart
 ```
 
-Use `neoagent env set` or `neoagent env unset` with the variable named in the
-tables below. Restart NeoAgent after changing values that are only read during
-startup.
+- **Nothing is required to start.** Secrets are generated on first start. **Required** below marks values a feature can't work without.
+- **Setup bookkeeping.** `NEOAGENT_SETUP_PROFILE` and `NEOAGENT_SETUP_COMPLETED_SECTIONS` are written by setup. Leave them alone.
 
-## 🖧 Core server
+## 🖧 Core server {#core-server}
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `PORT` | first available preferred port | HTTP port |
-| `PUBLIC_URL` | unset | Public HTTPS base URL for remote clients, OAuth, and webhooks |
-| `SESSION_SECRET` | required | Session-signing secret |
+| `PORT` | `3333`, or the next free port at setup | HTTP port |
+| `PUBLIC_URL` | unset | Public base URL for OAuth callbacks, email links and the address users are given |
+| `ALLOWED_ORIGINS` | unset: loopback origins only | Comma-separated browser origins allowed to sign in and save changes. Once set, list `http://localhost:<PORT>` too |
+| `SECURE_COOKIES` | `true` when `PUBLIC_URL` starts with `https://` | HTTPS-only session cookies. Setup writes `false` when there is no `PUBLIC_URL` |
+| `TRUST_PROXY` | follows `SECURE_COOKIES` | Trust the reverse proxy's forwarded headers |
+| `NEOAGENT_HSTS_MAX_AGE` | `86400` | HSTS max-age in seconds, sent while secure cookies are on |
 | `NODE_ENV` | `production` | Node environment |
-| `SECURE_COOKIES` | inferred | Require secure session cookies |
-| `TRUST_PROXY` | inferred | Trust proxy headers from the deployment proxy |
-| `ALLOWED_ORIGINS` | unset | Additional comma-separated CORS origins |
-| `NEOAGENT_ADMIN_USERS` | unset | Comma-separated usernames granted admin on every start (never revoked by removal) |
-| `NEOAGENT_RELEASE_CHANNEL` | `stable` | Update channel |
-| `NEOAGENT_SETUP_PROFILE` | `quick` | Last selected setup profile |
-| `NEOAGENT_SETUP_COMPLETED_SECTIONS` | `core` | Non-secret setup completion state |
+| `NEOAGENT_INSTANCE_NAME` | host name | Name shown to nearby apps; read on first start only |
+| `NEOAGENT_DISABLE_MDNS` | unset | `true` stops advertising `_neoagent._tcp.local` on the local network |
 
-Generate a session secret before setting it:
+Exposing the server: see [Reach it from other devices](getting-started.md#network-access).
 
-```bash
-neoagent env set SESSION_SECRET "$(openssl rand -hex 32)"
-```
+## 🔐 Secrets
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `SESSION_SECRET` | generated on first start | Signs sessions; fallback key for both encryption keys below |
+| `NEOAGENT_DATA_ENCRYPTION_KEY` | `SESSION_SECRET` | Encrypts local secrets at rest |
+| `NEOAGENT_ENCRYPTION_KEY` | `SESSION_SECRET` | Encrypts official integration tokens |
+| `NEOAGENT_VM_GUEST_TOKEN` | generated on first start | Authenticates the server to each cloud computer |
+
+:::danger Keep secrets stable
+- **Changing `SESSION_SECRET` signs everyone out.** Without the two dedicated encryption keys, stored credentials also become unreadable.
+- **Never reuse example values** from docs or issue reports.
+:::
+
+## 👥 Accounts and limits
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `NEOAGENT_ADMIN_USERS` | unset | Usernames made admin on every start. Removing a name does not revoke; use `neoagent admin revoke <user>` |
+| `NEOAGENT_ALLOW_SIGNUP` | on | `false`, `0` or `no` makes new accounts need a one-time sign-up key from an admin. A server with no accounts always lets the first one register |
+| `NEOAGENT_RATE_LIMIT_4H` | `2500000` | Tokens per user per rolling 4 hours |
+| `NEOAGENT_RATE_LIMIT_WEEKLY` | `10000000` | Tokens per user per rolling 7 days |
+| `NEOAGENT_DISABLE_RATE_LIMITS` | unset | `true` turns both limits off for everyone |
+
+- **In the app.** Admins change the defaults and per-user limits in the **Admin** tab.
+- **Own keys are exempt.** Models running on a user's [own key](models.md#byok) skip the server limits.
+
+## 🔄 Updates and install location
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `NEOAGENT_RELEASE_CHANNEL` | `stable` | `stable` or `beta`; change it with `neoagent channel` |
+| `NEOAGENT_DEPLOYMENT_MODE` | `self_hosted` | `managed` turns off in-app updates |
+| `NEOAGENT_HOME` | `~/.neoagent` | Runtime root. Set it in the shell before installing; the background service keeps it |
+| `NEOAGENT_SOURCE_DIR` | `~/NeoAgent` | Where `neoagent update` moves an old package-style install |
 
 ## 🧠 Model providers
 
-| Variable | Provider or feature |
+| Variable | Provider | Notes |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | OpenAI | Also memory embeddings, voice-note transcription and GPT-Live calls |
+| `ANTHROPIC_API_KEY` | Anthropic | |
+| `GOOGLE_AI_KEY` | Google Gemini | Also embeddings, transcription and Gemini Live calls |
+| `XAI_API_KEY` | xAI | Also image generation |
+| `MINIMAX_API_KEY` | MiniMax Code | Coding Plan key |
+| `NVIDIA_API_KEY` | NVIDIA NIM | |
+| `OPENROUTER_API_KEY` | OpenRouter | Also SystemOne models |
+| `TYPESAFE_API_KEY` | TypeSafe | SystemOne models only |
+| `OPENAI_COMPATIBLE_API_KEY` | Custom OpenAI-compatible | **Required** with the base URL below |
+| `OPENAI_COMPATIBLE_BASE_URL` | Custom OpenAI-compatible | **Required** with the key above |
+| `OLLAMA_URL` | Ollama | Default `http://localhost:11434` |
+
+| Endpoint override | Default |
 | --- | --- |
-| `ANTHROPIC_API_KEY` | Anthropic |
-| `OPENAI_API_KEY` | OpenAI and supported embedding/transcription paths |
-| `OPENAI_COMPATIBLE_API_KEY` | Custom OpenAI-compatible provider token |
-| `OPENAI_COMPATIBLE_BASE_URL` | Custom OpenAI-compatible provider base URL (required with its token) |
-| `GOOGLE_AI_KEY` | Google Gemini and supported embeddings |
-| `XAI_API_KEY` | xAI |
-| `MINIMAX_API_KEY` | MiniMax |
-| `NVIDIA_API_KEY` | NVIDIA NIM |
-| `OPENROUTER_API_KEY` | OpenRouter |
-| `OPENAI_BASE_URL` | OpenAI-compatible base URL override |
-| `ANTHROPIC_BASE_URL` | Anthropic-compatible base URL override |
-| `OLLAMA_URL` | Ollama server URL |
-| `BRAVE_SEARCH_API_KEY` | Web search |
-| `DEEPGRAM_API_KEY` | Voice transcription |
-| `DEEPGRAM_BASE_URL` | Deepgram-compatible base URL override |
-| `DEEPGRAM_MODEL` | Speech model |
-| `DEEPGRAM_LANGUAGE` | Speech language mode |
+| `OPENAI_BASE_URL` | OpenAI's API |
+| `ANTHROPIC_BASE_URL` | Anthropic's API |
+| `XAI_BASE_URL` | `https://api.x.ai/v1` |
+| `OPENAI_CODEX_BASE_URL` | `https://chatgpt.com/backend-api/codex` |
+| `GITHUB_COPILOT_BASE_URL` | `https://api.githubcopilot.com` |
 
-Account-backed model providers use `neoagent login`, not these API-key fields.
+- **Account sign-ins.** `neoagent login` writes `CLAUDE_CODE_OAUTH_TOKEN`, `OPENAI_CODEX_ACCESS_TOKEN`, `GITHUB_COPILOT_ACCESS_TOKEN` or `GROK_OAUTH_ACCESS_TOKEN`. See [Models](models.md#account-logins).
 
-## 🔌 Official integrations
-
-| Variable prefix | Integration |
-| --- | --- |
-| `GOOGLE_OAUTH_` | Google Workspace |
-| `MICROSOFT_OAUTH_` | Microsoft 365 |
-| `GITHUB_OAUTH_` | GitHub |
-| `NOTION_OAUTH_` | Notion |
-| `SLACK_OAUTH_` | Slack |
-| `FIGMA_OAUTH_` | Figma |
-| `SPOTIFY_OAUTH_` | Spotify |
-| `TRELLO_API_KEY` | Shared Trello application key |
-
-OAuth providers generally use a client ID, client secret, and optional redirect
-URI. The default callback is
-`PUBLIC_URL/api/integrations/oauth/callback`. Home Assistant, Nextcloud, and
-personal Trello credentials are configured through the application.
-
-## 📧 Service email
-
-SMTP is optional. When configured, it supports account confirmation, password
-reset, email changes, and security notifications.
-
-| Variable | Purpose |
-| --- | --- |
-| `NEOAGENT_EMAIL_FROM` | Sender address |
-| `NEOAGENT_EMAIL_SMTP_HOST` | SMTP host |
-| `NEOAGENT_EMAIL_SMTP_PORT` | SMTP port |
-| `NEOAGENT_EMAIL_SMTP_USER` | SMTP user |
-| `NEOAGENT_EMAIL_SMTP_PASS` | SMTP password |
-| `NEOAGENT_EMAIL_SMTP_SECURE` | Implicit TLS |
-| `NEOAGENT_EMAIL_SMTP_REQUIRE_TLS` | Require STARTTLS |
-| `NEOAGENT_EMAIL_SMTP_REJECT_UNAUTHORIZED` | Reject invalid certificates |
-| `NEOAGENT_EMAIL_REPLY_TO` | Reply-To address |
-| `NEOAGENT_EMAIL_REQUIRE_SIGNUP_CONFIRMATION` | Confirm new accounts |
-| `NEOAGENT_EMAIL_REQUIRE_EMAIL_CHANGE_CONFIRMATION` | Confirm email changes |
-| `NEOAGENT_EMAIL_NOTIFY_UNUSUAL_LOGIN` | Notify on unusual login |
-| `NEOAGENT_EMAIL_NOTIFY_ACCOUNT_CHANGES` | Notify on account changes |
-| `NEOAGENT_EMAIL_PUBLIC_URL` | Base URL used in email links |
-| `NEOAGENT_EMAIL_TOKEN_TTL_HOURS` | Confirmation token lifetime |
-
-## 💳 Billing
-
-Billing is disabled by default. Use the interactive wizard to configure it:
-
-```bash
-neoagent billing setup    # guided Stripe key and webhook setup
-neoagent billing          # show current status
-neoagent billing enable   # activate billing and restart
-neoagent billing disable  # deactivate billing and restart
-```
-
-See [Billing](billing.md) for the full setup guide, webhook configuration, and
-plan management.
+## 🎙️ Search, voice and media
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `NEOAGENT_BILLING_ENABLED` | `false` | Enable the Stripe billing system |
-| `STRIPE_SECRET_KEY` | unset | Stripe server-side API key |
-| `STRIPE_PUBLISHABLE_KEY` | unset | Stripe client-side key (returned to clients) |
-| `STRIPE_WEBHOOK_SECRET` | unset | Webhook signing secret |
-| `BILLING_TRIAL_DAYS` | `14` | Free trial length in days |
+| `BRAVE_SEARCH_API_KEY` | unset | **Required** for the `web_search` tool |
+| `DEEPGRAM_API_KEY` | unset | Voice-note and dictation transcription with Deepgram Nova-3 |
+| `VOICE_LIVE_PROVIDER` | `openai` | Default live voice provider: `openai` (GPT-Live) or `google` (Gemini Live) |
+| `VOICE_LIVE_MODEL` | newest live model the provider lists | Default live voice model |
+| `VOICE_LIVE_VOICE` | `marin` (OpenAI), `Kore` (Google) | Default live voice |
+| `YT_DLP_BIN` | `yt-dlp` | yt-dlp binary for video and audio downloads |
+| `FFMPEG_BIN` | `ffmpeg` | ffmpeg binary for media conversion |
+| `NEOAGENT_MEMORY_INGESTION_INTERVAL_MS` | `600000` | How often connected integrations refresh memory |
 
-## 🖥️ Isolated runtime
+- **In the app.** Admins set the live voice defaults under **Admin › Integrations › Live voice**.
+- **Per account.** Each account can pick its own live voice provider, model and voice under **Settings › Voice**.
 
-| Variable | Purpose |
+## 🔌 Official integrations
+
+Each OAuth app takes `<PREFIX>_CLIENT_ID` and `<PREFIX>_CLIENT_SECRET` (both **required** for that integration) and an optional `<PREFIX>_REDIRECT_URI`.
+
+| Prefix | Integration |
 | --- | --- |
-| `TERMINAL_ENV` | Where computers run: `qemu` (default), `docker`, or `host` |
-| `NEOAGENT_VM_BASE_IMAGE_URL` | Download source for the guest image |
-| `NEOAGENT_VM_BASE_IMAGE` | Existing local guest image |
-| `NEOAGENT_VM_GUEST_TOKEN` | Server-to-runtime authentication token |
-| `NEOAGENT_VM_MEMORY_MB` | Guest memory allocation |
-| `NEOAGENT_VM_CPUS` | Guest CPU allocation |
-| `NEOAGENT_GUEST_BASE_IMAGE` | Base image for the Docker guest build |
+| `GOOGLE_OAUTH` | Google Workspace |
+| `MICROSOFT_OAUTH` | Microsoft 365; also `MICROSOFT_OAUTH_TENANT_ID` (default `common`) |
+| `GITHUB_OAUTH` | GitHub |
+| `NOTION_OAUTH` | Notion |
+| `SLACK_OAUTH` | Slack |
+| `FIGMA_OAUTH` | Figma |
+| `SPOTIFY_OAUTH` | Spotify |
 
-`TERMINAL_ENV=docker` gives every user a Docker container instead of a QEMU
-micro-VM. The container runs the same guest agent from the same payload, so
-shell, browser, and file tools behave identically; it starts in seconds and
-needs no guest image download, but it shares the host kernel and offers no
-desktop view. `neoagent repair` builds the guest image for whichever backend is
-selected. The memory and CPU allocation settings apply to both.
+- **Default callback.** `<PUBLIC_URL>/api/integrations/oauth/callback`. Register exactly this URI with the provider.
+- **Trello.** `TRELLO_API_KEY` is a shared app key; each agent still connects its own Trello account in the app.
+- **In the app.** **Admin › Integrations** edits the OAuth apps and the Trello key.
+- **OpenRouter account sign-in.** The same category has an enable switch backed by `NEOAGENT_OPENROUTER_SIGN_IN_ENABLED` (default `true`). Disabling it blocks registration, login, and account linking immediately; existing sessions and model keys keep working.
+- **No server setup.** Home Assistant and Nextcloud are connected per account in the app.
+- **Messaging channels.** Configured per agent under **Settings › Messaging**, not here.
 
-`TERMINAL_ENV=host` runs the agent on the server itself, through the same
-desktop-companion path the desktop app uses: the server registers itself as
-every account's companion, and shell commands run in that account's workspace
-directory. There is no guest to prepare and nothing to download, so a computer
-is ready immediately — but there is **no isolation**: every account's agent runs
-as the server's own OS user with that user's full access to the machine, and
-accounts are not separated from each other. Only the shell and workspace file
-tools are available; there is no browser or desktop. The server logs a warning
-naming the host on every start, and only grants accounts you would trust with a
-shell on that machine.
+## 📧 Service email {#service-email}
 
-:::danger Do not reuse example values
-The installer generates the guest token. Do not reuse the example values from
-documentation or issue reports.
-:::
+Optional SMTP for account confirmation, password reset and security notices; the agent can't read or send from this mailbox.
 
-## 💬 Messaging
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `NEOAGENT_EMAIL_SMTP_HOST` | unset | **Required** to turn service email on |
+| `NEOAGENT_EMAIL_FROM` | unset | **Required**; sender address |
+| `NEOAGENT_EMAIL_SMTP_PORT` | `587` | SMTP port |
+| `NEOAGENT_EMAIL_SMTP_USER` | unset | SMTP user |
+| `NEOAGENT_EMAIL_SMTP_PASS` | unset | SMTP password |
+| `NEOAGENT_EMAIL_SMTP_SECURE` | `true` on port 465, else `false` | Implicit TLS |
+| `NEOAGENT_EMAIL_SMTP_REQUIRE_TLS` | opposite of `SECURE` | Require STARTTLS |
+| `NEOAGENT_EMAIL_SMTP_REJECT_UNAUTHORIZED` | `true` | Reject invalid certificates |
+| `NEOAGENT_EMAIL_REPLY_TO` | unset | Reply-To address |
+| `NEOAGENT_EMAIL_BRAND_NAME` | `NeoAgent` | Name used in emails |
+| `NEOAGENT_EMAIL_SUPPORT_URL` | unset | Support link in emails |
+| `NEOAGENT_EMAIL_PUBLIC_URL` | `PUBLIC_URL` | Base URL for links in emails |
+| `NEOAGENT_EMAIL_TOKEN_TTL_HOURS` | `24` | Confirmation and reset link lifetime |
+| `NEOAGENT_EMAIL_REQUIRE_SIGNUP_CONFIRMATION` | `true` | New accounts confirm their email |
+| `NEOAGENT_EMAIL_REQUIRE_EMAIL_CHANGE_CONFIRMATION` | `true` | Email changes are confirmed |
+| `NEOAGENT_EMAIL_NOTIFY_UNUSUAL_LOGIN` | `true` | Alert on unusual sign-ins |
+| `NEOAGENT_EMAIL_NOTIFY_ACCOUNT_CHANGES` | `true` | Alert on account changes |
 
-Messaging credentials are normally configured in **Settings > Messaging**.
+The confirmation and notification switches apply only once SMTP is configured.
+
+## 🖥️ Cloud computer
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `TERMINAL_ENV` | `qemu` | Where each user's cloud computer runs: `qemu`, `docker` or `host` |
+| `NEOAGENT_VM_BASE_IMAGE` | unset | Local guest image to use instead of the pinned Debian image (`qemu`) |
+| `NEOAGENT_GUEST_BASE_IMAGE` | `node:22-bookworm-slim` | Base image for the guest build (`docker`) |
+| `NEOAGENT_COMPUTER_MAX_MEMORY_MB` | `2560` | Most memory one computer gets; also set under **Admin › Configuration** |
+| `NEOAGENT_COMPUTER_MIN_MEMORY_MB` | `1536` | Least memory one computer needs; limits how many run at once |
+| `NEOAGENT_COMPUTER_MAX_CPUS` | `2` | Most vCPUs per computer; also set under **Admin › Configuration** |
+| `NEOAGENT_COMPUTER_HOST_MEMORY_RESERVE_PERCENT` | `25` | Host memory kept free, at least `NEOAGENT_COMPUTER_HOST_MEMORY_RESERVE_MB` (default `2048`) |
+| `NEOAGENT_COMPUTER_MIN_DISK_GIB` | `6` | Smallest disk per computer |
+| `NEOAGENT_COMPUTER_MAX_DISK_GIB` | `12` | Largest disk per computer |
+| `NEOAGENT_COMPUTER_STORAGE_RESERVE_PERCENT` | `20` | Free disk space kept for the host |
+| `NEOAGENT_VM_IDLE_TIMEOUT_MS` | `600000` | Idle time before a computer shuts down |
+
+| `TERMINAL_ENV` | Isolation | Trade-offs |
+| --- | --- | --- |
+| `qemu` | Per-user micro-VM | Desktop view; downloads a pinned Debian image (about 1 GB); fast with KVM, HVF or WHPX |
+| `docker` | Per-user container | Starts in seconds; builds a local image instead of downloading one; shares the host kernel; no desktop view |
+| `host` | None | Runs as the server's OS user; shell and workspace files only; one trusted account |
+
+- **Switching backends.** Run `neoagent repair` afterwards; it prepares the guest for the selected backend.
+- **`host` warning.** The server logs a warning naming the machine on every start.
 
 ## 📁 Runtime paths
 
 | Path | Contents |
 | --- | --- |
-| `~/.neoagent/.env` | Configuration and secrets |
-| `~/.neoagent/data/` | Database, sessions, logs, update state |
-| `~/.neoagent/agent-data/` | Skills, memory files, daily data |
+| `~/.neoagent/.env` | Settings and secrets |
+| `~/.neoagent/data/` | SQLite database, logs, cloud computer disks |
+| `~/.neoagent/agent-data/` | Skills and memory files |
+| `~/.neoagent/backups/` | Backups from `neoagent backup`, `update` and `repair` |
 
-The canonical complete variable list and comments are in
-[`.env.example`](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/.env.example).
+The commented template is [`.env.example`](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/.env.example).

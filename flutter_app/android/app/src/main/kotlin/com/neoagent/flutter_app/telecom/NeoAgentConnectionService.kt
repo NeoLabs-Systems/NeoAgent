@@ -48,6 +48,9 @@ class NeoAgentConnectionService : ConnectionService() {
         private var currentConnection: NeoAgentConnection? = null
 
         @Synchronized
+        fun current(): NeoAgentConnection? = currentConnection
+
+        @Synchronized
         fun getAndClearCurrentConnection(): NeoAgentConnection? {
             val conn = currentConnection
             currentConnection = null

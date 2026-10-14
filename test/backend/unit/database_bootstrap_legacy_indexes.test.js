@@ -123,3 +123,35 @@ test('memory embedding index migration is idempotent and keeps the current looku
   ]);
   db.close();
 });
+
+test('live voice values from the earlier realtime implementation are cleared, current choices kept', () => {
+  const db = new Sqlite(':memory:');
+  db.exec(`
+    CREATE TABLE user_settings (user_id INTEGER, key TEXT, value TEXT, UNIQUE(user_id, key));
+    CREATE TABLE agent_settings (user_id INTEGER, agent_id TEXT, key TEXT, value TEXT, UNIQUE(user_id, agent_id, key));
+    INSERT INTO agent_settings (user_id, agent_id, key, value) VALUES
+      (1, 'main', 'voice_runtime_mode', '"live"'),
+      (1, 'main', 'voice_live_provider', '"openai"'),
+      (1, 'main', 'voice_live_model', '"gpt-realtime-1.5"'),
+      (1, 'main', 'voice_live_voice', '"alloy"'),
+      (1, 'main', 'voice_input_mode', '"ptt"'),
+      (2, 'main', 'voice_live_provider', 'google'),
+      (2, 'main', 'voice_live_voice', 'Puck');
+    INSERT INTO user_settings (user_id, key, value) VALUES
+      (1, 'voice_runtime_mode', '"live"'),
+      (1, 'voice_live_model', '"gpt-realtime-1.5"');
+  `);
+
+  const { removeRetiredVoicePipelineSettings } = require('../../../lib/schema_migrations');
+  removeRetiredVoicePipelineSettings(db);
+
+  const rows = (table) => db.prepare(`SELECT user_id, key, value FROM ${table} ORDER BY user_id, key`).all()
+    .map((row) => `${row.user_id}:${row.key}=${row.value}`);
+  assert.deepEqual(rows('agent_settings'), [
+    '1:voice_input_mode="ptt"',
+    '2:voice_live_provider=google',
+    '2:voice_live_voice=Puck',
+  ]);
+  assert.deepEqual(rows('user_settings'), []);
+  db.close();
+});

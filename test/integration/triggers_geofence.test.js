@@ -3,54 +3,97 @@
 const assert = require('node:assert/strict');
 const { after, before, describe, test } = require('node:test');
 
+const { EventEmitter } = require('node:events');
+
+const { attachTriggerEventSources } = require('../../server/services/tasks/trigger_events');
 const { createTestRuntime, createTestUser, teardownTestRuntime } = require('../helpers/db');
 const { createTestApp, loginAs } = require('../helpers/app');
 const { agent } = require('../helpers/supertest');
 
-// Regression coverage: POST /api/triggers/geofence used to read req.user.id,
-// but req.user was never populated (no middleware set it), so every call
-// threw and 500'd. It now reads req.session.userId, the canonical pattern
-// used across the route layer.
+// A small task runtime: the real event dispatcher over fixed tasks, recording
+// what it fires.
+function eventTaskRuntime(tasks) {
+  const runtime = {
+    fired: [],
+    stopping: false,
+    events: new EventEmitter(),
+    app: { locals: {} },
+    publishEvent(name, event) {
+      runtime.events.emit(name, event);
+    },
+    taskRepository: {
+      listEnabledEventTasks(userId, _agentId, triggerType) {
+        return tasks().filter((task) => task.user_id === userId && task.trigger_type === triggerType);
+      },
+    },
+    async fireTaskFromTrigger(taskId, _userId, payload) {
+      runtime.fired.push({ taskId, payload });
+      return {};
+    },
+  };
+  attachTriggerEventSources(runtime);
+  return runtime;
+}
+
+async function waitForFired(runtime, count) {
+  for (let attempt = 0; attempt < 50 && runtime.fired.length < count; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
 describe('triggers geofence route', () => {
   let ctx;
   let app;
   let client;
   let user;
+  let runtime;
 
   before(async () => {
     ctx = createTestRuntime();
-    app = createTestApp().app;
     user = await createTestUser(ctx.db, { username: 'geofence_user' });
+    const fence = (id, transition) => ({
+      id,
+      user_id: user.userId,
+      trigger_type: 'geofence_event',
+      trigger_config: JSON.stringify({ label: 'Home', latitude: 37.77, longitude: -122.41, radiusMeters: 100, transition }),
+    });
+    runtime = eventTaskRuntime(() => [fence(11, 'enter'), fence(12, 'exit')]);
+    app = createTestApp({ locals: { taskRuntime: runtime } }).app;
     client = agent(app);
     await loginAs(client, user);
   });
 
   after(() => teardownTestRuntime(ctx));
 
-  test('authenticated geofence trigger returns 200, not 500', async () => {
+  test('the fences are the enabled geofence tasks', async () => {
+    const res = await client.get('/api/triggers/geofences').expect(200);
+    assert.deepEqual(res.body.geofences.map((fence) => [fence.id, fence.label, fence.radius_meters]), [
+      [11, 'Home', 100],
+      [12, 'Home', 100],
+    ]);
+  });
+
+  test('entering a fence fires the task watching that fence and transition', async () => {
     const res = await client
       .post('/api/triggers/geofence')
-      .send({ label: 'Home', latitude: 37.77, longitude: -122.41, radius_meters: 100, action: 'remind' })
+      .send({ fence_id: 11, transition: 'enter', latitude: 37.77, longitude: -122.41 })
       .expect(200);
     assert.equal(res.body.success, true);
+    await waitForFired(runtime, 1);
+    assert.deepEqual(runtime.fired.map((entry) => entry.taskId), [11]);
+    assert.equal(runtime.fired[0].payload.context.triggerEvent.event, 'geofence_entered');
+  });
+
+  test('a geofence report without a fence is rejected', async () => {
+    await client.post('/api/triggers/geofence').send({ transition: 'enter' }).expect(400);
   });
 
   test('unauthenticated geofence trigger is rejected with 401', async () => {
     const anon = agent(app);
     await anon
       .post('/api/triggers/geofence')
-      .send({ label: 'Home' })
+      .send({ fence_id: 11 })
       .expect(401);
-  });
-
-  test('authenticated geofence list returns the user fences', async () => {
-    ctx.db.prepare(`
-      INSERT INTO geofences (user_id, label, latitude, longitude, radius_meters, trigger_action)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(user.userId, 'Home', 37.77, -122.41, 100, 'remind');
-    const res = await client.get('/api/triggers/geofences').expect(200);
-    assert.equal(res.body.geofences.length, 1);
-    assert.equal(res.body.geofences[0].label, 'Home');
   });
 });
 
@@ -63,7 +106,7 @@ describe('triggers notification route', () => {
   let app;
   let client;
   let user;
-  let fired;
+  let runtime;
 
   const notification = {
     app_package: 'com.example.chat',
@@ -73,34 +116,23 @@ describe('triggers notification route', () => {
   };
 
   async function postNotification() {
+    const before = runtime.fired.length;
     await client.post('/api/triggers/notification').send(notification).expect(200);
     // The route answers before running the trigger, so wait for the fan-out.
-    for (let attempt = 0; attempt < 50 && fired.length === 0; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
-    return fired.shift() || null;
+    await waitForFired(runtime, before + 1);
+    return runtime.fired[before]?.payload || null;
   }
 
   before(async () => {
     ctx = createTestRuntime();
     user = await createTestUser(ctx.db, { username: 'notification_user' });
-    fired = [];
-    app = createTestApp({
-      locals: {
-        taskRuntime: {
-          taskRepository: {
-            listEnabledByTriggerTypes: () => [{
-              id: 1,
-              user_id: user.userId,
-              trigger_config: '{}',
-            }],
-          },
-          fireTaskFromTrigger: async (taskId, userId, payload) => {
-            fired.push(payload);
-          },
-        },
-      },
-    }).app;
+    runtime = eventTaskRuntime(() => [{
+      id: 1,
+      user_id: user.userId,
+      trigger_type: 'android_notification_received',
+      trigger_config: '{}',
+    }]);
+    app = createTestApp({ locals: { taskRuntime: runtime } }).app;
     client = agent(app);
     await loginAs(client, user);
   });

@@ -2,7 +2,7 @@
 
 const { CALENDAR_APP } = require('./constants');
 const { davRequest, parseCredentials } = require('./client');
-const { buildEventIcs, parseDavResponses, parseEvent, toCalDavUtc } = require('./dav');
+const { buildEventIcs, parseDavResponses, parseEvent, parseEvents, toCalDavUtc } = require('./dav');
 const {
   davCalendarsPath,
   hrefToRemotePath,
@@ -141,7 +141,7 @@ async function executeCalendarTool(toolName, args, credentials, options = {}) {
         headers: { Depth: '1', 'Content-Type': 'application/xml; charset=utf-8' },
         body: `<?xml version="1.0"?>
 <c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
-  <d:prop><d:getetag/><c:calendar-data/></d:prop>
+  <d:prop><d:getetag/><c:calendar-data><c:expand start="${start}" end="${end}"/></c:calendar-data></d:prop>
   <c:filter>
     <c:comp-filter name="VCALENDAR">
       <c:comp-filter name="VEVENT">
@@ -154,11 +154,11 @@ async function executeCalendarTool(toolName, args, credentials, options = {}) {
       });
       const events = parseDavResponses(xml)
         .filter((entry) => entry.ok && entry.calendarData)
-        .map((entry) => ({
+        .flatMap((entry) => parseEvents(entry.calendarData).map((event) => ({
           path: hrefToRemotePath(entry.href, prefix),
           etag: text(entry.etag) || null,
-          ...parseEvent(entry.calendarData),
-        }));
+          ...event,
+        })));
       return { result: events };
     }
     case 'nextcloud_get_event': {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 class ComputerDisplay extends StatelessWidget {
   const ComputerDisplay({super.key, required this.url});
@@ -7,11 +8,11 @@ class ComputerDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Padding(
         padding: EdgeInsets.all(24),
         child: Text(
-          'The interactive Linux desktop is available in the NeoAgent web app.',
+          appStrings.theInteractiveLinuxDesktopIsAvailable,
           textAlign: TextAlign.center,
         ),
       ),

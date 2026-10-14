@@ -16,8 +16,13 @@ router.get('/status', (req, res) => {
 
 router.post('/sync', (req, res) => {
   try {
-    const result = ingestHealthSync(req.session.userId, req.body);
+    const { records, ...result } = ingestHealthSync(req.session.userId, req.body);
     res.status(201).json({ success: true, ...result });
+    req.app.locals.taskRuntime?.publishEvent('health_sync', {
+      userId: req.session.userId,
+      records,
+      syncedAt: new Date().toISOString(),
+    });
   } catch (err) {
     const message = sanitizeError(err);
     const status = /payload|Missing user/i.test(message) ? 400 : 500;

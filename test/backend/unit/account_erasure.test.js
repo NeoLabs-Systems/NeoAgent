@@ -97,7 +97,7 @@ test('eraseUserData rejects unknown and invalid ids', async () => {
   assert.throws(() => eraseUserData('abc'), (err) => err.code === 'INVALID_ID');
 });
 
-test('userScopedTables excludes global and admin tables', async () => {
+test('userScopedTables excludes the users and admin tables', async () => {
   ctx = createTestRuntime();
   const { userScopedTables } = require('../../../server/services/account/erasure');
   const tables = userScopedTables();
@@ -105,7 +105,6 @@ test('userScopedTables excludes global and admin tables', async () => {
   assert.ok(tables.includes('memories'));
   assert.ok(tables.includes('user_settings'));
   assert.ok(!tables.includes('users'));
-  assert.ok(!tables.includes('billing_plans'));
   assert.ok(!tables.some((t) => t.startsWith('admin_')));
 });
 

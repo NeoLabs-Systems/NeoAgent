@@ -53,7 +53,7 @@ function parseHttpUrl(value) {
   try {
     parsed = new URL(String(value || '').trim());
   } catch {
-    throw new Error('Invalid URL.');
+    throw new Error(`"${value}" is not a valid URL. Use a full http(s) URL such as https://example.com/path.`);
   }
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error('URL scheme not allowed. Only http and https are permitted.');
@@ -81,7 +81,7 @@ async function resolveHttpTarget(url, options = {}) {
   const hostname = parsed.hostname.replace(/^\[|\]$/g, '');
   const allowPrivate = options.allowPrivate === true;
   if (!allowPrivate && isPrivateHost(hostname)) {
-    throw new Error('Private, loopback, and reserved network addresses are not permitted.');
+    throw new Error(`${hostname} is a private, loopback, or reserved network address, which is not permitted.`);
   }
   if (net.isIP(hostname)) {
     return { address: hostname, family: net.isIP(hostname), parsed };
@@ -96,7 +96,7 @@ async function resolveHttpTarget(url, options = {}) {
     );
   } catch (error) {
     throwIfAborted(options.signal, 'HTTP request aborted.');
-    throw new Error(`Could not resolve request host: ${error?.message || 'DNS lookup failed'}`);
+    throw new Error(`Could not resolve ${hostname}: ${error?.message || 'DNS lookup failed'}`);
   }
   const addresses = (Array.isArray(records) ? records : [records])
     .map((record) => ({
@@ -104,9 +104,9 @@ async function resolveHttpTarget(url, options = {}) {
       family: Number(record?.family) || net.isIP(record?.address || record),
     }))
     .filter((record) => record.address && record.family);
-  if (addresses.length === 0) throw new Error('Could not resolve request host.');
+  if (addresses.length === 0) throw new Error(`Could not resolve ${hostname}.`);
   if (!allowPrivate && addresses.some((record) => isPrivateHost(record.address))) {
-    throw new Error('Request host resolves to a private, loopback, or reserved address.');
+    throw new Error(`${hostname} resolves to a private, loopback, or reserved address, which is not permitted.`);
   }
   return { ...addresses[0], parsed };
 }

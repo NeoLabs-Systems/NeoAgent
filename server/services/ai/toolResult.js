@@ -192,6 +192,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
     case 'browser_extract':
       envelope = trimObject({
         tool: toolName,
+        task_relevance: toolResult?.task_relevance,
         selector: toolArgs.selector || 'body',
         attribute: toolArgs.attribute || 'innerText',
         excerpt: toJsonText(toolResult?.result || toolResult?.content || toolResult, Math.floor(softLimit * 0.85))
@@ -252,6 +253,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
     case 'http_request':
       envelope = trimObject({
         tool: toolName,
+        task_relevance: toolResult?.task_relevance,
         status: toolResult?.status,
         headers: trimObject({
           contentType: toolResult?.headers?.['content-type'] || toolResult?.headers?.['Content-Type'],

@@ -15,7 +15,7 @@ server/          Express HTTP server, all backend logic
   services/      Business logic, grouped by domain
     ai/          LLM engine, providers, tool runner, history, compaction
     agents/      Agent profile manager
-    skills/      Skill catalog and runtime
+    skills/      Skill runtime, learning, and skills.sh installs
     tasks/       Task scheduling, execution, security
     integrations/ OAuth flows and integration runtimes
   utils/         Shared server-side helpers
@@ -56,7 +56,7 @@ scripts/         Build and release utility scripts
 - All DB access goes through `server/db/database.js`. Never instantiate a second `Database`.
 - Use the `better-sqlite3` synchronous API. No async wrappers or callbacks.
 - All queries use parameterized statements. No string interpolation into SQL.
-- Schema changes (migrations) belong in `lib/migrations.js`. No `ALTER TABLE` or `CREATE TABLE` inline in service files.
+- Schema changes belong in `lib/schema_migrations.js`: idempotent startup migrations in `runSchemaMigrations()`, one-shot data changes appended to `VERSIONED_MIGRATIONS`. No `ALTER TABLE` or `CREATE TABLE` inline in service files. (`lib/migrations.js` is the OpenClaw/Hermes importer.)
 
 ### AI / LLM
 
@@ -147,11 +147,6 @@ scripts/         Build and release utility scripts
 1. Define the tool schema and handler in `server/services/ai/tools.js`.
 2. Extract non-trivial logic into `server/services/ai/integrated_tools/` and import from there.
 3. Ensure the tool result is passed through `compactToolResult()` if it can produce large payloads.
-
-### New skill
-
-1. Add the skill definition to `server/services/skills/base_catalog.js`.
-2. If server-side execution is needed, implement it in `server/services/skills/runtime.js`.
 
 ---
 

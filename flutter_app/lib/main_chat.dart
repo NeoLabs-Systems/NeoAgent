@@ -5,18 +5,36 @@ part of 'main.dart';
 /// presses send.
 typedef _ChatStarter = ({IconData icon, String prompt, String caption});
 
-const List<_ChatStarter> _promptStarters = <_ChatStarter>[
-  (
-    icon: Icons.restart_alt_rounded,
-    prompt: 'Summarise my last run',
-    caption: 'Picks up where you left off',
-  ),
+/// Built on each call so the texts follow the current app language. The
+/// last-run starter only makes sense once there is a run to pick up.
+List<_ChatStarter> _promptStarters({required bool hasRuns}) => <_ChatStarter>[
+  if (hasRuns)
+    (
+      icon: Icons.restart_alt_rounded,
+      prompt: appStrings.summariseMyLastRun,
+      caption: appStrings.picksUpWhereYouLeftOff,
+    ),
   (
     icon: Icons.event_outlined,
-    prompt: 'What is on tomorrow?',
-    caption: 'Pulls together the day ahead',
+    prompt: appStrings.whatIsOnTomorrow,
+    caption: appStrings.pullsTogetherTheDayAhead,
   ),
 ];
+
+/// The send shortcut hint under the composer, on platforms with a keyboard.
+String? _composerSendHint() {
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.android:
+    case TargetPlatform.iOS:
+    case TargetPlatform.fuchsia:
+      return null;
+    case TargetPlatform.macOS:
+      return appStrings.chatSendHintMac;
+    case TargetPlatform.linux:
+    case TargetPlatform.windows:
+      return appStrings.chatSendHintOther;
+  }
+}
 
 class ChatPanel extends StatefulWidget {
   const ChatPanel({super.key, required this.controller});
@@ -116,6 +134,7 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     widget.controller.removeListener(_updateConnectionBanner);
     _composerController.removeListener(_handleComposerLayoutChanged);
     _scrollController.removeListener(_handleScrollPositionChanged);
+    widget.controller.holdChatDraftAfterSessionExpiry(_composerController.text);
     _composerController.dispose();
     _scrollController.dispose();
     _dictationCapture?.dispose();
@@ -147,9 +166,9 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
       await capture.dispose();
       _dictationCapture = null;
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Microphone error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(appStrings.microphoneErrorArg1(e))),
+        );
       }
     }
   }
@@ -185,9 +204,9 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Transcription failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(appStrings.transcriptionFailedArg1(e))),
+        );
       }
     } finally {
       await capture?.dispose();
@@ -505,7 +524,7 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
         ),
       ),
       pageBuilder: (dialogContext, _, __) => _ModelPickerDialog(
-        title: 'Chat Model',
+        title: appStrings.chatModel,
         options: options,
         currentValue: controller.defaultChatModel,
         onChanged: (v) {
@@ -622,6 +641,17 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     final controller = widget.controller;
     final messages = controller.visibleChatMessages;
     _maybeFollowChatContent(messages, controller);
+    // The newest assistant reply carries the live face; while the typing
+    // bubble is up, its own thinking face is the live one.
+    ChatEntry? liveAvatarEntry;
+    if (!messages.any((entry) => entry.typing)) {
+      for (final entry in messages.reversed) {
+        if (entry.role != 'user') {
+          liveAvatarEntry = entry;
+          break;
+        }
+      }
+    }
 
     final threadChildren = <Widget>[
       if (controller.isLoadingOlderChatHistory) ...<Widget>[
@@ -648,6 +678,10 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 16),
       ],
+      if (controller.needsModelSetup) ...<Widget>[
+        _ModelSetupCard(controller: controller),
+        const SizedBox(height: 16),
+      ],
       if (controller.activeRun != null || controller.toolEvents.isNotEmpty)
         Padding(
           padding: const EdgeInsets.only(bottom: 16),
@@ -656,31 +690,38 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
             tools: controller.toolEvents,
           ),
         ),
+      if (controller.backgroundTasks.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: _BackgroundTasksPanel(controller: controller),
+        ),
       if (messages.isEmpty)
         Padding(
           padding: const EdgeInsets.only(top: 24, bottom: 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              const _GreetingHeader(
-                subtitle:
-                    'Runs, tools, memory, scheduling, skills, and MCP are all available here.',
+              _GreetingHeader(
+                subtitle: appStrings.runsToolsMemorySchedulingSkillsAnd,
               ),
               const SizedBox(height: 26),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 720),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final cards = _promptStarters
-                        .map(
-                          (starter) => _PromptStarter(
-                            icon: starter.icon,
-                            prompt: starter.prompt,
-                            caption: starter.caption,
-                            onTap: () => _useStarter(starter.prompt),
-                          ),
-                        )
-                        .toList(growable: false);
+                    final cards =
+                        _promptStarters(
+                              hasRuns: controller.recentRuns.isNotEmpty,
+                            )
+                            .map(
+                              (starter) => _PromptStarter(
+                                icon: starter.icon,
+                                prompt: starter.prompt,
+                                caption: starter.caption,
+                                onTap: () => _useStarter(starter.prompt),
+                              ),
+                            )
+                            .toList(growable: false);
                     // Side by side once there is room for two readable
                     // cards; stacked on a phone.
                     if (constraints.maxWidth < 560) {
@@ -719,6 +760,9 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
               entry: entry,
               onLoadRunDetail: controller.fetchRunDetail,
               onSendMessage: controller.sendMessage,
+              liveController: identical(entry, liveAvatarEntry)
+                  ? controller
+                  : null,
             ),
           ),
         ),
@@ -871,7 +915,7 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: <Widget>[
                         _ChatComposerIconButton(
-                          tooltip: 'Attach files',
+                          tooltip: appStrings.attachFiles,
                           icon: Icons.attach_file_rounded,
                           onPressed: _attachFiles,
                         ),
@@ -926,7 +970,7 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
                               )
                             : _ChatComposerIconButton(
                                 tooltip: _isDictating
-                                    ? 'Stop & transcribe'
+                                    ? appStrings.stopTranscribe
                                     : 'Dictate',
                                 icon: _isDictating
                                     ? Icons.stop_circle_outlined
@@ -940,7 +984,7 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
                               ),
                         const SizedBox(width: 6),
                         _ChatComposerIconButton(
-                          tooltip: 'Call agent',
+                          tooltip: appStrings.callAgent,
                           icon: Icons.call_rounded,
                           color: Colors.white,
                           backgroundColor: _success,
@@ -950,7 +994,7 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
                         ),
                         const SizedBox(width: 6),
                         _ChatComposerIconButton(
-                          tooltip: 'Send',
+                          tooltip: appStrings.send2,
                           icon: controller.hasLiveRun
                               ? Icons.alt_route_rounded
                               : Icons.north_east_rounded,
@@ -974,7 +1018,7 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
                               height: 6,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: controller.hasLiveRun
+                                color: controller.isAgentWorking
                                     ? _success
                                     : _textMuted,
                               ),
@@ -994,6 +1038,16 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
                           ],
                         ),
                       ),
+                      if (_composerSendHint() case final hint?) ...<Widget>[
+                        const SizedBox(width: 12),
+                        Text(
+                          hint,
+                          style: GoogleFonts.geistMono(
+                            fontSize: 12,
+                            color: _textMuted,
+                          ),
+                        ),
+                      ],
                       const SizedBox(width: 12),
                       GestureDetector(
                         onTap: controller.hasLiveRun ? null : _openModelPicker,
@@ -1014,7 +1068,7 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
                               Flexible(
                                 child: Text(
                                   controller.hasLiveRun
-                                      ? 'Steering mode'
+                                      ? appStrings.steeringMode
                                       : controller.modelIndicator,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -1082,7 +1136,9 @@ class _RateLimitStatusCard extends StatelessWidget {
             Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
             const Spacer(),
             Text(
-              reached ? 'Limit reached' : '${_formatTokenCount(remaining)} left',
+              reached
+                  ? 'Limit reached'
+                  : appStrings.arg1Left(_formatTokenCount(remaining)),
               style: TextStyle(
                 color: color,
                 fontSize: 12,
@@ -1103,8 +1159,7 @@ class _RateLimitStatusCard extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          '${_formatTokenCount(usageAmount)} / ${_formatTokenCount(limit)} tokens'
-          '${resetLabel == null ? '' : ' · $resetLabel'}',
+          '${appStrings.arg1Arg2Tokens3(_formatTokenCount(usageAmount), _formatTokenCount(limit))}${resetLabel == null ? '' : ' · $resetLabel'}',
           style: TextStyle(color: _textMuted, fontSize: 11),
         ),
       ],
@@ -1115,7 +1170,7 @@ class _RateLimitStatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final windows = <Widget>[
       _buildWindow(
-        label: '4-hour usage',
+        label: appStrings.n4HourUsage,
         usageAmount: usage.fourHourUsage,
         limit: usage.fourHourLimit,
         remaining: usage.fourHourRemaining,
@@ -1124,7 +1179,7 @@ class _RateLimitStatusCard extends StatelessWidget {
         fullResetAt: usage.fourHourFullResetAt,
       ),
       _buildWindow(
-        label: '7-day usage',
+        label: appStrings.n7DayUsage,
         usageAmount: usage.weeklyUsage,
         limit: usage.weeklyLimit,
         remaining: usage.weeklyRemaining,
@@ -1210,36 +1265,6 @@ class _ChatTopBar extends StatelessWidget {
               style: GoogleFonts.geistMono(fontSize: 11, color: _textMuted),
             ),
           ),
-          const SizedBox(width: 12),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Container(
-                width: 7,
-                height: 7,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: controller.hasLiveRun ? _success : _accentAlt,
-                  boxShadow: <BoxShadow>[
-                    BoxShadow(
-                      color: (controller.hasLiveRun ? _success : _accentAlt)
-                          .withValues(alpha: 0.18),
-                      blurRadius: 0,
-                      spreadRadius: 3,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 7),
-              Text(
-                controller.hasLiveRun ? 'live' : 'idle',
-                style: GoogleFonts.geistMono(
-                  fontSize: 12,
-                  color: _textSecondary,
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -1301,7 +1326,7 @@ class _ScrollToBottomButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: 'Scroll to bottom',
+      message: appStrings.scrollToBottom,
       child: Material(
         color: _bgCard,
         borderRadius: BorderRadius.circular(20),
@@ -1368,7 +1393,7 @@ class _SharedAttachmentTray extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Shared from another app',
+                  appStrings.sharedFromAnotherApp,
                   style: TextStyle(
                     color: _textPrimary,
                     fontSize: 12,
@@ -1376,7 +1401,7 @@ class _SharedAttachmentTray extends StatelessWidget {
                   ),
                 ),
               ),
-              TextButton(onPressed: onClear, child: const Text('Clear')),
+              TextButton(onPressed: onClear, child: Text(appStrings.clear)),
             ],
           ),
           const SizedBox(height: 6),
@@ -1560,9 +1585,9 @@ class _MessagingPanelState extends State<MessagingPanel> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final groups = [
-      const (
-        'Text & Chat',
-        'Personal channels and direct support surfaces.',
+      (
+        appStrings.textChat,
+        appStrings.personalChannelsAndDirectSupportSurfaces,
         [
           'whatsapp',
           'signal',
@@ -1572,9 +1597,9 @@ class _MessagingPanelState extends State<MessagingPanel> {
           'zalo_personal',
         ],
       ),
-      const (
-        'Community & ChatOps',
-        'Team spaces, rooms, channels, and live communities.',
+      (
+        appStrings.communityChatops,
+        appStrings.teamSpacesRoomsChannelsAndLive,
         [
           'discord',
           'telegram',
@@ -1587,14 +1612,14 @@ class _MessagingPanelState extends State<MessagingPanel> {
           'twitch',
         ],
       ),
-      const (
-        'Code Hosting',
-        'Public issue and pull request threads, answered only for approved people.',
+      (
+        appStrings.codeHosting,
+        appStrings.publicIssueAndPullRequestThreads,
         ['github'],
       ),
-      const (
-        'Configurable Webhooks',
-        'Bridge any provider that can post and receive webhook payloads.',
+      (
+        appStrings.configurableWebhooks,
+        appStrings.bridgeAnyProviderThatCanPost,
         [
           'feishu',
           'nextcloud_talk',
@@ -1606,30 +1631,30 @@ class _MessagingPanelState extends State<MessagingPanel> {
           'webchat',
         ],
       ),
-      const (
-        'Hardware Bridges',
-        'Local device bridges and TCP-connected integrations.',
-        ['meshtastic'],
-      ),
     ];
     final query = _searchController.text.trim().toLowerCase();
     final counts = _MessagingStatusCounts.from(controller.messagingStatuses);
     final hasMatches = _hasMessagingMatches(controller, groups, query);
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _PageTitle(
-          title: 'Messaging',
-          subtitle:
-              'Connect channels, choose who ${controller.activeAgentLabel} talks to, and watch recent activity.',
-          trailing: OutlinedButton.icon(
-            onPressed: controller.refreshMessaging,
-            icon: Icon(Icons.refresh_rounded),
-            label: Text('Refresh'),
+        _GroupChatDefaults(controller: controller),
+        _SettingsAnchor(
+          id: 'channels',
+          child: _SettingsHeading(
+            title: appStrings.settingsChannels,
+            description: appStrings.connectChannelsChooseWhoArg1Talks(
+              controller.activeAgentLabel,
+            ),
+            trailing: IconButton(
+              tooltip: appStrings.refresh,
+              onPressed: controller.refreshMessaging,
+              icon: Icon(Icons.refresh_rounded),
+            ),
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 8),
         _MessagingOverviewStrip(counts: counts),
         const SizedBox(height: 16),
         _MessagingToolbar(
@@ -1640,7 +1665,7 @@ class _MessagingPanelState extends State<MessagingPanel> {
         ),
         if (controller.pendingMessagingQr != null) ...[
           const SizedBox(height: 18),
-          _MessagingQrPanel(qrState: controller.pendingMessagingQr!),
+          MessagingQrPanel(qrState: controller.pendingMessagingQr!),
         ],
         const SizedBox(height: 18),
         for (final group in groups)
@@ -1653,9 +1678,13 @@ class _MessagingPanelState extends State<MessagingPanel> {
                     final status =
                         controller.messagingStatuses[platform.id] ??
                         MessagingPlatformStatus.empty(platform.id);
-                    final haystack =
-                        '${platform.label} ${platform.subtitle} ${group.$1}'
-                            .toLowerCase();
+                    final haystack = appStrings
+                        .arg1Arg2Arg37(
+                          platform.label,
+                          platform.subtitle,
+                          group.$1,
+                        )
+                        .toLowerCase();
                     return _matchesMessagingStatusFilter(status) &&
                         (query.isEmpty || haystack.contains(query));
                   })
@@ -1724,10 +1753,9 @@ class _MessagingPanelState extends State<MessagingPanel> {
           ),
         if (!hasMatches) ...[
           const SizedBox(height: 10),
-          const _EmptyCard(
-            title: 'No platforms match',
-            subtitle:
-                'Adjust the search or status filter to see more messaging channels.',
+          _EmptyCard(
+            title: appStrings.noPlatformsMatch,
+            subtitle: appStrings.adjustTheSearchOrStatusFilter,
           ),
           const SizedBox(height: 22),
         ],
@@ -1752,7 +1780,8 @@ class _MessagingPanelState extends State<MessagingPanel> {
         final status =
             controller.messagingStatuses[platform.id] ??
             MessagingPlatformStatus.empty(platform.id);
-        final haystack = '${platform.label} ${platform.subtitle} ${group.$1}'
+        final haystack = appStrings
+            .arg1Arg2Arg37(platform.label, platform.subtitle, group.$1)
             .toLowerCase();
         if (_matchesMessagingStatusFilter(status) &&
             (query.isEmpty || haystack.contains(query))) {
@@ -1833,23 +1862,23 @@ class _MessagingOverviewStrip extends StatelessWidget {
     final cards = [
       _MessagingMetricCard(
         icon: Icons.link_rounded,
-        label: 'Connected',
+        label: appStrings.connected,
         value: '${counts.connected}',
-        helper: '${counts.configured} configured',
+        helper: appStrings.arg1Configured(counts.configured),
         color: _success,
       ),
       _MessagingMetricCard(
         icon: Icons.error_outline_rounded,
-        label: 'Needs attention',
+        label: appStrings.needsAttention,
         value: '${counts.attention}',
-        helper: 'Reconnect or finish setup',
+        helper: appStrings.reconnectOrFinishSetup,
         color: counts.attention > 0 ? _warning : _textSecondary,
       ),
       _MessagingMetricCard(
         icon: Icons.apps_rounded,
-        label: 'Available',
+        label: appStrings.available,
         value: '${counts.total}',
-        helper: 'Native and webhook channels',
+        helper: appStrings.nativeAndWebhookChannels,
         color: _info,
       ),
     ];
@@ -1963,10 +1992,10 @@ class _MessagingToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final filters = <(String, String)>[
-      ('all', 'All ${counts.total}'),
-      ('connected', 'Connected ${counts.connected}'),
-      ('configured', 'Configured ${counts.configured}'),
-      ('attention', 'Attention ${counts.attention}'),
+      ('all', appStrings.allArg1(counts.total)),
+      ('connected', appStrings.connectedArg1(counts.connected)),
+      ('configured', appStrings.configuredArg1(counts.configured)),
+      ('attention', appStrings.attentionArg1(counts.attention)),
     ];
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1982,12 +2011,12 @@ class _MessagingToolbar extends StatelessWidget {
             controller: controller,
             style: TextStyle(color: _textPrimary),
             decoration: InputDecoration(
-              labelText: 'Find a platform',
+              labelText: appStrings.findAPlatform,
               prefixIcon: Icon(Icons.search_rounded),
               suffixIcon: controller.text.isEmpty
                   ? null
                   : IconButton(
-                      tooltip: 'Clear search',
+                      tooltip: appStrings.clearSearch,
                       onPressed: controller.clear,
                       icon: Icon(Icons.close_rounded),
                     ),
@@ -2039,8 +2068,67 @@ class _MessagingToolbar extends StatelessWidget {
   }
 }
 
-class _MessagingQrPanel extends StatelessWidget {
-  const _MessagingQrPanel({required this.qrState});
+/// Shown in chat while no AI model can answer: before the first message on a
+/// fresh install, or after a run failed because no model is set up.
+class _ModelSetupCard extends StatelessWidget {
+  const _ModelSetupCard({required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _warning.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: _warning.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(Icons.key_rounded, color: _warning, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  appStrings.noAiModelTitle,
+                  style: TextStyle(
+                    color: _textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            appStrings.noAiModelChatBody,
+            style: TextStyle(color: _textSecondary, height: 1.45),
+          ),
+          if (controller.isAdmin) ...<Widget>[
+            const SizedBox(height: 6),
+            Text(
+              appStrings.noAiModelAdminHint,
+              style: TextStyle(color: _textMuted, height: 1.45),
+            ),
+          ],
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: () => controller.openSettings(SettingsPage.models),
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: Text(appStrings.addApiKey),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class MessagingQrPanel extends StatelessWidget {
+  const MessagingQrPanel({super.key, required this.qrState});
 
   final MessagingQrState qrState;
 
@@ -2068,10 +2156,10 @@ class _MessagingQrPanel extends StatelessWidget {
     final copy = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _StatusPill(label: 'Awaiting scan', color: _warning),
+        _StatusPill(label: appStrings.awaitingScan, color: _warning),
         const SizedBox(height: 12),
         Text(
-          'Scan to finish ${qrState.platformLabel}',
+          appStrings.scanToFinishArg1(qrState.platformLabel),
           style: TextStyle(
             color: _textPrimary,
             fontSize: 22,
@@ -2080,7 +2168,7 @@ class _MessagingQrPanel extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Keep this panel open until the platform confirms the connection.',
+          appStrings.keepThisPanelOpenUntilThe,
           style: TextStyle(color: _textSecondary, height: 1.45),
         ),
       ],
@@ -2154,7 +2242,7 @@ class _MessagingGroupHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        _StatusPill(label: '$count shown', color: _textSecondary),
+        _StatusPill(label: appStrings.arg1Shown(count), color: _textSecondary),
       ],
     );
   }
@@ -2185,7 +2273,7 @@ class _IgnoredChatsPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Ignored Channels',
+                      appStrings.ignoredChannels,
                       style: TextStyle(
                         color: _textPrimary,
                         fontSize: 18,
@@ -2194,7 +2282,7 @@ class _IgnoredChatsPanel extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      'These channels stay silent. To hear from them again, add them under Who can message for that platform.',
+                      appStrings.theseChannelsStaySilentToHear,
                       style: TextStyle(
                         color: _textSecondary,
                         fontSize: 13,
@@ -2254,7 +2342,7 @@ class _IgnoredChatsPanel extends StatelessWidget {
                       ),
                       TextButton(
                         onPressed: () => controller.removeIgnoredChat(key),
-                        child: Text('Remove'),
+                        child: Text(appStrings.remove),
                       ),
                     ],
                   ),
@@ -2288,7 +2376,7 @@ class _MessagingActivityPanel extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Recent Channel Activity',
+                  appStrings.recentChannelActivity,
                   style: TextStyle(
                     color: _textPrimary,
                     fontSize: 18,
@@ -2296,15 +2384,17 @@ class _MessagingActivityPanel extends StatelessWidget {
                   ),
                 ),
               ),
-              _StatusPill(label: '${messages.length} events', color: _info),
+              _StatusPill(
+                label: appStrings.arg1Events(messages.length),
+                color: _info,
+              ),
             ],
           ),
           const SizedBox(height: 14),
           if (messages.isEmpty)
-            const _EmptyCard(
-              title: 'No recent channel activity',
-              subtitle:
-                  'Incoming and outgoing channel messages will appear here.',
+            _EmptyCard(
+              title: appStrings.noRecentChannelActivity,
+              subtitle: appStrings.incomingAndOutgoingChannelMessagesWill,
             )
           else
             Column(
@@ -2382,7 +2472,7 @@ class _MessagingActivityItem extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   message.content.trim().isEmpty
-                      ? 'No message text'
+                      ? appStrings.noMessageText
                       : message.content,
 
                   style: TextStyle(color: _textSecondary, height: 1.35),
@@ -2408,8 +2498,8 @@ class _ConnectionReconnectingBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final msg = hasNetwork
-        ? 'Reconnecting to server…'
-        : 'No network connection';
+        ? appStrings.reconnectingToServer
+        : appStrings.noNetworkConnection;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -2521,8 +2611,8 @@ class _PendingApprovalBannerState extends State<_PendingApprovalBanner> {
               text: TextSpan(
                 style: TextStyle(color: _textPrimary, fontSize: 13),
                 children: <TextSpan>[
-                  const TextSpan(
-                    text: 'Waiting for approval: ',
+                  TextSpan(
+                    text: appStrings.waitingForApproval,
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   TextSpan(
@@ -2581,7 +2671,7 @@ class _MessagingCard extends StatelessWidget {
     final actionLabel = connected
         ? 'Connected'
         : isSigningIn
-        ? 'Signing in...'
+        ? appStrings.signingIn
         : disabled
         ? 'Disabled'
         : configured
@@ -2640,7 +2730,7 @@ class _MessagingCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      status?.authLabel ?? 'Not configured',
+                      status?.authLabel ?? appStrings.notConfigured,
                       style: TextStyle(color: _textSecondary, fontSize: 12),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -2685,16 +2775,18 @@ class _MessagingCard extends StatelessWidget {
                   label: accessLabel,
                 ),
               if (configured && !connected)
-                const _MessagingMiniPill(
+                _MessagingMiniPill(
                   icon: Icons.tune_rounded,
-                  label: 'Ready to connect',
+                  label: appStrings.readyToConnect,
                 ),
               if (platform.id == 'whatsapp')
                 _MessagingMiniPill(
                   icon: selfChatOnly
                       ? Icons.bookmark_border_rounded
                       : Icons.smartphone_rounded,
-                  label: selfChatOnly ? 'Self-chat only' : 'Separate account',
+                  label: selfChatOnly
+                      ? 'Self-chat only'
+                      : appStrings.separateAccount,
                 ),
             ],
           ),
@@ -2736,7 +2828,7 @@ class _MessagingCard extends StatelessWidget {
               if (canDisconnect) ...[
                 const SizedBox(width: 8),
                 IconButton.outlined(
-                  tooltip: 'Disconnect platform',
+                  tooltip: appStrings.disconnectPlatform,
                   onPressed: isDisconnecting ? null : onDisconnect,
                   icon: isDisconnecting
                       ? SizedBox.square(
@@ -2749,7 +2841,7 @@ class _MessagingCard extends StatelessWidget {
               if (platform.id == 'whatsapp') ...[
                 const SizedBox(width: 8),
                 IconButton.outlined(
-                  tooltip: 'Chat mode',
+                  tooltip: appStrings.chatMode,
                   onPressed: onConnect,
                   icon: Icon(Icons.swap_horiz_rounded),
                 ),
@@ -2757,7 +2849,7 @@ class _MessagingCard extends StatelessWidget {
               if (!selfChatOnly) ...[
                 const SizedBox(width: 8),
                 IconButton.outlined(
-                  tooltip: 'Who can message',
+                  tooltip: appStrings.whoCanMessage,
                   onPressed: () => _editAccessPolicy(context, controller),
                   icon: Icon(Icons.forum_outlined),
                 ),
@@ -2765,7 +2857,7 @@ class _MessagingCard extends StatelessWidget {
               if (connected) ...[
                 const SizedBox(width: 8),
                 IconButton.outlined(
-                  tooltip: 'Logout',
+                  tooltip: appStrings.logout,
                   onPressed: onLogout,
                   icon: Icon(Icons.logout_rounded),
                 ),
@@ -2795,6 +2887,7 @@ class _MessagingCard extends StatelessWidget {
           controller.loadMessagingAccessCatalog(platform.id, force: true),
       onSave: (policy) =>
           controller.saveMessagingAccessPolicy(platform.id, policy),
+      onLoadDecisions: () => controller.loadBehaviorDecisions(platform.id),
     );
   }
 }
@@ -2813,6 +2906,7 @@ Future<void> _showMessagingAccessPolicyDialog(
   required MessagingAccessCatalog initialCatalog,
   required Future<MessagingAccessCatalog> Function() onRefreshCatalog,
   required Future<void> Function(MessagingAccessPolicy policy) onSave,
+  required Future<List<BehaviorDecisionEntry>> Function() onLoadDecisions,
 }) async {
   var catalog = initialCatalog;
   var policy = initialCatalog.policy;
@@ -3022,11 +3116,11 @@ Future<void> _showMessagingAccessPolicyDialog(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        'Who can message on ${platform.label}',
+                        appStrings.whoCanMessageOnArg1(platform.label),
                         style: TextStyle(fontWeight: FontWeight.w800),
                       ),
                       Text(
-                        'Choose who $agentName talks to, and when it joins group chats.',
+                        appStrings.chooseWhoArg1TalksToAnd(agentName),
                         style: TextStyle(
                           color: _textSecondary,
                           fontSize: 13,
@@ -3057,9 +3151,8 @@ Future<void> _showMessagingAccessPolicyDialog(
                     if (capabilities.supportsDirectPolicy)
                       _AccessModeField(
                         icon: Icons.chat_bubble_outline_rounded,
-                        label: 'Private chats',
-                        description:
-                            'Who can send $agentName a one-to-one message.',
+                        label: appStrings.privateChats,
+                        description: appStrings.whoCanSendArg1AOne(agentName),
                         value: policy.directPolicy,
                         shared: false,
                         agentName: agentName,
@@ -3071,9 +3164,8 @@ Future<void> _showMessagingAccessPolicyDialog(
                       const SizedBox(height: 12),
                       _AccessModeField(
                         icon: Icons.groups_2_outlined,
-                        label: 'Groups and channels',
-                        description:
-                            'Who can talk to $agentName in a group, channel, or room.',
+                        label: appStrings.groupsAndChannels,
+                        description: appStrings.whoCanTalkToArg1In(agentName),
                         value: policy.sharedPolicy,
                         shared: true,
                         modes: capabilities.sharedModes,
@@ -3093,6 +3185,12 @@ Future<void> _showMessagingAccessPolicyDialog(
                         defaultAllowUntagged:
                             policy.defaultAllowUntaggedInShared,
                         allowsUntagged: allowsUntagged,
+                        onShowDecisions: () => _showGroupDecisionsDialog(
+                          context,
+                          platform: platform,
+                          agentName: agentName,
+                          onLoad: onLoadDecisions,
+                        ),
                         onEdit: () async {
                           final selection = await _showSocialIntelligencePicker(
                             context,
@@ -3128,7 +3226,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                     ],
                     const SizedBox(height: 18),
                     Text(
-                      'Approved people and groups',
+                      appStrings.approvedPeopleAndGroups,
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 15,
@@ -3138,8 +3236,8 @@ Future<void> _showMessagingAccessPolicyDialog(
                     Text(
                       policy.directPolicy == 'allowlist' ||
                               policy.sharedPolicy == 'allowlist'
-                          ? 'Add the people and groups $agentName is allowed to talk to.'
-                          : 'These lists are optional unless a section above is set to approved only.',
+                          ? appStrings.addThePeopleAndGroupsArg1Is(agentName)
+                          : appStrings.theseListsAreOptionalUnlessA,
                       style: TextStyle(color: _textSecondary, height: 1.35),
                     ),
                     const SizedBox(height: 12),
@@ -3160,7 +3258,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                             }
                           },
                           icon: Icon(Icons.add_rounded),
-                          label: Text('Add people or groups'),
+                          label: Text(appStrings.addPeopleOrGroups),
                         ),
                         OutlinedButton.icon(
                           onPressed: () async {
@@ -3171,7 +3269,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                             });
                           },
                           icon: Icon(Icons.travel_explore_rounded),
-                          label: Text('Find recent chats'),
+                          label: Text(appStrings.findRecentChats),
                         ),
                       ],
                     ),
@@ -3179,11 +3277,12 @@ Future<void> _showMessagingAccessPolicyDialog(
                       const SizedBox(height: 18),
                       _AccessRuleSection(
                         icon: Icons.chat_bubble_outline_rounded,
-                        title: 'People in private chats',
-                        subtitle:
-                            'These people can message $agentName one-to-one. This does not let them speak in groups.',
+                        title: appStrings.peopleInPrivateChats,
+                        subtitle: appStrings.thesePeopleCanMessageArg1One(
+                          agentName,
+                        ),
                         rules: policy.directRules,
-                        emptyLabel: 'No one added yet.',
+                        emptyLabel: appStrings.noOneAddedYet,
                         onRemove: (rule) =>
                             removeRule('directRules', rule, setLocalState),
                       ),
@@ -3193,36 +3292,44 @@ Future<void> _showMessagingAccessPolicyDialog(
                       _AccessRuleSection(
                         icon: Icons.groups_2_outlined,
                         title: capabilities.requireSharedActor
-                            ? 'Where $agentName listens'
-                            : 'Whole groups',
+                            ? appStrings.whereArg1Listens(agentName)
+                            : appStrings.wholeGroups,
                         subtitle: capabilities.requireSharedActor
-                            ? '$agentName watches these places for mentions. Anyone can post here, so people still need their own approval below.'
-                            : 'Everyone in these groups, channels, or rooms can talk to $agentName.',
+                            ? appStrings
+                                  .arg1WatchesThesePlacesForMentionsAnyone(
+                                    agentName,
+                                  )
+                            : appStrings.everyoneInTheseGroupsChannelsOr(
+                                agentName,
+                              ),
                         rules: policy.sharedSpaceRules,
-                        emptyLabel: 'No groups added yet.',
+                        emptyLabel: appStrings.noGroupsAddedYet,
                         onRemove: (rule) =>
                             removeRule('sharedSpaceRules', rule, setLocalState),
                       ),
                       const SizedBox(height: 16),
                       _AccessRuleSection(
                         icon: Icons.person_outline_rounded,
-                        title: 'These people, anywhere',
+                        title: appStrings.thesePeopleAnywhere,
                         subtitle: capabilities.requireSharedActor
-                            ? 'These people can ask $agentName wherever they tag it. Roles count only in the places listed above.'
-                            : 'These people can message $agentName in private chats and in any group they share.',
+                            ? appStrings.thesePeopleCanAskArg1WhereverThey(
+                                agentName,
+                              )
+                            : appStrings.thesePeopleCanMessageArg1In(agentName),
                         rules: policy.sharedActorRules,
-                        emptyLabel: 'No people added yet.',
+                        emptyLabel: appStrings.noPeopleAddedYet,
                         onRemove: (rule) =>
                             removeRule('sharedActorRules', rule, setLocalState),
                       ),
                       const SizedBox(height: 16),
                       _AccessRuleSection(
                         icon: Icons.person_pin_circle_outlined,
-                        title: 'These people, in one group',
-                        subtitle:
-                            'These people can only message $agentName in the group you picked.',
+                        title: appStrings.thesePeopleInOneGroup,
+                        subtitle: appStrings.thesePeopleCanOnlyMessageArg1(
+                          agentName,
+                        ),
                         rules: policy.sharedMemberRules,
-                        emptyLabel: 'No group-specific people added yet.',
+                        emptyLabel: appStrings.noGroupSpecificPeopleAddedYet,
                         onRemove: (rule) => removeRule(
                           'sharedMemberRules',
                           rule,
@@ -3238,7 +3345,7 @@ Future<void> _showMessagingAccessPolicyDialog(
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: Text('Cancel'),
+                child: Text(appStrings.cancel),
               ),
               FilledButton(
                 onPressed: () async {
@@ -3247,7 +3354,7 @@ Future<void> _showMessagingAccessPolicyDialog(
                     Navigator.of(dialogContext).pop();
                   }
                 },
-                child: Text('Save changes'),
+                child: Text(appStrings.saveChanges),
               ),
             ],
           );
@@ -3310,21 +3417,21 @@ class _AccessModeField extends StatelessWidget {
                     if (modes.contains('allowlist'))
                       ChoiceChip(
                         avatar: Icon(Icons.verified_user_outlined, size: 18),
-                        label: Text('Approved only'),
+                        label: Text(appStrings.approvedOnly),
                         selected: value == 'allowlist',
                         onSelected: (_) => onChanged('allowlist'),
                       ),
                     if (modes.contains('open'))
                       ChoiceChip(
                         avatar: Icon(Icons.public_rounded, size: 18),
-                        label: Text('Anyone'),
+                        label: Text(appStrings.anyone),
                         selected: value == 'open',
                         onSelected: (_) => onChanged('open'),
                       ),
                     if (modes.contains('disabled'))
                       ChoiceChip(
                         avatar: Icon(Icons.block_rounded, size: 18),
-                        label: Text('No one'),
+                        label: Text(appStrings.noOne),
                         selected: value == 'disabled',
                         onSelected: (_) => onChanged('disabled'),
                       ),
@@ -3371,6 +3478,7 @@ class _GroupParticipationSection extends StatelessWidget {
     required this.defaultAllowUntagged,
     required this.allowsUntagged,
     required this.onEdit,
+    required this.onShowDecisions,
   });
 
   final List<MessagingAccessRule> spaces;
@@ -3380,19 +3488,20 @@ class _GroupParticipationSection extends StatelessWidget {
   final bool defaultAllowUntagged;
   final bool Function(MessagingAccessRule) allowsUntagged;
   final VoidCallback onEdit;
+  final VoidCallback onShowDecisions;
 
   @override
   Widget build(BuildContext context) {
     final enabledSpaces = spaces.where(allowsUntagged).toList(growable: false);
     final summaryText = spaces.isEmpty
-        ? 'No groups found yet'
+        ? appStrings.noGroupsFoundYet
         : enabledSpaces.isEmpty
         ? defaultAllowUntagged
-              ? 'On for new groups only'
-              : 'Only when $agentName is tagged'
+              ? appStrings.onForNewGroupsOnly
+              : appStrings.onlyWhenArg1IsTagged(agentName)
         : enabledSpaces.length == spaces.length
-        ? 'On for all ${spaces.length} groups'
-        : 'On for ${enabledSpaces.length} of ${spaces.length} groups';
+        ? appStrings.onForAllArg1Groups(spaces.length)
+        : appStrings.onForArg1OfArg2Groups(enabledSpaces.length, spaces.length);
 
     return Container(
       width: double.infinity,
@@ -3414,18 +3523,24 @@ class _GroupParticipationSection extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      'Join group conversations',
+                      appStrings.socialIntelligence2,
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       approvedOnly
                           ? supportsMentionGate
-                                ? '$agentName still only hears people and groups you already approved. This just lets $agentName join ordinary chat there, not only tags and replies.'
-                                : '$agentName still only hears people and groups you already approved. This just chooses which of those groups it should join.'
+                                ? appStrings.arg1StillOnlyHearsPeopleAndGroups(
+                                    agentName,
+                                  )
+                                : appStrings.arg1StillOnlyHearsPeopleAndGroups2(
+                                    agentName,
+                                  )
                           : supportsMentionGate
-                          ? 'If someone tags $agentName or replies, $agentName always answers. Turn this on if $agentName should also chime in on ordinary group chat.'
-                          : 'Choose which groups $agentName should join even when nobody tags it. This platform may not tell tags apart from regular messages.',
+                          ? appStrings.ifSomeoneTagsArg1OrRepliesArg1(agentName)
+                          : appStrings.chooseWhichGroupsArg1ShouldJoin(
+                              agentName,
+                            ),
                       style: TextStyle(color: _textSecondary, height: 1.35),
                     ),
                   ],
@@ -3443,15 +3558,26 @@ class _GroupParticipationSection extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'No groups found yet. After $agentName sees a group message, use Find recent chats and they will show up here.',
+                appStrings.noGroupsFoundYetAfterArg1(agentName),
                 style: TextStyle(color: _textMuted),
               ),
             ),
             const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: onEdit,
-              icon: Icon(Icons.tune_rounded),
-              label: Text('Default for new groups'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                OutlinedButton.icon(
+                  onPressed: onEdit,
+                  icon: Icon(Icons.tune_rounded),
+                  label: Text(appStrings.defaultForNewGroups),
+                ),
+                TextButton.icon(
+                  onPressed: onShowDecisions,
+                  icon: Icon(Icons.history_rounded),
+                  label: Text(appStrings.recentDecisions),
+                ),
+              ],
             ),
           ] else ...<Widget>[
             Container(
@@ -3472,11 +3598,17 @@ class _GroupParticipationSection extends StatelessWidget {
                   Text(
                     defaultAllowUntagged
                         ? approvedOnly
-                              ? 'New groups will let $agentName join ordinary chat with approved people, until you turn them off.'
-                              : 'New groups will let $agentName join ordinary chat until you turn them off.'
+                              ? appStrings.newGroupsWillLetArg1JoinOrdinary(
+                                  agentName,
+                                )
+                              : appStrings.newGroupsWillLetArg1JoinOrdinary2(
+                                  agentName,
+                                )
                         : approvedOnly
-                        ? 'New groups stay quiet unless an approved person tags $agentName, until you turn them on.'
-                        : 'New groups stay quiet unless someone tags $agentName, until you turn them on.',
+                        ? appStrings.newGroupsStayQuietUnlessAnApproved(
+                            agentName,
+                          )
+                        : appStrings.newGroupsStayQuietUnlessSomeone(agentName),
                     style: TextStyle(color: _textSecondary, height: 1.35),
                   ),
                   if (enabledSpaces.isNotEmpty) ...<Widget>[
@@ -3499,7 +3631,9 @@ class _GroupParticipationSection extends StatelessWidget {
                             ),
                         if (enabledSpaces.length > 4)
                           Chip(
-                            label: Text('+${enabledSpaces.length - 4} more'),
+                            label: Text(
+                              appStrings.arg1More(enabledSpaces.length - 4),
+                            ),
                           ),
                       ],
                     ),
@@ -3508,10 +3642,21 @@ class _GroupParticipationSection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: onEdit,
-              icon: Icon(Icons.tune_rounded),
-              label: Text('Choose groups'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                FilledButton.icon(
+                  onPressed: onEdit,
+                  icon: Icon(Icons.tune_rounded),
+                  label: Text(appStrings.chooseGroups),
+                ),
+                TextButton.icon(
+                  onPressed: onShowDecisions,
+                  icon: Icon(Icons.history_rounded),
+                  label: Text(appStrings.recentDecisions),
+                ),
+              ],
             ),
           ],
         ],
@@ -3620,9 +3765,14 @@ class _SocialIntelligencePickerDialogState
             return false;
           }
           if (query.isEmpty) return true;
-          final haystack =
-              '${space.displayLabel} ${space.scopeLabel} ${space.scope} ${space.value}'
-                  .toLowerCase();
+          final haystack = appStrings
+              .arg1Arg2Arg3Arg42(
+                space.displayLabel,
+                space.scopeLabel,
+                space.scope,
+                space.value,
+              )
+              .toLowerCase();
           return haystack.contains(query);
         })
         .toList(growable: false);
@@ -3734,7 +3884,7 @@ class _SocialIntelligencePickerDialogState
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
                                 Text(
-                                  'Join group conversations',
+                                  appStrings.socialIntelligence2,
                                   style: TextStyle(
                                     fontSize: 17,
                                     fontWeight: FontWeight.w800,
@@ -3744,11 +3894,24 @@ class _SocialIntelligencePickerDialogState
                                 Text(
                                   enabledCount == 0
                                       ? widget.approvedOnly
-                                            ? 'Only when an approved person tags ${widget.agentName}, unless you turn a group on'
-                                            : 'Only when ${widget.agentName} is tagged, unless you turn a group on'
+                                            ? appStrings
+                                                  .onlyWhenAnApprovedPersonTagsArg1(
+                                                    widget.agentName,
+                                                  )
+                                            : appStrings
+                                                  .onlyWhenArg1IsTaggedUnlessYou(
+                                                    widget.agentName,
+                                                  )
                                       : widget.approvedOnly
-                                      ? '$enabledCount of ${widget.spaces.length} groups join ordinary chat with approved people'
-                                      : '$enabledCount of ${widget.spaces.length} groups join ordinary chat',
+                                      ? appStrings
+                                            .arg1OfArg2GroupsJoinOrdinaryChat(
+                                              enabledCount,
+                                              widget.spaces.length,
+                                            )
+                                      : appStrings.arg1OfArg2GroupsJoinOrdinary(
+                                          enabledCount,
+                                          widget.spaces.length,
+                                        ),
                                   style: TextStyle(
                                     color: _textSecondary,
                                     fontSize: 13,
@@ -3778,11 +3941,17 @@ class _SocialIntelligencePickerDialogState
                       child: Text(
                         widget.approvedOnly
                             ? widget.supportsMentionGate
-                                  ? 'This does not approve new people. Tags and replies from approved people always get a response. Turn a group on if ${widget.agentName} should also join ordinary chat there.'
-                                  : 'This does not approve new people. Turn a group on if ${widget.agentName} should join ordinary chat with people you already approved.'
+                                  ? appStrings.thisDoesNotApproveNewPeopleTags(
+                                      widget.agentName,
+                                    )
+                                  : appStrings.thisDoesNotApproveNewPeopleTurn(
+                                      widget.agentName,
+                                    )
                             : widget.supportsMentionGate
-                            ? 'Tags and replies always get a response. Turn a group on if ${widget.agentName} should also join ordinary chat there.'
-                            : 'Turn a group on if ${widget.agentName} should also read messages that do not tag it.',
+                            ? appStrings.tagsAndRepliesAlwaysGetAResponse(
+                                widget.agentName,
+                              )
+                            : appStrings.turnAGroupOnIfArg1(widget.agentName),
                         style: TextStyle(
                           color: _textSecondary,
                           height: 1.35,
@@ -3798,7 +3967,7 @@ class _SocialIntelligencePickerDialogState
                         onChanged: (_) => setState(() {}),
                         style: TextStyle(color: _textPrimary, fontSize: 14),
                         decoration: InputDecoration(
-                          hintText: 'Search groups',
+                          hintText: appStrings.searchGroups,
                           hintStyle: TextStyle(color: _textMuted, fontSize: 14),
                           prefixIcon: Icon(
                             Icons.search_rounded,
@@ -3845,19 +4014,19 @@ class _SocialIntelligencePickerDialogState
                         runSpacing: 8,
                         children: <Widget>[
                           ChoiceChip(
-                            label: Text('All'),
+                            label: Text(appStrings.all),
                             selected: _filter == _filterAll,
                             onSelected: (_) =>
                                 setState(() => _filter = _filterAll),
                           ),
                           ChoiceChip(
-                            label: Text('On'),
+                            label: Text(appStrings.on),
                             selected: _filter == _filterOn,
                             onSelected: (_) =>
                                 setState(() => _filter = _filterOn),
                           ),
                           ChoiceChip(
-                            label: Text('Off'),
+                            label: Text(appStrings.off),
                             selected: _filter == _filterOff,
                             onSelected: (_) =>
                                 setState(() => _filter = _filterOff),
@@ -3892,11 +4061,13 @@ class _SocialIntelligencePickerDialogState
                             vertical: 2,
                           ),
                           title: Text(
-                            'On by default for new groups',
+                            appStrings.onByDefaultForNewGroups,
                             style: TextStyle(fontWeight: FontWeight.w600),
                           ),
                           subtitle: Text(
-                            'Groups ${widget.agentName} has not seen yet will follow this.',
+                            appStrings.groupsArg1HasNotSeenYet(
+                              widget.agentName,
+                            ),
                             style: TextStyle(color: _textSecondary),
                           ),
                           value: _defaultAllowUntagged,
@@ -3912,7 +4083,9 @@ class _SocialIntelligencePickerDialogState
                           ? Padding(
                               padding: const EdgeInsets.all(28),
                               child: Text(
-                                'No groups found yet. After ${widget.agentName} sees a group message, use Find recent chats.',
+                                appStrings.noGroupsFoundYetAfterArg12(
+                                  widget.agentName,
+                                ),
                                 style: TextStyle(color: _textMuted),
                                 textAlign: TextAlign.center,
                               ),
@@ -3931,8 +4104,8 @@ class _SocialIntelligencePickerDialogState
                                   const SizedBox(height: 12),
                                   Text(
                                     query.isEmpty
-                                        ? 'No groups in this category'
-                                        : 'No results for "$query"',
+                                        ? appStrings.noGroupsInThisCategory
+                                        : appStrings.noResultsForArg1(query),
                                     style: TextStyle(
                                       color: _textSecondary,
                                       fontSize: 14,
@@ -4000,11 +4173,25 @@ class _SocialIntelligencePickerDialogState
                                             subtitle: Text(
                                               enabled
                                                   ? widget.approvedOnly
-                                                        ? '${widget.agentName} joins ordinary chat with approved people'
-                                                        : '${widget.agentName} can join ordinary chat'
+                                                        ? appStrings
+                                                              .arg1JoinsOrdinaryChatWithApprovedPeople(
+                                                                widget
+                                                                    .agentName,
+                                                              )
+                                                        : appStrings
+                                                              .arg1CanJoinOrdinaryChat(
+                                                                widget
+                                                                    .agentName,
+                                                              )
                                                   : widget.approvedOnly
-                                                  ? '${widget.agentName} only replies when an approved person tags it'
-                                                  : '${widget.agentName} only replies when tagged',
+                                                  ? appStrings
+                                                        .arg1OnlyRepliesWhenAnApprovedPerson(
+                                                          widget.agentName,
+                                                        )
+                                                  : appStrings
+                                                        .arg1OnlyRepliesWhenTagged(
+                                                          widget.agentName,
+                                                        ),
                                               style: TextStyle(
                                                 color: _textSecondary,
                                               ),
@@ -4026,13 +4213,13 @@ class _SocialIntelligencePickerDialogState
                         children: <Widget>[
                           TextButton(
                             onPressed: () => Navigator.of(context).pop(),
-                            child: Text('Cancel'),
+                            child: Text(appStrings.cancel),
                           ),
                           const Spacer(),
                           FilledButton(
                             onPressed: () =>
                                 Navigator.of(context).pop(_selection()),
-                            child: Text('Apply'),
+                            child: Text(appStrings.apply),
                           ),
                         ],
                       ),
@@ -4129,7 +4316,7 @@ class _AccessRuleSection extends StatelessWidget {
                   .map((rule) {
                     final spaceSuffix =
                         showSpace && rule.spaceDisplayLabel.isNotEmpty
-                        ? ' in ${rule.spaceDisplayLabel}'
+                        ? appStrings.inArg1(rule.spaceDisplayLabel)
                         : '';
                     return Chip(
                       avatar: Icon(_scopeIcon(rule.scope), size: 16),
@@ -4289,9 +4476,14 @@ class _MessagingAccessRulePickerSheetState
     ];
     bool matchesQuery(MessagingAccessTarget target) {
       if (query.isEmpty) return true;
-      final haystack =
-          '${target.label} ${target.subtitle} ${target.scope} ${target.value}'
-              .toLowerCase();
+      final haystack = appStrings
+          .arg1Arg2Arg3Arg42(
+            target.label,
+            target.subtitle,
+            target.scope,
+            target.value,
+          )
+          .toLowerCase();
       return haystack.contains(query);
     }
 
@@ -4327,17 +4519,17 @@ class _MessagingAccessRulePickerSheetState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
-              'Add someone or a group',
+              appStrings.addSomeoneOrAGroup,
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 6),
             Text(
-              'Pick from recent ${widget.platform.label} chats, or add a person or group yourself.',
+              appStrings.pickFromRecentArg1ChatsOr(widget.platform.label),
               style: TextStyle(color: _textSecondary, height: 1.35),
             ),
             const SizedBox(height: 16),
             Text(
-              'What are you adding?',
+              appStrings.whatAreYouAdding,
               style: TextStyle(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
@@ -4347,7 +4539,7 @@ class _MessagingAccessRulePickerSheetState
               children: <Widget>[
                 if (_directOnlyScopes().isNotEmpty)
                   ChoiceChip(
-                    label: Text('Private chat'),
+                    label: Text(appStrings.privateChat),
                     selected: _selectedBucket == 'directRules',
                     onSelected: (_) => setState(() {
                       _selectedBucket = 'directRules';
@@ -4360,7 +4552,7 @@ class _MessagingAccessRulePickerSheetState
                     .sharedSpaceRuleScopes
                     .isNotEmpty)
                   ChoiceChip(
-                    label: Text('Whole group'),
+                    label: Text(appStrings.wholeGroup),
                     selected: _selectedBucket == 'sharedSpaceRules',
                     onSelected: (_) => setState(() {
                       _selectedBucket = 'sharedSpaceRules';
@@ -4373,7 +4565,7 @@ class _MessagingAccessRulePickerSheetState
                     .sharedActorRuleScopes
                     .isNotEmpty)
                   ChoiceChip(
-                    label: Text('This person, anywhere'),
+                    label: Text(appStrings.thisPersonAnywhere),
                     selected: _selectedBucket == 'sharedActorRules',
                     onSelected: (_) => setState(() {
                       _selectedBucket = 'sharedActorRules';
@@ -4391,7 +4583,7 @@ class _MessagingAccessRulePickerSheetState
                         .sharedSpaceRuleScopes
                         .isNotEmpty)
                   ChoiceChip(
-                    label: Text('This person, in one group'),
+                    label: Text(appStrings.thisPersonInOneGroup),
                     selected: _selectedBucket == 'sharedMemberRules',
                     onSelected: (_) => setState(() {
                       _selectedBucket = 'sharedMemberRules';
@@ -4406,13 +4598,13 @@ class _MessagingAccessRulePickerSheetState
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
                 prefixIcon: Icon(Icons.search_rounded),
-                labelText: 'Search recent people and groups',
+                labelText: appStrings.searchRecentPeopleAndGroups,
               ),
             ),
             const SizedBox(height: 16),
             if (targets.isNotEmpty) ...<Widget>[
               Text(
-                'Recent chats',
+                appStrings.recentChats,
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
@@ -4447,7 +4639,7 @@ class _MessagingAccessRulePickerSheetState
                     memberSpaceTargets.isNotEmpty)) ...<Widget>[
               if (memberActorTargets.isNotEmpty) ...<Widget>[
                 Text(
-                  'Choose a person',
+                  appStrings.chooseAPerson,
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
@@ -4472,7 +4664,7 @@ class _MessagingAccessRulePickerSheetState
               ],
               if (memberSpaceTargets.isNotEmpty) ...<Widget>[
                 Text(
-                  'Choose their group',
+                  appStrings.chooseTheirGroup,
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
@@ -4501,17 +4693,17 @@ class _MessagingAccessRulePickerSheetState
               TextButton.icon(
                 onPressed: () => setState(() => _showManualEntry = true),
                 icon: Icon(Icons.edit_outlined),
-                label: Text('Add by name or ID instead'),
+                label: Text(appStrings.addByNameOrIdInstead),
               )
             else ...<Widget>[
               Text(
-                'Add by name or ID',
+                appStrings.addByNameOrId,
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               if (availableScopes.isNotEmpty)
                 InputDecorator(
-                  decoration: InputDecoration(labelText: 'Type'),
+                  decoration: InputDecoration(labelText: appStrings.type),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       value: _selectedScope,
@@ -4539,10 +4731,10 @@ class _MessagingAccessRulePickerSheetState
                   labelText: _selectedBucket == 'sharedMemberRules'
                       ? 'Person'
                       : _selectedBucket == 'sharedSpaceRules'
-                      ? 'Group or channel'
-                      : 'Person or chat',
+                      ? appStrings.groupOrChannel
+                      : appStrings.personOrChat,
                   helperText: widget.catalog.capabilities.manualEntryHint
-                      .ifEmpty('Use a name, phone number, or chat ID.'),
+                      .ifEmpty(appStrings.useANamePhoneNumberOr),
                   helperMaxLines: 3,
                 ),
                 onSubmitted: _selectedBucket == 'sharedMemberRules'
@@ -4552,7 +4744,7 @@ class _MessagingAccessRulePickerSheetState
               if (_selectedBucket == 'sharedMemberRules') ...<Widget>[
                 const SizedBox(height: 12),
                 InputDecorator(
-                  decoration: InputDecoration(labelText: 'Group type'),
+                  decoration: InputDecoration(labelText: appStrings.groupType),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       value: _selectedSpaceScope,
@@ -4577,7 +4769,7 @@ class _MessagingAccessRulePickerSheetState
                 TextField(
                   controller: _spaceValueController,
                   decoration: InputDecoration(
-                    labelText: 'Group, channel, or room',
+                    labelText: appStrings.groupChannelOrRoom,
                   ),
                   onSubmitted: (_) => _submitManualRule(context),
                 ),
@@ -4588,7 +4780,7 @@ class _MessagingAccessRulePickerSheetState
                 child: FilledButton.icon(
                   onPressed: () => _submitManualRule(context),
                   icon: Icon(Icons.add_rounded),
-                  label: Text('Add'),
+                  label: Text(appStrings.add),
                 ),
               ),
             ],
@@ -4624,12 +4816,12 @@ class _MessagingWebhookCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            'Incoming messages',
+            appStrings.incomingMessages,
             style: TextStyle(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
           Text(
-            'If $platformLabel asks for a webhook URL, paste this so messages can reach $agentName.',
+            appStrings.ifArg1AsksForAWebhook(platformLabel, agentName),
             style: TextStyle(color: _textSecondary, height: 1.35),
           ),
           const SizedBox(height: 10),
@@ -4642,12 +4834,12 @@ class _MessagingWebhookCard extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Copy webhook URL',
+                tooltip: appStrings.copyWebhookUrl,
                 onPressed: () async {
                   await Clipboard.setData(ClipboardData(text: url));
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Webhook URL copied')),
+                    SnackBar(content: Text(appStrings.webhookUrlCopied)),
                   );
                 },
                 icon: Icon(Icons.copy_outlined, size: 18),
@@ -4730,7 +4922,7 @@ Future<void> _connectIntegrationMessagingPlatform(
     messenger?.showSnackBar(
       SnackBar(
         content: Text(
-          '${platform.label} connected. Choose repositories and people under Who can message.',
+          appStrings.arg1ConnectedChooseRepositoriesAndPeople(platform.label),
         ),
       ),
     );
@@ -4738,7 +4930,10 @@ Future<void> _connectIntegrationMessagingPlatform(
     messenger?.showSnackBar(
       SnackBar(
         content: Text(
-          'Failed to connect ${platform.label}: ${controller.friendlyErrorMessage(error)}',
+          appStrings.failedToConnectArg1Arg2(
+            platform.label,
+            controller.friendlyErrorMessage(error),
+          ),
         ),
       ),
     );
@@ -4746,7 +4941,9 @@ Future<void> _connectIntegrationMessagingPlatform(
 }
 
 bool readWhatsAppSelfChatMode(NeoAgentController controller) {
-  final saved = _jsonMap(_decodeMaybeJson(controller.settings['whatsapp_config']));
+  final saved = _jsonMap(
+    _decodeMaybeJson(controller.settings['whatsapp_config']),
+  );
   return saved['selfChatMode'] == true ||
       saved['selfChatMode']?.toString() == 'true';
 }
@@ -4855,11 +5052,13 @@ Future<void> _openWhatsAppModeDialog(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        'Connect WhatsApp',
+                        appStrings.connectWhatsapp,
                         style: TextStyle(fontWeight: FontWeight.w800),
                       ),
                       Text(
-                        'Pick how ${controller.activeAgentLabel} uses this account.',
+                        appStrings.pickHowArg1UsesThisAccount(
+                          controller.activeAgentLabel,
+                        ),
                         style: TextStyle(
                           color: _textSecondary,
                           fontSize: 13,
@@ -4881,25 +5080,21 @@ Future<void> _openWhatsAppModeDialog(
                     modeTile(
                       value: false,
                       icon: Icons.smartphone_rounded,
-                      title: 'Separate account',
+                      title: appStrings.separateAccount,
                       description:
-                          'Link a phone number that belongs to the agent. '
-                          'Anyone you allow can chat with it, in direct chats and groups.',
+                          appStrings.whatsappSeparateAccountDescription,
                     ),
                     modeTile(
                       value: true,
                       icon: Icons.bookmark_border_rounded,
-                      title: 'Personal self-chat',
-                      description:
-                          'Link your own number and talk to the agent in your '
-                          '"Message yourself" chat. Every other chat and group on '
-                          'this account is ignored.',
+                      title: appStrings.personalSelfChat,
+                      description: appStrings.whatsappSelfChatDescription,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       selfChatMode
-                          ? 'Notes you write to yourself start a run, and replies land in the same chat. The allowlist does not apply here.'
-                          : 'Choose who may message the agent with "Who can message" on the WhatsApp card.',
+                          ? appStrings.notesYouWriteToYourselfStartA
+                          : appStrings.chooseWhoMayMessageTheAgent,
                       style: TextStyle(color: _textSecondary, height: 1.4),
                     ),
                   ],
@@ -4909,11 +5104,13 @@ Future<void> _openWhatsAppModeDialog(
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: Text('Cancel'),
+                child: Text(appStrings.cancel),
               ),
               FilledButton(
                 onPressed: () async {
-                  final config = <String, dynamic>{'selfChatMode': selfChatMode};
+                  final config = <String, dynamic>{
+                    'selfChatMode': selfChatMode,
+                  };
                   final connected = await _connectMessagingPlatformHelper(
                     context,
                     controller,
@@ -4928,7 +5125,7 @@ Future<void> _openWhatsAppModeDialog(
                     Navigator.of(context).pop();
                   }
                 },
-                child: Text('Connect'),
+                child: Text(appStrings.connect),
               ),
             ],
           );
@@ -4959,7 +5156,10 @@ Future<bool> _connectMessagingPlatformHelper(
     messenger?.showSnackBar(
       SnackBar(
         content: Text(
-          'Failed to connect $platformLabel: ${controller.friendlyErrorMessage(error)}',
+          appStrings.failedToConnectArg1Arg2(
+            platformLabel,
+            controller.friendlyErrorMessage(error),
+          ),
         ),
       ),
     );
@@ -5020,7 +5220,7 @@ Future<void> _openGenericMessagingConfigHelper(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
-                          'Connect ${platform.label}',
+                          appStrings.connectArg1(platform.label),
                           style: TextStyle(fontWeight: FontWeight.w800),
                         ),
                         Text(
@@ -5045,8 +5245,13 @@ Future<void> _openGenericMessagingConfigHelper(
                     children: <Widget>[
                       Text(
                         platform.configFields.isEmpty
-                            ? 'Nothing extra is needed. Connect to start using ${platform.label}.'
-                            : 'Enter the details ${platform.label} gave you so ${controller.activeAgentLabel} can send and receive messages.',
+                            ? appStrings.nothingExtraIsNeededConnectToStart(
+                                platform.label,
+                              )
+                            : appStrings.enterTheDetailsArg1GaveYou(
+                                platform.label,
+                                controller.activeAgentLabel,
+                              ),
                         style: TextStyle(color: _textSecondary, height: 1.4),
                       ),
                       const SizedBox(height: 16),
@@ -5103,18 +5308,12 @@ Future<void> _openGenericMessagingConfigHelper(
                           );
                         }),
                       const SizedBox(height: 8),
-                      if (platform.id == 'meshtastic')
-                        Text(
-                          '${controller.activeAgentLabel} talks to the device on your local network (port 4403 by default). Chat stays on the channel you pick above.',
-                          style: TextStyle(color: _textSecondary, height: 1.4),
-                        )
-                      else
-                        _MessagingWebhookCard(
-                          url:
-                              '${controller.backendUrl}/api/messaging/webhook/${platform.id}',
-                          platformLabel: platform.label,
-                          agentName: controller.activeAgentLabel,
-                        ),
+                      _MessagingWebhookCard(
+                        url:
+                            '${controller.backendUrl}/api/messaging/webhook/${platform.id}',
+                        platformLabel: platform.label,
+                        agentName: controller.activeAgentLabel,
+                      ),
                     ],
                   ),
                 ),
@@ -5122,7 +5321,7 @@ Future<void> _openGenericMessagingConfigHelper(
               actions: <Widget>[
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: Text('Cancel'),
+                  child: Text(appStrings.cancel),
                 ),
                 FilledButton(
                   onPressed: () async {
@@ -5167,7 +5366,7 @@ Future<void> _openGenericMessagingConfigHelper(
                       Navigator.of(context).pop();
                     }
                   },
-                  child: Text('Connect'),
+                  child: Text(appStrings.connect),
                 ),
               ],
             );
@@ -5179,5 +5378,92 @@ Future<void> _openGenericMessagingConfigHelper(
     for (final controller in textControllers.values) {
       controller.dispose();
     }
+  }
+}
+
+/// Tasks the server moved to the background keep working while the chat stays
+/// free. Each one can be opened in the Runs page or stopped from here.
+class _BackgroundTasksPanel extends StatefulWidget {
+  const _BackgroundTasksPanel({required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  State<_BackgroundTasksPanel> createState() => _BackgroundTasksPanelState();
+}
+
+class _BackgroundTasksPanelState extends State<_BackgroundTasksPanel> {
+  final _RunClock _clock = _RunClock();
+
+  @override
+  void dispose() {
+    _clock.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final tasks = controller.backgroundTasks;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 14, 8, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              '${appStrings.backgroundTasks} · ${tasks.length}',
+              style: GoogleFonts.geistMono(fontSize: 11.5, color: _textMuted),
+            ),
+            const SizedBox(height: 4),
+            for (final run in tasks)
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => unawaited(controller.openRunDetails(run.id)),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: <Widget>[
+                      _RunStatusGlyph(status: run.status),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          run.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                            color: _textPrimary,
+                          ),
+                        ),
+                      ),
+                      if (run.triggerLabel != 'web') ...<Widget>[
+                        const SizedBox(width: 8),
+                        Text(
+                          run.triggerLabel,
+                          style: TextStyle(fontSize: 12, color: _textMuted),
+                        ),
+                      ],
+                      const SizedBox(width: 8),
+                      _RunTimeLabel(run: run, clock: _clock),
+                      IconButton(
+                        tooltip: appStrings.stopRun,
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(
+                          Icons.stop_circle_outlined,
+                          size: 18,
+                          color: _textMuted,
+                        ),
+                        onPressed: () => unawaited(controller.stopRun(run.id)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }

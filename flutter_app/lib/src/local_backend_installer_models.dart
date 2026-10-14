@@ -1,4 +1,5 @@
 import 'setup_contract.g.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 const String runtimeReleaseChannel = String.fromEnvironment(
   'NEOAGENT_RELEASE_CHANNEL',
@@ -85,7 +86,7 @@ class RuntimeArtifactManifest {
     if (schemaVersion != setupContractSchemaVersion ||
         !RegExp(r'^[0-9A-Za-z][0-9A-Za-z.+_-]*$').hasMatch(version) ||
         rawArtifacts is! List) {
-      throw const FormatException('Invalid NeoAgent runtime manifest.');
+      throw FormatException(appStrings.invalidNeoagentRuntimeManifest);
     }
     final artifacts = rawArtifacts
         .whereType<Map>()
@@ -94,8 +95,8 @@ class RuntimeArtifactManifest {
         )
         .toList(growable: false);
     if (artifacts.isEmpty) {
-      throw const FormatException(
-        'The NeoAgent runtime manifest has no artifacts.',
+      throw FormatException(
+        appStrings.theNeoagentRuntimeManifestHasNo,
       );
     }
     return RuntimeArtifactManifest(
@@ -114,7 +115,7 @@ class RuntimeArtifactManifest {
         !supportedArchitectures.contains(architecture)) {
       throw LocalBackendInstallerException(
         'SETUP_PLATFORM_UNSUPPORTED',
-        'No NeoAgent backend runtime is available for this computer.',
+        appStrings.noNeoagentBackendRuntimeIsAvailable,
         retryable: false,
       );
     }
@@ -126,7 +127,7 @@ class RuntimeArtifactManifest {
     }
     throw LocalBackendInstallerException(
       'SETUP_PLATFORM_UNSUPPORTED',
-      'No NeoAgent backend runtime is available for this computer.',
+      appStrings.noNeoagentBackendRuntimeIsAvailable,
       retryable: false,
     );
   }
@@ -158,8 +159,8 @@ class RuntimeArtifact {
         !RegExp(r'^[0-9A-Za-z][0-9A-Za-z._-]*$').hasMatch(assetName) ||
         !RegExp(r'^[a-f0-9]{64}$').hasMatch(sha256) ||
         sizeBytes <= 0) {
-      throw const FormatException(
-        'The NeoAgent runtime artifact metadata is invalid.',
+      throw FormatException(
+        appStrings.theNeoagentRuntimeArtifactMetadataIs,
       );
     }
     return RuntimeArtifact(

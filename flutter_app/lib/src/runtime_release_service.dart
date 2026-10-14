@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'app_release_updater.dart';
 import 'local_backend_installer_models.dart';
 import 'setup_contract.g.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 const String runtimeSigningPublicKey = String.fromEnvironment(
   'NEOAGENT_RUNTIME_PUBLIC_KEY',
@@ -18,9 +19,9 @@ typedef RuntimeCancellationCheck = void Function();
 Uri validateRuntimeDownloadUri(String value) {
   final uri = Uri.tryParse(value);
   if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
-    throw const LocalBackendInstallerException(
+    throw LocalBackendInstallerException(
       'SETUP_DOWNLOAD_URL_INVALID',
-      'NeoAgent runtime downloads require a secure address.',
+      appStrings.neoagentRuntimeDownloadsRequireASecure,
       retryable: false,
     );
   }
@@ -57,14 +58,14 @@ class RuntimeReleaseService {
 
   Map<String, String> get _apiHeaders => <String, String>{
     'Accept': 'application/vnd.github+json',
-    'User-Agent': 'NeoAgent Desktop Installer',
+    'User-Agent': appStrings.neoagentDesktopInstaller,
     if (appUpdaterGithubToken.trim().isNotEmpty)
       'Authorization': 'Bearer ${appUpdaterGithubToken.trim()}',
   };
 
   Map<String, String> get _downloadHeaders => <String, String>{
     'Accept': 'application/octet-stream',
-    'User-Agent': 'NeoAgent Desktop Installer',
+    'User-Agent': appStrings.neoagentDesktopInstaller,
   };
 
   Future<PreparedRuntimeRelease> prepare({
@@ -93,7 +94,7 @@ class RuntimeReleaseService {
     );
     final decoded = jsonDecode(utf8.decode(manifestBytes));
     if (decoded is! Map<String, dynamic>) {
-      throw const FormatException('Invalid NeoAgent runtime manifest.');
+      throw FormatException(appStrings.invalidNeoagentRuntimeManifest);
     }
     final manifest = RuntimeArtifactManifest.fromJson(decoded);
     final artifact = manifest.select(
@@ -102,9 +103,9 @@ class RuntimeReleaseService {
     );
     final downloadUrl = release.assetUrls[artifact.assetName];
     if (downloadUrl == null) {
-      throw const LocalBackendInstallerException(
+      throw LocalBackendInstallerException(
         'SETUP_RUNTIME_ASSET_MISSING',
-        'The matching NeoAgent runtime is missing from this release.',
+        appStrings.theMatchingNeoagentRuntimeIsMissing,
       );
     }
     return PreparedRuntimeRelease(
@@ -125,9 +126,9 @@ class RuntimeReleaseService {
     request.headers.addAll(_downloadHeaders);
     final response = await _client.send(request);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw const LocalBackendInstallerException(
+      throw LocalBackendInstallerException(
         'SETUP_DOWNLOAD_FAILED',
-        'The NeoAgent backend runtime could not be downloaded.',
+        appStrings.theNeoagentBackendRuntimeCouldNot,
       );
     }
     final sink = target.openWrite();
@@ -139,9 +140,9 @@ class RuntimeReleaseService {
         sink.add(chunk);
         received += chunk.length;
         if (received > release.artifact.sizeBytes) {
-          throw const LocalBackendInstallerException(
+          throw LocalBackendInstallerException(
             'SETUP_DOWNLOAD_INCOMPLETE',
-            'The NeoAgent backend download did not match its manifest.',
+            appStrings.theNeoagentBackendDownloadDidNot,
           );
         }
         final progress = (received / release.artifact.sizeBytes).clamp(
@@ -157,9 +158,9 @@ class RuntimeReleaseService {
       await sink.close();
     }
     if (received != release.artifact.sizeBytes) {
-      throw const LocalBackendInstallerException(
+      throw LocalBackendInstallerException(
         'SETUP_DOWNLOAD_INCOMPLETE',
-        'The NeoAgent backend download was incomplete.',
+        appStrings.theNeoagentBackendDownloadWasIncomplete,
       );
     }
   }
@@ -175,13 +176,13 @@ class RuntimeReleaseService {
       maxBytes: _metadataLimitBytes,
       githubApi: true,
       errorCode: 'SETUP_RELEASE_LOOKUP_FAILED',
-      errorMessage: 'NeoAgent could not check the available backend runtime.',
+      errorMessage: appStrings.neoagentCouldNotCheckTheAvailable,
     );
     final decoded = jsonDecode(utf8.decode(responseBytes));
     if (decoded is! List) {
-      throw const LocalBackendInstallerException(
+      throw LocalBackendInstallerException(
         'SETUP_RELEASE_INVALID',
-        'The NeoAgent release service returned invalid data.',
+        appStrings.theNeoagentReleaseServiceReturnedInvalid,
       );
     }
     for (final rawRelease in decoded.whereType<Map>()) {
@@ -214,9 +215,9 @@ class RuntimeReleaseService {
         assetUrls: assetUrls,
       );
     }
-    throw const LocalBackendInstallerException(
+    throw LocalBackendInstallerException(
       'SETUP_RUNTIME_NOT_PUBLISHED',
-      'No verified NeoAgent backend runtime is available yet.',
+      appStrings.noVerifiedNeoagentBackendRuntimeIs,
     );
   }
 
@@ -225,8 +226,7 @@ class RuntimeReleaseService {
     required int maxBytes,
     bool githubApi = false,
     String errorCode = 'SETUP_DOWNLOAD_FAILED',
-    String errorMessage =
-        'A required NeoAgent setup file could not be downloaded.',
+    String errorMessage = 'A required NeoAgent setup file could not be downloaded.',
   }) async {
     final request = http.Request('GET', validateRuntimeDownloadUri(url));
     request.headers.addAll(githubApi ? _apiHeaders : _downloadHeaders);
@@ -238,9 +238,9 @@ class RuntimeReleaseService {
     await for (final chunk in response.stream) {
       _checkCancelled();
       if (bytes.length + chunk.length > maxBytes) {
-        throw const LocalBackendInstallerException(
+        throw LocalBackendInstallerException(
           'SETUP_DOWNLOAD_TOO_LARGE',
-          'A NeoAgent setup metadata file exceeded its safe size limit.',
+          appStrings.aNeoagentSetupMetadataFileExceeded,
           retryable: false,
         );
       }
@@ -254,7 +254,7 @@ List<int> decodeRuntimeSigningPublicKey(String publicKeyBase64) {
   final decoded = base64Decode(publicKeyBase64.trim());
   if (decoded.length == 32) return decoded;
   if (decoded.length > 32) return decoded.sublist(decoded.length - 32);
-  throw const FormatException('Runtime signing public key must be 32 bytes.');
+  throw FormatException(appStrings.runtimeSigningPublicKeyMustBe);
 }
 
 Future<void> verifyRuntimeManifestSignatureData({
@@ -263,9 +263,9 @@ Future<void> verifyRuntimeManifestSignatureData({
   required String publicKeyBase64,
 }) async {
   if (publicKeyBase64.trim().isEmpty) {
-    throw const LocalBackendInstallerException(
+    throw LocalBackendInstallerException(
       'SETUP_TRUST_NOT_CONFIGURED',
-      'This NeoAgent build is not configured to verify backend runtimes.',
+      appStrings.thisNeoagentBuildIsNotConfigured,
       retryable: false,
     );
   }
@@ -278,9 +278,9 @@ Future<void> verifyRuntimeManifestSignatureData({
   } on LocalBackendInstallerException {
     rethrow;
   } on Object {
-    throw const LocalBackendInstallerException(
+    throw LocalBackendInstallerException(
       'SETUP_TRUST_NOT_CONFIGURED',
-      'This NeoAgent build is not configured to verify backend runtimes.',
+      appStrings.thisNeoagentBuildIsNotConfigured,
       retryable: false,
     );
   }
@@ -291,18 +291,18 @@ Future<void> verifyRuntimeManifestSignatureData({
     );
     final valid = await Ed25519().verify(manifestBytes, signature: signature);
     if (!valid) {
-      throw const LocalBackendInstallerException(
+      throw LocalBackendInstallerException(
         'SETUP_MANIFEST_SIGNATURE_INVALID',
-        'The NeoAgent runtime manifest did not pass signature verification.',
+        appStrings.theNeoagentRuntimeManifestDidNot,
         retryable: false,
       );
     }
   } on LocalBackendInstallerException {
     rethrow;
   } on Object {
-    throw const LocalBackendInstallerException(
+    throw LocalBackendInstallerException(
       'SETUP_MANIFEST_SIGNATURE_INVALID',
-      'The NeoAgent runtime manifest signature is invalid.',
+      appStrings.theNeoagentRuntimeManifestSignatureIs,
       retryable: false,
     );
   }

@@ -3,8 +3,7 @@
 const { spawn } = require('child_process');
 const { createServiceLogger } = require('../../utils/logger');
 const { runWithAbortTimeout } = require('../../utils/abort');
-const { getVoiceRuntimeSettings } = require('./liveSettings');
-const providers = require('./providers');
+const transcription = require('./transcription');
 
 const log = createServiceLogger('VoiceNote');
 
@@ -184,15 +183,7 @@ function classifyVoiceNote({ vad, source, durationSec, caption, forwarded }) {
 }
 
 async function transcribeFile(filePath, { userId, agentId, signal, timeoutMs = STT_TIMEOUT_MS }) {
-  const settings = getVoiceRuntimeSettings(userId, agentId);
-  return String(await providers.transcribeVoiceInput(filePath, {
-    provider: settings.sttProvider,
-    model: settings.sttModel,
-    userId,
-    agentId,
-    timeoutMs,
-    signal,
-  }) || '').trim();
+  return transcription.transcribeForUser(filePath, { userId, agentId, signal, timeoutMs });
 }
 
 function isPendingVoiceNote(msg) {

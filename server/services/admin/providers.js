@@ -15,6 +15,7 @@ const PROVIDERS = [
   { key: 'MINIMAX_API_KEY', label: 'MiniMax', type: 'key' },
   { key: 'NVIDIA_API_KEY', label: 'NVIDIA NIM', type: 'key' },
   { key: 'OPENROUTER_API_KEY', label: 'OpenRouter', type: 'key' },
+  { key: 'TYPESAFE_API_KEY', label: 'TypeSafe (SystemOne)', type: 'key' },
   { key: 'BRAVE_SEARCH_API_KEY', label: 'Brave Search', type: 'key' },
   { key: 'DEEPGRAM_API_KEY', label: 'Deepgram (Voice)', type: 'key' },
   { key: 'GITHUB_COPILOT_ACCESS_TOKEN', label: 'GitHub Copilot', type: 'key' },

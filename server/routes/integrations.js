@@ -2,12 +2,34 @@ const express = require('express');
 const QRCode = require('qrcode');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
-const { sanitizeError } = require('../utils/security');
+const { jsonForInlineScript, sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 const { getTrustedPostMessageOrigin } = require('../services/integrations/env');
+const {
+  bindOAuthState,
+  holdOAuthCallback,
+  isOAuthStateBound,
+  releaseOAuthState,
+  takeOAuthCallback,
+} = require('../services/account/oauth_handoff');
+const providerSignIn = require('../services/ai/provider_sign_in');
 
 const INTEGRATION_STATE_RE = /^[a-f0-9]{48}$/;
 const AUTH_PROVIDER_STATE_RE = /^auth_[a-f0-9]{48}$/;
+const OAUTH_ERROR_TYPES = {
+  auth: 'auth_oauth_error',
+  model: 'model_sign_in_error',
+  integration: 'integration_oauth_error',
+};
+
+// Which flow an OAuth state belongs to: account sign-in, model provider
+// sign-in, or an integration connection. Null for anything malformed.
+function oauthStateKind(state) {
+  if (AUTH_PROVIDER_STATE_RE.test(state)) return 'auth';
+  if (providerSignIn.isSignInState(state)) return 'model';
+  if (INTEGRATION_STATE_RE.test(state)) return 'integration';
+  return null;
+}
 
 function getIntegrationManager(req) {
   return req.app?.locals?.integrationManager;
@@ -34,21 +56,28 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-/// Completes an OAuth popup: notify the opener (and same-browser tabs), then
-/// close. Origin mismatch between PUBLIC_URL and how the user opened NeoAgent
-/// used to drop the postMessage, so the UI never linked and the tab stayed open.
-function renderOAuthPopupResult({ success, payload, message }) {
-  const data = JSON.stringify(payload);
-  const body = escapeHtml(message);
-  const title = success ? 'Connected' : 'Connection failed';
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>
+function renderOAuthPage(title, content) {
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
 <style>
   body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,sans-serif;
     background:#0e1511;color:#ecefe5;padding:24px;text-align:center}
   p{line-height:1.5;color:#aeb7a6;max-width:28rem}
   strong{color:#ecefe5}
+  a.button{display:inline-block;margin-top:8px;padding:10px 18px;border-radius:8px;
+    background:#ecefe5;color:#0e1511;text-decoration:none;font-weight:600}
 </style></head><body>
-<p><strong>${title}.</strong> ${body}</p>
+${content}
+</body></html>`;
+}
+
+/// Completes an OAuth popup: notify the opener (and same-browser tabs), then
+/// close. Origin mismatch between PUBLIC_URL and how the user opened NeoAgent
+/// used to drop the postMessage, so the UI never linked and the tab stayed open.
+function renderOAuthPopupResult({ success, payload, message }) {
+  const data = jsonForInlineScript(payload);
+  const body = escapeHtml(message);
+  const title = success ? 'Connected' : 'Connection failed';
+  return renderOAuthPage(title, `<p><strong>${title}.</strong> ${body}</p>
 <script>
 (function () {
   var payload = ${data};
@@ -86,47 +115,70 @@ function renderOAuthPopupResult({ success, payload, message }) {
       '<p style="margin-top:16px;font-size:13px">You can close this window and return to NeoAgent.</p>');
   }, 500);
 })();
-</script>
-</body></html>`;
+</script>`);
 }
 
-router.get('/oauth/callback', async (req, res) => {
-  const state = String(req.query.state || '');
-  const code = String(req.query.code || '');
-  const error = String(req.query.error || '');
-  const isAuthProviderState = state.startsWith('auth_');
+function describeOAuthRequest(req, state) {
+  const kind = oauthStateKind(state);
+  if (kind === 'auth') {
+    const pending = getAuthProviderManager(req)?.describePendingAuthorization(state);
+    if (!pending) return null;
+    const provider = escapeHtml(pending.providerLabel);
+    const what = pending.mode === 'link'
+      ? `link ${provider} to the NeoAgent account <strong>${escapeHtml(pending.username)}</strong>`
+      : `finish signing in to NeoAgent with ${provider}`;
+    return { what, startedAt: pending.startedAt };
+  }
+  if (kind === 'model') {
+    const pending = providerSignIn.describePending(state);
+    if (!pending) return null;
+    return {
+      what: `connect your ${escapeHtml(pending.providerLabel)} account to the NeoAgent account <strong>${escapeHtml(pending.username)}</strong>`,
+      startedAt: pending.startedAt,
+    };
+  }
+  const pending = getIntegrationManager(req)?.describePendingOAuth(state);
+  if (!pending) return null;
+  const service = pending.appLabel ? `${pending.providerLabel} ${pending.appLabel}` : pending.providerLabel;
+  return {
+    what: `connect ${escapeHtml(service)} to the NeoAgent account <strong>${escapeHtml(pending.username)}</strong>`,
+    startedAt: pending.startedAt,
+  };
+}
 
-  if (!state) return res.status(400).send('Missing state parameter');
-  if (isAuthProviderState && !AUTH_PROVIDER_STATE_RE.test(state)) {
-    return res.status(400).send('Invalid OAuth state parameter');
-  }
-  if (!isAuthProviderState && !INTEGRATION_STATE_RE.test(state)) {
-    return res.status(400).send('Invalid OAuth state parameter');
-  }
-  if (!error && !code) {
-    return res.status(400).send('Missing code parameter');
-  }
-  if (error) {
-    if (isAuthProviderState) {
-      getAuthProviderManager(req)?.failAuthorization(state, error);
-    }
-    return res.status(400).type('html').send(renderOAuthPopupResult({
-      success: false,
-      payload: {
-        type: isAuthProviderState ? 'auth_oauth_error' : 'integration_oauth_error',
-        error: String(error),
-      },
-      message: escapeHtml(error),
-    }));
-  }
+/// Shown when the provider redirects into a browser that did not start the
+/// flow, which is normal for the desktop and mobile apps. The person here must
+/// confirm, so a link started by someone else cannot finish silently.
+function renderOAuthConfirmPage(request, token) {
+  const confirmUrl = `callback/confirm?token=${encodeURIComponent(token)}`;
+  return renderOAuthPage('Confirm sign-in', `<div>
+<p><strong>Do you want to ${request.what}?</strong></p>
+<p>This was started in a NeoAgent app at ${escapeHtml(request.startedAt)} UTC. Only continue if you started it yourself.</p>
+<a class="button" href="${escapeHtml(confirmUrl)}">Yes, continue</a>
+<p style="font-size:13px">If you did not start this, close this window.</p>
+</div>`);
+}
 
+function renderOAuthFailure(state, message) {
+  return renderOAuthPopupResult({
+    success: false,
+    payload: {
+      type: OAUTH_ERROR_TYPES[oauthStateKind(state)],
+      error: message,
+    },
+    message,
+  });
+}
+
+async function finishOAuthCallback(req, res, state, callback) {
+  const kind = oauthStateKind(state);
   try {
-    if (isAuthProviderState) {
+    if (kind === 'auth') {
       const authProviderManager = getAuthProviderManager(req);
       if (!authProviderManager) {
         throw new Error('Auth provider manager is not available on app.locals.authProviderManager.');
       }
-      const result = await authProviderManager.finishAuthorization(state, code);
+      const result = await authProviderManager.finishAuthorization(state, callback.code);
       return res.type('html').send(renderOAuthPopupResult({
         success: true,
         payload: {
@@ -135,6 +187,18 @@ router.get('/oauth/callback', async (req, res) => {
           mode: result.action,
           email: result.email,
         },
+        message: result.requiresUsername
+          ? 'Return to NeoAgent to choose your username and finish registration.'
+          : 'You can close this window and return to NeoAgent.',
+      }));
+    }
+
+    if (kind === 'model') {
+      const result = await providerSignIn.complete(state, callback.code);
+      releaseOAuthState(req.session, state);
+      return res.type('html').send(renderOAuthPopupResult({
+        success: true,
+        payload: { type: 'model_sign_in_success', provider: result.providerId },
         message: 'You can close this window and return to NeoAgent.',
       }));
     }
@@ -143,7 +207,8 @@ router.get('/oauth/callback', async (req, res) => {
     if (!manager) {
       throw new Error('Official integration manager is not available on app.locals.integrationManager.');
     }
-    const result = await manager.finishOAuth(state, code, { signal: req.signal });
+    const result = await manager.finishOAuth(state, callback.code, { signal: req.signal });
+    releaseOAuthState(req.session, state);
     return res.type('html').send(renderOAuthPopupResult({
       success: true,
       payload: {
@@ -157,18 +222,65 @@ router.get('/oauth/callback', async (req, res) => {
     }));
   } catch (err) {
     const message = sanitizeError(err);
-    if (isAuthProviderState) {
+    if (kind === 'auth') {
       getAuthProviderManager(req)?.failAuthorization(state, message);
     }
-    return res.status(500).type('html').send(renderOAuthPopupResult({
-      success: false,
-      payload: {
-        type: isAuthProviderState ? 'auth_oauth_error' : 'integration_oauth_error',
-        error: message,
-      },
-      message,
-    }));
+    return res.status(500).type('html').send(renderOAuthFailure(state, message));
   }
+}
+
+router.get('/oauth/callback', async (req, res) => {
+  const state = String(req.query.state || '');
+  const code = String(req.query.code || '');
+  const error = String(req.query.error || '');
+  const kind = oauthStateKind(state);
+
+  if (!state) {
+    // Providers such as OpenRouter drop the state when the person declines.
+    if (error) {
+      return res.status(400).type('html').send(renderOAuthPage(
+        'Sign-in canceled',
+        '<p><strong>Sign-in was canceled.</strong> You can close this window and return to NeoAgent.</p>',
+      ));
+    }
+    return res.status(400).send('Missing state parameter');
+  }
+  if (!kind) return res.status(400).send('Invalid OAuth state parameter');
+  if (!error && !code) {
+    return res.status(400).send('Missing code parameter');
+  }
+  if (error) {
+    if (kind === 'auth') {
+      getAuthProviderManager(req)?.failAuthorization(state, error);
+    }
+    if (kind === 'model') {
+      providerSignIn.fail(state, error);
+    }
+    return res.status(400).type('html').send(renderOAuthFailure(state, error));
+  }
+
+  if (!isOAuthStateBound(req.session, state)) {
+    const request = describeOAuthRequest(req, state);
+    if (!request) {
+      return res.status(400).type('html').send(renderOAuthFailure(
+        state,
+        'This request has expired. Start again from NeoAgent.',
+      ));
+    }
+    return res.type('html').send(renderOAuthConfirmPage(request, holdOAuthCallback(state, { code })));
+  }
+  return finishOAuthCallback(req, res, state, { code });
+});
+
+router.get('/oauth/callback/confirm', async (req, res) => {
+  const held = takeOAuthCallback(req.query.token);
+  if (!held) {
+    return res.status(400).type('html').send(renderOAuthPage(
+      'Link expired',
+      '<p><strong>This confirmation link has expired or was already used.</strong> Start again from NeoAgent.</p>',
+    ));
+  }
+  return finishOAuthCallback(req, res, held.state, held.callback);
 });
 
 router.use(requireAuth);
@@ -311,7 +423,7 @@ router.get('/:provider/connect/:sessionId', (req, res) => {
     const providerLabel = provider?.label || req.params.provider;
     const sessionAppId = session.appId || session.appKey;
     const appLabel = provider?.getApp?.(sessionAppId)?.label || sessionAppId || 'account';
-    const trustedOrigin = JSON.stringify(getTrustedPostMessageOrigin(req));
+    const trustedOrigin = jsonForInlineScript(getTrustedPostMessageOrigin(req));
     const statusUrl = `/api/integrations/${encodeURIComponent(req.params.provider)}/connect/${encodeURIComponent(req.params.sessionId)}/status?agentId=${encodeURIComponent(agentId)}`;
     const loginUrl = String(session.loginUrl || '').trim();
     res.send(`
@@ -350,11 +462,11 @@ router.get('/:provider/connect/:sessionId', (req, res) => {
             const hintEl = document.getElementById('hint');
             const loginActions = document.getElementById('loginActions');
             const loginLink = document.getElementById('loginLink');
-            const statusUrl = ${JSON.stringify(statusUrl)};
+            const statusUrl = ${jsonForInlineScript(statusUrl)};
             const trustedOrigin = ${trustedOrigin};
-            const provider = ${JSON.stringify(req.params.provider)};
-            const appId = ${JSON.stringify(sessionAppId)};
-            const initialLoginUrl = ${JSON.stringify(loginUrl)};
+            const provider = ${jsonForInlineScript(req.params.provider)};
+            const appId = ${jsonForInlineScript(sessionAppId)};
+            const initialLoginUrl = ${jsonForInlineScript(loginUrl)};
             let loginOpened = false;
 
             function notifyOpener(payload) {
@@ -486,6 +598,7 @@ router.post('/:provider/connect', async (req, res) => {
         signal: req.signal,
       },
     );
+    if (result.state) bindOAuthState(req.session, result.state);
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });

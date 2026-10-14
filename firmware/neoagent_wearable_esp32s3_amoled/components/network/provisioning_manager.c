@@ -36,6 +36,7 @@ static bool s_netif_initialized = false;
 static bool s_event_loop_initialized = false;
 static bool s_wifi_initialized = false;
 static provisioning_manager_t *s_active_manager = NULL;
+static wifi_ps_type_t s_station_power_save = WIFI_PS_NONE;
 static wifi_ap_record_t s_scan_cache[NEOAGENT_WIFI_SCAN_LIST_LIMIT];
 static size_t s_scan_cache_count = 0;
 static bool s_scan_cache_valid = false;
@@ -864,7 +865,25 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
             }
         }
         ESP_LOGI(TAG, "station got ip " IPSTR, IP2STR(&event->ip_info.ip));
+        provisioning_manager_set_station_power_save(true);
     }
+}
+
+void provisioning_manager_set_station_power_save(bool enabled) {
+    if (!s_wifi_initialized || (s_active_manager != NULL && s_active_manager->portal_running)) {
+        return;
+    }
+    const wifi_ps_type_t mode = enabled ? WIFI_PS_MIN_MODEM : WIFI_PS_NONE;
+    if (s_station_power_save == mode) {
+        return;
+    }
+    const esp_err_t err = esp_wifi_set_ps(mode);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "wifi power save %s failed: %s", enabled ? "on" : "off", esp_err_to_name(err));
+        return;
+    }
+    s_station_power_save = mode;
+    ESP_LOGI(TAG, "wifi power save %s", enabled ? "on" : "off");
 }
 
 static esp_err_t ensure_network_stack(void) {
@@ -1279,6 +1298,7 @@ esp_err_t provisioning_manager_start_portal(provisioning_manager_t *manager, ses
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
     ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+    s_station_power_save = WIFI_PS_NONE;
     enable_extended_2g_channels();
     maybe_set_captive_portal_uri(manager->ap_netif);
 
@@ -1353,6 +1373,7 @@ esp_err_t provisioning_manager_connect_station(provisioning_manager_t *manager, 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
     ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+    s_station_power_save = WIFI_PS_NONE;
 
     if (connect_with_network_candidate(
             manager,

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One row on the wallpaper: the mascot at full height, its state beside it in
+     shadowed text like the launcher's own labels. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="@dimen/neoagent_widget_avatar_inset">
+
+    <FrameLayout
+        android:id="@+id/neoagent_widget_avatar"
+        android:layout_width="@dimen/neoagent_widget_avatar_size"
+        android:layout_height="@dimen/neoagent_widget_avatar_size">
+
+        <FrameLayout
+            android:id="@+id/neoagent_widget_face"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <include layout="@layout/neoagent_widget_face_idle" />
+        </FrameLayout>
+    </FrameLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/neoagent_widget_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif"
+            android:letterSpacing="-0.01"
+            android:maxLines="1"
+            android:shadowColor="@color/neoagent_widget_wallpaper_shadow"
+            android:shadowDy="1"
+            android:shadowRadius="4"
+            android:text="@string/neoagent_widget_ready"
+            android:textColor="@color/neoagent_widget_wallpaper_text"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/neoagent_widget_detail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif"
+            android:maxLines="1"
+            android:shadowColor="@color/neoagent_widget_wallpaper_shadow"
+            android:shadowDy="1"
+            android:shadowRadius="4"
+            android:textColor="@color/neoagent_widget_wallpaper_text_secondary"
+            android:textSize="13sp"
+            android:visibility="gone" />
+    </LinearLayout>
+</LinearLayout>

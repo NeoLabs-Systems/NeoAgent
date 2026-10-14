@@ -6,83 +6,79 @@ description: What NeoAgent remembers across conversations, how recall works, and
 
 # Memory
 
-*Useful context that survives the chat — without making the whole transcript permanent.*
-
-NeoAgent keeps useful context across conversations without treating the entire
-chat transcript as permanent memory. Memory data is stored by the NeoAgent
-server and scoped to a user and agent.
+**NeoAgent keeps durable facts about you across conversations, without making every transcript permanent.**
 
 ## 🧠 What gets remembered
 
-After a conversation, the model can extract durable information such as:
+After each completed run, the model reviews the conversation and saves what will matter later.
 
-- Identity and stable preferences
-- Ongoing projects and responsibilities
-- Important contacts and relationships
-- Events with meaningful dates
-- Current context that will matter in a later conversation
+| Category | Examples |
+| --- | --- |
+| Identity and preferences | Name, language, how you like answers |
+| Projects and tasks | Ongoing work, responsibilities, commitments |
+| Contacts | People and how they relate to you |
+| Events | Things with meaningful dates |
+| Episodic and procedural | What happened, how you like things done |
 
-Routine tool output, credentials, guesses, and one-off task narration should
-not become long-term memory. The agent can also save an explicit fact with its
-memory tool when a conversation requires it.
+- **Left out.** Secrets, credentials, raw tool output, routine narration, guesses and unverified claims.
+- **On request.** The agent can also save a memory explicitly with `memory_save`.
+- **Scoped.** Memory belongs to one user and one agent. Group-chat runs use memory scoped to that chat.
 
 ## 🧩 Structured facts
 
-A saved memory contains readable text plus structured facts. A fact records a
-subject, relationship, value, category, confidence, and optional time bounds.
-New information can:
+Each memory carries readable text plus facts: subject, relationship, value, category, confidence and optional time bounds.
 
-- update and supersede an older fact;
-- extend an existing fact with compatible detail; or
-- record a supported inference at lower confidence.
+| New information | Effect |
+| --- | --- |
+| A new value for the same subject and relationship | Supersedes the old fact, which keeps its history |
+| Compatible extra detail | Extends the existing fact |
+| A supported inference | Recorded with confidence capped at 0.6 |
 
-Normal recall favors active facts and excludes superseded or expired facts.
-Historical queries can still use version context when it is relevant.
+- **Current by default.** Recall skips superseded and expired facts unless history or a past date is requested.
+- **Protected facts.** Content from outside sources that contradicts a stable or high-confidence fact is flagged and left out of recall.
 
-## 🔍 Retrieval
+## 🔍 Recall
 
-NeoAgent combines several local signals:
+Before each reply, NeoAgent searches memory locally and adds the best matches to the prompt.
 
-- Semantic similarity when embeddings are configured
-- SQLite full-text and lexical matching
-- Entity matches
-- Fact relationships and current-version status
-- Importance, confidence, freshness, and prior use
+- **Signals.** Embedding similarity (when configured), SQLite full-text and keyword matches, entities, and linked memories.
+- **Ranking.** Importance, confidence and past use, with a 90-day freshness decay. Identity, preferences and very important memories do not decay.
+- **Deeper searches.** The agent calls `memory_recall` itself when the automatic matches are not enough.
+- **Embeddings.** Google `gemini-embedding-2` with a Google default model and `GOOGLE_AI_KEY`, else OpenAI `text-embedding-3-small` with `OPENAI_API_KEY`.
+- **No embedding key.** Recall falls back to text and keyword matching.
 
-Confident results use this local fast path. Ambiguous retrieval can ask the
-configured model to reformulate the search and rerank known candidates. The
-model does not receive unrestricted access to the database.
+### Always in context
 
-Stable facts and current context also form a bounded user profile that is
-available to the owning agent even when a narrow search would not retrieve it.
+- **Core memory.** Key-value entries you control, added to every prompt.
+- **Auto-maintained profile.** A short summary of stable and current facts, built from active memory.
 
-## 📥 Integration memory
+## 📥 Memory from integrations
 
-Supported integrations can ingest source documents in the background. Source
-content is chunked, indexed, and linked to extracted memories so recalled
-context can retain provenance.
-
-External source text is treated as data rather than instructions. Conflicts
-with high-confidence or stable memories may require review instead of silently
-replacing the existing fact.
+- **Gmail and Google Calendar.** Recent threads and upcoming events are read into memory in the background, every 10 minutes by default.
+- **Interval.** `NEOAGENT_MEMORY_INGESTION_INTERVAL_MS`, also under **Admin › Configuration**.
+- **Provenance.** Source text is chunked, marked as external, and linked to the memories drawn from it.
+- **Data, not instructions.** External text never acts as a command, and it cannot quietly overwrite established facts.
 
 ## 🛠️ Manage memory
 
-Open **Memory** to search and inspect stored items. NeoAgent supports editing,
-archiving, bulk deletion, permanent deletion, core-memory management, and
-conversation search.
+Open **Memory** in the app.
 
-:::caution Deleting a conversation is not deleting memory
-Deleting a conversation is not the same as deleting extracted memory. Review
-both areas when removing personal information.
+| Area | What you can do |
+| --- | --- |
+| **Memories** | Search, add, select, archive, or delete permanently |
+| **Core** | Add, edit and delete core entries |
+| **Transfer** | Generate a prompt for another AI, then paste its answer to import memories |
+| **Inspect** | Open the **Retrieval Inspector** to see why memories match a query |
+| **Knowledge Graph** | Browse the most-mentioned entities and the memories that link them |
+
+:::caution Deleting a conversation keeps its memories
+Memories extracted from a conversation stay after it is deleted, so remove both when erasing personal information.
 :::
 
 ## 🔐 Storage and privacy
 
-Memory is stored in NeoAgent's SQLite database and runtime data directories.
-It is not sent to an external memory service. Content still leaves the server
-when a hosted model or hosted embedding provider is used to process it.
+- **Local database.** Memory lives in NeoAgent's SQLite database under `~/.neoagent/data/`. No external memory service.
+- **Model providers.** Content still leaves the server when a hosted model or hosted embedding provider processes it.
+- **Backups.** Back up `~/.neoagent/data/` and `~/.neoagent/agent-data/` together. See [Operations](operations.md).
 
-Back up `~/.neoagent/data/` and `~/.neoagent/agent-data/` together. See
-[Memory architecture](memory-architecture.md) for the implementation and
-[Operations](operations.md) for backup guidance.
+Implementation details: [Memory architecture](memory-architecture.md).

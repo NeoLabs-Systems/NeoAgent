@@ -5,7 +5,7 @@
 // Both the admin "GDPR: delete all user data" action and the self-service
 // account-deletion endpoint go through eraseUserData() so the two can never
 // drift apart. Rather than hand-maintain a list of tables (which previously
-// missed billing, 2FA, embeddings and other user-scoped tables), we discover
+// missed 2FA, embeddings and other user-scoped tables), we discover
 // every table that has a `user_id` column at runtime via PRAGMA table_info and
 // clear all of them. Child tables that are keyed by a parent id instead of
 // user_id are cleared explicitly below.
@@ -18,10 +18,6 @@ const { DATA_DIR, AGENT_DATA_DIR } = require('../../../runtime/paths');
 const { sanitizeWorkspaceKey } = require('../workspace/manager');
 const { retireManager } = require('../access/delegations');
 
-// Tables that carry a `user_id` column but are global/shared configuration and
-// must never be deleted as part of erasing one user.
-const GLOBAL_TABLES = new Set(['billing_plans']);
-
 // Column names whose values are credentials/secrets and must be redacted from a
 // portability export (the user already controls these; echoing them back adds
 // risk without adding portability value).
@@ -33,7 +29,7 @@ function userScopedTables() {
     .all();
   const tables = [];
   for (const { name } of rows) {
-    if (name === 'users' || GLOBAL_TABLES.has(name)) {
+    if (name === 'users') {
       continue;
     }
     if (name.startsWith('sqlite_')) {

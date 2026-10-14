@@ -3,15 +3,21 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const rateLimit = require('express-rate-limit');
 const db = require('../db/database');
-const { getDeploymentPolicy } = require('../utils/deployment');
 const { publicBaseUrlForRequest } = require('../utils/public_url');
-const { requireValidEmail } = require('../services/account/email');
+const { isValidEmail, normalizeEmail } = require('../services/account/email');
 const {
-  evaluatePasswordStrength,
-  passwordStrengthError,
-} = require('../services/account/password_policy');
+  assertEmailAvailable,
+  findUserForSignIn,
+  hashPassword,
+  validateNewPassword,
+  validateNewUsername,
+} = require('../services/account/credentials');
 const { getTwoFactorStatus, verifyLoginCode } = require('../services/account/two_factor');
-const { isAdminUser, isReservedAdminUsername } = require('../services/access/admin');
+const { isAdminUser } = require('../services/access/admin');
+const { requireSessionTransport } = require('../middleware/auth');
+const { sendJsonError } = require('../http/errors');
+const { jsonHandler } = require('./_helpers/http');
+const { httpError } = require('../utils/http_error');
 const { recordCurrentSession, revokeAllSessionsForUser } = require('../services/account/sessions');
 const {
   consumeEmailToken,
@@ -27,10 +33,19 @@ const {
   sendUnusualLoginNotice,
 } = require('../services/account/service_email');
 const {
+  cancelChallenge,
   claimApprovedChallenge,
   createChallenge,
   getChallengeStatusForPoll,
+  waitForChallengeStatusChange,
 } = require('../services/account/qr_login');
+const { bindOAuthState, isOAuthStateBound } = require('../services/account/oauth_handoff');
+const {
+  assertSignupKeyUsable,
+  isSignupKeyRequired,
+  redeemSignupKeyForNewUser,
+  releaseSignupKey,
+} = require('../services/access/signup_keys');
 const {
   beginLogin: beginWebAuthnLogin,
   completeLogin: completeWebAuthnLogin,
@@ -44,9 +59,21 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Showing a sign-in QR code is not a credential attempt, so it gets its own
+// budget instead of eating into authLimiter. A visible code rotates every two
+// minutes; its status checks are held open up to 25 seconds each, or come
+// every five seconds from older apps.
+const qrLoginChallengeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: { error: 'Too many QR login requests, try again shortly' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const qrLoginPollLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 180,
+  max: 400,
   message: { error: 'Too many QR login status checks, try again shortly' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -72,6 +99,16 @@ const webauthnLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 40,
   message: { error: 'Too many security key attempts, try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Checking a sign-up key is a guess at a credential, so it is budgeted
+// separately from the account form that follows it.
+const signupKeyCheckLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Too many sign-up key attempts, try again later' },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -269,14 +306,17 @@ function sendWebAuthnError(res, err, fallbackMessage) {
 
 router.get('/api/auth/status', (req, res) => {
   const count = db.prepare('SELECT COUNT(*) as count FROM users').get();
-  const policy = getDeploymentPolicy();
+  const signupKeyRequired = isSignupKeyRequired();
   const emailConfig = getEmailConfig();
   const authProviderManager = getAuthProviderManager(req);
   const currentUser = readAuthenticatedUser(req);
   if (!currentUser) {
     return res.json({
       hasUser: count.count > 0,
-      registrationOpen: policy.registrationOpen || count.count === 0,
+      // Clients from before sign-up keys read this; newer ones read
+      // signupKeyRequired.
+      registrationOpen: !signupKeyRequired,
+      signupKeyRequired,
       authenticated: false,
       user: null,
       email: {
@@ -284,12 +324,13 @@ router.get('/api/auth/status', (req, res) => {
         configured: emailConfig.configured,
         signupConfirmationRequired: requireSignupEmailConfirmation(),
       },
-      providers: authProviderManager ? authProviderManager.listProviders() : [],
+      providers: authProviderManager ? authProviderManager.listProviders({ baseUrl: publicBaseUrlForRequest(req) }) : [],
     });
   }
   res.json({
     hasUser: count.count > 0,
-    registrationOpen: policy.registrationOpen || count.count === 0,
+    registrationOpen: !signupKeyRequired,
+    signupKeyRequired,
     authenticated: Boolean(currentUser),
     user: currentUser ? toUserPayload(currentUser) : null,
     email: {
@@ -297,7 +338,7 @@ router.get('/api/auth/status', (req, res) => {
       configured: emailConfig.configured,
       signupConfirmationRequired: requireSignupEmailConfirmation(),
     },
-    providers: authProviderManager ? authProviderManager.listProviders() : [],
+    providers: authProviderManager ? authProviderManager.listProviders({ baseUrl: publicBaseUrlForRequest(req) }) : [],
   });
 });
 
@@ -306,10 +347,10 @@ router.get('/api/auth/providers', (req, res) => {
   if (!authProviderManager) {
     return res.json({ providers: [] });
   }
-  return res.json({ providers: authProviderManager.listProviders() });
+  return res.json({ providers: authProviderManager.listProviders({ baseUrl: publicBaseUrlForRequest(req) }) });
 });
 
-router.post('/api/auth/providers/:provider/begin', authLimiter, async (req, res) => {
+router.post('/api/auth/providers/:provider/begin', authLimiter, requireSessionTransport, async (req, res) => {
   try {
     const authProviderManager = getAuthProviderManager(req);
     if (!authProviderManager) {
@@ -320,10 +361,25 @@ router.post('/api/auth/providers/:provider/begin', authLimiter, async (req, res)
       providerKey: req.params.provider,
       mode,
       userId: mode === 'link' ? req.session?.userId || null : null,
+      signupKey: req.body?.signupKey,
+      baseUrl: publicBaseUrlForRequest(req),
     });
+    bindOAuthState(req.session, result.state);
     res.json(result);
   } catch (error) {
-    res.status(400).json({ error: error.message || 'Provider sign-in failed.' });
+    sendJsonError(res, error, 400);
+  }
+});
+
+router.post('/api/auth/providers/register', authLimiter, requireSessionTransport, async (req, res) => {
+  const state = String(req.body?.state || '').trim();
+  if (!isOAuthStateBound(req.session, state)) {
+    return res.status(404).json({ error: 'Registration request was not found or has expired.' });
+  }
+  try {
+    res.json(await getAuthProviderManager(req).completeRegistration(state, req.body?.username));
+  } catch (error) {
+    sendJsonError(res, error, 400);
   }
 });
 
@@ -334,8 +390,12 @@ router.get('/api/auth/providers/complete', async (req, res) => {
       throw new Error('Provider sign-in is not available.');
     }
     const state = String(req.query?.state || '').trim();
+    // Only the client that started the sign-in may collect its result.
+    if (!isOAuthStateBound(req.session, state)) {
+      return res.status(404).json({ error: 'Authentication request was not found or has expired.' });
+    }
     const completion = authProviderManager.consumeAuthorization(state);
-    if (completion.status === 'pending') {
+    if (completion.status === 'pending' || completion.status === 'requires_username') {
       return res.json(completion);
     }
     if (completion.mode === 'link') {
@@ -369,50 +429,44 @@ router.get('/api/auth/providers/complete', async (req, res) => {
   }
 });
 
-router.post('/api/auth/register', authLimiter, async (req, res) => {
+// Lets the sign-up form confirm a key before asking for account details. The
+// key is only spent when the account is created.
+router.post('/api/auth/signup-key/check', signupKeyCheckLimiter, jsonHandler((req) => {
+  assertSignupKeyUsable(req.body?.key);
+  return { valid: true };
+}));
+
+router.post('/api/auth/register', authLimiter, requireSessionTransport, async (req, res) => {
   try {
-    const policy = getDeploymentPolicy();
     const username = String(req.body?.username || '').trim();
     const password = String(req.body?.password || '');
-    const email = requireValidEmail(req.body?.email);
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username, email, and password required' });
+    const email = normalizeEmail(req.body?.email);
+    if (!username || !password || !email) {
+      throw httpError(400, 'Username, email, and password required', 'MISSING_FIELDS');
     }
-    if (username.length < 3 || password.length < 8) {
-      return res.status(400).json({ error: 'Username min 3 chars, password min 8' });
+    if (!isValidEmail(email)) {
+      throw httpError(400, 'A valid email is required', 'INVALID_EMAIL');
     }
-    if (isReservedAdminUsername(username)) {
-      return res.status(409).json({ error: 'Username is already taken' });
-    }
-
-    const passwordStrength = evaluatePasswordStrength(password, { username, email });
-    if (!passwordStrength.isAcceptable) {
-      return res.status(400).json({ error: passwordStrengthError(passwordStrength) });
-    }
+    validateNewUsername(username);
+    validateNewPassword(password, { username, email });
 
     const confirmationRequired = requireSignupEmailConfirmation();
     if (confirmationRequired && !isServiceEmailConfigured()) {
       return res.status(503).json({ error: 'Service email is not configured for account confirmation' });
     }
 
-    const hash = await bcrypt.hash(password, 12);
+    const hash = await hashPassword(password);
     const createUser = db.transaction(() => {
-      const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
-      if (userCount.count > 0 && !policy.registrationOpen) {
-        const error = new Error('Registration is closed');
-        error.code = 'REGISTRATION_CLOSED';
-        throw error;
-      }
-      const emailTaken = db.prepare('SELECT id FROM users WHERE lower(email) = ?').get(email);
-      if (emailTaken) {
-        const error = new Error('Email is already in use');
-        error.code = 'EMAIL_TAKEN';
-        throw error;
-      }
-      return db.prepare(`
+      // Checked again inside the transaction: the hash above takes long
+      // enough for a concurrent sign-up to claim either name.
+      validateNewUsername(username);
+      assertEmailAvailable(email);
+      const inserted = db.prepare(`
         INSERT INTO users (username, email, email_verified_at, password, password_login_enabled)
         VALUES (?, ?, CASE WHEN ? THEN NULL ELSE datetime('now') END, ?, 1)
       `).run(username, email, confirmationRequired ? 1 : 0, hash);
+      redeemSignupKeyForNewUser(req.body?.signupKey, Number(inserted.lastInsertRowid));
+      return inserted;
     });
     const result = createUser();
 
@@ -423,6 +477,7 @@ router.post('/api/auth/register', authLimiter, async (req, res) => {
         await sendSignupConfirmation(user, token);
       } catch (sendError) {
         db.transaction(() => {
+          releaseSignupKey(user.id);
           db.prepare('DELETE FROM user_email_tokens WHERE user_id = ?').run(user.id);
           db.prepare('DELETE FROM users WHERE id = ?').run(user.id);
         })();
@@ -447,49 +502,34 @@ router.post('/api/auth/register', authLimiter, async (req, res) => {
       has_completed_onboarding: 0,
     });
   } catch (err) {
-    if (err?.statusCode) {
-      return res.status(err.statusCode).json({ error: err.message });
-    }
-    if (err?.code === 'REGISTRATION_CLOSED') {
-      return res.status(403).json({ error: 'Registration is closed' });
-    }
-    if (err?.code === 'EMAIL_TAKEN') {
-      return res.status(409).json({ error: 'Email is already in use' });
-    }
+    // The unique indexes are the last line against a race the checks above
+    // did not see.
     if (String(err?.code || '').startsWith('SQLITE_CONSTRAINT')) {
-      if (String(err?.message || '').toLowerCase().includes('users.email')) {
-        return res.status(409).json({ error: 'Email is already in use' });
-      }
-      return res.status(409).json({ error: 'Username is already taken' });
+      return String(err?.message || '').toLowerCase().includes('email')
+        ? res.status(409).json({ error: 'Email is already in use', code: 'EMAIL_TAKEN' })
+        : res.status(409).json({ error: 'Username is already taken', code: 'USERNAME_TAKEN' });
     }
-    console.error('Register error:', err);
-    res.status(500).json({ error: 'Registration failed' });
+    if (!err?.status) console.error('Register error:', err);
+    sendJsonError(res, err);
   }
 });
 
-router.post('/api/auth/login', authLimiter, async (req, res) => {
+router.post('/api/auth/login', authLimiter, requireSessionTransport, async (req, res) => {
   try {
-    const username = String(req.body?.username || '').trim();
+    // `username` also accepts the account email; both ignore case.
+    const account = String(req.body?.username || '').trim();
     const password = String(req.body?.password || '');
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password required' });
+    if (!account || !password) {
+      return res.status(400).json({ error: 'Username and password required', code: 'MISSING_FIELDS' });
     }
 
-    const user = db.prepare(
-      `SELECT id, username, display_name, email, email_verified_at, password, password_login_enabled, created_at, last_login, has_completed_onboarding
-       FROM users
-       WHERE username = ?`,
-    ).get(username);
-    if (!user || Number(user.password_login_enabled || 0) !== 1) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    const user = findUserForSignIn(account);
+    const passwordLogin = user && Number(user.password_login_enabled || 0) === 1;
+    if (!passwordLogin || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ error: 'Invalid credentials', code: 'INVALID_CREDENTIALS' });
     }
 
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    if (requireSignupEmailConfirmation() && !user.email_verified_at) {
+    if (requireSignupEmailConfirmation() && user.email && !user.email_verified_at) {
       return res.status(403).json({
         error: 'Email confirmation required before sign in',
         requiresEmailConfirmation: true,
@@ -508,7 +548,7 @@ router.post('/api/auth/login', authLimiter, async (req, res) => {
   }
 });
 
-router.post('/api/auth/login/2fa', authLimiter, async (req, res) => {
+router.post('/api/auth/login/2fa', authLimiter, requireSessionTransport, async (req, res) => {
   try {
     const pendingUserId = req.session?.pendingTwoFactorUserId;
     const startedAt = Number(req.session?.pendingTwoFactorStartedAt || 0);
@@ -535,7 +575,7 @@ router.post('/api/auth/login/2fa', authLimiter, async (req, res) => {
       return res.status(401).json({ error: 'User not found' });
     }
 
-    if (requireSignupEmailConfirmation() && !user.email_verified_at) {
+    if (requireSignupEmailConfirmation() && user.email && !user.email_verified_at) {
       return res.status(403).json({
         error: 'Email confirmation required before sign in',
         requiresEmailConfirmation: true,
@@ -550,7 +590,7 @@ router.post('/api/auth/login/2fa', authLimiter, async (req, res) => {
   }
 });
 
-router.post('/api/auth/webauthn/login/options', webauthnLimiter, async (req, res) => {
+router.post('/api/auth/webauthn/login/options', webauthnLimiter, requireSessionTransport, async (req, res) => {
   try {
     const { options, challenge } = await beginWebAuthnLogin({
       req,
@@ -569,7 +609,7 @@ router.post('/api/auth/webauthn/login/options', webauthnLimiter, async (req, res
   }
 });
 
-router.post('/api/auth/webauthn/login/verify', webauthnLimiter, async (req, res) => {
+router.post('/api/auth/webauthn/login/verify', webauthnLimiter, requireSessionTransport, async (req, res) => {
   try {
     const pending = req.session?.pendingWebAuthnLogin;
     const result = await completeWebAuthnLogin({
@@ -588,7 +628,7 @@ router.post('/api/auth/webauthn/login/verify', webauthnLimiter, async (req, res)
       return res.status(401).json({ error: 'User not found' });
     }
 
-    if (requireSignupEmailConfirmation() && !user.email_verified_at) {
+    if (requireSignupEmailConfirmation() && user.email && !user.email_verified_at) {
       return res.status(403).json({
         error: 'Email confirmation required before sign in',
         requiresEmailConfirmation: true,
@@ -677,7 +717,7 @@ router.post('/api/auth/password/forgot', authLimiter, async (req, res) => {
   }
 });
 
-router.post('/api/auth/qr-login/challenge', authLimiter, (req, res) => {
+router.post('/api/auth/qr-login/challenge', qrLoginChallengeLimiter, (req, res) => {
   try {
     const challenge = createChallenge(req, {
       requestMetadata: req.body?.requestMetadata,
@@ -702,18 +742,27 @@ router.post('/api/auth/qr-login/challenge', authLimiter, (req, res) => {
   }
 });
 
-router.post('/api/auth/qr-login/challenge/:id/status', qrLoginPollLimiter, (req, res) => {
+// With `knownStatus`, the request is held open until the status differs from
+// it, so the signing-in screen hears about a scan or approval at once.
+router.post('/api/auth/qr-login/challenge/:id/status', qrLoginPollLimiter, async (req, res) => {
   try {
     const pollToken = String(req.body?.token || '').trim();
     if (!pollToken) {
       return res.status(400).json({ error: 'QR login poll token is required.' });
     }
-    res.json(
-      getChallengeStatusForPoll({
-        challengeId: req.params.id,
-        pollToken,
-      }),
-    );
+    const knownStatus = String(req.body?.knownStatus || '').trim();
+    if (!knownStatus) {
+      return res.json(getChallengeStatusForPoll({ challengeId: req.params.id, pollToken }));
+    }
+    const clientGone = new AbortController();
+    res.on('close', () => clientGone.abort());
+    const status = await waitForChallengeStatusChange({
+      challengeId: req.params.id,
+      pollToken,
+      knownStatus,
+      signal: clientGone.signal,
+    });
+    if (!res.writableEnded && !clientGone.signal.aborted) res.json(status);
   } catch (error) {
     res.status(Number(error?.statusCode || 500)).json({
       error: error?.message || 'Could not read QR login status.',
@@ -721,7 +770,22 @@ router.post('/api/auth/qr-login/challenge/:id/status', qrLoginPollLimiter, (req,
   }
 });
 
-router.post('/api/auth/qr-login/challenge/:id/claim', qrLoginClaimLimiter, (req, res) => {
+router.post('/api/auth/qr-login/challenge/:id/cancel', qrLoginPollLimiter, (req, res) => {
+  try {
+    const pollToken = String(req.body?.token || '').trim();
+    if (!pollToken) {
+      return res.status(400).json({ error: 'QR login poll token is required.' });
+    }
+    cancelChallenge({ challengeId: req.params.id, pollToken });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(Number(error?.statusCode || 500)).json({
+      error: error?.message || 'Could not cancel QR login.',
+    });
+  }
+});
+
+router.post('/api/auth/qr-login/challenge/:id/claim', qrLoginClaimLimiter, requireSessionTransport, (req, res) => {
   try {
     const pollToken = String(req.body?.token || '').trim();
     if (!pollToken) {
@@ -767,28 +831,13 @@ router.post('/api/auth/password/reset', passwordResetLimiter, async (req, res) =
         error: 'Open the full password reset link from your NeoAgent email.',
       });
     }
-    const passwordStrength = evaluatePasswordStrength(password);
-    if (!passwordStrength.hasMinimumLength) {
-      return sendPasswordResetPage(res, {
-        token,
-        error: 'Use a password with at least 8 characters.',
-      });
-    }
-    if (!passwordStrength.isAcceptable) {
-      return sendPasswordResetPage(res, {
-        token,
-        error: passwordStrengthError(passwordStrength),
-      });
-    }
     if (password !== confirmPassword) {
       return sendPasswordResetPage(res, {
         token,
         error: 'Passwords do not match.',
       });
     }
-    const hash = await bcrypt.hash(password, 12);
-    const result = consumePasswordResetToken(token, hash);
-    db.prepare('UPDATE users SET password_login_enabled = 1 WHERE id = ?').run(result.user.id);
+    const result = await consumePasswordResetToken(token, password);
     revokeAllSessionsForUser(result.user.id);
     sendPasswordChangedNotice(result.user).catch((noticeError) => {
       console.warn('Password reset notification failed:', noticeError.message);

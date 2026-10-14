@@ -3,6 +3,7 @@
 const db = require('../../db/database');
 const { resolveAgentId } = require('../agents/manager');
 const { throwIfAborted } = require('../../utils/abort');
+const { fenceUntrusted } = require('../../utils/untrusted_text');
 
 const WEB_SUMMARY_KEY = 'web_chat_summary';
 const WEB_SUMMARY_COUNT_KEY = 'web_chat_summary_count';
@@ -37,7 +38,7 @@ function buildStoredUserContent({ userMessage, rawUserMessage, platform, speaker
     isGroup ? 'group message' : 'message',
     String(speaker || '').trim() ? `from ${String(speaker).trim()}` : '',
   ].filter(Boolean).join(' ');
-  return `[${origin}]\n<external_message>\n${raw}\n</external_message>`;
+  return `[${origin}]\n${fenceUntrusted('external_message', raw)}`;
 }
 
 function normalizeHistoryRows(rows) {
@@ -205,6 +206,23 @@ function clearWebChatSummary(userId, options = {}) {
   db.prepare('DELETE FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key IN (?, ?)').run(userId, agentId, WEB_SUMMARY_KEY, WEB_SUMMARY_COUNT_KEY);
 }
 
+// The web chat transcript keeps the final answer of every completed run.
+function storeWebRunReply({ userId, agentId, conversationId = null, result, platform }) {
+  if (result?.status !== 'completed' || !result?.content) return;
+  db.prepare(
+    `INSERT INTO conversation_history (
+      user_id, agent_id, agent_run_id, conversation_id, role, content, metadata
+    ) VALUES (?, ?, ?, ?, 'assistant', ?, ?)`,
+  ).run(
+    userId,
+    agentId,
+    result.runId,
+    conversationId,
+    result.content,
+    JSON.stringify({ tokens: result.totalTokens, platform }),
+  );
+}
+
 function getConversationContext(conversationId, recentLimit) {
   const convo = db.prepare(
     'SELECT summary, summary_message_count FROM conversations WHERE id = ?'
@@ -232,5 +250,6 @@ module.exports = {
   getConversationContext,
   getWebChatContext,
   sanitizeConversationMessages,
+  storeWebRunReply,
   summarizeMessages
 };

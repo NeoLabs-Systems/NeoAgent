@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:notification_listener_service/notification_listener_service.dart';
 import 'package:notification_listener_service/notification_event.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 class NotificationInterceptor {
   static final NotificationInterceptor _instance =
@@ -12,7 +14,7 @@ class NotificationInterceptor {
 
   static const Duration _perAppCooldown = Duration(seconds: 60);
 
-  bool _isListening = false;
+  StreamSubscription<ServiceNotificationEvent>? _subscription;
   String _backendUrl = '';
   String _token = '';
   final Map<String, DateTime> _lastTriggerTimes = {};
@@ -22,14 +24,18 @@ class NotificationInterceptor {
     _token = token;
 
     final isGranted = await NotificationListenerService.isPermissionGranted();
-    if (isGranted && !_isListening) {
+    if (isGranted && _subscription == null) {
       _startListening();
     }
   }
 
+  void stop() {
+    _subscription?.cancel();
+    _subscription = null;
+  }
+
   void _startListening() {
-    _isListening = true;
-    NotificationListenerService.notificationsStream.listen((
+    _subscription = NotificationListenerService.notificationsStream.listen((
       ServiceNotificationEvent event,
     ) {
       if (event.packageName == null ||
@@ -67,7 +73,7 @@ class NotificationInterceptor {
         }),
       );
     } catch (e) {
-      debugPrint('Failed to send notification to backend: $e');
+      debugPrint(appStrings.failedToSendNotificationToBackend(e));
     }
   }
 }

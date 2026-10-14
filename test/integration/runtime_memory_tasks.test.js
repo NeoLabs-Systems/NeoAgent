@@ -66,6 +66,20 @@ describe('runtime, settings, memory, tasks, and messaging routes', () => {
     assert.equal(settings.body.timezone_auto, false);
   });
 
+  test('ui language accepts the shipped languages and is stored on the account', async () => {
+    await client.put('/api/settings').send({ ui_language: 'klingon' }).expect(400);
+    await client.put('/api/settings/ui_language').send({ value: 'klingon' }).expect(400);
+    await client.put('/api/settings').send({ ui_language: 'DE' }).expect(200);
+    assert.equal((await client.get('/api/settings').expect(200)).body.ui_language, 'de');
+    await client.put('/api/settings/ui_language').send({ value: 'en' }).expect(200);
+    assert.equal((await client.get('/api/settings/ui_language').expect(200)).body.value, 'en');
+    const { UI_LANGUAGE_CODES } = require('../../server/config/ui_languages');
+    for (const code of UI_LANGUAGE_CODES) {
+      await client.put('/api/settings/ui_language').send({ value: code }).expect(200);
+      assert.equal((await client.get('/api/settings/ui_language').expect(200)).body.value, code);
+    }
+  });
+
   test('memory overview, CRUD, recall, and core routes run without external services', async () => {
     const overview = await client.get('/api/memory').expect(200);
     assert.equal(typeof overview.body.agentId, 'string');

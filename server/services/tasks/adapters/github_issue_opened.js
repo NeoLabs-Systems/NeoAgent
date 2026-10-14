@@ -1,11 +1,7 @@
 'use strict';
 
-const {
-  ensureOwnedIntegrationConnection,
-  normalizeTrimmedText,
-} = require('../security');
-
-const OWNER_REPO_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+const { normalizeTrimmedText } = require('../security');
+const { connectionConfig, ownerRepo, sortByTimestamp, summaryParts } = require('./shared');
 
 function normalizeLabels(value) {
   const raw = Array.isArray(value) ? value : String(value || '').split(',');
@@ -18,22 +14,11 @@ module.exports = {
   label: 'GitHub Issue Opened',
   providerKey: 'github',
   appKey: 'repos',
+  configHint: '{ connectionId, repo: "owner/repo", author?, assignee?, labels?: "bug,urgent" (all must match), query?: text in title/body }',
   async validateConfig(config = {}, context = {}) {
-    const connection = ensureOwnedIntegrationConnection(context.integrationManager, {
-      userId: context.userId,
-      agentId: context.agentId,
-      connectionId: config.connectionId || config.connection_id,
-      providerKey: 'github',
-      appKey: 'repos',
-    });
-    const repo = normalizeTrimmedText(config.repo || config.owner_repo, 200);
-    if (!OWNER_REPO_PATTERN.test(repo)) {
-      throw new Error('GitHub repository is required in the format "owner/repo".');
-    }
     return {
-      connectionId: connection.id,
-      accountEmail: connection.account_email || null,
-      repo,
+      ...connectionConfig(config, context, 'github', 'repos'),
+      repo: ownerRepo(config),
       author: normalizeTrimmedText(config.author || config.creator, 100).replace(/^@/, ''),
       assignee: normalizeTrimmedText(config.assignee, 100).replace(/^@/, ''),
       labels: normalizeLabels(config.labels),
@@ -41,12 +26,53 @@ module.exports = {
     };
   },
   summarize(config = {}) {
-    const parts = ['GitHub Issues'];
-    if (config.repo) parts.push(config.repo);
-    if (config.author) parts.push(`author: ${config.author}`);
-    if (config.assignee) parts.push(`assignee: ${config.assignee}`);
-    if (config.labels) parts.push(`labels: ${config.labels}`);
-    if (config.query) parts.push(`contains: ${config.query}`);
-    return parts.join(' · ');
+    return summaryParts('GitHub Issues', [
+      config.repo,
+      config.author && `author: ${config.author}`,
+      config.assignee && `assignee: ${config.assignee}`,
+      config.labels && `labels: ${config.labels}`,
+      config.query && `contains: ${config.query}`,
+    ]);
+  },
+  poll: {
+    intervalMinutes: 1,
+    cursor: 'list',
+    async fetchRows({ tool, config }) {
+      // state=all keeps the checkpoint issue in the list after it is closed, so
+      // closing it never makes older issues look new.
+      const result = await tool('github_list_issues', {
+        owner_repo: config.repo,
+        state: 'all',
+        creator: config.author || undefined,
+        assignee: config.assignee || undefined,
+        labels: config.labels || undefined,
+        sort: 'created',
+        direction: 'desc',
+        max_results: 30,
+      });
+      const issues = Array.isArray(result) ? result : [];
+      const query = String(config.query || '').toLowerCase();
+      return issues
+        // The issues endpoint also returns pull requests.
+        .filter((item) => item && !item.pull_request)
+        .filter((item) => !query || `${item.title || ''}\n${item.body || ''}`.toLowerCase().includes(query))
+        .map((item) => ({
+          fingerprint: `github_issue:${config.connectionId}:${config.repo}:${item.number}`,
+          timestamp: item.created_at || new Date().toISOString(),
+          context: {
+            triggerEvent: {
+              provider: 'github',
+              repo: config.repo,
+              issueNumber: item.number,
+              title: item.title || '',
+              body: item.body || '',
+              author: item.user?.login || null,
+              labels: Array.isArray(item.labels) ? item.labels.map((label) => label?.name).filter(Boolean) : [],
+              url: item.html_url || null,
+            },
+          },
+        }))
+        .sort(sortByTimestamp);
+    },
   },
 };

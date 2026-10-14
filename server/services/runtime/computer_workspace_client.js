@@ -67,6 +67,15 @@ class ComputerWorkspaceClient {
     }
   }
 
+  async writeBinaryFile(userId, options = {}) {
+    const result = await this.#request(userId, 'PUT', '/workspace/files/content', {
+      path: options.path,
+      content: Buffer.from(options.content).toString('base64'),
+      encoding: 'base64',
+    }, options);
+    return { ...result, path: toGuestWorkspacePath(result.path) };
+  }
+
   async editFile(userId, options = {}) {
     let current;
     try {

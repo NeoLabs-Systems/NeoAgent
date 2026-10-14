@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const { readCatalogFacts, recordReferenceModels } = require('./model_reference');
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const PERMANENT_ERROR_BACKOFF_MS = 30 * 60 * 1000;
@@ -11,15 +12,15 @@ const providerModelCache = new Map();
 const providerRefreshes = new Map();
 const ollamaModelCache = new Map();
 const ollamaRefreshes = new Map();
-const openrouterPricingCache = new Map();
 
-function inferModelPurpose(id) {
-  const value = id.toLowerCase();
-  if (/flash|nano|lite|tiny|haiku|scout|mini(?!max)|small/.test(value)) return 'fast';
-  if (/r1|qwq|o[0-9]|reasoning|thinking/.test(value)) return 'planning';
-  if (/code|coder|starcoder|devstral|codex|codegemma/.test(value)) return 'coding';
-  return 'general';
-}
+// Chat models come from listModels(), SystemOne decision models from
+// listDecisionModels(), live voice models from listLiveVoiceModels(). Each
+// catalog is discovered and cached on its own.
+const CATALOG_LISTERS = Object.freeze({
+  llm: (provider, signal) => provider.listModels(signal),
+  decisions: (provider, signal) => provider.listDecisionModels(signal),
+  voice: (provider, signal) => provider.listLiveVoiceModels(signal),
+});
 
 const PROVIDER_LABELS = Object.freeze({
   openai: (model) => `${model.id} (OpenAI)`,
@@ -30,11 +31,15 @@ const PROVIDER_LABELS = Object.freeze({
   grok: (model) => `${model.id} (xAI)`,
   'grok-oauth': (model) => `${model.id} (xAI OAuth)`,
   openrouter: (model) => `${model.name || model.id} (OpenRouter)`,
+  typesafe: (model) => `${model.id} (TypeSafe)`,
+  ollama: (model) => `${model.id} (Ollama / Local)`,
 });
 
-function cacheKeyForProvider(providerId, apiKey, baseUrl) {
+function cacheKeyForProvider(providerId, apiKey, baseUrl, catalog) {
   return crypto
     .createHash('sha256')
+    .update(String(catalog))
+    .update('\0')
     .update(String(providerId || ''))
     .update('\0')
     .update(String(apiKey || ''))
@@ -97,48 +102,39 @@ function normalizeRawModels(rawModels, providerId) {
     const id = String(model?.id || '').trim();
     if (!id || seen.has(id)) continue;
     seen.add(id);
+    const { createdAt, supportsTools } = readCatalogFacts(model);
     normalized.push({
       id,
       label: labelModel({ ...model, id }),
       provider: providerId,
-      purpose: inferModelPurpose(id),
+      // Chat models get theirs from their price once it is known; a decision
+      // model has none.
+      purpose: '',
+      createdAt,
+      supportsTools,
+      ...(model.thinking === true ? { thinking: true } : {}),
     });
   }
   return normalized;
-}
-
-function updateOpenRouterPricing(rawModels) {
-  if (!Array.isArray(rawModels)) return;
-  for (const model of rawModels) {
-    if (!model || typeof model !== 'object' || model.pricing?.prompt == null) continue;
-    const inputPerM = Number.parseFloat(model.pricing.prompt) * 1_000_000;
-    if (!Number.isFinite(inputPerM) || inputPerM < 0) continue;
-    openrouterPricingCache.set(model.id, inputPerM);
-    if (!model.id.includes('/')) continue;
-    const bareId = model.id.slice(model.id.indexOf('/') + 1);
-    if (!openrouterPricingCache.has(bareId)) {
-      openrouterPricingCache.set(bareId, inputPerM);
-    }
-  }
 }
 
 function isPermanentDiscoveryError(error) {
   return /401|403|unauthorized|forbidden|credits|spending/i.test(String(error?.message || ''));
 }
 
-async function loadProviderModels({ providerId, factory, apiKey, baseUrl, existing }) {
+async function loadProviderModels({ providerId, factory, apiKey, baseUrl, catalog, existing }) {
   try {
     const config = {};
     if (factory.apiKey) config.apiKey = apiKey;
     if (factory.baseUrl) config.baseUrl = baseUrl;
     const provider = new factory.Provider(config);
-    const rawModels = await runDiscovery((signal) => provider.listModels(signal));
-    if (providerId === 'openrouter') updateOpenRouterPricing(rawModels);
+    const rawModels = await runDiscovery((signal) => CATALOG_LISTERS[catalog](provider, signal));
+    if (providerId === 'openrouter') recordReferenceModels(rawModels);
     const models = normalizeRawModels(rawModels, providerId);
     const entry = { models, expiresAt: Date.now() + REFRESH_INTERVAL_MS };
     return entry;
   } catch (error) {
-    console.warn(`[Models] Failed to refresh ${providerId} models:`, error.message);
+    console.warn(`[Models] Failed to refresh ${providerId} ${catalog} models:`, error.message);
     const models = existing?.models || [];
     const retryAfterMs = isPermanentDiscoveryError(error)
       ? PERMANENT_ERROR_BACKOFF_MS
@@ -147,14 +143,24 @@ async function loadProviderModels({ providerId, factory, apiKey, baseUrl, existi
   }
 }
 
-async function refreshProviderModelList({ providerId, factory, apiKey, baseUrl, signal }) {
-  const cacheKey = cacheKeyForProvider(providerId, apiKey, baseUrl);
+// staleOk: a caller that should not wait (a call being set up) takes the last
+// list while the next one loads; only the very first lookup waits.
+async function refreshProviderModelList({
+  providerId,
+  factory,
+  apiKey,
+  baseUrl,
+  catalog = 'llm',
+  staleOk = false,
+  signal,
+}) {
+  const cacheKey = cacheKeyForProvider(providerId, apiKey, baseUrl, catalog);
   const existing = providerModelCache.get(cacheKey);
   if (existing && existing.expiresAt > Date.now()) return existing.models;
 
   let refresh = providerRefreshes.get(cacheKey);
   if (!refresh) {
-    refresh = loadProviderModels({ providerId, factory, apiKey, baseUrl, existing })
+    refresh = loadProviderModels({ providerId, factory, apiKey, baseUrl, catalog, existing })
       .then((entry) => {
         providerModelCache.set(cacheKey, entry);
         return entry.models;
@@ -162,6 +168,7 @@ async function refreshProviderModelList({ providerId, factory, apiKey, baseUrl, 
       .finally(() => providerRefreshes.delete(cacheKey));
     providerRefreshes.set(cacheKey, refresh);
   }
+  if (existing && staleOk) return existing.models;
   return waitForSharedResult(refresh, signal);
 }
 
@@ -169,11 +176,7 @@ async function loadOllamaModels({ baseUrl, Provider, existing }) {
   try {
     const provider = new Provider({ baseUrl });
     const rawModels = await runDiscovery((signal) => provider.listModels(signal));
-    const models = normalizeRawModels(rawModels, 'ollama').map((model) => ({
-      ...model,
-      label: `${model.id} (Ollama / Local)`,
-      purpose: 'general',
-    }));
+    const models = normalizeRawModels(rawModels, 'ollama');
     return { models, expiresAt: Date.now() + OLLAMA_REFRESH_INTERVAL_MS };
   } catch (error) {
     console.warn('[Models] Failed to refresh Ollama models:', error.message);
@@ -202,22 +205,7 @@ async function refreshOllamaModels({ baseUrl, Provider, signal }) {
   return waitForSharedResult(refresh, signal);
 }
 
-function getInputCostPerM(modelId) {
-  return openrouterPricingCache.get(modelId);
-}
-
-function classifyPriceTier(modelId) {
-  const costPerM = getInputCostPerM(modelId);
-  if (costPerM === undefined) return null;
-  if (costPerM === 0) return 'free';
-  if (costPerM < 0.5) return 'cheap';
-  if (costPerM < 5) return 'medium';
-  return 'expensive';
-}
-
 module.exports = {
-  classifyPriceTier,
-  getInputCostPerM,
   refreshOllamaModels,
   refreshProviderModelList,
 };

@@ -43,6 +43,7 @@ const {
   runBackgroundTask,
 } = require('./bootstrap_helpers');
 const { startSetupDiscovery } = require('./setup/discovery');
+const { resumeInterruptedRuns } = require('./ai/runtime/restart_resume');
 const { DEFAULT_NEOAGENT_PORT } = require('../../lib/setup/contract');
 
 function registerLocal(app, key, value) {
@@ -68,11 +69,11 @@ function createWorkspaceManager(app) {
   return workspaceManager;
 }
 
-function createTimelineService(app, io) {
+function createTimelineService(app) {
   const timelineService = registerLocal(
     app,
     'timelineService',
-    new TimelineService({ io }),
+    new TimelineService(),
   );
   logServiceReady('Timeline service ready');
   return timelineService;
@@ -288,12 +289,11 @@ function createMessagingManager(app, io, agentEngine) {
   return messagingManager;
 }
 
-function createVoiceRuntimeManager(app, io, { agentEngine, memoryManager }) {
+function createVoiceRuntimeManager(app, { agentEngine, memoryManager }) {
   const voiceRuntimeManager = registerLocal(
     app,
     'voiceRuntimeManager',
     new VoiceRuntimeManager({
-      io,
       agentEngine,
       memoryManager,
     }),
@@ -351,7 +351,7 @@ function createWearableService(app) {
 }
 
 function restoreMessagingConnections(messagingManager) {
-  void runBackgroundTask('[Messaging] Restore error:', () =>
+  return runBackgroundTask('[Messaging] Restore error:', () =>
     messagingManager.restoreConnections(),
   );
 }
@@ -392,13 +392,15 @@ function configureRealtime(app, io, services) {
   logServiceReady('WebSocket handlers registered');
 }
 
-async function startServices(app, io) {
+// `resumeRuns` is for the long-lived server only: a one-shot process sharing
+// the database (`neoagent exec`) must not pick up the server's interrupted work.
+async function startServices(app, io, { resumeRuns = false } = {}) {
   console.log('[Services] Starting service initialization');
 
   try {
     const artifactStore = createArtifactStore(app);
     createWorkspaceManager(app);
-    createTimelineService(app, io);
+    createTimelineService(app);
     const memoryManager = createMemoryManager(app);
     const mcpClient = createMcpClient(app);
     createAuthProviderManager(app);
@@ -450,7 +452,7 @@ async function startServices(app, io) {
     logServiceReady('Tool security hooks registered');
     createMultiStep(app, agentEngine, io);
     createCommandRouter(app);
-    const voiceRuntimeManager = createVoiceRuntimeManager(app, io, {
+    const voiceRuntimeManager = createVoiceRuntimeManager(app, {
       agentEngine,
       memoryManager,
     });
@@ -464,7 +466,7 @@ async function startServices(app, io) {
     createSocialReachService(app);
     createWearableService(app);
 
-    restoreMessagingConnections(messagingManager);
+    const messagingRestored = restoreMessagingConnections(messagingManager);
     restoreMcpClients(mcpClient);
 
     registerMessagingAutomation({
@@ -497,15 +499,12 @@ async function startServices(app, io) {
       }),
     );
 
-    // Sync billing rate limits for all active subscribers in case any
-    // Stripe webhooks were delivered while the server was offline.
-    try {
-      const { isBillingEnabled } = require('./billing/config');
-      if (isBillingEnabled()) {
-        require('./billing/subscriptions').syncAllSubscriberRateLimits();
-      }
-    } catch {
-      // Best-effort; never block startup.
+    // A resumed messaging run delivers through its platform, so it waits for
+    // the connections to come back.
+    if (resumeRuns) {
+      void messagingRestored.then(() => resumeInterruptedRuns(agentEngine)).catch((err) => {
+        console.error('[Runtime] Resuming interrupted runs failed:', getErrorMessage(err));
+      });
     }
 
     console.log('All services initialized');

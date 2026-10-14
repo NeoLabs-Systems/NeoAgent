@@ -162,6 +162,20 @@ const microsoftToolDefinitions = [
   },
   {
     appId: 'teams',
+    name: 'microsoft_365_teams_list_chat_messages',
+    access: 'read',
+    description: 'List the newest messages in a Microsoft Teams chat.',
+    parameters: {
+      type: 'object',
+      properties: {
+        chat_id: { type: 'string', description: 'Microsoft Graph chat ID.' },
+        top: { type: 'number', description: 'Maximum messages, default 20.' },
+      },
+      required: ['chat_id'],
+    },
+  },
+  {
+    appId: 'teams',
     name: 'microsoft_365_teams_send_chat_message',
     access: 'write',
     description: 'Send a Microsoft Teams chat message.',
@@ -302,10 +316,13 @@ async function executeMicrosoftTool(toolName, args, context, executionOptions = 
       return {
         result: await graphRequest(context, {
           path,
+          // Graph refuses $orderby next to $search; search results already
+          // come newest first.
           query: {
             '$top': Math.max(1, Math.min(Number(args.top) || 10, 50)),
-            '$orderby': 'receivedDateTime desc',
-            ...(args.query ? { '$search': `"${String(args.query).replace(/"/g, '\\"')}"` } : {}),
+            ...(args.query
+              ? { '$search': `"${String(args.query).replace(/"/g, '\\"')}"` }
+              : { '$orderby': 'receivedDateTime desc' }),
           },
         }),
       };
@@ -402,6 +419,13 @@ async function executeMicrosoftTool(toolName, args, context, executionOptions = 
       return {
         result: await graphRequest(context, {
           path: '/v1.0/me/chats',
+          query: { '$top': Math.max(1, Math.min(Number(args.top) || 20, 50)) },
+        }),
+      };
+    case 'microsoft_365_teams_list_chat_messages':
+      return {
+        result: await graphRequest(context, {
+          path: `/v1.0/me/chats/${encodeURIComponent(requireText(args.chat_id, 'chat_id'))}/messages`,
           query: { '$top': Math.max(1, Math.min(Number(args.top) || 20, 50)) },
         }),
       };

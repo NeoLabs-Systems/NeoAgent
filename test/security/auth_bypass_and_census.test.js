@@ -28,10 +28,13 @@ const PUBLIC_ROUTES = new Set([
   'POST /api/auth/password/forgot',
   'POST /api/auth/password/reset',
   'POST /api/auth/providers/:provider/begin',
+  'POST /api/auth/providers/register',
   'POST /api/auth/qr-login/challenge',
   'POST /api/auth/qr-login/challenge/:id/status',
+  'POST /api/auth/qr-login/challenge/:id/cancel',
   'POST /api/auth/qr-login/challenge/:id/claim',
   'POST /api/auth/register',
+  'POST /api/auth/signup-key/check',
   'POST /api/auth/webauthn/login/options',
   'POST /api/auth/webauthn/login/verify',
   'POST /api/messaging/webhook/:platform',
@@ -39,6 +42,7 @@ const PUBLIC_ROUTES = new Set([
 
 const INTENTIONALLY_UNTESTED = new Map([
   ['GET /api/integrations/oauth/callback', 'OAuth callback depends on provider state.'],
+  ['GET /api/integrations/oauth/callback/confirm', 'Releases a held OAuth callback with its one-time confirmation token.'],
   ['GET /api/integrations/qr-image', 'QR image generation is covered by integration service tests.'],
   ['GET /api/integrations/:provider/connect/:sessionId', 'OAuth popup HTML flow.'],
   ['GET /api/integrations/:provider/connect/:sessionId/status', 'OAuth popup polling flow.'],

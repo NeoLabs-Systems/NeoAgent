@@ -27,15 +27,11 @@ function getServerVersion() {
     gitVersion: version.gitVersion,
     gitSha: version.gitSha,
     gitBranch: version.gitBranch,
-    releaseChannel: status.releaseChannel || version.releaseChannel,
+    releaseChannel: version.releaseChannel,
     deploymentMode: version.deploymentMode,
     allowSelfUpdate: version.allowSelfUpdate,
-    updateStatus: {
-      state: status.state,
-      progress: status.progress,
-      phase: status.phase,
-      message: status.message,
-    },
+    containerImage: version.containerImage,
+    updateStatus: status,
     uptime: process.uptime(),
     nodeVersion: process.version,
     environment: Object.fromEntries(ENVIRONMENT_KEYS.map((key) => [key, process.env[key] || ''])),
@@ -102,7 +98,7 @@ function runHealthChecks(runtimeManager) {
     },
   ];
   if (process.env.DEEPGRAM_API_KEY) {
-    results.push({ id: 'deepgram', label: 'Deepgram (voice)', passed: true, detail: 'API key configured' });
+    results.push({ id: 'deepgram', label: 'Deepgram (transcription)', passed: true, detail: 'API key configured' });
   }
 
   return { passed: results.every((result) => result.passed), results };

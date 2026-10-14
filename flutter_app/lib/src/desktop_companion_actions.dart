@@ -9,6 +9,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'desktop_command_output.dart';
 import 'desktop_native_bridge.dart';
 import 'desktop_screen_capture.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 // ─── Isolate helpers for JPEG compression ────────────────────────────────────
 // `compressToJpeg` offloads the CPU-intensive pure-Dart PNG→JPEG conversion
@@ -28,7 +29,7 @@ String resolveDesktopDisplaySelection(
     throw ArgumentError.value(
       requested,
       'displayId',
-      'Display ID is required.',
+      appStrings.displayIdIsRequired,
     );
   }
   final displays = rawDisplays is List
@@ -44,7 +45,7 @@ String resolveDesktopDisplaySelection(
             .toList(growable: false)
       : const <Map<String, Object?>>[];
   if (displays.isEmpty) {
-    throw StateError('No desktop displays are currently available.');
+    throw StateError(appStrings.noDesktopDisplaysAreCurrentlyAvailable);
   }
 
   if (normalized.toLowerCase() == 'primary') {
@@ -67,7 +68,7 @@ String resolveDesktopDisplaySelection(
   throw ArgumentError.value(
     requested,
     'displayId',
-    'The requested desktop display is not available.',
+    appStrings.theRequestedDesktopDisplayIsNot,
   );
 }
 
@@ -207,7 +208,7 @@ class DesktopCompanionActions {
       displays: <Map<String, Object?>>[
         <String, Object?>{
           'id': 'primary',
-          'label': 'Primary Display',
+          'label': appStrings.primaryDisplay,
           'width': width,
           'height': height,
           'scaleFactor': 1,
@@ -258,7 +259,7 @@ class DesktopCompanionActions {
   Future<Map<String, Object?>> captureFrame({String? activeDisplayId}) async {
     final snapshot = await captureSnapshot(activeDisplayId: activeDisplayId);
     if (snapshot == null) {
-      throw Exception('Desktop capture is not available on this platform.');
+      throw Exception(appStrings.desktopCaptureIsNotAvailableOn);
     }
     return <String, Object?>{
       'screenshotBase64': snapshot.screenshotBase64,
@@ -327,7 +328,7 @@ class DesktopCompanionActions {
         ]),
       );
     } else {
-      throw Exception('click is not supported on this platform.');
+      throw Exception(appStrings.clickIsNotSupportedOnThis);
     }
     return <String, Object?>{'success': true, 'x': x, 'y': y, 'button': button};
   }
@@ -343,7 +344,7 @@ class DesktopCompanionActions {
     } else if (defaultTargetPlatform == TargetPlatform.linux) {
       await _run(_ShellCommand('xdotool', <String>['mousemove', '$x', '$y']));
     } else {
-      throw Exception('mouseMove is not supported on this platform.');
+      throw Exception(appStrings.mousemoveIsNotSupportedOnThis);
     }
     return <String, Object?>{'success': true, 'x': x, 'y': y};
   }
@@ -375,7 +376,7 @@ class DesktopCompanionActions {
       await _run(_ShellCommand('xdotool', <String>['mousemove', '$x2', '$y2']));
       await _run(_ShellCommand('xdotool', const <String>['mouseup', '1']));
     } else {
-      throw Exception('drag is not supported on this platform.');
+      throw Exception(appStrings.dragIsNotSupportedOnThis);
     }
     return <String, Object?>{
       'success': true,
@@ -432,7 +433,7 @@ class DesktopCompanionActions {
         );
       }
     } else {
-      throw Exception('scroll is not supported on this platform.');
+      throw Exception(appStrings.scrollIsNotSupportedOnThis);
     }
     return <String, Object?>{
       'success': true,
@@ -464,7 +465,7 @@ class DesktopCompanionActions {
         await _run(_ShellCommand('xdotool', const <String>['key', 'Return']));
       }
     } else {
-      throw Exception('type text is not supported on this platform.');
+      throw Exception(appStrings.typeTextIsNotSupportedOn);
     }
     return <String, Object?>{
       'success': true,
@@ -480,18 +481,18 @@ class DesktopCompanionActions {
     } else if (defaultTargetPlatform == TargetPlatform.linux) {
       final normalized = key.trim();
       if (normalized.isEmpty) {
-        throw Exception('Key is required.');
+        throw Exception(appStrings.keyIsRequired);
       }
       await _run(_ShellCommand('xdotool', <String>['key', normalized]));
     } else {
-      throw Exception('press keys is not supported on this platform.');
+      throw Exception(appStrings.pressKeysIsNotSupportedOn);
     }
     return <String, Object?>{'success': true, 'key': key};
   }
 
   Future<Map<String, Object?>> launchApp({required String app}) async {
     if (app.trim().isEmpty) {
-      throw Exception('App name is required.');
+      throw Exception(appStrings.appNameIsRequired);
     }
     final command = switch (defaultTargetPlatform) {
       TargetPlatform.macOS => _ShellCommand('open', <String>['-a', app]),
@@ -499,7 +500,7 @@ class DesktopCompanionActions {
         '-NoProfile',
         '-NonInteractive',
         '-Command',
-        'Start-Process -FilePath ${_psQuote(app)}',
+        appStrings.startProcessFilepathArg1(_psQuote(app)),
       ]),
       TargetPlatform.linux => _ShellCommand('sh', <String>[
         '-lc',
@@ -508,7 +509,7 @@ class DesktopCompanionActions {
       TargetPlatform.android ||
       TargetPlatform.iOS ||
       TargetPlatform.fuchsia => throw Exception(
-        'Launching desktop apps is not supported on this platform.',
+        appStrings.launchingDesktopAppsIsNotSupported,
       ),
     };
     await _run(command);
@@ -523,7 +524,7 @@ class DesktopCompanionActions {
       throw ArgumentError.value(
         uri,
         'uri',
-        'An http or https URL is required.',
+        appStrings.anHttpOrHttpsUrlIs,
       );
     }
     final command = switch (defaultTargetPlatform) {
@@ -542,7 +543,7 @@ class DesktopCompanionActions {
       TargetPlatform.android ||
       TargetPlatform.iOS ||
       TargetPlatform.fuchsia => throw Exception(
-        'Opening desktop URLs is not supported on this platform.',
+        appStrings.openingDesktopUrlsIsNotSupported,
       ),
     };
     await _run(command);
@@ -553,10 +554,10 @@ class DesktopCompanionActions {
     final home =
         Platform.environment[Platform.isWindows ? 'USERPROFILE' : 'HOME'];
     if (home == null || home.trim().isEmpty) {
-      throw StateError('The local user home directory is unavailable.');
+      throw StateError(appStrings.theLocalUserHomeDirectoryIs);
     }
     return Directory(
-      '${home.trim()}${Platform.pathSeparator}NeoAgent Workspace',
+      appStrings.arg1Arg2NeoagentWorkspace(home.trim(), Platform.pathSeparator),
     );
   }
 
@@ -568,7 +569,7 @@ class DesktopCompanionActions {
       throw ArgumentError.value(
         workspaceRoot,
         'workspaceRoot',
-        'Workspace override must be an absolute path.',
+        appStrings.workspaceOverrideMustBeAnAbsolute,
       );
     }
     return overrideDir;
@@ -584,7 +585,7 @@ class DesktopCompanionActions {
       throw ArgumentError.value(
         relativePath,
         'path',
-        'Path must stay inside the workspace folder.',
+        appStrings.pathMustStayInsideTheWorkspace,
       );
     }
     final root = _resolveWorkspaceDirectory(workspaceRoot).absolute;
@@ -612,7 +613,7 @@ class DesktopCompanionActions {
       final type = await FileSystemEntity.type(current, followLinks: false);
       if (type == FileSystemEntityType.link) {
         throw FileSystemException(
-          'Symbolic links are not allowed in NeoAgent Workspace paths.',
+          appStrings.symbolicLinksAreNotAllowedIn,
           current,
         );
       }
@@ -620,7 +621,7 @@ class DesktopCompanionActions {
       final parent = FileSystemEntity.parentOf(current);
       if (parent == current || current.length < root.length) {
         throw FileSystemException(
-          'Path must stay inside NeoAgent Workspace.',
+          appStrings.pathMustStayInsideNeoagentWorkspace,
           target,
         );
       }
@@ -639,7 +640,7 @@ class DesktopCompanionActions {
         )
         as Directory;
     if (!await directory.exists()) {
-      throw FileSystemException('Directory does not exist.', path);
+      throw FileSystemException(appStrings.directoryDoesNotExist, path);
     }
     final rootPath = _resolveWorkspaceDirectory(workspaceRoot).absolute.path;
     final entries = <Map<String, Object?>>[];
@@ -690,7 +691,7 @@ class DesktopCompanionActions {
     final size = await file.length();
     final maximum = base64 ? 24 * 1024 * 1024 : 1024 * 1024;
     if (size > maximum) {
-      throw FileSystemException('File exceeds the supported size limit.', path);
+      throw FileSystemException(appStrings.fileExceedsTheSupportedSizeLimit, path);
     }
     final bytes = await file.readAsBytes();
     return <String, Object?>{
@@ -709,7 +710,7 @@ class DesktopCompanionActions {
     String? workspaceRoot,
   }) async {
     if (utf8.encode(content).length > 1024 * 1024) {
-      throw FileSystemException('File exceeds the 1 MiB editor limit.', path);
+      throw FileSystemException(appStrings.fileExceedsThe1MibEditor, path);
     }
     final file = await _workspaceEntity(
           path,
@@ -790,7 +791,7 @@ class DesktopCompanionActions {
     List<String> inputs = const <String>[],
   }) async {
     if (command.trim().isEmpty) {
-      throw ArgumentError.value(command, 'command', 'Command is required.');
+      throw ArgumentError.value(command, 'command', appStrings.commandIsRequired);
     }
     final shell = Platform.isWindows
         ? 'cmd.exe'
@@ -999,7 +1000,7 @@ class DesktopCompanionActions {
         try {
           final result = await Process.run('sh', <String>[
             '-lc',
-            'command -v xdotool >/dev/null 2>&1',
+            appStrings.commandVXdotoolDevNull2,
           ]);
           return result.exitCode == 0;
         } catch (_) {
@@ -1131,7 +1132,7 @@ class DesktopCompanionActions {
     final supported = await _inputSupported();
     if (!supported) {
       throw Exception(
-        '$action is not available on ${defaultTargetPlatform.name} (missing runtime permission or dependency).',
+        appStrings.arg1IsNotAvailableOnArg2(action, defaultTargetPlatform.name),
       );
     }
   }
@@ -1209,7 +1210,7 @@ class DesktopCompanionActions {
     return <Map<String, Object?>>[
       <String, Object?>{
         'id': fallbackDisplayId,
-        'label': 'Primary Display',
+        'label': appStrings.primaryDisplay,
         'width': width,
         'height': height,
         'scaleFactor': 1,
@@ -1236,8 +1237,8 @@ class DesktopCompanionActions {
       final stdout = result.stdout?.toString().trim();
       final details = stderr?.isNotEmpty == true
           ? stderr
-          : (stdout?.isNotEmpty == true ? stdout : 'unknown error');
-      throw Exception('Command failed (${command.command}): $details');
+          : (stdout?.isNotEmpty == true ? stdout : appStrings.unknownError);
+      throw Exception(appStrings.commandFailedArg1Arg2(command.command, details));
     }
   }
 }

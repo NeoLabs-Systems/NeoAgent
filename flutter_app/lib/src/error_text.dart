@@ -1,11 +1,12 @@
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 String formatCaughtError(Object error) {
   var text = error.toString().trim();
-  for (final prefix in const [
+  for (final prefix in [
     'BackendException: ',
     'HealthBridgeException: ',
     'Exception: ',
-    'Bad state: ',
-    'Invalid argument(s): ',
+    appStrings.badState,
+    appStrings.invalidArgumentS,
     'StateError: ',
   ]) {
     if (text.startsWith(prefix)) {

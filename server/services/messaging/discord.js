@@ -1,6 +1,6 @@
 'use strict';
 
-const { BasePlatform } = require('./base');
+const { BasePlatform, missingConfigError } = require('./base');
 const {
   Client,
   GatewayIntentBits,
@@ -16,6 +16,12 @@ const log = createServiceLogger('Discord');
 const MAX_AUDIO_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
 const FATAL_DISCORD_CLOSE_CODES = new Set([4004, 4010, 4011, 4012, 4013, 4014]);
+const DISALLOWED_INTENTS_CLOSE_CODE = 4014;
+
+// The refusal arrives either as the shard close code or as the login rejection.
+function isDisallowedIntents(err) {
+  return err?.code === DISALLOWED_INTENTS_CLOSE_CODE || /disallowed intents/i.test(String(err?.message || ''));
+}
 
 /**
  * Whitelist entry format (prefixed strings):
@@ -48,28 +54,46 @@ class DiscordPlatform extends BasePlatform {
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
+  // Joins are delivered only with the privileged Server Members Intent. A bot
+  // that has not enabled it in the Developer Portal is refused at login, so the
+  // connection retries without it and join triggers stay quiet.
   async connect() {
-    if (!this.token) throw new Error('Discord bot token is required');
+    if (!this.token) throw missingConfigError('Discord bot token is required');
 
     this._manualDisconnect = false;
+    try {
+      return await this._login({ memberEvents: true });
+    } catch (err) {
+      if (!isDisallowedIntents(err)) throw err;
+      log.warn('Server Members Intent is not enabled for this bot; enable it in the Developer Portal for member-join task triggers.');
+      return this._login({ memberEvents: false });
+    }
+  }
+
+  _login({ memberEvents }) {
     if (this._client) { try { this._client.destroy(); } catch { } this._client = null; }
 
+    const intents = [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.MessageContent,  // Privileged — enable in Dev Portal
+      GatewayIntentBits.DirectMessages,
+      GatewayIntentBits.DirectMessageReactions,
+    ];
+    if (memberEvents) intents.push(GatewayIntentBits.GuildMembers);  // Privileged
     this._client = new Client({
-      intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,  // Privileged — enable in Dev Portal
-        GatewayIntentBits.DirectMessages,
-        GatewayIntentBits.DirectMessageReactions,
-      ],
-      partials: [Partials.Channel, Partials.Message, Partials.Reaction, Partials.User],
+      intents,
+      // GuildMember lets a leave arrive for a member who joined before this login.
+      partials: [Partials.Channel, Partials.Message, Partials.Reaction, Partials.User, Partials.GuildMember],
     });
 
     return new Promise((resolve, reject) => {
+      let ready = false;
       const timeout = setTimeout(() => reject(new Error('Discord login timed out after 20 s')), 20000);
 
       this._client.once('clientReady', async (c) => {
         clearTimeout(timeout);
+        ready = true;
         this._botUser = this._client.user;
         this.status = 'connected';
         console.log(`[Discord] Logged in as ${this._botUser.tag}`);
@@ -82,6 +106,11 @@ class DiscordPlatform extends BasePlatform {
       this._client.on('shardDisconnect', (event, shardId) => {
         if (this._manualDisconnect) return;
         const code = event?.code || null;
+        if (!ready && memberEvents && code === DISALLOWED_INTENTS_CLOSE_CODE) {
+          clearTimeout(timeout);
+          reject(Object.assign(new Error('Used disallowed intents'), { code }));
+          return;
+        }
         const fatal = FATAL_DISCORD_CLOSE_CODES.has(code);
         this.status = 'disconnected';
         console.warn(`[Discord] Shard ${shardId} disconnected (${code || 'unknown'})`);
@@ -112,6 +141,8 @@ class DiscordPlatform extends BasePlatform {
         this.emit('logged_out');
       });
       this._client.on('messageCreate', (msg) => this._handleMessage(msg));
+      this._client.on('guildMemberAdd', (member) => this._emitMembership('member_joined', member));
+      this._client.on('guildMemberRemove', (member) => this._emitMembership('member_left', member));
       this._client.on('messageReactionAdd', (reaction, user) => {
         this._handleReaction(reaction, user).catch((err) => {
           console.error('[Discord] Reaction handler error:', err.message);
@@ -148,24 +179,40 @@ class DiscordPlatform extends BasePlatform {
 
   // ── Channel context (last N messages) ─────────────────────────────────────
 
+  _contextEntry(m) {
+    const username = m.author.tag || m.author.username || m.author.id;
+    const displayName = m.member?.displayName || m.author.globalName || m.author.username || username;
+    const author = displayName && displayName !== username
+      ? `${displayName} (${username})`
+      : username;
+    return {
+      id: m.id,
+      author: m.author.bot ? `[bot] ${author}` : author,
+      content: m.content || (m.attachments.size ? '[attachment]' : '[empty]'),
+      mine: m.author.id === this._botUser?.id,
+    };
+  }
+
   async _fetchContext(channel, limit = 20) {
     try {
       const fetched = await channel.messages.fetch({ limit });
       return [...fetched.values()]
         .reverse()  // oldest first
-        .map((m) => {
-          const username = m.author.tag || m.author.username || m.author.id;
-          const displayName = m.member?.displayName || m.author.globalName || m.author.username || username;
-          const author = displayName && displayName !== username
-            ? `${displayName} (${username})`
-            : username;
-          return {
-            author: m.author.bot ? `[bot] ${author}` : author,
-            content: m.content || (m.attachments.size ? '[attachment]' : '[empty]'),
-            mine: m.author.id === this._botUser?.id,
-          };
-        });
+        .map((m) => this._contextEntry(m));
     } catch { return []; }
+  }
+
+  // The message a reply points at, from the fetched history when it is recent
+  // and from Discord otherwise.
+  async _replyTarget(message, channelContext) {
+    const referencedId = message.reference?.messageId;
+    const known = (channelContext || []).find((item) => item.id === referencedId);
+    if (known) return { sender: known.author, content: known.content };
+    try {
+      const referenced = await message.fetchReference();
+      const entry = this._contextEntry(referenced);
+      return { sender: entry.author, content: entry.content };
+    } catch { return null; }
   }
 
   // ── Reaction handler ───────────────────────────────────────────────────────
@@ -200,6 +247,25 @@ class DiscordPlatform extends BasePlatform {
       targetMessageId: full.message.id,
       emoji: full.emoji.toString(),
       timestamp: new Date().toISOString(),
+    });
+  }
+
+  // ── Membership handler ─────────────────────────────────────────────────────
+
+  // Joins and leaves are not messages: they never start a chat run and skip
+  // the access policy. They only feed tasks the owner set up for that server.
+  _emitMembership(kind, member) {
+    if (member.user?.bot) return;
+    this.emit(kind, {
+      spaceId: member.guild.id,
+      spaceName: member.guild.name || null,
+      chatId: member.guild.systemChannelId || null,
+      memberId: member.user.id,
+      memberName: member.displayName || member.user.globalName || member.user.username || member.user.id,
+      dmChatId: `dm_${member.user.id}`,
+      occurredAt: kind === 'member_joined' && member.joinedAt
+        ? member.joinedAt.toISOString()
+        : new Date().toISOString(),
     });
   }
 
@@ -263,6 +329,9 @@ class DiscordPlatform extends BasePlatform {
     const repliedToAgent = !isDM
       && message.reference?.messageId
       && message.mentions?.repliedUser?.id === this._botUser?.id;
+    const replyTo = !isDM && message.reference?.messageId && !repliedToAgent
+      ? await this._replyTarget(message, channelContext)
+      : null;
 
     this.emit('message', {
       platform: 'discord',
@@ -286,6 +355,7 @@ class DiscordPlatform extends BasePlatform {
         || null,
       botTag: this._botUser?.tag || null,
       replyToMessageId: message.reference?.messageId || null,
+      replyTo,
       content,
       mediaType: audio ? 'audio' : null,
       localMediaPath: audio?.filePath || null,

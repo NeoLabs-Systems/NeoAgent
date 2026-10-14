@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'desktop_screen_capture.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 const String desktopCompanionEnabledPrefsKey = 'desktop.companion.enabled';
 const String desktopCompanionLabelPrefsKey = 'desktop.companion.label';
@@ -19,7 +20,7 @@ class DesktopCompanionManager extends ChangeNotifier {
   bool get paused => false;
   bool get connecting => false;
   bool get connected => false;
-  String? get errorMessage => 'Desktop companion is not available here.';
+  String? get errorMessage => appStrings.desktopCompanionIsNotAvailableHere;
   String get label => 'Desktop';
   String get deviceId => '';
   String get activationId => '';
@@ -36,15 +37,15 @@ class DesktopCompanionManager extends ChangeNotifier {
   }) async {}
 
   Future<void> setEnabled(bool value, SharedPreferences prefs) async {
-    throw UnsupportedError('Desktop companion is not available here.');
+    throw UnsupportedError(appStrings.desktopCompanionIsNotAvailableHere);
   }
 
   Future<void> setLabel(String value, SharedPreferences prefs) async {
-    throw UnsupportedError('Desktop companion is not available here.');
+    throw UnsupportedError(appStrings.desktopCompanionIsNotAvailableHere);
   }
 
   Future<void> setPaused(bool value, SharedPreferences prefs) async {
-    throw UnsupportedError('Desktop companion is not available here.');
+    throw UnsupportedError(appStrings.desktopCompanionIsNotAvailableHere);
   }
 
   Future<void> disconnect() async {}
@@ -52,15 +53,15 @@ class DesktopCompanionManager extends ChangeNotifier {
   Future<void> reconnectIfNeeded({bool force = false}) async {}
 
   Future<void> rotateIdentity(SharedPreferences prefs) async {
-    throw UnsupportedError('Desktop companion is not available here.');
+    throw UnsupportedError(appStrings.desktopCompanionIsNotAvailableHere);
   }
 
   Future<Map<String, Object?>> refreshLocalStatus() async {
-    throw UnsupportedError('Desktop companion is not available here.');
+    throw UnsupportedError(appStrings.desktopCompanionIsNotAvailableHere);
   }
 
   Future<void> openPermissionSettings(String permissionKey) async {
-    throw UnsupportedError('Desktop companion is not available here.');
+    throw UnsupportedError(appStrings.desktopCompanionIsNotAvailableHere);
   }
 
   Future<void> grantPermission(
@@ -68,7 +69,7 @@ class DesktopCompanionManager extends ChangeNotifier {
     SharedPreferences prefs, {
     required bool remember,
   }) async {
-    throw UnsupportedError('Local computer control is not available here.');
+    throw UnsupportedError(appStrings.localComputerControlIsNotAvailable);
   }
 
   Future<void> denyPermission(String capability) async {}

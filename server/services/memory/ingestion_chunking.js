@@ -437,23 +437,6 @@ function chunkDocument(document) {
   }));
 }
 
-function overlapWindowChunks(chunks) {
-  if (chunks.length < 2) return [];
-  return chunks.slice(0, -1).map((chunk, i) => {
-    const next = chunks[i + 1];
-    const combined = `${chunk.content}\n\n${next.content}`;
-    return {
-      chunkIndex: -(i + 1),
-      charStart: chunk.charStart,
-      charEnd: next.charEnd,
-      content: combined.slice(0, MAX_CHARS * 2),
-      contentHash: contentHash(combined),
-      metadata: { boundary: 'overlap_window', baseChunkIndex: i },
-    };
-  });
-}
-
 module.exports = {
   chunkDocument,
-  overlapWindowChunks,
 };

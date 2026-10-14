@@ -2,6 +2,26 @@ part of 'main.dart';
 
 String _formatCaughtError(Object error) => formatCaughtError(error);
 
+// Markdown from the model never loads an image by itself: an image URL built
+// from private data leaks it to that host the moment it renders. The image
+// shows as a chip naming its host, and opens only when tapped.
+Widget _markdownImageLink(MarkdownImageConfig config) {
+  final uri = config.uri;
+  final alt = config.alt?.trim() ?? '';
+  final host = uri.host.isNotEmpty ? uri.host : uri.toString();
+  final canOpen = uri.scheme == 'https' || uri.scheme == 'http';
+  return ActionChip(
+    avatar: const Icon(Icons.image_outlined, size: 16),
+    label: Text(alt.isEmpty ? host : '$alt · $host'),
+    onPressed: canOpen
+        ? () => url_launcher.launchUrl(
+            uri,
+            mode: url_launcher.LaunchMode.externalApplication,
+          )
+        : null,
+  );
+}
+
 String _formatTokenCount(int amount) {
   if (amount >= 1000000) {
     final value = amount / 1000000;
@@ -16,7 +36,7 @@ String _formatTokenCount(int amount) {
 
 String _durationLabel(Duration remaining) {
   if (remaining.inHours > 0) {
-    return '${remaining.inHours}h ${remaining.inMinutes.remainder(60)}m';
+    return appStrings.arg1HArg2M(remaining.inHours, remaining.inMinutes.remainder(60));
   }
   return '${remaining.inMinutes + 1}m';
 }
@@ -31,15 +51,15 @@ String? _usageWindowResetLabel({
 }) {
   final now = DateTime.now();
   if (reached) {
-    if (recoversAt == null) return 'Available again shortly';
+    if (recoversAt == null) return appStrings.availableAgainShortly;
     final remaining = recoversAt.difference(now);
-    if (remaining.isNegative) return 'Available again shortly';
-    return 'Available again in ${_durationLabel(remaining)}';
+    if (remaining.isNegative) return appStrings.availableAgainShortly;
+    return appStrings.availableAgainInArg1(_durationLabel(remaining));
   }
   if (fullResetAt == null) return null;
   final remaining = fullResetAt.difference(now);
   if (remaining.isNegative) return null;
-  return 'Usage fully resets in ${_durationLabel(remaining)}';
+  return appStrings.usageFullyResetsInArg1(_durationLabel(remaining));
 }
 
 EdgeInsets _pagePadding(BuildContext context) {
@@ -55,7 +75,7 @@ EdgeInsets _pagePadding(BuildContext context) {
 
 final ValueNotifier<bool> _partyModeEnabled = ValueNotifier<bool>(false);
 
-/// Flat page backdrop for auth, setup, launcher, and cowork.
+/// Flat page backdrop for auth, setup, and launcher.
 class _ControlSurfaceBackdrop extends StatelessWidget {
   const _ControlSurfaceBackdrop({required this.child});
 
@@ -160,19 +180,13 @@ class _PanelSurface extends StatelessWidget {
 List<AppSection> _mainSections(NeoAgentController controller) {
   return <AppSection>[
     AppSection.chat,
-    AppSection.timeline,
     AppSection.devices,
     AppSection.tasks,
     AppSection.integrations,
     AppSection.memory,
     if (controller.showHealthSection) AppSection.health,
-    AppSection.settings,
-    // The panel manages the runtime on this machine, so it exists on desktop only.
-    if (_supportsDesktopShell) AppSection.server,
-    if (controller.showBillingSection) AppSection.billing,
     AppSection.runs,
-    AppSection.agents,
-    AppSection.messaging,
+    AppSection.settings,
     AppSection.team,
     // Shown for admin accounts only; the server enforces it on every request.
     if (controller.isAdmin) AppSection.admin,
@@ -180,21 +194,13 @@ List<AppSection> _mainSections(NeoAgentController controller) {
 }
 
 /// Sections belonging to [group], in the order the navigation shows them.
-///
-/// Settings gets one extra entry: account settings has no sidebar row on
-/// desktop (the rail footer's avatar opens it), so on a phone — where there
-/// is no rail footer — the chip row is its only way in.
 List<AppSection> _groupSections(
   NeoAgentController controller,
   SidebarGroup group,
 ) {
-  final sections = _mainSections(
+  return _mainSections(
     controller,
   ).where((section) => section.group == group).toList();
-  if (group == SidebarGroup.settings && sections.isNotEmpty) {
-    sections.insert(1, AppSection.accountSettings);
-  }
-  return sections;
 }
 
 /// The section a group opens on when it is selected as a whole.
@@ -202,13 +208,12 @@ AppSection _groupDefaultSection(
   NeoAgentController controller,
   SidebarGroup group,
 ) {
-  if (group == SidebarGroup.settings) {
-    return AppSection.settings;
-  }
   final sections = _groupSections(controller, group);
   return sections.isEmpty ? AppSection.chat : sections.first;
 }
 
+/// The rail's navigation. Settings is not listed: the account button at the
+/// foot of the rail is its one entry.
 List<Widget> _buildSidebarItems(
   NeoAgentController controller, {
   required ValueChanged<AppSection> onSelect,
@@ -217,10 +222,9 @@ List<Widget> _buildSidebarItems(
 }) {
   final widgets = <Widget>[];
   final mainSections = _mainSections(controller);
-  final selectedSidebarSection = mainSections.contains(
-    controller.selectedSection.sidebarSection,
-  );
+  final current = controller.selectedSection.canonicalSection;
   for (final group in SidebarGroup.values) {
+    if (group == SidebarGroup.settings) continue;
     final sections = mainSections
         .where((section) => section.group == group)
         .toList();
@@ -228,19 +232,9 @@ List<Widget> _buildSidebarItems(
       continue;
     }
 
-    final defaultSection = sections.first;
-    final parentSection = group == SidebarGroup.settings
-        ? AppSection.settings
-        : defaultSection;
-    final childSections = group == SidebarGroup.settings
-        ? sections.where((section) => section != parentSection).toList()
-        : sections;
-    final hasChildren =
-        childSections.length > 1 ||
-        (group == SidebarGroup.settings && childSections.isNotEmpty);
-    final active =
-        selectedSidebarSection &&
-        controller.selectedSection.sidebarSection == parentSection;
+    final parentSection = sections.first;
+    final hasChildren = sections.length > 1;
+    final active = current == parentSection;
     final expanded = expandedGroup == group;
 
     widgets.add(
@@ -256,9 +250,7 @@ List<Widget> _buildSidebarItems(
               )
             : null,
         onTap: hasChildren
-            ? group == SidebarGroup.settings
-                  ? () => onSelect(parentSection)
-                  : () => onToggleGroup(group)
+            ? () => onToggleGroup(group)
             : () => onSelect(parentSection),
       ),
     );
@@ -269,12 +261,12 @@ List<Widget> _buildSidebarItems(
 
     widgets.add(
       _SidebarSubnav(
-        children: childSections
+        children: sections
             .map(
               (section) => _SidebarButton(
                 label: section.label,
                 icon: section.icon,
-                active: controller.selectedSection.sidebarSection == section,
+                active: current == section,
                 iconSize: 16,
                 fontSize: 13,
                 compact: true,
@@ -305,7 +297,7 @@ Future<void> _confirmDelete(
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text('Cancel'),
+            child: Text(appStrings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
@@ -327,23 +319,23 @@ Widget _buildHealthSummaryPills(Map<String, dynamic> summary) {
     children: <Widget>[
       _MetaPill(
         icon: Icons.directions_walk_outlined,
-        label: 'Steps ${_asInt(summary['stepsTotal'])}',
+        label: appStrings.stepsArg1(_asInt(summary['stepsTotal'])),
       ),
       _MetaPill(
         icon: Icons.favorite_outline,
-        label: 'Heart ${_asInt(summary['heartRateRecordCount'])} records',
+        label: appStrings.heartArg1Records(_asInt(summary['heartRateRecordCount'])),
       ),
       _MetaPill(
         icon: Icons.bedtime_outlined,
-        label: 'Sleep ${_asInt(summary['sleepSessionCount'])} sessions',
+        label: appStrings.sleepArg1Sessions(_asInt(summary['sleepSessionCount'])),
       ),
       _MetaPill(
         icon: Icons.fitness_center_outlined,
-        label: 'Exercise ${_asInt(summary['exerciseSessionCount'])} sessions',
+        label: appStrings.exerciseArg1Sessions(_asInt(summary['exerciseSessionCount'])),
       ),
       _MetaPill(
         icon: Icons.monitor_weight_outlined,
-        label: 'Weight ${_asInt(summary['weightRecordCount'])} records',
+        label: appStrings.weightArg1Records(_asInt(summary['weightRecordCount'])),
       ),
     ],
   );
@@ -520,7 +512,7 @@ class _RunStatusPanel extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        run?.title ?? 'Live run',
+                        run?.title ?? appStrings.liveRun,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -529,11 +521,11 @@ class _RunStatusPanel extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         run == null
-                            ? 'Waiting for run events...'
+                            ? appStrings.waitingForRunEvents
                             : [
                                 '${run!.phase}${run!.iteration > 0 ? ' · step ${run!.iteration}' : ''}',
                                 if (run!.pendingSteeringCount > 0)
-                                  '${run!.pendingSteeringCount} steering ${run!.pendingSteeringCount == 1 ? 'update' : 'updates'} queued',
+                                  appStrings.arg1SteeringArg2Queued(run!.pendingSteeringCount, run!.pendingSteeringCount == 1 ? 'update' : 'updates'),
                               ].join(' · '),
                         style: TextStyle(
                           color: phase.isNotEmpty
@@ -556,28 +548,28 @@ class _RunStatusPanel extends StatelessWidget {
                 runSpacing: 10,
                 children: <Widget>[
                   _MetaPill(
-                    label: '${tools.length} events',
+                    label: appStrings.arg1Events(tools.length),
                     icon: Icons.timeline_outlined,
                   ),
                   if (runningCount > 0)
                     _MetaPill(
-                      label: '$runningCount active',
+                      label: appStrings.arg1Active(runningCount),
                       icon: Icons.sync_outlined,
                       color: _warning,
                     ),
                   if (webCount > 0)
                     _MetaPill(
-                      label: '$webCount web',
+                      label: appStrings.arg1Web(webCount),
                       icon: Icons.language_outlined,
                     ),
                   if (helperCount > 0)
                     _MetaPill(
-                      label: '$helperCount helpers',
+                      label: appStrings.arg1Helpers(helperCount),
                       icon: Icons.account_tree_outlined,
                     ),
                   if (isDeepRun)
                     _MetaPill(
-                      label: 'deep run · step ${run!.iteration}',
+                      label: appStrings.deepRunStepArg1(run!.iteration),
                       icon: Icons.warning_amber_outlined,
                       color: _warning,
                     ),
@@ -600,7 +592,7 @@ class _RunStatusPanel extends StatelessWidget {
               ),
             ] else
               Text(
-                'Waiting for task events...',
+                appStrings.waitingForTaskEvents,
                 style: TextStyle(color: _textSecondary),
               ),
           ],
@@ -1090,43 +1082,6 @@ class _SidebarSubnav extends StatelessWidget {
   }
 }
 
-class _SidebarIconButton extends StatelessWidget {
-  const _SidebarIconButton({
-    required this.tooltip,
-    required this.icon,
-    required this.onTap,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(9),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(9),
-          onTap: onTap,
-          child: Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: _bgSecondary.withValues(alpha: 0.55),
-              border: Border.all(color: _border),
-            ),
-            child: Icon(icon, size: 17, color: _textSecondary),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _LogoBadge extends StatefulWidget {
   const _LogoBadge({required this.size});
 
@@ -1247,48 +1202,25 @@ class _GreetingHeader extends StatelessWidget {
 
   final String subtitle;
 
-  static const List<String> _weekdays = <String>[
-    'MONDAY',
-    'TUESDAY',
-    'WEDNESDAY',
-    'THURSDAY',
-    'FRIDAY',
-    'SATURDAY',
-    'SUNDAY',
-  ];
-
-  static const List<String> _months = <String>[
-    'JAN',
-    'FEB',
-    'MAR',
-    'APR',
-    'MAY',
-    'JUNE',
-    'JULY',
-    'AUG',
-    'SEPT',
-    'OCT',
-    'NOV',
-    'DEC',
-  ];
-
   static String greetingFor(int hour) {
     if (hour < 5) {
-      return 'Good evening';
+      return appStrings.goodEvening;
     }
     if (hour < 12) {
-      return 'Good morning';
+      return appStrings.goodMorning;
     }
     if (hour < 18) {
-      return 'Good afternoon';
+      return appStrings.goodAfternoon;
     }
-    return 'Good evening';
+    return appStrings.goodEvening;
   }
 
-  static String dateLabelFor(DateTime moment) {
-    final weekday = _weekdays[moment.weekday - 1];
-    final month = _months[moment.month - 1];
-    return '$weekday \u00B7 ${moment.day} $month';
+  /// Weekday and date in the app language, e.g. "WEDNESDAY · OCT 14" or
+  /// "MITTWOCH · 14. OKT.".
+  static String dateLabelFor(DateTime moment, String locale) {
+    final weekday = DateFormat.EEEE(locale).format(moment);
+    final date = DateFormat.MMMd(locale).format(moment);
+    return '$weekday · $date'.toUpperCase();
   }
 
   @override
@@ -1300,7 +1232,7 @@ class _GreetingHeader extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         Text(
-          dateLabelFor(moment),
+          dateLabelFor(moment, Localizations.localeOf(context).toString()),
           style: GoogleFonts.geistMono(
             fontSize: 11,
             fontWeight: FontWeight.w600,
@@ -1485,9 +1417,11 @@ class _ChatBubble extends StatelessWidget {
     required this.entry,
     this.onLoadRunDetail,
     this.onSendMessage,
+    this.liveController,
   });
 
   final ChatEntry entry;
+  final NeoAgentController? liveController;
   final Future<RunDetailSnapshot> Function(String runId)? onLoadRunDetail;
   final void Function(String)? onSendMessage;
 
@@ -1516,7 +1450,7 @@ class _ChatBubble extends StatelessWidget {
             : MainAxisAlignment.start,
         children: <Widget>[
           if (!isUser) ...<Widget>[
-            const _MessageAvatar(assistant: true),
+            _MessageAvatar(assistant: true, liveController: liveController),
             const SizedBox(width: 12),
           ],
           Flexible(
@@ -1574,6 +1508,7 @@ class _ChatBubble extends StatelessWidget {
                     MarkdownBody(
                       data: entry.content,
                       selectable: false,
+                      sizedImageBuilder: _markdownImageLink,
                       styleSheet:
                           MarkdownStyleSheet.fromTheme(
                             Theme.of(context),
@@ -1789,7 +1724,7 @@ class _MessageRunPreviewState extends State<_MessageRunPreview> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Loading execution details...',
+                      appStrings.loadingExecutionDetails,
                       style: TextStyle(color: _textSecondary, fontSize: 12),
                     ),
                   ),
@@ -1799,7 +1734,7 @@ class _MessageRunPreviewState extends State<_MessageRunPreview> {
           else
             _MessageRunCardShell(
               child: Text(
-                'Execution details are unavailable for this run.',
+                appStrings.executionDetailsAreUnavailableForThis,
                 style: TextStyle(color: _textSecondary, fontSize: 12),
               ),
             ),
@@ -1839,7 +1774,7 @@ class _MessageRunDisclosureHeader extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Text(
-              expanded ? 'Hide steps' : 'Steps',
+              expanded ? appStrings.hideSteps : 'Steps',
               style: TextStyle(
                 color: _textSecondary,
                 fontSize: 12,
@@ -1888,22 +1823,22 @@ class _MessageRunDetailCard extends StatelessWidget {
             runSpacing: 8,
             children: <Widget>[
               _MetaPill(
-                label: '${detail.steps.length} steps',
+                label: appStrings.arg1Steps(detail.steps.length),
                 icon: Icons.timeline_outlined,
               ),
               if (detail.webStepCount > 0)
                 _MetaPill(
-                  label: '${detail.webStepCount} web',
+                  label: appStrings.arg1Web(detail.webStepCount),
                   icon: Icons.language_outlined,
                 ),
               if (detail.helperCount > 0)
                 _MetaPill(
-                  label: '${detail.helperCount} helpers',
+                  label: appStrings.arg1Helpers(detail.helperCount),
                   icon: Icons.account_tree_outlined,
                 ),
               if (detail.planningStepCount > 0)
                 _MetaPill(
-                  label: '${detail.planningStepCount} planning',
+                  label: appStrings.arg1Planning(detail.planningStepCount),
                   icon: Icons.route_outlined,
                 ),
             ],
@@ -1923,7 +1858,7 @@ class _MessageRunDetailCard extends StatelessWidget {
           if (detail.steps.length > previewSteps.length) ...<Widget>[
             const SizedBox(height: 10),
             Text(
-              '${detail.steps.length - previewSteps.length} more steps in run history',
+              appStrings.arg1MoreStepsInRunHistory(detail.steps.length - previewSteps.length),
               style: TextStyle(
                 color: _textSecondary,
                 fontSize: 12,
@@ -2034,15 +1969,22 @@ class _MessageRunStepRow extends StatelessWidget {
 }
 
 class _MessageAvatar extends StatelessWidget {
-  const _MessageAvatar({required this.assistant});
+  const _MessageAvatar({required this.assistant, this.liveController});
 
   final bool assistant;
+
+  /// Set on the newest assistant message: its face follows the agent and
+  /// moves at rest like the sidebar mascot. Older messages stay still.
+  final NeoAgentController? liveController;
 
   @override
   Widget build(BuildContext context) {
     if (assistant) {
-      return const ExcludeSemantics(
-        child: NeoMascot(mood: MascotMood.idle, size: 34, animate: false),
+      final live = liveController;
+      return ExcludeSemantics(
+        child: live != null
+            ? _LiveMascot(controller: live, size: 34)
+            : const NeoMascot(mood: MascotMood.idle, size: 34, animate: false),
       );
     }
     return Container(
@@ -2207,7 +2149,7 @@ class _InlineError extends StatelessWidget {
           ),
           if (onDismiss != null)
             IconButton(
-              tooltip: 'Dismiss',
+              tooltip: appStrings.dismiss,
               visualDensity: VisualDensity.compact,
               onPressed: onDismiss,
               icon: Icon(Icons.close_rounded, color: _danger, size: 18),
@@ -2338,8 +2280,8 @@ class _LoadError extends StatelessWidget {
         const SizedBox(height: 12),
         OutlinedButton.icon(
           onPressed: onRetry,
-          icon: const Icon(Icons.refresh_rounded, size: 18),
-          label: const Text('Try again'),
+          icon: Icon(Icons.refresh_rounded, size: 18),
+          label: Text(appStrings.tryAgain),
         ),
       ],
     );
@@ -2396,7 +2338,7 @@ class _RefreshButton extends StatelessWidget {
               dimension: 18,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : const Icon(Icons.refresh_rounded, size: 20),
+          : Icon(Icons.refresh_rounded, size: 20),
     );
   }
 }
@@ -2421,7 +2363,7 @@ class _SaveButton extends StatelessWidget {
               dimension: 16,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : const Icon(Icons.check_rounded, size: 18),
+          : Icon(Icons.check_rounded, size: 18),
       label: Text(saving ? 'Saving…' : label),
     );
   }
@@ -2452,43 +2394,14 @@ class _SearchField extends StatelessWidget {
       onSubmitted: onSubmitted,
       decoration: InputDecoration(
         hintText: hintText,
-        prefixIcon: const Icon(Icons.search_rounded),
+        prefixIcon: Icon(Icons.search_rounded),
         suffixIcon: controller.text.isEmpty
             ? null
             : IconButton(
-                tooltip: 'Clear search',
+                tooltip: appStrings.clearSearch,
                 onPressed: onClear,
-                icon: const Icon(Icons.close_rounded),
+                icon: Icon(Icons.close_rounded),
               ),
-      ),
-    );
-  }
-}
-
-/// A small label for dense lists where [_MetaPill] is too heavy.
-class _Tag extends StatelessWidget {
-  const _Tag(this.label, {this.color});
-
-  final String label;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final tint = color ?? _textSecondary;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: tint.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-        border: Border.all(color: tint.withValues(alpha: 0.22)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: tint,
-          fontSize: 11.5,
-          fontWeight: FontWeight.w600,
-        ),
       ),
     );
   }
@@ -2669,19 +2582,14 @@ class _RowHeader extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.trailing,
-    this.monospaceSubtitle = false,
   });
 
   final String title;
   final String subtitle;
   final Widget trailing;
-  final bool monospaceSubtitle;
 
   @override
   Widget build(BuildContext context) {
-    final subtitleStyle = monospaceSubtitle
-        ? _monoStyle(size: 11.5, color: _textMuted)
-        : TextStyle(color: _textSecondary, fontSize: 12.5);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -2702,7 +2610,7 @@ class _RowHeader extends StatelessWidget {
                   subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: subtitleStyle,
+                  style: TextStyle(color: _textSecondary, fontSize: 12.5),
                 ),
               ],
             ],
@@ -2759,8 +2667,6 @@ class _FormTextField extends StatelessWidget {
     this.helper,
     this.keyboardType,
     this.wholeNumber = false,
-    this.enabled = true,
-    this.maxLines = 1,
     this.onChanged,
   });
 
@@ -2770,21 +2676,17 @@ class _FormTextField extends StatelessWidget {
   final String? helper;
   final TextInputType? keyboardType;
   final bool wholeNumber;
-  final bool enabled;
-  final int maxLines;
   final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
-      enabled: enabled,
       keyboardType: wholeNumber ? TextInputType.number : keyboardType,
       inputFormatters: wholeNumber
           ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
           : null,
       autocorrect: false,
-      maxLines: maxLines,
       onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
@@ -2946,7 +2848,7 @@ class _GlobalNetworkBanner extends StatelessWidget {
                             color: _warning.withValues(alpha: 0.38),
                           ),
                         ),
-                        child: const Text('Retry'),
+                        child: Text(appStrings.retry),
                       ),
                     ],
                   )
@@ -2969,7 +2871,7 @@ class _GlobalNetworkBanner extends StatelessWidget {
                             color: _warning.withValues(alpha: 0.38),
                           ),
                         ),
-                        child: const Text('Retry'),
+                        child: Text(appStrings.retry),
                       ),
                     ],
                   ),
@@ -2991,7 +2893,7 @@ class _GlobalWebUpdateBanner extends StatelessWidget {
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 560;
         final content = Text(
-          'A newer web build is available on the server. Reload to fetch the latest bundle.',
+          appStrings.aNewerWebBuildIsAvailable,
           style: TextStyle(color: _textPrimary, height: 1.35),
         );
         return Material(
@@ -3033,7 +2935,7 @@ class _GlobalWebUpdateBanner extends StatelessWidget {
                             ? null
                             : monitor.reloadToLatest,
                         child: Text(
-                          monitor.isReloading ? 'Reloading...' : 'Reload now',
+                          monitor.isReloading ? 'Reloading...' : appStrings.reloadNow,
                         ),
                       ),
                       if (monitor.isReloading) ...<Widget>[
@@ -3056,7 +2958,7 @@ class _GlobalWebUpdateBanner extends StatelessWidget {
                             ? null
                             : monitor.reloadToLatest,
                         child: Text(
-                          monitor.isReloading ? 'Reloading...' : 'Reload now',
+                          monitor.isReloading ? 'Reloading...' : appStrings.reloadNow,
                         ),
                       ),
                     ],
@@ -3096,26 +2998,26 @@ bool _desktopAssistantUsesToggleControls() {
 
 String _desktopAssistantPrimaryLabel(bool isCapturing) {
   if (_desktopAssistantUsesToggleControls()) {
-    return isCapturing ? 'Stop and send' : 'Start talking';
+    return isCapturing ? 'Stop and send' : appStrings.startTalking;
   }
-  return isCapturing ? 'Release to send' : 'Hold to talk';
+  return isCapturing ? 'Release to send' : appStrings.holdToTalk2;
 }
 
 String _desktopAssistantPrimaryCaption(bool isCapturing) {
   if (_desktopAssistantUsesToggleControls()) {
     return isCapturing
-        ? 'Commit the active live capture'
-        : 'Click once to begin capturing';
+        ? appStrings.commitTheActiveLiveCapture
+        : appStrings.clickOnceToBeginCapturing;
   }
   return isCapturing
-      ? 'Stop capture and submit'
-      : 'Press and hold for quick capture';
+      ? appStrings.stopCaptureAndSubmit
+      : appStrings.pressAndHoldForQuickCapture;
 }
 
 String _desktopAssistantIdleHint() {
   return _desktopAssistantUsesToggleControls()
-      ? 'Click the mic to start speaking'
-      : 'Hold Ctrl+Shift+Space to talk';
+      ? appStrings.clickTheMicToStartSpeaking
+      : appStrings.holdCtrlShiftSpaceToTalk;
 }
 
 class _DesktopAssistantControlState {
@@ -3144,7 +3046,7 @@ class _DesktopAssistantControlState {
         : liveState.partialTranscript.trim();
     return _DesktopAssistantControlState(
       isCapturing: isCapturing,
-      isBusy: liveState.isBusy,
+      isBusy: liveState.isSpeaking || liveState.hasActiveTask,
       useToggleCapture: useToggleCapture,
       statusLabel: isCapturing
           ? _desktopAssistantPrimaryLabel(true)
@@ -3307,7 +3209,7 @@ class _DesktopAssistantPopupShell extends StatelessWidget {
                           backgroundColor: _bgSecondary.withValues(alpha: 0.9),
                           foregroundColor: _textSecondary,
                         ),
-                        icon: const Icon(Icons.close_rounded, size: 14),
+                        icon: Icon(Icons.close_rounded, size: 14),
                       ),
                     ],
                   ),
@@ -3328,12 +3230,12 @@ String _desktopAssistantStatusLabel(String state) {
     case 'thinking':
       return 'Thinking';
     case 'speaking':
-      return 'Speaking';
+      return appStrings.speaking;
     case 'listening':
-      return 'Listening';
+      return appStrings.listening;
     case 'idle':
     default:
-      return 'Ready';
+      return appStrings.ready;
   }
 }
 
@@ -3664,7 +3566,7 @@ String _formatTimestamp(DateTime value) {
   final minute = value.minute.toString().padLeft(2, '0');
   final month = value.month.toString().padLeft(2, '0');
   final day = value.day.toString().padLeft(2, '0');
-  return '$month/$day $hour:$minute';
+  return appStrings.arg1Arg2Arg3Arg4(month, day, hour, minute);
 }
 
 const List<String> _monthAbbreviations = <String>[
@@ -3686,7 +3588,7 @@ const List<String> _monthAbbreviations = <String>[
 String _formatDate(DateTime? value) {
   if (value == null) return '—';
   final local = value.toLocal();
-  return '${_monthAbbreviations[local.month - 1]} ${local.day}, ${local.year}';
+  return appStrings.arg1Arg2Arg39(_monthAbbreviations[local.month - 1], local.day, local.year);
 }
 
 /// [_formatDate] for an ISO-8601 string; one that doesn't parse shows its
@@ -3722,10 +3624,10 @@ String _formatElapsed(Duration value) {
   final minutes = (totalSeconds % 3600) ~/ 60;
   final seconds = totalSeconds % 60;
   if (hours > 0) {
-    return '${hours}h ${minutes}m';
+    return appStrings.arg1HArg2M(hours, minutes);
   }
   if (minutes > 0) {
-    return '${minutes}m ${seconds}s';
+    return appStrings.arg1MArg2S(minutes, seconds);
   }
   return '${seconds}s';
 }
@@ -3747,10 +3649,10 @@ String _formatBytes(int bytes) {
   const kb = 1024;
   const mb = kb * 1024;
   const gb = mb * 1024;
-  if (bytes >= gb) return '${(bytes / gb).toStringAsFixed(1)} GB';
-  if (bytes >= mb) return '${(bytes / mb).toStringAsFixed(1)} MB';
-  if (bytes >= kb) return '${(bytes / kb).toStringAsFixed(1)} KB';
-  return '$bytes B';
+  if (bytes >= gb) return appStrings.arg1Gb((bytes / gb).toStringAsFixed(1));
+  if (bytes >= mb) return appStrings.arg1Mb((bytes / mb).toStringAsFixed(1));
+  if (bytes >= kb) return appStrings.arg1Kb((bytes / kb).toStringAsFixed(1));
+  return appStrings.arg1B(bytes);
 }
 
 /// Monospace text for ids, logs, keys and query results.
@@ -3766,7 +3668,7 @@ TextStyle _monoStyle({double size = 12, Color? color, FontWeight? weight}) {
 String _summarizeToolArgs(dynamic raw) {
   if (raw is Map && raw.isNotEmpty) {
     final first = raw.entries.first;
-    return '${first.key}: ${first.value}'.trim();
+    return appStrings.arg1Arg24(first.key, first.value).trim();
   }
   return '';
 }
@@ -3781,10 +3683,10 @@ String _summarizeToolResult(dynamic raw) {
       final durationText = durationMs > 0
           ? ' after ${_formatDuration(durationMs)}'
           : '';
-      return 'Timed out$durationText';
+      return appStrings.timedOutArg1(durationText);
     }
     if (raw['killed'] == true) {
-      return 'Stopped before completion';
+      return appStrings.stoppedBeforeCompletion;
     }
     if (raw['error'] != null) {
       return raw['error'].toString();
@@ -3800,7 +3702,7 @@ String _summarizeToolResult(dynamic raw) {
     }
     return raw.entries
         .take(2)
-        .map((entry) => '${entry.key}: ${entry.value}')
+        .map((entry) => appStrings.arg1Arg24(entry.key, entry.value))
         .join(' • ');
   }
   final text = raw.toString();
@@ -3874,4 +3776,28 @@ String _truncateRunText(String value, {int maxLength = 1400}) {
 
 extension on String {
   String ifEmpty(String fallback) => trim().isEmpty ? fallback : this;
+}
+
+String _relativeTime(DateTime time) {
+  final now = DateTime.now();
+  final difference = now.difference(time);
+  if (difference.inSeconds < 45) return appStrings.justNow;
+  if (difference.inMinutes < 60) return appStrings.arg1MAgo(difference.inMinutes);
+  if (difference.inHours < 24 && now.day == time.day) {
+    return appStrings.arg1HAgo(difference.inHours);
+  }
+  final yesterday = now.subtract(const Duration(days: 1));
+  if (time.year == yesterday.year &&
+      time.month == yesterday.month &&
+      time.day == yesterday.day) {
+    return appStrings.yesterday;
+  }
+  final months = <String>[
+    appStrings.monthJan, appStrings.monthFeb, appStrings.monthMar,
+    appStrings.monthApr, appStrings.monthMay, appStrings.monthJun,
+    appStrings.monthJul, appStrings.monthAug, appStrings.monthSep,
+    appStrings.monthOct, appStrings.monthNov, appStrings.monthDec,
+  ];
+  final date = appStrings.arg1Arg23(months[time.month - 1], time.day);
+  return time.year == now.year ? date : appStrings.arg1Arg23(date, time.year);
 }

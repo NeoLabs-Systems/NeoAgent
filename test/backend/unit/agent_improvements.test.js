@@ -19,10 +19,6 @@ const {
   searchTools,
   selectInitialTools,
 } = require('../../../server/services/ai/toolSelector');
-const { buildExecutionGuidance } = require('../../../server/services/ai/taskAnalysis');
-const {
-  buildCompletionDecisionPrompt,
-} = require('../../../server/services/ai/loop/completion_judge');
 const { buildLoopPolicy } = require('../../../server/services/ai/loopPolicy');
 const {
   resolveTaskTriggerArgs,
@@ -112,7 +108,6 @@ test('repetition guard normalizes repeated read-only shell evidence fetches', ()
 
 test('tool activation replaces unrelated schemas while preserving control tools', () => {
   const required = [
-    'task_complete',
     'search_tools',
     'activate_tools',
     'think',
@@ -161,7 +156,6 @@ test('tool discovery lists inactive capabilities and searches them generically',
 
 test('execute runs start with core file tools but direct runs stay lean', () => {
   const required = [
-    'task_complete',
     'search_tools',
     'activate_tools',
     'think',
@@ -173,7 +167,12 @@ test('execute runs start with core file tools but direct runs stay lean', () => 
     ...required.map((name) => ({ name, description: `${name} description` })),
     ...CORE_FILE_TOOLS.map((name) => ({ name, description: `${name} description` })),
     { name: 'execute_command', description: 'Run shell commands.' },
+    ...Array.from({ length: 10 }, (_, index) => ({ name: `integration_${index}`, description: `Integration ${index}` })),
   ];
+
+  // A catalog within the schema cap is simply all active.
+  const small = tools.slice(0, MAX_TOOLS);
+  assert.equal(selectInitialTools(small, []).length, small.length);
 
   const executeInitial = selectInitialTools(tools, ['execute_command'], { includeCoreFileTools: true });
   for (const toolName of CORE_FILE_TOOLS) {
@@ -201,42 +200,35 @@ test('execute runs start with core file tools but direct runs stay lean', () => 
   }
 });
 
-test('loop policy uses one emergency ceiling and progress-based stall guards', () => {
-  const standard = buildLoopPolicy({}, 'messaging', 'execute');
-  const complex = buildLoopPolicy({}, 'messaging', 'plan_execute', {
-    autonomyPolicy: { complexity: 'complex', autonomy_level: 'high' },
-  });
-  const clamped = buildLoopPolicy(
-    { max_iterations: 1_000_000, max_consecutive_read_only_iterations: 999 },
-    'messaging',
-    'execute',
-  );
+test('loop policy keeps one emergency ceiling and bounded runaway guards', () => {
+  const standard = buildLoopPolicy({});
+  const clamped = buildLoopPolicy({ max_iterations: 1_000_000, max_consecutive_read_only_iterations: 999 });
 
   assert.equal(standard.maxIterations, 5000);
-  assert.equal(complex.maxIterations, 5000);
   assert.equal(clamped.maxIterations, 5000);
-  // Stored legacy turn budgets are ignored; genuine churn still stops sooner.
-  assert.equal(standard.maxConsecutiveReadOnlyIterations, 8);
-  assert.equal(clamped.maxConsecutiveReadOnlyIterations, 25);
+  // Stored legacy turn budgets are ignored; genuine spinning still stops sooner.
+  assert.equal(standard.maxIdleTurns, 8);
+  assert.equal(standard.maxFailedTurns, 5);
+  assert.equal(clamped.maxIdleTurns, 25);
 });
 
-test('loop policy supports bounded stall settings and per-run emergency overrides', () => {
+test('loop policy honors stored guard settings and per-run overrides', () => {
   const configured = buildLoopPolicy({
     max_consecutive_read_only_iterations: 14,
     max_consecutive_tool_failures: 12,
   });
   assert.equal(configured.maxIterations, 5000);
-  assert.equal(configured.maxConsecutiveReadOnlyIterations, 14);
-  assert.equal(configured.maxConsecutiveToolFailures, 12);
+  assert.equal(configured.maxIdleTurns, 14);
+  assert.equal(configured.maxFailedTurns, 12);
 
-  const overridden = buildLoopPolicy(configured, 'messaging', 'execute', {
+  const overridden = buildLoopPolicy({}, {
     maxIterations: 350,
     maxConsecutiveReadOnlyIterations: 18,
     maxConsecutiveToolFailures: 16,
   });
   assert.equal(overridden.maxIterations, 350);
-  assert.equal(overridden.maxConsecutiveReadOnlyIterations, 18);
-  assert.equal(overridden.maxConsecutiveToolFailures, 16);
+  assert.equal(overridden.maxIdleTurns, 18);
+  assert.equal(overridden.maxFailedTurns, 16);
 });
 
 test('create_task accepts schedule config as object, JSON string, or bare cron', () => {
@@ -491,63 +483,7 @@ test('automatic Google calendar checks require a bounded dedicated query', async
   );
 });
 
-test('execution guidance keeps source checkouts in the shared workspace', () => {
-  const prompt = buildExecutionGuidance({
-    analysis: {
-      mode: 'execute',
-      goal: 'Implement the issue.',
-      success_criteria: ['Changes are made locally.'],
-      suggested_tools: ['execute_command', 'read_files'],
-      complexity: 'standard',
-      autonomy_level: 'high',
-      progress_update_policy: 'required',
-    },
-  });
 
-  assert.match(prompt, /shared workspace/);
-  assert.match(prompt, /Prefer the highest-level available tool/);
-  assert.match(prompt, /pass those directly/);
-  assert.doesNotMatch(prompt, /git clone[^\n]+\/tmp\/repo-name/);
-});
-
-test('completion judge accepts truthful terminal no-op and blocker replies', () => {
-  const prompt = buildCompletionDecisionPrompt({
-    triggerSource: 'messaging',
-    messagingSent: false,
-    goalContext: {
-      effectiveGoal: 'Delete gym tasks.',
-      persistedGoalPrompt: '',
-      effectiveComplexity: 'simple',
-      effectiveAutonomyLevel: 'normal',
-      effectiveProgressPolicy: 'optional',
-      effectiveCompletionConfidence: 'medium',
-      successCriteria: ['Gym tasks are removed or the user is told none exist.'],
-    },
-    parallelWork: false,
-    tools: [
-      { name: 'list_tasks' },
-      { name: 'delete_task' },
-      { name: 'task_complete' },
-    ],
-    toolExecutions: [
-      {
-        toolName: 'list_tasks',
-        evidenceSource: 'tasks',
-        ok: true,
-        summary: 'No tasks matching gym were found.',
-      },
-    ],
-    lastReply: 'I found no gym tasks to delete.',
-    iteration: 4,
-    maxIterations: 20,
-  });
-
-  assert.match(prompt, /already done/);
-  assert.match(prompt, /no-op/);
-  assert.match(prompt, /unavailable required capability/);
-  assert.match(prompt, /Repeated read-only inspection/);
-  assert.match(prompt, /No tasks matching gym were found/);
-});
 
 test('structured data parser handles quoted delimiters and newlines', () => {
   assert.deepEqual(parseDelimited('name,note\nNeo,\"one,two\"\nA,\"line 1\nline 2\"\n', ','), [

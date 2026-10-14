@@ -1,0 +1,79 @@
+name: Reusable Docker Image
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to build the image from
+        required: true
+        type: string
+      release_tag:
+        description: Release tag the image is published under, for example v1.2.3 or v1.2.3-beta.0
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish-image:
+    name: Publish Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # Same as the installers: the image ships the web client built from this exact ref.
+      - name: Build bundled web client
+        run: NEOAGENT_BACKEND_URL='' npm run flutter:build:web
+
+      - name: Resolve image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/neolabs-systems/neoagent
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}},value=${{ inputs.release_tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.release_tag }}
+            type=raw,value=latest,enable=${{ !contains(inputs.release_tag, '-') }}
+            # Like the beta release channel, beta follows stable when stable is newer.
+            type=raw,value=beta
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -2,7 +2,7 @@
 
 const { sanitizeConversationMessages } = require('../history');
 const { sanitizeModelOutput } = require('../outputSanitizer');
-const { parseJsonObject } = require('../taskAnalysis');
+const { extractJsonObject } = require('../../../utils/text');
 const { withProviderRetry, isTransientError } = require('../providerRetry');
 const { degenerateOutputDetails, isDegenerateOutputError } = require('../providers/stream_guard');
 const { normalizeUsage, recordModelUsage } = require('../usage');
@@ -12,6 +12,12 @@ const {
   runAbortableModelCall,
   withModelCallTimeout,
 } = require('./model_call_guard');
+
+// The per-call ceiling already waited minutes on this model; retrying it
+// repeats that wait instead of moving on to the next model.
+function isRetryableModelError(err) {
+  return err?.code !== 'MODEL_CALL_TIMEOUT' && isTransientError(err);
+}
 
 function isoNow() {
   return new Date().toISOString();
@@ -89,7 +95,7 @@ async function requestStructuredJson(engine, {
       ),
       {
         label: `Engine ${model} (structured)`,
-        isRetryable: (err) => !modelAbortController.signal.aborted && isTransientError(err),
+        isRetryable: (err) => !modelAbortController.signal.aborted && isRetryableModelError(err),
         signal: modelAbortController.signal,
       }
     );
@@ -107,7 +113,7 @@ async function requestStructuredJson(engine, {
       });
     }
 
-    const parsed = parseJsonObject(response.content || '');
+    const parsed = extractJsonObject(response.content || '');
     const normalizedUsage = normalizeUsage(response.usage);
     return {
       value: normalize(parsed || {}, fallback),
@@ -190,6 +196,8 @@ async function requestModelResponse(engine, {
       model: durableRequest.header.model,
       maxTokens: durableRequest.header.maxTokens,
       reasoningEffort: durableRequest.header.reasoningEffort,
+      // Routing models (typesafe/jev-router) keep their pick per session.
+      sessionId: options.conversationId || options.runId || runId || null,
       signal: modelAbortController.signal,
     };
     let response = null;
@@ -252,7 +260,7 @@ async function requestModelResponse(engine, {
   ({ response, streamContent } = await withProviderRetry(attemptModelCall, {
     ...(options.retry || {}),
     label: `Engine ${model}`,
-    isRetryable: (err) => !parentSignal?.aborted && isTransientError(err),
+    isRetryable: (err) => !parentSignal?.aborted && isRetryableModelError(err),
     onRetry: ({ attempt, delayMs }) => {
       // Stream payloads are full snapshots for one iteration, so clearing and
       // replaying the same durable request cannot duplicate a visible message.

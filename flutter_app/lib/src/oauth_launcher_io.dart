@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'oauth_launcher.dart';
 import 'error_text.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 OAuthLauncher createPlatformOAuthLauncher() => _IoOAuthLauncher();
 
@@ -45,17 +46,17 @@ class _IoOAuthLauncher extends OAuthLauncher {
         if (launched) {
           return const OAuthLaunchResult(launched: true, completed: false);
         } else {
-          return const OAuthLaunchResult(
+          return OAuthLaunchResult(
             launched: false,
             completed: false,
-            error: 'Failed to launch external browser via url_launcher.',
+            error: appStrings.failedToLaunchExternalBrowserVia,
           );
         }
       } else {
-        return const OAuthLaunchResult(
+        return OAuthLaunchResult(
           launched: false,
           completed: false,
-          error: 'External browser launch is not supported on this platform.',
+          error: appStrings.externalBrowserLaunchIsNotSupported,
         );
       }
 
@@ -65,16 +66,16 @@ class _IoOAuthLauncher extends OAuthLauncher {
           completed: false,
           error: (result.stderr?.toString().trim().isNotEmpty ?? false)
               ? result.stderr.toString().trim()
-              : 'External browser launch failed with exit code ${result.exitCode}.',
+              : appStrings.externalBrowserLaunchFailedWithExit(result.exitCode),
         );
       }
 
       return const OAuthLaunchResult(launched: true, completed: false);
     } on TimeoutException {
-      return const OAuthLaunchResult(
+      return OAuthLaunchResult(
         launched: false,
         completed: false,
-        error: 'External browser launch timed out.',
+        error: appStrings.externalBrowserLaunchTimedOut,
       );
     } catch (error) {
       return OAuthLaunchResult(

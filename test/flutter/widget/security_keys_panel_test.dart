@@ -37,15 +37,19 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          home: AccountSettingsPanel(
-            controller: controller,
-            initialTab: AccountSettingsTab.security,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: AccountSettingsPanel(
+                controller: controller,
+                page: SettingsPage.security,
+              ),
+            ),
           ),
         ),
       );
       await tester.pump();
 
-      expect(find.text('SECURITY KEYS'), findsOneWidget);
+      expect(find.text('Security keys'), findsOneWidget);
       expect(find.text('Add security key'), findsOneWidget);
       expect(find.text('Name (optional)'), findsOneWidget);
 

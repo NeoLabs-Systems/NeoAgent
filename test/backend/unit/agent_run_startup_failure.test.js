@@ -14,23 +14,27 @@ test('provider-selection failures leave a durable failed run instead of disappea
     models.getSupportedModels = async () => [];
     const { AgentEngine } = require('../../../server/services/ai/engine');
     const engine = new AgentEngine(null);
-    engine.emit = () => {};
+    const emitted = [];
+    engine.emit = (userId, event, payload) => emitted.push({ event, payload });
 
     await assert.rejects(
       engine.run(user.userId, 'Do something.', {
         runId: 'provider-selection-failure',
         bypassUserRateLimits: true,
       }),
-      /No AI providers are configured/,
+      /No AI model is available/,
     );
 
     const row = ctx.db.prepare(
       'SELECT status, error, completed_at FROM agent_runs WHERE id = ?',
     ).get('provider-selection-failure');
     assert.equal(row.status, 'failed');
-    assert.match(row.error, /No AI providers are configured/);
+    assert.match(row.error, /No AI model is available/);
     assert.ok(row.completed_at);
     assert.equal(engine.activeRuns.has('provider-selection-failure'), false);
+    const runError = emitted.find((entry) => entry.event === 'run:error');
+    assert.equal(runError.payload.code, 'AI_MODELS_UNAVAILABLE');
+    assert.equal(runError.payload.runId, 'provider-selection-failure');
   } finally {
     models.getSupportedModels = originalGetSupportedModels;
     teardownTestRuntime(ctx);

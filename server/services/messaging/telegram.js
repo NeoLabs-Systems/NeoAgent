@@ -1,6 +1,6 @@
 'use strict';
 
-const { BasePlatform } = require('./base');
+const { BasePlatform, missingConfigError } = require('./base');
 const { Telegraf } = require('telegraf');
 
 class TelegramPlatform extends BasePlatform {
@@ -24,7 +24,7 @@ class TelegramPlatform extends BasePlatform {
   }
 
   async connect() {
-    if (!this.botToken) throw new Error('Telegram bot token is required');
+    if (!this.botToken) throw missingConfigError('Telegram bot token is required');
 
     if (this._bot) {
       try {
@@ -173,6 +173,10 @@ class TelegramPlatform extends BasePlatform {
   async _handleMessage(ctx) {
     const msg = ctx?.message;
     if (!msg) return;
+    if (msg.new_chat_members || msg.left_chat_member) {
+      this._handleMembership(msg);
+      return;
+    }
     if (!msg.from || msg.from.is_bot) return;
     if (this._bot && this.status === 'connecting') {
       this.status = 'connected';
@@ -236,6 +240,14 @@ class TelegramPlatform extends BasePlatform {
     const repliedToAgent = !isPrivate
       && msg.reply_to_message?.from?.id
       && String(msg.reply_to_message.from.id) === String(this._botUser?.id || '');
+    const replied = msg.reply_to_message;
+    const replyTo = !isPrivate && replied?.from && !repliedToAgent
+      ? {
+        sender: [replied.from.first_name, replied.from.last_name].filter(Boolean).join(' ')
+          || (replied.from.username ? `@${replied.from.username}` : String(replied.from.id)),
+        content: replied.text || replied.caption || (replied.photo ? '[photo]' : '[message]'),
+      }
+      : null;
 
     this.emit('message', {
       platform: 'telegram',
@@ -253,6 +265,7 @@ class TelegramPlatform extends BasePlatform {
       replyToMessageId: msg.reply_to_message?.message_id
         ? String(msg.reply_to_message.message_id)
         : null,
+      replyTo,
       groupId: isPrivate ? null : rawChatId,
       content,
       mediaType: null,
@@ -268,6 +281,29 @@ class TelegramPlatform extends BasePlatform {
   // A reaction is feedback on an earlier message, not a request: it is recorded
   // for context and never starts a run. Bots only receive reactions in private
   // chats, and access is checked quietly so a stranger's reaction raises nothing.
+  // Joins and leaves arrive as service messages. They never start a chat run
+  // and skip the access policy; they only feed the owner's tasks. A bot can
+  // message someone directly only after they have started it.
+  _handleMembership(msg) {
+    const members = msg.new_chat_members || [msg.left_chat_member];
+    const kind = msg.new_chat_members ? 'member_joined' : 'member_left';
+    const chatId = String(msg.chat.id);
+    for (const member of members) {
+      if (!member || member.is_bot) continue;
+      const memberId = String(member.id);
+      this.emit(kind, {
+        spaceId: chatId,
+        spaceName: msg.chat.title || null,
+        chatId,
+        memberId,
+        memberName: [member.first_name, member.last_name].filter(Boolean).join(' ')
+          || (member.username ? `@${member.username}` : memberId),
+        dmChatId: `dm_${memberId}`,
+        occurredAt: new Date(msg.date * 1000).toISOString(),
+      });
+    }
+  }
+
   _handleReaction(ctx) {
     const update = ctx.update?.message_reaction;
     if (!update?.user || update.chat?.type !== 'private') return;

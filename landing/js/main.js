@@ -38,7 +38,9 @@
         io.unobserve(e.target);
       }
     });
-  }, { threshold: 0.15, rootMargin: '0px 0px -5% 0px' });
+  // threshold 0: a fraction of a tall block on a phone screen meant whole
+  // sections sat blank until they were half scrolled past
+  }, { threshold: 0, rootMargin: '0px 0px -8% 0px' });
 
   document.querySelectorAll('.reveal, [data-stagger]').forEach((el) => io.observe(el));
 
@@ -96,18 +98,47 @@
     const steps = story.querySelectorAll('[data-step]');
     const panels = story.querySelectorAll('[data-panel]');
 
+    const stageWrap = story.querySelector('.story-stage-wrap');
+    const stacked = matchMedia('(max-width: 1080px)');
+    let current = -1;
+
     const activate = (idx) => {
+      if (idx === current) return;
+      current = idx;
       steps.forEach((s) => s.classList.toggle('is-active', Number(s.dataset.step) === idx));
       panels.forEach((p) => p.classList.toggle('is-active', Number(p.dataset.panel) === idx));
     };
 
-    const stepIo = new IntersectionObserver((entries) => {
-      entries.forEach((e) => {
-        if (e.isIntersecting) activate(Number(e.target.dataset.step));
+    // The active step is the last one whose top has crossed the middle of
+    // the area you can actually read. Stacked, that area starts below the
+    // pinned stage — a viewport-wide observer switched panels while their
+    // text was still hidden behind it.
+    const pickStep = () => {
+      const stageRect = stageWrap.getBoundingClientRect();
+      const stuck = stacked.matches &&
+        stageRect.top <= parseFloat(getComputedStyle(stageWrap).top) + 1;
+      stageWrap.classList.toggle('is-stuck', stuck);
+      const top = stacked.matches ? Math.max(0, stageRect.bottom) : 0;
+      const line = top + (window.innerHeight - top) * 0.5;
+      let idx = 0;
+      steps.forEach((s, i) => {
+        if (s.getBoundingClientRect().top <= line) idx = i;
       });
-    }, { threshold: 0.55 });
-    steps.forEach((s) => stepIo.observe(s));
-    activate(0);
+      activate(idx);
+    };
+
+    let queued = false;
+    const onStoryScroll = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        pickStep();
+      });
+    };
+    window.addEventListener('scroll', onStoryScroll, { passive: true });
+    window.addEventListener('resize', onStoryScroll);
+    pickStep();
 
     /* ---- run-panel loop: steps complete one after another ---- */
     const runSteps = story.querySelectorAll('[data-run-steps] .run-step');
@@ -208,7 +239,16 @@
       // gentle autonomous drift + a slow tour through the facts
       let t = 0;
       let tourIdx = 0;
+      const memPanel = graph.closest('[data-panel]');
+      let graphOnScreen = false;
+      new IntersectionObserver((entries) => {
+        graphOnScreen = entries.some((e) => e.isIntersecting);
+      }).observe(graph);
+
       const drift = () => {
+        requestAnimationFrame(drift);
+        // only spend frames while the graph can actually be seen
+        if (!graphOnScreen || !memPanel.classList.contains('is-active')) return;
         t += 0.008;
         nodes.forEach((n, i) => {
           n.dx = Math.sin(t * (0.7 + i * 0.13) + i * 2.1) * 6;
@@ -224,7 +264,6 @@
           l.setAttribute('x1', a.x + a.dx); l.setAttribute('y1', a.y + a.dy);
           l.setAttribute('x2', b.x + b.dx); l.setAttribute('y2', b.y + b.dy);
         });
-        requestAnimationFrame(drift);
       };
 
       if (reduced) {

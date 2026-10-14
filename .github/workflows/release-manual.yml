@@ -126,6 +126,17 @@ jobs:
       ref: ${{ needs.release.outputs.release_sha }}
       release_tag: ${{ needs.release.outputs.release_tag }}
 
+  publish-docker-image:
+    name: Publish Docker Image
+    needs: release
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/_publish-docker-image.yml
+    with:
+      ref: ${{ needs.release.outputs.release_sha }}
+      release_tag: ${{ needs.release.outputs.release_tag }}
+
   publish-release-assets:
     name: Publish Release Assets
     needs:

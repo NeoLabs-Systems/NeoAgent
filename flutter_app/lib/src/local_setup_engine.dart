@@ -5,6 +5,7 @@ import 'dart:io';
 import 'local_backend_installer_models.dart';
 import 'local_runtime_paths.dart';
 import 'setup_contract.g.dart';
+import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 typedef LocalSetupEventSink = void Function(LocalBackendInstallEvent event);
 
@@ -71,7 +72,9 @@ LocalBackendInstallStage setupEngineStage(String stage) {
         state: state,
         message: eventMessage.isNotEmpty
             ? eventMessage
-            : (errorDetail.isNotEmpty ? errorDetail : 'Preparing NeoAgent'),
+            : (errorDetail.isNotEmpty
+                  ? errorDetail
+                  : appStrings.preparingNeoagent2),
         progress: (decoded['progress'] as num?)?.toDouble(),
         errorCode: error is Map ? error['code']?.toString() : null,
         retryable: error is! Map || error['retryable'] != false,
@@ -148,9 +151,9 @@ class LocalSetupEngine {
       }
       final exitCode = await process.exitCode;
       if (_cancelled) {
-        throw const LocalBackendInstallerException(
+        throw LocalBackendInstallerException(
           'SETUP_CANCELLED',
-          'Setup was cancelled.',
+          appStrings.setupWasCancelled,
         );
       }
       if (exitCode != 0 || result == null) {
@@ -176,10 +179,10 @@ class LocalSetupEngine {
 String setupEngineFallbackMessage(String stderr) {
   final compact = stderr.replaceAll(RegExp(r'\s+'), ' ').trim();
   if (compact.isEmpty) {
-    return 'NeoAgent could not finish the local setup.';
+    return appStrings.neoagentCouldNotFinishTheLocal;
   }
   final detail = compact.length <= 400
       ? compact
       : compact.substring(compact.length - 400);
-  return 'NeoAgent could not finish the local setup. $detail';
+  return appStrings.neoagentCouldNotFinishTheLocal2(detail);
 }

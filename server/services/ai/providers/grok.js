@@ -25,7 +25,7 @@ class GrokProvider extends OpenAICompatibleProvider {
       const DROP = /imagine|diffus|embed|-tts/i;
       return res.data
         .filter((m) => !DROP.test(m.id))
-        .map((m) => ({ id: m.id, name: m.id }));
+        .map((m) => ({ id: m.id, name: m.id, created: m.created }));
     } catch (err) {
       throw wrapProviderError(err, 'Failed to list Grok models', { signal });
     }

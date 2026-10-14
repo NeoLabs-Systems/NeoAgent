@@ -9,6 +9,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: any
   archive: ^4.0.9
   cupertino_icons: ^1.0.8
   crypto: ^3.0.7
@@ -26,7 +29,6 @@ dependencies:
   permission_handler: ^12.0.1
   path_provider: ^2.1.5
   package_info_plus: ^8.3.1
-  audioplayers: ^6.1.0
   qr_flutter: ^4.1.0
   record: ^6.1.1
   window_manager: ^0.5.1
@@ -43,19 +45,24 @@ dependencies:
   flutter_animate: ^4.5.2
   flutter_local_notifications: ^18.0.0
   flutter_timezone: ^5.1.0
+  flutter_soloud: ^3.5.4
 
 dependency_overrides:
   flutter_secure_storage_linux:
     path: third_party/flutter_secure_storage_linux
 
 dev_dependencies:
+  fake_async: ^1.3.3
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
 
 flutter:
   uses-material-design: true
+  # Generates AppL10n from lib/l10n/*.arb (see l10n.yaml) on pub get and build.
+  generate: true
   assets:
+    - assets/branding/providers/
     - web/icons/Icon-192.png
     - assets/branding/app_icon_256.png
     - assets/branding/app_icon_512.png
@@ -67,3 +74,4 @@ flutter:
     - assets/branding/tray_icon_light_template.png
     - assets/branding/tray_icon_windows.ico
     - assets/branding/onboarding_intro.mp4
+    - assets/sounds/typing/

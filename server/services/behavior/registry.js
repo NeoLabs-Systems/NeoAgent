@@ -5,7 +5,6 @@ const LIFECYCLE_STAGES = Object.freeze([
   'decide',
   'composeContext',
   'composeSystemPrompt',
-  'refineDraft',
   'deliver',
   'afterTurn',
 ]);

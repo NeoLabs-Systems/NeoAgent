@@ -60,7 +60,6 @@ function buildBrowserCatalog() {
     'browser_extract',
   ]);
   return [
-    'task_complete',
     'search_tools',
     'activate_tools',
     'think',
@@ -83,7 +82,6 @@ function buildBrowserCatalog() {
 
 function buildLargeCatalog() {
   const tools = [
-    'task_complete',
     'search_tools',
     'activate_tools',
     'think',
@@ -122,18 +120,6 @@ async function observeFirstTurn(runOptions) {
   engine.buildContextMessages = (prompt) => [{ role: 'system', content: prompt }];
   engine.buildUserMessage = (message) => ({ role: 'user', content: message });
   engine.getReasoningEffort = () => undefined;
-  engine.requestStructuredJson = async ({ normalize, fallback }) => ({
-    value: normalize({
-      mode: 'execute',
-      draft_reply: '',
-      draft_status: 'needs_execution',
-      goal: 'Do the thing',
-      confidence: 0.8,
-      suggested_tools: [],
-    }, fallback || {}),
-    raw: '',
-    usage: 1,
-  });
   engine.getAvailableTools = () => buildLargeCatalog();
 
   const observed = { discovery: '', activeNames: [], mcpRequested: false, searchResults: [] };
@@ -175,16 +161,8 @@ async function observeFirstTurn(runOptions) {
       };
     }
     return {
-      response: {
-        content: '',
-        toolCalls: [{
-          id: 'done',
-          type: 'function',
-          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'done' }) },
-        }],
-        usage: { total_tokens: 1 },
-      },
-      streamContent: '',
+      response: { content: 'done', toolCalls: [], usage: { total_tokens: 1 } },
+      streamContent: 'done',
     };
   };
   engine.executeTool = async (name, args, context) => {
@@ -200,7 +178,6 @@ async function observeFirstTurn(runOptions) {
   await engine.run(userId, 'do the thing', {
     stream: false,
     skipGlobalRecall: true,
-    skipVerifier: true,
     maxIterations: 3,
     ...runOptions,
   });
@@ -235,18 +212,6 @@ test('browser work activates click and type instead of navigate alone', async ()
   engine.buildContextMessages = (prompt) => [{ role: 'system', content: prompt }];
   engine.buildUserMessage = (message) => ({ role: 'user', content: message });
   engine.getReasoningEffort = () => undefined;
-  engine.requestStructuredJson = async ({ normalize, fallback }) => ({
-    value: normalize({
-      mode: 'execute',
-      draft_reply: '',
-      draft_status: 'needs_execution',
-      goal: 'Use the computer browser',
-      confidence: 0.8,
-      suggested_tools: ['browser_navigate'],
-    }, fallback || {}),
-    raw: '',
-    usage: 1,
-  });
   engine.getAvailableTools = () => buildBrowserCatalog();
 
   let discovery = '';
@@ -258,16 +223,8 @@ test('browser work activates click and type instead of navigate alone', async ()
       .find((content) => content.includes('[Tool discovery]')) || '';
     activeNames = tools.map((tool) => tool.name);
     return {
-      response: {
-        content: '',
-        toolCalls: [{
-          id: 'done',
-          type: 'function',
-          function: { name: 'task_complete', arguments: JSON.stringify({ message: 'done' }) },
-        }],
-        usage: { total_tokens: 1 },
-      },
-      streamContent: '',
+      response: { content: 'done', toolCalls: [], usage: { total_tokens: 1 } },
+      streamContent: 'done',
     };
   };
   engine.executeTool = async () => ({ success: true });
@@ -277,7 +234,6 @@ test('browser work activates click and type instead of navigate alone', async ()
     triggerSource: 'web',
     stream: false,
     skipGlobalRecall: true,
-    skipVerifier: true,
     maxIterations: 2,
   });
 
@@ -286,7 +242,6 @@ test('browser work activates click and type instead of navigate alone', async ()
   assert.ok(activeNames.includes('browser_type'), 'browser_type must be active for page interaction');
   assert.ok(activeNames.includes('browser_extract'));
   assert.match(discovery, /browser_click/);
-  assert.equal(activeNames.includes('browser_screenshot'), false);
 });
 
 for (const [label, runOptions] of SURFACES) {
@@ -302,7 +257,6 @@ for (const [label, runOptions] of SURFACES) {
 
     assert.ok(observed.activeNames.includes('search_tools'), 'search_tools must always be active');
     assert.ok(observed.activeNames.includes('activate_tools'), 'activate_tools must always be active');
-    assert.ok(observed.activeNames.includes('task_complete'), 'task_complete must always be active');
     assert.ok(observed.activeNames.includes('call_user'), 'call_user must always be active');
     assert.ok(
       observed.activeNames.length <= MAX_TOOLS,

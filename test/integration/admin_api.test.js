@@ -45,7 +45,7 @@ describe('admin API', () => {
     const denied = await client.get('/api/admin/users').expect(403);
     assert.equal(denied.body.code, 'ADMIN_REQUIRED');
     await client.post('/api/admin/sql').send({ query: 'SELECT 1' }).expect(403);
-    await client.put('/api/admin/access/signup').send({ enabled: false }).expect(403);
+    await client.put('/api/admin/access/signup').send({ keyRequired: true }).expect(403);
   });
 
   test('server updates are admin-only', async () => {
@@ -54,6 +54,15 @@ describe('admin API', () => {
     assert.equal(update.body.code, 'ADMIN_REQUIRED');
     const channel = await client.put('/api/settings/update/channel').send({ channel: 'beta' }).expect(403);
     assert.equal(channel.body.code, 'ADMIN_REQUIRED');
+  });
+
+  test('the container image refuses in-app updates', async (t) => {
+    process.env.NEOAGENT_CONTAINER_IMAGE = '1';
+    t.after(() => { delete process.env.NEOAGENT_CONTAINER_IMAGE; });
+    const client = await signedIn(owner);
+    const update = await client.post('/api/settings/update').expect(403);
+    assert.match(update.body.error, /pulling a newer image/);
+    await client.put('/api/settings/update/channel').send({ channel: 'beta' }).expect(403);
   });
 
   test('admins list and search accounts, including who is admin', async () => {
@@ -144,15 +153,20 @@ describe('admin API', () => {
     assert.equal(ctx.db.prepare('SELECT COUNT(*) AS n FROM users').get().n, usersBefore);
   });
 
-  test('access settings expose only the sign-up toggle', async () => {
+  test('access settings expose only the sign-up key switch', async (t) => {
+    const previous = process.env.NEOAGENT_ALLOW_SIGNUP;
+    t.after(() => {
+      if (previous == null) delete process.env.NEOAGENT_ALLOW_SIGNUP;
+      else process.env.NEOAGENT_ALLOW_SIGNUP = previous;
+    });
     const client = await signedIn(owner);
     const access = await client.get('/api/admin/access').expect(200);
-    assert.deepEqual(access.body, { signupEnabled: true });
+    assert.deepEqual(access.body, { signupKeyRequired: false });
 
-    const off = await client.put('/api/admin/access/signup').send({ enabled: false }).expect(200);
-    assert.deepEqual(off.body, { ok: true, signupEnabled: false });
-    const on = await client.put('/api/admin/access/signup').send({ enabled: true }).expect(200);
-    assert.equal(on.body.signupEnabled, true);
+    const on = await client.put('/api/admin/access/signup').send({ keyRequired: true }).expect(200);
+    assert.deepEqual(on.body, { ok: true, signupKeyRequired: true });
+    const off = await client.put('/api/admin/access/signup').send({ keyRequired: false }).expect(200);
+    assert.equal(off.body.signupKeyRequired, false);
   });
 
   test('server overview endpoints answer with the documented shapes', async () => {
@@ -166,6 +180,50 @@ describe('admin API', () => {
     assert.equal(analytics.body.stats.totalUsers >= 2, true);
     const logs = await client.get('/api/admin/logs').expect(200);
     assert.ok(Array.isArray(logs.body.logs));
+  });
+
+  test('admins set a new password for an account, which signs it out everywhere', async () => {
+    const target = await createTestUser(ctx.db, { username: 'forgot_password_user' });
+    await signedIn(target);
+    const { createEmailToken } = require('../../server/services/account/service_email');
+    createEmailToken(target.userId, 'password_reset', target.email);
+
+    const memberClient = await signedIn(member);
+    await memberClient.post(`/api/admin/users/${target.userId}/password`)
+      .send({ password: 'Fresh-Start-Pass9' }).expect(403);
+
+    const client = await signedIn(owner);
+    const short = await client.post(`/api/admin/users/${target.userId}/password`)
+      .send({ password: 'Ab1!' }).expect(400);
+    assert.equal(short.body.code, 'PASSWORD_TOO_SHORT');
+    const weak = await client.post(`/api/admin/users/${target.userId}/password`)
+      .send({ password: 'Forgot_Password_User1!' }).expect(400);
+    assert.equal(weak.body.code, 'PASSWORD_WEAK');
+    const missing = await client.post('/api/admin/users/999999/password')
+      .send({ password: 'Fresh-Start-Pass9' }).expect(404);
+    assert.equal(missing.body.code, 'USER_NOT_FOUND');
+
+    const reset = await client.post(`/api/admin/users/${target.userId}/password`)
+      .send({ password: 'Fresh-Start-Pass9' }).expect(200);
+    assert.deepEqual(reset.body, { success: true });
+
+    const liveSessions = ctx.db.prepare(
+      'SELECT COUNT(*) AS count FROM user_sessions WHERE user_id = ? AND revoked_at IS NULL',
+    ).get(target.userId).count;
+    assert.equal(liveSessions, 0);
+    await request(app).post('/api/auth/login')
+      .send({ username: target.username, password: target.password }).expect(401);
+    await request(app).post('/api/auth/login')
+      .send({ username: target.username, password: 'Fresh-Start-Pass9' }).expect(200);
+    const pendingResets = ctx.db.prepare(`
+      SELECT COUNT(*) AS count FROM user_email_tokens
+      WHERE user_id = ? AND type = 'password_reset' AND consumed_at IS NULL
+    `).get(target.userId).count;
+    assert.equal(pendingResets, 0);
+    const audit = ctx.db.prepare(`
+      SELECT actor_user_id, subject_user_id FROM access_audit_log WHERE action = 'account.password_reset'
+    `).get();
+    assert.deepEqual(audit, { actor_user_id: owner.userId, subject_user_id: target.userId });
   });
 
   test('the retired standalone admin endpoints are gone', async () => {

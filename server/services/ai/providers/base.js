@@ -57,6 +57,13 @@ class BaseProvider {
   async analyzeImage(_options = {}) {
     throw new Error(`Provider '${this.name}' does not support image analysis`);
   }
+
+  // SystemOne models answer typed questions about a state with probabilities
+  // instead of generating text. Providers that serve them also implement
+  // listDecisionModels().
+  async decide(_request = {}) {
+    throw new Error(`Provider '${this.name}' does not serve decision models`);
+  }
 }
 
 module.exports = { BaseProvider };

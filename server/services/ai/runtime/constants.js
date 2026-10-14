@@ -1,16 +1,12 @@
 'use strict';
 
+// A run executes until the model answers, then delivers that answer. It can
+// also wait for structured input, be paused, or end cancelled or failed.
 const RUNTIME_STATES = Object.freeze({
   ACCEPTED: 'accepted',
-  TRIAGING: 'triaging',
-  RESPONDING: 'responding',
-  PLANNING: 'planning',
   EXECUTING: 'executing',
   WAITING: 'waiting',
-  BLOCKED: 'blocked',
   PAUSED: 'paused',
-  VERIFYING: 'verifying',
-  REPAIRING: 'repairing',
   DELIVERING: 'delivering',
   COMPLETED: 'completed',
   CANCELLED: 'cancelled',
@@ -25,15 +21,9 @@ const TERMINAL_RUNTIME_STATES = new Set([
 
 const PRODUCT_STATUS_BY_RUNTIME = Object.freeze({
   [RUNTIME_STATES.ACCEPTED]: 'running',
-  [RUNTIME_STATES.TRIAGING]: 'running',
-  [RUNTIME_STATES.RESPONDING]: 'running',
-  [RUNTIME_STATES.PLANNING]: 'running',
   [RUNTIME_STATES.EXECUTING]: 'running',
   [RUNTIME_STATES.WAITING]: 'running',
-  [RUNTIME_STATES.BLOCKED]: 'running',
   [RUNTIME_STATES.PAUSED]: 'paused',
-  [RUNTIME_STATES.VERIFYING]: 'running',
-  [RUNTIME_STATES.REPAIRING]: 'running',
   [RUNTIME_STATES.DELIVERING]: 'running',
   [RUNTIME_STATES.COMPLETED]: 'completed',
   [RUNTIME_STATES.CANCELLED]: 'stopped',
@@ -42,38 +32,13 @@ const PRODUCT_STATUS_BY_RUNTIME = Object.freeze({
 
 const ALLOWED_TRANSITIONS = Object.freeze({
   [RUNTIME_STATES.ACCEPTED]: [
-    RUNTIME_STATES.TRIAGING,
-    RUNTIME_STATES.CANCELLED,
-    RUNTIME_STATES.FAILED,
-  ],
-  [RUNTIME_STATES.TRIAGING]: [
-    RUNTIME_STATES.RESPONDING,
-    RUNTIME_STATES.PLANNING,
     RUNTIME_STATES.EXECUTING,
-    RUNTIME_STATES.BLOCKED,
-    RUNTIME_STATES.CANCELLED,
-    RUNTIME_STATES.FAILED,
-  ],
-  [RUNTIME_STATES.RESPONDING]: [
-    // Fast-path rejection falls back into planning/durable execution.
-    RUNTIME_STATES.PLANNING,
-    RUNTIME_STATES.EXECUTING,
-    RUNTIME_STATES.DELIVERING,
-    RUNTIME_STATES.CANCELLED,
-    RUNTIME_STATES.FAILED,
-  ],
-  [RUNTIME_STATES.PLANNING]: [
-    RUNTIME_STATES.EXECUTING,
-    RUNTIME_STATES.BLOCKED,
     RUNTIME_STATES.CANCELLED,
     RUNTIME_STATES.FAILED,
   ],
   [RUNTIME_STATES.EXECUTING]: [
-    RUNTIME_STATES.VERIFYING,
     RUNTIME_STATES.WAITING,
-    RUNTIME_STATES.BLOCKED,
     RUNTIME_STATES.PAUSED,
-    RUNTIME_STATES.PLANNING,
     RUNTIME_STATES.DELIVERING,
     RUNTIME_STATES.CANCELLED,
     RUNTIME_STATES.FAILED,
@@ -84,27 +49,8 @@ const ALLOWED_TRANSITIONS = Object.freeze({
     RUNTIME_STATES.CANCELLED,
     RUNTIME_STATES.FAILED,
   ],
-  [RUNTIME_STATES.BLOCKED]: [
-    RUNTIME_STATES.EXECUTING,
-    RUNTIME_STATES.DELIVERING,
-    RUNTIME_STATES.CANCELLED,
-    RUNTIME_STATES.FAILED,
-  ],
   [RUNTIME_STATES.PAUSED]: [
     RUNTIME_STATES.EXECUTING,
-    RUNTIME_STATES.CANCELLED,
-    RUNTIME_STATES.FAILED,
-  ],
-  [RUNTIME_STATES.VERIFYING]: [
-    RUNTIME_STATES.REPAIRING,
-    RUNTIME_STATES.DELIVERING,
-    RUNTIME_STATES.BLOCKED,
-    RUNTIME_STATES.CANCELLED,
-    RUNTIME_STATES.FAILED,
-  ],
-  [RUNTIME_STATES.REPAIRING]: [
-    RUNTIME_STATES.EXECUTING,
-    RUNTIME_STATES.BLOCKED,
     RUNTIME_STATES.CANCELLED,
     RUNTIME_STATES.FAILED,
   ],
@@ -117,13 +63,10 @@ const ALLOWED_TRANSITIONS = Object.freeze({
   [RUNTIME_STATES.FAILED]: [],
 });
 
-// The kinds the decision engine can actually derive from a model turn. Anything
-// else fails closed in validateDecision rather than silently executing.
 const DECISION_KINDS = Object.freeze({
-  RESPOND: 'respond',
   ACT: 'act',
-  COMPLETE: 'complete',
-  BLOCK: 'block',
+  ANSWER: 'answer',
+  BLANK: 'blank',
 });
 
 const MESSAGE_KINDS = Object.freeze({
@@ -136,7 +79,6 @@ const MESSAGE_KINDS = Object.freeze({
 });
 
 const DEFAULT_LEASE_MS = 60_000;
-const DEFAULT_MAX_SILENCE_SECONDS = 90;
 
 // A progress line is trimmed to 400 characters after the call; there is no
 // reason to let the model write more than that.
@@ -151,5 +93,4 @@ module.exports = {
   DECISION_KINDS,
   MESSAGE_KINDS,
   DEFAULT_LEASE_MS,
-  DEFAULT_MAX_SILENCE_SECONDS,
 };

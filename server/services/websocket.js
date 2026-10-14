@@ -1,14 +1,13 @@
+const { randomUUID } = require('crypto');
 const db = require('../db/database');
 const { sanitizeError } = require('../utils/security');
+const { publicErrorCode } = require('../utils/http_error');
 const { asObject, toOptionalString } = require('../utils/text');
+const { clientRunOptions } = require('../utils/client_run_options');
 const { listRunEvents } = require('./ai/runEvents');
 const { resolveAgentId } = require('./agents/manager');
-const cowork = require('./cowork/service');
 
-const MAX_VOICE_SCREENSHOT_BYTES = 3 * 1024 * 1024;
-const MAX_VOICE_SCREENSHOT_BASE64_CHARS =
-  Math.ceil((MAX_VOICE_SCREENSHOT_BYTES * 4) / 3) + 8;
-const MAX_VOICE_AUDIO_CHUNK_BYTES = 512 * 1024;
+const MAX_VOICE_AUDIO_CHUNK_BYTES = 256 * 1024;
 const MAX_VOICE_AUDIO_CHUNK_BASE64_CHARS =
   Math.ceil((MAX_VOICE_AUDIO_CHUNK_BYTES * 4) / 3) + 8;
 const MAX_AGENT_TASK_CHARS = 50000;
@@ -32,10 +31,10 @@ const EVENT_RATE_LIMITS = Object.freeze({
   'messaging:send': { windowMs: 10 * 1000, max: 20 },
   'messaging:status': { windowMs: 10 * 1000, max: 40 },
   'voice:session_open': { windowMs: 10 * 1000, max: 10 },
-  'voice:input_start': { windowMs: 10 * 1000, max: 20 },
+  'voice:audio': { windowMs: 1000, max: 80 },
+  'voice:input_start': { windowMs: 10 * 1000, max: 40 },
+  'voice:input_end': { windowMs: 10 * 1000, max: 40 },
   'voice:cancel_task': { windowMs: 10 * 1000, max: 10 },
-  'voice:audio_chunk': { windowMs: 1000, max: 40 },
-  'voice:input_commit': { windowMs: 10 * 1000, max: 10 },
   'voice:interrupt': { windowMs: 10 * 1000, max: 20 },
   'voice:session_close': { windowMs: 10 * 1000, max: 20 },
   'voice:call_accept': { windowMs: 10 * 1000, max: 10 },
@@ -48,32 +47,6 @@ const EVENT_RATE_LIMITS = Object.freeze({
   'stream:subscribe': { windowMs: 10 * 1000, max: 40 },
   'stream:unsubscribe': { windowMs: 10 * 1000, max: 40 },
 });
-
-function normalizeCoworkMessageOptions(options, task) {
-  const displayContent = toOptionalString(
-    options.coworkDisplayContent,
-    MAX_AGENT_TASK_CHARS,
-  ) || task;
-  const attachments = Array.isArray(options.coworkSharedAttachments)
-    ? options.coworkSharedAttachments.slice(0, 10).flatMap((raw) => {
-      const attachment = asObject(raw);
-      const uri = toOptionalString(attachment.uri, 4096);
-      if (!uri) return [];
-      const sizeBytes = Number(attachment.sizeBytes);
-      return [{
-        uri,
-        name: toOptionalString(attachment.name, 255) || 'Attachment',
-        mimeType: toOptionalString(attachment.mimeType, 128) || 'application/octet-stream',
-        source: toOptionalString(attachment.source, 64) || 'file_picker',
-        ...(Number.isSafeInteger(sizeBytes) && sizeBytes >= 0 ? { sizeBytes } : {}),
-      }];
-    })
-    : [];
-  return {
-    coworkDisplayContent: displayContent,
-    coworkSharedAttachments: attachments,
-  };
-}
 
 function toBoundedInt(value, fallback, min, max) {
   const parsed = Number(value);
@@ -242,6 +215,9 @@ function setupWebSocket(io, services) {
 
     socket.on('agent:run', async (raw) => {
       let requestedConversationId = '';
+      // Known before the run starts so a failure is attributed to its run, not
+      // to whichever run the client currently shows.
+      let runId = null;
       const limit = allowEvent('agent:run');
       if (!limit.allowed) {
         recordRateLimitHit(rateLimitObserver, userId, socket.id, 'agent:run', limit.retryAfterMs);
@@ -254,27 +230,13 @@ function setupWebSocket(io, services) {
         const options = asObject(data.options);
         const task = typeof data.task === 'string' ? data.task : '';
         requestedConversationId = toOptionalString(options.conversationId, 128);
-        const requestedConversation = requestedConversationId
-          ? db.prepare(
-            'SELECT * FROM conversations WHERE id = ? AND user_id = ?',
-          ).get(requestedConversationId, userId)
-          : null;
-        if (requestedConversationId && !requestedConversation) {
-          const error = new Error('Conversation not found.');
-          error.code = 'CONVERSATION_NOT_FOUND';
-          throw error;
+        if (requestedConversationId) {
+          memoryManager.assertOwnedConversation(userId, requestedConversationId);
         }
-        const isCowork = requestedConversation?.platform === cowork.COWORK_PLATFORM;
-        const coworkMessage = isCowork
-          ? normalizeCoworkMessageOptions(options, task)
-          : null;
-        let runContext = null;
-        let agentId = isCowork
-          ? requestedConversation.agent_id
-          : resolveAgentFromPayload(userId, {
-            ...options,
-            agentId: data?.agentId,
-          });
+        const agentId = resolveAgentFromPayload(userId, {
+          ...options,
+          agentId: data?.agentId,
+        });
         console.log(`[WS] agent:run received from user ${userId}`, {
           socketId: socket.id,
           hasOptions: Boolean(options),
@@ -290,7 +252,7 @@ function setupWebSocket(io, services) {
         }
 
         const commandRouter = services.app?.locals?.commandRouter;
-        if (commandRouter && !isCowork) {
+        if (commandRouter) {
           const commandResult = await commandRouter.dispatch(task, {
             userId,
             agentId,
@@ -308,12 +270,8 @@ function setupWebSocket(io, services) {
           }
         }
 
-        const triggerSource = isCowork ? 'cowork' : 'web';
-        const activeRun = agentEngine.findSteerableRunForUser(
-          userId,
-          triggerSource,
-          isCowork ? requestedConversationId : null,
-        );
+        const triggerSource = 'web';
+        const activeRun = agentEngine.findSteerableRunForUser(userId, triggerSource, null);
         if (activeRun) {
           const queued = agentEngine.enqueueSteering(activeRun.runId, task, {
             platform: triggerSource,
@@ -335,49 +293,16 @@ function setupWebSocket(io, services) {
                 task,
                 JSON.stringify({ platform: triggerSource, steering: true, agentId })
               );
-            if (isCowork && activeRun.conversationId) {
-              db.prepare(
-                `INSERT INTO conversation_messages (
-                  conversation_id, run_id, agent_id, role, content, metadata_json
-                ) VALUES (?, ?, ?, 'user', ?, ?)`,
-              ).run(
-                activeRun.conversationId,
-                activeRun.runId,
-                activeRun.agentId || agentId,
-                task,
-                JSON.stringify({
-                  steering: true,
-                  displayContent: coworkMessage.coworkDisplayContent,
-                  ...(coworkMessage.coworkSharedAttachments.length > 0
-                    ? { sharedAttachments: coworkMessage.coworkSharedAttachments }
-                    : {}),
-                }),
-              );
-              db.prepare(
-                `UPDATE conversations SET updated_at = datetime('now')
-                 WHERE id = ? AND user_id = ? AND platform = ?`,
-              ).run(activeRun.conversationId, userId, cowork.COWORK_PLATFORM);
-            }
             return;
           }
         }
 
-        if (isCowork) {
-          runContext = cowork.getRunContext(
-            userId,
-            requestedConversationId,
-            services.app?.locals?.runtimeManager,
-          );
-          agentId = runContext.agentId;
-        }
-
         const { ensureDefaultAiSettings, getAiSettings } = require('./ai/settings');
-        const { getWebChatContext } = require('./ai/history');
+        const { getWebChatContext, storeWebRunReply } = require('./ai/history');
         ensureDefaultAiSettings(userId, agentId);
         const aiSettings = getAiSettings(userId, agentId);
         const conversationId = requestedConversationId
           || memoryManager.getDefaultWebConversationId(userId, { agentId });
-        if (isCowork) cowork.autoTitleConversation(userId, conversationId, task);
         db.prepare(
           `INSERT INTO conversation_history (
             user_id, agent_id, conversation_id, role, content, metadata
@@ -389,23 +314,18 @@ function setupWebSocket(io, services) {
           task,
           JSON.stringify({ platform: triggerSource }),
         );
-        const webContext = isCowork
-          ? { recentMessages: [], summary: '' }
-          : getWebChatContext(userId, aiSettings.chat_history_window, { agentId });
+        const webContext = getWebChatContext(userId, aiSettings.chat_history_window, { agentId });
         const prior = webContext.recentMessages
           .filter((m) => !(m.role === 'user' && m.content === task))
           .slice(-aiSettings.chat_history_window);
 
+        runId = randomUUID();
         const result = await agentEngine.run(userId, task, {
-          ...options,
+          ...clientRunOptions(options),
+          runId,
           agentId,
           conversationId,
           triggerSource,
-          interactionMode: runContext?.mode || 'agent',
-          deviceTarget: runContext?.deviceTarget || null,
-          workspaceRoot: runContext?.workspacePathOverride || null,
-          ...(runContext?.modelOverride ? { model: runContext.modelOverride } : {}),
-          ...(coworkMessage || {}),
           priorMessages: prior,
           priorSummary: webContext.summary
         });
@@ -416,25 +336,13 @@ function setupWebSocket(io, services) {
           totalTokens: result?.totalTokens || null
         });
 
-        if (result?.status === 'completed' && result?.content) {
-          db.prepare(
-            `INSERT INTO conversation_history (
-              user_id, agent_id, agent_run_id, conversation_id, role, content, metadata
-            ) VALUES (?, ?, ?, ?, 'assistant', ?, ?)`,
-          ).run(
-            userId,
-            agentId,
-            result.runId,
-            conversationId,
-            result.content,
-            JSON.stringify({ tokens: result.totalTokens, platform: triggerSource }),
-          );
-        }
+        storeWebRunReply({ userId, agentId, conversationId, result, platform: triggerSource });
       } catch (err) {
         console.error(`[WS] agent:run failed for user ${userId}:`, err);
         socket.emit('run:error', {
+          runId,
           error: sanitizeError(err),
-          code: err?.code,
+          code: publicErrorCode(err),
           rateLimit: err?.rateLimit,
           conversationId: requestedConversationId || null,
         });
@@ -663,7 +571,9 @@ function setupWebSocket(io, services) {
         const callId = toOptionalString(asObject(raw)?.callId, 128);
         if (!callId) return socket.emit('voice:error', { error: 'callId is required' });
         if (!agentCallCoordinator) return socket.emit('voice:error', { error: 'Agent calls are unavailable.' });
-        agentCallCoordinator.decline(callId, userId, socket);
+        agentCallCoordinator.decline(callId, userId, socket, {
+          later: asObject(raw)?.later === true,
+        });
       } catch (err) {
         socket.emit('voice:error', { error: sanitizeError(err) });
       }
@@ -692,232 +602,62 @@ function setupWebSocket(io, services) {
         }
         socket.data.voiceSessionIds.add(session.id);
       } catch (err) {
-        socket.emit('voice:error', { error: sanitizeError(err) });
+        socket.emit('voice:error', { error: sanitizeError(err), recoverable: false });
       }
     });
 
-    socket.on('voice:input_start', async (raw) => {
-      const limit = allowEvent('voice:input_start');
-      if (!limit.allowed) {
-        recordRateLimitHit(rateLimitObserver, userId, socket.id, 'voice:input_start', limit.retryAfterMs);
-        return socket.emit('voice:error', {
-          error: `Rate limit exceeded for voice:input_start. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`,
-        });
-      }
-      try {
-        const data = asObject(raw);
-        const sessionId = toOptionalString(data?.sessionId, 128);
-        if (!sessionId) {
-          return socket.emit('voice:error', { error: 'sessionId is required' });
-        }
-        await voiceRuntimeManager.beginInput(sessionId, {
-          mimeType: toOptionalString(data?.mimeType, 128),
-          turnId: toOptionalString(data?.turnId, 128),
-        }, userId);
-      } catch (err) {
-        console.error(`[WS] voice:input_start failed for user ${userId}:`, err);
-        socket.emit('voice:error', {
-          sessionId: null,
-          error: sanitizeError(err),
-        });
-      }
-    });
-
-    socket.on('voice:audio_chunk', async (raw) => {
-      const limit = allowEvent('voice:audio_chunk');
-      if (!limit.allowed) {
-        recordRateLimitHit(rateLimitObserver, userId, socket.id, 'voice:audio_chunk', limit.retryAfterMs);
-        return socket.emit('voice:error', {
-          error: `Rate limit exceeded for voice:audio_chunk. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`,
-        });
-      }
-      try {
-        const data = asObject(raw);
-        const sessionId = toOptionalString(data?.sessionId, 128);
-        if (!sessionId) {
-          return socket.emit('voice:error', { error: 'sessionId is required' });
-        }
-        const audioBase64 = toOptionalString(data?.audioBase64, MAX_VOICE_AUDIO_CHUNK_BASE64_CHARS + 16);
-        if (!audioBase64 || audioBase64.length > MAX_VOICE_AUDIO_CHUNK_BASE64_CHARS) {
+    // Session-scoped voice events share validation: rate limit, a sessionId, and
+    // ownership checked by the runtime.
+    const onVoiceSessionEvent = (eventName, handler) => {
+      socket.on(eventName, async (raw) => {
+        const limit = allowEvent(eventName);
+        if (!limit.allowed) {
+          recordRateLimitHit(rateLimitObserver, userId, socket.id, eventName, limit.retryAfterMs);
           return socket.emit('voice:error', {
-            sessionId,
-            error: `audio chunk is too large (max ${MAX_VOICE_AUDIO_CHUNK_BYTES} bytes)`,
+            error: `Rate limit exceeded for ${eventName}. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`,
+            recoverable: true,
           });
         }
-        const audioBytes = Buffer.from(audioBase64, 'base64');
-        if (!audioBytes.length || audioBytes.length > MAX_VOICE_AUDIO_CHUNK_BYTES) {
-          return socket.emit('voice:error', {
-            sessionId,
-            error: `audio chunk is too large (max ${MAX_VOICE_AUDIO_CHUNK_BYTES} bytes)`,
-          });
-        }
-        const turnId = toOptionalString(data?.turnId, 128);
-        const sequence = toBoundedInt(data?.sequence, -1, -1, 1_000_000);
-        if (!turnId) {
-          return socket.emit('voice:error', {
-            sessionId,
-            error: 'turnId is required',
-          });
-        }
-        if (sequence < 0) {
-          return socket.emit('voice:error', {
-            sessionId,
-            error: 'sequence is required',
-          });
-        }
-        const appendResult = await voiceRuntimeManager.appendInputAudio(sessionId, audioBytes, {
-          mimeType: toOptionalString(data?.mimeType, 128),
-          turnId,
-          sequence,
-        }, userId);
-        socket.emit('voice:chunk_ack', {
-          sessionId,
-          turnId,
-          sequence,
-          receivedThrough: appendResult?.receivedThrough ?? sequence,
-        });
-      } catch (err) {
-        console.error(`[WS] voice:audio_chunk failed for user ${userId}:`, err);
-        socket.emit('voice:error', {
-          sessionId: null,
-          error: sanitizeError(err),
-        });
-      }
-    });
-
-    socket.on('voice:input_commit', async (raw) => {
-      const limit = allowEvent('voice:input_commit');
-      if (!limit.allowed) {
-        recordRateLimitHit(rateLimitObserver, userId, socket.id, 'voice:input_commit', limit.retryAfterMs);
-        return socket.emit('voice:error', {
-          error: `Rate limit exceeded for voice:input_commit. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`,
-        });
-      }
-      try {
         const data = asObject(raw);
         const sessionId = toOptionalString(data?.sessionId, 128);
         if (!sessionId) {
-          return socket.emit('voice:error', { error: 'sessionId is required' });
+          return socket.emit('voice:error', { error: 'sessionId is required', recoverable: true });
         }
-        const metadata = {};
-        const screenshotBase64 = typeof data?.screenshotBase64 === 'string'
-          ? data.screenshotBase64.trim()
-          : '';
-        if (screenshotBase64) {
-          if (screenshotBase64.length > MAX_VOICE_SCREENSHOT_BASE64_CHARS) {
-            console.warn(
-              `[WS] voice:input_commit rejected oversized screenshot for user ${userId}: base64 length ${screenshotBase64.length}`
-            );
-            socket.emit('voice:error', {
-                sessionId,
-              error: 'Attached screenshot is too large (max 3 MB).',
-            });
-            return;
-          }
-
-          const screenshotBytes = Buffer.from(screenshotBase64, 'base64');
-          if (!screenshotBytes.length || screenshotBytes.length > MAX_VOICE_SCREENSHOT_BYTES) {
-            console.warn(
-              `[WS] voice:input_commit rejected oversized screenshot for user ${userId}: decoded bytes ${screenshotBytes.length}`
-            );
-            socket.emit('voice:error', {
-                sessionId,
-              error: 'Attached screenshot is too large (max 3 MB).',
-            });
-            return;
-          }
-
-          metadata.screenshotBase64 = screenshotBase64;
-          const screenshotMimeType = typeof data?.screenshotMimeType === 'string'
-            ? data.screenshotMimeType.trim()
-            : '';
-          if (screenshotMimeType) {
-            metadata.screenshotMimeType = screenshotMimeType;
-          }
+        try {
+          await handler(sessionId, data);
+        } catch (err) {
+          socket.emit('voice:error', { sessionId, error: sanitizeError(err), recoverable: true });
         }
+      });
+    };
 
-        await voiceRuntimeManager.commitInput(sessionId, {
-          turnId: toOptionalString(data?.turnId, 128),
-          finalSequence: toBoundedInt(data?.finalSequence, -1, -1, 1_000_000),
-          promptHint: toOptionalString(data?.promptHint, 2000),
-          metadata,
-        }, userId);
-      } catch (err) {
-        console.error(`[WS] voice:input_commit failed for user ${userId}:`, err);
-        socket.emit('voice:error', {
-          sessionId: null,
-          error: sanitizeError(err),
-        });
-      }
+    onVoiceSessionEvent('voice:audio', (sessionId, data) => {
+      const audioBase64 = toOptionalString(data?.audioBase64, MAX_VOICE_AUDIO_CHUNK_BASE64_CHARS);
+      if (!audioBase64) throw new Error('audioBase64 is required');
+      voiceRuntimeManager.appendAudio(sessionId, Buffer.from(audioBase64, 'base64'), userId);
     });
 
-    socket.on('voice:interrupt', async (raw) => {
-      const limit = allowEvent('voice:interrupt');
-      if (!limit.allowed) {
-        recordRateLimitHit(rateLimitObserver, userId, socket.id, 'voice:interrupt', limit.retryAfterMs);
-        return socket.emit('voice:error', {
-          error: `Rate limit exceeded for voice:interrupt. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`,
-        });
-      }
-      try {
-        const data = asObject(raw);
-        const sessionId = toOptionalString(data?.sessionId, 128);
-        if (!sessionId) {
-          return socket.emit('voice:error', { error: 'sessionId is required' });
-        }
-        await voiceRuntimeManager.interruptSession(sessionId, userId);
-      } catch (err) {
-        console.error(`[WS] voice:interrupt failed for user ${userId}:`, err);
-        socket.emit('voice:error', {
-          sessionId: null,
-          error: sanitizeError(err),
-        });
-      }
+    onVoiceSessionEvent('voice:input_start', (sessionId) => {
+      voiceRuntimeManager.startInput(sessionId, userId);
     });
 
-    socket.on('voice:cancel_task', async (raw) => {
-      const limit = allowEvent('voice:cancel_task');
-      if (!limit.allowed) {
-        return socket.emit('voice:error', {
-          error: `Rate limit exceeded for voice:cancel_task. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`,
-        });
-      }
-      try {
-        const data = asObject(raw);
-        const sessionId = toOptionalString(data?.sessionId, 128);
-        if (!sessionId) return socket.emit('voice:error', { error: 'sessionId is required' });
-        const result = await voiceRuntimeManager.cancelTask(sessionId, userId);
-        socket.emit('voice:task_cancelled', { sessionId, ...result });
-      } catch (err) {
-        socket.emit('voice:error', { error: sanitizeError(err) });
-      }
+    onVoiceSessionEvent('voice:input_end', (sessionId) => {
+      voiceRuntimeManager.endInput(sessionId, userId);
     });
 
-    socket.on('voice:session_close', async (raw) => {
-      const limit = allowEvent('voice:session_close');
-      if (!limit.allowed) {
-        recordRateLimitHit(rateLimitObserver, userId, socket.id, 'voice:session_close', limit.retryAfterMs);
-        return socket.emit('voice:error', {
-          error: `Rate limit exceeded for voice:session_close. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`,
-        });
-      }
-      try {
-        const data = asObject(raw);
-        const sessionId = toOptionalString(data?.sessionId, 128);
-        if (!sessionId) {
-          return socket.emit('voice:error', { error: 'sessionId is required' });
-        }
-        await voiceRuntimeManager.closeSession(sessionId, 'client_closed', userId, {
-          cancelTask: data?.cancelTask === true,
-        });
-        socket.data.voiceSessionIds?.delete(sessionId);
-      } catch (err) {
-        console.error(`[WS] voice:session_close failed for user ${userId}:`, err);
-        socket.emit('voice:error', {
-          sessionId: null,
-          error: sanitizeError(err),
-        });
-      }
+    onVoiceSessionEvent('voice:interrupt', (sessionId) => {
+      voiceRuntimeManager.interruptOutput(sessionId, userId);
+    });
+
+    onVoiceSessionEvent('voice:cancel_task', (sessionId, data) => {
+      voiceRuntimeManager.cancelTask(sessionId, userId, toOptionalString(data?.runId, 128));
+    });
+
+    onVoiceSessionEvent('voice:session_close', async (sessionId, data) => {
+      await voiceRuntimeManager.closeSession(sessionId, 'client_closed', userId, {
+        cancelTask: data?.cancelTask === true,
+      });
+      socket.data.voiceSessionIds?.delete(sessionId);
     });
 
     // ── MCP ──

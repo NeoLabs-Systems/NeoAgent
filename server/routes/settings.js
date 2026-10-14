@@ -5,28 +5,19 @@ const db = require('../db/database');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { normalizeWhatsAppWhitelist } = require('../utils/whatsapp');
 const { getVersionInfo } = require('../utils/version');
-const { APP_DIR } = require('../../runtime/paths');
-const {
-  readUpdateStatus,
-  writeUpdateStatusFile: writeUpdateStatus,
-} = require('../utils/update_status');
+const { UI_LANGUAGE_CODES } = require('../config/ui_languages');
+const { readUpdateStatus } = require('../utils/update_status');
 const { getRuntimeValidation } = require('../services/runtime/validation');
-const {
-  parseReleaseChannel,
-  writeReleaseChannelToEnvFile,
-  getReleaseChannelBranchPolicy,
-} = require('../../runtime/release_channel');
+const { startUpdate, setUpdateChannel } = require('../services/admin/updates');
 const {
   AI_PROVIDER_DEFINITIONS,
   createDefaultAiSettings,
   ensureDefaultAiSettings,
   normalizeProviderConfigs,
+  normalizeSystemOneModel,
   setProviderConfig,
   setProviderSecret,
 } = require('../services/ai/settings');
-const {
-  readMeshtasticEnabled,
-} = require('../services/messaging/meshtastic_env');
 const {
   ensureDefaultRuntimeSettings,
   getRuntimeSettings,
@@ -34,9 +25,10 @@ const {
   serializeRuntimeSettingValue,
   validateRuntimeSettings,
 } = require('../services/runtime/settings');
-const { isManagedDeployment } = require('../utils/deployment');
 const { getAgentIdFromRequest, isMainAgent, resolveAgentId } = require('../services/agents/manager');
 const { getProviderHealthCatalog, getSupportedModels, PROVIDER_FACTORIES } = require('../services/ai/models');
+const { getSystemOneModels } = require('../services/ai/system_one');
+const { hasSignInMethod } = require('../services/ai/provider_sign_in');
 const { validateCloudUrlWithDns } = require('../utils/cloud-security');
 const { normalizeTimeZone } = require('../utils/timezone');
 
@@ -52,39 +44,21 @@ const AGENT_SETTING_KEYS = new Set([
   'subagent_max_children_per_run',
   'assistant_behavior_notes',
   'auto_skill_learning',
-  'smarter_model_selector',
+  'system_one_model',
   'ai_provider_configs',
   'default_chat_model',
   'default_subagent_model',
   'default_speech_model',
+  'task_models',
   'enabled_models',
   'voice_stt_provider',
   'voice_stt_model',
-  'voice_tts_provider',
-  'voice_tts_model',
-  'voice_tts_voice',
-  'voice_media_mode',
+  'voice_live_provider',
+  'voice_live_model',
+  'voice_live_voice',
   'voice_input_mode',
   'last_platform',
   'last_chat_id',
-]);
-
-const VOICE_SETTING_KEYS = new Set([
-  'voice_stt_provider',
-  'voice_stt_model',
-  'voice_tts_provider',
-  'voice_tts_model',
-  'voice_tts_voice',
-  'voice_media_mode',
-  'voice_input_mode',
-]);
-
-const ENV_BACKED_SETTING_KEYS = new Set([
-  'meshtastic_enabled',
-]);
-
-const READ_ONLY_ENV_SETTING_KEYS = new Set([
-  'meshtastic_enabled',
 ]);
 
 const SERVER_MANAGED_SETTING_KEYS = new Set([
@@ -96,7 +70,16 @@ const HIDDEN_SETTING_KEYS = new Set([
   'ai_provider_api_keys',
 ]);
 
+function normalizeUiLanguage(value) {
+  const code = String(value ?? '').trim().toLowerCase();
+  return UI_LANGUAGE_CODES.has(code) ? code : null;
+}
+
 const RETIRED_SETTING_KEYS = new Set([
+  'voice_tts_provider',
+  'voice_tts_model',
+  'voice_tts_voice',
+  'voice_media_mode',
   'browser_backend',
   'browser_extension_token_id',
   'selected_browser_extension_token_id',
@@ -145,11 +128,12 @@ router.get('/update/status', requireAuth, (req, res) => {
       gitVersion: version.gitVersion,
       gitSha: version.gitSha,
       gitBranch: version.gitBranch,
-      releaseChannel: status.releaseChannel || version.releaseChannel,
-      targetBranch: status.targetBranch || version.targetBranch,
+      releaseChannel: version.releaseChannel,
+      targetBranch: status.state === 'running' ? status.targetBranch || version.targetBranch : version.targetBranch,
       deploymentMode: version.deploymentMode,
       managedDeployment: version.managedDeployment,
       allowSelfUpdate: version.allowSelfUpdate,
+      containerImage: version.containerImage,
       runtimeDefaults: version.runtimeDefaults,
       allowHostRuntime: version.allowHostRuntime,
       runtimeValidation: getRuntimeValidation(req.app?.locals?.runtimeManager),
@@ -168,42 +152,17 @@ function isAgentScopedSettingKey(key) {
     || key.startsWith('platform_access_policy_');
 }
 
-function isEnvBackedSettingKey(key) {
-  return ENV_BACKED_SETTING_KEYS.has(key);
-}
-
-function readEnvBackedSettingValue(key) {
-  switch (key) {
-    case 'meshtastic_enabled':
-      return readMeshtasticEnabled();
-    default:
-      return null;
-  }
-}
-
-async function writeEnvBackedSettingValue(req, key, value) {
-  switch (key) {
-    case 'meshtastic_enabled':
-      return readMeshtasticEnabled();
-    default:
-      return value;
-  }
-}
-
-async function resetEnvBackedSettingValue(req, key) {
-  switch (key) {
-    case 'meshtastic_enabled': {
-      return;
-    }
-    default:
-      return;
-  }
-}
-
 // Get supported models metadata
 router.get('/meta/models', async (req, res) => {
   const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
   const models = await getSupportedModels(req.session.userId, agentId, { signal: req.signal });
+  res.json({ models });
+});
+
+// SystemOne decision models, kept apart from the chat models above.
+router.get('/meta/system-one-models', async (req, res) => {
+  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+  const models = await getSystemOneModels(req.session.userId, agentId, { signal: req.signal });
   res.json({ models });
 });
 
@@ -274,7 +233,7 @@ async function assertSafeByokBaseUrl(baseUrl, res, signal) {
     res.status(400).json({
       success: false,
       ok: false,
-      error: 'That base URL points at a local or private network address, which isn\'t allowed.',
+      error: result.reason,
     });
     return false;
   }
@@ -306,6 +265,7 @@ router.get('/byok', async (req, res) => {
         defaultBaseUrl: provider.defaultBaseUrl,
         isCustomEndpoint: provider.id === 'openai-compatible',
         configured: provider.isByok,
+        signInAvailable: hasSignInMethod(provider.id),
         baseUrl: provider.isByok ? provider.baseUrl : '',
         customLabel: provider.isByok ? (provider.customLabel || '') : '',
       })),
@@ -362,8 +322,10 @@ router.delete('/byok/:providerId', byokWriteLimiter, (req, res) => {
     if (definition.supportsApiKey) {
       setProviderSecret(userId, providerId, '', agentId);
     }
-    if (!definition.supportsApiKey && definition.supportsBaseUrl) {
-      setProviderConfig(userId, providerId, { baseUrl: '', label: '' }, agentId);
+    if (definition.supportsBaseUrl) {
+      const updates = { baseUrl: '' };
+      if (!definition.supportsApiKey) updates.label = '';
+      setProviderConfig(userId, providerId, updates, agentId);
     }
     res.json({ success: true, configured: false });
   } catch (error) {
@@ -384,13 +346,22 @@ router.post('/byok/:providerId/test', byokWriteLimiter, async (req, res) => {
     return res.status(404).json({ success: false, error: 'Unknown provider.' });
   }
 
-  let apiKey = typeof req.body?.apiKey === 'string' ? req.body.apiKey.trim() : '';
-  let baseUrl = typeof req.body?.baseUrl === 'string' ? req.body.baseUrl.trim() : '';
-  if (!apiKey) {
+  const suppliedKey = typeof req.body?.apiKey === 'string' ? req.body.apiKey.trim() : '';
+  const suppliedUrl = typeof req.body?.baseUrl === 'string' ? req.body.baseUrl.trim() : '';
+  if (suppliedUrl && !suppliedKey && definition.supportsApiKey) {
+    return res.status(400).json({
+      success: false,
+      ok: false,
+      error: 'Testing a custom base URL requires the API key for that endpoint.',
+    });
+  }
+  let apiKey = suppliedKey;
+  let baseUrl = suppliedUrl;
+  if (!apiKey && !suppliedUrl) {
     const { getProviderRuntimeConfig } = require('../services/ai/models');
     const runtime = getProviderRuntimeConfig(userId, providerId, agentId);
     apiKey = runtime.apiKey;
-    baseUrl = baseUrl || runtime.baseUrl;
+    baseUrl = runtime.baseUrl;
   }
   if (definition.supportsApiKey && !apiKey) {
     return res.status(400).json({ success: false, ok: false, error: 'No API key to test.' });
@@ -411,7 +382,11 @@ router.post('/byok/:providerId/test', byokWriteLimiter, async (req, res) => {
     if (typeof provider.listModels !== 'function') {
       return res.json({ success: true, ok: true, message: 'Credential saved format looks valid; this provider does not support a live connection test.' });
     }
-    const models = await provider.listModels(controller.signal);
+    let models = await provider.listModels(controller.signal);
+    // A provider with only SystemOne models (TypeSafe) proves its key there.
+    if (!models?.length && typeof provider.listDecisionModels === 'function') {
+      models = await provider.listDecisionModels(controller.signal);
+    }
     res.json({
       success: true,
       ok: true,
@@ -427,7 +402,7 @@ router.post('/byok/:providerId/test', byokWriteLimiter, async (req, res) => {
 });
 
 // Get all settings
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
   ensureDefaultAiSettings(req.session.userId, agentId);
   ensureDefaultRuntimeSettings(req.session.userId);
@@ -454,8 +429,10 @@ router.get('/', (req, res) => {
   }
   settings.agentId = agentId;
   settings.ai_provider_configs = normalizeProviderConfigs(settings.ai_provider_configs);
-  settings.meshtastic_enabled = readMeshtasticEnabled();
-  settings.voice_capabilities = req.app?.locals?.voiceRuntimeManager?.getCapabilities?.() || null;
+  settings.voice_capabilities = await req.app?.locals?.voiceRuntimeManager?.getCapabilities?.({
+    userId: req.session.userId,
+    agentId,
+  }) || null;
   
   // Normalize runtime settings for consistency across deployments
   const normalizedRuntime = getRuntimeSettings(req.session.userId);
@@ -485,6 +462,21 @@ router.put('/', async (req, res) => {
     normalizedBody.timezone = timeZone;
   }
 
+  if ('ui_language' in normalizedBody) {
+    const language = normalizeUiLanguage(normalizedBody.ui_language);
+    if (!language) {
+      return res.status(400).json({ success: false, error: 'Unknown language.' });
+    }
+    normalizedBody.ui_language = language;
+  }
+
+  if (
+    'system_one_model' in normalizedBody
+    && normalizeSystemOneModel(normalizedBody.system_one_model) !== normalizedBody.system_one_model
+  ) {
+    return res.status(400).json({ success: false, error: 'Unknown SystemOne model selection.' });
+  }
+
   if ('platform_whitelist_whatsapp' in normalizedBody) {
     let whitelist = normalizedBody.platform_whitelist_whatsapp;
     if (typeof whitelist === 'string') {
@@ -501,13 +493,6 @@ router.put('/', async (req, res) => {
     if (isProtectedSecretSettingKey(key)) {
       delete normalizedBody[key];
       continue;
-    }
-    if (READ_ONLY_ENV_SETTING_KEYS.has(key)) {
-      delete normalizedBody[key];
-      continue;
-    }
-    if (isEnvBackedSettingKey(key)) {
-      normalizedBody[key] = await writeEnvBackedSettingValue(req, key, normalizedBody[key]);
     }
   }
 
@@ -532,13 +517,26 @@ router.put('/', async (req, res) => {
     Object.assign(normalizedBody, validation.settings);
   }
 
+  const previousModels = db.prepare(
+    `SELECT key, value FROM agent_settings
+     WHERE user_id = ? AND agent_id = ? AND key IN ('default_chat_model', 'default_subagent_model')`,
+  ).all(userId, agentId);
+  for (const key of ['default_chat_model', 'default_subagent_model']) {
+    if (!(key in normalizedBody)) continue;
+    const stored = previousModels.find((row) => row.key === key)?.value ?? null;
+    let previous = stored;
+    try { previous = JSON.parse(stored); } catch {}
+    const next = normalizedBody[key];
+    if (previous !== next) {
+      console.info(`[Settings] user=${userId} agent=${agentId} ${key}: ${previous} -> ${next} (client ${req.get('user-agent') || 'unknown'})`);
+    }
+  }
+
   const tx = db.transaction((entries) => {
     for (const [key, value] of entries) {
       const v = serializeRuntimeSettingValue(key, value);
       if (isAgentScopedSettingKey(key)) {
         upsertAgent.run(userId, agentId, key, v);
-      } else if (isEnvBackedSettingKey(key)) {
-        continue;
       } else if (key !== 'agentId' && key !== 'agent_id') {
         upsert.run(userId, key, v);
       }
@@ -681,9 +679,6 @@ router.get('/:key', (req, res) => {
   if (RETIRED_SETTING_KEYS.has(req.params.key) || HIDDEN_SETTING_KEYS.has(req.params.key)) {
     return res.json({ value: null });
   }
-  if (isEnvBackedSettingKey(req.params.key)) {
-    return res.json({ value: readEnvBackedSettingValue(req.params.key) });
-  }
   const userId = req.session.userId;
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   ensureDefaultRuntimeSettings(userId);
@@ -722,22 +717,11 @@ router.put('/:key', async (req, res) => {
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   ensureDefaultRuntimeSettings(userId);
   let value = req.body.value;
-  if (READ_ONLY_ENV_SETTING_KEYS.has(req.params.key)) {
-    return res.status(403).json({
-      success: false,
-      error: `${req.params.key} is managed via environment only`,
-      value: readEnvBackedSettingValue(req.params.key),
-    });
-  }
   if (isProtectedSecretSettingKey(req.params.key)) {
     return res.status(403).json({
       success: false,
       error: `${req.params.key} is managed by Social Reach cookie setup`,
     });
-  }
-  if (isEnvBackedSettingKey(req.params.key)) {
-    const saved = await writeEnvBackedSettingValue(req, req.params.key, value);
-    return res.json({ success: true, value: saved });
   }
   if (req.params.key === 'platform_whitelist_whatsapp') {
     if (typeof value === 'string') {
@@ -752,6 +736,11 @@ router.put('/:key', async (req, res) => {
     value = normalizeTimeZone(value);
     if (!value) {
       return res.status(400).json({ success: false, error: 'Unknown time zone.' });
+    }
+  } else if (req.params.key === 'ui_language') {
+    value = normalizeUiLanguage(value);
+    if (!value) {
+      return res.status(400).json({ success: false, error: 'Unknown language.' });
     }
   } else if (
     ['runtime_profile', 'runtime_backend', 'computer_backend', 'android_backend', 'mcp_backend']
@@ -798,18 +787,6 @@ router.delete('/:key', (req, res) => {
       error: 'AI provider credentials are configured on the server, not per account.',
     });
   }
-  if (READ_ONLY_ENV_SETTING_KEYS.has(req.params.key)) {
-    return res.status(403).json({
-      success: false,
-      error: `${req.params.key} is managed via environment only`,
-      value: readEnvBackedSettingValue(req.params.key),
-    });
-  }
-  if (isEnvBackedSettingKey(req.params.key)) {
-    return resetEnvBackedSettingValue(req, req.params.key)
-      .then(() => res.json({ success: true }))
-      .catch((err) => res.status(500).json({ success: false, error: err.message }));
-  }
   const userId = req.session.userId;
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   if (RETIRED_SETTING_KEYS.has(req.params.key)) {
@@ -833,79 +810,22 @@ router.delete('/:key', (req, res) => {
   res.json({ success: true });
 });
 
-// Trigger auto-update script
-router.post('/update', requireAuth, requireAdmin, updateTriggerLimiter, (req, res) => {
-  if (isManagedDeployment()) {
-    return res.status(403).json({
-      success: false,
-      error: 'Updates are managed by this deployment.',
-    });
+router.post('/update', requireAuth, requireAdmin, updateTriggerLimiter, async (req, res, next) => {
+  try {
+    res.status(202).json(await startUpdate());
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, error: error.message });
+    next(error);
   }
-  const { spawn } = require('child_process');
-  const status = readUpdateStatus();
-  if (status.state === 'running') {
-    return res.status(409).json({ success: false, error: 'An update is already running' });
-  }
-  console.log('[Settings] Triggering update-runner...');
-  const child = spawn(process.execPath, ['scripts/update-runner.js'], {
-    detached: true,
-    stdio: 'ignore',
-    cwd: APP_DIR
-  });
-
-  writeUpdateStatus({
-    state: 'running',
-    progress: 1,
-    phase: 'starting',
-    message: 'Launching update job',
-    startedAt: new Date().toISOString(),
-    completedAt: null,
-    versionBefore: null,
-    versionAfter: null,
-    runnerPid: child.pid,
-    changelog: [],
-    logs: []
-  });
-
-  child.once('error', (error) => {
-    writeUpdateStatus({
-      state: 'failed',
-      progress: 100,
-      phase: 'failed',
-      message: `Failed to launch update job: ${error.message}`,
-      completedAt: new Date().toISOString(),
-      runnerPid: null,
-    });
-  });
-
-  child.unref();
-  res.json({ success: true, message: 'Update triggered', pid: child.pid });
 });
 
-router.put('/update/channel', requireAuth, requireAdmin, (req, res) => {
-  if (isManagedDeployment()) {
-    return res.status(403).json({
-      success: false,
-      error: 'Release channel changes are managed by this deployment.',
-    });
+router.put('/update/channel', requireAuth, requireAdmin, (req, res, next) => {
+  try {
+    res.json(setUpdateChannel(req.body?.channel));
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, error: error.message });
+    next(error);
   }
-  const requested = req.body?.channel;
-  const releaseChannel = parseReleaseChannel(requested);
-  if (!releaseChannel) {
-    return res.status(400).json({
-      success: false,
-      error: 'Release channel must be "stable" or "beta".',
-    });
-  }
-
-  writeReleaseChannelToEnvFile(releaseChannel);
-  process.env.NEOAGENT_RELEASE_CHANNEL = releaseChannel;
-
-  res.json({
-    success: true,
-    releaseChannel,
-    targetBranch: getReleaseChannelBranchPolicy(releaseChannel),
-  });
 });
 
 module.exports = router;

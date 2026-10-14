@@ -4,12 +4,16 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
     <uses-permission android:name="android.permission.health.READ_SLEEP" />
@@ -33,6 +37,7 @@
         android:label="${neoagentAppLabel}"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
+        android:localeConfig="@xml/locales_config"
         android:usesCleartextTraffic="true">
         <meta-data
             android:name="com.google.android.gms.car.application"
@@ -112,6 +117,11 @@
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
         <service
+            android:name="id.flutter.flutter_background_service.BackgroundService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false"
+            tools:replace="android:exported" />
+        <service
             android:name=".telecom.NeoAgentConnectionService"
             android:exported="true"
             android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE">
@@ -120,6 +130,29 @@
             </intent-filter>
         </service>
         
+        <receiver
+            android:name=".widgets.StatusWidgetProvider"
+            android:exported="false"
+            android:label="@string/neoagent_widget_status_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/neoagent_widget_status_info" />
+        </receiver>
+        <receiver
+            android:name=".widgets.CallWidgetProvider"
+            android:exported="false"
+            android:label="@string/neoagent_widget_call_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/neoagent_widget_call_info" />
+        </receiver>
+
         <service
             android:name=".auto.NeoAgentCarAppService"
             android:exported="true"

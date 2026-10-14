@@ -104,16 +104,25 @@ function parseIcsDate(value) {
   return match[7] ? `${iso}Z` : iso;
 }
 
-function parseEvent(ics) {
-  const block = icsBlocks(ics, 'VEVENT')[0] || unfoldIcs(ics);
+function eventFromBlock(block) {
   return {
     uid: icsField(block, 'UID'),
+    recurrenceId: parseIcsDate(icsField(block, 'RECURRENCE-ID')),
     summary: icsField(block, 'SUMMARY'),
     description: icsField(block, 'DESCRIPTION'),
     location: icsField(block, 'LOCATION'),
     start: parseIcsDate(icsField(block, 'DTSTART')),
     end: parseIcsDate(icsField(block, 'DTEND')),
   };
+}
+
+function parseEvent(ics) {
+  return eventFromBlock(icsBlocks(ics, 'VEVENT')[0] || unfoldIcs(ics));
+}
+
+// An expanded recurring event holds one VEVENT per occurrence.
+function parseEvents(ics) {
+  return icsBlocks(ics, 'VEVENT').map(eventFromBlock);
 }
 
 function parseContact(vcard) {
@@ -203,6 +212,7 @@ module.exports = {
   parseContact,
   parseDavResponses,
   parseEvent,
+  parseEvents,
   toCalDavUtc,
   xmlText,
 };

@@ -85,7 +85,7 @@ test('agent call distinguishes an offline Flutter client from a missing tool', a
   });
 });
 
-test('first accepting client wins and opening context is attached to the voice session', async (t) => {
+test('first accepting client wins and the live model opens the call with the run message', async (t) => {
   const ctx = createTestRuntime();
   t.after(() => teardownTestRuntime(ctx));
   const user = await createTestUser(ctx.db);
@@ -94,20 +94,21 @@ test('first accepting client wins and opening context is attached to the voice s
   const second = createSocket('socket-2', roomEvents);
   const io = createIo([first, second], roomEvents);
   let openedWith = null;
-  let presented = null;
-  const session = { id: 'pending', userId: user.userId, agentInitiated: true };
+  const spoken = [];
+  const session = {
+    id: 'pending',
+    userId: user.userId,
+    agentInitiated: true,
+    say(text) {
+      spoken.push(text);
+    },
+  };
   const voiceRuntimeManager = {
-    sessions: new Map(),
     hasActiveSessionForUser: () => false,
     async openFlutterSession(options) {
       openedWith = options;
       session.id = options.sessionId;
       return session;
-    },
-    deliveryPresenter: {
-      async present(_session, entry) {
-        presented = entry;
-      },
     },
   };
   const { AgentCallCoordinator } = require('../../../server/services/voice/agent_call_coordinator');
@@ -133,58 +134,11 @@ test('first accepting client wins and opening context is attached to the voice s
   assert.equal(losingAcceptance.status, 'unavailable');
   assert.equal(openedWith.sessionId, callId);
   assert.equal(openedWith.agentInitiated, true);
-  assert.equal(presented.kind, 'opening');
-  assert.equal(presented.content, 'The deployment finished successfully.');
+  assert.deepEqual(spoken, ['The deployment finished successfully.']);
   assert.equal((await outcome).status, 'accepted');
   assert.ok(roomEvents.some((entry) => (
     entry.event === 'voice:call_cancelled' && entry.except === first.id
   )));
-});
-
-test('opening speech is pre-generated while ringing and reused when the user answers', async (t) => {
-  const ctx = createTestRuntime();
-  t.after(() => teardownTestRuntime(ctx));
-  const user = await createTestUser(ctx.db);
-  const roomEvents = [];
-  const socket = createSocket('socket-1', roomEvents);
-  const io = createIo([socket], roomEvents);
-  const prepared = { chunks: [{ audioBytes: Buffer.from('abc'), mimeType: 'audio/wav' }] };
-  let preparedWith = null;
-  let presented = null;
-  const voiceRuntimeManager = {
-    hasActiveSessionForUser: () => false,
-    async prepareComposedSpeech(options) {
-      preparedWith = options;
-      return prepared;
-    },
-    async openFlutterSession(options) {
-      return { id: options.sessionId, userId: user.userId, agentInitiated: true };
-    },
-    deliveryPresenter: {
-      async present(_session, entry) {
-        presented = entry;
-      },
-    },
-  };
-  const { AgentCallCoordinator } = require('../../../server/services/voice/agent_call_coordinator');
-  const coordinator = new AgentCallCoordinator({
-    io,
-    agentEngine: {},
-    voiceRuntimeManager,
-    ringTimeoutMs: 1000,
-  });
-
-  const outcome = coordinator.callUser({
-    userId: user.userId,
-    openingMessage: 'The build is green.',
-  });
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(preparedWith.text, 'The build is green.');
-  const callId = emittedCallId(io);
-  const accepted = await coordinator.accept(callId, user.userId, socket);
-  assert.equal(accepted.status, 'accepted');
-  assert.deepEqual(presented.audioChunks, prepared.chunks);
-  assert.equal((await outcome).status, 'accepted');
 });
 
 test('a reconnecting client is offered the pending call and can accept it', async (t) => {
@@ -198,10 +152,7 @@ test('a reconnecting client is offered the pending call and can accept it', asyn
   const voiceRuntimeManager = {
     hasActiveSessionForUser: () => false,
     async openFlutterSession(options) {
-      return { id: options.sessionId, userId: user.userId, agentInitiated: true };
-    },
-    deliveryPresenter: {
-      async present() {},
+      return { id: options.sessionId, userId: user.userId, agentInitiated: true, say() {} };
     },
   };
   const { AgentCallCoordinator } = require('../../../server/services/voice/agent_call_coordinator');
@@ -263,4 +214,89 @@ test('all recipients declining resolves the call and abort cancels a pending rin
   await new Promise((resolve) => setImmediate(resolve));
   abortController.abort();
   assert.equal((await cancelledOutcome).status, 'cancelled');
+});
+
+test('a failed opening greeting closes the opened session so the next call is not busy', async (t) => {
+  const ctx = createTestRuntime();
+  t.after(() => teardownTestRuntime(ctx));
+  const user = await createTestUser(ctx.db);
+  const { AgentCallCoordinator } = require('../../../server/services/voice/agent_call_coordinator');
+  const socket = createSocket('socket-1', []);
+  const io = createIo([socket]);
+  const closed = [];
+  const sessions = new Set();
+  const coordinator = new AgentCallCoordinator({
+    io,
+    voiceRuntimeManager: {
+      hasActiveSessionForUser: () => sessions.size > 0,
+      openFlutterSession: async () => {
+        const session = {
+          id: 'call-session',
+          say() { throw new Error('greeting failed'); },
+        };
+        sessions.add(session.id);
+        return session;
+      },
+      closeSession: async (id, reason) => {
+        closed.push({ id, reason });
+        sessions.delete(id);
+      },
+    },
+  });
+
+  const outcome = coordinator.callUser({ userId: user.userId, openingMessage: 'Hi' });
+  await new Promise((resolve) => setImmediate(resolve));
+  const result = await coordinator.accept(emittedCallId(io), user.userId, socket);
+
+  assert.equal(result.status, 'unavailable');
+  assert.equal((await outcome).status, 'unavailable');
+  assert.deepEqual(closed, [{ id: 'call-session', reason: 'open_failed' }]);
+  assert.equal(sessions.size, 0);
+  assert.equal(socket.data.voiceSessionIds.has('call-session'), false);
+});
+
+test('call me later ends the ringing everywhere with its own status', async (t) => {
+  const ctx = createTestRuntime();
+  t.after(() => teardownTestRuntime(ctx));
+  const user = await createTestUser(ctx.db);
+  const { AgentCallCoordinator } = require('../../../server/services/voice/agent_call_coordinator');
+  const phone = createSocket('phone', []);
+  const desktop = createSocket('desktop', []);
+  const io = createIo([phone, desktop]);
+  const coordinator = new AgentCallCoordinator({
+    io,
+    voiceRuntimeManager: { hasActiveSessionForUser: () => false },
+  });
+
+  const outcome = coordinator.callUser({ userId: user.userId, openingMessage: 'Hi' });
+  await new Promise((resolve) => setImmediate(resolve));
+  const result = coordinator.decline(emittedCallId(io), user.userId, phone, { later: true });
+
+  assert.equal(result.status, 'call_later');
+  assert.equal((await outcome).status, 'call_later');
+  assert.ok(io.roomEvents.some((e) => e.event === 'voice:call_ended' && e.payload.reason === 'call_later'));
+});
+
+test('the run that placed a call is not the call\'s own task', () => {
+  const { LiveTaskBridge } = require('../../../server/services/voice/live/task_bridge');
+  const steered = [];
+  const started = [];
+  const agentEngine = {
+    getRunMeta: (runId) => ({ status: 'running', aborted: false, runId }),
+    enqueueSteering: (runId, text) => { steered.push({ runId, text }); return true; },
+    run: (userId, request, options) => { started.push(options.runId); return new Promise(() => {}); },
+  };
+  const session = {
+    id: 'call-1',
+    userId: 'user-1',
+    adapter: { acknowledgeTask() {}, completeTask() {} },
+    publishTask() {},
+  };
+  const bridge = new LiveTaskBridge({ agentEngine, session });
+
+  assert.equal(bridge.hasRunningWork, false);
+  bridge.delegate({ handle: 'h1', request: 'What is on my calendar?' });
+  assert.deepEqual(steered, []);
+  assert.equal(started.length, 1);
+  assert.equal(bridge.activeRunId, started[0]);
 });

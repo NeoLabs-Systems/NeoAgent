@@ -1,7 +1,7 @@
 'use strict';
 
 const fs = require('fs');
-const path = require('path');
+const { writeAtomicFile } = require('../../lib/setup/atomic_file');
 const { UPDATE_STATUS_FILE } = require('../../runtime/paths');
 
 const DEFAULT_UPDATE_STATUS = Object.freeze({
@@ -75,19 +75,12 @@ function writeUpdateStatusFile(patch, filePath = UPDATE_STATUS_FILE) {
     updatedAt: new Date().toISOString(),
   });
 
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(next, null, 2));
+  writeAtomicFile(filePath, JSON.stringify(next, null, 2), { mode: 0o600 });
   return next;
 }
 
 function readUpdateStatus(filePath = UPDATE_STATUS_FILE) {
-  const raw = readUpdateStatusFile(filePath);
-  const normalized = normalizeUpdateStatus(raw);
-  if (JSON.stringify(raw) !== JSON.stringify(normalized)) {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, JSON.stringify(normalized, null, 2));
-  }
-  return normalized;
+  return normalizeUpdateStatus(readUpdateStatusFile(filePath));
 }
 
 module.exports = {
