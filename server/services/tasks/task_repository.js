@@ -221,6 +221,24 @@ class TaskRepository {
       .get(userId, key);
   }
 
+  // The latest run of a task with the messages it delivered.
+  getLastTaskRun(userId, taskId) {
+    const run = db.prepare(
+      `SELECT id, status, error, final_response, created_at
+       FROM agent_runs
+       WHERE user_id = ?
+         AND json_valid(metadata_json)
+         AND CAST(json_extract(metadata_json, '$.taskId') AS TEXT) = ?
+       ORDER BY created_at DESC, rowid DESC
+       LIMIT 1`
+    ).get(userId, String(taskId));
+    if (!run) return null;
+    const sentMessages = db.prepare(
+      "SELECT content FROM messages WHERE run_id = ? AND role = 'assistant' ORDER BY id"
+    ).all(run.id).map((row) => row.content);
+    return { ...run, sentMessages };
+  }
+
   getTaskConversation(userId, agentId, platform, platformChatId) {
     return db.prepare(
       'SELECT id FROM conversations WHERE user_id = ? AND agent_id = ? AND platform = ? AND platform_chat_id = ?'

@@ -12,6 +12,7 @@ const {
 } = require('./trigger_polling');
 const { attachTriggerEventSources } = require('./trigger_events');
 const { TaskRepository } = require('./task_repository');
+const { buildLastRunNote, buildTaskChatContext } = require('./run_context');
 const { TriggerRegistry } = require('./trigger_registry');
 const scheduleAdapter = require('./adapters/schedule');
 const {
@@ -718,11 +719,23 @@ class TaskRuntime {
         task.task_type === 'agent_prompt'
           ? (normalizedConfig.prompt || `You have been triggered to run the background task "${taskName}".`)
           : '',
+        buildLastRunNote(this.taskRepository.getLastTaskRun(userId, taskId)),
         triggerPayloadText.trim(),
         notifyHint,
       ].filter(Boolean).join('\n\n');
 
       const conversationId = this._getTaskConversation(userId, taskId, taskName, agentId);
+      // History comes from the chat the task reports to; the task's own
+      // conversation only repeats this prompt run after run.
+      const { priorMessages, priorSummary } = buildTaskChatContext({
+        taskRepository: this.taskRepository,
+        userId,
+        agentId: resolveAgentId(userId, agentId),
+        notifyTarget: normalizeNotifyTarget({
+          platform: normalizedConfig.notifyPlatform,
+          to: normalizedConfig.notifyTo,
+        }),
+      });
       let attempt = 0;
       let recoveryNote = '';
       while (attempt <= MAX_AUTONOMOUS_RETRIES) {
@@ -742,6 +755,8 @@ class TaskRuntime {
           stageProactiveMessages: true,
           skipGlobalRecall: true,
           skipConversationHistory: true,
+          priorMessages,
+          priorSummary,
           stream: false,
           context: executionMeta.triggerPayload || {},
           signal,

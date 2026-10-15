@@ -53,14 +53,11 @@ https://github.com/user-attachments/assets/ba50e0a5-1846-4738-9720-3fbf732d3659
     <td width="33%" valign="top">
       <h3>🔐 Yours</h3>
       Open source under AGPL-3.0.<br>
-      Any model, local ones included.<br>
-      No telemetry.
+      Any model, local ones included.
     </td>
     <td width="33%" valign="top">
       <h3>✅ Asks, then acts</h3>
-      Approval before risky actions.<br>
-      Passwords it never sees.<br>
-      Tasks end with a result, a blocker or silence.
+      Approval before risky actions.
     </td>
   </tr>
 </table>
@@ -110,7 +107,7 @@ Then open **http://localhost:3333** (or your server's address). The first accoun
   </tr>
 </table>
 
-**Models:** OpenAI, Anthropic, Google, xAI, OpenRouter (one-click sign-in), NVIDIA NIM, MiniMax, GitHub Copilot, Ollama and any OpenAI-compatible endpoint.
+**Models:** OpenAI, Anthropic, Google, xAI, OpenRouter, NVIDIA NIM, MiniMax, GitHub Copilot, Ollama and any OpenAI-compatible endpoint.
 
 ## 🧭 Explore it
 
@@ -119,14 +116,6 @@ Then open **http://localhost:3333** (or your server's address). The first accoun
 | ![NeoAgent comparing three flats in a table](docs/images/marketing/chat.jpg) | ![NeoAgent turning one sentence into a scheduled task](docs/images/marketing/automation.jpg) |
 | **🧠 Memory** | **🔎 Runs** |
 | ![NeoAgent memory knowledge graph](docs/images/marketing/memory.jpg) | ![NeoAgent run timeline with tool steps](docs/images/marketing/runs.jpg) |
-
-## 🤖 Meet the mascot
-
-<p align="center">
-  <img src="docs/images/mascot.gif" alt="The NeoAgent mascot cycling through idle, listening, thinking, working, waiting, blocked, done and asleep" width="100%">
-</p>
-
-<p align="center">One face across the app, the widgets and the wearable.</p>
 
 ## 📚 Docs
 
