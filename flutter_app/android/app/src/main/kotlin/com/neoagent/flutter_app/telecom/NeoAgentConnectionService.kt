@@ -42,8 +42,6 @@ class NeoAgentConnectionService : ConnectionService() {
     }
 
     companion object {
-        const val EXTRA_FLUTTER_INITIATED = "is_flutter_initiated"
-
         @Volatile
         private var currentConnection: NeoAgentConnection? = null
 
@@ -74,10 +72,6 @@ class NeoAgentConnectionService : ConnectionService() {
     private fun createConnection(request: ConnectionRequest?, isIncoming: Boolean): Connection {
         val connection = NeoAgentConnection(applicationContext)
         swapConnection(connection)
-        
-        // Custom flag from Flutter to know if it started the call
-        val isFlutterInitiated = request?.extras?.getBoolean(EXTRA_FLUTTER_INITIATED) ?: false
-        connection.isFlutterInitiated = isFlutterInitiated
 
         connection.connectionProperties = Connection.PROPERTY_SELF_MANAGED
         connection.setInitializing()

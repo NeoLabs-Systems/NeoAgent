@@ -39,9 +39,6 @@
         android:icon="@mipmap/ic_launcher"
         android:localeConfig="@xml/locales_config"
         android:usesCleartextTraffic="true">
-        <meta-data
-            android:name="com.google.android.gms.car.application"
-            android:resource="@xml/automotive_app_desc" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -153,18 +150,6 @@
                 android:resource="@xml/neoagent_widget_call_info" />
         </receiver>
 
-        <service
-            android:name=".auto.NeoAgentCarAppService"
-            android:exported="true"
-            android:permission="android.car.permission.BIND_CAR_APP_SERVICE">
-            <intent-filter>
-                <action android:name="androidx.car.app.CarAppService" />
-                <category android:name="androidx.car.app.category.IOT" />
-            </intent-filter>
-            <meta-data
-                android:name="androidx.car.app.minCarApiLevel"
-                android:value="1" />
-        </service>
         <meta-data
             android:name="com.neoagent.APP_MODE"
             android:value="${neoagentAppMode}" />

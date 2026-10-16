@@ -2,33 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
-class AndroidAutoBridge {
-  AndroidAutoBridge._() {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      _autoChannel.setMethodCallHandler(_handleMethodCall);
-    }
-  }
+class TelecomBridge {
+  TelecomBridge._();
 
-  static final AndroidAutoBridge instance = AndroidAutoBridge._();
+  static final TelecomBridge instance = TelecomBridge._();
 
-  static const MethodChannel _autoChannel = MethodChannel('neoagent/car_auto');
   static const MethodChannel _telecomChannel = MethodChannel('neoagent/telecom');
-
-  VoidCallback? onStartVoiceMode;
-  VoidCallback? onStopVoiceMode;
-
-  Future<void> _handleMethodCall(MethodCall call) async {
-    switch (call.method) {
-      case 'startVoiceMode':
-        onStartVoiceMode?.call();
-        break;
-      case 'stopVoiceMode':
-        onStopVoiceMode?.call();
-        break;
-      default:
-        throw MissingPluginException();
-    }
-  }
 
   Future<bool> startTelecomCallRouting() async {
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {

@@ -66,7 +66,6 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        io.flutter.embedding.engine.FlutterEngineCache.getInstance().put("main_engine", flutterEngine)
         GeneratedPluginRegistrant.registerWith(flutterEngine)
 
         healthGateway = HealthConnectGateway(this)
@@ -115,16 +114,9 @@ class MainActivity : FlutterFragmentActivity() {
                             )
                             return@setMethodCallHandler
                         }
-                        // Custom values only reach ConnectionRequest.getExtras() when they are
-                        // nested under EXTRA_OUTGOING_CALL_EXTRAS; top-level extras are consumed
-                        // by Telecom itself.
-                        val callExtras = Bundle().apply {
-                            putBoolean(NeoAgentConnectionService.EXTRA_FLUTTER_INITIATED, true)
-                        }
                         val extras = Bundle().apply {
                             putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, phoneAccountHandle)
                             putInt(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE, android.telecom.VideoProfile.STATE_AUDIO_ONLY)
-                            putBundle(TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS, callExtras)
                         }
                         telecomManager.placeCall(Uri.fromParts(PhoneAccount.SCHEME_TEL, "NeoAgent", null), extras)
                         result.success(true)

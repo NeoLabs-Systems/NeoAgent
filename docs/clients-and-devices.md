@@ -42,8 +42,7 @@ Kotlin lives in `android/app/src/main/kotlin/com/neoagent/flutter_app/`.
 
 | Feature | Native side | Flutter side |
 |---|---|---|
-| Agent calls | `telecom/NeoAgentConnectionService.kt`, `call/CallBridge.kt` (channel `neoagent/telecom`) | `lib/src/call/call_bridge.dart` |
-| Android Auto | `auto/NeoAgentCarAppService.kt` | `lib/src/android_auto_bridge.dart` |
+| Agent calls | `telecom/NeoAgentConnectionService.kt`, `call/CallBridge.kt` (channel `neoagent/telecom`) | `lib/src/call/call_bridge.dart`, `lib/src/telecom_bridge.dart` |
 | Health Connect | `health/HealthSyncWorker.kt` posts to `/api/mobile/health/sync` | `lib/src/health_bridge.dart` |
 | Home widgets | `widgets/StatusWidgetProvider.kt`, `widgets/CallWidgetProvider.kt` | `lib/src/home_widget_bridge.dart` |
 | Launcher | Channels `neoagent/launcher_device`, `neoagent/launcher_buttons` | `lib/src/android_launcher_bridge.dart` |

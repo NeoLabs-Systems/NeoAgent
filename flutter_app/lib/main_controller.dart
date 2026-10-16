@@ -32,11 +32,9 @@ class NeoAgentController extends ChangeNotifier {
        _webAuthnClient = webAuthnClient ?? createWebAuthnClient() {
     _backendClient.onSessionExpired = handleSessionExpired;
     _desktopCompanion.addListener(_onDesktopCompanionChanged);
-    AndroidAutoBridge.instance.onStartVoiceMode = startLiveVoiceCapture;
     _AppNotificationService.onCallAction = _handleCallNotificationAction;
     _AppNotificationService.onApprovalAction = _resolveApprovalFromNotification;
     _AppNotificationService.listenForActions();
-    AndroidAutoBridge.instance.onStopVoiceMode = interruptLiveVoiceAssistant;
 
     _clientLogs = AppDiagnostics.recentEntries
         .map(_logEntryFromDiagnostic)
@@ -487,12 +485,10 @@ class NeoAgentController extends ChangeNotifier {
 
   @override
   void dispose() {
-    AndroidAutoBridge.instance.onStartVoiceMode = null;
     _AppNotificationService.onCallAction = null;
     _AppNotificationService.onApprovalAction = null;
     _AppNotificationService.stopListeningForActions();
     unawaited(CallBridge.dismiss());
-    AndroidAutoBridge.instance.onStopVoiceMode = null;
     _updatePollTimer?.cancel();
     _qrLoginPollTimer?.cancel();
     _backendClient.onSessionExpired = null;
@@ -4313,7 +4309,7 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> _startLiveVoiceTelecomRouting() async {
     if (_liveVoiceTelecomRouting) return;
     try {
-      _liveVoiceTelecomRouting = await AndroidAutoBridge.instance
+      _liveVoiceTelecomRouting = await TelecomBridge.instance
           .startTelecomCallRouting();
     } catch (_) {
       // Call routing is an Android nicety; the session works without it.
@@ -4516,7 +4512,7 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> _stopLiveVoiceTelecomRouting() async {
     if (!_liveVoiceTelecomRouting) return;
     _liveVoiceTelecomRouting = false;
-    await AndroidAutoBridge.instance.stopTelecomCallRouting();
+    await TelecomBridge.instance.stopTelecomCallRouting();
   }
 
   Future<void> toggleLiveVoiceCapture() async {
@@ -4546,20 +4542,6 @@ class NeoAgentController extends ChangeNotifier {
     }
     AppDiagnostics.log('desktop.assistant', 'ptt.capture_stopped');
     notifyListeners();
-  }
-
-  /// Silences the assistant and the microphone (Android Auto stop, desktop
-  /// popup cancel).
-  Future<void> interruptLiveVoiceAssistant() async {
-    await stopLiveVoiceCapture();
-    await stopLiveVoicePlayback();
-  }
-
-  Future<void> stopLiveVoicePlayback() async {
-    final sessionId = voiceAssistantLiveState.sessionId.trim();
-    if (sessionId.isEmpty || _socket == null) return;
-    await _liveVoicePlayer.flush();
-    _socket!.emit('voice:interrupt', <String, dynamic>{'sessionId': sessionId});
   }
 
   /// Stops the task the call screen shows, the newest one.
