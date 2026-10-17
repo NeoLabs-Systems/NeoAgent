@@ -2,7 +2,7 @@
 
 const { randomUUID } = require('crypto');
 const db = require('../../../db/database');
-const { compactToolResult } = require('../toolResult');
+const { compactToolResult, toRetainedText } = require('../toolResult');
 const { resolveToolResultLimits } = require('../loopPolicy');
 const { sanitizeModelOutput } = require('../outputSanitizer');
 const {
@@ -14,10 +14,34 @@ const { globalHooks } = require('../hooks');
 const { recordToolOutput } = require('../../security/run_trust');
 const { scrubInvisible, scrubInvisibleDeep } = require('../../../utils/untrusted_text');
 const { scheduleToolCalls } = require('../loop/tool_scheduler');
+const { createServiceLogger } = require('../../../utils/logger');
 const { EVENT_TYPES, VISIBILITY } = require('./events/event_types');
+
+const logger = createServiceLogger('Runtime');
 
 // A send_message purpose the model declares as the end of its work.
 const TERMINAL_SEND_PURPOSES = new Set(['final_result', 'blocker', 'no_response']);
+
+// Saves a payload the compacted tool result had to cut, so the model can read
+// the rest with read_artifact instead of stopping at the cut.
+function retainFullResult(session, call, stepId, payload) {
+  const store = session.app?.locals?.artifactStore;
+  if (!store) return null;
+  const text = toRetainedText(payload);
+  try {
+    const artifact = store.createTextArtifact(session.userId, {
+      kind: 'tool-result',
+      filenameBase: call.name,
+      contentType: 'text/plain; charset=utf-8',
+      content: text,
+      metadata: { runId: session.runId, stepId, tool: call.name },
+    });
+    return { artifactId: artifact.artifactId, totalLines: text.split('\n').length };
+  } catch (error) {
+    logger.warn('Could not retain a cut tool result:', error?.message || error);
+    return null;
+  }
+}
 
 function wireToolCall(call) {
   return call.raw?.function?.name
@@ -198,7 +222,10 @@ async function runToolCall(session, { call, definition, isReadOnly }) {
     repeatedMutation
       ? { ...result, repeated_call: 'Identical to your previous call: same arguments, same result, nothing changed.' }
       : result,
-    resolveToolResultLimits(call.name, session.guards.policy),
+    {
+      ...resolveToolResultLimits(call.name, session.guards.policy),
+      retainFullResult: (payload) => retainFullResult(session, call, stepId, payload),
+    },
   );
   const commandArtifact = result?.outputArtifact;
   if (commandArtifact?.artifactId) {

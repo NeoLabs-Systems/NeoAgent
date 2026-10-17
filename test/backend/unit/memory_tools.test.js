@@ -187,6 +187,46 @@ test('memory_list pages memories and memory_forget archives only this agent\'s i
   assert.equal(active.length, 2);
 });
 
+test('a memory page cut by the result budget stays readable to its last entry', async () => {
+  ctx = createTestRuntime();
+  const user = await createTestUser(ctx.db, { username: 'memory_page_retained' });
+  const { ArtifactStore } = require('../../../server/services/artifacts/store');
+  const { executeTool } = require('../../../server/services/ai/tools');
+  const { compactToolResult, toRetainedText } = require('../../../server/services/ai/toolResult');
+  const store = new ArtifactStore();
+  const page = {
+    results: Array.from({ length: 80 }, (_, index) => ({ id: `mem-${index}`, content: `Fact ${index} ${'x'.repeat(140)}` })),
+    next_offset: 80,
+  };
+
+  const compacted = JSON.parse(compactToolResult('memory_list', { limit: 80 }, page, {
+    softLimit: 12000,
+    hardLimit: 24000,
+    retainFullResult: (payload) => {
+      const content = toRetainedText(payload);
+      const artifact = store.createTextArtifact(user.userId, {
+        kind: 'tool-result',
+        contentType: 'text/plain; charset=utf-8',
+        content,
+      });
+      return { artifactId: artifact.artifactId, totalLines: content.split('\n').length };
+    },
+  }));
+  assert.doesNotMatch(compacted.summary, /next_offset/);
+
+  const context = { userId: user.userId, app: { locals: { artifactStore: store } } };
+  const lines = [];
+  for (let start = 1; start <= compacted.full_result.total_lines; start = lines.length + 1) {
+    const slice = await executeTool('read_artifact', {
+      artifact_id: compacted.full_result.artifact_id,
+      start_line: start,
+      end_line: start + 199,
+    }, context, {});
+    lines.push(...slice.content.split('\n'));
+  }
+  assert.deepEqual(JSON.parse(lines.join('\n')), page);
+});
+
 test('memory_recall results reach the model', () => {
   const { compactToolResult } = require('../../../server/services/ai/toolResult');
   const compacted = compactToolResult('memory_recall', { query: 'home' }, {

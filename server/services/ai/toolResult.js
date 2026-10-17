@@ -10,9 +10,12 @@ function lineExcerpt(text, maxLines = 12, maxChars = 700) {
   return clampText(str.split('\n').slice(0, maxLines).join('\n'), maxChars);
 }
 
-function toJsonText(value, maxChars) {
-  const raw = typeof value === 'string' ? value : JSON.stringify(value);
-  return clampText(raw, maxChars);
+// The retained copy of a cut payload, read back by read_artifact line ranges:
+// text keeps its own lines and over-long lines are split, so every part of
+// the payload sits in a range that fits one result.
+function toRetainedText(payload) {
+  const text = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
+  return text.replace(/[^\n]{1000}(?=[^\n])/g, '$&\n');
 }
 
 function trimObject(obj) {
@@ -57,6 +60,16 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
   const softLimit = Math.max(500, Number(options.softLimit) || 1800);
   const hardLimit = Math.max(softLimit, Number(options.hardLimit) || 3200);
 
+  // What the model is not shown must stay reachable: a model that only sees
+  // the cut tends to report the missing part as absent and stop. `cutPayload`
+  // is the value that did not fit, retained in full when the caller can.
+  let cutPayload;
+  const excerpt = (value, maxChars) => {
+    const raw = typeof value === 'string' ? value : (JSON.stringify(value) || '');
+    if (raw.length > maxChars) cutPayload = value;
+    return clampText(raw, maxChars);
+  };
+
   let envelope;
 
   switch (toolName) {
@@ -89,19 +102,26 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       break;
 
     case 'read_artifact':
-      envelope = trimObject({
-        tool: toolName,
-        artifactId: toolResult?.artifactId || toolArgs.artifact_id,
-        contentType: toolResult?.contentType,
-        byteSize: toolResult?.byteSize,
-        binary: toolResult?.binary === true,
-        rangeShown: toolResult?.rangeShown,
-        totalLines: toolResult?.totalLines,
-        truncated: toolResult?.truncated === true,
-        content: clampText(String(toolResult?.content || '').trim(), Math.floor(softLimit * 0.8)),
-        error: toolResult?.error,
-      });
-      break;
+      {
+        const content = String(toolResult?.content || '').trim();
+        const contentLimit = Math.floor(softLimit * 0.8);
+        envelope = trimObject({
+          tool: toolName,
+          artifactId: toolResult?.artifactId || toolArgs.artifact_id,
+          contentType: toolResult?.contentType,
+          byteSize: toolResult?.byteSize,
+          binary: toolResult?.binary === true,
+          rangeShown: toolResult?.rangeShown,
+          totalLines: toolResult?.totalLines,
+          truncated: toolResult?.truncated === true || content.length > contentLimit,
+          note: content.length > contentLimit
+            ? 'The requested lines did not all fit and the end of this range is cut. Read a narrower line range to see it.'
+            : undefined,
+          content: clampText(content, contentLimit),
+          error: toolResult?.error,
+        });
+        break;
+      }
 
     case 'read_file':
       {
@@ -195,11 +215,14 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         task_relevance: toolResult?.task_relevance,
         selector: toolArgs.selector || 'body',
         attribute: toolArgs.attribute || 'innerText',
-        excerpt: toJsonText(toolResult?.result || toolResult?.content || toolResult, Math.floor(softLimit * 0.85))
+        excerpt: excerpt(toolResult?.result || toolResult?.content || toolResult, Math.floor(softLimit * 0.85))
       });
       break;
 
-    case 'social_video_extract':
+    case 'social_video_extract': {
+      const transcript = String(toolResult?.transcript || '').trim();
+      const transcriptPreview = lineExcerpt(transcript, 6, Math.floor(softLimit * 0.35));
+      if (transcriptPreview !== transcript) cutPayload = transcript;
       envelope = trimObject({
         tool: toolName,
         platform: toolResult?.platform,
@@ -208,7 +231,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         title: clampText(toolResult?.title || '', Math.floor(softLimit * 0.25)),
         description: clampText(toolResult?.description || '', Math.floor(softLimit * 0.25)),
         transcriptSource: toolResult?.transcriptSource,
-        transcriptPreview: lineExcerpt(toolResult?.transcript || '', 6, Math.floor(softLimit * 0.35)),
+        transcriptPreview,
         frameImage: trimObject({
           url: toolResult?.frameImage?.url,
           source: toolResult?.frameImage?.source,
@@ -218,6 +241,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         errorCount: Array.isArray(toolResult?.errors) ? toolResult.errors.length : 0,
       });
       break;
+    }
 
     case 'android_dump_ui':
     case 'android_observe':
@@ -232,6 +256,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       break;
 
     case 'android_list_apps':
+      if (toolResult?.packages?.length > 20) cutPayload = toolResult.packages;
       envelope = trimObject({
         tool: toolName,
         serial: toolResult?.serial,
@@ -246,7 +271,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         serial: toolResult?.serial,
         command: toolArgs.command,
         screenshotPath: toolResult?.screenshotPath,
-        excerpt: toJsonText(toolResult?.stdout || toolResult?.result || toolResult, Math.floor(softLimit * 0.85))
+        excerpt: excerpt(toolResult?.stdout || toolResult?.result || toolResult, Math.floor(softLimit * 0.85))
       });
       break;
 
@@ -259,11 +284,12 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
           contentType: toolResult?.headers?.['content-type'] || toolResult?.headers?.['Content-Type'],
           contentLength: toolResult?.headers?.['content-length'] || toolResult?.headers?.['Content-Length']
         }),
-        excerpt: toJsonText(toolResult?.body || toolResult, Math.floor(softLimit * 0.85))
+        excerpt: excerpt(toolResult?.body || toolResult, Math.floor(softLimit * 0.85))
       });
       break;
 
     case 'list_tasks':
+      if (toolResult?.tasks?.length > 8) cutPayload = toolResult.tasks;
       envelope = trimObject({
         tool: toolName,
         status: toolResult?.success === false || toolResult?.error ? 'error' : 'ok',
@@ -433,9 +459,25 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
     default:
       envelope = trimObject({
         tool: toolName,
-        summary: toJsonText(toolResult, Math.floor(softLimit * 0.9))
+        summary: excerpt(toolResult, Math.floor(softLimit * 0.9))
       });
       break;
+  }
+
+  // An envelope over the hard limit is cut as a whole, whatever its fields.
+  if (cutPayload === undefined && JSON.stringify(envelope).length > hardLimit) cutPayload = toolResult;
+  const retained = cutPayload === undefined ? null : options.retainFullResult?.(cutPayload);
+  if (retained) {
+    // Ahead of the payload, so a hard cut of the envelope cannot drop it.
+    envelope = {
+      tool: envelope.tool,
+      full_result: {
+        artifact_id: retained.artifactId,
+        total_lines: retained.totalLines,
+        note: 'Only part of this result is shown. The complete result is saved: read the rest with read_artifact by line range before treating anything as missing.',
+      },
+      ...envelope,
+    };
   }
 
   return clampEnvelope(envelope, hardLimit);
@@ -444,5 +486,6 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
 module.exports = {
   compactToolResult,
   clampText,
-  lineExcerpt
+  lineExcerpt,
+  toRetainedText,
 };

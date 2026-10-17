@@ -981,7 +981,7 @@ function getAvailableTools(app, options = {}) {
                 type: 'object',
                 properties: {
                     offset: { type: 'number', description: 'How many memories to skip (default 0). Use next_offset from the previous page.' },
-                    limit: { type: 'number', description: 'Page size (default 40, max 80)' }
+                    limit: { type: 'number', description: 'Page size (default 30, max 40)' }
                 }
             }
         },
@@ -1128,7 +1128,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'read_artifact',
-            description: 'Read an owned text artifact by stable artifact ID. Use this for ranged inspection of command-output logs without rerunning the command. Binary artifacts return metadata only.',
+            description: 'Read an owned text artifact by stable artifact ID. Use this for ranged inspection of command-output logs and of tool results that were cut short (full_result.artifact_id), without rerunning the call. Binary artifacts return metadata only.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -2239,7 +2239,8 @@ async function executeTool(toolName, args, context, engine) {
             const { MemoryManager } = require('../memory/manager');
             const mm = new MemoryManager();
             const offset = Math.max(0, Math.floor(Number(args.offset) || 0));
-            const limit = Math.max(1, Math.min(80, Math.floor(Number(args.limit) || 40)));
+            // A page must fit one tool result; a cut page hides the ids to act on.
+            const limit = Math.max(1, Math.min(40, Math.floor(Number(args.limit) || 30)));
             const page = mm.listMemories(userId, { agentId, offset, limit: limit + 1 });
             const results = page.slice(0, limit).map((memory) => ({
                 id: memory.id,

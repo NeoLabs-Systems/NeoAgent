@@ -23,7 +23,7 @@ const { buildLoopPolicy } = require('../../../server/services/ai/loopPolicy');
 const {
   resolveTaskTriggerArgs,
 } = require('../../../server/services/ai/tools');
-const { compactToolResult } = require('../../../server/services/ai/toolResult');
+const { compactToolResult, toRetainedText } = require('../../../server/services/ai/toolResult');
 const { classifyToolExecution, gatheredNewEvidence } = require('../../../server/services/ai/toolEvidence');
 
 test('usage normalization preserves reasoning and cache token categories', () => {
@@ -579,6 +579,51 @@ test('truncated workspace results explain how to recover omitted evidence', () =
   assert.equal(search.truncated, true);
   assert.equal(search.matches.length, 6);
   assert.match(search.note, /Narrow the path or search pattern/);
+});
+
+test('a cut tool result points to its retained full copy', () => {
+  const retained = [];
+  const retainFullResult = (payload) => {
+    retained.push(payload);
+    return { artifactId: 'art-1', totalLines: 42 };
+  };
+  const page = {
+    results: Array.from({ length: 80 }, (_, index) => ({ id: `mem-${index}`, content: 'x'.repeat(150) })),
+    next_offset: 80,
+  };
+  const cut = JSON.parse(compactToolResult('memory_list', { limit: 80 }, page, {
+    softLimit: 12000, hardLimit: 24000, retainFullResult,
+  }));
+  assert.deepEqual(retained, [page]);
+  assert.equal(Object.keys(cut)[1], 'full_result');
+  assert.equal(cut.full_result.artifact_id, 'art-1');
+  assert.match(cut.full_result.note, /read_artifact/);
+
+  // A result that fits is not retained, and neither is one without a caller store.
+  compactToolResult('memory_list', {}, { results: page.results.slice(0, 3) }, { retainFullResult });
+  assert.equal(retained.length, 1);
+  assert.equal(JSON.parse(compactToolResult('memory_list', {}, page)).full_result, undefined);
+
+  // Items a dedicated envelope leaves out count as cut too.
+  const tasks = Array.from({ length: 9 }, (_, index) => ({ id: index, name: `task ${index}` }));
+  compactToolResult('list_tasks', {}, { tasks }, { retainFullResult });
+  assert.deepEqual(retained[1], tasks);
+});
+
+test('retained text is addressable by line range', () => {
+  const page = 'a'.repeat(2500);
+  const lines = toRetainedText(page).split('\n');
+  assert.deepEqual(lines.map((line) => line.length), [1000, 1000, 500]);
+  assert.equal(lines.join(''), page);
+
+  const result = { results: [{ id: 'mem-1', content: 'Neo lives in Berlin.' }], next_offset: null };
+  assert.deepEqual(JSON.parse(toRetainedText(result)), result);
+
+  const read = JSON.parse(compactToolResult('read_artifact', { artifact_id: 'art-1' }, {
+    artifactId: 'art-1', content: 'line\n'.repeat(400), rangeShown: { startLine: 1, endLine: 400 }, totalLines: 400,
+  }, { softLimit: 600, hardLimit: 1200 }));
+  assert.equal(read.truncated, true);
+  assert.match(read.note, /narrower line range/);
 });
 
 test('new-evidence reads count as progress but churn does not', () => {
