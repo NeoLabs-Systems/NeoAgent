@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const { EventEmitter } = require('events');
 const db = require('../../db/database');
 const { createIntegrationRegistry } = require('./registry');
 const { decryptValue, encryptValue } = require('./secrets');
@@ -69,6 +70,21 @@ class IntegrationManager {
       io: this.app?.locals?.io || null,
     });
     this.connectionExecutionQueues = new Map();
+    this.events = new EventEmitter();
+  }
+
+  // Background collectors refresh OAuth tokens outside executeTool; keep the
+  // refreshed tokens so the next request does not reuse a stale grant.
+  saveRefreshedCredentials(connection, credentials) {
+    const provider = this.getProvider(connection.provider_key);
+    if (!provider || !credentials) return;
+    this.persistSharedCredentials(
+      connection.user_id,
+      connection.agent_id || resolveAgentId(connection.user_id, null),
+      provider.key,
+      connection.account_email,
+      this.mergeUpdatedCredentials(this.parseCredentials(connection.credentials_json), credentials),
+    );
   }
 
   parseCredentials(credentialsJson) {
@@ -345,8 +361,9 @@ class IntegrationManager {
          app_key,
          state,
          code_verifier,
-         expires_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+         expires_at,
+         memory_sweep
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       userId,
       agentId,
@@ -355,6 +372,7 @@ class IntegrationManager {
       state,
       encryptValue(codeVerifier),
       expiresAt,
+      options.memorySweep === true ? 1 : 0,
     );
 
     return {
@@ -468,6 +486,12 @@ class IntegrationManager {
         stateRow.app_key,
         result.accountEmail,
       );
+    if (connection) {
+      this.events.emit('connected', {
+        connection,
+        memorySweep: Number(stateRow.memory_sweep) === 1,
+      });
+    }
 
     return {
       provider: provider.key,

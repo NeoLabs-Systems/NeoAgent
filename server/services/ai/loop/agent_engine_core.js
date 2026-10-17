@@ -377,6 +377,41 @@ class AgentEngine {
     }
   }
 
+  // Works through every ingested chunk still waiting for extraction, e.g.
+  // right after a mailbox sweep, instead of five per chat turn.
+  extractPendingBacklog(userId, agentId, { signal = null } = {}) {
+    const memoryManager = this.memoryManager;
+    return this.trackBackgroundTask(async (backgroundSignal) => {
+      const selected = await getProviderForUser(
+        userId,
+        'Extract durable memory facts from ingested documents.',
+        false,
+        null,
+        { agentId, signal: backgroundSignal },
+      );
+      let previousIds = '';
+      for (;;) {
+        throwIfAborted(backgroundSignal, 'Memory extraction aborted.');
+        const chunks = memoryManager.getPendingExtractionChunks(userId, agentId, 5);
+        const ids = chunks.map((chunk) => chunk.id).join(',');
+        if (!chunks.length || ids === previousIds) return;
+        previousIds = ids;
+        await this.extractPendingChunks(chunks, {
+          userId,
+          agentId,
+          provider: selected.provider,
+          providerName: selected.providerName,
+          model: selected.model,
+          memoryManager,
+          signal: backgroundSignal,
+        });
+      }
+    }, {
+      key: `memory-extraction:${userId}:${agentId || 'main'}`,
+      signal,
+    });
+  }
+
   persistRunMetadata(runId, patch = {}) {
     return persistRunMetadataImpl(this, runId, patch);
   }

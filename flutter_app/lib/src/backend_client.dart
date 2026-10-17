@@ -1707,12 +1707,32 @@ class BackendClient {
     String baseUrl,
     String providerId, {
     required String appId,
+    bool memorySweep = false,
     String? agentId,
   }) async {
     return postMap(
       baseUrl,
       '/api/integrations/$providerId/connect',
-      _withAgentId(<String, dynamic>{'appId': appId}, agentId),
+      _withAgentId(<String, dynamic>{
+        'appId': appId,
+        'memorySweep': memorySweep,
+      }, agentId),
+    );
+  }
+
+  Future<Map<String, dynamic>> startMemorySweep(
+    String baseUrl,
+    String providerId, {
+    required String appId,
+    String? agentId,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/memory/ingestion/sweep',
+      _withAgentId(<String, dynamic>{
+        'providerKey': providerId,
+        'appId': appId,
+      }, agentId),
     );
   }
 

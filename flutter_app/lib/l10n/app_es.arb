@@ -1901,7 +1901,6 @@
   "assistant": "asistente",
   "assistantKey131": "Tecla asistente 131",
   "atLeast1": "Al menos 1.",
-  "atLeast1000AppliesAfterA": "Al menos 1000. Se aplica después de reiniciar el servidor.",
   "attachFiles": "Adjuntar archivos",
   "attentionArg1": "Atención {arg1}",
   "@attentionArg1": {
@@ -3601,10 +3600,6 @@
       }
     }
   },
-  "memoryImportSync": "sincronización de importación de memoria",
-  "memoryIngestionInterval": "Intervalo de ingesta de memoria",
-  "memoryIngestionIntervalMs": "Intervalo de ingesta de memoria (ms)",
-  "memoryIngestionIntervalMustBeAt": "El intervalo de ingesta de memoria debe ser de al menos 1000 ms.",
   "memoryInjected": "Memoria inyectada",
   "mentionOrReplyOnly": "Mencionar o responder solo",
   "mergedServerAndFlutterRuntimeLogs": "Registros combinados del servidor y del tiempo de ejecución de Flutter para esta sesión de aplicación.",
@@ -3911,6 +3906,10 @@
   "noMcpServersMatchThisSearch": "Ningún servidor MCP coincide con esta búsqueda.",
   "noMemoryEntriesFound": "No se encontraron entradas de memoria.",
   "noMemorySync": "Sin sincronización de memoria",
+  "importPastEmailsIntoMemory": "Importar correos anteriores importantes a la memoria",
+  "importPastEmailsIntoMemoryHint": "Lee una vez el correo importante y enviado de los últimos 12 meses para que el agente conozca tus contactos y proyectos.",
+  "importPastEmailsNow": "Importar correos anteriores ahora",
+  "importingPastEmailsInBackground": "Importando correos anteriores en segundo plano. Los nuevos recuerdos aparecen a medida que avanza.",
   "noModelMatchesArg1": "Ningún modelo coincide con \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {

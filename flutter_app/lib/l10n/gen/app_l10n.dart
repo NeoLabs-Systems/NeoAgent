@@ -2479,12 +2479,6 @@ abstract class AppL10n {
   /// **'At least 1.'**
   String get atLeast1;
 
-  /// No description provided for @atLeast1000AppliesAfterA.
-  ///
-  /// In en, this message translates to:
-  /// **'At least 1000. Applies after a server restart.'**
-  String get atLeast1000AppliesAfterA;
-
   /// No description provided for @attachFiles.
   ///
   /// In en, this message translates to:
@@ -7699,30 +7693,6 @@ abstract class AppL10n {
   /// **'Memory: {arg1}'**
   String memoryArg1(Object? arg1);
 
-  /// No description provided for @memoryImportSync.
-  ///
-  /// In en, this message translates to:
-  /// **'memory import sync'**
-  String get memoryImportSync;
-
-  /// No description provided for @memoryIngestionInterval.
-  ///
-  /// In en, this message translates to:
-  /// **'Memory ingestion interval'**
-  String get memoryIngestionInterval;
-
-  /// No description provided for @memoryIngestionIntervalMs.
-  ///
-  /// In en, this message translates to:
-  /// **'Memory ingestion interval (ms)'**
-  String get memoryIngestionIntervalMs;
-
-  /// No description provided for @memoryIngestionIntervalMustBeAt.
-  ///
-  /// In en, this message translates to:
-  /// **'Memory ingestion interval must be at least 1000 ms.'**
-  String get memoryIngestionIntervalMustBeAt;
-
   /// No description provided for @memoryInjected.
   ///
   /// In en, this message translates to:
@@ -8724,6 +8694,30 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'No memory sync'**
   String get noMemorySync;
+
+  /// No description provided for @importPastEmailsIntoMemory.
+  ///
+  /// In en, this message translates to:
+  /// **'Import important past emails into memory'**
+  String get importPastEmailsIntoMemory;
+
+  /// No description provided for @importPastEmailsIntoMemoryHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Reads the last 12 months of important and sent mail once, so the agent knows your contacts and projects.'**
+  String get importPastEmailsIntoMemoryHint;
+
+  /// No description provided for @importPastEmailsNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Import past emails now'**
+  String get importPastEmailsNow;
+
+  /// No description provided for @importingPastEmailsInBackground.
+  ///
+  /// In en, this message translates to:
+  /// **'Importing past emails in the background. New memories appear as it goes.'**
+  String get importingPastEmailsInBackground;
 
   /// No description provided for @noModelMatchesArg1.
   ///

@@ -1901,7 +1901,6 @@
   "assistant": "Assistante",
   "assistantKey131": "Clé assistante 131",
   "atLeast1": "Au moins 1.",
-  "atLeast1000AppliesAfterA": "Au moins 1 000. S'applique après un redémarrage du serveur.",
   "attachFiles": "Joindre des fichiers",
   "attentionArg1": "Attention {arg1}",
   "@attentionArg1": {
@@ -3601,10 +3600,6 @@
       }
     }
   },
-  "memoryImportSync": "synchronisation de l'importation de mémoire",
-  "memoryIngestionInterval": "Intervalle d'ingestion de mémoire",
-  "memoryIngestionIntervalMs": "Intervalle d'ingestion de mémoire (ms)",
-  "memoryIngestionIntervalMustBeAt": "L’intervalle d’ingestion de mémoire doit être d’au moins 1 000 ms.",
   "memoryInjected": "Mémoire injectée",
   "mentionOrReplyOnly": "Mentionner ou répondre uniquement",
   "mergedServerAndFlutterRuntimeLogs": "Journaux d'exécution du serveur et de Flutter fusionnés pour cette session d'application.",
@@ -3911,6 +3906,10 @@
   "noMcpServersMatchThisSearch": "Aucun serveur MCP ne correspond à cette recherche.",
   "noMemoryEntriesFound": "Aucune entrée de mémoire trouvée.",
   "noMemorySync": "Pas de synchronisation de la mémoire",
+  "importPastEmailsIntoMemory": "Importer les e-mails passés importants dans la mémoire",
+  "importPastEmailsIntoMemoryHint": "Lit une seule fois les e-mails importants et envoyés des 12 derniers mois pour que l'agent connaisse vos contacts et vos projets.",
+  "importPastEmailsNow": "Importer les e-mails passés maintenant",
+  "importingPastEmailsInBackground": "Import des e-mails passés en arrière-plan. Les nouveaux souvenirs apparaissent au fur et à mesure.",
   "noModelMatchesArg1": "Aucun modèle ne correspond à \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {

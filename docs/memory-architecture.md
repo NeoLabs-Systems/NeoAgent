@@ -94,14 +94,16 @@ A fact extracted from an integration that conflicts with a static or high-confid
 
 ## Integration ingestion
 
-1. **Tick.** `MemoryIngestionService` runs every 10 minutes (`NEOAGENT_MEMORY_INGESTION_INTERVAL_MS`).
-2. **Freshness.** A connection is skipped until its last job's `nextSyncAt`.
-3. **Collect.** The provider's `collectMemoryDocuments()` returns changed documents and a cursor.
-4. **Store.** `ingestDocuments()` records the job, upserts documents, chunks them and saves each chunk as a memory with source links.
-5. **Extract.** During later runs, up to 5 unextracted chunks are turned into facts in the background with that run's model.
-6. **Retry.** A failed chunk is retried at most 3 times.
+1. **Connect.** Finishing OAuth emits `connected` on the integration manager. When the user left **Import important past emails into memory** on, `MemoryIngestionService` sweeps that mailbox once. Nothing polls connected accounts.
+2. **Collect.** The provider's `collectMemorySweep()` returns up to 100 important threads from the last 12 months:
+   - **Gmail.** Important, starred or sent threads, without promotions, social, updates and forums.
+   - **Outlook.** High-importance, flagged or Focused Inbox mail, plus sent mail.
+3. **Store.** `ingestDocuments()` records the job (tagged `mode: 'sweep'`), upserts documents, chunks them and saves each chunk as a memory with source links.
+4. **Extract.** `extractPendingBacklog()` turns every chunk into facts right away with the user's model, one call per chunk.
+5. **Retry.** A failed chunk is retried at most 3 times; later runs pick up leftovers 5 at a time.
 
-- **Collectors.** Only Google Workspace implements `collectMemoryDocuments()` today; other connections report coverage without documents.
+- **Once per connection.** A connection with a completed sweep job is not swept again on reconnect.
+- **Repeat on request.** `POST /api/memory/ingestion/sweep` (`providerKey`, `appId`) sweeps every connected account of that app in the background, skipping threads already in `memory_ingestion_documents`.
 - **Manual import.** `POST /api/memory/ingestion/documents` feeds documents through the same path.
 
 ## Maintenance

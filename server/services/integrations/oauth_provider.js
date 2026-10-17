@@ -439,6 +439,16 @@ function createOAuthProvider(options = {}) {
     };
   }
 
+  if (typeof options.collectMemorySweep === 'function') {
+    provider.collectMemorySweep = async ({ connection, signal, ...collectOptions }) => {
+      const { context, credentialsWereUpdated } = createIntegrationContext(connection, signal);
+      const collected = await options.collectMemorySweep(context, collectOptions);
+      return credentialsWereUpdated()
+        ? { ...collected, credentials: context.credentials }
+        : collected;
+    };
+  }
+
   return provider;
 }
 

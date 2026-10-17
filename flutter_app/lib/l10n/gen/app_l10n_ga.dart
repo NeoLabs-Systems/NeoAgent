@@ -1617,10 +1617,6 @@ class AppL10nGa extends AppL10n {
   String get atLeast1 => '1 ar a laghad.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Ar a laghad 1000. Baineann sé tar éis atosú freastalaí.';
-
-  @override
   String get attachFiles => 'Ceangail comhaid';
 
   @override
@@ -4708,19 +4704,6 @@ class AppL10nGa extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'sioncronú allmhairiú cuimhne';
-
-  @override
-  String get memoryIngestionInterval => 'Eatramh ionghabhála cuimhne';
-
-  @override
-  String get memoryIngestionIntervalMs => 'Eatramh ionghabhála cuimhne (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'Caithfidh an t-eatramh ionghabhála cuimhne a bheith 1000 ms ar a laghad.';
-
-  @override
   String get memoryInjected => 'Cuimhne ghann';
 
   @override
@@ -5305,6 +5288,21 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get noMemorySync => 'Gan sioncronú cuimhne';
+
+  @override
+  String get importPastEmailsIntoMemory =>
+      'Iompórtáil ríomhphoist thábhachtacha roimhe seo isteach sa chuimhne';
+
+  @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Léann sé an post tábhachtach agus seolta ó na 12 mhí seo caite uair amháin, ionas go mbeidh aithne ag an ngníomhaire ar do theagmhálaithe agus do thionscadail.';
+
+  @override
+  String get importPastEmailsNow => 'Iompórtáil ríomhphoist roimhe seo anois';
+
+  @override
+  String get importingPastEmailsInBackground =>
+      'Ríomhphoist roimhe seo á n-iompórtáil sa chúlra. Taispeántar cuimhní nua de réir a chéile.';
 
   @override
   String noModelMatchesArg1(Object? arg1) {

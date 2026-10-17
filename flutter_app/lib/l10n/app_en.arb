@@ -1901,7 +1901,6 @@
   "assistant": "Assistant",
   "assistantKey131": "Assistant key 131",
   "atLeast1": "At least 1.",
-  "atLeast1000AppliesAfterA": "At least 1000. Applies after a server restart.",
   "attachFiles": "Attach files",
   "attentionArg1": "Attention {arg1}",
   "@attentionArg1": {
@@ -3601,10 +3600,6 @@
       }
     }
   },
-  "memoryImportSync": "memory import sync",
-  "memoryIngestionInterval": "Memory ingestion interval",
-  "memoryIngestionIntervalMs": "Memory ingestion interval (ms)",
-  "memoryIngestionIntervalMustBeAt": "Memory ingestion interval must be at least 1000 ms.",
   "memoryInjected": "Memory injected",
   "mentionOrReplyOnly": "Mention or reply only",
   "mergedServerAndFlutterRuntimeLogs": "Merged server and Flutter runtime logs for this app session.",
@@ -3911,6 +3906,10 @@
   "noMcpServersMatchThisSearch": "No MCP servers match this search.",
   "noMemoryEntriesFound": "No memory entries found.",
   "noMemorySync": "No memory sync",
+  "importPastEmailsIntoMemory": "Import important past emails into memory",
+  "importPastEmailsIntoMemoryHint": "Reads the last 12 months of important and sent mail once, so the agent knows your contacts and projects.",
+  "importPastEmailsNow": "Import past emails now",
+  "importingPastEmailsInBackground": "Importing past emails in the background. New memories appear as it goes.",
   "noModelMatchesArg1": "No model matches \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {

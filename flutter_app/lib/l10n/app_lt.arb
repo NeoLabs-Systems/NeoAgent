@@ -1901,7 +1901,6 @@
   "assistant": "Padėjėjas",
   "assistantKey131": "Asistento raktas 131",
   "atLeast1": "Bent 1.",
-  "atLeast1000AppliesAfterA": "Mažiausiai 1000. Taikoma iš naujo paleidus serverį.",
   "attachFiles": "Pridėkite failus",
   "attentionArg1": "Dėmesio {arg1}",
   "@attentionArg1": {
@@ -3601,10 +3600,6 @@
       }
     }
   },
-  "memoryImportSync": "atminties importo sinchronizavimas",
-  "memoryIngestionInterval": "Atminties įsisavinimo intervalas",
-  "memoryIngestionIntervalMs": "Atminties įtraukimo intervalas (ms)",
-  "memoryIngestionIntervalMustBeAt": "Atminties įtraukimo intervalas turi būti bent 1000 ms.",
   "memoryInjected": "Įvesta atmintis",
   "mentionOrReplyOnly": "Tik paminėkite arba atsakykite",
   "mergedServerAndFlutterRuntimeLogs": "Sujungti šios programos seanso serverio ir „Flutter“ vykdymo laiko žurnalai.",
@@ -3911,6 +3906,10 @@
   "noMcpServersMatchThisSearch": "Nė vienas MCP serveris neatitinka šios paieškos.",
   "noMemoryEntriesFound": "Atminties įrašų nerasta.",
   "noMemorySync": "Nėra atminties sinchronizavimo",
+  "importPastEmailsIntoMemory": "Importuoti svarbius ankstesnius el. laiškus į atmintį",
+  "importPastEmailsIntoMemoryHint": "Vieną kartą perskaito svarbius ir išsiųstus pastarųjų 12 mėnesių laiškus, kad agentas žinotų jūsų kontaktus ir projektus.",
+  "importPastEmailsNow": "Importuoti ankstesnius el. laiškus dabar",
+  "importingPastEmailsInBackground": "Ankstesni el. laiškai importuojami fone. Nauji prisiminimai atsiranda palaipsniui.",
   "noModelMatchesArg1": "Nė vienas modelis neatitinka „{arg1}“.",
   "@noModelMatchesArg1": {
     "placeholders": {

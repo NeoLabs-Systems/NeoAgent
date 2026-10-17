@@ -1901,7 +1901,6 @@
   "assistant": "Asszisztens",
   "assistantKey131": "Segéd gomb 131",
   "atLeast1": "Legalább 1.",
-  "atLeast1000AppliesAfterA": "Legalább 1000. A szerver újraindítása után érvényes.",
   "attachFiles": "Fájlok csatolása",
   "attentionArg1": "Figyelem {arg1}",
   "@attentionArg1": {
@@ -3601,10 +3600,6 @@
       }
     }
   },
-  "memoryImportSync": "memória import szinkronizálás",
-  "memoryIngestionInterval": "Memóriabeviteli intervallum",
-  "memoryIngestionIntervalMs": "Memóriafeldolgozási időköz (ms)",
-  "memoryIngestionIntervalMustBeAt": "A memóriafeldolgozási intervallumnak legalább 1000 ms-nak kell lennie.",
   "memoryInjected": "Memória beadva",
   "mentionOrReplyOnly": "Csak említse meg vagy válaszoljon",
   "mergedServerAndFlutterRuntimeLogs": "Egyesített szerver és Flutter futásidejű naplók ehhez az alkalmazás-munkamenethez.",
@@ -3911,6 +3906,10 @@
   "noMcpServersMatchThisSearch": "Egyetlen MCP-kiszolgáló sem felel meg ennek a keresésnek.",
   "noMemoryEntriesFound": "Nem találhatók memóriabejegyzések.",
   "noMemorySync": "Nincs memória szinkronizálás",
+  "importPastEmailsIntoMemory": "Fontos korábbi e-mailek importálása a memóriába",
+  "importPastEmailsIntoMemoryHint": "Egyszer végigolvassa az elmúlt 12 hónap fontos és elküldött leveleit, hogy az ügynök ismerje a kapcsolataidat és projektjeidet.",
+  "importPastEmailsNow": "Korábbi e-mailek importálása most",
+  "importingPastEmailsInBackground": "A korábbi e-mailek importálása a háttérben fut. Az új emlékek fokozatosan jelennek meg.",
   "noModelMatchesArg1": "Egyik modell sem felel meg a \"{arg1}\" kifejezésnek.",
   "@noModelMatchesArg1": {
     "placeholders": {

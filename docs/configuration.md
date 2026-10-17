@@ -114,7 +114,6 @@ Exposing the server: see [Reach it from other devices](getting-started.md#networ
 | `VOICE_LIVE_VOICE` | `marin` (OpenAI), `Kore` (Google) | Default live voice |
 | `YT_DLP_BIN` | `yt-dlp` | yt-dlp binary for video and audio downloads |
 | `FFMPEG_BIN` | `ffmpeg` | ffmpeg binary for media conversion |
-| `NEOAGENT_MEMORY_INGESTION_INTERVAL_MS` | `600000` | How often connected integrations refresh memory |
 
 - **In the app.** Admins set the live voice defaults under **Admin › Integrations › Live voice**.
 - **Per account.** Each account can pick its own live voice provider, model and voice under **Settings › Voice**.

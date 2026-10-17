@@ -71,11 +71,12 @@ function decorateProviderSnapshot(service, snapshot, userId, agentId = null) {
         0,
       ),
       lastRefreshAt: providerJob?.completedAt || providerJob?.updatedAt || null,
-      nextRefreshAt: providerJob?.nextSyncAt || null,
       error: providerJob?.error || null,
     },
   };
 
+  const canCollect = typeof service.integrationManager?.getProvider?.(snapshot.provider)
+    ?.collectMemorySweep === 'function';
   decorated.apps = (snapshot.apps || []).map((app) => {
     const appConnections = connectionCoverage.filter((item) => item.appKey === app.id);
     const dataDomains = Array.from(new Set([
@@ -85,6 +86,8 @@ function decorateProviderSnapshot(service, snapshot, userId, agentId = null) {
     const latest = appConnections[0] || null;
     return {
       ...app,
+      // Connecting this app can run the one-time sweep of past mail.
+      memorySweep: canCollect && dataDomains.includes('email'),
       memoryCoverage: {
         supported: dataDomains.length > 0,
         contributesToMemory: dataDomains.length > 0 && app.connection?.connected === true,
@@ -96,7 +99,6 @@ function decorateProviderSnapshot(service, snapshot, userId, agentId = null) {
           0,
         ),
         lastRefreshAt: latest?.lastRefreshAt || null,
-        nextRefreshAt: latest?.nextRefreshAt || null,
         error: latest?.error || null,
       },
       accounts: (app.accounts || []).map((account) => {
@@ -113,7 +115,6 @@ function decorateProviderSnapshot(service, snapshot, userId, agentId = null) {
             dataDomains,
             documentCount: 0,
             lastRefreshAt: null,
-            nextRefreshAt: null,
             error: null,
           },
         };

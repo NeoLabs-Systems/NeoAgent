@@ -1901,7 +1901,6 @@
   "assistant": "Assistant",
   "assistantKey131": "Avustajan avain 131",
   "atLeast1": "Ainakin 1.",
-  "atLeast1000AppliesAfterA": "Vähintään 1000. Koskee palvelimen uudelleenkäynnistyksen jälkeen.",
   "attachFiles": "Liitä tiedostot",
   "attentionArg1": "Huomio {arg1}",
   "@attentionArg1": {
@@ -3601,10 +3600,6 @@
       }
     }
   },
-  "memoryImportSync": "muistin tuonnin synkronointi",
-  "memoryIngestionInterval": "Muistin käsittelyn aikaväli",
-  "memoryIngestionIntervalMs": "Muistin käsittelyväli (ms)",
-  "memoryIngestionIntervalMustBeAt": "Muistin käsittelyvälin on oltava vähintään 1000 ms.",
   "memoryInjected": "Muisti ruiskutettu",
   "mentionOrReplyOnly": "Vain mainitse tai vastaa",
   "mergedServerAndFlutterRuntimeLogs": "Yhdistetty palvelin- ja Flutter-ajonaikaiset lokit tälle sovellusistunnolle.",
@@ -3911,6 +3906,10 @@
   "noMcpServersMatchThisSearch": "Mikään MCP-palvelin ei vastaa tätä hakua.",
   "noMemoryEntriesFound": "Muistimerkintöjä ei löytynyt.",
   "noMemorySync": "Ei muistin synkronointia",
+  "importPastEmailsIntoMemory": "Tuo tärkeät aiemmat sähköpostit muistiin",
+  "importPastEmailsIntoMemoryHint": "Lukee kerran viimeisen 12 kuukauden tärkeät ja lähetetyt viestit, jotta agentti tuntee yhteystietosi ja projektisi.",
+  "importPastEmailsNow": "Tuo aiemmat sähköpostit nyt",
+  "importingPastEmailsInBackground": "Aiempia sähköposteja tuodaan taustalla. Uudet muistot ilmestyvät vähitellen.",
   "noModelMatchesArg1": "Mikään malli ei vastaa \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {

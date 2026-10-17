@@ -1612,10 +1612,6 @@ class AppL10nDa extends AppL10n {
   String get atLeast1 => 'Mindst 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Mindst 1000. Gælder efter en servergenstart.';
-
-  @override
   String get attachFiles => 'Vedhæft filer';
 
   @override
@@ -4671,19 +4667,6 @@ class AppL10nDa extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'synkronisering af hukommelsesimport';
-
-  @override
-  String get memoryIngestionInterval => 'Hukommelsesindtagelsesinterval';
-
-  @override
-  String get memoryIngestionIntervalMs => 'Hukommelsesindtagelsesinterval (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'Interval for hukommelsesindtagelse skal være mindst 1000 ms.';
-
-  @override
   String get memoryInjected => 'Hukommelse indsprøjtet';
 
   @override
@@ -5265,6 +5248,21 @@ class AppL10nDa extends AppL10n {
 
   @override
   String get noMemorySync => 'Ingen hukommelsessynkronisering';
+
+  @override
+  String get importPastEmailsIntoMemory =>
+      'Importér vigtige tidligere e-mails til hukommelsen';
+
+  @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Læser én gang vigtige og sendte e-mails fra de sidste 12 måneder, så agenten kender dine kontakter og projekter.';
+
+  @override
+  String get importPastEmailsNow => 'Importér tidligere e-mails nu';
+
+  @override
+  String get importingPastEmailsInBackground =>
+      'Tidligere e-mails importeres i baggrunden. Nye minder dukker op undervejs.';
 
   @override
   String noModelMatchesArg1(Object? arg1) {

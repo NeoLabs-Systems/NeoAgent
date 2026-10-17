@@ -1901,7 +1901,6 @@
   "assistant": "Pomočnik",
   "assistantKey131": "Tipka pomočnika 131",
   "atLeast1": "Vsaj 1.",
-  "atLeast1000AppliesAfterA": "Vsaj 1000. Velja po ponovnem zagonu strežnika.",
   "attachFiles": "Priloži datoteke",
   "attentionArg1": "Pozor {arg1}",
   "@attentionArg1": {
@@ -3601,10 +3600,6 @@
       }
     }
   },
-  "memoryImportSync": "sinhronizacija uvoza pomnilnika",
-  "memoryIngestionInterval": "Interval zaužitja pomnilnika",
-  "memoryIngestionIntervalMs": "Interval zaužitja pomnilnika (ms)",
-  "memoryIngestionIntervalMustBeAt": "Interval vnosa pomnilnika mora biti vsaj 1000 ms.",
   "memoryInjected": "Pomnilnik vstavljen",
   "mentionOrReplyOnly": "Samo omemba ali odgovor",
   "mergedServerAndFlutterRuntimeLogs": "Združeni dnevniki strežnika in izvajalnega okolja Flutter za to sejo aplikacije.",
@@ -3911,6 +3906,10 @@
   "noMcpServersMatchThisSearch": "Noben strežnik MCP ne ustreza temu iskanju.",
   "noMemoryEntriesFound": "Ni najdenih vnosov v pomnilnik.",
   "noMemorySync": "Ni sinhronizacije pomnilnika",
+  "importPastEmailsIntoMemory": "Uvozi pomembna starejša e-sporočila v pomnilnik",
+  "importPastEmailsIntoMemoryHint": "Enkrat prebere pomembna in poslana sporočila zadnjih 12 mesecev, da agent pozna vaše stike in projekte.",
+  "importPastEmailsNow": "Uvozi starejša e-sporočila zdaj",
+  "importingPastEmailsInBackground": "Starejša e-sporočila se uvažajo v ozadju. Novi spomini se prikazujejo sproti.",
   "noModelMatchesArg1": "Noben model se ne ujema z \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {

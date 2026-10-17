@@ -1612,10 +1612,6 @@ class AppL10nRo extends AppL10n {
   String get atLeast1 => 'Cel putin 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Cel puțin 1000. Se aplică după repornirea unui server.';
-
-  @override
   String get attachFiles => 'Atașați fișiere';
 
   @override
@@ -4690,20 +4686,6 @@ class AppL10nRo extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'sincronizare import memorie';
-
-  @override
-  String get memoryIngestionInterval => 'Intervalul de ingerare a memoriei';
-
-  @override
-  String get memoryIngestionIntervalMs =>
-      'Interval de absorbție a memoriei (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'Intervalul de absorbție a memoriei trebuie să fie de cel puțin 1000 ms.';
-
-  @override
   String get memoryInjected => 'Memorie injectată';
 
   @override
@@ -5291,6 +5273,21 @@ class AppL10nRo extends AppL10n {
 
   @override
   String get noMemorySync => 'Fără sincronizare de memorie';
+
+  @override
+  String get importPastEmailsIntoMemory =>
+      'Importă în memorie e-mailurile importante din trecut';
+
+  @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Citește o singură dată e-mailurile importante și trimise din ultimele 12 luni, ca agentul să-ți cunoască contactele și proiectele.';
+
+  @override
+  String get importPastEmailsNow => 'Importă acum e-mailurile din trecut';
+
+  @override
+  String get importingPastEmailsInBackground =>
+      'E-mailurile din trecut se importă în fundal. Amintirile noi apar pe parcurs.';
 
   @override
   String noModelMatchesArg1(Object? arg1) {

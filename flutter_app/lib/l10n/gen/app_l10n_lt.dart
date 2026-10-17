@@ -1613,10 +1613,6 @@ class AppL10nLt extends AppL10n {
   String get atLeast1 => 'Bent 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Mažiausiai 1000. Taikoma iš naujo paleidus serverį.';
-
-  @override
   String get attachFiles => 'Pridėkite failus';
 
   @override
@@ -4687,19 +4683,6 @@ class AppL10nLt extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'atminties importo sinchronizavimas';
-
-  @override
-  String get memoryIngestionInterval => 'Atminties įsisavinimo intervalas';
-
-  @override
-  String get memoryIngestionIntervalMs => 'Atminties įtraukimo intervalas (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'Atminties įtraukimo intervalas turi būti bent 1000 ms.';
-
-  @override
   String get memoryInjected => 'Įvesta atmintis';
 
   @override
@@ -5282,6 +5265,21 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get noMemorySync => 'Nėra atminties sinchronizavimo';
+
+  @override
+  String get importPastEmailsIntoMemory =>
+      'Importuoti svarbius ankstesnius el. laiškus į atmintį';
+
+  @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Vieną kartą perskaito svarbius ir išsiųstus pastarųjų 12 mėnesių laiškus, kad agentas žinotų jūsų kontaktus ir projektus.';
+
+  @override
+  String get importPastEmailsNow => 'Importuoti ankstesnius el. laiškus dabar';
+
+  @override
+  String get importingPastEmailsInBackground =>
+      'Ankstesni el. laiškai importuojami fone. Nauji prisiminimai atsiranda palaipsniui.';
 
   @override
   String noModelMatchesArg1(Object? arg1) {

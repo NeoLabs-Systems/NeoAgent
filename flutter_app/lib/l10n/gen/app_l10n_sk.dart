@@ -1615,10 +1615,6 @@ class AppL10nSk extends AppL10n {
   String get atLeast1 => 'Aspoň 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Minimálne 1000. Platí po reštarte servera.';
-
-  @override
   String get attachFiles => 'Pripojte súbory';
 
   @override
@@ -4685,19 +4681,6 @@ class AppL10nSk extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'synchronizácia importu pamäte';
-
-  @override
-  String get memoryIngestionInterval => 'Interval prehltnutia pamäte';
-
-  @override
-  String get memoryIngestionIntervalMs => 'Interval príjmu pamäte (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'Interval príjmu do pamäte musí byť aspoň 1000 ms.';
-
-  @override
   String get memoryInjected => 'Vložená pamäť';
 
   @override
@@ -5281,6 +5264,21 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get noMemorySync => 'Žiadna synchronizácia pamäte';
+
+  @override
+  String get importPastEmailsIntoMemory =>
+      'Importovať dôležité staršie e-maily do pamäte';
+
+  @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Jednorazovo prečíta dôležité a odoslané e-maily za posledných 12 mesiacov, aby agent poznal vaše kontakty a projekty.';
+
+  @override
+  String get importPastEmailsNow => 'Importovať staršie e-maily teraz';
+
+  @override
+  String get importingPastEmailsInBackground =>
+      'Staršie e-maily sa importujú na pozadí. Nové spomienky sa objavujú priebežne.';
 
   @override
   String noModelMatchesArg1(Object? arg1) {

@@ -3034,6 +3034,7 @@ class OfficialIntegrationAppItem {
     this.accounts = const <OfficialIntegrationAccountItem>[],
     this.availableToolCount = 0,
     this.memoryCoverage = const OfficialIntegrationMemoryCoverage(),
+    this.memorySweep = false,
   });
 
   factory OfficialIntegrationAppItem.fromJson(Map<dynamic, dynamic> json) {
@@ -3055,6 +3056,7 @@ class OfficialIntegrationAppItem {
       memoryCoverage: OfficialIntegrationMemoryCoverage.fromJson(
         _jsonMap(json['memoryCoverage']),
       ),
+      memorySweep: json['memorySweep'] == true,
     );
   }
 
@@ -3065,6 +3067,9 @@ class OfficialIntegrationAppItem {
   final List<OfficialIntegrationAccountItem> accounts;
   final int availableToolCount;
   final OfficialIntegrationMemoryCoverage memoryCoverage;
+
+  /// Connecting this app can import its important past mail into memory.
+  final bool memorySweep;
 
   bool get isConnected => connection.connected;
 
@@ -3159,7 +3164,6 @@ class OfficialIntegrationMemoryCoverage {
     this.dataDomains = const <String>[],
     this.documentCount = 0,
     this.lastRefreshAt,
-    this.nextRefreshAt,
     this.error,
   });
 
@@ -3177,7 +3181,6 @@ class OfficialIntegrationMemoryCoverage {
           : const <String>[],
       documentCount: _asInt(json['documentCount']),
       lastRefreshAt: _parseOptionalTimestamp(json['lastRefreshAt']?.toString()),
-      nextRefreshAt: _parseOptionalTimestamp(json['nextRefreshAt']?.toString()),
       error: json['error']?.toString(),
     );
   }
@@ -3189,7 +3192,6 @@ class OfficialIntegrationMemoryCoverage {
   final List<String> dataDomains;
   final int documentCount;
   final DateTime? lastRefreshAt;
-  final DateTime? nextRefreshAt;
   final String? error;
 
   String get statusLabel => _titleCase(status.replaceAll('_', ' '));

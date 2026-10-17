@@ -1533,7 +1533,6 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
     with _LoadSaveState<_AdminCfgGeneralCard> {
   final TextEditingController _publicUrl = TextEditingController();
   final TextEditingController _allowedOrigins = TextEditingController();
-  final TextEditingController _ingestionInterval = TextEditingController();
   bool _secureCookies = false;
 
   @override
@@ -1549,7 +1548,6 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
   void dispose() {
     _publicUrl.dispose();
     _allowedOrigins.dispose();
-    _ingestionInterval.dispose();
     super.dispose();
   }
 
@@ -1558,18 +1556,12 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
     final settings = _jsonMap(data['settings']);
     _publicUrl.text = settings['publicUrl']?.toString() ?? '';
     _allowedOrigins.text = settings['allowedOrigins']?.toString() ?? '';
-    _ingestionInterval.text =
-        settings['memoryIngestionIntervalMs']?.toString() ?? '';
     _secureCookies = settings['secureCookies'] == true;
   }
 
   Future<void> _save() async {
-    final interval = _parseBoundedInt(_ingestionInterval.text, min: 1000);
     var problem = _adminCfgUrlProblem(_publicUrl.text, appStrings.publicUrl);
     problem ??= _adminCfgOriginsProblem(_allowedOrigins.text);
-    if (problem == null && interval == null) {
-      problem = appStrings.memoryIngestionIntervalMustBeAt;
-    }
     if (problem != null) {
       _rejectSave(problem);
       return;
@@ -1579,7 +1571,6 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
         'publicUrl': _publicUrl.text.trim(),
         'secureCookies': _secureCookies,
         'allowedOrigins': _allowedOrigins.text.trim(),
-        'memoryIngestionIntervalMs': interval,
       }),
       appStrings.generalSettingsSaved,
     );
@@ -1619,13 +1610,6 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
               helper:
                   '${appStrings.exactWebOriginsAllowedToMake}comma-separated.',
               keyboardType: TextInputType.url,
-              onChanged: (_) => _onEdited(),
-            ),
-            _FormTextField(
-              controller: _ingestionInterval,
-              label: appStrings.memoryIngestionIntervalMs,
-              helper: appStrings.atLeast1000AppliesAfterA,
-              wholeNumber: true,
               onChanged: (_) => _onEdited(),
             ),
           ],

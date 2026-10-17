@@ -1615,10 +1615,6 @@ class AppL10nHu extends AppL10n {
   String get atLeast1 => 'Legalább 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Legalább 1000. A szerver újraindítása után érvényes.';
-
-  @override
   String get attachFiles => 'Fájlok csatolása';
 
   @override
@@ -4700,19 +4696,6 @@ class AppL10nHu extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'memória import szinkronizálás';
-
-  @override
-  String get memoryIngestionInterval => 'Memóriabeviteli intervallum';
-
-  @override
-  String get memoryIngestionIntervalMs => 'Memóriafeldolgozási időköz (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'A memóriafeldolgozási intervallumnak legalább 1000 ms-nak kell lennie.';
-
-  @override
   String get memoryInjected => 'Memória beadva';
 
   @override
@@ -5298,6 +5281,21 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get noMemorySync => 'Nincs memória szinkronizálás';
+
+  @override
+  String get importPastEmailsIntoMemory =>
+      'Fontos korábbi e-mailek importálása a memóriába';
+
+  @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Egyszer végigolvassa az elmúlt 12 hónap fontos és elküldött leveleit, hogy az ügynök ismerje a kapcsolataidat és projektjeidet.';
+
+  @override
+  String get importPastEmailsNow => 'Korábbi e-mailek importálása most';
+
+  @override
+  String get importingPastEmailsInBackground =>
+      'A korábbi e-mailek importálása a háttérben fut. Az új emlékek fokozatosan jelennek meg.';
 
   @override
   String noModelMatchesArg1(Object? arg1) {

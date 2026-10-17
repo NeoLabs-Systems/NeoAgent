@@ -1613,10 +1613,6 @@ class AppL10nBg extends AppL10n {
   String get atLeast1 => 'Най-малко 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Най-малко 1000. Прилага се след рестартиране на сървъра.';
-
-  @override
   String get attachFiles => 'Прикачване на файлове';
 
   @override
@@ -4687,20 +4683,6 @@ class AppL10nBg extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'синхронизиране на импортиране на паметта';
-
-  @override
-  String get memoryIngestionInterval => 'Интервал на поглъщане на паметта';
-
-  @override
-  String get memoryIngestionIntervalMs =>
-      'Интервал на поглъщане на паметта (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'Интервалът на поглъщане на паметта трябва да бъде поне 1000 ms.';
-
-  @override
   String get memoryInjected => 'Инжектирана памет';
 
   @override
@@ -5287,6 +5269,21 @@ class AppL10nBg extends AppL10n {
 
   @override
   String get noMemorySync => 'Няма синхронизиране на паметта';
+
+  @override
+  String get importPastEmailsIntoMemory =>
+      'Импортиране на важни минали имейли в паметта';
+
+  @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Прочита еднократно важните и изпратените писма от последните 12 месеца, за да познава агентът вашите контакти и проекти.';
+
+  @override
+  String get importPastEmailsNow => 'Импортирай минали имейли сега';
+
+  @override
+  String get importingPastEmailsInBackground =>
+      'Минали имейли се импортират във фонов режим. Новите спомени се появяват постепенно.';
 
   @override
   String noModelMatchesArg1(Object? arg1) {

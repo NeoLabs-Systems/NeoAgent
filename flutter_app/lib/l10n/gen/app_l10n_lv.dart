@@ -1614,10 +1614,6 @@ class AppL10nLv extends AppL10n {
   String get atLeast1 => 'Vismaz 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Vismaz 1000. Attiecas pēc servera restartēšanas.';
-
-  @override
   String get attachFiles => 'Pievienojiet failus';
 
   @override
@@ -4683,19 +4679,6 @@ class AppL10nLv extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'atmiņas importa sinhronizācija';
-
-  @override
-  String get memoryIngestionInterval => 'Atmiņas uzņemšanas intervāls';
-
-  @override
-  String get memoryIngestionIntervalMs => 'Atmiņas uzņemšanas intervāls (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'Atmiņas ievades intervālam ir jābūt vismaz 1000 ms.';
-
-  @override
   String get memoryInjected => 'Atmiņa ievadīta';
 
   @override
@@ -5281,6 +5264,21 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get noMemorySync => 'Nav atmiņas sinhronizācijas';
+
+  @override
+  String get importPastEmailsIntoMemory =>
+      'Importēt svarīgus iepriekšējos e-pastus atmiņā';
+
+  @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Vienreiz izlasa pēdējo 12 mēnešu svarīgos un nosūtītos e-pastus, lai aģents zinātu jūsu kontaktus un projektus.';
+
+  @override
+  String get importPastEmailsNow => 'Importēt iepriekšējos e-pastus tagad';
+
+  @override
+  String get importingPastEmailsInBackground =>
+      'Iepriekšējie e-pasti tiek importēti fonā. Jaunas atmiņas parādās pakāpeniski.';
 
   @override
   String noModelMatchesArg1(Object? arg1) {

@@ -1901,7 +1901,6 @@
   "assistant": "Помощник",
   "assistantKey131": "Асистент ключ 131",
   "atLeast1": "Най-малко 1.",
-  "atLeast1000AppliesAfterA": "Най-малко 1000. Прилага се след рестартиране на сървъра.",
   "attachFiles": "Прикачване на файлове",
   "attentionArg1": "Внимание {arg1}",
   "@attentionArg1": {
@@ -3601,10 +3600,6 @@
       }
     }
   },
-  "memoryImportSync": "синхронизиране на импортиране на паметта",
-  "memoryIngestionInterval": "Интервал на поглъщане на паметта",
-  "memoryIngestionIntervalMs": "Интервал на поглъщане на паметта (ms)",
-  "memoryIngestionIntervalMustBeAt": "Интервалът на поглъщане на паметта трябва да бъде поне 1000 ms.",
   "memoryInjected": "Инжектирана памет",
   "mentionOrReplyOnly": "Само споменаване или отговор",
   "mergedServerAndFlutterRuntimeLogs": "Обединени регистрационни файлове на сървъра и времето за изпълнение на Flutter за тази сесия на приложението.",
@@ -3911,6 +3906,10 @@
   "noMcpServersMatchThisSearch": "Няма MCP сървъри, отговарящи на това търсене.",
   "noMemoryEntriesFound": "Няма намерени записи в паметта.",
   "noMemorySync": "Няма синхронизиране на паметта",
+  "importPastEmailsIntoMemory": "Импортиране на важни минали имейли в паметта",
+  "importPastEmailsIntoMemoryHint": "Прочита еднократно важните и изпратените писма от последните 12 месеца, за да познава агентът вашите контакти и проекти.",
+  "importPastEmailsNow": "Импортирай минали имейли сега",
+  "importingPastEmailsInBackground": "Минали имейли се импортират във фонов режим. Новите спомени се появяват постепенно.",
   "noModelMatchesArg1": "Няма модел, съответстващ на „{arg1}“.",
   "@noModelMatchesArg1": {
     "placeholders": {

@@ -1901,7 +1901,6 @@
   "assistant": "Assistent",
   "assistantKey131": "Assistententaste 131",
   "atLeast1": "Mindestens 1.",
-  "atLeast1000AppliesAfterA": "Mindestens 1000. Gilt nach einem Serverneustart.",
   "attachFiles": "Dateien anhängen",
   "attentionArg1": "Aufmerksamkeit {arg1}",
   "@attentionArg1": {
@@ -3601,10 +3600,6 @@
       }
     }
   },
-  "memoryImportSync": "gedächtnis import sync",
-  "memoryIngestionInterval": "Gedächtnis-Importintervall",
-  "memoryIngestionIntervalMs": "Speicher-Ingestionsintervall (ms)",
-  "memoryIngestionIntervalMustBeAt": "Das Speicher-Ingestionsintervall muss mindestens 1000 ms betragen.",
   "memoryInjected": "Gedächtnis eingefügt",
   "mentionOrReplyOnly": "Nur Erwähnung oder Antwort",
   "mergedServerAndFlutterRuntimeLogs": "Zusammengeführte Server- und Flutter-Laufzeitlogs für diese App-Sitzung.",
@@ -3911,6 +3906,10 @@
   "noMcpServersMatchThisSearch": "Keine MCP-Server passen zu dieser Suche.",
   "noMemoryEntriesFound": "Keine Speichereinträge gefunden.",
   "noMemorySync": "Keine Gedächtnis-Synchronisation",
+  "importPastEmailsIntoMemory": "Wichtige frühere E-Mails ins Gedächtnis übernehmen",
+  "importPastEmailsIntoMemoryHint": "Liest einmalig die wichtigen und gesendeten E-Mails der letzten 12 Monate, damit der Agent deine Kontakte und Projekte kennt.",
+  "importPastEmailsNow": "Frühere E-Mails jetzt importieren",
+  "importingPastEmailsInBackground": "Frühere E-Mails werden im Hintergrund importiert. Neue Erinnerungen erscheinen nach und nach.",
   "noModelMatchesArg1": "Kein Modell entspricht \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {

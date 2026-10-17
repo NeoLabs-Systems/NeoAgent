@@ -1611,10 +1611,6 @@ class AppL10nMt extends AppL10n {
   String get atLeast1 => 'Mill-inqas 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Mill-inqas 1000. Japplika wara li jerġa\' jibda server.';
-
-  @override
   String get attachFiles => 'Ehmeż fajls';
 
   @override
@@ -4692,21 +4688,6 @@ class AppL10nMt extends AppL10n {
   }
 
   @override
-  String get memoryImportSync =>
-      'sinkronizzazzjoni tal-importazzjoni tal-memorja';
-
-  @override
-  String get memoryIngestionInterval => 'Intervall ta\' inġestjoni tal-memorja';
-
-  @override
-  String get memoryIngestionIntervalMs =>
-      'Intervall ta\' inġestjoni tal-memorja (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'L-intervall ta\' inġestjoni tal-memorja għandu jkun mill-inqas 1000 ms.';
-
-  @override
   String get memoryInjected => 'Memorja injettata';
 
   @override
@@ -5292,6 +5273,21 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get noMemorySync => 'L-ebda sinkronizzazzjoni tal-memorja';
+
+  @override
+  String get importPastEmailsIntoMemory =>
+      'Importa emails importanti tal-passat fil-memorja';
+
+  @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Jaqra darba waħda l-posta importanti u mibgħuta tal-aħħar 12-il xahar, biex l-aġent ikun jaf il-kuntatti u l-proġetti tiegħek.';
+
+  @override
+  String get importPastEmailsNow => 'Importa emails tal-passat issa';
+
+  @override
+  String get importingPastEmailsInBackground =>
+      'L-emails tal-passat qed jiġu importati fl-isfond. Memorji ġodda jidhru hekk kif jimxi.';
 
   @override
   String noModelMatchesArg1(Object? arg1) {

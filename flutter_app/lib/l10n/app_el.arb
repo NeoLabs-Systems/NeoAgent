@@ -1901,7 +1901,6 @@
   "assistant": "Βοηθός",
   "assistantKey131": "Βοηθητικό κλειδί 131",
   "atLeast1": "Τουλάχιστον 1.",
-  "atLeast1000AppliesAfterA": "Τουλάχιστον 1000. Ισχύει μετά από επανεκκίνηση διακομιστή.",
   "attachFiles": "Επισύναψη αρχείων",
   "attentionArg1": "Προσοχή {arg1}",
   "@attentionArg1": {
@@ -3601,10 +3600,6 @@
       }
     }
   },
-  "memoryImportSync": "συγχρονισμός εισαγωγής μνήμης",
-  "memoryIngestionInterval": "Διάστημα κατάποσης μνήμης",
-  "memoryIngestionIntervalMs": "Διάστημα κατάποσης μνήμης (ms)",
-  "memoryIngestionIntervalMustBeAt": "Το διάστημα κατάποσης μνήμης πρέπει να είναι τουλάχιστον 1000 ms.",
   "memoryInjected": "Έγινε ένεση μνήμης",
   "mentionOrReplyOnly": "Μόνο αναφορά ή απάντηση",
   "mergedServerAndFlutterRuntimeLogs": "Συγχωνευμένα αρχεία καταγραφής χρόνου εκτέλεσης διακομιστή και Flutter για αυτήν την περίοδο λειτουργίας εφαρμογής.",
@@ -3911,6 +3906,10 @@
   "noMcpServersMatchThisSearch": "Κανένας διακομιστής MCP δεν αντιστοιχεί σε αυτήν την αναζήτηση.",
   "noMemoryEntriesFound": "Δεν βρέθηκαν καταχωρήσεις μνήμης.",
   "noMemorySync": "Δεν υπάρχει συγχρονισμός μνήμης",
+  "importPastEmailsIntoMemory": "Εισαγωγή σημαντικών παλαιότερων email στη μνήμη",
+  "importPastEmailsIntoMemoryHint": "Διαβάζει μία φορά τα σημαντικά και τα απεσταλμένα email των τελευταίων 12 μηνών, ώστε ο πράκτορας να γνωρίζει τις επαφές και τα έργα σας.",
+  "importPastEmailsNow": "Εισαγωγή παλαιότερων email τώρα",
+  "importingPastEmailsInBackground": "Τα παλαιότερα email εισάγονται στο παρασκήνιο. Οι νέες αναμνήσεις εμφανίζονται σταδιακά.",
   "noModelMatchesArg1": "Κανένα μοντέλο δεν ταιριάζει με το \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {

@@ -1901,7 +1901,6 @@
   "assistant": "Asistents",
   "assistantKey131": "Asistenta atslēga 131",
   "atLeast1": "Vismaz 1.",
-  "atLeast1000AppliesAfterA": "Vismaz 1000. Attiecas pēc servera restartēšanas.",
   "attachFiles": "Pievienojiet failus",
   "attentionArg1": "Uzmanību {arg1}",
   "@attentionArg1": {
@@ -3601,10 +3600,6 @@
       }
     }
   },
-  "memoryImportSync": "atmiņas importa sinhronizācija",
-  "memoryIngestionInterval": "Atmiņas uzņemšanas intervāls",
-  "memoryIngestionIntervalMs": "Atmiņas uzņemšanas intervāls (ms)",
-  "memoryIngestionIntervalMustBeAt": "Atmiņas ievades intervālam ir jābūt vismaz 1000 ms.",
   "memoryInjected": "Atmiņa ievadīta",
   "mentionOrReplyOnly": "Tikai pieminēt vai atbildēt",
   "mergedServerAndFlutterRuntimeLogs": "Šai lietotnes sesijai ir apvienoti servera un Flutter izpildlaika žurnāli.",
@@ -3911,6 +3906,10 @@
   "noMcpServersMatchThisSearch": "Šim meklējumam neatbilst neviens MCP serveris.",
   "noMemoryEntriesFound": "Atmiņas ieraksti nav atrasti.",
   "noMemorySync": "Nav atmiņas sinhronizācijas",
+  "importPastEmailsIntoMemory": "Importēt svarīgus iepriekšējos e-pastus atmiņā",
+  "importPastEmailsIntoMemoryHint": "Vienreiz izlasa pēdējo 12 mēnešu svarīgos un nosūtītos e-pastus, lai aģents zinātu jūsu kontaktus un projektus.",
+  "importPastEmailsNow": "Importēt iepriekšējos e-pastus tagad",
+  "importingPastEmailsInBackground": "Iepriekšējie e-pasti tiek importēti fonā. Jaunas atmiņas parādās pakāpeniski.",
   "noModelMatchesArg1": "Neviens modelis neatbilst \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {

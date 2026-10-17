@@ -1918,9 +1918,29 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: _buildIntegrationActionButton(context, connectBusy),
+              if (app.memorySweep && provider.env.configured)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: controller.isMemorySweepEnabled(provider.id, app.id),
+                  onChanged: connectBusy
+                      ? null
+                      : (value) => controller.setMemorySweepEnabled(
+                          provider.id,
+                          app.id,
+                          value ?? true,
+                        ),
+                  title: Text(appStrings.importPastEmailsIntoMemory),
+                  subtitle: Text(appStrings.importPastEmailsIntoMemoryHint),
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: <Widget>[
+                  _buildIntegrationActionButton(context, connectBusy),
+                  if (app.memorySweep && app.isConnected)
+                    _buildImportPastEmailsButton(context),
+                ],
               ),
             ],
           ),
@@ -2101,6 +2121,31 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildImportPastEmailsButton(BuildContext context) {
+    final busy = controller.isOfficialIntegrationBusy(
+      '${provider.id}:${app.id}:sweep',
+    );
+    return OutlinedButton.icon(
+      onPressed: busy
+          ? null
+          : () async {
+              try {
+                await controller.importPastEmails(provider.id, app.id);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(appStrings.importingPastEmailsInBackground),
+                  ),
+                );
+              } catch (error) {
+                _showControllerError(context, controller, error);
+              }
+            },
+      icon: Icon(Icons.move_to_inbox_rounded),
+      label: Text(appStrings.importPastEmailsNow),
     );
   }
 

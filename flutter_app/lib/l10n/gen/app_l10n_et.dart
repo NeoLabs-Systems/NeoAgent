@@ -1611,10 +1611,6 @@ class AppL10nEt extends AppL10n {
   String get atLeast1 => 'Vähemalt 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Vähemalt 1000. Kehtib pärast serveri taaskäivitamist.';
-
-  @override
   String get attachFiles => 'Manustage failid';
 
   @override
@@ -4688,19 +4684,6 @@ class AppL10nEt extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'mälu impordi sünkroonimine';
-
-  @override
-  String get memoryIngestionInterval => 'Mälu sissevõtmise intervall';
-
-  @override
-  String get memoryIngestionIntervalMs => 'Mälu sissevõtmise intervall (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'Mälu sisestusintervall peab olema vähemalt 1000 ms.';
-
-  @override
   String get memoryInjected => 'Mälu süstitud';
 
   @override
@@ -5282,6 +5265,21 @@ class AppL10nEt extends AppL10n {
 
   @override
   String get noMemorySync => 'Mälu sünkroonimine puudub';
+
+  @override
+  String get importPastEmailsIntoMemory =>
+      'Impordi olulised varasemad e-kirjad mällu';
+
+  @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Loeb ühekordselt viimase 12 kuu olulised ja saadetud kirjad, et agent tunneks su kontakte ja projekte.';
+
+  @override
+  String get importPastEmailsNow => 'Impordi varasemad e-kirjad kohe';
+
+  @override
+  String get importingPastEmailsInBackground =>
+      'Varasemaid e-kirju imporditakse taustal. Uued mälestused ilmuvad järk-järgult.';
 
   @override
   String noModelMatchesArg1(Object? arg1) {

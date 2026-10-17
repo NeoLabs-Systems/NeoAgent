@@ -1619,10 +1619,6 @@ class AppL10nEl extends AppL10n {
   String get atLeast1 => 'Τουλάχιστον 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Τουλάχιστον 1000. Ισχύει μετά από επανεκκίνηση διακομιστή.';
-
-  @override
   String get attachFiles => 'Επισύναψη αρχείων';
 
   @override
@@ -4719,19 +4715,6 @@ class AppL10nEl extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'συγχρονισμός εισαγωγής μνήμης';
-
-  @override
-  String get memoryIngestionInterval => 'Διάστημα κατάποσης μνήμης';
-
-  @override
-  String get memoryIngestionIntervalMs => 'Διάστημα κατάποσης μνήμης (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'Το διάστημα κατάποσης μνήμης πρέπει να είναι τουλάχιστον 1000 ms.';
-
-  @override
   String get memoryInjected => 'Έγινε ένεση μνήμης';
 
   @override
@@ -5320,6 +5303,21 @@ class AppL10nEl extends AppL10n {
 
   @override
   String get noMemorySync => 'Δεν υπάρχει συγχρονισμός μνήμης';
+
+  @override
+  String get importPastEmailsIntoMemory =>
+      'Εισαγωγή σημαντικών παλαιότερων email στη μνήμη';
+
+  @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Διαβάζει μία φορά τα σημαντικά και τα απεσταλμένα email των τελευταίων 12 μηνών, ώστε ο πράκτορας να γνωρίζει τις επαφές και τα έργα σας.';
+
+  @override
+  String get importPastEmailsNow => 'Εισαγωγή παλαιότερων email τώρα';
+
+  @override
+  String get importingPastEmailsInBackground =>
+      'Τα παλαιότερα email εισάγονται στο παρασκήνιο. Οι νέες αναμνήσεις εμφανίζονται σταδιακά.';
 
   @override
   String noModelMatchesArg1(Object? arg1) {

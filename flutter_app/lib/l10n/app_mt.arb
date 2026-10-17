@@ -1901,7 +1901,6 @@
   "assistant": "Assistent",
   "assistantKey131": "Assistent ċavetta 131",
   "atLeast1": "Mill-inqas 1.",
-  "atLeast1000AppliesAfterA": "Mill-inqas 1000. Japplika wara li jerġa' jibda server.",
   "attachFiles": "Ehmeż fajls",
   "attentionArg1": "Attenzjoni {arg1}",
   "@attentionArg1": {
@@ -3601,10 +3600,6 @@
       }
     }
   },
-  "memoryImportSync": "sinkronizzazzjoni tal-importazzjoni tal-memorja",
-  "memoryIngestionInterval": "Intervall ta' inġestjoni tal-memorja",
-  "memoryIngestionIntervalMs": "Intervall ta' inġestjoni tal-memorja (ms)",
-  "memoryIngestionIntervalMustBeAt": "L-intervall ta' inġestjoni tal-memorja għandu jkun mill-inqas 1000 ms.",
   "memoryInjected": "Memorja injettata",
   "mentionOrReplyOnly": "Semmi jew irrispondi biss",
   "mergedServerAndFlutterRuntimeLogs": "Server magħquda u zkuk tar-runtime Flutter għal din is-sessjoni tal-app.",
@@ -3911,6 +3906,10 @@
   "noMcpServersMatchThisSearch": "Ebda servers MCP ma jaqblu ma' din it-tfittxija.",
   "noMemoryEntriesFound": "Ma nstabet l-ebda dħul tal-memorja.",
   "noMemorySync": "L-ebda sinkronizzazzjoni tal-memorja",
+  "importPastEmailsIntoMemory": "Importa emails importanti tal-passat fil-memorja",
+  "importPastEmailsIntoMemoryHint": "Jaqra darba waħda l-posta importanti u mibgħuta tal-aħħar 12-il xahar, biex l-aġent ikun jaf il-kuntatti u l-proġetti tiegħek.",
+  "importPastEmailsNow": "Importa emails tal-passat issa",
+  "importingPastEmailsInBackground": "L-emails tal-passat qed jiġu importati fl-isfond. Memorji ġodda jidhru hekk kif jimxi.",
   "noModelMatchesArg1": "L-ebda mudell ma jaqbel ma' \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {

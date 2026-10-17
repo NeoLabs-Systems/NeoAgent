@@ -249,12 +249,6 @@ List<_AdminSearchEntry> _adminSearchIndex = <_AdminSearchEntry>[
     card: 'General',
   ),
   _AdminSearchEntry(
-    appStrings.memoryIngestionInterval,
-    _AdminTab.config,
-    appStrings.memoryImportSync,
-    card: 'General',
-  ),
-  _AdminSearchEntry(
     appStrings.cloudComputerVm,
     _AdminTab.config,
     appStrings.vmImageMemoryCpuQemuRuntime,

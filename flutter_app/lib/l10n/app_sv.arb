@@ -1901,7 +1901,6 @@
   "assistant": "Assistent",
   "assistantKey131": "Assistentnyckel 131",
   "atLeast1": "Minst 1.",
-  "atLeast1000AppliesAfterA": "Minst 1000. Gäller efter omstart av servern.",
   "attachFiles": "Bifoga filer",
   "attentionArg1": "Observera {arg1}",
   "@attentionArg1": {
@@ -3601,10 +3600,6 @@
       }
     }
   },
-  "memoryImportSync": "synkronisering av minnesimport",
-  "memoryIngestionInterval": "Minnesintagsintervall",
-  "memoryIngestionIntervalMs": "Minnesintagsintervall (ms)",
-  "memoryIngestionIntervalMustBeAt": "Minnesintagsintervallet måste vara minst 1000 ms.",
   "memoryInjected": "Minnet injiceras",
   "mentionOrReplyOnly": "Nämn eller svara endast",
   "mergedServerAndFlutterRuntimeLogs": "Sammanslagna server- och Flutter-körtidsloggar för den här appsessionen.",
@@ -3911,6 +3906,10 @@
   "noMcpServersMatchThisSearch": "Inga MCP-servrar matchar denna sökning.",
   "noMemoryEntriesFound": "Inga minnesposter hittades.",
   "noMemorySync": "Ingen minnessynkronisering",
+  "importPastEmailsIntoMemory": "Importera viktiga tidigare mejl till minnet",
+  "importPastEmailsIntoMemoryHint": "Läser en gång igenom viktiga och skickade mejl från de senaste 12 månaderna så att agenten känner till dina kontakter och projekt.",
+  "importPastEmailsNow": "Importera tidigare mejl nu",
+  "importingPastEmailsInBackground": "Tidigare mejl importeras i bakgrunden. Nya minnen dyker upp efter hand.",
   "noModelMatchesArg1": "Ingen modell matchar \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {

@@ -179,6 +179,29 @@ router.get('/ingestion/status', (req, res) => {
   }
 });
 
+// Imports past mail of every connected account of one app that is not in
+// memory yet. Runs in the background; memories appear as it goes.
+router.post('/ingestion/sweep', (req, res) => {
+  const ingestionService = req.app.locals.memoryIngestionService;
+  if (!ingestionService) {
+    return res.status(503).json({ error: 'Memory ingestion service is unavailable.' });
+  }
+  const providerKey = String(req.body?.providerKey || '').trim();
+  const appKey = String(req.body?.appId || '').trim();
+  if (!providerKey || !appKey) {
+    return res.status(400).json({ error: 'providerKey and appId are required.' });
+  }
+  const connectionIds = ingestionService.sweepApp(req.session.userId, {
+    agentId: resolveAgentId(req.session.userId, getAgentIdFromRequest(req)),
+    providerKey,
+    appKey,
+  });
+  if (!connectionIds.length) {
+    return res.status(404).json({ error: 'No connected account to import from.' });
+  }
+  res.status(202).json({ started: true, connectionIds });
+});
+
 router.post('/ingestion/documents', async (req, res) => {
   const ingestionService = req.app.locals.memoryIngestionService;
   const userId = req.session.userId;

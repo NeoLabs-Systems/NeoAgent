@@ -1623,10 +1623,6 @@ class AppL10nEs extends AppL10n {
   String get atLeast1 => 'Al menos 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Al menos 1000. Se aplica después de reiniciar el servidor.';
-
-  @override
   String get attachFiles => 'Adjuntar archivos';
 
   @override
@@ -4720,20 +4716,6 @@ class AppL10nEs extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'sincronización de importación de memoria';
-
-  @override
-  String get memoryIngestionInterval => 'Intervalo de ingesta de memoria';
-
-  @override
-  String get memoryIngestionIntervalMs =>
-      'Intervalo de ingesta de memoria (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'El intervalo de ingesta de memoria debe ser de al menos 1000 ms.';
-
-  @override
   String get memoryInjected => 'Memoria inyectada';
 
   @override
@@ -5322,6 +5304,21 @@ class AppL10nEs extends AppL10n {
 
   @override
   String get noMemorySync => 'Sin sincronización de memoria';
+
+  @override
+  String get importPastEmailsIntoMemory =>
+      'Importar correos anteriores importantes a la memoria';
+
+  @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Lee una vez el correo importante y enviado de los últimos 12 meses para que el agente conozca tus contactos y proyectos.';
+
+  @override
+  String get importPastEmailsNow => 'Importar correos anteriores ahora';
+
+  @override
+  String get importingPastEmailsInBackground =>
+      'Importando correos anteriores en segundo plano. Los nuevos recuerdos aparecen a medida que avanza.';
 
   @override
   String noModelMatchesArg1(Object? arg1) {

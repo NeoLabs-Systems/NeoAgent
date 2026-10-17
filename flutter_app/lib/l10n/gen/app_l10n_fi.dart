@@ -1610,10 +1610,6 @@ class AppL10nFi extends AppL10n {
   String get atLeast1 => 'Ainakin 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Vähintään 1000. Koskee palvelimen uudelleenkäynnistyksen jälkeen.';
-
-  @override
   String get attachFiles => 'Liitä tiedostot';
 
   @override
@@ -4685,19 +4681,6 @@ class AppL10nFi extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'muistin tuonnin synkronointi';
-
-  @override
-  String get memoryIngestionInterval => 'Muistin käsittelyn aikaväli';
-
-  @override
-  String get memoryIngestionIntervalMs => 'Muistin käsittelyväli (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'Muistin käsittelyvälin on oltava vähintään 1000 ms.';
-
-  @override
   String get memoryInjected => 'Muisti ruiskutettu';
 
   @override
@@ -5279,6 +5262,21 @@ class AppL10nFi extends AppL10n {
 
   @override
   String get noMemorySync => 'Ei muistin synkronointia';
+
+  @override
+  String get importPastEmailsIntoMemory =>
+      'Tuo tärkeät aiemmat sähköpostit muistiin';
+
+  @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Lukee kerran viimeisen 12 kuukauden tärkeät ja lähetetyt viestit, jotta agentti tuntee yhteystietosi ja projektisi.';
+
+  @override
+  String get importPastEmailsNow => 'Tuo aiemmat sähköpostit nyt';
+
+  @override
+  String get importingPastEmailsInBackground =>
+      'Aiempia sähköposteja tuodaan taustalla. Uudet muistot ilmestyvät vähitellen.';
 
   @override
   String noModelMatchesArg1(Object? arg1) {

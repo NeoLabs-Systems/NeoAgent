@@ -1901,7 +1901,6 @@
   "assistant": "Assistent",
   "assistantKey131": "Assistendi võti 131",
   "atLeast1": "Vähemalt 1.",
-  "atLeast1000AppliesAfterA": "Vähemalt 1000. Kehtib pärast serveri taaskäivitamist.",
   "attachFiles": "Manustage failid",
   "attentionArg1": "Tähelepanu {arg1}",
   "@attentionArg1": {
@@ -3601,10 +3600,6 @@
       }
     }
   },
-  "memoryImportSync": "mälu impordi sünkroonimine",
-  "memoryIngestionInterval": "Mälu sissevõtmise intervall",
-  "memoryIngestionIntervalMs": "Mälu sissevõtmise intervall (ms)",
-  "memoryIngestionIntervalMustBeAt": "Mälu sisestusintervall peab olema vähemalt 1000 ms.",
   "memoryInjected": "Mälu süstitud",
   "mentionOrReplyOnly": "Mainige või vastake ainult",
   "mergedServerAndFlutterRuntimeLogs": "Selle rakenduse seansi jaoks on ühendatud serveri ja Flutteri käitusaja logid.",
@@ -3911,6 +3906,10 @@
   "noMcpServersMatchThisSearch": "Sellele otsingule ei vasta ükski MCP-server.",
   "noMemoryEntriesFound": "Mälukirjeid ei leitud.",
   "noMemorySync": "Mälu sünkroonimine puudub",
+  "importPastEmailsIntoMemory": "Impordi olulised varasemad e-kirjad mällu",
+  "importPastEmailsIntoMemoryHint": "Loeb ühekordselt viimase 12 kuu olulised ja saadetud kirjad, et agent tunneks su kontakte ja projekte.",
+  "importPastEmailsNow": "Impordi varasemad e-kirjad kohe",
+  "importingPastEmailsInBackground": "Varasemaid e-kirju imporditakse taustal. Uued mälestused ilmuvad järk-järgult.",
   "noModelMatchesArg1": "Ükski mudel ei vasta \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {

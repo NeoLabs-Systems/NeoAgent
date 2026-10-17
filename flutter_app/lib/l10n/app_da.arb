@@ -1901,7 +1901,6 @@
   "assistant": "Assistent",
   "assistantKey131": "Assistent-tast 131",
   "atLeast1": "Mindst 1.",
-  "atLeast1000AppliesAfterA": "Mindst 1000. Gælder efter en servergenstart.",
   "attachFiles": "Vedhæft filer",
   "attentionArg1": "Bemærk {arg1}",
   "@attentionArg1": {
@@ -3601,10 +3600,6 @@
       }
     }
   },
-  "memoryImportSync": "synkronisering af hukommelsesimport",
-  "memoryIngestionInterval": "Hukommelsesindtagelsesinterval",
-  "memoryIngestionIntervalMs": "Hukommelsesindtagelsesinterval (ms)",
-  "memoryIngestionIntervalMustBeAt": "Interval for hukommelsesindtagelse skal være mindst 1000 ms.",
   "memoryInjected": "Hukommelse indsprøjtet",
   "mentionOrReplyOnly": "Nævn eller svar kun",
   "mergedServerAndFlutterRuntimeLogs": "Flettede server- og Flutter-runtime-logfiler for denne app-session.",
@@ -3911,6 +3906,10 @@
   "noMcpServersMatchThisSearch": "Ingen MCP-servere matcher denne søgning.",
   "noMemoryEntriesFound": "Ingen hukommelsesposter fundet.",
   "noMemorySync": "Ingen hukommelsessynkronisering",
+  "importPastEmailsIntoMemory": "Importér vigtige tidligere e-mails til hukommelsen",
+  "importPastEmailsIntoMemoryHint": "Læser én gang vigtige og sendte e-mails fra de sidste 12 måneder, så agenten kender dine kontakter og projekter.",
+  "importPastEmailsNow": "Importér tidligere e-mails nu",
+  "importingPastEmailsInBackground": "Tidligere e-mails importeres i baggrunden. Nye minder dukker op undervejs.",
   "noModelMatchesArg1": "Ingen model matcher \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {

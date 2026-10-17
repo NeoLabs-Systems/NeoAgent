@@ -1620,10 +1620,6 @@ class AppL10nNl extends AppL10n {
   String get atLeast1 => 'Minstens 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Minimaal 1000. Van toepassing na een herstart van de server.';
-
-  @override
   String get attachFiles => 'Bestanden bijvoegen';
 
   @override
@@ -4694,19 +4690,6 @@ class AppL10nNl extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'Synchronisatie van geheugenimport';
-
-  @override
-  String get memoryIngestionInterval => 'Interval voor geheugenopname';
-
-  @override
-  String get memoryIngestionIntervalMs => 'Interval voor geheugenopname (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'Het geheugenopname-interval moet minimaal 1000 ms zijn.';
-
-  @override
   String get memoryInjected => 'Geheugen geïnjecteerd';
 
   @override
@@ -5295,6 +5278,21 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get noMemorySync => 'Geen geheugensynchronisatie';
+
+  @override
+  String get importPastEmailsIntoMemory =>
+      'Belangrijke eerdere e-mails in het geheugen importeren';
+
+  @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Leest eenmalig de belangrijke en verzonden mail van de afgelopen 12 maanden, zodat de agent je contacten en projecten kent.';
+
+  @override
+  String get importPastEmailsNow => 'Eerdere e-mails nu importeren';
+
+  @override
+  String get importingPastEmailsInBackground =>
+      'Eerdere e-mails worden op de achtergrond geïmporteerd. Nieuwe herinneringen verschijnen gaandeweg.';
 
   @override
   String noModelMatchesArg1(Object? arg1) {

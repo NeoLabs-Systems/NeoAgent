@@ -1901,7 +1901,6 @@
   "assistant": "asistent",
   "assistantKey131": "Klíč asistenta 131",
   "atLeast1": "Minimálně 1.",
-  "atLeast1000AppliesAfterA": "Minimálně 1000. Platí po restartu serveru.",
   "attachFiles": "Připojit soubory",
   "attentionArg1": "Pozor {arg1}",
   "@attentionArg1": {
@@ -3601,10 +3600,6 @@
       }
     }
   },
-  "memoryImportSync": "synchronizace importu paměti",
-  "memoryIngestionInterval": "Interval příjmu paměti",
-  "memoryIngestionIntervalMs": "Interval příjmu paměti (ms)",
-  "memoryIngestionIntervalMustBeAt": "Interval příjmu do paměti musí být alespoň 1000 ms.",
   "memoryInjected": "Injekce paměti",
   "mentionOrReplyOnly": "Pouze zmínit nebo odpovědět",
   "mergedServerAndFlutterRuntimeLogs": "Sloučené protokoly běhového prostředí serveru a Flutter pro tuto relaci aplikace.",
@@ -3911,6 +3906,10 @@
   "noMcpServersMatchThisSearch": "Tomuto vyhledávání neodpovídají žádné servery MCP.",
   "noMemoryEntriesFound": "Nebyly nalezeny žádné položky paměti.",
   "noMemorySync": "Žádná synchronizace paměti",
+  "importPastEmailsIntoMemory": "Importovat důležité starší e-maily do paměti",
+  "importPastEmailsIntoMemoryHint": "Jednorázově přečte důležité a odeslané e-maily za posledních 12 měsíců, aby agent znal vaše kontakty a projekty.",
+  "importPastEmailsNow": "Importovat starší e-maily teď",
+  "importingPastEmailsInBackground": "Starší e-maily se importují na pozadí. Nové vzpomínky se objevují průběžně.",
   "noModelMatchesArg1": "\"{arg1}\" neodpovídá žádný model.",
   "@noModelMatchesArg1": {
     "placeholders": {

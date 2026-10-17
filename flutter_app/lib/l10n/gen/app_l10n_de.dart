@@ -1624,10 +1624,6 @@ class AppL10nDe extends AppL10n {
   String get atLeast1 => 'Mindestens 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Mindestens 1000. Gilt nach einem Serverneustart.';
-
-  @override
   String get attachFiles => 'Dateien anhängen';
 
   @override
@@ -4714,19 +4710,6 @@ class AppL10nDe extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'gedächtnis import sync';
-
-  @override
-  String get memoryIngestionInterval => 'Gedächtnis-Importintervall';
-
-  @override
-  String get memoryIngestionIntervalMs => 'Speicher-Ingestionsintervall (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'Das Speicher-Ingestionsintervall muss mindestens 1000 ms betragen.';
-
-  @override
   String get memoryInjected => 'Gedächtnis eingefügt';
 
   @override
@@ -5313,6 +5296,21 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get noMemorySync => 'Keine Gedächtnis-Synchronisation';
+
+  @override
+  String get importPastEmailsIntoMemory =>
+      'Wichtige frühere E-Mails ins Gedächtnis übernehmen';
+
+  @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Liest einmalig die wichtigen und gesendeten E-Mails der letzten 12 Monate, damit der Agent deine Kontakte und Projekte kennt.';
+
+  @override
+  String get importPastEmailsNow => 'Frühere E-Mails jetzt importieren';
+
+  @override
+  String get importingPastEmailsInBackground =>
+      'Frühere E-Mails werden im Hintergrund importiert. Neue Erinnerungen erscheinen nach und nach.';
 
   @override
   String noModelMatchesArg1(Object? arg1) {

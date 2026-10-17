@@ -95,6 +95,7 @@ class NeoAgentController extends ChangeNotifier {
   final Set<String> _detachedChatRunIds = <String>{};
   final Set<String> _voiceRunIds = <String>{};
   final Set<String> _busyOfficialIntegrationKeys = <String>{};
+  final Set<String> _memorySweepOptOutKeys = <String>{};
   final Set<String> _busyMessagingPlatformKeys = <String>{};
   final Map<String, DateTime> _manualRunCooldowns = <String, DateTime>{};
   final Set<String> _addingTaskRecommendations = <String>{};
@@ -5873,6 +5874,9 @@ class NeoAgentController extends ChangeNotifier {
         backendUrl,
         providerId,
         appId: appId,
+        memorySweep:
+            before?.memorySweep == true &&
+            isMemorySweepEnabled(providerId, appId),
         agentId: _scopedAgentId,
       );
       final url = response['url']?.toString();
@@ -5910,6 +5914,47 @@ class NeoAgentController extends ChangeNotifier {
       );
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      _busyOfficialIntegrationKeys.remove(busyKey);
+      notifyListeners();
+    }
+  }
+
+  /// Whether connecting this app imports its important past mail into
+  /// memory. On unless the user unticked it.
+  bool isMemorySweepEnabled(String providerId, String appId) =>
+      !_memorySweepOptOutKeys.contains('$providerId:$appId');
+
+  void setMemorySweepEnabled(String providerId, String appId, bool enabled) {
+    final key = '$providerId:$appId';
+    final changed = enabled
+        ? _memorySweepOptOutKeys.remove(key)
+        : _memorySweepOptOutKeys.add(key);
+    if (changed) notifyListeners();
+  }
+
+  /// Imports past mail of every connected account of this app that is not
+  /// in memory yet. The server runs it in the background.
+  Future<void> importPastEmails(String providerId, String appId) async {
+    final busyKey = '$providerId:$appId:sweep';
+    if (_busyOfficialIntegrationKeys.contains(busyKey)) {
+      return;
+    }
+
+    _busyOfficialIntegrationKeys.add(busyKey);
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _backendClient.startMemorySweep(
+        backendUrl,
+        providerId,
+        appId: appId,
+        agentId: _scopedAgentId,
+      );
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      rethrow;
     } finally {
       _busyOfficialIntegrationKeys.remove(busyKey);
       notifyListeners();

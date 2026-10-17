@@ -46,7 +46,7 @@ test('memory ingestion writes typed documents and materialized views', async () 
   const user = await createTestUser(ctx.db, { username: 'memory_user' });
   const agentId = resolveAgentId(user.userId, null);
   const memoryManager = new MemoryManager();
-  const service = new MemoryIngestionService({ memoryManager, intervalMs: 60_000 });
+  const service = new MemoryIngestionService({ memoryManager });
 
   const result = await service.ingestDocuments(user.userId, [{
     externalObjectId: 'thread-123',
@@ -74,6 +74,7 @@ test('memory ingestion writes typed documents and materialized views', async () 
   assert.ok(memoryManager.listEntities(user.userId, { agentId }).some((entity) => entity.name.includes('Alice')));
   assert.ok(memoryManager.listKnowledgeViews(user.userId, { agentId }).length > 0);
   assert.deepEqual(sourceTypesForConnection('google_workspace', 'gmail'), ['email']);
+  assert.deepEqual([...memoryManager.listIngestedObjectIds(user.userId, 0, { agentId })], ['thread-123']);
 });
 
 test('memory ingestion stores layout segment metadata on source chunks', async () => {
@@ -84,7 +85,7 @@ test('memory ingestion stores layout segment metadata on source chunks', async (
   const user = await createTestUser(ctx.db, { username: 'layout_memory_user' });
   const agentId = resolveAgentId(user.userId, null);
   const memoryManager = new MemoryManager();
-  const service = new MemoryIngestionService({ memoryManager, intervalMs: 60_000 });
+  const service = new MemoryIngestionService({ memoryManager });
 
   const result = await service.ingestDocuments(user.userId, [{
     externalObjectId: 'deck-456',

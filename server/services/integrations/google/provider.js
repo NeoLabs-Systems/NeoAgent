@@ -194,20 +194,54 @@ async function executeGoogleWorkspaceTool(
   return { result, credentials: auth.credentials };
 }
 
-async function collectGoogleMemoryDocuments({ connection, sourceTypes = [], signal = null }) {
-  const appKey = String(connection?.app_key || '').trim();
-  const documents = [];
-  const collectedAt = new Date().toISOString();
+const GMAIL_SWEEP_QUERY = 'newer_than:12m (is:important OR is:starred OR in:sent) '
+  + '-category:promotions -category:social -category:updates -category:forums';
+const GMAIL_SWEEP_THREAD_LIMIT = 100;
+const GMAIL_SWEEP_MAX_PAGES = 20;
+const GMAIL_SWEEP_CONCURRENCY = 4;
+const GMAIL_SWEEP_BODY_CHARS = 2000;
 
-  if (appKey === 'gmail' && sourceTypes.includes('email')) {
-    const { result } = await executeGoogleWorkspaceTool(
-      'google_workspace_gmail_search_threads',
-      { query: 'newer_than:7d', max_results: 8 },
-      connection,
-      { signal },
-    );
-    for (const thread of Array.isArray(result?.threads) ? result.threads : []) {
-      const subject = String(thread.subject || 'Gmail thread').trim();
+// Imports the past year's important mail: threads the user marked, Gmail
+// ranked important, or the user replied to. Threads already in memory are
+// skipped, so a repeat sweep picks up the next ones instead.
+async function collectGmailSweepDocuments(caller, collectedAt, skipObjectIds) {
+  const threadIds = [];
+  let pageToken = null;
+  for (let page = 0; page < GMAIL_SWEEP_MAX_PAGES; page += 1) {
+    const response = await caller.call('google_workspace_gmail_api_request', {
+      method: 'GET',
+      path: '/gmail/v1/users/me/threads',
+      query: {
+        q: GMAIL_SWEEP_QUERY,
+        maxResults: 100,
+        ...(pageToken ? { pageToken } : {}),
+      },
+    });
+    for (const thread of Array.isArray(response?.data?.threads) ? response.data.threads : []) {
+      if (thread.id && !skipObjectIds.has(thread.id) && !threadIds.includes(thread.id)) {
+        threadIds.push(thread.id);
+      }
+    }
+    pageToken = response?.data?.nextPageToken || null;
+    if (!pageToken || threadIds.length >= GMAIL_SWEEP_THREAD_LIMIT) break;
+  }
+
+  const documents = [];
+  const queue = threadIds.slice(0, GMAIL_SWEEP_THREAD_LIMIT);
+  const worker = async () => {
+    while (queue.length) {
+      const threadId = queue.shift();
+      const thread = await caller.call(
+        'google_workspace_gmail_get_thread',
+        { thread_id: threadId },
+      );
+      const messages = Array.isArray(thread?.messages) ? thread.messages : [];
+      const last = messages[messages.length - 1];
+      if (!last) continue;
+      const subject = String(messages[0].subject || last.subject || 'Gmail thread').trim();
+      const participants = [...new Set(messages.flatMap((message) => [message.from, message.to])
+        .filter(Boolean))];
+      const labelIds = [...new Set(messages.flatMap((message) => message.labelIds || []))];
       documents.push({
         externalObjectId: thread.id,
         sourceType: 'email',
@@ -215,66 +249,48 @@ async function collectGoogleMemoryDocuments({ connection, sourceTypes = [], sign
         title: subject,
         content: [
           subject,
-          thread.from ? `From: ${thread.from}` : '',
-          thread.date ? `Date: ${thread.date}` : '',
-          thread.snippet || '',
+          participants.length ? `Participants: ${participants.join(', ')}` : '',
+          last.date ? `Date: ${last.date}` : '',
+          `Messages: ${messages.length}`,
+          String(last.bodyText || thread.snippet || '').slice(0, GMAIL_SWEEP_BODY_CHARS),
         ].filter(Boolean).join('\n'),
         summary: thread.snippet || subject,
-        sourceTimestamp: thread.date || collectedAt,
-        salience: Array.isArray(thread.labelIds) && thread.labelIds.includes('IMPORTANT') ? 8 : 5,
-        payload: thread,
+        sourceTimestamp: last.internalDate || last.date || collectedAt,
+        salience: labelIds.includes('IMPORTANT') || labelIds.includes('STARRED') ? 8 : 7,
+        payload: { id: thread.id, labelIds, messageCount: messages.length },
       });
     }
-  }
+  };
+  await Promise.all(Array.from({ length: GMAIL_SWEEP_CONCURRENCY }, worker));
+  return documents;
+}
 
-  if (appKey === 'calendar' && sourceTypes.includes('calendar')) {
-    const timeMin = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const timeMax = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
-    const { result } = await executeGoogleWorkspaceTool(
-      'google_workspace_calendar_list_events',
-      {
-        time_min: timeMin,
-        time_max: timeMax,
-        max_results: 12,
-        include_ongoing: true,
-        include_all_day: true,
-      },
-      connection,
-      { signal },
-    );
-    for (const event of Array.isArray(result?.events) ? result.events : []) {
-      const title = String(event.summary || 'Calendar event').trim();
-      documents.push({
-        externalObjectId: event.id,
-        sourceType: 'calendar',
-        normalizedType: 'calendar',
-        title,
-        content: [
-          title,
-          event.start ? `Start: ${event.start}` : '',
-          event.end ? `End: ${event.end}` : '',
-          event.location ? `Location: ${event.location}` : '',
-          event.description || '',
-          Array.isArray(event.attendees) && event.attendees.length
-            ? `Attendees: ${event.attendees.join(', ')}`
-            : '',
-        ].filter(Boolean).join('\n'),
-        summary: [event.start, event.location, event.description].filter(Boolean).join(' | ') || title,
-        sourceTimestamp: event.start || collectedAt,
-        salience: 6,
-        payload: event,
-      });
-    }
-  }
-
-  return {
-    documents,
-    cursor: {
-      collectedAt,
-      appKey,
-      sourceTypes,
+// Collectors hand refreshed tokens back so ingestion can persist them.
+function createGoogleToolCaller(connection, signal) {
+  const caller = {
+    credentials: null,
+    async call(toolName, args) {
+      const execution = await executeGoogleWorkspaceTool(toolName, args, connection, { signal });
+      caller.credentials = execution.credentials || caller.credentials;
+      return execution.result;
     },
   };
+  return caller;
+}
+
+async function collectGoogleMemorySweep({
+  connection,
+  sourceTypes = [],
+  skipObjectIds = new Set(),
+  signal = null,
+}) {
+  const appKey = String(connection?.app_key || '').trim();
+  const collectedAt = new Date().toISOString();
+  const caller = createGoogleToolCaller(connection, signal);
+  const documents = appKey === 'gmail' && sourceTypes.includes('email')
+    ? await collectGmailSweepDocuments(caller, collectedAt, skipObjectIds)
+    : [];
+  return { documents, cursor: { collectedAt, appKey, sourceTypes }, credentials: caller.credentials };
 }
 
 function getAppToolNames(appId) {
@@ -461,8 +477,8 @@ function createGoogleWorkspaceProvider() {
         executionOptions,
       );
     },
-    async collectMemoryDocuments(options) {
-      return collectGoogleMemoryDocuments(options);
+    async collectMemorySweep(options) {
+      return collectGoogleMemorySweep(options);
     },
     summarizeConnection(connectionRows) {
       const snapshot = this.buildSnapshot(connectionRows);

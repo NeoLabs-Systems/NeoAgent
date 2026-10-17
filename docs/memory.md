@@ -54,8 +54,9 @@ Before each reply, NeoAgent searches memory locally and adds the best matches to
 
 ## 📥 Memory from integrations
 
-- **Gmail and Google Calendar.** Recent threads and upcoming events are read into memory in the background, every 10 minutes by default.
-- **Interval.** `NEOAGENT_MEMORY_INGESTION_INTERVAL_MS`, also under **Admin › Configuration**.
+- **Gmail and Outlook.** When you connect a mailbox, the agent reads the last 12 months of important and sent mail once (up to 100 threads) and keeps the durable facts. Untick **Import important past emails into memory** before connecting to skip it.
+- **No polling.** Connected accounts are not re-read in the background afterwards.
+- **Import more.** **Import past emails now** on a connected Gmail or Outlook app sweeps every account of that app again and imports only threads not in memory yet.
 - **Provenance.** Source text is chunked, marked as external, and linked to the memories drawn from it.
 - **Data, not instructions.** External text never acts as a command, and it cannot quietly overwrite established facts.
 

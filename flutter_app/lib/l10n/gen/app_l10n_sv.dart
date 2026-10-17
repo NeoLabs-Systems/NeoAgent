@@ -1611,10 +1611,6 @@ class AppL10nSv extends AppL10n {
   String get atLeast1 => 'Minst 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Minst 1000. Gäller efter omstart av servern.';
-
-  @override
   String get attachFiles => 'Bifoga filer';
 
   @override
@@ -4677,19 +4673,6 @@ class AppL10nSv extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'synkronisering av minnesimport';
-
-  @override
-  String get memoryIngestionInterval => 'Minnesintagsintervall';
-
-  @override
-  String get memoryIngestionIntervalMs => 'Minnesintagsintervall (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'Minnesintagsintervallet måste vara minst 1000 ms.';
-
-  @override
   String get memoryInjected => 'Minnet injiceras';
 
   @override
@@ -5270,6 +5253,21 @@ class AppL10nSv extends AppL10n {
 
   @override
   String get noMemorySync => 'Ingen minnessynkronisering';
+
+  @override
+  String get importPastEmailsIntoMemory =>
+      'Importera viktiga tidigare mejl till minnet';
+
+  @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Läser en gång igenom viktiga och skickade mejl från de senaste 12 månaderna så att agenten känner till dina kontakter och projekt.';
+
+  @override
+  String get importPastEmailsNow => 'Importera tidigare mejl nu';
+
+  @override
+  String get importingPastEmailsInBackground =>
+      'Tidigare mejl importeras i bakgrunden. Nya minnen dyker upp efter hand.';
 
   @override
   String noModelMatchesArg1(Object? arg1) {

@@ -1901,7 +1901,6 @@
   "assistant": "Asistent",
   "assistantKey131": "Tasta asistent 131",
   "atLeast1": "Cel putin 1.",
-  "atLeast1000AppliesAfterA": "Cel puțin 1000. Se aplică după repornirea unui server.",
   "attachFiles": "Atașați fișiere",
   "attentionArg1": "Atentie {arg1}",
   "@attentionArg1": {
@@ -3601,10 +3600,6 @@
       }
     }
   },
-  "memoryImportSync": "sincronizare import memorie",
-  "memoryIngestionInterval": "Intervalul de ingerare a memoriei",
-  "memoryIngestionIntervalMs": "Interval de absorbție a memoriei (ms)",
-  "memoryIngestionIntervalMustBeAt": "Intervalul de absorbție a memoriei trebuie să fie de cel puțin 1000 ms.",
   "memoryInjected": "Memorie injectată",
   "mentionOrReplyOnly": "Menționați sau răspundeți doar",
   "mergedServerAndFlutterRuntimeLogs": "Serverul îmbinat și jurnalele de rulare Flutter pentru această sesiune de aplicație.",
@@ -3911,6 +3906,10 @@
   "noMcpServersMatchThisSearch": "Niciun server MCP nu corespunde acestei căutări.",
   "noMemoryEntriesFound": "Nu s-au găsit intrări de memorie.",
   "noMemorySync": "Fără sincronizare de memorie",
+  "importPastEmailsIntoMemory": "Importă în memorie e-mailurile importante din trecut",
+  "importPastEmailsIntoMemoryHint": "Citește o singură dată e-mailurile importante și trimise din ultimele 12 luni, ca agentul să-ți cunoască contactele și proiectele.",
+  "importPastEmailsNow": "Importă acum e-mailurile din trecut",
+  "importingPastEmailsInBackground": "E-mailurile din trecut se importă în fundal. Amintirile noi apar pe parcurs.",
   "noModelMatchesArg1": "Niciun model nu se potrivește cu „{arg1}”.",
   "@noModelMatchesArg1": {
     "placeholders": {

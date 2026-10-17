@@ -1611,10 +1611,6 @@ class AppL10nSl extends AppL10n {
   String get atLeast1 => 'Vsaj 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Vsaj 1000. Velja po ponovnem zagonu strežnika.';
-
-  @override
   String get attachFiles => 'Priloži datoteke';
 
   @override
@@ -4686,19 +4682,6 @@ class AppL10nSl extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'sinhronizacija uvoza pomnilnika';
-
-  @override
-  String get memoryIngestionInterval => 'Interval zaužitja pomnilnika';
-
-  @override
-  String get memoryIngestionIntervalMs => 'Interval zaužitja pomnilnika (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'Interval vnosa pomnilnika mora biti vsaj 1000 ms.';
-
-  @override
   String get memoryInjected => 'Pomnilnik vstavljen';
 
   @override
@@ -5283,6 +5266,21 @@ class AppL10nSl extends AppL10n {
 
   @override
   String get noMemorySync => 'Ni sinhronizacije pomnilnika';
+
+  @override
+  String get importPastEmailsIntoMemory =>
+      'Uvozi pomembna starejša e-sporočila v pomnilnik';
+
+  @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Enkrat prebere pomembna in poslana sporočila zadnjih 12 mesecev, da agent pozna vaše stike in projekte.';
+
+  @override
+  String get importPastEmailsNow => 'Uvozi starejša e-sporočila zdaj';
+
+  @override
+  String get importingPastEmailsInBackground =>
+      'Starejša e-sporočila se uvažajo v ozadju. Novi spomini se prikazujejo sproti.';
 
   @override
   String noModelMatchesArg1(Object? arg1) {

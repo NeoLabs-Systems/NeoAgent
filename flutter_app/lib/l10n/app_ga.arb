@@ -1901,7 +1901,6 @@
   "assistant": "Cúntóir",
   "assistantKey131": "Eochair cúntóir 131 saor in aisce,",
   "atLeast1": "1 ar a laghad.",
-  "atLeast1000AppliesAfterA": "Ar a laghad 1000. Baineann sé tar éis atosú freastalaí.",
   "attachFiles": "Ceangail comhaid",
   "attentionArg1": "Aird {arg1}",
   "@attentionArg1": {
@@ -3601,10 +3600,6 @@
       }
     }
   },
-  "memoryImportSync": "sioncronú allmhairiú cuimhne",
-  "memoryIngestionInterval": "Eatramh ionghabhála cuimhne",
-  "memoryIngestionIntervalMs": "Eatramh ionghabhála cuimhne (ms)",
-  "memoryIngestionIntervalMustBeAt": "Caithfidh an t-eatramh ionghabhála cuimhne a bheith 1000 ms ar a laghad.",
   "memoryInjected": "Cuimhne ghann",
   "mentionOrReplyOnly": "Luaigh nó freagra amháin",
   "mergedServerAndFlutterRuntimeLogs": "Logaí freastalaí cumaisc agus am rite Flutter don seisiún aipe seo.",
@@ -3911,6 +3906,10 @@
   "noMcpServersMatchThisSearch": "Níl aon fhreastalaí MCP ag teacht leis an gcuardach seo.",
   "noMemoryEntriesFound": "Níor aimsíodh aon iontrálacha cuimhne.",
   "noMemorySync": "Gan sioncronú cuimhne",
+  "importPastEmailsIntoMemory": "Iompórtáil ríomhphoist thábhachtacha roimhe seo isteach sa chuimhne",
+  "importPastEmailsIntoMemoryHint": "Léann sé an post tábhachtach agus seolta ó na 12 mhí seo caite uair amháin, ionas go mbeidh aithne ag an ngníomhaire ar do theagmhálaithe agus do thionscadail.",
+  "importPastEmailsNow": "Iompórtáil ríomhphoist roimhe seo anois",
+  "importingPastEmailsInBackground": "Ríomhphoist roimhe seo á n-iompórtáil sa chúlra. Taispeántar cuimhní nua de réir a chéile.",
   "noModelMatchesArg1": "Níl aon mhúnla ag teacht le \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {

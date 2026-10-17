@@ -136,11 +136,12 @@ function createMemoryIngestionService(app, { memoryManager, integrationManager }
     new MemoryIngestionService({
       memoryManager,
       integrationManager,
-      intervalMs: process.env.NEOAGENT_MEMORY_INGESTION_INTERVAL_MS || undefined,
     }),
   );
-  const status = memoryIngestionService.start();
-  logServiceReady(`Memory ingestion service started (${status.intervalMs}ms interval)`);
+  integrationManager.events.on('connected', (event) => {
+    void memoryIngestionService.handleConnected(event);
+  });
+  logServiceReady('Memory ingestion service ready');
   return memoryIngestionService;
 }
 
@@ -406,7 +407,7 @@ async function startServices(app, io, { resumeRuns = false } = {}) {
     createAuthProviderManager(app);
     const credentialBroker = createCredentialBroker(app);
     const integrationManager = createIntegrationManager(app);
-    createMemoryIngestionService(app, { memoryManager, integrationManager });
+    const memoryIngestionService = createMemoryIngestionService(app, { memoryManager, integrationManager });
     const browserController = createBrowserController(app, artifactStore);
     const runtimeManager = createRuntimeManager(app);
     credentialBroker.setRuntimeManager(runtimeManager);
@@ -434,6 +435,9 @@ async function startServices(app, io, { resumeRuns = false } = {}) {
       new SkillLearningService({ skillRunner, agentEngine, io }),
     );
     agentEngine.skillLearningService = skillLearningService;
+    memoryIngestionService.extractBacklog = (userId, agentId, options) => (
+      agentEngine.extractPendingBacklog(userId, agentId, options)
+    );
     registerLocal(app, 'teachService', new TeachService({
       runtimeManager,
       skillLearningService,

@@ -5,7 +5,6 @@ const { resolveAgentId } = require('../agents/manager');
 const {
   SOURCE_MEMORY_CATEGORIES,
   getFreshnessPolicy,
-  nextSyncFromPolicy,
   normalizeDocument,
   normalizeSourceType,
   parseJsonObject,
@@ -41,7 +40,6 @@ async function ingestDocuments(service, userId, documents = [], options = {}) {
     freshnessPolicy: policy,
     metadata: parseJsonObject(options.metadata, {}),
     documentCount: 0,
-    nextSyncAt: nextSyncFromPolicy(policy),
   }, { agentId });
 
   const documentIds = [];
@@ -127,8 +125,7 @@ async function ingestDocuments(service, userId, documents = [], options = {}) {
       metadata: parseJsonObject(options.metadata, {}),
       documentCount: documentIds.length,
       completedAt: new Date().toISOString(),
-      nextSyncAt: nextSyncFromPolicy(policy),
-    }, { agentId });
+      }, { agentId });
 
     const knowledgeViews = service.memoryManager.materializeKnowledgeViews(userId, { agentId });
     return {
@@ -150,7 +147,6 @@ async function ingestDocuments(service, userId, documents = [], options = {}) {
       documentCount: documentIds.length,
       error: cancelled ? null : err.message,
       completedAt: new Date().toISOString(),
-      nextSyncAt: cancelled ? null : nextSyncFromPolicy(policy),
     }, { agentId });
     throw err;
   }

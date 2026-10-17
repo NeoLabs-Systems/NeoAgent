@@ -581,6 +581,16 @@ class MemoryManager {
     return docId;
   }
 
+  // External ids (thread or conversation ids) already ingested from a connection.
+  listIngestedObjectIds(userId, connectionId, { agentId = null } = {}) {
+    const scopedAgentId = this._agentId(userId, { agentId });
+    return new Set(db.prepare(
+      `SELECT external_object_id
+       FROM memory_ingestion_documents
+       WHERE user_id = ? AND agent_id = ? AND connection_id = ?`,
+    ).all(userId, scopedAgentId, Number(connectionId) || 0).map((row) => row.external_object_id));
+  }
+
   listIngestionDocuments(userId, { agentId = null, sourceType = null, providerKey = null, limit = 40 } = {}) {
     const scopedAgentId = this._agentId(userId, { agentId });
     let sql = `SELECT *
@@ -642,7 +652,6 @@ class MemoryManager {
           sourceTypes: new Set(),
           status: job.status,
           lastRefreshAt: job.completedAt || job.updatedAt || null,
-          nextRefreshAt: job.nextSyncAt || null,
           documentCount: 0,
           error: job.error || null,
         });
@@ -658,7 +667,6 @@ class MemoryManager {
       sourceTypes: Array.from(item.sourceTypes),
       status: item.status,
       lastRefreshAt: item.lastRefreshAt,
-      nextRefreshAt: item.nextRefreshAt,
       documentCount: item.documentCount,
       error: item.error,
     }));
