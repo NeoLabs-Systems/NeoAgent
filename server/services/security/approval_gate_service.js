@@ -10,7 +10,7 @@ const SESSION_GRANT_TTL_MS = 12 * 60 * 60 * 1000;
 class ApprovalGateService {
   constructor({ io }) {
     this._io = io;
-    /** @type {Map<string, { resolve: Function, timer: NodeJS.Timeout, userId: number|string, runId: string|null, toolName: string, toolArgs: object }>} */
+    /** @type {Map<string, { resolve: Function, timer: NodeJS.Timeout, userId: number|string, runId: string|null, toolName: string, toolArgs: object, payload: object }>} */
     this._pending = new Map();
     /** @type {Set<string>} key = `${userId}:${runId}:${toolName}` */
     this._sessionGrants = new Set();
@@ -148,8 +148,22 @@ class ApprovalGateService {
         toolArgs: toolArgs ?? {},
         category,
         escalated: Boolean(reason),
+        payload,
       });
     });
+  }
+
+  /**
+   * Re-sends every approval still waiting on this user to one socket that just
+   * connected: an app iOS kept suspended missed them while its socket was down.
+   */
+  offerPendingApprovals(socket, userId) {
+    const now = Date.now();
+    for (const entry of this._pending.values()) {
+      if (String(entry.userId) !== String(userId)) continue;
+      if (Date.parse(entry.payload.expiresAt) <= now) continue;
+      socket.emit('tool:approval_required', entry.payload);
+    }
   }
 
   /**

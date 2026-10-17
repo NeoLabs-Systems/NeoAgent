@@ -11364,9 +11364,200 @@ class AppL10nEs extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Elige tu nombre de usuario';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Elige un nombre de usuario disponible para terminar de crear tu cuenta.';
+
+  @override
+  String get dataSharingTitle => 'Compartir datos de uso';
+
+  @override
+  String get dataSharingDescription =>
+      'Ayuda a quienes gestionan este servidor a mejorarlo. Comparte cómo usas NeoAgent, nunca lo que escribes o guardas.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Compartiendo desde el $date.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'Qué se comparte';
+
+  @override
+  String get dataSharingIncluded => 'Se comparte';
+
+  @override
+  String get dataSharingExcluded => 'Nunca se comparte';
+
+  @override
+  String get dataSharingIncludedDevice =>
+      'Tipo de dispositivo y versión de la app';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'Idioma de la app y región de la zona horaria, por ejemplo Europa';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Qué funciones has configurado, como tareas, skills e integraciones';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Qué herramientas y modelos usan tus ejecuciones, con tiempos y número de tokens';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'Cuándo usas NeoAgent, por día de la semana y hora';
+
+  @override
+  String get dataSharingExcludedContent => 'Mensajes, prompts y respuestas';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Títulos de ejecuciones, entradas y resultados de herramientas';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Archivos, recuerdos y todo lo que guardas';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'Tu nombre, correo, dirección IP y ubicación';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'Las cuentas con las que conectas integraciones';
+
+  @override
+  String get dataSharingPooledNote =>
+      'Los administradores solo ven totales de todas las personas que comparten, nunca a ti por separado. Puedes desactivarlo cuando quieras y sales de los totales al instante.';
+
+  @override
+  String get dataSharingConfirmTitle => '¿Compartir datos de uso?';
+
+  @override
+  String get dataSharingConfirmAction => 'Compartir';
+
+  @override
+  String get sharedUsageTitle => 'Uso compartido';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Cuentas que comparten datos de uso: $sharing de $total. Solo totales, sin contenido.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Todavía nadie comparte datos de uso. Se puede activar en Configuración, Perfil, Tus datos.';
+
+  @override
+  String get sharedUsageRuns => 'Ejecuciones compartidas';
+
+  @override
+  String get sharedUsageAvgDuration => 'Duración media';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Ejecuciones completadas';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Pasos por ejecución';
+
+  @override
+  String get sharedUsageDevices => 'Dispositivos';
+
+  @override
+  String get sharedUsageAppVersions => 'Versiones de la app';
+
+  @override
+  String get sharedUsageLanguages => 'Idiomas';
+
+  @override
+  String get sharedUsageRegions => 'Regiones';
+
+  @override
+  String get sharedUsageFeatures => 'Adopción de funciones';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'Proporción de cuentas que comparten y la han configurado.';
+
+  @override
+  String get sharedUsageTools => 'Herramientas';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'Herramientas más llamadas ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Llamadas: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Fallos: $percent %';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Integraciones';
+
+  @override
+  String get sharedUsageMessaging => 'Canales de mensajería';
+
+  @override
+  String get sharedUsageTriggers => 'Cómo empiezan las ejecuciones';
+
+  @override
+  String get sharedUsageActivity => 'Cuándo se usa';
+
+  @override
+  String get sharedUsageActivityDescription =>
+      'Ejecuciones por día de la semana y hora, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Rendimiento de modelos';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return '$latency de media · $cached % en caché · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Cuentas: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'Nada en este periodo.';
+
+  @override
+  String get sharedUsageNotReported => 'Aún sin datos';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Más de un agente';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Tareas programadas';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Skills';
+
+  @override
+  String get sharedUsageFeatureMcp => 'Servidores MCP';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Integraciones';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Canales de mensajería';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Memoria';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'compartir datos opt-in telemetría dispositivos funciones herramientas modelos actividad';
 }

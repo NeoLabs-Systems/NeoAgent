@@ -358,6 +358,12 @@ final List<_SettingsEntry> _settingsEntries = <_SettingsEntry>[
   ),
   _SettingsEntry(
     SettingsPage.profile,
+    'dataSharing',
+    () => appStrings.dataSharingTitle,
+    keywords: const <String>['analytics', 'telemetry', 'privacy', 'usage'],
+  ),
+  _SettingsEntry(
+    SettingsPage.profile,
     'signOut',
     () => appStrings.signOut,
     keywords: const <String>['logout', 'log out'],
@@ -372,7 +378,7 @@ final List<_SettingsEntry> _settingsEntries = <_SettingsEntry>[
     'qrLogin',
     () => appStrings.approveQrLogin,
     keywords: const <String>['scan', 'qr'],
-    visible: (_) => !kIsWeb && Platform.isAndroid,
+    visible: (_) => _isMobileDevice(),
   ),
   _SettingsEntry(SettingsPage.security, 'password', () => appStrings.password),
   _SettingsEntry(

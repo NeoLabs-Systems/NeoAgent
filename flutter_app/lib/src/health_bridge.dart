@@ -8,7 +8,7 @@ class HealthBridge {
   static const MethodChannel _channel = MethodChannel('neoagent/health');
 
   Future<HealthBridgeStatus> getStatus() async {
-    if (!_isAndroid) {
+    if (!_isSupported) {
       return HealthBridgeStatus(
         available: false,
         permissionsGranted: false,
@@ -37,7 +37,7 @@ class HealthBridge {
   }
 
   Future<HealthBridgeStatus> requestPermissions() async {
-    if (!_isAndroid) {
+    if (!_isSupported) {
       return getStatus();
     }
     await _channel.invokeMethod('requestPermissions');
@@ -48,7 +48,7 @@ class HealthBridge {
     required DateTime windowStart,
     required DateTime windowEnd,
   }) async {
-    if (!_isAndroid) {
+    if (!_isSupported) {
       throw HealthBridgeException(
         appStrings.healthSyncIsAvailableOnAndroid,
       );
@@ -69,7 +69,7 @@ class HealthBridge {
     required String backendUrl,
     required String sessionCookie,
   }) async {
-    if (!_isAndroid) {
+    if (!_isSupported) {
       return;
     }
     await _channel.invokeMethod('configureBackgroundSync', <String, dynamic>{
@@ -79,8 +79,10 @@ class HealthBridge {
     });
   }
 
-  bool get _isAndroid =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  bool get _isSupported =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 }
 
 class HealthBridgeStatus {

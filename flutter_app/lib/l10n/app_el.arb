@@ -6990,5 +6990,119 @@
   "signupKeysSaveDialogTitle": "Αποθήκευση κλειδιών εγγραφής",
   "signupKeysExported": "Τα κλειδιά εξήχθησαν.",
   "auditSignupKeysCreated": "{actor} δημιούργησε κλειδιά εγγραφής ({count})",
-  "auditSignupKeyRevoked": "{actor} ανακάλεσε ένα κλειδί εγγραφής"
+  "auditSignupKeyRevoked": "{actor} ανακάλεσε ένα κλειδί εγγραφής",
+  "dataSharingTitle": "Κοινοποίηση δεδομένων χρήσης",
+  "dataSharingDescription": "Βοηθήστε όσους διαχειρίζονται αυτόν τον διακομιστή να τον βελτιώσουν. Κοινοποιεί πώς χρησιμοποιείτε το NeoAgent, ποτέ τι γράφετε ή αποθηκεύετε.",
+  "dataSharingSince": "Κοινοποίηση από {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Τι κοινοποιείται",
+  "dataSharingIncluded": "Κοινοποιείται",
+  "dataSharingExcluded": "Δεν κοινοποιείται ποτέ",
+  "dataSharingIncludedDevice": "Τύπος συσκευής και έκδοση εφαρμογής",
+  "dataSharingIncludedLocale": "Γλώσσα εφαρμογής και περιοχή ζώνης ώρας, π.χ. Ευρώπη",
+  "dataSharingIncludedFeatures": "Ποιες λειτουργίες έχετε ρυθμίσει, όπως εργασίες, skills και ενσωματώσεις",
+  "dataSharingIncludedRuns": "Ποια εργαλεία και μοντέλα χρησιμοποιούν οι εκτελέσεις σας, με χρόνους και αριθμό tokens",
+  "dataSharingIncludedActivity": "Πότε χρησιμοποιείτε το NeoAgent, ανά ημέρα της εβδομάδας και ώρα",
+  "dataSharingExcludedContent": "Μηνύματα, prompts και απαντήσεις",
+  "dataSharingExcludedRuns": "Τίτλοι εκτελέσεων, είσοδοι και αποτελέσματα εργαλείων",
+  "dataSharingExcludedFiles": "Αρχεία, αναμνήσεις και ό,τι άλλο αποθηκεύετε",
+  "dataSharingExcludedIdentity": "Το όνομα, το email, η διεύθυνση IP και η τοποθεσία σας",
+  "dataSharingExcludedAccounts": "Οι λογαριασμοί με τους οποίους συνδέετε ενσωματώσεις",
+  "dataSharingPooledNote": "Οι διαχειριστές βλέπουν μόνο σύνολα για όλους όσους κοινοποιούν, ποτέ εσάς μεμονωμένα. Απενεργοποιήστε το οποτεδήποτε και βγαίνετε αμέσως από τα σύνολα.",
+  "dataSharingConfirmTitle": "Κοινοποίηση δεδομένων χρήσης;",
+  "dataSharingConfirmAction": "Κοινοποίηση",
+  "sharedUsageTitle": "Κοινόχρηστη χρήση",
+  "sharedUsageParticipants": "Λογαριασμοί που κοινοποιούν δεδομένα χρήσης: {sharing} από {total}. Μόνο σύνολα, χωρίς περιεχόμενο.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Κανείς δεν κοινοποιεί ακόμη δεδομένα χρήσης. Ενεργοποιείται από Ρυθμίσεις, Προφίλ, Τα δεδομένα σας.",
+  "sharedUsageRuns": "Κοινοποιημένες εκτελέσεις",
+  "sharedUsageAvgDuration": "Μέση διάρκεια",
+  "sharedUsageCompletedRuns": "Ολοκληρωμένες εκτελέσεις",
+  "sharedUsageStepsPerRun": "Βήματα ανά εκτέλεση",
+  "sharedUsageDevices": "Συσκευές",
+  "sharedUsageAppVersions": "Εκδόσεις εφαρμογής",
+  "sharedUsageLanguages": "Γλώσσες",
+  "sharedUsageRegions": "Περιοχές",
+  "sharedUsageFeatures": "Υιοθέτηση λειτουργιών",
+  "sharedUsageFeaturesDescription": "Ποσοστό των λογαριασμών που κοινοποιούν και την έχουν ρυθμίσει.",
+  "sharedUsageTools": "Εργαλεία",
+  "sharedUsageToolsDescription": "Τα πιο συχνά καλούμενα εργαλεία ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Κλήσεις: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Αποτυχίες: {percent}%",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Ενσωματώσεις",
+  "sharedUsageMessaging": "Κανάλια μηνυμάτων",
+  "sharedUsageTriggers": "Πώς ξεκινούν οι εκτελέσεις",
+  "sharedUsageActivity": "Πότε χρησιμοποιείται",
+  "sharedUsageActivityDescription": "Εκτελέσεις ανά ημέρα της εβδομάδας και ώρα, UTC.",
+  "sharedUsageModels": "Απόδοση μοντέλων",
+  "sharedUsageModelDetail": "μέσος όρος {latency} · {cached}% από cache · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Λογαριασμοί: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Τίποτα σε αυτό το διάστημα.",
+  "sharedUsageNotReported": "Δεν έχει αναφερθεί ακόμη",
+  "sharedUsageFeatureAgents": "Περισσότεροι από ένας πράκτορες",
+  "sharedUsageFeatureTasks": "Προγραμματισμένες εργασίες",
+  "sharedUsageFeatureSkills": "Skills",
+  "sharedUsageFeatureMcp": "Διακομιστές MCP",
+  "sharedUsageFeatureIntegrations": "Ενσωματώσεις",
+  "sharedUsageFeatureMessaging": "Κανάλια μηνυμάτων",
+  "sharedUsageFeatureMemory": "Μνήμη",
+  "sharedUsageSearchKeywords": "opt-in κοινοποίηση δεδομένων τηλεμετρία συσκευές λειτουργίες εργαλεία μοντέλα δραστηριότητα",
+  "providerChooseUsername": "Επιλέξτε όνομα χρήστη",
+  "providerChooseUsernameBody": "Επιλέξτε ένα διαθέσιμο όνομα χρήστη για να ολοκληρώσετε τη δημιουργία του λογαριασμού σας."
 }

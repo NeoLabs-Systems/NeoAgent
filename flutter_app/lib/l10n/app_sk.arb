@@ -6990,5 +6990,119 @@
   "signupKeysSaveDialogTitle": "Uložiť registračné kľúče",
   "signupKeysExported": "Kľúče exportované.",
   "auditSignupKeysCreated": "{actor} vytvoril(a) registračné kľúče ({count})",
-  "auditSignupKeyRevoked": "{actor} zrušil(a) registračný kľúč"
+  "auditSignupKeyRevoked": "{actor} zrušil(a) registračný kľúč",
+  "dataSharingTitle": "Zdieľať údaje o používaní",
+  "dataSharingDescription": "Pomôžte správcom tohto servera ho vylepšovať. Zdieľa, ako NeoAgent používate, nikdy to, čo píšete alebo ukladáte.",
+  "dataSharingSince": "Zdieľané od {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Čo sa zdieľa",
+  "dataSharingIncluded": "Zdieľa sa",
+  "dataSharingExcluded": "Nikdy sa nezdieľa",
+  "dataSharingIncludedDevice": "Typ zariadenia a verzia aplikácie",
+  "dataSharingIncludedLocale": "Jazyk aplikácie a oblasť časového pásma, napríklad Európa",
+  "dataSharingIncludedFeatures": "Ktoré funkcie máte nastavené, napríklad úlohy, skilly a integrácie",
+  "dataSharingIncludedRuns": "Ktoré nástroje a modely používajú vaše behy, s trvaním a počtom tokenov",
+  "dataSharingIncludedActivity": "Kedy NeoAgent používate, podľa dňa v týždni a hodiny",
+  "dataSharingExcludedContent": "Správy, prompty a odpovede",
+  "dataSharingExcludedRuns": "Názvy behov, vstupy a výsledky nástrojov",
+  "dataSharingExcludedFiles": "Súbory, spomienky a všetko ostatné, čo ukladáte",
+  "dataSharingExcludedIdentity": "Vaše meno, e-mail, IP adresa a poloha",
+  "dataSharingExcludedAccounts": "Účty, s ktorými prepájate integrácie",
+  "dataSharingPooledNote": "Správcovia vidia iba súčty za všetkých, ktorí zdieľajú, nikdy nie vás samotných. Kedykoľvek to vypnite a hneď zo súčtov vypadnete.",
+  "dataSharingConfirmTitle": "Zdieľať údaje o používaní?",
+  "dataSharingConfirmAction": "Zdieľať",
+  "sharedUsageTitle": "Zdieľané používanie",
+  "sharedUsageParticipants": "Účty zdieľajúce údaje o používaní: {sharing} z {total}. Iba súčty, žiadny obsah.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Zatiaľ nikto nezdieľa údaje o používaní. Zapnúť sa to dá v: Nastavenia, Profil, Vaše údaje.",
+  "sharedUsageRuns": "Zdieľané behy",
+  "sharedUsageAvgDuration": "Priem. trvanie",
+  "sharedUsageCompletedRuns": "Dokončené behy",
+  "sharedUsageStepsPerRun": "Kroky na beh",
+  "sharedUsageDevices": "Zariadenia",
+  "sharedUsageAppVersions": "Verzie aplikácie",
+  "sharedUsageLanguages": "Jazyky",
+  "sharedUsageRegions": "Oblasti",
+  "sharedUsageFeatures": "Využitie funkcií",
+  "sharedUsageFeaturesDescription": "Podiel zdieľajúcich účtov, ktoré ju majú nastavenú.",
+  "sharedUsageTools": "Nástroje",
+  "sharedUsageToolsDescription": "Najčastejšie volané nástroje ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Volania: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Zlyhalo: {percent} %",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integrácie",
+  "sharedUsageMessaging": "Kanály správ",
+  "sharedUsageTriggers": "Ako sa behy začínajú",
+  "sharedUsageActivity": "Kedy sa používa",
+  "sharedUsageActivityDescription": "Behy podľa dňa v týždni a hodiny, UTC.",
+  "sharedUsageModels": "Výkon modelov",
+  "sharedUsageModelDetail": "priem. {latency} · {cached} % z cache · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Účty: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "V tomto období nič.",
+  "sharedUsageNotReported": "Zatiaľ nenahlásené",
+  "sharedUsageFeatureAgents": "Viac ako jeden agent",
+  "sharedUsageFeatureTasks": "Plánované úlohy",
+  "sharedUsageFeatureSkills": "Skilly",
+  "sharedUsageFeatureMcp": "MCP servery",
+  "sharedUsageFeatureIntegrations": "Integrácie",
+  "sharedUsageFeatureMessaging": "Kanály správ",
+  "sharedUsageFeatureMemory": "Pamäť",
+  "sharedUsageSearchKeywords": "opt-in zdieľanie údajov telemetria zariadenia funkcie nástroje modely aktivita",
+  "providerChooseUsername": "Zvoľte si používateľské meno",
+  "providerChooseUsernameBody": "Zvoľte si dostupné používateľské meno a dokončite vytvorenie účtu."
 }

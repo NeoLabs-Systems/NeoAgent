@@ -11324,9 +11324,199 @@ class AppL10nHu extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Válassz felhasználónevet';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Válassz egy szabad felhasználónevet a fiók létrehozásának befejezéséhez.';
+
+  @override
+  String get dataSharingTitle => 'Használati adatok megosztása';
+
+  @override
+  String get dataSharingDescription =>
+      'Segíts a szerver üzemeltetőinek jobbá tenni. Azt osztja meg, hogyan használod a NeoAgentet, soha nem azt, amit írsz vagy tárolsz.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Megosztva ekkortól: $date.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'Mi kerül megosztásra';
+
+  @override
+  String get dataSharingIncluded => 'Megosztva';
+
+  @override
+  String get dataSharingExcluded => 'Soha nincs megosztva';
+
+  @override
+  String get dataSharingIncludedDevice => 'Eszköztípus és alkalmazásverzió';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'Az alkalmazás nyelve és az időzóna régiója, például Európa';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Mely funkciókat állítottad be, például feladatokat, skilleket és integrációkat';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Mely eszközöket és modelleket használnak a futtatásaid, időtartammal és tokenszámmal';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'Mikor használod a NeoAgentet, a hét napja és óra szerint';
+
+  @override
+  String get dataSharingExcludedContent => 'Üzenetek, promptok és válaszok';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Futtatások címei, eszközök bemenetei és eredményei';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Fájlok, emlékek és minden más, amit tárolsz';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'A neved, e-mail-címed, IP-címed és helyzeted';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'A fiókok, amelyekkel integrációkat kapcsolsz össze';
+
+  @override
+  String get dataSharingPooledNote =>
+      'Az adminisztrátorok csak az összes megosztó összesített adatait látják, soha nem téged külön. Bármikor kikapcsolhatod, és azonnal kikerülsz az összesítésből.';
+
+  @override
+  String get dataSharingConfirmTitle => 'Megosztod a használati adatokat?';
+
+  @override
+  String get dataSharingConfirmAction => 'Megosztás';
+
+  @override
+  String get sharedUsageTitle => 'Megosztott használat';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Használati adatokat megosztó fiókok: $sharing / $total. Csak összesítések, tartalom nélkül.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Még senki sem oszt meg használati adatokat. Bekapcsolható itt: Beállítások, Profil, Az Ön adatai.';
+
+  @override
+  String get sharedUsageRuns => 'Megosztott futtatások';
+
+  @override
+  String get sharedUsageAvgDuration => 'Átl. időtartam';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Befejezett futtatások';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Lépések futtatásonként';
+
+  @override
+  String get sharedUsageDevices => 'Készülékek';
+
+  @override
+  String get sharedUsageAppVersions => 'Alkalmazásverziók';
+
+  @override
+  String get sharedUsageLanguages => 'Nyelvek';
+
+  @override
+  String get sharedUsageRegions => 'Régiók';
+
+  @override
+  String get sharedUsageFeatures => 'Funkcióhasználat';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'A megosztó fiókok aránya, amelyek beállították.';
+
+  @override
+  String get sharedUsageTools => 'Eszközök';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'Leggyakrabban hívott eszközök ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Hívások: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Sikertelen: $percent%';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Integrációk';
+
+  @override
+  String get sharedUsageMessaging => 'Üzenetküldő csatornák';
+
+  @override
+  String get sharedUsageTriggers => 'Hogyan indulnak a futtatások';
+
+  @override
+  String get sharedUsageActivity => 'Mikor használják';
+
+  @override
+  String get sharedUsageActivityDescription =>
+      'Futtatások a hét napja és óra szerint, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Modellteljesítmény';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return 'átl. $latency · $cached% gyorsítótárból · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Fiókok: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'Ebben az időszakban nincs adat.';
+
+  @override
+  String get sharedUsageNotReported => 'Még nincs jelentve';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Több mint egy ügynök';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Ütemezett feladatok';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Skillek';
+
+  @override
+  String get sharedUsageFeatureMcp => 'MCP-szerverek';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Integrációk';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Üzenetküldő csatornák';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Memória';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'opt-in adatmegosztás telemetria készülékek funkciók eszközök modellek aktivitás';
 }

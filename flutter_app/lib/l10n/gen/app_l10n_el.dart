@@ -11367,9 +11367,199 @@ class AppL10nEl extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Επιλέξτε όνομα χρήστη';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Επιλέξτε ένα διαθέσιμο όνομα χρήστη για να ολοκληρώσετε τη δημιουργία του λογαριασμού σας.';
+
+  @override
+  String get dataSharingTitle => 'Κοινοποίηση δεδομένων χρήσης';
+
+  @override
+  String get dataSharingDescription =>
+      'Βοηθήστε όσους διαχειρίζονται αυτόν τον διακομιστή να τον βελτιώσουν. Κοινοποιεί πώς χρησιμοποιείτε το NeoAgent, ποτέ τι γράφετε ή αποθηκεύετε.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Κοινοποίηση από $date.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'Τι κοινοποιείται';
+
+  @override
+  String get dataSharingIncluded => 'Κοινοποιείται';
+
+  @override
+  String get dataSharingExcluded => 'Δεν κοινοποιείται ποτέ';
+
+  @override
+  String get dataSharingIncludedDevice => 'Τύπος συσκευής και έκδοση εφαρμογής';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'Γλώσσα εφαρμογής και περιοχή ζώνης ώρας, π.χ. Ευρώπη';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Ποιες λειτουργίες έχετε ρυθμίσει, όπως εργασίες, skills και ενσωματώσεις';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Ποια εργαλεία και μοντέλα χρησιμοποιούν οι εκτελέσεις σας, με χρόνους και αριθμό tokens';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'Πότε χρησιμοποιείτε το NeoAgent, ανά ημέρα της εβδομάδας και ώρα';
+
+  @override
+  String get dataSharingExcludedContent => 'Μηνύματα, prompts και απαντήσεις';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Τίτλοι εκτελέσεων, είσοδοι και αποτελέσματα εργαλείων';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Αρχεία, αναμνήσεις και ό,τι άλλο αποθηκεύετε';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'Το όνομα, το email, η διεύθυνση IP και η τοποθεσία σας';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'Οι λογαριασμοί με τους οποίους συνδέετε ενσωματώσεις';
+
+  @override
+  String get dataSharingPooledNote =>
+      'Οι διαχειριστές βλέπουν μόνο σύνολα για όλους όσους κοινοποιούν, ποτέ εσάς μεμονωμένα. Απενεργοποιήστε το οποτεδήποτε και βγαίνετε αμέσως από τα σύνολα.';
+
+  @override
+  String get dataSharingConfirmTitle => 'Κοινοποίηση δεδομένων χρήσης;';
+
+  @override
+  String get dataSharingConfirmAction => 'Κοινοποίηση';
+
+  @override
+  String get sharedUsageTitle => 'Κοινόχρηστη χρήση';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Λογαριασμοί που κοινοποιούν δεδομένα χρήσης: $sharing από $total. Μόνο σύνολα, χωρίς περιεχόμενο.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Κανείς δεν κοινοποιεί ακόμη δεδομένα χρήσης. Ενεργοποιείται από Ρυθμίσεις, Προφίλ, Τα δεδομένα σας.';
+
+  @override
+  String get sharedUsageRuns => 'Κοινοποιημένες εκτελέσεις';
+
+  @override
+  String get sharedUsageAvgDuration => 'Μέση διάρκεια';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Ολοκληρωμένες εκτελέσεις';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Βήματα ανά εκτέλεση';
+
+  @override
+  String get sharedUsageDevices => 'Συσκευές';
+
+  @override
+  String get sharedUsageAppVersions => 'Εκδόσεις εφαρμογής';
+
+  @override
+  String get sharedUsageLanguages => 'Γλώσσες';
+
+  @override
+  String get sharedUsageRegions => 'Περιοχές';
+
+  @override
+  String get sharedUsageFeatures => 'Υιοθέτηση λειτουργιών';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'Ποσοστό των λογαριασμών που κοινοποιούν και την έχουν ρυθμίσει.';
+
+  @override
+  String get sharedUsageTools => 'Εργαλεία';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'Τα πιο συχνά καλούμενα εργαλεία ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Κλήσεις: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Αποτυχίες: $percent%';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Ενσωματώσεις';
+
+  @override
+  String get sharedUsageMessaging => 'Κανάλια μηνυμάτων';
+
+  @override
+  String get sharedUsageTriggers => 'Πώς ξεκινούν οι εκτελέσεις';
+
+  @override
+  String get sharedUsageActivity => 'Πότε χρησιμοποιείται';
+
+  @override
+  String get sharedUsageActivityDescription =>
+      'Εκτελέσεις ανά ημέρα της εβδομάδας και ώρα, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Απόδοση μοντέλων';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return 'μέσος όρος $latency · $cached% από cache · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Λογαριασμοί: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'Τίποτα σε αυτό το διάστημα.';
+
+  @override
+  String get sharedUsageNotReported => 'Δεν έχει αναφερθεί ακόμη';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Περισσότεροι από ένας πράκτορες';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Προγραμματισμένες εργασίες';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Skills';
+
+  @override
+  String get sharedUsageFeatureMcp => 'Διακομιστές MCP';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Ενσωματώσεις';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Κανάλια μηνυμάτων';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Μνήμη';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'opt-in κοινοποίηση δεδομένων τηλεμετρία συσκευές λειτουργίες εργαλεία μοντέλα δραστηριότητα';
 }

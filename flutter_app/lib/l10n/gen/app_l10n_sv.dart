@@ -11261,9 +11261,199 @@ class AppL10nSv extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Välj ditt användarnamn';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Välj ett ledigt användarnamn för att slutföra ditt konto.';
+
+  @override
+  String get dataSharingTitle => 'Dela användningsdata';
+
+  @override
+  String get dataSharingDescription =>
+      'Hjälp de som driver den här servern att förbättra den. Delar hur du använder NeoAgent, aldrig vad du skriver eller sparar.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Delar sedan $date.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'Vad som delas';
+
+  @override
+  String get dataSharingIncluded => 'Delas';
+
+  @override
+  String get dataSharingExcluded => 'Delas aldrig';
+
+  @override
+  String get dataSharingIncludedDevice => 'Enhetstyp och appversion';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'Appspråk och tidszonsregion, till exempel Europa';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Vilka funktioner du har konfigurerat, som uppgifter, skills och integrationer';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Vilka verktyg och modeller dina körningar använder, med tider och antal tokens';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'När du använder NeoAgent, per veckodag och timme';
+
+  @override
+  String get dataSharingExcludedContent => 'Meddelanden, prompter och svar';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Körningstitlar, verktygsindata och -resultat';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Filer, minnen och allt annat du sparar';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'Ditt namn, din e-post, IP-adress och plats';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'Kontona du kopplar integrationer med';
+
+  @override
+  String get dataSharingPooledNote =>
+      'Administratörer ser bara summor över alla som delar, aldrig dig ensam. Stäng av när du vill så försvinner du direkt ur summorna.';
+
+  @override
+  String get dataSharingConfirmTitle => 'Dela användningsdata?';
+
+  @override
+  String get dataSharingConfirmAction => 'Dela';
+
+  @override
+  String get sharedUsageTitle => 'Delad användning';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Konton som delar användningsdata: $sharing av $total. Bara summor, inget innehåll.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Ingen delar användningsdata ännu. Det går att slå på under Inställningar, Profil, Dina data.';
+
+  @override
+  String get sharedUsageRuns => 'Delade körningar';
+
+  @override
+  String get sharedUsageAvgDuration => 'Snittid';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Slutförda körningar';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Steg per körning';
+
+  @override
+  String get sharedUsageDevices => 'Enheter';
+
+  @override
+  String get sharedUsageAppVersions => 'Appversioner';
+
+  @override
+  String get sharedUsageLanguages => 'Språk';
+
+  @override
+  String get sharedUsageRegions => 'Regioner';
+
+  @override
+  String get sharedUsageFeatures => 'Funktionsanvändning';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'Andel av de delande kontona som har konfigurerat den.';
+
+  @override
+  String get sharedUsageTools => 'Verktyg';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'Mest anropade verktyg ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Anrop: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Misslyckade: $percent %';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Integrationer';
+
+  @override
+  String get sharedUsageMessaging => 'Meddelandekanaler';
+
+  @override
+  String get sharedUsageTriggers => 'Hur körningar startar';
+
+  @override
+  String get sharedUsageActivity => 'När det används';
+
+  @override
+  String get sharedUsageActivityDescription =>
+      'Körningar per veckodag och timme, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Modellprestanda';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return 'snitt $latency · $cached % cachat · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Konton: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'Inget under den här perioden.';
+
+  @override
+  String get sharedUsageNotReported => 'Inte rapporterat än';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Fler än en agent';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Schemalagda uppgifter';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Skills';
+
+  @override
+  String get sharedUsageFeatureMcp => 'MCP-servrar';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Integrationer';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Meddelandekanaler';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Minne';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'opt-in datadelning telemetri enheter funktioner verktyg modeller aktivitet';
 }

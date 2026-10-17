@@ -6990,5 +6990,119 @@
   "signupKeysSaveDialogTitle": "Salvesta registreerimisvõtmed",
   "signupKeysExported": "Võtmed eksporditud.",
   "auditSignupKeysCreated": "{actor} lõi registreerimisvõtmeid ({count})",
-  "auditSignupKeyRevoked": "{actor} tühistas registreerimisvõtme"
+  "auditSignupKeyRevoked": "{actor} tühistas registreerimisvõtme",
+  "dataSharingTitle": "Jaga kasutusandmeid",
+  "dataSharingDescription": "Aita selle serveri haldajatel seda paremaks teha. Jagab seda, kuidas sa NeoAgenti kasutad, mitte kunagi seda, mida kirjutad või salvestad.",
+  "dataSharingSince": "Jagatud alates {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Mida jagatakse",
+  "dataSharingIncluded": "Jagatakse",
+  "dataSharingExcluded": "Ei jagata kunagi",
+  "dataSharingIncludedDevice": "Seadme tüüp ja rakenduse versioon",
+  "dataSharingIncludedLocale": "Rakenduse keel ja ajavööndi piirkond, näiteks Euroopa",
+  "dataSharingIncludedFeatures": "Milliseid funktsioone oled seadistanud, nagu ülesanded, oskused ja integratsioonid",
+  "dataSharingIncludedRuns": "Milliseid tööriistu ja mudeleid sinu käivitused kasutavad, koos kestuste ja tokenite arvuga",
+  "dataSharingIncludedActivity": "Millal sa NeoAgenti kasutad, nädalapäeva ja tunni kaupa",
+  "dataSharingExcludedContent": "Sõnumid, viibad ja vastused",
+  "dataSharingExcludedRuns": "Käivituste pealkirjad, tööriistade sisendid ja tulemused",
+  "dataSharingExcludedFiles": "Failid, mälestused ja kõik muu, mida salvestad",
+  "dataSharingExcludedIdentity": "Sinu nimi, e-post, IP-aadress ja asukoht",
+  "dataSharingExcludedAccounts": "Kontod, millega integratsioone ühendad",
+  "dataSharingPooledNote": "Administraatorid näevad ainult kõigi jagajate kogusummasid, mitte kunagi sind eraldi. Lülita see igal ajal välja ja sa kaod kohe summadest.",
+  "dataSharingConfirmTitle": "Kas jagada kasutusandmeid?",
+  "dataSharingConfirmAction": "Jaga",
+  "sharedUsageTitle": "Jagatud kasutus",
+  "sharedUsageParticipants": "Kasutusandmeid jagavad kontod: {sharing}/{total}. Ainult summad, mitte sisu.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Keegi ei jaga veel kasutusandmeid. Selle saab sisse lülitada: Seaded, Profiil, Teie andmed.",
+  "sharedUsageRuns": "Jagatud käivitused",
+  "sharedUsageAvgDuration": "Keskm. kestus",
+  "sharedUsageCompletedRuns": "Lõpetatud käivitused",
+  "sharedUsageStepsPerRun": "Samme käivituse kohta",
+  "sharedUsageDevices": "Seadmed",
+  "sharedUsageAppVersions": "Rakenduse versioonid",
+  "sharedUsageLanguages": "Keeled",
+  "sharedUsageRegions": "Piirkonnad",
+  "sharedUsageFeatures": "Funktsioonide kasutuselevõtt",
+  "sharedUsageFeaturesDescription": "Osakaal jagavatest kontodest, kes on selle seadistanud.",
+  "sharedUsageTools": "Tööriistad",
+  "sharedUsageToolsDescription": "Enim kutsutud tööriistad ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Kutseid: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Ebaõnnestus: {percent}%",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integratsioonid",
+  "sharedUsageMessaging": "Sõnumikanalid",
+  "sharedUsageTriggers": "Kuidas käivitused algavad",
+  "sharedUsageActivity": "Millal seda kasutatakse",
+  "sharedUsageActivityDescription": "Käivitused nädalapäeva ja tunni kaupa, UTC.",
+  "sharedUsageModels": "Mudelite jõudlus",
+  "sharedUsageModelDetail": "keskm. {latency} · {cached}% vahemälust · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Kontosid: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Selles vahemikus pole midagi.",
+  "sharedUsageNotReported": "Pole veel teatatud",
+  "sharedUsageFeatureAgents": "Rohkem kui üks agent",
+  "sharedUsageFeatureTasks": "Ajastatud ülesanded",
+  "sharedUsageFeatureSkills": "Oskused",
+  "sharedUsageFeatureMcp": "MCP-serverid",
+  "sharedUsageFeatureIntegrations": "Integratsioonid",
+  "sharedUsageFeatureMessaging": "Sõnumikanalid",
+  "sharedUsageFeatureMemory": "Mälu",
+  "sharedUsageSearchKeywords": "opt-in andmete jagamine telemeetria seadmed funktsioonid tööriistad mudelid aktiivsus",
+  "providerChooseUsername": "Vali kasutajanimi",
+  "providerChooseUsernameBody": "Konto loomise lõpetamiseks vali vaba kasutajanimi."
 }

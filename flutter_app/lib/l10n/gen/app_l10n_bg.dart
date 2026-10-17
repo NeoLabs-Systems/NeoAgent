@@ -11314,9 +11314,201 @@ class AppL10nBg extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Изберете потребителско име';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Изберете свободно потребителско име, за да завършите създаването на акаунта си.';
+
+  @override
+  String get dataSharingTitle => 'Споделяне на данни за използването';
+
+  @override
+  String get dataSharingDescription =>
+      'Помогнете на хората, които поддържат този сървър, да го подобрят. Споделя как използвате NeoAgent, никога какво пишете или съхранявате.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Споделя се от $date.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'Какво се споделя';
+
+  @override
+  String get dataSharingIncluded => 'Споделя се';
+
+  @override
+  String get dataSharingExcluded => 'Никога не се споделя';
+
+  @override
+  String get dataSharingIncludedDevice =>
+      'Вид устройство и версия на приложението';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'Език на приложението и регион на часовата зона, например Европа';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Кои функции сте настроили, като задачи, умения и интеграции';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Кои инструменти и модели използват вашите изпълнения, с продължителност и брой токени';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'Кога използвате NeoAgent, по ден от седмицата и час';
+
+  @override
+  String get dataSharingExcludedContent => 'Съобщения, промптове и отговори';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Заглавия на изпълнения, входни данни и резултати от инструменти';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Файлове, спомени и всичко друго, което съхранявате';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'Вашето име, имейл, IP адрес и местоположение';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'Акаунтите, с които свързвате интеграции';
+
+  @override
+  String get dataSharingPooledNote =>
+      'Администраторите виждат само общи суми за всички, които споделят, никога само вас. Изключете го по всяко време и веднага отпадате от сумите.';
+
+  @override
+  String get dataSharingConfirmTitle =>
+      'Да се споделят ли данните за използването?';
+
+  @override
+  String get dataSharingConfirmAction => 'Споделяне';
+
+  @override
+  String get sharedUsageTitle => 'Споделено използване';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Акаунти, които споделят данни за използването: $sharing от $total. Само суми, без съдържание.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Все още никой не споделя данни за използването. Може да се включи в Настройки, Профил, Вашите данни.';
+
+  @override
+  String get sharedUsageRuns => 'Споделени изпълнения';
+
+  @override
+  String get sharedUsageAvgDuration => 'Средна продълж.';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Завършени изпълнения';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Стъпки на изпълнение';
+
+  @override
+  String get sharedUsageDevices => 'Устройства';
+
+  @override
+  String get sharedUsageAppVersions => 'Версии на приложението';
+
+  @override
+  String get sharedUsageLanguages => 'Езици';
+
+  @override
+  String get sharedUsageRegions => 'Региони';
+
+  @override
+  String get sharedUsageFeatures => 'Използване на функции';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'Дял на споделящите акаунти, които са я настроили.';
+
+  @override
+  String get sharedUsageTools => 'Инструменти';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'Най-извиквани инструменти ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Извиквания: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Неуспешни: $percent%';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Интеграции';
+
+  @override
+  String get sharedUsageMessaging => 'Канали за съобщения';
+
+  @override
+  String get sharedUsageTriggers => 'Как започват изпълненията';
+
+  @override
+  String get sharedUsageActivity => 'Кога се използва';
+
+  @override
+  String get sharedUsageActivityDescription =>
+      'Изпълнения по ден от седмицата и час, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Производителност на моделите';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return 'средно $latency · $cached% от кеша · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Акаунти: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'Няма нищо за този период.';
+
+  @override
+  String get sharedUsageNotReported => 'Все още не е отчетено';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Повече от един агент';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Планирани задачи';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Умения';
+
+  @override
+  String get sharedUsageFeatureMcp => 'MCP сървъри';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Интеграции';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Канали за съобщения';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Памет';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'opt-in споделяне на данни телеметрия устройства функции инструменти модели активност';
 }

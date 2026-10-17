@@ -6990,5 +6990,119 @@
   "signupKeysSaveDialogTitle": "Sábháil eochracha clárúcháin",
   "signupKeysExported": "Easpórtáladh na heochracha.",
   "auditSignupKeysCreated": "Chruthaigh {actor} eochracha clárúcháin ({count})",
-  "auditSignupKeyRevoked": "Chúlghair {actor} eochair chlárúcháin"
+  "auditSignupKeyRevoked": "Chúlghair {actor} eochair chlárúcháin",
+  "dataSharingTitle": "Comhroinn sonraí úsáide",
+  "dataSharingDescription": "Cabhraigh leo siúd a ritheann an freastalaí seo é a fheabhsú. Roinntear conas a úsáideann tú NeoAgent, ach ní roinntear riamh a scríobhann nó a stórálann tú.",
+  "dataSharingSince": "Á chomhroinnt ó {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Cad a roinntear",
+  "dataSharingIncluded": "Roinntear",
+  "dataSharingExcluded": "Ní roinntear riamh",
+  "dataSharingIncludedDevice": "Cineál gléis agus leagan na haipe",
+  "dataSharingIncludedLocale": "Teanga na haipe agus réigiún an chriosa ama, mar shampla an Eoraip",
+  "dataSharingIncludedFeatures": "Na gnéithe atá socraithe agat, mar thascanna, scileanna agus comhtháthuithe",
+  "dataSharingIncludedRuns": "Na huirlisí agus na samhlacha a úsáideann do rití, le hamanna agus líon comharthaí",
+  "dataSharingIncludedActivity": "Cathain a úsáideann tú NeoAgent, de réir lá na seachtaine agus uaire",
+  "dataSharingExcludedContent": "Teachtaireachtaí, leideanna agus freagraí",
+  "dataSharingExcludedRuns": "Teidil rití, ionchuir agus torthaí uirlisí",
+  "dataSharingExcludedFiles": "Comhaid, cuimhní agus aon rud eile a stórálann tú",
+  "dataSharingExcludedIdentity": "D'ainm, do ríomhphost, do sheoladh IP agus do shuíomh",
+  "dataSharingExcludedAccounts": "Na cuntais lena nascann tú comhtháthuithe",
+  "dataSharingPooledNote": "Ní fheiceann riarthóirí ach iomláin do gach duine a roinneann, riamh tusa leat féin. Múch é am ar bith agus fágann tú na hiomláin láithreach.",
+  "dataSharingConfirmTitle": "Sonraí úsáide a chomhroinnt?",
+  "dataSharingConfirmAction": "Comhroinn",
+  "sharedUsageTitle": "Úsáid chomhroinnte",
+  "sharedUsageParticipants": "Cuntais a roinneann sonraí úsáide: {sharing} as {total}. Iomláin amháin, gan ábhar.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Níl aon duine ag comhroinnt sonraí úsáide fós. Is féidir é a chur ar siúl faoi Socruithe, Próifíl, Do shonraí.",
+  "sharedUsageRuns": "Rití comhroinnte",
+  "sharedUsageAvgDuration": "Meánfhad",
+  "sharedUsageCompletedRuns": "Rití críochnaithe",
+  "sharedUsageStepsPerRun": "Céimeanna in aghaidh an rith",
+  "sharedUsageDevices": "Gléasanna",
+  "sharedUsageAppVersions": "Leaganacha aipe",
+  "sharedUsageLanguages": "Teangacha",
+  "sharedUsageRegions": "Réigiúin",
+  "sharedUsageFeatures": "Glacadh le gnéithe",
+  "sharedUsageFeaturesDescription": "Sciar de na cuntais chomhroinnte a bhfuil sé socraithe acu.",
+  "sharedUsageTools": "Uirlisí",
+  "sharedUsageToolsDescription": "Na huirlisí is mó a nglaotar orthu ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Glaonna: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Theip: {percent}%",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Comhtháthuithe",
+  "sharedUsageMessaging": "Cainéil teachtaireachtaí",
+  "sharedUsageTriggers": "Conas a thosaíonn rití",
+  "sharedUsageActivity": "Cathain a úsáidtear é",
+  "sharedUsageActivityDescription": "Rití de réir lá na seachtaine agus uaire, UTC.",
+  "sharedUsageModels": "Feidhmíocht samhlacha",
+  "sharedUsageModelDetail": "meán {latency} · {cached}% ón taisce · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Cuntais: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Faic sa tréimhse seo.",
+  "sharedUsageNotReported": "Gan tuairisc fós",
+  "sharedUsageFeatureAgents": "Níos mó ná gníomhaire amháin",
+  "sharedUsageFeatureTasks": "Tascanna sceidealaithe",
+  "sharedUsageFeatureSkills": "Scileanna",
+  "sharedUsageFeatureMcp": "Freastalaithe MCP",
+  "sharedUsageFeatureIntegrations": "Comhtháthuithe",
+  "sharedUsageFeatureMessaging": "Cainéil teachtaireachtaí",
+  "sharedUsageFeatureMemory": "Cuimhne",
+  "sharedUsageSearchKeywords": "opt-in comhroinnt sonraí teiliméadracht gléasanna gnéithe uirlisí samhlacha gníomhaíocht",
+  "providerChooseUsername": "Roghnaigh d'ainm úsáideora",
+  "providerChooseUsernameBody": "Roghnaigh ainm úsáideora atá ar fáil chun do chuntas a chríochnú."
 }

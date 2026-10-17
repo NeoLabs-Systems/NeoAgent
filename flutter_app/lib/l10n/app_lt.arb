@@ -6990,5 +6990,119 @@
   "signupKeysSaveDialogTitle": "Išsaugoti registracijos raktus",
   "signupKeysExported": "Raktai eksportuoti.",
   "auditSignupKeysCreated": "{actor} sukūrė registracijos raktų ({count})",
-  "auditSignupKeyRevoked": "{actor} atšaukė registracijos raktą"
+  "auditSignupKeyRevoked": "{actor} atšaukė registracijos raktą",
+  "dataSharingTitle": "Bendrinti naudojimo duomenis",
+  "dataSharingDescription": "Padėkite šio serverio prižiūrėtojams jį tobulinti. Bendrinama, kaip naudojate NeoAgent, bet niekada ne tai, ką rašote ar saugote.",
+  "dataSharingSince": "Bendrinama nuo {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Kas bendrinama",
+  "dataSharingIncluded": "Bendrinama",
+  "dataSharingExcluded": "Niekada nebendrinama",
+  "dataSharingIncludedDevice": "Įrenginio tipas ir programėlės versija",
+  "dataSharingIncludedLocale": "Programėlės kalba ir laiko juostos regionas, pvz., Europa",
+  "dataSharingIncludedFeatures": "Kokias funkcijas esate nustatę, pvz., užduotis, įgūdžius ir integracijas",
+  "dataSharingIncludedRuns": "Kokius įrankius ir modelius naudoja jūsų vykdymai, su trukme ir žetonų skaičiumi",
+  "dataSharingIncludedActivity": "Kada naudojate NeoAgent, pagal savaitės dieną ir valandą",
+  "dataSharingExcludedContent": "Žinutės, užklausos ir atsakymai",
+  "dataSharingExcludedRuns": "Vykdymų pavadinimai, įrankių įvestys ir rezultatai",
+  "dataSharingExcludedFiles": "Failai, prisiminimai ir visa kita, ką saugote",
+  "dataSharingExcludedIdentity": "Jūsų vardas, el. paštas, IP adresas ir vieta",
+  "dataSharingExcludedAccounts": "Paskyros, su kuriomis jungiate integracijas",
+  "dataSharingPooledNote": "Administratoriai mato tik visų bendrinančiųjų sumas, niekada jūsų atskirai. Išjunkite bet kada ir iškart dingsite iš sumų.",
+  "dataSharingConfirmTitle": "Bendrinti naudojimo duomenis?",
+  "dataSharingConfirmAction": "Bendrinti",
+  "sharedUsageTitle": "Bendrinamas naudojimas",
+  "sharedUsageParticipants": "Naudojimo duomenis bendrinančios paskyros: {sharing} iš {total}. Tik sumos, jokio turinio.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Dar niekas nebendrina naudojimo duomenų. Įjungti galima čia: Nustatymai, Profilis, Jūsų duomenys.",
+  "sharedUsageRuns": "Bendrinami vykdymai",
+  "sharedUsageAvgDuration": "Vid. trukmė",
+  "sharedUsageCompletedRuns": "Užbaigti vykdymai",
+  "sharedUsageStepsPerRun": "Žingsniai per vykdymą",
+  "sharedUsageDevices": "Įrenginiai",
+  "sharedUsageAppVersions": "Programėlės versijos",
+  "sharedUsageLanguages": "Kalbos",
+  "sharedUsageRegions": "Regionai",
+  "sharedUsageFeatures": "Funkcijų naudojimas",
+  "sharedUsageFeaturesDescription": "Bendrinančių paskyrų dalis, kuri ją nustatė.",
+  "sharedUsageTools": "Įrankiai",
+  "sharedUsageToolsDescription": "Dažniausiai kviečiami įrankiai ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Kvietimai: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Nepavyko: {percent} %",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integracijos",
+  "sharedUsageMessaging": "Žinučių kanalai",
+  "sharedUsageTriggers": "Kaip prasideda vykdymai",
+  "sharedUsageActivity": "Kada naudojama",
+  "sharedUsageActivityDescription": "Vykdymai pagal savaitės dieną ir valandą, UTC.",
+  "sharedUsageModels": "Modelių našumas",
+  "sharedUsageModelDetail": "vid. {latency} · {cached} % iš talpyklos · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Paskyros: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Šiuo laikotarpiu nieko nėra.",
+  "sharedUsageNotReported": "Dar nepranešta",
+  "sharedUsageFeatureAgents": "Daugiau nei vienas agentas",
+  "sharedUsageFeatureTasks": "Suplanuotos užduotys",
+  "sharedUsageFeatureSkills": "Įgūdžiai",
+  "sharedUsageFeatureMcp": "MCP serveriai",
+  "sharedUsageFeatureIntegrations": "Integracijos",
+  "sharedUsageFeatureMessaging": "Žinučių kanalai",
+  "sharedUsageFeatureMemory": "Atmintis",
+  "sharedUsageSearchKeywords": "opt-in duomenų bendrinimas telemetrija įrenginiai funkcijos įrankiai modeliai veikla",
+  "providerChooseUsername": "Pasirinkite naudotojo vardą",
+  "providerChooseUsernameBody": "Pasirinkite laisvą naudotojo vardą, kad užbaigtumėte paskyros kūrimą."
 }

@@ -6990,5 +6990,119 @@
   "signupKeysSaveDialogTitle": "Salvați cheile de înregistrare",
   "signupKeysExported": "Chei exportate.",
   "auditSignupKeysCreated": "{actor} a creat chei de înregistrare ({count})",
-  "auditSignupKeyRevoked": "{actor} a revocat o cheie de înregistrare"
+  "auditSignupKeyRevoked": "{actor} a revocat o cheie de înregistrare",
+  "dataSharingTitle": "Partajează datele de utilizare",
+  "dataSharingDescription": "Ajută-i pe cei care administrează acest server să-l îmbunătățească. Partajează cum folosești NeoAgent, niciodată ce scrii sau stochezi.",
+  "dataSharingSince": "Partajat din {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Ce se partajează",
+  "dataSharingIncluded": "Se partajează",
+  "dataSharingExcluded": "Nu se partajează niciodată",
+  "dataSharingIncludedDevice": "Tipul dispozitivului și versiunea aplicației",
+  "dataSharingIncludedLocale": "Limba aplicației și regiunea fusului orar, de exemplu Europa",
+  "dataSharingIncludedFeatures": "Ce funcții ai configurat, cum ar fi sarcini, skilluri și integrări",
+  "dataSharingIncludedRuns": "Ce instrumente și modele folosesc rulările tale, cu durate și număr de tokenuri",
+  "dataSharingIncludedActivity": "Când folosești NeoAgent, pe zile ale săptămânii și ore",
+  "dataSharingExcludedContent": "Mesaje, prompturi și răspunsuri",
+  "dataSharingExcludedRuns": "Titlurile rulărilor, intrările și rezultatele instrumentelor",
+  "dataSharingExcludedFiles": "Fișiere, amintiri și orice altceva stochezi",
+  "dataSharingExcludedIdentity": "Numele, e-mailul, adresa IP și locația ta",
+  "dataSharingExcludedAccounts": "Conturile cu care conectezi integrări",
+  "dataSharingPooledNote": "Administratorii văd doar totaluri pentru toți cei care partajează, niciodată pe tine separat. Dezactivează oricând și ieși imediat din totaluri.",
+  "dataSharingConfirmTitle": "Partajezi datele de utilizare?",
+  "dataSharingConfirmAction": "Partajează",
+  "sharedUsageTitle": "Utilizare partajată",
+  "sharedUsageParticipants": "Conturi care partajează date de utilizare: {sharing} din {total}. Doar totaluri, fără conținut.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Nimeni nu partajează încă date de utilizare. Se poate activa din Setări, Profil, Datele dvs.",
+  "sharedUsageRuns": "Rulări partajate",
+  "sharedUsageAvgDuration": "Durată medie",
+  "sharedUsageCompletedRuns": "Rulări finalizate",
+  "sharedUsageStepsPerRun": "Pași per rulare",
+  "sharedUsageDevices": "Dispozitive",
+  "sharedUsageAppVersions": "Versiuni ale aplicației",
+  "sharedUsageLanguages": "Limbi",
+  "sharedUsageRegions": "Regiuni",
+  "sharedUsageFeatures": "Adoptarea funcțiilor",
+  "sharedUsageFeaturesDescription": "Proporția conturilor care partajează și au configurat-o.",
+  "sharedUsageTools": "Instrumente",
+  "sharedUsageToolsDescription": "Cele mai apelate instrumente ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Apeluri: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Eșuate: {percent}%",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integrări",
+  "sharedUsageMessaging": "Canale de mesagerie",
+  "sharedUsageTriggers": "Cum pornesc rulările",
+  "sharedUsageActivity": "Când este folosit",
+  "sharedUsageActivityDescription": "Rulări pe zile ale săptămânii și ore, UTC.",
+  "sharedUsageModels": "Performanța modelelor",
+  "sharedUsageModelDetail": "medie {latency} · {cached}% din cache · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Conturi: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Nimic în această perioadă.",
+  "sharedUsageNotReported": "Încă neraportat",
+  "sharedUsageFeatureAgents": "Mai mult de un agent",
+  "sharedUsageFeatureTasks": "Sarcini programate",
+  "sharedUsageFeatureSkills": "Skilluri",
+  "sharedUsageFeatureMcp": "Servere MCP",
+  "sharedUsageFeatureIntegrations": "Integrări",
+  "sharedUsageFeatureMessaging": "Canale de mesagerie",
+  "sharedUsageFeatureMemory": "Memorie",
+  "sharedUsageSearchKeywords": "opt-in partajare date telemetrie dispozitive funcții instrumente modele activitate",
+  "providerChooseUsername": "Alege-ți numele de utilizator",
+  "providerChooseUsernameBody": "Alege un nume de utilizator disponibil pentru a finaliza crearea contului."
 }

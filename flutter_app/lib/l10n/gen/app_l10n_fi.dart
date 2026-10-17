@@ -11277,9 +11277,199 @@ class AppL10nFi extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Valitse käyttäjänimi';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Valitse vapaa käyttäjänimi viimeistelläksesi tilisi luomisen.';
+
+  @override
+  String get dataSharingTitle => 'Jaa käyttötietoja';
+
+  @override
+  String get dataSharingDescription =>
+      'Auta tämän palvelimen ylläpitäjiä parantamaan sitä. Jakaa sen, miten käytät NeoAgentia, ei koskaan sitä, mitä kirjoitat tai tallennat.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Jaettu $date alkaen.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'Mitä jaetaan';
+
+  @override
+  String get dataSharingIncluded => 'Jaetaan';
+
+  @override
+  String get dataSharingExcluded => 'Ei koskaan jaeta';
+
+  @override
+  String get dataSharingIncludedDevice => 'Laitetyyppi ja sovellusversio';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'Sovelluksen kieli ja aikavyöhykkeen alue, esimerkiksi Eurooppa';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Mitkä toiminnot olet ottanut käyttöön, kuten tehtävät, skillit ja integraatiot';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Mitä työkaluja ja malleja ajosi käyttävät, kestoineen ja token-määrineen';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'Milloin käytät NeoAgentia, viikonpäivittäin ja tunneittain';
+
+  @override
+  String get dataSharingExcludedContent => 'Viestit, kehotteet ja vastaukset';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Ajojen otsikot, työkalujen syötteet ja tulokset';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Tiedostot, muistot ja kaikki muu, mitä tallennat';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'Nimesi, sähköpostisi, IP-osoitteesi ja sijaintisi';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'Tilit, joilla yhdistät integraatioita';
+
+  @override
+  String get dataSharingPooledNote =>
+      'Ylläpitäjät näkevät vain kaikkien jakajien yhteissummat, eivät koskaan sinua erikseen. Voit poistaa sen käytöstä milloin tahansa, ja poistut summista heti.';
+
+  @override
+  String get dataSharingConfirmTitle => 'Jaetaanko käyttötiedot?';
+
+  @override
+  String get dataSharingConfirmAction => 'Jaa';
+
+  @override
+  String get sharedUsageTitle => 'Jaettu käyttö';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Käyttötietoja jakavat tilit: $sharing/$total. Vain summia, ei sisältöä.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Kukaan ei vielä jaa käyttötietoja. Sen voi ottaa käyttöön kohdassa Asetukset, Profiili, Tietosi.';
+
+  @override
+  String get sharedUsageRuns => 'Jaetut ajot';
+
+  @override
+  String get sharedUsageAvgDuration => 'Keskim. kesto';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Valmiit ajot';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Vaiheita per ajo';
+
+  @override
+  String get sharedUsageDevices => 'Laitteet';
+
+  @override
+  String get sharedUsageAppVersions => 'Sovellusversiot';
+
+  @override
+  String get sharedUsageLanguages => 'Kielet';
+
+  @override
+  String get sharedUsageRegions => 'Alueet';
+
+  @override
+  String get sharedUsageFeatures => 'Toimintojen käyttöönotto';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'Osuus jakavista tileistä, jotka ovat ottaneet sen käyttöön.';
+
+  @override
+  String get sharedUsageTools => 'Työkalut';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'Eniten kutsutut työkalut ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Kutsuja: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Epäonnistui: $percent %';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Integraatiot';
+
+  @override
+  String get sharedUsageMessaging => 'Viestikanavat';
+
+  @override
+  String get sharedUsageTriggers => 'Miten ajot alkavat';
+
+  @override
+  String get sharedUsageActivity => 'Milloin sitä käytetään';
+
+  @override
+  String get sharedUsageActivityDescription =>
+      'Ajot viikonpäivän ja tunnin mukaan, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Mallien suorituskyky';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return 'keskim. $latency · $cached % välimuistista · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Tilejä: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'Ei mitään tällä aikavälillä.';
+
+  @override
+  String get sharedUsageNotReported => 'Ei vielä ilmoitettu';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Useampi kuin yksi agentti';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Ajoitetut tehtävät';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Skillit';
+
+  @override
+  String get sharedUsageFeatureMcp => 'MCP-palvelimet';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Integraatiot';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Viestikanavat';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Muisti';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'opt-in tietojen jakaminen telemetria laitteet toiminnot työkalut mallit aktiivisuus';
 }

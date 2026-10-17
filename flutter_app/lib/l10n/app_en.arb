@@ -7082,5 +7082,117 @@
     }
   },
   "providerChooseUsername": "Choose your username",
-  "providerChooseUsernameBody": "Choose an available username to finish creating your account."
+  "providerChooseUsernameBody": "Choose an available username to finish creating your account.",
+  "dataSharingTitle": "Share usage data",
+  "dataSharingDescription": "Help the people running this server improve it. Shares how you use NeoAgent, never what you write or store.",
+  "dataSharingSince": "Sharing since {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "What's shared",
+  "dataSharingIncluded": "Shared",
+  "dataSharingExcluded": "Never shared",
+  "dataSharingIncludedDevice": "Device type and app version",
+  "dataSharingIncludedLocale": "App language and time zone region, such as Europe",
+  "dataSharingIncludedFeatures": "Which features you have set up, like tasks, skills and integrations",
+  "dataSharingIncludedRuns": "Which tools and models your runs use, with timings and token counts",
+  "dataSharingIncludedActivity": "When you use NeoAgent, by weekday and hour",
+  "dataSharingExcludedContent": "Messages, prompts and replies",
+  "dataSharingExcludedRuns": "Run titles, tool inputs and results",
+  "dataSharingExcludedFiles": "Files, memories and anything else you store",
+  "dataSharingExcludedIdentity": "Your name, email, IP address and location",
+  "dataSharingExcludedAccounts": "The accounts you connect integrations with",
+  "dataSharingPooledNote": "Admins only see totals across everyone who shares, never you on your own. Turn it off any time and you drop out of the totals right away.",
+  "dataSharingConfirmTitle": "Share usage data?",
+  "dataSharingConfirmAction": "Share",
+  "sharedUsageTitle": "Shared usage",
+  "sharedUsageParticipants": "{sharing} of {total} accounts share usage data. Totals only, no content.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Nobody shares usage data yet. People can turn it on under Settings, Profile, Your data.",
+  "sharedUsageRuns": "Shared runs",
+  "sharedUsageAvgDuration": "Avg. duration",
+  "sharedUsageCompletedRuns": "Completed runs",
+  "sharedUsageStepsPerRun": "Steps per run",
+  "sharedUsageDevices": "Devices",
+  "sharedUsageAppVersions": "App versions",
+  "sharedUsageLanguages": "Languages",
+  "sharedUsageRegions": "Regions",
+  "sharedUsageFeatures": "Feature adoption",
+  "sharedUsageFeaturesDescription": "Share of sharing accounts that have set each one up.",
+  "sharedUsageTools": "Tools",
+  "sharedUsageToolsDescription": "Most called tools in the last {range}.",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "{calls} calls",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "{percent}% failed",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integrations",
+  "sharedUsageMessaging": "Messaging channels",
+  "sharedUsageTriggers": "How runs start",
+  "sharedUsageActivity": "When people use it",
+  "sharedUsageActivityDescription": "Runs by weekday and hour, UTC.",
+  "sharedUsageModels": "Model performance",
+  "sharedUsageModelDetail": "{latency} avg · {cached}% cached · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "{count, plural, =1{1 account} other{{count} accounts}}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Nothing in this range.",
+  "sharedUsageNotReported": "Not reported yet",
+  "sharedUsageFeatureAgents": "More than one agent",
+  "sharedUsageFeatureTasks": "Scheduled tasks",
+  "sharedUsageFeatureSkills": "Skills",
+  "sharedUsageFeatureMcp": "MCP servers",
+  "sharedUsageFeatureIntegrations": "Integrations",
+  "sharedUsageFeatureMessaging": "Messaging channels",
+  "sharedUsageFeatureMemory": "Memory",
+  "sharedUsageSearchKeywords": "opt-in data sharing telemetry devices features tools models activity"
 }

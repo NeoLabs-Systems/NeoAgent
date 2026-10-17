@@ -11286,9 +11286,199 @@ class AppL10nSk extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Zvoľte si používateľské meno';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Zvoľte si dostupné používateľské meno a dokončite vytvorenie účtu.';
+
+  @override
+  String get dataSharingTitle => 'Zdieľať údaje o používaní';
+
+  @override
+  String get dataSharingDescription =>
+      'Pomôžte správcom tohto servera ho vylepšovať. Zdieľa, ako NeoAgent používate, nikdy to, čo píšete alebo ukladáte.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Zdieľané od $date.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'Čo sa zdieľa';
+
+  @override
+  String get dataSharingIncluded => 'Zdieľa sa';
+
+  @override
+  String get dataSharingExcluded => 'Nikdy sa nezdieľa';
+
+  @override
+  String get dataSharingIncludedDevice => 'Typ zariadenia a verzia aplikácie';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'Jazyk aplikácie a oblasť časového pásma, napríklad Európa';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Ktoré funkcie máte nastavené, napríklad úlohy, skilly a integrácie';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Ktoré nástroje a modely používajú vaše behy, s trvaním a počtom tokenov';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'Kedy NeoAgent používate, podľa dňa v týždni a hodiny';
+
+  @override
+  String get dataSharingExcludedContent => 'Správy, prompty a odpovede';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Názvy behov, vstupy a výsledky nástrojov';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Súbory, spomienky a všetko ostatné, čo ukladáte';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'Vaše meno, e-mail, IP adresa a poloha';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'Účty, s ktorými prepájate integrácie';
+
+  @override
+  String get dataSharingPooledNote =>
+      'Správcovia vidia iba súčty za všetkých, ktorí zdieľajú, nikdy nie vás samotných. Kedykoľvek to vypnite a hneď zo súčtov vypadnete.';
+
+  @override
+  String get dataSharingConfirmTitle => 'Zdieľať údaje o používaní?';
+
+  @override
+  String get dataSharingConfirmAction => 'Zdieľať';
+
+  @override
+  String get sharedUsageTitle => 'Zdieľané používanie';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Účty zdieľajúce údaje o používaní: $sharing z $total. Iba súčty, žiadny obsah.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Zatiaľ nikto nezdieľa údaje o používaní. Zapnúť sa to dá v: Nastavenia, Profil, Vaše údaje.';
+
+  @override
+  String get sharedUsageRuns => 'Zdieľané behy';
+
+  @override
+  String get sharedUsageAvgDuration => 'Priem. trvanie';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Dokončené behy';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Kroky na beh';
+
+  @override
+  String get sharedUsageDevices => 'Zariadenia';
+
+  @override
+  String get sharedUsageAppVersions => 'Verzie aplikácie';
+
+  @override
+  String get sharedUsageLanguages => 'Jazyky';
+
+  @override
+  String get sharedUsageRegions => 'Oblasti';
+
+  @override
+  String get sharedUsageFeatures => 'Využitie funkcií';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'Podiel zdieľajúcich účtov, ktoré ju majú nastavenú.';
+
+  @override
+  String get sharedUsageTools => 'Nástroje';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'Najčastejšie volané nástroje ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Volania: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Zlyhalo: $percent %';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Integrácie';
+
+  @override
+  String get sharedUsageMessaging => 'Kanály správ';
+
+  @override
+  String get sharedUsageTriggers => 'Ako sa behy začínajú';
+
+  @override
+  String get sharedUsageActivity => 'Kedy sa používa';
+
+  @override
+  String get sharedUsageActivityDescription =>
+      'Behy podľa dňa v týždni a hodiny, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Výkon modelov';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return 'priem. $latency · $cached % z cache · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Účty: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'V tomto období nič.';
+
+  @override
+  String get sharedUsageNotReported => 'Zatiaľ nenahlásené';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Viac ako jeden agent';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Plánované úlohy';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Skilly';
+
+  @override
+  String get sharedUsageFeatureMcp => 'MCP servery';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Integrácie';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Kanály správ';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Pamäť';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'opt-in zdieľanie údajov telemetria zariadenia funkcie nástroje modely aktivita';
 }

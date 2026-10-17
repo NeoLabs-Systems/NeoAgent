@@ -11298,9 +11298,200 @@ class AppL10nMt extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Agħżel l-isem tal-utent tiegħek';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Agħżel isem tal-utent disponibbli biex tlesti l-ħolqien tal-kont tiegħek.';
+
+  @override
+  String get dataSharingTitle => 'Aqsam id-dejta tal-użu';
+
+  @override
+  String get dataSharingDescription =>
+      'Għin lil min imexxi dan is-server itejbu. Jaqsam kif tuża NeoAgent, qatt dak li tikteb jew taħżen.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Qed jinqasam minn $date.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'X\'jinqasam';
+
+  @override
+  String get dataSharingIncluded => 'Jinqasam';
+
+  @override
+  String get dataSharingExcluded => 'Qatt ma jinqasam';
+
+  @override
+  String get dataSharingIncludedDevice =>
+      'It-tip ta\' apparat u l-verżjoni tal-app';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'Il-lingwa tal-app u r-reġjun taż-żona tal-ħin, bħall-Ewropa';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Liema funzjonijiet issettjajt, bħal kompiti, skills u integrazzjonijiet';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Liema għodod u mudelli jużaw il-ġirjiet tiegħek, bil-ħinijiet u l-għadd ta\' tokens';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'Meta tuża NeoAgent, skont il-jum tal-ġimgħa u s-siegħa';
+
+  @override
+  String get dataSharingExcludedContent => 'Messaġġi, prompts u tweġibiet';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Titli tal-ġirjiet, input u riżultati tal-għodod';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Fajls, memorji u kull ħaġa oħra li taħżen';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'Ismek, l-email, l-indirizz IP u l-post tiegħek';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'Il-kontijiet li magħhom tqabbad l-integrazzjonijiet';
+
+  @override
+  String get dataSharingPooledNote =>
+      'L-amministraturi jaraw biss totali ta\' kull min jaqsam, qatt lilek waħdek. Itfih meta trid u toħroġ mit-totali minnufih.';
+
+  @override
+  String get dataSharingConfirmTitle => 'Taqsam id-dejta tal-użu?';
+
+  @override
+  String get dataSharingConfirmAction => 'Aqsam';
+
+  @override
+  String get sharedUsageTitle => 'Użu maqsum';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Kontijiet li jaqsmu d-dejta tal-użu: $sharing minn $total. Totali biss, l-ebda kontenut.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Għadu ħadd ma jaqsam dejta tal-użu. Jista\' jinxtegħel minn Settings, Profil, Id-dejta tiegħek.';
+
+  @override
+  String get sharedUsageRuns => 'Ġirjiet maqsuma';
+
+  @override
+  String get sharedUsageAvgDuration => 'Tul medju';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Ġirjiet lesti';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Passi għal kull ġirja';
+
+  @override
+  String get sharedUsageDevices => 'Apparati';
+
+  @override
+  String get sharedUsageAppVersions => 'Verżjonijiet tal-app';
+
+  @override
+  String get sharedUsageLanguages => 'Lingwi';
+
+  @override
+  String get sharedUsageRegions => 'Reġjuni';
+
+  @override
+  String get sharedUsageFeatures => 'Użu tal-funzjonijiet';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'Is-sehem tal-kontijiet li jaqsmu li ssettjawha.';
+
+  @override
+  String get sharedUsageTools => 'Għodod';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'L-aktar għodod imsejħa ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Sejħiet: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Fallew: $percent%';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Integrazzjonijiet';
+
+  @override
+  String get sharedUsageMessaging => 'Kanali tal-messaġġi';
+
+  @override
+  String get sharedUsageTriggers => 'Kif jibdew il-ġirjiet';
+
+  @override
+  String get sharedUsageActivity => 'Meta jintuża';
+
+  @override
+  String get sharedUsageActivityDescription =>
+      'Ġirjiet skont il-jum tal-ġimgħa u s-siegħa, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Prestazzjoni tal-mudelli';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return 'medja $latency · $cached% mill-cache · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Kontijiet: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'Xejn f\'dan il-perjodu.';
+
+  @override
+  String get sharedUsageNotReported => 'Għadu mhux irrappurtat';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Aktar minn aġent wieħed';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Kompiti skedati';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Skills';
+
+  @override
+  String get sharedUsageFeatureMcp => 'Servers MCP';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Integrazzjonijiet';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Kanali tal-messaġġi';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Memorja';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'opt-in qsim tad-dejta telemetrija apparati funzjonijiet għodod mudelli attività';
 }

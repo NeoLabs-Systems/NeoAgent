@@ -33,24 +33,48 @@ class CallPermissionStatus {
 /// The platform side of a call: ringing, presenting the call screen from the
 /// background or over the lock screen, and the speakerphone.
 ///
-/// Android does all of it natively. Elsewhere the ring is a looping ringtone
-/// with haptics, and the rest is a no-op.
+/// Android and iOS do it natively; on iOS CallKit rings and presents the
+/// call, so there is nothing to bring forward and no permission to ask for.
+/// Elsewhere the ring is a looping ringtone with haptics, and the rest is a
+/// no-op.
 class CallBridge {
   CallBridge._();
 
   static const MethodChannel _channel = MethodChannel('neoagent/call');
+  static const EventChannel _events = EventChannel('neoagent/call/events');
   static const Duration _hapticInterval = Duration(seconds: 3);
+
+  /// Hanging up an answered call on CallKit's screen.
+  static const String endAction = 'call_end';
 
   static Timer? _haptics;
 
-  static bool get _native => !kIsWeb && Platform.isAndroid;
+  static bool get _android => !kIsWeb && Platform.isAndroid;
+  static bool get _native => _android || (!kIsWeb && Platform.isIOS);
+
+  /// iOS shows an incoming call on CallKit's own screen, which takes the
+  /// place of the incoming-call notification.
+  static bool get showsSystemCallScreen => !kIsWeb && Platform.isIOS;
 
   /// The speakerphone can only be switched where the call audio is routed
   /// natively.
   static bool get supportsSpeakerphone => _native;
 
+  /// Answer, decline and hang-up on the system's call screen, with the call's
+  /// id: the actions of the call notification, and [endAction].
+  static Stream<({String callId, String action})> get actions {
+    if (kIsWeb || !Platform.isIOS) return const Stream.empty();
+    return _events.receiveBroadcastStream().map((event) {
+      final map = event is Map ? event : const <Object?, Object?>{};
+      return (
+        callId: map['callId']?.toString() ?? '',
+        action: map['action']?.toString() ?? '',
+      );
+    });
+  }
+
   static Future<CallPermissionStatus> permissionStatus() async {
-    if (!_native) return CallPermissionStatus.granted;
+    if (!_android) return CallPermissionStatus.granted;
     try {
       final raw = await _channel.invokeMapMethod<String, Object?>(
         'permissionStatus',
@@ -73,8 +97,18 @@ class CallBridge {
   static Future<void> requestUnrestrictedBattery() =>
       _invoke('requestUnrestrictedBattery');
 
-  static Future<void> startRinging() async {
-    if (_native) return _invoke('startRinging');
+  static Future<void> startRinging({
+    required String callId,
+    required String callerName,
+    required DateTime expiresAt,
+  }) async {
+    if (_native) {
+      return _invoke('startRinging', <String, Object?>{
+        'callId': callId,
+        'callerName': callerName,
+        'expiresAtMs': expiresAt.millisecondsSinceEpoch,
+      });
+    }
     _haptics?.cancel();
     unawaited(HapticFeedback.heavyImpact());
     _haptics = Timer.periodic(
@@ -94,7 +128,7 @@ class CallBridge {
   /// Brings the app forward and lets it show over the lock screen. Returns
   /// whether it had been in the background.
   static Future<bool> present() async {
-    if (!_native) return false;
+    if (!_android) return false;
     try {
       return await _channel.invokeMethod<bool>('present') ?? false;
     } on PlatformException {

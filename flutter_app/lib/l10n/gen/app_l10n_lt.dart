@@ -11291,9 +11291,200 @@ class AppL10nLt extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Pasirinkite naudotojo vardą';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Pasirinkite laisvą naudotojo vardą, kad užbaigtumėte paskyros kūrimą.';
+
+  @override
+  String get dataSharingTitle => 'Bendrinti naudojimo duomenis';
+
+  @override
+  String get dataSharingDescription =>
+      'Padėkite šio serverio prižiūrėtojams jį tobulinti. Bendrinama, kaip naudojate NeoAgent, bet niekada ne tai, ką rašote ar saugote.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Bendrinama nuo $date.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'Kas bendrinama';
+
+  @override
+  String get dataSharingIncluded => 'Bendrinama';
+
+  @override
+  String get dataSharingExcluded => 'Niekada nebendrinama';
+
+  @override
+  String get dataSharingIncludedDevice =>
+      'Įrenginio tipas ir programėlės versija';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'Programėlės kalba ir laiko juostos regionas, pvz., Europa';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Kokias funkcijas esate nustatę, pvz., užduotis, įgūdžius ir integracijas';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Kokius įrankius ir modelius naudoja jūsų vykdymai, su trukme ir žetonų skaičiumi';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'Kada naudojate NeoAgent, pagal savaitės dieną ir valandą';
+
+  @override
+  String get dataSharingExcludedContent => 'Žinutės, užklausos ir atsakymai';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Vykdymų pavadinimai, įrankių įvestys ir rezultatai';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Failai, prisiminimai ir visa kita, ką saugote';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'Jūsų vardas, el. paštas, IP adresas ir vieta';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'Paskyros, su kuriomis jungiate integracijas';
+
+  @override
+  String get dataSharingPooledNote =>
+      'Administratoriai mato tik visų bendrinančiųjų sumas, niekada jūsų atskirai. Išjunkite bet kada ir iškart dingsite iš sumų.';
+
+  @override
+  String get dataSharingConfirmTitle => 'Bendrinti naudojimo duomenis?';
+
+  @override
+  String get dataSharingConfirmAction => 'Bendrinti';
+
+  @override
+  String get sharedUsageTitle => 'Bendrinamas naudojimas';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Naudojimo duomenis bendrinančios paskyros: $sharing iš $total. Tik sumos, jokio turinio.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Dar niekas nebendrina naudojimo duomenų. Įjungti galima čia: Nustatymai, Profilis, Jūsų duomenys.';
+
+  @override
+  String get sharedUsageRuns => 'Bendrinami vykdymai';
+
+  @override
+  String get sharedUsageAvgDuration => 'Vid. trukmė';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Užbaigti vykdymai';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Žingsniai per vykdymą';
+
+  @override
+  String get sharedUsageDevices => 'Įrenginiai';
+
+  @override
+  String get sharedUsageAppVersions => 'Programėlės versijos';
+
+  @override
+  String get sharedUsageLanguages => 'Kalbos';
+
+  @override
+  String get sharedUsageRegions => 'Regionai';
+
+  @override
+  String get sharedUsageFeatures => 'Funkcijų naudojimas';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'Bendrinančių paskyrų dalis, kuri ją nustatė.';
+
+  @override
+  String get sharedUsageTools => 'Įrankiai';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'Dažniausiai kviečiami įrankiai ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Kvietimai: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Nepavyko: $percent %';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Integracijos';
+
+  @override
+  String get sharedUsageMessaging => 'Žinučių kanalai';
+
+  @override
+  String get sharedUsageTriggers => 'Kaip prasideda vykdymai';
+
+  @override
+  String get sharedUsageActivity => 'Kada naudojama';
+
+  @override
+  String get sharedUsageActivityDescription =>
+      'Vykdymai pagal savaitės dieną ir valandą, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Modelių našumas';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return 'vid. $latency · $cached % iš talpyklos · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Paskyros: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'Šiuo laikotarpiu nieko nėra.';
+
+  @override
+  String get sharedUsageNotReported => 'Dar nepranešta';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Daugiau nei vienas agentas';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Suplanuotos užduotys';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Įgūdžiai';
+
+  @override
+  String get sharedUsageFeatureMcp => 'MCP serveriai';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Integracijos';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Žinučių kanalai';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Atmintis';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'opt-in duomenų bendrinimas telemetrija įrenginiai funkcijos įrankiai modeliai veikla';
 }

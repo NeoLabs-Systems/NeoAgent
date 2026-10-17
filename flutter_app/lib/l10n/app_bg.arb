@@ -6990,5 +6990,119 @@
   "signupKeysSaveDialogTitle": "Запазване на ключовете за регистрация",
   "signupKeysExported": "Ключовете са експортирани.",
   "auditSignupKeysCreated": "{actor} създаде ключове за регистрация ({count})",
-  "auditSignupKeyRevoked": "{actor} отмени ключ за регистрация"
+  "auditSignupKeyRevoked": "{actor} отмени ключ за регистрация",
+  "dataSharingTitle": "Споделяне на данни за използването",
+  "dataSharingDescription": "Помогнете на хората, които поддържат този сървър, да го подобрят. Споделя как използвате NeoAgent, никога какво пишете или съхранявате.",
+  "dataSharingSince": "Споделя се от {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Какво се споделя",
+  "dataSharingIncluded": "Споделя се",
+  "dataSharingExcluded": "Никога не се споделя",
+  "dataSharingIncludedDevice": "Вид устройство и версия на приложението",
+  "dataSharingIncludedLocale": "Език на приложението и регион на часовата зона, например Европа",
+  "dataSharingIncludedFeatures": "Кои функции сте настроили, като задачи, умения и интеграции",
+  "dataSharingIncludedRuns": "Кои инструменти и модели използват вашите изпълнения, с продължителност и брой токени",
+  "dataSharingIncludedActivity": "Кога използвате NeoAgent, по ден от седмицата и час",
+  "dataSharingExcludedContent": "Съобщения, промптове и отговори",
+  "dataSharingExcludedRuns": "Заглавия на изпълнения, входни данни и резултати от инструменти",
+  "dataSharingExcludedFiles": "Файлове, спомени и всичко друго, което съхранявате",
+  "dataSharingExcludedIdentity": "Вашето име, имейл, IP адрес и местоположение",
+  "dataSharingExcludedAccounts": "Акаунтите, с които свързвате интеграции",
+  "dataSharingPooledNote": "Администраторите виждат само общи суми за всички, които споделят, никога само вас. Изключете го по всяко време и веднага отпадате от сумите.",
+  "dataSharingConfirmTitle": "Да се споделят ли данните за използването?",
+  "dataSharingConfirmAction": "Споделяне",
+  "sharedUsageTitle": "Споделено използване",
+  "sharedUsageParticipants": "Акаунти, които споделят данни за използването: {sharing} от {total}. Само суми, без съдържание.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Все още никой не споделя данни за използването. Може да се включи в Настройки, Профил, Вашите данни.",
+  "sharedUsageRuns": "Споделени изпълнения",
+  "sharedUsageAvgDuration": "Средна продълж.",
+  "sharedUsageCompletedRuns": "Завършени изпълнения",
+  "sharedUsageStepsPerRun": "Стъпки на изпълнение",
+  "sharedUsageDevices": "Устройства",
+  "sharedUsageAppVersions": "Версии на приложението",
+  "sharedUsageLanguages": "Езици",
+  "sharedUsageRegions": "Региони",
+  "sharedUsageFeatures": "Използване на функции",
+  "sharedUsageFeaturesDescription": "Дял на споделящите акаунти, които са я настроили.",
+  "sharedUsageTools": "Инструменти",
+  "sharedUsageToolsDescription": "Най-извиквани инструменти ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Извиквания: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Неуспешни: {percent}%",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Интеграции",
+  "sharedUsageMessaging": "Канали за съобщения",
+  "sharedUsageTriggers": "Как започват изпълненията",
+  "sharedUsageActivity": "Кога се използва",
+  "sharedUsageActivityDescription": "Изпълнения по ден от седмицата и час, UTC.",
+  "sharedUsageModels": "Производителност на моделите",
+  "sharedUsageModelDetail": "средно {latency} · {cached}% от кеша · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Акаунти: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Няма нищо за този период.",
+  "sharedUsageNotReported": "Все още не е отчетено",
+  "sharedUsageFeatureAgents": "Повече от един агент",
+  "sharedUsageFeatureTasks": "Планирани задачи",
+  "sharedUsageFeatureSkills": "Умения",
+  "sharedUsageFeatureMcp": "MCP сървъри",
+  "sharedUsageFeatureIntegrations": "Интеграции",
+  "sharedUsageFeatureMessaging": "Канали за съобщения",
+  "sharedUsageFeatureMemory": "Памет",
+  "sharedUsageSearchKeywords": "opt-in споделяне на данни телеметрия устройства функции инструменти модели активност",
+  "providerChooseUsername": "Изберете потребителско име",
+  "providerChooseUsernameBody": "Изберете свободно потребителско име, за да завършите създаването на акаунта си."
 }

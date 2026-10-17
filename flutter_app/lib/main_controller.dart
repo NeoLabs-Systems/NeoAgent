@@ -35,6 +35,7 @@ class NeoAgentController extends ChangeNotifier {
     _AppNotificationService.onCallAction = _handleCallNotificationAction;
     _AppNotificationService.onApprovalAction = _resolveApprovalFromNotification;
     _AppNotificationService.listenForActions();
+    _systemCallActions = CallBridge.actions.listen(_handleSystemCallAction);
 
     _clientLogs = AppDiagnostics.recentEntries
         .map(_logEntryFromDiagnostic)
@@ -214,6 +215,12 @@ class NeoAgentController extends ChangeNotifier {
   List<LinkedAuthProviderItem> linkedAuthProviders =
       const <LinkedAuthProviderItem>[];
   List<SecurityKeyItem> accountSecurityKeys = const <SecurityKeyItem>[];
+
+  /// Opt-in usage data sharing; see `server/services/account/data_sharing.js`.
+  bool sharesUsageData = false;
+  DateTime? usageDataSharingSince;
+  bool isSavingDataSharing = false;
+  int? _dataSharingReportedCycle;
   QrLoginChallenge? qrLoginChallenge;
 
   /// Set while a phone that scanned [qrLoginChallenge] decides on it.
@@ -318,6 +325,11 @@ class NeoAgentController extends ChangeNotifier {
   bool _returnHomeAfterCall = false;
   final HomeWidgetBridge _homeWidgetBridge = HomeWidgetBridge();
   Timer? _incomingCallExpiryTimer;
+  StreamSubscription<({String callId, String action})>? _systemCallActions;
+
+  /// A call answered or declined on the system's call screen before the
+  /// server's invitation reached the app.
+  ({String callId, String action})? _earlySystemCallAction;
   Completer<void>? _liveVoiceSessionOpenCompleter;
   final LiveVoicePlayer _liveVoicePlayer = LiveVoicePlayer();
   VoiceWorkClicks? _voiceWorkClicks;
@@ -494,6 +506,7 @@ class NeoAgentController extends ChangeNotifier {
     _backendClient.onSessionExpired = null;
     _manualRunCooldownTimer?.cancel();
     _incomingCallExpiryTimer?.cancel();
+    _systemCallActions?.cancel();
     _socket?.dispose();
     runActivity.dispose();
     _diagnosticLogSubscription?.cancel();
@@ -1984,6 +1997,8 @@ class NeoAgentController extends ChangeNotifier {
     accessSummary = null;
     linkedAuthProviders = const <LinkedAuthProviderItem>[];
     accountSecurityKeys = const <SecurityKeyItem>[];
+    sharesUsageData = false;
+    usageDataSharingSince = null;
     settings = const <String, dynamic>{};
     behaviorConfig = const <String, dynamic>{};
     chatMessages = const <ChatEntry>[];
@@ -2712,6 +2727,8 @@ class NeoAgentController extends ChangeNotifier {
         authStatus['user'] as Map<String, dynamic>,
       );
       _syncOnboardingFromAccount();
+      sharesUsageData = user?['sharesUsageData'] == true;
+      unawaited(_reportDataSharingClient(authCycle));
 
       final profilesResponse = await _backendClient.fetchAgentProfiles(
         backendUrl,
@@ -4364,8 +4381,16 @@ class NeoAgentController extends ChangeNotifier {
       unawaited(windowManager.show());
       unawaited(windowManager.focus());
     }
-    unawaited(CallBridge.startRinging());
-    unawaited(_AppNotificationService.showIncomingCallNotification(call));
+    unawaited(
+      CallBridge.startRinging(
+        callId: call.callId,
+        callerName: call.agentName,
+        expiresAt: call.expiresAt,
+      ),
+    );
+    if (!CallBridge.showsSystemCallScreen) {
+      unawaited(_AppNotificationService.showIncomingCallNotification(call));
+    }
     final broughtForward = await CallBridge.present();
     if (incomingAgentCall?.callId == call.callId) {
       _callBroughtAppForward = _callBroughtAppForward || broughtForward;
@@ -4379,6 +4404,18 @@ class NeoAgentController extends ChangeNotifier {
     final moveToBack = _callBroughtAppForward;
     _callBroughtAppForward = false;
     unawaited(CallBridge.dismiss(moveToBack: moveToBack));
+  }
+
+  void _handleSystemCallAction(({String callId, String action}) event) {
+    if (event.action == CallBridge.endAction) {
+      if (_liveVoiceSessionStartedAt != null) unawaited(hangUpVoiceCall());
+      return;
+    }
+    if (incomingAgentCall?.callId != event.callId) {
+      _earlySystemCallAction = event;
+      return;
+    }
+    _handleCallNotificationAction(event.callId, event.action);
   }
 
   void _handleCallNotificationAction(String callId, String action) {
@@ -5018,6 +5055,50 @@ class NeoAgentController extends ChangeNotifier {
           .whereType<Map<dynamic, dynamic>>()
           .map(LinkedAuthProviderItem.fromJson)
           .toList();
+    }
+    final dataSharing = response['dataSharing'];
+    if (dataSharing is Map) {
+      sharesUsageData = dataSharing['enabled'] == true;
+      usageDataSharingSince = DateTime.tryParse(
+        dataSharing['since']?.toString() ?? '',
+      )?.toLocal();
+    }
+  }
+
+  Future<bool> setUsageDataSharing(bool enabled) async {
+    isSavingDataSharing = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      _applyAccountResponse(
+        await _backendClient.updateDataSharing(
+          baseUrl: backendUrl,
+          enabled: enabled,
+          client: enabled ? await describeClientForDataSharing() : null,
+        ),
+      );
+      return true;
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      return false;
+    } finally {
+      isSavingDataSharing = false;
+      notifyListeners();
+    }
+  }
+
+  /// Keeps the shared platform and app version current, once per sign-in.
+  Future<void> _reportDataSharingClient(int authCycle) async {
+    if (!sharesUsageData || _dataSharingReportedCycle == authCycle) return;
+    _dataSharingReportedCycle = authCycle;
+    try {
+      await _backendClient.reportDataSharingClient(
+        baseUrl: backendUrl,
+        client: await describeClientForDataSharing(),
+      );
+    } catch (_) {
+      // Best effort: the next sign-in reports again.
+      _dataSharingReportedCycle = null;
     }
   }
 
@@ -7405,7 +7486,9 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   bool get showHealthSection =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   Future<void> _syncBackgroundHealthConfig() async {
     final cookie = _backendClient.sessionCookie ?? '';
@@ -7691,6 +7774,11 @@ class NeoAgentController extends ChangeNotifier {
       );
       lastEndedCall = null;
       unawaited(_ringIncomingAgentCall(call));
+      final early = _earlySystemCallAction;
+      _earlySystemCallAction = null;
+      if (early?.callId == call.callId) {
+        _handleCallNotificationAction(early!.callId, early.action);
+      }
       notifyListeners();
     });
     socket.on('voice:call_cancelled', (dynamic data) {

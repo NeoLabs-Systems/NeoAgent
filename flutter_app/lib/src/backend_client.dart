@@ -444,6 +444,26 @@ class BackendClient {
     });
   }
 
+  Future<Map<String, dynamic>> updateDataSharing({
+    required String baseUrl,
+    required bool enabled,
+    Map<String, dynamic>? client,
+  }) async {
+    return putMap(baseUrl, '/api/account/data-sharing', <String, dynamic>{
+      'enabled': enabled,
+      if (client != null) 'client': client,
+    });
+  }
+
+  Future<Map<String, dynamic>> reportDataSharingClient({
+    required String baseUrl,
+    required Map<String, dynamic> client,
+  }) async {
+    return putMap(baseUrl, '/api/account/data-sharing/client', <String, dynamic>{
+      'client': client,
+    });
+  }
+
   Future<Map<String, dynamic>> updateAccountDisplayName({
     required String baseUrl,
     required String displayName,

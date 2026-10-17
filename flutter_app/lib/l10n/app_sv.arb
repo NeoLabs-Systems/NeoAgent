@@ -6990,5 +6990,119 @@
   "signupKeysSaveDialogTitle": "Spara registreringsnycklar",
   "signupKeysExported": "Nycklarna exporterades.",
   "auditSignupKeysCreated": "{actor} skapade registreringsnycklar ({count})",
-  "auditSignupKeyRevoked": "{actor} återkallade en registreringsnyckel"
+  "auditSignupKeyRevoked": "{actor} återkallade en registreringsnyckel",
+  "dataSharingTitle": "Dela användningsdata",
+  "dataSharingDescription": "Hjälp de som driver den här servern att förbättra den. Delar hur du använder NeoAgent, aldrig vad du skriver eller sparar.",
+  "dataSharingSince": "Delar sedan {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Vad som delas",
+  "dataSharingIncluded": "Delas",
+  "dataSharingExcluded": "Delas aldrig",
+  "dataSharingIncludedDevice": "Enhetstyp och appversion",
+  "dataSharingIncludedLocale": "Appspråk och tidszonsregion, till exempel Europa",
+  "dataSharingIncludedFeatures": "Vilka funktioner du har konfigurerat, som uppgifter, skills och integrationer",
+  "dataSharingIncludedRuns": "Vilka verktyg och modeller dina körningar använder, med tider och antal tokens",
+  "dataSharingIncludedActivity": "När du använder NeoAgent, per veckodag och timme",
+  "dataSharingExcludedContent": "Meddelanden, prompter och svar",
+  "dataSharingExcludedRuns": "Körningstitlar, verktygsindata och -resultat",
+  "dataSharingExcludedFiles": "Filer, minnen och allt annat du sparar",
+  "dataSharingExcludedIdentity": "Ditt namn, din e-post, IP-adress och plats",
+  "dataSharingExcludedAccounts": "Kontona du kopplar integrationer med",
+  "dataSharingPooledNote": "Administratörer ser bara summor över alla som delar, aldrig dig ensam. Stäng av när du vill så försvinner du direkt ur summorna.",
+  "dataSharingConfirmTitle": "Dela användningsdata?",
+  "dataSharingConfirmAction": "Dela",
+  "sharedUsageTitle": "Delad användning",
+  "sharedUsageParticipants": "Konton som delar användningsdata: {sharing} av {total}. Bara summor, inget innehåll.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Ingen delar användningsdata ännu. Det går att slå på under Inställningar, Profil, Dina data.",
+  "sharedUsageRuns": "Delade körningar",
+  "sharedUsageAvgDuration": "Snittid",
+  "sharedUsageCompletedRuns": "Slutförda körningar",
+  "sharedUsageStepsPerRun": "Steg per körning",
+  "sharedUsageDevices": "Enheter",
+  "sharedUsageAppVersions": "Appversioner",
+  "sharedUsageLanguages": "Språk",
+  "sharedUsageRegions": "Regioner",
+  "sharedUsageFeatures": "Funktionsanvändning",
+  "sharedUsageFeaturesDescription": "Andel av de delande kontona som har konfigurerat den.",
+  "sharedUsageTools": "Verktyg",
+  "sharedUsageToolsDescription": "Mest anropade verktyg ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Anrop: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Misslyckade: {percent} %",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integrationer",
+  "sharedUsageMessaging": "Meddelandekanaler",
+  "sharedUsageTriggers": "Hur körningar startar",
+  "sharedUsageActivity": "När det används",
+  "sharedUsageActivityDescription": "Körningar per veckodag och timme, UTC.",
+  "sharedUsageModels": "Modellprestanda",
+  "sharedUsageModelDetail": "snitt {latency} · {cached} % cachat · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Konton: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Inget under den här perioden.",
+  "sharedUsageNotReported": "Inte rapporterat än",
+  "sharedUsageFeatureAgents": "Fler än en agent",
+  "sharedUsageFeatureTasks": "Schemalagda uppgifter",
+  "sharedUsageFeatureSkills": "Skills",
+  "sharedUsageFeatureMcp": "MCP-servrar",
+  "sharedUsageFeatureIntegrations": "Integrationer",
+  "sharedUsageFeatureMessaging": "Meddelandekanaler",
+  "sharedUsageFeatureMemory": "Minne",
+  "sharedUsageSearchKeywords": "opt-in datadelning telemetri enheter funktioner verktyg modeller aktivitet",
+  "providerChooseUsername": "Välj ditt användarnamn",
+  "providerChooseUsernameBody": "Välj ett ledigt användarnamn för att slutföra ditt konto."
 }

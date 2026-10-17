@@ -9,8 +9,14 @@ class TelecomBridge {
 
   static const MethodChannel _telecomChannel = MethodChannel('neoagent/telecom');
 
+  /// Android's Telecom and iOS's CallKit hold the call.
+  static bool get _supported =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
   Future<bool> startTelecomCallRouting() async {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    if (_supported) {
       try {
         await _telecomChannel.invokeMethod<void>('startCallRouting');
         return true;
@@ -25,7 +31,7 @@ class TelecomBridge {
   }
 
   Future<bool> stopTelecomCallRouting() async {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    if (_supported) {
       try {
         await _telecomChannel.invokeMethod<void>('stopCallRouting');
         return true;

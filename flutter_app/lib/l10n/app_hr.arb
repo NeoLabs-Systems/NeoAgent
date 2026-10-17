@@ -6990,5 +6990,119 @@
   "signupKeysSaveDialogTitle": "Spremi registracijske ključeve",
   "signupKeysExported": "Ključevi izvezeni.",
   "auditSignupKeysCreated": "{actor} je stvorio/la registracijske ključeve ({count})",
-  "auditSignupKeyRevoked": "{actor} je opozvao/la registracijski ključ"
+  "auditSignupKeyRevoked": "{actor} je opozvao/la registracijski ključ",
+  "dataSharingTitle": "Dijeli podatke o korištenju",
+  "dataSharingDescription": "Pomozite onima koji vode ovaj poslužitelj da ga poboljšaju. Dijeli kako koristite NeoAgent, nikad ono što pišete ili spremate.",
+  "dataSharingSince": "Dijeli se od {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Što se dijeli",
+  "dataSharingIncluded": "Dijeli se",
+  "dataSharingExcluded": "Nikad se ne dijeli",
+  "dataSharingIncludedDevice": "Vrsta uređaja i verzija aplikacije",
+  "dataSharingIncludedLocale": "Jezik aplikacije i regija vremenske zone, npr. Europa",
+  "dataSharingIncludedFeatures": "Koje ste značajke postavili, poput zadataka, skillova i integracija",
+  "dataSharingIncludedRuns": "Koje alate i modele koriste vaša pokretanja, s trajanjem i brojem tokena",
+  "dataSharingIncludedActivity": "Kada koristite NeoAgent, po danu u tjednu i satu",
+  "dataSharingExcludedContent": "Poruke, upiti i odgovori",
+  "dataSharingExcludedRuns": "Naslovi pokretanja, ulazi i rezultati alata",
+  "dataSharingExcludedFiles": "Datoteke, sjećanja i sve ostalo što spremate",
+  "dataSharingExcludedIdentity": "Vaše ime, e-pošta, IP adresa i lokacija",
+  "dataSharingExcludedAccounts": "Računi s kojima povezujete integracije",
+  "dataSharingPooledNote": "Administratori vide samo zbrojeve svih koji dijele, nikad vas pojedinačno. Isključite bilo kada i odmah ispadate iz zbrojeva.",
+  "dataSharingConfirmTitle": "Dijeliti podatke o korištenju?",
+  "dataSharingConfirmAction": "Dijeli",
+  "sharedUsageTitle": "Dijeljeno korištenje",
+  "sharedUsageParticipants": "Računi koji dijele podatke o korištenju: {sharing} od {total}. Samo zbrojevi, bez sadržaja.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Još nitko ne dijeli podatke o korištenju. Uključiti se može u: Postavke, Profil, Vaši podaci.",
+  "sharedUsageRuns": "Dijeljena pokretanja",
+  "sharedUsageAvgDuration": "Prosj. trajanje",
+  "sharedUsageCompletedRuns": "Dovršena pokretanja",
+  "sharedUsageStepsPerRun": "Koraci po pokretanju",
+  "sharedUsageDevices": "Uređaji",
+  "sharedUsageAppVersions": "Verzije aplikacije",
+  "sharedUsageLanguages": "Jezici",
+  "sharedUsageRegions": "Regije",
+  "sharedUsageFeatures": "Korištenje značajki",
+  "sharedUsageFeaturesDescription": "Udio računa koji dijele i koji su je postavili.",
+  "sharedUsageTools": "Alati",
+  "sharedUsageToolsDescription": "Najčešće pozivani alati ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Pozivi: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Neuspjelo: {percent} %",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integracije",
+  "sharedUsageMessaging": "Kanali za poruke",
+  "sharedUsageTriggers": "Kako počinju pokretanja",
+  "sharedUsageActivity": "Kada se koristi",
+  "sharedUsageActivityDescription": "Pokretanja po danu u tjednu i satu, UTC.",
+  "sharedUsageModels": "Učinkovitost modela",
+  "sharedUsageModelDetail": "prosj. {latency} · {cached} % iz predmemorije · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Računi: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Ništa u ovom razdoblju.",
+  "sharedUsageNotReported": "Još nije prijavljeno",
+  "sharedUsageFeatureAgents": "Više od jednog agenta",
+  "sharedUsageFeatureTasks": "Zakazani zadaci",
+  "sharedUsageFeatureSkills": "Skillovi",
+  "sharedUsageFeatureMcp": "MCP poslužitelji",
+  "sharedUsageFeatureIntegrations": "Integracije",
+  "sharedUsageFeatureMessaging": "Kanali za poruke",
+  "sharedUsageFeatureMemory": "Memorija",
+  "sharedUsageSearchKeywords": "opt-in dijeljenje podataka telemetrija uređaji značajke alati modeli aktivnost",
+  "providerChooseUsername": "Odaberite korisničko ime",
+  "providerChooseUsernameBody": "Odaberite dostupno korisničko ime kako biste dovršili izradu računa."
 }

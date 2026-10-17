@@ -6990,5 +6990,119 @@
   "signupKeysSaveDialogTitle": "Registratiesleutels opslaan",
   "signupKeysExported": "Sleutels geëxporteerd.",
   "auditSignupKeysCreated": "{actor} heeft registratiesleutels aangemaakt ({count})",
-  "auditSignupKeyRevoked": "{actor} heeft een registratiesleutel ingetrokken"
+  "auditSignupKeyRevoked": "{actor} heeft een registratiesleutel ingetrokken",
+  "dataSharingTitle": "Gebruiksgegevens delen",
+  "dataSharingDescription": "Help de beheerders van deze server hem te verbeteren. Deelt hoe je NeoAgent gebruikt, nooit wat je schrijft of opslaat.",
+  "dataSharingSince": "Gedeeld sinds {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Wat er gedeeld wordt",
+  "dataSharingIncluded": "Gedeeld",
+  "dataSharingExcluded": "Nooit gedeeld",
+  "dataSharingIncludedDevice": "Apparaattype en app-versie",
+  "dataSharingIncludedLocale": "App-taal en tijdzoneregio, zoals Europa",
+  "dataSharingIncludedFeatures": "Welke functies je hebt ingesteld, zoals taken, skills en integraties",
+  "dataSharingIncludedRuns": "Welke tools en modellen je runs gebruiken, met duur en aantal tokens",
+  "dataSharingIncludedActivity": "Wanneer je NeoAgent gebruikt, per weekdag en uur",
+  "dataSharingExcludedContent": "Berichten, prompts en antwoorden",
+  "dataSharingExcludedRuns": "Run-titels, tool-invoer en -resultaten",
+  "dataSharingExcludedFiles": "Bestanden, herinneringen en alles wat je verder opslaat",
+  "dataSharingExcludedIdentity": "Je naam, e-mail, IP-adres en locatie",
+  "dataSharingExcludedAccounts": "De accounts waarmee je integraties koppelt",
+  "dataSharingPooledNote": "Beheerders zien alleen totalen over iedereen die deelt, nooit jou afzonderlijk. Zet het op elk moment uit en je valt direct uit de totalen.",
+  "dataSharingConfirmTitle": "Gebruiksgegevens delen?",
+  "dataSharingConfirmAction": "Delen",
+  "sharedUsageTitle": "Gedeeld gebruik",
+  "sharedUsageParticipants": "Accounts die gebruiksgegevens delen: {sharing} van {total}. Alleen totalen, geen inhoud.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Nog niemand deelt gebruiksgegevens. Het staat aan te zetten onder Instellingen, Profiel, Jouw gegevens.",
+  "sharedUsageRuns": "Gedeelde runs",
+  "sharedUsageAvgDuration": "Gem. duur",
+  "sharedUsageCompletedRuns": "Voltooide runs",
+  "sharedUsageStepsPerRun": "Stappen per run",
+  "sharedUsageDevices": "Apparaten",
+  "sharedUsageAppVersions": "App-versies",
+  "sharedUsageLanguages": "Talen",
+  "sharedUsageRegions": "Regio's",
+  "sharedUsageFeatures": "Gebruik van functies",
+  "sharedUsageFeaturesDescription": "Aandeel van de delende accounts dat het heeft ingesteld.",
+  "sharedUsageTools": "Tools",
+  "sharedUsageToolsDescription": "Meest aangeroepen tools ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Aanroepen: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Mislukt: {percent}%",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integraties",
+  "sharedUsageMessaging": "Berichtenkanalen",
+  "sharedUsageTriggers": "Hoe runs starten",
+  "sharedUsageActivity": "Wanneer het gebruikt wordt",
+  "sharedUsageActivityDescription": "Runs per weekdag en uur, UTC.",
+  "sharedUsageModels": "Modelprestaties",
+  "sharedUsageModelDetail": "gem. {latency} · {cached}% gecachet · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Accounts: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Niets in deze periode.",
+  "sharedUsageNotReported": "Nog niet gemeld",
+  "sharedUsageFeatureAgents": "Meer dan één agent",
+  "sharedUsageFeatureTasks": "Geplande taken",
+  "sharedUsageFeatureSkills": "Skills",
+  "sharedUsageFeatureMcp": "MCP-servers",
+  "sharedUsageFeatureIntegrations": "Integraties",
+  "sharedUsageFeatureMessaging": "Berichtenkanalen",
+  "sharedUsageFeatureMemory": "Geheugen",
+  "sharedUsageSearchKeywords": "opt-in gegevens delen telemetrie apparaten functies tools modellen activiteit",
+  "providerChooseUsername": "Kies je gebruikersnaam",
+  "providerChooseUsernameBody": "Kies een beschikbare gebruikersnaam om je account af te ronden."
 }

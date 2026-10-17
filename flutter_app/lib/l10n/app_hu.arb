@@ -6990,5 +6990,119 @@
   "signupKeysSaveDialogTitle": "Regisztrációs kulcsok mentése",
   "signupKeysExported": "Kulcsok exportálva.",
   "auditSignupKeysCreated": "{actor} regisztrációs kulcsokat hozott létre ({count})",
-  "auditSignupKeyRevoked": "{actor} visszavont egy regisztrációs kulcsot"
+  "auditSignupKeyRevoked": "{actor} visszavont egy regisztrációs kulcsot",
+  "dataSharingTitle": "Használati adatok megosztása",
+  "dataSharingDescription": "Segíts a szerver üzemeltetőinek jobbá tenni. Azt osztja meg, hogyan használod a NeoAgentet, soha nem azt, amit írsz vagy tárolsz.",
+  "dataSharingSince": "Megosztva ekkortól: {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Mi kerül megosztásra",
+  "dataSharingIncluded": "Megosztva",
+  "dataSharingExcluded": "Soha nincs megosztva",
+  "dataSharingIncludedDevice": "Eszköztípus és alkalmazásverzió",
+  "dataSharingIncludedLocale": "Az alkalmazás nyelve és az időzóna régiója, például Európa",
+  "dataSharingIncludedFeatures": "Mely funkciókat állítottad be, például feladatokat, skilleket és integrációkat",
+  "dataSharingIncludedRuns": "Mely eszközöket és modelleket használnak a futtatásaid, időtartammal és tokenszámmal",
+  "dataSharingIncludedActivity": "Mikor használod a NeoAgentet, a hét napja és óra szerint",
+  "dataSharingExcludedContent": "Üzenetek, promptok és válaszok",
+  "dataSharingExcludedRuns": "Futtatások címei, eszközök bemenetei és eredményei",
+  "dataSharingExcludedFiles": "Fájlok, emlékek és minden más, amit tárolsz",
+  "dataSharingExcludedIdentity": "A neved, e-mail-címed, IP-címed és helyzeted",
+  "dataSharingExcludedAccounts": "A fiókok, amelyekkel integrációkat kapcsolsz össze",
+  "dataSharingPooledNote": "Az adminisztrátorok csak az összes megosztó összesített adatait látják, soha nem téged külön. Bármikor kikapcsolhatod, és azonnal kikerülsz az összesítésből.",
+  "dataSharingConfirmTitle": "Megosztod a használati adatokat?",
+  "dataSharingConfirmAction": "Megosztás",
+  "sharedUsageTitle": "Megosztott használat",
+  "sharedUsageParticipants": "Használati adatokat megosztó fiókok: {sharing} / {total}. Csak összesítések, tartalom nélkül.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Még senki sem oszt meg használati adatokat. Bekapcsolható itt: Beállítások, Profil, Az Ön adatai.",
+  "sharedUsageRuns": "Megosztott futtatások",
+  "sharedUsageAvgDuration": "Átl. időtartam",
+  "sharedUsageCompletedRuns": "Befejezett futtatások",
+  "sharedUsageStepsPerRun": "Lépések futtatásonként",
+  "sharedUsageDevices": "Készülékek",
+  "sharedUsageAppVersions": "Alkalmazásverziók",
+  "sharedUsageLanguages": "Nyelvek",
+  "sharedUsageRegions": "Régiók",
+  "sharedUsageFeatures": "Funkcióhasználat",
+  "sharedUsageFeaturesDescription": "A megosztó fiókok aránya, amelyek beállították.",
+  "sharedUsageTools": "Eszközök",
+  "sharedUsageToolsDescription": "Leggyakrabban hívott eszközök ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Hívások: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Sikertelen: {percent}%",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integrációk",
+  "sharedUsageMessaging": "Üzenetküldő csatornák",
+  "sharedUsageTriggers": "Hogyan indulnak a futtatások",
+  "sharedUsageActivity": "Mikor használják",
+  "sharedUsageActivityDescription": "Futtatások a hét napja és óra szerint, UTC.",
+  "sharedUsageModels": "Modellteljesítmény",
+  "sharedUsageModelDetail": "átl. {latency} · {cached}% gyorsítótárból · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Fiókok: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Ebben az időszakban nincs adat.",
+  "sharedUsageNotReported": "Még nincs jelentve",
+  "sharedUsageFeatureAgents": "Több mint egy ügynök",
+  "sharedUsageFeatureTasks": "Ütemezett feladatok",
+  "sharedUsageFeatureSkills": "Skillek",
+  "sharedUsageFeatureMcp": "MCP-szerverek",
+  "sharedUsageFeatureIntegrations": "Integrációk",
+  "sharedUsageFeatureMessaging": "Üzenetküldő csatornák",
+  "sharedUsageFeatureMemory": "Memória",
+  "sharedUsageSearchKeywords": "opt-in adatmegosztás telemetria készülékek funkciók eszközök modellek aktivitás",
+  "providerChooseUsername": "Válassz felhasználónevet",
+  "providerChooseUsernameBody": "Válassz egy szabad felhasználónevet a fiók létrehozásának befejezéséhez."
 }

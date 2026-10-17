@@ -44,7 +44,7 @@ class AppLaunchBridge {
   static Stream<AppLaunchRequest>? _launchRequests;
 
   Stream<AppLaunchRequest> get launchRequests {
-    if (!_isAndroid) {
+    if (!_isSupported) {
       return const Stream<AppLaunchRequest>.empty();
     }
     return _launchRequests ??= _events
@@ -53,6 +53,8 @@ class AppLaunchBridge {
         .where((request) => request.action.trim().isNotEmpty);
   }
 
-  bool get _isAndroid =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  bool get _isSupported =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 }

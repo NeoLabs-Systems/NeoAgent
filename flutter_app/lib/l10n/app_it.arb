@@ -6990,5 +6990,119 @@
   "signupKeysSaveDialogTitle": "Salva chiavi di registrazione",
   "signupKeysExported": "Chiavi esportate.",
   "auditSignupKeysCreated": "{actor} ha creato chiavi di registrazione ({count})",
-  "auditSignupKeyRevoked": "{actor} ha revocato una chiave di registrazione"
+  "auditSignupKeyRevoked": "{actor} ha revocato una chiave di registrazione",
+  "dataSharingTitle": "Condividi dati di utilizzo",
+  "dataSharingDescription": "Aiuta chi gestisce questo server a migliorarlo. Condivide come usi NeoAgent, mai ciò che scrivi o salvi.",
+  "dataSharingSince": "Condivisione attiva dal {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Cosa viene condiviso",
+  "dataSharingIncluded": "Condiviso",
+  "dataSharingExcluded": "Mai condiviso",
+  "dataSharingIncludedDevice": "Tipo di dispositivo e versione dell'app",
+  "dataSharingIncludedLocale": "Lingua dell'app e regione del fuso orario, ad esempio Europa",
+  "dataSharingIncludedFeatures": "Quali funzioni hai configurato, come attività, skill e integrazioni",
+  "dataSharingIncludedRuns": "Quali strumenti e modelli usano le tue esecuzioni, con tempi e numero di token",
+  "dataSharingIncludedActivity": "Quando usi NeoAgent, per giorno della settimana e ora",
+  "dataSharingExcludedContent": "Messaggi, prompt e risposte",
+  "dataSharingExcludedRuns": "Titoli delle esecuzioni, input e risultati degli strumenti",
+  "dataSharingExcludedFiles": "File, ricordi e tutto ciò che salvi",
+  "dataSharingExcludedIdentity": "Il tuo nome, email, indirizzo IP e posizione",
+  "dataSharingExcludedAccounts": "Gli account con cui colleghi le integrazioni",
+  "dataSharingPooledNote": "Gli amministratori vedono solo totali su tutte le persone che condividono, mai te singolarmente. Puoi disattivarlo in qualsiasi momento ed esci subito dai totali.",
+  "dataSharingConfirmTitle": "Condividere i dati di utilizzo?",
+  "dataSharingConfirmAction": "Condividi",
+  "sharedUsageTitle": "Utilizzo condiviso",
+  "sharedUsageParticipants": "Account che condividono dati di utilizzo: {sharing} su {total}. Solo totali, nessun contenuto.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Nessuno condivide ancora dati di utilizzo. Si può attivare in Impostazioni, Profilo, I tuoi dati.",
+  "sharedUsageRuns": "Esecuzioni condivise",
+  "sharedUsageAvgDuration": "Durata media",
+  "sharedUsageCompletedRuns": "Esecuzioni completate",
+  "sharedUsageStepsPerRun": "Passaggi per esecuzione",
+  "sharedUsageDevices": "Dispositivi",
+  "sharedUsageAppVersions": "Versioni dell'app",
+  "sharedUsageLanguages": "Lingue",
+  "sharedUsageRegions": "Regioni",
+  "sharedUsageFeatures": "Adozione delle funzioni",
+  "sharedUsageFeaturesDescription": "Quota di account che condividono e l'hanno configurata.",
+  "sharedUsageTools": "Strumenti",
+  "sharedUsageToolsDescription": "Strumenti più chiamati ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Chiamate: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Errori: {percent}%",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integrazioni",
+  "sharedUsageMessaging": "Canali di messaggistica",
+  "sharedUsageTriggers": "Come iniziano le esecuzioni",
+  "sharedUsageActivity": "Quando viene usato",
+  "sharedUsageActivityDescription": "Esecuzioni per giorno della settimana e ora, UTC.",
+  "sharedUsageModels": "Prestazioni dei modelli",
+  "sharedUsageModelDetail": "{latency} in media · {cached}% in cache · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Account: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Niente in questo periodo.",
+  "sharedUsageNotReported": "Non ancora segnalato",
+  "sharedUsageFeatureAgents": "Più di un agente",
+  "sharedUsageFeatureTasks": "Attività pianificate",
+  "sharedUsageFeatureSkills": "Skill",
+  "sharedUsageFeatureMcp": "Server MCP",
+  "sharedUsageFeatureIntegrations": "Integrazioni",
+  "sharedUsageFeatureMessaging": "Canali di messaggistica",
+  "sharedUsageFeatureMemory": "Memoria",
+  "sharedUsageSearchKeywords": "condivisione dati opt-in telemetria dispositivi funzioni strumenti modelli attività",
+  "providerChooseUsername": "Scegli il tuo nome utente",
+  "providerChooseUsernameBody": "Scegli un nome utente disponibile per completare la creazione dell'account."
 }

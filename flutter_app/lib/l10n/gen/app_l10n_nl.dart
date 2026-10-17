@@ -11298,9 +11298,198 @@ class AppL10nNl extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Kies je gebruikersnaam';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Kies een beschikbare gebruikersnaam om je account af te ronden.';
+
+  @override
+  String get dataSharingTitle => 'Gebruiksgegevens delen';
+
+  @override
+  String get dataSharingDescription =>
+      'Help de beheerders van deze server hem te verbeteren. Deelt hoe je NeoAgent gebruikt, nooit wat je schrijft of opslaat.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Gedeeld sinds $date.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'Wat er gedeeld wordt';
+
+  @override
+  String get dataSharingIncluded => 'Gedeeld';
+
+  @override
+  String get dataSharingExcluded => 'Nooit gedeeld';
+
+  @override
+  String get dataSharingIncludedDevice => 'Apparaattype en app-versie';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'App-taal en tijdzoneregio, zoals Europa';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Welke functies je hebt ingesteld, zoals taken, skills en integraties';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Welke tools en modellen je runs gebruiken, met duur en aantal tokens';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'Wanneer je NeoAgent gebruikt, per weekdag en uur';
+
+  @override
+  String get dataSharingExcludedContent => 'Berichten, prompts en antwoorden';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Run-titels, tool-invoer en -resultaten';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Bestanden, herinneringen en alles wat je verder opslaat';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'Je naam, e-mail, IP-adres en locatie';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'De accounts waarmee je integraties koppelt';
+
+  @override
+  String get dataSharingPooledNote =>
+      'Beheerders zien alleen totalen over iedereen die deelt, nooit jou afzonderlijk. Zet het op elk moment uit en je valt direct uit de totalen.';
+
+  @override
+  String get dataSharingConfirmTitle => 'Gebruiksgegevens delen?';
+
+  @override
+  String get dataSharingConfirmAction => 'Delen';
+
+  @override
+  String get sharedUsageTitle => 'Gedeeld gebruik';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Accounts die gebruiksgegevens delen: $sharing van $total. Alleen totalen, geen inhoud.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Nog niemand deelt gebruiksgegevens. Het staat aan te zetten onder Instellingen, Profiel, Jouw gegevens.';
+
+  @override
+  String get sharedUsageRuns => 'Gedeelde runs';
+
+  @override
+  String get sharedUsageAvgDuration => 'Gem. duur';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Voltooide runs';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Stappen per run';
+
+  @override
+  String get sharedUsageDevices => 'Apparaten';
+
+  @override
+  String get sharedUsageAppVersions => 'App-versies';
+
+  @override
+  String get sharedUsageLanguages => 'Talen';
+
+  @override
+  String get sharedUsageRegions => 'Regio\'s';
+
+  @override
+  String get sharedUsageFeatures => 'Gebruik van functies';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'Aandeel van de delende accounts dat het heeft ingesteld.';
+
+  @override
+  String get sharedUsageTools => 'Tools';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'Meest aangeroepen tools ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Aanroepen: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Mislukt: $percent%';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Integraties';
+
+  @override
+  String get sharedUsageMessaging => 'Berichtenkanalen';
+
+  @override
+  String get sharedUsageTriggers => 'Hoe runs starten';
+
+  @override
+  String get sharedUsageActivity => 'Wanneer het gebruikt wordt';
+
+  @override
+  String get sharedUsageActivityDescription => 'Runs per weekdag en uur, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Modelprestaties';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return 'gem. $latency · $cached% gecachet · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Accounts: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'Niets in deze periode.';
+
+  @override
+  String get sharedUsageNotReported => 'Nog niet gemeld';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Meer dan één agent';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Geplande taken';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Skills';
+
+  @override
+  String get sharedUsageFeatureMcp => 'MCP-servers';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Integraties';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Berichtenkanalen';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Geheugen';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'opt-in gegevens delen telemetrie apparaten functies tools modellen activiteit';
 }

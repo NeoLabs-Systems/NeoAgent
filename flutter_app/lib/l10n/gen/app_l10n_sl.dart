@@ -11275,9 +11275,200 @@ class AppL10nSl extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Izberite uporabniško ime';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Izberite razpoložljivo uporabniško ime, da dokončate ustvarjanje računa.';
+
+  @override
+  String get dataSharingTitle => 'Deli podatke o uporabi';
+
+  @override
+  String get dataSharingDescription =>
+      'Pomagajte upraviteljem tega strežnika, da ga izboljšajo. Deli, kako uporabljate NeoAgent, nikoli tega, kar pišete ali shranjujete.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Deljeno od $date.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'Kaj se deli';
+
+  @override
+  String get dataSharingIncluded => 'Deli se';
+
+  @override
+  String get dataSharingExcluded => 'Nikoli se ne deli';
+
+  @override
+  String get dataSharingIncludedDevice =>
+      'Vrsta naprave in različica aplikacije';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'Jezik aplikacije in regija časovnega pasu, na primer Evropa';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Katere funkcije imate nastavljene, npr. opravila, skille in integracije';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Katera orodja in modele uporabljajo vaši zagoni, s trajanjem in številom žetonov';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'Kdaj uporabljate NeoAgent, po dnevih v tednu in urah';
+
+  @override
+  String get dataSharingExcludedContent => 'Sporočila, pozivi in odgovori';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Naslovi zagonov, vhodi in rezultati orodij';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Datoteke, spomini in vse drugo, kar shranjujete';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'Vaše ime, e-pošta, naslov IP in lokacija';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'Računi, s katerimi povezujete integracije';
+
+  @override
+  String get dataSharingPooledNote =>
+      'Skrbniki vidijo le seštevke vseh, ki delijo, nikoli vas posebej. Kadar koli izklopite in takoj izpadete iz seštevkov.';
+
+  @override
+  String get dataSharingConfirmTitle => 'Želite deliti podatke o uporabi?';
+
+  @override
+  String get dataSharingConfirmAction => 'Deli';
+
+  @override
+  String get sharedUsageTitle => 'Deljena uporaba';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Računi, ki delijo podatke o uporabi: $sharing od $total. Samo seštevki, brez vsebine.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Nihče še ne deli podatkov o uporabi. Vklopiti se da v: Nastavitve, Profil, Vaši podatki.';
+
+  @override
+  String get sharedUsageRuns => 'Deljeni zagoni';
+
+  @override
+  String get sharedUsageAvgDuration => 'Povpr. trajanje';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Dokončani zagoni';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Koraki na zagon';
+
+  @override
+  String get sharedUsageDevices => 'Naprave';
+
+  @override
+  String get sharedUsageAppVersions => 'Različice aplikacije';
+
+  @override
+  String get sharedUsageLanguages => 'Jeziki';
+
+  @override
+  String get sharedUsageRegions => 'Regije';
+
+  @override
+  String get sharedUsageFeatures => 'Uporaba funkcij';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'Delež računov, ki delijo in so jo nastavili.';
+
+  @override
+  String get sharedUsageTools => 'Orodja';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'Najpogosteje klicana orodja ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Klici: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Neuspešno: $percent %';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Integracije';
+
+  @override
+  String get sharedUsageMessaging => 'Kanali za sporočila';
+
+  @override
+  String get sharedUsageTriggers => 'Kako se zagoni začnejo';
+
+  @override
+  String get sharedUsageActivity => 'Kdaj se uporablja';
+
+  @override
+  String get sharedUsageActivityDescription =>
+      'Zagoni po dnevih v tednu in urah, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Zmogljivost modelov';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return 'povpr. $latency · $cached % iz predpomnilnika · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Računi: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'V tem obdobju ni ničesar.';
+
+  @override
+  String get sharedUsageNotReported => 'Še ni sporočeno';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Več kot en agent';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Načrtovana opravila';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Skilli';
+
+  @override
+  String get sharedUsageFeatureMcp => 'Strežniki MCP';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Integracije';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Kanali za sporočila';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Spomin';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'opt-in deljenje podatkov telemetrija naprave funkcije orodja modeli dejavnost';
 }

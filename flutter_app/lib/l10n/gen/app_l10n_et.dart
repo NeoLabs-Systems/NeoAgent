@@ -11268,9 +11268,199 @@ class AppL10nEt extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Vali kasutajanimi';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Konto loomise lõpetamiseks vali vaba kasutajanimi.';
+
+  @override
+  String get dataSharingTitle => 'Jaga kasutusandmeid';
+
+  @override
+  String get dataSharingDescription =>
+      'Aita selle serveri haldajatel seda paremaks teha. Jagab seda, kuidas sa NeoAgenti kasutad, mitte kunagi seda, mida kirjutad või salvestad.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Jagatud alates $date.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'Mida jagatakse';
+
+  @override
+  String get dataSharingIncluded => 'Jagatakse';
+
+  @override
+  String get dataSharingExcluded => 'Ei jagata kunagi';
+
+  @override
+  String get dataSharingIncludedDevice => 'Seadme tüüp ja rakenduse versioon';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'Rakenduse keel ja ajavööndi piirkond, näiteks Euroopa';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Milliseid funktsioone oled seadistanud, nagu ülesanded, oskused ja integratsioonid';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Milliseid tööriistu ja mudeleid sinu käivitused kasutavad, koos kestuste ja tokenite arvuga';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'Millal sa NeoAgenti kasutad, nädalapäeva ja tunni kaupa';
+
+  @override
+  String get dataSharingExcludedContent => 'Sõnumid, viibad ja vastused';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Käivituste pealkirjad, tööriistade sisendid ja tulemused';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Failid, mälestused ja kõik muu, mida salvestad';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'Sinu nimi, e-post, IP-aadress ja asukoht';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'Kontod, millega integratsioone ühendad';
+
+  @override
+  String get dataSharingPooledNote =>
+      'Administraatorid näevad ainult kõigi jagajate kogusummasid, mitte kunagi sind eraldi. Lülita see igal ajal välja ja sa kaod kohe summadest.';
+
+  @override
+  String get dataSharingConfirmTitle => 'Kas jagada kasutusandmeid?';
+
+  @override
+  String get dataSharingConfirmAction => 'Jaga';
+
+  @override
+  String get sharedUsageTitle => 'Jagatud kasutus';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Kasutusandmeid jagavad kontod: $sharing/$total. Ainult summad, mitte sisu.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Keegi ei jaga veel kasutusandmeid. Selle saab sisse lülitada: Seaded, Profiil, Teie andmed.';
+
+  @override
+  String get sharedUsageRuns => 'Jagatud käivitused';
+
+  @override
+  String get sharedUsageAvgDuration => 'Keskm. kestus';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Lõpetatud käivitused';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Samme käivituse kohta';
+
+  @override
+  String get sharedUsageDevices => 'Seadmed';
+
+  @override
+  String get sharedUsageAppVersions => 'Rakenduse versioonid';
+
+  @override
+  String get sharedUsageLanguages => 'Keeled';
+
+  @override
+  String get sharedUsageRegions => 'Piirkonnad';
+
+  @override
+  String get sharedUsageFeatures => 'Funktsioonide kasutuselevõtt';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'Osakaal jagavatest kontodest, kes on selle seadistanud.';
+
+  @override
+  String get sharedUsageTools => 'Tööriistad';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'Enim kutsutud tööriistad ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Kutseid: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Ebaõnnestus: $percent%';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Integratsioonid';
+
+  @override
+  String get sharedUsageMessaging => 'Sõnumikanalid';
+
+  @override
+  String get sharedUsageTriggers => 'Kuidas käivitused algavad';
+
+  @override
+  String get sharedUsageActivity => 'Millal seda kasutatakse';
+
+  @override
+  String get sharedUsageActivityDescription =>
+      'Käivitused nädalapäeva ja tunni kaupa, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Mudelite jõudlus';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return 'keskm. $latency · $cached% vahemälust · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Kontosid: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'Selles vahemikus pole midagi.';
+
+  @override
+  String get sharedUsageNotReported => 'Pole veel teatatud';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Rohkem kui üks agent';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Ajastatud ülesanded';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Oskused';
+
+  @override
+  String get sharedUsageFeatureMcp => 'MCP-serverid';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Integratsioonid';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Sõnumikanalid';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Mälu';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'opt-in andmete jagamine telemeetria seadmed funktsioonid tööriistad mudelid aktiivsus';
 }

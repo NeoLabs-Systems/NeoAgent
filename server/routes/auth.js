@@ -19,6 +19,7 @@ const { sendJsonError } = require('../http/errors');
 const { jsonHandler } = require('./_helpers/http');
 const { httpError } = require('../utils/http_error');
 const { recordCurrentSession, revokeAllSessionsForUser } = require('../services/account/sessions');
+const { getDataSharing } = require('../services/account/data_sharing');
 const {
   consumeEmailToken,
   consumePasswordResetToken,
@@ -132,6 +133,7 @@ function toUserPayload(user) {
     hasPassword: Number(user.password_login_enabled || 0) === 1,
     hasCompletedOnboarding: Number(user.has_completed_onboarding || 0) === 1,
     isAdmin: isAdminUser(user.id),
+    sharesUsageData: getDataSharing(user.id).enabled,
   };
 }
 

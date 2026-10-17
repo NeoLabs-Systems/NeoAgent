@@ -61,13 +61,16 @@ const AGENT_SETTING_KEYS = new Set([
   'last_chat_id',
 ]);
 
+// Data-sharing consent is only changed through /api/account/data-sharing.
 const SERVER_MANAGED_SETTING_KEYS = new Set([
   'ai_provider_configs',
   'ai_provider_api_keys',
+  'usage_data_sharing',
 ]);
 
 const HIDDEN_SETTING_KEYS = new Set([
   'ai_provider_api_keys',
+  'usage_data_sharing',
 ]);
 
 function normalizeUiLanguage(value) {
@@ -710,7 +713,7 @@ router.put('/:key', async (req, res) => {
   if (SERVER_MANAGED_SETTING_KEYS.has(req.params.key)) {
     return res.status(403).json({
       success: false,
-      error: 'AI provider credentials are configured on the server, not per account.',
+      error: 'This setting is managed by the server, not per account.',
     });
   }
   const userId = req.session.userId;
@@ -784,7 +787,7 @@ router.delete('/:key', (req, res) => {
   if (SERVER_MANAGED_SETTING_KEYS.has(req.params.key)) {
     return res.status(403).json({
       success: false,
-      error: 'AI provider credentials are configured on the server, not per account.',
+      error: 'This setting is managed by the server, not per account.',
     });
   }
   const userId = req.session.userId;

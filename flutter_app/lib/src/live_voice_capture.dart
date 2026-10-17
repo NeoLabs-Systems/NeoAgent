@@ -57,6 +57,14 @@ class LiveVoiceCapture {
         androidConfig: const AndroidRecordConfig(
           audioSource: AndroidAudioSource.voiceCommunication,
         ),
+        // A call starts at the ear, as on Android; the call screen's speaker
+        // button switches the route.
+        iosConfig: const IosRecordConfig(
+          categoryOptions: <IosAudioCategoryOption>[
+            IosAudioCategoryOption.allowBluetooth,
+            IosAudioCategoryOption.allowBluetoothA2DP,
+          ],
+        ),
       ),
     );
 

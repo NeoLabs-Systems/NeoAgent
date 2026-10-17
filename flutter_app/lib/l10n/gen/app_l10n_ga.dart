@@ -11340,9 +11340,200 @@ class AppL10nGa extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Roghnaigh d\'ainm úsáideora';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Roghnaigh ainm úsáideora atá ar fáil chun do chuntas a chríochnú.';
+
+  @override
+  String get dataSharingTitle => 'Comhroinn sonraí úsáide';
+
+  @override
+  String get dataSharingDescription =>
+      'Cabhraigh leo siúd a ritheann an freastalaí seo é a fheabhsú. Roinntear conas a úsáideann tú NeoAgent, ach ní roinntear riamh a scríobhann nó a stórálann tú.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Á chomhroinnt ó $date.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'Cad a roinntear';
+
+  @override
+  String get dataSharingIncluded => 'Roinntear';
+
+  @override
+  String get dataSharingExcluded => 'Ní roinntear riamh';
+
+  @override
+  String get dataSharingIncludedDevice => 'Cineál gléis agus leagan na haipe';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'Teanga na haipe agus réigiún an chriosa ama, mar shampla an Eoraip';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Na gnéithe atá socraithe agat, mar thascanna, scileanna agus comhtháthuithe';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Na huirlisí agus na samhlacha a úsáideann do rití, le hamanna agus líon comharthaí';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'Cathain a úsáideann tú NeoAgent, de réir lá na seachtaine agus uaire';
+
+  @override
+  String get dataSharingExcludedContent =>
+      'Teachtaireachtaí, leideanna agus freagraí';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Teidil rití, ionchuir agus torthaí uirlisí';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Comhaid, cuimhní agus aon rud eile a stórálann tú';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'D\'ainm, do ríomhphost, do sheoladh IP agus do shuíomh';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'Na cuntais lena nascann tú comhtháthuithe';
+
+  @override
+  String get dataSharingPooledNote =>
+      'Ní fheiceann riarthóirí ach iomláin do gach duine a roinneann, riamh tusa leat féin. Múch é am ar bith agus fágann tú na hiomláin láithreach.';
+
+  @override
+  String get dataSharingConfirmTitle => 'Sonraí úsáide a chomhroinnt?';
+
+  @override
+  String get dataSharingConfirmAction => 'Comhroinn';
+
+  @override
+  String get sharedUsageTitle => 'Úsáid chomhroinnte';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Cuntais a roinneann sonraí úsáide: $sharing as $total. Iomláin amháin, gan ábhar.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Níl aon duine ag comhroinnt sonraí úsáide fós. Is féidir é a chur ar siúl faoi Socruithe, Próifíl, Do shonraí.';
+
+  @override
+  String get sharedUsageRuns => 'Rití comhroinnte';
+
+  @override
+  String get sharedUsageAvgDuration => 'Meánfhad';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Rití críochnaithe';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Céimeanna in aghaidh an rith';
+
+  @override
+  String get sharedUsageDevices => 'Gléasanna';
+
+  @override
+  String get sharedUsageAppVersions => 'Leaganacha aipe';
+
+  @override
+  String get sharedUsageLanguages => 'Teangacha';
+
+  @override
+  String get sharedUsageRegions => 'Réigiúin';
+
+  @override
+  String get sharedUsageFeatures => 'Glacadh le gnéithe';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'Sciar de na cuntais chomhroinnte a bhfuil sé socraithe acu.';
+
+  @override
+  String get sharedUsageTools => 'Uirlisí';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'Na huirlisí is mó a nglaotar orthu ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Glaonna: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Theip: $percent%';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Comhtháthuithe';
+
+  @override
+  String get sharedUsageMessaging => 'Cainéil teachtaireachtaí';
+
+  @override
+  String get sharedUsageTriggers => 'Conas a thosaíonn rití';
+
+  @override
+  String get sharedUsageActivity => 'Cathain a úsáidtear é';
+
+  @override
+  String get sharedUsageActivityDescription =>
+      'Rití de réir lá na seachtaine agus uaire, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Feidhmíocht samhlacha';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return 'meán $latency · $cached% ón taisce · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Cuntais: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'Faic sa tréimhse seo.';
+
+  @override
+  String get sharedUsageNotReported => 'Gan tuairisc fós';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Níos mó ná gníomhaire amháin';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Tascanna sceidealaithe';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Scileanna';
+
+  @override
+  String get sharedUsageFeatureMcp => 'Freastalaithe MCP';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Comhtháthuithe';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Cainéil teachtaireachtaí';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Cuimhne';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'opt-in comhroinnt sonraí teiliméadracht gléasanna gnéithe uirlisí samhlacha gníomhaíocht';
 }

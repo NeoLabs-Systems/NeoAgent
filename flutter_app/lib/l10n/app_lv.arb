@@ -6990,5 +6990,119 @@
   "signupKeysSaveDialogTitle": "Saglabāt reģistrācijas atslēgas",
   "signupKeysExported": "Atslēgas eksportētas.",
   "auditSignupKeysCreated": "{actor} izveidoja reģistrācijas atslēgas ({count})",
-  "auditSignupKeyRevoked": "{actor} atsauca reģistrācijas atslēgu"
+  "auditSignupKeyRevoked": "{actor} atsauca reģistrācijas atslēgu",
+  "dataSharingTitle": "Kopīgot lietojuma datus",
+  "dataSharingDescription": "Palīdziet šī servera uzturētājiem to uzlabot. Tiek kopīgots, kā lietojat NeoAgent, nekad ne tas, ko rakstāt vai glabājat.",
+  "dataSharingSince": "Kopīgots kopš {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Kas tiek kopīgots",
+  "dataSharingIncluded": "Tiek kopīgots",
+  "dataSharingExcluded": "Nekad netiek kopīgots",
+  "dataSharingIncludedDevice": "Ierīces veids un lietotnes versija",
+  "dataSharingIncludedLocale": "Lietotnes valoda un laika joslas reģions, piemēram, Eiropa",
+  "dataSharingIncludedFeatures": "Kuras funkcijas esat iestatījis, piemēram, uzdevumi, prasmes un integrācijas",
+  "dataSharingIncludedRuns": "Kurus rīkus un modeļus izmanto jūsu palaidieni, ar ilgumu un marķieru skaitu",
+  "dataSharingIncludedActivity": "Kad lietojat NeoAgent, pa nedēļas dienām un stundām",
+  "dataSharingExcludedContent": "Ziņas, uzvednes un atbildes",
+  "dataSharingExcludedRuns": "Palaidienu nosaukumi, rīku ievade un rezultāti",
+  "dataSharingExcludedFiles": "Faili, atmiņas un viss pārējais, ko glabājat",
+  "dataSharingExcludedIdentity": "Jūsu vārds, e-pasts, IP adrese un atrašanās vieta",
+  "dataSharingExcludedAccounts": "Konti, ar kuriem savienojat integrācijas",
+  "dataSharingPooledNote": "Administratori redz tikai visu kopīgotāju kopsummas, nekad jūs atsevišķi. Izslēdziet jebkurā laikā, un uzreiz izkrītat no kopsummām.",
+  "dataSharingConfirmTitle": "Kopīgot lietojuma datus?",
+  "dataSharingConfirmAction": "Kopīgot",
+  "sharedUsageTitle": "Kopīgotais lietojums",
+  "sharedUsageParticipants": "Konti, kas kopīgo lietojuma datus: {sharing} no {total}. Tikai kopsummas, bez satura.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Neviens vēl nekopīgo lietojuma datus. To var ieslēgt šeit: Iestatījumi, Profils, Jūsu dati.",
+  "sharedUsageRuns": "Kopīgotie palaidieni",
+  "sharedUsageAvgDuration": "Vid. ilgums",
+  "sharedUsageCompletedRuns": "Pabeigtie palaidieni",
+  "sharedUsageStepsPerRun": "Soļi vienā palaidienā",
+  "sharedUsageDevices": "Ierīces",
+  "sharedUsageAppVersions": "Lietotnes versijas",
+  "sharedUsageLanguages": "Valodas",
+  "sharedUsageRegions": "Reģioni",
+  "sharedUsageFeatures": "Funkciju izmantošana",
+  "sharedUsageFeaturesDescription": "To kopīgojošo kontu daļa, kas to ir iestatījuši.",
+  "sharedUsageTools": "Rīki",
+  "sharedUsageToolsDescription": "Visbiežāk izsauktie rīki ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Izsaukumi: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Neizdevās: {percent}%",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integrācijas",
+  "sharedUsageMessaging": "Ziņojumu kanāli",
+  "sharedUsageTriggers": "Kā sākas palaidieni",
+  "sharedUsageActivity": "Kad to lieto",
+  "sharedUsageActivityDescription": "Palaidieni pa nedēļas dienām un stundām, UTC.",
+  "sharedUsageModels": "Modeļu veiktspēja",
+  "sharedUsageModelDetail": "vid. {latency} · {cached}% no kešatmiņas · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Konti: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Šajā periodā nekā nav.",
+  "sharedUsageNotReported": "Vēl nav ziņots",
+  "sharedUsageFeatureAgents": "Vairāk nekā viens aģents",
+  "sharedUsageFeatureTasks": "Ieplānotie uzdevumi",
+  "sharedUsageFeatureSkills": "Prasmes",
+  "sharedUsageFeatureMcp": "MCP serveri",
+  "sharedUsageFeatureIntegrations": "Integrācijas",
+  "sharedUsageFeatureMessaging": "Ziņojumu kanāli",
+  "sharedUsageFeatureMemory": "Atmiņa",
+  "sharedUsageSearchKeywords": "opt-in datu kopīgošana telemetrija ierīces funkcijas rīki modeļi aktivitāte",
+  "providerChooseUsername": "Izvēlieties lietotājvārdu",
+  "providerChooseUsernameBody": "Izvēlieties brīvu lietotājvārdu, lai pabeigtu konta izveidi."
 }

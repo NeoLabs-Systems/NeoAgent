@@ -278,6 +278,12 @@ List<_AdminSearchEntry> _adminSearchIndex = <_AdminSearchEntry>[
     card: appStrings.topUsers,
   ),
   _AdminSearchEntry(
+    appStrings.sharedUsageTitle,
+    _AdminTab.analytics,
+    appStrings.sharedUsageSearchKeywords,
+    card: appStrings.sharedUsageTitle,
+  ),
+  _AdminSearchEntry(
     appStrings.sqlConsole,
     _AdminTab.sql,
     appStrings.databaseQuerySelectCsvTemplates,

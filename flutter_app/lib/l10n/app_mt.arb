@@ -6990,5 +6990,119 @@
   "signupKeysSaveDialogTitle": "Issejvja ċ-ċwievet tar-reġistrazzjoni",
   "signupKeysExported": "Iċ-ċwievet ġew esportati.",
   "auditSignupKeysCreated": "{actor} ħoloq ċwievet tar-reġistrazzjoni ({count})",
-  "auditSignupKeyRevoked": "{actor} irrevoka ċavetta tar-reġistrazzjoni"
+  "auditSignupKeyRevoked": "{actor} irrevoka ċavetta tar-reġistrazzjoni",
+  "dataSharingTitle": "Aqsam id-dejta tal-użu",
+  "dataSharingDescription": "Għin lil min imexxi dan is-server itejbu. Jaqsam kif tuża NeoAgent, qatt dak li tikteb jew taħżen.",
+  "dataSharingSince": "Qed jinqasam minn {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "X'jinqasam",
+  "dataSharingIncluded": "Jinqasam",
+  "dataSharingExcluded": "Qatt ma jinqasam",
+  "dataSharingIncludedDevice": "It-tip ta' apparat u l-verżjoni tal-app",
+  "dataSharingIncludedLocale": "Il-lingwa tal-app u r-reġjun taż-żona tal-ħin, bħall-Ewropa",
+  "dataSharingIncludedFeatures": "Liema funzjonijiet issettjajt, bħal kompiti, skills u integrazzjonijiet",
+  "dataSharingIncludedRuns": "Liema għodod u mudelli jużaw il-ġirjiet tiegħek, bil-ħinijiet u l-għadd ta' tokens",
+  "dataSharingIncludedActivity": "Meta tuża NeoAgent, skont il-jum tal-ġimgħa u s-siegħa",
+  "dataSharingExcludedContent": "Messaġġi, prompts u tweġibiet",
+  "dataSharingExcludedRuns": "Titli tal-ġirjiet, input u riżultati tal-għodod",
+  "dataSharingExcludedFiles": "Fajls, memorji u kull ħaġa oħra li taħżen",
+  "dataSharingExcludedIdentity": "Ismek, l-email, l-indirizz IP u l-post tiegħek",
+  "dataSharingExcludedAccounts": "Il-kontijiet li magħhom tqabbad l-integrazzjonijiet",
+  "dataSharingPooledNote": "L-amministraturi jaraw biss totali ta' kull min jaqsam, qatt lilek waħdek. Itfih meta trid u toħroġ mit-totali minnufih.",
+  "dataSharingConfirmTitle": "Taqsam id-dejta tal-użu?",
+  "dataSharingConfirmAction": "Aqsam",
+  "sharedUsageTitle": "Użu maqsum",
+  "sharedUsageParticipants": "Kontijiet li jaqsmu d-dejta tal-użu: {sharing} minn {total}. Totali biss, l-ebda kontenut.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Għadu ħadd ma jaqsam dejta tal-użu. Jista' jinxtegħel minn Settings, Profil, Id-dejta tiegħek.",
+  "sharedUsageRuns": "Ġirjiet maqsuma",
+  "sharedUsageAvgDuration": "Tul medju",
+  "sharedUsageCompletedRuns": "Ġirjiet lesti",
+  "sharedUsageStepsPerRun": "Passi għal kull ġirja",
+  "sharedUsageDevices": "Apparati",
+  "sharedUsageAppVersions": "Verżjonijiet tal-app",
+  "sharedUsageLanguages": "Lingwi",
+  "sharedUsageRegions": "Reġjuni",
+  "sharedUsageFeatures": "Użu tal-funzjonijiet",
+  "sharedUsageFeaturesDescription": "Is-sehem tal-kontijiet li jaqsmu li ssettjawha.",
+  "sharedUsageTools": "Għodod",
+  "sharedUsageToolsDescription": "L-aktar għodod imsejħa ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Sejħiet: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Fallew: {percent}%",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integrazzjonijiet",
+  "sharedUsageMessaging": "Kanali tal-messaġġi",
+  "sharedUsageTriggers": "Kif jibdew il-ġirjiet",
+  "sharedUsageActivity": "Meta jintuża",
+  "sharedUsageActivityDescription": "Ġirjiet skont il-jum tal-ġimgħa u s-siegħa, UTC.",
+  "sharedUsageModels": "Prestazzjoni tal-mudelli",
+  "sharedUsageModelDetail": "medja {latency} · {cached}% mill-cache · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Kontijiet: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Xejn f'dan il-perjodu.",
+  "sharedUsageNotReported": "Għadu mhux irrappurtat",
+  "sharedUsageFeatureAgents": "Aktar minn aġent wieħed",
+  "sharedUsageFeatureTasks": "Kompiti skedati",
+  "sharedUsageFeatureSkills": "Skills",
+  "sharedUsageFeatureMcp": "Servers MCP",
+  "sharedUsageFeatureIntegrations": "Integrazzjonijiet",
+  "sharedUsageFeatureMessaging": "Kanali tal-messaġġi",
+  "sharedUsageFeatureMemory": "Memorja",
+  "sharedUsageSearchKeywords": "opt-in qsim tad-dejta telemetrija apparati funzjonijiet għodod mudelli attività",
+  "providerChooseUsername": "Agħżel l-isem tal-utent tiegħek",
+  "providerChooseUsernameBody": "Agħżel isem tal-utent disponibbli biex tlesti l-ħolqien tal-kont tiegħek."
 }

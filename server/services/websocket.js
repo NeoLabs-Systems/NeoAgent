@@ -184,6 +184,9 @@ function setupWebSocket(io, services) {
   const agentCallCoordinator = services.agentCallCoordinator
     || services.app?.locals?.agentCallCoordinator
     || null;
+  const approvalGateService = services.approvalGateService
+    || services.app?.locals?.approvalGateService
+    || null;
   const rateLimitObserver = createRateLimitObserver();
   const integrationManager =
     services.integrationManager || services.app?.locals?.integrationManager || null;
@@ -210,6 +213,7 @@ function setupWebSocket(io, services) {
 
     console.log(`[WS] User ${userId} connected (${socket.id})`);
     agentCallCoordinator?.offerPendingCall?.(socket, userId);
+    approvalGateService?.offerPendingApprovals?.(socket, userId);
 
     // ── Agent Events ──
 

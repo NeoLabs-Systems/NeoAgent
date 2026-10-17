@@ -18810,6 +18810,330 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Choose an available username to finish creating your account.'**
   String get providerChooseUsernameBody;
+
+  /// No description provided for @dataSharingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Share usage data'**
+  String get dataSharingTitle;
+
+  /// No description provided for @dataSharingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Help the people running this server improve it. Shares how you use NeoAgent, never what you write or store.'**
+  String get dataSharingDescription;
+
+  /// No description provided for @dataSharingSince.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing since {date}.'**
+  String dataSharingSince(String date);
+
+  /// No description provided for @dataSharingWhatsShared.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s shared'**
+  String get dataSharingWhatsShared;
+
+  /// No description provided for @dataSharingIncluded.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared'**
+  String get dataSharingIncluded;
+
+  /// No description provided for @dataSharingExcluded.
+  ///
+  /// In en, this message translates to:
+  /// **'Never shared'**
+  String get dataSharingExcluded;
+
+  /// No description provided for @dataSharingIncludedDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Device type and app version'**
+  String get dataSharingIncludedDevice;
+
+  /// No description provided for @dataSharingIncludedLocale.
+  ///
+  /// In en, this message translates to:
+  /// **'App language and time zone region, such as Europe'**
+  String get dataSharingIncludedLocale;
+
+  /// No description provided for @dataSharingIncludedFeatures.
+  ///
+  /// In en, this message translates to:
+  /// **'Which features you have set up, like tasks, skills and integrations'**
+  String get dataSharingIncludedFeatures;
+
+  /// No description provided for @dataSharingIncludedRuns.
+  ///
+  /// In en, this message translates to:
+  /// **'Which tools and models your runs use, with timings and token counts'**
+  String get dataSharingIncludedRuns;
+
+  /// No description provided for @dataSharingIncludedActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'When you use NeoAgent, by weekday and hour'**
+  String get dataSharingIncludedActivity;
+
+  /// No description provided for @dataSharingExcludedContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Messages, prompts and replies'**
+  String get dataSharingExcludedContent;
+
+  /// No description provided for @dataSharingExcludedRuns.
+  ///
+  /// In en, this message translates to:
+  /// **'Run titles, tool inputs and results'**
+  String get dataSharingExcludedRuns;
+
+  /// No description provided for @dataSharingExcludedFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Files, memories and anything else you store'**
+  String get dataSharingExcludedFiles;
+
+  /// No description provided for @dataSharingExcludedIdentity.
+  ///
+  /// In en, this message translates to:
+  /// **'Your name, email, IP address and location'**
+  String get dataSharingExcludedIdentity;
+
+  /// No description provided for @dataSharingExcludedAccounts.
+  ///
+  /// In en, this message translates to:
+  /// **'The accounts you connect integrations with'**
+  String get dataSharingExcludedAccounts;
+
+  /// No description provided for @dataSharingPooledNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Admins only see totals across everyone who shares, never you on your own. Turn it off any time and you drop out of the totals right away.'**
+  String get dataSharingPooledNote;
+
+  /// No description provided for @dataSharingConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Share usage data?'**
+  String get dataSharingConfirmTitle;
+
+  /// No description provided for @dataSharingConfirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get dataSharingConfirmAction;
+
+  /// No description provided for @sharedUsageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared usage'**
+  String get sharedUsageTitle;
+
+  /// No description provided for @sharedUsageParticipants.
+  ///
+  /// In en, this message translates to:
+  /// **'{sharing} of {total} accounts share usage data. Totals only, no content.'**
+  String sharedUsageParticipants(int sharing, int total);
+
+  /// No description provided for @sharedUsageEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nobody shares usage data yet. People can turn it on under Settings, Profile, Your data.'**
+  String get sharedUsageEmpty;
+
+  /// No description provided for @sharedUsageRuns.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared runs'**
+  String get sharedUsageRuns;
+
+  /// No description provided for @sharedUsageAvgDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'Avg. duration'**
+  String get sharedUsageAvgDuration;
+
+  /// No description provided for @sharedUsageCompletedRuns.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed runs'**
+  String get sharedUsageCompletedRuns;
+
+  /// No description provided for @sharedUsageStepsPerRun.
+  ///
+  /// In en, this message translates to:
+  /// **'Steps per run'**
+  String get sharedUsageStepsPerRun;
+
+  /// No description provided for @sharedUsageDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Devices'**
+  String get sharedUsageDevices;
+
+  /// No description provided for @sharedUsageAppVersions.
+  ///
+  /// In en, this message translates to:
+  /// **'App versions'**
+  String get sharedUsageAppVersions;
+
+  /// No description provided for @sharedUsageLanguages.
+  ///
+  /// In en, this message translates to:
+  /// **'Languages'**
+  String get sharedUsageLanguages;
+
+  /// No description provided for @sharedUsageRegions.
+  ///
+  /// In en, this message translates to:
+  /// **'Regions'**
+  String get sharedUsageRegions;
+
+  /// No description provided for @sharedUsageFeatures.
+  ///
+  /// In en, this message translates to:
+  /// **'Feature adoption'**
+  String get sharedUsageFeatures;
+
+  /// No description provided for @sharedUsageFeaturesDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Share of sharing accounts that have set each one up.'**
+  String get sharedUsageFeaturesDescription;
+
+  /// No description provided for @sharedUsageTools.
+  ///
+  /// In en, this message translates to:
+  /// **'Tools'**
+  String get sharedUsageTools;
+
+  /// No description provided for @sharedUsageToolsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Most called tools in the last {range}.'**
+  String sharedUsageToolsDescription(String range);
+
+  /// No description provided for @sharedUsageToolCalls.
+  ///
+  /// In en, this message translates to:
+  /// **'{calls} calls'**
+  String sharedUsageToolCalls(String calls);
+
+  /// No description provided for @sharedUsageToolFailures.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% failed'**
+  String sharedUsageToolFailures(int percent);
+
+  /// No description provided for @sharedUsageIntegrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Integrations'**
+  String get sharedUsageIntegrations;
+
+  /// No description provided for @sharedUsageMessaging.
+  ///
+  /// In en, this message translates to:
+  /// **'Messaging channels'**
+  String get sharedUsageMessaging;
+
+  /// No description provided for @sharedUsageTriggers.
+  ///
+  /// In en, this message translates to:
+  /// **'How runs start'**
+  String get sharedUsageTriggers;
+
+  /// No description provided for @sharedUsageActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'When people use it'**
+  String get sharedUsageActivity;
+
+  /// No description provided for @sharedUsageActivityDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Runs by weekday and hour, UTC.'**
+  String get sharedUsageActivityDescription;
+
+  /// No description provided for @sharedUsageModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Model performance'**
+  String get sharedUsageModels;
+
+  /// No description provided for @sharedUsageModelDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'{latency} avg · {cached}% cached · {cost}'**
+  String sharedUsageModelDetail(String latency, int cached, String cost);
+
+  /// No description provided for @sharedUsageAccounts.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 account} other{{count} accounts}}'**
+  String sharedUsageAccounts(int count);
+
+  /// No description provided for @sharedUsageNoData.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing in this range.'**
+  String get sharedUsageNoData;
+
+  /// No description provided for @sharedUsageNotReported.
+  ///
+  /// In en, this message translates to:
+  /// **'Not reported yet'**
+  String get sharedUsageNotReported;
+
+  /// No description provided for @sharedUsageFeatureAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'More than one agent'**
+  String get sharedUsageFeatureAgents;
+
+  /// No description provided for @sharedUsageFeatureTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled tasks'**
+  String get sharedUsageFeatureTasks;
+
+  /// No description provided for @sharedUsageFeatureSkills.
+  ///
+  /// In en, this message translates to:
+  /// **'Skills'**
+  String get sharedUsageFeatureSkills;
+
+  /// No description provided for @sharedUsageFeatureMcp.
+  ///
+  /// In en, this message translates to:
+  /// **'MCP servers'**
+  String get sharedUsageFeatureMcp;
+
+  /// No description provided for @sharedUsageFeatureIntegrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Integrations'**
+  String get sharedUsageFeatureIntegrations;
+
+  /// No description provided for @sharedUsageFeatureMessaging.
+  ///
+  /// In en, this message translates to:
+  /// **'Messaging channels'**
+  String get sharedUsageFeatureMessaging;
+
+  /// No description provided for @sharedUsageFeatureMemory.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory'**
+  String get sharedUsageFeatureMemory;
+
+  /// No description provided for @sharedUsageSearchKeywords.
+  ///
+  /// In en, this message translates to:
+  /// **'opt-in data sharing telemetry devices features tools models activity'**
+  String get sharedUsageSearchKeywords;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

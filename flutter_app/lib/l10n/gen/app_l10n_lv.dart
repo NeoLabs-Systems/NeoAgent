@@ -11286,9 +11286,199 @@ class AppL10nLv extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Izvēlieties lietotājvārdu';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Izvēlieties brīvu lietotājvārdu, lai pabeigtu konta izveidi.';
+
+  @override
+  String get dataSharingTitle => 'Kopīgot lietojuma datus';
+
+  @override
+  String get dataSharingDescription =>
+      'Palīdziet šī servera uzturētājiem to uzlabot. Tiek kopīgots, kā lietojat NeoAgent, nekad ne tas, ko rakstāt vai glabājat.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Kopīgots kopš $date.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'Kas tiek kopīgots';
+
+  @override
+  String get dataSharingIncluded => 'Tiek kopīgots';
+
+  @override
+  String get dataSharingExcluded => 'Nekad netiek kopīgots';
+
+  @override
+  String get dataSharingIncludedDevice => 'Ierīces veids un lietotnes versija';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'Lietotnes valoda un laika joslas reģions, piemēram, Eiropa';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Kuras funkcijas esat iestatījis, piemēram, uzdevumi, prasmes un integrācijas';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Kurus rīkus un modeļus izmanto jūsu palaidieni, ar ilgumu un marķieru skaitu';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'Kad lietojat NeoAgent, pa nedēļas dienām un stundām';
+
+  @override
+  String get dataSharingExcludedContent => 'Ziņas, uzvednes un atbildes';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Palaidienu nosaukumi, rīku ievade un rezultāti';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Faili, atmiņas un viss pārējais, ko glabājat';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'Jūsu vārds, e-pasts, IP adrese un atrašanās vieta';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'Konti, ar kuriem savienojat integrācijas';
+
+  @override
+  String get dataSharingPooledNote =>
+      'Administratori redz tikai visu kopīgotāju kopsummas, nekad jūs atsevišķi. Izslēdziet jebkurā laikā, un uzreiz izkrītat no kopsummām.';
+
+  @override
+  String get dataSharingConfirmTitle => 'Kopīgot lietojuma datus?';
+
+  @override
+  String get dataSharingConfirmAction => 'Kopīgot';
+
+  @override
+  String get sharedUsageTitle => 'Kopīgotais lietojums';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Konti, kas kopīgo lietojuma datus: $sharing no $total. Tikai kopsummas, bez satura.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Neviens vēl nekopīgo lietojuma datus. To var ieslēgt šeit: Iestatījumi, Profils, Jūsu dati.';
+
+  @override
+  String get sharedUsageRuns => 'Kopīgotie palaidieni';
+
+  @override
+  String get sharedUsageAvgDuration => 'Vid. ilgums';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Pabeigtie palaidieni';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Soļi vienā palaidienā';
+
+  @override
+  String get sharedUsageDevices => 'Ierīces';
+
+  @override
+  String get sharedUsageAppVersions => 'Lietotnes versijas';
+
+  @override
+  String get sharedUsageLanguages => 'Valodas';
+
+  @override
+  String get sharedUsageRegions => 'Reģioni';
+
+  @override
+  String get sharedUsageFeatures => 'Funkciju izmantošana';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'To kopīgojošo kontu daļa, kas to ir iestatījuši.';
+
+  @override
+  String get sharedUsageTools => 'Rīki';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'Visbiežāk izsauktie rīki ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Izsaukumi: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Neizdevās: $percent%';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Integrācijas';
+
+  @override
+  String get sharedUsageMessaging => 'Ziņojumu kanāli';
+
+  @override
+  String get sharedUsageTriggers => 'Kā sākas palaidieni';
+
+  @override
+  String get sharedUsageActivity => 'Kad to lieto';
+
+  @override
+  String get sharedUsageActivityDescription =>
+      'Palaidieni pa nedēļas dienām un stundām, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Modeļu veiktspēja';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return 'vid. $latency · $cached% no kešatmiņas · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Konti: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'Šajā periodā nekā nav.';
+
+  @override
+  String get sharedUsageNotReported => 'Vēl nav ziņots';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Vairāk nekā viens aģents';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Ieplānotie uzdevumi';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Prasmes';
+
+  @override
+  String get sharedUsageFeatureMcp => 'MCP serveri';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Integrācijas';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Ziņojumu kanāli';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Atmiņa';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'opt-in datu kopīgošana telemetrija ierīces funkcijas rīki modeļi aktivitāte';
 }

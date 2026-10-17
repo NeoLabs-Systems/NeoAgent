@@ -11319,9 +11319,200 @@ class AppL10nRo extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Alege-ți numele de utilizator';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Alege un nume de utilizator disponibil pentru a finaliza crearea contului.';
+
+  @override
+  String get dataSharingTitle => 'Partajează datele de utilizare';
+
+  @override
+  String get dataSharingDescription =>
+      'Ajută-i pe cei care administrează acest server să-l îmbunătățească. Partajează cum folosești NeoAgent, niciodată ce scrii sau stochezi.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Partajat din $date.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'Ce se partajează';
+
+  @override
+  String get dataSharingIncluded => 'Se partajează';
+
+  @override
+  String get dataSharingExcluded => 'Nu se partajează niciodată';
+
+  @override
+  String get dataSharingIncludedDevice =>
+      'Tipul dispozitivului și versiunea aplicației';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'Limba aplicației și regiunea fusului orar, de exemplu Europa';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Ce funcții ai configurat, cum ar fi sarcini, skilluri și integrări';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Ce instrumente și modele folosesc rulările tale, cu durate și număr de tokenuri';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'Când folosești NeoAgent, pe zile ale săptămânii și ore';
+
+  @override
+  String get dataSharingExcludedContent => 'Mesaje, prompturi și răspunsuri';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Titlurile rulărilor, intrările și rezultatele instrumentelor';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Fișiere, amintiri și orice altceva stochezi';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'Numele, e-mailul, adresa IP și locația ta';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'Conturile cu care conectezi integrări';
+
+  @override
+  String get dataSharingPooledNote =>
+      'Administratorii văd doar totaluri pentru toți cei care partajează, niciodată pe tine separat. Dezactivează oricând și ieși imediat din totaluri.';
+
+  @override
+  String get dataSharingConfirmTitle => 'Partajezi datele de utilizare?';
+
+  @override
+  String get dataSharingConfirmAction => 'Partajează';
+
+  @override
+  String get sharedUsageTitle => 'Utilizare partajată';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Conturi care partajează date de utilizare: $sharing din $total. Doar totaluri, fără conținut.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Nimeni nu partajează încă date de utilizare. Se poate activa din Setări, Profil, Datele dvs.';
+
+  @override
+  String get sharedUsageRuns => 'Rulări partajate';
+
+  @override
+  String get sharedUsageAvgDuration => 'Durată medie';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Rulări finalizate';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Pași per rulare';
+
+  @override
+  String get sharedUsageDevices => 'Dispozitive';
+
+  @override
+  String get sharedUsageAppVersions => 'Versiuni ale aplicației';
+
+  @override
+  String get sharedUsageLanguages => 'Limbi';
+
+  @override
+  String get sharedUsageRegions => 'Regiuni';
+
+  @override
+  String get sharedUsageFeatures => 'Adoptarea funcțiilor';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'Proporția conturilor care partajează și au configurat-o.';
+
+  @override
+  String get sharedUsageTools => 'Instrumente';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'Cele mai apelate instrumente ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Apeluri: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Eșuate: $percent%';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Integrări';
+
+  @override
+  String get sharedUsageMessaging => 'Canale de mesagerie';
+
+  @override
+  String get sharedUsageTriggers => 'Cum pornesc rulările';
+
+  @override
+  String get sharedUsageActivity => 'Când este folosit';
+
+  @override
+  String get sharedUsageActivityDescription =>
+      'Rulări pe zile ale săptămânii și ore, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Performanța modelelor';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return 'medie $latency · $cached% din cache · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Conturi: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'Nimic în această perioadă.';
+
+  @override
+  String get sharedUsageNotReported => 'Încă neraportat';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Mai mult de un agent';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Sarcini programate';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Skilluri';
+
+  @override
+  String get sharedUsageFeatureMcp => 'Servere MCP';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Integrări';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Canale de mesagerie';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Memorie';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'opt-in partajare date telemetrie dispozitive funcții instrumente modele activitate';
 }

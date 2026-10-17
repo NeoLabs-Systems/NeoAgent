@@ -134,3 +134,37 @@ test('always allow also answers parallel approvals it covers', async () => {
   assert.equal(await flagged, 'expired');
   assert.equal(await shell, 'expired');
 });
+
+test('pending approvals replay to a socket that connects while they wait', async () => {
+  ctx = createTestRuntime();
+  const db = require('../../../server/db/database');
+  const { ApprovalGateService } = require('../../../server/services/security/approval_gate_service');
+  const user = await createTestUser(ctx.db, { username: 'approval_replay_owner' });
+  const other = await createTestUser(ctx.db, { username: 'approval_replay_other' });
+  for (const [runId, userId] of [['run-replay', user.userId], ['run-other', other.userId]]) {
+    db.prepare(
+      `INSERT INTO agent_runs (id, user_id, status, title) VALUES (?, ?, 'running', ?)`
+    ).run(runId, userId, 'Replay run');
+  }
+  const service = new ApprovalGateService({ io: createFakeIo([]) });
+
+  const waiting = service.requestApproval(user.userId, 'run-replay', 'execute_command', { command: 'ls' });
+  const expired = service.requestApproval(user.userId, 'run-replay', 'write_file', { path: 'a' });
+  const othersApproval = service.requestApproval(other.userId, 'run-other', 'execute_command', { command: 'pwd' });
+
+  const entries = Array.from(service._pending.values());
+  entries.find((entry) => entry.toolName === 'write_file').payload.expiresAt = new Date(Date.now() - 1000).toISOString();
+
+  const emitted = [];
+  service.offerPendingApprovals({ emit: (event, payload) => emitted.push({ event, payload }) }, user.userId);
+  assert.equal(emitted.length, 1);
+  assert.equal(emitted[0].event, 'tool:approval_required');
+  assert.deepEqual(Object.keys(emitted[0].payload).sort(), [
+    'approvalId', 'category', 'expiresAt', 'reason', 'runId', 'toolArgs', 'toolName',
+  ]);
+  assert.equal(emitted[0].payload.toolName, 'execute_command');
+  assert.deepEqual(emitted[0].payload.toolArgs, { command: 'ls' });
+
+  service.shutdown();
+  await Promise.all([waiting, expired, othersApproval]);
+});

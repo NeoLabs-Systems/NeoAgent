@@ -6990,5 +6990,119 @@
   "signupKeysSaveDialogTitle": "Gem tilmeldingsnøgler",
   "signupKeysExported": "Nøgler eksporteret.",
   "auditSignupKeysCreated": "{actor} oprettede tilmeldingsnøgler ({count})",
-  "auditSignupKeyRevoked": "{actor} tilbagekaldte en tilmeldingsnøgle"
+  "auditSignupKeyRevoked": "{actor} tilbagekaldte en tilmeldingsnøgle",
+  "dataSharingTitle": "Del brugsdata",
+  "dataSharingDescription": "Hjælp dem, der driver denne server, med at forbedre den. Deler, hvordan du bruger NeoAgent, aldrig hvad du skriver eller gemmer.",
+  "dataSharingSince": "Deler siden {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Hvad der deles",
+  "dataSharingIncluded": "Deles",
+  "dataSharingExcluded": "Deles aldrig",
+  "dataSharingIncludedDevice": "Enhedstype og appversion",
+  "dataSharingIncludedLocale": "Appsprog og tidszoneregion, fx Europa",
+  "dataSharingIncludedFeatures": "Hvilke funktioner du har sat op, fx opgaver, skills og integrationer",
+  "dataSharingIncludedRuns": "Hvilke værktøjer og modeller dine kørsler bruger, med varighed og antal tokens",
+  "dataSharingIncludedActivity": "Hvornår du bruger NeoAgent, efter ugedag og time",
+  "dataSharingExcludedContent": "Beskeder, prompts og svar",
+  "dataSharingExcludedRuns": "Titler på kørsler, værktøjsinput og -resultater",
+  "dataSharingExcludedFiles": "Filer, minder og alt andet, du gemmer",
+  "dataSharingExcludedIdentity": "Dit navn, din e-mail, IP-adresse og placering",
+  "dataSharingExcludedAccounts": "De konti, du forbinder integrationer med",
+  "dataSharingPooledNote": "Administratorer ser kun totaler på tværs af alle, der deler, aldrig dig alene. Slå det fra når som helst, så falder du straks ud af totalerne.",
+  "dataSharingConfirmTitle": "Del brugsdata?",
+  "dataSharingConfirmAction": "Del",
+  "sharedUsageTitle": "Delt brug",
+  "sharedUsageParticipants": "Konti der deler brugsdata: {sharing} af {total}. Kun totaler, intet indhold.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Ingen deler brugsdata endnu. Det kan slås til under Indstillinger, Profil, Dine data.",
+  "sharedUsageRuns": "Delte kørsler",
+  "sharedUsageAvgDuration": "Gns. varighed",
+  "sharedUsageCompletedRuns": "Fuldførte kørsler",
+  "sharedUsageStepsPerRun": "Trin pr. kørsel",
+  "sharedUsageDevices": "Enheder",
+  "sharedUsageAppVersions": "Appversioner",
+  "sharedUsageLanguages": "Sprog",
+  "sharedUsageRegions": "Regioner",
+  "sharedUsageFeatures": "Brug af funktioner",
+  "sharedUsageFeaturesDescription": "Andel af de delende konti, der har sat det op.",
+  "sharedUsageTools": "Værktøjer",
+  "sharedUsageToolsDescription": "Mest kaldte værktøjer ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Kald: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Fejlet: {percent} %",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integrationer",
+  "sharedUsageMessaging": "Beskedkanaler",
+  "sharedUsageTriggers": "Hvordan kørsler starter",
+  "sharedUsageActivity": "Hvornår det bruges",
+  "sharedUsageActivityDescription": "Kørsler efter ugedag og time, UTC.",
+  "sharedUsageModels": "Modelydelse",
+  "sharedUsageModelDetail": "gns. {latency} · {cached} % cachet · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Konti: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Intet i denne periode.",
+  "sharedUsageNotReported": "Ikke indberettet endnu",
+  "sharedUsageFeatureAgents": "Mere end én agent",
+  "sharedUsageFeatureTasks": "Planlagte opgaver",
+  "sharedUsageFeatureSkills": "Skills",
+  "sharedUsageFeatureMcp": "MCP-servere",
+  "sharedUsageFeatureIntegrations": "Integrationer",
+  "sharedUsageFeatureMessaging": "Beskedkanaler",
+  "sharedUsageFeatureMemory": "Hukommelse",
+  "sharedUsageSearchKeywords": "opt-in datadeling telemetri enheder funktioner værktøjer modeller aktivitet",
+  "providerChooseUsername": "Vælg dit brugernavn",
+  "providerChooseUsernameBody": "Vælg et ledigt brugernavn for at færdiggøre din konto."
 }

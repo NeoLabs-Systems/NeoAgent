@@ -6990,5 +6990,119 @@
   "signupKeysSaveDialogTitle": "Tallenna rekisteröitymisavaimet",
   "signupKeysExported": "Avaimet viety.",
   "auditSignupKeysCreated": "{actor} loi rekisteröitymisavaimia ({count})",
-  "auditSignupKeyRevoked": "{actor} peruutti rekisteröitymisavaimen"
+  "auditSignupKeyRevoked": "{actor} peruutti rekisteröitymisavaimen",
+  "dataSharingTitle": "Jaa käyttötietoja",
+  "dataSharingDescription": "Auta tämän palvelimen ylläpitäjiä parantamaan sitä. Jakaa sen, miten käytät NeoAgentia, ei koskaan sitä, mitä kirjoitat tai tallennat.",
+  "dataSharingSince": "Jaettu {date} alkaen.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Mitä jaetaan",
+  "dataSharingIncluded": "Jaetaan",
+  "dataSharingExcluded": "Ei koskaan jaeta",
+  "dataSharingIncludedDevice": "Laitetyyppi ja sovellusversio",
+  "dataSharingIncludedLocale": "Sovelluksen kieli ja aikavyöhykkeen alue, esimerkiksi Eurooppa",
+  "dataSharingIncludedFeatures": "Mitkä toiminnot olet ottanut käyttöön, kuten tehtävät, skillit ja integraatiot",
+  "dataSharingIncludedRuns": "Mitä työkaluja ja malleja ajosi käyttävät, kestoineen ja token-määrineen",
+  "dataSharingIncludedActivity": "Milloin käytät NeoAgentia, viikonpäivittäin ja tunneittain",
+  "dataSharingExcludedContent": "Viestit, kehotteet ja vastaukset",
+  "dataSharingExcludedRuns": "Ajojen otsikot, työkalujen syötteet ja tulokset",
+  "dataSharingExcludedFiles": "Tiedostot, muistot ja kaikki muu, mitä tallennat",
+  "dataSharingExcludedIdentity": "Nimesi, sähköpostisi, IP-osoitteesi ja sijaintisi",
+  "dataSharingExcludedAccounts": "Tilit, joilla yhdistät integraatioita",
+  "dataSharingPooledNote": "Ylläpitäjät näkevät vain kaikkien jakajien yhteissummat, eivät koskaan sinua erikseen. Voit poistaa sen käytöstä milloin tahansa, ja poistut summista heti.",
+  "dataSharingConfirmTitle": "Jaetaanko käyttötiedot?",
+  "dataSharingConfirmAction": "Jaa",
+  "sharedUsageTitle": "Jaettu käyttö",
+  "sharedUsageParticipants": "Käyttötietoja jakavat tilit: {sharing}/{total}. Vain summia, ei sisältöä.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Kukaan ei vielä jaa käyttötietoja. Sen voi ottaa käyttöön kohdassa Asetukset, Profiili, Tietosi.",
+  "sharedUsageRuns": "Jaetut ajot",
+  "sharedUsageAvgDuration": "Keskim. kesto",
+  "sharedUsageCompletedRuns": "Valmiit ajot",
+  "sharedUsageStepsPerRun": "Vaiheita per ajo",
+  "sharedUsageDevices": "Laitteet",
+  "sharedUsageAppVersions": "Sovellusversiot",
+  "sharedUsageLanguages": "Kielet",
+  "sharedUsageRegions": "Alueet",
+  "sharedUsageFeatures": "Toimintojen käyttöönotto",
+  "sharedUsageFeaturesDescription": "Osuus jakavista tileistä, jotka ovat ottaneet sen käyttöön.",
+  "sharedUsageTools": "Työkalut",
+  "sharedUsageToolsDescription": "Eniten kutsutut työkalut ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Kutsuja: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Epäonnistui: {percent} %",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integraatiot",
+  "sharedUsageMessaging": "Viestikanavat",
+  "sharedUsageTriggers": "Miten ajot alkavat",
+  "sharedUsageActivity": "Milloin sitä käytetään",
+  "sharedUsageActivityDescription": "Ajot viikonpäivän ja tunnin mukaan, UTC.",
+  "sharedUsageModels": "Mallien suorituskyky",
+  "sharedUsageModelDetail": "keskim. {latency} · {cached} % välimuistista · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Tilejä: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Ei mitään tällä aikavälillä.",
+  "sharedUsageNotReported": "Ei vielä ilmoitettu",
+  "sharedUsageFeatureAgents": "Useampi kuin yksi agentti",
+  "sharedUsageFeatureTasks": "Ajoitetut tehtävät",
+  "sharedUsageFeatureSkills": "Skillit",
+  "sharedUsageFeatureMcp": "MCP-palvelimet",
+  "sharedUsageFeatureIntegrations": "Integraatiot",
+  "sharedUsageFeatureMessaging": "Viestikanavat",
+  "sharedUsageFeatureMemory": "Muisti",
+  "sharedUsageSearchKeywords": "opt-in tietojen jakaminen telemetria laitteet toiminnot työkalut mallit aktiivisuus",
+  "providerChooseUsername": "Valitse käyttäjänimi",
+  "providerChooseUsernameBody": "Valitse vapaa käyttäjänimi viimeistelläksesi tilisi luomisen."
 }
