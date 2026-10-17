@@ -6,6 +6,16 @@ const {
   sourceTypesForConnection,
 } = require('./ingestion_support');
 
+// Integrations reach memory only through the mail sweep, so only mail apps
+// of providers with a sweep collector count as feeding memory.
+function sweepDomains(service, providerKey, appKey) {
+  const canSweep = typeof service.integrationManager?.getProvider?.(providerKey)
+    ?.collectMemorySweep === 'function';
+  return canSweep
+    ? sourceTypesForConnection(providerKey, appKey).filter((sourceType) => sourceType === 'email')
+    : [];
+}
+
 function listConnectionStatuses(service, userId, { agentId = null } = {}) {
   const scopedAgentId = resolveAgentId(userId, agentId);
   const connections = service.db.prepare(
@@ -27,22 +37,27 @@ function listConnectionStatuses(service, userId, { agentId = null } = {}) {
       providerKey: connection.provider_key,
       appKey: connection.app_key,
       accountEmail: connection.account_email || null,
-      ...buildCoverageForConnection(connection, latestJob),
+      ...buildCoverageForConnection(
+        connection,
+        latestJob,
+        sweepDomains(service, connection.provider_key, connection.app_key),
+      ),
     };
   });
 }
 
 function decorateProviderSnapshot(service, snapshot, userId, agentId = null) {
   if (!snapshot || typeof snapshot !== 'object') return snapshot;
+  const providerKey = snapshot.id;
   const scopedAgentId = resolveAgentId(userId, agentId);
   const connections = service.db.prepare(
     `SELECT *
      FROM integration_connections
      WHERE user_id = ? AND agent_id = ? AND provider_key = ?`,
-  ).all(userId, scopedAgentId, snapshot.provider);
+  ).all(userId, scopedAgentId, providerKey);
   const jobs = service.memoryManager.listIngestionJobs(userId, {
     agentId: scopedAgentId,
-    providerKey: snapshot.provider,
+    providerKey: providerKey,
     limit: 100,
   });
   const latestJobForConnection = (connectionId) =>
@@ -52,7 +67,11 @@ function decorateProviderSnapshot(service, snapshot, userId, agentId = null) {
     connectionId: connection.id,
     appKey: connection.app_key,
     accountEmail: connection.account_email || null,
-    ...buildCoverageForConnection(connection, latestJobForConnection(connection.id)),
+    ...buildCoverageForConnection(
+      connection,
+      latestJobForConnection(connection.id),
+      sweepDomains(service, providerKey, connection.app_key),
+    ),
   }));
   const providerDomains = Array.from(
     new Set(connectionCoverage.flatMap((item) => item.dataDomains || [])),
@@ -75,19 +94,13 @@ function decorateProviderSnapshot(service, snapshot, userId, agentId = null) {
     },
   };
 
-  const canCollect = typeof service.integrationManager?.getProvider?.(snapshot.provider)
-    ?.collectMemorySweep === 'function';
   decorated.apps = (snapshot.apps || []).map((app) => {
     const appConnections = connectionCoverage.filter((item) => item.appKey === app.id);
-    const dataDomains = Array.from(new Set([
-      ...sourceTypesForConnection(snapshot.provider, app.id),
-      ...appConnections.flatMap((item) => item.dataDomains || []),
-    ]));
+    const dataDomains = sweepDomains(service, providerKey, app.id);
     const latest = appConnections[0] || null;
     return {
       ...app,
-      // Connecting this app can run the one-time sweep of past mail.
-      memorySweep: canCollect && dataDomains.includes('email'),
+      memorySweep: dataDomains.length > 0,
       memoryCoverage: {
         supported: dataDomains.length > 0,
         contributesToMemory: dataDomains.length > 0 && app.connection?.connected === true,

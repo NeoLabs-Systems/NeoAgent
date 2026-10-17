@@ -123,8 +123,7 @@ function sourceTypesForConnection(providerKey, appKey) {
   return Array.from(providerMap[String(appKey || '').trim()] || []);
 }
 
-function buildCoverageForConnection(connection, latestJob = null) {
-  const dataDomains = sourceTypesForConnection(connection.provider_key, connection.app_key);
+function buildCoverageForConnection(connection, latestJob, dataDomains) {
   const supported = dataDomains.length > 0;
   return {
     supported,

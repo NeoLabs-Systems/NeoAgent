@@ -190,3 +190,37 @@ test('sweeping an app repeats the sweep for each of its connected accounts', asy
   assert.deepEqual(queried.slice(2), ['google_workspace', 'gmail']);
   assert.deepEqual(calls.ingest.map((call) => call.options.connectionId), [7, 8]);
 });
+
+test('integration snapshots mark only sweepable mail apps as feeding memory', async () => {
+  const ctx = createTestRuntime();
+  try {
+    const user = await createTestUser(ctx.db, { username: 'snapshot_sweep_user' });
+    // The test runtime swaps the database module, so load the service fresh.
+    const { MemoryIngestionService: FreshService } = require('../../../server/services/memory/ingestion');
+    const service = new FreshService({
+      memoryManager: { listIngestionJobs: () => [] },
+      integrationManager: {
+        getProvider: (key) => (key === 'google_workspace' ? { collectMemorySweep() {} } : {}),
+      },
+    });
+    const snapshot = (id, appIds) => ({
+      id,
+      apps: appIds.map((appId) => ({ id: appId, connection: { connected: true }, accounts: [] })),
+    });
+
+    const google = service.decorateProviderSnapshot(
+      snapshot('google_workspace', ['gmail', 'calendar']),
+      user.userId,
+    );
+    const microsoft = service.decorateProviderSnapshot(snapshot('microsoft_365', ['outlook']), user.userId);
+
+    const [gmail, calendar] = google.apps;
+    assert.equal(gmail.memorySweep, true);
+    assert.equal(gmail.memoryCoverage.supported, true);
+    assert.equal(calendar.memorySweep, false);
+    assert.equal(calendar.memoryCoverage.supported, false);
+    assert.equal(microsoft.apps[0].memorySweep, false);
+  } finally {
+    teardownTestRuntime(ctx);
+  }
+});
