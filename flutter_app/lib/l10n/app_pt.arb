@@ -154,6 +154,8 @@
   "addKey": "Adicionar chave",
   "addMcpServer": "Adicionar servidor MCP",
   "addMemory": "Adicionar memória",
+  "memoryReview": "Rever",
+  "memoryReviewPrompt": "Revê todas as minhas memórias e organiza-as: arquiva duplicados, factos desatualizados e tudo o que não tenha valor duradouro. Depois diz-me resumidamente o que alteraste.",
   "addMoreLengthOrAnotherCharacter": "Adicione mais comprimento ou outro tipo de caractere.",
   "addPeopleOrGroups": "Adicione pessoas ou grupos",
   "addSecurityKey": "Adicionar chave de segurança",
@@ -2006,7 +2008,6 @@
   "botUsername": "Nome de usuário do bot",
   "brandName": "Marca",
   "braveSearch": "Busca corajosa",
-  "breakdown": "Repartição:",
   "bridgeAnyProviderThatCanPost": "Conecte qualquer provedor que possa postar e receber cargas úteis de webhook.",
   "bringYourOwnKey": "traga sua própria chave",
   "bringYourOwnKey2": "Traga sua própria chave",
@@ -2029,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Pode receber tarefas delegadas",
   "cancel": "Cancelar",
   "cancelTask": "Cancelar tarefa",
-  "candidateCountArg1": "Contagem de candidatos: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Não é possível visualizar",
   "cannotReceiveDelegatedTasks": "não pode receber tarefas delegadas",
   "cannotRunYet": "ainda não pode ser executado.",
@@ -2307,14 +2300,6 @@
   "connectionMethod": "Método de conexão",
   "containsTextOptional": "Contém texto (opcional)",
   "content": "Conteúdo",
-  "contentArg1": "Conteúdo: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "política de segurança de conteúdo",
   "continue2": "Continuar",
   "continueFullSetup": "Continuar a configuração completa",
@@ -2751,14 +2736,6 @@
       }
     }
   },
-  "errorArg12": "Erro: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Erros do log recente, agrupados por mensagem.",
   "errorsProblemsFailures": "erros problemas falhas",
   "eventTypesCommaSeparated": "Tipos de eventos (separados por vírgula)",
@@ -3011,14 +2988,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Solicitação completa",
   "fullSetup": "Configuração completa",
-  "fullTextFtsArg1": "Texto Completo (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Geral",
   "generalSettings": "Configurações gerais",
   "generalSettingsSaved": "Configurações gerais salvas.",
@@ -3217,7 +3186,6 @@
   "input": "Entrada",
   "inputMode": "Modo de entrada",
   "insertATemplate": "Insira um modelo",
-  "inspect": "Inspecionar",
   "install": "Instalar",
   "installASignedSelfContainedRuntime": "Instale um tempo de execução independente e assinado. Node.js, npm, Git e comandos de terminal não são necessários.",
   "installApk": "Instalar APK",
@@ -3465,14 +3433,6 @@
         "type": "Object?"
       },
       "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
-  "lexicalArg1": "Léxico: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -3906,10 +3866,61 @@
   "noMcpServersMatchThisSearch": "Nenhum servidor MCP corresponde a esta pesquisa.",
   "noMemoryEntriesFound": "Nenhuma entrada de memória encontrada.",
   "noMemorySync": "Sem sincronização de memória",
-  "importPastEmailsIntoMemory": "Importar e-mails anteriores importantes para a memória",
   "importPastEmailsIntoMemoryHint": "Lê uma única vez o correio importante e enviado dos últimos 12 meses, para que o agente conheça os seus contactos e projetos.",
-  "importPastEmailsNow": "Importar e-mails anteriores agora",
-  "importingPastEmailsInBackground": "A importar e-mails anteriores em segundo plano. As novas memórias aparecem à medida que avança.",
+  "emailMemory": "Memória de e-mail",
+  "importNow": "Importar agora",
+  "importOnConnect": "Importar correio anterior ao ligar uma conta",
+  "sweepStarting": "A preparar…",
+  "sweepReadingProgress": "A ler e-mails · {done} de {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "A ler e-mails · {count} encontrados",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "A aprender com os e-mails · {done} de {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Última importação: {emails} e-mails · {memories} memórias novas",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Não há e-mails novos para importar",
+  "sweepFailed": "A importação falhou: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Nenhum modelo corresponde a \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -4291,7 +4302,6 @@
   "qrLoginRequestWasNotFound": "solicitação de login qr não foi encontrada",
   "qrPairing": "Emparelhamento QR",
   "queriesRunAnythingThatWritesIs": "consultas são executadas; tudo o que escreve é ​​rejeitado.",
-  "query": "Consulta",
   "queryFilter": "Consulta/Filtro",
   "queuedAsSteeringForTheCurrent": "Na fila como direção para a corrida atual: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4376,14 +4386,6 @@
   "registrationIsClosed": "inscrições estão encerradas",
   "registrationRegisterNewAccountsAllowSignup": "registro registrar novas contas permitir inscrição",
   "rejectInvalidTlsCertificates": "Rejeitar certificados TLS inválidos",
-  "relationArg1": "Relação: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "libera e reinicia. Os aplicativos conectados serão reconectados quando estiverem de volta.",
   "releaseChannel": "Canal de lançamento",
   "releaseCommitBranchNode": "liberar nó de ramificação de commit",
@@ -4486,7 +4488,6 @@
   "resultDelivery": "Entrega de resultados",
   "resultOneClickAddsOneYou": "resultado. Um clique adiciona um; você pode editá-lo mais tarde.",
   "results": "Resultados",
-  "retrievalInspector": "Inspetor de recuperação",
   "retry": "Tentar novamente",
   "reusableUsedArg1": "Reutilizável · usado {arg1}×",
   "@reusableUsedArg1": {
@@ -4642,14 +4643,6 @@
   "scansNewEmailAndOnlyPings": "Verifica novos e-mails e só envia um ping quando algo é importante.",
   "schedule": "Cronograma",
   "scheduledTimeOnceRunsAreMeasured": "horário agendado. Depois que as corridas forem medidas, ela começará mais cedo.",
-  "scoreArg1": "Pontuação: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Tela",
   "screenAction": "ação na tela",
   "scrollIsNotSupportedOnThis": "scroll não é compatível com esta plataforma.",
@@ -4711,14 +4704,6 @@
     }
   },
   "selectTrigger": "Selecione o gatilho",
-  "semanticArg1": "Semântica: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Enviar (⌘↵)",
   "send2": "Enviar",
   "sendATaskFromChatAnd": "Envie uma tarefa pelo chat e seu histórico de execução aparecerá aqui.",
@@ -5632,14 +5617,6 @@
   "value": "Valor",
   "vaultLocked": "Cofre bloqueado",
   "vaultOperationFailed": "A operação do cofre falhou.",
-  "vectorRankArg1": "Classificação do vetor: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Verificação",
   "verificationArg1": "Verificação: {arg1}",
   "@verificationArg1": {
@@ -6552,6 +6529,7 @@
   "settingsPageComputer": "Computador e web",
   "settingsPageBehavior": "Comportamento",
   "settingsPageSystem": "Sistema",
+  "settingsPagePlatforms": "Plataformas",
   "settingsPageProfileDescription": "Seu nome e e-mail, uma cópia dos seus dados e saída.",
   "settingsPageSecurityDescription": "Senha, autenticação de dois fatores, chaves de segurança e local de login.",
   "settingsPageUsageDescription": "Seus limites e gastos com tokens, tudo em um só lugar.",

@@ -155,3 +155,42 @@ test('recall injects the remembered statements without storage metadata', async 
   assert.doesNotMatch(message, /version history/);
   assert.doesNotMatch(message, /\[source:/);
 });
+
+test('memory_list pages memories and memory_forget archives only this agent\'s ids', async () => {
+  ctx = createTestRuntime();
+  const user = await createTestUser(ctx.db, { username: 'memory_review_tools' });
+  const { resolveAgentId } = require('../../../server/services/agents/manager');
+  const { executeTool } = require('../../../server/services/ai/tools');
+  const { MemoryManager } = require('../../../server/services/memory/manager');
+  const agentId = resolveAgentId(user.userId, null);
+  const context = { userId: user.userId, agentId };
+
+  for (const content of ['Neo lives in Germany.', 'Neo lives in Berlin.', 'Neo likes dark mode.']) {
+    await executeTool('memory_save', { content, category: 'user_fact' }, context, {});
+  }
+
+  const first = await executeTool('memory_list', { limit: 2 }, context, {});
+  assert.equal(first.results.length, 2);
+  assert.equal(first.next_offset, 2);
+  const rest = await executeTool('memory_list', { offset: first.next_offset }, context, {});
+  assert.equal(rest.results.length, 1);
+  assert.equal(rest.next_offset, null);
+
+  const target = [...first.results, ...rest.results].find((m) => m.content === 'Neo lives in Germany.');
+  const foreign = await executeTool('memory_forget', { ids: ['not-a-memory'] }, context, {});
+  assert.ok(foreign.error);
+  const result = await executeTool('memory_forget', { ids: [target.id, 'not-a-memory'] }, context, {});
+  assert.equal(result.archived, 1);
+
+  const active = new MemoryManager().listMemories(user.userId, { agentId });
+  assert.equal(active.some((m) => m.id === target.id), false);
+  assert.equal(active.length, 2);
+});
+
+test('memory_recall results reach the model', () => {
+  const { compactToolResult } = require('../../../server/services/ai/toolResult');
+  const compacted = compactToolResult('memory_recall', { query: 'home' }, {
+    results: [{ id: 'mem-1', content: 'Neo lives in Berlin.' }],
+  });
+  assert.match(JSON.stringify(compacted), /Neo lives in Berlin\./);
+});

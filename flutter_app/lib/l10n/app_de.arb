@@ -154,6 +154,8 @@
   "addKey": "Schlüssel hinzufügen",
   "addMcpServer": "MCP-Server hinzufügen",
   "addMemory": "Erinnerung hinzufügen",
+  "memoryReview": "Überprüfen",
+  "memoryReviewPrompt": "Geh alle meine Erinnerungen durch und räum sie auf: Archiviere Duplikate, veraltete Fakten und alles ohne bleibenden Wert. Sag mir danach kurz, was du geändert hast.",
   "addMoreLengthOrAnotherCharacter": "Fügen Sie mehr Länge oder einen weiteren Zeichentyp hinzu.",
   "addPeopleOrGroups": "Personen oder Gruppen hinzufügen",
   "addSecurityKey": "Sicherheitsschlüssel hinzufügen",
@@ -2006,7 +2008,6 @@
   "botUsername": "Bot-Benutzername",
   "brandName": "Markenname",
   "braveSearch": "Brave Search",
-  "breakdown": "Aufschlüsselung:",
   "bridgeAnyProviderThatCanPost": "Brücken zu jedem Anbieter, der Webhook-Nutzlasten senden und empfangen kann.",
   "bringYourOwnKey": "eigenen Schlüssel mitbringen",
   "bringYourOwnKey2": "Eigenen Schlüssel verwenden",
@@ -2029,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Kann delegierte Aufgaben empfangen",
   "cancel": "Abbrechen",
   "cancelTask": "Aufgabe abbrechen",
-  "candidateCountArg1": "Kandidatenanzahl: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Vorschau nicht möglich",
   "cannotReceiveDelegatedTasks": "kann keine delegierten Aufgaben empfangen",
   "cannotRunYet": "noch nicht laufen.",
@@ -2307,14 +2300,6 @@
   "connectionMethod": "Verbindungsmethode",
   "containsTextOptional": "Enthält Text (optional)",
   "content": "Inhalt",
-  "contentArg1": "Inhalt: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "Content Security Policy",
   "continue2": "Weiter",
   "continueFullSetup": "Vollständige Einrichtung fortsetzen",
@@ -2751,14 +2736,6 @@
       }
     }
   },
-  "errorArg12": "Fehler: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Fehler aus dem aktuellen Protokoll, nach Nachricht gruppiert.",
   "errorsProblemsFailures": "fehler probleme ausfälle",
   "eventTypesCommaSeparated": "Ereignistypen (kommagetrennt)",
@@ -3011,14 +2988,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Vollständiger Prompt",
   "fullSetup": "Vollständige Einrichtung",
-  "fullTextFtsArg1": "Volltext (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Allgemein",
   "generalSettings": "Allgemeine Einstellungen",
   "generalSettingsSaved": "Allgemeine Einstellungen gespeichert.",
@@ -3217,7 +3186,6 @@
   "input": "Eingabe",
   "inputMode": "Eingabemodus",
   "insertATemplate": "Vorlage einfügen",
-  "inspect": "Prüfen",
   "install": "Installieren",
   "installASignedSelfContainedRuntime": "Installieren Sie eine signierte, eigenständige Runtime. Node.js, npm, Git und Terminalbefehle sind nicht erforderlich.",
   "installApk": "APK installieren",
@@ -3465,14 +3433,6 @@
         "type": "Object?"
       },
       "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
-  "lexicalArg1": "Lexikalisch: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -3906,10 +3866,61 @@
   "noMcpServersMatchThisSearch": "Keine MCP-Server passen zu dieser Suche.",
   "noMemoryEntriesFound": "Keine Speichereinträge gefunden.",
   "noMemorySync": "Keine Gedächtnis-Synchronisation",
-  "importPastEmailsIntoMemory": "Wichtige frühere E-Mails ins Gedächtnis übernehmen",
   "importPastEmailsIntoMemoryHint": "Liest einmalig die wichtigen und gesendeten E-Mails der letzten 12 Monate, damit der Agent deine Kontakte und Projekte kennt.",
-  "importPastEmailsNow": "Frühere E-Mails jetzt importieren",
-  "importingPastEmailsInBackground": "Frühere E-Mails werden im Hintergrund importiert. Neue Erinnerungen erscheinen nach und nach.",
+  "emailMemory": "E-Mail-Gedächtnis",
+  "importNow": "Jetzt importieren",
+  "importOnConnect": "Frühere E-Mails beim Verbinden eines Kontos importieren",
+  "sweepStarting": "Wird vorbereitet…",
+  "sweepReadingProgress": "E-Mails werden gelesen · {done} von {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "E-Mails werden gelesen · {count} gefunden",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Lernt aus E-Mails · {done} von {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Letzter Import: {emails} E-Mails · {memories} neue Erinnerungen",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Keine neuen E-Mails zum Importieren",
+  "sweepFailed": "Import fehlgeschlagen: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Kein Modell entspricht \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -4291,7 +4302,6 @@
   "qrLoginRequestWasNotFound": "QR-Anmeldeanfrage wurde nicht gefunden",
   "qrPairing": "QR-Pairing",
   "queriesRunAnythingThatWritesIs": "Abfragen ausgeführt; Schreibvorgänge werden abgelehnt.",
-  "query": "Abfrage",
   "queryFilter": "Abfrage / Filter",
   "queuedAsSteeringForTheCurrent": "Als Steuerung für die aktuelle Ausführung eingereiht: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4376,14 +4386,6 @@
   "registrationIsClosed": "Registrierung ist geschlossen",
   "registrationRegisterNewAccountsAllowSignup": "registrierung registrieren neue konten signup erlauben",
   "rejectInvalidTlsCertificates": "Ungültige TLS-Zertifikate ablehnen",
-  "relationArg1": "Relation: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "Version und startet neu. Verbundene Apps verbinden sich wieder, sobald er zurück ist.",
   "releaseChannel": "Release-Kanal",
   "releaseCommitBranchNode": "release commit branch node",
@@ -4486,7 +4488,6 @@
   "resultDelivery": "Ergebniszustellung",
   "resultOneClickAddsOneYou": "Ergebnis. Ein Klick fügt eine hinzu; Sie können sie später bearbeiten.",
   "results": "Ergebnisse",
-  "retrievalInspector": "Retrieval-Inspektor",
   "retry": "Erneut versuchen",
   "reusableUsedArg1": "Wiederverwendbar · {arg1}× genutzt",
   "@reusableUsedArg1": {
@@ -4642,14 +4643,6 @@
   "scansNewEmailAndOnlyPings": "Prüft neue E-Mails und benachrichtigt Sie nur, wenn etwas wichtig ist.",
   "schedule": "Zeitplan",
   "scheduledTimeOnceRunsAreMeasured": "geplanten Zeit. Sobald Läufe gemessen wurden, startet sie früher.",
-  "scoreArg1": "Score: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Bildschirm",
   "screenAction": "Bildschirmaktion",
   "scrollIsNotSupportedOnThis": "scroll wird auf dieser Plattform nicht unterstützt.",
@@ -4711,14 +4704,6 @@
     }
   },
   "selectTrigger": "Auslöser wählen",
-  "semanticArg1": "Semantisch: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Senden (⌘↵)",
   "send2": "Senden",
   "sendATaskFromChatAnd": "Senden Sie eine Aufgabe aus dem Chat – der Ausführungsverlauf erscheint hier.",
@@ -5632,14 +5617,6 @@
   "value": "Wert",
   "vaultLocked": "Tresor gesperrt",
   "vaultOperationFailed": "Tresoroperation fehlgeschlagen.",
-  "vectorRankArg1": "Vektorrang: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Überprüfung",
   "verificationArg1": "Prüfung: {arg1}",
   "@verificationArg1": {
@@ -6538,6 +6515,7 @@
   "settingsPageComputer": "Computer & Web",
   "settingsPageBehavior": "Verhalten",
   "settingsPageSystem": "System",
+  "settingsPagePlatforms": "Plattformen",
   "settingsPageProfileDescription": "Ihr Name und Ihre E-Mail, eine Kopie Ihrer Daten und das Abmelden.",
   "settingsPageSecurityDescription": "Passwort, Zwei-Faktor-Authentifizierung, Sicherheitsschlüssel und wo Sie angemeldet sind.",
   "settingsPageUsageDescription": "Ihre Limits und Ihr Token-Verbrauch an einem Ort.",

@@ -97,31 +97,33 @@ test('memory ingestion stop aborts a running sweep without recording a failure',
 });
 
 test('caller cancellation marks an in-progress ingestion job as cancelled', async () => {
-  const saveStarted = deferred();
+  const extractStarted = deferred();
   const memoryManager = {
     ...createMemoryManager(),
     upsertIngestionDocument() {
       return 'document-1';
     },
-    saveMemory(_userId, _content, _category, _importance, { signal }) {
-      saveStarted.resolve();
+  };
+  const service = new MemoryIngestionService({
+    memoryManager,
+    extractFacts: (_userId, _agentId, { signal }) => {
+      extractStarted.resolve();
       return new Promise((_, reject) => {
         signal.addEventListener('abort', () => reject(signal.reason), { once: true });
       });
     },
-  };
-  const service = new MemoryIngestionService({ memoryManager });
+  });
   const controller = new AbortController();
   const pending = service.ingestDocuments(null, [{
     externalObjectId: 'message-1',
     sourceType: 'email',
     title: 'Subject',
-    content: 'A durable source document with enough content to create a chunk.',
+    content: 'A durable source document with enough content to learn from.',
   }], {
     sourceType: 'email',
     signal: controller.signal,
   });
-  await saveStarted.promise;
+  await extractStarted.promise;
 
   const reason = new Error('request disconnected');
   controller.abort(reason);

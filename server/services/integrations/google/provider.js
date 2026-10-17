@@ -204,7 +204,7 @@ const GMAIL_SWEEP_BODY_CHARS = 2000;
 // Imports the past year's important mail: threads the user marked, Gmail
 // ranked important, or the user replied to. Threads already in memory are
 // skipped, so a repeat sweep picks up the next ones instead.
-async function collectGmailSweepDocuments(caller, collectedAt, skipObjectIds) {
+async function collectGmailSweepDocuments(caller, collectedAt, skipObjectIds, onProgress) {
   const threadIds = [];
   let pageToken = null;
   for (let page = 0; page < GMAIL_SWEEP_MAX_PAGES; page += 1) {
@@ -228,6 +228,9 @@ async function collectGmailSweepDocuments(caller, collectedAt, skipObjectIds) {
 
   const documents = [];
   const queue = threadIds.slice(0, GMAIL_SWEEP_THREAD_LIMIT);
+  const total = queue.length;
+  let read = 0;
+  onProgress(read, total);
   const worker = async () => {
     while (queue.length) {
       const threadId = queue.shift();
@@ -235,6 +238,8 @@ async function collectGmailSweepDocuments(caller, collectedAt, skipObjectIds) {
         'google_workspace_gmail_get_thread',
         { thread_id: threadId },
       );
+      read += 1;
+      onProgress(read, total);
       const messages = Array.isArray(thread?.messages) ? thread.messages : [];
       const last = messages[messages.length - 1];
       if (!last) continue;
@@ -282,13 +287,14 @@ async function collectGoogleMemorySweep({
   connection,
   sourceTypes = [],
   skipObjectIds = new Set(),
+  onProgress = () => {},
   signal = null,
 }) {
   const appKey = String(connection?.app_key || '').trim();
   const collectedAt = new Date().toISOString();
   const caller = createGoogleToolCaller(connection, signal);
   const documents = appKey === 'gmail' && sourceTypes.includes('email')
-    ? await collectGmailSweepDocuments(caller, collectedAt, skipObjectIds)
+    ? await collectGmailSweepDocuments(caller, collectedAt, skipObjectIds, onProgress)
     : [];
   return { documents, cursor: { collectedAt, appKey, sourceTypes }, credentials: caller.credentials };
 }

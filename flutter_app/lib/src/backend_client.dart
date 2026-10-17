@@ -2127,19 +2127,6 @@ class BackendClient {
     );
   }
 
-  Future<Map<String, dynamic>> inspectMemory(
-    String baseUrl,
-    String query, {
-    int limit = 20,
-    String? agentId,
-  }) async {
-    return postMap(
-      baseUrl,
-      _withAgentQuery('/api/memory/memories/inspect', agentId),
-      {'query': query, 'limit': limit},
-    );
-  }
-
   Future<Map<String, dynamic>> createMemory(
     String baseUrl, {
     required String content,

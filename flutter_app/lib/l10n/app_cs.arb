@@ -154,6 +154,8 @@
   "addKey": "Přidat klíč",
   "addMcpServer": "Přidat MCP server",
   "addMemory": "Přidat paměť",
+  "memoryReview": "Zkontrolovat",
+  "memoryReviewPrompt": "Projdi všechny mé vzpomínky a ukliď je: archivuj duplicity, zastaralá fakta a vše bez trvalé hodnoty. Pak mi stručně řekni, co jsi změnil.",
   "addMoreLengthOrAnotherCharacter": "Přidejte větší délku nebo jiný typ znaku.",
   "addPeopleOrGroups": "Přidejte lidi nebo skupiny",
   "addSecurityKey": "Přidejte bezpečnostní klíč",
@@ -2006,7 +2008,6 @@
   "botUsername": "Uživatelské jméno robota",
   "brandName": "Název značky",
   "braveSearch": "Brave Search",
-  "breakdown": "Rozdělení:",
   "bridgeAnyProviderThatCanPost": "Přemostění jakéhokoli poskytovatele, který může odesílat a přijímat data webhooku.",
   "bringYourOwnKey": "přinést vlastní klíč",
   "bringYourOwnKey2": "Přineste si vlastní klíč",
@@ -2029,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Může přijímat delegované úkoly",
   "cancel": "Zrušit",
   "cancelTask": "Zrušit úkol",
-  "candidateCountArg1": "Počet kandidátů: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Nelze zobrazit náhled",
   "cannotReceiveDelegatedTasks": "nemůže přijímat delegované úkoly",
   "cannotRunYet": "ještě nemůže běžet.",
@@ -2307,14 +2300,6 @@
   "connectionMethod": "Způsob připojení",
   "containsTextOptional": "Obsahuje text (volitelné)",
   "content": "Obsah",
-  "contentArg1": "Obsah: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "zásady zabezpečení obsahu",
   "continue2": "Pokračovat",
   "continueFullSetup": "Pokračujte v úplném nastavení",
@@ -2751,14 +2736,6 @@
       }
     }
   },
-  "errorArg12": "Chyba: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Chyby z posledního protokolu, seskupené podle zpráv.",
   "errorsProblemsFailures": "chyby problémy selhání",
   "eventTypesCommaSeparated": "Typy událostí (oddělené čárkami)",
@@ -3011,14 +2988,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Úplná výzva",
   "fullSetup": "Kompletní nastavení",
-  "fullTextFtsArg1": "Plné znění (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Generál",
   "generalSettings": "Obecná nastavení",
   "generalSettingsSaved": "Obecná nastavení uložena.",
@@ -3217,7 +3186,6 @@
   "input": "Vstup",
   "inputMode": "Vstupní režim",
   "insertATemplate": "Vložte šablonu",
-  "inspect": "Zkontrolujte",
   "install": "Instalovat",
   "installASignedSelfContainedRuntime": "Nainstalujte podepsané, samostatné runtime. Příkazy Node.js, npm, Git a terminálu nejsou vyžadovány.",
   "installApk": "Nainstalujte APK",
@@ -3465,14 +3433,6 @@
         "type": "Object?"
       },
       "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
-  "lexicalArg1": "Lexikální: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -3906,10 +3866,61 @@
   "noMcpServersMatchThisSearch": "Tomuto vyhledávání neodpovídají žádné servery MCP.",
   "noMemoryEntriesFound": "Nebyly nalezeny žádné položky paměti.",
   "noMemorySync": "Žádná synchronizace paměti",
-  "importPastEmailsIntoMemory": "Importovat důležité starší e-maily do paměti",
   "importPastEmailsIntoMemoryHint": "Jednorázově přečte důležité a odeslané e-maily za posledních 12 měsíců, aby agent znal vaše kontakty a projekty.",
-  "importPastEmailsNow": "Importovat starší e-maily teď",
-  "importingPastEmailsInBackground": "Starší e-maily se importují na pozadí. Nové vzpomínky se objevují průběžně.",
+  "emailMemory": "Paměť z e-mailů",
+  "importNow": "Importovat teď",
+  "importOnConnect": "Při připojení účtu importovat starší poštu",
+  "sweepStarting": "Připravuje se…",
+  "sweepReadingProgress": "Čtení e-mailů · {done} z {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Čtení e-mailů · nalezeno {count}",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Učení z e-mailů · {done} z {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Poslední import: {emails} e-mailů · {memories} nových vzpomínek",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Žádné nové e-maily k importu",
+  "sweepFailed": "Import se nezdařil: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "\"{arg1}\" neodpovídá žádný model.",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -4291,7 +4302,6 @@
   "qrLoginRequestWasNotFound": "qr požadavek na přihlášení nebyl nalezen",
   "qrPairing": "QR párování",
   "queriesRunAnythingThatWritesIs": "běží dotazy; vše, co napíše, je odmítnuto.",
-  "query": "Dotaz",
   "queryFilter": "Dotaz / Filtr",
   "queuedAsSteeringForTheCurrent": "Ve frontě jako řízení pro aktuální běh: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4376,14 +4386,6 @@
   "registrationIsClosed": "registrace je uzavřena",
   "registrationRegisterNewAccountsAllowSignup": "registrace registrovat nové účty umožňují registraci",
   "rejectInvalidTlsCertificates": "Odmítněte neplatné certifikáty TLS",
-  "relationArg1": "Vztah: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "uvolnit a restartovat. Připojené aplikace se znovu připojí, jakmile budou zpět.",
   "releaseChannel": "Uvolněte kanál",
   "releaseCommitBranchNode": "uvolnit uzel větve potvrzení",
@@ -4486,7 +4488,6 @@
   "resultDelivery": "Doručení výsledku",
   "resultOneClickAddsOneYou": "výsledek. Jedno kliknutí přidá jedno; můžete upravit později.",
   "results": "Výsledky",
-  "retrievalInspector": "Inspektor vyhledávání",
   "retry": "Zkuste to znovu",
   "reusableUsedArg1": "Opakovaně použitelné · použité {arg1}×",
   "@reusableUsedArg1": {
@@ -4642,14 +4643,6 @@
   "scansNewEmailAndOnlyPings": "Prohledá nový e-mail a odešle vám pouze ping, když na něčem záleží.",
   "schedule": "Rozvrh",
   "scheduledTimeOnceRunsAreMeasured": "naplánovaný čas. Jakmile jsou jízdy změřeny, začne dříve.",
-  "scoreArg1": "Skóre: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Obrazovka",
   "screenAction": "akce obrazovky",
   "scrollIsNotSupportedOnThis": "rolování není na této platformě podporováno.",
@@ -4711,14 +4704,6 @@
     }
   },
   "selectTrigger": "Vyberte možnost Spustit",
-  "semanticArg1": "Sémantický: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Odeslat (⌘↵)",
   "send2": "Odeslat",
   "sendATaskFromChatAnd": "Odešlete úkol z chatu a zde se zobrazí historie jeho provádění.",
@@ -5632,14 +5617,6 @@
   "value": "Hodnota",
   "vaultLocked": "Trezor zamčený",
   "vaultOperationFailed": "Operace trezoru se nezdařila.",
-  "vectorRankArg1": "Pořadí vektoru: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Ověření",
   "verificationArg1": "Ověření: {arg1}",
   "@verificationArg1": {
@@ -6552,6 +6529,7 @@
   "settingsPageComputer": "Počítač a web",
   "settingsPageBehavior": "Chování",
   "settingsPageSystem": "Systém",
+  "settingsPagePlatforms": "Platformy",
   "settingsPageProfileDescription": "Vaše jméno a e-mail, kopie vašich dat a odhlášení.",
   "settingsPageSecurityDescription": "Heslo, dvoufaktorové ověření, bezpečnostní klíče a místo, kde jste přihlášeni.",
   "settingsPageUsageDescription": "Vaše limity a tokeny, vše na jednom místě.",

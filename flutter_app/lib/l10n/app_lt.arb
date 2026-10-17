@@ -154,6 +154,8 @@
   "addKey": "Pridėti raktą",
   "addMcpServer": "Pridėti MCP serverį",
   "addMemory": "Pridėti atmintį",
+  "memoryReview": "Peržiūrėti",
+  "memoryReviewPrompt": "Peržiūrėk visus mano prisiminimus ir sutvarkyk juos: archyvuok dublikatus, pasenusius faktus ir viską, kas neturi ilgalaikės vertės. Tada trumpai pasakyk, ką pakeitei.",
   "addMoreLengthOrAnotherCharacter": "Pridėkite daugiau ilgio arba kito tipo simbolių.",
   "addPeopleOrGroups": "Pridėkite žmonių arba grupių",
   "addSecurityKey": "Pridėkite saugos raktą",
@@ -2006,7 +2008,6 @@
   "botUsername": "Boto vartotojo vardas",
   "brandName": "Prekės ženklo pavadinimas",
   "braveSearch": "Drąsi paieška",
-  "breakdown": "Suskirstymas:",
   "bridgeAnyProviderThatCanPost": "Sujunkite bet kurį teikėją, galintį skelbti ir gauti „Webhook“ naudingąsias apkrovas.",
   "bringYourOwnKey": "atsinešk savo raktą",
   "bringYourOwnKey2": "Atsineškite savo raktą",
@@ -2029,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Gali priimti deleguotas užduotis",
   "cancel": "Atšaukti",
   "cancelTask": "Atšaukti užduotį",
-  "candidateCountArg1": "Kandidatų skaičius: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Negalima peržiūrėti",
   "cannotReceiveDelegatedTasks": "negali gauti deleguotų užduočių",
   "cannotRunYet": "dar negali bėgti.",
@@ -2307,14 +2300,6 @@
   "connectionMethod": "Prisijungimo būdas",
   "containsTextOptional": "Yra tekstas (neprivaloma)",
   "content": "Turinys",
-  "contentArg1": "Turinys: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "turinio saugumo politika",
   "continue2": "Tęsti",
   "continueFullSetup": "Tęskite visą sąranką",
@@ -2751,14 +2736,6 @@
       }
     }
   },
-  "errorArg12": "Klaida: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Klaidos iš naujausio žurnalo, sugrupuotos pagal pranešimą.",
   "errorsProblemsFailures": "klaidos problemos gedimai",
   "eventTypesCommaSeparated": "Įvykių tipai (atskirti kableliais)",
@@ -3011,14 +2988,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Pilnas raginimas",
   "fullSetup": "Pilna sąranka",
-  "fullTextFtsArg1": "Visas tekstas (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Generolas",
   "generalSettings": "Bendrieji nustatymai",
   "generalSettingsSaved": "Bendrieji nustatymai išsaugoti.",
@@ -3217,7 +3186,6 @@
   "input": "Įvestis",
   "inputMode": "Įvesties režimas",
   "insertATemplate": "Įdėkite šabloną",
-  "inspect": "Apžiūrėti",
   "install": "Įdiegti",
   "installASignedSelfContainedRuntime": "Įdiekite pasirašytą, savarankišką vykdymo laiką. Node.js, npm, Git ir terminalo komandos nėra būtinos.",
   "installApk": "Įdiekite APK",
@@ -3465,14 +3433,6 @@
         "type": "Object?"
       },
       "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
-  "lexicalArg1": "Leksinė: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -3906,10 +3866,61 @@
   "noMcpServersMatchThisSearch": "Nė vienas MCP serveris neatitinka šios paieškos.",
   "noMemoryEntriesFound": "Atminties įrašų nerasta.",
   "noMemorySync": "Nėra atminties sinchronizavimo",
-  "importPastEmailsIntoMemory": "Importuoti svarbius ankstesnius el. laiškus į atmintį",
   "importPastEmailsIntoMemoryHint": "Vieną kartą perskaito svarbius ir išsiųstus pastarųjų 12 mėnesių laiškus, kad agentas žinotų jūsų kontaktus ir projektus.",
-  "importPastEmailsNow": "Importuoti ankstesnius el. laiškus dabar",
-  "importingPastEmailsInBackground": "Ankstesni el. laiškai importuojami fone. Nauji prisiminimai atsiranda palaipsniui.",
+  "emailMemory": "El. pašto atmintis",
+  "importNow": "Importuoti dabar",
+  "importOnConnect": "Prijungiant paskyrą importuoti ankstesnius laiškus",
+  "sweepStarting": "Ruošiamasi…",
+  "sweepReadingProgress": "Skaitomi laiškai · {done} iš {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Skaitomi laiškai · rasta {count}",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Mokomasi iš laiškų · {done} iš {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Paskutinis importas: {emails} laiškai · {memories} nauji prisiminimai",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Nėra naujų laiškų importuoti",
+  "sweepFailed": "Importuoti nepavyko: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Nė vienas modelis neatitinka „{arg1}“.",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -4291,7 +4302,6 @@
   "qrLoginRequestWasNotFound": "qr prisijungimo užklausa nerasta",
   "qrPairing": "QR poravimas",
   "queriesRunAnythingThatWritesIs": "vykdomos užklausos; viskas, kas rašo, yra atmetama.",
-  "query": "Užklausa",
   "queryFilter": "Užklausa / filtras",
   "queuedAsSteeringForTheCurrent": "Eilėje kaip vairavimo priemonė dabartiniam važiavimui: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4376,14 +4386,6 @@
   "registrationIsClosed": "registracija uždaryta",
   "registrationRegisterNewAccountsAllowSignup": "registracija registracija naujos paskyros leidžia registruotis",
   "rejectInvalidTlsCertificates": "Atmesti netinkamus TLS sertifikatus",
-  "relationArg1": "Ryšys: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "atleisti ir paleisti iš naujo. Prijungtos programos vėl prisijungia, kai tik ji grįžta.",
   "releaseChannel": "Išleidimo kanalas",
   "releaseCommitBranchNode": "atleiskite įsipareigojimo šakos mazgą",
@@ -4486,7 +4488,6 @@
   "resultDelivery": "Rezultatų pristatymas",
   "resultOneClickAddsOneYou": "rezultatas. Vienas paspaudimas prideda vieną; vėliau galėsite redaguoti.",
   "results": "Rezultatai",
-  "retrievalInspector": "Paėmimo inspektorius",
   "retry": "Bandykite dar kartą",
   "reusableUsedArg1": "Daugkartinis · naudotas {arg1}×",
   "@reusableUsedArg1": {
@@ -4642,14 +4643,6 @@
   "scansNewEmailAndOnlyPings": "Nuskaito naujus el. laiškus ir praneša jums tik tada, kai kas nors svarbu.",
   "schedule": "Tvarkaraštis",
   "scheduledTimeOnceRunsAreMeasured": "numatytu laiku. Kai bėgiai bus išmatuoti, jie prasidės anksčiau.",
-  "scoreArg1": "Rezultatas: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Ekranas",
   "screenAction": "ekrano veiksmas",
   "scrollIsNotSupportedOnThis": "slinkimas šioje platformoje nepalaikomas.",
@@ -4711,14 +4704,6 @@
     }
   },
   "selectTrigger": "Pasirinkite Trigger",
-  "semanticArg1": "Semantika: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Siųsti (⌘↵)",
   "send2": "Siųsti",
   "sendATaskFromChatAnd": "Siųskite užduotį iš pokalbio ir čia bus rodoma jos vykdymo istorija.",
@@ -5632,14 +5617,6 @@
   "value": "Vertė",
   "vaultLocked": "Skliautas užrakintas",
   "vaultOperationFailed": "Skliauto operacija nepavyko.",
-  "vectorRankArg1": "Vektoriaus reitingas: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Patikrinimas",
   "verificationArg1": "Patikrinimas: {arg1}",
   "@verificationArg1": {
@@ -6552,6 +6529,7 @@
   "settingsPageComputer": "Kompiuteris ir žiniatinklis",
   "settingsPageBehavior": "Elgesys",
   "settingsPageSystem": "Sistema",
+  "settingsPagePlatforms": "Platformos",
   "settingsPageProfileDescription": "Jūsų vardas ir el. pašto adresas, jūsų duomenų kopija ir atsijungimas.",
   "settingsPageSecurityDescription": "Slaptažodis, dviejų veiksnių autentifikavimas, saugos raktai ir vieta, kur esate prisijungę.",
   "settingsPageUsageDescription": "Jūsų limitai ir žetonų išlaidos – viskas vienoje vietoje.",

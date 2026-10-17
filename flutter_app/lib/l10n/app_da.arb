@@ -154,6 +154,8 @@
   "addKey": "Tilføj nøgle",
   "addMcpServer": "Tilføj MCP-server",
   "addMemory": "Tilføj hukommelse",
+  "memoryReview": "Gennemgå",
+  "memoryReviewPrompt": "Gennemgå alle mine minder og ryd op: arkivér dubletter, forældede fakta og alt uden varig værdi. Fortæl mig derefter kort, hvad du har ændret.",
   "addMoreLengthOrAnotherCharacter": "Tilføj mere længde eller en anden tegntype.",
   "addPeopleOrGroups": "Tilføj personer eller grupper",
   "addSecurityKey": "Tilføj sikkerhedsnøgle",
@@ -2006,7 +2008,6 @@
   "botUsername": "Bot brugernavn",
   "brandName": "Mærkenavn",
   "braveSearch": "Modig Søgning",
-  "breakdown": "Opdeling:",
   "bridgeAnyProviderThatCanPost": "Bridge enhver udbyder, der kan sende og modtage webhook-nyttelast.",
   "bringYourOwnKey": "medbring din egen nøgle",
   "bringYourOwnKey2": "Medbring din egen nøgle",
@@ -2029,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Kan modtage delegerede opgaver",
   "cancel": "Annuller",
   "cancelTask": "Annuller opgave",
-  "candidateCountArg1": "Antal kandidater: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Kan ikke forhåndsvise",
   "cannotReceiveDelegatedTasks": "kan ikke modtage delegerede opgaver",
   "cannotRunYet": "kan ikke køre endnu.",
@@ -2307,14 +2300,6 @@
   "connectionMethod": "Tilslutningsmetode",
   "containsTextOptional": "Indeholder tekst (valgfrit)",
   "content": "Indhold",
-  "contentArg1": "Indhold: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "indholdssikkerhedspolitik",
   "continue2": "Fortsæt",
   "continueFullSetup": "Fortsæt fuld opsætning",
@@ -2751,14 +2736,6 @@
       }
     }
   },
-  "errorArg12": "Fejl: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Fejl fra den seneste log, grupperet efter besked.",
   "errorsProblemsFailures": "fejl problemer fejl",
   "eventTypesCommaSeparated": "Hændelsestyper (kommasepareret)",
@@ -3011,14 +2988,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Fuld prompt",
   "fullSetup": "Fuld opsætning",
-  "fullTextFtsArg1": "Fuld tekst (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Generelt",
   "generalSettings": "Generelle indstillinger",
   "generalSettingsSaved": "Generelle indstillinger gemt.",
@@ -3217,7 +3186,6 @@
   "input": "Input",
   "inputMode": "Indgangstilstand",
   "insertATemplate": "Indsæt en skabelon",
-  "inspect": "Inspicere",
   "install": "Installer",
   "installASignedSelfContainedRuntime": "Installer en signeret, selvstændig runtime. Node.js, npm, Git og terminalkommandoer er ikke påkrævet.",
   "installApk": "Installer APK",
@@ -3465,14 +3433,6 @@
         "type": "Object?"
       },
       "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
-  "lexicalArg1": "Leksisk: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -3906,10 +3866,61 @@
   "noMcpServersMatchThisSearch": "Ingen MCP-servere matcher denne søgning.",
   "noMemoryEntriesFound": "Ingen hukommelsesposter fundet.",
   "noMemorySync": "Ingen hukommelsessynkronisering",
-  "importPastEmailsIntoMemory": "Importér vigtige tidligere e-mails til hukommelsen",
   "importPastEmailsIntoMemoryHint": "Læser én gang vigtige og sendte e-mails fra de sidste 12 måneder, så agenten kender dine kontakter og projekter.",
-  "importPastEmailsNow": "Importér tidligere e-mails nu",
-  "importingPastEmailsInBackground": "Tidligere e-mails importeres i baggrunden. Nye minder dukker op undervejs.",
+  "emailMemory": "E-mailhukommelse",
+  "importNow": "Importér nu",
+  "importOnConnect": "Importér tidligere mails, når en konto forbindes",
+  "sweepStarting": "Gør klar…",
+  "sweepReadingProgress": "Læser e-mails · {done} af {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Læser e-mails · {count} fundet",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Lærer af e-mails · {done} af {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Seneste import: {emails} e-mails · {memories} nye minder",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Ingen nye e-mails at importere",
+  "sweepFailed": "Import mislykkedes: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Ingen model matcher \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -4291,7 +4302,6 @@
   "qrLoginRequestWasNotFound": "qr login anmodning blev ikke fundet",
   "qrPairing": "QR-parring",
   "queriesRunAnythingThatWritesIs": "forespørgsler kører; alt hvad der skriver bliver afvist.",
-  "query": "Forespørgsel",
   "queryFilter": "Forespørgsel / Filter",
   "queuedAsSteeringForTheCurrent": "I kø som styring for den aktuelle kørsel: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4376,14 +4386,6 @@
   "registrationIsClosed": "tilmeldingen er lukket",
   "registrationRegisterNewAccountsAllowSignup": "registrering registrere nye konti tillader tilmelding",
   "rejectInvalidTlsCertificates": "Afvis ugyldige TLS-certifikater",
-  "relationArg1": "Relation: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "frigive og genstarte. Tilsluttede apps genopretter forbindelsen, når den er tilbage.",
   "releaseChannel": "Slip kanal",
   "releaseCommitBranchNode": "release commit branch node",
@@ -4486,7 +4488,6 @@
   "resultDelivery": "Resultat levering",
   "resultOneClickAddsOneYou": "resultat. Et klik tilføjer en; du kan redigere det senere.",
   "results": "Resultater",
-  "retrievalInspector": "Afhentningsinspektør",
   "retry": "Prøv igen",
   "reusableUsedArg1": "Genanvendelig · brugt {arg1}×",
   "@reusableUsedArg1": {
@@ -4642,14 +4643,6 @@
   "scansNewEmailAndOnlyPings": "Scanner ny e-mail og pinger dig kun, når noget er vigtigt.",
   "schedule": "Tidsplan",
   "scheduledTimeOnceRunsAreMeasured": "planlagt tid. Når kørsler er målt, starter den tidligere.",
-  "scoreArg1": "Score: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Skærm",
   "screenAction": "skærmhandling",
   "scrollIsNotSupportedOnThis": "scroll er ikke understøttet på denne platform.",
@@ -4711,14 +4704,6 @@
     }
   },
   "selectTrigger": "Vælg Trigger",
-  "semanticArg1": "Semantisk: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Send (⌘↵)",
   "send2": "Send",
   "sendATaskFromChatAnd": "Send en opgave fra chat, og dens eksekveringshistorik vises her.",
@@ -5632,14 +5617,6 @@
   "value": "Værdi",
   "vaultLocked": "Hvælving låst",
   "vaultOperationFailed": "Vault-handling mislykkedes.",
-  "vectorRankArg1": "Vektorrangering: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Verifikation",
   "verificationArg1": "Verifikation: {arg1}",
   "@verificationArg1": {
@@ -6552,6 +6529,7 @@
   "settingsPageComputer": "Computer & web",
   "settingsPageBehavior": "Adfærd",
   "settingsPageSystem": "System",
+  "settingsPagePlatforms": "Platforme",
   "settingsPageProfileDescription": "Dit navn og e-mail, en kopi af dine data og log ud.",
   "settingsPageSecurityDescription": "Adgangskode, to-faktor-godkendelse, sikkerhedsnøgler og hvor du er logget ind.",
   "settingsPageUsageDescription": "Dine grænser og token-forbrug samlet på ét sted.",

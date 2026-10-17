@@ -373,6 +373,13 @@ class AppL10nFi extends AppL10n {
   String get addMemory => 'Lisää muistia';
 
   @override
+  String get memoryReview => 'Tarkista';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Käy läpi kaikki muistoni ja siivoa ne: arkistoi kaksoiskappaleet, vanhentuneet tiedot ja kaikki, millä ei ole pysyvää arvoa. Kerro sitten lyhyesti, mitä muutit.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Lisää pituutta tai muuta merkkityyppiä.';
 
@@ -1849,9 +1856,6 @@ class AppL10nFi extends AppL10n {
   String get braveSearch => 'Rohkea haku';
 
   @override
-  String get breakdown => 'Erittely:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Yhdistä kaikki palveluntarjoajat, jotka voivat lähettää ja vastaanottaa webhook-hyötykuormia.';
 
@@ -1901,11 +1905,6 @@ class AppL10nFi extends AppL10n {
 
   @override
   String get cancelTask => 'Peruuta tehtävä';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Ehdokasmäärä: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Ei voi esikatsella';
@@ -2375,11 +2374,6 @@ class AppL10nFi extends AppL10n {
 
   @override
   String get content => 'Sisältö';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Sisältö: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'sisällön turvallisuuspolitiikka';
@@ -3272,11 +3266,6 @@ class AppL10nFi extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Virhe: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Virheet viimeaikaisesta lokista, ryhmitelty viestin mukaan.';
 
@@ -3658,11 +3647,6 @@ class AppL10nFi extends AppL10n {
   String get fullSetup => 'Täysi asennus';
 
   @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Koko teksti (FTS): $arg1';
-  }
-
-  @override
   String get general => 'Kenraali';
 
   @override
@@ -4031,9 +4015,6 @@ class AppL10nFi extends AppL10n {
   String get insertATemplate => 'Lisää malli';
 
   @override
-  String get inspect => 'Tarkasta';
-
-  @override
   String get install => 'Asenna';
 
   @override
@@ -4398,11 +4379,6 @@ class AppL10nFi extends AppL10n {
   @override
   String levelArg1Arg2Arg3(Object? arg1, Object? arg2, Object? arg3) {
     return 'Taso $arg1/$arg2$arg3';
-  }
-
-  @override
-  String lexicalArg1(Object? arg1) {
-    return 'Leksinen: $arg1';
   }
 
   @override
@@ -5264,19 +5240,48 @@ class AppL10nFi extends AppL10n {
   String get noMemorySync => 'Ei muistin synkronointia';
 
   @override
-  String get importPastEmailsIntoMemory =>
-      'Tuo tärkeät aiemmat sähköpostit muistiin';
-
-  @override
   String get importPastEmailsIntoMemoryHint =>
       'Lukee kerran viimeisen 12 kuukauden tärkeät ja lähetetyt viestit, jotta agentti tuntee yhteystietosi ja projektisi.';
 
   @override
-  String get importPastEmailsNow => 'Tuo aiemmat sähköpostit nyt';
+  String get emailMemory => 'Sähköpostimuisti';
 
   @override
-  String get importingPastEmailsInBackground =>
-      'Aiempia sähköposteja tuodaan taustalla. Uudet muistot ilmestyvät vähitellen.';
+  String get importNow => 'Tuo nyt';
+
+  @override
+  String get importOnConnect => 'Tuo aiemmat viestit, kun tili yhdistetään';
+
+  @override
+  String get sweepStarting => 'Valmistellaan…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'Luetaan sähköposteja · $done/$total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'Luetaan sähköposteja · $count löydetty';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Opitaan sähköposteista · $done/$total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Viimeisin tuonti: $emails sähköpostia · $memories uutta muistoa';
+  }
+
+  @override
+  String get sweepNothingNew => 'Ei uusia sähköposteja tuotavaksi';
+
+  @override
+  String sweepFailed(String error) {
+    return 'Tuonti epäonnistui: $error';
+  }
 
   @override
   String noModelMatchesArg1(Object? arg1) {
@@ -6092,9 +6097,6 @@ class AppL10nFi extends AppL10n {
       'kyselyt suoritetaan; kaikki kirjoittava hylätään.';
 
   @override
-  String get query => 'Kysely';
-
-  @override
   String get queryFilter => 'Kysely / suodatin';
 
   @override
@@ -6262,11 +6264,6 @@ class AppL10nFi extends AppL10n {
       'Hylkää virheelliset TLS-varmenteet';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Suhde: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'vapauttaa ja käynnistää uudelleen. Yhdistetyt sovellukset muodostavat yhteyden uudelleen, kun ne ovat palanneet.';
 
@@ -6426,9 +6423,6 @@ class AppL10nFi extends AppL10n {
 
   @override
   String get results => 'Tulokset';
-
-  @override
-  String get retrievalInspector => 'Hakutarkastaja';
 
   @override
   String get retry => 'Yritä uudelleen';
@@ -6756,11 +6750,6 @@ class AppL10nFi extends AppL10n {
       'sovittu aika. Kun juoksut on mitattu, se alkaa aikaisemmin.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Pisteet: $arg1';
-  }
-
-  @override
   String get screen => 'Näyttö';
 
   @override
@@ -6898,11 +6887,6 @@ class AppL10nFi extends AppL10n {
 
   @override
   String get selectTrigger => 'Valitse Trigger';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Semanttinen: $arg1';
-  }
 
   @override
   String get send => 'Lähetä (⌘↵)';
@@ -8682,11 +8666,6 @@ class AppL10nFi extends AppL10n {
   String get vaultOperationFailed => 'Holvin toiminta epäonnistui.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Vektorin sijoitus: $arg1';
-  }
-
-  @override
   String get verification => 'Vahvistus';
 
   @override
@@ -10105,6 +10084,9 @@ class AppL10nFi extends AppL10n {
 
   @override
   String get settingsPageSystem => 'Järjestelmä';
+
+  @override
+  String get settingsPagePlatforms => 'Alustat';
 
   @override
   String get settingsPageProfileDescription =>

@@ -3165,6 +3165,7 @@ class OfficialIntegrationMemoryCoverage {
     this.documentCount = 0,
     this.lastRefreshAt,
     this.error,
+    this.sweep,
   });
 
   factory OfficialIntegrationMemoryCoverage.fromJson(
@@ -3182,6 +3183,9 @@ class OfficialIntegrationMemoryCoverage {
       documentCount: _asInt(json['documentCount']),
       lastRefreshAt: _parseOptionalTimestamp(json['lastRefreshAt']?.toString()),
       error: json['error']?.toString(),
+      sweep: json['sweep'] is Map
+          ? MemorySweepProgress.fromJson(_jsonMap(json['sweep']))
+          : null,
     );
   }
 
@@ -3194,7 +3198,68 @@ class OfficialIntegrationMemoryCoverage {
   final DateTime? lastRefreshAt;
   final String? error;
 
+  /// The latest import of past mail for this account, while it runs and
+  /// after it finished (until the server restarts).
+  final MemorySweepProgress? sweep;
+
   String get statusLabel => _titleCase(status.replaceAll('_', ' '));
+}
+
+/// Where an import of past mail into memory stands: reading the mailbox,
+/// then learning durable facts from what it read.
+class MemorySweepProgress {
+  const MemorySweepProgress({
+    required this.state,
+    this.phase = 'reading',
+    this.done = 0,
+    this.total,
+    this.imported = 0,
+    this.learned = 0,
+    this.error,
+  });
+
+  const MemorySweepProgress.starting() : this(state: 'running');
+
+  factory MemorySweepProgress.fromJson(Map<dynamic, dynamic> json) {
+    return MemorySweepProgress(
+      state: json['state']?.toString() ?? 'running',
+      phase: json['phase']?.toString() ?? 'reading',
+      done: _asInt(json['done']),
+      total: json['total'] == null ? null : _asInt(json['total']),
+      imported: _asInt(json['imported']),
+      learned: _asInt(json['learned']),
+      error: json['error']?.toString(),
+    );
+  }
+
+  final String state;
+  final String phase;
+  final int done;
+  final int? total;
+  /// Emails read in a finished import.
+  final int imported;
+
+  /// New memories a finished import added; duplicates of what memory
+  /// already held do not count.
+  final int learned;
+  final String? error;
+
+  bool get isRunning => state == 'running';
+  bool get isFailed => state == 'failed';
+  bool get isCompleted => state == 'completed';
+
+  /// Progress through the whole import, 0 to 1; null while the size of the
+  /// current phase is not known yet.
+  double? get fraction {
+    final (start, span) = switch (phase) {
+      'learning' => (0.3, 0.7),
+      _ => (0.0, 0.3),
+    };
+    final phaseTotal = total;
+    if (phaseTotal == null) return done == 0 && phase == 'reading' ? null : start;
+    if (phaseTotal == 0) return start + span;
+    return start + span * (done / phaseTotal).clamp(0.0, 1.0);
+  }
 }
 
 class OfficialIntegrationAccountItem {

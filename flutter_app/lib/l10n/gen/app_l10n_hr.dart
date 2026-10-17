@@ -375,6 +375,13 @@ class AppL10nHr extends AppL10n {
   String get addMemory => 'Dodaj memoriju';
 
   @override
+  String get memoryReview => 'Pregledaj';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Pregledaj sva moja sjećanja i pospremi ih: arhiviraj duplikate, zastarjele činjenice i sve što nema trajnu vrijednost. Zatim mi ukratko reci što si promijenio.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Dodajte više duljine ili drugu vrstu znaka.';
 
@@ -1850,9 +1857,6 @@ class AppL10nHr extends AppL10n {
   String get braveSearch => 'Hrabra potraga';
 
   @override
-  String get breakdown => 'Raščlamba:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Premostite bilo kojeg pružatelja usluga koji može objavljivati i primati podatke web-dojavnika.';
 
@@ -1901,11 +1905,6 @@ class AppL10nHr extends AppL10n {
 
   @override
   String get cancelTask => 'Otkaži zadatak';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Broj kandidata: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Nije moguće pregledati';
@@ -2376,11 +2375,6 @@ class AppL10nHr extends AppL10n {
 
   @override
   String get content => 'Sadržaj';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Sadržaj: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'politika sigurnosti sadržaja';
@@ -3267,11 +3261,6 @@ class AppL10nHr extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Pogreška: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Pogreške iz nedavnog dnevnika, grupirane po poruci.';
 
@@ -3649,11 +3638,6 @@ class AppL10nHr extends AppL10n {
   String get fullSetup => 'Potpuna postavka';
 
   @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Cijeli tekst (FTS): $arg1';
-  }
-
-  @override
   String get general => 'generalno';
 
   @override
@@ -4020,9 +4004,6 @@ class AppL10nHr extends AppL10n {
   String get insertATemplate => 'Insert a template';
 
   @override
-  String get inspect => 'Inspect';
-
-  @override
   String get install => 'Instaliraj';
 
   @override
@@ -4385,11 +4366,6 @@ class AppL10nHr extends AppL10n {
   @override
   String levelArg1Arg2Arg3(Object? arg1, Object? arg2, Object? arg3) {
     return 'Razina $arg1/$arg2$arg3';
-  }
-
-  @override
-  String lexicalArg1(Object? arg1) {
-    return 'Leksički: $arg1';
   }
 
   @override
@@ -5254,19 +5230,48 @@ class AppL10nHr extends AppL10n {
   String get noMemorySync => 'Nema sinkronizacije memorije';
 
   @override
-  String get importPastEmailsIntoMemory =>
-      'Uvezi važne starije e-poruke u memoriju';
-
-  @override
   String get importPastEmailsIntoMemoryHint =>
       'Jednom pročita važne i poslane poruke iz posljednjih 12 mjeseci kako bi agent poznavao vaše kontakte i projekte.';
 
   @override
-  String get importPastEmailsNow => 'Uvezi starije e-poruke sada';
+  String get emailMemory => 'Memorija e-pošte';
 
   @override
-  String get importingPastEmailsInBackground =>
-      'Starije e-poruke uvoze se u pozadini. Nova sjećanja pojavljuju se postupno.';
+  String get importNow => 'Uvezi sada';
+
+  @override
+  String get importOnConnect => 'Uvezi stariju poštu pri povezivanju računa';
+
+  @override
+  String get sweepStarting => 'Priprema…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'Čitanje e-pošte · $done od $total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'Čitanje e-pošte · pronađeno $count';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Učenje iz e-pošte · $done od $total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Zadnji uvoz: $emails e-poruka · $memories novih sjećanja';
+  }
+
+  @override
+  String get sweepNothingNew => 'Nema novih e-poruka za uvoz';
+
+  @override
+  String sweepFailed(String error) {
+    return 'Uvoz nije uspio: $error';
+  }
 
   @override
   String noModelMatchesArg1(Object? arg1) {
@@ -6080,9 +6085,6 @@ class AppL10nHr extends AppL10n {
       'pokretanje upita; sve što piše se odbija.';
 
   @override
-  String get query => 'Upit';
-
-  @override
   String get queryFilter => 'Upit/filtar';
 
   @override
@@ -6249,11 +6251,6 @@ class AppL10nHr extends AppL10n {
   String get rejectInvalidTlsCertificates => 'Odbaci nevažeće TLS certifikate';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Odnos: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'otpustite i ponovno pokrenite. Povezane aplikacije ponovno se povezuju kada se vrati.';
 
@@ -6413,9 +6410,6 @@ class AppL10nHr extends AppL10n {
 
   @override
   String get results => 'Rezultati';
-
-  @override
-  String get retrievalInspector => 'Inspektor za preuzimanje';
 
   @override
   String get retry => 'Pokušaj ponovo';
@@ -6745,11 +6739,6 @@ class AppL10nHr extends AppL10n {
       'zakazano vrijeme. Nakon što se trčanja izmjere, počet će ranije.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Rezultat: $arg1';
-  }
-
-  @override
   String get screen => 'Zaslon';
 
   @override
@@ -6888,11 +6877,6 @@ class AppL10nHr extends AppL10n {
 
   @override
   String get selectTrigger => 'Odaberite Okidač';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Semantički: $arg1';
-  }
 
   @override
   String get send => 'Pošalji (⌘↵)';
@@ -8673,11 +8657,6 @@ class AppL10nHr extends AppL10n {
   String get vaultOperationFailed => 'Operacija trezora nije uspjela.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Poredak vektora: $arg1';
-  }
-
-  @override
   String get verification => 'Provjera';
 
   @override
@@ -10093,6 +10072,9 @@ class AppL10nHr extends AppL10n {
 
   @override
   String get settingsPageSystem => 'sustav';
+
+  @override
+  String get settingsPagePlatforms => 'Platforme';
 
   @override
   String get settingsPageProfileDescription =>

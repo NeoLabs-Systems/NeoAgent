@@ -1904,12 +1904,13 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                               label: appStrings.arg1Tools(app.availableToolCount),
                               icon: Icons.build_circle_outlined,
                             ),
-                            _MetaPill(
-                              label: app.memoryCoverage.supported
-                                  ? 'Memory ${app.memoryCoverage.statusLabel}'
-                                  : appStrings.noMemorySync,
-                              icon: Icons.psychology_alt_outlined,
-                            ),
+                            if (!app.memorySweep)
+                              _MetaPill(
+                                label: app.memoryCoverage.supported
+                                    ? 'Memory ${app.memoryCoverage.statusLabel}'
+                                    : appStrings.noMemorySync,
+                                icon: Icons.psychology_alt_outlined,
+                              ),
                           ],
                         ),
                       ],
@@ -1918,30 +1919,19 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              if (app.memorySweep && provider.env.configured)
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: controller.isMemorySweepEnabled(provider.id, app.id),
-                  onChanged: connectBusy
-                      ? null
-                      : (value) => controller.setMemorySweepEnabled(
-                          provider.id,
-                          app.id,
-                          value ?? true,
-                        ),
-                  title: Text(appStrings.importPastEmailsIntoMemory),
-                  subtitle: Text(appStrings.importPastEmailsIntoMemoryHint),
-                  controlAffinity: ListTileControlAffinity.leading,
-                ),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: <Widget>[
-                  _buildIntegrationActionButton(context, connectBusy),
-                  if (app.memorySweep && app.isConnected)
-                    _buildImportPastEmailsButton(context),
-                ],
+              Align(
+                alignment: Alignment.centerLeft,
+                child: _buildIntegrationActionButton(context, connectBusy),
               ),
+              if (app.memorySweep) ...<Widget>[
+                const SizedBox(height: 12),
+                _EmailMemoryPanel(
+                  controller: controller,
+                  provider: provider,
+                  app: app,
+                  connectBusy: connectBusy,
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
@@ -1989,7 +1979,7 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
                         appStrings.accessArg1(account.accessModeLabel),
                         style: TextStyle(color: _textSecondary),
                       ),
-                      if (account.memoryCoverage.supported) ...<Widget>[
+                      if (account.memoryCoverage.supported && !app.memorySweep) ...<Widget>[
                         const SizedBox(height: 4),
                         Text(
                           appStrings.memoryArg1(account.memoryCoverage.statusLabel),
@@ -2124,31 +2114,6 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
     );
   }
 
-  Widget _buildImportPastEmailsButton(BuildContext context) {
-    final busy = controller.isOfficialIntegrationBusy(
-      '${provider.id}:${app.id}:sweep',
-    );
-    return OutlinedButton.icon(
-      onPressed: busy
-          ? null
-          : () async {
-              try {
-                await controller.importPastEmails(provider.id, app.id);
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(appStrings.importingPastEmailsInBackground),
-                  ),
-                );
-              } catch (error) {
-                _showControllerError(context, controller, error);
-              }
-            },
-      icon: Icon(Icons.move_to_inbox_rounded),
-      label: Text(appStrings.importPastEmailsNow),
-    );
-  }
-
   Widget _buildIntegrationActionButton(BuildContext context, bool connectBusy) {
     if (provider.connectionMethod == 'user_config') {
       return FilledButton.icon(
@@ -2198,6 +2163,219 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
             : appStrings.connectAccount,
       ),
     );
+  }
+}
+
+/// Importing a mailbox's important past mail into memory: whether it runs
+/// when an account connects, a manual "import now", and live progress.
+class _EmailMemoryPanel extends StatelessWidget {
+  const _EmailMemoryPanel({
+    required this.controller,
+    required this.provider,
+    required this.app,
+    required this.connectBusy,
+  });
+
+  final NeoAgentController controller;
+  final OfficialIntegrationItem provider;
+  final OfficialIntegrationAppItem app;
+  final bool connectBusy;
+
+  @override
+  Widget build(BuildContext context) {
+    final sweeps = app.accounts
+        .map(controller.memorySweepFor)
+        .whereType<MemorySweepProgress>()
+        .toList();
+    final running = sweeps.where((sweep) => sweep.isRunning).toList();
+    final failed = sweeps.where((sweep) => sweep.isFailed).toList();
+    final completed = sweeps.where((sweep) => sweep.isCompleted).toList();
+    final current = running.isEmpty ? null : _combine(running);
+    final fraction = current?.fraction;
+    final startBusy = controller.isOfficialIntegrationBusy(
+      '${provider.id}:${app.id}:sweep',
+    );
+    final theme = Theme.of(context);
+
+    final String status;
+    var statusColor = _textSecondary;
+    if (current != null) {
+      status = _runningLabel(current);
+    } else if (failed.isNotEmpty) {
+      status = appStrings.sweepFailed(failed.first.error ?? '');
+      statusColor = _danger;
+    } else if (completed.isNotEmpty) {
+      final imported = completed.fold<int>(0, (sum, sweep) => sum + sweep.imported);
+      final learned = completed.fold<int>(0, (sum, sweep) => sum + sweep.learned);
+      status = imported > 0
+          ? appStrings.sweepLastImport(imported, learned)
+          : appStrings.sweepNothingNew;
+    } else {
+      status = appStrings.importPastEmailsIntoMemoryHint;
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _accent.withValues(alpha: 0.12),
+                ),
+                child: Icon(Icons.auto_awesome_rounded, size: 18, color: _accent),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      appStrings.emailMemory,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: Text(
+                        status,
+                        key: ValueKey<String>(status),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: statusColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              if (current != null)
+                Text(
+                  fraction == null ? '' : '${(fraction * 100).round()}%',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: _accent,
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: const <FontFeature>[
+                      FontFeature.tabularFigures(),
+                    ],
+                  ),
+                )
+              else if (app.isConnected)
+                TextButton.icon(
+                  onPressed: startBusy
+                      ? null
+                      : () async {
+                          try {
+                            await controller.importPastEmails(provider.id, app.id);
+                          } catch (error) {
+                            if (context.mounted) {
+                              _showControllerError(context, controller, error);
+                            }
+                          }
+                        },
+                  icon: Icon(Icons.download_rounded, size: 18),
+                  label: Text(appStrings.importNow),
+                ),
+            ],
+          ),
+          if (current != null) ...<Widget>[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween<double>(end: fraction ?? 0),
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOutCubic,
+                builder: (context, value, _) => LinearProgressIndicator(
+                  value: fraction == null ? null : value,
+                  minHeight: 6,
+                  color: _accent,
+                  backgroundColor: _border,
+                ),
+              ),
+            ),
+          ],
+          if (provider.env.configured) ...<Widget>[
+            const SizedBox(height: 10),
+            Divider(height: 1, color: _borderLight),
+            const SizedBox(height: 6),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    appStrings.importOnConnect,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: _textSecondary,
+                    ),
+                  ),
+                ),
+                Transform.scale(
+                  scale: 0.85,
+                  child: Switch.adaptive(
+                    value: controller.isMemorySweepEnabled(provider.id, app.id),
+                    onChanged: connectBusy
+                        ? null
+                        : (value) => controller.setMemorySweepEnabled(
+                            provider.id,
+                            app.id,
+                            value,
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Several accounts importing at once read as one import.
+  static MemorySweepProgress _combine(List<MemorySweepProgress> sweeps) {
+    if (sweeps.length == 1) return sweeps.single;
+    const phases = <String>['reading', 'learning'];
+    final phase = sweeps
+        .map((sweep) => sweep.phase)
+        .reduce((a, b) => phases.indexOf(a) <= phases.indexOf(b) ? a : b);
+    final inPhase = sweeps.where((sweep) => sweep.phase == phase);
+    final unknownTotal = inPhase.any((sweep) => sweep.total == null);
+    return MemorySweepProgress(
+      state: 'running',
+      phase: phase,
+      done: inPhase.fold<int>(0, (sum, sweep) => sum + sweep.done),
+      total: unknownTotal
+          ? null
+          : inPhase.fold<int>(0, (sum, sweep) => sum + (sweep.total ?? 0)),
+    );
+  }
+
+  static String _runningLabel(MemorySweepProgress sweep) {
+    final total = sweep.total;
+    switch (sweep.phase) {
+      case 'learning':
+        return total == null
+            ? appStrings.sweepStarting
+            : appStrings.sweepLearningProgress(sweep.done, total);
+      default:
+        if (total != null) {
+          return appStrings.sweepReadingProgress(sweep.done, total);
+        }
+        return sweep.done == 0
+            ? appStrings.sweepStarting
+            : appStrings.sweepReadingFound(sweep.done);
+    }
   }
 }
 

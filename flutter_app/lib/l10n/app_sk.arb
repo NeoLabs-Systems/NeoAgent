@@ -154,6 +154,8 @@
   "addKey": "Pridať kľúč",
   "addMcpServer": "Pridajte server MCP",
   "addMemory": "Pridať pamäť",
+  "memoryReview": "Skontrolovať",
+  "memoryReviewPrompt": "Prejdi všetky moje spomienky a uprac ich: archivuj duplikáty, zastarané fakty a všetko bez trvalej hodnoty. Potom mi stručne povedz, čo si zmenil.",
   "addMoreLengthOrAnotherCharacter": "Pridajte väčšiu dĺžku alebo iný typ znaku.",
   "addPeopleOrGroups": "Pridajte ľudí alebo skupiny",
   "addSecurityKey": "Pridajte bezpečnostný kľúč",
@@ -2006,7 +2008,6 @@
   "botUsername": "Používateľské meno robota",
   "brandName": "Názov značky",
   "braveSearch": "Odvážne hľadanie",
-  "breakdown": "Rozdelenie:",
   "bridgeAnyProviderThatCanPost": "Premostite akéhokoľvek poskytovateľa, ktorý môže odosielať a prijímať užitočné zaťaženia webhooku.",
   "bringYourOwnKey": "priniesť si vlastný kľúč",
   "bringYourOwnKey2": "Prineste si vlastný kľúč",
@@ -2029,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Môže prijímať delegované úlohy",
   "cancel": "Zrušiť",
   "cancelTask": "Zrušiť úlohu",
-  "candidateCountArg1": "Počet kandidátov: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Nie je možné zobraziť ukážku",
   "cannotReceiveDelegatedTasks": "nemôže prijímať delegované úlohy",
   "cannotRunYet": "ešte nemôže bežať.",
@@ -2307,14 +2300,6 @@
   "connectionMethod": "Spôsob pripojenia",
   "containsTextOptional": "Obsahuje text (voliteľné)",
   "content": "Obsah",
-  "contentArg1": "Obsah: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "politika zabezpečenia obsahu",
   "continue2": "Pokračovať",
   "continueFullSetup": "Pokračujte v úplnom nastavení",
@@ -2751,14 +2736,6 @@
       }
     }
   },
-  "errorArg12": "Chyba: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Chyby z posledného denníka, zoskupené podľa správ.",
   "errorsProblemsFailures": "chyby problémy zlyhania",
   "eventTypesCommaSeparated": "Typy udalostí (oddelené čiarkami)",
@@ -3011,14 +2988,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Úplná výzva",
   "fullSetup": "Úplné nastavenie",
-  "fullTextFtsArg1": "Celé znenie (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "generál",
   "generalSettings": "Všeobecné nastavenia",
   "generalSettingsSaved": "Všeobecné nastavenia boli uložené.",
@@ -3217,7 +3186,6 @@
   "input": "Vstup",
   "inputMode": "Vstupný režim",
   "insertATemplate": "Vložte šablónu",
-  "inspect": "Skontrolujte",
   "install": "Inštalovať",
   "installASignedSelfContainedRuntime": "Nainštalujte podpísaný, samostatný runtime. Príkazy Node.js, npm, Git a terminálu sa nevyžadujú.",
   "installApk": "Nainštalujte súbor APK",
@@ -3465,14 +3433,6 @@
         "type": "Object?"
       },
       "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
-  "lexicalArg1": "Lexikálne: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -3906,10 +3866,61 @@
   "noMcpServersMatchThisSearch": "Tomuto vyhľadávaniu nezodpovedajú žiadne servery MCP.",
   "noMemoryEntriesFound": "Nenašli sa žiadne položky pamäte.",
   "noMemorySync": "Žiadna synchronizácia pamäte",
-  "importPastEmailsIntoMemory": "Importovať dôležité staršie e-maily do pamäte",
   "importPastEmailsIntoMemoryHint": "Jednorazovo prečíta dôležité a odoslané e-maily za posledných 12 mesiacov, aby agent poznal vaše kontakty a projekty.",
-  "importPastEmailsNow": "Importovať staršie e-maily teraz",
-  "importingPastEmailsInBackground": "Staršie e-maily sa importujú na pozadí. Nové spomienky sa objavujú priebežne.",
+  "emailMemory": "Pamäť z e-mailov",
+  "importNow": "Importovať teraz",
+  "importOnConnect": "Pri pripojení účtu importovať staršiu poštu",
+  "sweepStarting": "Pripravuje sa…",
+  "sweepReadingProgress": "Čítanie e-mailov · {done} z {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Čítanie e-mailov · nájdených {count}",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Učenie sa z e-mailov · {done} z {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Posledný import: {emails} e-mailov · {memories} nových spomienok",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Žiadne nové e-maily na import",
+  "sweepFailed": "Import zlyhal: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "\"{arg1}\" nezodpovedá žiadny model.",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -4291,7 +4302,6 @@
   "qrLoginRequestWasNotFound": "qr žiadosť o prihlásenie sa nenašla",
   "qrPairing": "QR párovanie",
   "queriesRunAnythingThatWritesIs": "spustené dopyty; všetko, čo napíše, je odmietnuté.",
-  "query": "Dopyt",
   "queryFilter": "Dopyt / Filter",
   "queuedAsSteeringForTheCurrent": "Zaradené ako riadenie pre aktuálnu jazdu: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4376,14 +4386,6 @@
   "registrationIsClosed": "registrácia je uzavretá",
   "registrationRegisterNewAccountsAllowSignup": "registrácia registrovať nové účty umožňujú registráciu",
   "rejectInvalidTlsCertificates": "Odmietnuť neplatné certifikáty TLS",
-  "relationArg1": "Vzťah: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "uvoľnite a reštartujte. Pripojené aplikácie sa znova pripoja, keď budú späť.",
   "releaseChannel": "Uvoľnite kanál",
   "releaseCommitBranchNode": "uvoľniť uzol vetvy odovzdania",
@@ -4486,7 +4488,6 @@
   "resultDelivery": "Doručenie výsledku",
   "resultOneClickAddsOneYou": "výsledok. Jedno kliknutie pridá jedno; môžete ho upraviť neskôr.",
   "results": "Výsledky",
-  "retrievalInspector": "Inšpektor vyhľadávania",
   "retry": "Skúste to znova",
   "reusableUsedArg1": "Opakovane použiteľné · použité {arg1}×",
   "@reusableUsedArg1": {
@@ -4642,14 +4643,6 @@
   "scansNewEmailAndOnlyPings": "Skenuje nový e-mail a odošle vám ping iba vtedy, keď na niečom záleží.",
   "schedule": "Rozvrh",
   "scheduledTimeOnceRunsAreMeasured": "plánovaný čas. Po zmeraní jázd sa začne skôr.",
-  "scoreArg1": "Skóre: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Obrazovka",
   "screenAction": "akcia na obrazovke",
   "scrollIsNotSupportedOnThis": "rolovanie nie je na tejto platforme podporované.",
@@ -4711,14 +4704,6 @@
     }
   },
   "selectTrigger": "Vyberte možnosť Spustiť",
-  "semanticArg1": "Sémantika: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Odoslať (⌘↵)",
   "send2": "Odoslať",
   "sendATaskFromChatAnd": "Odošlite úlohu z chatu a tu sa zobrazí história jej vykonávania.",
@@ -5632,14 +5617,6 @@
   "value": "Hodnota",
   "vaultLocked": "Trezor zamknutý",
   "vaultOperationFailed": "Operácia trezoru zlyhala.",
-  "vectorRankArg1": "Poradie vektora: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Overenie",
   "verificationArg1": "Overenie: {arg1}",
   "@verificationArg1": {
@@ -6552,6 +6529,7 @@
   "settingsPageComputer": "Počítač a web",
   "settingsPageBehavior": "Správanie",
   "settingsPageSystem": "Systém",
+  "settingsPagePlatforms": "Platformy",
   "settingsPageProfileDescription": "Vaše meno a e-mail, kópiu vašich údajov a odhlásenie.",
   "settingsPageSecurityDescription": "Heslo, dvojfaktorové overenie, bezpečnostné kľúče a miesto, kde ste prihlásení.",
   "settingsPageUsageDescription": "Vaše limity a tokeny na jednom mieste.",

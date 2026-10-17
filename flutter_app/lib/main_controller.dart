@@ -96,6 +96,8 @@ class NeoAgentController extends ChangeNotifier {
   final Set<String> _voiceRunIds = <String>{};
   final Set<String> _busyOfficialIntegrationKeys = <String>{};
   final Set<String> _memorySweepOptOutKeys = <String>{};
+  final Map<int, MemorySweepProgress> _liveMemorySweeps =
+      <int, MemorySweepProgress>{};
   final Set<String> _busyMessagingPlatformKeys = <String>{};
   final Map<String, DateTime> _manualRunCooldowns = <String, DateTime>{};
   final Set<String> _addingTaskRecommendations = <String>{};
@@ -5920,6 +5922,11 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  /// The latest mail import for this account: live socket updates win over
+  /// the state the last integration snapshot carried.
+  MemorySweepProgress? memorySweepFor(OfficialIntegrationAccountItem account) =>
+      _liveMemorySweeps[account.id] ?? account.memoryCoverage.sweep;
+
   /// Whether connecting this app imports its important past mail into
   /// memory. On unless the user unticked it.
   bool isMemorySweepEnabled(String providerId, String appId) =>
@@ -5946,12 +5953,18 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _backendClient.startMemorySweep(
+      final response = await _backendClient.startMemorySweep(
         backendUrl,
         providerId,
         appId: appId,
         agentId: _scopedAgentId,
       );
+      final connectionIds = response['connectionIds'];
+      if (connectionIds is List) {
+        for (final id in connectionIds) {
+          _liveMemorySweeps[_asInt(id)] = const MemorySweepProgress.starting();
+        }
+      }
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
       rethrow;
@@ -6697,14 +6710,6 @@ class NeoAgentController extends ChangeNotifier {
   void clearMemorySearch() {
     memoryRecallResults = const <MemoryItem>[];
     notifyListeners();
-  }
-
-  Future<Map<String, dynamic>> inspectMemory(String query) async {
-    return _backendClient.inspectMemory(
-      backendUrl,
-      query,
-      agentId: _scopedAgentId,
-    );
   }
 
   Future<void> updateAssistantBehaviorNotes(String content) async {
@@ -7741,6 +7746,15 @@ class NeoAgentController extends ChangeNotifier {
           _AppNotificationService.showMessagingConnectionNotification(platform),
         );
       }
+    });
+    socket.on('memory:sweep_progress', (dynamic data) {
+      final payload = _jsonMap(data);
+      final connectionId = _asInt(payload['connectionId']);
+      if (connectionId <= 0) return;
+      final progress = MemorySweepProgress.fromJson(payload);
+      _liveMemorySweeps[connectionId] = progress;
+      notifyListeners();
+      if (!progress.isRunning) unawaited(refreshSkills());
     });
     socket.on('integrations:status', (dynamic data) {
       officialIntegrations = _decodeModelList(

@@ -154,6 +154,8 @@
   "addKey": "Dodaj ključ",
   "addMcpServer": "Dodajte strežnik MCP",
   "addMemory": "Dodaj pomnilnik",
+  "memoryReview": "Preglej",
+  "memoryReviewPrompt": "Preglej vse moje spomine in jih pospravi: arhiviraj dvojnike, zastarela dejstva in vse brez trajne vrednosti. Nato mi na kratko povej, kaj si spremenil.",
   "addMoreLengthOrAnotherCharacter": "Dodajte večjo dolžino ali drugo vrsto znaka.",
   "addPeopleOrGroups": "Dodajte osebe ali skupine",
   "addSecurityKey": "Dodajte varnostni ključ",
@@ -2006,7 +2008,6 @@
   "botUsername": "Uporabniško ime za bota",
   "brandName": "Blagovna znamka",
   "braveSearch": "Pogumno iskanje",
-  "breakdown": "Razčlenitev:",
   "bridgeAnyProviderThatCanPost": "Premostite vse ponudnike, ki lahko objavljajo in prejemajo obremenitve webhook.",
   "bringYourOwnKey": "prinesite svoj ključ",
   "bringYourOwnKey2": "Prinesite svoj ključ",
@@ -2029,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Lahko prejema delegirane naloge",
   "cancel": "Prekliči",
   "cancelTask": "Prekliči nalogo",
-  "candidateCountArg1": "Število kandidatov: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Predogleda ni mogoče",
   "cannotReceiveDelegatedTasks": "ne more prejemati prenesenih nalog",
   "cannotRunYet": "še ne more teči.",
@@ -2307,14 +2300,6 @@
   "connectionMethod": "Način povezave",
   "containsTextOptional": "Vsebuje besedilo (neobvezno)",
   "content": "Vsebina",
-  "contentArg1": "Vsebina: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "politiko varnosti vsebine",
   "continue2": "Nadaljuj",
   "continueFullSetup": "Nadaljujte s popolno nastavitvijo",
@@ -2751,14 +2736,6 @@
       }
     }
   },
-  "errorArg12": "Napaka: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Napake iz nedavnega dnevnika, razvrščene po sporočilih.",
   "errorsProblemsFailures": "napake težave napake",
   "eventTypesCommaSeparated": "Vrste dogodkov (ločeno z vejicami)",
@@ -3011,14 +2988,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Celoten poziv",
   "fullSetup": "Popolna nastavitev",
-  "fullTextFtsArg1": "Celotno besedilo (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Splošno",
   "generalSettings": "Splošne nastavitve",
   "generalSettingsSaved": "Splošne nastavitve so shranjene.",
@@ -3217,7 +3186,6 @@
   "input": "Vnos",
   "inputMode": "Način vnosa",
   "insertATemplate": "Vstavite predlogo",
-  "inspect": "Preglejte",
   "install": "Namestite",
   "installASignedSelfContainedRuntime": "Namestite podpisano, samostojno izvajalno okolje. Ukazi Node.js, npm, Git in terminal niso potrebni.",
   "installApk": "Namestite APK",
@@ -3465,14 +3433,6 @@
         "type": "Object?"
       },
       "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
-  "lexicalArg1": "Leksikalno: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -3906,10 +3866,61 @@
   "noMcpServersMatchThisSearch": "Noben strežnik MCP ne ustreza temu iskanju.",
   "noMemoryEntriesFound": "Ni najdenih vnosov v pomnilnik.",
   "noMemorySync": "Ni sinhronizacije pomnilnika",
-  "importPastEmailsIntoMemory": "Uvozi pomembna starejša e-sporočila v pomnilnik",
   "importPastEmailsIntoMemoryHint": "Enkrat prebere pomembna in poslana sporočila zadnjih 12 mesecev, da agent pozna vaše stike in projekte.",
-  "importPastEmailsNow": "Uvozi starejša e-sporočila zdaj",
-  "importingPastEmailsInBackground": "Starejša e-sporočila se uvažajo v ozadju. Novi spomini se prikazujejo sproti.",
+  "emailMemory": "Pomnilnik e-pošte",
+  "importNow": "Uvozi zdaj",
+  "importOnConnect": "Ob povezavi računa uvozi starejšo pošto",
+  "sweepStarting": "Pripravljanje…",
+  "sweepReadingProgress": "Branje e-pošte · {done} od {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Branje e-pošte · najdenih {count}",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Učenje iz e-pošte · {done} od {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Zadnji uvoz: {emails} e-sporočil · {memories} novih spominov",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Ni novih e-sporočil za uvoz",
+  "sweepFailed": "Uvoz ni uspel: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Noben model se ne ujema z \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -4291,7 +4302,6 @@
   "qrLoginRequestWasNotFound": "zahteve za prijavo qr ni bilo mogoče najti",
   "qrPairing": "Seznanjanje QR",
   "queriesRunAnythingThatWritesIs": "izvajanje poizvedb; vse kar piše se zavrne.",
-  "query": "Poizvedba",
   "queryFilter": "Poizvedba / Filter",
   "queuedAsSteeringForTheCurrent": "V čakalni vrsti kot krmiljenje za trenutno vožnjo: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4376,14 +4386,6 @@
   "registrationIsClosed": "registracija je zaključena",
   "registrationRegisterNewAccountsAllowSignup": "registracija registracija novih računov omogoča prijavo",
   "rejectInvalidTlsCertificates": "Zavrni neveljavna potrdila TLS",
-  "relationArg1": "Razmerje: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "sprostite in znova zaženite. Povezane aplikacije se znova povežejo, ko se vrne.",
   "releaseChannel": "Izpusti kanal",
   "releaseCommitBranchNode": "sprosti vozlišče veje potrditve",
@@ -4486,7 +4488,6 @@
   "resultDelivery": "Dostava rezultatov",
   "resultOneClickAddsOneYou": "rezultat. En klik doda eno; lahko uredite pozneje.",
   "results": "Rezultati",
-  "retrievalInspector": "Inšpektor za pridobivanje",
   "retry": "Poskusite znova",
   "reusableUsedArg1": "Za večkratno uporabo · rabljen {arg1}×",
   "@reusableUsedArg1": {
@@ -4642,14 +4643,6 @@
   "scansNewEmailAndOnlyPings": "Pregleda novo e-pošto in vas pinga samo, ko je nekaj pomembno.",
   "schedule": "Urnik",
   "scheduledTimeOnceRunsAreMeasured": "načrtovani čas. Ko bodo teki izmerjeni, se bo začelo prej.",
-  "scoreArg1": "Rezultat: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "zaslon",
   "screenAction": "dejanje zaslona",
   "scrollIsNotSupportedOnThis": "drsenje ni podprto na tej platformi.",
@@ -4711,14 +4704,6 @@
     }
   },
   "selectTrigger": "Izberite Sprožilec",
-  "semanticArg1": "Semantično: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Pošlji (⌘↵)",
   "send2": "Pošlji",
   "sendATaskFromChatAnd": "Pošljite nalogo iz klepeta in tukaj se bo prikazala njena zgodovina izvajanja.",
@@ -5632,14 +5617,6 @@
   "value": "Vrednost",
   "vaultLocked": "Trezor zaklenjen",
   "vaultOperationFailed": "Operacija trezorja ni uspela.",
-  "vectorRankArg1": "Vektorski rang: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Preverjanje",
   "verificationArg1": "Preverjanje: {arg1}",
   "@verificationArg1": {
@@ -6552,6 +6529,7 @@
   "settingsPageComputer": "Računalnik in splet",
   "settingsPageBehavior": "Vedenje",
   "settingsPageSystem": "Sistem",
+  "settingsPagePlatforms": "Platforme",
   "settingsPageProfileDescription": "Vaše ime in e-pošta, kopija vaših podatkov in odjava.",
   "settingsPageSecurityDescription": "Geslo, dvostopenjsko preverjanje pristnosti, varnostni ključi in kje ste prijavljeni.",
   "settingsPageUsageDescription": "Vaše omejitve in žetonska poraba, vse na enem mestu.",

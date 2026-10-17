@@ -376,6 +376,13 @@ class AppL10nBg extends AppL10n {
   String get addMemory => 'Добавяне на памет';
 
   @override
+  String get memoryReview => 'Преглед';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Прегледай всички мои спомени и ги подреди: архивирай дубликатите, остарелите факти и всичко без трайна стойност. След това ми кажи накратко какво промени.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Добавете повече дължина или друг тип знак.';
 
@@ -1852,9 +1859,6 @@ class AppL10nBg extends AppL10n {
   String get braveSearch => 'Brave Search';
 
   @override
-  String get breakdown => 'Breakdown:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Bridge any provider that can post and receive webhook payloads.';
 
@@ -1903,11 +1907,6 @@ class AppL10nBg extends AppL10n {
 
   @override
   String get cancelTask => 'Отмени задачата';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Candidate Count: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Не може да се визуализира';
@@ -2376,11 +2375,6 @@ class AppL10nBg extends AppL10n {
 
   @override
   String get content => 'Съдържание';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Content: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'политика за сигурност на съдържанието';
@@ -3272,11 +3266,6 @@ class AppL10nBg extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Грешка: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Грешки от последния дневник, групирани по съобщение.';
 
@@ -3656,11 +3645,6 @@ class AppL10nBg extends AppL10n {
   String get fullSetup => 'Пълна настройка';
 
   @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Пълен текст (FTS): $arg1';
-  }
-
-  @override
   String get general => 'генерал';
 
   @override
@@ -4026,9 +4010,6 @@ class AppL10nBg extends AppL10n {
 
   @override
   String get insertATemplate => 'Поставете шаблон';
-
-  @override
-  String get inspect => 'Инспектирайте';
 
   @override
   String get install => 'Инсталирайте';
@@ -4397,11 +4378,6 @@ class AppL10nBg extends AppL10n {
   @override
   String levelArg1Arg2Arg3(Object? arg1, Object? arg2, Object? arg3) {
     return 'Ниво $arg1/$arg2$arg3';
-  }
-
-  @override
-  String lexicalArg1(Object? arg1) {
-    return 'Лексикално: $arg1';
   }
 
   @override
@@ -5271,19 +5247,49 @@ class AppL10nBg extends AppL10n {
   String get noMemorySync => 'Няма синхронизиране на паметта';
 
   @override
-  String get importPastEmailsIntoMemory =>
-      'Импортиране на важни минали имейли в паметта';
-
-  @override
   String get importPastEmailsIntoMemoryHint =>
       'Прочита еднократно важните и изпратените писма от последните 12 месеца, за да познава агентът вашите контакти и проекти.';
 
   @override
-  String get importPastEmailsNow => 'Импортирай минали имейли сега';
+  String get emailMemory => 'Памет от имейли';
 
   @override
-  String get importingPastEmailsInBackground =>
-      'Минали имейли се импортират във фонов режим. Новите спомени се появяват постепенно.';
+  String get importNow => 'Импортирай сега';
+
+  @override
+  String get importOnConnect =>
+      'Импортиране на минали писма при свързване на акаунт';
+
+  @override
+  String get sweepStarting => 'Подготовка…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'Четене на имейли · $done от $total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'Четене на имейли · $count намерени';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Учене от имейлите · $done от $total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Последен импорт: $emails имейла · $memories нови спомена';
+  }
+
+  @override
+  String get sweepNothingNew => 'Няма нови имейли за импортиране';
+
+  @override
+  String sweepFailed(String error) {
+    return 'Импортирането не бе успешно: $error';
+  }
 
   @override
   String noModelMatchesArg1(Object? arg1) {
@@ -6100,9 +6106,6 @@ class AppL10nBg extends AppL10n {
       'изпълнение на заявки; всичко, което пише, се отхвърля.';
 
   @override
-  String get query => 'Запитване';
-
-  @override
   String get queryFilter => 'Заявка / Филтър';
 
   @override
@@ -6270,11 +6273,6 @@ class AppL10nBg extends AppL10n {
       'Отхвърляне на невалидни TLS сертификати';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Отношение: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'освобождаване и рестартиране. Свързаните приложения се свързват отново, след като се върне.';
 
@@ -6438,9 +6436,6 @@ class AppL10nBg extends AppL10n {
 
   @override
   String get results => 'Резултати';
-
-  @override
-  String get retrievalInspector => 'Инспектор по извличане';
 
   @override
   String get retry => 'Опитайте отново';
@@ -6773,11 +6768,6 @@ class AppL10nBg extends AppL10n {
       'планирано време. След като бяганията бъдат измерени, ще започне по-рано.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Резултат: $arg1';
-  }
-
-  @override
   String get screen => 'екран';
 
   @override
@@ -6915,11 +6905,6 @@ class AppL10nBg extends AppL10n {
 
   @override
   String get selectTrigger => 'Изберете Тригер';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Семантика: $arg1';
-  }
 
   @override
   String get send => 'Изпрати (⌘↵)';
@@ -8705,11 +8690,6 @@ class AppL10nBg extends AppL10n {
   String get vaultOperationFailed => 'Операцията на хранилището е неуспешна.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Векторен ранг: $arg1';
-  }
-
-  @override
   String get verification => 'Проверка';
 
   @override
@@ -10134,6 +10114,9 @@ class AppL10nBg extends AppL10n {
 
   @override
   String get settingsPageSystem => 'система';
+
+  @override
+  String get settingsPagePlatforms => 'Платформи';
 
   @override
   String get settingsPageProfileDescription =>

@@ -5,6 +5,7 @@ const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
+const { MAX_MEMORY_CHARS } = require('../services/memory/policy');
 const {
   buildLlmTransferPrompt,
   parseLlmTransferText,
@@ -38,24 +39,6 @@ const memorySearchLimiter = rateLimit({
 });
 
 const MAX_TRANSFER_TEXT_BYTES = 60 * 1024;
-
-function normalizeMemoryIds(value) {
-  return [...new Set(
-    (Array.isArray(value) ? value : [])
-      .map((id) => String(id || '').trim())
-      .filter(Boolean)
-  )];
-}
-
-function findOwnedMemoryIds(db, userId, agentId, ids) {
-  if (!ids.length) {
-    return [];
-  }
-  const placeholders = ids.map(() => '?').join(', ');
-  return db.prepare(
-    `SELECT id FROM memories WHERE user_id = ? AND agent_id = ? AND id IN (${placeholders})`
-  ).all(userId, agentId, ...ids).map((row) => row.id);
-}
 
 function parsePlainObject(input, fieldName) {
   if (input == null) return null;
@@ -335,6 +318,9 @@ router.post('/memories', async (req, res) => {
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
   const { content, category = 'episodic', importance = 5, sourceRef, scope, staleAfterDays, metadata } = req.body;
   if (!content || !content.trim()) return res.status(400).json({ error: 'content is required' });
+  if (content.trim().length > MAX_MEMORY_CHARS) {
+    return res.status(400).json({ error: `A memory can be at most ${MAX_MEMORY_CHARS} characters.` });
+  }
   try {
     let normalizedStaleAfterDays;
     if (staleAfterDays != null && staleAfterDays !== '') {
@@ -369,6 +355,9 @@ router.put('/memories/:id', async (req, res) => {
   const existing = db.prepare('SELECT id FROM memories WHERE id = ? AND user_id = ? AND agent_id = ?').get(req.params.id, req.session.userId, agentId);
   if (!existing) return res.status(404).json({ error: 'Memory not found' });
   const { content, importance, category } = req.body;
+  if (typeof content === 'string' && content.trim().length > MAX_MEMORY_CHARS) {
+    return res.status(400).json({ error: `A memory can be at most ${MAX_MEMORY_CHARS} characters.` });
+  }
   try {
     const updated = await mm.updateMemory(req.params.id, { content, importance, category });
     if (!updated) return res.status(404).json({ error: 'Memory not found' });
@@ -391,13 +380,13 @@ router.delete('/memories/:id', (req, res) => {
 
 router.post('/memories/bulk-delete', (req, res) => {
   const mm = req.app.locals.memoryManager;
-  const ids = normalizeMemoryIds(req.body?.ids);
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
   if (!ids.length) {
     return res.status(400).json({ error: 'ids is required' });
   }
   try {
     const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
-    const ownedIds = findOwnedMemoryIds(db, req.session.userId, agentId, ids);
+    const ownedIds = mm.ownedMemoryIds(req.session.userId, agentId, ids);
     if (!ownedIds.length) {
       return res.status(404).json({ error: 'Memory not found' });
     }
@@ -410,14 +399,14 @@ router.post('/memories/bulk-delete', (req, res) => {
 
 router.post('/memories/bulk-archive', (req, res) => {
   const mm = req.app.locals.memoryManager;
-  const ids = normalizeMemoryIds(req.body?.ids);
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
   const archived = req.body?.archived !== false;
   if (!ids.length) {
     return res.status(400).json({ error: 'ids is required' });
   }
   try {
     const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
-    const ownedIds = findOwnedMemoryIds(db, req.session.userId, agentId, ids);
+    const ownedIds = mm.ownedMemoryIds(req.session.userId, agentId, ids);
     if (!ownedIds.length) {
       return res.status(404).json({ error: 'Memory not found' });
     }
@@ -445,28 +434,6 @@ router.post('/memories/recall', memorySearchLimiter, async (req, res) => {
   try {
     const results = await mm.recallMemory(userId, query, parsedLimit, { agentId });
     res.json(results);
-  } catch (err) {
-    res.status(500).json({ error: sanitizeError(err) });
-  }
-});
-
-// Semantic recall inspection (UI debug)
-router.post('/memories/inspect', memorySearchLimiter, async (req, res) => {
-  const mm = req.app.locals.memoryManager;
-  const userId = req.session.userId;
-  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
-  const { query, limit = 20 } = req.body;
-  if (!query) return res.status(400).json({ error: 'query is required' });
-
-  let parsedLimit = Number.parseInt(limit, 10);
-  if (!Number.isFinite(parsedLimit) || Number.isNaN(parsedLimit)) {
-    return res.status(400).json({ error: 'limit must be an integer between 1 and 100' });
-  }
-  parsedLimit = Math.max(1, Math.min(100, parsedLimit));
-
-  try {
-    const results = await mm.recallMemory(userId, query, parsedLimit, { agentId });
-    res.json({ results });
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
   }
@@ -520,7 +487,8 @@ router.post('/transfer-import', transferImportLimiter, async (req, res) => {
         skippedCount += 1;
         continue;
       }
-      await mm.saveMemory(userId, content, memory.category, importanceForCategory(memory.category), {
+      // Lines over the memory length limit are skipped, never cut off.
+      const id = await mm.saveMemory(userId, content, memory.category, importanceForCategory(memory.category), {
         agentId,
         sourceRef: {
           sourceType: 'llm_import',
@@ -530,7 +498,8 @@ router.post('/transfer-import', transferImportLimiter, async (req, res) => {
           importedFrom: 'llm_transfer',
         },
       });
-      importedCount += 1;
+      if (id) importedCount += 1;
+      else skippedCount += 1;
     }
 
     let coreUpdatedCount = 0;

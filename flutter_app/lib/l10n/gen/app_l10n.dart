@@ -771,6 +771,18 @@ abstract class AppL10n {
   /// **'Add Memory'**
   String get addMemory;
 
+  /// No description provided for @memoryReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Review'**
+  String get memoryReview;
+
+  /// No description provided for @memoryReviewPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Review all my memories and clean them up: archive duplicates, outdated facts and anything without lasting value. Then tell me briefly what you changed.'**
+  String get memoryReviewPrompt;
+
   /// No description provided for @addMoreLengthOrAnotherCharacter.
   ///
   /// In en, this message translates to:
@@ -2899,12 +2911,6 @@ abstract class AppL10n {
   /// **'Brave Search'**
   String get braveSearch;
 
-  /// No description provided for @breakdown.
-  ///
-  /// In en, this message translates to:
-  /// **'Breakdown:'**
-  String get breakdown;
-
   /// No description provided for @bridgeAnyProviderThatCanPost.
   ///
   /// In en, this message translates to:
@@ -2994,12 +3000,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Cancel task'**
   String get cancelTask;
-
-  /// No description provided for @candidateCountArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Candidate Count: {arg1}'**
-  String candidateCountArg1(Object? arg1);
 
   /// No description provided for @cannotPreview.
   ///
@@ -3786,12 +3786,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Content'**
   String get content;
-
-  /// No description provided for @contentArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Content: {arg1}'**
-  String contentArg1(Object? arg1);
 
   /// No description provided for @contentSecurityPolicy.
   ///
@@ -5347,12 +5341,6 @@ abstract class AppL10n {
   /// **'\nerror: {arg1}'**
   String errorArg1(Object? arg1);
 
-  /// No description provided for @errorArg12.
-  ///
-  /// In en, this message translates to:
-  /// **'Error: {arg1}'**
-  String errorArg12(Object? arg1);
-
   /// No description provided for @errorsFromTheRecentLogGrouped.
   ///
   /// In en, this message translates to:
@@ -5970,12 +5958,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Full setup'**
   String get fullSetup;
-
-  /// No description provided for @fullTextFtsArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Full Text (FTS): {arg1}'**
-  String fullTextFtsArg1(Object? arg1);
 
   /// No description provided for @general.
   ///
@@ -6601,12 +6583,6 @@ abstract class AppL10n {
   /// **'Insert a template'**
   String get insertATemplate;
 
-  /// No description provided for @inspect.
-  ///
-  /// In en, this message translates to:
-  /// **'Inspect'**
-  String get inspect;
-
   /// No description provided for @install.
   ///
   /// In en, this message translates to:
@@ -7200,12 +7176,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Level {arg1}/{arg2}{arg3}'**
   String levelArg1Arg2Arg3(Object? arg1, Object? arg2, Object? arg3);
-
-  /// No description provided for @lexicalArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Lexical: {arg1}'**
-  String lexicalArg1(Object? arg1);
 
   /// No description provided for @limit20.
   ///
@@ -8695,29 +8665,71 @@ abstract class AppL10n {
   /// **'No memory sync'**
   String get noMemorySync;
 
-  /// No description provided for @importPastEmailsIntoMemory.
-  ///
-  /// In en, this message translates to:
-  /// **'Import important past emails into memory'**
-  String get importPastEmailsIntoMemory;
-
   /// No description provided for @importPastEmailsIntoMemoryHint.
   ///
   /// In en, this message translates to:
   /// **'Reads the last 12 months of important and sent mail once, so the agent knows your contacts and projects.'**
   String get importPastEmailsIntoMemoryHint;
 
-  /// No description provided for @importPastEmailsNow.
+  /// No description provided for @emailMemory.
   ///
   /// In en, this message translates to:
-  /// **'Import past emails now'**
-  String get importPastEmailsNow;
+  /// **'Email memory'**
+  String get emailMemory;
 
-  /// No description provided for @importingPastEmailsInBackground.
+  /// No description provided for @importNow.
   ///
   /// In en, this message translates to:
-  /// **'Importing past emails in the background. New memories appear as it goes.'**
-  String get importingPastEmailsInBackground;
+  /// **'Import now'**
+  String get importNow;
+
+  /// No description provided for @importOnConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Import past mail when connecting an account'**
+  String get importOnConnect;
+
+  /// No description provided for @sweepStarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Getting ready…'**
+  String get sweepStarting;
+
+  /// No description provided for @sweepReadingProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading emails · {done} of {total}'**
+  String sweepReadingProgress(int done, int total);
+
+  /// No description provided for @sweepReadingFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading emails · {count} found'**
+  String sweepReadingFound(int count);
+
+  /// No description provided for @sweepLearningProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Learning from emails · {done} of {total}'**
+  String sweepLearningProgress(int done, int total);
+
+  /// No description provided for @sweepLastImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Last import: {emails} emails · {memories} new memories'**
+  String sweepLastImport(int emails, int memories);
+
+  /// No description provided for @sweepNothingNew.
+  ///
+  /// In en, this message translates to:
+  /// **'No new emails to import'**
+  String get sweepNothingNew;
+
+  /// No description provided for @sweepFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Import failed: {error}'**
+  String sweepFailed(String error);
 
   /// No description provided for @noModelMatchesArg1.
   ///
@@ -10111,12 +10123,6 @@ abstract class AppL10n {
   /// **'queries run; anything that writes is rejected.'**
   String get queriesRunAnythingThatWritesIs;
 
-  /// No description provided for @query.
-  ///
-  /// In en, this message translates to:
-  /// **'Query'**
-  String get query;
-
   /// No description provided for @queryFilter.
   ///
   /// In en, this message translates to:
@@ -10411,12 +10417,6 @@ abstract class AppL10n {
   /// **'Reject invalid TLS certificates'**
   String get rejectInvalidTlsCertificates;
 
-  /// No description provided for @relationArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Relation: {arg1}'**
-  String relationArg1(Object? arg1);
-
   /// No description provided for @releaseAndRestartsConnectedAppsReconnect.
   ///
   /// In en, this message translates to:
@@ -10692,12 +10692,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Results'**
   String get results;
-
-  /// No description provided for @retrievalInspector.
-  ///
-  /// In en, this message translates to:
-  /// **'Retrieval Inspector'**
-  String get retrievalInspector;
 
   /// No description provided for @retry.
   ///
@@ -11251,12 +11245,6 @@ abstract class AppL10n {
   /// **'scheduled time. Once runs are measured it will start earlier.'**
   String get scheduledTimeOnceRunsAreMeasured;
 
-  /// No description provided for @scoreArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Score: {arg1}'**
-  String scoreArg1(Object? arg1);
-
   /// No description provided for @screen.
   ///
   /// In en, this message translates to:
@@ -11496,12 +11484,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Select Trigger'**
   String get selectTrigger;
-
-  /// No description provided for @semanticArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Semantic: {arg1}'**
-  String semanticArg1(Object? arg1);
 
   /// No description provided for @send.
   ///
@@ -14425,12 +14407,6 @@ abstract class AppL10n {
   /// **'Vault operation failed.'**
   String get vaultOperationFailed;
 
-  /// No description provided for @vectorRankArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Vector Rank: {arg1}'**
-  String vectorRankArg1(Object? arg1);
-
   /// No description provided for @verification.
   ///
   /// In en, this message translates to:
@@ -16770,6 +16746,12 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'System'**
   String get settingsPageSystem;
+
+  /// No description provided for @settingsPagePlatforms.
+  ///
+  /// In en, this message translates to:
+  /// **'Platforms'**
+  String get settingsPagePlatforms;
 
   /// No description provided for @settingsPageProfileDescription.
   ///

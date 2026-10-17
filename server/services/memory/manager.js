@@ -736,58 +736,6 @@ class MemoryManager {
     };
   }
 
-  replaceSourceChunk(documentId, chunk, memoryId, {
-    userId,
-    agentId,
-    sourceTimestamp = null,
-    metadata = {},
-  }) {
-    const chunkId = stableHash(`${documentId}:${chunk.contentHash}`);
-    const transaction = db.transaction(() => {
-      db.prepare(
-        `INSERT INTO memory_source_chunks (
-           id, document_id, user_id, agent_id, chunk_index, char_start, char_end,
-           content, content_hash, metadata_json, created_at, updated_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-         ON CONFLICT(id) DO UPDATE SET
-           chunk_index = excluded.chunk_index,
-           char_start = excluded.char_start,
-           char_end = excluded.char_end,
-           content = excluded.content,
-           metadata_json = excluded.metadata_json,
-           updated_at = datetime('now')`
-      ).run(
-        chunkId,
-        documentId,
-        userId,
-        agentId || '',
-        chunk.chunkIndex,
-        chunk.charStart,
-        chunk.charEnd,
-        chunk.content,
-        chunk.contentHash,
-        JSON.stringify(parseJsonObject(chunk.metadata, {})),
-      );
-      db.prepare(
-        `INSERT INTO memory_source_links (
-           memory_id, chunk_id, source_document_id, source_timestamp,
-           relevance_score, extraction_method, metadata_json
-         ) VALUES (?, ?, ?, ?, 1, 'source_chunk', ?)
-         ON CONFLICT(memory_id, chunk_id) DO UPDATE SET
-           source_timestamp = excluded.source_timestamp,
-           metadata_json = excluded.metadata_json`
-      ).run(
-        memoryId,
-        chunkId,
-        documentId,
-        sourceTimestamp,
-        JSON.stringify(parseJsonObject(metadata, {})),
-      );
-    });
-    transaction();
-    return chunkId;
-  }
-
   pruneSourceChunks(documentId, retainedChunkIds = []) {
     const retained = new Set(normalizeStringArray(retainedChunkIds, 1000, 80));
     const existing = db.prepare(
@@ -1793,7 +1741,11 @@ class MemoryManager {
       )
       : [];
 
-    for (const mem of structuredFacts.length ? [] : existing) {
+    // A reworded copy of a known fact is a duplicate. A fact replacing an
+    // older value reads similar to it on purpose, so it goes through fact
+    // supersession instead.
+    const replacesFact = structuredFacts.some((fact) => fact.relation === 'updates');
+    for (const mem of replacesFact ? [] : existing) {
       let sim = 0;
       if (
         embedding
@@ -2294,6 +2246,20 @@ class MemoryManager {
     return this._attachEntities(db.prepare(sql).all(...params)).map(serializeMemoryRow);
   }
 
+  ownedMemoryIds(userId, agentId, ids) {
+    const uniqueIds = [...new Set(
+      (Array.isArray(ids) ? ids : [])
+        .map((id) => String(id || '').trim())
+        .filter(Boolean)
+    )];
+    if (!uniqueIds.length) return [];
+    const scopedAgentId = this._agentId(userId, { agentId });
+    const placeholders = uniqueIds.map(() => '?').join(', ');
+    return db.prepare(
+      `SELECT id FROM memories WHERE user_id = ? AND agent_id = ? AND id IN (${placeholders})`
+    ).all(userId, scopedAgentId, ...uniqueIds).map((row) => row.id);
+  }
+
   /**
    * Update a memory's content and/or importance.
    */
@@ -2493,6 +2459,40 @@ class MemoryManager {
       if (profile.static.length + profile.dynamic.length >= limit) break;
     }
     return profile;
+  }
+
+  // How many of these memories were created since a point in time, which
+  // tells new facts apart from duplicates that resolved to older memories.
+  countMemoriesCreatedSince(ids, since) {
+    if (!ids.length) return 0;
+    return db.prepare(
+      `SELECT COUNT(*) AS count FROM memories
+       WHERE id IN (${ids.map(() => '?').join(', ')})
+         AND datetime(created_at) >= datetime(?)`
+    ).get(...ids, since).count;
+  }
+
+  // What memory already holds that relates to a query (the profile plus the
+  // closest matches), as plain statements for an extraction prompt to skip.
+  async listKnownMemories(userId, { agentId = null, query = '', signal = null } = {}) {
+    const profile = this.getUserProfile(userId, { agentId });
+    const recalled = await this.recallMemory(userId, query, 25, { agentId, signal });
+    const known = [];
+    const seen = new Set();
+    for (const content of [
+      ...profile.static,
+      ...profile.dynamic,
+      ...recalled
+        .filter((memory) => memory.sourceRef?.sourceType !== 'memory_ingestion')
+        .map((memory) => memory.content),
+    ]) {
+      const text = String(content || '').replace(/\s+/g, ' ').trim();
+      const key = text.toLowerCase();
+      if (!text || seen.has(key)) continue;
+      seen.add(key);
+      known.push(text);
+    }
+    return known;
   }
 
   updateCore(userId, key, value, options = {}) {
@@ -3249,56 +3249,6 @@ class MemoryManager {
 
   searchMemory(query, userId = null, options = {}) {
     return this.recallMemory(userId, query, 6, options);
-  }
-
-  getPendingExtractionChunks(userId, agentId, limit = 5) {
-    const safeLimit = Math.max(1, Math.min(Number(limit) || 5, 20));
-    return db.prepare(
-      `SELECT m.id, m.content, m.importance, m.source_id,
-              m.metadata_json, d.title, d.source_type
-       FROM memories m
-       LEFT JOIN memory_ingestion_documents d
-         ON d.external_object_id = m.source_id
-            AND d.user_id = m.user_id
-            AND d.agent_id = m.agent_id
-       WHERE m.user_id = ? AND m.agent_id = ? AND m.archived = 0
-         AND m.source_type = 'memory_ingestion'
-         AND json_extract(m.metadata_json, '$.llm_extracted') IS NULL
-         AND (json_extract(m.metadata_json, '$.extraction_attempts') IS NULL
-              OR CAST(json_extract(m.metadata_json, '$.extraction_attempts') AS INTEGER) < 3)
-       ORDER BY m.importance DESC, m.created_at DESC
-       LIMIT ?`
-    ).all(userId, agentId || '', safeLimit).map((row) => ({
-      id: row.id,
-      content: row.content,
-      importance: Number(row.importance || 5),
-      sourceId: row.source_id || null,
-      title: row.title || null,
-      sourceType: row.source_type || null,
-    }));
-  }
-
-  markChunksExtracted(memoryIds, { success = true } = {}) {
-    const ids = normalizeStringArray(memoryIds, 50, 80);
-    if (!ids.length) return;
-    const placeholders = ids.map(() => '?').join(', ');
-    if (success) {
-      db.prepare(
-        `UPDATE memories
-         SET metadata_json = json_set(COALESCE(metadata_json, '{}'), '$.llm_extracted', 1)
-         WHERE id IN (${placeholders})`
-      ).run(...ids);
-    } else {
-      db.prepare(
-        `UPDATE memories
-         SET metadata_json = json_set(
-           COALESCE(metadata_json, '{}'),
-           '$.extraction_attempts',
-           COALESCE(CAST(json_extract(COALESCE(metadata_json, '{}'), '$.extraction_attempts') AS INTEGER), 0) + 1
-         )
-         WHERE id IN (${placeholders})`
-      ).run(...ids);
-    }
   }
 }
 

@@ -3,16 +3,15 @@
 const { v4: uuidv4 } = require('uuid');
 const { resolveAgentId } = require('../agents/manager');
 const {
-  SOURCE_MEMORY_CATEGORIES,
-  getFreshnessPolicy,
   normalizeDocument,
   normalizeSourceType,
   parseJsonObject,
   safeTrim,
 } = require('./ingestion_support');
-const { chunkDocument } = require('./ingestion_chunking');
 const { isAbortError, throwIfAborted } = require('../../utils/abort');
 
+// Stores documents as source material and learns durable facts from them.
+// The documents themselves never become memories.
 async function ingestDocuments(service, userId, documents = [], options = {}) {
   const signal = options.signal || null;
   throwIfAborted(signal, 'Memory ingestion aborted.');
@@ -25,11 +24,11 @@ async function ingestDocuments(service, userId, documents = [], options = {}) {
       sourceAccount: options.sourceAccount,
     }));
   const sourceType = normalizeSourceType(options.sourceType || normalizedDocs[0]?.sourceType);
-  const policy = getFreshnessPolicy(sourceType);
   const jobId = uuidv4();
   const connectionId = Number.isInteger(Number(options.connectionId))
     ? Number(options.connectionId)
     : 0;
+  const jobMetadata = parseJsonObject(options.metadata, {});
 
   service.memoryManager.recordIngestionJob(userId, {
     id: jobId,
@@ -37,81 +36,26 @@ async function ingestDocuments(service, userId, documents = [], options = {}) {
     providerKey: safeTrim(options.providerKey, 80),
     connectionId,
     status: 'running',
-    freshnessPolicy: policy,
-    metadata: parseJsonObject(options.metadata, {}),
+    metadata: jobMetadata,
     documentCount: 0,
   }, { agentId });
 
   const documentIds = [];
-  const memoryIds = [];
   try {
     for (const document of normalizedDocs) {
       throwIfAborted(signal, 'Memory ingestion aborted.');
-      const documentId = service.memoryManager.upsertIngestionDocument(
-        userId,
-        document,
-        { agentId },
-      );
-      documentIds.push(documentId);
-      const retainedChunkIds = [];
-      const chunks = chunkDocument(document);
-      for (const chunk of chunks) {
-        throwIfAborted(signal, 'Memory ingestion aborted.');
-        const memoryId = await service.memoryManager.saveMemory(
-          userId,
-          `${document.title}\n${chunk.content}`,
-          SOURCE_MEMORY_CATEGORIES[document.normalizedType]
-            || SOURCE_MEMORY_CATEGORIES[document.sourceType]
-            || 'episodic',
-          document.salience,
-          {
-            agentId,
-            staleAfterDays: getFreshnessPolicy(document.sourceType).staleAfterDays,
-            sourceRef: {
-              sourceType: 'memory_ingestion',
-              sourceId: document.externalObjectId,
-              sourceLabel: document.title,
-            },
-            scope: {
-              scopeType: 'agent',
-              scopeId: agentId,
-            },
-            metadata: {
-              ingestionJobId: jobId,
-              ingestionDocumentId: documentId,
-              providerKey: document.providerKey || null,
-              connectionId: document.connectionId || null,
-              sourceType: document.sourceType,
-              trustLevel: 'external_source',
-              chunkIndex: chunk.chunkIndex,
-              sourceSpan: {
-                charStart: chunk.charStart,
-                charEnd: chunk.charEnd,
-              },
-            },
-            signal,
-          },
-        );
-        if (!memoryId) continue;
-        memoryIds.push(memoryId);
-        retainedChunkIds.push(service.memoryManager.replaceSourceChunk(
-          documentId,
-          chunk,
-          memoryId,
-          {
-            userId,
-            agentId,
-            sourceTimestamp: document.sourceTimestamp,
-            metadata: {
-              ingestionJobId: jobId,
-              externalObjectId: document.externalObjectId,
-            },
-          },
-        ));
-      }
-
-      service.memoryManager.pruneSourceChunks(documentId, retainedChunkIds);
+      documentIds.push(service.memoryManager.upsertIngestionDocument(userId, document, { agentId }));
     }
+
+    const { memoryIds = [] } = typeof service.extractFacts === 'function'
+      ? await service.extractFacts(userId, agentId, {
+        documents: normalizedDocs,
+        owner: options.owner || { email: options.sourceAccount || null },
+        metadata: { ingestionJobId: jobId },
+        signal,
+        onProgress: options.onProgress,
+      })
+      : {};
 
     throwIfAborted(signal, 'Memory ingestion aborted.');
     service.memoryManager.recordIngestionJob(userId, {
@@ -120,12 +64,11 @@ async function ingestDocuments(service, userId, documents = [], options = {}) {
       providerKey: safeTrim(options.providerKey, 80),
       connectionId,
       status: 'completed',
-      freshnessPolicy: policy,
       summary: { documentIds, memoryIds },
-      metadata: parseJsonObject(options.metadata, {}),
+      metadata: jobMetadata,
       documentCount: documentIds.length,
       completedAt: new Date().toISOString(),
-      }, { agentId });
+    }, { agentId });
 
     const knowledgeViews = service.memoryManager.materializeKnowledgeViews(userId, { agentId });
     return {
@@ -143,7 +86,6 @@ async function ingestDocuments(service, userId, documents = [], options = {}) {
       providerKey: safeTrim(options.providerKey, 80),
       connectionId,
       status: cancelled ? 'cancelled' : 'failed',
-      freshnessPolicy: policy,
       documentCount: documentIds.length,
       error: cancelled ? null : err.message,
       completedAt: new Date().toISOString(),

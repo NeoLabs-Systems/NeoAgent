@@ -373,6 +373,13 @@ class AppL10nDa extends AppL10n {
   String get addMemory => 'Tilføj hukommelse';
 
   @override
+  String get memoryReview => 'Gennemgå';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Gennemgå alle mine minder og ryd op: arkivér dubletter, forældede fakta og alt uden varig værdi. Fortæl mig derefter kort, hvad du har ændret.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Tilføj mere længde eller en anden tegntype.';
 
@@ -1847,9 +1854,6 @@ class AppL10nDa extends AppL10n {
   String get braveSearch => 'Modig Søgning';
 
   @override
-  String get breakdown => 'Opdeling:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Bridge enhver udbyder, der kan sende og modtage webhook-nyttelast.';
 
@@ -1898,11 +1902,6 @@ class AppL10nDa extends AppL10n {
 
   @override
   String get cancelTask => 'Annuller opgave';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Antal kandidater: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Kan ikke forhåndsvise';
@@ -2371,11 +2370,6 @@ class AppL10nDa extends AppL10n {
 
   @override
   String get content => 'Indhold';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Indhold: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'indholdssikkerhedspolitik';
@@ -3264,11 +3258,6 @@ class AppL10nDa extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Fejl: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Fejl fra den seneste log, grupperet efter besked.';
 
@@ -3646,11 +3635,6 @@ class AppL10nDa extends AppL10n {
   String get fullSetup => 'Fuld opsætning';
 
   @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Fuld tekst (FTS): $arg1';
-  }
-
-  @override
   String get general => 'Generelt';
 
   @override
@@ -4018,9 +4002,6 @@ class AppL10nDa extends AppL10n {
   String get insertATemplate => 'Indsæt en skabelon';
 
   @override
-  String get inspect => 'Inspicere';
-
-  @override
   String get install => 'Installer';
 
   @override
@@ -4383,11 +4364,6 @@ class AppL10nDa extends AppL10n {
   @override
   String levelArg1Arg2Arg3(Object? arg1, Object? arg2, Object? arg3) {
     return 'Niveau $arg1/$arg2$arg3';
-  }
-
-  @override
-  String lexicalArg1(Object? arg1) {
-    return 'Leksisk: $arg1';
   }
 
   @override
@@ -5250,19 +5226,49 @@ class AppL10nDa extends AppL10n {
   String get noMemorySync => 'Ingen hukommelsessynkronisering';
 
   @override
-  String get importPastEmailsIntoMemory =>
-      'Importér vigtige tidligere e-mails til hukommelsen';
-
-  @override
   String get importPastEmailsIntoMemoryHint =>
       'Læser én gang vigtige og sendte e-mails fra de sidste 12 måneder, så agenten kender dine kontakter og projekter.';
 
   @override
-  String get importPastEmailsNow => 'Importér tidligere e-mails nu';
+  String get emailMemory => 'E-mailhukommelse';
 
   @override
-  String get importingPastEmailsInBackground =>
-      'Tidligere e-mails importeres i baggrunden. Nye minder dukker op undervejs.';
+  String get importNow => 'Importér nu';
+
+  @override
+  String get importOnConnect =>
+      'Importér tidligere mails, når en konto forbindes';
+
+  @override
+  String get sweepStarting => 'Gør klar…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'Læser e-mails · $done af $total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'Læser e-mails · $count fundet';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Lærer af e-mails · $done af $total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Seneste import: $emails e-mails · $memories nye minder';
+  }
+
+  @override
+  String get sweepNothingNew => 'Ingen nye e-mails at importere';
+
+  @override
+  String sweepFailed(String error) {
+    return 'Import mislykkedes: $error';
+  }
 
   @override
   String noModelMatchesArg1(Object? arg1) {
@@ -6071,9 +6077,6 @@ class AppL10nDa extends AppL10n {
       'forespørgsler kører; alt hvad der skriver bliver afvist.';
 
   @override
-  String get query => 'Forespørgsel';
-
-  @override
   String get queryFilter => 'Forespørgsel / Filter';
 
   @override
@@ -6239,11 +6242,6 @@ class AppL10nDa extends AppL10n {
   String get rejectInvalidTlsCertificates => 'Afvis ugyldige TLS-certifikater';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Relation: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'frigive og genstarte. Tilsluttede apps genopretter forbindelsen, når den er tilbage.';
 
@@ -6403,9 +6401,6 @@ class AppL10nDa extends AppL10n {
 
   @override
   String get results => 'Resultater';
-
-  @override
-  String get retrievalInspector => 'Afhentningsinspektør';
 
   @override
   String get retry => 'Prøv igen';
@@ -6734,11 +6729,6 @@ class AppL10nDa extends AppL10n {
       'planlagt tid. Når kørsler er målt, starter den tidligere.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Score: $arg1';
-  }
-
-  @override
   String get screen => 'Skærm';
 
   @override
@@ -6876,11 +6866,6 @@ class AppL10nDa extends AppL10n {
 
   @override
   String get selectTrigger => 'Vælg Trigger';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Semantisk: $arg1';
-  }
 
   @override
   String get send => 'Send (⌘↵)';
@@ -8664,11 +8649,6 @@ class AppL10nDa extends AppL10n {
   String get vaultOperationFailed => 'Vault-handling mislykkedes.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Vektorrangering: $arg1';
-  }
-
-  @override
   String get verification => 'Verifikation';
 
   @override
@@ -10085,6 +10065,9 @@ class AppL10nDa extends AppL10n {
 
   @override
   String get settingsPageSystem => 'System';
+
+  @override
+  String get settingsPagePlatforms => 'Platforme';
 
   @override
   String get settingsPageProfileDescription =>

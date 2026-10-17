@@ -16,32 +16,6 @@ const SOURCE_TYPES = Object.freeze([
   'notes',
 ]);
 
-const FRESHNESS_POLICIES = Object.freeze({
-  email: Object.freeze({ staleAfterDays: 14 }),
-  calendar: Object.freeze({ staleAfterDays: 30 }),
-  chat: Object.freeze({ staleAfterDays: 14 }),
-  docs: Object.freeze({ staleAfterDays: 60 }),
-  tickets: Object.freeze({ staleAfterDays: 30 }),
-  repos: Object.freeze({ staleAfterDays: 45 }),
-  files: Object.freeze({ staleAfterDays: 60 }),
-  crm: Object.freeze({ staleAfterDays: 45 }),
-  payments: Object.freeze({ staleAfterDays: 90 }),
-  notes: Object.freeze({ staleAfterDays: 90 }),
-});
-
-const SOURCE_MEMORY_CATEGORIES = Object.freeze({
-  email: 'episodic',
-  calendar: 'events',
-  chat: 'episodic',
-  docs: 'projects',
-  tickets: 'tasks',
-  repos: 'projects',
-  files: 'episodic',
-  crm: 'contacts',
-  payments: 'events',
-  notes: 'episodic',
-});
-
 const INTEGRATION_SOURCE_TYPES = Object.freeze({
   google_workspace: Object.freeze({
     gmail: Object.freeze(['email']),
@@ -80,11 +54,6 @@ function safeTrim(value, maxLength = 240) {
 function normalizeSourceType(value) {
   const normalized = String(value || '').trim().toLowerCase();
   return SOURCE_TYPES.includes(normalized) ? normalized : 'notes';
-}
-
-function getFreshnessPolicy(sourceType) {
-  const normalized = normalizeSourceType(sourceType);
-  return { ...FRESHNESS_POLICIES[normalized] };
 }
 
 function normalizeDocument(raw = {}, defaults = {}) {
@@ -138,11 +107,8 @@ function buildCoverageForConnection(connection, latestJob, dataDomains) {
 }
 
 module.exports = {
-  FRESHNESS_POLICIES,
-  SOURCE_MEMORY_CATEGORIES,
   SOURCE_TYPES,
   buildCoverageForConnection,
-  getFreshnessPolicy,
   normalizeDocument,
   normalizeSourceType,
   parseJsonObject,

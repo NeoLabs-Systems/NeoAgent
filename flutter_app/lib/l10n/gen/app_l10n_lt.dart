@@ -375,6 +375,13 @@ class AppL10nLt extends AppL10n {
   String get addMemory => 'Pridėti atmintį';
 
   @override
+  String get memoryReview => 'Peržiūrėti';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Peržiūrėk visus mano prisiminimus ir sutvarkyk juos: archyvuok dublikatus, pasenusius faktus ir viską, kas neturi ilgalaikės vertės. Tada trumpai pasakyk, ką pakeitei.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Pridėkite daugiau ilgio arba kito tipo simbolių.';
 
@@ -1852,9 +1859,6 @@ class AppL10nLt extends AppL10n {
   String get braveSearch => 'Drąsi paieška';
 
   @override
-  String get breakdown => 'Suskirstymas:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Sujunkite bet kurį teikėją, galintį skelbti ir gauti „Webhook“ naudingąsias apkrovas.';
 
@@ -1903,11 +1907,6 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get cancelTask => 'Atšaukti užduotį';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Kandidatų skaičius: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Negalima peržiūrėti';
@@ -2381,11 +2380,6 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get content => 'Turinys';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Turinys: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'turinio saugumo politika';
@@ -3274,11 +3268,6 @@ class AppL10nLt extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Klaida: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Klaidos iš naujausio žurnalo, sugrupuotos pagal pranešimą.';
 
@@ -3658,11 +3647,6 @@ class AppL10nLt extends AppL10n {
   String get fullSetup => 'Pilna sąranka';
 
   @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Visas tekstas (FTS): $arg1';
-  }
-
-  @override
   String get general => 'Generolas';
 
   @override
@@ -4032,9 +4016,6 @@ class AppL10nLt extends AppL10n {
   String get insertATemplate => 'Įdėkite šabloną';
 
   @override
-  String get inspect => 'Apžiūrėti';
-
-  @override
   String get install => 'Įdiegti';
 
   @override
@@ -4398,11 +4379,6 @@ class AppL10nLt extends AppL10n {
   @override
   String levelArg1Arg2Arg3(Object? arg1, Object? arg2, Object? arg3) {
     return 'Lygis $arg1/$arg2$arg3';
-  }
-
-  @override
-  String lexicalArg1(Object? arg1) {
-    return 'Leksinė: $arg1';
   }
 
   @override
@@ -5267,19 +5243,49 @@ class AppL10nLt extends AppL10n {
   String get noMemorySync => 'Nėra atminties sinchronizavimo';
 
   @override
-  String get importPastEmailsIntoMemory =>
-      'Importuoti svarbius ankstesnius el. laiškus į atmintį';
-
-  @override
   String get importPastEmailsIntoMemoryHint =>
       'Vieną kartą perskaito svarbius ir išsiųstus pastarųjų 12 mėnesių laiškus, kad agentas žinotų jūsų kontaktus ir projektus.';
 
   @override
-  String get importPastEmailsNow => 'Importuoti ankstesnius el. laiškus dabar';
+  String get emailMemory => 'El. pašto atmintis';
 
   @override
-  String get importingPastEmailsInBackground =>
-      'Ankstesni el. laiškai importuojami fone. Nauji prisiminimai atsiranda palaipsniui.';
+  String get importNow => 'Importuoti dabar';
+
+  @override
+  String get importOnConnect =>
+      'Prijungiant paskyrą importuoti ankstesnius laiškus';
+
+  @override
+  String get sweepStarting => 'Ruošiamasi…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'Skaitomi laiškai · $done iš $total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'Skaitomi laiškai · rasta $count';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Mokomasi iš laiškų · $done iš $total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Paskutinis importas: $emails laiškai · $memories nauji prisiminimai';
+  }
+
+  @override
+  String get sweepNothingNew => 'Nėra naujų laiškų importuoti';
+
+  @override
+  String sweepFailed(String error) {
+    return 'Importuoti nepavyko: $error';
+  }
 
   @override
   String noModelMatchesArg1(Object? arg1) {
@@ -6094,9 +6100,6 @@ class AppL10nLt extends AppL10n {
       'vykdomos užklausos; viskas, kas rašo, yra atmetama.';
 
   @override
-  String get query => 'Užklausa';
-
-  @override
   String get queryFilter => 'Užklausa / filtras';
 
   @override
@@ -6264,11 +6267,6 @@ class AppL10nLt extends AppL10n {
       'Atmesti netinkamus TLS sertifikatus';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Ryšys: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'atleisti ir paleisti iš naujo. Prijungtos programos vėl prisijungia, kai tik ji grįžta.';
 
@@ -6429,9 +6427,6 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get results => 'Rezultatai';
-
-  @override
-  String get retrievalInspector => 'Paėmimo inspektorius';
 
   @override
   String get retry => 'Bandykite dar kartą';
@@ -6765,11 +6760,6 @@ class AppL10nLt extends AppL10n {
       'numatytu laiku. Kai bėgiai bus išmatuoti, jie prasidės anksčiau.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Rezultatas: $arg1';
-  }
-
-  @override
   String get screen => 'Ekranas';
 
   @override
@@ -6908,11 +6898,6 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get selectTrigger => 'Pasirinkite Trigger';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Semantika: $arg1';
-  }
 
   @override
   String get send => 'Siųsti (⌘↵)';
@@ -8696,11 +8681,6 @@ class AppL10nLt extends AppL10n {
   String get vaultOperationFailed => 'Skliauto operacija nepavyko.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Vektoriaus reitingas: $arg1';
-  }
-
-  @override
   String get verification => 'Patikrinimas';
 
   @override
@@ -10118,6 +10098,9 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get settingsPageSystem => 'Sistema';
+
+  @override
+  String get settingsPagePlatforms => 'Platformos';
 
   @override
   String get settingsPageProfileDescription =>

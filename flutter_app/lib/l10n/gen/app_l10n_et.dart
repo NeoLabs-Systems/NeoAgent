@@ -374,6 +374,13 @@ class AppL10nEt extends AppL10n {
   String get addMemory => 'Lisa mälu';
 
   @override
+  String get memoryReview => 'Vaata üle';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Vaata kõik mu mälestused üle ja korrasta need: arhiveeri duplikaadid, aegunud faktid ja kõik, millel pole püsivat väärtust. Seejärel ütle mulle lühidalt, mida muutsid.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Lisage rohkem pikkust või muud märgitüüpi.';
 
@@ -1849,9 +1856,6 @@ class AppL10nEt extends AppL10n {
   String get braveSearch => 'Julge otsing';
 
   @override
-  String get breakdown => 'Jaotus:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Ühendage kõik pakkujad, kes saavad veebihaagi kasulikke koormusi postitada ja vastu võtta.';
 
@@ -1901,11 +1905,6 @@ class AppL10nEt extends AppL10n {
 
   @override
   String get cancelTask => 'Tühista ülesanne';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Kandidaatide arv: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Eelvaadet ei saa vaadata';
@@ -2378,11 +2377,6 @@ class AppL10nEt extends AppL10n {
 
   @override
   String get content => 'Sisu';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Sisu: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'sisu turvapoliitika';
@@ -3279,11 +3273,6 @@ class AppL10nEt extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Viga: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Vead hiljutisest logist, rühmitatud sõnumite järgi.';
 
@@ -3662,11 +3651,6 @@ class AppL10nEt extends AppL10n {
   String get fullSetup => 'Täielik seadistamine';
 
   @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Täistekst (FTS): $arg1';
-  }
-
-  @override
   String get general => 'Kindral';
 
   @override
@@ -4035,9 +4019,6 @@ class AppL10nEt extends AppL10n {
   String get insertATemplate => 'Sisestage mall';
 
   @override
-  String get inspect => 'Kontrollige';
-
-  @override
   String get install => 'Installige';
 
   @override
@@ -4401,11 +4382,6 @@ class AppL10nEt extends AppL10n {
   @override
   String levelArg1Arg2Arg3(Object? arg1, Object? arg2, Object? arg3) {
     return 'Tase $arg1/$arg2$arg3';
-  }
-
-  @override
-  String lexicalArg1(Object? arg1) {
-    return 'Leksikaalne: $arg1';
   }
 
   @override
@@ -5267,19 +5243,48 @@ class AppL10nEt extends AppL10n {
   String get noMemorySync => 'Mälu sünkroonimine puudub';
 
   @override
-  String get importPastEmailsIntoMemory =>
-      'Impordi olulised varasemad e-kirjad mällu';
-
-  @override
   String get importPastEmailsIntoMemoryHint =>
       'Loeb ühekordselt viimase 12 kuu olulised ja saadetud kirjad, et agent tunneks su kontakte ja projekte.';
 
   @override
-  String get importPastEmailsNow => 'Impordi varasemad e-kirjad kohe';
+  String get emailMemory => 'E-posti mälu';
 
   @override
-  String get importingPastEmailsInBackground =>
-      'Varasemaid e-kirju imporditakse taustal. Uued mälestused ilmuvad järk-järgult.';
+  String get importNow => 'Impordi kohe';
+
+  @override
+  String get importOnConnect => 'Impordi konto ühendamisel varasemad kirjad';
+
+  @override
+  String get sweepStarting => 'Valmistumine…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'E-kirjade lugemine · $done/$total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'E-kirjade lugemine · leitud $count';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'E-kirjadest õppimine · $done/$total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Viimane import: $emails e-kirja · $memories uut mälestust';
+  }
+
+  @override
+  String get sweepNothingNew => 'Uusi e-kirju importimiseks pole';
+
+  @override
+  String sweepFailed(String error) {
+    return 'Import ebaõnnestus: $error';
+  }
 
   @override
   String noModelMatchesArg1(Object? arg1) {
@@ -6091,9 +6096,6 @@ class AppL10nEt extends AppL10n {
       'päringud käivitatakse; kõik, mis kirjutab, lükatakse tagasi.';
 
   @override
-  String get query => 'Päring';
-
-  @override
   String get queryFilter => 'Päring / Filter';
 
   @override
@@ -6261,11 +6263,6 @@ class AppL10nEt extends AppL10n {
       'Keeldu kehtetutest TLS-sertifikaatidest';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Seos: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'vabastada ja taaskäivitada. Ühendatud rakendused ühendavad uuesti, kui see on tagasi.';
 
@@ -6425,9 +6422,6 @@ class AppL10nEt extends AppL10n {
 
   @override
   String get results => 'Tulemused';
-
-  @override
-  String get retrievalInspector => 'Väljavõtmise inspektor';
 
   @override
   String get retry => 'Proovi uuesti';
@@ -6758,11 +6752,6 @@ class AppL10nEt extends AppL10n {
       'planeeritud aeg. Kui jooksud on mõõdetud, algab see varem.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Skoor: $arg1';
-  }
-
-  @override
   String get screen => 'Ekraan';
 
   @override
@@ -6899,11 +6888,6 @@ class AppL10nEt extends AppL10n {
 
   @override
   String get selectTrigger => 'Valige Trigger';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Semantiline: $arg1';
-  }
 
   @override
   String get send => 'Saada (⌘↵)';
@@ -8677,11 +8661,6 @@ class AppL10nEt extends AppL10n {
   String get vaultOperationFailed => 'Varahoidla toiming ebaõnnestus.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Vektori asetus: $arg1';
-  }
-
-  @override
   String get verification => 'Kontrollimine';
 
   @override
@@ -10101,6 +10080,9 @@ class AppL10nEt extends AppL10n {
 
   @override
   String get settingsPageSystem => 'Süsteem';
+
+  @override
+  String get settingsPagePlatforms => 'Platvormid';
 
   @override
   String get settingsPageProfileDescription =>

@@ -377,6 +377,13 @@ class AppL10nLv extends AppL10n {
   String get addMemory => 'Pievienot atmiņu';
 
   @override
+  String get memoryReview => 'Pārskatīt';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Pārskati visas manas atmiņas un sakārto tās: arhivē dublikātus, novecojušus faktus un visu, kam nav paliekošas vērtības. Pēc tam īsi pastāsti, ko mainīji.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Pievienojiet vairāk garuma vai cita veida rakstzīmes.';
 
@@ -1852,9 +1859,6 @@ class AppL10nLv extends AppL10n {
   String get braveSearch => 'Drosmīga meklēšana';
 
   @override
-  String get breakdown => 'Sadalījums:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Pārvietojiet jebkuru pakalpojumu sniedzēju, kas var izlikt un saņemt tīmekļa aizķeres lietderīgās slodzes.';
 
@@ -1903,11 +1907,6 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get cancelTask => 'Atcelt uzdevumu';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Kandidātu skaits: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Nevar priekšskatīt';
@@ -2380,11 +2379,6 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get content => 'Saturs';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Sastāvs: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'satura drošības politika';
@@ -3275,11 +3269,6 @@ class AppL10nLv extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Kļūda: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Kļūdas no nesenā žurnāla, grupētas pēc ziņojuma.';
 
@@ -3656,11 +3645,6 @@ class AppL10nLv extends AppL10n {
   String get fullSetup => 'Pilna iestatīšana';
 
   @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Pilns teksts (FTS): $arg1';
-  }
-
-  @override
   String get general => 'Ģenerālis';
 
   @override
@@ -4028,9 +4012,6 @@ class AppL10nLv extends AppL10n {
   String get insertATemplate => 'Ievietojiet veidni';
 
   @override
-  String get inspect => 'Pārbaudīt';
-
-  @override
   String get install => 'Instalējiet';
 
   @override
@@ -4394,11 +4375,6 @@ class AppL10nLv extends AppL10n {
   @override
   String levelArg1Arg2Arg3(Object? arg1, Object? arg2, Object? arg3) {
     return 'Līmenis $arg1/$arg2$arg3';
-  }
-
-  @override
-  String lexicalArg1(Object? arg1) {
-    return 'Leksiskā: $arg1';
   }
 
   @override
@@ -5266,19 +5242,49 @@ class AppL10nLv extends AppL10n {
   String get noMemorySync => 'Nav atmiņas sinhronizācijas';
 
   @override
-  String get importPastEmailsIntoMemory =>
-      'Importēt svarīgus iepriekšējos e-pastus atmiņā';
-
-  @override
   String get importPastEmailsIntoMemoryHint =>
       'Vienreiz izlasa pēdējo 12 mēnešu svarīgos un nosūtītos e-pastus, lai aģents zinātu jūsu kontaktus un projektus.';
 
   @override
-  String get importPastEmailsNow => 'Importēt iepriekšējos e-pastus tagad';
+  String get emailMemory => 'E-pasta atmiņa';
 
   @override
-  String get importingPastEmailsInBackground =>
-      'Iepriekšējie e-pasti tiek importēti fonā. Jaunas atmiņas parādās pakāpeniski.';
+  String get importNow => 'Importēt tagad';
+
+  @override
+  String get importOnConnect =>
+      'Pievienojot kontu, importēt iepriekšējos e-pastus';
+
+  @override
+  String get sweepStarting => 'Sagatavo…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'Lasa e-pastus · $done no $total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'Lasa e-pastus · atrasti $count';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Mācās no e-pastiem · $done no $total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Pēdējais imports: $emails e-pasti · $memories jaunas atmiņas';
+  }
+
+  @override
+  String get sweepNothingNew => 'Nav jaunu e-pastu importēšanai';
+
+  @override
+  String sweepFailed(String error) {
+    return 'Importēšana neizdevās: $error';
+  }
 
   @override
   String noModelMatchesArg1(Object? arg1) {
@@ -6092,9 +6098,6 @@ class AppL10nLv extends AppL10n {
       'tiek izpildīti vaicājumi; viss, kas raksta, tiek noraidīts.';
 
   @override
-  String get query => 'Vaicājums';
-
-  @override
   String get queryFilter => 'Vaicājums / filtrs';
 
   @override
@@ -6263,11 +6266,6 @@ class AppL10nLv extends AppL10n {
       'Noraidīt nederīgos TLS sertifikātus';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Saistība: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'atlaist un restartēt. Pievienotās lietotnes tiek atkārtoti savienotas, tiklīdz tās ir atjaunotas.';
 
@@ -6427,9 +6425,6 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get results => 'Rezultāti';
-
-  @override
-  String get retrievalInspector => 'Atgūšanas inspektors';
 
   @override
   String get retry => 'Mēģiniet vēlreiz';
@@ -6761,11 +6756,6 @@ class AppL10nLv extends AppL10n {
       'ieplānotais laiks. Kad skrējieni ir izmērīti, tie sāksies agrāk.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Rezultāts: $arg1';
-  }
-
-  @override
   String get screen => 'Ekrāns';
 
   @override
@@ -6905,11 +6895,6 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get selectTrigger => 'Atlasiet Trigger';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Semantika: $arg1';
-  }
 
   @override
   String get send => 'Sūtīt (⌘↵)';
@@ -8687,11 +8672,6 @@ class AppL10nLv extends AppL10n {
   String get vaultOperationFailed => 'Vault darbība neizdevās.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Vektora rangs: $arg1';
-  }
-
-  @override
   String get verification => 'Verifikācija';
 
   @override
@@ -10114,6 +10094,9 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get settingsPageSystem => 'Sistēma';
+
+  @override
+  String get settingsPagePlatforms => 'Platformas';
 
   @override
   String get settingsPageProfileDescription =>

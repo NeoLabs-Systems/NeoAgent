@@ -372,6 +372,13 @@ class AppL10nEn extends AppL10n {
   String get addMemory => 'Add Memory';
 
   @override
+  String get memoryReview => 'Review';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Review all my memories and clean them up: archive duplicates, outdated facts and anything without lasting value. Then tell me briefly what you changed.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Add more length or another character type.';
 
@@ -1844,9 +1851,6 @@ class AppL10nEn extends AppL10n {
   String get braveSearch => 'Brave Search';
 
   @override
-  String get breakdown => 'Breakdown:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Bridge any provider that can post and receive webhook payloads.';
 
@@ -1895,11 +1899,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get cancelTask => 'Cancel task';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Candidate Count: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Cannot preview';
@@ -2368,11 +2367,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get content => 'Content';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Content: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'content security policy';
@@ -3253,11 +3247,6 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Error: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Errors from the recent log, grouped by message.';
 
@@ -3635,11 +3624,6 @@ class AppL10nEn extends AppL10n {
   String get fullSetup => 'Full setup';
 
   @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Full Text (FTS): $arg1';
-  }
-
-  @override
   String get general => 'General';
 
   @override
@@ -4006,9 +3990,6 @@ class AppL10nEn extends AppL10n {
   String get insertATemplate => 'Insert a template';
 
   @override
-  String get inspect => 'Inspect';
-
-  @override
   String get install => 'Install';
 
   @override
@@ -4370,11 +4351,6 @@ class AppL10nEn extends AppL10n {
   @override
   String levelArg1Arg2Arg3(Object? arg1, Object? arg2, Object? arg3) {
     return 'Level $arg1/$arg2$arg3';
-  }
-
-  @override
-  String lexicalArg1(Object? arg1) {
-    return 'Lexical: $arg1';
   }
 
   @override
@@ -5232,19 +5208,48 @@ class AppL10nEn extends AppL10n {
   String get noMemorySync => 'No memory sync';
 
   @override
-  String get importPastEmailsIntoMemory =>
-      'Import important past emails into memory';
-
-  @override
   String get importPastEmailsIntoMemoryHint =>
       'Reads the last 12 months of important and sent mail once, so the agent knows your contacts and projects.';
 
   @override
-  String get importPastEmailsNow => 'Import past emails now';
+  String get emailMemory => 'Email memory';
 
   @override
-  String get importingPastEmailsInBackground =>
-      'Importing past emails in the background. New memories appear as it goes.';
+  String get importNow => 'Import now';
+
+  @override
+  String get importOnConnect => 'Import past mail when connecting an account';
+
+  @override
+  String get sweepStarting => 'Getting ready…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'Reading emails · $done of $total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'Reading emails · $count found';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Learning from emails · $done of $total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Last import: $emails emails · $memories new memories';
+  }
+
+  @override
+  String get sweepNothingNew => 'No new emails to import';
+
+  @override
+  String sweepFailed(String error) {
+    return 'Import failed: $error';
+  }
 
   @override
   String noModelMatchesArg1(Object? arg1) {
@@ -6051,9 +6056,6 @@ class AppL10nEn extends AppL10n {
       'queries run; anything that writes is rejected.';
 
   @override
-  String get query => 'Query';
-
-  @override
   String get queryFilter => 'Query / Filter';
 
   @override
@@ -6219,11 +6221,6 @@ class AppL10nEn extends AppL10n {
   String get rejectInvalidTlsCertificates => 'Reject invalid TLS certificates';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Relation: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'release and restarts. Connected apps reconnect once it is back.';
 
@@ -6382,9 +6379,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get results => 'Results';
-
-  @override
-  String get retrievalInspector => 'Retrieval Inspector';
 
   @override
   String get retry => 'Retry';
@@ -6712,11 +6706,6 @@ class AppL10nEn extends AppL10n {
       'scheduled time. Once runs are measured it will start earlier.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Score: $arg1';
-  }
-
-  @override
   String get screen => 'Screen';
 
   @override
@@ -6853,11 +6842,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get selectTrigger => 'Select Trigger';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Semantic: $arg1';
-  }
 
   @override
   String get send => 'Send (⌘↵)';
@@ -8627,11 +8611,6 @@ class AppL10nEn extends AppL10n {
   String get vaultOperationFailed => 'Vault operation failed.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Vector Rank: $arg1';
-  }
-
-  @override
   String get verification => 'Verification';
 
   @override
@@ -10038,6 +10017,9 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get settingsPageSystem => 'System';
+
+  @override
+  String get settingsPagePlatforms => 'Platforms';
 
   @override
   String get settingsPageProfileDescription =>

@@ -373,6 +373,13 @@ class AppL10nMt extends AppL10n {
   String get addMemory => 'Żid Memorja';
 
   @override
+  String get memoryReview => 'Irrevedi';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Irrevedi l-memorji kollha tiegħi u naddafhom: arkivja d-duplikati, il-fatti skaduti u kull ħaġa mingħajr valur dejjiemi. Imbagħad għidli fil-qosor x\'biddilt.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Żid aktar tul jew tip ta \'karattru ieħor.';
 
@@ -1847,9 +1854,6 @@ class AppL10nMt extends AppL10n {
   String get braveSearch => 'Fittex Brave';
 
   @override
-  String get breakdown => 'Tqassim:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Tgħaqqad kwalunkwe fornitur li jista\' jpoġġi u jirċievi payloads tal-webhook.';
 
@@ -1898,11 +1902,6 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get cancelTask => 'Ikkanċella kompitu';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Għadd ta\' Kandidati: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Ma tistax tipprevedi';
@@ -2373,11 +2372,6 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get content => 'Kontenut';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Kontenut: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'politika tas-sigurtà tal-kontenut';
@@ -3276,11 +3270,6 @@ class AppL10nMt extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Żball: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Żbalji mill-ġurnal reċenti, miġbura skont il-messaġġ.';
 
@@ -3661,11 +3650,6 @@ class AppL10nMt extends AppL10n {
   String get fullSetup => 'Setup sħiħ';
 
   @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Test sħiħ (FTS): $arg1';
-  }
-
-  @override
   String get general => 'Ġenerali';
 
   @override
@@ -4036,9 +4020,6 @@ class AppL10nMt extends AppL10n {
   String get insertATemplate => 'Daħħal mudell';
 
   @override
-  String get inspect => 'Spezzjona';
-
-  @override
   String get install => 'Installa';
 
   @override
@@ -4402,11 +4383,6 @@ class AppL10nMt extends AppL10n {
   @override
   String levelArg1Arg2Arg3(Object? arg1, Object? arg2, Object? arg3) {
     return 'Livell $arg1/$arg2$arg3';
-  }
-
-  @override
-  String lexicalArg1(Object? arg1) {
-    return 'Lessiku: $arg1';
   }
 
   @override
@@ -5275,19 +5251,49 @@ class AppL10nMt extends AppL10n {
   String get noMemorySync => 'L-ebda sinkronizzazzjoni tal-memorja';
 
   @override
-  String get importPastEmailsIntoMemory =>
-      'Importa emails importanti tal-passat fil-memorja';
-
-  @override
   String get importPastEmailsIntoMemoryHint =>
       'Jaqra darba waħda l-posta importanti u mibgħuta tal-aħħar 12-il xahar, biex l-aġent ikun jaf il-kuntatti u l-proġetti tiegħek.';
 
   @override
-  String get importPastEmailsNow => 'Importa emails tal-passat issa';
+  String get emailMemory => 'Memorja tal-email';
 
   @override
-  String get importingPastEmailsInBackground =>
-      'L-emails tal-passat qed jiġu importati fl-isfond. Memorji ġodda jidhru hekk kif jimxi.';
+  String get importNow => 'Importa issa';
+
+  @override
+  String get importOnConnect =>
+      'Importa posta tal-passat meta tikkonnettja kont';
+
+  @override
+  String get sweepStarting => 'Qed jitħejja…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'Qed jaqra l-emails · $done minn $total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'Qed jaqra l-emails · $count misjuba';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Qed jitgħallem mill-emails · $done minn $total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'L-aħħar importazzjoni: $emails emails · $memories memorji ġodda';
+  }
+
+  @override
+  String get sweepNothingNew => 'M\'hemmx emails ġodda x\'jiġu importati';
+
+  @override
+  String sweepFailed(String error) {
+    return 'L-importazzjoni falliet: $error';
+  }
 
   @override
   String noModelMatchesArg1(Object? arg1) {
@@ -6101,9 +6107,6 @@ class AppL10nMt extends AppL10n {
       'mistoqsijiet jitmexxew; kull ħaġa li tikteb tiġi miċħuda.';
 
   @override
-  String get query => 'Mistoqsija';
-
-  @override
   String get queryFilter => 'Mistoqsija / Iffiltra';
 
   @override
@@ -6271,11 +6274,6 @@ class AppL10nMt extends AppL10n {
       'Irrifjuta ċertifikati TLS invalidi';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Relazzjoni: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'rilaxx u jerġa \'jibda. Apps konnessi jerġgħu jikkonnettjaw ladarba tkun lura.';
 
@@ -6435,9 +6433,6 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get results => 'Riżultati';
-
-  @override
-  String get retrievalInspector => 'Spettur tal-Irkupru';
 
   @override
   String get retry => 'Ipprova mill-ġdid';
@@ -6766,11 +6761,6 @@ class AppL10nMt extends AppL10n {
       'ħin skedat. Ladarba jitkejlu l-ġirjiet, dan jibda qabel.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Score: $arg1';
-  }
-
-  @override
   String get screen => 'Skrin';
 
   @override
@@ -6907,11 +6897,6 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get selectTrigger => 'Agħżel Trigger';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Semantiku: $arg1';
-  }
 
   @override
   String get send => 'Ibgħat (⌘↵)';
@@ -8691,11 +8676,6 @@ class AppL10nMt extends AppL10n {
   String get vaultOperationFailed => 'L-operazzjoni tal-kaxxa-forti falliet.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Vector Rank: $arg1';
-  }
-
-  @override
   String get verification => 'Verifika';
 
   @override
@@ -10116,6 +10096,9 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get settingsPageSystem => 'Sistema';
+
+  @override
+  String get settingsPagePlatforms => 'Pjattaformi';
 
   @override
   String get settingsPageProfileDescription =>

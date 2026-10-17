@@ -154,6 +154,8 @@
   "addKey": "Add key",
   "addMcpServer": "Add MCP server",
   "addMemory": "Add Memory",
+  "memoryReview": "Review",
+  "memoryReviewPrompt": "Review all my memories and clean them up: archive duplicates, outdated facts and anything without lasting value. Then tell me briefly what you changed.",
   "addMoreLengthOrAnotherCharacter": "Add more length or another character type.",
   "addPeopleOrGroups": "Add people or groups",
   "addSecurityKey": "Add security key",
@@ -2006,7 +2008,6 @@
   "botUsername": "Bot username",
   "brandName": "Brand name",
   "braveSearch": "Brave Search",
-  "breakdown": "Breakdown:",
   "bridgeAnyProviderThatCanPost": "Bridge any provider that can post and receive webhook payloads.",
   "bringYourOwnKey": "bring your own key",
   "bringYourOwnKey2": "Bring your own key",
@@ -2029,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Can receive delegated tasks",
   "cancel": "Cancel",
   "cancelTask": "Cancel task",
-  "candidateCountArg1": "Candidate Count: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Cannot preview",
   "cannotReceiveDelegatedTasks": "cannot receive delegated tasks",
   "cannotRunYet": "cannot run yet.",
@@ -2307,14 +2300,6 @@
   "connectionMethod": "Connection Method",
   "containsTextOptional": "Contains Text (optional)",
   "content": "Content",
-  "contentArg1": "Content: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "content security policy",
   "continue2": "Continue",
   "continueFullSetup": "Continue full setup",
@@ -2751,14 +2736,6 @@
       }
     }
   },
-  "errorArg12": "Error: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Errors from the recent log, grouped by message.",
   "errorsProblemsFailures": "errors problems failures",
   "eventTypesCommaSeparated": "Event Types (comma separated)",
@@ -3011,14 +2988,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Full prompt",
   "fullSetup": "Full setup",
-  "fullTextFtsArg1": "Full Text (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "General",
   "generalSettings": "General settings",
   "generalSettingsSaved": "General settings saved.",
@@ -3217,7 +3186,6 @@
   "input": "Input",
   "inputMode": "Input mode",
   "insertATemplate": "Insert a template",
-  "inspect": "Inspect",
   "install": "Install",
   "installASignedSelfContainedRuntime": "Install a signed, self-contained runtime. Node.js, npm, Git, and terminal commands are not required.",
   "installApk": "Install APK",
@@ -3465,14 +3433,6 @@
         "type": "Object?"
       },
       "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
-  "lexicalArg1": "Lexical: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -3906,10 +3866,61 @@
   "noMcpServersMatchThisSearch": "No MCP servers match this search.",
   "noMemoryEntriesFound": "No memory entries found.",
   "noMemorySync": "No memory sync",
-  "importPastEmailsIntoMemory": "Import important past emails into memory",
   "importPastEmailsIntoMemoryHint": "Reads the last 12 months of important and sent mail once, so the agent knows your contacts and projects.",
-  "importPastEmailsNow": "Import past emails now",
-  "importingPastEmailsInBackground": "Importing past emails in the background. New memories appear as it goes.",
+  "emailMemory": "Email memory",
+  "importNow": "Import now",
+  "importOnConnect": "Import past mail when connecting an account",
+  "sweepStarting": "Getting ready…",
+  "sweepReadingProgress": "Reading emails · {done} of {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Reading emails · {count} found",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Learning from emails · {done} of {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Last import: {emails} emails · {memories} new memories",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "No new emails to import",
+  "sweepFailed": "Import failed: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "No model matches \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -4291,7 +4302,6 @@
   "qrLoginRequestWasNotFound": "qr login request was not found",
   "qrPairing": "QR Pairing",
   "queriesRunAnythingThatWritesIs": "queries run; anything that writes is rejected.",
-  "query": "Query",
   "queryFilter": "Query / Filter",
   "queuedAsSteeringForTheCurrent": "Queued as steering for the current run: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4376,14 +4386,6 @@
   "registrationIsClosed": "registration is closed",
   "registrationRegisterNewAccountsAllowSignup": "registration register new accounts allow signup",
   "rejectInvalidTlsCertificates": "Reject invalid TLS certificates",
-  "relationArg1": "Relation: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "release and restarts. Connected apps reconnect once it is back.",
   "releaseChannel": "Release channel",
   "releaseCommitBranchNode": "release commit branch node",
@@ -4486,7 +4488,6 @@
   "resultDelivery": "Result Delivery",
   "resultOneClickAddsOneYou": "result. One click adds one; you can edit it later.",
   "results": "Results",
-  "retrievalInspector": "Retrieval Inspector",
   "retry": "Retry",
   "reusableUsedArg1": "Reusable · used {arg1}×",
   "@reusableUsedArg1": {
@@ -4642,14 +4643,6 @@
   "scansNewEmailAndOnlyPings": "Scans new email and only pings you when something matters.",
   "schedule": "Schedule",
   "scheduledTimeOnceRunsAreMeasured": "scheduled time. Once runs are measured it will start earlier.",
-  "scoreArg1": "Score: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Screen",
   "screenAction": "screen action",
   "scrollIsNotSupportedOnThis": "scroll is not supported on this platform.",
@@ -4711,14 +4704,6 @@
     }
   },
   "selectTrigger": "Select Trigger",
-  "semanticArg1": "Semantic: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Send (⌘↵)",
   "send2": "Send",
   "sendATaskFromChatAnd": "Send a task from chat and its execution history will show up here.",
@@ -5632,14 +5617,6 @@
   "value": "Value",
   "vaultLocked": "Vault locked",
   "vaultOperationFailed": "Vault operation failed.",
-  "vectorRankArg1": "Vector Rank: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Verification",
   "verificationArg1": "Verification: {arg1}",
   "@verificationArg1": {
@@ -6552,6 +6529,7 @@
   "settingsPageComputer": "Computer & web",
   "settingsPageBehavior": "Behavior",
   "settingsPageSystem": "System",
+  "settingsPagePlatforms": "Platforms",
   "settingsPageProfileDescription": "Your name and email, a copy of your data, and signing out.",
   "settingsPageSecurityDescription": "Password, two-factor authentication, security keys and where you're signed in.",
   "settingsPageUsageDescription": "Your limits and token spend, all in one place.",

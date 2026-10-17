@@ -1009,15 +1009,10 @@ class _MemoryPanelState extends State<MemoryPanel>
     }
   }
 
-  void _openRetrievalInspector(
-    BuildContext context,
-    NeoAgentController controller,
-  ) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => RetrievalInspectorView(controller: controller),
-      ),
-    );
+  /// Hands the memory cleanup to the agent as a normal chat run.
+  void _reviewMemories(NeoAgentController controller) {
+    controller.setSelectedSection(AppSection.chat);
+    unawaited(controller.sendMessage(appStrings.memoryReviewPrompt));
   }
 
   @override
@@ -1042,9 +1037,9 @@ class _MemoryPanelState extends State<MemoryPanel>
             runSpacing: 10,
             children: <Widget>[
               OutlinedButton.icon(
-                onPressed: () => _openRetrievalInspector(context, controller),
-                icon: Icon(Icons.bug_report_outlined),
-                label: Text(appStrings.inspect),
+                onPressed: () => _reviewMemories(controller),
+                icon: Icon(Icons.auto_fix_high_outlined),
+                label: Text(appStrings.memoryReview),
               ),
               FilledButton.icon(
                 onPressed: () => _openMemoryCreator(context, controller),
@@ -1644,8 +1639,10 @@ class _MemoryPanelState extends State<MemoryPanel>
                 const SizedBox(height: 12),
                 TextField(
                   controller: contentController,
-                  minLines: 6,
-                  maxLines: 10,
+                  minLines: 3,
+                  maxLines: 5,
+                  // Matches the server's memory length limit.
+                  maxLength: 150,
                   decoration: InputDecoration(labelText: appStrings.content),
                 ),
               ],

@@ -345,7 +345,7 @@ async function listOutlookMessages(context, { path, query, accept = () => true, 
 // Imports the past year's important mail: high-importance, flagged and
 // Focused Inbox mail the user received, plus what they sent. Conversations
 // already in memory are skipped, so a repeat sweep picks up the next ones.
-async function collectOutlookSweepDocuments(context, collectedAt, skipObjectIds) {
+async function collectOutlookSweepDocuments(context, collectedAt, skipObjectIds, onProgress) {
   const since = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
   const conversations = new Map();
   const addMessage = (limit) => (message) => {
@@ -358,6 +358,7 @@ async function collectOutlookSweepDocuments(context, collectedAt, skipObjectIds)
     }
     if (conversations.size >= limit) return false;
     conversations.set(conversationId, { conversationId, latest: message, messages: [message] });
+    onProgress(conversations.size);
     return conversations.size < limit;
   };
 
@@ -431,11 +432,12 @@ async function collectOutlookSweepDocuments(context, collectedAt, skipObjectIds)
 async function collectMicrosoftMemorySweep(context, {
   sourceTypes = [],
   skipObjectIds = new Set(),
+  onProgress = () => {},
 } = {}) {
   const appKey = String(context.connection?.app_key || '').trim();
   const collectedAt = new Date().toISOString();
   const documents = appKey === 'outlook' && sourceTypes.includes('email')
-    ? await collectOutlookSweepDocuments(context, collectedAt, skipObjectIds)
+    ? await collectOutlookSweepDocuments(context, collectedAt, skipObjectIds, onProgress)
     : [];
   return { documents, cursor: { collectedAt, appKey, sourceTypes } };
 }

@@ -374,6 +374,13 @@ class AppL10nRo extends AppL10n {
   String get addMemory => 'Adăugați memorie';
 
   @override
+  String get memoryReview => 'Revizuiește';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Revizuiește toate amintirile mele și fă ordine: arhivează duplicatele, faptele depășite și tot ce nu are valoare de durată. Apoi spune-mi pe scurt ce ai schimbat.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Adăugați mai multă lungime sau alt tip de caracter.';
 
@@ -1849,9 +1856,6 @@ class AppL10nRo extends AppL10n {
   String get braveSearch => 'Căutare curajoasă';
 
   @override
-  String get breakdown => 'Defalcare:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Bridge orice furnizor care poate posta și primi încărcături utile webhook.';
 
@@ -1900,11 +1904,6 @@ class AppL10nRo extends AppL10n {
 
   @override
   String get cancelTask => 'Anulați sarcina';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Număr de candidați: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Nu se poate previzualiza';
@@ -2374,11 +2373,6 @@ class AppL10nRo extends AppL10n {
 
   @override
   String get content => 'Conținut';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Conținut: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'politica de securitate a conținutului';
@@ -3277,11 +3271,6 @@ class AppL10nRo extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Eroare: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Erori din jurnalul recent, grupate după mesaj.';
 
@@ -3661,11 +3650,6 @@ class AppL10nRo extends AppL10n {
   String get fullSetup => 'Configurare completă';
 
   @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Text complet (FTS): $arg1';
-  }
-
-  @override
   String get general => 'general';
 
   @override
@@ -4035,9 +4019,6 @@ class AppL10nRo extends AppL10n {
   String get insertATemplate => 'Introduceți un șablon';
 
   @override
-  String get inspect => 'Inspectați';
-
-  @override
   String get install => 'Instalați';
 
   @override
@@ -4402,11 +4383,6 @@ class AppL10nRo extends AppL10n {
   @override
   String levelArg1Arg2Arg3(Object? arg1, Object? arg2, Object? arg3) {
     return 'Nivelul $arg1/$arg2$arg3';
-  }
-
-  @override
-  String lexicalArg1(Object? arg1) {
-    return 'Lexical: $arg1';
   }
 
   @override
@@ -5275,19 +5251,49 @@ class AppL10nRo extends AppL10n {
   String get noMemorySync => 'Fără sincronizare de memorie';
 
   @override
-  String get importPastEmailsIntoMemory =>
-      'Importă în memorie e-mailurile importante din trecut';
-
-  @override
   String get importPastEmailsIntoMemoryHint =>
       'Citește o singură dată e-mailurile importante și trimise din ultimele 12 luni, ca agentul să-ți cunoască contactele și proiectele.';
 
   @override
-  String get importPastEmailsNow => 'Importă acum e-mailurile din trecut';
+  String get emailMemory => 'Memorie din e-mail';
 
   @override
-  String get importingPastEmailsInBackground =>
-      'E-mailurile din trecut se importă în fundal. Amintirile noi apar pe parcurs.';
+  String get importNow => 'Importă acum';
+
+  @override
+  String get importOnConnect =>
+      'Importă mesajele vechi la conectarea unui cont';
+
+  @override
+  String get sweepStarting => 'Se pregătește…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'Se citesc e-mailurile · $done din $total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'Se citesc e-mailurile · $count găsite';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Învață din e-mailuri · $done din $total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Ultimul import: $emails e-mailuri · $memories amintiri noi';
+  }
+
+  @override
+  String get sweepNothingNew => 'Nu există e-mailuri noi de importat';
+
+  @override
+  String sweepFailed(String error) {
+    return 'Importul a eșuat: $error';
+  }
 
   @override
   String noModelMatchesArg1(Object? arg1) {
@@ -6107,9 +6113,6 @@ class AppL10nRo extends AppL10n {
       'interogările rulează; orice scrie este respins.';
 
   @override
-  String get query => 'Interogare';
-
-  @override
   String get queryFilter => 'Interogare / Filtru';
 
   @override
@@ -6277,11 +6280,6 @@ class AppL10nRo extends AppL10n {
       'Respinge certificatele TLS nevalide';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Relație: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'eliberați și repornește. Aplicațiile conectate se reconectează odată ce revin.';
 
@@ -6442,9 +6440,6 @@ class AppL10nRo extends AppL10n {
 
   @override
   String get results => 'Rezultate';
-
-  @override
-  String get retrievalInspector => 'Inspector de recuperare';
 
   @override
   String get retry => 'Reîncercați';
@@ -6776,11 +6771,6 @@ class AppL10nRo extends AppL10n {
       'ora programata. Odată ce rulările sunt măsurate, va începe mai devreme.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Scor: $arg1';
-  }
-
-  @override
   String get screen => 'Ecran';
 
   @override
@@ -6919,11 +6909,6 @@ class AppL10nRo extends AppL10n {
 
   @override
   String get selectTrigger => 'Selectați Declanșare';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Semantic: $arg1';
-  }
 
   @override
   String get send => 'Trimite (⌘↵)';
@@ -8710,11 +8695,6 @@ class AppL10nRo extends AppL10n {
   String get vaultOperationFailed => 'Operarea seifului a eșuat.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Rang Vector: $arg1';
-  }
-
-  @override
   String get verification => 'Verificare';
 
   @override
@@ -10136,6 +10116,9 @@ class AppL10nRo extends AppL10n {
 
   @override
   String get settingsPageSystem => 'Sistem';
+
+  @override
+  String get settingsPagePlatforms => 'Platforme';
 
   @override
   String get settingsPageProfileDescription =>

@@ -4957,9 +4957,9 @@ Future<void> _openWhatsAppModeDialog(
 
   await showDialog<void>(
     context: context,
-    builder: (context) {
+    builder: (dialogContext) {
       return StatefulBuilder(
-        builder: (context, setLocalState) {
+        builder: (dialogContext, setLocalState) {
           Widget modeTile({
             required bool value,
             required IconData icon,
@@ -5103,15 +5103,18 @@ Future<void> _openWhatsAppModeDialog(
             ),
             actions: <Widget>[
               TextButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.of(dialogContext).pop(),
                 child: Text(appStrings.cancel),
               ),
               FilledButton(
-                onPressed: () async {
+                onPressed: () {
+                  // The QR code shows on the page behind this dialog, so the
+                  // dialog closes first; errors surface on the page instead.
+                  Navigator.of(dialogContext).pop();
                   final config = <String, dynamic>{
                     'selfChatMode': selfChatMode,
                   };
-                  final connected = await _connectMessagingPlatformHelper(
+                  _connectMessagingPlatformHelper(
                     context,
                     controller,
                     platform: platform.id,
@@ -5121,9 +5124,6 @@ Future<void> _openWhatsAppModeDialog(
                       platform.settingsKey: jsonEncode(config),
                     },
                   );
-                  if (connected && context.mounted) {
-                    Navigator.of(context).pop();
-                  }
                 },
                 child: Text(appStrings.connect),
               ),

@@ -154,6 +154,8 @@
   "addKey": "Adăugați cheia",
   "addMcpServer": "Adăugați server MCP",
   "addMemory": "Adăugați memorie",
+  "memoryReview": "Revizuiește",
+  "memoryReviewPrompt": "Revizuiește toate amintirile mele și fă ordine: arhivează duplicatele, faptele depășite și tot ce nu are valoare de durată. Apoi spune-mi pe scurt ce ai schimbat.",
   "addMoreLengthOrAnotherCharacter": "Adăugați mai multă lungime sau alt tip de caracter.",
   "addPeopleOrGroups": "Adăugați persoane sau grupuri",
   "addSecurityKey": "Adăugați cheia de securitate",
@@ -2006,7 +2008,6 @@
   "botUsername": "Nume de utilizator bot",
   "brandName": "Nume de marcă",
   "braveSearch": "Căutare curajoasă",
-  "breakdown": "Defalcare:",
   "bridgeAnyProviderThatCanPost": "Bridge orice furnizor care poate posta și primi încărcături utile webhook.",
   "bringYourOwnKey": "aduceți-vă propria cheie",
   "bringYourOwnKey2": "Adu-ți propria cheie",
@@ -2029,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Poate primi sarcini delegate",
   "cancel": "Anulează",
   "cancelTask": "Anulați sarcina",
-  "candidateCountArg1": "Număr de candidați: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Nu se poate previzualiza",
   "cannotReceiveDelegatedTasks": "nu pot primi sarcini delegate",
   "cannotRunYet": "nu pot rula încă.",
@@ -2307,14 +2300,6 @@
   "connectionMethod": "Metoda de conectare",
   "containsTextOptional": "Conține text (opțional)",
   "content": "Conținut",
-  "contentArg1": "Conținut: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "politica de securitate a conținutului",
   "continue2": "Continuă",
   "continueFullSetup": "Continuați configurarea completă",
@@ -2751,14 +2736,6 @@
       }
     }
   },
-  "errorArg12": "Eroare: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Erori din jurnalul recent, grupate după mesaj.",
   "errorsProblemsFailures": "erori probleme eșecuri",
   "eventTypesCommaSeparated": "Tipuri de evenimente (separate prin virgulă)",
@@ -3011,14 +2988,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Solicitare completă",
   "fullSetup": "Configurare completă",
-  "fullTextFtsArg1": "Text complet (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "general",
   "generalSettings": "Setări generale",
   "generalSettingsSaved": "Setări generale salvate.",
@@ -3217,7 +3186,6 @@
   "input": "Intrare",
   "inputMode": "Modul de intrare",
   "insertATemplate": "Introduceți un șablon",
-  "inspect": "Inspectați",
   "install": "Instalați",
   "installASignedSelfContainedRuntime": "Instalați un runtime semnat, autonom. Comenzile Node.js, npm, Git și terminal nu sunt necesare.",
   "installApk": "Instalați APK",
@@ -3465,14 +3433,6 @@
         "type": "Object?"
       },
       "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
-  "lexicalArg1": "Lexical: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -3906,10 +3866,61 @@
   "noMcpServersMatchThisSearch": "Niciun server MCP nu corespunde acestei căutări.",
   "noMemoryEntriesFound": "Nu s-au găsit intrări de memorie.",
   "noMemorySync": "Fără sincronizare de memorie",
-  "importPastEmailsIntoMemory": "Importă în memorie e-mailurile importante din trecut",
   "importPastEmailsIntoMemoryHint": "Citește o singură dată e-mailurile importante și trimise din ultimele 12 luni, ca agentul să-ți cunoască contactele și proiectele.",
-  "importPastEmailsNow": "Importă acum e-mailurile din trecut",
-  "importingPastEmailsInBackground": "E-mailurile din trecut se importă în fundal. Amintirile noi apar pe parcurs.",
+  "emailMemory": "Memorie din e-mail",
+  "importNow": "Importă acum",
+  "importOnConnect": "Importă mesajele vechi la conectarea unui cont",
+  "sweepStarting": "Se pregătește…",
+  "sweepReadingProgress": "Se citesc e-mailurile · {done} din {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Se citesc e-mailurile · {count} găsite",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Învață din e-mailuri · {done} din {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Ultimul import: {emails} e-mailuri · {memories} amintiri noi",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Nu există e-mailuri noi de importat",
+  "sweepFailed": "Importul a eșuat: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Niciun model nu se potrivește cu „{arg1}”.",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -4291,7 +4302,6 @@
   "qrLoginRequestWasNotFound": "Cererea de conectare qr nu a fost găsită",
   "qrPairing": "Împerecherea QR",
   "queriesRunAnythingThatWritesIs": "interogările rulează; orice scrie este respins.",
-  "query": "Interogare",
   "queryFilter": "Interogare / Filtru",
   "queuedAsSteeringForTheCurrent": "Așezat în coadă ca direcție pentru rularea curentă: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4376,14 +4386,6 @@
   "registrationIsClosed": "înregistrarea este închisă",
   "registrationRegisterNewAccountsAllowSignup": "înregistrarea înregistrare conturi noi permit înscrierea",
   "rejectInvalidTlsCertificates": "Respinge certificatele TLS nevalide",
-  "relationArg1": "Relație: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "eliberați și repornește. Aplicațiile conectate se reconectează odată ce revin.",
   "releaseChannel": "Lansați canalul",
   "releaseCommitBranchNode": "eliberați nodul de ramură de comitere",
@@ -4486,7 +4488,6 @@
   "resultDelivery": "Livrarea rezultatelor",
   "resultOneClickAddsOneYou": "rezultat. Un clic adaugă unul; îl poți edita mai târziu.",
   "results": "Rezultate",
-  "retrievalInspector": "Inspector de recuperare",
   "retry": "Reîncercați",
   "reusableUsedArg1": "Reutilizabil · folosit {arg1}×",
   "@reusableUsedArg1": {
@@ -4642,14 +4643,6 @@
   "scansNewEmailAndOnlyPings": "Scanează e-mailuri noi și vă trimite un ping doar când ceva contează.",
   "schedule": "Program",
   "scheduledTimeOnceRunsAreMeasured": "ora programata. Odată ce rulările sunt măsurate, va începe mai devreme.",
-  "scoreArg1": "Scor: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Ecran",
   "screenAction": "acțiunea ecranului",
   "scrollIsNotSupportedOnThis": "scroll nu este acceptat pe această platformă.",
@@ -4711,14 +4704,6 @@
     }
   },
   "selectTrigger": "Selectați Declanșare",
-  "semanticArg1": "Semantic: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Trimite (⌘↵)",
   "send2": "Trimite",
   "sendATaskFromChatAnd": "Trimiteți o sarcină din chat și istoricul executării acesteia va apărea aici.",
@@ -5632,14 +5617,6 @@
   "value": "Valoare",
   "vaultLocked": "Seif blocat",
   "vaultOperationFailed": "Operarea seifului a eșuat.",
-  "vectorRankArg1": "Rang Vector: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Verificare",
   "verificationArg1": "Verificare: {arg1}",
   "@verificationArg1": {
@@ -6552,6 +6529,7 @@
   "settingsPageComputer": "Computer și web",
   "settingsPageBehavior": "Comportament",
   "settingsPageSystem": "Sistem",
+  "settingsPagePlatforms": "Platforme",
   "settingsPageProfileDescription": "Numele și adresa dvs. de e-mail, o copie a datelor dvs. și deconectarea.",
   "settingsPageSecurityDescription": "Parola, autentificarea cu doi factori, cheile de securitate și locul în care sunteți conectat.",
   "settingsPageUsageDescription": "Limitele și cheltuielile tale simbol, toate într-un singur loc.",

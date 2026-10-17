@@ -42,6 +42,7 @@ function listConnectionStatuses(service, userId, { agentId = null } = {}) {
         latestJob,
         sweepDomains(service, connection.provider_key, connection.app_key),
       ),
+      sweep: service.getSweepProgress?.(connection.id) || null,
     };
   });
 }
@@ -72,6 +73,7 @@ function decorateProviderSnapshot(service, snapshot, userId, agentId = null) {
       latestJobForConnection(connection.id),
       sweepDomains(service, providerKey, connection.app_key),
     ),
+    sweep: service.getSweepProgress?.(connection.id) || null,
   }));
   const providerDomains = Array.from(
     new Set(connectionCoverage.flatMap((item) => item.dataDomains || [])),

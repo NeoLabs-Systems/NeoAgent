@@ -70,7 +70,6 @@ import 'features/location/location_service.dart';
 import 'features/notifications/notification_interceptor.dart';
 import 'features/onboarding/onboarding_shell.dart';
 import 'features/tasks/task_recommendations.dart';
-import 'features/memory/views/retrieval_inspector_view.dart';
 import 'package:neoagent_flutter/src/l10n/app_language.dart';
 import 'package:neoagent_flutter/src/l10n/widget_localizations.dart';
 

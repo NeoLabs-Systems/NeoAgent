@@ -154,6 +154,8 @@
   "addKey": "Pievienot atslēgu",
   "addMcpServer": "Pievienojiet MCP serveri",
   "addMemory": "Pievienot atmiņu",
+  "memoryReview": "Pārskatīt",
+  "memoryReviewPrompt": "Pārskati visas manas atmiņas un sakārto tās: arhivē dublikātus, novecojušus faktus un visu, kam nav paliekošas vērtības. Pēc tam īsi pastāsti, ko mainīji.",
   "addMoreLengthOrAnotherCharacter": "Pievienojiet vairāk garuma vai cita veida rakstzīmes.",
   "addPeopleOrGroups": "Pievienojiet personas vai grupas",
   "addSecurityKey": "Pievienojiet drošības atslēgu",
@@ -2006,7 +2008,6 @@
   "botUsername": "Bota lietotājvārds",
   "brandName": "Zīmola nosaukums",
   "braveSearch": "Drosmīga meklēšana",
-  "breakdown": "Sadalījums:",
   "bridgeAnyProviderThatCanPost": "Pārvietojiet jebkuru pakalpojumu sniedzēju, kas var izlikt un saņemt tīmekļa aizķeres lietderīgās slodzes.",
   "bringYourOwnKey": "paņem līdzi savu atslēgu",
   "bringYourOwnKey2": "Paņemiet līdzi savu atslēgu",
@@ -2029,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Var saņemt deleģētos uzdevumus",
   "cancel": "Atcelt",
   "cancelTask": "Atcelt uzdevumu",
-  "candidateCountArg1": "Kandidātu skaits: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Nevar priekšskatīt",
   "cannotReceiveDelegatedTasks": "nevar saņemt deleģētos uzdevumus",
   "cannotRunYet": "vēl nevar skriet.",
@@ -2307,14 +2300,6 @@
   "connectionMethod": "Savienojuma metode",
   "containsTextOptional": "Satur tekstu (pēc izvēles)",
   "content": "Saturs",
-  "contentArg1": "Sastāvs: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "satura drošības politika",
   "continue2": "Turpināt",
   "continueFullSetup": "Turpiniet pilnu iestatīšanu",
@@ -2751,14 +2736,6 @@
       }
     }
   },
-  "errorArg12": "Kļūda: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Kļūdas no nesenā žurnāla, grupētas pēc ziņojuma.",
   "errorsProblemsFailures": "kļūdas problēmas neveiksmes",
   "eventTypesCommaSeparated": "Pasākumu veidi (atdalīti ar komatu)",
@@ -3011,14 +2988,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Pilna uzvedne",
   "fullSetup": "Pilna iestatīšana",
-  "fullTextFtsArg1": "Pilns teksts (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Ģenerālis",
   "generalSettings": "Vispārīgi iestatījumi",
   "generalSettingsSaved": "Vispārīgie iestatījumi ir saglabāti.",
@@ -3217,7 +3186,6 @@
   "input": "Ievade",
   "inputMode": "Ievades režīms",
   "insertATemplate": "Ievietojiet veidni",
-  "inspect": "Pārbaudīt",
   "install": "Instalējiet",
   "installASignedSelfContainedRuntime": "Instalējiet parakstītu, autonomu izpildlaiku. Node.js, npm, Git un termināļa komandas nav nepieciešamas.",
   "installApk": "Instalējiet APK",
@@ -3465,14 +3433,6 @@
         "type": "Object?"
       },
       "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
-  "lexicalArg1": "Leksiskā: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -3906,10 +3866,61 @@
   "noMcpServersMatchThisSearch": "Šim meklējumam neatbilst neviens MCP serveris.",
   "noMemoryEntriesFound": "Atmiņas ieraksti nav atrasti.",
   "noMemorySync": "Nav atmiņas sinhronizācijas",
-  "importPastEmailsIntoMemory": "Importēt svarīgus iepriekšējos e-pastus atmiņā",
   "importPastEmailsIntoMemoryHint": "Vienreiz izlasa pēdējo 12 mēnešu svarīgos un nosūtītos e-pastus, lai aģents zinātu jūsu kontaktus un projektus.",
-  "importPastEmailsNow": "Importēt iepriekšējos e-pastus tagad",
-  "importingPastEmailsInBackground": "Iepriekšējie e-pasti tiek importēti fonā. Jaunas atmiņas parādās pakāpeniski.",
+  "emailMemory": "E-pasta atmiņa",
+  "importNow": "Importēt tagad",
+  "importOnConnect": "Pievienojot kontu, importēt iepriekšējos e-pastus",
+  "sweepStarting": "Sagatavo…",
+  "sweepReadingProgress": "Lasa e-pastus · {done} no {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Lasa e-pastus · atrasti {count}",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Mācās no e-pastiem · {done} no {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Pēdējais imports: {emails} e-pasti · {memories} jaunas atmiņas",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Nav jaunu e-pastu importēšanai",
+  "sweepFailed": "Importēšana neizdevās: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Neviens modelis neatbilst \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -4291,7 +4302,6 @@
   "qrLoginRequestWasNotFound": "qr pieteikšanās pieprasījums netika atrasts",
   "qrPairing": "QR savienošana pārī",
   "queriesRunAnythingThatWritesIs": "tiek izpildīti vaicājumi; viss, kas raksta, tiek noraidīts.",
-  "query": "Vaicājums",
   "queryFilter": "Vaicājums / filtrs",
   "queuedAsSteeringForTheCurrent": "Rindā kā stūrēšana pašreizējam braucienam: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4376,14 +4386,6 @@
   "registrationIsClosed": "reģistrācija ir slēgta",
   "registrationRegisterNewAccountsAllowSignup": "reģistrācija reģistrēt jaunus kontus ļauj reģistrēties",
   "rejectInvalidTlsCertificates": "Noraidīt nederīgos TLS sertifikātus",
-  "relationArg1": "Saistība: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "atlaist un restartēt. Pievienotās lietotnes tiek atkārtoti savienotas, tiklīdz tās ir atjaunotas.",
   "releaseChannel": "Atbrīvošanas kanāls",
   "releaseCommitBranchNode": "atbrīvot commit filiāles mezglu",
@@ -4486,7 +4488,6 @@
   "resultDelivery": "Rezultātu piegāde",
   "resultOneClickAddsOneYou": "rezultāts. Viens klikšķis pievieno vienu; jūs varat to rediģēt vēlāk.",
   "results": "Rezultāti",
-  "retrievalInspector": "Atgūšanas inspektors",
   "retry": "Mēģiniet vēlreiz",
   "reusableUsedArg1": "Atkārtoti lietojams · lietots {arg1}×",
   "@reusableUsedArg1": {
@@ -4642,14 +4643,6 @@
   "scansNewEmailAndOnlyPings": "Skenē jaunos e-pasta ziņojumus un nosūta jums ping tikai tad, kad kaut kas ir svarīgs.",
   "schedule": "Grafiks",
   "scheduledTimeOnceRunsAreMeasured": "ieplānotais laiks. Kad skrējieni ir izmērīti, tie sāksies agrāk.",
-  "scoreArg1": "Rezultāts: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Ekrāns",
   "screenAction": "ekrāna darbība",
   "scrollIsNotSupportedOnThis": "ritināšana šajā platformā netiek atbalstīta.",
@@ -4711,14 +4704,6 @@
     }
   },
   "selectTrigger": "Atlasiet Trigger",
-  "semanticArg1": "Semantika: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Sūtīt (⌘↵)",
   "send2": "Sūtīt",
   "sendATaskFromChatAnd": "Nosūtiet uzdevumu no tērzēšanas, un šeit tiks parādīta tā izpildes vēsture.",
@@ -5632,14 +5617,6 @@
   "value": "Vērtība",
   "vaultLocked": "Velve aizslēgta",
   "vaultOperationFailed": "Vault darbība neizdevās.",
-  "vectorRankArg1": "Vektora rangs: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Verifikācija",
   "verificationArg1": "Verifikācija: {arg1}",
   "@verificationArg1": {
@@ -6552,6 +6529,7 @@
   "settingsPageComputer": "Dators un tīmeklis",
   "settingsPageBehavior": "Uzvedība",
   "settingsPageSystem": "Sistēma",
+  "settingsPagePlatforms": "Platformas",
   "settingsPageProfileDescription": "Jūsu vārds un e-pasts, jūsu datu kopija un izrakstīšanās.",
   "settingsPageSecurityDescription": "Parole, divu faktoru autentifikācija, drošības atslēgas un vieta, kur esat pierakstījies.",
   "settingsPageUsageDescription": "Jūsu ierobežojumi un pilnvaru tēriņi — viss vienuviet.",

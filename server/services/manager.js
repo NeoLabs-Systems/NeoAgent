@@ -129,13 +129,14 @@ function createCredentialBroker(app) {
   return credentialBroker;
 }
 
-function createMemoryIngestionService(app, { memoryManager, integrationManager }) {
+function createMemoryIngestionService(app, { memoryManager, integrationManager, io }) {
   const memoryIngestionService = registerLocal(
     app,
     'memoryIngestionService',
     new MemoryIngestionService({
       memoryManager,
       integrationManager,
+      io,
     }),
   );
   integrationManager.events.on('connected', (event) => {
@@ -407,7 +408,11 @@ async function startServices(app, io, { resumeRuns = false } = {}) {
     createAuthProviderManager(app);
     const credentialBroker = createCredentialBroker(app);
     const integrationManager = createIntegrationManager(app);
-    const memoryIngestionService = createMemoryIngestionService(app, { memoryManager, integrationManager });
+    const memoryIngestionService = createMemoryIngestionService(app, {
+      memoryManager,
+      integrationManager,
+      io,
+    });
     const browserController = createBrowserController(app, artifactStore);
     const runtimeManager = createRuntimeManager(app);
     credentialBroker.setRuntimeManager(runtimeManager);
@@ -435,8 +440,8 @@ async function startServices(app, io, { resumeRuns = false } = {}) {
       new SkillLearningService({ skillRunner, agentEngine, io }),
     );
     agentEngine.skillLearningService = skillLearningService;
-    memoryIngestionService.extractBacklog = (userId, agentId, options) => (
-      agentEngine.extractPendingBacklog(userId, agentId, options)
+    memoryIngestionService.extractFacts = (userId, agentId, options) => (
+      agentEngine.extractDocumentFacts(userId, agentId, options)
     );
     registerLocal(app, 'teachService', new TeachService({
       runtimeManager,

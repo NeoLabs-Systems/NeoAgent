@@ -376,6 +376,13 @@ class AppL10nSk extends AppL10n {
   String get addMemory => 'Pridať pamäť';
 
   @override
+  String get memoryReview => 'Skontrolovať';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Prejdi všetky moje spomienky a uprac ich: archivuj duplikáty, zastarané fakty a všetko bez trvalej hodnoty. Potom mi stručne povedz, čo si zmenil.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Pridajte väčšiu dĺžku alebo iný typ znaku.';
 
@@ -1852,9 +1859,6 @@ class AppL10nSk extends AppL10n {
   String get braveSearch => 'Odvážne hľadanie';
 
   @override
-  String get breakdown => 'Rozdelenie:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Premostite akéhokoľvek poskytovateľa, ktorý môže odosielať a prijímať užitočné zaťaženia webhooku.';
 
@@ -1903,11 +1907,6 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get cancelTask => 'Zrušiť úlohu';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Počet kandidátov: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Nie je možné zobraziť ukážku';
@@ -2377,11 +2376,6 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get content => 'Obsah';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Obsah: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'politika zabezpečenia obsahu';
@@ -3275,11 +3269,6 @@ class AppL10nSk extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Chyba: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Chyby z posledného denníka, zoskupené podľa správ.';
 
@@ -3657,11 +3646,6 @@ class AppL10nSk extends AppL10n {
   String get fullSetup => 'Úplné nastavenie';
 
   @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Celé znenie (FTS): $arg1';
-  }
-
-  @override
   String get general => 'generál';
 
   @override
@@ -4030,9 +4014,6 @@ class AppL10nSk extends AppL10n {
   String get insertATemplate => 'Vložte šablónu';
 
   @override
-  String get inspect => 'Skontrolujte';
-
-  @override
   String get install => 'Inštalovať';
 
   @override
@@ -4396,11 +4377,6 @@ class AppL10nSk extends AppL10n {
   @override
   String levelArg1Arg2Arg3(Object? arg1, Object? arg2, Object? arg3) {
     return 'Úroveň $arg1/$arg2$arg3';
-  }
-
-  @override
-  String lexicalArg1(Object? arg1) {
-    return 'Lexikálne: $arg1';
   }
 
   @override
@@ -5266,19 +5242,48 @@ class AppL10nSk extends AppL10n {
   String get noMemorySync => 'Žiadna synchronizácia pamäte';
 
   @override
-  String get importPastEmailsIntoMemory =>
-      'Importovať dôležité staršie e-maily do pamäte';
-
-  @override
   String get importPastEmailsIntoMemoryHint =>
       'Jednorazovo prečíta dôležité a odoslané e-maily za posledných 12 mesiacov, aby agent poznal vaše kontakty a projekty.';
 
   @override
-  String get importPastEmailsNow => 'Importovať staršie e-maily teraz';
+  String get emailMemory => 'Pamäť z e-mailov';
 
   @override
-  String get importingPastEmailsInBackground =>
-      'Staršie e-maily sa importujú na pozadí. Nové spomienky sa objavujú priebežne.';
+  String get importNow => 'Importovať teraz';
+
+  @override
+  String get importOnConnect => 'Pri pripojení účtu importovať staršiu poštu';
+
+  @override
+  String get sweepStarting => 'Pripravuje sa…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'Čítanie e-mailov · $done z $total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'Čítanie e-mailov · nájdených $count';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Učenie sa z e-mailov · $done z $total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Posledný import: $emails e-mailov · $memories nových spomienok';
+  }
+
+  @override
+  String get sweepNothingNew => 'Žiadne nové e-maily na import';
+
+  @override
+  String sweepFailed(String error) {
+    return 'Import zlyhal: $error';
+  }
 
   @override
   String noModelMatchesArg1(Object? arg1) {
@@ -6092,9 +6097,6 @@ class AppL10nSk extends AppL10n {
       'spustené dopyty; všetko, čo napíše, je odmietnuté.';
 
   @override
-  String get query => 'Dopyt';
-
-  @override
   String get queryFilter => 'Dopyt / Filter';
 
   @override
@@ -6262,11 +6264,6 @@ class AppL10nSk extends AppL10n {
       'Odmietnuť neplatné certifikáty TLS';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Vzťah: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'uvoľnite a reštartujte. Pripojené aplikácie sa znova pripoja, keď budú späť.';
 
@@ -6426,9 +6423,6 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get results => 'Výsledky';
-
-  @override
-  String get retrievalInspector => 'Inšpektor vyhľadávania';
 
   @override
   String get retry => 'Skúste to znova';
@@ -6758,11 +6752,6 @@ class AppL10nSk extends AppL10n {
       'plánovaný čas. Po zmeraní jázd sa začne skôr.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Skóre: $arg1';
-  }
-
-  @override
   String get screen => 'Obrazovka';
 
   @override
@@ -6902,11 +6891,6 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get selectTrigger => 'Vyberte možnosť Spustiť';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Sémantika: $arg1';
-  }
 
   @override
   String get send => 'Odoslať (⌘↵)';
@@ -8687,11 +8671,6 @@ class AppL10nSk extends AppL10n {
   String get vaultOperationFailed => 'Operácia trezoru zlyhala.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Poradie vektora: $arg1';
-  }
-
-  @override
   String get verification => 'Overenie';
 
   @override
@@ -10109,6 +10088,9 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get settingsPageSystem => 'Systém';
+
+  @override
+  String get settingsPagePlatforms => 'Platformy';
 
   @override
   String get settingsPageProfileDescription =>

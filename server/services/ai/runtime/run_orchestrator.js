@@ -540,9 +540,6 @@ class DurableRunRuntime {
           userId,
           agentId,
           query: options.context?.rawUserMessage || userMessage,
-          provider: session.model.provider,
-          providerName: session.model.providerName,
-          model: session.model.model,
           runId,
           options,
         }));

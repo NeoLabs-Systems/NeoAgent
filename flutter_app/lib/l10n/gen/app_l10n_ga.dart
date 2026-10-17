@@ -377,6 +377,13 @@ class AppL10nGa extends AppL10n {
   String get addMemory => 'Cuir Cuimhne leis';
 
   @override
+  String get memoryReview => 'Athbhreithnigh';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Athbhreithnigh mo chuimhní go léir agus glan iad: cuir dúblaigh, fíricí as dáta agus aon rud gan luach buan sa chartlann. Ansin inis dom go hachomair cad a d\'athraigh tú.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Cuir níos mó faid nó cineál carachtair eile leis.';
 
@@ -1857,9 +1864,6 @@ class AppL10nGa extends AppL10n {
   String get braveSearch => 'Cuardach Cróga';
 
   @override
-  String get breakdown => 'Miondealú:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Droichead aon soláthraí atá in ann ualaí pálasta gréasáin a phostáil agus a fháil.';
 
@@ -1909,11 +1913,6 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get cancelTask => 'Cealaigh tasc';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Líon na nIarrthóirí: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Ní féidir réamhamharc a dhéanamh';
@@ -2388,11 +2387,6 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get content => 'Ábhar';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Ábhar: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'polasaí slándála ábhair';
@@ -3298,11 +3292,6 @@ class AppL10nGa extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Earráid: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Earráidí ón loga le déanaí, grúpáilte de réir teachtaireachta.';
 
@@ -3682,11 +3671,6 @@ class AppL10nGa extends AppL10n {
   String get fullSetup => 'Socrú iomlán';
 
   @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Téacs Iomlán (FTS): $arg1';
-  }
-
-  @override
   String get general => 'Ginearálta';
 
   @override
@@ -4055,9 +4039,6 @@ class AppL10nGa extends AppL10n {
   String get insertATemplate => 'Cuir isteach teimpléad';
 
   @override
-  String get inspect => 'Iniúchadh';
-
-  @override
   String get install => 'Suiteáil';
 
   @override
@@ -4421,11 +4402,6 @@ class AppL10nGa extends AppL10n {
   @override
   String levelArg1Arg2Arg3(Object? arg1, Object? arg2, Object? arg3) {
     return 'Leibhéal $arg1/$arg2$arg3';
-  }
-
-  @override
-  String lexicalArg1(Object? arg1) {
-    return 'Foclóir: $arg1';
   }
 
   @override
@@ -5290,19 +5266,48 @@ class AppL10nGa extends AppL10n {
   String get noMemorySync => 'Gan sioncronú cuimhne';
 
   @override
-  String get importPastEmailsIntoMemory =>
-      'Iompórtáil ríomhphoist thábhachtacha roimhe seo isteach sa chuimhne';
-
-  @override
   String get importPastEmailsIntoMemoryHint =>
       'Léann sé an post tábhachtach agus seolta ó na 12 mhí seo caite uair amháin, ionas go mbeidh aithne ag an ngníomhaire ar do theagmhálaithe agus do thionscadail.';
 
   @override
-  String get importPastEmailsNow => 'Iompórtáil ríomhphoist roimhe seo anois';
+  String get emailMemory => 'Cuimhne ríomhphoist';
 
   @override
-  String get importingPastEmailsInBackground =>
-      'Ríomhphoist roimhe seo á n-iompórtáil sa chúlra. Taispeántar cuimhní nua de réir a chéile.';
+  String get importNow => 'Iompórtáil anois';
+
+  @override
+  String get importOnConnect => 'Iompórtáil seanphost nuair a nascar cuntas';
+
+  @override
+  String get sweepStarting => 'Á ullmhú…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'Ríomhphoist á léamh · $done as $total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'Ríomhphoist á léamh · $count aimsithe';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Ag foghlaim ó ríomhphoist · $done as $total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Iompórtáil dheireanach: $emails ríomhphost · $memories cuimhne nua';
+  }
+
+  @override
+  String get sweepNothingNew => 'Níl aon ríomhphoist nua le hiompórtáil';
+
+  @override
+  String sweepFailed(String error) {
+    return 'Theip ar an iompórtáil: $error';
+  }
 
   @override
   String noModelMatchesArg1(Object? arg1) {
@@ -6124,9 +6129,6 @@ class AppL10nGa extends AppL10n {
       'ritheann ceisteanna; diúltaítear d’aon rud a scríobhann.';
 
   @override
-  String get query => 'Ceist';
-
-  @override
   String get queryFilter => 'Iarratas / Scagaire';
 
   @override
@@ -6293,11 +6295,6 @@ class AppL10nGa extends AppL10n {
       'Diúltaigh teastais TLS neamhbhailí';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Gaol: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'scaoileadh agus atosú. Athnascann aipeanna nasctha nuair a bhíonn sé ar ais.';
 
@@ -6460,9 +6457,6 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get results => 'Torthaí';
-
-  @override
-  String get retrievalInspector => 'Cigire Aisghabhála';
 
   @override
   String get retry => 'Bain triail eile as';
@@ -6795,11 +6789,6 @@ class AppL10nGa extends AppL10n {
       'am sceidealta. Nuair a thomhaistear na ritheanna cuirfear tús leis níos luaithe.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Scór: $arg1';
-  }
-
-  @override
   String get screen => 'Scáileán';
 
   @override
@@ -6938,11 +6927,6 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get selectTrigger => 'Roghnaigh Truicear';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Séimeantach: $arg1';
-  }
 
   @override
   String get send => 'Seol (⌘↵)';
@@ -8732,11 +8716,6 @@ class AppL10nGa extends AppL10n {
   String get vaultOperationFailed => 'Theip ar oibríocht cruinneachán.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Céim Veicteoir: $arg1';
-  }
-
-  @override
   String get verification => 'Fíorú';
 
   @override
@@ -10164,6 +10143,9 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get settingsPageSystem => 'Córas';
+
+  @override
+  String get settingsPagePlatforms => 'Ardáin';
 
   @override
   String get settingsPageProfileDescription =>

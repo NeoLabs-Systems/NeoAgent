@@ -4,6 +4,9 @@ function normalizeMemoryCandidate(content) {
     .trim();
 }
 
+// A memory is one short fact. Longer text is source material, not memory.
+const MAX_MEMORY_CHARS = 150;
+
 function getMemoryStorageDecision(content) {
   const normalized = normalizeMemoryCandidate(content);
   if (!normalized) {
@@ -11,6 +14,13 @@ function getMemoryStorageDecision(content) {
       allow: false,
       normalized,
       reason: 'empty',
+    };
+  }
+  if (normalized.length > MAX_MEMORY_CHARS) {
+    return {
+      allow: false,
+      normalized,
+      reason: 'too_long',
     };
   }
 
@@ -22,6 +32,7 @@ function getMemoryStorageDecision(content) {
 }
 
 module.exports = {
+  MAX_MEMORY_CHARS,
   getMemoryStorageDecision,
   normalizeMemoryCandidate,
 };

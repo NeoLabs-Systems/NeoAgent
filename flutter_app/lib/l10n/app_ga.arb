@@ -154,6 +154,8 @@
   "addKey": "Cuir eochair leis",
   "addMcpServer": "Cuir freastalaí MCP leis",
   "addMemory": "Cuir Cuimhne leis",
+  "memoryReview": "Athbhreithnigh",
+  "memoryReviewPrompt": "Athbhreithnigh mo chuimhní go léir agus glan iad: cuir dúblaigh, fíricí as dáta agus aon rud gan luach buan sa chartlann. Ansin inis dom go hachomair cad a d'athraigh tú.",
   "addMoreLengthOrAnotherCharacter": "Cuir níos mó faid nó cineál carachtair eile leis.",
   "addPeopleOrGroups": "Cuir daoine nó grúpaí leis",
   "addSecurityKey": "Cuir eochair shlándála leis",
@@ -2006,7 +2008,6 @@
   "botUsername": "Ainm úsáideora bot",
   "brandName": "Ainm branda",
   "braveSearch": "Cuardach Cróga",
-  "breakdown": "Miondealú:",
   "bridgeAnyProviderThatCanPost": "Droichead aon soláthraí atá in ann ualaí pálasta gréasáin a phostáil agus a fháil.",
   "bringYourOwnKey": "tabhair leat d'eochair féin",
   "bringYourOwnKey2": "Beir leat d'eochair féin",
@@ -2029,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Is féidir tascanna tarmligthe a fháil",
   "cancel": "Cealaigh",
   "cancelTask": "Cealaigh tasc",
-  "candidateCountArg1": "Líon na nIarrthóirí: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Ní féidir réamhamharc a dhéanamh",
   "cannotReceiveDelegatedTasks": "ní féidir tascanna tarmligthe a fháil",
   "cannotRunYet": "ní féidir rith go fóill.",
@@ -2307,14 +2300,6 @@
   "connectionMethod": "Modh Ceangail",
   "containsTextOptional": "Téacs atá ann (roghnach)",
   "content": "Ábhar",
-  "contentArg1": "Ábhar: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "polasaí slándála ábhair",
   "continue2": "Lean ort",
   "continueFullSetup": "Lean ar aghaidh leis an socrú iomlán",
@@ -2751,14 +2736,6 @@
       }
     }
   },
-  "errorArg12": "Earráid: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Earráidí ón loga le déanaí, grúpáilte de réir teachtaireachta.",
   "errorsProblemsFailures": "earráidí fadhbanna teipeanna",
   "eventTypesCommaSeparated": "Cineálacha Imeachtaí (camóg scartha)",
@@ -3011,14 +2988,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Leid iomlán",
   "fullSetup": "Socrú iomlán",
-  "fullTextFtsArg1": "Téacs Iomlán (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Ginearálta",
   "generalSettings": "Socruithe ginearálta",
   "generalSettingsSaved": "Socruithe ginearálta sábháilte.",
@@ -3217,7 +3186,6 @@
   "input": "Ionchur",
   "inputMode": "Mód ionchuir",
   "insertATemplate": "Cuir isteach teimpléad",
-  "inspect": "Iniúchadh",
   "install": "Suiteáil",
   "installASignedSelfContainedRuntime": "Suiteáil am rite sínithe, féinchuimsitheach. Níl orduithe Node.js, npm, Git, agus teirminéil ag teastáil.",
   "installApk": "Suiteáil APK",
@@ -3465,14 +3433,6 @@
         "type": "Object?"
       },
       "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
-  "lexicalArg1": "Foclóir: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -3906,10 +3866,61 @@
   "noMcpServersMatchThisSearch": "Níl aon fhreastalaí MCP ag teacht leis an gcuardach seo.",
   "noMemoryEntriesFound": "Níor aimsíodh aon iontrálacha cuimhne.",
   "noMemorySync": "Gan sioncronú cuimhne",
-  "importPastEmailsIntoMemory": "Iompórtáil ríomhphoist thábhachtacha roimhe seo isteach sa chuimhne",
   "importPastEmailsIntoMemoryHint": "Léann sé an post tábhachtach agus seolta ó na 12 mhí seo caite uair amháin, ionas go mbeidh aithne ag an ngníomhaire ar do theagmhálaithe agus do thionscadail.",
-  "importPastEmailsNow": "Iompórtáil ríomhphoist roimhe seo anois",
-  "importingPastEmailsInBackground": "Ríomhphoist roimhe seo á n-iompórtáil sa chúlra. Taispeántar cuimhní nua de réir a chéile.",
+  "emailMemory": "Cuimhne ríomhphoist",
+  "importNow": "Iompórtáil anois",
+  "importOnConnect": "Iompórtáil seanphost nuair a nascar cuntas",
+  "sweepStarting": "Á ullmhú…",
+  "sweepReadingProgress": "Ríomhphoist á léamh · {done} as {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Ríomhphoist á léamh · {count} aimsithe",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Ag foghlaim ó ríomhphoist · {done} as {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Iompórtáil dheireanach: {emails} ríomhphost · {memories} cuimhne nua",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Níl aon ríomhphoist nua le hiompórtáil",
+  "sweepFailed": "Theip ar an iompórtáil: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Níl aon mhúnla ag teacht le \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -4291,7 +4302,6 @@
   "qrLoginRequestWasNotFound": "Níor aimsíodh iarratas logáil isteach qr",
   "qrPairing": "Péireáil QR",
   "queriesRunAnythingThatWritesIs": "ritheann ceisteanna; diúltaítear d’aon rud a scríobhann.",
-  "query": "Ceist",
   "queryFilter": "Iarratas / Scagaire",
   "queuedAsSteeringForTheCurrent": "Ciúáilte mar stiúrtha don rith reatha: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4376,14 +4386,6 @@
   "registrationIsClosed": "tá an clárú dúnta",
   "registrationRegisterNewAccountsAllowSignup": "ceadaíonn cuntais nua a chlárú clárú",
   "rejectInvalidTlsCertificates": "Diúltaigh teastais TLS neamhbhailí",
-  "relationArg1": "Gaol: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "scaoileadh agus atosú. Athnascann aipeanna nasctha nuair a bhíonn sé ar ais.",
   "releaseChannel": "Cainéal scaoileadh",
   "releaseCommitBranchNode": "nód brainse tiomnaithe a scaoileadh",
@@ -4486,7 +4488,6 @@
   "resultDelivery": "Seachadadh Torthaí",
   "resultOneClickAddsOneYou": "toradh. Cuireann cliceáil amháin leis; is féidir leat é a chur in eagar níos déanaí.",
   "results": "Torthaí",
-  "retrievalInspector": "Cigire Aisghabhála",
   "retry": "Bain triail eile as",
   "reusableUsedArg1": "In-athúsáidte · úsáidte {arg1}×",
   "@reusableUsedArg1": {
@@ -4642,14 +4643,6 @@
   "scansNewEmailAndOnlyPings": "Scanann sé ríomhphost nua agus ní chuireann sé pingin ort ach nuair a bhíonn tábhacht le rud éigin.",
   "schedule": "Sceideal",
   "scheduledTimeOnceRunsAreMeasured": "am sceidealta. Nuair a thomhaistear na ritheanna cuirfear tús leis níos luaithe.",
-  "scoreArg1": "Scór: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Scáileán",
   "screenAction": "gníomh scáileáin",
   "scrollIsNotSupportedOnThis": "ní thacaítear le scrollbharra ar an ardán seo.",
@@ -4711,14 +4704,6 @@
     }
   },
   "selectTrigger": "Roghnaigh Truicear",
-  "semanticArg1": "Séimeantach: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Seol (⌘↵)",
   "send2": "Seol",
   "sendATaskFromChatAnd": "Seol tasc ón gcomhrá agus taispeánfar a stair fhorghníomhaithe anseo.",
@@ -5632,14 +5617,6 @@
   "value": "Luach",
   "vaultLocked": "Cruinneachán faoi ghlas",
   "vaultOperationFailed": "Theip ar oibríocht cruinneachán.",
-  "vectorRankArg1": "Céim Veicteoir: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Fíorú",
   "verificationArg1": "Fíorú: {arg1}",
   "@verificationArg1": {
@@ -6552,6 +6529,7 @@
   "settingsPageComputer": "Ríomhaire & Gréasán",
   "settingsPageBehavior": "Iompar",
   "settingsPageSystem": "Córas",
+  "settingsPagePlatforms": "Ardáin",
   "settingsPageProfileDescription": "D’ainm agus do ríomhphost, cóip de do shonraí, agus síniú amach.",
   "settingsPageSecurityDescription": "Pasfhocal, fíordheimhniú dhá fhachtóir, eochracha slándála agus an áit a bhfuil tú sínithe isteach.",
   "settingsPageUsageDescription": "Do theorainneacha agus do chaiteachas comharthaí, ar fad in aon áit amháin.",

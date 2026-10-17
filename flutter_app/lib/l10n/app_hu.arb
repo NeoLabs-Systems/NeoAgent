@@ -154,6 +154,8 @@
   "addKey": "Kulcs hozzáadása",
   "addMcpServer": "MCP szerver hozzáadása",
   "addMemory": "Memória hozzáadása",
+  "memoryReview": "Áttekintés",
+  "memoryReviewPrompt": "Nézd át az összes emlékemet és tegyél rendet: archiváld a duplikátumokat, az elavult tényeket és mindent, aminek nincs tartós értéke. Utána röviden mondd el, mit változtattál.",
   "addMoreLengthOrAnotherCharacter": "Adjon hozzá több hosszúságot vagy más karaktertípust.",
   "addPeopleOrGroups": "Személyek vagy csoportok hozzáadása",
   "addSecurityKey": "Biztonsági kulcs hozzáadása",
@@ -2006,7 +2008,6 @@
   "botUsername": "Bot felhasználónév",
   "brandName": "Márkanév",
   "braveSearch": "Bátor keresés",
-  "breakdown": "Lebontás:",
   "bridgeAnyProviderThatCanPost": "Híd minden olyan szolgáltatót, amely képes közzétenni és fogadni a webhook hasznos terheit.",
   "bringYourOwnKey": "hozza a saját kulcsát",
   "bringYourOwnKey2": "Hozd a saját kulcsodat",
@@ -2029,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Képes átruházott feladatokat fogadni",
   "cancel": "Mégsem",
   "cancelTask": "Feladat megszakítása",
-  "candidateCountArg1": "A jelöltek száma: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Az előnézet nem tekinthető meg",
   "cannotReceiveDelegatedTasks": "nem kaphat átruházott feladatokat",
   "cannotRunYet": "még nem futhat.",
@@ -2307,14 +2300,6 @@
   "connectionMethod": "Csatlakozási mód",
   "containsTextOptional": "Szöveget tartalmaz (nem kötelező)",
   "content": "Tartalom",
-  "contentArg1": "Tartalom: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "tartalombiztonsági szabályzat",
   "continue2": "Folytatás",
   "continueFullSetup": "Folytassa a teljes beállítást",
@@ -2751,14 +2736,6 @@
       }
     }
   },
-  "errorArg12": "Hiba: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Hibák a legutóbbi naplóból, üzenet szerint csoportosítva.",
   "errorsProblemsFailures": "hibák problémák kudarcok",
   "eventTypesCommaSeparated": "Eseménytípusok (vesszővel elválasztva)",
@@ -3011,14 +2988,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Teljes prompt",
   "fullSetup": "Teljes beállítás",
-  "fullTextFtsArg1": "Teljes szöveg (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "tábornok",
   "generalSettings": "Általános beállítások",
   "generalSettingsSaved": "Általános beállítások mentve.",
@@ -3217,7 +3186,6 @@
   "input": "Bemenet",
   "inputMode": "Beviteli mód",
   "insertATemplate": "Szúrjon be egy sablont",
-  "inspect": "Vizsgálja meg",
   "install": "Telepítés",
   "installASignedSelfContainedRuntime": "Telepítsen aláírt, önálló futtatókörnyezetet. Node.js, npm, Git és terminál parancsok nem szükségesek.",
   "installApk": "Telepítse az APK-t",
@@ -3465,14 +3433,6 @@
         "type": "Object?"
       },
       "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
-  "lexicalArg1": "Lexical: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -3906,10 +3866,61 @@
   "noMcpServersMatchThisSearch": "Egyetlen MCP-kiszolgáló sem felel meg ennek a keresésnek.",
   "noMemoryEntriesFound": "Nem találhatók memóriabejegyzések.",
   "noMemorySync": "Nincs memória szinkronizálás",
-  "importPastEmailsIntoMemory": "Fontos korábbi e-mailek importálása a memóriába",
   "importPastEmailsIntoMemoryHint": "Egyszer végigolvassa az elmúlt 12 hónap fontos és elküldött leveleit, hogy az ügynök ismerje a kapcsolataidat és projektjeidet.",
-  "importPastEmailsNow": "Korábbi e-mailek importálása most",
-  "importingPastEmailsInBackground": "A korábbi e-mailek importálása a háttérben fut. Az új emlékek fokozatosan jelennek meg.",
+  "emailMemory": "E-mail-memória",
+  "importNow": "Importálás most",
+  "importOnConnect": "Korábbi levelek importálása fiók csatlakoztatásakor",
+  "sweepStarting": "Előkészítés…",
+  "sweepReadingProgress": "E-mailek olvasása · {done}/{total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "E-mailek olvasása · {count} találat",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Tanulás az e-mailekből · {done}/{total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Legutóbbi importálás: {emails} e-mail · {memories} új emlék",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Nincs új importálandó e-mail",
+  "sweepFailed": "Az importálás sikertelen: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Egyik modell sem felel meg a \"{arg1}\" kifejezésnek.",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -4291,7 +4302,6 @@
   "qrLoginRequestWasNotFound": "qr bejelentkezési kérés nem található",
   "qrPairing": "QR-párosítás",
   "queriesRunAnythingThatWritesIs": "lekérdezések futnak; bármit, ami ír, elutasítják.",
-  "query": "Lekérdezés",
   "queryFilter": "Lekérdezés / szűrő",
   "queuedAsSteeringForTheCurrent": "Kormányzóként sorba állítva az aktuális futáshoz: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4376,14 +4386,6 @@
   "registrationIsClosed": "regisztráció lezárult",
   "registrationRegisterNewAccountsAllowSignup": "regisztráció regisztráció új fiókok lehetővé teszik a regisztrációt",
   "rejectInvalidTlsCertificates": "Érvénytelen TLS-tanúsítványok elutasítása",
-  "relationArg1": "Kapcsolat: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "engedje el és újraindul. A csatlakoztatott alkalmazások újra csatlakoznak, miután visszatértek.",
   "releaseChannel": "Kiadási csatorna",
   "releaseCommitBranchNode": "commit elágazó csomópont kiadása",
@@ -4486,7 +4488,6 @@
   "resultDelivery": "Eredmény kézbesítés",
   "resultOneClickAddsOneYou": "eredményt. Egy kattintás hozzáad egyet; később szerkesztheti.",
   "results": "Eredmények",
-  "retrievalInspector": "Visszakeresés ellenőr",
   "retry": "Próbálja újra",
   "reusableUsedArg1": "Újrafelhasználható · használt {arg1}×",
   "@reusableUsedArg1": {
@@ -4642,14 +4643,6 @@
   "scansNewEmailAndOnlyPings": "Megvizsgálja az új e-maileket, és csak akkor ping-el, ha valami számít.",
   "schedule": "Ütemezés",
   "scheduledTimeOnceRunsAreMeasured": "ütemezett időpont. A futások mérése után korábban indul.",
-  "scoreArg1": "Pontszám: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Képernyő",
   "screenAction": "képernyő művelet",
   "scrollIsNotSupportedOnThis": "a görgetés nem támogatott ezen a platformon.",
@@ -4711,14 +4704,6 @@
     }
   },
   "selectTrigger": "Válassza a Trigger lehetőséget",
-  "semanticArg1": "Szemantika: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Küldés (⌘↵)",
   "send2": "Küldés",
   "sendATaskFromChatAnd": "Küldjön el egy feladatot a csevegésből, és a végrehajtási előzmények itt fognak megjelenni.",
@@ -5632,14 +5617,6 @@
   "value": "Érték",
   "vaultLocked": "A páncélszekrény zárva",
   "vaultOperationFailed": "A trezorművelet meghiúsult.",
-  "vectorRankArg1": "Vektor rangja: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Ellenőrzés",
   "verificationArg1": "Ellenőrzés: {arg1}",
   "@verificationArg1": {
@@ -6552,6 +6529,7 @@
   "settingsPageComputer": "Számítógép és web",
   "settingsPageBehavior": "Viselkedés",
   "settingsPageSystem": "Rendszer",
+  "settingsPagePlatforms": "Platformok",
   "settingsPageProfileDescription": "Az Ön neve és e-mail címe, adatainak másolata és kijelentkezés.",
   "settingsPageSecurityDescription": "Jelszó, kétfaktoros hitelesítés, biztonsági kulcsok és bejelentkezési hely.",
   "settingsPageUsageDescription": "Korlátai és tokenköltései – mindez egy helyen.",

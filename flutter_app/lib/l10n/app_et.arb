@@ -154,6 +154,8 @@
   "addKey": "Lisa võti",
   "addMcpServer": "Lisage MCP-server",
   "addMemory": "Lisa mälu",
+  "memoryReview": "Vaata üle",
+  "memoryReviewPrompt": "Vaata kõik mu mälestused üle ja korrasta need: arhiveeri duplikaadid, aegunud faktid ja kõik, millel pole püsivat väärtust. Seejärel ütle mulle lühidalt, mida muutsid.",
   "addMoreLengthOrAnotherCharacter": "Lisage rohkem pikkust või muud märgitüüpi.",
   "addPeopleOrGroups": "Lisage inimesi või gruppe",
   "addSecurityKey": "Lisa turvavõti",
@@ -2006,7 +2008,6 @@
   "botUsername": "Boti kasutajanimi",
   "brandName": "Kaubamärgi nimi",
   "braveSearch": "Julge otsing",
-  "breakdown": "Jaotus:",
   "bridgeAnyProviderThatCanPost": "Ühendage kõik pakkujad, kes saavad veebihaagi kasulikke koormusi postitada ja vastu võtta.",
   "bringYourOwnKey": "kaasa oma võti",
   "bringYourOwnKey2": "Kaasa oma võti",
@@ -2029,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Saab vastu võtta delegeeritud ülesandeid",
   "cancel": "Tühista",
   "cancelTask": "Tühista ülesanne",
-  "candidateCountArg1": "Kandidaatide arv: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Eelvaadet ei saa vaadata",
   "cannotReceiveDelegatedTasks": "ei saa delegeeritud ülesandeid vastu võtta",
   "cannotRunYet": "ei saa veel joosta.",
@@ -2307,14 +2300,6 @@
   "connectionMethod": "Ühendusmeetod",
   "containsTextOptional": "Sisaldab teksti (valikuline)",
   "content": "Sisu",
-  "contentArg1": "Sisu: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "sisu turvapoliitika",
   "continue2": "Jätka",
   "continueFullSetup": "Jätkake täielikku seadistamist",
@@ -2751,14 +2736,6 @@
       }
     }
   },
-  "errorArg12": "Viga: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Vead hiljutisest logist, rühmitatud sõnumite järgi.",
   "errorsProblemsFailures": "vead probleemid tõrked",
   "eventTypesCommaSeparated": "Sündmuste tüübid (komadega eraldatud)",
@@ -3011,14 +2988,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Täielik viip",
   "fullSetup": "Täielik seadistamine",
-  "fullTextFtsArg1": "Täistekst (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Kindral",
   "generalSettings": "Üldseaded",
   "generalSettingsSaved": "Üldseaded salvestatud.",
@@ -3217,7 +3186,6 @@
   "input": "Sisend",
   "inputMode": "Sisestusrežiim",
   "insertATemplate": "Sisestage mall",
-  "inspect": "Kontrollige",
   "install": "Installige",
   "installASignedSelfContainedRuntime": "Installige allkirjastatud iseseisev käituskeskkond. Node.js, npm, Git ja terminali käsud pole vajalikud.",
   "installApk": "Installige APK",
@@ -3465,14 +3433,6 @@
         "type": "Object?"
       },
       "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
-  "lexicalArg1": "Leksikaalne: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -3906,10 +3866,61 @@
   "noMcpServersMatchThisSearch": "Sellele otsingule ei vasta ükski MCP-server.",
   "noMemoryEntriesFound": "Mälukirjeid ei leitud.",
   "noMemorySync": "Mälu sünkroonimine puudub",
-  "importPastEmailsIntoMemory": "Impordi olulised varasemad e-kirjad mällu",
   "importPastEmailsIntoMemoryHint": "Loeb ühekordselt viimase 12 kuu olulised ja saadetud kirjad, et agent tunneks su kontakte ja projekte.",
-  "importPastEmailsNow": "Impordi varasemad e-kirjad kohe",
-  "importingPastEmailsInBackground": "Varasemaid e-kirju imporditakse taustal. Uued mälestused ilmuvad järk-järgult.",
+  "emailMemory": "E-posti mälu",
+  "importNow": "Impordi kohe",
+  "importOnConnect": "Impordi konto ühendamisel varasemad kirjad",
+  "sweepStarting": "Valmistumine…",
+  "sweepReadingProgress": "E-kirjade lugemine · {done}/{total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "E-kirjade lugemine · leitud {count}",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "E-kirjadest õppimine · {done}/{total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Viimane import: {emails} e-kirja · {memories} uut mälestust",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Uusi e-kirju importimiseks pole",
+  "sweepFailed": "Import ebaõnnestus: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Ükski mudel ei vasta \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -4291,7 +4302,6 @@
   "qrLoginRequestWasNotFound": "qr sisselogimistaotlust ei leitud",
   "qrPairing": "QR-sidustamine",
   "queriesRunAnythingThatWritesIs": "päringud käivitatakse; kõik, mis kirjutab, lükatakse tagasi.",
-  "query": "Päring",
   "queryFilter": "Päring / Filter",
   "queuedAsSteeringForTheCurrent": "Jooksvas jooksus juhina: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4376,14 +4386,6 @@
   "registrationIsClosed": "registreerimine on suletud",
   "registrationRegisterNewAccountsAllowSignup": "registreerimine registreerige uued kontod võimaldavad registreeruda",
   "rejectInvalidTlsCertificates": "Keeldu kehtetutest TLS-sertifikaatidest",
-  "relationArg1": "Seos: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "vabastada ja taaskäivitada. Ühendatud rakendused ühendavad uuesti, kui see on tagasi.",
   "releaseChannel": "Vabasta kanal",
   "releaseCommitBranchNode": "vabasta commit harusõlme",
@@ -4486,7 +4488,6 @@
   "resultDelivery": "Tulemuse kohaletoimetamine",
   "resultOneClickAddsOneYou": "tulemus. Üks klõps lisab ühe; saate seda hiljem redigeerida.",
   "results": "Tulemused",
-  "retrievalInspector": "Väljavõtmise inspektor",
   "retry": "Proovi uuesti",
   "reusableUsedArg1": "Korduvkasutatav · kasutatud {arg1}×",
   "@reusableUsedArg1": {
@@ -4642,14 +4643,6 @@
   "scansNewEmailAndOnlyPings": "Skannib uusi e-kirju ja pingib teid ainult siis, kui miski on oluline.",
   "schedule": "Ajakava",
   "scheduledTimeOnceRunsAreMeasured": "planeeritud aeg. Kui jooksud on mõõdetud, algab see varem.",
-  "scoreArg1": "Skoor: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Ekraan",
   "screenAction": "ekraani tegevus",
   "scrollIsNotSupportedOnThis": "kerimist sellel platvormil ei toetata.",
@@ -4711,14 +4704,6 @@
     }
   },
   "selectTrigger": "Valige Trigger",
-  "semanticArg1": "Semantiline: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Saada (⌘↵)",
   "send2": "Saada",
   "sendATaskFromChatAnd": "Saatke vestlusest ülesanne ja selle täitmise ajalugu kuvatakse siin.",
@@ -5632,14 +5617,6 @@
   "value": "Väärtus",
   "vaultLocked": "Võlv lukus",
   "vaultOperationFailed": "Varahoidla toiming ebaõnnestus.",
-  "vectorRankArg1": "Vektori asetus: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Kontrollimine",
   "verificationArg1": "Kinnitus: {arg1}",
   "@verificationArg1": {
@@ -6552,6 +6529,7 @@
   "settingsPageComputer": "Arvuti ja veeb",
   "settingsPageBehavior": "Käitumine",
   "settingsPageSystem": "Süsteem",
+  "settingsPagePlatforms": "Platvormid",
   "settingsPageProfileDescription": "Teie nimi ja e-posti aadress, teie andmete koopia ja väljalogimine.",
   "settingsPageSecurityDescription": "Parool, kahefaktoriline autentimine, turvavõtmed ja koht, kus olete sisse logitud.",
   "settingsPageUsageDescription": "Teie limiidid ja märgikulu – kõik ühes kohas.",

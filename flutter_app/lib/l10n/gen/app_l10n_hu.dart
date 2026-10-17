@@ -375,6 +375,13 @@ class AppL10nHu extends AppL10n {
   String get addMemory => 'Memória hozzáadása';
 
   @override
+  String get memoryReview => 'Áttekintés';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Nézd át az összes emlékemet és tegyél rendet: archiváld a duplikátumokat, az elavult tényeket és mindent, aminek nincs tartós értéke. Utána röviden mondd el, mit változtattál.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Adjon hozzá több hosszúságot vagy más karaktertípust.';
 
@@ -1852,9 +1859,6 @@ class AppL10nHu extends AppL10n {
   String get braveSearch => 'Bátor keresés';
 
   @override
-  String get breakdown => 'Lebontás:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Híd minden olyan szolgáltatót, amely képes közzétenni és fogadni a webhook hasznos terheit.';
 
@@ -1903,11 +1907,6 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get cancelTask => 'Feladat megszakítása';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'A jelöltek száma: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Az előnézet nem tekinthető meg';
@@ -2380,11 +2379,6 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get content => 'Tartalom';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Tartalom: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'tartalombiztonsági szabályzat';
@@ -3287,11 +3281,6 @@ class AppL10nHu extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Hiba: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Hibák a legutóbbi naplóból, üzenet szerint csoportosítva.';
 
@@ -3674,11 +3663,6 @@ class AppL10nHu extends AppL10n {
   String get fullSetup => 'Teljes beállítás';
 
   @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Teljes szöveg (FTS): $arg1';
-  }
-
-  @override
   String get general => 'tábornok';
 
   @override
@@ -4047,9 +4031,6 @@ class AppL10nHu extends AppL10n {
   String get insertATemplate => 'Szúrjon be egy sablont';
 
   @override
-  String get inspect => 'Vizsgálja meg';
-
-  @override
   String get install => 'Telepítés';
 
   @override
@@ -4412,11 +4393,6 @@ class AppL10nHu extends AppL10n {
   @override
   String levelArg1Arg2Arg3(Object? arg1, Object? arg2, Object? arg3) {
     return '$arg1/$arg2$arg3 szint';
-  }
-
-  @override
-  String lexicalArg1(Object? arg1) {
-    return 'Lexical: $arg1';
   }
 
   @override
@@ -5283,19 +5259,49 @@ class AppL10nHu extends AppL10n {
   String get noMemorySync => 'Nincs memória szinkronizálás';
 
   @override
-  String get importPastEmailsIntoMemory =>
-      'Fontos korábbi e-mailek importálása a memóriába';
-
-  @override
   String get importPastEmailsIntoMemoryHint =>
       'Egyszer végigolvassa az elmúlt 12 hónap fontos és elküldött leveleit, hogy az ügynök ismerje a kapcsolataidat és projektjeidet.';
 
   @override
-  String get importPastEmailsNow => 'Korábbi e-mailek importálása most';
+  String get emailMemory => 'E-mail-memória';
 
   @override
-  String get importingPastEmailsInBackground =>
-      'A korábbi e-mailek importálása a háttérben fut. Az új emlékek fokozatosan jelennek meg.';
+  String get importNow => 'Importálás most';
+
+  @override
+  String get importOnConnect =>
+      'Korábbi levelek importálása fiók csatlakoztatásakor';
+
+  @override
+  String get sweepStarting => 'Előkészítés…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'E-mailek olvasása · $done/$total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'E-mailek olvasása · $count találat';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Tanulás az e-mailekből · $done/$total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Legutóbbi importálás: $emails e-mail · $memories új emlék';
+  }
+
+  @override
+  String get sweepNothingNew => 'Nincs új importálandó e-mail';
+
+  @override
+  String sweepFailed(String error) {
+    return 'Az importálás sikertelen: $error';
+  }
 
   @override
   String noModelMatchesArg1(Object? arg1) {
@@ -6115,9 +6121,6 @@ class AppL10nHu extends AppL10n {
       'lekérdezések futnak; bármit, ami ír, elutasítják.';
 
   @override
-  String get query => 'Lekérdezés';
-
-  @override
   String get queryFilter => 'Lekérdezés / szűrő';
 
   @override
@@ -6285,11 +6288,6 @@ class AppL10nHu extends AppL10n {
       'Érvénytelen TLS-tanúsítványok elutasítása';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Kapcsolat: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'engedje el és újraindul. A csatlakoztatott alkalmazások újra csatlakoznak, miután visszatértek.';
 
@@ -6449,9 +6447,6 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get results => 'Eredmények';
-
-  @override
-  String get retrievalInspector => 'Visszakeresés ellenőr';
 
   @override
   String get retry => 'Próbálja újra';
@@ -6785,11 +6780,6 @@ class AppL10nHu extends AppL10n {
       'ütemezett időpont. A futások mérése után korábban indul.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Pontszám: $arg1';
-  }
-
-  @override
   String get screen => 'Képernyő';
 
   @override
@@ -6929,11 +6919,6 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get selectTrigger => 'Válassza a Trigger lehetőséget';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Szemantika: $arg1';
-  }
 
   @override
   String get send => 'Küldés (⌘↵)';
@@ -8722,11 +8707,6 @@ class AppL10nHu extends AppL10n {
   String get vaultOperationFailed => 'A trezorművelet meghiúsult.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Vektor rangja: $arg1';
-  }
-
-  @override
   String get verification => 'Ellenőrzés';
 
   @override
@@ -10150,6 +10130,9 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get settingsPageSystem => 'Rendszer';
+
+  @override
+  String get settingsPagePlatforms => 'Platformok';
 
   @override
   String get settingsPageProfileDescription =>

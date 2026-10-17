@@ -154,6 +154,8 @@
   "addKey": "Żid ċavetta",
   "addMcpServer": "Żid server MCP",
   "addMemory": "Żid Memorja",
+  "memoryReview": "Irrevedi",
+  "memoryReviewPrompt": "Irrevedi l-memorji kollha tiegħi u naddafhom: arkivja d-duplikati, il-fatti skaduti u kull ħaġa mingħajr valur dejjiemi. Imbagħad għidli fil-qosor x'biddilt.",
   "addMoreLengthOrAnotherCharacter": "Żid aktar tul jew tip ta 'karattru ieħor.",
   "addPeopleOrGroups": "Żid nies jew gruppi",
   "addSecurityKey": "Żid iċ-ċavetta tas-sigurtà",
@@ -2006,7 +2008,6 @@
   "botUsername": "Isem tal-utent tal-bot",
   "brandName": "Isem tad-ditta",
   "braveSearch": "Fittex Brave",
-  "breakdown": "Tqassim:",
   "bridgeAnyProviderThatCanPost": "Tgħaqqad kwalunkwe fornitur li jista' jpoġġi u jirċievi payloads tal-webhook.",
   "bringYourOwnKey": "ġib iċ-ċavetta tiegħek",
   "bringYourOwnKey2": "Ġib iċ-ċavetta tiegħek",
@@ -2029,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Jista' jirċievi kompiti delegati",
   "cancel": "Ikkanċella",
   "cancelTask": "Ikkanċella kompitu",
-  "candidateCountArg1": "Għadd ta' Kandidati: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Ma tistax tipprevedi",
   "cannotReceiveDelegatedTasks": "ma jistax jirċievi kompiti delegati",
   "cannotRunYet": "għadha ma tistax taħdem.",
@@ -2307,14 +2300,6 @@
   "connectionMethod": "Metodu ta' Konnessjoni",
   "containsTextOptional": "Fih it-Test (mhux obbligatorju)",
   "content": "Kontenut",
-  "contentArg1": "Kontenut: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "politika tas-sigurtà tal-kontenut",
   "continue2": "Kompli",
   "continueFullSetup": "Kompli setup sħiħ",
@@ -2751,14 +2736,6 @@
       }
     }
   },
-  "errorArg12": "Żball: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Żbalji mill-ġurnal reċenti, miġbura skont il-messaġġ.",
   "errorsProblemsFailures": "żbalji problemi fallimenti",
   "eventTypesCommaSeparated": "Tipi ta' Avvenimenti (separati bil-virgola)",
@@ -3011,14 +2988,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Sħiħ fil-pront",
   "fullSetup": "Setup sħiħ",
-  "fullTextFtsArg1": "Test sħiħ (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Ġenerali",
   "generalSettings": "Settings ġenerali",
   "generalSettingsSaved": "Issettjar ġenerali ssejvjat.",
@@ -3217,7 +3186,6 @@
   "input": "Input",
   "inputMode": "Mod tad-dħul",
   "insertATemplate": "Daħħal mudell",
-  "inspect": "Spezzjona",
   "install": "Installa",
   "installASignedSelfContainedRuntime": "Installa runtime ffirmat u awtonomu. Node.js, npm, Git, u kmandi tat-terminal mhumiex meħtieġa.",
   "installApk": "Installa APK",
@@ -3465,14 +3433,6 @@
         "type": "Object?"
       },
       "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
-  "lexicalArg1": "Lessiku: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -3906,10 +3866,61 @@
   "noMcpServersMatchThisSearch": "Ebda servers MCP ma jaqblu ma' din it-tfittxija.",
   "noMemoryEntriesFound": "Ma nstabet l-ebda dħul tal-memorja.",
   "noMemorySync": "L-ebda sinkronizzazzjoni tal-memorja",
-  "importPastEmailsIntoMemory": "Importa emails importanti tal-passat fil-memorja",
   "importPastEmailsIntoMemoryHint": "Jaqra darba waħda l-posta importanti u mibgħuta tal-aħħar 12-il xahar, biex l-aġent ikun jaf il-kuntatti u l-proġetti tiegħek.",
-  "importPastEmailsNow": "Importa emails tal-passat issa",
-  "importingPastEmailsInBackground": "L-emails tal-passat qed jiġu importati fl-isfond. Memorji ġodda jidhru hekk kif jimxi.",
+  "emailMemory": "Memorja tal-email",
+  "importNow": "Importa issa",
+  "importOnConnect": "Importa posta tal-passat meta tikkonnettja kont",
+  "sweepStarting": "Qed jitħejja…",
+  "sweepReadingProgress": "Qed jaqra l-emails · {done} minn {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Qed jaqra l-emails · {count} misjuba",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Qed jitgħallem mill-emails · {done} minn {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "L-aħħar importazzjoni: {emails} emails · {memories} memorji ġodda",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "M'hemmx emails ġodda x'jiġu importati",
+  "sweepFailed": "L-importazzjoni falliet: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "L-ebda mudell ma jaqbel ma' \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -4291,7 +4302,6 @@
   "qrLoginRequestWasNotFound": "Qr login talba ma nstabitx",
   "qrPairing": "QR Pairing",
   "queriesRunAnythingThatWritesIs": "mistoqsijiet jitmexxew; kull ħaġa li tikteb tiġi miċħuda.",
-  "query": "Mistoqsija",
   "queryFilter": "Mistoqsija / Iffiltra",
   "queuedAsSteeringForTheCurrent": "Fil-kju bħala istering għall-ġirja kurrenti: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4376,14 +4386,6 @@
   "registrationIsClosed": "ir-reġistrazzjoni hija magħluqa",
   "registrationRegisterNewAccountsAllowSignup": "reġistrazzjoni reġistru kontijiet ġodda jippermettu signup",
   "rejectInvalidTlsCertificates": "Irrifjuta ċertifikati TLS invalidi",
-  "relationArg1": "Relazzjoni: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "rilaxx u jerġa 'jibda. Apps konnessi jerġgħu jikkonnettjaw ladarba tkun lura.",
   "releaseChannel": "Kanal tar-rilaxx",
   "releaseCommitBranchNode": "rilaxx node tal-fergħa tal-kommit",
@@ -4486,7 +4488,6 @@
   "resultDelivery": "Kunsinna tar-Riżultati",
   "resultOneClickAddsOneYou": "riżultat. Klikk waħda żżid waħda; tista teditjaha aktar tard.",
   "results": "Riżultati",
-  "retrievalInspector": "Spettur tal-Irkupru",
   "retry": "Ipprova mill-ġdid",
   "reusableUsedArg1": "Jintuża mill-ġdid · użat {arg1}×",
   "@reusableUsedArg1": {
@@ -4642,14 +4643,6 @@
   "scansNewEmailAndOnlyPings": "Skennja email ġdid u jagħtik ping biss meta xi ħaġa tkun importanti.",
   "schedule": "Skeda",
   "scheduledTimeOnceRunsAreMeasured": "ħin skedat. Ladarba jitkejlu l-ġirjiet, dan jibda qabel.",
-  "scoreArg1": "Score: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Skrin",
   "screenAction": "azzjoni fuq l-iskrin",
   "scrollIsNotSupportedOnThis": "iscroll mhuwiex appoġġjat fuq din il-pjattaforma.",
@@ -4711,14 +4704,6 @@
     }
   },
   "selectTrigger": "Agħżel Trigger",
-  "semanticArg1": "Semantiku: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Ibgħat (⌘↵)",
   "send2": "Ibgħat",
   "sendATaskFromChatAnd": "Ibgħat kompitu miċ-chat u l-istorja tal-eżekuzzjoni tagħha tidher hawn.",
@@ -5632,14 +5617,6 @@
   "value": "Valur",
   "vaultLocked": "Vault msakkra",
   "vaultOperationFailed": "L-operazzjoni tal-kaxxa-forti falliet.",
-  "vectorRankArg1": "Vector Rank: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Verifika",
   "verificationArg1": "Verifika: {arg1}",
   "@verificationArg1": {
@@ -6552,6 +6529,7 @@
   "settingsPageComputer": "Kompjuter u web",
   "settingsPageBehavior": "Imġieba",
   "settingsPageSystem": "Sistema",
+  "settingsPagePlatforms": "Pjattaformi",
   "settingsPageProfileDescription": "Ismek u l-email, kopja tad-data tiegħek, u l-iffirmar.",
   "settingsPageSecurityDescription": "Password, awtentikazzjoni b'żewġ fatturi, ċwievet tas-sigurtà u fejn int iddaħħal.",
   "settingsPageUsageDescription": "Il-limiti u t-token tiegħek jonfqu, kollha f'post wieħed.",

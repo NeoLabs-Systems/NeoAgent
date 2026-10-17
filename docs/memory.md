@@ -22,6 +22,7 @@ After each completed run, the model reviews the conversation and saves what will
 
 - **Left out.** Secrets, credentials, raw tool output, routine narration, guesses and unverified claims.
 - **On request.** The agent can also save a memory explicitly with `memory_save`.
+- **Short.** A memory is one fact of at most 150 characters.
 - **Scoped.** Memory belongs to one user and one agent. Group-chat runs use memory scoped to that chat.
 
 ## 🧩 Structured facts
@@ -54,10 +55,11 @@ Before each reply, NeoAgent searches memory locally and adds the best matches to
 
 ## 📥 Memory from integrations
 
-- **Gmail and Outlook.** When you connect a mailbox, the agent reads the last 12 months of important and sent mail once (up to 100 threads) and keeps the durable facts. Untick **Import important past emails into memory** before connecting to skip it.
+- **Gmail and Outlook.** When you connect a mailbox, the agent reads the last 12 months of important and sent mail once (up to 100 threads) and keeps the durable facts. Turn off **Import past mail when connecting an account** in the app's **Email memory** panel to skip it.
 - **No polling.** Connected accounts are not re-read in the background afterwards.
-- **Import more.** **Import past emails now** on a connected Gmail or Outlook app sweeps every account of that app again and imports only threads not in memory yet.
-- **Provenance.** Source text is chunked, marked as external, and linked to the memories drawn from it.
+- **Import more.** **Import now** in the **Email memory** panel sweeps every account of that app again and reads only threads it has not read before. The panel shows progress live.
+- **Only what matters.** Mail is source material, never memory. The agent keeps facts about your life that still matter months later, like a job you accepted or a move, and skips newsletters, receipts and codes. Facts it already knows are not added again.
+- **Provenance.** Each learned fact is marked as external and names the thread it came from.
 - **Data, not instructions.** External text never acts as a command, and it cannot quietly overwrite established facts.
 
 ## 🛠️ Manage memory

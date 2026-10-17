@@ -949,11 +949,11 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'memory_save',
-            description: 'Save ONE specific, self-contained fact to long-term semantic memory. RULES: (1) One discrete fact per call — if you have 10 facts, call this 10 times. (2) The ENTIRE value must be IN the content string itself — never write a pointer/reference like "user shared a profile" or "see chat history for details". That is useless. (3) Content must be a complete statement a stranger could read cold and understand. (4) Only save durable facts, preferences, or stable project context — never save recent task runs, task statuses, execution receipts, or other transient operational logs. GOOD: "XYZ lives in" / "XYZ prefers dark mode". BAD: "User pasted a profile dump" / "XYZ shared lots of details — see chat history" / "XYZ gave a big list of projects" / "Recent task run: backup completed".',
+            description: 'Save ONE specific, self-contained fact to long-term semantic memory. RULES: (1) One discrete fact per call — if you have 10 facts, call this 10 times. (2) The ENTIRE value must be IN the content string itself — never write a pointer/reference like "user shared a profile" or "see chat history for details". That is useless. (3) Content must be a complete statement a stranger could read cold and understand, at most 150 characters. (4) Only save durable facts, preferences, or stable project context — never save recent task runs, task statuses, execution receipts, or other transient operational logs. GOOD: "XYZ lives in" / "XYZ prefers dark mode". BAD: "User pasted a profile dump" / "XYZ shared lots of details — see chat history" / "XYZ gave a big list of projects" / "Recent task run: backup completed".',
             parameters: {
                 type: 'object',
                 properties: {
-                    content: { type: 'string', description: 'The complete, self-contained fact. Must be readable standalone — no references to "above", "the dump", or "chat history". Write as a clear declarative sentence.' },
+                    content: { type: 'string', maxLength: 150, description: 'The complete, self-contained fact, at most 150 characters. Must be readable standalone — no references to "above", "the dump", or "chat history". Write as a clear declarative sentence.' },
                     category: { type: 'string', enum: ['user_fact', 'preference', 'personality', 'episodic', 'procedural'], description: 'user_fact: facts about the user (job, location, hardware...), preference: likes/dislikes/settings, personality: how to interact with them, episodic: events/tasks/learnings, procedural: reusable workflows or repeatable tool-use procedures' },
                     importance: { type: 'number', description: 'Importance 1-10. 1=trivial, 5=default, 8+=critical. High-importance memories rank higher in recall.' }
                 },
@@ -972,6 +972,28 @@ function getAvailableTools(app, options = {}) {
                     include_history: { type: 'boolean', description: 'Also return facts that have since been replaced, to see how something changed.' }
                 },
                 required: ['query']
+            }
+        },
+        {
+            name: 'memory_list',
+            description: 'Page through every stored long-term memory, most important first. Use it to review memory as a whole, e.g. to find duplicates, outdated facts, or useless entries; use memory_recall to look something up.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    offset: { type: 'number', description: 'How many memories to skip (default 0). Use next_offset from the previous page.' },
+                    limit: { type: 'number', description: 'Page size (default 40, max 80)' }
+                }
+            }
+        },
+        {
+            name: 'memory_forget',
+            description: 'Archive long-term memories by id so they are no longer recalled. Use for duplicates, outdated or wrong facts, and entries with no lasting value. To correct a fact, save the corrected version with memory_save and forget the old one.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    ids: { type: 'array', items: { type: 'string' }, description: 'Ids of the memories to archive, from memory_list or memory_recall' }
+                },
+                required: ['ids']
             }
         },
         {
@@ -2163,8 +2185,15 @@ async function executeTool(toolName, args, context, engine) {
 
         case 'memory_save': {
             const { MemoryManager } = require('../memory/manager');
+            const { MAX_MEMORY_CHARS } = require('../memory/policy');
             const mm = new MemoryManager();
             const content = typeof args.content === 'string' ? args.content : args.value;
+            const length = String(content || '').trim().length;
+            if (length > MAX_MEMORY_CHARS) {
+                return {
+                    error: `Memory is ${length} characters; the limit is ${MAX_MEMORY_CHARS}. Rewrite it as one shorter fact, or split it into several facts.`,
+                };
+            }
             // A memory written after the run read outside content may carry
             // an injected claim; it must not silently override known facts.
             const metadata = isTainted(engine?.getRunMeta?.(runId)?.trust)
@@ -2204,6 +2233,34 @@ async function executeTool(toolName, args, context, engine) {
             );
             if (!results.length) return { results: [], message: 'Nothing found' };
             return { results };
+        }
+
+        case 'memory_list': {
+            const { MemoryManager } = require('../memory/manager');
+            const mm = new MemoryManager();
+            const offset = Math.max(0, Math.floor(Number(args.offset) || 0));
+            const limit = Math.max(1, Math.min(80, Math.floor(Number(args.limit) || 40)));
+            const page = mm.listMemories(userId, { agentId, offset, limit: limit + 1 });
+            const results = page.slice(0, limit).map((memory) => ({
+                id: memory.id,
+                content: memory.content,
+                category: memory.category,
+                importance: memory.importance,
+                updated_at: memory.updated_at,
+            }));
+            return {
+                results,
+                next_offset: page.length > limit ? offset + limit : null,
+            };
+        }
+
+        case 'memory_forget': {
+            const { MemoryManager } = require('../memory/manager');
+            const mm = new MemoryManager();
+            const ids = mm.ownedMemoryIds(userId, agentId, args.ids);
+            if (!ids.length) return { error: 'None of these ids is a memory of this agent.' };
+            const archived = mm.archiveMemories(ids, true, userId);
+            return { success: true, archived, message: `Archived ${archived} memories` };
         }
 
         case 'session_search': {

@@ -34,7 +34,6 @@ test('pre-run recall hands over the direct search results without a model call',
         { id: 'mem-b', content: 'b', score: 0.3 },
       ];
     },
-    getPendingExtractionChunks: () => [],
     buildRecallMessage: async (_userId, _query, { recalled }) => `recall:${recalled.map((item) => item.id).join(',')}`,
   };
 
@@ -43,9 +42,6 @@ test('pre-run recall hands over the direct search results without a model call',
     userId: 1,
     agentId: null,
     query: 'hey, alles gut bei dir?',
-    provider: {},
-    providerName: 'test',
-    model: 'test-model',
     runId: null,
     options: { signal: new AbortController().signal },
   });

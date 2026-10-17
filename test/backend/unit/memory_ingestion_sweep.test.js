@@ -21,19 +21,33 @@ const gmailConnection = {
   status: 'connected',
 };
 
-function createSweepService({ jobs = [], documents = [], ingestedIds = [], database } = {}) {
-  const calls = { collect: [], ingest: [], extract: [], credentials: [] };
+function createSweepService({
+  jobs = [],
+  documents = [],
+  ingestedIds = [],
+  database,
+  collectError = null,
+} = {}) {
+  const calls = { collect: [], ingest: [], extract: [], credentials: [], emitted: [] };
   const service = new MemoryIngestionService({
     database,
+    io: {
+      to: (room) => ({
+        emit: (event, payload) => calls.emitted.push({ room, event, payload }),
+      }),
+    },
     memoryManager: {
       listIngestionJobs: () => jobs,
       recordIngestionJob: (_userId, job) => job.id,
       listIngestedObjectIds: () => new Set(ingestedIds),
+      countMemoriesCreatedSince: (ids) => ids.length - 1,
     },
     integrationManager: {
       getProvider: () => ({
         async collectMemorySweep(options) {
           calls.collect.push(options);
+          if (collectError) throw collectError;
+          options.onProgress(1, documents.length);
           return {
             documents,
             cursor: {},
@@ -45,18 +59,20 @@ function createSweepService({ jobs = [], documents = [], ingestedIds = [], datab
         calls.credentials.push({ connectionId: connection.id, credentials });
       },
     },
-    extractBacklog: async (userId, agentId) => {
-      calls.extract.push({ userId, agentId });
-    },
   });
   service.ingestDocuments = async (userId, docs, options) => {
     calls.ingest.push({ userId, docs, options });
-    return { status: 'completed', documentIds: docs.map((doc) => doc.externalObjectId) };
+    options.onProgress(docs.length, docs.length);
+    return {
+      status: 'completed',
+      documentIds: docs.map((doc) => doc.externalObjectId),
+      memoryIds: ['memory-new', 'memory-existing'],
+    };
   };
   return { service, calls };
 }
 
-test('sweep collects past mail, tags the job, and extracts right away', async () => {
+test('sweep collects past mail and learns from it as the mailbox owner', async () => {
   const { service, calls } = createSweepService({
     documents: [{ externalObjectId: 'thread-1', title: 'Contract renewal' }],
   });
@@ -67,7 +83,8 @@ test('sweep collects past mail, tags the job, and extracts right away', async ()
   assert.equal(calls.collect.length, 1);
   assert.equal(calls.ingest[0].options.metadata.mode, 'sweep');
   assert.equal(calls.ingest[0].options.connectionId, 7);
-  assert.deepEqual(calls.extract, [{ userId: 10, agentId: 'agent-10' }]);
+  assert.equal(calls.ingest[0].options.agentId, 'agent-10');
+  assert.deepEqual(calls.ingest[0].options.owner, { email: 'person@example.com', name: null });
   assert.deepEqual(calls.credentials, [
     { connectionId: 7, credentials: { access_token: 'refreshed' } },
   ]);
@@ -223,4 +240,47 @@ test('integration snapshots mark only sweepable mail apps as feeding memory', as
   } finally {
     teardownTestRuntime(ctx);
   }
+});
+
+test('a sweep reports each phase live and keeps the result for the snapshot', async () => {
+  const { service, calls } = createSweepService({
+    documents: [
+      { externalObjectId: 'thread-1', title: 'Contract renewal' },
+      { externalObjectId: 'thread-2', title: 'Offsite' },
+    ],
+  });
+
+  await service.sweepConnection(gmailConnection);
+
+  const events = calls.emitted.map((entry) => entry.payload);
+  assert.ok(calls.emitted.every((entry) => entry.room === 'user:10'
+    && entry.event === 'memory:sweep_progress'));
+  assert.deepEqual(
+    events.map((event) => [event.state, event.phase]),
+    [
+      ['running', 'reading'],
+      ['running', 'learning'],
+      ['completed', 'learning'],
+    ],
+  );
+  assert.equal(events[0].connectionId, 7);
+  assert.equal(events[0].appKey, 'gmail');
+  const finalState = service.getSweepProgress(7);
+  assert.equal(finalState.state, 'completed');
+  assert.equal(finalState.imported, 2);
+  // One of the two ids resolved to a memory that already existed.
+  assert.equal(finalState.learned, 1);
+  assert.equal(finalState.done, 2);
+  assert.equal(finalState.total, 2);
+});
+
+test('a failed sweep reports the failure', async () => {
+  const { service, calls } = createSweepService({ collectError: new Error('Gmail is unreachable') });
+
+  const result = await service.sweepConnection(gmailConnection);
+
+  assert.equal(result.status, 'failed');
+  const last = calls.emitted.at(-1).payload;
+  assert.equal(last.state, 'failed');
+  assert.equal(last.error, 'Gmail is unreachable');
 });

@@ -383,6 +383,13 @@ class AppL10nIt extends AppL10n {
   String get addMemory => 'Aggiungi memoria';
 
   @override
+  String get memoryReview => 'Rivedi';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Rivedi tutti i miei ricordi e mettili in ordine: archivia i duplicati, i fatti obsoleti e tutto ciò che non ha valore duraturo. Poi dimmi brevemente cosa hai cambiato.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Aggiungi più lunghezza o un altro tipo di carattere.';
 
@@ -1863,9 +1870,6 @@ class AppL10nIt extends AppL10n {
   String get braveSearch => 'Ricerca coraggiosa';
 
   @override
-  String get breakdown => 'Ripartizione:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Collega qualsiasi provider in grado di pubblicare e ricevere payload webhook.';
 
@@ -1914,11 +1918,6 @@ class AppL10nIt extends AppL10n {
 
   @override
   String get cancelTask => 'Annulla attività';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Conteggio dei candidati: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Impossibile visualizzare l\'anteprima';
@@ -2392,11 +2391,6 @@ class AppL10nIt extends AppL10n {
 
   @override
   String get content => 'Contenuto';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Contenuto: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'politica di sicurezza dei contenuti';
@@ -3303,11 +3297,6 @@ class AppL10nIt extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Errore: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Errori dal registro recente, raggruppati per messaggio.';
 
@@ -3687,11 +3676,6 @@ class AppL10nIt extends AppL10n {
   String get fullSetup => 'Configurazione completa';
 
   @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Testo completo (FTS): $arg1';
-  }
-
-  @override
   String get general => 'Generale';
 
   @override
@@ -4062,9 +4046,6 @@ class AppL10nIt extends AppL10n {
   String get insertATemplate => 'Inserisci un modello';
 
   @override
-  String get inspect => 'Ispezionare';
-
-  @override
   String get install => 'Installa';
 
   @override
@@ -4430,11 +4411,6 @@ class AppL10nIt extends AppL10n {
   @override
   String levelArg1Arg2Arg3(Object? arg1, Object? arg2, Object? arg3) {
     return 'Livello $arg1/$arg2$arg3';
-  }
-
-  @override
-  String lexicalArg1(Object? arg1) {
-    return 'Lessicale: $arg1';
   }
 
   @override
@@ -5309,19 +5285,49 @@ class AppL10nIt extends AppL10n {
   String get noMemorySync => 'Nessuna sincronizzazione della memoria';
 
   @override
-  String get importPastEmailsIntoMemory =>
-      'Importa nella memoria le email passate importanti';
-
-  @override
   String get importPastEmailsIntoMemoryHint =>
       'Legge una sola volta la posta importante e inviata degli ultimi 12 mesi, così l\'agente conosce i tuoi contatti e progetti.';
 
   @override
-  String get importPastEmailsNow => 'Importa ora le email passate';
+  String get emailMemory => 'Memoria email';
 
   @override
-  String get importingPastEmailsInBackground =>
-      'Importazione delle email passate in background. I nuovi ricordi compaiono man mano.';
+  String get importNow => 'Importa ora';
+
+  @override
+  String get importOnConnect =>
+      'Importa la posta passata quando colleghi un account';
+
+  @override
+  String get sweepStarting => 'Preparazione…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'Lettura email · $done di $total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'Lettura email · $count trovate';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Apprendimento dalle email · $done di $total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Ultima importazione: $emails email · $memories nuovi ricordi';
+  }
+
+  @override
+  String get sweepNothingNew => 'Nessuna nuova email da importare';
+
+  @override
+  String sweepFailed(String error) {
+    return 'Importazione non riuscita: $error';
+  }
 
   @override
   String noModelMatchesArg1(Object? arg1) {
@@ -6138,9 +6144,6 @@ class AppL10nIt extends AppL10n {
       'vengono eseguite le query; tutto ciò che scrive viene rifiutato.';
 
   @override
-  String get query => 'Domanda';
-
-  @override
   String get queryFilter => 'Interroga/Filtra';
 
   @override
@@ -6308,11 +6311,6 @@ class AppL10nIt extends AppL10n {
       'Rifiuta i certificati TLS non validi';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Relazione: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'rilasciare e riavviare. Le app connesse si riconnettono una volta ripristinate.';
 
@@ -6474,9 +6472,6 @@ class AppL10nIt extends AppL10n {
 
   @override
   String get results => 'Risultati';
-
-  @override
-  String get retrievalInspector => 'Ispettore del recupero';
 
   @override
   String get retry => 'Riprova';
@@ -6811,11 +6806,6 @@ class AppL10nIt extends AppL10n {
       'orario previsto. Una volta misurate le corse, queste inizieranno prima.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Punteggio: $arg1';
-  }
-
-  @override
   String get screen => 'Schermo';
 
   @override
@@ -6952,11 +6942,6 @@ class AppL10nIt extends AppL10n {
 
   @override
   String get selectTrigger => 'Seleziona Attiva';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Semantica: $arg1';
-  }
 
   @override
   String get send => 'Invia (⌘↵)';
@@ -8746,11 +8731,6 @@ class AppL10nIt extends AppL10n {
   String get vaultOperationFailed => 'L\'operazione del vault non è riuscita.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Grado vettore: $arg1';
-  }
-
-  @override
   String get verification => 'Verifica';
 
   @override
@@ -10178,6 +10158,9 @@ class AppL10nIt extends AppL10n {
 
   @override
   String get settingsPageSystem => 'Sistema';
+
+  @override
+  String get settingsPagePlatforms => 'Piattaforme';
 
   @override
   String get settingsPageProfileDescription =>

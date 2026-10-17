@@ -154,6 +154,8 @@
   "addKey": "Добавете ключ",
   "addMcpServer": "Добавете MCP сървър",
   "addMemory": "Добавяне на памет",
+  "memoryReview": "Преглед",
+  "memoryReviewPrompt": "Прегледай всички мои спомени и ги подреди: архивирай дубликатите, остарелите факти и всичко без трайна стойност. След това ми кажи накратко какво промени.",
   "addMoreLengthOrAnotherCharacter": "Добавете повече дължина или друг тип знак.",
   "addPeopleOrGroups": "Добавете хора или групи",
   "addSecurityKey": "Добавете ключ за сигурност",
@@ -2006,7 +2008,6 @@
   "botUsername": "Потребителско име на бот",
   "brandName": "Име на марката",
   "braveSearch": "Brave Search",
-  "breakdown": "Breakdown:",
   "bridgeAnyProviderThatCanPost": "Bridge any provider that can post and receive webhook payloads.",
   "bringYourOwnKey": "bring your own key",
   "bringYourOwnKey2": "Носете свой собствен ключ",
@@ -2029,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Can receive delegated tasks",
   "cancel": "Отказ",
   "cancelTask": "Отмени задачата",
-  "candidateCountArg1": "Candidate Count: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Не може да се визуализира",
   "cannotReceiveDelegatedTasks": "cannot receive delegated tasks",
   "cannotRunYet": "cannot run yet.",
@@ -2307,14 +2300,6 @@
   "connectionMethod": "Метод на свързване",
   "containsTextOptional": "Съдържа текст (по избор)",
   "content": "Съдържание",
-  "contentArg1": "Content: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "политика за сигурност на съдържанието",
   "continue2": "Продължи",
   "continueFullSetup": "Продължете пълната настройка",
@@ -2751,14 +2736,6 @@
       }
     }
   },
-  "errorArg12": "Грешка: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Грешки от последния дневник, групирани по съобщение.",
   "errorsProblemsFailures": "грешки проблеми неуспехи",
   "eventTypesCommaSeparated": "Типове събития (разделени със запетая)",
@@ -3011,14 +2988,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Пълна подкана",
   "fullSetup": "Пълна настройка",
-  "fullTextFtsArg1": "Пълен текст (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "генерал",
   "generalSettings": "Общи настройки",
   "generalSettingsSaved": "Общите настройки са запазени.",
@@ -3217,7 +3186,6 @@
   "input": "Вход",
   "inputMode": "Режим на въвеждане",
   "insertATemplate": "Поставете шаблон",
-  "inspect": "Инспектирайте",
   "install": "Инсталирайте",
   "installASignedSelfContainedRuntime": "Инсталирайте подписана, самостоятелна среда за изпълнение. Не се изискват команди Node.js, npm, Git и терминал.",
   "installApk": "Инсталирайте APK",
@@ -3465,14 +3433,6 @@
         "type": "Object?"
       },
       "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
-  "lexicalArg1": "Лексикално: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -3906,10 +3866,61 @@
   "noMcpServersMatchThisSearch": "Няма MCP сървъри, отговарящи на това търсене.",
   "noMemoryEntriesFound": "Няма намерени записи в паметта.",
   "noMemorySync": "Няма синхронизиране на паметта",
-  "importPastEmailsIntoMemory": "Импортиране на важни минали имейли в паметта",
   "importPastEmailsIntoMemoryHint": "Прочита еднократно важните и изпратените писма от последните 12 месеца, за да познава агентът вашите контакти и проекти.",
-  "importPastEmailsNow": "Импортирай минали имейли сега",
-  "importingPastEmailsInBackground": "Минали имейли се импортират във фонов режим. Новите спомени се появяват постепенно.",
+  "emailMemory": "Памет от имейли",
+  "importNow": "Импортирай сега",
+  "importOnConnect": "Импортиране на минали писма при свързване на акаунт",
+  "sweepStarting": "Подготовка…",
+  "sweepReadingProgress": "Четене на имейли · {done} от {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Четене на имейли · {count} намерени",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Учене от имейлите · {done} от {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Последен импорт: {emails} имейла · {memories} нови спомена",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Няма нови имейли за импортиране",
+  "sweepFailed": "Импортирането не бе успешно: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Няма модел, съответстващ на „{arg1}“.",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -4291,7 +4302,6 @@
   "qrLoginRequestWasNotFound": "qr заявката за влизане не беше намерена",
   "qrPairing": "QR сдвояване",
   "queriesRunAnythingThatWritesIs": "изпълнение на заявки; всичко, което пише, се отхвърля.",
-  "query": "Запитване",
   "queryFilter": "Заявка / Филтър",
   "queuedAsSteeringForTheCurrent": "На опашка като управление за текущото изпълнение: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4376,14 +4386,6 @@
   "registrationIsClosed": "регистрацията е затворена",
   "registrationRegisterNewAccountsAllowSignup": "регистрация регистрация нови акаунти позволяват регистрация",
   "rejectInvalidTlsCertificates": "Отхвърляне на невалидни TLS сертификати",
-  "relationArg1": "Отношение: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "освобождаване и рестартиране. Свързаните приложения се свързват отново, след като се върне.",
   "releaseChannel": "Канал за освобождаване",
   "releaseCommitBranchNode": "освобождаване на ангажимент клон възел",
@@ -4486,7 +4488,6 @@
   "resultDelivery": "Доставка на резултат",
   "resultOneClickAddsOneYou": "резултат. Едно кликване добавя едно; можете да го редактирате по-късно.",
   "results": "Резултати",
-  "retrievalInspector": "Инспектор по извличане",
   "retry": "Опитайте отново",
   "reusableUsedArg1": "За многократна употреба · използван {arg1}×",
   "@reusableUsedArg1": {
@@ -4642,14 +4643,6 @@
   "scansNewEmailAndOnlyPings": "Сканира нов имейл и ви пингва само когато нещо има значение.",
   "schedule": "График",
   "scheduledTimeOnceRunsAreMeasured": "планирано време. След като бяганията бъдат измерени, ще започне по-рано.",
-  "scoreArg1": "Резултат: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "екран",
   "screenAction": "действие на екрана",
   "scrollIsNotSupportedOnThis": "превъртане не се поддържа на тази платформа.",
@@ -4711,14 +4704,6 @@
     }
   },
   "selectTrigger": "Изберете Тригер",
-  "semanticArg1": "Семантика: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Изпрати (⌘↵)",
   "send2": "Изпратете",
   "sendATaskFromChatAnd": "Изпратете задача от чата и историята на нейното изпълнение ще се покаже тук.",
@@ -5632,14 +5617,6 @@
   "value": "Стойност",
   "vaultLocked": "Трезорът е заключен",
   "vaultOperationFailed": "Операцията на хранилището е неуспешна.",
-  "vectorRankArg1": "Векторен ранг: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Проверка",
   "verificationArg1": "Проверка: {arg1}",
   "@verificationArg1": {
@@ -6552,6 +6529,7 @@
   "settingsPageComputer": "Компютър и мрежа",
   "settingsPageBehavior": "Поведение",
   "settingsPageSystem": "система",
+  "settingsPagePlatforms": "Платформи",
   "settingsPageProfileDescription": "Вашето име и имейл, копие на вашите данни и излизане.",
   "settingsPageSecurityDescription": "Парола, двуфакторно удостоверяване, ключове за сигурност и къде сте влезли.",
   "settingsPageUsageDescription": "Вашите лимити и символични разходи, всичко на едно място.",

@@ -154,6 +154,8 @@
   "addKey": "Lisää avain",
   "addMcpServer": "Lisää MCP-palvelin",
   "addMemory": "Lisää muistia",
+  "memoryReview": "Tarkista",
+  "memoryReviewPrompt": "Käy läpi kaikki muistoni ja siivoa ne: arkistoi kaksoiskappaleet, vanhentuneet tiedot ja kaikki, millä ei ole pysyvää arvoa. Kerro sitten lyhyesti, mitä muutit.",
   "addMoreLengthOrAnotherCharacter": "Lisää pituutta tai muuta merkkityyppiä.",
   "addPeopleOrGroups": "Lisää ihmisiä tai ryhmiä",
   "addSecurityKey": "Lisää suojausavain",
@@ -2006,7 +2008,6 @@
   "botUsername": "Botin käyttäjätunnus",
   "brandName": "Tuotemerkki",
   "braveSearch": "Rohkea haku",
-  "breakdown": "Erittely:",
   "bridgeAnyProviderThatCanPost": "Yhdistä kaikki palveluntarjoajat, jotka voivat lähettää ja vastaanottaa webhook-hyötykuormia.",
   "bringYourOwnKey": "tuo oma avain",
   "bringYourOwnKey2": "Oma avain mukaan",
@@ -2029,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Voi vastaanottaa delegoituja tehtäviä",
   "cancel": "Peruuta",
   "cancelTask": "Peruuta tehtävä",
-  "candidateCountArg1": "Ehdokasmäärä: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Ei voi esikatsella",
   "cannotReceiveDelegatedTasks": "ei voi vastaanottaa delegoituja tehtäviä",
   "cannotRunYet": "ei voi juosta vielä.",
@@ -2307,14 +2300,6 @@
   "connectionMethod": "Yhteysmenetelmä",
   "containsTextOptional": "Sisältää tekstiä (valinnainen)",
   "content": "Sisältö",
-  "contentArg1": "Sisältö: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "sisällön turvallisuuspolitiikka",
   "continue2": "Jatka",
   "continueFullSetup": "Jatka täydellistä asennusta",
@@ -2751,14 +2736,6 @@
       }
     }
   },
-  "errorArg12": "Virhe: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Virheet viimeaikaisesta lokista, ryhmitelty viestin mukaan.",
   "errorsProblemsFailures": "virheet ongelmat epäonnistumiset",
   "eventTypesCommaSeparated": "Tapahtumatyypit (pilkuilla erotettuna)",
@@ -3011,14 +2988,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Täysi kehote",
   "fullSetup": "Täysi asennus",
-  "fullTextFtsArg1": "Koko teksti (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Kenraali",
   "generalSettings": "Yleiset asetukset",
   "generalSettingsSaved": "Yleiset asetukset tallennettu.",
@@ -3217,7 +3186,6 @@
   "input": "Syöte",
   "inputMode": "Syöttötila",
   "insertATemplate": "Lisää malli",
-  "inspect": "Tarkasta",
   "install": "Asenna",
   "installASignedSelfContainedRuntime": "Asenna allekirjoitettu, itsenäinen suoritusaika. Node.js-, npm-, Git- ja terminaalikomentoja ei vaadita.",
   "installApk": "Asenna APK",
@@ -3465,14 +3433,6 @@
         "type": "Object?"
       },
       "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
-  "lexicalArg1": "Leksinen: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -3906,10 +3866,61 @@
   "noMcpServersMatchThisSearch": "Mikään MCP-palvelin ei vastaa tätä hakua.",
   "noMemoryEntriesFound": "Muistimerkintöjä ei löytynyt.",
   "noMemorySync": "Ei muistin synkronointia",
-  "importPastEmailsIntoMemory": "Tuo tärkeät aiemmat sähköpostit muistiin",
   "importPastEmailsIntoMemoryHint": "Lukee kerran viimeisen 12 kuukauden tärkeät ja lähetetyt viestit, jotta agentti tuntee yhteystietosi ja projektisi.",
-  "importPastEmailsNow": "Tuo aiemmat sähköpostit nyt",
-  "importingPastEmailsInBackground": "Aiempia sähköposteja tuodaan taustalla. Uudet muistot ilmestyvät vähitellen.",
+  "emailMemory": "Sähköpostimuisti",
+  "importNow": "Tuo nyt",
+  "importOnConnect": "Tuo aiemmat viestit, kun tili yhdistetään",
+  "sweepStarting": "Valmistellaan…",
+  "sweepReadingProgress": "Luetaan sähköposteja · {done}/{total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Luetaan sähköposteja · {count} löydetty",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Opitaan sähköposteista · {done}/{total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Viimeisin tuonti: {emails} sähköpostia · {memories} uutta muistoa",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Ei uusia sähköposteja tuotavaksi",
+  "sweepFailed": "Tuonti epäonnistui: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Mikään malli ei vastaa \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -4291,7 +4302,6 @@
   "qrLoginRequestWasNotFound": "qr-kirjautumispyyntöä ei löytynyt",
   "qrPairing": "QR-pariliitos",
   "queriesRunAnythingThatWritesIs": "kyselyt suoritetaan; kaikki kirjoittava hylätään.",
-  "query": "Kysely",
   "queryFilter": "Kysely / suodatin",
   "queuedAsSteeringForTheCurrent": "Jonossa ohjaajana nykyiselle ajolle: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4376,14 +4386,6 @@
   "registrationIsClosed": "ilmoittautuminen on suljettu",
   "registrationRegisterNewAccountsAllowSignup": "rekisteröinti rekisteröi uudet tilit mahdollistaa kirjautumisen",
   "rejectInvalidTlsCertificates": "Hylkää virheelliset TLS-varmenteet",
-  "relationArg1": "Suhde: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "vapauttaa ja käynnistää uudelleen. Yhdistetyt sovellukset muodostavat yhteyden uudelleen, kun ne ovat palanneet.",
   "releaseChannel": "Vapauta kanava",
   "releaseCommitBranchNode": "vapauta sitoutumishaarasolmu",
@@ -4486,7 +4488,6 @@
   "resultDelivery": "Tulos Toimitus",
   "resultOneClickAddsOneYou": "tuloksena. Yksi napsautus lisää yhden; voit muokata sitä myöhemmin.",
   "results": "Tulokset",
-  "retrievalInspector": "Hakutarkastaja",
   "retry": "Yritä uudelleen",
   "reusableUsedArg1": "Uudelleen käytettävä · käytetty {arg1}×",
   "@reusableUsedArg1": {
@@ -4642,14 +4643,6 @@
   "scansNewEmailAndOnlyPings": "Tarkistaa uudet sähköpostit ja lähettää ping-lähetyksen vain, kun jollakin on merkitystä.",
   "schedule": "Aikataulu",
   "scheduledTimeOnceRunsAreMeasured": "sovittu aika. Kun juoksut on mitattu, se alkaa aikaisemmin.",
-  "scoreArg1": "Pisteet: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Näyttö",
   "screenAction": "näytön toiminta",
   "scrollIsNotSupportedOnThis": "scrollia ei tueta tällä alustalla.",
@@ -4711,14 +4704,6 @@
     }
   },
   "selectTrigger": "Valitse Trigger",
-  "semanticArg1": "Semanttinen: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Lähetä (⌘↵)",
   "send2": "Lähetä",
   "sendATaskFromChatAnd": "Lähetä tehtävä chatista ja sen suoritushistoria näkyy täällä.",
@@ -5632,14 +5617,6 @@
   "value": "Arvo",
   "vaultLocked": "Holvi lukittu",
   "vaultOperationFailed": "Holvin toiminta epäonnistui.",
-  "vectorRankArg1": "Vektorin sijoitus: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Vahvistus",
   "verificationArg1": "Vahvistus: {arg1}",
   "@verificationArg1": {
@@ -6552,6 +6529,7 @@
   "settingsPageComputer": "Tietokone & verkko",
   "settingsPageBehavior": "Käyttäytyminen",
   "settingsPageSystem": "Järjestelmä",
+  "settingsPagePlatforms": "Alustat",
   "settingsPageProfileDescription": "Nimesi ja sähköpostiosoitteesi, kopio tiedoistasi ja uloskirjautuminen.",
   "settingsPageSecurityDescription": "Salasana, kaksivaiheinen todennus, suojausavaimet ja sisäänkirjautumispaikka.",
   "settingsPageUsageDescription": "Rajasi ja tunnuksesi, kaikki yhdessä paikassa.",

@@ -154,6 +154,8 @@
   "addKey": "Lägg till nyckel",
   "addMcpServer": "Lägg till MCP-server",
   "addMemory": "Lägg till minne",
+  "memoryReview": "Granska",
+  "memoryReviewPrompt": "Gå igenom alla mina minnen och städa upp: arkivera dubbletter, inaktuella fakta och allt utan bestående värde. Berätta sedan kort vad du ändrade.",
   "addMoreLengthOrAnotherCharacter": "Lägg till mer längd eller annan teckentyp.",
   "addPeopleOrGroups": "Lägg till personer eller grupper",
   "addSecurityKey": "Lägg till säkerhetsnyckel",
@@ -2006,7 +2008,6 @@
   "botUsername": "Bot användarnamn",
   "brandName": "Varumärke",
   "braveSearch": "Modig sökning",
-  "breakdown": "Uppdelning:",
   "bridgeAnyProviderThatCanPost": "Överbrygga alla leverantörer som kan lägga upp och ta emot webhook-nyttolaster.",
   "bringYourOwnKey": "ta med egen nyckel",
   "bringYourOwnKey2": "Ta med egen nyckel",
@@ -2029,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Kan ta emot delegerade uppgifter",
   "cancel": "Avbryt",
   "cancelTask": "Avbryt uppgift",
-  "candidateCountArg1": "Antal kandidater: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Kan inte förhandsgranska",
   "cannotReceiveDelegatedTasks": "kan inte ta emot delegerade uppgifter",
   "cannotRunYet": "kan inte köra ännu.",
@@ -2307,14 +2300,6 @@
   "connectionMethod": "Anslutningsmetod",
   "containsTextOptional": "Innehåller text (valfritt)",
   "content": "Innehåll",
-  "contentArg1": "Innehåll: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "innehållssäkerhetspolicy",
   "continue2": "Fortsätt",
   "continueFullSetup": "Fortsätt med hela installationen",
@@ -2751,14 +2736,6 @@
       }
     }
   },
-  "errorArg12": "Fel: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Fel från den senaste loggen, grupperade efter meddelande.",
   "errorsProblemsFailures": "fel problem misslyckanden",
   "eventTypesCommaSeparated": "Händelsetyper (kommaseparerade)",
@@ -3011,14 +2988,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Full uppmaning",
   "fullSetup": "Fullständig installation",
-  "fullTextFtsArg1": "Fulltext (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Allmänt",
   "generalSettings": "Allmänna inställningar",
   "generalSettingsSaved": "Allmänna inställningar sparade.",
@@ -3217,7 +3186,6 @@
   "input": "Ingång",
   "inputMode": "Inmatningsläge",
   "insertATemplate": "Infoga en mall",
-  "inspect": "Inspektera",
   "install": "Installera",
   "installASignedSelfContainedRuntime": "Installera en signerad, fristående runtime. Node.js, npm, Git och terminalkommandon krävs inte.",
   "installApk": "Installera APK",
@@ -3465,14 +3433,6 @@
         "type": "Object?"
       },
       "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
-  "lexicalArg1": "Lexikal: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -3906,10 +3866,61 @@
   "noMcpServersMatchThisSearch": "Inga MCP-servrar matchar denna sökning.",
   "noMemoryEntriesFound": "Inga minnesposter hittades.",
   "noMemorySync": "Ingen minnessynkronisering",
-  "importPastEmailsIntoMemory": "Importera viktiga tidigare mejl till minnet",
   "importPastEmailsIntoMemoryHint": "Läser en gång igenom viktiga och skickade mejl från de senaste 12 månaderna så att agenten känner till dina kontakter och projekt.",
-  "importPastEmailsNow": "Importera tidigare mejl nu",
-  "importingPastEmailsInBackground": "Tidigare mejl importeras i bakgrunden. Nya minnen dyker upp efter hand.",
+  "emailMemory": "E-postminne",
+  "importNow": "Importera nu",
+  "importOnConnect": "Importera tidigare mejl när ett konto ansluts",
+  "sweepStarting": "Förbereder…",
+  "sweepReadingProgress": "Läser mejl · {done} av {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Läser mejl · {count} hittade",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Lär sig av mejl · {done} av {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Senaste import: {emails} mejl · {memories} nya minnen",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Inga nya mejl att importera",
+  "sweepFailed": "Importen misslyckades: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Ingen modell matchar \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -4291,7 +4302,6 @@
   "qrLoginRequestWasNotFound": "qr-inloggningsförfrågan hittades inte",
   "qrPairing": "QR-koppling",
   "queriesRunAnythingThatWritesIs": "frågor körs; allt som skriver avvisas.",
-  "query": "Fråga",
   "queryFilter": "Fråga / Filter",
   "queuedAsSteeringForTheCurrent": "I kö som styrning för den aktuella körningen: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4376,14 +4386,6 @@
   "registrationIsClosed": "registreringen är stängd",
   "registrationRegisterNewAccountsAllowSignup": "registrering registrera nya konton tillåter registrering",
   "rejectInvalidTlsCertificates": "Avvisa ogiltiga TLS-certifikat",
-  "relationArg1": "Relation: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "släpp och startar om. Anslutna appar ansluter igen när de är tillbaka.",
   "releaseChannel": "Släpp kanal",
   "releaseCommitBranchNode": "release commit branch nod",
@@ -4486,7 +4488,6 @@
   "resultDelivery": "Resultat leverans",
   "resultOneClickAddsOneYou": "resultat. Ett klick lägger till en; du kan redigera den senare.",
   "results": "Resultat",
-  "retrievalInspector": "Hämtningsinspektör",
   "retry": "Försök igen",
   "reusableUsedArg1": "Återanvändbar · använd {arg1}×",
   "@reusableUsedArg1": {
@@ -4642,14 +4643,6 @@
   "scansNewEmailAndOnlyPings": "Skannar ny e-post och pingar dig bara när något är viktigt.",
   "schedule": "Schema",
   "scheduledTimeOnceRunsAreMeasured": "schemalagd tid. När körningarna är uppmätta kommer den att starta tidigare.",
-  "scoreArg1": "Poäng: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Skärm",
   "screenAction": "skärmåtgärd",
   "scrollIsNotSupportedOnThis": "scroll stöds inte på den här plattformen.",
@@ -4711,14 +4704,6 @@
     }
   },
   "selectTrigger": "Välj Trigger",
-  "semanticArg1": "Semantisk: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Skicka (⌘↵)",
   "send2": "Skicka",
   "sendATaskFromChatAnd": "Skicka en uppgift från chatten och dess exekveringshistorik kommer att visas här.",
@@ -5632,14 +5617,6 @@
   "value": "Värde",
   "vaultLocked": "Valv låst",
   "vaultOperationFailed": "Valvdrift misslyckades.",
-  "vectorRankArg1": "Vektor Rank: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Verifiering",
   "verificationArg1": "Verifiering: {arg1}",
   "@verificationArg1": {
@@ -6552,6 +6529,7 @@
   "settingsPageComputer": "Dator & webb",
   "settingsPageBehavior": "Beteende",
   "settingsPageSystem": "System",
+  "settingsPagePlatforms": "Plattformar",
   "settingsPageProfileDescription": "Ditt namn och e-postadress, en kopia av dina uppgifter och utloggning.",
   "settingsPageSecurityDescription": "Lösenord, tvåfaktorsautentisering, säkerhetsnycklar och var du är inloggad.",
   "settingsPageUsageDescription": "Dina gränser och tokenutgifter, allt på ett ställe.",

@@ -154,6 +154,8 @@
   "addKey": "Προσθήκη κλειδιού",
   "addMcpServer": "Προσθήκη διακομιστή MCP",
   "addMemory": "Προσθήκη μνήμης",
+  "memoryReview": "Έλεγχος",
+  "memoryReviewPrompt": "Έλεγξε όλες τις αναμνήσεις μου και τακτοποίησέ τες: αρχειοθέτησε διπλότυπα, παρωχημένα στοιχεία και ό,τι δεν έχει μόνιμη αξία. Μετά πες μου σύντομα τι άλλαξες.",
   "addMoreLengthOrAnotherCharacter": "Προσθέστε περισσότερο μήκος ή άλλο τύπο χαρακτήρα.",
   "addPeopleOrGroups": "Προσθέστε άτομα ή ομάδες",
   "addSecurityKey": "Προσθήκη κλειδιού ασφαλείας",
@@ -2006,7 +2008,6 @@
   "botUsername": "Όνομα χρήστη bot",
   "brandName": "Επωνυμία",
   "braveSearch": "Γενναία αναζήτηση",
-  "breakdown": "Ανάλυση:",
   "bridgeAnyProviderThatCanPost": "Γεφυρώστε κάθε πάροχο που μπορεί να δημοσιεύει και να λαμβάνει ωφέλιμα φορτία webhook.",
   "bringYourOwnKey": "φέρτε το δικό σας κλειδί",
   "bringYourOwnKey2": "Φέρτε το δικό σας κλειδί",
@@ -2029,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Μπορεί να λαμβάνει εργασίες που έχουν ανατεθεί",
   "cancel": "Ακύρωση",
   "cancelTask": "Ακύρωση εργασίας",
-  "candidateCountArg1": "Πλήθος υποψηφίων: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Δεν είναι δυνατή η προεπισκόπηση",
   "cannotReceiveDelegatedTasks": "δεν μπορεί να λάβει ανατεθείσες εργασίες",
   "cannotRunYet": "δεν μπορεί να τρέξει ακόμα.",
@@ -2307,14 +2300,6 @@
   "connectionMethod": "Μέθοδος Σύνδεσης",
   "containsTextOptional": "Περιέχει κείμενο (προαιρετικό)",
   "content": "περιεχόμενο",
-  "contentArg1": "Περιεχόμενο: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "πολιτική ασφάλειας περιεχομένου",
   "continue2": "Συνέχεια",
   "continueFullSetup": "Συνεχίστε την πλήρη εγκατάσταση",
@@ -2751,14 +2736,6 @@
       }
     }
   },
-  "errorArg12": "Σφάλμα: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Σφάλματα από το πρόσφατο αρχείο καταγραφής, ομαδοποιημένα κατά μήνυμα.",
   "errorsProblemsFailures": "λάθη προβλήματα αποτυχίες",
   "eventTypesCommaSeparated": "Τύποι συμβάντων (χωρισμένοι με κόμματα)",
@@ -3011,14 +2988,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Πλήρης προτροπή",
   "fullSetup": "Πλήρης ρύθμιση",
-  "fullTextFtsArg1": "Πλήρες κείμενο (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Στρατηγός",
   "generalSettings": "Γενικές ρυθμίσεις",
   "generalSettingsSaved": "Οι γενικές ρυθμίσεις αποθηκεύτηκαν.",
@@ -3217,7 +3186,6 @@
   "input": "Εισαγωγή",
   "inputMode": "Λειτουργία εισαγωγής",
   "insertATemplate": "Εισαγάγετε ένα πρότυπο",
-  "inspect": "Επιθεωρήστε",
   "install": "Εγκατάσταση",
   "installASignedSelfContainedRuntime": "Εγκαταστήστε έναν υπογεγραμμένο, αυτόνομο χρόνο εκτέλεσης. Δεν απαιτούνται εντολές Node.js, npm, Git και τερματικού.",
   "installApk": "Εγκαταστήστε το APK",
@@ -3465,14 +3433,6 @@
         "type": "Object?"
       },
       "arg3": {
-        "type": "Object?"
-      }
-    }
-  },
-  "lexicalArg1": "Λεξικό: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
         "type": "Object?"
       }
     }
@@ -3906,10 +3866,61 @@
   "noMcpServersMatchThisSearch": "Κανένας διακομιστής MCP δεν αντιστοιχεί σε αυτήν την αναζήτηση.",
   "noMemoryEntriesFound": "Δεν βρέθηκαν καταχωρήσεις μνήμης.",
   "noMemorySync": "Δεν υπάρχει συγχρονισμός μνήμης",
-  "importPastEmailsIntoMemory": "Εισαγωγή σημαντικών παλαιότερων email στη μνήμη",
   "importPastEmailsIntoMemoryHint": "Διαβάζει μία φορά τα σημαντικά και τα απεσταλμένα email των τελευταίων 12 μηνών, ώστε ο πράκτορας να γνωρίζει τις επαφές και τα έργα σας.",
-  "importPastEmailsNow": "Εισαγωγή παλαιότερων email τώρα",
-  "importingPastEmailsInBackground": "Τα παλαιότερα email εισάγονται στο παρασκήνιο. Οι νέες αναμνήσεις εμφανίζονται σταδιακά.",
+  "emailMemory": "Μνήμη email",
+  "importNow": "Εισαγωγή τώρα",
+  "importOnConnect": "Εισαγωγή παλαιότερων μηνυμάτων κατά τη σύνδεση λογαριασμού",
+  "sweepStarting": "Προετοιμασία…",
+  "sweepReadingProgress": "Ανάγνωση email · {done} από {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Ανάγνωση email · βρέθηκαν {count}",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Μάθηση από τα email · {done} από {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Τελευταία εισαγωγή: {emails} email · {memories} νέες αναμνήσεις",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Δεν υπάρχουν νέα email για εισαγωγή",
+  "sweepFailed": "Η εισαγωγή απέτυχε: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Κανένα μοντέλο δεν ταιριάζει με το \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -4291,7 +4302,6 @@
   "qrLoginRequestWasNotFound": "Το αίτημα σύνδεσης qr δεν βρέθηκε",
   "qrPairing": "Σύζευξη QR",
   "queriesRunAnythingThatWritesIs": "εκτελούνται ερωτήματα. οτιδήποτε γράφει απορρίπτεται.",
-  "query": "Ερώτημα",
   "queryFilter": "Ερώτημα / Φίλτρο",
   "queuedAsSteeringForTheCurrent": "Σε ουρά ως σύστημα διεύθυνσης για την τρέχουσα διαδρομή: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4376,14 +4386,6 @@
   "registrationIsClosed": "η εγγραφή έχει κλείσει",
   "registrationRegisterNewAccountsAllowSignup": "εγγραφή εγγραφή νέου λογαριασμούς επιτρέπουν την εγγραφή",
   "rejectInvalidTlsCertificates": "Απόρριψη μη έγκυρων πιστοποιητικών TLS",
-  "relationArg1": "Σχέση: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "απελευθέρωση και επανεκκίνηση. Οι συνδεδεμένες εφαρμογές επανασυνδέονται μόλις επιστρέψει.",
   "releaseChannel": "Έκδοση καναλιού",
   "releaseCommitBranchNode": "κόμβος διακλάδωσης δέσμευσης απελευθέρωσης",
@@ -4486,7 +4488,6 @@
   "resultDelivery": "Παράδοση αποτελεσμάτων",
   "resultOneClickAddsOneYou": "αποτέλεσμα. Ένα κλικ προσθέτει ένα? μπορείτε να το επεξεργαστείτε αργότερα.",
   "results": "Αποτελέσματα",
-  "retrievalInspector": "Επιθεωρητής ανάκτησης",
   "retry": "Επανάληψη",
   "reusableUsedArg1": "Επαναχρησιμοποιήσιμο · μεταχειρισμένο {arg1}×",
   "@reusableUsedArg1": {
@@ -4642,14 +4643,6 @@
   "scansNewEmailAndOnlyPings": "Σαρώνει νέα email και σας κάνει ping μόνο όταν κάτι έχει σημασία.",
   "schedule": "Πρόγραμμα",
   "scheduledTimeOnceRunsAreMeasured": "προγραμματισμένη ώρα. Μόλις μετρηθούν οι διαδρομές, θα ξεκινήσει νωρίτερα.",
-  "scoreArg1": "Βαθμολογία: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Οθόνη",
   "screenAction": "δράση οθόνης",
   "scrollIsNotSupportedOnThis": "Η κύλιση δεν υποστηρίζεται σε αυτήν την πλατφόρμα.",
@@ -4711,14 +4704,6 @@
     }
   },
   "selectTrigger": "Επιλέξτε Trigger",
-  "semanticArg1": "Σημασιολογική: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Αποστολή (⌘↵)",
   "send2": "Αποστολή",
   "sendATaskFromChatAnd": "Στείλτε μια εργασία από τη συνομιλία και το ιστορικό εκτέλεσής της θα εμφανιστεί εδώ.",
@@ -5632,14 +5617,6 @@
   "value": "Αξία",
   "vaultLocked": "Θόλος κλειδωμένος",
   "vaultOperationFailed": "Η λειτουργία του θησαυροφυλάκιου απέτυχε.",
-  "vectorRankArg1": "Διανυσματική κατάταξη: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Επαλήθευση",
   "verificationArg1": "Επαλήθευση: {arg1}",
   "@verificationArg1": {
@@ -6552,6 +6529,7 @@
   "settingsPageComputer": "Υπολογιστής & web",
   "settingsPageBehavior": "Συμπεριφορά",
   "settingsPageSystem": "Σύστημα",
+  "settingsPagePlatforms": "Πλατφόρμες",
   "settingsPageProfileDescription": "Το όνομα και το email σας, ένα αντίγραφο των δεδομένων σας και η αποσύνδεση.",
   "settingsPageSecurityDescription": "Κωδικός πρόσβασης, έλεγχος ταυτότητας δύο παραγόντων, κλειδιά ασφαλείας και πού είστε συνδεδεμένοι.",
   "settingsPageUsageDescription": "Τα όρια και οι συμβολικές δαπάνες σας, όλα σε ένα μέρος.",

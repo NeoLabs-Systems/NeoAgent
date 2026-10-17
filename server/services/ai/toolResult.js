@@ -319,7 +319,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       break;
 
     case 'memory_save':
-    case 'memory_recall':
+    case 'memory_forget':
     case 'memory_update_core':
     case 'memory_read':
     case 'memory_write':

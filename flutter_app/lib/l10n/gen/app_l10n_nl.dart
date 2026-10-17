@@ -380,6 +380,13 @@ class AppL10nNl extends AppL10n {
   String get addMemory => 'Geheugen toevoegen';
 
   @override
+  String get memoryReview => 'Beoordelen';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Loop al mijn herinneringen door en ruim ze op: archiveer duplicaten, verouderde feiten en alles zonder blijvende waarde. Vertel me daarna kort wat je hebt veranderd.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Voeg meer lengte of een ander tekentype toe.';
 
@@ -1858,9 +1865,6 @@ class AppL10nNl extends AppL10n {
   String get braveSearch => 'Moedig zoeken';
 
   @override
-  String get breakdown => 'Uitsplitsing:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Overbrug elke provider die webhook-payloads kan posten en ontvangen.';
 
@@ -1909,11 +1913,6 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get cancelTask => 'Taak annuleren';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Aantal kandidaten: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Kan geen voorbeeld bekijken';
@@ -2385,11 +2384,6 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get content => 'Inhoud';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Inhoud: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'inhoud beveiligingsbeleid';
@@ -3281,11 +3275,6 @@ class AppL10nNl extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Fout: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Fouten uit het recente logboek, gegroepeerd op bericht.';
 
@@ -3666,11 +3655,6 @@ class AppL10nNl extends AppL10n {
   String get fullSetup => 'Volledige installatie';
 
   @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Volledige tekst (FTS): $arg1';
-  }
-
-  @override
   String get general => 'Algemeen';
 
   @override
@@ -4039,9 +4023,6 @@ class AppL10nNl extends AppL10n {
   String get insertATemplate => 'Voeg een sjabloon in';
 
   @override
-  String get inspect => 'Inspecteer';
-
-  @override
   String get install => 'Installeren';
 
   @override
@@ -4406,11 +4387,6 @@ class AppL10nNl extends AppL10n {
   @override
   String levelArg1Arg2Arg3(Object? arg1, Object? arg2, Object? arg3) {
     return 'Niveau $arg1/$arg2$arg3';
-  }
-
-  @override
-  String lexicalArg1(Object? arg1) {
-    return 'Lexicaal: $arg1';
   }
 
   @override
@@ -5280,19 +5256,49 @@ class AppL10nNl extends AppL10n {
   String get noMemorySync => 'Geen geheugensynchronisatie';
 
   @override
-  String get importPastEmailsIntoMemory =>
-      'Belangrijke eerdere e-mails in het geheugen importeren';
-
-  @override
   String get importPastEmailsIntoMemoryHint =>
       'Leest eenmalig de belangrijke en verzonden mail van de afgelopen 12 maanden, zodat de agent je contacten en projecten kent.';
 
   @override
-  String get importPastEmailsNow => 'Eerdere e-mails nu importeren';
+  String get emailMemory => 'E-mailgeheugen';
 
   @override
-  String get importingPastEmailsInBackground =>
-      'Eerdere e-mails worden op de achtergrond geïmporteerd. Nieuwe herinneringen verschijnen gaandeweg.';
+  String get importNow => 'Nu importeren';
+
+  @override
+  String get importOnConnect =>
+      'Eerdere mail importeren bij het koppelen van een account';
+
+  @override
+  String get sweepStarting => 'Voorbereiden…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'E-mails lezen · $done van $total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'E-mails lezen · $count gevonden';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Leren van e-mails · $done van $total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Laatste import: $emails e-mails · $memories nieuwe herinneringen';
+  }
+
+  @override
+  String get sweepNothingNew => 'Geen nieuwe e-mails om te importeren';
+
+  @override
+  String sweepFailed(String error) {
+    return 'Importeren mislukt: $error';
+  }
 
   @override
   String noModelMatchesArg1(Object? arg1) {
@@ -6108,9 +6114,6 @@ class AppL10nNl extends AppL10n {
       'zoekopdrachten worden uitgevoerd; alles wat schrijft wordt afgewezen.';
 
   @override
-  String get query => 'Vraag';
-
-  @override
   String get queryFilter => 'Opvragen/filteren';
 
   @override
@@ -6278,11 +6281,6 @@ class AppL10nNl extends AppL10n {
       'Weiger ongeldige TLS-certificaten';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Relatie: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'loslaten en opnieuw opstarten. Verbonden apps maken opnieuw verbinding zodra deze terug is.';
 
@@ -6442,9 +6440,6 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get results => 'Resultaten';
-
-  @override
-  String get retrievalInspector => 'Ophaalinspecteur';
 
   @override
   String get retry => 'Opnieuw proberen';
@@ -6774,11 +6769,6 @@ class AppL10nNl extends AppL10n {
       'geplande tijd. Zodra de runs zijn gemeten, begint deze eerder.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Score: $arg1';
-  }
-
-  @override
   String get screen => 'Scherm';
 
   @override
@@ -6915,11 +6905,6 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get selectTrigger => 'Selecteer Trigger';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Semantisch: $arg1';
-  }
 
   @override
   String get send => 'Verzenden (⌘↵)';
@@ -8700,11 +8685,6 @@ class AppL10nNl extends AppL10n {
   String get vaultOperationFailed => 'Kluisbewerking mislukt.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Vectorrang: $arg1';
-  }
-
-  @override
   String get verification => 'Verificatie';
 
   @override
@@ -10123,6 +10103,9 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get settingsPageSystem => 'Systeem';
+
+  @override
+  String get settingsPagePlatforms => 'Platforms';
 
   @override
   String get settingsPageProfileDescription =>

@@ -22,7 +22,7 @@ The code lives in `server/services/memory/`; `manager.js` (`MemoryManager`) owns
 | `memory_embedding_bands` | Hash bands for approximate vector candidates |
 | `core_memory` | Explicit key/value entries injected into every prompt |
 | `memory_ingestion_jobs`, `memory_ingestion_documents` | Ingestion runs with cursors, and their source documents |
-| `memory_source_chunks`, `memory_source_links` | Position-aware chunks and links from extracted memories back to them |
+| `memory_source_chunks`, `memory_source_links` | Chunks and links from the former raw-chunk ingestion; no longer written |
 | `memory_retrieval_events` | Recall telemetry: hashed query, candidate counts, result IDs, latency |
 | `materialized_knowledge_views` | Precomputed summaries for the memory UI |
 
@@ -37,7 +37,7 @@ The code lives in `server/services/memory/`; `manager.js` (`MemoryManager`) owns
 | Agent tools | `memory_save`, `memory_update_core` | `services/ai/tools.js` |
 | App and API | `/api/memory/memories`, `/api/memory/core/:key` | `routes/memory.js` |
 | Transfer import | Memory exported from another assistant | `/api/memory/transfer-import`, `memory/llm_transfer.js` |
-| Integration ingestion | Background, per connected account | `memory/ingestion.js` |
+| Integration ingestion | When a mailbox connects, or on request | `memory/ingestion.js`, `memory/document_facts.js` |
 
 Conversation learning asks the run's model for at most 12 candidates and excludes:
 
@@ -94,13 +94,15 @@ A fact extracted from an integration that conflicts with a static or high-confid
 
 ## Integration ingestion
 
-1. **Connect.** Finishing OAuth emits `connected` on the integration manager. When the user left **Import important past emails into memory** on, `MemoryIngestionService` sweeps that mailbox once. Nothing polls connected accounts.
+1. **Connect.** Finishing OAuth emits `connected` on the integration manager. When the user left **Import past mail when connecting an account** on, `MemoryIngestionService` sweeps that mailbox once. Nothing polls connected accounts.
 2. **Collect.** The provider's `collectMemorySweep()` returns up to 100 important threads from the last 12 months:
    - **Gmail.** Important, starred or sent threads, without promotions, social, updates and forums.
    - **Outlook.** High-importance, flagged or Focused Inbox mail, plus sent mail.
-3. **Store.** `ingestDocuments()` records the job (tagged `mode: 'sweep'`), upserts documents, chunks them and saves each chunk as a memory with source links.
-4. **Extract.** `extractPendingBacklog()` turns every chunk into facts right away with the user's model, one call per chunk.
-5. **Retry.** A failed chunk is retried at most 3 times; later runs pick up leftovers 5 at a time.
+3. **Store.** `ingestDocuments()` records the job (tagged `mode: 'sweep'`) and upserts the documents as source material. Source text never becomes a memory.
+4. **Extract.** `extractDocumentFacts()` reads the documents in batches of about 12,000 characters with the user's model. Each prompt lists what memory already holds (the profile, the closest recalled memories and facts from earlier batches) and asks only for new, durable facts about the user, at most 150 characters each.
+5. **Save.** Facts go through `consolidateMemoryCandidates()` with the thread as their source. A reworded copy of a known memory resolves to it; a changed value (`relation: updates`) supersedes the old fact.
+
+- **Failure.** A batch that fails is skipped; the import fails only when every batch fails.
 
 - **Once per connection.** A connection with a completed sweep job is not swept again on reconnect.
 - **Repeat on request.** `POST /api/memory/ingestion/sweep` (`providerKey`, `appId`) sweeps every connected account of that app in the background, skipping threads already in `memory_ingestion_documents`.

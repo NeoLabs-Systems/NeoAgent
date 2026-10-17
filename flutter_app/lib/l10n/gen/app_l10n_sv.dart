@@ -372,6 +372,13 @@ class AppL10nSv extends AppL10n {
   String get addMemory => 'Lägg till minne';
 
   @override
+  String get memoryReview => 'Granska';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Gå igenom alla mina minnen och städa upp: arkivera dubbletter, inaktuella fakta och allt utan bestående värde. Berätta sedan kort vad du ändrade.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Lägg till mer längd eller annan teckentyp.';
 
@@ -1848,9 +1855,6 @@ class AppL10nSv extends AppL10n {
   String get braveSearch => 'Modig sökning';
 
   @override
-  String get breakdown => 'Uppdelning:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Överbrygga alla leverantörer som kan lägga upp och ta emot webhook-nyttolaster.';
 
@@ -1899,11 +1903,6 @@ class AppL10nSv extends AppL10n {
 
   @override
   String get cancelTask => 'Avbryt uppgift';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Antal kandidater: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Kan inte förhandsgranska';
@@ -2372,11 +2371,6 @@ class AppL10nSv extends AppL10n {
 
   @override
   String get content => 'Innehåll';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Innehåll: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'innehållssäkerhetspolicy';
@@ -3269,11 +3263,6 @@ class AppL10nSv extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Fel: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Fel från den senaste loggen, grupperade efter meddelande.';
 
@@ -3653,11 +3642,6 @@ class AppL10nSv extends AppL10n {
   String get fullSetup => 'Fullständig installation';
 
   @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Fulltext (FTS): $arg1';
-  }
-
-  @override
   String get general => 'Allmänt';
 
   @override
@@ -4025,9 +4009,6 @@ class AppL10nSv extends AppL10n {
   String get insertATemplate => 'Infoga en mall';
 
   @override
-  String get inspect => 'Inspektera';
-
-  @override
   String get install => 'Installera';
 
   @override
@@ -4390,11 +4371,6 @@ class AppL10nSv extends AppL10n {
   @override
   String levelArg1Arg2Arg3(Object? arg1, Object? arg2, Object? arg3) {
     return 'Nivå $arg1/$arg2$arg3';
-  }
-
-  @override
-  String lexicalArg1(Object? arg1) {
-    return 'Lexikal: $arg1';
   }
 
   @override
@@ -5255,19 +5231,48 @@ class AppL10nSv extends AppL10n {
   String get noMemorySync => 'Ingen minnessynkronisering';
 
   @override
-  String get importPastEmailsIntoMemory =>
-      'Importera viktiga tidigare mejl till minnet';
-
-  @override
   String get importPastEmailsIntoMemoryHint =>
       'Läser en gång igenom viktiga och skickade mejl från de senaste 12 månaderna så att agenten känner till dina kontakter och projekt.';
 
   @override
-  String get importPastEmailsNow => 'Importera tidigare mejl nu';
+  String get emailMemory => 'E-postminne';
 
   @override
-  String get importingPastEmailsInBackground =>
-      'Tidigare mejl importeras i bakgrunden. Nya minnen dyker upp efter hand.';
+  String get importNow => 'Importera nu';
+
+  @override
+  String get importOnConnect => 'Importera tidigare mejl när ett konto ansluts';
+
+  @override
+  String get sweepStarting => 'Förbereder…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'Läser mejl · $done av $total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'Läser mejl · $count hittade';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Lär sig av mejl · $done av $total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Senaste import: $emails mejl · $memories nya minnen';
+  }
+
+  @override
+  String get sweepNothingNew => 'Inga nya mejl att importera';
+
+  @override
+  String sweepFailed(String error) {
+    return 'Importen misslyckades: $error';
+  }
 
   @override
   String noModelMatchesArg1(Object? arg1) {
@@ -6081,9 +6086,6 @@ class AppL10nSv extends AppL10n {
       'frågor körs; allt som skriver avvisas.';
 
   @override
-  String get query => 'Fråga';
-
-  @override
   String get queryFilter => 'Fråga / Filter';
 
   @override
@@ -6250,11 +6252,6 @@ class AppL10nSv extends AppL10n {
   String get rejectInvalidTlsCertificates => 'Avvisa ogiltiga TLS-certifikat';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Relation: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'släpp och startar om. Anslutna appar ansluter igen när de är tillbaka.';
 
@@ -6414,9 +6411,6 @@ class AppL10nSv extends AppL10n {
 
   @override
   String get results => 'Resultat';
-
-  @override
-  String get retrievalInspector => 'Hämtningsinspektör';
 
   @override
   String get retry => 'Försök igen';
@@ -6744,11 +6738,6 @@ class AppL10nSv extends AppL10n {
       'schemalagd tid. När körningarna är uppmätta kommer den att starta tidigare.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Poäng: $arg1';
-  }
-
-  @override
   String get screen => 'Skärm';
 
   @override
@@ -6887,11 +6876,6 @@ class AppL10nSv extends AppL10n {
 
   @override
   String get selectTrigger => 'Välj Trigger';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Semantisk: $arg1';
-  }
 
   @override
   String get send => 'Skicka (⌘↵)';
@@ -8671,11 +8655,6 @@ class AppL10nSv extends AppL10n {
   String get vaultOperationFailed => 'Valvdrift misslyckades.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Vektor Rank: $arg1';
-  }
-
-  @override
   String get verification => 'Verifiering';
 
   @override
@@ -10091,6 +10070,9 @@ class AppL10nSv extends AppL10n {
 
   @override
   String get settingsPageSystem => 'System';
+
+  @override
+  String get settingsPagePlatforms => 'Plattformar';
 
   @override
   String get settingsPageProfileDescription =>

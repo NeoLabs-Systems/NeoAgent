@@ -382,6 +382,13 @@ class AppL10nEs extends AppL10n {
   String get addMemory => 'Agregar memoria';
 
   @override
+  String get memoryReview => 'Revisar';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Revisa todos mis recuerdos y límpialos: archiva los duplicados, los datos desactualizados y todo lo que no tenga valor duradero. Luego dime brevemente qué cambiaste.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Agregue más longitud u otro tipo de carácter.';
 
@@ -1860,9 +1867,6 @@ class AppL10nEs extends AppL10n {
   String get braveSearch => 'Búsqueda valiente';
 
   @override
-  String get breakdown => 'Desglose:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Conecte cualquier proveedor que pueda publicar y recibir cargas útiles de webhooks.';
 
@@ -1911,11 +1915,6 @@ class AppL10nEs extends AppL10n {
 
   @override
   String get cancelTask => 'Cancelar tarea';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Número de candidatos: $arg1';
-  }
 
   @override
   String get cannotPreview => 'No se puede obtener una vista previa';
@@ -2389,11 +2388,6 @@ class AppL10nEs extends AppL10n {
 
   @override
   String get content => 'Contenido';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Contenido: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'política de seguridad de contenidos';
@@ -3297,11 +3291,6 @@ class AppL10nEs extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Error: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Errores del registro reciente, agrupados por mensaje.';
 
@@ -3684,11 +3673,6 @@ class AppL10nEs extends AppL10n {
   String get fullSetup => 'Configuración completa';
 
   @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Texto completo (FTS): $arg1';
-  }
-
-  @override
   String get general => 'generales';
 
   @override
@@ -4060,9 +4044,6 @@ class AppL10nEs extends AppL10n {
   String get insertATemplate => 'Insertar una plantilla';
 
   @override
-  String get inspect => 'inspeccionar';
-
-  @override
   String get install => 'Instalar';
 
   @override
@@ -4429,11 +4410,6 @@ class AppL10nEs extends AppL10n {
   @override
   String levelArg1Arg2Arg3(Object? arg1, Object? arg2, Object? arg3) {
     return 'Nivel $arg1/$arg2$arg3';
-  }
-
-  @override
-  String lexicalArg1(Object? arg1) {
-    return 'Léxico: $arg1';
   }
 
   @override
@@ -5306,19 +5282,49 @@ class AppL10nEs extends AppL10n {
   String get noMemorySync => 'Sin sincronización de memoria';
 
   @override
-  String get importPastEmailsIntoMemory =>
-      'Importar correos anteriores importantes a la memoria';
-
-  @override
   String get importPastEmailsIntoMemoryHint =>
       'Lee una vez el correo importante y enviado de los últimos 12 meses para que el agente conozca tus contactos y proyectos.';
 
   @override
-  String get importPastEmailsNow => 'Importar correos anteriores ahora';
+  String get emailMemory => 'Memoria de correo';
 
   @override
-  String get importingPastEmailsInBackground =>
-      'Importando correos anteriores en segundo plano. Los nuevos recuerdos aparecen a medida que avanza.';
+  String get importNow => 'Importar ahora';
+
+  @override
+  String get importOnConnect =>
+      'Importar correo anterior al conectar una cuenta';
+
+  @override
+  String get sweepStarting => 'Preparando…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'Leyendo correos · $done de $total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'Leyendo correos · $count encontrados';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Aprendiendo de los correos · $done de $total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Última importación: $emails correos · $memories recuerdos nuevos';
+  }
+
+  @override
+  String get sweepNothingNew => 'No hay correos nuevos para importar';
+
+  @override
+  String sweepFailed(String error) {
+    return 'La importación falló: $error';
+  }
 
   @override
   String noModelMatchesArg1(Object? arg1) {
@@ -6137,9 +6143,6 @@ class AppL10nEs extends AppL10n {
       'se ejecutan consultas; todo lo que escribe es rechazado.';
 
   @override
-  String get query => 'Consulta';
-
-  @override
   String get queryFilter => 'Consulta/Filtro';
 
   @override
@@ -6308,11 +6311,6 @@ class AppL10nEs extends AppL10n {
       'Rechazar certificados TLS no válidos';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Relación: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'suelta y reinicia. Las aplicaciones conectadas se vuelven a conectar una vez que regresan.';
 
@@ -6475,9 +6473,6 @@ class AppL10nEs extends AppL10n {
 
   @override
   String get results => 'Resultados';
-
-  @override
-  String get retrievalInspector => 'Inspector de recuperación';
 
   @override
   String get retry => 'Reintentar';
@@ -6812,11 +6807,6 @@ class AppL10nEs extends AppL10n {
       'hora prevista. Una vez que se midan las carreras, comenzará antes.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Puntuación: $arg1';
-  }
-
-  @override
   String get screen => 'Pantalla';
 
   @override
@@ -6955,11 +6945,6 @@ class AppL10nEs extends AppL10n {
 
   @override
   String get selectTrigger => 'Seleccionar disparador';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Semántico: $arg1';
-  }
 
   @override
   String get send => 'Enviar (⌘↵)';
@@ -8749,11 +8734,6 @@ class AppL10nEs extends AppL10n {
   String get vaultOperationFailed => 'La operación de la bóveda falló.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Rango vectorial: $arg1';
-  }
-
-  @override
   String get verification => 'Verificación';
 
   @override
@@ -10184,6 +10164,9 @@ class AppL10nEs extends AppL10n {
 
   @override
   String get settingsPageSystem => 'Sistema';
+
+  @override
+  String get settingsPagePlatforms => 'Plataformas';
 
   @override
   String get settingsPageProfileDescription =>

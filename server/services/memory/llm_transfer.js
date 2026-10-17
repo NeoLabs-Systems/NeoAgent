@@ -34,7 +34,6 @@ const SECTION_PRIORITY = {
   episodic: 5,
 };
 
-const MAX_MEMORY_LENGTH = 1200;
 const MAX_MEMORIES = 200;
 
 function normalizeHeadingLabel(input) {
@@ -99,10 +98,7 @@ function collapseParagraph(lines) {
 }
 
 function normalizeMemoryContent(text) {
-  const cleaned = String(text || '').trim();
-  if (!cleaned) return '';
-  if (cleaned.length <= MAX_MEMORY_LENGTH) return cleaned;
-  return cleaned.slice(0, MAX_MEMORY_LENGTH).trim();
+  return String(text || '').trim();
 }
 
 function buildLlmTransferPrompt({ agentLabel = 'NeoAgent' } = {}) {
@@ -112,7 +108,7 @@ function buildLlmTransferPrompt({ agentLabel = 'NeoAgent' } = {}) {
     '',
     'Rules:',
     '- Plain text only. No JSON, no code blocks, no markdown tables.',
-    '- Short bullet points. One fact per bullet. Prefer under 20 words per line.',
+    '- Short bullet points. One fact per bullet, at most 150 characters.',
     '- State facts, not impressions. "Prefers Python over JavaScript" beats "enjoys coding".',
     '- Omit secrets, passwords, API keys, and sensitive credentials entirely.',
     '- Omit sections with no useful data.',
