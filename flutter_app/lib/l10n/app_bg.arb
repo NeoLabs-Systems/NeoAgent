@@ -2742,7 +2742,6 @@
   "every15Minutes": "На всеки 15 минути",
   "every30Minutes": "На всеки 30 минути",
   "everyAccountOnThisServerLoses": "Всеки акаунт на този сървър губи този споделен ключ. Сметки ",
-  "everyAccountOnThisServerSecrets": "всеки акаунт на този сървър. Тайните са само за писане: оставете ",
   "everyAccountOnThisServerUses": "Всеки акаунт на този сървър използва този адрес за ",
   "everyActiveSessionForThisAccount": "Всяка активна сесия за този акаунт приключва. Те могат да влязат ",
   "everyDay0800": "Всеки ден · 08:00ч",
@@ -3218,7 +3217,6 @@
   },
   "instructions": "Инструкции",
   "integration": "Интеграция",
-  "integrationApps": "Приложения за интегриране",
   "integrationConnections": "Интеграционни връзки",
   "integrationSettingsSaved": "Настройките за интегриране са запазени.",
   "integrations": "Интеграции",
@@ -3584,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Микрофонът е изключен. Докоснете, за да включите звука.",
   "microphonePermissionIsRequiredForLive": "Изисква се разрешение за микрофон за глас на живо.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack и други интеграции. Те се отнасят за ",
   "microsoftTeams": "Microsoft Teams",
   "minimumContributionValueArg1": "Минимална стойност на вноската: {arg1}",
   "@minimumContributionValueArg1": {
@@ -4007,7 +4004,6 @@
   "nothingStoredYet": "Все още нищо не е съхранено.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "Идентификационните данни на приложението OAuth, които позволяват на акаунтите да се свързват с Google, ",
   "oauthClientId": "OAuth ИД на клиента",
   "oauthClientIdSecretRedirectApi": "oauth клиент id тайно пренасочване api ключ",
   "oauthClientIdSecretRedirectGmail": "oauth клиент id тайно пренасочване gmail календар устройство",
@@ -4045,7 +4041,6 @@
   "onTheyCanJoinAgainOnly": "на. Те могат да се присъединят отново само с нова връзка за покана.",
   "onYourOwnTheDefault": "Сами (по подразбиране)",
   "once": "Веднъж",
-  "oneBlankToKeepWhatIs": "една празна, за да запазите това, което се съхранява.",
   "oneIsSavedOtherChangesIn": "един е спасен. Други промени в тази форма също се запазват.",
   "oneOrMoreAccountsExpiredReconnect": "Един или повече акаунти са изтекли. Свържете отново засегнатия акаунт, за да възстановите достъпа до инструмента.",
   "oneRuntimeControlsPersonaGroupTurn": "Едно време за изпълнение контролира личността, груповото редуване, паметта на стаята, нормите, теорията на ума и доставката.",
@@ -7081,5 +7076,43 @@
   "sharedUsageFeatureMemory": "Памет",
   "sharedUsageSearchKeywords": "opt-in споделяне на данни телеметрия устройства функции инструменти модели активност",
   "providerChooseUsername": "Изберете потребителско име",
-  "providerChooseUsernameBody": "Изберете свободно потребителско име, за да завършите създаването на акаунта си."
+  "providerChooseUsernameBody": "Изберете свободно потребителско име, за да завършите създаването на акаунта си.",
+  "yourOAuthApp": "Вашето OAuth приложение",
+  "oauthAppSetupTitle": "Вашето OAuth приложение за {provider}",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Този сървър няма глобално приложение за {provider}, затова се свързвате с OAuth приложение, което регистрирате сами. Клиентската тайна се съхранява криптирана и никога повече не се показва.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Създайте приложението",
+  "openDeveloperConsole": "Отвори конзолата за разработчици",
+  "oauthAppStepCallback": "2. Регистрирайте този callback URL",
+  "callbackUrlCopied": "Callback URL е копиран",
+  "oauthAppScopes": "Обхвати за разрешаване",
+  "scopesCopied": "Обхватите са копирани",
+  "oauthAppStepCredentials": "3. Поставете данните за достъп на приложението",
+  "couldNotSaveOAuthApp": "OAuth приложението не можа да бъде запазено.",
+  "removeOAuthAppTitle": "Да се премахне ли вашето приложение за {provider}?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Свързаните акаунти остават в списъка, но спират да работят, докато не добавите приложение отново.",
+  "globalIntegrationConfiguration": "Глобална конфигурация на интеграциите",
+  "globalIntegrationConfigurationDescription": "Незадължителни OAuth приложения за целия сървър. Когато интеграция има такова, всеки акаунт го използва и не може да добави свое. Оставете интеграцията незададена и всеки потребител настройва собствено приложение. Тайните са само за запис: оставете празно, за да запазите съхранената стойност.",
+  "globalStatus": "Глобално",
+  "perUserStatus": "За потребител"
 }

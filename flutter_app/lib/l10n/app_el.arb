@@ -2742,7 +2742,6 @@
   "every15Minutes": "Κάθε 15 λεπτά",
   "every30Minutes": "Κάθε 30 λεπτά",
   "everyAccountOnThisServerLoses": "Κάθε λογαριασμός σε αυτόν τον διακομιστή χάνει αυτό το κοινόχρηστο κλειδί. Λογαριασμοί ",
-  "everyAccountOnThisServerSecrets": "κάθε λογαριασμό σε αυτόν τον διακομιστή. Τα μυστικά είναι μόνο για εγγραφή: φύγετε ",
   "everyAccountOnThisServerUses": "Κάθε λογαριασμός σε αυτόν τον διακομιστή χρησιμοποιεί αυτήν τη διεύθυνση ",
   "everyActiveSessionForThisAccount": "Κάθε ενεργή περίοδος σύνδεσης για αυτόν τον λογαριασμό τελειώνει. Μπορούν να συνδεθούν ",
   "everyDay0800": "Καθημερινά · 08:00",
@@ -3218,7 +3217,6 @@
   },
   "instructions": "Οδηγίες",
   "integration": "Ένταξη",
-  "integrationApps": "Εφαρμογές ενοποίησης",
   "integrationConnections": "Συνδέσεις ολοκλήρωσης",
   "integrationSettingsSaved": "Οι ρυθμίσεις ενσωμάτωσης αποθηκεύτηκαν.",
   "integrations": "Ενσωματώσεις",
@@ -3584,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Σίγαση του μικροφώνου. Πατήστε για κατάργηση σίγασης.",
   "microphonePermissionIsRequiredForLive": "Απαιτείται άδεια μικροφώνου για ζωντανή φωνή.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack και άλλες ενσωματώσεις. Ισχύουν για ",
   "microsoftTeams": "Ομάδες της Microsoft",
   "minimumContributionValueArg1": "Ελάχιστη αξία συνεισφοράς: {arg1}",
   "@minimumContributionValueArg1": {
@@ -4007,7 +4004,6 @@
   "nothingStoredYet": "Δεν έχει αποθηκευτεί τίποτα ακόμα.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "Διαπιστευτήρια εφαρμογής OAuth που επιτρέπουν στους λογαριασμούς να συνδέουν την Google, ",
   "oauthClientId": "Αναγνωριστικό πελάτη OAuth",
   "oauthClientIdSecretRedirectApi": "oauth κλειδί api μυστικής ανακατεύθυνσης αναγνωριστικού πελάτη",
   "oauthClientIdSecretRedirectGmail": "oauth αναγνωριστικό πελάτη μυστική ανακατεύθυνση μονάδας ημερολογίου gmail",
@@ -4045,7 +4041,6 @@
   "onTheyCanJoinAgainOnly": "επάνω. Μπορούν να εγγραφούν ξανά μόνο με έναν νέο σύνδεσμο πρόσκλησης.",
   "onYourOwnTheDefault": "Μόνοι σας (η προεπιλογή)",
   "once": "Μια φορά",
-  "oneBlankToKeepWhatIs": "ένα κενό για να κρατήσει αυτό που είναι αποθηκευμένο.",
   "oneIsSavedOtherChangesIn": "ένας σώζεται. Άλλες αλλαγές σε αυτήν τη φόρμα αποθηκεύονται επίσης.",
   "oneOrMoreAccountsExpiredReconnect": "Ένας ή περισσότεροι λογαριασμοί έληξαν. Επανασυνδέστε τον επηρεαζόμενο λογαριασμό για να επαναφέρετε την πρόσβαση στο εργαλείο.",
   "oneRuntimeControlsPersonaGroupTurn": "Ένας χρόνος εκτέλεσης ελέγχει την προσωπικότητα, την ομαδική στροφή, τη μνήμη δωματίου, τους κανόνες, τη Θεωρία του Νου και την παράδοση.",
@@ -7081,5 +7076,43 @@
   "sharedUsageFeatureMemory": "Μνήμη",
   "sharedUsageSearchKeywords": "opt-in κοινοποίηση δεδομένων τηλεμετρία συσκευές λειτουργίες εργαλεία μοντέλα δραστηριότητα",
   "providerChooseUsername": "Επιλέξτε όνομα χρήστη",
-  "providerChooseUsernameBody": "Επιλέξτε ένα διαθέσιμο όνομα χρήστη για να ολοκληρώσετε τη δημιουργία του λογαριασμού σας."
+  "providerChooseUsernameBody": "Επιλέξτε ένα διαθέσιμο όνομα χρήστη για να ολοκληρώσετε τη δημιουργία του λογαριασμού σας.",
+  "yourOAuthApp": "Η εφαρμογή OAuth σας",
+  "oauthAppSetupTitle": "Η εφαρμογή OAuth σας για {provider}",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Αυτός ο διακομιστής δεν έχει καθολική εφαρμογή {provider}, οπότε συνδέεστε με μια εφαρμογή OAuth που καταχωρίζετε εσείς. Το μυστικό πελάτη αποθηκεύεται κρυπτογραφημένο και δεν εμφανίζεται ποτέ ξανά.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Δημιουργήστε την εφαρμογή",
+  "openDeveloperConsole": "Άνοιγμα κονσόλας προγραμματιστή",
+  "oauthAppStepCallback": "2. Καταχωρίστε αυτό το URL επιστροφής",
+  "callbackUrlCopied": "Το URL επιστροφής αντιγράφηκε",
+  "oauthAppScopes": "Εύρη πρόσβασης προς έγκριση",
+  "scopesCopied": "Τα εύρη πρόσβασης αντιγράφηκαν",
+  "oauthAppStepCredentials": "3. Επικολλήστε τα διαπιστευτήρια της εφαρμογής",
+  "couldNotSaveOAuthApp": "Δεν ήταν δυνατή η αποθήκευση της εφαρμογής OAuth.",
+  "removeOAuthAppTitle": "Κατάργηση της εφαρμογής σας για {provider};",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Οι συνδεδεμένοι λογαριασμοί παραμένουν στη λίστα, αλλά σταματούν να λειτουργούν μέχρι να προσθέσετε ξανά εφαρμογή.",
+  "globalIntegrationConfiguration": "Καθολική διαμόρφωση ενοποιήσεων",
+  "globalIntegrationConfigurationDescription": "Προαιρετικές εφαρμογές OAuth για όλο τον διακομιστή. Όταν μια ενοποίηση έχει μία, κάθε λογαριασμός τη χρησιμοποιεί και δεν μπορεί να προσθέσει δική του. Αφήστε μια ενοποίηση κενή και κάθε χρήστης ρυθμίζει τη δική του εφαρμογή. Τα μυστικά είναι μόνο για εγγραφή: αφήστε κενό για να διατηρηθεί η αποθηκευμένη τιμή.",
+  "globalStatus": "Καθολικά",
+  "perUserStatus": "Ανά χρήστη"
 }

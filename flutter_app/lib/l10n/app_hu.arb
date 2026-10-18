@@ -2742,7 +2742,6 @@
   "every15Minutes": "15 percenként",
   "every30Minutes": "30 percenként",
   "everyAccountOnThisServerLoses": "Ezen a szerveren minden fiók elveszíti ezt a megosztott kulcsot. Fiókok ",
-  "everyAccountOnThisServerSecrets": "minden fiók ezen a szerveren. A titkok csak írhatók: hagyd ",
   "everyAccountOnThisServerUses": "Ezen a szerveren minden fiók ezt a címet használja: ",
   "everyActiveSessionForThisAccount": "A fiók minden aktív munkamenete véget ér. Be tudnak jelentkezni ",
   "everyDay0800": "Minden nap · 08:00",
@@ -3218,7 +3217,6 @@
   },
   "instructions": "Utasítások",
   "integration": "Integráció",
-  "integrationApps": "Integrációs alkalmazások",
   "integrationConnections": "Integrációs kapcsolatok",
   "integrationSettingsSaved": "Az integrációs beállítások elmentve.",
   "integrations": "Integrációk",
@@ -3584,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Mikrofon elnémítva. Koppintson a némítás feloldásához.",
   "microphonePermissionIsRequiredForLive": "Az élő hanghoz mikrofonengedély szükséges.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack és a többi integráció. -ra vonatkoznak ",
   "microsoftTeams": "Microsoft Teams",
   "minimumContributionValueArg1": "Minimális hozzájárulási érték: {arg1}",
   "@minimumContributionValueArg1": {
@@ -4007,7 +4004,6 @@
   "nothingStoredYet": "Még nincs tárolva semmi.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "OAuth alkalmazás hitelesítő adatai, amelyek lehetővé teszik a fiókok számára, hogy összekapcsolják a Google-lal, ",
   "oauthClientId": "OAuth-ügyfélazonosító",
   "oauthClientIdSecretRedirectApi": "oauth ügyfélazonosító titkos átirányítási API-kulcs",
   "oauthClientIdSecretRedirectGmail": "oauth ügyfélazonosító titkos átirányítási gmail naptármeghajtó",
@@ -4045,7 +4041,6 @@
   "onTheyCanJoinAgainOnly": "be. Csak új meghívólinkkel csatlakozhatnak újra.",
   "onYourOwnTheDefault": "Önállóan (alapértelmezett)",
   "once": "Egyszer",
-  "oneBlankToKeepWhatIs": "egy üres, hogy megtartsa a tárolt dolgokat.",
   "oneIsSavedOtherChangesIn": "az egyik meg van mentve. Az űrlap többi módosítása is mentésre kerül.",
   "oneOrMoreAccountsExpiredReconnect": "Egy vagy több fiók lejárt. Csatlakoztassa újra az érintett fiókot az eszköz hozzáférésének visszaállításához.",
   "oneRuntimeControlsPersonaGroupTurn": "Egy futási idő vezérli a személyt, a csoportok átvételét, a helyiség memóriáját, a normákat, az elmeelméletet és a kézbesítést.",
@@ -7081,5 +7076,43 @@
   "sharedUsageFeatureMemory": "Memória",
   "sharedUsageSearchKeywords": "opt-in adatmegosztás telemetria készülékek funkciók eszközök modellek aktivitás",
   "providerChooseUsername": "Válassz felhasználónevet",
-  "providerChooseUsernameBody": "Válassz egy szabad felhasználónevet a fiók létrehozásának befejezéséhez."
+  "providerChooseUsernameBody": "Válassz egy szabad felhasználónevet a fiók létrehozásának befejezéséhez.",
+  "yourOAuthApp": "Saját OAuth-alkalmazásod",
+  "oauthAppSetupTitle": "Saját {provider} OAuth-alkalmazásod",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Ezen a szerveren nincs globális {provider}-alkalmazás, ezért egy saját magad által regisztrált OAuth-alkalmazással csatlakozol. A klienstitok titkosítva tárolódik, és többé nem jelenik meg.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Hozd létre az alkalmazást",
+  "openDeveloperConsole": "Fejlesztői konzol megnyitása",
+  "oauthAppStepCallback": "2. Regisztráld ezt a visszahívási URL-t",
+  "callbackUrlCopied": "Visszahívási URL másolva",
+  "oauthAppScopes": "Engedélyezendő hatókörök",
+  "scopesCopied": "Hatókörök másolva",
+  "oauthAppStepCredentials": "3. Illeszd be az alkalmazás hitelesítő adatait",
+  "couldNotSaveOAuthApp": "Az OAuth-alkalmazást nem sikerült menteni.",
+  "removeOAuthAppTitle": "Eltávolítod a(z) {provider}-alkalmazásodat?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "A csatlakoztatott fiókok a listában maradnak, de nem működnek, amíg újra nem adsz hozzá alkalmazást.",
+  "globalIntegrationConfiguration": "Globális integrációs beállítások",
+  "globalIntegrationConfigurationDescription": "Opcionális, az egész szerverre érvényes OAuth-alkalmazások. Ha egy integrációnak van ilyen, minden fiók azt használja, és nem adhat hozzá sajátot. Hagyd üresen az integrációt, és minden felhasználó saját alkalmazást állít be. A titkok csak írhatók: hagyd üresen a tárolt érték megtartásához.",
+  "globalStatus": "Globális",
+  "perUserStatus": "Felhasználónként"
 }

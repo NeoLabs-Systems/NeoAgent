@@ -2742,7 +2742,6 @@
   "every15Minutes": "Ik pēc 15 minūtēm",
   "every30Minutes": "Ik pēc 30 minūtēm",
   "everyAccountOnThisServerLoses": "Katrs konts šajā serverī zaudē šo koplietoto atslēgu. Konti ",
-  "everyAccountOnThisServerSecrets": "katrs konts šajā serverī. Noslēpumus var rakstīt tikai: atstājiet ",
   "everyAccountOnThisServerUses": "Katrs konts šajā serverī izmanto šo adresi ",
   "everyActiveSessionForThisAccount": "Katra šī konta aktīvā sesija beidzas. Viņi var pierakstīties ",
   "everyDay0800": "Katru dienu · 08:00",
@@ -3218,7 +3217,6 @@
   },
   "instructions": "Norādījumi",
   "integration": "Integrācija",
-  "integrationApps": "Integrācijas lietotnes",
   "integrationConnections": "Integrācijas savienojumi",
   "integrationSettingsSaved": "Integrācijas iestatījumi ir saglabāti.",
   "integrations": "Integrācijas",
@@ -3584,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Mikrofons izslēgts. Pieskarieties, lai ieslēgtu skaņu.",
   "microphonePermissionIsRequiredForLive": "Tiešraides balsij ir nepieciešama mikrofona atļauja.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack un citas integrācijas. Tie attiecas uz ",
   "microsoftTeams": "Microsoft Teams",
   "minimumContributionValueArg1": "Minimālā iemaksas vērtība: {arg1}",
   "@minimumContributionValueArg1": {
@@ -4007,7 +4004,6 @@
   "nothingStoredYet": "Vēl nekas nav saglabāts.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "OAuth lietotnes akreditācijas dati, kas ļauj kontiem izveidot savienojumu ar Google, ",
   "oauthClientId": "OAuth klienta ID",
   "oauthClientIdSecretRedirectApi": "oauth klienta ID slepenā novirzīšanas api atslēga",
   "oauthClientIdSecretRedirectGmail": "oauth klienta ID slepenais novirzīšanas Gmail kalendāra disks",
@@ -4045,7 +4041,6 @@
   "onTheyCanJoinAgainOnly": "ieslēgts. Viņi var atkal pievienoties, tikai izmantojot jaunu uzaicinājuma saiti.",
   "onYourOwnTheDefault": "Viens pats (noklusējums)",
   "once": "Vienreiz",
-  "oneBlankToKeepWhatIs": "viena tukša, lai saglabātu to, kas tiek glabāts.",
   "oneIsSavedOtherChangesIn": "viens ir izglābts. Tiek saglabātas arī citas izmaiņas šajā veidlapā.",
   "oneOrMoreAccountsExpiredReconnect": "Vienam vai vairākiem kontiem ir beidzies derīguma termiņš. Atkārtoti pievienojiet ietekmēto kontu, lai atjaunotu piekļuvi rīkam.",
   "oneRuntimeControlsPersonaGroupTurn": "Viens izpildlaiks kontrolē personu, grupu gājienu uzņemšanu, telpas atmiņu, normas, prāta teoriju un piegādi.",
@@ -7081,5 +7076,43 @@
   "sharedUsageFeatureMemory": "Atmiņa",
   "sharedUsageSearchKeywords": "opt-in datu kopīgošana telemetrija ierīces funkcijas rīki modeļi aktivitāte",
   "providerChooseUsername": "Izvēlieties lietotājvārdu",
-  "providerChooseUsernameBody": "Izvēlieties brīvu lietotājvārdu, lai pabeigtu konta izveidi."
+  "providerChooseUsernameBody": "Izvēlieties brīvu lietotājvārdu, lai pabeigtu konta izveidi.",
+  "yourOAuthApp": "Jūsu OAuth lietotne",
+  "oauthAppSetupTitle": "Jūsu {provider} OAuth lietotne",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Šim serverim nav globālas {provider} lietotnes, tāpēc jūs pievienojaties ar paša reģistrētu OAuth lietotni. Klienta noslēpums tiek glabāts šifrēts un vairs netiek rādīts.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Izveidojiet lietotni",
+  "openDeveloperConsole": "Atvērt izstrādātāju konsoli",
+  "oauthAppStepCallback": "2. Reģistrējiet šo atzvanīšanas URL",
+  "callbackUrlCopied": "Atzvanīšanas URL nokopēts",
+  "oauthAppScopes": "Atļaujamie tvērumi",
+  "scopesCopied": "Tvērumi nokopēti",
+  "oauthAppStepCredentials": "3. Ielīmējiet lietotnes akreditācijas datus",
+  "couldNotSaveOAuthApp": "Neizdevās saglabāt OAuth lietotni.",
+  "removeOAuthAppTitle": "Vai noņemt jūsu {provider} lietotni?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Pievienotie konti paliek sarakstā, bet pārstāj darboties, līdz atkal pievienosiet lietotni.",
+  "globalIntegrationConfiguration": "Globālā integrāciju konfigurācija",
+  "globalIntegrationConfigurationDescription": "Neobligātas visa servera OAuth lietotnes. Ja integrācijai tāda ir, to izmanto katrs konts un nevar pievienot savu. Atstājiet integrāciju neiestatītu, un katrs lietotājs iestatīs savu lietotni. Noslēpumus var tikai ierakstīt: atstājiet tukšu, lai saglabātu esošo vērtību.",
+  "globalStatus": "Globāli",
+  "perUserStatus": "Katram lietotājam"
 }

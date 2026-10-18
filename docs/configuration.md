@@ -118,23 +118,10 @@ Exposing the server: see [Reach it from other devices](getting-started.md#networ
 - **In the app.** Admins set the live voice defaults under **Admin › Integrations › Live voice**.
 - **Per account.** Each account can pick its own live voice provider, model and voice under **Settings › Voice**.
 
-## 🔌 Official integrations
+## 🔌 Official integrations {#official-integrations}
 
-Each OAuth app takes `<PREFIX>_CLIENT_ID` and `<PREFIX>_CLIENT_SECRET` (both **required** for that integration) and an optional `<PREFIX>_REDIRECT_URI`.
-
-| Prefix | Integration |
-| --- | --- |
-| `GOOGLE_OAUTH` | Google Workspace |
-| `MICROSOFT_OAUTH` | Microsoft 365; also `MICROSOFT_OAUTH_TENANT_ID` (default `common`) |
-| `GITHUB_OAUTH` | GitHub |
-| `NOTION_OAUTH` | Notion |
-| `SLACK_OAUTH` | Slack |
-| `FIGMA_OAUTH` | Figma |
-| `SPOTIFY_OAUTH` | Spotify |
-
-- **Default callback.** `<PUBLIC_URL>/api/integrations/oauth/callback`. Register exactly this URI with the provider.
-- **Trello.** `TRELLO_API_KEY` is a shared app key; each agent still connects its own Trello account in the app.
-- **In the app.** **Admin › Integrations** edits the OAuth apps and the Trello key.
+- **Per user by default.** Each user registers their own OAuth app in the app; no server setup is needed.
+- **Optional global app.** `<PREFIX>_OAUTH_CLIENT_ID` and `<PREFIX>_OAUTH_CLIENT_SECRET` (prefixes `GOOGLE`, `MICROSOFT`, `GITHUB`, `NOTION`, `SLACK`, `FIGMA`, `SPOTIFY`), or `TRELLO_API_KEY`, apply one app to every account, so users only connect their accounts. Set them under **Admin › Integrations**.
 - **OpenRouter account sign-in.** The same category has an enable switch backed by `NEOAGENT_OPENROUTER_SIGN_IN_ENABLED` (default `true`). Disabling it blocks registration, login, and account linking immediately; existing sessions and model keys keep working.
 - **No server setup.** Home Assistant and Nextcloud are connected per account in the app.
 - **Messaging channels.** Configured per agent under **Settings › Messaging**, not here.

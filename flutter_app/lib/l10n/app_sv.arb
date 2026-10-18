@@ -2742,7 +2742,6 @@
   "every15Minutes": "Var 15:e minut",
   "every30Minutes": "Var 30:e minut",
   "everyAccountOnThisServerLoses": "Varje konto på den här servern förlorar denna delade nyckel. konton ",
-  "everyAccountOnThisServerSecrets": "varje konto på denna server. Hemligheter är skrivbara: lämna ",
   "everyAccountOnThisServerUses": "Varje konto på denna server använder denna adress för ",
   "everyActiveSessionForThisAccount": "Varje aktiv session för detta konto avslutas. De kan logga in ",
   "everyDay0800": "Varje dag · 08:00",
@@ -3218,7 +3217,6 @@
   },
   "instructions": "Instruktioner",
   "integration": "Integration",
-  "integrationApps": "Integrationsappar",
   "integrationConnections": "Integrationsanslutningar",
   "integrationSettingsSaved": "Integrationsinställningarna sparade.",
   "integrations": "Integrationer",
@@ -3584,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Mikrofon avstängd. Tryck för att slå på ljudet.",
   "microphonePermissionIsRequiredForLive": "Mikrofontillstånd krävs för liveröst.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack och de andra integrationerna. De gäller till ",
   "microsoftTeams": "Microsoft Teams",
   "minimumContributionValueArg1": "Minsta bidragsvärde: {arg1}",
   "@minimumContributionValueArg1": {
@@ -4007,7 +4004,6 @@
   "nothingStoredYet": "Inget lagrat ännu.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "OAuth-appreferenser som låter konton koppla Google, ",
   "oauthClientId": "OAuth-klient-ID",
   "oauthClientIdSecretRedirectApi": "oauth klient-id hemlig omdirigering api-nyckel",
   "oauthClientIdSecretRedirectGmail": "oauth klient-id hemlig omdirigering gmail-kalenderenhet",
@@ -4045,7 +4041,6 @@
   "onTheyCanJoinAgainOnly": "på. De kan bara gå med igen med en ny inbjudningslänk.",
   "onYourOwnTheDefault": "På egen hand (standard)",
   "once": "En gång",
-  "oneBlankToKeepWhatIs": "en tom för att behålla det som lagras.",
   "oneIsSavedOtherChangesIn": "en är räddad. Andra ändringar i detta formulär sparas också.",
   "oneOrMoreAccountsExpiredReconnect": "Ett eller flera konton har löpt ut. Återanslut det berörda kontot för att återställa verktygsåtkomst.",
   "oneRuntimeControlsPersonaGroupTurn": "En körning styr persona, gruppturtagning, rumsminne, normer, Theory of Mind och leverans.",
@@ -7081,5 +7076,43 @@
   "sharedUsageFeatureMemory": "Minne",
   "sharedUsageSearchKeywords": "opt-in datadelning telemetri enheter funktioner verktyg modeller aktivitet",
   "providerChooseUsername": "Välj ditt användarnamn",
-  "providerChooseUsernameBody": "Välj ett ledigt användarnamn för att slutföra ditt konto."
+  "providerChooseUsernameBody": "Välj ett ledigt användarnamn för att slutföra ditt konto.",
+  "yourOAuthApp": "Din OAuth-app",
+  "oauthAppSetupTitle": "Din OAuth-app för {provider}",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Den här servern har ingen global {provider}-app, så du ansluter med en OAuth-app som du registrerar själv. Klienthemligheten lagras krypterad och visas aldrig igen.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Skapa appen",
+  "openDeveloperConsole": "Öppna utvecklarkonsolen",
+  "oauthAppStepCallback": "2. Registrera den här callback-URL:en",
+  "callbackUrlCopied": "Callback-URL kopierad",
+  "oauthAppScopes": "Scopes att tillåta",
+  "scopesCopied": "Scopes kopierade",
+  "oauthAppStepCredentials": "3. Klistra in appens uppgifter",
+  "couldNotSaveOAuthApp": "Det gick inte att spara OAuth-appen.",
+  "removeOAuthAppTitle": "Ta bort din {provider}-app?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Anslutna konton finns kvar i listan men slutar fungera tills du lägger till en app igen.",
+  "globalIntegrationConfiguration": "Global integrationskonfiguration",
+  "globalIntegrationConfigurationDescription": "Valfria OAuth-appar för hela servern. När en integration har en använder alla konton den och kan inte lägga till en egen. Lämna en integration tom så konfigurerar varje användare sin egen app. Hemligheter är skrivskyddade: lämna tomt för att behålla det sparade värdet.",
+  "globalStatus": "Global",
+  "perUserStatus": "Per användare"
 }

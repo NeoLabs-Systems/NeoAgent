@@ -2742,7 +2742,6 @@
   "every15Minutes": "Kull 15-il minuta",
   "every30Minutes": "Kull 30 minuta",
   "everyAccountOnThisServerLoses": "Kull kont fuq dan is-server jitlef din iċ-ċavetta kondiviża. Kontijiet ",
-  "everyAccountOnThisServerSecrets": "kull kont fuq dan is-server. Is-sigrieti huma bil-miktub biss: leave ",
   "everyAccountOnThisServerUses": "Kull kont fuq dan is-server juża dan l-indirizz għal ",
   "everyActiveSessionForThisAccount": "Kull sessjoni attiva għal dan il-kont tispiċċa. Jistgħu jiffirmaw ",
   "everyDay0800": "Kull jum · 08:00",
@@ -3218,7 +3217,6 @@
   },
   "instructions": "Istruzzjonijiet",
   "integration": "Integrazzjoni",
-  "integrationApps": "Apps ta' integrazzjoni",
   "integrationConnections": "Konnessjonijiet ta 'integrazzjoni",
   "integrationSettingsSaved": "Issettjar ta' integrazzjoni salvati.",
   "integrations": "Integrazzjonijiet",
@@ -3584,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Mikrofonu siekta. Tektek biex tneħħi l-mute.",
   "microphonePermissionIsRequiredForLive": "Il-permess tal-mikrofonu huwa meħtieġ għal vuċi diretta.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack u l-integrazzjonijiet l-oħra. Dawn japplikaw għal ",
   "microsoftTeams": "Timijiet tal-Microsoft",
   "minimumContributionValueArg1": "Valur tal-kontribuzzjoni minima: {arg1}",
   "@minimumContributionValueArg1": {
@@ -4007,7 +4004,6 @@
   "nothingStoredYet": "S'issa xejn maħżun.",
   "notionSlackFigmaGithubSpotifyTrello": "Nozzjoni, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "Kredenzjali tal-app OAuth li jippermettu lill-kontijiet jgħaqqdu lil Google, ",
   "oauthClientId": "ID tal-Klijent OAuth",
   "oauthClientIdSecretRedirectApi": "oauth client id sigriet redirect api key",
   "oauthClientIdSecretRedirectGmail": "oauth client id sigriet redirect gmail calendar drive",
@@ -4045,7 +4041,6 @@
   "onTheyCanJoinAgainOnly": "fuq. Jistgħu jerġgħu jingħaqdu biss b'rabta ġdida ta' stedina.",
   "onYourOwnTheDefault": "Waħdek (id-default)",
   "once": "Darba",
-  "oneBlankToKeepWhatIs": "wieħed vojt biex iżżomm dak li jkun maħżun.",
   "oneIsSavedOtherChangesIn": "wieħed jiġi salvat. Bidliet oħra f'din il-formola huma salvati wkoll.",
   "oneOrMoreAccountsExpiredReconnect": "Kont wieħed jew aktar skada. Erġa' qabbad il-kont affettwat biex tirrestawra l-aċċess għall-għodda.",
   "oneRuntimeControlsPersonaGroupTurn": "Runtime wieħed jikkontrolla l-persuna, it-teħid tad-dawran tal-grupp, il-memorja tal-kamra, in-normi, it-Teorija tal-Moħħ, u l-kunsinna.",
@@ -7081,5 +7076,43 @@
   "sharedUsageFeatureMemory": "Memorja",
   "sharedUsageSearchKeywords": "opt-in qsim tad-dejta telemetrija apparati funzjonijiet għodod mudelli attività",
   "providerChooseUsername": "Agħżel l-isem tal-utent tiegħek",
-  "providerChooseUsernameBody": "Agħżel isem tal-utent disponibbli biex tlesti l-ħolqien tal-kont tiegħek."
+  "providerChooseUsernameBody": "Agħżel isem tal-utent disponibbli biex tlesti l-ħolqien tal-kont tiegħek.",
+  "yourOAuthApp": "L-app OAuth tiegħek",
+  "oauthAppSetupTitle": "L-app OAuth tiegħek ta’ {provider}",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Dan is-server m’għandux app globali ta’ {provider}, għalhekk tikkonnettja b’app OAuth li tirreġistra int stess. Is-sigriet tal-klijent jinħażen ikkriptat u qatt ma jerġa’ jintwera.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Oħloq l-app",
+  "openDeveloperConsole": "Iftaħ il-konsol tal-iżviluppatur",
+  "oauthAppStepCallback": "2. Irreġistra dan il-URL tal-callback",
+  "callbackUrlCopied": "URL tal-callback ikkupjat",
+  "oauthAppScopes": "Scopes li għandhom jiġu permessi",
+  "scopesCopied": "Scopes ikkupjati",
+  "oauthAppStepCredentials": "3. Waħħal il-kredenzjali tal-app",
+  "couldNotSaveOAuthApp": "Ma setgħetx tiġi ssejvjata l-app OAuth.",
+  "removeOAuthAppTitle": "Tneħħi l-app tiegħek ta’ {provider}?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Il-kontijiet konnessi jibqgħu fil-lista iżda ma jibqgħux jaħdmu sakemm iżżid app mill-ġdid.",
+  "globalIntegrationConfiguration": "Konfigurazzjoni globali tal-integrazzjonijiet",
+  "globalIntegrationConfigurationDescription": "Apps OAuth fakultattivi għas-server kollu. Meta integrazzjoni jkollha waħda, kull kont jużaha u ma jistax iżid tiegħu. Ħalli integrazzjoni mhux issettjata u kull utent iwaqqaf l-app tiegħu. Is-sigrieti huma għall-kitba biss: ħallih vojt biex iżżomm il-valur maħżun.",
+  "globalStatus": "Globali",
+  "perUserStatus": "Għal kull utent"
 }

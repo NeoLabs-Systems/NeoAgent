@@ -3291,10 +3291,6 @@ class AppL10nMt extends AppL10n {
       'Kull kont fuq dan is-server jitlef din iċ-ċavetta kondiviża. Kontijiet ';
 
   @override
-  String get everyAccountOnThisServerSecrets =>
-      'kull kont fuq dan is-server. Is-sigrieti huma bil-miktub biss: leave ';
-
-  @override
   String get everyAccountOnThisServerUses =>
       'Kull kont fuq dan is-server juża dan l-indirizz għal ';
 
@@ -4075,9 +4071,6 @@ class AppL10nMt extends AppL10n {
   String get integration => 'Integrazzjoni';
 
   @override
-  String get integrationApps => 'Apps ta\' integrazzjoni';
-
-  @override
   String get integrationConnections => 'Konnessjonijiet ta \'integrazzjoni';
 
   @override
@@ -4722,10 +4715,6 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get microsoft365 => 'Microsoft 365';
-
-  @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack u l-integrazzjonijiet l-oħra. Dawn japplikaw għal ';
 
   @override
   String get microsoftTeams => 'Timijiet tal-Microsoft';
@@ -5493,10 +5482,6 @@ class AppL10nMt extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'Kredenzjali tal-app OAuth li jippermettu lill-kontijiet jgħaqqdu lil Google, ';
-
-  @override
   String get oauthClientId => 'ID tal-Klijent OAuth';
 
   @override
@@ -5568,10 +5553,6 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get once => 'Darba';
-
-  @override
-  String get oneBlankToKeepWhatIs =>
-      'wieħed vojt biex iżżomm dak li jkun maħżun.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -11473,4 +11454,64 @@ class AppL10nMt extends AppL10n {
   @override
   String get sharedUsageSearchKeywords =>
       'opt-in qsim tad-dejta telemetrija apparati funzjonijiet għodod mudelli attività';
+
+  @override
+  String get yourOAuthApp => 'L-app OAuth tiegħek';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'L-app OAuth tiegħek ta’ $provider';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Dan is-server m’għandux app globali ta’ $provider, għalhekk tikkonnettja b’app OAuth li tirreġistra int stess. Is-sigriet tal-klijent jinħażen ikkriptat u qatt ma jerġa’ jintwera.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Oħloq l-app';
+
+  @override
+  String get openDeveloperConsole => 'Iftaħ il-konsol tal-iżviluppatur';
+
+  @override
+  String get oauthAppStepCallback => '2. Irreġistra dan il-URL tal-callback';
+
+  @override
+  String get callbackUrlCopied => 'URL tal-callback ikkupjat';
+
+  @override
+  String get oauthAppScopes => 'Scopes li għandhom jiġu permessi';
+
+  @override
+  String get scopesCopied => 'Scopes ikkupjati';
+
+  @override
+  String get oauthAppStepCredentials => '3. Waħħal il-kredenzjali tal-app';
+
+  @override
+  String get couldNotSaveOAuthApp => 'Ma setgħetx tiġi ssejvjata l-app OAuth.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Tneħħi l-app tiegħek ta’ $provider?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Il-kontijiet konnessi jibqgħu fil-lista iżda ma jibqgħux jaħdmu sakemm iżżid app mill-ġdid.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Konfigurazzjoni globali tal-integrazzjonijiet';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Apps OAuth fakultattivi għas-server kollu. Meta integrazzjoni jkollha waħda, kull kont jużaha u ma jistax iżid tiegħu. Ħalli integrazzjoni mhux issettjata u kull utent iwaqqaf l-app tiegħu. Is-sigrieti huma għall-kitba biss: ħallih vojt biex iżżomm il-valur maħżun.';
+
+  @override
+  String get globalStatus => 'Globali';
+
+  @override
+  String get perUserStatus => 'Għal kull utent';
 }

@@ -2742,7 +2742,6 @@
   "every15Minutes": "Hvert 15. minut",
   "every30Minutes": "Hvert 30. minut",
   "everyAccountOnThisServerLoses": "Hver konto på denne server mister denne delte nøgle. Regnskaber ",
-  "everyAccountOnThisServerSecrets": "hver konto på denne server. Hemmeligheder er skrivebeskyttede: forlad ",
   "everyAccountOnThisServerUses": "Hver konto på denne server bruger denne adresse til ",
   "everyActiveSessionForThisAccount": "Hver aktiv session for denne konto slutter. De kan logge ind ",
   "everyDay0800": "Hver dag · 08:00",
@@ -3218,7 +3217,6 @@
   },
   "instructions": "Instruktioner",
   "integration": "Integration",
-  "integrationApps": "Integrations-apps",
   "integrationConnections": "Integrationsforbindelser",
   "integrationSettingsSaved": "Integrationsindstillinger gemt.",
   "integrations": "Integrationer",
@@ -3584,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Mikrofonen er slået fra. Tryk for at slå lyden til.",
   "microphonePermissionIsRequiredForLive": "Mikrofontilladelse er påkrævet for live stemme.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack og de andre integrationer. De gælder for ",
   "microsoftTeams": "Microsoft Teams",
   "minimumContributionValueArg1": "Minimum bidragsværdi: {arg1}",
   "@minimumContributionValueArg1": {
@@ -4007,7 +4004,6 @@
   "nothingStoredYet": "Intet gemt endnu.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "OAuth-applegitimationsoplysninger, der lader konti forbinde Google, ",
   "oauthClientId": "OAuth-klient-id",
   "oauthClientIdSecretRedirectApi": "oauth klient-id hemmelig omdirigerings-api-nøgle",
   "oauthClientIdSecretRedirectGmail": "oauth-klient-id hemmeligt omdirigering gmail-kalenderdrev",
@@ -4045,7 +4041,6 @@
   "onTheyCanJoinAgainOnly": "på. De kan kun deltage igen med et nyt invitationslink.",
   "onYourOwnTheDefault": "På egen hånd (standard)",
   "once": "En gang",
-  "oneBlankToKeepWhatIs": "en blank for at beholde det gemte.",
   "oneIsSavedOtherChangesIn": "en er reddet. Andre ændringer i denne formular gemmes også.",
   "oneOrMoreAccountsExpiredReconnect": "En eller flere konti er udløbet. Tilslut den berørte konto igen for at gendanne værktøjsadgang.",
   "oneRuntimeControlsPersonaGroupTurn": "Én runtime styrer persona, gruppeturtagning, rumhukommelse, normer, Theory of Mind og levering.",
@@ -7081,5 +7076,43 @@
   "sharedUsageFeatureMemory": "Hukommelse",
   "sharedUsageSearchKeywords": "opt-in datadeling telemetri enheder funktioner værktøjer modeller aktivitet",
   "providerChooseUsername": "Vælg dit brugernavn",
-  "providerChooseUsernameBody": "Vælg et ledigt brugernavn for at færdiggøre din konto."
+  "providerChooseUsernameBody": "Vælg et ledigt brugernavn for at færdiggøre din konto.",
+  "yourOAuthApp": "Din OAuth-app",
+  "oauthAppSetupTitle": "Din {provider}-OAuth-app",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Denne server har ingen global {provider}-app, så du forbinder med en OAuth-app, du selv registrerer. Klienthemmeligheden gemmes krypteret og vises aldrig igen.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Opret appen",
+  "openDeveloperConsole": "Åbn udviklerkonsollen",
+  "oauthAppStepCallback": "2. Registrer denne callback-URL",
+  "callbackUrlCopied": "Callback-URL kopieret",
+  "oauthAppScopes": "Scopes der skal tillades",
+  "scopesCopied": "Scopes kopieret",
+  "oauthAppStepCredentials": "3. Indsæt appens legitimationsoplysninger",
+  "couldNotSaveOAuthApp": "OAuth-appen kunne ikke gemmes.",
+  "removeOAuthAppTitle": "Fjern din {provider}-app?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Forbundne konti forbliver på listen, men holder op med at virke, indtil du tilføjer en app igen.",
+  "globalIntegrationConfiguration": "Global integrationskonfiguration",
+  "globalIntegrationConfigurationDescription": "Valgfrie OAuth-apps for hele serveren. Når en integration har en, bruger alle konti den og kan ikke tilføje deres egen. Lad en integration være tom, så opsætter hver bruger sin egen app. Hemmeligheder kan kun skrives: lad feltet være tomt for at beholde den gemte værdi.",
+  "globalStatus": "Global",
+  "perUserStatus": "Pr. bruger"
 }

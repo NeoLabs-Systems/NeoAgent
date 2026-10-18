@@ -896,7 +896,7 @@ class _IntegrationTile extends StatelessWidget {
       trailing: _ToolActionButton(
         label: item.isConnected
             ? 'Manage'
-            : needsSetup && item.env.setupMode != 'user'
+            : needsSetup
             ? appStrings.setUp
             : 'Connect',
         primary: !item.isConnected,

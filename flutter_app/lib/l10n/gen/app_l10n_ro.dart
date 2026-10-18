@@ -3292,10 +3292,6 @@ class AppL10nRo extends AppL10n {
       'Fiecare cont de pe acest server pierde această cheie partajată. Conturi ';
 
   @override
-  String get everyAccountOnThisServerSecrets =>
-      'fiecare cont de pe acest server. Secretele sunt doar scrise: plecați ';
-
-  @override
   String get everyAccountOnThisServerUses =>
       'Fiecare cont de pe acest server folosește această adresă pentru ';
 
@@ -4074,9 +4070,6 @@ class AppL10nRo extends AppL10n {
   String get integration => 'Integrarea';
 
   @override
-  String get integrationApps => 'Aplicații de integrare';
-
-  @override
   String get integrationConnections => 'Conexiuni de integrare';
 
   @override
@@ -4720,10 +4713,6 @@ class AppL10nRo extends AppL10n {
 
   @override
   String get microsoft365 => 'Microsoft 365';
-
-  @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack și celelalte integrări. Se aplică la ';
 
   @override
   String get microsoftTeams => 'Microsoft Teams';
@@ -5493,10 +5482,6 @@ class AppL10nRo extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'Acreditările aplicației OAuth care permit conturilor să conecteze Google, ';
-
-  @override
   String get oauthClientId => 'ID client OAuth';
 
   @override
@@ -5568,10 +5553,6 @@ class AppL10nRo extends AppL10n {
 
   @override
   String get once => 'Odată';
-
-  @override
-  String get oneBlankToKeepWhatIs =>
-      'unul gol pentru a păstra ceea ce este depozitat.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -11495,4 +11476,65 @@ class AppL10nRo extends AppL10n {
   @override
   String get sharedUsageSearchKeywords =>
       'opt-in partajare date telemetrie dispozitive funcții instrumente modele activitate';
+
+  @override
+  String get yourOAuthApp => 'Aplicația ta OAuth';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'Aplicația ta OAuth $provider';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Acest server nu are o aplicație $provider globală, așa că te conectezi cu o aplicație OAuth pe care o înregistrezi tu. Secretul clientului este stocat criptat și nu mai este afișat niciodată.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Creează aplicația';
+
+  @override
+  String get openDeveloperConsole => 'Deschide consola pentru dezvoltatori';
+
+  @override
+  String get oauthAppStepCallback => '2. Înregistrează acest URL de callback';
+
+  @override
+  String get callbackUrlCopied => 'URL de callback copiat';
+
+  @override
+  String get oauthAppScopes => 'Scope-uri de permis';
+
+  @override
+  String get scopesCopied => 'Scope-uri copiate';
+
+  @override
+  String get oauthAppStepCredentials =>
+      '3. Lipește datele de autentificare ale aplicației';
+
+  @override
+  String get couldNotSaveOAuthApp => 'Aplicația OAuth nu a putut fi salvată.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Elimini aplicația ta $provider?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Conturile conectate rămân în listă, dar nu mai funcționează până nu adaugi din nou o aplicație.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Configurație globală a integrărilor';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Aplicații OAuth opționale pentru tot serverul. Când o integrare are una, fiecare cont o folosește și nu își poate adăuga propria aplicație. Lasă o integrare nesetată și fiecare utilizator își configurează propria aplicație. Secretele pot fi doar scrise: lasă gol pentru a păstra valoarea stocată.';
+
+  @override
+  String get globalStatus => 'Global';
+
+  @override
+  String get perUserStatus => 'Per utilizator';
 }

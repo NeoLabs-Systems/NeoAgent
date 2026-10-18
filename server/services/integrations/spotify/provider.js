@@ -1,6 +1,6 @@
 'use strict';
 
-const { describeEnvStatus, resolveSpotifyOAuthConfig } = require('../env');
+const { createOAuthApp } = require('../oauth_app');
 const { appendQuery, buildPinnedApiUrl, createOAuthProvider, fetchJson } = require('../oauth_provider');
 const { expiresAtFromSeconds, withRefreshedOAuthCredentials } = require('../oauth_tokens');
 const { fetchResponseText } = require('../http');
@@ -193,7 +193,7 @@ async function spotifyRequest(config, context, { method = 'GET', path, query, bo
 }
 
 async function executeSpotifyTool(toolName, args, context) {
-  const config = resolveSpotifyOAuthConfig();
+  const config = context.oauth;
   switch (toolName) {
     case 'spotify_get_current_playback': {
       const { data, credentials: updated } = await spotifyRequest(config, context, {
@@ -368,13 +368,15 @@ function createSpotifyProvider() {
     toolDefinitions: spotifyToolDefinitions,
     connectPrompt:
       'Connect Spotify to allow playback-aware automations, track search, and playback controls from the agent.',
-    getEnvStatus() {
-      return describeEnvStatus(resolveSpotifyOAuthConfig(), {
-        label: 'Spotify',
-      });
-    },
-    async beginOAuth({ state, app }) {
-      const config = resolveSpotifyOAuthConfig();
+    oauthApp: createOAuthApp({
+      providerKey: 'spotify',
+      label: 'Spotify',
+      envPrefix: 'SPOTIFY',
+      consoleUrl: 'https://developer.spotify.com/dashboard',
+      notes: 'Create an app that uses the Web API and add the callback URL as a redirect URI. While the app is in development mode, add your Spotify account under User Management.',
+      scopes: SPOTIFY_APPS.flatMap((app) => app.scopes),
+    }),
+    async beginOAuth({ state, app, oauth: config }) {
       return {
         url: appendQuery('https://accounts.spotify.com/authorize', {
           response_type: 'code',
@@ -387,8 +389,7 @@ function createSpotifyProvider() {
         appId: app.id,
       };
     },
-    async finishOAuth({ code, app, signal }) {
-      const config = resolveSpotifyOAuthConfig();
+    async finishOAuth({ code, app, signal, oauth: config }) {
       const basic = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64');
       const token = await fetchJson(
         'https://accounts.spotify.com/api/token',
@@ -446,7 +447,7 @@ function createSpotifyProvider() {
     },
     async testConnection(context) {
       const { credentials } = await spotifyRequest(
-        resolveSpotifyOAuthConfig(),
+        context.oauth,
         context,
         { path: '/v1/me' },
       );

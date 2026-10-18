@@ -3312,10 +3312,6 @@ class AppL10nGa extends AppL10n {
       'Cailleann gach cuntas ar an bhfreastalaí seo an eochair roinnte seo. Cuntais ';
 
   @override
-  String get everyAccountOnThisServerSecrets =>
-      'gach cuntas ar an bhfreastalaí seo. Tá rúin scríofa amháin: fág ';
-
-  @override
   String get everyAccountOnThisServerUses =>
       'Úsáideann gach cuntas ar an bhfreastalaí seo an seoladh seo le haghaidh ';
 
@@ -4094,9 +4090,6 @@ class AppL10nGa extends AppL10n {
   String get integration => 'Comhtháthú';
 
   @override
-  String get integrationApps => 'Aipeanna comhtháthú';
-
-  @override
   String get integrationConnections => 'Naisc chomhtháthaithe';
 
   @override
@@ -4739,10 +4732,6 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get microsoft365 => 'Microsoft 365';
-
-  @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack agus na comhtháthú eile. Baineann siad le ';
 
   @override
   String get microsoftTeams => 'Foirne Microsoft';
@@ -5508,10 +5497,6 @@ class AppL10nGa extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'Dintiúir aip OAuth a ligeann do chuntais Google a nascadh, ';
-
-  @override
   String get oauthClientId => 'Aitheantas Cliant OAuth';
 
   @override
@@ -5583,10 +5568,6 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get once => 'Uair amháin';
-
-  @override
-  String get oneBlankToKeepWhatIs =>
-      'bán amháin chun an méid atá stóráilte a choinneáil.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -11516,4 +11497,64 @@ class AppL10nGa extends AppL10n {
   @override
   String get sharedUsageSearchKeywords =>
       'opt-in comhroinnt sonraí teiliméadracht gléasanna gnéithe uirlisí samhlacha gníomhaíocht';
+
+  @override
+  String get yourOAuthApp => 'Do aip OAuth';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'Do aip OAuth $provider';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Níl aip $provider dhomhanda ar an bhfreastalaí seo, mar sin ceanglaíonn tú le haip OAuth a chláraíonn tú féin. Stóráiltear rún an chliaint criptithe agus ní thaispeántar arís é.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Cruthaigh an aip';
+
+  @override
+  String get openDeveloperConsole => 'Oscail consól an fhorbróra';
+
+  @override
+  String get oauthAppStepCallback => '2. Cláraigh an URL aisghlaoch seo';
+
+  @override
+  String get callbackUrlCopied => 'URL aisghlaoch cóipeáilte';
+
+  @override
+  String get oauthAppScopes => 'Raonta le ceadú';
+
+  @override
+  String get scopesCopied => 'Raonta cóipeáilte';
+
+  @override
+  String get oauthAppStepCredentials => '3. Greamaigh dintiúir na haipe';
+
+  @override
+  String get couldNotSaveOAuthApp => 'Níorbh fhéidir an aip OAuth a shábháil.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Bain d’aip $provider?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Fanann cuntais cheangailte ar an liosta ach stopann siad ag obair go dtí go gcuireann tú aip leis arís.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Cumraíocht dhomhanda comhtháthaithe';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Aipeanna OAuth roghnacha don fhreastalaí ar fad. Nuair atá ceann ag comhtháthú, úsáideann gach cuntas é agus ní féidir leo a gceann féin a chur leis. Fág comhtháthú gan socrú agus socraíonn gach úsáideoir a aip féin. Is le scríobh amháin iad rúin: fág bán chun an luach stóráilte a choinneáil.';
+
+  @override
+  String get globalStatus => 'Domhanda';
+
+  @override
+  String get perUserStatus => 'In aghaidh an úsáideora';
 }

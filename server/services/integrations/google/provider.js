@@ -1,7 +1,7 @@
 'use strict';
 
 const { google } = require('googleapis');
-const { describeEnvStatus, resolveGoogleOAuthConfig } = require('../env');
+const { createOAuthApp } = require('../oauth_app');
 const { decryptValue } = require('../secrets');
 const { gmailToolDefinitions, executeGmailTool } = require('./gmail');
 const { calendarToolDefinitions, executeCalendarTool } = require('./calendar');
@@ -11,6 +11,7 @@ const { sheetsToolDefinitions, executeSheetsTool } = require('./sheets');
 const { waitForAbortableResult } = require('../http');
 const {
   buildConnectedAppSummary,
+  describeIncompleteSetupForModel,
   formatAccountSummary,
   summarizeAppConnection,
   summarizeProviderConnection,
@@ -102,16 +103,8 @@ const toolAppMap = new Map(
   googleWorkspaceToolDefinitions.map((tool) => [tool.name, tool.appId]),
 );
 
-function createOAuthClient() {
-  const config = resolveGoogleOAuthConfig();
-  return {
-    config,
-    client: new google.auth.OAuth2(
-      config.clientId,
-      config.clientSecret,
-      config.redirectUri,
-    ),
-  };
+function createOAuthClient(config) {
+  return new google.auth.OAuth2(config.clientId, config.clientSecret, config.redirectUri);
 }
 
 function attachAbortSignal(client, signal) {
@@ -125,7 +118,9 @@ function attachAbortSignal(client, signal) {
 }
 
 async function buildAuthorizedClient(connection, options = {}) {
-  const { client } = createOAuthClient();
+  const client = createOAuthClient(
+    googleOAuthApp.resolve({ userId: connection.user_id, agentId: connection.agent_id }),
+  );
   let credentials = {};
   try {
     credentials = JSON.parse(
@@ -171,6 +166,15 @@ function getAllWorkspaceScopes() {
     ]),
   );
 }
+
+const googleOAuthApp = createOAuthApp({
+  providerKey: 'google_workspace',
+  label: 'Google Workspace',
+  envPrefix: 'GOOGLE',
+  consoleUrl: 'https://console.cloud.google.com/apis/credentials',
+  notes: 'Create an OAuth client ID of type Web application and add the callback URL as an authorized redirect URI. Enable the Gmail, Calendar, Drive, Docs and Sheets APIs, and add yourself as a test user while the consent screen is in testing.',
+  scopes: getAllWorkspaceScopes(),
+});
 
 async function executeGoogleWorkspaceTool(
   toolName,
@@ -340,11 +344,10 @@ function createGoogleWorkspaceProvider() {
     getToolAppId(toolName) {
       return toolAppMap.get(String(toolName || '').trim()) || null;
     },
-    getEnvStatus() {
-      return describeEnvStatus(resolveGoogleOAuthConfig(), {
-        label: 'Google Workspace',
-      });
+    getEnvStatus(context = {}) {
+      return googleOAuthApp.getEnvStatus(context);
     },
+    ...googleOAuthApp.userConfigHandlers,
     getToolDefinitions(options = {}) {
       const connectedAppIds = new Set(options.connectedAppIds || []);
       return googleWorkspaceToolDefinitions.filter((tool) =>
@@ -354,8 +357,8 @@ function createGoogleWorkspaceProvider() {
     supportsTool(toolName) {
       return toolAppMap.has(String(toolName || '').trim());
     },
-    buildSnapshot(connectionRows) {
-      const env = this.getEnvStatus();
+    buildSnapshot(connectionRows, context = {}) {
+      const env = this.getEnvStatus(context);
       const byApp = new Map();
       for (const row of Array.isArray(connectionRows) ? connectionRows : []) {
         const appId = String(row.app_key || '').trim();
@@ -379,17 +382,16 @@ function createGoogleWorkspaceProvider() {
         availableToolCount: rollup.availableToolCount,
       };
     },
-    async beginOAuth({ state, codeVerifier, appKey }) {
+    async beginOAuth({ state, codeVerifier, appKey, userId, agentId }) {
       const app = getApp(appKey);
       if (!app) {
         throw new Error(`Unknown Google Workspace app: ${appKey}`);
       }
-      const { config, client } = createOAuthClient();
+      const config = googleOAuthApp.resolve({ userId, agentId });
       if (!config.configured) {
-        throw new Error(
-          'Google Workspace still needs administrator setup before accounts can connect.',
-        );
+        throw new Error(googleOAuthApp.getEnvStatus({ userId, agentId }).summary);
       }
+      const client = createOAuthClient(config);
       const codeChallenge = base64UrlSha256(codeVerifier);
       const url = client.generateAuthUrl({
         access_type: 'offline',
@@ -404,13 +406,15 @@ function createGoogleWorkspaceProvider() {
       });
       return { url, appId: app.id };
     },
-    async finishOAuth({ code, codeVerifier, appKey, signal }) {
+    async finishOAuth({ code, codeVerifier, appKey, userId, agentId, signal }) {
       const app = getApp(appKey);
       if (!app) {
         throw new Error(`Unknown Google Workspace app: ${appKey}`);
       }
-      const oauthClient = createOAuthClient();
-      const client = attachAbortSignal(oauthClient.client, signal);
+      const client = attachAbortSignal(
+        createOAuthClient(googleOAuthApp.resolve({ userId, agentId })),
+        signal,
+      );
       const { tokens } = await waitForAbortableResult(
         client.getToken({
           code,
@@ -508,7 +512,7 @@ function createGoogleWorkspaceProvider() {
     },
     summarizeForModel(snapshot) {
       if (!snapshot?.env?.configured) {
-        return `${this.label}: workspace setup is not complete yet. If the user wants to use it, tell them to open Official Integrations and ask an administrator to finish setup first.`;
+        return describeIncompleteSetupForModel(this.label, snapshot.env);
       }
 
       const statusLines = buildModelStatusLines(snapshot.apps);

@@ -12,6 +12,7 @@ const {
 } = require('../../utils/retry');
 const {
   buildConnectedAppSummary,
+  describeIncompleteSetupForModel,
   summarizeAppConnection,
   summarizeProviderConnection,
 } = require('./connection_summary');
@@ -206,6 +207,11 @@ function createOAuthProvider(options = {}) {
     return normalized;
   }
 
+  // An `oauthApp` (see oauth_app.js) supplies the setup status, the per-user
+  // setup handlers, and the resolved client config providers sign in with.
+  const oauthApp = options.oauthApp || null;
+  const getEnvStatus = oauthApp ? oauthApp.getEnvStatus : options.getEnvStatus;
+
   function createIntegrationContext(connectionRow, signal) {
     let credentials = {};
     try {
@@ -216,14 +222,13 @@ function createOAuthProvider(options = {}) {
       credentials = {};
     }
     let credentialsUpdated = false;
+    const scope = { userId: connectionRow?.user_id, agentId: connectionRow?.agent_id };
     const context = {
       appId: connectionRow.app_key,
       connection: connectionRow,
       credentials,
-      env: options.getEnvStatus({
-        userId: connectionRow?.user_id,
-        agentId: connectionRow?.agent_id,
-      }),
+      env: getEnvStatus(scope),
+      oauth: oauthApp ? oauthApp.resolve(scope) : null,
       signal: signal || null,
       updateCredentials(nextCredentials) {
         if (!nextCredentials || typeof nextCredentials !== 'object') return;
@@ -254,7 +259,7 @@ function createOAuthProvider(options = {}) {
       return toolAppMap.get(String(toolName || '').trim()) || null;
     },
     getEnvStatus(context = {}) {
-      return options.getEnvStatus(context);
+      return getEnvStatus(context);
     },
     getToolDefinitions(toolOptions = {}) {
       const connectedAppIds = new Set(toolOptions.connectedAppIds || []);
@@ -313,6 +318,7 @@ function createOAuthProvider(options = {}) {
         agentId,
         app,
         env,
+        oauth: oauthApp ? oauthApp.resolve({ userId, agentId }) : null,
         signal,
       });
     },
@@ -338,6 +344,7 @@ function createOAuthProvider(options = {}) {
         state: normalizedState,
         app,
         env: this.getEnvStatus({ userId, agentId }),
+        oauth: oauthApp ? oauthApp.resolve({ userId, agentId }) : null,
         signal,
       });
     },
@@ -396,10 +403,7 @@ function createOAuthProvider(options = {}) {
     },
     summarizeForModel(snapshot) {
       if (!snapshot?.env?.configured) {
-        if (snapshot?.env?.setupMode === 'user') {
-          return `${this.label}: setup is user-managed and is not complete yet. If the user wants to use it, tell them to open Official Integrations and finish setup in their account first.`;
-        }
-        return `${this.label}: workspace setup is not complete yet. If the user wants to use it, tell them to open Official Integrations and ask an administrator to finish setup first.`;
+        return describeIncompleteSetupForModel(this.label, snapshot?.env);
       }
 
       const connectedApps = (snapshot.apps || []).filter((app) => app.connection.connected);
@@ -421,6 +425,8 @@ function createOAuthProvider(options = {}) {
       ].join('\n');
     },
   };
+
+  if (oauthApp) Object.assign(provider, oauthApp.userConfigHandlers);
 
   if (typeof options.testConnection === 'function') {
     provider.testConnection = async (connectionRow, executionOptions = {}) => {

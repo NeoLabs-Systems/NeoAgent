@@ -5377,12 +5377,6 @@ abstract class AppL10n {
   /// **'Every account on this server loses this shared key. Accounts '**
   String get everyAccountOnThisServerLoses;
 
-  /// No description provided for @everyAccountOnThisServerSecrets.
-  ///
-  /// In en, this message translates to:
-  /// **'every account on this server. Secrets are write-only: leave '**
-  String get everyAccountOnThisServerSecrets;
-
   /// No description provided for @everyAccountOnThisServerUses.
   ///
   /// In en, this message translates to:
@@ -6673,12 +6667,6 @@ abstract class AppL10n {
   /// **'Integration'**
   String get integration;
 
-  /// No description provided for @integrationApps.
-  ///
-  /// In en, this message translates to:
-  /// **'Integration apps'**
-  String get integrationApps;
-
   /// No description provided for @integrationConnections.
   ///
   /// In en, this message translates to:
@@ -7764,12 +7752,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Microsoft 365'**
   String get microsoft365;
-
-  /// No description provided for @microsoftSlackAndTheOtherIntegrations.
-  ///
-  /// In en, this message translates to:
-  /// **'Microsoft, Slack and the other integrations. They apply to '**
-  String get microsoftSlackAndTheOtherIntegrations;
 
   /// No description provided for @microsoftTeams.
   ///
@@ -9079,12 +9061,6 @@ abstract class AppL10n {
   /// **'NVIDIA NIM'**
   String get nvidiaNim;
 
-  /// No description provided for @oauthAppCredentialsThatLetAccounts.
-  ///
-  /// In en, this message translates to:
-  /// **'OAuth app credentials that let accounts connect Google, '**
-  String get oauthAppCredentialsThatLetAccounts;
-
   /// No description provided for @oauthClientId.
   ///
   /// In en, this message translates to:
@@ -9204,12 +9180,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Once'**
   String get once;
-
-  /// No description provided for @oneBlankToKeepWhatIs.
-  ///
-  /// In en, this message translates to:
-  /// **'one blank to keep what is stored.'**
-  String get oneBlankToKeepWhatIs;
 
   /// No description provided for @oneIsSavedOtherChangesIn.
   ///
@@ -19110,6 +19080,108 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'opt-in data sharing telemetry devices features tools models activity'**
   String get sharedUsageSearchKeywords;
+
+  /// No description provided for @yourOAuthApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Your OAuth app'**
+  String get yourOAuthApp;
+
+  /// No description provided for @oauthAppSetupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {provider} OAuth app'**
+  String oauthAppSetupTitle(String provider);
+
+  /// No description provided for @oauthAppSetupIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'This server has no global {provider} app, so you connect with an OAuth app you register yourself. The client secret is stored encrypted and is never shown again.'**
+  String oauthAppSetupIntro(String provider);
+
+  /// No description provided for @oauthAppStepCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'1. Create the app'**
+  String get oauthAppStepCreate;
+
+  /// No description provided for @openDeveloperConsole.
+  ///
+  /// In en, this message translates to:
+  /// **'Open developer console'**
+  String get openDeveloperConsole;
+
+  /// No description provided for @oauthAppStepCallback.
+  ///
+  /// In en, this message translates to:
+  /// **'2. Register this callback URL'**
+  String get oauthAppStepCallback;
+
+  /// No description provided for @callbackUrlCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Callback URL copied'**
+  String get callbackUrlCopied;
+
+  /// No description provided for @oauthAppScopes.
+  ///
+  /// In en, this message translates to:
+  /// **'Scopes to allow'**
+  String get oauthAppScopes;
+
+  /// No description provided for @scopesCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Scopes copied'**
+  String get scopesCopied;
+
+  /// No description provided for @oauthAppStepCredentials.
+  ///
+  /// In en, this message translates to:
+  /// **'3. Paste the app credentials'**
+  String get oauthAppStepCredentials;
+
+  /// No description provided for @couldNotSaveOAuthApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save the OAuth app.'**
+  String get couldNotSaveOAuthApp;
+
+  /// No description provided for @removeOAuthAppTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove your {provider} app?'**
+  String removeOAuthAppTitle(String provider);
+
+  /// No description provided for @removeOAuthAppBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected accounts stay listed but stop working until you add an app again.'**
+  String get removeOAuthAppBody;
+
+  /// No description provided for @globalIntegrationConfiguration.
+  ///
+  /// In en, this message translates to:
+  /// **'Global integration configuration'**
+  String get globalIntegrationConfiguration;
+
+  /// No description provided for @globalIntegrationConfigurationDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional server-wide OAuth apps. When an integration has one, every account uses it and cannot add its own. Leave an integration unset and each user sets up their own app instead. Secrets are write-only: leave one blank to keep what is stored.'**
+  String get globalIntegrationConfigurationDescription;
+
+  /// No description provided for @globalStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Global'**
+  String get globalStatus;
+
+  /// No description provided for @perUserStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Per user'**
+  String get perUserStatus;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

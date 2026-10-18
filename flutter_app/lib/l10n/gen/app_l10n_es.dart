@@ -3312,10 +3312,6 @@ class AppL10nEs extends AppL10n {
       'Cada cuenta en este servidor pierde esta clave compartida. Cuentas ';
 
   @override
-  String get everyAccountOnThisServerSecrets =>
-      'cada cuenta en este servidor. Los secretos son sólo de escritura: dejar ';
-
-  @override
   String get everyAccountOnThisServerUses =>
       'Cada cuenta en este servidor usa esta dirección para ';
 
@@ -4099,9 +4095,6 @@ class AppL10nEs extends AppL10n {
   String get integration => 'Integración';
 
   @override
-  String get integrationApps => 'Aplicaciones de integración';
-
-  @override
   String get integrationConnections => 'Conexiones de integración';
 
   @override
@@ -4751,10 +4744,6 @@ class AppL10nEs extends AppL10n {
 
   @override
   String get microsoft365 => 'microsoft 365';
-
-  @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack y las otras integraciones. Se aplican a ';
 
   @override
   String get microsoftTeams => 'Equipos de Microsoft';
@@ -5524,10 +5513,6 @@ class AppL10nEs extends AppL10n {
   String get nvidiaNim => 'NIM de NVIDIA';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'Credenciales de la aplicación OAuth que permiten que las cuentas se conecten a Google, ';
-
-  @override
   String get oauthClientId => 'ID de cliente de OAuth';
 
   @override
@@ -5599,10 +5584,6 @@ class AppL10nEs extends AppL10n {
 
   @override
   String get once => 'una vez';
-
-  @override
-  String get oneBlankToKeepWhatIs =>
-      'uno en blanco para guardar lo almacenado.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -11540,4 +11521,64 @@ class AppL10nEs extends AppL10n {
   @override
   String get sharedUsageSearchKeywords =>
       'compartir datos opt-in telemetría dispositivos funciones herramientas modelos actividad';
+
+  @override
+  String get yourOAuthApp => 'Tu app OAuth';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'Tu app OAuth de $provider';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Este servidor no tiene una app global de $provider, así que te conectas con una app OAuth que registras tú mismo. El secreto de cliente se guarda cifrado y no se vuelve a mostrar.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Crea la app';
+
+  @override
+  String get openDeveloperConsole => 'Abrir consola de desarrollador';
+
+  @override
+  String get oauthAppStepCallback => '2. Registra esta URL de callback';
+
+  @override
+  String get callbackUrlCopied => 'URL de callback copiada';
+
+  @override
+  String get oauthAppScopes => 'Scopes que permitir';
+
+  @override
+  String get scopesCopied => 'Scopes copiados';
+
+  @override
+  String get oauthAppStepCredentials => '3. Pega las credenciales de la app';
+
+  @override
+  String get couldNotSaveOAuthApp => 'No se pudo guardar la app OAuth.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return '¿Quitar tu app de $provider?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Las cuentas conectadas siguen en la lista, pero dejan de funcionar hasta que vuelvas a añadir una app.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Configuración global de integraciones';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Apps OAuth opcionales para todo el servidor. Si una integración tiene una, todas las cuentas la usan y no pueden añadir la suya. Deja una integración sin configurar y cada usuario configurará su propia app. Los secretos son de solo escritura: déjalo en blanco para conservar el valor guardado.';
+
+  @override
+  String get globalStatus => 'Global';
+
+  @override
+  String get perUserStatus => 'Por usuario';
 }

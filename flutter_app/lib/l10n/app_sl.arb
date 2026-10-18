@@ -2742,7 +2742,6 @@
   "every15Minutes": "Vsakih 15 minut",
   "every30Minutes": "Vsakih 30 minut",
   "everyAccountOnThisServerLoses": "Vsak račun na tem strežniku izgubi ta skupni ključ. Računi ",
-  "everyAccountOnThisServerSecrets": "vsak račun na tem strežniku. Skrivnosti so samo za pisanje: pusti ",
   "everyAccountOnThisServerUses": "Vsak račun na tem strežniku uporablja ta naslov za ",
   "everyActiveSessionForThisAccount": "Vsaka aktivna seja za ta račun se konča. Lahko se prijavijo ",
   "everyDay0800": "Vsak dan · 08:00",
@@ -3218,7 +3217,6 @@
   },
   "instructions": "Navodila",
   "integration": "Integracija",
-  "integrationApps": "Integracijske aplikacije",
   "integrationConnections": "Integracijske povezave",
   "integrationSettingsSaved": "Nastavitve integracije so shranjene.",
   "integrations": "Integracije",
@@ -3584,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Mikrofon izklopljen. Tapnite za vklop zvoka.",
   "microphonePermissionIsRequiredForLive": "Za glas v živo je potrebno dovoljenje za mikrofon.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack in druge integracije. Veljajo za ",
   "microsoftTeams": "Microsoft Teams",
   "minimumContributionValueArg1": "Najmanjša vrednost prispevka: {arg1}",
   "@minimumContributionValueArg1": {
@@ -4007,7 +4004,6 @@
   "nothingStoredYet": "Nič še ni shranjeno.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "Poverilnice aplikacije OAuth, ki računom omogočajo povezavo z Googlom, ",
   "oauthClientId": "ID odjemalca OAuth",
   "oauthClientIdSecretRedirectApi": "ID odjemalca oauth skrivni ključ API za preusmeritev",
   "oauthClientIdSecretRedirectGmail": "oauth id odjemalca skrivna preusmeritev gmail koledar pogon",
@@ -4045,7 +4041,6 @@
   "onTheyCanJoinAgainOnly": "na. Ponovno se lahko pridružijo le z novo povezavo s povabilom.",
   "onYourOwnTheDefault": "Sami (privzeto)",
   "once": "Enkrat",
-  "oneBlankToKeepWhatIs": "ena prazna, da ostane shranjeno.",
   "oneIsSavedOtherChangesIn": "eden je shranjen. Shranijo se tudi druge spremembe v tem obrazcu.",
   "oneOrMoreAccountsExpiredReconnect": "Eden ali več računov je poteklo. Znova povežite prizadeti račun, da obnovite dostop do orodja.",
   "oneRuntimeControlsPersonaGroupTurn": "En čas izvajanja nadzoruje osebnost, nadomestne skupine, pomnilnik sobe, norme, teorijo uma in dostavo.",
@@ -7081,5 +7076,43 @@
   "sharedUsageFeatureMemory": "Spomin",
   "sharedUsageSearchKeywords": "opt-in deljenje podatkov telemetrija naprave funkcije orodja modeli dejavnost",
   "providerChooseUsername": "Izberite uporabniško ime",
-  "providerChooseUsernameBody": "Izberite razpoložljivo uporabniško ime, da dokončate ustvarjanje računa."
+  "providerChooseUsernameBody": "Izberite razpoložljivo uporabniško ime, da dokončate ustvarjanje računa.",
+  "yourOAuthApp": "Vaša aplikacija OAuth",
+  "oauthAppSetupTitle": "Vaša aplikacija OAuth za {provider}",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Ta strežnik nima globalne aplikacije {provider}, zato se povežete z aplikacijo OAuth, ki jo registrirate sami. Skrivnost odjemalca je shranjena šifrirano in se ne prikaže nikoli več.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Ustvarite aplikacijo",
+  "openDeveloperConsole": "Odpri razvijalsko konzolo",
+  "oauthAppStepCallback": "2. Registrirajte ta URL za povratni klic",
+  "callbackUrlCopied": "URL za povratni klic kopiran",
+  "oauthAppScopes": "Obsegi za dovolitev",
+  "scopesCopied": "Obsegi kopirani",
+  "oauthAppStepCredentials": "3. Prilepite poverilnice aplikacije",
+  "couldNotSaveOAuthApp": "Aplikacije OAuth ni bilo mogoče shraniti.",
+  "removeOAuthAppTitle": "Odstranim vašo aplikacijo {provider}?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Povezani računi ostanejo na seznamu, vendar ne delujejo, dokler znova ne dodate aplikacije.",
+  "globalIntegrationConfiguration": "Globalna konfiguracija integracij",
+  "globalIntegrationConfigurationDescription": "Neobvezne aplikacije OAuth za celoten strežnik. Ko jo integracija ima, jo uporablja vsak račun in ne more dodati svoje. Pustite integracijo nenastavljeno in vsak uporabnik nastavi svojo aplikacijo. Skrivnosti je mogoče le zapisati: pustite prazno, da ohranite shranjeno vrednost.",
+  "globalStatus": "Globalno",
+  "perUserStatus": "Na uporabnika"
 }

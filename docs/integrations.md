@@ -17,13 +17,13 @@ Connect accounts under **Tools › Integrations**; each agent keeps its own conn
 
 | Provider | What the agent can use | Setup |
 | --- | --- | --- |
-| Google Workspace | Gmail, Calendar, Drive, Docs, Sheets | Server OAuth app (`GOOGLE_OAUTH_*`) |
-| Microsoft 365 | Outlook, Calendar, OneDrive, Teams | Server OAuth app (`MICROSOFT_OAUTH_*`) |
-| GitHub | Repositories, issues, pull requests, files, branches, workflows; **Mentions** channel | Server OAuth app (`GITHUB_OAUTH_*`) |
-| Notion | Pages, databases, blocks, search | Server OAuth app (`NOTION_OAUTH_*`) |
-| Slack | Conversations, history, search, messages | Server OAuth app (`SLACK_OAUTH_*`) |
-| Figma | Files, nodes, rendered images, comments | Server OAuth app (`FIGMA_OAUTH_*`) |
-| Spotify | Playback control, recently played, search | Server OAuth app (`SPOTIFY_OAUTH_*`) |
+| Google Workspace | Gmail, Calendar, Drive, Docs, Sheets | [OAuth app](#oauth-apps) |
+| Microsoft 365 | Outlook, Calendar, OneDrive, Teams | [OAuth app](#oauth-apps) |
+| GitHub | Repositories, issues, pull requests, files, branches, workflows; **Mentions** channel | [OAuth app](#oauth-apps) |
+| Notion | Pages, databases, blocks, search | [OAuth app](#oauth-apps) |
+| Slack | Conversations, history, search, messages | [OAuth app](#oauth-apps) |
+| Figma | Files, nodes, rendered images, comments | [OAuth app](#oauth-apps) |
+| Spotify | Playback control, recently played, search | [OAuth app](#oauth-apps) |
 | NeoRecall | Read-only search, memories, daily summaries, conversations | Your NeoRecall URL, then NeoRecall sign-in |
 | Nextcloud | Files, shares, Calendar, Contacts, other apps via OCS | Your Nextcloud URL, then Nextcloud sign-in |
 | Home Assistant | Entity states and service calls | HTTPS URL and a Long-Lived Access Token |
@@ -35,7 +35,6 @@ Connect accounts under **Tools › Integrations**; each agent keeps its own conn
 
 - **Several accounts.** Most providers accept many accounts per agent. Home Assistant, World News, Trello and Bitwarden take one.
 - **Approval.** Integration tools fall under **External & MCP Tools**, which asks first by default.
-- **Hidden until configured.** An OAuth provider only appears once its server credentials are set.
 
 ### Read Only accounts
 
@@ -43,18 +42,14 @@ Connect accounts under **Tools › Integrations**; each agent keeps its own conn
 - **Enforced on the server.** Write tools of a Read Only account are blocked, whatever the model attempts.
 - **Unknown means write.** A tool that does not declare itself read-only counts as a write.
 
-### OAuth setup on the server
+### OAuth apps {#oauth-apps}
 
-1. Register an OAuth app with the provider.
-2. Set its callback URL to `PUBLIC_URL/api/integrations/oauth/callback`.
-3. Enter the client ID and secret under **Admin › Integrations**, or set `<PREFIX>_OAUTH_CLIENT_ID` and `<PREFIX>_OAUTH_CLIENT_SECRET` with `neoagent env set`.
+1. Open the provider in **Tools › Integrations** and choose **Configure**.
+2. Follow the dialog: open the provider's developer console, register the callback URL it shows, and allow the listed scopes.
+3. Paste the client ID and secret, save, then connect your accounts.
 
-- **Prefixes.** `GOOGLE`, `MICROSOFT`, `GITHUB`, `NOTION`, `SLACK`, `FIGMA`, `SPOTIFY`.
-- **Microsoft tenant.** `MICROSOFT_OAUTH_TENANT_ID` defaults to `common`.
-- **Optional redirect.** `<PREFIX>_OAUTH_REDIRECT_URI` overrides the default callback.
-- **Trello.** A shared `TRELLO_API_KEY` set here spares users from entering their own key.
-
-Full variable list: [Configuration](configuration.md).
+- **One app per account.** It is shared by all your agents; the client secret is stored encrypted and never shown again.
+- **Global app.** When an admin sets a global app under **Admin › Integrations**, every account uses it and per-user setup is hidden. See [Configuration](configuration.md#official-integrations).
 
 ### NeoRecall
 
@@ -129,6 +124,6 @@ Approved people @mention the agent's GitHub account on an issue or pull request,
 ## 🩺 Troubleshooting
 
 - **OAuth fails.** Check `PUBLIC_URL`, the callback URL, client credentials and provider scopes.
-- **Provider missing in Tools.** Its server OAuth credentials are not set.
+- **Callback rejected.** The callback URL comes from `PUBLIC_URL`; set it to the address your browser uses.
 - **Messages ignored.** Check **Who can message**, then the run list under **Runs** and the server logs.
 - **Webhook channel silent.** Confirm `PUBLIC_URL` is reachable from the platform and the shared secret matches.

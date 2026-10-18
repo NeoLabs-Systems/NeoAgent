@@ -3283,10 +3283,6 @@ class AppL10nSv extends AppL10n {
       'Varje konto på den här servern förlorar denna delade nyckel. konton ';
 
   @override
-  String get everyAccountOnThisServerSecrets =>
-      'varje konto på denna server. Hemligheter är skrivbara: lämna ';
-
-  @override
   String get everyAccountOnThisServerUses =>
       'Varje konto på denna server använder denna adress för ';
 
@@ -4064,9 +4060,6 @@ class AppL10nSv extends AppL10n {
   String get integration => 'Integration';
 
   @override
-  String get integrationApps => 'Integrationsappar';
-
-  @override
   String get integrationConnections => 'Integrationsanslutningar';
 
   @override
@@ -4706,10 +4699,6 @@ class AppL10nSv extends AppL10n {
 
   @override
   String get microsoft365 => 'Microsoft 365';
-
-  @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack och de andra integrationerna. De gäller till ';
 
   @override
   String get microsoftTeams => 'Microsoft Teams';
@@ -5471,10 +5460,6 @@ class AppL10nSv extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'OAuth-appreferenser som låter konton koppla Google, ';
-
-  @override
   String get oauthClientId => 'OAuth-klient-ID';
 
   @override
@@ -5545,9 +5530,6 @@ class AppL10nSv extends AppL10n {
 
   @override
   String get once => 'En gång';
-
-  @override
-  String get oneBlankToKeepWhatIs => 'en tom för att behålla det som lagras.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -11436,4 +11418,64 @@ class AppL10nSv extends AppL10n {
   @override
   String get sharedUsageSearchKeywords =>
       'opt-in datadelning telemetri enheter funktioner verktyg modeller aktivitet';
+
+  @override
+  String get yourOAuthApp => 'Din OAuth-app';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'Din OAuth-app för $provider';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Den här servern har ingen global $provider-app, så du ansluter med en OAuth-app som du registrerar själv. Klienthemligheten lagras krypterad och visas aldrig igen.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Skapa appen';
+
+  @override
+  String get openDeveloperConsole => 'Öppna utvecklarkonsolen';
+
+  @override
+  String get oauthAppStepCallback => '2. Registrera den här callback-URL:en';
+
+  @override
+  String get callbackUrlCopied => 'Callback-URL kopierad';
+
+  @override
+  String get oauthAppScopes => 'Scopes att tillåta';
+
+  @override
+  String get scopesCopied => 'Scopes kopierade';
+
+  @override
+  String get oauthAppStepCredentials => '3. Klistra in appens uppgifter';
+
+  @override
+  String get couldNotSaveOAuthApp => 'Det gick inte att spara OAuth-appen.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Ta bort din $provider-app?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Anslutna konton finns kvar i listan men slutar fungera tills du lägger till en app igen.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Global integrationskonfiguration';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Valfria OAuth-appar för hela servern. När en integration har en använder alla konton den och kan inte lägga till en egen. Lämna en integration tom så konfigurerar varje användare sin egen app. Hemligheter är skrivskyddade: lämna tomt för att behålla det sparade värdet.';
+
+  @override
+  String get globalStatus => 'Global';
+
+  @override
+  String get perUserStatus => 'Per användare';
 }

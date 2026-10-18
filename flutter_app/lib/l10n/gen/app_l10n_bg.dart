@@ -3287,10 +3287,6 @@ class AppL10nBg extends AppL10n {
       'Всеки акаунт на този сървър губи този споделен ключ. Сметки ';
 
   @override
-  String get everyAccountOnThisServerSecrets =>
-      'всеки акаунт на този сървър. Тайните са само за писане: оставете ';
-
-  @override
   String get everyAccountOnThisServerUses =>
       'Всеки акаунт на този сървър използва този адрес за ';
 
@@ -4067,9 +4063,6 @@ class AppL10nBg extends AppL10n {
   String get integration => 'Интеграция';
 
   @override
-  String get integrationApps => 'Приложения за интегриране';
-
-  @override
   String get integrationConnections => 'Интеграционни връзки';
 
   @override
@@ -4718,10 +4711,6 @@ class AppL10nBg extends AppL10n {
 
   @override
   String get microsoft365 => 'Microsoft 365';
-
-  @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack и други интеграции. Те се отнасят за ';
 
   @override
   String get microsoftTeams => 'Microsoft Teams';
@@ -5488,10 +5477,6 @@ class AppL10nBg extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'Идентификационните данни на приложението OAuth, които позволяват на акаунтите да се свързват с Google, ';
-
-  @override
   String get oauthClientId => 'OAuth ИД на клиента';
 
   @override
@@ -5563,10 +5548,6 @@ class AppL10nBg extends AppL10n {
 
   @override
   String get once => 'Веднъж';
-
-  @override
-  String get oneBlankToKeepWhatIs =>
-      'една празна, за да запазите това, което се съхранява.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -11491,4 +11472,66 @@ class AppL10nBg extends AppL10n {
   @override
   String get sharedUsageSearchKeywords =>
       'opt-in споделяне на данни телеметрия устройства функции инструменти модели активност';
+
+  @override
+  String get yourOAuthApp => 'Вашето OAuth приложение';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'Вашето OAuth приложение за $provider';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Този сървър няма глобално приложение за $provider, затова се свързвате с OAuth приложение, което регистрирате сами. Клиентската тайна се съхранява криптирана и никога повече не се показва.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Създайте приложението';
+
+  @override
+  String get openDeveloperConsole => 'Отвори конзолата за разработчици';
+
+  @override
+  String get oauthAppStepCallback => '2. Регистрирайте този callback URL';
+
+  @override
+  String get callbackUrlCopied => 'Callback URL е копиран';
+
+  @override
+  String get oauthAppScopes => 'Обхвати за разрешаване';
+
+  @override
+  String get scopesCopied => 'Обхватите са копирани';
+
+  @override
+  String get oauthAppStepCredentials =>
+      '3. Поставете данните за достъп на приложението';
+
+  @override
+  String get couldNotSaveOAuthApp =>
+      'OAuth приложението не можа да бъде запазено.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Да се премахне ли вашето приложение за $provider?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Свързаните акаунти остават в списъка, но спират да работят, докато не добавите приложение отново.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Глобална конфигурация на интеграциите';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Незадължителни OAuth приложения за целия сървър. Когато интеграция има такова, всеки акаунт го използва и не може да добави свое. Оставете интеграцията незададена и всеки потребител настройва собствено приложение. Тайните са само за запис: оставете празно, за да запазите съхранената стойност.';
+
+  @override
+  String get globalStatus => 'Глобално';
+
+  @override
+  String get perUserStatus => 'За потребител';
 }

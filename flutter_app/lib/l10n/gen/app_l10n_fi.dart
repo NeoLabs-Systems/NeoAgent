@@ -3287,10 +3287,6 @@ class AppL10nFi extends AppL10n {
       'Jokainen tämän palvelimen tili menettää tämän jaetun avaimen. Tilit ';
 
   @override
-  String get everyAccountOnThisServerSecrets =>
-      'jokainen tili tällä palvelimella. Salaisuudet ovat vain kirjoitus: jätä ';
-
-  @override
   String get everyAccountOnThisServerUses =>
       'Jokainen tili tällä palvelimella käyttää tätä osoitetta ';
 
@@ -4070,9 +4066,6 @@ class AppL10nFi extends AppL10n {
   String get integration => 'Integrointi';
 
   @override
-  String get integrationApps => 'Integrointisovellukset';
-
-  @override
   String get integrationConnections => 'Integraatioyhteydet';
 
   @override
@@ -4714,10 +4707,6 @@ class AppL10nFi extends AppL10n {
 
   @override
   String get microsoft365 => 'Microsoft 365';
-
-  @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack ja muut integraatiot. Ne koskevat ';
 
   @override
   String get microsoftTeams => 'Microsoft Teams';
@@ -5479,10 +5468,6 @@ class AppL10nFi extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'OAuth-sovelluksen kirjautumistiedot, joiden avulla tilit voivat yhdistää Googlen, ';
-
-  @override
   String get oauthClientId => 'OAuth-asiakastunnus';
 
   @override
@@ -5554,10 +5539,6 @@ class AppL10nFi extends AppL10n {
 
   @override
   String get once => 'Kerran';
-
-  @override
-  String get oneBlankToKeepWhatIs =>
-      'yksi tyhjä, jotta se säilyttää mitä on tallennettu.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -11452,4 +11433,64 @@ class AppL10nFi extends AppL10n {
   @override
   String get sharedUsageSearchKeywords =>
       'opt-in tietojen jakaminen telemetria laitteet toiminnot työkalut mallit aktiivisuus';
+
+  @override
+  String get yourOAuthApp => 'OAuth-sovelluksesi';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return '$provider-OAuth-sovelluksesi';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Tällä palvelimella ei ole yleistä $provider-sovellusta, joten yhdistät itse rekisteröimälläsi OAuth-sovelluksella. Asiakassalaisuus tallennetaan salattuna eikä sitä näytetä enää koskaan.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Luo sovellus';
+
+  @override
+  String get openDeveloperConsole => 'Avaa kehittäjäkonsoli';
+
+  @override
+  String get oauthAppStepCallback => '2. Rekisteröi tämä paluu-URL';
+
+  @override
+  String get callbackUrlCopied => 'Paluu-URL kopioitu';
+
+  @override
+  String get oauthAppScopes => 'Sallittavat scopet';
+
+  @override
+  String get scopesCopied => 'Scopet kopioitu';
+
+  @override
+  String get oauthAppStepCredentials => '3. Liitä sovelluksen tunnukset';
+
+  @override
+  String get couldNotSaveOAuthApp => 'OAuth-sovellusta ei voitu tallentaa.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Poistetaanko $provider-sovelluksesi?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Yhdistetyt tilit pysyvät listassa, mutta lakkaavat toimimasta, kunnes lisäät sovelluksen uudelleen.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Integraatioiden yleiset asetukset';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Valinnaiset koko palvelimen OAuth-sovellukset. Kun integraatiolla on sellainen, jokainen tili käyttää sitä eikä voi lisätä omaansa. Jätä integraatio tyhjäksi, niin jokainen käyttäjä määrittää oman sovelluksensa. Salaisuudet ovat vain kirjoitettavia: jätä tyhjäksi säilyttääksesi tallennetun arvon.';
+
+  @override
+  String get globalStatus => 'Yleinen';
+
+  @override
+  String get perUserStatus => 'Käyttäjäkohtainen';
 }

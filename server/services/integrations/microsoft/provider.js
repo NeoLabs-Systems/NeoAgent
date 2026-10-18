@@ -1,6 +1,6 @@
 'use strict';
 
-const { describeEnvStatus, resolveMicrosoftOAuthConfig } = require('../env');
+const { createOAuthApp } = require('../oauth_app');
 const {
   appendQuery,
   buildPinnedApiUrl,
@@ -196,11 +196,9 @@ const microsoftToolDefinitions = [
   graphApiTool('teams', 'Teams'),
 ];
 
-function getMicrosoftEndpoints() {
-  const config = resolveMicrosoftOAuthConfig();
+function getMicrosoftEndpoints(config) {
   const tenant = encodeURIComponent(config.tenantId);
   return {
-    config,
     authorizeUrl: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize`,
     tokenUrl: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`,
   };
@@ -220,14 +218,14 @@ function graphUrl(path, query) {
   }).toString();
 }
 
-async function refreshMicrosoftCredentials(credentials, signal) {
+async function refreshMicrosoftCredentials(config, credentials, signal) {
   const refreshToken = String(credentials?.refresh_token || '').trim();
   if (!refreshToken) {
     throw new Error(
       'Microsoft 365 refresh token is missing. Reconnect this integration account.',
     );
   }
-  const { config, tokenUrl } = getMicrosoftEndpoints();
+  const { tokenUrl } = getMicrosoftEndpoints(config);
   const token = await fetchJson(
     tokenUrl,
     {
@@ -262,7 +260,7 @@ async function graphRequest(context, {
 }) {
   const { signal } = context;
   return withRefreshedOAuthCredentials(context, {
-    refresh: refreshMicrosoftCredentials,
+    refresh: (credentials, refreshSignal) => refreshMicrosoftCredentials(context.oauth, credentials, refreshSignal),
     request: (activeCredentials) => fetchJson(
       graphUrl(path, query),
       {
@@ -618,13 +616,23 @@ function createMicrosoftProvider() {
     toolDefinitions: microsoftToolDefinitions,
     connectPrompt:
       'Connect Microsoft 365 to work with Outlook mail, calendars, OneDrive files, and Teams chats.',
-    getEnvStatus() {
-      return describeEnvStatus(resolveMicrosoftOAuthConfig(), {
-        label: 'Microsoft 365',
-      });
-    },
-    async beginOAuth({ state, app }) {
-      const { config, authorizeUrl } = getMicrosoftEndpoints();
+    oauthApp: createOAuthApp({
+      providerKey: 'microsoft_365',
+      label: 'Microsoft 365',
+      envPrefix: 'MICROSOFT',
+      consoleUrl: 'https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
+      notes: 'Register an app with a Web redirect URI set to the callback URL, create a client secret under Certificates & secrets, and add these delegated Microsoft Graph permissions.',
+      scopes: MICROSOFT_APPS.flatMap((app) => app.scopes),
+      fields: [{
+        name: 'tenantId',
+        label: 'Tenant ID',
+        env: 'MICROSOFT_OAUTH_TENANT_ID',
+        defaultValue: 'common',
+        hint: 'Leave blank to allow any work, school or personal account, or enter your directory (tenant) ID.',
+      }],
+    }),
+    async beginOAuth({ state, app, oauth: config }) {
+      const { authorizeUrl } = getMicrosoftEndpoints(config);
       return {
         url: appendQuery(authorizeUrl, {
           client_id: config.clientId,
@@ -638,8 +646,8 @@ function createMicrosoftProvider() {
         appId: app.id,
       };
     },
-    async finishOAuth({ code, app, signal }) {
-      const { config, tokenUrl } = getMicrosoftEndpoints();
+    async finishOAuth({ code, app, signal, oauth: config }) {
+      const { tokenUrl } = getMicrosoftEndpoints(config);
       const token = await fetchJson(
         tokenUrl,
         {

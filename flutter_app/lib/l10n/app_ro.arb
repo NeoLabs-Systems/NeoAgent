@@ -2742,7 +2742,6 @@
   "every15Minutes": "La fiecare 15 minute",
   "every30Minutes": "La fiecare 30 de minute",
   "everyAccountOnThisServerLoses": "Fiecare cont de pe acest server pierde această cheie partajată. Conturi ",
-  "everyAccountOnThisServerSecrets": "fiecare cont de pe acest server. Secretele sunt doar scrise: plecați ",
   "everyAccountOnThisServerUses": "Fiecare cont de pe acest server folosește această adresă pentru ",
   "everyActiveSessionForThisAccount": "Fiecare sesiune activă pentru acest cont se încheie. Se pot conecta ",
   "everyDay0800": "În fiecare zi · 08:00",
@@ -3218,7 +3217,6 @@
   },
   "instructions": "Instrucțiuni",
   "integration": "Integrarea",
-  "integrationApps": "Aplicații de integrare",
   "integrationConnections": "Conexiuni de integrare",
   "integrationSettingsSaved": "Setările de integrare au fost salvate.",
   "integrations": "Integrari",
@@ -3584,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Microfonul este dezactivat. Atingeți pentru a activa sunetul.",
   "microphonePermissionIsRequiredForLive": "Este necesară permisiunea microfonului pentru vocea live.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack și celelalte integrări. Se aplică la ",
   "microsoftTeams": "Microsoft Teams",
   "minimumContributionValueArg1": "Valoarea minimă a contribuției: {arg1}",
   "@minimumContributionValueArg1": {
@@ -4007,7 +4004,6 @@
   "nothingStoredYet": "Nimic încă stocat.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "Acreditările aplicației OAuth care permit conturilor să conecteze Google, ",
   "oauthClientId": "ID client OAuth",
   "oauthClientIdSecretRedirectApi": "oauth client id secret redirecționare cheie API",
   "oauthClientIdSecretRedirectGmail": "oauth client id secret redirecționare gmail calendar drive",
@@ -4045,7 +4041,6 @@
   "onTheyCanJoinAgainOnly": "pe. Se pot alătura din nou numai cu un nou link de invitație.",
   "onYourOwnTheDefault": "Pe cont propriu (prestabilit)",
   "once": "Odată",
-  "oneBlankToKeepWhatIs": "unul gol pentru a păstra ceea ce este depozitat.",
   "oneIsSavedOtherChangesIn": "unul este salvat. Sunt salvate și alte modificări din acest formular.",
   "oneOrMoreAccountsExpiredReconnect": "Unul sau mai multe conturi au expirat. Reconectați contul afectat pentru a restabili accesul la instrument.",
   "oneRuntimeControlsPersonaGroupTurn": "Un timp de rulare controlează persoana, turnarea în grup, memoria camerei, normele, teoria minții și livrarea.",
@@ -7081,5 +7076,43 @@
   "sharedUsageFeatureMemory": "Memorie",
   "sharedUsageSearchKeywords": "opt-in partajare date telemetrie dispozitive funcții instrumente modele activitate",
   "providerChooseUsername": "Alege-ți numele de utilizator",
-  "providerChooseUsernameBody": "Alege un nume de utilizator disponibil pentru a finaliza crearea contului."
+  "providerChooseUsernameBody": "Alege un nume de utilizator disponibil pentru a finaliza crearea contului.",
+  "yourOAuthApp": "Aplicația ta OAuth",
+  "oauthAppSetupTitle": "Aplicația ta OAuth {provider}",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Acest server nu are o aplicație {provider} globală, așa că te conectezi cu o aplicație OAuth pe care o înregistrezi tu. Secretul clientului este stocat criptat și nu mai este afișat niciodată.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Creează aplicația",
+  "openDeveloperConsole": "Deschide consola pentru dezvoltatori",
+  "oauthAppStepCallback": "2. Înregistrează acest URL de callback",
+  "callbackUrlCopied": "URL de callback copiat",
+  "oauthAppScopes": "Scope-uri de permis",
+  "scopesCopied": "Scope-uri copiate",
+  "oauthAppStepCredentials": "3. Lipește datele de autentificare ale aplicației",
+  "couldNotSaveOAuthApp": "Aplicația OAuth nu a putut fi salvată.",
+  "removeOAuthAppTitle": "Elimini aplicația ta {provider}?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Conturile conectate rămân în listă, dar nu mai funcționează până nu adaugi din nou o aplicație.",
+  "globalIntegrationConfiguration": "Configurație globală a integrărilor",
+  "globalIntegrationConfigurationDescription": "Aplicații OAuth opționale pentru tot serverul. Când o integrare are una, fiecare cont o folosește și nu își poate adăuga propria aplicație. Lasă o integrare nesetată și fiecare utilizator își configurează propria aplicație. Secretele pot fi doar scrise: lasă gol pentru a păstra valoarea stocată.",
+  "globalStatus": "Global",
+  "perUserStatus": "Per utilizator"
 }

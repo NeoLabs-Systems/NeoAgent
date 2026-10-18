@@ -2742,7 +2742,6 @@
   "every15Minutes": "Každých 15 minút",
   "every30Minutes": "Každých 30 minút",
   "everyAccountOnThisServerLoses": "Každý účet na tomto serveri stratí tento zdieľaný kľúč. účty ",
-  "everyAccountOnThisServerSecrets": "každý účet na tomto serveri. Tajomstvá sú určené len na zápis: odíďte ",
   "everyAccountOnThisServerUses": "Každý účet na tomto serveri používa túto adresu ",
   "everyActiveSessionForThisAccount": "Každá aktívna relácia pre tento účet končí. Môžu sa prihlásiť ",
   "everyDay0800": "Každý deň · 08:00",
@@ -3218,7 +3217,6 @@
   },
   "instructions": "Pokyny",
   "integration": "integrácia",
-  "integrationApps": "Integračné aplikácie",
   "integrationConnections": "Integračné spojenia",
   "integrationSettingsSaved": "Nastavenia integrácie boli uložené.",
   "integrations": "integrácií",
@@ -3584,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Mikrofón je stlmený. Klepnutím zapnete zvuk.",
   "microphonePermissionIsRequiredForLive": "Pre živý hlas sa vyžaduje povolenie mikrofónu.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack a ďalšie integrácie. Vzťahujú sa na ",
   "microsoftTeams": "Microsoft Teams",
   "minimumContributionValueArg1": "Minimálna hodnota príspevku: {arg1}",
   "@minimumContributionValueArg1": {
@@ -4007,7 +4004,6 @@
   "nothingStoredYet": "Zatiaľ nie je nič uložené.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "poverenia aplikácie OAuth, ktoré umožňujú účtom prepojiť Google, ",
   "oauthClientId": "ID klienta OAuth",
   "oauthClientIdSecretRedirectApi": "ID klienta oauth tajný kľúč api presmerovania",
   "oauthClientIdSecretRedirectGmail": "oauth ID klienta tajné presmerovanie gmail kalendár disk",
@@ -4045,7 +4041,6 @@
   "onTheyCanJoinAgainOnly": "na. Znova sa môžu pripojiť iba pomocou nového odkazu na pozvánku.",
   "onYourOwnTheDefault": "Na vlastnú päsť (predvolené)",
   "once": "Raz",
-  "oneBlankToKeepWhatIs": "jeden prázdny, aby sa zachovalo to, čo je uložené.",
   "oneIsSavedOtherChangesIn": "jeden je zachránený. Ostatné zmeny v tomto formulári sa tiež uložia.",
   "oneOrMoreAccountsExpiredReconnect": "Platnosť jedného alebo viacerých účtov vypršala. Ak chcete obnoviť prístup k nástroju, znova pripojte príslušný účet.",
   "oneRuntimeControlsPersonaGroupTurn": "Jeden runtime riadi osobu, skupinové poradie, pamäť miestnosti, normy, teóriu mysle a doručenie.",
@@ -7081,5 +7076,43 @@
   "sharedUsageFeatureMemory": "Pamäť",
   "sharedUsageSearchKeywords": "opt-in zdieľanie údajov telemetria zariadenia funkcie nástroje modely aktivita",
   "providerChooseUsername": "Zvoľte si používateľské meno",
-  "providerChooseUsernameBody": "Zvoľte si dostupné používateľské meno a dokončite vytvorenie účtu."
+  "providerChooseUsernameBody": "Zvoľte si dostupné používateľské meno a dokončite vytvorenie účtu.",
+  "yourOAuthApp": "Vaša OAuth aplikácia",
+  "oauthAppSetupTitle": "Vaša OAuth aplikácia {provider}",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Tento server nemá globálnu aplikáciu {provider}, preto sa pripájate cez OAuth aplikáciu, ktorú si zaregistrujete sami. Tajný kľúč klienta sa uloží šifrovane a už sa nikdy nezobrazí.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Vytvorte aplikáciu",
+  "openDeveloperConsole": "Otvoriť vývojársku konzolu",
+  "oauthAppStepCallback": "2. Zaregistrujte túto callback URL",
+  "callbackUrlCopied": "Callback URL skopírovaná",
+  "oauthAppScopes": "Povolené scopy",
+  "scopesCopied": "Scopy skopírované",
+  "oauthAppStepCredentials": "3. Vložte prihlasovacie údaje aplikácie",
+  "couldNotSaveOAuthApp": "OAuth aplikáciu sa nepodarilo uložiť.",
+  "removeOAuthAppTitle": "Odstrániť vašu aplikáciu {provider}?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Pripojené účty zostanú v zozname, ale prestanú fungovať, kým znova nepridáte aplikáciu.",
+  "globalIntegrationConfiguration": "Globálna konfigurácia integrácií",
+  "globalIntegrationConfigurationDescription": "Voliteľné OAuth aplikácie pre celý server. Ak ju integrácia má, používa ju každý účet a nemôže pridať vlastnú. Nechajte integráciu nenastavenú a každý používateľ si nastaví vlastnú aplikáciu. Tajné údaje sa dajú iba zapisovať: nechajte prázdne, ak chcete zachovať uloženú hodnotu.",
+  "globalStatus": "Globálne",
+  "perUserStatus": "Pre používateľa"
 }

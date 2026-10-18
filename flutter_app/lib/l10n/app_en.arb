@@ -2742,7 +2742,6 @@
   "every15Minutes": "Every 15 minutes",
   "every30Minutes": "Every 30 minutes",
   "everyAccountOnThisServerLoses": "Every account on this server loses this shared key. Accounts ",
-  "everyAccountOnThisServerSecrets": "every account on this server. Secrets are write-only: leave ",
   "everyAccountOnThisServerUses": "Every account on this server uses this address for ",
   "everyActiveSessionForThisAccount": "Every active session for this account ends. They can sign in ",
   "everyDay0800": "Every day · 08:00",
@@ -3218,7 +3217,6 @@
   },
   "instructions": "Instructions",
   "integration": "Integration",
-  "integrationApps": "Integration apps",
   "integrationConnections": "Integration connections",
   "integrationSettingsSaved": "Integration settings saved.",
   "integrations": "Integrations",
@@ -3584,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Microphone muted. Tap to unmute.",
   "microphonePermissionIsRequiredForLive": "Microphone permission is required for live voice.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack and the other integrations. They apply to ",
   "microsoftTeams": "Microsoft Teams",
   "minimumContributionValueArg1": "Minimum contribution value: {arg1}",
   "@minimumContributionValueArg1": {
@@ -4007,7 +4004,6 @@
   "nothingStoredYet": "Nothing stored yet.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "OAuth app credentials that let accounts connect Google, ",
   "oauthClientId": "OAuth Client ID",
   "oauthClientIdSecretRedirectApi": "oauth client id secret redirect api key",
   "oauthClientIdSecretRedirectGmail": "oauth client id secret redirect gmail calendar drive",
@@ -4045,7 +4041,6 @@
   "onTheyCanJoinAgainOnly": "on. They can join again only with a new invite link.",
   "onYourOwnTheDefault": "On your own (the default)",
   "once": "Once",
-  "oneBlankToKeepWhatIs": "one blank to keep what is stored.",
   "oneIsSavedOtherChangesIn": "one is saved. Other changes in this form are saved too.",
   "oneOrMoreAccountsExpiredReconnect": "One or more accounts expired. Reconnect the affected account to restore tool access.",
   "oneRuntimeControlsPersonaGroupTurn": "One runtime controls persona, group turn-taking, room memory, norms, Theory of Mind, and delivery.",
@@ -7171,5 +7166,43 @@
   "sharedUsageFeatureIntegrations": "Integrations",
   "sharedUsageFeatureMessaging": "Messaging channels",
   "sharedUsageFeatureMemory": "Memory",
-  "sharedUsageSearchKeywords": "opt-in data sharing telemetry devices features tools models activity"
+  "sharedUsageSearchKeywords": "opt-in data sharing telemetry devices features tools models activity",
+  "yourOAuthApp": "Your OAuth app",
+  "oauthAppSetupTitle": "Your {provider} OAuth app",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "This server has no global {provider} app, so you connect with an OAuth app you register yourself. The client secret is stored encrypted and is never shown again.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Create the app",
+  "openDeveloperConsole": "Open developer console",
+  "oauthAppStepCallback": "2. Register this callback URL",
+  "callbackUrlCopied": "Callback URL copied",
+  "oauthAppScopes": "Scopes to allow",
+  "scopesCopied": "Scopes copied",
+  "oauthAppStepCredentials": "3. Paste the app credentials",
+  "couldNotSaveOAuthApp": "Could not save the OAuth app.",
+  "removeOAuthAppTitle": "Remove your {provider} app?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Connected accounts stay listed but stop working until you add an app again.",
+  "globalIntegrationConfiguration": "Global integration configuration",
+  "globalIntegrationConfigurationDescription": "Optional server-wide OAuth apps. When an integration has one, every account uses it and cannot add its own. Leave an integration unset and each user sets up their own app instead. Secrets are write-only: leave one blank to keep what is stored.",
+  "globalStatus": "Global",
+  "perUserStatus": "Per user"
 }

@@ -2742,7 +2742,6 @@
   "every15Minutes": "Iga 15 minuti järel",
   "every30Minutes": "Iga 30 minuti järel",
   "everyAccountOnThisServerLoses": "Kõik selle serveri kontod kaotavad selle jagatud võtme. Kontod ",
-  "everyAccountOnThisServerSecrets": "iga selle serveri konto. Saladused on ainult kirjutamiseks: lahku ",
   "everyAccountOnThisServerUses": "Iga selle serveri konto kasutab seda aadressi ",
   "everyActiveSessionForThisAccount": "Iga selle konto aktiivne seanss lõpeb. Nad saavad sisse logida ",
   "everyDay0800": "Iga päev · 08:00",
@@ -3218,7 +3217,6 @@
   },
   "instructions": "Juhised",
   "integration": "Integratsioon",
-  "integrationApps": "Integratsioonirakendused",
   "integrationConnections": "Integratsiooniühendused",
   "integrationSettingsSaved": "Integratsiooniseaded on salvestatud.",
   "integrations": "Integratsioonid",
@@ -3584,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Mikrofon vaigistatud. Vaigistuse tühistamiseks puudutage.",
   "microphonePermissionIsRequiredForLive": "Reaalajas hääle jaoks on vaja mikrofoni luba.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack ja muud integratsioonid. Need kehtivad ",
   "microsoftTeams": "Microsoft Teams",
   "minimumContributionValueArg1": "Minimaalne sissemakse väärtus: {arg1}",
   "@minimumContributionValueArg1": {
@@ -4007,7 +4004,6 @@
   "nothingStoredYet": "Midagi pole veel salvestatud.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "OAuthi rakenduse mandaadid, mis võimaldavad kontodel Google'iga ühendada, ",
   "oauthClientId": "OAuthi kliendi ID",
   "oauthClientIdSecretRedirectApi": "oauth kliendi ID salajane ümbersuunamise api võti",
   "oauthClientIdSecretRedirectGmail": "oauth kliendi ID salajane ümbersuunamine Gmaili kalendri draiv",
@@ -4045,7 +4041,6 @@
   "onTheyCanJoinAgainOnly": "sisse. Nad saavad uuesti liituda ainult uue kutselingiga.",
   "onYourOwnTheDefault": "Üksinda (vaikimisi)",
   "once": "Üks kord",
-  "oneBlankToKeepWhatIs": "üks tühi, et hoida seda, mis on salvestatud.",
   "oneIsSavedOtherChangesIn": "üks on päästetud. Ka muud selle vormi muudatused salvestatakse.",
   "oneOrMoreAccountsExpiredReconnect": "Üks või mitu kontot on aegunud. Tööriistale juurdepääsu taastamiseks ühendage mõjutatud konto uuesti.",
   "oneRuntimeControlsPersonaGroupTurn": "Üks käitusaeg kontrollib isikut, grupi kordamist, ruumi mälu, norme, mõistuse teooriat ja kohaletoimetamist.",
@@ -7081,5 +7076,43 @@
   "sharedUsageFeatureMemory": "Mälu",
   "sharedUsageSearchKeywords": "opt-in andmete jagamine telemeetria seadmed funktsioonid tööriistad mudelid aktiivsus",
   "providerChooseUsername": "Vali kasutajanimi",
-  "providerChooseUsernameBody": "Konto loomise lõpetamiseks vali vaba kasutajanimi."
+  "providerChooseUsernameBody": "Konto loomise lõpetamiseks vali vaba kasutajanimi.",
+  "yourOAuthApp": "Sinu OAuth-rakendus",
+  "oauthAppSetupTitle": "Sinu {provider} OAuth-rakendus",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Sellel serveril pole globaalset {provider}-rakendust, seega ühendad end ise registreeritud OAuth-rakendusega. Kliendi saladus salvestatakse krüpteeritult ja seda ei näidata enam kunagi.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Loo rakendus",
+  "openDeveloperConsole": "Ava arendajakonsool",
+  "oauthAppStepCallback": "2. Registreeri see tagasikutse URL",
+  "callbackUrlCopied": "Tagasikutse URL kopeeritud",
+  "oauthAppScopes": "Lubatavad ulatused",
+  "scopesCopied": "Ulatused kopeeritud",
+  "oauthAppStepCredentials": "3. Kleebi rakenduse mandaadid",
+  "couldNotSaveOAuthApp": "OAuth-rakendust ei õnnestunud salvestada.",
+  "removeOAuthAppTitle": "Kas eemaldada sinu {provider}-rakendus?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Ühendatud kontod jäävad loendisse, kuid lakkavad töötamast, kuni lisad uuesti rakenduse.",
+  "globalIntegrationConfiguration": "Integratsioonide globaalne seadistus",
+  "globalIntegrationConfigurationDescription": "Valikulised kogu serverit hõlmavad OAuth-rakendused. Kui integratsioonil see on, kasutab seda iga konto ega saa oma lisada. Jäta integratsioon seadistamata ja iga kasutaja seadistab oma rakenduse. Saladused on ainult kirjutatavad: jäta tühjaks, et salvestatud väärtus alles jääks.",
+  "globalStatus": "Globaalne",
+  "perUserStatus": "Kasutajapõhine"
 }

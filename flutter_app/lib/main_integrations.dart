@@ -88,6 +88,15 @@ class IntegrationDetailView extends StatelessWidget {
               _integrationGuidance(item),
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
+            if (item.usesOwnOAuthApp && item.env.configured) ...<Widget>[
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () =>
+                    _showOAuthAppSetupDialog(context, controller, item.id),
+                icon: const Icon(Icons.key_rounded),
+                label: Text(appStrings.yourOAuthApp),
+              ),
+            ],
             const SizedBox(height: 18),
             ...item.apps.map(
               (app) => Padding(
@@ -201,6 +210,8 @@ void _openOfficialIntegrationSetupDialog(
     case 'news':
       _showWorldNewsSetupDialog(context, controller);
       return;
+    default:
+      _showOAuthAppSetupDialog(context, controller, providerId);
   }
 }
 

@@ -222,7 +222,7 @@ List<_AdminSearchEntry> _adminSearchIndex = <_AdminSearchEntry>[
     appStrings.notionSlackFigmaGithubSpotifyTrello,
     _AdminTab.integrations,
     appStrings.oauthClientIdSecretRedirectApi,
-    card: appStrings.integrationApps,
+    card: appStrings.globalIntegrationConfiguration,
   ),
   _AdminSearchEntry(
     appStrings.liveVoiceDefaults,

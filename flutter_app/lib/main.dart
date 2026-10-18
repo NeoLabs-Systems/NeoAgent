@@ -82,6 +82,7 @@ part 'main_provider_auth.dart';
 
 part 'main_launcher.dart';
 part 'main_integrations.dart';
+part 'main_integrations_oauth_app.dart';
 part 'main_models.dart';
 part 'main_shared.dart';
 part 'main_mascot.dart';

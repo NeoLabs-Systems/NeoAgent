@@ -3289,10 +3289,6 @@ class AppL10nSk extends AppL10n {
       'Každý účet na tomto serveri stratí tento zdieľaný kľúč. účty ';
 
   @override
-  String get everyAccountOnThisServerSecrets =>
-      'každý účet na tomto serveri. Tajomstvá sú určené len na zápis: odíďte ';
-
-  @override
   String get everyAccountOnThisServerUses =>
       'Každý účet na tomto serveri používa túto adresu ';
 
@@ -4069,9 +4065,6 @@ class AppL10nSk extends AppL10n {
   String get integration => 'integrácia';
 
   @override
-  String get integrationApps => 'Integračné aplikácie';
-
-  @override
   String get integrationConnections => 'Integračné spojenia';
 
   @override
@@ -4714,10 +4707,6 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get microsoft365 => 'Microsoft 365';
-
-  @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack a ďalšie integrácie. Vzťahujú sa na ';
 
   @override
   String get microsoftTeams => 'Microsoft Teams';
@@ -5482,10 +5471,6 @@ class AppL10nSk extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'poverenia aplikácie OAuth, ktoré umožňujú účtom prepojiť Google, ';
-
-  @override
   String get oauthClientId => 'ID klienta OAuth';
 
   @override
@@ -5556,10 +5541,6 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get once => 'Raz';
-
-  @override
-  String get oneBlankToKeepWhatIs =>
-      'jeden prázdny, aby sa zachovalo to, čo je uložené.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -11461,4 +11442,65 @@ class AppL10nSk extends AppL10n {
   @override
   String get sharedUsageSearchKeywords =>
       'opt-in zdieľanie údajov telemetria zariadenia funkcie nástroje modely aktivita';
+
+  @override
+  String get yourOAuthApp => 'Vaša OAuth aplikácia';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'Vaša OAuth aplikácia $provider';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Tento server nemá globálnu aplikáciu $provider, preto sa pripájate cez OAuth aplikáciu, ktorú si zaregistrujete sami. Tajný kľúč klienta sa uloží šifrovane a už sa nikdy nezobrazí.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Vytvorte aplikáciu';
+
+  @override
+  String get openDeveloperConsole => 'Otvoriť vývojársku konzolu';
+
+  @override
+  String get oauthAppStepCallback => '2. Zaregistrujte túto callback URL';
+
+  @override
+  String get callbackUrlCopied => 'Callback URL skopírovaná';
+
+  @override
+  String get oauthAppScopes => 'Povolené scopy';
+
+  @override
+  String get scopesCopied => 'Scopy skopírované';
+
+  @override
+  String get oauthAppStepCredentials =>
+      '3. Vložte prihlasovacie údaje aplikácie';
+
+  @override
+  String get couldNotSaveOAuthApp => 'OAuth aplikáciu sa nepodarilo uložiť.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Odstrániť vašu aplikáciu $provider?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Pripojené účty zostanú v zozname, ale prestanú fungovať, kým znova nepridáte aplikáciu.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Globálna konfigurácia integrácií';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Voliteľné OAuth aplikácie pre celý server. Ak ju integrácia má, používa ju každý účet a nemôže pridať vlastnú. Nechajte integráciu nenastavenú a každý používateľ si nastaví vlastnú aplikáciu. Tajné údaje sa dajú iba zapisovať: nechajte prázdne, ak chcete zachovať uloženú hodnotu.';
+
+  @override
+  String get globalStatus => 'Globálne';
+
+  @override
+  String get perUserStatus => 'Pre používateľa';
 }

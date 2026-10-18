@@ -3315,10 +3315,6 @@ class AppL10nEl extends AppL10n {
       'Κάθε λογαριασμός σε αυτόν τον διακομιστή χάνει αυτό το κοινόχρηστο κλειδί. Λογαριασμοί ';
 
   @override
-  String get everyAccountOnThisServerSecrets =>
-      'κάθε λογαριασμό σε αυτόν τον διακομιστή. Τα μυστικά είναι μόνο για εγγραφή: φύγετε ';
-
-  @override
   String get everyAccountOnThisServerUses =>
       'Κάθε λογαριασμός σε αυτόν τον διακομιστή χρησιμοποιεί αυτήν τη διεύθυνση ';
 
@@ -4100,9 +4096,6 @@ class AppL10nEl extends AppL10n {
   String get integration => 'Ένταξη';
 
   @override
-  String get integrationApps => 'Εφαρμογές ενοποίησης';
-
-  @override
   String get integrationConnections => 'Συνδέσεις ολοκλήρωσης';
 
   @override
@@ -4749,10 +4742,6 @@ class AppL10nEl extends AppL10n {
 
   @override
   String get microsoft365 => 'Microsoft 365';
-
-  @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack και άλλες ενσωματώσεις. Ισχύουν για ';
 
   @override
   String get microsoftTeams => 'Ομάδες της Microsoft';
@@ -5523,10 +5512,6 @@ class AppL10nEl extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'Διαπιστευτήρια εφαρμογής OAuth που επιτρέπουν στους λογαριασμούς να συνδέουν την Google, ';
-
-  @override
   String get oauthClientId => 'Αναγνωριστικό πελάτη OAuth';
 
   @override
@@ -5597,10 +5582,6 @@ class AppL10nEl extends AppL10n {
 
   @override
   String get once => 'Μια φορά';
-
-  @override
-  String get oneBlankToKeepWhatIs =>
-      'ένα κενό για να κρατήσει αυτό που είναι αποθηκευμένο.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -11543,4 +11524,66 @@ class AppL10nEl extends AppL10n {
   @override
   String get sharedUsageSearchKeywords =>
       'opt-in κοινοποίηση δεδομένων τηλεμετρία συσκευές λειτουργίες εργαλεία μοντέλα δραστηριότητα';
+
+  @override
+  String get yourOAuthApp => 'Η εφαρμογή OAuth σας';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'Η εφαρμογή OAuth σας για $provider';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Αυτός ο διακομιστής δεν έχει καθολική εφαρμογή $provider, οπότε συνδέεστε με μια εφαρμογή OAuth που καταχωρίζετε εσείς. Το μυστικό πελάτη αποθηκεύεται κρυπτογραφημένο και δεν εμφανίζεται ποτέ ξανά.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Δημιουργήστε την εφαρμογή';
+
+  @override
+  String get openDeveloperConsole => 'Άνοιγμα κονσόλας προγραμματιστή';
+
+  @override
+  String get oauthAppStepCallback => '2. Καταχωρίστε αυτό το URL επιστροφής';
+
+  @override
+  String get callbackUrlCopied => 'Το URL επιστροφής αντιγράφηκε';
+
+  @override
+  String get oauthAppScopes => 'Εύρη πρόσβασης προς έγκριση';
+
+  @override
+  String get scopesCopied => 'Τα εύρη πρόσβασης αντιγράφηκαν';
+
+  @override
+  String get oauthAppStepCredentials =>
+      '3. Επικολλήστε τα διαπιστευτήρια της εφαρμογής';
+
+  @override
+  String get couldNotSaveOAuthApp =>
+      'Δεν ήταν δυνατή η αποθήκευση της εφαρμογής OAuth.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Κατάργηση της εφαρμογής σας για $provider;';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Οι συνδεδεμένοι λογαριασμοί παραμένουν στη λίστα, αλλά σταματούν να λειτουργούν μέχρι να προσθέσετε ξανά εφαρμογή.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Καθολική διαμόρφωση ενοποιήσεων';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Προαιρετικές εφαρμογές OAuth για όλο τον διακομιστή. Όταν μια ενοποίηση έχει μία, κάθε λογαριασμός τη χρησιμοποιεί και δεν μπορεί να προσθέσει δική του. Αφήστε μια ενοποίηση κενή και κάθε χρήστης ρυθμίζει τη δική του εφαρμογή. Τα μυστικά είναι μόνο για εγγραφή: αφήστε κενό για να διατηρηθεί η αποθηκευμένη τιμή.';
+
+  @override
+  String get globalStatus => 'Καθολικά';
+
+  @override
+  String get perUserStatus => 'Ανά χρήστη';
 }

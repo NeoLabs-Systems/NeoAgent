@@ -3281,10 +3281,6 @@ class AppL10nHr extends AppL10n {
       'Svaki račun na ovom poslužitelju gubi ovaj zajednički ključ. Računi ';
 
   @override
-  String get everyAccountOnThisServerSecrets =>
-      'svaki račun na ovom poslužitelju. Tajne su samo za pisanje: ostavite ';
-
-  @override
   String get everyAccountOnThisServerUses =>
       'Svaki račun na ovom poslužitelju koristi ovu adresu za ';
 
@@ -4059,9 +4055,6 @@ class AppL10nHr extends AppL10n {
   String get integration => 'Integracija';
 
   @override
-  String get integrationApps => 'Integracijske aplikacije';
-
-  @override
   String get integrationConnections => 'Integracijske veze';
 
   @override
@@ -4702,10 +4695,6 @@ class AppL10nHr extends AppL10n {
 
   @override
   String get microsoft365 => 'Microsoft 365';
-
-  @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack i druge integracije. Primjenjuju se na ';
 
   @override
   String get microsoftTeams => 'Microsoftovi timovi';
@@ -5470,10 +5459,6 @@ class AppL10nHr extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'Vjerodajnice aplikacije OAuth koje računima omogućuju povezivanje s Googleom, ';
-
-  @override
   String get oauthClientId => 'OAuth ID klijenta';
 
   @override
@@ -5545,10 +5530,6 @@ class AppL10nHr extends AppL10n {
 
   @override
   String get once => 'Jednom';
-
-  @override
-  String get oneBlankToKeepWhatIs =>
-      'jedan prazan da zadrži ono što je pohranjeno.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -11443,4 +11424,65 @@ class AppL10nHr extends AppL10n {
   @override
   String get sharedUsageSearchKeywords =>
       'opt-in dijeljenje podataka telemetrija uređaji značajke alati modeli aktivnost';
+
+  @override
+  String get yourOAuthApp => 'Vaša OAuth aplikacija';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'Vaša OAuth aplikacija za $provider';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Ovaj poslužitelj nema globalnu aplikaciju $provider, pa se povezujete OAuth aplikacijom koju sami registrirate. Tajni ključ klijenta pohranjuje se šifrirano i više se nikad ne prikazuje.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Izradite aplikaciju';
+
+  @override
+  String get openDeveloperConsole => 'Otvori konzolu za razvojne programere';
+
+  @override
+  String get oauthAppStepCallback =>
+      '2. Registrirajte ovaj URL za povratni poziv';
+
+  @override
+  String get callbackUrlCopied => 'URL za povratni poziv kopiran';
+
+  @override
+  String get oauthAppScopes => 'Opsezi koje treba dopustiti';
+
+  @override
+  String get scopesCopied => 'Opsezi kopirani';
+
+  @override
+  String get oauthAppStepCredentials => '3. Zalijepite vjerodajnice aplikacije';
+
+  @override
+  String get couldNotSaveOAuthApp => 'Nije moguće spremiti OAuth aplikaciju.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Ukloniti vašu aplikaciju $provider?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Povezani računi ostaju na popisu, ali prestaju raditi dok ponovno ne dodate aplikaciju.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Globalna konfiguracija integracija';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Neobavezne OAuth aplikacije za cijeli poslužitelj. Kad je integracija ima, svaki je račun koristi i ne može dodati vlastitu. Ostavite integraciju nepostavljenom i svaki korisnik postavlja vlastitu aplikaciju. Tajne se mogu samo upisati: ostavite prazno da zadržite spremljenu vrijednost.';
+
+  @override
+  String get globalStatus => 'Globalno';
+
+  @override
+  String get perUserStatus => 'Po korisniku';
 }

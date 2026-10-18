@@ -2742,7 +2742,6 @@
   "every15Minutes": "Co 15 minut",
   "every30Minutes": "Co 30 minut",
   "everyAccountOnThisServerLoses": "Każde konto na tym serwerze traci ten klucz wspólny. Konta ",
-  "everyAccountOnThisServerSecrets": "każde konto na tym serwerze. Sekrety są przeznaczone tylko do zapisu: wyjdź ",
   "everyAccountOnThisServerUses": "Każde konto na tym serwerze używa tego adresu do celów ",
   "everyActiveSessionForThisAccount": "Każda aktywna sesja dla tego konta kończy się. Mogą się zalogować ",
   "everyDay0800": "Codziennie · 08:00",
@@ -3218,7 +3217,6 @@
   },
   "instructions": "Instrukcje",
   "integration": "Integracja",
-  "integrationApps": "Aplikacje integracyjne",
   "integrationConnections": "Połączenia integracyjne",
   "integrationSettingsSaved": "Ustawienia integracji zostały zapisane.",
   "integrations": "Integracje",
@@ -3584,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Mikrofon wyciszony. Kliknij, aby wyłączyć wyciszenie.",
   "microphonePermissionIsRequiredForLive": "Aby korzystać z głosu na żywo, wymagane jest pozwolenie na korzystanie z mikrofonu.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack i inne integracje. Mają zastosowanie do ",
   "microsoftTeams": "Zespoły Microsoftu",
   "minimumContributionValueArg1": "Minimalna wartość wkładu: {arg1}",
   "@minimumContributionValueArg1": {
@@ -4007,7 +4004,6 @@
   "nothingStoredYet": "Jeszcze nic nie zostało zapisane.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIANIM",
-  "oauthAppCredentialsThatLetAccounts": "Dane uwierzytelniające aplikacji OAuth, które pozwalają kontom łączyć się z Google, ",
   "oauthClientId": "Identyfikator klienta OAuth",
   "oauthClientIdSecretRedirectApi": "Klucz API przekierowania klienta OAuth",
   "oauthClientIdSecretRedirectGmail": "Identyfikator klienta oauth tajne przekierowanie dysku kalendarza Gmaila",
@@ -4045,7 +4041,6 @@
   "onTheyCanJoinAgainOnly": "na. Mogą dołączyć ponownie tylko za pomocą nowego linku z zaproszeniem.",
   "onYourOwnTheDefault": "Samodzielnie (domyślnie)",
   "once": "Raz",
-  "oneBlankToKeepWhatIs": "jedno puste, aby zachować to, co jest przechowywane.",
   "oneIsSavedOtherChangesIn": "jeden jest uratowany. Zapisywane są także inne zmiany w tym formularzu.",
   "oneOrMoreAccountsExpiredReconnect": "Jedno lub więcej kont wygasło. Połącz ponownie konto, którego dotyczy problem, aby przywrócić dostęp do narzędzia.",
   "oneRuntimeControlsPersonaGroupTurn": "Jedno środowisko wykonawcze kontroluje osobowość, kolejność grup, pamięć pokoju, normy, teorię umysłu i dostarczanie.",
@@ -7081,5 +7076,43 @@
   "sharedUsageFeatureMemory": "Pamięć",
   "sharedUsageSearchKeywords": "opt-in udostępnianie danych telemetria urządzenia funkcje narzędzia modele aktywność",
   "providerChooseUsername": "Wybierz nazwę użytkownika",
-  "providerChooseUsernameBody": "Wybierz dostępną nazwę użytkownika, aby dokończyć tworzenie konta."
+  "providerChooseUsernameBody": "Wybierz dostępną nazwę użytkownika, aby dokończyć tworzenie konta.",
+  "yourOAuthApp": "Twoja aplikacja OAuth",
+  "oauthAppSetupTitle": "Twoja aplikacja OAuth {provider}",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Ten serwer nie ma globalnej aplikacji {provider}, więc łączysz się przez aplikację OAuth zarejestrowaną przez siebie. Sekret klienta jest przechowywany w postaci zaszyfrowanej i nigdy więcej nie jest wyświetlany.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Utwórz aplikację",
+  "openDeveloperConsole": "Otwórz konsolę dewelopera",
+  "oauthAppStepCallback": "2. Zarejestruj ten adres URL wywołania zwrotnego",
+  "callbackUrlCopied": "Skopiowano adres URL wywołania zwrotnego",
+  "oauthAppScopes": "Zakresy do zezwolenia",
+  "scopesCopied": "Skopiowano zakresy",
+  "oauthAppStepCredentials": "3. Wklej dane uwierzytelniające aplikacji",
+  "couldNotSaveOAuthApp": "Nie udało się zapisać aplikacji OAuth.",
+  "removeOAuthAppTitle": "Usunąć Twoją aplikację {provider}?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Połączone konta pozostaną na liście, ale przestaną działać, dopóki ponownie nie dodasz aplikacji.",
+  "globalIntegrationConfiguration": "Globalna konfiguracja integracji",
+  "globalIntegrationConfigurationDescription": "Opcjonalne aplikacje OAuth dla całego serwera. Gdy integracja ma taką aplikację, każde konto z niej korzysta i nie może dodać własnej. Pozostaw integrację nieustawioną, a każdy użytkownik skonfiguruje własną aplikację. Sekrety są tylko do zapisu: pozostaw puste, aby zachować zapisaną wartość.",
+  "globalStatus": "Globalnie",
+  "perUserStatus": "Na użytkownika"
 }

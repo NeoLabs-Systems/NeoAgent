@@ -1,6 +1,6 @@
 'use strict';
 
-const { describeEnvStatus, resolveFigmaOAuthConfig } = require('../env');
+const { createOAuthApp } = require('../oauth_app');
 const {
   appendQuery,
   buildPinnedApiUrl,
@@ -147,12 +147,11 @@ function figmaUrl(path, query) {
   return buildPinnedApiUrl('api.figma.com', path, query, { label: 'Figma' }).toString();
 }
 
-async function refreshFigmaCredentials(credentials, signal) {
+async function refreshFigmaCredentials(config, credentials, signal) {
   const refreshToken = String(credentials?.refresh_token || '').trim();
   if (!refreshToken) {
     throw new Error('Figma refresh token is missing. Reconnect this integration account.');
   }
-  const config = resolveFigmaOAuthConfig();
   const basic = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString(
     'base64',
   );
@@ -185,7 +184,7 @@ async function refreshFigmaCredentials(credentials, signal) {
 async function figmaRequest(context, { method = 'GET', path, query, body }) {
   const { signal } = context;
   return withRefreshedOAuthCredentials(context, {
-    refresh: refreshFigmaCredentials,
+    refresh: (credentials, refreshSignal) => refreshFigmaCredentials(context.oauth, credentials, refreshSignal),
     request: (activeCredentials) => fetchJson(
       figmaUrl(path, query),
       {
@@ -274,13 +273,15 @@ function createFigmaProvider() {
     toolDefinitions: figmaToolDefinitions,
     connectPrompt:
       'Connect Figma to inspect files and nodes, render images, and work with comments.',
-    getEnvStatus() {
-      return describeEnvStatus(resolveFigmaOAuthConfig(), {
-        label: 'Figma',
-      });
-    },
-    async beginOAuth({ state, app }) {
-      const config = resolveFigmaOAuthConfig();
+    oauthApp: createOAuthApp({
+      providerKey: 'figma',
+      label: 'Figma',
+      envPrefix: 'FIGMA',
+      consoleUrl: 'https://www.figma.com/developers/apps',
+      notes: 'Create an app, add the callback URL as a redirect URL, and enable these scopes.',
+      scopes: FIGMA_APPS.flatMap((app) => app.scopes),
+    }),
+    async beginOAuth({ state, app, oauth: config }) {
       return {
         url: appendQuery('https://www.figma.com/oauth', {
           client_id: config.clientId,
@@ -292,8 +293,7 @@ function createFigmaProvider() {
         appId: app.id,
       };
     },
-    async finishOAuth({ code, app, signal }) {
-      const config = resolveFigmaOAuthConfig();
+    async finishOAuth({ code, app, signal, oauth: config }) {
       const basic = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString(
         'base64',
       );

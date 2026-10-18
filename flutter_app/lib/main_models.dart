@@ -3374,6 +3374,11 @@ class OfficialIntegrationItem {
 
   bool get hasExpiredAccounts => apps.any((app) => app.hasExpiredAccounts);
 
+  /// OAuth sign-in through an app the user registers, because the server has
+  /// no global app for this provider.
+  bool get usesOwnOAuthApp =>
+      connectionMethod == 'oauth' && env.setupMode == 'user';
+
   String get effectiveStatus =>
       !isConnected && hasExpiredAccounts ? 'expired' : connection.status;
 

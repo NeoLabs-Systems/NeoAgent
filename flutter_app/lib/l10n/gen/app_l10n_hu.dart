@@ -3302,10 +3302,6 @@ class AppL10nHu extends AppL10n {
       'Ezen a szerveren minden fiók elveszíti ezt a megosztott kulcsot. Fiókok ';
 
   @override
-  String get everyAccountOnThisServerSecrets =>
-      'minden fiók ezen a szerveren. A titkok csak írhatók: hagyd ';
-
-  @override
   String get everyAccountOnThisServerUses =>
       'Ezen a szerveren minden fiók ezt a címet használja: ';
 
@@ -4086,9 +4082,6 @@ class AppL10nHu extends AppL10n {
   String get integration => 'Integráció';
 
   @override
-  String get integrationApps => 'Integrációs alkalmazások';
-
-  @override
   String get integrationConnections => 'Integrációs kapcsolatok';
 
   @override
@@ -4730,10 +4723,6 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get microsoft365 => 'Microsoft 365';
-
-  @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack és a többi integráció. -ra vonatkoznak ';
 
   @override
   String get microsoftTeams => 'Microsoft Teams';
@@ -5501,10 +5490,6 @@ class AppL10nHu extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'OAuth alkalmazás hitelesítő adatai, amelyek lehetővé teszik a fiókok számára, hogy összekapcsolják a Google-lal, ';
-
-  @override
   String get oauthClientId => 'OAuth-ügyfélazonosító';
 
   @override
@@ -5576,10 +5561,6 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get once => 'Egyszer';
-
-  @override
-  String get oneBlankToKeepWhatIs =>
-      'egy üres, hogy megtartsa a tárolt dolgokat.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -11500,4 +11481,66 @@ class AppL10nHu extends AppL10n {
   @override
   String get sharedUsageSearchKeywords =>
       'opt-in adatmegosztás telemetria készülékek funkciók eszközök modellek aktivitás';
+
+  @override
+  String get yourOAuthApp => 'Saját OAuth-alkalmazásod';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'Saját $provider OAuth-alkalmazásod';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Ezen a szerveren nincs globális $provider-alkalmazás, ezért egy saját magad által regisztrált OAuth-alkalmazással csatlakozol. A klienstitok titkosítva tárolódik, és többé nem jelenik meg.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Hozd létre az alkalmazást';
+
+  @override
+  String get openDeveloperConsole => 'Fejlesztői konzol megnyitása';
+
+  @override
+  String get oauthAppStepCallback => '2. Regisztráld ezt a visszahívási URL-t';
+
+  @override
+  String get callbackUrlCopied => 'Visszahívási URL másolva';
+
+  @override
+  String get oauthAppScopes => 'Engedélyezendő hatókörök';
+
+  @override
+  String get scopesCopied => 'Hatókörök másolva';
+
+  @override
+  String get oauthAppStepCredentials =>
+      '3. Illeszd be az alkalmazás hitelesítő adatait';
+
+  @override
+  String get couldNotSaveOAuthApp =>
+      'Az OAuth-alkalmazást nem sikerült menteni.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Eltávolítod a(z) $provider-alkalmazásodat?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'A csatlakoztatott fiókok a listában maradnak, de nem működnek, amíg újra nem adsz hozzá alkalmazást.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Globális integrációs beállítások';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Opcionális, az egész szerverre érvényes OAuth-alkalmazások. Ha egy integrációnak van ilyen, minden fiók azt használja, és nem adhat hozzá sajátot. Hagyd üresen az integrációt, és minden felhasználó saját alkalmazást állít be. A titkok csak írhatók: hagyd üresen a tárolt érték megtartásához.';
+
+  @override
+  String get globalStatus => 'Globális';
+
+  @override
+  String get perUserStatus => 'Felhasználónként';
 }

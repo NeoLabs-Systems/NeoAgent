@@ -2742,7 +2742,6 @@
   "every15Minutes": "Kas 15 minučių",
   "every30Minutes": "Kas 30 minučių",
   "everyAccountOnThisServerLoses": "Kiekviena šio serverio paskyra praranda šį bendrinamą raktą. Sąskaitos ",
-  "everyAccountOnThisServerSecrets": "kiekviena šio serverio paskyra. Paslaptys rašomos tik: palik ",
   "everyAccountOnThisServerUses": "Kiekviena šio serverio paskyra naudoja šį adresą ",
   "everyActiveSessionForThisAccount": "Kiekviena aktyvi šios paskyros sesija baigiasi. Jie gali prisijungti ",
   "everyDay0800": "Kiekvieną dieną · 08:00",
@@ -3218,7 +3217,6 @@
   },
   "instructions": "Instrukcijos",
   "integration": "Integracija",
-  "integrationApps": "Integravimo programos",
   "integrationConnections": "Integraciniai ryšiai",
   "integrationSettingsSaved": "Integravimo nustatymai išsaugoti.",
   "integrations": "Integracijos",
@@ -3584,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Mikrofonas nutildytas. Palieskite, kad įjungtumėte garsą.",
   "microphonePermissionIsRequiredForLive": "Tiesioginiam balsui reikalingas mikrofono leidimas.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "„Microsoft“, „Slack“ ir kitos integracijos. Jie taikomi ",
   "microsoftTeams": "Microsoft komandos",
   "minimumContributionValueArg1": "Minimali įnašo vertė: {arg1}",
   "@minimumContributionValueArg1": {
@@ -4007,7 +4004,6 @@
   "nothingStoredYet": "Dar nieko nėra saugoma.",
   "notionSlackFigmaGithubSpotifyTrello": "„Notion“, „Slack“, „Figma“, „GitHub“, „Spotify“, „Trello“.",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "„OAuth“ programos kredencialai, leidžiantys paskyroms sujungti „Google“, ",
   "oauthClientId": "„OAuth“ kliento ID",
   "oauthClientIdSecretRedirectApi": "oauth kliento ID slaptas peradresavimo API raktas",
   "oauthClientIdSecretRedirectGmail": "„oauth“ kliento ID slaptas peradresavimo „Gmail“ kalendoriaus diskas",
@@ -4045,7 +4041,6 @@
   "onTheyCanJoinAgainOnly": "įjungta. Jie vėl gali prisijungti tik naudodami naują kvietimo nuorodą.",
   "onYourOwnTheDefault": "Savarankiškai (numatytasis)",
   "once": "Kartą",
-  "oneBlankToKeepWhatIs": "vienas tuščias, kad liktų tai, kas saugoma.",
   "oneIsSavedOtherChangesIn": "vienas išgelbėtas. Kiti šios formos pakeitimai taip pat išsaugomi.",
   "oneOrMoreAccountsExpiredReconnect": "Vienos ar daugiau paskyrų galiojimo laikas baigėsi. Iš naujo prijunkite paveiktą paskyrą, kad atkurtumėte prieigą prie įrankio.",
   "oneRuntimeControlsPersonaGroupTurn": "Vienas vykdymo laikas valdo asmenį, grupės eilutę, kambario atmintį, normas, proto teoriją ir pristatymą.",
@@ -7081,5 +7076,43 @@
   "sharedUsageFeatureMemory": "Atmintis",
   "sharedUsageSearchKeywords": "opt-in duomenų bendrinimas telemetrija įrenginiai funkcijos įrankiai modeliai veikla",
   "providerChooseUsername": "Pasirinkite naudotojo vardą",
-  "providerChooseUsernameBody": "Pasirinkite laisvą naudotojo vardą, kad užbaigtumėte paskyros kūrimą."
+  "providerChooseUsernameBody": "Pasirinkite laisvą naudotojo vardą, kad užbaigtumėte paskyros kūrimą.",
+  "yourOAuthApp": "Jūsų OAuth programa",
+  "oauthAppSetupTitle": "Jūsų {provider} OAuth programa",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Šiame serveryje nėra visuotinės {provider} programos, todėl jungiatės naudodami patys užregistruotą OAuth programą. Kliento paslaptis saugoma užšifruota ir daugiau niekada nerodoma.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Sukurkite programą",
+  "openDeveloperConsole": "Atidaryti kūrėjų konsolę",
+  "oauthAppStepCallback": "2. Užregistruokite šį atgalinio iškvietimo URL",
+  "callbackUrlCopied": "Atgalinio iškvietimo URL nukopijuotas",
+  "oauthAppScopes": "Leistinos aprėptys",
+  "scopesCopied": "Aprėptys nukopijuotos",
+  "oauthAppStepCredentials": "3. Įklijuokite programos prisijungimo duomenis",
+  "couldNotSaveOAuthApp": "Nepavyko išsaugoti OAuth programos.",
+  "removeOAuthAppTitle": "Pašalinti jūsų {provider} programą?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Prijungtos paskyros lieka sąraše, bet nustoja veikti, kol vėl pridėsite programą.",
+  "globalIntegrationConfiguration": "Visuotinė integracijų konfigūracija",
+  "globalIntegrationConfigurationDescription": "Pasirenkamos viso serverio OAuth programos. Kai integracija tokią turi, ją naudoja kiekviena paskyra ir negali pridėti savos. Palikite integraciją nenustatytą ir kiekvienas naudotojas nustatys savo programą. Paslaptys tik įrašomos: palikite tuščią, kad išliktų išsaugota reikšmė.",
+  "globalStatus": "Visuotinė",
+  "perUserStatus": "Kiekvienam naudotojui"
 }

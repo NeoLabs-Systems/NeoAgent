@@ -3294,10 +3294,6 @@ class AppL10nEt extends AppL10n {
       'Kõik selle serveri kontod kaotavad selle jagatud võtme. Kontod ';
 
   @override
-  String get everyAccountOnThisServerSecrets =>
-      'iga selle serveri konto. Saladused on ainult kirjutamiseks: lahku ';
-
-  @override
   String get everyAccountOnThisServerUses =>
       'Iga selle serveri konto kasutab seda aadressi ';
 
@@ -4074,9 +4070,6 @@ class AppL10nEt extends AppL10n {
   String get integration => 'Integratsioon';
 
   @override
-  String get integrationApps => 'Integratsioonirakendused';
-
-  @override
   String get integrationConnections => 'Integratsiooniühendused';
 
   @override
@@ -4718,10 +4711,6 @@ class AppL10nEt extends AppL10n {
 
   @override
   String get microsoft365 => 'Microsoft 365';
-
-  @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack ja muud integratsioonid. Need kehtivad ';
 
   @override
   String get microsoftTeams => 'Microsoft Teams';
@@ -5482,10 +5471,6 @@ class AppL10nEt extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'OAuthi rakenduse mandaadid, mis võimaldavad kontodel Google\'iga ühendada, ';
-
-  @override
   String get oauthClientId => 'OAuthi kliendi ID';
 
   @override
@@ -5557,10 +5542,6 @@ class AppL10nEt extends AppL10n {
 
   @override
   String get once => 'Üks kord';
-
-  @override
-  String get oneBlankToKeepWhatIs =>
-      'üks tühi, et hoida seda, mis on salvestatud.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -11443,4 +11424,65 @@ class AppL10nEt extends AppL10n {
   @override
   String get sharedUsageSearchKeywords =>
       'opt-in andmete jagamine telemeetria seadmed funktsioonid tööriistad mudelid aktiivsus';
+
+  @override
+  String get yourOAuthApp => 'Sinu OAuth-rakendus';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'Sinu $provider OAuth-rakendus';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Sellel serveril pole globaalset $provider-rakendust, seega ühendad end ise registreeritud OAuth-rakendusega. Kliendi saladus salvestatakse krüpteeritult ja seda ei näidata enam kunagi.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Loo rakendus';
+
+  @override
+  String get openDeveloperConsole => 'Ava arendajakonsool';
+
+  @override
+  String get oauthAppStepCallback => '2. Registreeri see tagasikutse URL';
+
+  @override
+  String get callbackUrlCopied => 'Tagasikutse URL kopeeritud';
+
+  @override
+  String get oauthAppScopes => 'Lubatavad ulatused';
+
+  @override
+  String get scopesCopied => 'Ulatused kopeeritud';
+
+  @override
+  String get oauthAppStepCredentials => '3. Kleebi rakenduse mandaadid';
+
+  @override
+  String get couldNotSaveOAuthApp =>
+      'OAuth-rakendust ei õnnestunud salvestada.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Kas eemaldada sinu $provider-rakendus?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Ühendatud kontod jäävad loendisse, kuid lakkavad töötamast, kuni lisad uuesti rakenduse.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Integratsioonide globaalne seadistus';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Valikulised kogu serverit hõlmavad OAuth-rakendused. Kui integratsioonil see on, kasutab seda iga konto ega saa oma lisada. Jäta integratsioon seadistamata ja iga kasutaja seadistab oma rakenduse. Saladused on ainult kirjutatavad: jäta tühjaks, et salvestatud väärtus alles jääks.';
+
+  @override
+  String get globalStatus => 'Globaalne';
+
+  @override
+  String get perUserStatus => 'Kasutajapõhine';
 }

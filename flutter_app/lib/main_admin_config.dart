@@ -1352,12 +1352,8 @@ class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
     return _SectionStack(
       children: <Widget>[
         _SectionCard(
-          title: appStrings.integrationApps,
-          description:
-              appStrings.oauthAppCredentialsThatLetAccounts +
-              appStrings.microsoftSlackAndTheOtherIntegrations +
-              appStrings.everyAccountOnThisServerSecrets +
-              appStrings.oneBlankToKeepWhatIs,
+          title: appStrings.globalIntegrationConfiguration,
+          description: appStrings.globalIntegrationConfigurationDescription,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
@@ -1387,7 +1383,9 @@ class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
       (field) =>
           field.isBoolean && field.name == 'enabled' && field.value == 'false',
     );
-    var statusLabel = integration.configured ? 'Configured' : appStrings.notSet;
+    var statusLabel = integration.configured
+        ? appStrings.globalStatus
+        : appStrings.perUserStatus;
     if (disabled) statusLabel = appStrings.disabled;
     return _SectionCard(
       title: integration.label,

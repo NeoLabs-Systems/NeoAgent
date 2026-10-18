@@ -3288,10 +3288,6 @@ class AppL10nLt extends AppL10n {
       'Kiekviena šio serverio paskyra praranda šį bendrinamą raktą. Sąskaitos ';
 
   @override
-  String get everyAccountOnThisServerSecrets =>
-      'kiekviena šio serverio paskyra. Paslaptys rašomos tik: palik ';
-
-  @override
   String get everyAccountOnThisServerUses =>
       'Kiekviena šio serverio paskyra naudoja šį adresą ';
 
@@ -4071,9 +4067,6 @@ class AppL10nLt extends AppL10n {
   String get integration => 'Integracija';
 
   @override
-  String get integrationApps => 'Integravimo programos';
-
-  @override
   String get integrationConnections => 'Integraciniai ryšiai';
 
   @override
@@ -4717,10 +4710,6 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get microsoft365 => 'Microsoft 365';
-
-  @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      '„Microsoft“, „Slack“ ir kitos integracijos. Jie taikomi ';
 
   @override
   String get microsoftTeams => 'Microsoft komandos';
@@ -5484,10 +5473,6 @@ class AppL10nLt extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      '„OAuth“ programos kredencialai, leidžiantys paskyroms sujungti „Google“, ';
-
-  @override
   String get oauthClientId => '„OAuth“ kliento ID';
 
   @override
@@ -5559,10 +5544,6 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get once => 'Kartą';
-
-  @override
-  String get oneBlankToKeepWhatIs =>
-      'vienas tuščias, kad liktų tai, kas saugoma.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -11468,4 +11449,66 @@ class AppL10nLt extends AppL10n {
   @override
   String get sharedUsageSearchKeywords =>
       'opt-in duomenų bendrinimas telemetrija įrenginiai funkcijos įrankiai modeliai veikla';
+
+  @override
+  String get yourOAuthApp => 'Jūsų OAuth programa';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'Jūsų $provider OAuth programa';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Šiame serveryje nėra visuotinės $provider programos, todėl jungiatės naudodami patys užregistruotą OAuth programą. Kliento paslaptis saugoma užšifruota ir daugiau niekada nerodoma.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Sukurkite programą';
+
+  @override
+  String get openDeveloperConsole => 'Atidaryti kūrėjų konsolę';
+
+  @override
+  String get oauthAppStepCallback =>
+      '2. Užregistruokite šį atgalinio iškvietimo URL';
+
+  @override
+  String get callbackUrlCopied => 'Atgalinio iškvietimo URL nukopijuotas';
+
+  @override
+  String get oauthAppScopes => 'Leistinos aprėptys';
+
+  @override
+  String get scopesCopied => 'Aprėptys nukopijuotos';
+
+  @override
+  String get oauthAppStepCredentials =>
+      '3. Įklijuokite programos prisijungimo duomenis';
+
+  @override
+  String get couldNotSaveOAuthApp => 'Nepavyko išsaugoti OAuth programos.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Pašalinti jūsų $provider programą?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Prijungtos paskyros lieka sąraše, bet nustoja veikti, kol vėl pridėsite programą.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Visuotinė integracijų konfigūracija';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Pasirenkamos viso serverio OAuth programos. Kai integracija tokią turi, ją naudoja kiekviena paskyra ir negali pridėti savos. Palikite integraciją nenustatytą ir kiekvienas naudotojas nustatys savo programą. Paslaptys tik įrašomos: palikite tuščią, kad išliktų išsaugota reikšmė.';
+
+  @override
+  String get globalStatus => 'Visuotinė';
+
+  @override
+  String get perUserStatus => 'Kiekvienam naudotojui';
 }

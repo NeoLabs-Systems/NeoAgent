@@ -3296,10 +3296,6 @@ class AppL10nNl extends AppL10n {
       'Elk account op deze server verliest deze gedeelde sleutel. Rekeningen ';
 
   @override
-  String get everyAccountOnThisServerSecrets =>
-      'elk account op deze server. Geheimen kunnen alleen worden geschreven: vertrek ';
-
-  @override
   String get everyAccountOnThisServerUses =>
       'Elk account op deze server gebruikt dit adres voor ';
 
@@ -4078,9 +4074,6 @@ class AppL10nNl extends AppL10n {
   String get integration => 'Integratie';
 
   @override
-  String get integrationApps => 'Integratie-apps';
-
-  @override
   String get integrationConnections => 'Integratie verbindingen';
 
   @override
@@ -4724,10 +4717,6 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get microsoft365 => 'Microsoft365';
-
-  @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack en de andere integraties. Ze zijn van toepassing op ';
 
   @override
   String get microsoftTeams => 'Microsoft Teams';
@@ -5498,10 +5487,6 @@ class AppL10nNl extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'OAuth-app-inloggegevens waarmee accounts verbinding kunnen maken met Google, ';
-
-  @override
   String get oauthClientId => 'OAuth-client-ID';
 
   @override
@@ -5573,10 +5558,6 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get once => 'Een keer';
-
-  @override
-  String get oneBlankToKeepWhatIs =>
-      'één blanco om te bewaren wat is opgeslagen.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -11473,4 +11454,63 @@ class AppL10nNl extends AppL10n {
   @override
   String get sharedUsageSearchKeywords =>
       'opt-in gegevens delen telemetrie apparaten functies tools modellen activiteit';
+
+  @override
+  String get yourOAuthApp => 'Je OAuth-app';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'Je $provider-OAuth-app';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Deze server heeft geen globale $provider-app, dus je verbindt met een OAuth-app die je zelf registreert. Het clientgeheim wordt versleuteld opgeslagen en nooit meer getoond.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Maak de app';
+
+  @override
+  String get openDeveloperConsole => 'Ontwikkelaarsconsole openen';
+
+  @override
+  String get oauthAppStepCallback => '2. Registreer deze callback-URL';
+
+  @override
+  String get callbackUrlCopied => 'Callback-URL gekopieerd';
+
+  @override
+  String get oauthAppScopes => 'Toe te staan scopes';
+
+  @override
+  String get scopesCopied => 'Scopes gekopieerd';
+
+  @override
+  String get oauthAppStepCredentials => '3. Plak de app-gegevens';
+
+  @override
+  String get couldNotSaveOAuthApp => 'Kon de OAuth-app niet opslaan.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Je $provider-app verwijderen?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Verbonden accounts blijven in de lijst staan maar werken pas weer als je opnieuw een app toevoegt.';
+
+  @override
+  String get globalIntegrationConfiguration => 'Globale integratieconfiguratie';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Optionele serverbrede OAuth-apps. Heeft een integratie er een, dan gebruikt elk account die en kan het geen eigen app toevoegen. Laat een integratie leeg en elke gebruiker stelt zijn eigen app in. Geheimen zijn alleen-schrijven: laat leeg om de opgeslagen waarde te behouden.';
+
+  @override
+  String get globalStatus => 'Globaal';
+
+  @override
+  String get perUserStatus => 'Per gebruiker';
 }

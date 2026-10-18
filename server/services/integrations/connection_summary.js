@@ -144,8 +144,17 @@ function formatAccountSummary(appSnapshot) {
   return `connected with ${emails.length} accounts: ${emails.join(', ')}`;
 }
 
+// What the model tells someone who asks for an integration that is not set up.
+function describeIncompleteSetupForModel(label, env) {
+  if (env?.setupMode === 'user') {
+    return `${label}: setup is user-managed and is not complete yet. If the user wants to use it, tell them to open Official Integrations and finish setup in their account first.`;
+  }
+  return `${label}: workspace setup is not complete yet. If the user wants to use it, tell them to open Official Integrations and ask an administrator to finish setup first.`;
+}
+
 module.exports = {
   buildConnectedAppSummary,
+  describeIncompleteSetupForModel,
   formatAccountSummary,
   sortConnections,
   summarizeAccountRow,

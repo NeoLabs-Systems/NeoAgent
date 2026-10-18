@@ -3289,10 +3289,6 @@ class AppL10nLv extends AppL10n {
       'Katrs konts šajā serverī zaudē šo koplietoto atslēgu. Konti ';
 
   @override
-  String get everyAccountOnThisServerSecrets =>
-      'katrs konts šajā serverī. Noslēpumus var rakstīt tikai: atstājiet ';
-
-  @override
   String get everyAccountOnThisServerUses =>
       'Katrs konts šajā serverī izmanto šo adresi ';
 
@@ -4067,9 +4063,6 @@ class AppL10nLv extends AppL10n {
   String get integration => 'Integrācija';
 
   @override
-  String get integrationApps => 'Integrācijas lietotnes';
-
-  @override
   String get integrationConnections => 'Integrācijas savienojumi';
 
   @override
@@ -4713,10 +4706,6 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get microsoft365 => 'Microsoft 365';
-
-  @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack un citas integrācijas. Tie attiecas uz ';
 
   @override
   String get microsoftTeams => 'Microsoft Teams';
@@ -5483,10 +5472,6 @@ class AppL10nLv extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'OAuth lietotnes akreditācijas dati, kas ļauj kontiem izveidot savienojumu ar Google, ';
-
-  @override
   String get oauthClientId => 'OAuth klienta ID';
 
   @override
@@ -5558,10 +5543,6 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get once => 'Vienreiz';
-
-  @override
-  String get oneBlankToKeepWhatIs =>
-      'viena tukša, lai saglabātu to, kas tiek glabāts.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -11462,4 +11443,65 @@ class AppL10nLv extends AppL10n {
   @override
   String get sharedUsageSearchKeywords =>
       'opt-in datu kopīgošana telemetrija ierīces funkcijas rīki modeļi aktivitāte';
+
+  @override
+  String get yourOAuthApp => 'Jūsu OAuth lietotne';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'Jūsu $provider OAuth lietotne';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Šim serverim nav globālas $provider lietotnes, tāpēc jūs pievienojaties ar paša reģistrētu OAuth lietotni. Klienta noslēpums tiek glabāts šifrēts un vairs netiek rādīts.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Izveidojiet lietotni';
+
+  @override
+  String get openDeveloperConsole => 'Atvērt izstrādātāju konsoli';
+
+  @override
+  String get oauthAppStepCallback => '2. Reģistrējiet šo atzvanīšanas URL';
+
+  @override
+  String get callbackUrlCopied => 'Atzvanīšanas URL nokopēts';
+
+  @override
+  String get oauthAppScopes => 'Atļaujamie tvērumi';
+
+  @override
+  String get scopesCopied => 'Tvērumi nokopēti';
+
+  @override
+  String get oauthAppStepCredentials =>
+      '3. Ielīmējiet lietotnes akreditācijas datus';
+
+  @override
+  String get couldNotSaveOAuthApp => 'Neizdevās saglabāt OAuth lietotni.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Vai noņemt jūsu $provider lietotni?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Pievienotie konti paliek sarakstā, bet pārstāj darboties, līdz atkal pievienosiet lietotni.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Globālā integrāciju konfigurācija';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Neobligātas visa servera OAuth lietotnes. Ja integrācijai tāda ir, to izmanto katrs konts un nevar pievienot savu. Atstājiet integrāciju neiestatītu, un katrs lietotājs iestatīs savu lietotni. Noslēpumus var tikai ierakstīt: atstājiet tukšu, lai saglabātu esošo vērtību.';
+
+  @override
+  String get globalStatus => 'Globāli';
+
+  @override
+  String get perUserStatus => 'Katram lietotājam';
 }

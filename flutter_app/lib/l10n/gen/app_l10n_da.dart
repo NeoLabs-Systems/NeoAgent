@@ -3278,10 +3278,6 @@ class AppL10nDa extends AppL10n {
       'Hver konto på denne server mister denne delte nøgle. Regnskaber ';
 
   @override
-  String get everyAccountOnThisServerSecrets =>
-      'hver konto på denne server. Hemmeligheder er skrivebeskyttede: forlad ';
-
-  @override
   String get everyAccountOnThisServerUses =>
       'Hver konto på denne server bruger denne adresse til ';
 
@@ -4057,9 +4053,6 @@ class AppL10nDa extends AppL10n {
   String get integration => 'Integration';
 
   @override
-  String get integrationApps => 'Integrations-apps';
-
-  @override
   String get integrationConnections => 'Integrationsforbindelser';
 
   @override
@@ -4700,10 +4693,6 @@ class AppL10nDa extends AppL10n {
 
   @override
   String get microsoft365 => 'Microsoft 365';
-
-  @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack og de andre integrationer. De gælder for ';
 
   @override
   String get microsoftTeams => 'Microsoft Teams';
@@ -5466,10 +5455,6 @@ class AppL10nDa extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'OAuth-applegitimationsoplysninger, der lader konti forbinde Google, ';
-
-  @override
   String get oauthClientId => 'OAuth-klient-id';
 
   @override
@@ -5540,9 +5525,6 @@ class AppL10nDa extends AppL10n {
 
   @override
   String get once => 'En gang';
-
-  @override
-  String get oneBlankToKeepWhatIs => 'en blank for at beholde det gemte.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -11428,4 +11410,65 @@ class AppL10nDa extends AppL10n {
   @override
   String get sharedUsageSearchKeywords =>
       'opt-in datadeling telemetri enheder funktioner værktøjer modeller aktivitet';
+
+  @override
+  String get yourOAuthApp => 'Din OAuth-app';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'Din $provider-OAuth-app';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Denne server har ingen global $provider-app, så du forbinder med en OAuth-app, du selv registrerer. Klienthemmeligheden gemmes krypteret og vises aldrig igen.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Opret appen';
+
+  @override
+  String get openDeveloperConsole => 'Åbn udviklerkonsollen';
+
+  @override
+  String get oauthAppStepCallback => '2. Registrer denne callback-URL';
+
+  @override
+  String get callbackUrlCopied => 'Callback-URL kopieret';
+
+  @override
+  String get oauthAppScopes => 'Scopes der skal tillades';
+
+  @override
+  String get scopesCopied => 'Scopes kopieret';
+
+  @override
+  String get oauthAppStepCredentials =>
+      '3. Indsæt appens legitimationsoplysninger';
+
+  @override
+  String get couldNotSaveOAuthApp => 'OAuth-appen kunne ikke gemmes.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Fjern din $provider-app?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Forbundne konti forbliver på listen, men holder op med at virke, indtil du tilføjer en app igen.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Global integrationskonfiguration';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Valgfrie OAuth-apps for hele serveren. Når en integration har en, bruger alle konti den og kan ikke tilføje deres egen. Lad en integration være tom, så opsætter hver bruger sin egen app. Hemmeligheder kan kun skrives: lad feltet være tomt for at beholde den gemte værdi.';
+
+  @override
+  String get globalStatus => 'Global';
+
+  @override
+  String get perUserStatus => 'Pr. bruger';
 }

@@ -2742,7 +2742,6 @@
   "every15Minutes": "A cada 15 minutos",
   "every30Minutes": "A cada 30 minutos",
   "everyAccountOnThisServerLoses": "Cada conta neste servidor perde esta chave compartilhada. Contas ",
-  "everyAccountOnThisServerSecrets": "todas as contas neste servidor. Os segredos são somente para gravação: saia ",
   "everyAccountOnThisServerUses": "Cada conta neste servidor usa este endereço para ",
   "everyActiveSessionForThisAccount": "Cada sessão ativa desta conta termina. Eles podem fazer login ",
   "everyDay0800": "Todos os dias · 08:00",
@@ -3218,7 +3217,6 @@
   },
   "instructions": "Instruções",
   "integration": "Integração",
-  "integrationApps": "Aplicativos de integração",
   "integrationConnections": "Conexões de integração",
   "integrationSettingsSaved": "Configurações de integração salvas.",
   "integrations": "Integrações",
@@ -3584,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Microfone silenciado. Toque para ativar o som.",
   "microphonePermissionIsRequiredForLive": "A permissão do microfone é necessária para voz ao vivo.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack e outras integrações. Eles se aplicam a ",
   "microsoftTeams": "Equipes da Microsoft",
   "minimumContributionValueArg1": "Valor mínimo de contribuição: {arg1}",
   "@minimumContributionValueArg1": {
@@ -4007,7 +4004,6 @@
   "nothingStoredYet": "Nada armazenado ainda.",
   "notionSlackFigmaGithubSpotifyTrello": "Noção, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "Credenciais do aplicativo OAuth que permitem que as contas se conectem ao Google, ",
   "oauthClientId": "ID do cliente OAuth",
   "oauthClientIdSecretRedirectApi": "chave de API de redirecionamento secreto do ID do cliente oauth",
   "oauthClientIdSecretRedirectGmail": "ID do cliente oauth redirecionamento secreto unidade de calendário do Gmail",
@@ -4045,7 +4041,6 @@
   "onTheyCanJoinAgainOnly": "ligado. Eles só poderão ingressar novamente com um novo link de convite.",
   "onYourOwnTheDefault": "Por conta própria (o padrão)",
   "once": "Uma vez",
-  "oneBlankToKeepWhatIs": "um em branco para manter o que está armazenado.",
   "oneIsSavedOtherChangesIn": "um é salvo. Outras alterações neste formulário também são salvas.",
   "oneOrMoreAccountsExpiredReconnect": "Uma ou mais contas expiraram. Reconecte a conta afetada para restaurar o acesso à ferramenta.",
   "oneRuntimeControlsPersonaGroupTurn": "Um tempo de execução controla a personalidade, a alternância do grupo, a memória da sala, as normas, a Teoria da Mente e a entrega.",
@@ -7081,5 +7076,43 @@
   "sharedUsageFeatureMemory": "Memória",
   "sharedUsageSearchKeywords": "compartilhamento de dados opt-in telemetria dispositivos recursos ferramentas modelos atividade",
   "providerChooseUsername": "Escolha seu nome de usuário",
-  "providerChooseUsernameBody": "Escolha um nome de usuário disponível para concluir a criação da sua conta."
+  "providerChooseUsernameBody": "Escolha um nome de usuário disponível para concluir a criação da sua conta.",
+  "yourOAuthApp": "A sua app OAuth",
+  "oauthAppSetupTitle": "A sua app OAuth do {provider}",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Este servidor não tem uma app global do {provider}, por isso liga-se com uma app OAuth registada por si. O segredo do cliente é guardado encriptado e nunca mais é mostrado.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Criar a app",
+  "openDeveloperConsole": "Abrir consola de programador",
+  "oauthAppStepCallback": "2. Registar este URL de callback",
+  "callbackUrlCopied": "URL de callback copiado",
+  "oauthAppScopes": "Scopes a permitir",
+  "scopesCopied": "Scopes copiados",
+  "oauthAppStepCredentials": "3. Colar as credenciais da app",
+  "couldNotSaveOAuthApp": "Não foi possível guardar a app OAuth.",
+  "removeOAuthAppTitle": "Remover a sua app do {provider}?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "As contas ligadas continuam listadas, mas deixam de funcionar até adicionar novamente uma app.",
+  "globalIntegrationConfiguration": "Configuração global de integrações",
+  "globalIntegrationConfigurationDescription": "Apps OAuth opcionais para todo o servidor. Quando uma integração tem uma, todas as contas a usam e não podem adicionar a sua. Deixe uma integração por definir e cada utilizador configura a sua própria app. Os segredos são só de escrita: deixe em branco para manter o valor guardado.",
+  "globalStatus": "Global",
+  "perUserStatus": "Por utilizador"
 }

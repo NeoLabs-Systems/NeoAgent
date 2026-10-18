@@ -2742,7 +2742,6 @@
   "every15Minutes": "15 minuutin välein",
   "every30Minutes": "30 minuutin välein",
   "everyAccountOnThisServerLoses": "Jokainen tämän palvelimen tili menettää tämän jaetun avaimen. Tilit ",
-  "everyAccountOnThisServerSecrets": "jokainen tili tällä palvelimella. Salaisuudet ovat vain kirjoitus: jätä ",
   "everyAccountOnThisServerUses": "Jokainen tili tällä palvelimella käyttää tätä osoitetta ",
   "everyActiveSessionForThisAccount": "Jokainen tämän tilin aktiivinen istunto päättyy. He voivat kirjautua sisään ",
   "everyDay0800": "Joka päivä · 08:00",
@@ -3218,7 +3217,6 @@
   },
   "instructions": "Ohjeet",
   "integration": "Integrointi",
-  "integrationApps": "Integrointisovellukset",
   "integrationConnections": "Integraatioyhteydet",
   "integrationSettingsSaved": "Integrointiasetukset tallennettu.",
   "integrations": "Integraatiot",
@@ -3584,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Mikrofoni mykistetty. Poista mykistys napauttamalla.",
   "microphonePermissionIsRequiredForLive": "Suoraan ääneen tarvitaan mikrofonin lupa.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack ja muut integraatiot. Ne koskevat ",
   "microsoftTeams": "Microsoft Teams",
   "minimumContributionValueArg1": "Maksun vähimmäisarvo: {arg1}",
   "@minimumContributionValueArg1": {
@@ -4007,7 +4004,6 @@
   "nothingStoredYet": "Mitään ei ole vielä tallennettu.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "OAuth-sovelluksen kirjautumistiedot, joiden avulla tilit voivat yhdistää Googlen, ",
   "oauthClientId": "OAuth-asiakastunnus",
   "oauthClientIdSecretRedirectApi": "oauth-asiakastunnuksen salainen uudelleenohjaussovellusliittymäavain",
   "oauthClientIdSecretRedirectGmail": "oauth-asiakastunnuksen salainen uudelleenohjaus gmail-kalenteriasema",
@@ -4045,7 +4041,6 @@
   "onTheyCanJoinAgainOnly": "päällä. He voivat liittyä uudelleen vain uudella kutsulinkillä.",
   "onYourOwnTheDefault": "Yksin (oletus)",
   "once": "Kerran",
-  "oneBlankToKeepWhatIs": "yksi tyhjä, jotta se säilyttää mitä on tallennettu.",
   "oneIsSavedOtherChangesIn": "yksi on pelastettu. Myös muut tämän lomakkeen muutokset tallennetaan.",
   "oneOrMoreAccountsExpiredReconnect": "Yksi tai useampi tili on vanhentunut. Yhdistä ongelmallinen tili uudelleen palauttaaksesi työkalun käyttöoikeudet.",
   "oneRuntimeControlsPersonaGroupTurn": "Yksi suoritusaika ohjaa persoonaa, ryhmävuoroja, huoneen muistia, normeja, mielen teoriaa ja toimitusta.",
@@ -7081,5 +7076,43 @@
   "sharedUsageFeatureMemory": "Muisti",
   "sharedUsageSearchKeywords": "opt-in tietojen jakaminen telemetria laitteet toiminnot työkalut mallit aktiivisuus",
   "providerChooseUsername": "Valitse käyttäjänimi",
-  "providerChooseUsernameBody": "Valitse vapaa käyttäjänimi viimeistelläksesi tilisi luomisen."
+  "providerChooseUsernameBody": "Valitse vapaa käyttäjänimi viimeistelläksesi tilisi luomisen.",
+  "yourOAuthApp": "OAuth-sovelluksesi",
+  "oauthAppSetupTitle": "{provider}-OAuth-sovelluksesi",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Tällä palvelimella ei ole yleistä {provider}-sovellusta, joten yhdistät itse rekisteröimälläsi OAuth-sovelluksella. Asiakassalaisuus tallennetaan salattuna eikä sitä näytetä enää koskaan.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Luo sovellus",
+  "openDeveloperConsole": "Avaa kehittäjäkonsoli",
+  "oauthAppStepCallback": "2. Rekisteröi tämä paluu-URL",
+  "callbackUrlCopied": "Paluu-URL kopioitu",
+  "oauthAppScopes": "Sallittavat scopet",
+  "scopesCopied": "Scopet kopioitu",
+  "oauthAppStepCredentials": "3. Liitä sovelluksen tunnukset",
+  "couldNotSaveOAuthApp": "OAuth-sovellusta ei voitu tallentaa.",
+  "removeOAuthAppTitle": "Poistetaanko {provider}-sovelluksesi?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Yhdistetyt tilit pysyvät listassa, mutta lakkaavat toimimasta, kunnes lisäät sovelluksen uudelleen.",
+  "globalIntegrationConfiguration": "Integraatioiden yleiset asetukset",
+  "globalIntegrationConfigurationDescription": "Valinnaiset koko palvelimen OAuth-sovellukset. Kun integraatiolla on sellainen, jokainen tili käyttää sitä eikä voi lisätä omaansa. Jätä integraatio tyhjäksi, niin jokainen käyttäjä määrittää oman sovelluksensa. Salaisuudet ovat vain kirjoitettavia: jätä tyhjäksi säilyttääksesi tallennetun arvon.",
+  "globalStatus": "Yleinen",
+  "perUserStatus": "Käyttäjäkohtainen"
 }

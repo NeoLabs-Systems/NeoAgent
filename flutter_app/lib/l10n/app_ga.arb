@@ -2742,7 +2742,6 @@
   "every15Minutes": "Gach 15 nóiméad",
   "every30Minutes": "Gach 30 nóiméad",
   "everyAccountOnThisServerLoses": "Cailleann gach cuntas ar an bhfreastalaí seo an eochair roinnte seo. Cuntais ",
-  "everyAccountOnThisServerSecrets": "gach cuntas ar an bhfreastalaí seo. Tá rúin scríofa amháin: fág ",
   "everyAccountOnThisServerUses": "Úsáideann gach cuntas ar an bhfreastalaí seo an seoladh seo le haghaidh ",
   "everyActiveSessionForThisAccount": "Críochnaíonn gach seisiún gníomhach don chuntas seo. Is féidir leo síniú isteach ",
   "everyDay0800": "Gach lá · 08:00",
@@ -3218,7 +3217,6 @@
   },
   "instructions": "Treoracha",
   "integration": "Comhtháthú",
-  "integrationApps": "Aipeanna comhtháthú",
   "integrationConnections": "Naisc chomhtháthaithe",
   "integrationSettingsSaved": "Sábháladh socruithe comhtháthaithe.",
   "integrations": "Comhtháthaithe",
@@ -3584,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Micreafón balbhaithe. Tapáil chun díbhalbhú.",
   "microphonePermissionIsRequiredForLive": "Teastaíonn cead micreafón le haghaidh guth beo.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack agus na comhtháthú eile. Baineann siad le ",
   "microsoftTeams": "Foirne Microsoft",
   "minimumContributionValueArg1": "Íosluach ranníocaíochta: {arg1}",
   "@minimumContributionValueArg1": {
@@ -4007,7 +4004,6 @@
   "nothingStoredYet": "Ní dhéanfaidh aon ní a stóráil go fóill.",
   "notionSlackFigmaGithubSpotifyTrello": "Nóisean, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "Dintiúir aip OAuth a ligeann do chuntais Google a nascadh, ",
   "oauthClientId": "Aitheantas Cliant OAuth",
   "oauthClientIdSecretRedirectApi": "oauth cliant id rún atreorú eochair api",
   "oauthClientIdSecretRedirectGmail": "oauth cliant id rúnda atreorú tiomáint féilire gmail",
@@ -4045,7 +4041,6 @@
   "onTheyCanJoinAgainOnly": "ar. Ní féidir leo páirt a ghlacadh arís ach le nasc cuirí nua.",
   "onYourOwnTheDefault": "Ar do shon féin (an réamhshocrú)",
   "once": "Uair amháin",
-  "oneBlankToKeepWhatIs": "bán amháin chun an méid atá stóráilte a choinneáil.",
   "oneIsSavedOtherChangesIn": "tá ceann amháin shábháil. Déantar athruithe eile ar an bhfoirm seo a shábháil freisin.",
   "oneOrMoreAccountsExpiredReconnect": "Chuaigh cuntas amháin nó níos mó in éag. Athcheangail an cuntas lena mbaineann chun rochtain uirlisí a aischur.",
   "oneRuntimeControlsPersonaGroupTurn": "Rialaíonn am rite amháin pearsana, sealaíocht ghrúpa, cuimhne an tseomra, noirm, Teoiric na hIntinne, agus seachadadh.",
@@ -7081,5 +7076,43 @@
   "sharedUsageFeatureMemory": "Cuimhne",
   "sharedUsageSearchKeywords": "opt-in comhroinnt sonraí teiliméadracht gléasanna gnéithe uirlisí samhlacha gníomhaíocht",
   "providerChooseUsername": "Roghnaigh d'ainm úsáideora",
-  "providerChooseUsernameBody": "Roghnaigh ainm úsáideora atá ar fáil chun do chuntas a chríochnú."
+  "providerChooseUsernameBody": "Roghnaigh ainm úsáideora atá ar fáil chun do chuntas a chríochnú.",
+  "yourOAuthApp": "Do aip OAuth",
+  "oauthAppSetupTitle": "Do aip OAuth {provider}",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Níl aip {provider} dhomhanda ar an bhfreastalaí seo, mar sin ceanglaíonn tú le haip OAuth a chláraíonn tú féin. Stóráiltear rún an chliaint criptithe agus ní thaispeántar arís é.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Cruthaigh an aip",
+  "openDeveloperConsole": "Oscail consól an fhorbróra",
+  "oauthAppStepCallback": "2. Cláraigh an URL aisghlaoch seo",
+  "callbackUrlCopied": "URL aisghlaoch cóipeáilte",
+  "oauthAppScopes": "Raonta le ceadú",
+  "scopesCopied": "Raonta cóipeáilte",
+  "oauthAppStepCredentials": "3. Greamaigh dintiúir na haipe",
+  "couldNotSaveOAuthApp": "Níorbh fhéidir an aip OAuth a shábháil.",
+  "removeOAuthAppTitle": "Bain d’aip {provider}?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Fanann cuntais cheangailte ar an liosta ach stopann siad ag obair go dtí go gcuireann tú aip leis arís.",
+  "globalIntegrationConfiguration": "Cumraíocht dhomhanda comhtháthaithe",
+  "globalIntegrationConfigurationDescription": "Aipeanna OAuth roghnacha don fhreastalaí ar fad. Nuair atá ceann ag comhtháthú, úsáideann gach cuntas é agus ní féidir leo a gceann féin a chur leis. Fág comhtháthú gan socrú agus socraíonn gach úsáideoir a aip féin. Is le scríobh amháin iad rúin: fág bán chun an luach stóráilte a choinneáil.",
+  "globalStatus": "Domhanda",
+  "perUserStatus": "In aghaidh an úsáideora"
 }

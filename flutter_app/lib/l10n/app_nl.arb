@@ -2742,7 +2742,6 @@
   "every15Minutes": "Elke 15 minuten",
   "every30Minutes": "Elke 30 minuten",
   "everyAccountOnThisServerLoses": "Elk account op deze server verliest deze gedeelde sleutel. Rekeningen ",
-  "everyAccountOnThisServerSecrets": "elk account op deze server. Geheimen kunnen alleen worden geschreven: vertrek ",
   "everyAccountOnThisServerUses": "Elk account op deze server gebruikt dit adres voor ",
   "everyActiveSessionForThisAccount": "Elke actieve sessie voor dit account eindigt. Zij kunnen inloggen ",
   "everyDay0800": "Elke dag · 08:00 uur",
@@ -3218,7 +3217,6 @@
   },
   "instructions": "Instructies",
   "integration": "Integratie",
-  "integrationApps": "Integratie-apps",
   "integrationConnections": "Integratie verbindingen",
   "integrationSettingsSaved": "Integratie-instellingen opgeslagen.",
   "integrations": "Integraties",
@@ -3584,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Microfoon gedempt. Tik om het dempen op te heffen.",
   "microphonePermissionIsRequiredForLive": "Voor live stem is toestemming voor de microfoon vereist.",
   "microsoft365": "Microsoft365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack en de andere integraties. Ze zijn van toepassing op ",
   "microsoftTeams": "Microsoft Teams",
   "minimumContributionValueArg1": "Minimale bijdragewaarde: {arg1}",
   "@minimumContributionValueArg1": {
@@ -4007,7 +4004,6 @@
   "nothingStoredYet": "Nog niets opgeslagen.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "OAuth-app-inloggegevens waarmee accounts verbinding kunnen maken met Google, ",
   "oauthClientId": "OAuth-client-ID",
   "oauthClientIdSecretRedirectApi": "oauth client-id geheime omleiding API-sleutel",
   "oauthClientIdSecretRedirectGmail": "oauth client-id geheime omleiding gmail-agendastation",
@@ -4045,7 +4041,6 @@
   "onTheyCanJoinAgainOnly": "op. Ze kunnen alleen opnieuw deelnemen met een nieuwe uitnodigingslink.",
   "onYourOwnTheDefault": "Zelf (de standaard)",
   "once": "Een keer",
-  "oneBlankToKeepWhatIs": "één blanco om te bewaren wat is opgeslagen.",
   "oneIsSavedOtherChangesIn": "één wordt gered. Andere wijzigingen in dit formulier worden ook opgeslagen.",
   "oneOrMoreAccountsExpiredReconnect": "Een of meer accounts zijn verlopen. Maak opnieuw verbinding met het getroffen account om de toegang tot het hulpprogramma te herstellen.",
   "oneRuntimeControlsPersonaGroupTurn": "Eén runtime regelt persona, groepsbeurten, ruimtegeheugen, normen, Theory of Mind en levering.",
@@ -7081,5 +7076,43 @@
   "sharedUsageFeatureMemory": "Geheugen",
   "sharedUsageSearchKeywords": "opt-in gegevens delen telemetrie apparaten functies tools modellen activiteit",
   "providerChooseUsername": "Kies je gebruikersnaam",
-  "providerChooseUsernameBody": "Kies een beschikbare gebruikersnaam om je account af te ronden."
+  "providerChooseUsernameBody": "Kies een beschikbare gebruikersnaam om je account af te ronden.",
+  "yourOAuthApp": "Je OAuth-app",
+  "oauthAppSetupTitle": "Je {provider}-OAuth-app",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Deze server heeft geen globale {provider}-app, dus je verbindt met een OAuth-app die je zelf registreert. Het clientgeheim wordt versleuteld opgeslagen en nooit meer getoond.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Maak de app",
+  "openDeveloperConsole": "Ontwikkelaarsconsole openen",
+  "oauthAppStepCallback": "2. Registreer deze callback-URL",
+  "callbackUrlCopied": "Callback-URL gekopieerd",
+  "oauthAppScopes": "Toe te staan scopes",
+  "scopesCopied": "Scopes gekopieerd",
+  "oauthAppStepCredentials": "3. Plak de app-gegevens",
+  "couldNotSaveOAuthApp": "Kon de OAuth-app niet opslaan.",
+  "removeOAuthAppTitle": "Je {provider}-app verwijderen?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Verbonden accounts blijven in de lijst staan maar werken pas weer als je opnieuw een app toevoegt.",
+  "globalIntegrationConfiguration": "Globale integratieconfiguratie",
+  "globalIntegrationConfigurationDescription": "Optionele serverbrede OAuth-apps. Heeft een integratie er een, dan gebruikt elk account die en kan het geen eigen app toevoegen. Laat een integratie leeg en elke gebruiker stelt zijn eigen app in. Geheimen zijn alleen-schrijven: laat leeg om de opgeslagen waarde te behouden.",
+  "globalStatus": "Globaal",
+  "perUserStatus": "Per gebruiker"
 }

@@ -3267,10 +3267,6 @@ class AppL10nEn extends AppL10n {
       'Every account on this server loses this shared key. Accounts ';
 
   @override
-  String get everyAccountOnThisServerSecrets =>
-      'every account on this server. Secrets are write-only: leave ';
-
-  @override
   String get everyAccountOnThisServerUses =>
       'Every account on this server uses this address for ';
 
@@ -4045,9 +4041,6 @@ class AppL10nEn extends AppL10n {
   String get integration => 'Integration';
 
   @override
-  String get integrationApps => 'Integration apps';
-
-  @override
   String get integrationConnections => 'Integration connections';
 
   @override
@@ -4687,10 +4680,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get microsoft365 => 'Microsoft 365';
-
-  @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack and the other integrations. They apply to ';
 
   @override
   String get microsoftTeams => 'Microsoft Teams';
@@ -5445,10 +5434,6 @@ class AppL10nEn extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'OAuth app credentials that let accounts connect Google, ';
-
-  @override
   String get oauthClientId => 'OAuth Client ID';
 
   @override
@@ -5519,9 +5504,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get once => 'Once';
-
-  @override
-  String get oneBlankToKeepWhatIs => 'one blank to keep what is stored.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -11397,4 +11379,64 @@ class AppL10nEn extends AppL10n {
   @override
   String get sharedUsageSearchKeywords =>
       'opt-in data sharing telemetry devices features tools models activity';
+
+  @override
+  String get yourOAuthApp => 'Your OAuth app';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'Your $provider OAuth app';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'This server has no global $provider app, so you connect with an OAuth app you register yourself. The client secret is stored encrypted and is never shown again.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Create the app';
+
+  @override
+  String get openDeveloperConsole => 'Open developer console';
+
+  @override
+  String get oauthAppStepCallback => '2. Register this callback URL';
+
+  @override
+  String get callbackUrlCopied => 'Callback URL copied';
+
+  @override
+  String get oauthAppScopes => 'Scopes to allow';
+
+  @override
+  String get scopesCopied => 'Scopes copied';
+
+  @override
+  String get oauthAppStepCredentials => '3. Paste the app credentials';
+
+  @override
+  String get couldNotSaveOAuthApp => 'Could not save the OAuth app.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Remove your $provider app?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Connected accounts stay listed but stop working until you add an app again.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Global integration configuration';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Optional server-wide OAuth apps. When an integration has one, every account uses it and cannot add its own. Leave an integration unset and each user sets up their own app instead. Secrets are write-only: leave one blank to keep what is stored.';
+
+  @override
+  String get globalStatus => 'Global';
+
+  @override
+  String get perUserStatus => 'Per user';
 }
