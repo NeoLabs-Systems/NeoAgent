@@ -98,6 +98,22 @@ test('visible progress moves an eligible run to the background', () => {
   assert.equal(engine.getRunMeta('foreground-run').background, null);
 });
 
+test('a chat reply is recorded as visible but keeps the run and its chat in the foreground', () => {
+  const engine = createEngine();
+  let released = 0;
+  const runMeta = addRun(engine, 'chat-run', {
+    triggerSource: 'messaging',
+    onBackground: () => { released += 1; },
+  });
+
+  engine.markRunVisibleReply('chat-run', '2026-10-18T14:28:01.000Z');
+
+  assert.equal(runMeta.background, null);
+  assert.equal(released, 0);
+  assert.equal(runMeta.progressLedger.lastUserVisibleUpdateAt, '2026-10-18T14:28:01.000Z');
+  assert.deepEqual(engine.events, []);
+});
+
 test('a run that already delivered its final answer stays in the foreground', () => {
   const engine = createEngine();
   addRun(engine, 'done-run', { finalDeliverySent: true });

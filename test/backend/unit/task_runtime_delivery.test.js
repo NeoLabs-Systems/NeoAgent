@@ -674,7 +674,7 @@ describe('scheduled task result delivery', () => {
     assert.deepEqual(runState.sentMessages, []);
   });
 
-  test('a reply in the originating chat is progress, not the run\'s final delivery', async () => {
+  test('a reply in the originating chat is neither the run\'s final delivery nor a move to the background', async () => {
     const { executeTool } = require('../../../server/services/ai/tools');
     const runState = {
       messagingSent: false,
@@ -683,6 +683,7 @@ describe('scheduled task result delivery', () => {
       sentMessages: [],
     };
     const sent = [];
+    const visible = [];
     const engine = {
       activeRuns: new Map([['run-id', runState]]),
       messagingManager: {
@@ -691,6 +692,8 @@ describe('scheduled task result delivery', () => {
           return { success: true };
         },
       },
+      markRunVisibleReply: (runId) => visible.push(['reply', runId]),
+      markRunVisibleProgress: (runId) => visible.push(['progress', runId]),
     };
     const context = {
       userId: user.userId,
@@ -710,6 +713,7 @@ describe('scheduled task result delivery', () => {
     assert.equal(runState.messagingSent, false);
     assert.equal(runState.explicitMessageSent, false);
     assert.equal(runState.finalDeliverySent, false);
+    assert.deepEqual(visible, []);
 
     await executeTool('send_message', {
       platform: 'WHATSAPP',
@@ -720,6 +724,7 @@ describe('scheduled task result delivery', () => {
     assert.equal(sent.length, 2);
     assert.equal(runState.explicitMessageSent, true);
     assert.equal(runState.finalDeliverySent, false);
+    assert.deepEqual(visible, [['reply', 'run-id']]);
   });
 
   test('send_message does not use phrase matching to classify an origin reply', async () => {

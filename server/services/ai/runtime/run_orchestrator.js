@@ -377,8 +377,14 @@ class DurableRunRuntime {
           const meta = this.engine.getRunMeta(runId);
           if (!meta || meta.aborted || meta.status === 'paused') return true;
           // terminalInterim means the agent asked the user something and is
-          // waiting; anything after that would talk over the question.
-          if (meta.finalDeliverySent || meta.noResponse || meta.terminalInterim) return true;
+          // waiting; anything after that would talk over the question. A chat
+          // reply that is still the run's last word is its answer, not a pause.
+          if (
+            meta.finalDeliverySent
+            || meta.noResponse
+            || meta.terminalInterim
+            || meta.explicitMessageSent
+          ) return true;
           return meta.deliveryState?.finalContentDelivered === true
             || meta.deliveryState?.noResponse === true;
         },

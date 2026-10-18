@@ -2623,11 +2623,12 @@ async function executeTool(toolName, args, context, engine) {
                 && originDelivery
             ) {
                 if (runState && triggerSource === 'messaging') {
-                    // A reply in the chat the run answers is visible progress,
-                    // not the run's end: the run may keep working, and its final
-                    // answer is still owed unless this reply stays its last word.
+                    // A reply in the chat the run answers is not the run's end:
+                    // the run may keep working, and its final answer is still
+                    // owed unless this reply stays its last word. It does not
+                    // move the run to the background; send_interim_update does.
                     runState.explicitMessageSent = true;
-                    engine?.markRunVisibleProgress?.(runId);
+                    engine?.markRunVisibleReply?.(runId);
                 } else {
                     markProactiveMessageSent({ runState, deliveryState, content: normalizedMessage });
                 }

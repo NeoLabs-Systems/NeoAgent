@@ -42,6 +42,11 @@ const {
 } = require('../behavior');
 
 const MOVED_TO_BACKGROUND = Symbol('moved-to-background');
+// The model-call timeout measures the wait for the next streamed reply chunk,
+// and a turn that reasons or calls a tool streams nothing until it is done.
+// Someone is waiting in the chat, so a stalled provider fails over after two
+// minutes instead of the default five.
+const MESSAGING_MODEL_CALL_TIMEOUT_MS = 2 * 60 * 1000;
 
 function registerMessagingAutomation({ app, io, messagingManager, agentEngine }) {
   const userQueues = Object.create(null);
@@ -440,6 +445,7 @@ async function executeQueuedMessage({
     }
 
     runOptions.messagingInboundJobId = inboundJobIds[0] || null;
+    runOptions.modelCallTimeoutMs = MESSAGING_MODEL_CALL_TIMEOUT_MS;
     runOptions.signal = signal;
 
     // A run that moves to the background frees this chat's queue: the next

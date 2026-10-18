@@ -39,6 +39,7 @@ const {
   isRunStopped: isRunStoppedImpl,
   markRunFinalDelivery: markRunFinalDeliveryImpl,
   markRunVisibleProgress: markRunVisibleProgressImpl,
+  markRunVisibleReply: markRunVisibleReplyImpl,
   persistProgressLedger: persistProgressLedgerImpl,
   persistRunMetadata: persistRunMetadataImpl,
   recordRunEventSafe,
@@ -391,6 +392,10 @@ class AgentEngine {
 
   markRunVisibleProgress(runId, timestamp = isoNow()) {
     return markRunVisibleProgressImpl(this, runId, timestamp);
+  }
+
+  markRunVisibleReply(runId, timestamp = isoNow()) {
+    return markRunVisibleReplyImpl(this, runId, timestamp);
   }
 
   markRunFinalDelivery(runId, content = '', timestamp = isoNow()) {
