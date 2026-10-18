@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const { text } = require('./network');
+const { trimText: text } = require('../../../utils/text');
 
 function decodeXml(value) {
   return String(value || '')
@@ -167,7 +167,7 @@ function buildEventIcs(event) {
   return [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//NeoAgent//Nextcloud//EN',
+    'PRODID:-//NeoAgent//EN',
     'CALSCALE:GREGORIAN',
     'BEGIN:VEVENT',
     `UID:${uid}`,

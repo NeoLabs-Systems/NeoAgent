@@ -7114,5 +7114,82 @@
   "globalIntegrationConfiguration": "Globálna konfigurácia integrácií",
   "globalIntegrationConfigurationDescription": "Voliteľné OAuth aplikácie pre celý server. Ak ju integrácia má, používa ju každý účet a nemôže pridať vlastnú. Nechajte integráciu nenastavenú a každý používateľ si nastaví vlastnú aplikáciu. Tajné údaje sa dajú iba zapisovať: nechajte prázdne, ak chcete zachovať uloženú hodnotu.",
   "globalStatus": "Globálne",
-  "perUserStatus": "Pre používateľa"
+  "perUserStatus": "Pre používateľa",
+  "phoneSyncGuidance": "Zdieľajte kalendáre a kontakty z tohto telefónu so svojím agentom. Funguje so všetkými účtami, ktoré už v telefóne sú.",
+  "phoneSyncElsewhereGuidance": "Otvorte NeoAgent v telefóne a zapnite tam zdieľanie. Agent potom uvidí kalendáre a kontakty všetkých účtov v tom telefóne.",
+  "manageOnThisPhone": "Spravovať v tomto telefóne",
+  "setUpOnThisPhone": "Nastaviť v tomto telefóne",
+  "setUpOnPhone": "Nastaviť v telefóne",
+  "emailConnectedArg1": "Pripojené {email}",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Účet sa nepodarilo pripojiť.",
+  "emailSetupTitle": "Pripojiť e-mail a kalendár",
+  "emailChecking": "Kontrolujem schránku…",
+  "emailSetupIntro": "Použite heslo aplikácie od poskytovateľa e-mailu. Bez vývojárskej konzoly, hotovo za pár minút.",
+  "emailOpenArg1": "Otvoriť {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Zadajte servery",
+  "emailStepPassword": "1. Vytvorte heslo aplikácie",
+  "emailOpenPasswordPageArg1": "Otvoriť heslá aplikácií {provider}",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Prihlásenie",
+  "appPassword": "Heslo aplikácie",
+  "appPasswordHelper": "Na medzerách nezáleží. NeoAgent ho ukladá šifrovane.",
+  "emailUsernameOptional": "Používateľské meno, ak to nie je váš e-mail",
+  "emailIncludeCalendar": "Zahrnúť kalendár",
+  "emailIncludeContacts": "Zahrnúť kontakty",
+  "imapServer": "Server IMAP",
+  "smtpServer": "Server SMTP",
+  "caldavUrlOptional": "Adresa CalDAV (voliteľné)",
+  "carddavUrlOptional": "Adresa CardDAV (voliteľné)",
+  "alternativeEmail": "Pripojte schránku heslom aplikácie alebo kalendár jeho odkazom iCal. Hotovo za pár minút.",
+  "alternativePhone": "Zdieľajte kalendár a kontakty z telefónu cez aplikáciu NeoAgent.",
+  "alternativePhoneElsewhere": "Zdieľajte kalendár a kontakty z telefónu. Nastavte to v aplikácii NeoAgent v telefóne.",
+  "skipTheDeveloperConsole": "Bez vývojárskej konzoly",
+  "phoneSyncPromptTitle": "Môže agent vidieť váš kalendár?",
+  "phoneSyncPromptBody": "Zdieľajte kalendáre a kontakty z tohto telefónu, aby agent mohol plánovať podľa vášho dňa. Zmeniť to môžete kedykoľvek v Nástroje › Integrácie.",
+  "phoneSyncTitle": "Zdieľať kalendár a kontakty z telefónu",
+  "phoneSyncIntro": "Agent vidí kalendáre a kontakty všetkých účtov v tomto telefóne. Bez vývojárskej konzoly a ďalšieho prihlásenia.",
+  "phoneSyncPointAccounts": "Funguje s účtami Google, Outlook, iCloud a Exchange v tomto telefóne.",
+  "phoneSyncPointPrivate": "Zdieľa sa len s vaším serverom NeoAgent, ktorý ich ukladá šifrovane.",
+  "phoneSyncPointWrites": "Udalosti pridané agentom vytvorí tento telefón a synchronizujú sa ako zvyčajne.",
+  "phoneSyncCalendarHint": "Udalosti od 30 dní dozadu do 90 dní dopredu",
+  "phoneSyncContacts": "Kontakty",
+  "phoneSyncContactsHint": "Mená, e-mailové adresy a telefónne čísla",
+  "phoneSyncOtherAgent": "Tento telefón zdieľa s iným agentom. Zdieľaním tu sa presunie k tomuto agentovi.",
+  "phoneSyncDenied": "NeoAgent zatiaľ nemá prístup. Povoľte ho v Nastaveniach a vráťte sa.",
+  "openPhoneSettings": "Otvoriť Nastavenia",
+  "phoneSyncShare": "Zdieľať s NeoAgent",
+  "phoneSyncStop": "Ukončiť zdieľanie",
+  "phoneSyncWaiting": "Čakám na prvú synchronizáciu…",
+  "phoneSyncLastSyncedArg1": "Naposledy synchronizované {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Odkaz na kalendár",
+  "calendarLinkHelper": "Adresa iCal kalendára. Ktokoľvek ju pozná, môže kalendár čítať, preto ju uchovajte v súkromí.",
+  "calendarLinkName": "Názov (voliteľné)",
+  "calendarLinkAdded": "Kalendár pridaný"
 }

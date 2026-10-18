@@ -15,6 +15,7 @@ import androidx.core.content.FileProvider
 import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.lifecycleScope
 import com.neoagent.flutter_app.call.CallBridge
+import com.neoagent.flutter_app.devicesync.DeviceSyncChannel
 import com.neoagent.flutter_app.health.HealthConnectGateway
 import com.neoagent.flutter_app.health.HealthSyncScheduler
 import io.flutter.embedding.android.FlutterFragmentActivity
@@ -70,6 +71,7 @@ class MainActivity : FlutterFragmentActivity() {
 
         healthGateway = HealthConnectGateway(this)
         healthSyncScheduler = HealthSyncScheduler(this)
+        DeviceSyncChannel.register(flutterEngine.dartExecutor.binaryMessenger, this)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val telecomManager = getSystemService(Context.TELECOM_SERVICE) as TelecomManager

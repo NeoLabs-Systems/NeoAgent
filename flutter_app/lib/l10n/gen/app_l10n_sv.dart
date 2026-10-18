@@ -11478,4 +11478,176 @@ class AppL10nSv extends AppL10n {
 
   @override
   String get perUserStatus => 'Per användare';
+
+  @override
+  String get phoneSyncGuidance =>
+      'Dela den här telefonens kalendrar och kontakter med din agent. Det fungerar med alla konton som redan finns på telefonen.';
+
+  @override
+  String get phoneSyncElsewhereGuidance =>
+      'Öppna NeoAgent på telefonen och slå på delning där. Din agent ser då kalendrar och kontakter för alla konton på telefonen.';
+
+  @override
+  String get manageOnThisPhone => 'Hantera på den här telefonen';
+
+  @override
+  String get setUpOnThisPhone => 'Konfigurera på den här telefonen';
+
+  @override
+  String get setUpOnPhone => 'Konfigurera på din telefon';
+
+  @override
+  String emailConnectedArg1(String email) {
+    return '$email ansluten';
+  }
+
+  @override
+  String get couldNotConnectEmail => 'Kontot kunde inte anslutas.';
+
+  @override
+  String get emailSetupTitle => 'Anslut e-post och kalender';
+
+  @override
+  String get emailChecking => 'Kontrollerar din brevlåda…';
+
+  @override
+  String get emailSetupIntro =>
+      'Använd ett applösenord från din e-postleverantör. Ingen utvecklarkonsol, klart på några minuter.';
+
+  @override
+  String emailOpenArg1(String provider) {
+    return 'Öppna $provider';
+  }
+
+  @override
+  String get emailStepServers => '1. Ange dina servrar';
+
+  @override
+  String get emailStepPassword => '1. Skapa ett applösenord';
+
+  @override
+  String emailOpenPasswordPageArg1(String provider) {
+    return 'Öppna applösenord hos $provider';
+  }
+
+  @override
+  String get emailStepSignIn => '2. Logga in';
+
+  @override
+  String get appPassword => 'Applösenord';
+
+  @override
+  String get appPasswordHelper =>
+      'Mellanslag spelar ingen roll. NeoAgent sparar det krypterat.';
+
+  @override
+  String get emailUsernameOptional =>
+      'Användarnamn, om det inte är din e-postadress';
+
+  @override
+  String get emailIncludeCalendar => 'Ta med kalender';
+
+  @override
+  String get emailIncludeContacts => 'Ta med kontakter';
+
+  @override
+  String get imapServer => 'IMAP-server';
+
+  @override
+  String get smtpServer => 'SMTP-server';
+
+  @override
+  String get caldavUrlOptional => 'CalDAV-URL (valfri)';
+
+  @override
+  String get carddavUrlOptional => 'CardDAV-URL (valfri)';
+
+  @override
+  String get alternativeEmail =>
+      'Anslut din brevlåda med ett applösenord, eller din kalender via dess iCal-länk. Klart på några minuter.';
+
+  @override
+  String get alternativePhone =>
+      'Dela kalendern och kontakterna som redan finns på telefonen via NeoAgent-appen.';
+
+  @override
+  String get alternativePhoneElsewhere =>
+      'Dela kalendern och kontakterna som redan finns på telefonen. Konfigurera det i NeoAgent-appen på telefonen.';
+
+  @override
+  String get skipTheDeveloperConsole => 'Hoppa över utvecklarkonsolen';
+
+  @override
+  String get phoneSyncPromptTitle => 'Får din agent se din kalender?';
+
+  @override
+  String get phoneSyncPromptBody =>
+      'Dela den här telefonens kalendrar och kontakter så att din agent kan planera kring din dag. Du kan ändra det när som helst under Verktyg › Integrationer.';
+
+  @override
+  String get phoneSyncTitle => 'Dela telefonens kalender och kontakter';
+
+  @override
+  String get phoneSyncIntro =>
+      'Din agent ser kalendrar och kontakter för alla konton på telefonen. Ingen utvecklarkonsol, ingen extra inloggning.';
+
+  @override
+  String get phoneSyncPointAccounts =>
+      'Fungerar med Google-, Outlook-, iCloud- och Exchange-kontona på telefonen.';
+
+  @override
+  String get phoneSyncPointPrivate =>
+      'Delas bara med din NeoAgent-server, där det lagras krypterat.';
+
+  @override
+  String get phoneSyncPointWrites =>
+      'Händelser som agenten lägger till skapas av telefonen och synkas som vanligt.';
+
+  @override
+  String get phoneSyncCalendarHint =>
+      'Händelser från 30 dagar bakåt till 90 dagar framåt';
+
+  @override
+  String get phoneSyncContacts => 'Kontakter';
+
+  @override
+  String get phoneSyncContactsHint => 'Namn, e-postadresser och telefonnummer';
+
+  @override
+  String get phoneSyncOtherAgent =>
+      'Telefonen delar med en annan agent. Att dela här flyttar den till den här agenten.';
+
+  @override
+  String get phoneSyncDenied =>
+      'NeoAgent har inte åtkomst än. Tillåt det i Inställningar och kom sedan tillbaka.';
+
+  @override
+  String get openPhoneSettings => 'Öppna Inställningar';
+
+  @override
+  String get phoneSyncShare => 'Dela med NeoAgent';
+
+  @override
+  String get phoneSyncStop => 'Sluta dela';
+
+  @override
+  String get phoneSyncWaiting => 'Väntar på första synkroniseringen…';
+
+  @override
+  String phoneSyncLastSyncedArg1(String time) {
+    return 'Senast synkad $time';
+  }
+
+  @override
+  String get calendarLink => 'Kalenderlänk';
+
+  @override
+  String get calendarLinkHelper =>
+      'Kalenderns iCal-adress. Alla som har den kan läsa kalendern, så håll den privat.';
+
+  @override
+  String get calendarLinkName => 'Namn (valfritt)';
+
+  @override
+  String get calendarLinkAdded => 'Kalendern har lagts till';
 }

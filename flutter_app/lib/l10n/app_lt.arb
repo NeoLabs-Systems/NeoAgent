@@ -7114,5 +7114,82 @@
   "globalIntegrationConfiguration": "Visuotinė integracijų konfigūracija",
   "globalIntegrationConfigurationDescription": "Pasirenkamos viso serverio OAuth programos. Kai integracija tokią turi, ją naudoja kiekviena paskyra ir negali pridėti savos. Palikite integraciją nenustatytą ir kiekvienas naudotojas nustatys savo programą. Paslaptys tik įrašomos: palikite tuščią, kad išliktų išsaugota reikšmė.",
   "globalStatus": "Visuotinė",
-  "perUserStatus": "Kiekvienam naudotojui"
+  "perUserStatus": "Kiekvienam naudotojui",
+  "phoneSyncGuidance": "Bendrinkite šio telefono kalendorius ir kontaktus su agentu. Veikia su visomis telefone jau esančiomis paskyromis.",
+  "phoneSyncElsewhereGuidance": "Atidarykite NeoAgent telefone ir ten įjunkite bendrinimą. Agentas matys visų to telefono paskyrų kalendorius ir kontaktus.",
+  "manageOnThisPhone": "Tvarkyti šiame telefone",
+  "setUpOnThisPhone": "Nustatyti šiame telefone",
+  "setUpOnPhone": "Nustatyti telefone",
+  "emailConnectedArg1": "Prijungta {email}",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Nepavyko prijungti paskyros.",
+  "emailSetupTitle": "Prijungti el. paštą ir kalendorių",
+  "emailChecking": "Tikrinama pašto dėžutė…",
+  "emailSetupIntro": "Naudokite programėlės slaptažodį iš el. pašto paslaugų teikėjo. Be kūrėjų konsolės, paruošta per kelias minutes.",
+  "emailOpenArg1": "Atidaryti {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Įveskite serverius",
+  "emailStepPassword": "1. Sukurkite programėlės slaptažodį",
+  "emailOpenPasswordPageArg1": "Atidaryti {provider} programėlių slaptažodžius",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Prisijungimas",
+  "appPassword": "Programėlės slaptažodis",
+  "appPasswordHelper": "Tarpai nesvarbūs. NeoAgent jį saugo užšifruotą.",
+  "emailUsernameOptional": "Naudotojo vardas, jei tai ne jūsų el. paštas",
+  "emailIncludeCalendar": "Įtraukti kalendorių",
+  "emailIncludeContacts": "Įtraukti kontaktus",
+  "imapServer": "IMAP serveris",
+  "smtpServer": "SMTP serveris",
+  "caldavUrlOptional": "CalDAV URL (nebūtina)",
+  "carddavUrlOptional": "CardDAV URL (nebūtina)",
+  "alternativeEmail": "Prijunkite pašto dėžutę programėlės slaptažodžiu arba kalendorių jo iCal nuoroda. Paruošta per kelias minutes.",
+  "alternativePhone": "Bendrinkite telefone jau esantį kalendorių ir kontaktus per NeoAgent programėlę.",
+  "alternativePhoneElsewhere": "Bendrinkite telefone jau esantį kalendorių ir kontaktus. Nustatykite tai NeoAgent programėlėje telefone.",
+  "skipTheDeveloperConsole": "Be kūrėjų konsolės",
+  "phoneSyncPromptTitle": "Leisti agentui matyti jūsų kalendorių?",
+  "phoneSyncPromptBody": "Bendrinkite šio telefono kalendorius ir kontaktus, kad agentas galėtų planuoti pagal jūsų dieną. Pakeisti galite bet kada skiltyje Įrankiai › Integracijos.",
+  "phoneSyncTitle": "Bendrinti telefono kalendorių ir kontaktus",
+  "phoneSyncIntro": "Agentas mato visų šio telefono paskyrų kalendorius ir kontaktus. Be kūrėjų konsolės ir papildomo prisijungimo.",
+  "phoneSyncPointAccounts": "Veikia su šio telefono Google, Outlook, iCloud ir Exchange paskyromis.",
+  "phoneSyncPointPrivate": "Bendrinama tik su jūsų NeoAgent serveriu, kuris juos saugo užšifruotus.",
+  "phoneSyncPointWrites": "Agento pridėtus įvykius sukuria šis telefonas, ir jie sinchronizuojami kaip įprasta.",
+  "phoneSyncCalendarHint": "Įvykiai nuo 30 dienų atgal iki 90 dienų į priekį",
+  "phoneSyncContacts": "Kontaktai",
+  "phoneSyncContactsHint": "Vardai, el. pašto adresai ir telefono numeriai",
+  "phoneSyncOtherAgent": "Šis telefonas bendrina su kitu agentu. Bendrinant čia jis perkeliamas šiam agentui.",
+  "phoneSyncDenied": "NeoAgent dar neturi prieigos. Leiskite ją nustatymuose ir grįžkite.",
+  "openPhoneSettings": "Atidaryti nustatymus",
+  "phoneSyncShare": "Bendrinti su NeoAgent",
+  "phoneSyncStop": "Nebendrinti",
+  "phoneSyncWaiting": "Laukiama pirmojo sinchronizavimo…",
+  "phoneSyncLastSyncedArg1": "Paskutinį kartą sinchronizuota {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Kalendoriaus nuoroda",
+  "calendarLinkHelper": "Kalendoriaus iCal adresas. Kas jį turi, gali skaityti kalendorių, todėl laikykite jį privačiu.",
+  "calendarLinkName": "Pavadinimas (nebūtina)",
+  "calendarLinkAdded": "Kalendorius pridėtas"
 }

@@ -879,7 +879,8 @@ class _IntegrationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final needsSetup = !item.env.configured;
-    return _ToolTile(
+    final phoneOnly = item.setUpOnPhoneOnly;
+    final tile = _ToolTile(
       icon: _OfficialIntegrationIcon(item: item),
       title: item.label,
       subtitle: item.description,
@@ -894,16 +895,22 @@ class _IntegrationTile extends StatelessWidget {
         appStrings.arg1Accounts(item.connection.accountCount),
       ],
       trailing: _ToolActionButton(
-        label: item.isConnected
+        label: phoneOnly
+            ? appStrings.setUpOnPhone
+            : item.isConnected
             ? 'Manage'
             : needsSetup
             ? appStrings.setUp
             : 'Connect',
-        primary: !item.isConnected,
-        onPressed: () => _openIntegrationDetail(context, controller, item),
+        primary: !item.isConnected && !phoneOnly,
+        onPressed: phoneOnly
+            ? null
+            : () => _openIntegrationDetail(context, controller, item),
       ),
       onTap: () => _openIntegrationDetail(context, controller, item),
     );
+    // Set up from the phone app: shown so people know it exists, but muted.
+    return phoneOnly ? Opacity(opacity: 0.55, child: tile) : tile;
   }
 }
 

@@ -34,6 +34,7 @@ const routeRegistry = [
   { basePath: '/api/voice-assistant', modulePath: '../routes/voice_assistant' },
   { basePath: '/api/wearable', modulePath: '../routes/wearable' },
   { basePath: '/api/mobile/health', modulePath: '../routes/mobile-health' },
+  { basePath: '/api/mobile/device-sync', modulePath: '../routes/mobile-device-sync' },
   { basePath: '/api/triggers', modulePath: '../routes/triggers' },
   { basePath: '/api/security', modulePath: '../routes/security' },
 ];

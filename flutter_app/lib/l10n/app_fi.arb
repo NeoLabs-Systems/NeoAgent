@@ -7114,5 +7114,82 @@
   "globalIntegrationConfiguration": "Integraatioiden yleiset asetukset",
   "globalIntegrationConfigurationDescription": "Valinnaiset koko palvelimen OAuth-sovellukset. Kun integraatiolla on sellainen, jokainen tili käyttää sitä eikä voi lisätä omaansa. Jätä integraatio tyhjäksi, niin jokainen käyttäjä määrittää oman sovelluksensa. Salaisuudet ovat vain kirjoitettavia: jätä tyhjäksi säilyttääksesi tallennetun arvon.",
   "globalStatus": "Yleinen",
-  "perUserStatus": "Käyttäjäkohtainen"
+  "perUserStatus": "Käyttäjäkohtainen",
+  "phoneSyncGuidance": "Jaa tämän puhelimen kalenterit ja yhteystiedot agentillesi. Toimii kaikkien puhelimessa jo olevien tilien kanssa.",
+  "phoneSyncElsewhereGuidance": "Avaa NeoAgent puhelimessa ja ota jakaminen käyttöön siellä. Agenttisi näkee sitten kaikkien puhelimen tilien kalenterit ja yhteystiedot.",
+  "manageOnThisPhone": "Hallitse tässä puhelimessa",
+  "setUpOnThisPhone": "Määritä tässä puhelimessa",
+  "setUpOnPhone": "Määritä puhelimessasi",
+  "emailConnectedArg1": "{email} yhdistetty",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Tiliä ei voitu yhdistää.",
+  "emailSetupTitle": "Yhdistä sähköposti ja kalenteri",
+  "emailChecking": "Tarkistetaan postilaatikkoa…",
+  "emailSetupIntro": "Käytä sähköpostipalvelusi sovelluskohtaista salasanaa. Ei kehittäjäkonsolia, valmis muutamassa minuutissa.",
+  "emailOpenArg1": "Avaa {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Anna palvelimet",
+  "emailStepPassword": "1. Luo sovelluskohtainen salasana",
+  "emailOpenPasswordPageArg1": "Avaa {provider}: sovelluskohtaiset salasanat",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Kirjaudu",
+  "appPassword": "Sovelluskohtainen salasana",
+  "appPasswordHelper": "Välilyönneillä ei ole väliä. NeoAgent tallentaa sen salattuna.",
+  "emailUsernameOptional": "Käyttäjänimi, jos se ei ole sähköpostiosoitteesi",
+  "emailIncludeCalendar": "Sisällytä kalenteri",
+  "emailIncludeContacts": "Sisällytä yhteystiedot",
+  "imapServer": "IMAP-palvelin",
+  "smtpServer": "SMTP-palvelin",
+  "caldavUrlOptional": "CalDAV-URL (valinnainen)",
+  "carddavUrlOptional": "CardDAV-URL (valinnainen)",
+  "alternativeEmail": "Yhdistä postilaatikko sovelluskohtaisella salasanalla tai kalenteri sen iCal-linkillä. Valmis muutamassa minuutissa.",
+  "alternativePhone": "Jaa puhelimessa jo oleva kalenteri ja yhteystiedot NeoAgent-sovelluksella.",
+  "alternativePhoneElsewhere": "Jaa puhelimessa jo oleva kalenteri ja yhteystiedot. Määritä se puhelimen NeoAgent-sovelluksessa.",
+  "skipTheDeveloperConsole": "Ohita kehittäjäkonsoli",
+  "phoneSyncPromptTitle": "Saako agenttisi nähdä kalenterisi?",
+  "phoneSyncPromptBody": "Jaa tämän puhelimen kalenterit ja yhteystiedot, niin agenttisi voi suunnitella päiväsi mukaan. Voit muuttaa tätä milloin tahansa kohdassa Työkalut › Integraatiot.",
+  "phoneSyncTitle": "Jaa tämän puhelimen kalenteri ja yhteystiedot",
+  "phoneSyncIntro": "Agenttisi näkee kaikkien tämän puhelimen tilien kalenterit ja yhteystiedot. Ei kehittäjäkonsolia, ei lisäkirjautumista.",
+  "phoneSyncPointAccounts": "Toimii tämän puhelimen Google-, Outlook-, iCloud- ja Exchange-tilien kanssa.",
+  "phoneSyncPointPrivate": "Jaetaan vain NeoAgent-palvelimellesi, jossa se tallennetaan salattuna.",
+  "phoneSyncPointWrites": "Agentin lisäämät tapahtumat luo tämä puhelin, ja ne synkronoituvat tavalliseen tapaan.",
+  "phoneSyncCalendarHint": "Tapahtumat 30 päivää taaksepäin ja 90 päivää eteenpäin",
+  "phoneSyncContacts": "Yhteystiedot",
+  "phoneSyncContactsHint": "Nimet, sähköpostiosoitteet ja puhelinnumerot",
+  "phoneSyncOtherAgent": "Tämä puhelin jakaa toiselle agentille. Jakaminen tässä siirtää sen tälle agentille.",
+  "phoneSyncDenied": "NeoAgentilla ei ole vielä käyttöoikeutta. Salli se asetuksissa ja palaa takaisin.",
+  "openPhoneSettings": "Avaa asetukset",
+  "phoneSyncShare": "Jaa NeoAgentille",
+  "phoneSyncStop": "Lopeta jakaminen",
+  "phoneSyncWaiting": "Odotetaan ensimmäistä synkronointia…",
+  "phoneSyncLastSyncedArg1": "Synkronoitu viimeksi {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Kalenterilinkki",
+  "calendarLinkHelper": "Kalenterin iCal-osoite. Kuka tahansa osoitteen tunteva voi lukea kalenteria, joten pidä se yksityisenä.",
+  "calendarLinkName": "Nimi (valinnainen)",
+  "calendarLinkAdded": "Kalenteri lisätty"
 }

@@ -3089,6 +3089,7 @@ class OfficialIntegrationEnvStatus {
     required this.missing,
     required this.summary,
     this.setupMode,
+    this.alternatives = const <String>[],
   });
 
   factory OfficialIntegrationEnvStatus.fromJson(Map<dynamic, dynamic> json) {
@@ -3100,6 +3101,7 @@ class OfficialIntegrationEnvStatus {
           : const <String>[],
       summary: json['summary']?.toString() ?? '',
       setupMode: json['setupMode']?.toString(),
+      alternatives: _jsonStringList(json['alternatives']),
     );
   }
 
@@ -3107,6 +3109,9 @@ class OfficialIntegrationEnvStatus {
   final List<String> missing;
   final String summary;
   final String? setupMode;
+
+  /// Integrations that reach the same data without registering an app.
+  final List<String> alternatives;
 }
 
 class OfficialIntegrationConnectionStatus {
@@ -3378,6 +3383,10 @@ class OfficialIntegrationItem {
   /// no global app for this provider.
   bool get usesOwnOAuthApp =>
       connectionMethod == 'oauth' && env.setupMode == 'user';
+
+  /// Shared from the phone app, which this device is not.
+  bool get setUpOnPhoneOnly =>
+      connectionMethod == 'device' && !PhoneSync.supported && !isConnected;
 
   String get effectiveStatus =>
       !isConnected && hasExpiredAccounts ? 'expired' : connection.status;

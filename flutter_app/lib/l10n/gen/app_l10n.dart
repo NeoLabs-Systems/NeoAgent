@@ -19182,6 +19182,300 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Per user'**
   String get perUserStatus;
+
+  /// No description provided for @phoneSyncGuidance.
+  ///
+  /// In en, this message translates to:
+  /// **'Share this phone\'s calendars and contacts with your agent. It works with every account already on the phone.'**
+  String get phoneSyncGuidance;
+
+  /// No description provided for @phoneSyncElsewhereGuidance.
+  ///
+  /// In en, this message translates to:
+  /// **'Open NeoAgent on your phone and turn on sharing there. Your agent then sees the calendars and contacts of every account on that phone.'**
+  String get phoneSyncElsewhereGuidance;
+
+  /// No description provided for @manageOnThisPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage on this phone'**
+  String get manageOnThisPhone;
+
+  /// No description provided for @setUpOnThisPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up on this phone'**
+  String get setUpOnThisPhone;
+
+  /// No description provided for @setUpOnPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up on your phone'**
+  String get setUpOnPhone;
+
+  /// No description provided for @emailConnectedArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected {email}'**
+  String emailConnectedArg1(String email);
+
+  /// No description provided for @couldNotConnectEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not connect this account.'**
+  String get couldNotConnectEmail;
+
+  /// No description provided for @emailSetupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect email & calendar'**
+  String get emailSetupTitle;
+
+  /// No description provided for @emailChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking your mailbox…'**
+  String get emailChecking;
+
+  /// No description provided for @emailSetupIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Use an app password from your mail provider. No developer console, ready in a couple of minutes.'**
+  String get emailSetupIntro;
+
+  /// No description provided for @emailOpenArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Open {provider}'**
+  String emailOpenArg1(String provider);
+
+  /// No description provided for @emailStepServers.
+  ///
+  /// In en, this message translates to:
+  /// **'1. Enter your servers'**
+  String get emailStepServers;
+
+  /// No description provided for @emailStepPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'1. Create an app password'**
+  String get emailStepPassword;
+
+  /// No description provided for @emailOpenPasswordPageArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Open {provider} app passwords'**
+  String emailOpenPasswordPageArg1(String provider);
+
+  /// No description provided for @emailStepSignIn.
+  ///
+  /// In en, this message translates to:
+  /// **'2. Sign in'**
+  String get emailStepSignIn;
+
+  /// No description provided for @appPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'App password'**
+  String get appPassword;
+
+  /// No description provided for @appPasswordHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Spaces don\'t matter. NeoAgent stores it encrypted.'**
+  String get appPasswordHelper;
+
+  /// No description provided for @emailUsernameOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Username, if not your email address'**
+  String get emailUsernameOptional;
+
+  /// No description provided for @emailIncludeCalendar.
+  ///
+  /// In en, this message translates to:
+  /// **'Include calendar'**
+  String get emailIncludeCalendar;
+
+  /// No description provided for @emailIncludeContacts.
+  ///
+  /// In en, this message translates to:
+  /// **'Include contacts'**
+  String get emailIncludeContacts;
+
+  /// No description provided for @imapServer.
+  ///
+  /// In en, this message translates to:
+  /// **'IMAP server'**
+  String get imapServer;
+
+  /// No description provided for @smtpServer.
+  ///
+  /// In en, this message translates to:
+  /// **'SMTP server'**
+  String get smtpServer;
+
+  /// No description provided for @caldavUrlOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'CalDAV URL (optional)'**
+  String get caldavUrlOptional;
+
+  /// No description provided for @carddavUrlOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'CardDAV URL (optional)'**
+  String get carddavUrlOptional;
+
+  /// No description provided for @alternativeEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect your mailbox with an app password, or your calendar by its iCal link. Ready in a couple of minutes.'**
+  String get alternativeEmail;
+
+  /// No description provided for @alternativePhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Share the calendar and contacts already on your phone through the NeoAgent app.'**
+  String get alternativePhone;
+
+  /// No description provided for @alternativePhoneElsewhere.
+  ///
+  /// In en, this message translates to:
+  /// **'Share the calendar and contacts already on your phone. Set it up in the NeoAgent phone app.'**
+  String get alternativePhoneElsewhere;
+
+  /// No description provided for @skipTheDeveloperConsole.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip the developer console'**
+  String get skipTheDeveloperConsole;
+
+  /// No description provided for @phoneSyncPromptTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Let your agent see your calendar?'**
+  String get phoneSyncPromptTitle;
+
+  /// No description provided for @phoneSyncPromptBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Share this phone\'s calendars and contacts so your agent can plan around your day. You can change this anytime in Tools › Integrations.'**
+  String get phoneSyncPromptBody;
+
+  /// No description provided for @phoneSyncTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Share this phone\'s calendar & contacts'**
+  String get phoneSyncTitle;
+
+  /// No description provided for @phoneSyncIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Your agent sees the calendars and contacts of every account already on this phone. No developer console, no extra sign-in.'**
+  String get phoneSyncIntro;
+
+  /// No description provided for @phoneSyncPointAccounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Works with the Google, Outlook, iCloud and Exchange accounts on this phone.'**
+  String get phoneSyncPointAccounts;
+
+  /// No description provided for @phoneSyncPointPrivate.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared only with your NeoAgent server, where it is stored encrypted.'**
+  String get phoneSyncPointPrivate;
+
+  /// No description provided for @phoneSyncPointWrites.
+  ///
+  /// In en, this message translates to:
+  /// **'Events your agent adds are created by this phone and sync on as usual.'**
+  String get phoneSyncPointWrites;
+
+  /// No description provided for @phoneSyncCalendarHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Events from 30 days ago to 90 days ahead'**
+  String get phoneSyncCalendarHint;
+
+  /// No description provided for @phoneSyncContacts.
+  ///
+  /// In en, this message translates to:
+  /// **'Contacts'**
+  String get phoneSyncContacts;
+
+  /// No description provided for @phoneSyncContactsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Names, email addresses and phone numbers'**
+  String get phoneSyncContactsHint;
+
+  /// No description provided for @phoneSyncOtherAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'This phone shares with another agent. Sharing here moves it to this agent.'**
+  String get phoneSyncOtherAgent;
+
+  /// No description provided for @phoneSyncDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent doesn\'t have access yet. Allow it in Settings, then come back.'**
+  String get phoneSyncDenied;
+
+  /// No description provided for @openPhoneSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get openPhoneSettings;
+
+  /// No description provided for @phoneSyncShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share with NeoAgent'**
+  String get phoneSyncShare;
+
+  /// No description provided for @phoneSyncStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop sharing'**
+  String get phoneSyncStop;
+
+  /// No description provided for @phoneSyncWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for the first sync…'**
+  String get phoneSyncWaiting;
+
+  /// No description provided for @phoneSyncLastSyncedArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Last synced {time}'**
+  String phoneSyncLastSyncedArg1(String time);
+
+  /// No description provided for @calendarLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Calendar link'**
+  String get calendarLink;
+
+  /// No description provided for @calendarLinkHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'The calendar\'s iCal address. Anyone with it can read the calendar, so keep it private.'**
+  String get calendarLinkHelper;
+
+  /// No description provided for @calendarLinkName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name (optional)'**
+  String get calendarLinkName;
+
+  /// No description provided for @calendarLinkAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Calendar added'**
+  String get calendarLinkAdded;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

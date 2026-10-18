@@ -11514,4 +11514,177 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get perUserStatus => 'Għal kull utent';
+
+  @override
+  String get phoneSyncGuidance =>
+      'Aqsam il-kalendarji u l-kuntatti ta’ dan it-telefon mal-aġent tiegħek. Jaħdem ma’ kull kont li diġà jinsab fuq it-telefon.';
+
+  @override
+  String get phoneSyncElsewhereGuidance =>
+      'Iftaħ NeoAgent fuq it-telefon u ixgħel il-qsim hemmhekk. L-aġent imbagħad jara l-kalendarji u l-kuntatti tal-kontijiet kollha fuq dak it-telefon.';
+
+  @override
+  String get manageOnThisPhone => 'Immaniġġja fuq dan it-telefon';
+
+  @override
+  String get setUpOnThisPhone => 'Waqqaf fuq dan it-telefon';
+
+  @override
+  String get setUpOnPhone => 'Waqqaf fuq it-telefon tiegħek';
+
+  @override
+  String emailConnectedArg1(String email) {
+    return '$email konness';
+  }
+
+  @override
+  String get couldNotConnectEmail => 'Dan il-kont ma setax jiġi konness.';
+
+  @override
+  String get emailSetupTitle => 'Qabbad l-email u l-kalendarju';
+
+  @override
+  String get emailChecking => 'Qed tiġi ċċekkjata l-kaxxa postali…';
+
+  @override
+  String get emailSetupIntro =>
+      'Uża password tal-app mill-fornitur tal-email. Mingħajr konsol tal-iżviluppatur, lest f’ftit minuti.';
+
+  @override
+  String emailOpenArg1(String provider) {
+    return 'Iftaħ $provider';
+  }
+
+  @override
+  String get emailStepServers => '1. Daħħal is-servers';
+
+  @override
+  String get emailStepPassword => '1. Oħloq password tal-app';
+
+  @override
+  String emailOpenPasswordPageArg1(String provider) {
+    return 'Iftaħ il-passwords tal-app ta’ $provider';
+  }
+
+  @override
+  String get emailStepSignIn => '2. Idħol';
+
+  @override
+  String get appPassword => 'Password tal-app';
+
+  @override
+  String get appPasswordHelper =>
+      'L-ispazji ma jimpurtawx. NeoAgent jaħżinha kriptata.';
+
+  @override
+  String get emailUsernameOptional => 'Isem l-utent, jekk mhux l-email tiegħek';
+
+  @override
+  String get emailIncludeCalendar => 'Inkludi l-kalendarju';
+
+  @override
+  String get emailIncludeContacts => 'Inkludi l-kuntatti';
+
+  @override
+  String get imapServer => 'Server IMAP';
+
+  @override
+  String get smtpServer => 'Server SMTP';
+
+  @override
+  String get caldavUrlOptional => 'URL CalDAV (mhux obbligatorju)';
+
+  @override
+  String get carddavUrlOptional => 'URL CardDAV (mhux obbligatorju)';
+
+  @override
+  String get alternativeEmail =>
+      'Qabbad il-kaxxa postali b’password tal-app, jew il-kalendarju bil-link iCal tiegħu. Lest f’ftit minuti.';
+
+  @override
+  String get alternativePhone =>
+      'Aqsam il-kalendarju u l-kuntatti li diġà għandek fuq it-telefon permezz tal-app NeoAgent.';
+
+  @override
+  String get alternativePhoneElsewhere =>
+      'Aqsam il-kalendarju u l-kuntatti li diġà għandek fuq it-telefon. Waqqafha fl-app NeoAgent fuq it-telefon.';
+
+  @override
+  String get skipTheDeveloperConsole => 'Mingħajr il-konsol tal-iżviluppatur';
+
+  @override
+  String get phoneSyncPromptTitle =>
+      'Tħalli lill-aġent jara l-kalendarju tiegħek?';
+
+  @override
+  String get phoneSyncPromptBody =>
+      'Aqsam il-kalendarji u l-kuntatti ta’ dan it-telefon biex l-aġent jippjana madwar jumek. Tista’ tibdel dan meta trid f’Għodod › Integrazzjonijiet.';
+
+  @override
+  String get phoneSyncTitle => 'Aqsam il-kalendarju u l-kuntatti tat-telefon';
+
+  @override
+  String get phoneSyncIntro =>
+      'L-aġent jara l-kalendarji u l-kuntatti tal-kontijiet kollha fuq dan it-telefon. Mingħajr konsol tal-iżviluppatur u mingħajr dħul ieħor.';
+
+  @override
+  String get phoneSyncPointAccounts =>
+      'Jaħdem mal-kontijiet Google, Outlook, iCloud u Exchange fuq dan it-telefon.';
+
+  @override
+  String get phoneSyncPointPrivate =>
+      'Maqsum biss mas-server NeoAgent tiegħek, li jaħżinhom kriptati.';
+
+  @override
+  String get phoneSyncPointWrites =>
+      'L-avvenimenti li jżid l-aġent joħloqhom dan it-telefon u jissinkronizzaw bħas-soltu.';
+
+  @override
+  String get phoneSyncCalendarHint =>
+      'Avvenimenti minn 30 jum ilu sa 90 jum ’il quddiem';
+
+  @override
+  String get phoneSyncContacts => 'Kuntatti';
+
+  @override
+  String get phoneSyncContactsHint =>
+      'Ismijiet, indirizzi tal-email u numri tat-telefon';
+
+  @override
+  String get phoneSyncOtherAgent =>
+      'Dan it-telefon qed jaqsam ma’ aġent ieħor. Jekk taqsam hawn jgħaddi għal dan l-aġent.';
+
+  @override
+  String get phoneSyncDenied =>
+      'NeoAgent għad m’għandux aċċess. Ippermettih fis-Settings u erġa’ lura.';
+
+  @override
+  String get openPhoneSettings => 'Iftaħ is-Settings';
+
+  @override
+  String get phoneSyncShare => 'Aqsam ma’ NeoAgent';
+
+  @override
+  String get phoneSyncStop => 'Waqqaf il-qsim';
+
+  @override
+  String get phoneSyncWaiting => 'Qed nistennew l-ewwel sinkronizzazzjoni…';
+
+  @override
+  String phoneSyncLastSyncedArg1(String time) {
+    return 'L-aħħar sinkronizzazzjoni $time';
+  }
+
+  @override
+  String get calendarLink => 'Link tal-kalendarju';
+
+  @override
+  String get calendarLinkHelper =>
+      'L-indirizz iCal tal-kalendarju. Kull min għandu jista’ jaqra l-kalendarju, għalhekk żommu privat.';
+
+  @override
+  String get calendarLinkName => 'Isem (mhux obbligatorju)';
+
+  @override
+  String get calendarLinkAdded => 'Il-kalendarju żdied';
 }

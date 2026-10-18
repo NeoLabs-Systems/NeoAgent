@@ -11557,4 +11557,177 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get perUserStatus => 'In aghaidh an úsáideora';
+
+  @override
+  String get phoneSyncGuidance =>
+      'Roinn féilirí agus teagmhálaithe an fhóin seo le do ghníomhaire. Oibríonn sé le gach cuntas atá ar an bhfón cheana.';
+
+  @override
+  String get phoneSyncElsewhereGuidance =>
+      'Oscail NeoAgent ar d’fhón agus cas air roinnt ansin. Feicfidh do ghníomhaire féilirí agus teagmhálaithe gach cuntais ar an bhfón sin.';
+
+  @override
+  String get manageOnThisPhone => 'Bainistigh ar an bhfón seo';
+
+  @override
+  String get setUpOnThisPhone => 'Socraigh ar an bhfón seo';
+
+  @override
+  String get setUpOnPhone => 'Socraigh ar d’fhón';
+
+  @override
+  String emailConnectedArg1(String email) {
+    return '$email ceangailte';
+  }
+
+  @override
+  String get couldNotConnectEmail => 'Níorbh fhéidir an cuntas seo a cheangal.';
+
+  @override
+  String get emailSetupTitle => 'Ceangail ríomhphost agus féilire';
+
+  @override
+  String get emailChecking => 'Do bhosca poist á sheiceáil…';
+
+  @override
+  String get emailSetupIntro =>
+      'Úsáid pasfhocal aipe ó do sholáthraí ríomhphoist. Gan chonsól forbróra, réidh i gceann cúpla nóiméad.';
+
+  @override
+  String emailOpenArg1(String provider) {
+    return 'Oscail $provider';
+  }
+
+  @override
+  String get emailStepServers => '1. Cuir isteach do fhreastalaithe';
+
+  @override
+  String get emailStepPassword => '1. Cruthaigh pasfhocal aipe';
+
+  @override
+  String emailOpenPasswordPageArg1(String provider) {
+    return 'Oscail pasfhocail aipe $provider';
+  }
+
+  @override
+  String get emailStepSignIn => '2. Sínigh isteach';
+
+  @override
+  String get appPassword => 'Pasfhocal aipe';
+
+  @override
+  String get appPasswordHelper =>
+      'Is cuma faoi spásanna. Stórálann NeoAgent é criptithe.';
+
+  @override
+  String get emailUsernameOptional =>
+      'Ainm úsáideora, mura é do sheoladh ríomhphoist é';
+
+  @override
+  String get emailIncludeCalendar => 'Cuir an féilire san áireamh';
+
+  @override
+  String get emailIncludeContacts => 'Cuir teagmhálaithe san áireamh';
+
+  @override
+  String get imapServer => 'Freastalaí IMAP';
+
+  @override
+  String get smtpServer => 'Freastalaí SMTP';
+
+  @override
+  String get caldavUrlOptional => 'URL CalDAV (roghnach)';
+
+  @override
+  String get carddavUrlOptional => 'URL CardDAV (roghnach)';
+
+  @override
+  String get alternativeEmail =>
+      'Ceangail do bhosca poist le pasfhocal aipe, nó d’fhéilire lena nasc iCal. Réidh i gceann cúpla nóiméad.';
+
+  @override
+  String get alternativePhone =>
+      'Roinn an féilire agus na teagmhálaithe atá ar d’fhón cheana tríd an aip NeoAgent.';
+
+  @override
+  String get alternativePhoneElsewhere =>
+      'Roinn an féilire agus na teagmhálaithe atá ar d’fhón cheana. Socraigh é san aip NeoAgent ar an bhfón.';
+
+  @override
+  String get skipTheDeveloperConsole => 'Gan an consól forbróra';
+
+  @override
+  String get phoneSyncPromptTitle => 'An bhfeicfidh do ghníomhaire d’fhéilire?';
+
+  @override
+  String get phoneSyncPromptBody =>
+      'Roinn féilirí agus teagmhálaithe an fhóin seo ionas gur féidir le do ghníomhaire do lá a phleanáil. Is féidir é seo a athrú am ar bith in Uirlisí › Comhtháthuithe.';
+
+  @override
+  String get phoneSyncTitle => 'Roinn féilire agus teagmhálaithe an fhóin';
+
+  @override
+  String get phoneSyncIntro =>
+      'Feiceann do ghníomhaire féilirí agus teagmhálaithe gach cuntais ar an bhfón seo. Gan chonsól forbróra, gan síniú isteach breise.';
+
+  @override
+  String get phoneSyncPointAccounts =>
+      'Oibríonn sé leis na cuntais Google, Outlook, iCloud agus Exchange ar an bhfón seo.';
+
+  @override
+  String get phoneSyncPointPrivate =>
+      'Roinnte le do fhreastalaí NeoAgent amháin, a stórálann criptithe iad.';
+
+  @override
+  String get phoneSyncPointWrites =>
+      'Cruthaíonn an fón seo imeachtaí a chuireann do ghníomhaire leis, agus sioncronaíonn siad mar is gnách.';
+
+  @override
+  String get phoneSyncCalendarHint =>
+      'Imeachtaí ó 30 lá ó shin go 90 lá chun cinn';
+
+  @override
+  String get phoneSyncContacts => 'Teagmhálaithe';
+
+  @override
+  String get phoneSyncContactsHint =>
+      'Ainmneacha, seoltaí ríomhphoist agus uimhreacha gutháin';
+
+  @override
+  String get phoneSyncOtherAgent =>
+      'Roinneann an fón seo le gníomhaire eile. Má roinneann tú anseo bogtar chuig an ngníomhaire seo é.';
+
+  @override
+  String get phoneSyncDenied =>
+      'Níl rochtain ag NeoAgent fós. Ceadaigh é sna Socruithe, ansin fill ar ais.';
+
+  @override
+  String get openPhoneSettings => 'Oscail Socruithe';
+
+  @override
+  String get phoneSyncShare => 'Roinn le NeoAgent';
+
+  @override
+  String get phoneSyncStop => 'Stop ag roinnt';
+
+  @override
+  String get phoneSyncWaiting => 'Ag fanacht leis an gcéad sioncrónú…';
+
+  @override
+  String phoneSyncLastSyncedArg1(String time) {
+    return 'Sioncronaithe go deireanach $time';
+  }
+
+  @override
+  String get calendarLink => 'Nasc féilire';
+
+  @override
+  String get calendarLinkHelper =>
+      'Seoladh iCal an fhéilire. Is féidir le duine ar bith a bhfuil sé aige an féilire a léamh, mar sin coinnigh príobháideach é.';
+
+  @override
+  String get calendarLinkName => 'Ainm (roghnach)';
+
+  @override
+  String get calendarLinkAdded => 'Féilire curtha leis';
 }

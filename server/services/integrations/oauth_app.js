@@ -27,9 +27,12 @@ function cleanCredential(value, label) {
  * account, so it is stored encrypted per user and shared by all their agents.
  *
  * `fields` are optional extra settings (for example a Microsoft tenant), each
- * `{ name, label, env, defaultValue, hint }`.
+ * `{ name, label, env, defaultValue, hint }`. `alternatives` names other
+ * integrations that reach the same data without registering an app.
  */
-function createOAuthApp({ providerKey, label, envPrefix, consoleUrl, notes, scopes = [], fields = [] }) {
+function createOAuthApp({
+  providerKey, label, envPrefix, consoleUrl, notes, scopes = [], fields = [], alternatives = [],
+}) {
   // Callers pass their { userId, agentId } scope; only the user matters here.
   function userIdOf({ userId } = {}) {
     const normalizedUserId = Number(userId);
@@ -88,6 +91,7 @@ function createOAuthApp({ providerKey, label, envPrefix, consoleUrl, notes, scop
         ? `${label} is ready for account connections using your own OAuth app.`
         : `Add your own ${label} OAuth app to connect accounts.`,
       setupMode: 'user',
+      alternatives,
     };
   }
 

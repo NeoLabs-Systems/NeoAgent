@@ -7114,5 +7114,82 @@
   "globalIntegrationConfiguration": "Global integrationskonfiguration",
   "globalIntegrationConfigurationDescription": "Valfria OAuth-appar för hela servern. När en integration har en använder alla konton den och kan inte lägga till en egen. Lämna en integration tom så konfigurerar varje användare sin egen app. Hemligheter är skrivskyddade: lämna tomt för att behålla det sparade värdet.",
   "globalStatus": "Global",
-  "perUserStatus": "Per användare"
+  "perUserStatus": "Per användare",
+  "phoneSyncGuidance": "Dela den här telefonens kalendrar och kontakter med din agent. Det fungerar med alla konton som redan finns på telefonen.",
+  "phoneSyncElsewhereGuidance": "Öppna NeoAgent på telefonen och slå på delning där. Din agent ser då kalendrar och kontakter för alla konton på telefonen.",
+  "manageOnThisPhone": "Hantera på den här telefonen",
+  "setUpOnThisPhone": "Konfigurera på den här telefonen",
+  "setUpOnPhone": "Konfigurera på din telefon",
+  "emailConnectedArg1": "{email} ansluten",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Kontot kunde inte anslutas.",
+  "emailSetupTitle": "Anslut e-post och kalender",
+  "emailChecking": "Kontrollerar din brevlåda…",
+  "emailSetupIntro": "Använd ett applösenord från din e-postleverantör. Ingen utvecklarkonsol, klart på några minuter.",
+  "emailOpenArg1": "Öppna {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Ange dina servrar",
+  "emailStepPassword": "1. Skapa ett applösenord",
+  "emailOpenPasswordPageArg1": "Öppna applösenord hos {provider}",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Logga in",
+  "appPassword": "Applösenord",
+  "appPasswordHelper": "Mellanslag spelar ingen roll. NeoAgent sparar det krypterat.",
+  "emailUsernameOptional": "Användarnamn, om det inte är din e-postadress",
+  "emailIncludeCalendar": "Ta med kalender",
+  "emailIncludeContacts": "Ta med kontakter",
+  "imapServer": "IMAP-server",
+  "smtpServer": "SMTP-server",
+  "caldavUrlOptional": "CalDAV-URL (valfri)",
+  "carddavUrlOptional": "CardDAV-URL (valfri)",
+  "alternativeEmail": "Anslut din brevlåda med ett applösenord, eller din kalender via dess iCal-länk. Klart på några minuter.",
+  "alternativePhone": "Dela kalendern och kontakterna som redan finns på telefonen via NeoAgent-appen.",
+  "alternativePhoneElsewhere": "Dela kalendern och kontakterna som redan finns på telefonen. Konfigurera det i NeoAgent-appen på telefonen.",
+  "skipTheDeveloperConsole": "Hoppa över utvecklarkonsolen",
+  "phoneSyncPromptTitle": "Får din agent se din kalender?",
+  "phoneSyncPromptBody": "Dela den här telefonens kalendrar och kontakter så att din agent kan planera kring din dag. Du kan ändra det när som helst under Verktyg › Integrationer.",
+  "phoneSyncTitle": "Dela telefonens kalender och kontakter",
+  "phoneSyncIntro": "Din agent ser kalendrar och kontakter för alla konton på telefonen. Ingen utvecklarkonsol, ingen extra inloggning.",
+  "phoneSyncPointAccounts": "Fungerar med Google-, Outlook-, iCloud- och Exchange-kontona på telefonen.",
+  "phoneSyncPointPrivate": "Delas bara med din NeoAgent-server, där det lagras krypterat.",
+  "phoneSyncPointWrites": "Händelser som agenten lägger till skapas av telefonen och synkas som vanligt.",
+  "phoneSyncCalendarHint": "Händelser från 30 dagar bakåt till 90 dagar framåt",
+  "phoneSyncContacts": "Kontakter",
+  "phoneSyncContactsHint": "Namn, e-postadresser och telefonnummer",
+  "phoneSyncOtherAgent": "Telefonen delar med en annan agent. Att dela här flyttar den till den här agenten.",
+  "phoneSyncDenied": "NeoAgent har inte åtkomst än. Tillåt det i Inställningar och kom sedan tillbaka.",
+  "openPhoneSettings": "Öppna Inställningar",
+  "phoneSyncShare": "Dela med NeoAgent",
+  "phoneSyncStop": "Sluta dela",
+  "phoneSyncWaiting": "Väntar på första synkroniseringen…",
+  "phoneSyncLastSyncedArg1": "Senast synkad {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Kalenderlänk",
+  "calendarLinkHelper": "Kalenderns iCal-adress. Alla som har den kan läsa kalendern, så håll den privat.",
+  "calendarLinkName": "Namn (valfritt)",
+  "calendarLinkAdded": "Kalendern har lagts till"
 }

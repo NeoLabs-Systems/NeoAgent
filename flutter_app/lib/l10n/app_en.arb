@@ -7204,5 +7204,82 @@
   "globalIntegrationConfiguration": "Global integration configuration",
   "globalIntegrationConfigurationDescription": "Optional server-wide OAuth apps. When an integration has one, every account uses it and cannot add its own. Leave an integration unset and each user sets up their own app instead. Secrets are write-only: leave one blank to keep what is stored.",
   "globalStatus": "Global",
-  "perUserStatus": "Per user"
+  "perUserStatus": "Per user",
+  "phoneSyncGuidance": "Share this phone's calendars and contacts with your agent. It works with every account already on the phone.",
+  "phoneSyncElsewhereGuidance": "Open NeoAgent on your phone and turn on sharing there. Your agent then sees the calendars and contacts of every account on that phone.",
+  "manageOnThisPhone": "Manage on this phone",
+  "setUpOnThisPhone": "Set up on this phone",
+  "setUpOnPhone": "Set up on your phone",
+  "emailConnectedArg1": "Connected {email}",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Could not connect this account.",
+  "emailSetupTitle": "Connect email & calendar",
+  "emailChecking": "Checking your mailbox…",
+  "emailSetupIntro": "Use an app password from your mail provider. No developer console, ready in a couple of minutes.",
+  "emailOpenArg1": "Open {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Enter your servers",
+  "emailStepPassword": "1. Create an app password",
+  "emailOpenPasswordPageArg1": "Open {provider} app passwords",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Sign in",
+  "appPassword": "App password",
+  "appPasswordHelper": "Spaces don't matter. NeoAgent stores it encrypted.",
+  "emailUsernameOptional": "Username, if not your email address",
+  "emailIncludeCalendar": "Include calendar",
+  "emailIncludeContacts": "Include contacts",
+  "imapServer": "IMAP server",
+  "smtpServer": "SMTP server",
+  "caldavUrlOptional": "CalDAV URL (optional)",
+  "carddavUrlOptional": "CardDAV URL (optional)",
+  "alternativeEmail": "Connect your mailbox with an app password, or your calendar by its iCal link. Ready in a couple of minutes.",
+  "alternativePhone": "Share the calendar and contacts already on your phone through the NeoAgent app.",
+  "alternativePhoneElsewhere": "Share the calendar and contacts already on your phone. Set it up in the NeoAgent phone app.",
+  "skipTheDeveloperConsole": "Skip the developer console",
+  "phoneSyncPromptTitle": "Let your agent see your calendar?",
+  "phoneSyncPromptBody": "Share this phone's calendars and contacts so your agent can plan around your day. You can change this anytime in Tools › Integrations.",
+  "phoneSyncTitle": "Share this phone's calendar & contacts",
+  "phoneSyncIntro": "Your agent sees the calendars and contacts of every account already on this phone. No developer console, no extra sign-in.",
+  "phoneSyncPointAccounts": "Works with the Google, Outlook, iCloud and Exchange accounts on this phone.",
+  "phoneSyncPointPrivate": "Shared only with your NeoAgent server, where it is stored encrypted.",
+  "phoneSyncPointWrites": "Events your agent adds are created by this phone and sync on as usual.",
+  "phoneSyncCalendarHint": "Events from 30 days ago to 90 days ahead",
+  "phoneSyncContacts": "Contacts",
+  "phoneSyncContactsHint": "Names, email addresses and phone numbers",
+  "phoneSyncOtherAgent": "This phone shares with another agent. Sharing here moves it to this agent.",
+  "phoneSyncDenied": "NeoAgent doesn't have access yet. Allow it in Settings, then come back.",
+  "openPhoneSettings": "Open Settings",
+  "phoneSyncShare": "Share with NeoAgent",
+  "phoneSyncStop": "Stop sharing",
+  "phoneSyncWaiting": "Waiting for the first sync…",
+  "phoneSyncLastSyncedArg1": "Last synced {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Calendar link",
+  "calendarLinkHelper": "The calendar's iCal address. Anyone with it can read the calendar, so keep it private.",
+  "calendarLinkName": "Name (optional)",
+  "calendarLinkAdded": "Calendar added"
 }

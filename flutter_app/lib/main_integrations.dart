@@ -97,6 +97,19 @@ class IntegrationDetailView extends StatelessWidget {
                 label: Text(appStrings.yourOAuthApp),
               ),
             ],
+            if (!item.env.configured &&
+                item.env.alternatives.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 14),
+              _IntegrationAlternatives(
+                controller: controller,
+                providerIds: item.env.alternatives,
+                onOpen: (providerId) => _openOfficialIntegrationSetupDialog(
+                  context,
+                  controller,
+                  providerId,
+                ),
+              ),
+            ],
             const SizedBox(height: 18),
             ...item.apps.map(
               (app) => Padding(
@@ -118,6 +131,11 @@ class IntegrationDetailView extends StatelessWidget {
 String _integrationGuidance(OfficialIntegrationItem item) {
   if (!item.env.configured) {
     return item.env.summary;
+  }
+  if (item.connectionMethod == 'device' && !item.isConnected) {
+    return PhoneSync.supported
+        ? appStrings.phoneSyncGuidance
+        : appStrings.phoneSyncElsewhereGuidance;
   }
   if (item.hasExpiredAccounts) {
     return item.id == 'google_workspace'
@@ -209,6 +227,12 @@ void _openOfficialIntegrationSetupDialog(
       return;
     case 'news':
       _showWorldNewsSetupDialog(context, controller);
+      return;
+    case 'email':
+      _showEmailAccountSetupDialog(context, controller);
+      return;
+    case 'phone':
+      if (PhoneSync.supported) _showPhoneSyncSetup(context, controller);
       return;
     default:
       _showOAuthAppSetupDialog(context, controller, providerId);
@@ -2126,6 +2150,23 @@ class _OfficialIntegrationAppCard extends StatelessWidget {
   }
 
   Widget _buildIntegrationActionButton(BuildContext context, bool connectBusy) {
+    if (provider.connectionMethod == 'device') {
+      return PhoneSync.supported
+          ? FilledButton.icon(
+              onPressed: () => _showPhoneSyncSetup(context, controller),
+              icon: const Icon(Icons.smartphone_rounded),
+              label: Text(
+                app.isConnected
+                    ? appStrings.manageOnThisPhone
+                    : appStrings.setUpOnThisPhone,
+              ),
+            )
+          : OutlinedButton.icon(
+              onPressed: null,
+              icon: const Icon(Icons.smartphone_rounded),
+              label: Text(appStrings.setUpOnPhone),
+            );
+    }
     if (provider.connectionMethod == 'user_config') {
       return FilledButton.icon(
         onPressed: () => _openOfficialIntegrationSetupDialog(
@@ -2391,49 +2432,76 @@ class _EmailMemoryPanel extends StatelessWidget {
 }
 
 class _OfficialIntegrationIcon extends StatelessWidget {
-  const _OfficialIntegrationIcon({required this.item});
+  _OfficialIntegrationIcon({required OfficialIntegrationItem item})
+    : icon = item.icon,
+      label = item.label,
+      size = 44;
 
-  final OfficialIntegrationItem item;
+  /// A badge for something that is not an integration itself, such as a mail
+  /// provider inside one.
+  const _OfficialIntegrationIcon.named({
+    required this.icon,
+    required this.label,
+    this.size = 44,
+  });
+
+  final String icon;
+  final String label;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    final color = switch (item.icon) {
+    final color = switch (icon) {
       'neorecall' => const Color(0xFFD98AA6),
       'nextcloud' => const Color(0xFF0082C9),
       'google' => const Color(0xFF4285F4),
+      'microsoft' => const Color(0xFF0078D4),
+      'apple' => const Color(0xFF8E8E93),
+      'email' => const Color(0xFF2F9E8F),
+      'phone' => const Color(0xFF7C5CDB),
+      'calendar' => const Color(0xFFE8833A),
       'home_assistant' => const Color(0xFF41BDF5),
       'password' => const Color(0xFF175DDC),
       'trello' => const Color(0xFF0C66E4),
       'news' => const Color(0xFFE5484D),
       _ => _accent,
     };
-    final label = switch (item.icon) {
+    final glyph = switch (icon) {
+      'email' || 'mail' => Icons.alternate_email_rounded,
+      'calendar' => Icons.event_rounded,
+      'phone' => Icons.smartphone_rounded,
+      _ => null,
+    };
+    final letter = switch (icon) {
       'neorecall' => 'R',
       'nextcloud' => 'N',
       'google' => 'G',
+      'microsoft' => 'M',
       'home_assistant' => 'H',
       'password' => 'B',
       'trello' => 'T',
       'news' => 'W',
-      _ => item.label.isNotEmpty ? item.label[0] : '?',
+      _ => label.isNotEmpty ? label[0] : '?',
     };
     return Container(
-      width: 44,
-      height: 44,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(size * 0.32),
         border: Border.all(color: color.withValues(alpha: 0.36)),
       ),
       alignment: Alignment.center,
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 20,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
+      child: glyph != null
+          ? Icon(glyph, color: color, size: size * 0.5)
+          : Text(
+              letter,
+              style: TextStyle(
+                color: color,
+                fontSize: size * 0.45,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
     );
   }
 }

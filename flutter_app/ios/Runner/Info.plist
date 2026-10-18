@@ -50,6 +50,12 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>NeoAgent scans the QR code to approve a sign-in on another device.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>NeoAgent shares your calendars with your agent so it can answer schedule questions and add events for you.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>NeoAgent shares your calendars with your agent so it can answer schedule questions and add events for you.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>NeoAgent shares your contacts with your agent so it can find people and add new contacts for you.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>NeoAgent reads your steps, heart rate, sleep, workouts and weight so your agent can use them.</string>
 	<key>NSLocalNetworkUsageDescription</key>
@@ -65,6 +71,11 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
+		<string>fetch</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.neoagent.device-sync</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>

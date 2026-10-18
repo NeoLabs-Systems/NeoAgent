@@ -7114,5 +7114,82 @@
   "globalIntegrationConfiguration": "Globalna konfiguracija integracija",
   "globalIntegrationConfigurationDescription": "Neobavezne OAuth aplikacije za cijeli poslužitelj. Kad je integracija ima, svaki je račun koristi i ne može dodati vlastitu. Ostavite integraciju nepostavljenom i svaki korisnik postavlja vlastitu aplikaciju. Tajne se mogu samo upisati: ostavite prazno da zadržite spremljenu vrijednost.",
   "globalStatus": "Globalno",
-  "perUserStatus": "Po korisniku"
+  "perUserStatus": "Po korisniku",
+  "phoneSyncGuidance": "Podijelite kalendare i kontakte s ovog telefona sa svojim agentom. Radi sa svim računima koji su već na telefonu.",
+  "phoneSyncElsewhereGuidance": "Otvorite NeoAgent na telefonu i tamo uključite dijeljenje. Agent će tada vidjeti kalendare i kontakte svih računa na tom telefonu.",
+  "manageOnThisPhone": "Upravljaj na ovom telefonu",
+  "setUpOnThisPhone": "Postavi na ovom telefonu",
+  "setUpOnPhone": "Postavi na svom telefonu",
+  "emailConnectedArg1": "{email} povezan",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Račun se nije mogao povezati.",
+  "emailSetupTitle": "Poveži e-poštu i kalendar",
+  "emailChecking": "Provjeravam sandučić…",
+  "emailSetupIntro": "Koristite lozinku aplikacije od pružatelja e-pošte. Bez konzole za razvojne programere, gotovo za par minuta.",
+  "emailOpenArg1": "Otvori {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Unesite poslužitelje",
+  "emailStepPassword": "1. Izradite lozinku aplikacije",
+  "emailOpenPasswordPageArg1": "Otvori lozinke aplikacija za {provider}",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Prijava",
+  "appPassword": "Lozinka aplikacije",
+  "appPasswordHelper": "Razmaci nisu bitni. NeoAgent je sprema šifrirano.",
+  "emailUsernameOptional": "Korisničko ime, ako nije vaša e-pošta",
+  "emailIncludeCalendar": "Uključi kalendar",
+  "emailIncludeContacts": "Uključi kontakte",
+  "imapServer": "IMAP poslužitelj",
+  "smtpServer": "SMTP poslužitelj",
+  "caldavUrlOptional": "CalDAV URL (neobavezno)",
+  "carddavUrlOptional": "CardDAV URL (neobavezno)",
+  "alternativeEmail": "Povežite sandučić lozinkom aplikacije ili kalendar njegovom iCal poveznicom. Gotovo za par minuta.",
+  "alternativePhone": "Podijelite kalendar i kontakte koji su već na telefonu putem aplikacije NeoAgent.",
+  "alternativePhoneElsewhere": "Podijelite kalendar i kontakte koji su već na telefonu. Postavite u aplikaciji NeoAgent na telefonu.",
+  "skipTheDeveloperConsole": "Bez konzole za razvojne programere",
+  "phoneSyncPromptTitle": "Smije li agent vidjeti vaš kalendar?",
+  "phoneSyncPromptBody": "Podijelite kalendare i kontakte ovog telefona kako bi agent mogao planirati vaš dan. To možete promijeniti bilo kada u Alati › Integracije.",
+  "phoneSyncTitle": "Podijeli kalendar i kontakte ovog telefona",
+  "phoneSyncIntro": "Agent vidi kalendare i kontakte svih računa na ovom telefonu. Bez konzole za razvojne programere i dodatne prijave.",
+  "phoneSyncPointAccounts": "Radi s Google, Outlook, iCloud i Exchange računima na ovom telefonu.",
+  "phoneSyncPointPrivate": "Dijeli se samo s vašim NeoAgent poslužiteljem, koji ih sprema šifrirano.",
+  "phoneSyncPointWrites": "Događaje koje doda agent stvara ovaj telefon i sinkroniziraju se kao i obično.",
+  "phoneSyncCalendarHint": "Događaji od prije 30 dana do 90 dana unaprijed",
+  "phoneSyncContacts": "Kontakti",
+  "phoneSyncContactsHint": "Imena, adrese e-pošte i telefonski brojevi",
+  "phoneSyncOtherAgent": "Ovaj telefon dijeli s drugim agentom. Dijeljenje ovdje premješta ga ovom agentu.",
+  "phoneSyncDenied": "NeoAgent još nema pristup. Dopustite ga u Postavkama i vratite se.",
+  "openPhoneSettings": "Otvori Postavke",
+  "phoneSyncShare": "Podijeli s NeoAgentom",
+  "phoneSyncStop": "Prekini dijeljenje",
+  "phoneSyncWaiting": "Čekam prvu sinkronizaciju…",
+  "phoneSyncLastSyncedArg1": "Zadnja sinkronizacija {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Poveznica kalendara",
+  "calendarLinkHelper": "iCal adresa kalendara. Svatko tko je ima može čitati kalendar, zato je čuvajte privatnom.",
+  "calendarLinkName": "Naziv (neobavezno)",
+  "calendarLinkAdded": "Kalendar dodan"
 }

@@ -1,6 +1,9 @@
 'use strict';
 
 const db = require('../../db/database');
+const { getConnectionAccessMode } = require('./access');
+const { encryptValue } = require('./secrets');
+const { parseJsonObject } = require('../../utils/text');
 
 // Connecting an account is the same write for every provider: one row per
 // (user, agent, provider, app, account), refreshed in place when the same
@@ -49,4 +52,41 @@ function upsertConnectedIntegration({
   );
 }
 
-module.exports = { upsertConnectedIntegration };
+function findAppConnection({ userId, agentId, providerKey, appKey, accountEmail }) {
+  return db.prepare(`SELECT * FROM integration_connections
+    WHERE user_id=? AND agent_id=? AND provider_key=? AND app_key=? AND account_email=?`)
+    .get(userId, agentId, providerKey, appKey, accountEmail);
+}
+
+// Connecting one app of an account with plain credentials: encrypts them and
+// keeps the Read Only / Read Write choice the person already made for it.
+function upsertAccountApp({ credentials, metadata = {}, ...key }) {
+  const existing = findAppConnection(key);
+  upsertConnectedIntegration({
+    ...key,
+    scopes: key.scopes || [],
+    credentialsJson: encryptValue(JSON.stringify(credentials)),
+    metadata: {
+      ...parseJsonObject(existing?.metadata_json),
+      ...metadata,
+      access_mode: getConnectionAccessMode(existing || null),
+    },
+  });
+  return findAppConnection(key);
+}
+
+// One sign-in can back several apps (one row each). Disconnecting any of them
+// disconnects the account, so the other rows go too.
+function deleteSiblingConnections(connection) {
+  db.prepare(`DELETE FROM integration_connections
+    WHERE user_id=? AND agent_id=? AND provider_key=? AND account_email=? AND id!=?`)
+    .run(
+      connection.user_id,
+      connection.agent_id,
+      connection.provider_key,
+      connection.account_email,
+      connection.id,
+    );
+}
+
+module.exports = { deleteSiblingConnections, upsertAccountApp, upsertConnectedIntegration };

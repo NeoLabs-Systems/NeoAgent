@@ -7114,5 +7114,82 @@
   "globalIntegrationConfiguration": "Cumraíocht dhomhanda comhtháthaithe",
   "globalIntegrationConfigurationDescription": "Aipeanna OAuth roghnacha don fhreastalaí ar fad. Nuair atá ceann ag comhtháthú, úsáideann gach cuntas é agus ní féidir leo a gceann féin a chur leis. Fág comhtháthú gan socrú agus socraíonn gach úsáideoir a aip féin. Is le scríobh amháin iad rúin: fág bán chun an luach stóráilte a choinneáil.",
   "globalStatus": "Domhanda",
-  "perUserStatus": "In aghaidh an úsáideora"
+  "perUserStatus": "In aghaidh an úsáideora",
+  "phoneSyncGuidance": "Roinn féilirí agus teagmhálaithe an fhóin seo le do ghníomhaire. Oibríonn sé le gach cuntas atá ar an bhfón cheana.",
+  "phoneSyncElsewhereGuidance": "Oscail NeoAgent ar d’fhón agus cas air roinnt ansin. Feicfidh do ghníomhaire féilirí agus teagmhálaithe gach cuntais ar an bhfón sin.",
+  "manageOnThisPhone": "Bainistigh ar an bhfón seo",
+  "setUpOnThisPhone": "Socraigh ar an bhfón seo",
+  "setUpOnPhone": "Socraigh ar d’fhón",
+  "emailConnectedArg1": "{email} ceangailte",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Níorbh fhéidir an cuntas seo a cheangal.",
+  "emailSetupTitle": "Ceangail ríomhphost agus féilire",
+  "emailChecking": "Do bhosca poist á sheiceáil…",
+  "emailSetupIntro": "Úsáid pasfhocal aipe ó do sholáthraí ríomhphoist. Gan chonsól forbróra, réidh i gceann cúpla nóiméad.",
+  "emailOpenArg1": "Oscail {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Cuir isteach do fhreastalaithe",
+  "emailStepPassword": "1. Cruthaigh pasfhocal aipe",
+  "emailOpenPasswordPageArg1": "Oscail pasfhocail aipe {provider}",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Sínigh isteach",
+  "appPassword": "Pasfhocal aipe",
+  "appPasswordHelper": "Is cuma faoi spásanna. Stórálann NeoAgent é criptithe.",
+  "emailUsernameOptional": "Ainm úsáideora, mura é do sheoladh ríomhphoist é",
+  "emailIncludeCalendar": "Cuir an féilire san áireamh",
+  "emailIncludeContacts": "Cuir teagmhálaithe san áireamh",
+  "imapServer": "Freastalaí IMAP",
+  "smtpServer": "Freastalaí SMTP",
+  "caldavUrlOptional": "URL CalDAV (roghnach)",
+  "carddavUrlOptional": "URL CardDAV (roghnach)",
+  "alternativeEmail": "Ceangail do bhosca poist le pasfhocal aipe, nó d’fhéilire lena nasc iCal. Réidh i gceann cúpla nóiméad.",
+  "alternativePhone": "Roinn an féilire agus na teagmhálaithe atá ar d’fhón cheana tríd an aip NeoAgent.",
+  "alternativePhoneElsewhere": "Roinn an féilire agus na teagmhálaithe atá ar d’fhón cheana. Socraigh é san aip NeoAgent ar an bhfón.",
+  "skipTheDeveloperConsole": "Gan an consól forbróra",
+  "phoneSyncPromptTitle": "An bhfeicfidh do ghníomhaire d’fhéilire?",
+  "phoneSyncPromptBody": "Roinn féilirí agus teagmhálaithe an fhóin seo ionas gur féidir le do ghníomhaire do lá a phleanáil. Is féidir é seo a athrú am ar bith in Uirlisí › Comhtháthuithe.",
+  "phoneSyncTitle": "Roinn féilire agus teagmhálaithe an fhóin",
+  "phoneSyncIntro": "Feiceann do ghníomhaire féilirí agus teagmhálaithe gach cuntais ar an bhfón seo. Gan chonsól forbróra, gan síniú isteach breise.",
+  "phoneSyncPointAccounts": "Oibríonn sé leis na cuntais Google, Outlook, iCloud agus Exchange ar an bhfón seo.",
+  "phoneSyncPointPrivate": "Roinnte le do fhreastalaí NeoAgent amháin, a stórálann criptithe iad.",
+  "phoneSyncPointWrites": "Cruthaíonn an fón seo imeachtaí a chuireann do ghníomhaire leis, agus sioncronaíonn siad mar is gnách.",
+  "phoneSyncCalendarHint": "Imeachtaí ó 30 lá ó shin go 90 lá chun cinn",
+  "phoneSyncContacts": "Teagmhálaithe",
+  "phoneSyncContactsHint": "Ainmneacha, seoltaí ríomhphoist agus uimhreacha gutháin",
+  "phoneSyncOtherAgent": "Roinneann an fón seo le gníomhaire eile. Má roinneann tú anseo bogtar chuig an ngníomhaire seo é.",
+  "phoneSyncDenied": "Níl rochtain ag NeoAgent fós. Ceadaigh é sna Socruithe, ansin fill ar ais.",
+  "openPhoneSettings": "Oscail Socruithe",
+  "phoneSyncShare": "Roinn le NeoAgent",
+  "phoneSyncStop": "Stop ag roinnt",
+  "phoneSyncWaiting": "Ag fanacht leis an gcéad sioncrónú…",
+  "phoneSyncLastSyncedArg1": "Sioncronaithe go deireanach {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Nasc féilire",
+  "calendarLinkHelper": "Seoladh iCal an fhéilire. Is féidir le duine ar bith a bhfuil sé aige an féilire a léamh, mar sin coinnigh príobháideach é.",
+  "calendarLinkName": "Ainm (roghnach)",
+  "calendarLinkAdded": "Féilire curtha leis"
 }

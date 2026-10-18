@@ -7114,5 +7114,82 @@
   "globalIntegrationConfiguration": "Globalna konfiguracja integracji",
   "globalIntegrationConfigurationDescription": "Opcjonalne aplikacje OAuth dla całego serwera. Gdy integracja ma taką aplikację, każde konto z niej korzysta i nie może dodać własnej. Pozostaw integrację nieustawioną, a każdy użytkownik skonfiguruje własną aplikację. Sekrety są tylko do zapisu: pozostaw puste, aby zachować zapisaną wartość.",
   "globalStatus": "Globalnie",
-  "perUserStatus": "Na użytkownika"
+  "perUserStatus": "Na użytkownika",
+  "phoneSyncGuidance": "Udostępnij agentowi kalendarze i kontakty z tego telefonu. Działa z każdym kontem, które już jest na telefonie.",
+  "phoneSyncElsewhereGuidance": "Otwórz NeoAgent na telefonie i włącz tam udostępnianie. Agent zobaczy wtedy kalendarze i kontakty wszystkich kont na tym telefonie.",
+  "manageOnThisPhone": "Zarządzaj na tym telefonie",
+  "setUpOnThisPhone": "Skonfiguruj na tym telefonie",
+  "setUpOnPhone": "Skonfiguruj na swoim telefonie",
+  "emailConnectedArg1": "Połączono {email}",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Nie udało się połączyć tego konta.",
+  "emailSetupTitle": "Połącz pocztę i kalendarz",
+  "emailChecking": "Sprawdzanie skrzynki…",
+  "emailSetupIntro": "Użyj hasła aplikacji od dostawcy poczty. Bez konsoli dewelopera, gotowe w kilka minut.",
+  "emailOpenArg1": "Otwórz {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Podaj serwery",
+  "emailStepPassword": "1. Utwórz hasło aplikacji",
+  "emailOpenPasswordPageArg1": "Otwórz hasła aplikacji w {provider}",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Zaloguj się",
+  "appPassword": "Hasło aplikacji",
+  "appPasswordHelper": "Spacje nie mają znaczenia. NeoAgent przechowuje je zaszyfrowane.",
+  "emailUsernameOptional": "Nazwa użytkownika, jeśli to nie adres e-mail",
+  "emailIncludeCalendar": "Uwzględnij kalendarz",
+  "emailIncludeContacts": "Uwzględnij kontakty",
+  "imapServer": "Serwer IMAP",
+  "smtpServer": "Serwer SMTP",
+  "caldavUrlOptional": "Adres CalDAV (opcjonalnie)",
+  "carddavUrlOptional": "Adres CardDAV (opcjonalnie)",
+  "alternativeEmail": "Połącz skrzynkę hasłem aplikacji albo kalendarz jego linkiem iCal. Gotowe w kilka minut.",
+  "alternativePhone": "Udostępnij kalendarz i kontakty z telefonu przez aplikację NeoAgent.",
+  "alternativePhoneElsewhere": "Udostępnij kalendarz i kontakty z telefonu. Skonfiguruj to w aplikacji NeoAgent na telefonie.",
+  "skipTheDeveloperConsole": "Bez konsoli dewelopera",
+  "phoneSyncPromptTitle": "Pozwolić agentowi widzieć Twój kalendarz?",
+  "phoneSyncPromptBody": "Udostępnij kalendarze i kontakty z tego telefonu, aby agent mógł planować Twój dzień. Możesz to zmienić w każdej chwili w Narzędzia › Integracje.",
+  "phoneSyncTitle": "Udostępnij kalendarz i kontakty z tego telefonu",
+  "phoneSyncIntro": "Agent widzi kalendarze i kontakty wszystkich kont na tym telefonie. Bez konsoli dewelopera i dodatkowego logowania.",
+  "phoneSyncPointAccounts": "Działa z kontami Google, Outlook, iCloud i Exchange na tym telefonie.",
+  "phoneSyncPointPrivate": "Udostępniane tylko Twojemu serwerowi NeoAgent, który przechowuje je zaszyfrowane.",
+  "phoneSyncPointWrites": "Wydarzenia dodane przez agenta tworzy ten telefon i synchronizują się jak zwykle.",
+  "phoneSyncCalendarHint": "Wydarzenia od 30 dni wstecz do 90 dni naprzód",
+  "phoneSyncContacts": "Kontakty",
+  "phoneSyncContactsHint": "Imiona, adresy e-mail i numery telefonów",
+  "phoneSyncOtherAgent": "Ten telefon udostępnia innemu agentowi. Udostępnienie tutaj przeniesie go do tego agenta.",
+  "phoneSyncDenied": "NeoAgent nie ma jeszcze dostępu. Zezwól w Ustawieniach i wróć.",
+  "openPhoneSettings": "Otwórz Ustawienia",
+  "phoneSyncShare": "Udostępnij NeoAgent",
+  "phoneSyncStop": "Zatrzymaj udostępnianie",
+  "phoneSyncWaiting": "Czekam na pierwszą synchronizację…",
+  "phoneSyncLastSyncedArg1": "Ostatnia synchronizacja {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Link do kalendarza",
+  "calendarLinkHelper": "Adres iCal kalendarza. Każdy, kto go ma, może czytać kalendarz, więc zachowaj go w tajemnicy.",
+  "calendarLinkName": "Nazwa (opcjonalnie)",
+  "calendarLinkAdded": "Dodano kalendarz"
 }

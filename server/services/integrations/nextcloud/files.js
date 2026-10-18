@@ -4,13 +4,12 @@ const fs = require('fs');
 const path = require('path');
 const { MAX_READ_BYTES, MAX_UPLOAD_BYTES } = require('./constants');
 const { davRequest, ocsRequest, parseCredentials } = require('./client');
-const { parseDavResponses } = require('./dav');
+const { parseDavResponses } = require('../dav/format');
+const { hrefToRemotePath, normalizeRemotePath } = require('../dav/paths');
 const {
   davFilesPath,
   davTrashPath,
-  hrefToRemotePath,
   normalizeBaseUrl,
-  normalizeRemotePath,
   requireText,
   text,
 } = require('./network');

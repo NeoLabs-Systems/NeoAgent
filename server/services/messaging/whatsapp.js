@@ -43,12 +43,15 @@ class WhatsAppPlatform extends BasePlatform {
     this._connectedAt = Infinity;
   }
 
+  // Baileys copies sock.user once, when it builds the socket, and only adds the
+  // LID to the live creds after the connection opens. On a freshly linked
+  // session, sock.user has no LID while the phone already addresses the self
+  // chat by it, so every note looked like another contact's. Both places are
+  // read, since which one carries which id differs between client versions.
   _ownIds() {
-    return new Set([
-      this.sock?.user?.id,
-      this.sock?.user?.jid,
-      this.sock?.user?.lid,
-    ]
+    const identities = [this.sock?.user, this.sock?.authState?.creds?.me];
+    return new Set(identities
+      .flatMap((me) => [me?.id, me?.jid, me?.lid])
       .map(normalizeWhatsAppId)
       .filter(Boolean));
   }
@@ -309,6 +312,9 @@ class WhatsAppPlatform extends BasePlatform {
     this.sock.ev.on('messages.upsert', async ({ messages, type }) => {
       for (const msg of messages) {
         if (!this._shouldProcessInbound(msg, type)) continue;
+        // The phone's own sync traffic (history notices, app-state keys) is
+        // addressed to the self chat as well; it is not a note.
+        if (msg.message?.protocolMessage) continue;
 
         const chatId = msg.key.remoteJid;
         const isGroup = chatId?.endsWith('@g.us');

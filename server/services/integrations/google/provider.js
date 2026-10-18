@@ -171,9 +171,11 @@ const googleOAuthApp = createOAuthApp({
   providerKey: 'google_workspace',
   label: 'Google Workspace',
   envPrefix: 'GOOGLE',
-  consoleUrl: 'https://console.cloud.google.com/apis/credentials',
-  notes: 'Create an OAuth client ID of type Web application and add the callback URL as an authorized redirect URI. Enable the Gmail, Calendar, Drive, Docs and Sheets APIs, and add yourself as a test user while the consent screen is in testing.',
+  // Enables all five APIs in one step, creating a project when there is none.
+  consoleUrl: 'https://console.cloud.google.com/flows/enableapi?apiid=gmail.googleapis.com,calendar-json.googleapis.com,drive.googleapis.com,docs.googleapis.com,sheets.googleapis.com',
+  notes: 'The console button enables the Gmail, Calendar, Drive, Docs and Sheets APIs. Then, under APIs & Services › Credentials, create an OAuth client ID of type Web application with the callback URL as an authorized redirect URI. Set the consent screen to In production: in Testing, Google signs accounts out every 7 days. Continue past the unverified-app warning when you connect.',
   scopes: getAllWorkspaceScopes(),
+  alternatives: ['email', 'phone'],
 });
 
 async function executeGoogleWorkspaceTool(

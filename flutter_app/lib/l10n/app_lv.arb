@@ -7114,5 +7114,82 @@
   "globalIntegrationConfiguration": "Globālā integrāciju konfigurācija",
   "globalIntegrationConfigurationDescription": "Neobligātas visa servera OAuth lietotnes. Ja integrācijai tāda ir, to izmanto katrs konts un nevar pievienot savu. Atstājiet integrāciju neiestatītu, un katrs lietotājs iestatīs savu lietotni. Noslēpumus var tikai ierakstīt: atstājiet tukšu, lai saglabātu esošo vērtību.",
   "globalStatus": "Globāli",
-  "perUserStatus": "Katram lietotājam"
+  "perUserStatus": "Katram lietotājam",
+  "phoneSyncGuidance": "Kopīgojiet šī tālruņa kalendārus un kontaktus ar savu aģentu. Darbojas ar visiem kontiem, kas jau ir tālrunī.",
+  "phoneSyncElsewhereGuidance": "Atveriet NeoAgent tālrunī un tur ieslēdziet kopīgošanu. Aģents tad redzēs visu šī tālruņa kontu kalendārus un kontaktus.",
+  "manageOnThisPhone": "Pārvaldīt šajā tālrunī",
+  "setUpOnThisPhone": "Iestatīt šajā tālrunī",
+  "setUpOnPhone": "Iestatīt tālrunī",
+  "emailConnectedArg1": "{email} pievienots",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Kontu neizdevās pievienot.",
+  "emailSetupTitle": "Pievienot e-pastu un kalendāru",
+  "emailChecking": "Pārbauda pastkastīti…",
+  "emailSetupIntro": "Izmantojiet lietotnes paroli no e-pasta pakalpojuma sniedzēja. Bez izstrādātāju konsoles, gatavs pāris minūtēs.",
+  "emailOpenArg1": "Atvērt {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Ievadiet serverus",
+  "emailStepPassword": "1. Izveidojiet lietotnes paroli",
+  "emailOpenPasswordPageArg1": "Atvērt {provider} lietotņu paroles",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Pierakstīšanās",
+  "appPassword": "Lietotnes parole",
+  "appPasswordHelper": "Atstarpēm nav nozīmes. NeoAgent to glabā šifrētu.",
+  "emailUsernameOptional": "Lietotājvārds, ja tas nav jūsu e-pasts",
+  "emailIncludeCalendar": "Iekļaut kalendāru",
+  "emailIncludeContacts": "Iekļaut kontaktus",
+  "imapServer": "IMAP serveris",
+  "smtpServer": "SMTP serveris",
+  "caldavUrlOptional": "CalDAV URL (neobligāti)",
+  "carddavUrlOptional": "CardDAV URL (neobligāti)",
+  "alternativeEmail": "Pievienojiet pastkastīti ar lietotnes paroli vai kalendāru ar tā iCal saiti. Gatavs pāris minūtēs.",
+  "alternativePhone": "Kopīgojiet tālrunī jau esošo kalendāru un kontaktus ar lietotni NeoAgent.",
+  "alternativePhoneElsewhere": "Kopīgojiet tālrunī jau esošo kalendāru un kontaktus. Iestatiet to NeoAgent lietotnē tālrunī.",
+  "skipTheDeveloperConsole": "Bez izstrādātāju konsoles",
+  "phoneSyncPromptTitle": "Ļaut aģentam redzēt jūsu kalendāru?",
+  "phoneSyncPromptBody": "Kopīgojiet šī tālruņa kalendārus un kontaktus, lai aģents varētu plānot jūsu dienu. To var mainīt jebkurā laikā sadaļā Rīki › Integrācijas.",
+  "phoneSyncTitle": "Kopīgot tālruņa kalendāru un kontaktus",
+  "phoneSyncIntro": "Aģents redz visu šī tālruņa kontu kalendārus un kontaktus. Bez izstrādātāju konsoles un papildu pierakstīšanās.",
+  "phoneSyncPointAccounts": "Darbojas ar šī tālruņa Google, Outlook, iCloud un Exchange kontiem.",
+  "phoneSyncPointPrivate": "Kopīgots tikai ar jūsu NeoAgent serveri, kas tos glabā šifrētus.",
+  "phoneSyncPointWrites": "Aģenta pievienotos notikumus izveido šis tālrunis, un tie sinhronizējas kā parasti.",
+  "phoneSyncCalendarHint": "Notikumi no 30 dienām atpakaļ līdz 90 dienām uz priekšu",
+  "phoneSyncContacts": "Kontakti",
+  "phoneSyncContactsHint": "Vārdi, e-pasta adreses un tālruņa numuri",
+  "phoneSyncOtherAgent": "Šis tālrunis kopīgo ar citu aģentu. Kopīgojot šeit, tas pāriet pie šī aģenta.",
+  "phoneSyncDenied": "NeoAgent vēl nav piekļuves. Atļaujiet to iestatījumos un atgriezieties.",
+  "openPhoneSettings": "Atvērt iestatījumus",
+  "phoneSyncShare": "Kopīgot ar NeoAgent",
+  "phoneSyncStop": "Pārtraukt kopīgošanu",
+  "phoneSyncWaiting": "Gaida pirmo sinhronizāciju…",
+  "phoneSyncLastSyncedArg1": "Pēdējoreiz sinhronizēts {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Kalendāra saite",
+  "calendarLinkHelper": "Kalendāra iCal adrese. Ikviens, kam tā ir, var lasīt kalendāru, tāpēc glabājiet to privāti.",
+  "calendarLinkName": "Nosaukums (neobligāti)",
+  "calendarLinkAdded": "Kalendārs pievienots"
 }

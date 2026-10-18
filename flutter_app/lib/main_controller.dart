@@ -49,6 +49,7 @@ class NeoAgentController extends ChangeNotifier {
   final NeoAgentAppMode appMode;
   final BackendClient _backendClient;
   final HealthBridge _healthBridge;
+  late final PhoneSync phoneSync = PhoneSync(this);
   final OAuthLauncher _oauthLauncher;
   final WebAuthnClient _webAuthnClient;
   final BackendDiscoveryService _backendDiscoveryService =
@@ -2058,6 +2059,7 @@ class NeoAgentController extends ChangeNotifier {
         sessionCookie: '',
       ),
     );
+    unawaited(phoneSync.pause());
   }
 
   Future<void> _persistCredentials() async {
@@ -2167,6 +2169,7 @@ class NeoAgentController extends ChangeNotifier {
     await _desktopCompanion.reconnectIfNeeded(force: true);
     _ensureSocketConnected();
     unawaited(refreshComputerRuntime(silent: true));
+    unawaited(phoneSync.resume());
   }
 
   void _restoreSelectedSectionFromPrefs() {
@@ -3017,6 +3020,7 @@ class NeoAgentController extends ChangeNotifier {
       if (!_isCurrentAuthCycle(authCycle)) {
         return;
       }
+      unawaited(phoneSync.resume());
       await _syncDesktopCompanionSession();
       if (!_isCurrentAuthCycle(authCycle)) return;
       unawaited(ensureLocalDeviceConnected());
@@ -7756,6 +7760,7 @@ class NeoAgentController extends ChangeNotifier {
       notifyListeners();
       if (!progress.isRunning) unawaited(refreshSkills());
     });
+    socket.on('device_sync:wake', phoneSync.handleWake);
     socket.on('integrations:status', (dynamic data) {
       officialIntegrations = _decodeModelList(
         'official_integrations.socket',

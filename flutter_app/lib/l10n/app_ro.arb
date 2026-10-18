@@ -7114,5 +7114,82 @@
   "globalIntegrationConfiguration": "Configurație globală a integrărilor",
   "globalIntegrationConfigurationDescription": "Aplicații OAuth opționale pentru tot serverul. Când o integrare are una, fiecare cont o folosește și nu își poate adăuga propria aplicație. Lasă o integrare nesetată și fiecare utilizator își configurează propria aplicație. Secretele pot fi doar scrise: lasă gol pentru a păstra valoarea stocată.",
   "globalStatus": "Global",
-  "perUserStatus": "Per utilizator"
+  "perUserStatus": "Per utilizator",
+  "phoneSyncGuidance": "Partajează calendarele și contactele acestui telefon cu agentul tău. Funcționează cu fiecare cont aflat deja pe telefon.",
+  "phoneSyncElsewhereGuidance": "Deschide NeoAgent pe telefon și activează acolo partajarea. Agentul va vedea apoi calendarele și contactele tuturor conturilor de pe acel telefon.",
+  "manageOnThisPhone": "Gestionează pe acest telefon",
+  "setUpOnThisPhone": "Configurează pe acest telefon",
+  "setUpOnPhone": "Configurează pe telefon",
+  "emailConnectedArg1": "{email} conectat",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Contul nu a putut fi conectat.",
+  "emailSetupTitle": "Conectează e-mail și calendar",
+  "emailChecking": "Se verifică căsuța…",
+  "emailSetupIntro": "Folosește o parolă de aplicație de la furnizorul de e-mail. Fără consolă de dezvoltator, gata în câteva minute.",
+  "emailOpenArg1": "Deschide {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Introdu serverele",
+  "emailStepPassword": "1. Creează o parolă de aplicație",
+  "emailOpenPasswordPageArg1": "Deschide parolele de aplicație {provider}",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Conectare",
+  "appPassword": "Parolă de aplicație",
+  "appPasswordHelper": "Spațiile nu contează. NeoAgent o stochează criptat.",
+  "emailUsernameOptional": "Nume de utilizator, dacă nu e adresa de e-mail",
+  "emailIncludeCalendar": "Include calendarul",
+  "emailIncludeContacts": "Include contactele",
+  "imapServer": "Server IMAP",
+  "smtpServer": "Server SMTP",
+  "caldavUrlOptional": "URL CalDAV (opțional)",
+  "carddavUrlOptional": "URL CardDAV (opțional)",
+  "alternativeEmail": "Conectează căsuța cu o parolă de aplicație sau calendarul prin linkul iCal. Gata în câteva minute.",
+  "alternativePhone": "Partajează calendarul și contactele de pe telefon prin aplicația NeoAgent.",
+  "alternativePhoneElsewhere": "Partajează calendarul și contactele de pe telefon. Configurează în aplicația NeoAgent de pe telefon.",
+  "skipTheDeveloperConsole": "Fără consolă de dezvoltator",
+  "phoneSyncPromptTitle": "Îi permiți agentului să-ți vadă calendarul?",
+  "phoneSyncPromptBody": "Partajează calendarele și contactele acestui telefon ca agentul să-ți planifice ziua. Poți schimba oricând în Instrumente › Integrări.",
+  "phoneSyncTitle": "Partajează calendarul și contactele acestui telefon",
+  "phoneSyncIntro": "Agentul vede calendarele și contactele tuturor conturilor de pe acest telefon. Fără consolă de dezvoltator, fără conectare suplimentară.",
+  "phoneSyncPointAccounts": "Funcționează cu conturile Google, Outlook, iCloud și Exchange de pe acest telefon.",
+  "phoneSyncPointPrivate": "Partajat doar cu serverul tău NeoAgent, care le stochează criptat.",
+  "phoneSyncPointWrites": "Evenimentele adăugate de agent sunt create de acest telefon și se sincronizează ca de obicei.",
+  "phoneSyncCalendarHint": "Evenimente de acum 30 de zile până peste 90 de zile",
+  "phoneSyncContacts": "Contacte",
+  "phoneSyncContactsHint": "Nume, adrese de e-mail și numere de telefon",
+  "phoneSyncOtherAgent": "Acest telefon partajează cu alt agent. Partajarea aici îl mută la acest agent.",
+  "phoneSyncDenied": "NeoAgent nu are încă acces. Permite-l în Setări, apoi revino.",
+  "openPhoneSettings": "Deschide Setările",
+  "phoneSyncShare": "Partajează cu NeoAgent",
+  "phoneSyncStop": "Oprește partajarea",
+  "phoneSyncWaiting": "Se așteaptă prima sincronizare…",
+  "phoneSyncLastSyncedArg1": "Ultima sincronizare {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Link calendar",
+  "calendarLinkHelper": "Adresa iCal a calendarului. Oricine o are poate citi calendarul, așa că păstreaz-o privată.",
+  "calendarLinkName": "Nume (opțional)",
+  "calendarLinkAdded": "Calendar adăugat"
 }

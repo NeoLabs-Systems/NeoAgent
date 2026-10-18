@@ -7114,5 +7114,82 @@
   "globalIntegrationConfiguration": "Глобална конфигурация на интеграциите",
   "globalIntegrationConfigurationDescription": "Незадължителни OAuth приложения за целия сървър. Когато интеграция има такова, всеки акаунт го използва и не може да добави свое. Оставете интеграцията незададена и всеки потребител настройва собствено приложение. Тайните са само за запис: оставете празно, за да запазите съхранената стойност.",
   "globalStatus": "Глобално",
-  "perUserStatus": "За потребител"
+  "perUserStatus": "За потребител",
+  "phoneSyncGuidance": "Споделете календарите и контактите на този телефон с вашия агент. Работи с всеки акаунт, който вече е на телефона.",
+  "phoneSyncElsewhereGuidance": "Отворете NeoAgent на телефона и включете споделянето там. Агентът ще вижда календарите и контактите на всички акаунти на този телефон.",
+  "manageOnThisPhone": "Управление на този телефон",
+  "setUpOnThisPhone": "Настройка на този телефон",
+  "setUpOnPhone": "Настройка на телефона",
+  "emailConnectedArg1": "{email} е свързан",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Акаунтът не можа да бъде свързан.",
+  "emailSetupTitle": "Свързване на имейл и календар",
+  "emailChecking": "Проверка на пощата…",
+  "emailSetupIntro": "Използвайте парола за приложение от доставчика на имейл. Без конзола за разработчици, готово за няколко минути.",
+  "emailOpenArg1": "Отвори {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Въведете сървърите",
+  "emailStepPassword": "1. Създайте парола за приложение",
+  "emailOpenPasswordPageArg1": "Отвори паролите за приложения на {provider}",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Вход",
+  "appPassword": "Парола за приложение",
+  "appPasswordHelper": "Интервалите нямат значение. NeoAgent я съхранява криптирана.",
+  "emailUsernameOptional": "Потребителско име, ако не е имейлът ви",
+  "emailIncludeCalendar": "Включи календара",
+  "emailIncludeContacts": "Включи контактите",
+  "imapServer": "IMAP сървър",
+  "smtpServer": "SMTP сървър",
+  "caldavUrlOptional": "CalDAV URL (по избор)",
+  "carddavUrlOptional": "CardDAV URL (по избор)",
+  "alternativeEmail": "Свържете пощата с парола за приложение или календара чрез неговата iCal връзка. Готово за няколко минути.",
+  "alternativePhone": "Споделете календара и контактите от телефона чрез приложението NeoAgent.",
+  "alternativePhoneElsewhere": "Споделете календара и контактите от телефона. Настройте го в приложението NeoAgent на телефона.",
+  "skipTheDeveloperConsole": "Без конзола за разработчици",
+  "phoneSyncPromptTitle": "Да вижда ли агентът календара ви?",
+  "phoneSyncPromptBody": "Споделете календарите и контактите на този телефон, за да планира агентът деня ви. Можете да промените това по всяко време в Инструменти › Интеграции.",
+  "phoneSyncTitle": "Споделяне на календара и контактите на телефона",
+  "phoneSyncIntro": "Агентът вижда календарите и контактите на всички акаунти на този телефон. Без конзола за разработчици и допълнителен вход.",
+  "phoneSyncPointAccounts": "Работи с акаунтите в Google, Outlook, iCloud и Exchange на този телефон.",
+  "phoneSyncPointPrivate": "Споделя се само с вашия сървър NeoAgent, който ги съхранява криптирани.",
+  "phoneSyncPointWrites": "Събитията, добавени от агента, се създават от този телефон и се синхронизират както обикновено.",
+  "phoneSyncCalendarHint": "Събития от преди 30 дни до 90 дни напред",
+  "phoneSyncContacts": "Контакти",
+  "phoneSyncContactsHint": "Имена, имейл адреси и телефонни номера",
+  "phoneSyncOtherAgent": "Този телефон споделя с друг агент. Споделянето тук го премества към този агент.",
+  "phoneSyncDenied": "NeoAgent все още няма достъп. Разрешете го в Настройки и се върнете.",
+  "openPhoneSettings": "Отвори Настройки",
+  "phoneSyncShare": "Сподели с NeoAgent",
+  "phoneSyncStop": "Спри споделянето",
+  "phoneSyncWaiting": "Изчакване на първата синхронизация…",
+  "phoneSyncLastSyncedArg1": "Последна синхронизация {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Връзка към календара",
+  "calendarLinkHelper": "iCal адресът на календара. Всеки с него може да чете календара, затова го пазете в тайна.",
+  "calendarLinkName": "Име (по избор)",
+  "calendarLinkAdded": "Календарът е добавен"
 }

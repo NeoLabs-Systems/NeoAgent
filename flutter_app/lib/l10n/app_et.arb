@@ -7114,5 +7114,82 @@
   "globalIntegrationConfiguration": "Integratsioonide globaalne seadistus",
   "globalIntegrationConfigurationDescription": "Valikulised kogu serverit hõlmavad OAuth-rakendused. Kui integratsioonil see on, kasutab seda iga konto ega saa oma lisada. Jäta integratsioon seadistamata ja iga kasutaja seadistab oma rakenduse. Saladused on ainult kirjutatavad: jäta tühjaks, et salvestatud väärtus alles jääks.",
   "globalStatus": "Globaalne",
-  "perUserStatus": "Kasutajapõhine"
+  "perUserStatus": "Kasutajapõhine",
+  "phoneSyncGuidance": "Jaga selle telefoni kalendreid ja kontakte oma agendiga. Töötab kõigi telefonis juba olevate kontodega.",
+  "phoneSyncElsewhereGuidance": "Ava telefonis NeoAgent ja lülita seal jagamine sisse. Agent näeb siis kõigi selle telefoni kontode kalendreid ja kontakte.",
+  "manageOnThisPhone": "Halda selles telefonis",
+  "setUpOnThisPhone": "Seadista selles telefonis",
+  "setUpOnPhone": "Seadista oma telefonis",
+  "emailConnectedArg1": "{email} ühendatud",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Kontot ei õnnestunud ühendada.",
+  "emailSetupTitle": "Ühenda e-post ja kalender",
+  "emailChecking": "Postkasti kontrollimine…",
+  "emailSetupIntro": "Kasuta e-posti teenusepakkuja rakenduse parooli. Arendajakonsooli pole vaja, valmis mõne minutiga.",
+  "emailOpenArg1": "Ava {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Sisesta serverid",
+  "emailStepPassword": "1. Loo rakenduse parool",
+  "emailOpenPasswordPageArg1": "Ava {provider} rakenduse paroolid",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Logi sisse",
+  "appPassword": "Rakenduse parool",
+  "appPasswordHelper": "Tühikud ei loe. NeoAgent salvestab selle krüpteerituna.",
+  "emailUsernameOptional": "Kasutajanimi, kui see pole sinu e-posti aadress",
+  "emailIncludeCalendar": "Kaasa kalender",
+  "emailIncludeContacts": "Kaasa kontaktid",
+  "imapServer": "IMAP-server",
+  "smtpServer": "SMTP-server",
+  "caldavUrlOptional": "CalDAV URL (valikuline)",
+  "carddavUrlOptional": "CardDAV URL (valikuline)",
+  "alternativeEmail": "Ühenda postkast rakenduse parooliga või kalender selle iCal-lingiga. Valmis mõne minutiga.",
+  "alternativePhone": "Jaga telefonis juba olevat kalendrit ja kontakte NeoAgenti rakenduse kaudu.",
+  "alternativePhoneElsewhere": "Jaga telefonis juba olevat kalendrit ja kontakte. Seadista see telefoni NeoAgenti rakenduses.",
+  "skipTheDeveloperConsole": "Ilma arendajakonsoolita",
+  "phoneSyncPromptTitle": "Kas agent võib su kalendrit näha?",
+  "phoneSyncPromptBody": "Jaga selle telefoni kalendreid ja kontakte, et agent saaks su päeva järgi planeerida. Saad seda igal ajal muuta jaotises Tööriistad › Integratsioonid.",
+  "phoneSyncTitle": "Jaga telefoni kalendrit ja kontakte",
+  "phoneSyncIntro": "Agent näeb kõigi selle telefoni kontode kalendreid ja kontakte. Arendajakonsooli ega lisasisselogimist pole vaja.",
+  "phoneSyncPointAccounts": "Töötab selle telefoni Google'i, Outlooki, iCloudi ja Exchange'i kontodega.",
+  "phoneSyncPointPrivate": "Jagatakse ainult sinu NeoAgenti serveriga, mis salvestab need krüpteerituna.",
+  "phoneSyncPointWrites": "Agendi lisatud sündmused loob see telefon ja need sünkroonitakse tavapäraselt.",
+  "phoneSyncCalendarHint": "Sündmused 30 päeva tagant kuni 90 päeva ette",
+  "phoneSyncContacts": "Kontaktid",
+  "phoneSyncContactsHint": "Nimed, e-posti aadressid ja telefoninumbrid",
+  "phoneSyncOtherAgent": "See telefon jagab teise agendiga. Siin jagamine viib selle sellele agendile.",
+  "phoneSyncDenied": "NeoAgentil pole veel ligipääsu. Luba see seadetes ja tule tagasi.",
+  "openPhoneSettings": "Ava seaded",
+  "phoneSyncShare": "Jaga NeoAgentiga",
+  "phoneSyncStop": "Lõpeta jagamine",
+  "phoneSyncWaiting": "Ootan esimest sünkroonimist…",
+  "phoneSyncLastSyncedArg1": "Viimati sünkroonitud {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Kalendri link",
+  "calendarLinkHelper": "Kalendri iCal-aadress. Igaüks, kellel see on, saab kalendrit lugeda, seega hoia see privaatsena.",
+  "calendarLinkName": "Nimi (valikuline)",
+  "calendarLinkAdded": "Kalender lisatud"
 }

@@ -15,7 +15,7 @@ Future<void> _showOAuthAppSetupDialog(
     return;
   }
   if (!context.mounted) return;
-  await showDialog<void>(
+  final alternative = await showDialog<String>(
     context: context,
     barrierDismissible: false,
     builder: (_) => _OAuthAppSetupDialog(
@@ -24,6 +24,9 @@ Future<void> _showOAuthAppSetupDialog(
       config: config,
     ),
   );
+  if (alternative != null && context.mounted) {
+    _openOfficialIntegrationSetupDialog(context, controller, alternative);
+  }
 }
 
 class _OAuthAppSetupDialog extends StatefulWidget {
@@ -60,6 +63,14 @@ class _OAuthAppSetupDialogState extends State<_OAuthAppSetupDialog> {
   String _error = '';
 
   bool get _stored => widget.config['hasClientSecret'] == true;
+
+  List<String> get _alternatives =>
+      widget.controller.officialIntegrations
+          .where((item) => item.id == widget.providerId)
+          .firstOrNull
+          ?.env
+          .alternatives ??
+      const <String>[];
 
   String get _providerLabel =>
       widget.controller.officialIntegrations
@@ -153,6 +164,15 @@ class _OAuthAppSetupDialogState extends State<_OAuthAppSetupDialog> {
                 appStrings.oauthAppSetupIntro(_providerLabel),
                 style: TextStyle(color: _textSecondary, height: 1.45),
               ),
+              if (_alternatives.isNotEmpty && !_stored) ...<Widget>[
+                const SizedBox(height: 14),
+                _IntegrationAlternatives(
+                  controller: widget.controller,
+                  providerIds: _alternatives,
+                  onOpen: (providerId) =>
+                      Navigator.of(context).pop(providerId),
+                ),
+              ],
               _OAuthAppStep(
                 title: appStrings.oauthAppStepCreate,
                 children: <Widget>[
@@ -304,6 +324,73 @@ class _OAuthAppCopyableValue extends StatelessWidget {
               ).showSnackBar(SnackBar(content: Text(copiedMessage)));
             },
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Other integrations that reach the same data without registering an app,
+/// offered wherever setting up an OAuth app is asked for.
+class _IntegrationAlternatives extends StatelessWidget {
+  const _IntegrationAlternatives({
+    required this.controller,
+    required this.providerIds,
+    required this.onOpen,
+  });
+
+  final NeoAgentController controller;
+  final List<String> providerIds;
+  final ValueChanged<String> onOpen;
+
+  String _hint(String providerId) => switch (providerId) {
+    'email' => appStrings.alternativeEmail,
+    _ => PhoneSync.supported
+        ? appStrings.alternativePhone
+        : appStrings.alternativePhoneElsewhere,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final items = providerIds
+        .map(
+          (id) => controller.officialIntegrations
+              .where((item) => item.id == id)
+              .firstOrNull,
+        )
+        .whereType<OfficialIntegrationItem>()
+        .toList();
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 6, 6),
+      decoration: BoxDecoration(
+        color: _accent.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _accent.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            appStrings.skipTheDeveloperConsole,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          for (final item in items)
+            ListTile(
+              contentPadding: const EdgeInsets.only(right: 8),
+              leading: _OfficialIntegrationIcon.named(
+                icon: item.icon,
+                label: item.label,
+                size: 36,
+              ),
+              title: Text(item.label),
+              subtitle: Text(_hint(item.id)),
+              trailing: item.setUpOnPhoneOnly
+                  ? null
+                  : const Icon(Icons.chevron_right_rounded),
+              enabled: !item.setUpOnPhoneOnly,
+              onTap: () => onOpen(item.id),
+            ),
         ],
       ),
     );

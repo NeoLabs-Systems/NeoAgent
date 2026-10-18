@@ -16,6 +16,8 @@ import UserNotifications
     let messenger = registrar(forPlugin: "NeoAgent")!.messenger()
     CallKitBridge.shared.register(with: messenger)
     HealthKitBridge.shared.register(with: messenger)
+    DeviceSyncBridge.shared.register(with: messenger)
+    DeviceSyncBridge.shared.registerBackgroundRefresh()
     HomeWidgetsBridge.register(with: messenger)
     appLaunchEvents = BufferedEventStream(name: "neoagent/app_launch/events", messenger: messenger)
     HealthKitBridge.shared.startObserving()

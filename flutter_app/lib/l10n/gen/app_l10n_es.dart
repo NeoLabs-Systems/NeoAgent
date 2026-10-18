@@ -11581,4 +11581,176 @@ class AppL10nEs extends AppL10n {
 
   @override
   String get perUserStatus => 'Por usuario';
+
+  @override
+  String get phoneSyncGuidance =>
+      'Comparte los calendarios y contactos de este teléfono con tu agente. Funciona con todas las cuentas que ya tiene el teléfono.';
+
+  @override
+  String get phoneSyncElsewhereGuidance =>
+      'Abre NeoAgent en tu teléfono y activa allí el uso compartido. Tu agente verá los calendarios y contactos de todas las cuentas de ese teléfono.';
+
+  @override
+  String get manageOnThisPhone => 'Gestionar en este teléfono';
+
+  @override
+  String get setUpOnThisPhone => 'Configurar en este teléfono';
+
+  @override
+  String get setUpOnPhone => 'Configurar en tu teléfono';
+
+  @override
+  String emailConnectedArg1(String email) {
+    return '$email conectado';
+  }
+
+  @override
+  String get couldNotConnectEmail => 'No se pudo conectar esta cuenta.';
+
+  @override
+  String get emailSetupTitle => 'Conectar correo y calendario';
+
+  @override
+  String get emailChecking => 'Comprobando tu buzón…';
+
+  @override
+  String get emailSetupIntro =>
+      'Usa una contraseña de aplicación de tu proveedor de correo. Sin consola de desarrollador, listo en un par de minutos.';
+
+  @override
+  String emailOpenArg1(String provider) {
+    return 'Abrir $provider';
+  }
+
+  @override
+  String get emailStepServers => '1. Introduce tus servidores';
+
+  @override
+  String get emailStepPassword => '1. Crea una contraseña de aplicación';
+
+  @override
+  String emailOpenPasswordPageArg1(String provider) {
+    return 'Abrir contraseñas de aplicación de $provider';
+  }
+
+  @override
+  String get emailStepSignIn => '2. Inicia sesión';
+
+  @override
+  String get appPassword => 'Contraseña de aplicación';
+
+  @override
+  String get appPasswordHelper =>
+      'Los espacios no importan. NeoAgent la guarda cifrada.';
+
+  @override
+  String get emailUsernameOptional => 'Usuario, si no es tu correo';
+
+  @override
+  String get emailIncludeCalendar => 'Incluir calendario';
+
+  @override
+  String get emailIncludeContacts => 'Incluir contactos';
+
+  @override
+  String get imapServer => 'Servidor IMAP';
+
+  @override
+  String get smtpServer => 'Servidor SMTP';
+
+  @override
+  String get caldavUrlOptional => 'URL de CalDAV (opcional)';
+
+  @override
+  String get carddavUrlOptional => 'URL de CardDAV (opcional)';
+
+  @override
+  String get alternativeEmail =>
+      'Conecta tu buzón con una contraseña de aplicación, o tu calendario con su enlace iCal. Listo en un par de minutos.';
+
+  @override
+  String get alternativePhone =>
+      'Comparte el calendario y los contactos que ya tienes en el teléfono con la app NeoAgent.';
+
+  @override
+  String get alternativePhoneElsewhere =>
+      'Comparte el calendario y los contactos que ya tienes en el teléfono. Configúralo en la app NeoAgent del teléfono.';
+
+  @override
+  String get skipTheDeveloperConsole => 'Sin consola de desarrollador';
+
+  @override
+  String get phoneSyncPromptTitle => '¿Dejas que tu agente vea tu calendario?';
+
+  @override
+  String get phoneSyncPromptBody =>
+      'Comparte los calendarios y contactos de este teléfono para que tu agente planifique tu día. Puedes cambiarlo cuando quieras en Herramientas › Integraciones.';
+
+  @override
+  String get phoneSyncTitle =>
+      'Compartir calendario y contactos de este teléfono';
+
+  @override
+  String get phoneSyncIntro =>
+      'Tu agente ve los calendarios y contactos de todas las cuentas de este teléfono. Sin consola de desarrollador ni inicio de sesión extra.';
+
+  @override
+  String get phoneSyncPointAccounts =>
+      'Funciona con las cuentas de Google, Outlook, iCloud y Exchange de este teléfono.';
+
+  @override
+  String get phoneSyncPointPrivate =>
+      'Solo se comparte con tu servidor NeoAgent, que lo guarda cifrado.';
+
+  @override
+  String get phoneSyncPointWrites =>
+      'Los eventos que añade tu agente los crea este teléfono y se sincronizan como siempre.';
+
+  @override
+  String get phoneSyncCalendarHint =>
+      'Eventos desde hace 30 días hasta dentro de 90';
+
+  @override
+  String get phoneSyncContacts => 'Contactos';
+
+  @override
+  String get phoneSyncContactsHint => 'Nombres, correos y números de teléfono';
+
+  @override
+  String get phoneSyncOtherAgent =>
+      'Este teléfono comparte con otro agente. Compartir aquí lo pasa a este agente.';
+
+  @override
+  String get phoneSyncDenied =>
+      'NeoAgent aún no tiene acceso. Permítelo en Ajustes y vuelve.';
+
+  @override
+  String get openPhoneSettings => 'Abrir Ajustes';
+
+  @override
+  String get phoneSyncShare => 'Compartir con NeoAgent';
+
+  @override
+  String get phoneSyncStop => 'Dejar de compartir';
+
+  @override
+  String get phoneSyncWaiting => 'Esperando la primera sincronización…';
+
+  @override
+  String phoneSyncLastSyncedArg1(String time) {
+    return 'Última sincronización $time';
+  }
+
+  @override
+  String get calendarLink => 'Enlace del calendario';
+
+  @override
+  String get calendarLinkHelper =>
+      'La dirección iCal del calendario. Quien la tenga puede leer el calendario, así que mantenla privada.';
+
+  @override
+  String get calendarLinkName => 'Nombre (opcional)';
+
+  @override
+  String get calendarLinkAdded => 'Calendario añadido';
 }

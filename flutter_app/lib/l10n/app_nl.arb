@@ -7114,5 +7114,82 @@
   "globalIntegrationConfiguration": "Globale integratieconfiguratie",
   "globalIntegrationConfigurationDescription": "Optionele serverbrede OAuth-apps. Heeft een integratie er een, dan gebruikt elk account die en kan het geen eigen app toevoegen. Laat een integratie leeg en elke gebruiker stelt zijn eigen app in. Geheimen zijn alleen-schrijven: laat leeg om de opgeslagen waarde te behouden.",
   "globalStatus": "Globaal",
-  "perUserStatus": "Per gebruiker"
+  "perUserStatus": "Per gebruiker",
+  "phoneSyncGuidance": "Deel de agenda's en contacten van deze telefoon met je agent. Het werkt met elk account dat al op de telefoon staat.",
+  "phoneSyncElsewhereGuidance": "Open NeoAgent op je telefoon en zet daar delen aan. Je agent ziet dan de agenda's en contacten van alle accounts op die telefoon.",
+  "manageOnThisPhone": "Beheren op deze telefoon",
+  "setUpOnThisPhone": "Instellen op deze telefoon",
+  "setUpOnPhone": "Instellen op je telefoon",
+  "emailConnectedArg1": "{email} gekoppeld",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Dit account kon niet worden gekoppeld.",
+  "emailSetupTitle": "E-mail & agenda koppelen",
+  "emailChecking": "Je mailbox wordt gecontroleerd…",
+  "emailSetupIntro": "Gebruik een app-wachtwoord van je mailprovider. Geen ontwikkelaarsconsole, binnen een paar minuten klaar.",
+  "emailOpenArg1": "{provider} openen",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Vul je servers in",
+  "emailStepPassword": "1. Maak een app-wachtwoord",
+  "emailOpenPasswordPageArg1": "App-wachtwoorden van {provider} openen",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Inloggen",
+  "appPassword": "App-wachtwoord",
+  "appPasswordHelper": "Spaties maken niet uit. NeoAgent bewaart het versleuteld.",
+  "emailUsernameOptional": "Gebruikersnaam, als die niet je e-mailadres is",
+  "emailIncludeCalendar": "Agenda meenemen",
+  "emailIncludeContacts": "Contacten meenemen",
+  "imapServer": "IMAP-server",
+  "smtpServer": "SMTP-server",
+  "caldavUrlOptional": "CalDAV-URL (optioneel)",
+  "carddavUrlOptional": "CardDAV-URL (optioneel)",
+  "alternativeEmail": "Koppel je mailbox met een app-wachtwoord, of je agenda via de iCal-link. Binnen een paar minuten klaar.",
+  "alternativePhone": "Deel de agenda en contacten die al op je telefoon staan via de NeoAgent-app.",
+  "alternativePhoneElsewhere": "Deel de agenda en contacten die al op je telefoon staan. Stel het in in de NeoAgent-app op je telefoon.",
+  "skipTheDeveloperConsole": "Zonder ontwikkelaarsconsole",
+  "phoneSyncPromptTitle": "Mag je agent je agenda zien?",
+  "phoneSyncPromptBody": "Deel de agenda's en contacten van deze telefoon zodat je agent rond je dag kan plannen. Je kunt dit altijd wijzigen onder Tools › Integraties.",
+  "phoneSyncTitle": "Agenda & contacten van deze telefoon delen",
+  "phoneSyncIntro": "Je agent ziet de agenda's en contacten van alle accounts op deze telefoon. Geen ontwikkelaarsconsole, geen extra login.",
+  "phoneSyncPointAccounts": "Werkt met de Google-, Outlook-, iCloud- en Exchange-accounts op deze telefoon.",
+  "phoneSyncPointPrivate": "Alleen gedeeld met je NeoAgent-server, die het versleuteld bewaart.",
+  "phoneSyncPointWrites": "Afspraken die je agent toevoegt, maakt deze telefoon aan en ze synchroniseren zoals altijd.",
+  "phoneSyncCalendarHint": "Afspraken van 30 dagen geleden tot 90 dagen vooruit",
+  "phoneSyncContacts": "Contacten",
+  "phoneSyncContactsHint": "Namen, e-mailadressen en telefoonnummers",
+  "phoneSyncOtherAgent": "Deze telefoon deelt met een andere agent. Hier delen verplaatst het naar deze agent.",
+  "phoneSyncDenied": "NeoAgent heeft nog geen toegang. Sta het toe in Instellingen en kom terug.",
+  "openPhoneSettings": "Instellingen openen",
+  "phoneSyncShare": "Delen met NeoAgent",
+  "phoneSyncStop": "Stoppen met delen",
+  "phoneSyncWaiting": "Wachten op de eerste synchronisatie…",
+  "phoneSyncLastSyncedArg1": "Laatst gesynchroniseerd {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Agendalink",
+  "calendarLinkHelper": "Het iCal-adres van de agenda. Iedereen met dit adres kan de agenda lezen, dus houd het privé.",
+  "calendarLinkName": "Naam (optioneel)",
+  "calendarLinkAdded": "Agenda toegevoegd"
 }

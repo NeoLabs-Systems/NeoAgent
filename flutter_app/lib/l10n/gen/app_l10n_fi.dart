@@ -11493,4 +11493,177 @@ class AppL10nFi extends AppL10n {
 
   @override
   String get perUserStatus => 'Käyttäjäkohtainen';
+
+  @override
+  String get phoneSyncGuidance =>
+      'Jaa tämän puhelimen kalenterit ja yhteystiedot agentillesi. Toimii kaikkien puhelimessa jo olevien tilien kanssa.';
+
+  @override
+  String get phoneSyncElsewhereGuidance =>
+      'Avaa NeoAgent puhelimessa ja ota jakaminen käyttöön siellä. Agenttisi näkee sitten kaikkien puhelimen tilien kalenterit ja yhteystiedot.';
+
+  @override
+  String get manageOnThisPhone => 'Hallitse tässä puhelimessa';
+
+  @override
+  String get setUpOnThisPhone => 'Määritä tässä puhelimessa';
+
+  @override
+  String get setUpOnPhone => 'Määritä puhelimessasi';
+
+  @override
+  String emailConnectedArg1(String email) {
+    return '$email yhdistetty';
+  }
+
+  @override
+  String get couldNotConnectEmail => 'Tiliä ei voitu yhdistää.';
+
+  @override
+  String get emailSetupTitle => 'Yhdistä sähköposti ja kalenteri';
+
+  @override
+  String get emailChecking => 'Tarkistetaan postilaatikkoa…';
+
+  @override
+  String get emailSetupIntro =>
+      'Käytä sähköpostipalvelusi sovelluskohtaista salasanaa. Ei kehittäjäkonsolia, valmis muutamassa minuutissa.';
+
+  @override
+  String emailOpenArg1(String provider) {
+    return 'Avaa $provider';
+  }
+
+  @override
+  String get emailStepServers => '1. Anna palvelimet';
+
+  @override
+  String get emailStepPassword => '1. Luo sovelluskohtainen salasana';
+
+  @override
+  String emailOpenPasswordPageArg1(String provider) {
+    return 'Avaa $provider: sovelluskohtaiset salasanat';
+  }
+
+  @override
+  String get emailStepSignIn => '2. Kirjaudu';
+
+  @override
+  String get appPassword => 'Sovelluskohtainen salasana';
+
+  @override
+  String get appPasswordHelper =>
+      'Välilyönneillä ei ole väliä. NeoAgent tallentaa sen salattuna.';
+
+  @override
+  String get emailUsernameOptional =>
+      'Käyttäjänimi, jos se ei ole sähköpostiosoitteesi';
+
+  @override
+  String get emailIncludeCalendar => 'Sisällytä kalenteri';
+
+  @override
+  String get emailIncludeContacts => 'Sisällytä yhteystiedot';
+
+  @override
+  String get imapServer => 'IMAP-palvelin';
+
+  @override
+  String get smtpServer => 'SMTP-palvelin';
+
+  @override
+  String get caldavUrlOptional => 'CalDAV-URL (valinnainen)';
+
+  @override
+  String get carddavUrlOptional => 'CardDAV-URL (valinnainen)';
+
+  @override
+  String get alternativeEmail =>
+      'Yhdistä postilaatikko sovelluskohtaisella salasanalla tai kalenteri sen iCal-linkillä. Valmis muutamassa minuutissa.';
+
+  @override
+  String get alternativePhone =>
+      'Jaa puhelimessa jo oleva kalenteri ja yhteystiedot NeoAgent-sovelluksella.';
+
+  @override
+  String get alternativePhoneElsewhere =>
+      'Jaa puhelimessa jo oleva kalenteri ja yhteystiedot. Määritä se puhelimen NeoAgent-sovelluksessa.';
+
+  @override
+  String get skipTheDeveloperConsole => 'Ohita kehittäjäkonsoli';
+
+  @override
+  String get phoneSyncPromptTitle => 'Saako agenttisi nähdä kalenterisi?';
+
+  @override
+  String get phoneSyncPromptBody =>
+      'Jaa tämän puhelimen kalenterit ja yhteystiedot, niin agenttisi voi suunnitella päiväsi mukaan. Voit muuttaa tätä milloin tahansa kohdassa Työkalut › Integraatiot.';
+
+  @override
+  String get phoneSyncTitle => 'Jaa tämän puhelimen kalenteri ja yhteystiedot';
+
+  @override
+  String get phoneSyncIntro =>
+      'Agenttisi näkee kaikkien tämän puhelimen tilien kalenterit ja yhteystiedot. Ei kehittäjäkonsolia, ei lisäkirjautumista.';
+
+  @override
+  String get phoneSyncPointAccounts =>
+      'Toimii tämän puhelimen Google-, Outlook-, iCloud- ja Exchange-tilien kanssa.';
+
+  @override
+  String get phoneSyncPointPrivate =>
+      'Jaetaan vain NeoAgent-palvelimellesi, jossa se tallennetaan salattuna.';
+
+  @override
+  String get phoneSyncPointWrites =>
+      'Agentin lisäämät tapahtumat luo tämä puhelin, ja ne synkronoituvat tavalliseen tapaan.';
+
+  @override
+  String get phoneSyncCalendarHint =>
+      'Tapahtumat 30 päivää taaksepäin ja 90 päivää eteenpäin';
+
+  @override
+  String get phoneSyncContacts => 'Yhteystiedot';
+
+  @override
+  String get phoneSyncContactsHint =>
+      'Nimet, sähköpostiosoitteet ja puhelinnumerot';
+
+  @override
+  String get phoneSyncOtherAgent =>
+      'Tämä puhelin jakaa toiselle agentille. Jakaminen tässä siirtää sen tälle agentille.';
+
+  @override
+  String get phoneSyncDenied =>
+      'NeoAgentilla ei ole vielä käyttöoikeutta. Salli se asetuksissa ja palaa takaisin.';
+
+  @override
+  String get openPhoneSettings => 'Avaa asetukset';
+
+  @override
+  String get phoneSyncShare => 'Jaa NeoAgentille';
+
+  @override
+  String get phoneSyncStop => 'Lopeta jakaminen';
+
+  @override
+  String get phoneSyncWaiting => 'Odotetaan ensimmäistä synkronointia…';
+
+  @override
+  String phoneSyncLastSyncedArg1(String time) {
+    return 'Synkronoitu viimeksi $time';
+  }
+
+  @override
+  String get calendarLink => 'Kalenterilinkki';
+
+  @override
+  String get calendarLinkHelper =>
+      'Kalenterin iCal-osoite. Kuka tahansa osoitteen tunteva voi lukea kalenteria, joten pidä se yksityisenä.';
+
+  @override
+  String get calendarLinkName => 'Nimi (valinnainen)';
+
+  @override
+  String get calendarLinkAdded => 'Kalenteri lisätty';
 }

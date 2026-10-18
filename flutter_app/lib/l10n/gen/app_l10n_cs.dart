@@ -11484,4 +11484,177 @@ class AppL10nCs extends AppL10n {
 
   @override
   String get perUserStatus => 'Pro uživatele';
+
+  @override
+  String get phoneSyncGuidance =>
+      'Sdílejte kalendáře a kontakty z tohoto telefonu se svým agentem. Funguje se všemi účty, které už v telefonu jsou.';
+
+  @override
+  String get phoneSyncElsewhereGuidance =>
+      'Otevřete NeoAgent v telefonu a zapněte tam sdílení. Agent pak uvidí kalendáře a kontakty všech účtů v tom telefonu.';
+
+  @override
+  String get manageOnThisPhone => 'Spravovat v tomto telefonu';
+
+  @override
+  String get setUpOnThisPhone => 'Nastavit v tomto telefonu';
+
+  @override
+  String get setUpOnPhone => 'Nastavit v telefonu';
+
+  @override
+  String emailConnectedArg1(String email) {
+    return 'Připojeno $email';
+  }
+
+  @override
+  String get couldNotConnectEmail => 'Účet se nepodařilo připojit.';
+
+  @override
+  String get emailSetupTitle => 'Připojit e-mail a kalendář';
+
+  @override
+  String get emailChecking => 'Kontroluji schránku…';
+
+  @override
+  String get emailSetupIntro =>
+      'Použijte heslo aplikace od poskytovatele e-mailu. Bez vývojářské konzole, hotovo za pár minut.';
+
+  @override
+  String emailOpenArg1(String provider) {
+    return 'Otevřít $provider';
+  }
+
+  @override
+  String get emailStepServers => '1. Zadejte servery';
+
+  @override
+  String get emailStepPassword => '1. Vytvořte heslo aplikace';
+
+  @override
+  String emailOpenPasswordPageArg1(String provider) {
+    return 'Otevřít hesla aplikací $provider';
+  }
+
+  @override
+  String get emailStepSignIn => '2. Přihlášení';
+
+  @override
+  String get appPassword => 'Heslo aplikace';
+
+  @override
+  String get appPasswordHelper =>
+      'Na mezerách nezáleží. NeoAgent ho ukládá šifrovaně.';
+
+  @override
+  String get emailUsernameOptional =>
+      'Uživatelské jméno, pokud to není váš e-mail';
+
+  @override
+  String get emailIncludeCalendar => 'Zahrnout kalendář';
+
+  @override
+  String get emailIncludeContacts => 'Zahrnout kontakty';
+
+  @override
+  String get imapServer => 'Server IMAP';
+
+  @override
+  String get smtpServer => 'Server SMTP';
+
+  @override
+  String get caldavUrlOptional => 'Adresa CalDAV (volitelné)';
+
+  @override
+  String get carddavUrlOptional => 'Adresa CardDAV (volitelné)';
+
+  @override
+  String get alternativeEmail =>
+      'Připojte schránku heslem aplikace, nebo kalendář jeho odkazem iCal. Hotovo za pár minut.';
+
+  @override
+  String get alternativePhone =>
+      'Sdílejte kalendář a kontakty z telefonu přes aplikaci NeoAgent.';
+
+  @override
+  String get alternativePhoneElsewhere =>
+      'Sdílejte kalendář a kontakty z telefonu. Nastavte to v aplikaci NeoAgent v telefonu.';
+
+  @override
+  String get skipTheDeveloperConsole => 'Bez vývojářské konzole';
+
+  @override
+  String get phoneSyncPromptTitle => 'Smí agent vidět váš kalendář?';
+
+  @override
+  String get phoneSyncPromptBody =>
+      'Sdílejte kalendáře a kontakty z tohoto telefonu, aby agent mohl plánovat podle vašeho dne. Změnit to můžete kdykoli v Nástroje › Integrace.';
+
+  @override
+  String get phoneSyncTitle => 'Sdílet kalendář a kontakty z telefonu';
+
+  @override
+  String get phoneSyncIntro =>
+      'Agent vidí kalendáře a kontakty všech účtů v tomto telefonu. Bez vývojářské konzole a dalšího přihlášení.';
+
+  @override
+  String get phoneSyncPointAccounts =>
+      'Funguje s účty Google, Outlook, iCloud a Exchange v tomto telefonu.';
+
+  @override
+  String get phoneSyncPointPrivate =>
+      'Sdílí se jen s vaším serverem NeoAgent, který je ukládá šifrovaně.';
+
+  @override
+  String get phoneSyncPointWrites =>
+      'Události přidané agentem vytvoří tento telefon a synchronizují se jako obvykle.';
+
+  @override
+  String get phoneSyncCalendarHint =>
+      'Události od 30 dnů zpět do 90 dnů dopředu';
+
+  @override
+  String get phoneSyncContacts => 'Kontakty';
+
+  @override
+  String get phoneSyncContactsHint =>
+      'Jména, e-mailové adresy a telefonní čísla';
+
+  @override
+  String get phoneSyncOtherAgent =>
+      'Tento telefon sdílí s jiným agentem. Sdílením zde se přesune k tomuto agentovi.';
+
+  @override
+  String get phoneSyncDenied =>
+      'NeoAgent zatím nemá přístup. Povolte ho v Nastavení a vraťte se.';
+
+  @override
+  String get openPhoneSettings => 'Otevřít Nastavení';
+
+  @override
+  String get phoneSyncShare => 'Sdílet s NeoAgent';
+
+  @override
+  String get phoneSyncStop => 'Ukončit sdílení';
+
+  @override
+  String get phoneSyncWaiting => 'Čekám na první synchronizaci…';
+
+  @override
+  String phoneSyncLastSyncedArg1(String time) {
+    return 'Naposledy synchronizováno $time';
+  }
+
+  @override
+  String get calendarLink => 'Odkaz na kalendář';
+
+  @override
+  String get calendarLinkHelper =>
+      'Adresa iCal kalendáře. Kdo ji zná, může kalendář číst, proto ji uchovejte v soukromí.';
+
+  @override
+  String get calendarLinkName => 'Název (volitelné)';
+
+  @override
+  String get calendarLinkAdded => 'Kalendář přidán';
 }

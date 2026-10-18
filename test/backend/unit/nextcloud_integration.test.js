@@ -39,7 +39,8 @@ afterEach(() => {
 
 test('Nextcloud URL normalize allows private HTTP and rejects credentials', () => {
   ctx = createTestRuntime();
-  const { normalizeBaseUrl, normalizeRemotePath } = require('../../../server/services/integrations/nextcloud/network');
+  const { normalizeBaseUrl } = require('../../../server/services/integrations/nextcloud/network');
+  const { normalizeRemotePath } = require('../../../server/services/integrations/dav/paths');
   assert.equal(normalizeBaseUrl('cloud.example.test/'), 'https://cloud.example.test');
   assert.equal(normalizeBaseUrl('192.168.1.40:8080/nextcloud/'), 'http://192.168.1.40:8080/nextcloud');
   assert.throws(() => normalizeBaseUrl('https://user:pass@cloud.example.test'), /without credentials/);

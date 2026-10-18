@@ -11485,4 +11485,176 @@ class AppL10nHr extends AppL10n {
 
   @override
   String get perUserStatus => 'Po korisniku';
+
+  @override
+  String get phoneSyncGuidance =>
+      'Podijelite kalendare i kontakte s ovog telefona sa svojim agentom. Radi sa svim računima koji su već na telefonu.';
+
+  @override
+  String get phoneSyncElsewhereGuidance =>
+      'Otvorite NeoAgent na telefonu i tamo uključite dijeljenje. Agent će tada vidjeti kalendare i kontakte svih računa na tom telefonu.';
+
+  @override
+  String get manageOnThisPhone => 'Upravljaj na ovom telefonu';
+
+  @override
+  String get setUpOnThisPhone => 'Postavi na ovom telefonu';
+
+  @override
+  String get setUpOnPhone => 'Postavi na svom telefonu';
+
+  @override
+  String emailConnectedArg1(String email) {
+    return '$email povezan';
+  }
+
+  @override
+  String get couldNotConnectEmail => 'Račun se nije mogao povezati.';
+
+  @override
+  String get emailSetupTitle => 'Poveži e-poštu i kalendar';
+
+  @override
+  String get emailChecking => 'Provjeravam sandučić…';
+
+  @override
+  String get emailSetupIntro =>
+      'Koristite lozinku aplikacije od pružatelja e-pošte. Bez konzole za razvojne programere, gotovo za par minuta.';
+
+  @override
+  String emailOpenArg1(String provider) {
+    return 'Otvori $provider';
+  }
+
+  @override
+  String get emailStepServers => '1. Unesite poslužitelje';
+
+  @override
+  String get emailStepPassword => '1. Izradite lozinku aplikacije';
+
+  @override
+  String emailOpenPasswordPageArg1(String provider) {
+    return 'Otvori lozinke aplikacija za $provider';
+  }
+
+  @override
+  String get emailStepSignIn => '2. Prijava';
+
+  @override
+  String get appPassword => 'Lozinka aplikacije';
+
+  @override
+  String get appPasswordHelper =>
+      'Razmaci nisu bitni. NeoAgent je sprema šifrirano.';
+
+  @override
+  String get emailUsernameOptional => 'Korisničko ime, ako nije vaša e-pošta';
+
+  @override
+  String get emailIncludeCalendar => 'Uključi kalendar';
+
+  @override
+  String get emailIncludeContacts => 'Uključi kontakte';
+
+  @override
+  String get imapServer => 'IMAP poslužitelj';
+
+  @override
+  String get smtpServer => 'SMTP poslužitelj';
+
+  @override
+  String get caldavUrlOptional => 'CalDAV URL (neobavezno)';
+
+  @override
+  String get carddavUrlOptional => 'CardDAV URL (neobavezno)';
+
+  @override
+  String get alternativeEmail =>
+      'Povežite sandučić lozinkom aplikacije ili kalendar njegovom iCal poveznicom. Gotovo za par minuta.';
+
+  @override
+  String get alternativePhone =>
+      'Podijelite kalendar i kontakte koji su već na telefonu putem aplikacije NeoAgent.';
+
+  @override
+  String get alternativePhoneElsewhere =>
+      'Podijelite kalendar i kontakte koji su već na telefonu. Postavite u aplikaciji NeoAgent na telefonu.';
+
+  @override
+  String get skipTheDeveloperConsole => 'Bez konzole za razvojne programere';
+
+  @override
+  String get phoneSyncPromptTitle => 'Smije li agent vidjeti vaš kalendar?';
+
+  @override
+  String get phoneSyncPromptBody =>
+      'Podijelite kalendare i kontakte ovog telefona kako bi agent mogao planirati vaš dan. To možete promijeniti bilo kada u Alati › Integracije.';
+
+  @override
+  String get phoneSyncTitle => 'Podijeli kalendar i kontakte ovog telefona';
+
+  @override
+  String get phoneSyncIntro =>
+      'Agent vidi kalendare i kontakte svih računa na ovom telefonu. Bez konzole za razvojne programere i dodatne prijave.';
+
+  @override
+  String get phoneSyncPointAccounts =>
+      'Radi s Google, Outlook, iCloud i Exchange računima na ovom telefonu.';
+
+  @override
+  String get phoneSyncPointPrivate =>
+      'Dijeli se samo s vašim NeoAgent poslužiteljem, koji ih sprema šifrirano.';
+
+  @override
+  String get phoneSyncPointWrites =>
+      'Događaje koje doda agent stvara ovaj telefon i sinkroniziraju se kao i obično.';
+
+  @override
+  String get phoneSyncCalendarHint =>
+      'Događaji od prije 30 dana do 90 dana unaprijed';
+
+  @override
+  String get phoneSyncContacts => 'Kontakti';
+
+  @override
+  String get phoneSyncContactsHint =>
+      'Imena, adrese e-pošte i telefonski brojevi';
+
+  @override
+  String get phoneSyncOtherAgent =>
+      'Ovaj telefon dijeli s drugim agentom. Dijeljenje ovdje premješta ga ovom agentu.';
+
+  @override
+  String get phoneSyncDenied =>
+      'NeoAgent još nema pristup. Dopustite ga u Postavkama i vratite se.';
+
+  @override
+  String get openPhoneSettings => 'Otvori Postavke';
+
+  @override
+  String get phoneSyncShare => 'Podijeli s NeoAgentom';
+
+  @override
+  String get phoneSyncStop => 'Prekini dijeljenje';
+
+  @override
+  String get phoneSyncWaiting => 'Čekam prvu sinkronizaciju…';
+
+  @override
+  String phoneSyncLastSyncedArg1(String time) {
+    return 'Zadnja sinkronizacija $time';
+  }
+
+  @override
+  String get calendarLink => 'Poveznica kalendara';
+
+  @override
+  String get calendarLinkHelper =>
+      'iCal adresa kalendara. Svatko tko je ima može čitati kalendar, zato je čuvajte privatnom.';
+
+  @override
+  String get calendarLinkName => 'Naziv (neobavezno)';
+
+  @override
+  String get calendarLinkAdded => 'Kalendar dodan';
 }

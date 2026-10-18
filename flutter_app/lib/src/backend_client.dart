@@ -1619,6 +1619,41 @@ class BackendClient {
     return postMap(baseUrl, '/api/mobile/health/sync', payload);
   }
 
+  /// Starts or updates calendar and contacts sharing from this phone.
+  Future<Map<String, dynamic>> registerDeviceSync(
+    String baseUrl, {
+    required String deviceId,
+    required String deviceName,
+    required String platform,
+    required List<String> kinds,
+    String? agentId,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/mobile/device-sync/register',
+      _withAgentId(<String, dynamic>{
+        'deviceId': deviceId,
+        'deviceName': deviceName,
+        'platform': platform,
+        'kinds': kinds,
+      }, agentId),
+    );
+  }
+
+  Future<Map<String, dynamic>> unregisterDeviceSync(
+    String baseUrl, {
+    required String deviceId,
+    String? agentId,
+  }) async {
+    return deleteMap(
+      baseUrl,
+      _withAgentQuery(
+        '/api/mobile/device-sync/register?deviceId=${Uri.encodeQueryComponent(deviceId)}',
+        agentId,
+      ),
+    );
+  }
+
   Future<List<Map<String, dynamic>>> fetchSkills(String baseUrl) async {
     return getList(baseUrl, '/api/skills');
   }

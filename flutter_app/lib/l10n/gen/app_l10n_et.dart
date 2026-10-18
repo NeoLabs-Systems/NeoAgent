@@ -11485,4 +11485,177 @@ class AppL10nEt extends AppL10n {
 
   @override
   String get perUserStatus => 'Kasutajapõhine';
+
+  @override
+  String get phoneSyncGuidance =>
+      'Jaga selle telefoni kalendreid ja kontakte oma agendiga. Töötab kõigi telefonis juba olevate kontodega.';
+
+  @override
+  String get phoneSyncElsewhereGuidance =>
+      'Ava telefonis NeoAgent ja lülita seal jagamine sisse. Agent näeb siis kõigi selle telefoni kontode kalendreid ja kontakte.';
+
+  @override
+  String get manageOnThisPhone => 'Halda selles telefonis';
+
+  @override
+  String get setUpOnThisPhone => 'Seadista selles telefonis';
+
+  @override
+  String get setUpOnPhone => 'Seadista oma telefonis';
+
+  @override
+  String emailConnectedArg1(String email) {
+    return '$email ühendatud';
+  }
+
+  @override
+  String get couldNotConnectEmail => 'Kontot ei õnnestunud ühendada.';
+
+  @override
+  String get emailSetupTitle => 'Ühenda e-post ja kalender';
+
+  @override
+  String get emailChecking => 'Postkasti kontrollimine…';
+
+  @override
+  String get emailSetupIntro =>
+      'Kasuta e-posti teenusepakkuja rakenduse parooli. Arendajakonsooli pole vaja, valmis mõne minutiga.';
+
+  @override
+  String emailOpenArg1(String provider) {
+    return 'Ava $provider';
+  }
+
+  @override
+  String get emailStepServers => '1. Sisesta serverid';
+
+  @override
+  String get emailStepPassword => '1. Loo rakenduse parool';
+
+  @override
+  String emailOpenPasswordPageArg1(String provider) {
+    return 'Ava $provider rakenduse paroolid';
+  }
+
+  @override
+  String get emailStepSignIn => '2. Logi sisse';
+
+  @override
+  String get appPassword => 'Rakenduse parool';
+
+  @override
+  String get appPasswordHelper =>
+      'Tühikud ei loe. NeoAgent salvestab selle krüpteerituna.';
+
+  @override
+  String get emailUsernameOptional =>
+      'Kasutajanimi, kui see pole sinu e-posti aadress';
+
+  @override
+  String get emailIncludeCalendar => 'Kaasa kalender';
+
+  @override
+  String get emailIncludeContacts => 'Kaasa kontaktid';
+
+  @override
+  String get imapServer => 'IMAP-server';
+
+  @override
+  String get smtpServer => 'SMTP-server';
+
+  @override
+  String get caldavUrlOptional => 'CalDAV URL (valikuline)';
+
+  @override
+  String get carddavUrlOptional => 'CardDAV URL (valikuline)';
+
+  @override
+  String get alternativeEmail =>
+      'Ühenda postkast rakenduse parooliga või kalender selle iCal-lingiga. Valmis mõne minutiga.';
+
+  @override
+  String get alternativePhone =>
+      'Jaga telefonis juba olevat kalendrit ja kontakte NeoAgenti rakenduse kaudu.';
+
+  @override
+  String get alternativePhoneElsewhere =>
+      'Jaga telefonis juba olevat kalendrit ja kontakte. Seadista see telefoni NeoAgenti rakenduses.';
+
+  @override
+  String get skipTheDeveloperConsole => 'Ilma arendajakonsoolita';
+
+  @override
+  String get phoneSyncPromptTitle => 'Kas agent võib su kalendrit näha?';
+
+  @override
+  String get phoneSyncPromptBody =>
+      'Jaga selle telefoni kalendreid ja kontakte, et agent saaks su päeva järgi planeerida. Saad seda igal ajal muuta jaotises Tööriistad › Integratsioonid.';
+
+  @override
+  String get phoneSyncTitle => 'Jaga telefoni kalendrit ja kontakte';
+
+  @override
+  String get phoneSyncIntro =>
+      'Agent näeb kõigi selle telefoni kontode kalendreid ja kontakte. Arendajakonsooli ega lisasisselogimist pole vaja.';
+
+  @override
+  String get phoneSyncPointAccounts =>
+      'Töötab selle telefoni Google\'i, Outlooki, iCloudi ja Exchange\'i kontodega.';
+
+  @override
+  String get phoneSyncPointPrivate =>
+      'Jagatakse ainult sinu NeoAgenti serveriga, mis salvestab need krüpteerituna.';
+
+  @override
+  String get phoneSyncPointWrites =>
+      'Agendi lisatud sündmused loob see telefon ja need sünkroonitakse tavapäraselt.';
+
+  @override
+  String get phoneSyncCalendarHint =>
+      'Sündmused 30 päeva tagant kuni 90 päeva ette';
+
+  @override
+  String get phoneSyncContacts => 'Kontaktid';
+
+  @override
+  String get phoneSyncContactsHint =>
+      'Nimed, e-posti aadressid ja telefoninumbrid';
+
+  @override
+  String get phoneSyncOtherAgent =>
+      'See telefon jagab teise agendiga. Siin jagamine viib selle sellele agendile.';
+
+  @override
+  String get phoneSyncDenied =>
+      'NeoAgentil pole veel ligipääsu. Luba see seadetes ja tule tagasi.';
+
+  @override
+  String get openPhoneSettings => 'Ava seaded';
+
+  @override
+  String get phoneSyncShare => 'Jaga NeoAgentiga';
+
+  @override
+  String get phoneSyncStop => 'Lõpeta jagamine';
+
+  @override
+  String get phoneSyncWaiting => 'Ootan esimest sünkroonimist…';
+
+  @override
+  String phoneSyncLastSyncedArg1(String time) {
+    return 'Viimati sünkroonitud $time';
+  }
+
+  @override
+  String get calendarLink => 'Kalendri link';
+
+  @override
+  String get calendarLinkHelper =>
+      'Kalendri iCal-aadress. Igaüks, kellel see on, saab kalendrit lugeda, seega hoia see privaatsena.';
+
+  @override
+  String get calendarLinkName => 'Nimi (valikuline)';
+
+  @override
+  String get calendarLinkAdded => 'Kalender lisatud';
 }

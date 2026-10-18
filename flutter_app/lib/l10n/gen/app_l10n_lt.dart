@@ -11511,4 +11511,177 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get perUserStatus => 'Kiekvienam naudotojui';
+
+  @override
+  String get phoneSyncGuidance =>
+      'Bendrinkite šio telefono kalendorius ir kontaktus su agentu. Veikia su visomis telefone jau esančiomis paskyromis.';
+
+  @override
+  String get phoneSyncElsewhereGuidance =>
+      'Atidarykite NeoAgent telefone ir ten įjunkite bendrinimą. Agentas matys visų to telefono paskyrų kalendorius ir kontaktus.';
+
+  @override
+  String get manageOnThisPhone => 'Tvarkyti šiame telefone';
+
+  @override
+  String get setUpOnThisPhone => 'Nustatyti šiame telefone';
+
+  @override
+  String get setUpOnPhone => 'Nustatyti telefone';
+
+  @override
+  String emailConnectedArg1(String email) {
+    return 'Prijungta $email';
+  }
+
+  @override
+  String get couldNotConnectEmail => 'Nepavyko prijungti paskyros.';
+
+  @override
+  String get emailSetupTitle => 'Prijungti el. paštą ir kalendorių';
+
+  @override
+  String get emailChecking => 'Tikrinama pašto dėžutė…';
+
+  @override
+  String get emailSetupIntro =>
+      'Naudokite programėlės slaptažodį iš el. pašto paslaugų teikėjo. Be kūrėjų konsolės, paruošta per kelias minutes.';
+
+  @override
+  String emailOpenArg1(String provider) {
+    return 'Atidaryti $provider';
+  }
+
+  @override
+  String get emailStepServers => '1. Įveskite serverius';
+
+  @override
+  String get emailStepPassword => '1. Sukurkite programėlės slaptažodį';
+
+  @override
+  String emailOpenPasswordPageArg1(String provider) {
+    return 'Atidaryti $provider programėlių slaptažodžius';
+  }
+
+  @override
+  String get emailStepSignIn => '2. Prisijungimas';
+
+  @override
+  String get appPassword => 'Programėlės slaptažodis';
+
+  @override
+  String get appPasswordHelper =>
+      'Tarpai nesvarbūs. NeoAgent jį saugo užšifruotą.';
+
+  @override
+  String get emailUsernameOptional =>
+      'Naudotojo vardas, jei tai ne jūsų el. paštas';
+
+  @override
+  String get emailIncludeCalendar => 'Įtraukti kalendorių';
+
+  @override
+  String get emailIncludeContacts => 'Įtraukti kontaktus';
+
+  @override
+  String get imapServer => 'IMAP serveris';
+
+  @override
+  String get smtpServer => 'SMTP serveris';
+
+  @override
+  String get caldavUrlOptional => 'CalDAV URL (nebūtina)';
+
+  @override
+  String get carddavUrlOptional => 'CardDAV URL (nebūtina)';
+
+  @override
+  String get alternativeEmail =>
+      'Prijunkite pašto dėžutę programėlės slaptažodžiu arba kalendorių jo iCal nuoroda. Paruošta per kelias minutes.';
+
+  @override
+  String get alternativePhone =>
+      'Bendrinkite telefone jau esantį kalendorių ir kontaktus per NeoAgent programėlę.';
+
+  @override
+  String get alternativePhoneElsewhere =>
+      'Bendrinkite telefone jau esantį kalendorių ir kontaktus. Nustatykite tai NeoAgent programėlėje telefone.';
+
+  @override
+  String get skipTheDeveloperConsole => 'Be kūrėjų konsolės';
+
+  @override
+  String get phoneSyncPromptTitle => 'Leisti agentui matyti jūsų kalendorių?';
+
+  @override
+  String get phoneSyncPromptBody =>
+      'Bendrinkite šio telefono kalendorius ir kontaktus, kad agentas galėtų planuoti pagal jūsų dieną. Pakeisti galite bet kada skiltyje Įrankiai › Integracijos.';
+
+  @override
+  String get phoneSyncTitle => 'Bendrinti telefono kalendorių ir kontaktus';
+
+  @override
+  String get phoneSyncIntro =>
+      'Agentas mato visų šio telefono paskyrų kalendorius ir kontaktus. Be kūrėjų konsolės ir papildomo prisijungimo.';
+
+  @override
+  String get phoneSyncPointAccounts =>
+      'Veikia su šio telefono Google, Outlook, iCloud ir Exchange paskyromis.';
+
+  @override
+  String get phoneSyncPointPrivate =>
+      'Bendrinama tik su jūsų NeoAgent serveriu, kuris juos saugo užšifruotus.';
+
+  @override
+  String get phoneSyncPointWrites =>
+      'Agento pridėtus įvykius sukuria šis telefonas, ir jie sinchronizuojami kaip įprasta.';
+
+  @override
+  String get phoneSyncCalendarHint =>
+      'Įvykiai nuo 30 dienų atgal iki 90 dienų į priekį';
+
+  @override
+  String get phoneSyncContacts => 'Kontaktai';
+
+  @override
+  String get phoneSyncContactsHint =>
+      'Vardai, el. pašto adresai ir telefono numeriai';
+
+  @override
+  String get phoneSyncOtherAgent =>
+      'Šis telefonas bendrina su kitu agentu. Bendrinant čia jis perkeliamas šiam agentui.';
+
+  @override
+  String get phoneSyncDenied =>
+      'NeoAgent dar neturi prieigos. Leiskite ją nustatymuose ir grįžkite.';
+
+  @override
+  String get openPhoneSettings => 'Atidaryti nustatymus';
+
+  @override
+  String get phoneSyncShare => 'Bendrinti su NeoAgent';
+
+  @override
+  String get phoneSyncStop => 'Nebendrinti';
+
+  @override
+  String get phoneSyncWaiting => 'Laukiama pirmojo sinchronizavimo…';
+
+  @override
+  String phoneSyncLastSyncedArg1(String time) {
+    return 'Paskutinį kartą sinchronizuota $time';
+  }
+
+  @override
+  String get calendarLink => 'Kalendoriaus nuoroda';
+
+  @override
+  String get calendarLinkHelper =>
+      'Kalendoriaus iCal adresas. Kas jį turi, gali skaityti kalendorių, todėl laikykite jį privačiu.';
+
+  @override
+  String get calendarLinkName => 'Pavadinimas (nebūtina)';
+
+  @override
+  String get calendarLinkAdded => 'Kalendorius pridėtas';
 }

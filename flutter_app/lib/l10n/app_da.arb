@@ -7114,5 +7114,82 @@
   "globalIntegrationConfiguration": "Global integrationskonfiguration",
   "globalIntegrationConfigurationDescription": "Valgfrie OAuth-apps for hele serveren. Når en integration har en, bruger alle konti den og kan ikke tilføje deres egen. Lad en integration være tom, så opsætter hver bruger sin egen app. Hemmeligheder kan kun skrives: lad feltet være tomt for at beholde den gemte værdi.",
   "globalStatus": "Global",
-  "perUserStatus": "Pr. bruger"
+  "perUserStatus": "Pr. bruger",
+  "phoneSyncGuidance": "Del telefonens kalendere og kontakter med din agent. Det virker med alle konti, der allerede er på telefonen.",
+  "phoneSyncElsewhereGuidance": "Åbn NeoAgent på telefonen, og slå deling til der. Din agent ser så kalendere og kontakter for alle konti på telefonen.",
+  "manageOnThisPhone": "Administrer på denne telefon",
+  "setUpOnThisPhone": "Konfigurer på denne telefon",
+  "setUpOnPhone": "Konfigurer på din telefon",
+  "emailConnectedArg1": "{email} forbundet",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Kontoen kunne ikke forbindes.",
+  "emailSetupTitle": "Forbind e-mail og kalender",
+  "emailChecking": "Tjekker din indbakke…",
+  "emailSetupIntro": "Brug en app-adgangskode fra din mailudbyder. Ingen udviklerkonsol, klar på få minutter.",
+  "emailOpenArg1": "Åbn {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Angiv dine servere",
+  "emailStepPassword": "1. Opret en app-adgangskode",
+  "emailOpenPasswordPageArg1": "Åbn app-adgangskoder hos {provider}",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Log ind",
+  "appPassword": "App-adgangskode",
+  "appPasswordHelper": "Mellemrum er ligegyldige. NeoAgent gemmer den krypteret.",
+  "emailUsernameOptional": "Brugernavn, hvis det ikke er din e-mailadresse",
+  "emailIncludeCalendar": "Medtag kalender",
+  "emailIncludeContacts": "Medtag kontakter",
+  "imapServer": "IMAP-server",
+  "smtpServer": "SMTP-server",
+  "caldavUrlOptional": "CalDAV-URL (valgfri)",
+  "carddavUrlOptional": "CardDAV-URL (valgfri)",
+  "alternativeEmail": "Forbind din indbakke med en app-adgangskode, eller din kalender via dens iCal-link. Klar på få minutter.",
+  "alternativePhone": "Del kalenderen og kontakterne, der allerede er på telefonen, via NeoAgent-appen.",
+  "alternativePhoneElsewhere": "Del kalenderen og kontakterne, der allerede er på telefonen. Konfigurer det i NeoAgent-appen på telefonen.",
+  "skipTheDeveloperConsole": "Spring udviklerkonsollen over",
+  "phoneSyncPromptTitle": "Må din agent se din kalender?",
+  "phoneSyncPromptBody": "Del telefonens kalendere og kontakter, så din agent kan planlægge efter din dag. Du kan ændre det når som helst under Værktøjer › Integrationer.",
+  "phoneSyncTitle": "Del telefonens kalender og kontakter",
+  "phoneSyncIntro": "Din agent ser kalendere og kontakter for alle konti på telefonen. Ingen udviklerkonsol, intet ekstra login.",
+  "phoneSyncPointAccounts": "Virker med Google-, Outlook-, iCloud- og Exchange-konti på telefonen.",
+  "phoneSyncPointPrivate": "Deles kun med din NeoAgent-server, der gemmer det krypteret.",
+  "phoneSyncPointWrites": "Begivenheder, din agent tilføjer, oprettes af telefonen og synkroniseres som normalt.",
+  "phoneSyncCalendarHint": "Begivenheder fra 30 dage tilbage til 90 dage frem",
+  "phoneSyncContacts": "Kontakter",
+  "phoneSyncContactsHint": "Navne, e-mailadresser og telefonnumre",
+  "phoneSyncOtherAgent": "Telefonen deler med en anden agent. Deling her flytter den til denne agent.",
+  "phoneSyncDenied": "NeoAgent har ikke adgang endnu. Tillad det i Indstillinger, og kom tilbage.",
+  "openPhoneSettings": "Åbn Indstillinger",
+  "phoneSyncShare": "Del med NeoAgent",
+  "phoneSyncStop": "Stop deling",
+  "phoneSyncWaiting": "Venter på første synkronisering…",
+  "phoneSyncLastSyncedArg1": "Sidst synkroniseret {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Kalenderlink",
+  "calendarLinkHelper": "Kalenderens iCal-adresse. Alle med adressen kan læse kalenderen, så hold den privat.",
+  "calendarLinkName": "Navn (valgfrit)",
+  "calendarLinkAdded": "Kalender tilføjet"
 }

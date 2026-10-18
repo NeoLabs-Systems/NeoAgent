@@ -24,6 +24,8 @@ Connect accounts under **Tools › Integrations**; each agent keeps its own conn
 | Slack | Conversations, history, search, messages | [OAuth app](#oauth-apps) |
 | Figma | Files, nodes, rendered images, comments | [OAuth app](#oauth-apps) |
 | Spotify | Playback control, recently played, search | [OAuth app](#oauth-apps) |
+| Email & Calendar | Mail over IMAP/SMTP; calendars and contacts over CalDAV/CardDAV; read-only calendars by iCal link | [App password or iCal link](#email-and-calendar) |
+| Phone calendar & contacts | Every calendar and contact on your phone | [NeoAgent phone app](#phone-calendar-and-contacts) |
 | NeoRecall | Read-only search, memories, daily summaries, conversations | Your NeoRecall URL, then NeoRecall sign-in |
 | Nextcloud | Files, shares, Calendar, Contacts, other apps via OCS | Your Nextcloud URL, then Nextcloud sign-in |
 | Home Assistant | Entity states and service calls | HTTPS URL and a Long-Lived Access Token |
@@ -49,7 +51,33 @@ Connect accounts under **Tools › Integrations**; each agent keeps its own conn
 3. Paste the client ID and secret, save, then connect your accounts.
 
 - **One app per account.** It is shared by all your agents; the client secret is stored encrypted and never shown again.
+- **Or skip it.** For mail, calendar and contacts, [Email & Calendar](#email-and-calendar) and the [phone app](#phone-calendar-and-contacts) need no developer console; the Google and Microsoft dialogs offer them.
 - **Global app.** When an admin sets a global app under **Admin › Integrations**, every account uses it and per-user setup is hidden. See [Configuration](configuration.md#official-integrations).
+
+### Email & Calendar {#email-and-calendar}
+
+The quickest way to connect a mailbox: no developer console.
+
+1. Choose **Email & Calendar** and pick your provider: Gmail, iCloud, Fastmail, Yahoo, or any other IMAP server.
+2. Create an app password with the link the dialog shows, then enter your address and that password.
+
+- **What you get.** Mail for every provider; calendars and contacts too for iCloud, Fastmail and servers with CalDAV/CardDAV.
+- **Calendar link (iCal).** Paste a calendar's iCal address (Google: *Secret address in iCal format*; Outlook: *Publish a calendar*; iCloud: *Public Calendar*) for a read-only calendar with repeating events expanded. Anyone with the address can read the calendar, so keep it private.
+- **Gmail.** Mail with an app password; add Google Calendar as a calendar link, or use the Google Workspace integration or the phone app.
+- **Outlook / Microsoft 365.** Microsoft no longer accepts app passwords for mail; use the Microsoft 365 integration, or add the calendar as a calendar link.
+- **Checked on save.** NeoAgent signs in once before saving, so a wrong password shows up right away.
+
+### Phone calendar & contacts {#phone-calendar-and-contacts}
+
+The NeoAgent app on Android or iOS shares the calendars and contacts already on the phone, from every account it syncs (Google, Outlook, iCloud, Exchange).
+
+1. On the phone, open **Tools › Integrations › Phone calendar & contacts**, or answer the question the app asks once after you sign in.
+2. Choose calendar, contacts or both, and allow access.
+
+- **What syncs.** Events from 30 days ago to 90 days ahead, and names, email addresses and phone numbers; stored encrypted on your server.
+- **When.** Android syncs every 15 minutes and shortly after anything changes. iOS syncs while the app is open and when iOS allows a background refresh, so it can lag by hours.
+- **Changes.** Events and contacts the agent adds are made by the phone, then sync on to their account. While the phone is offline they wait, and the agent says so.
+- **Other devices.** The integration shows on desktop and web too, greyed out until a phone shares.
 
 ### NeoRecall
 

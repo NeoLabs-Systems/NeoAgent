@@ -7114,5 +7114,82 @@
   "globalIntegrationConfiguration": "Καθολική διαμόρφωση ενοποιήσεων",
   "globalIntegrationConfigurationDescription": "Προαιρετικές εφαρμογές OAuth για όλο τον διακομιστή. Όταν μια ενοποίηση έχει μία, κάθε λογαριασμός τη χρησιμοποιεί και δεν μπορεί να προσθέσει δική του. Αφήστε μια ενοποίηση κενή και κάθε χρήστης ρυθμίζει τη δική του εφαρμογή. Τα μυστικά είναι μόνο για εγγραφή: αφήστε κενό για να διατηρηθεί η αποθηκευμένη τιμή.",
   "globalStatus": "Καθολικά",
-  "perUserStatus": "Ανά χρήστη"
+  "perUserStatus": "Ανά χρήστη",
+  "phoneSyncGuidance": "Μοιραστείτε τα ημερολόγια και τις επαφές αυτού του τηλεφώνου με τον πράκτορά σας. Λειτουργεί με κάθε λογαριασμό που υπάρχει ήδη στο τηλέφωνο.",
+  "phoneSyncElsewhereGuidance": "Ανοίξτε το NeoAgent στο τηλέφωνο και ενεργοποιήστε εκεί την κοινή χρήση. Ο πράκτορας θα βλέπει τα ημερολόγια και τις επαφές όλων των λογαριασμών του τηλεφώνου.",
+  "manageOnThisPhone": "Διαχείριση σε αυτό το τηλέφωνο",
+  "setUpOnThisPhone": "Ρύθμιση σε αυτό το τηλέφωνο",
+  "setUpOnPhone": "Ρύθμιση στο τηλέφωνό σας",
+  "emailConnectedArg1": "Συνδέθηκε το {email}",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Δεν ήταν δυνατή η σύνδεση του λογαριασμού.",
+  "emailSetupTitle": "Σύνδεση email και ημερολογίου",
+  "emailChecking": "Έλεγχος γραμματοκιβωτίου…",
+  "emailSetupIntro": "Χρησιμοποιήστε κωδικό εφαρμογής από τον πάροχο email. Χωρίς κονσόλα προγραμματιστή, έτοιμο σε λίγα λεπτά.",
+  "emailOpenArg1": "Άνοιγμα {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Εισαγάγετε τους διακομιστές",
+  "emailStepPassword": "1. Δημιουργήστε κωδικό εφαρμογής",
+  "emailOpenPasswordPageArg1": "Άνοιγμα κωδικών εφαρμογών {provider}",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Σύνδεση",
+  "appPassword": "Κωδικός εφαρμογής",
+  "appPasswordHelper": "Τα κενά δεν μετράνε. Το NeoAgent τον αποθηκεύει κρυπτογραφημένο.",
+  "emailUsernameOptional": "Όνομα χρήστη, αν δεν είναι το email σας",
+  "emailIncludeCalendar": "Συμπερίληψη ημερολογίου",
+  "emailIncludeContacts": "Συμπερίληψη επαφών",
+  "imapServer": "Διακομιστής IMAP",
+  "smtpServer": "Διακομιστής SMTP",
+  "caldavUrlOptional": "URL CalDAV (προαιρετικό)",
+  "carddavUrlOptional": "URL CardDAV (προαιρετικό)",
+  "alternativeEmail": "Συνδέστε το γραμματοκιβώτιο με κωδικό εφαρμογής ή το ημερολόγιο με τον σύνδεσμο iCal του. Έτοιμο σε λίγα λεπτά.",
+  "alternativePhone": "Μοιραστείτε το ημερολόγιο και τις επαφές του τηλεφώνου μέσω της εφαρμογής NeoAgent.",
+  "alternativePhoneElsewhere": "Μοιραστείτε το ημερολόγιο και τις επαφές του τηλεφώνου. Ρυθμίστε το στην εφαρμογή NeoAgent του τηλεφώνου.",
+  "skipTheDeveloperConsole": "Χωρίς κονσόλα προγραμματιστή",
+  "phoneSyncPromptTitle": "Να βλέπει ο πράκτορας το ημερολόγιό σας;",
+  "phoneSyncPromptBody": "Μοιραστείτε τα ημερολόγια και τις επαφές του τηλεφώνου ώστε ο πράκτορας να οργανώνει τη μέρα σας. Μπορείτε να το αλλάξετε ανά πάσα στιγμή στα Εργαλεία › Ενοποιήσεις.",
+  "phoneSyncTitle": "Κοινή χρήση ημερολογίου και επαφών του τηλεφώνου",
+  "phoneSyncIntro": "Ο πράκτορας βλέπει τα ημερολόγια και τις επαφές όλων των λογαριασμών του τηλεφώνου. Χωρίς κονσόλα προγραμματιστή, χωρίς επιπλέον σύνδεση.",
+  "phoneSyncPointAccounts": "Λειτουργεί με τους λογαριασμούς Google, Outlook, iCloud και Exchange του τηλεφώνου.",
+  "phoneSyncPointPrivate": "Κοινοποιείται μόνο στον διακομιστή NeoAgent σας, που τα αποθηκεύει κρυπτογραφημένα.",
+  "phoneSyncPointWrites": "Τα συμβάντα που προσθέτει ο πράκτορας δημιουργούνται από αυτό το τηλέφωνο και συγχρονίζονται κανονικά.",
+  "phoneSyncCalendarHint": "Συμβάντα από 30 ημέρες πριν έως 90 ημέρες μετά",
+  "phoneSyncContacts": "Επαφές",
+  "phoneSyncContactsHint": "Ονόματα, διευθύνσεις email και αριθμοί τηλεφώνου",
+  "phoneSyncOtherAgent": "Αυτό το τηλέφωνο μοιράζεται με άλλον πράκτορα. Η κοινή χρήση εδώ το μεταφέρει σε αυτόν.",
+  "phoneSyncDenied": "Το NeoAgent δεν έχει ακόμη πρόσβαση. Επιτρέψτε την στις Ρυθμίσεις και επιστρέψτε.",
+  "openPhoneSettings": "Άνοιγμα Ρυθμίσεων",
+  "phoneSyncShare": "Κοινή χρήση με το NeoAgent",
+  "phoneSyncStop": "Διακοπή κοινής χρήσης",
+  "phoneSyncWaiting": "Αναμονή για τον πρώτο συγχρονισμό…",
+  "phoneSyncLastSyncedArg1": "Τελευταίος συγχρονισμός {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Σύνδεσμος ημερολογίου",
+  "calendarLinkHelper": "Η διεύθυνση iCal του ημερολογίου. Όποιος την έχει μπορεί να διαβάσει το ημερολόγιο, οπότε κρατήστε την ιδιωτική.",
+  "calendarLinkName": "Όνομα (προαιρετικό)",
+  "calendarLinkAdded": "Το ημερολόγιο προστέθηκε"
 }

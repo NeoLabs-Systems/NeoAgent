@@ -1734,11 +1734,13 @@ class _HomeViewState extends State<HomeView> {
   /// stops each one exactly once.
   bool? _locationTriggersRunning;
   bool? _notificationTriggersRunning;
+  bool _phoneSyncOffered = false;
 
   @override
   void initState() {
     super.initState();
     _syncPhoneTriggers();
+    widget.controller.phoneSync.addListener(_maybeOfferPhoneSync);
     _lastSelectedSection = widget.controller.selectedSection;
     _expandedSidebarGroup = _sidebarGroupForSection(
       widget.controller.selectedSection,
@@ -1751,7 +1753,9 @@ class _HomeViewState extends State<HomeView> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_handleControllerChanged);
+      oldWidget.controller.phoneSync.removeListener(_maybeOfferPhoneSync);
       widget.controller.addListener(_handleControllerChanged);
+      widget.controller.phoneSync.addListener(_maybeOfferPhoneSync);
       _lastSelectedSection = widget.controller.selectedSection;
       _expandedSidebarGroup = _sidebarGroupForSection(
         widget.controller.selectedSection,
@@ -1859,7 +1863,20 @@ class _HomeViewState extends State<HomeView> {
   @override
   void dispose() {
     widget.controller.removeListener(_handleControllerChanged);
+    widget.controller.phoneSync.removeListener(_maybeOfferPhoneSync);
     super.dispose();
+  }
+
+  /// Once the phone's sharing state is known after sign-in, asks once whether
+  /// to share its calendar and contacts.
+  void _maybeOfferPhoneSync() {
+    if (_phoneSyncOffered || !widget.controller.phoneSync.shouldOfferSetup) {
+      return;
+    }
+    _phoneSyncOffered = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _offerPhoneSyncSetup(context, widget.controller);
+    });
   }
 
   @override

@@ -623,6 +623,7 @@ function createMicrosoftProvider() {
       consoleUrl: 'https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
       notes: 'Register an app with a Web redirect URI set to the callback URL, create a client secret under Certificates & secrets, and add these delegated Microsoft Graph permissions.',
       scopes: MICROSOFT_APPS.flatMap((app) => app.scopes),
+      alternatives: ['phone'],
       fields: [{
         name: 'tenantId',
         label: 'Tenant ID',

@@ -7114,5 +7114,82 @@
   "globalIntegrationConfiguration": "Configuración global de integraciones",
   "globalIntegrationConfigurationDescription": "Apps OAuth opcionales para todo el servidor. Si una integración tiene una, todas las cuentas la usan y no pueden añadir la suya. Deja una integración sin configurar y cada usuario configurará su propia app. Los secretos son de solo escritura: déjalo en blanco para conservar el valor guardado.",
   "globalStatus": "Global",
-  "perUserStatus": "Por usuario"
+  "perUserStatus": "Por usuario",
+  "phoneSyncGuidance": "Comparte los calendarios y contactos de este teléfono con tu agente. Funciona con todas las cuentas que ya tiene el teléfono.",
+  "phoneSyncElsewhereGuidance": "Abre NeoAgent en tu teléfono y activa allí el uso compartido. Tu agente verá los calendarios y contactos de todas las cuentas de ese teléfono.",
+  "manageOnThisPhone": "Gestionar en este teléfono",
+  "setUpOnThisPhone": "Configurar en este teléfono",
+  "setUpOnPhone": "Configurar en tu teléfono",
+  "emailConnectedArg1": "{email} conectado",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "No se pudo conectar esta cuenta.",
+  "emailSetupTitle": "Conectar correo y calendario",
+  "emailChecking": "Comprobando tu buzón…",
+  "emailSetupIntro": "Usa una contraseña de aplicación de tu proveedor de correo. Sin consola de desarrollador, listo en un par de minutos.",
+  "emailOpenArg1": "Abrir {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Introduce tus servidores",
+  "emailStepPassword": "1. Crea una contraseña de aplicación",
+  "emailOpenPasswordPageArg1": "Abrir contraseñas de aplicación de {provider}",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Inicia sesión",
+  "appPassword": "Contraseña de aplicación",
+  "appPasswordHelper": "Los espacios no importan. NeoAgent la guarda cifrada.",
+  "emailUsernameOptional": "Usuario, si no es tu correo",
+  "emailIncludeCalendar": "Incluir calendario",
+  "emailIncludeContacts": "Incluir contactos",
+  "imapServer": "Servidor IMAP",
+  "smtpServer": "Servidor SMTP",
+  "caldavUrlOptional": "URL de CalDAV (opcional)",
+  "carddavUrlOptional": "URL de CardDAV (opcional)",
+  "alternativeEmail": "Conecta tu buzón con una contraseña de aplicación, o tu calendario con su enlace iCal. Listo en un par de minutos.",
+  "alternativePhone": "Comparte el calendario y los contactos que ya tienes en el teléfono con la app NeoAgent.",
+  "alternativePhoneElsewhere": "Comparte el calendario y los contactos que ya tienes en el teléfono. Configúralo en la app NeoAgent del teléfono.",
+  "skipTheDeveloperConsole": "Sin consola de desarrollador",
+  "phoneSyncPromptTitle": "¿Dejas que tu agente vea tu calendario?",
+  "phoneSyncPromptBody": "Comparte los calendarios y contactos de este teléfono para que tu agente planifique tu día. Puedes cambiarlo cuando quieras en Herramientas › Integraciones.",
+  "phoneSyncTitle": "Compartir calendario y contactos de este teléfono",
+  "phoneSyncIntro": "Tu agente ve los calendarios y contactos de todas las cuentas de este teléfono. Sin consola de desarrollador ni inicio de sesión extra.",
+  "phoneSyncPointAccounts": "Funciona con las cuentas de Google, Outlook, iCloud y Exchange de este teléfono.",
+  "phoneSyncPointPrivate": "Solo se comparte con tu servidor NeoAgent, que lo guarda cifrado.",
+  "phoneSyncPointWrites": "Los eventos que añade tu agente los crea este teléfono y se sincronizan como siempre.",
+  "phoneSyncCalendarHint": "Eventos desde hace 30 días hasta dentro de 90",
+  "phoneSyncContacts": "Contactos",
+  "phoneSyncContactsHint": "Nombres, correos y números de teléfono",
+  "phoneSyncOtherAgent": "Este teléfono comparte con otro agente. Compartir aquí lo pasa a este agente.",
+  "phoneSyncDenied": "NeoAgent aún no tiene acceso. Permítelo en Ajustes y vuelve.",
+  "openPhoneSettings": "Abrir Ajustes",
+  "phoneSyncShare": "Compartir con NeoAgent",
+  "phoneSyncStop": "Dejar de compartir",
+  "phoneSyncWaiting": "Esperando la primera sincronización…",
+  "phoneSyncLastSyncedArg1": "Última sincronización {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Enlace del calendario",
+  "calendarLinkHelper": "La dirección iCal del calendario. Quien la tenga puede leer el calendario, así que mantenla privada.",
+  "calendarLinkName": "Nombre (opcional)",
+  "calendarLinkAdded": "Calendario añadido"
 }

@@ -7114,5 +7114,82 @@
   "globalIntegrationConfiguration": "Konfigurazzjoni globali tal-integrazzjonijiet",
   "globalIntegrationConfigurationDescription": "Apps OAuth fakultattivi għas-server kollu. Meta integrazzjoni jkollha waħda, kull kont jużaha u ma jistax iżid tiegħu. Ħalli integrazzjoni mhux issettjata u kull utent iwaqqaf l-app tiegħu. Is-sigrieti huma għall-kitba biss: ħallih vojt biex iżżomm il-valur maħżun.",
   "globalStatus": "Globali",
-  "perUserStatus": "Għal kull utent"
+  "perUserStatus": "Għal kull utent",
+  "phoneSyncGuidance": "Aqsam il-kalendarji u l-kuntatti ta’ dan it-telefon mal-aġent tiegħek. Jaħdem ma’ kull kont li diġà jinsab fuq it-telefon.",
+  "phoneSyncElsewhereGuidance": "Iftaħ NeoAgent fuq it-telefon u ixgħel il-qsim hemmhekk. L-aġent imbagħad jara l-kalendarji u l-kuntatti tal-kontijiet kollha fuq dak it-telefon.",
+  "manageOnThisPhone": "Immaniġġja fuq dan it-telefon",
+  "setUpOnThisPhone": "Waqqaf fuq dan it-telefon",
+  "setUpOnPhone": "Waqqaf fuq it-telefon tiegħek",
+  "emailConnectedArg1": "{email} konness",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Dan il-kont ma setax jiġi konness.",
+  "emailSetupTitle": "Qabbad l-email u l-kalendarju",
+  "emailChecking": "Qed tiġi ċċekkjata l-kaxxa postali…",
+  "emailSetupIntro": "Uża password tal-app mill-fornitur tal-email. Mingħajr konsol tal-iżviluppatur, lest f’ftit minuti.",
+  "emailOpenArg1": "Iftaħ {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Daħħal is-servers",
+  "emailStepPassword": "1. Oħloq password tal-app",
+  "emailOpenPasswordPageArg1": "Iftaħ il-passwords tal-app ta’ {provider}",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Idħol",
+  "appPassword": "Password tal-app",
+  "appPasswordHelper": "L-ispazji ma jimpurtawx. NeoAgent jaħżinha kriptata.",
+  "emailUsernameOptional": "Isem l-utent, jekk mhux l-email tiegħek",
+  "emailIncludeCalendar": "Inkludi l-kalendarju",
+  "emailIncludeContacts": "Inkludi l-kuntatti",
+  "imapServer": "Server IMAP",
+  "smtpServer": "Server SMTP",
+  "caldavUrlOptional": "URL CalDAV (mhux obbligatorju)",
+  "carddavUrlOptional": "URL CardDAV (mhux obbligatorju)",
+  "alternativeEmail": "Qabbad il-kaxxa postali b’password tal-app, jew il-kalendarju bil-link iCal tiegħu. Lest f’ftit minuti.",
+  "alternativePhone": "Aqsam il-kalendarju u l-kuntatti li diġà għandek fuq it-telefon permezz tal-app NeoAgent.",
+  "alternativePhoneElsewhere": "Aqsam il-kalendarju u l-kuntatti li diġà għandek fuq it-telefon. Waqqafha fl-app NeoAgent fuq it-telefon.",
+  "skipTheDeveloperConsole": "Mingħajr il-konsol tal-iżviluppatur",
+  "phoneSyncPromptTitle": "Tħalli lill-aġent jara l-kalendarju tiegħek?",
+  "phoneSyncPromptBody": "Aqsam il-kalendarji u l-kuntatti ta’ dan it-telefon biex l-aġent jippjana madwar jumek. Tista’ tibdel dan meta trid f’Għodod › Integrazzjonijiet.",
+  "phoneSyncTitle": "Aqsam il-kalendarju u l-kuntatti tat-telefon",
+  "phoneSyncIntro": "L-aġent jara l-kalendarji u l-kuntatti tal-kontijiet kollha fuq dan it-telefon. Mingħajr konsol tal-iżviluppatur u mingħajr dħul ieħor.",
+  "phoneSyncPointAccounts": "Jaħdem mal-kontijiet Google, Outlook, iCloud u Exchange fuq dan it-telefon.",
+  "phoneSyncPointPrivate": "Maqsum biss mas-server NeoAgent tiegħek, li jaħżinhom kriptati.",
+  "phoneSyncPointWrites": "L-avvenimenti li jżid l-aġent joħloqhom dan it-telefon u jissinkronizzaw bħas-soltu.",
+  "phoneSyncCalendarHint": "Avvenimenti minn 30 jum ilu sa 90 jum ’il quddiem",
+  "phoneSyncContacts": "Kuntatti",
+  "phoneSyncContactsHint": "Ismijiet, indirizzi tal-email u numri tat-telefon",
+  "phoneSyncOtherAgent": "Dan it-telefon qed jaqsam ma’ aġent ieħor. Jekk taqsam hawn jgħaddi għal dan l-aġent.",
+  "phoneSyncDenied": "NeoAgent għad m’għandux aċċess. Ippermettih fis-Settings u erġa’ lura.",
+  "openPhoneSettings": "Iftaħ is-Settings",
+  "phoneSyncShare": "Aqsam ma’ NeoAgent",
+  "phoneSyncStop": "Waqqaf il-qsim",
+  "phoneSyncWaiting": "Qed nistennew l-ewwel sinkronizzazzjoni…",
+  "phoneSyncLastSyncedArg1": "L-aħħar sinkronizzazzjoni {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Link tal-kalendarju",
+  "calendarLinkHelper": "L-indirizz iCal tal-kalendarju. Kull min għandu jista’ jaqra l-kalendarju, għalhekk żommu privat.",
+  "calendarLinkName": "Isem (mhux obbligatorju)",
+  "calendarLinkAdded": "Il-kalendarju żdied"
 }

@@ -18,6 +18,7 @@ const ROUTE_BASES = {
   mcp: '/api/mcp',
   memory: '/api/memory',
   messaging: '/api/messaging',
+  'mobile-device-sync': '/api/mobile/device-sync',
   'mobile-health': '/api/mobile/health',
   public_status: '/api/public',
   runtime: '/api/runtime',

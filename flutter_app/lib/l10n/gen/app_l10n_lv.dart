@@ -11504,4 +11504,176 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get perUserStatus => 'Katram lietotājam';
+
+  @override
+  String get phoneSyncGuidance =>
+      'Kopīgojiet šī tālruņa kalendārus un kontaktus ar savu aģentu. Darbojas ar visiem kontiem, kas jau ir tālrunī.';
+
+  @override
+  String get phoneSyncElsewhereGuidance =>
+      'Atveriet NeoAgent tālrunī un tur ieslēdziet kopīgošanu. Aģents tad redzēs visu šī tālruņa kontu kalendārus un kontaktus.';
+
+  @override
+  String get manageOnThisPhone => 'Pārvaldīt šajā tālrunī';
+
+  @override
+  String get setUpOnThisPhone => 'Iestatīt šajā tālrunī';
+
+  @override
+  String get setUpOnPhone => 'Iestatīt tālrunī';
+
+  @override
+  String emailConnectedArg1(String email) {
+    return '$email pievienots';
+  }
+
+  @override
+  String get couldNotConnectEmail => 'Kontu neizdevās pievienot.';
+
+  @override
+  String get emailSetupTitle => 'Pievienot e-pastu un kalendāru';
+
+  @override
+  String get emailChecking => 'Pārbauda pastkastīti…';
+
+  @override
+  String get emailSetupIntro =>
+      'Izmantojiet lietotnes paroli no e-pasta pakalpojuma sniedzēja. Bez izstrādātāju konsoles, gatavs pāris minūtēs.';
+
+  @override
+  String emailOpenArg1(String provider) {
+    return 'Atvērt $provider';
+  }
+
+  @override
+  String get emailStepServers => '1. Ievadiet serverus';
+
+  @override
+  String get emailStepPassword => '1. Izveidojiet lietotnes paroli';
+
+  @override
+  String emailOpenPasswordPageArg1(String provider) {
+    return 'Atvērt $provider lietotņu paroles';
+  }
+
+  @override
+  String get emailStepSignIn => '2. Pierakstīšanās';
+
+  @override
+  String get appPassword => 'Lietotnes parole';
+
+  @override
+  String get appPasswordHelper =>
+      'Atstarpēm nav nozīmes. NeoAgent to glabā šifrētu.';
+
+  @override
+  String get emailUsernameOptional => 'Lietotājvārds, ja tas nav jūsu e-pasts';
+
+  @override
+  String get emailIncludeCalendar => 'Iekļaut kalendāru';
+
+  @override
+  String get emailIncludeContacts => 'Iekļaut kontaktus';
+
+  @override
+  String get imapServer => 'IMAP serveris';
+
+  @override
+  String get smtpServer => 'SMTP serveris';
+
+  @override
+  String get caldavUrlOptional => 'CalDAV URL (neobligāti)';
+
+  @override
+  String get carddavUrlOptional => 'CardDAV URL (neobligāti)';
+
+  @override
+  String get alternativeEmail =>
+      'Pievienojiet pastkastīti ar lietotnes paroli vai kalendāru ar tā iCal saiti. Gatavs pāris minūtēs.';
+
+  @override
+  String get alternativePhone =>
+      'Kopīgojiet tālrunī jau esošo kalendāru un kontaktus ar lietotni NeoAgent.';
+
+  @override
+  String get alternativePhoneElsewhere =>
+      'Kopīgojiet tālrunī jau esošo kalendāru un kontaktus. Iestatiet to NeoAgent lietotnē tālrunī.';
+
+  @override
+  String get skipTheDeveloperConsole => 'Bez izstrādātāju konsoles';
+
+  @override
+  String get phoneSyncPromptTitle => 'Ļaut aģentam redzēt jūsu kalendāru?';
+
+  @override
+  String get phoneSyncPromptBody =>
+      'Kopīgojiet šī tālruņa kalendārus un kontaktus, lai aģents varētu plānot jūsu dienu. To var mainīt jebkurā laikā sadaļā Rīki › Integrācijas.';
+
+  @override
+  String get phoneSyncTitle => 'Kopīgot tālruņa kalendāru un kontaktus';
+
+  @override
+  String get phoneSyncIntro =>
+      'Aģents redz visu šī tālruņa kontu kalendārus un kontaktus. Bez izstrādātāju konsoles un papildu pierakstīšanās.';
+
+  @override
+  String get phoneSyncPointAccounts =>
+      'Darbojas ar šī tālruņa Google, Outlook, iCloud un Exchange kontiem.';
+
+  @override
+  String get phoneSyncPointPrivate =>
+      'Kopīgots tikai ar jūsu NeoAgent serveri, kas tos glabā šifrētus.';
+
+  @override
+  String get phoneSyncPointWrites =>
+      'Aģenta pievienotos notikumus izveido šis tālrunis, un tie sinhronizējas kā parasti.';
+
+  @override
+  String get phoneSyncCalendarHint =>
+      'Notikumi no 30 dienām atpakaļ līdz 90 dienām uz priekšu';
+
+  @override
+  String get phoneSyncContacts => 'Kontakti';
+
+  @override
+  String get phoneSyncContactsHint =>
+      'Vārdi, e-pasta adreses un tālruņa numuri';
+
+  @override
+  String get phoneSyncOtherAgent =>
+      'Šis tālrunis kopīgo ar citu aģentu. Kopīgojot šeit, tas pāriet pie šī aģenta.';
+
+  @override
+  String get phoneSyncDenied =>
+      'NeoAgent vēl nav piekļuves. Atļaujiet to iestatījumos un atgriezieties.';
+
+  @override
+  String get openPhoneSettings => 'Atvērt iestatījumus';
+
+  @override
+  String get phoneSyncShare => 'Kopīgot ar NeoAgent';
+
+  @override
+  String get phoneSyncStop => 'Pārtraukt kopīgošanu';
+
+  @override
+  String get phoneSyncWaiting => 'Gaida pirmo sinhronizāciju…';
+
+  @override
+  String phoneSyncLastSyncedArg1(String time) {
+    return 'Pēdējoreiz sinhronizēts $time';
+  }
+
+  @override
+  String get calendarLink => 'Kalendāra saite';
+
+  @override
+  String get calendarLinkHelper =>
+      'Kalendāra iCal adrese. Ikviens, kam tā ir, var lasīt kalendāru, tāpēc glabājiet to privāti.';
+
+  @override
+  String get calendarLinkName => 'Nosaukums (neobligāti)';
+
+  @override
+  String get calendarLinkAdded => 'Kalendārs pievienots';
 }

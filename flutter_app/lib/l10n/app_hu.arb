@@ -7114,5 +7114,82 @@
   "globalIntegrationConfiguration": "Globális integrációs beállítások",
   "globalIntegrationConfigurationDescription": "Opcionális, az egész szerverre érvényes OAuth-alkalmazások. Ha egy integrációnak van ilyen, minden fiók azt használja, és nem adhat hozzá sajátot. Hagyd üresen az integrációt, és minden felhasználó saját alkalmazást állít be. A titkok csak írhatók: hagyd üresen a tárolt érték megtartásához.",
   "globalStatus": "Globális",
-  "perUserStatus": "Felhasználónként"
+  "perUserStatus": "Felhasználónként",
+  "phoneSyncGuidance": "Oszd meg a telefon naptárait és névjegyeit az ügynököddel. Minden, már a telefonon lévő fiókkal működik.",
+  "phoneSyncElsewhereGuidance": "Nyisd meg a NeoAgentet a telefonon, és ott kapcsold be a megosztást. Az ügynököd ezután látja a telefon összes fiókjának naptárait és névjegyeit.",
+  "manageOnThisPhone": "Kezelés ezen a telefonon",
+  "setUpOnThisPhone": "Beállítás ezen a telefonon",
+  "setUpOnPhone": "Beállítás a telefonodon",
+  "emailConnectedArg1": "{email} csatlakoztatva",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "A fiókot nem sikerült csatlakoztatni.",
+  "emailSetupTitle": "E-mail és naptár csatlakoztatása",
+  "emailChecking": "Postafiók ellenőrzése…",
+  "emailSetupIntro": "Használj alkalmazásjelszót a levelezőszolgáltatódtól. Fejlesztői konzol nélkül, pár perc alatt kész.",
+  "emailOpenArg1": "{provider} megnyitása",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Add meg a szervereket",
+  "emailStepPassword": "1. Hozz létre alkalmazásjelszót",
+  "emailOpenPasswordPageArg1": "{provider} alkalmazásjelszavainak megnyitása",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Bejelentkezés",
+  "appPassword": "Alkalmazásjelszó",
+  "appPasswordHelper": "A szóközök nem számítanak. A NeoAgent titkosítva tárolja.",
+  "emailUsernameOptional": "Felhasználónév, ha nem az e-mail-címed",
+  "emailIncludeCalendar": "Naptár is",
+  "emailIncludeContacts": "Névjegyek is",
+  "imapServer": "IMAP-szerver",
+  "smtpServer": "SMTP-szerver",
+  "caldavUrlOptional": "CalDAV URL (nem kötelező)",
+  "carddavUrlOptional": "CardDAV URL (nem kötelező)",
+  "alternativeEmail": "Csatlakoztasd a postafiókot alkalmazásjelszóval, vagy a naptárat az iCal-hivatkozásával. Pár perc alatt kész.",
+  "alternativePhone": "Oszd meg a telefonon már meglévő naptárat és névjegyeket a NeoAgent alkalmazással.",
+  "alternativePhoneElsewhere": "Oszd meg a telefonon már meglévő naptárat és névjegyeket. Állítsd be a telefonos NeoAgent alkalmazásban.",
+  "skipTheDeveloperConsole": "Fejlesztői konzol nélkül",
+  "phoneSyncPromptTitle": "Láthatja az ügynököd a naptáradat?",
+  "phoneSyncPromptBody": "Oszd meg a telefon naptárait és névjegyeit, hogy az ügynököd a napodhoz igazodva tervezhessen. Bármikor módosíthatod: Eszközök › Integrációk.",
+  "phoneSyncTitle": "A telefon naptárának és névjegyeinek megosztása",
+  "phoneSyncIntro": "Az ügynököd látja a telefon összes fiókjának naptárait és névjegyeit. Nincs fejlesztői konzol, nincs külön bejelentkezés.",
+  "phoneSyncPointAccounts": "Működik a telefonon lévő Google-, Outlook-, iCloud- és Exchange-fiókokkal.",
+  "phoneSyncPointPrivate": "Csak a NeoAgent-szervereddel osztod meg, amely titkosítva tárolja.",
+  "phoneSyncPointWrites": "Az ügynök által hozzáadott eseményeket ez a telefon hozza létre, és a szokásos módon szinkronizálódnak.",
+  "phoneSyncCalendarHint": "Események 30 nappal ezelőttől 90 nappal előre",
+  "phoneSyncContacts": "Névjegyek",
+  "phoneSyncContactsHint": "Nevek, e-mail-címek és telefonszámok",
+  "phoneSyncOtherAgent": "Ez a telefon egy másik ügynökkel oszt meg. Az itteni megosztás áthelyezi ehhez az ügynökhöz.",
+  "phoneSyncDenied": "A NeoAgent még nem fér hozzá. Engedélyezd a Beállításokban, majd gyere vissza.",
+  "openPhoneSettings": "Beállítások megnyitása",
+  "phoneSyncShare": "Megosztás a NeoAgenttel",
+  "phoneSyncStop": "Megosztás leállítása",
+  "phoneSyncWaiting": "Várakozás az első szinkronizálásra…",
+  "phoneSyncLastSyncedArg1": "Utoljára szinkronizálva: {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Naptárhivatkozás",
+  "calendarLinkHelper": "A naptár iCal-címe. Bárki, aki ismeri, olvashatja a naptárt, ezért tartsd titokban.",
+  "calendarLinkName": "Név (nem kötelező)",
+  "calendarLinkAdded": "Naptár hozzáadva"
 }

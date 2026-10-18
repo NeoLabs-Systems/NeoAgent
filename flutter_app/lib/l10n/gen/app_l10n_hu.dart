@@ -11543,4 +11543,176 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get perUserStatus => 'Felhasználónként';
+
+  @override
+  String get phoneSyncGuidance =>
+      'Oszd meg a telefon naptárait és névjegyeit az ügynököddel. Minden, már a telefonon lévő fiókkal működik.';
+
+  @override
+  String get phoneSyncElsewhereGuidance =>
+      'Nyisd meg a NeoAgentet a telefonon, és ott kapcsold be a megosztást. Az ügynököd ezután látja a telefon összes fiókjának naptárait és névjegyeit.';
+
+  @override
+  String get manageOnThisPhone => 'Kezelés ezen a telefonon';
+
+  @override
+  String get setUpOnThisPhone => 'Beállítás ezen a telefonon';
+
+  @override
+  String get setUpOnPhone => 'Beállítás a telefonodon';
+
+  @override
+  String emailConnectedArg1(String email) {
+    return '$email csatlakoztatva';
+  }
+
+  @override
+  String get couldNotConnectEmail => 'A fiókot nem sikerült csatlakoztatni.';
+
+  @override
+  String get emailSetupTitle => 'E-mail és naptár csatlakoztatása';
+
+  @override
+  String get emailChecking => 'Postafiók ellenőrzése…';
+
+  @override
+  String get emailSetupIntro =>
+      'Használj alkalmazásjelszót a levelezőszolgáltatódtól. Fejlesztői konzol nélkül, pár perc alatt kész.';
+
+  @override
+  String emailOpenArg1(String provider) {
+    return '$provider megnyitása';
+  }
+
+  @override
+  String get emailStepServers => '1. Add meg a szervereket';
+
+  @override
+  String get emailStepPassword => '1. Hozz létre alkalmazásjelszót';
+
+  @override
+  String emailOpenPasswordPageArg1(String provider) {
+    return '$provider alkalmazásjelszavainak megnyitása';
+  }
+
+  @override
+  String get emailStepSignIn => '2. Bejelentkezés';
+
+  @override
+  String get appPassword => 'Alkalmazásjelszó';
+
+  @override
+  String get appPasswordHelper =>
+      'A szóközök nem számítanak. A NeoAgent titkosítva tárolja.';
+
+  @override
+  String get emailUsernameOptional => 'Felhasználónév, ha nem az e-mail-címed';
+
+  @override
+  String get emailIncludeCalendar => 'Naptár is';
+
+  @override
+  String get emailIncludeContacts => 'Névjegyek is';
+
+  @override
+  String get imapServer => 'IMAP-szerver';
+
+  @override
+  String get smtpServer => 'SMTP-szerver';
+
+  @override
+  String get caldavUrlOptional => 'CalDAV URL (nem kötelező)';
+
+  @override
+  String get carddavUrlOptional => 'CardDAV URL (nem kötelező)';
+
+  @override
+  String get alternativeEmail =>
+      'Csatlakoztasd a postafiókot alkalmazásjelszóval, vagy a naptárat az iCal-hivatkozásával. Pár perc alatt kész.';
+
+  @override
+  String get alternativePhone =>
+      'Oszd meg a telefonon már meglévő naptárat és névjegyeket a NeoAgent alkalmazással.';
+
+  @override
+  String get alternativePhoneElsewhere =>
+      'Oszd meg a telefonon már meglévő naptárat és névjegyeket. Állítsd be a telefonos NeoAgent alkalmazásban.';
+
+  @override
+  String get skipTheDeveloperConsole => 'Fejlesztői konzol nélkül';
+
+  @override
+  String get phoneSyncPromptTitle => 'Láthatja az ügynököd a naptáradat?';
+
+  @override
+  String get phoneSyncPromptBody =>
+      'Oszd meg a telefon naptárait és névjegyeit, hogy az ügynököd a napodhoz igazodva tervezhessen. Bármikor módosíthatod: Eszközök › Integrációk.';
+
+  @override
+  String get phoneSyncTitle =>
+      'A telefon naptárának és névjegyeinek megosztása';
+
+  @override
+  String get phoneSyncIntro =>
+      'Az ügynököd látja a telefon összes fiókjának naptárait és névjegyeit. Nincs fejlesztői konzol, nincs külön bejelentkezés.';
+
+  @override
+  String get phoneSyncPointAccounts =>
+      'Működik a telefonon lévő Google-, Outlook-, iCloud- és Exchange-fiókokkal.';
+
+  @override
+  String get phoneSyncPointPrivate =>
+      'Csak a NeoAgent-szervereddel osztod meg, amely titkosítva tárolja.';
+
+  @override
+  String get phoneSyncPointWrites =>
+      'Az ügynök által hozzáadott eseményeket ez a telefon hozza létre, és a szokásos módon szinkronizálódnak.';
+
+  @override
+  String get phoneSyncCalendarHint =>
+      'Események 30 nappal ezelőttől 90 nappal előre';
+
+  @override
+  String get phoneSyncContacts => 'Névjegyek';
+
+  @override
+  String get phoneSyncContactsHint => 'Nevek, e-mail-címek és telefonszámok';
+
+  @override
+  String get phoneSyncOtherAgent =>
+      'Ez a telefon egy másik ügynökkel oszt meg. Az itteni megosztás áthelyezi ehhez az ügynökhöz.';
+
+  @override
+  String get phoneSyncDenied =>
+      'A NeoAgent még nem fér hozzá. Engedélyezd a Beállításokban, majd gyere vissza.';
+
+  @override
+  String get openPhoneSettings => 'Beállítások megnyitása';
+
+  @override
+  String get phoneSyncShare => 'Megosztás a NeoAgenttel';
+
+  @override
+  String get phoneSyncStop => 'Megosztás leállítása';
+
+  @override
+  String get phoneSyncWaiting => 'Várakozás az első szinkronizálásra…';
+
+  @override
+  String phoneSyncLastSyncedArg1(String time) {
+    return 'Utoljára szinkronizálva: $time';
+  }
+
+  @override
+  String get calendarLink => 'Naptárhivatkozás';
+
+  @override
+  String get calendarLinkHelper =>
+      'A naptár iCal-címe. Bárki, aki ismeri, olvashatja a naptárt, ezért tartsd titokban.';
+
+  @override
+  String get calendarLinkName => 'Név (nem kötelező)';
+
+  @override
+  String get calendarLinkAdded => 'Naptár hozzáadva';
 }

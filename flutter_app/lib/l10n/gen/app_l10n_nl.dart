@@ -11513,4 +11513,177 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get perUserStatus => 'Per gebruiker';
+
+  @override
+  String get phoneSyncGuidance =>
+      'Deel de agenda\'s en contacten van deze telefoon met je agent. Het werkt met elk account dat al op de telefoon staat.';
+
+  @override
+  String get phoneSyncElsewhereGuidance =>
+      'Open NeoAgent op je telefoon en zet daar delen aan. Je agent ziet dan de agenda\'s en contacten van alle accounts op die telefoon.';
+
+  @override
+  String get manageOnThisPhone => 'Beheren op deze telefoon';
+
+  @override
+  String get setUpOnThisPhone => 'Instellen op deze telefoon';
+
+  @override
+  String get setUpOnPhone => 'Instellen op je telefoon';
+
+  @override
+  String emailConnectedArg1(String email) {
+    return '$email gekoppeld';
+  }
+
+  @override
+  String get couldNotConnectEmail => 'Dit account kon niet worden gekoppeld.';
+
+  @override
+  String get emailSetupTitle => 'E-mail & agenda koppelen';
+
+  @override
+  String get emailChecking => 'Je mailbox wordt gecontroleerd…';
+
+  @override
+  String get emailSetupIntro =>
+      'Gebruik een app-wachtwoord van je mailprovider. Geen ontwikkelaarsconsole, binnen een paar minuten klaar.';
+
+  @override
+  String emailOpenArg1(String provider) {
+    return '$provider openen';
+  }
+
+  @override
+  String get emailStepServers => '1. Vul je servers in';
+
+  @override
+  String get emailStepPassword => '1. Maak een app-wachtwoord';
+
+  @override
+  String emailOpenPasswordPageArg1(String provider) {
+    return 'App-wachtwoorden van $provider openen';
+  }
+
+  @override
+  String get emailStepSignIn => '2. Inloggen';
+
+  @override
+  String get appPassword => 'App-wachtwoord';
+
+  @override
+  String get appPasswordHelper =>
+      'Spaties maken niet uit. NeoAgent bewaart het versleuteld.';
+
+  @override
+  String get emailUsernameOptional =>
+      'Gebruikersnaam, als die niet je e-mailadres is';
+
+  @override
+  String get emailIncludeCalendar => 'Agenda meenemen';
+
+  @override
+  String get emailIncludeContacts => 'Contacten meenemen';
+
+  @override
+  String get imapServer => 'IMAP-server';
+
+  @override
+  String get smtpServer => 'SMTP-server';
+
+  @override
+  String get caldavUrlOptional => 'CalDAV-URL (optioneel)';
+
+  @override
+  String get carddavUrlOptional => 'CardDAV-URL (optioneel)';
+
+  @override
+  String get alternativeEmail =>
+      'Koppel je mailbox met een app-wachtwoord, of je agenda via de iCal-link. Binnen een paar minuten klaar.';
+
+  @override
+  String get alternativePhone =>
+      'Deel de agenda en contacten die al op je telefoon staan via de NeoAgent-app.';
+
+  @override
+  String get alternativePhoneElsewhere =>
+      'Deel de agenda en contacten die al op je telefoon staan. Stel het in in de NeoAgent-app op je telefoon.';
+
+  @override
+  String get skipTheDeveloperConsole => 'Zonder ontwikkelaarsconsole';
+
+  @override
+  String get phoneSyncPromptTitle => 'Mag je agent je agenda zien?';
+
+  @override
+  String get phoneSyncPromptBody =>
+      'Deel de agenda\'s en contacten van deze telefoon zodat je agent rond je dag kan plannen. Je kunt dit altijd wijzigen onder Tools › Integraties.';
+
+  @override
+  String get phoneSyncTitle => 'Agenda & contacten van deze telefoon delen';
+
+  @override
+  String get phoneSyncIntro =>
+      'Je agent ziet de agenda\'s en contacten van alle accounts op deze telefoon. Geen ontwikkelaarsconsole, geen extra login.';
+
+  @override
+  String get phoneSyncPointAccounts =>
+      'Werkt met de Google-, Outlook-, iCloud- en Exchange-accounts op deze telefoon.';
+
+  @override
+  String get phoneSyncPointPrivate =>
+      'Alleen gedeeld met je NeoAgent-server, die het versleuteld bewaart.';
+
+  @override
+  String get phoneSyncPointWrites =>
+      'Afspraken die je agent toevoegt, maakt deze telefoon aan en ze synchroniseren zoals altijd.';
+
+  @override
+  String get phoneSyncCalendarHint =>
+      'Afspraken van 30 dagen geleden tot 90 dagen vooruit';
+
+  @override
+  String get phoneSyncContacts => 'Contacten';
+
+  @override
+  String get phoneSyncContactsHint =>
+      'Namen, e-mailadressen en telefoonnummers';
+
+  @override
+  String get phoneSyncOtherAgent =>
+      'Deze telefoon deelt met een andere agent. Hier delen verplaatst het naar deze agent.';
+
+  @override
+  String get phoneSyncDenied =>
+      'NeoAgent heeft nog geen toegang. Sta het toe in Instellingen en kom terug.';
+
+  @override
+  String get openPhoneSettings => 'Instellingen openen';
+
+  @override
+  String get phoneSyncShare => 'Delen met NeoAgent';
+
+  @override
+  String get phoneSyncStop => 'Stoppen met delen';
+
+  @override
+  String get phoneSyncWaiting => 'Wachten op de eerste synchronisatie…';
+
+  @override
+  String phoneSyncLastSyncedArg1(String time) {
+    return 'Laatst gesynchroniseerd $time';
+  }
+
+  @override
+  String get calendarLink => 'Agendalink';
+
+  @override
+  String get calendarLinkHelper =>
+      'Het iCal-adres van de agenda. Iedereen met dit adres kan de agenda lezen, dus houd het privé.';
+
+  @override
+  String get calendarLinkName => 'Naam (optioneel)';
+
+  @override
+  String get calendarLinkAdded => 'Agenda toegevoegd';
 }

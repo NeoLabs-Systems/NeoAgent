@@ -7114,5 +7114,82 @@
   "globalIntegrationConfiguration": "Globální konfigurace integrací",
   "globalIntegrationConfigurationDescription": "Volitelné OAuth aplikace pro celý server. Pokud ji integrace má, používá ji každý účet a nemůže přidat vlastní. Ponechte integraci nenastavenou a každý uživatel si nastaví vlastní aplikaci. Tajné údaje lze pouze zapisovat: ponechte prázdné, chcete-li zachovat uloženou hodnotu.",
   "globalStatus": "Globální",
-  "perUserStatus": "Pro uživatele"
+  "perUserStatus": "Pro uživatele",
+  "phoneSyncGuidance": "Sdílejte kalendáře a kontakty z tohoto telefonu se svým agentem. Funguje se všemi účty, které už v telefonu jsou.",
+  "phoneSyncElsewhereGuidance": "Otevřete NeoAgent v telefonu a zapněte tam sdílení. Agent pak uvidí kalendáře a kontakty všech účtů v tom telefonu.",
+  "manageOnThisPhone": "Spravovat v tomto telefonu",
+  "setUpOnThisPhone": "Nastavit v tomto telefonu",
+  "setUpOnPhone": "Nastavit v telefonu",
+  "emailConnectedArg1": "Připojeno {email}",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Účet se nepodařilo připojit.",
+  "emailSetupTitle": "Připojit e-mail a kalendář",
+  "emailChecking": "Kontroluji schránku…",
+  "emailSetupIntro": "Použijte heslo aplikace od poskytovatele e-mailu. Bez vývojářské konzole, hotovo za pár minut.",
+  "emailOpenArg1": "Otevřít {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Zadejte servery",
+  "emailStepPassword": "1. Vytvořte heslo aplikace",
+  "emailOpenPasswordPageArg1": "Otevřít hesla aplikací {provider}",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Přihlášení",
+  "appPassword": "Heslo aplikace",
+  "appPasswordHelper": "Na mezerách nezáleží. NeoAgent ho ukládá šifrovaně.",
+  "emailUsernameOptional": "Uživatelské jméno, pokud to není váš e-mail",
+  "emailIncludeCalendar": "Zahrnout kalendář",
+  "emailIncludeContacts": "Zahrnout kontakty",
+  "imapServer": "Server IMAP",
+  "smtpServer": "Server SMTP",
+  "caldavUrlOptional": "Adresa CalDAV (volitelné)",
+  "carddavUrlOptional": "Adresa CardDAV (volitelné)",
+  "alternativeEmail": "Připojte schránku heslem aplikace, nebo kalendář jeho odkazem iCal. Hotovo za pár minut.",
+  "alternativePhone": "Sdílejte kalendář a kontakty z telefonu přes aplikaci NeoAgent.",
+  "alternativePhoneElsewhere": "Sdílejte kalendář a kontakty z telefonu. Nastavte to v aplikaci NeoAgent v telefonu.",
+  "skipTheDeveloperConsole": "Bez vývojářské konzole",
+  "phoneSyncPromptTitle": "Smí agent vidět váš kalendář?",
+  "phoneSyncPromptBody": "Sdílejte kalendáře a kontakty z tohoto telefonu, aby agent mohl plánovat podle vašeho dne. Změnit to můžete kdykoli v Nástroje › Integrace.",
+  "phoneSyncTitle": "Sdílet kalendář a kontakty z telefonu",
+  "phoneSyncIntro": "Agent vidí kalendáře a kontakty všech účtů v tomto telefonu. Bez vývojářské konzole a dalšího přihlášení.",
+  "phoneSyncPointAccounts": "Funguje s účty Google, Outlook, iCloud a Exchange v tomto telefonu.",
+  "phoneSyncPointPrivate": "Sdílí se jen s vaším serverem NeoAgent, který je ukládá šifrovaně.",
+  "phoneSyncPointWrites": "Události přidané agentem vytvoří tento telefon a synchronizují se jako obvykle.",
+  "phoneSyncCalendarHint": "Události od 30 dnů zpět do 90 dnů dopředu",
+  "phoneSyncContacts": "Kontakty",
+  "phoneSyncContactsHint": "Jména, e-mailové adresy a telefonní čísla",
+  "phoneSyncOtherAgent": "Tento telefon sdílí s jiným agentem. Sdílením zde se přesune k tomuto agentovi.",
+  "phoneSyncDenied": "NeoAgent zatím nemá přístup. Povolte ho v Nastavení a vraťte se.",
+  "openPhoneSettings": "Otevřít Nastavení",
+  "phoneSyncShare": "Sdílet s NeoAgent",
+  "phoneSyncStop": "Ukončit sdílení",
+  "phoneSyncWaiting": "Čekám na první synchronizaci…",
+  "phoneSyncLastSyncedArg1": "Naposledy synchronizováno {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Odkaz na kalendář",
+  "calendarLinkHelper": "Adresa iCal kalendáře. Kdo ji zná, může kalendář číst, proto ji uchovejte v soukromí.",
+  "calendarLinkName": "Název (volitelné)",
+  "calendarLinkAdded": "Kalendář přidán"
 }

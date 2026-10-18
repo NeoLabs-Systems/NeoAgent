@@ -11586,4 +11586,178 @@ class AppL10nEl extends AppL10n {
 
   @override
   String get perUserStatus => 'Ανά χρήστη';
+
+  @override
+  String get phoneSyncGuidance =>
+      'Μοιραστείτε τα ημερολόγια και τις επαφές αυτού του τηλεφώνου με τον πράκτορά σας. Λειτουργεί με κάθε λογαριασμό που υπάρχει ήδη στο τηλέφωνο.';
+
+  @override
+  String get phoneSyncElsewhereGuidance =>
+      'Ανοίξτε το NeoAgent στο τηλέφωνο και ενεργοποιήστε εκεί την κοινή χρήση. Ο πράκτορας θα βλέπει τα ημερολόγια και τις επαφές όλων των λογαριασμών του τηλεφώνου.';
+
+  @override
+  String get manageOnThisPhone => 'Διαχείριση σε αυτό το τηλέφωνο';
+
+  @override
+  String get setUpOnThisPhone => 'Ρύθμιση σε αυτό το τηλέφωνο';
+
+  @override
+  String get setUpOnPhone => 'Ρύθμιση στο τηλέφωνό σας';
+
+  @override
+  String emailConnectedArg1(String email) {
+    return 'Συνδέθηκε το $email';
+  }
+
+  @override
+  String get couldNotConnectEmail =>
+      'Δεν ήταν δυνατή η σύνδεση του λογαριασμού.';
+
+  @override
+  String get emailSetupTitle => 'Σύνδεση email και ημερολογίου';
+
+  @override
+  String get emailChecking => 'Έλεγχος γραμματοκιβωτίου…';
+
+  @override
+  String get emailSetupIntro =>
+      'Χρησιμοποιήστε κωδικό εφαρμογής από τον πάροχο email. Χωρίς κονσόλα προγραμματιστή, έτοιμο σε λίγα λεπτά.';
+
+  @override
+  String emailOpenArg1(String provider) {
+    return 'Άνοιγμα $provider';
+  }
+
+  @override
+  String get emailStepServers => '1. Εισαγάγετε τους διακομιστές';
+
+  @override
+  String get emailStepPassword => '1. Δημιουργήστε κωδικό εφαρμογής';
+
+  @override
+  String emailOpenPasswordPageArg1(String provider) {
+    return 'Άνοιγμα κωδικών εφαρμογών $provider';
+  }
+
+  @override
+  String get emailStepSignIn => '2. Σύνδεση';
+
+  @override
+  String get appPassword => 'Κωδικός εφαρμογής';
+
+  @override
+  String get appPasswordHelper =>
+      'Τα κενά δεν μετράνε. Το NeoAgent τον αποθηκεύει κρυπτογραφημένο.';
+
+  @override
+  String get emailUsernameOptional => 'Όνομα χρήστη, αν δεν είναι το email σας';
+
+  @override
+  String get emailIncludeCalendar => 'Συμπερίληψη ημερολογίου';
+
+  @override
+  String get emailIncludeContacts => 'Συμπερίληψη επαφών';
+
+  @override
+  String get imapServer => 'Διακομιστής IMAP';
+
+  @override
+  String get smtpServer => 'Διακομιστής SMTP';
+
+  @override
+  String get caldavUrlOptional => 'URL CalDAV (προαιρετικό)';
+
+  @override
+  String get carddavUrlOptional => 'URL CardDAV (προαιρετικό)';
+
+  @override
+  String get alternativeEmail =>
+      'Συνδέστε το γραμματοκιβώτιο με κωδικό εφαρμογής ή το ημερολόγιο με τον σύνδεσμο iCal του. Έτοιμο σε λίγα λεπτά.';
+
+  @override
+  String get alternativePhone =>
+      'Μοιραστείτε το ημερολόγιο και τις επαφές του τηλεφώνου μέσω της εφαρμογής NeoAgent.';
+
+  @override
+  String get alternativePhoneElsewhere =>
+      'Μοιραστείτε το ημερολόγιο και τις επαφές του τηλεφώνου. Ρυθμίστε το στην εφαρμογή NeoAgent του τηλεφώνου.';
+
+  @override
+  String get skipTheDeveloperConsole => 'Χωρίς κονσόλα προγραμματιστή';
+
+  @override
+  String get phoneSyncPromptTitle => 'Να βλέπει ο πράκτορας το ημερολόγιό σας;';
+
+  @override
+  String get phoneSyncPromptBody =>
+      'Μοιραστείτε τα ημερολόγια και τις επαφές του τηλεφώνου ώστε ο πράκτορας να οργανώνει τη μέρα σας. Μπορείτε να το αλλάξετε ανά πάσα στιγμή στα Εργαλεία › Ενοποιήσεις.';
+
+  @override
+  String get phoneSyncTitle =>
+      'Κοινή χρήση ημερολογίου και επαφών του τηλεφώνου';
+
+  @override
+  String get phoneSyncIntro =>
+      'Ο πράκτορας βλέπει τα ημερολόγια και τις επαφές όλων των λογαριασμών του τηλεφώνου. Χωρίς κονσόλα προγραμματιστή, χωρίς επιπλέον σύνδεση.';
+
+  @override
+  String get phoneSyncPointAccounts =>
+      'Λειτουργεί με τους λογαριασμούς Google, Outlook, iCloud και Exchange του τηλεφώνου.';
+
+  @override
+  String get phoneSyncPointPrivate =>
+      'Κοινοποιείται μόνο στον διακομιστή NeoAgent σας, που τα αποθηκεύει κρυπτογραφημένα.';
+
+  @override
+  String get phoneSyncPointWrites =>
+      'Τα συμβάντα που προσθέτει ο πράκτορας δημιουργούνται από αυτό το τηλέφωνο και συγχρονίζονται κανονικά.';
+
+  @override
+  String get phoneSyncCalendarHint =>
+      'Συμβάντα από 30 ημέρες πριν έως 90 ημέρες μετά';
+
+  @override
+  String get phoneSyncContacts => 'Επαφές';
+
+  @override
+  String get phoneSyncContactsHint =>
+      'Ονόματα, διευθύνσεις email και αριθμοί τηλεφώνου';
+
+  @override
+  String get phoneSyncOtherAgent =>
+      'Αυτό το τηλέφωνο μοιράζεται με άλλον πράκτορα. Η κοινή χρήση εδώ το μεταφέρει σε αυτόν.';
+
+  @override
+  String get phoneSyncDenied =>
+      'Το NeoAgent δεν έχει ακόμη πρόσβαση. Επιτρέψτε την στις Ρυθμίσεις και επιστρέψτε.';
+
+  @override
+  String get openPhoneSettings => 'Άνοιγμα Ρυθμίσεων';
+
+  @override
+  String get phoneSyncShare => 'Κοινή χρήση με το NeoAgent';
+
+  @override
+  String get phoneSyncStop => 'Διακοπή κοινής χρήσης';
+
+  @override
+  String get phoneSyncWaiting => 'Αναμονή για τον πρώτο συγχρονισμό…';
+
+  @override
+  String phoneSyncLastSyncedArg1(String time) {
+    return 'Τελευταίος συγχρονισμός $time';
+  }
+
+  @override
+  String get calendarLink => 'Σύνδεσμος ημερολογίου';
+
+  @override
+  String get calendarLinkHelper =>
+      'Η διεύθυνση iCal του ημερολογίου. Όποιος την έχει μπορεί να διαβάσει το ημερολόγιο, οπότε κρατήστε την ιδιωτική.';
+
+  @override
+  String get calendarLinkName => 'Όνομα (προαιρετικό)';
+
+  @override
+  String get calendarLinkAdded => 'Το ημερολόγιο προστέθηκε';
 }
