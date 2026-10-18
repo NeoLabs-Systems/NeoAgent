@@ -3333,6 +3333,7 @@ class OfficialIntegrationItem {
     this.supportsMultipleAccounts = true,
     this.connectionMethod = 'oauth',
     this.memoryCoverage = const OfficialIntegrationMemoryCoverage(),
+    this.signInCoversAllApps = false,
   });
 
   factory OfficialIntegrationItem.fromJson(Map<dynamic, dynamic> json) {
@@ -3359,6 +3360,7 @@ class OfficialIntegrationItem {
       memoryCoverage: OfficialIntegrationMemoryCoverage.fromJson(
         _jsonMap(json['memoryCoverage']),
       ),
+      signInCoversAllApps: json['signInCoversAllApps'] == true,
     );
   }
 
@@ -3374,6 +3376,10 @@ class OfficialIntegrationItem {
   final bool supportsMultipleAccounts;
   final String connectionMethod;
   final OfficialIntegrationMemoryCoverage memoryCoverage;
+
+  /// One sign-in connects every app it was granted (Google Workspace), so
+  /// apps need no connect buttons of their own.
+  final bool signInCoversAllApps;
 
   bool get isConnected => connection.connected;
 

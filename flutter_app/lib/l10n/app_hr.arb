@@ -7191,5 +7191,11 @@
   "calendarLink": "Poveznica kalendara",
   "calendarLinkHelper": "iCal adresa kalendara. Svatko tko je ima može čitati kalendar, zato je čuvajte privatnom.",
   "calendarLinkName": "Naziv (neobavezno)",
-  "calendarLinkAdded": "Kalendar dodan"
+  "calendarLinkAdded": "Kalendar dodan",
+  "toolsApps": "Aplikacije",
+  "reconnect": "Ponovno poveži",
+  "reconnectNeeded": "Potrebno ponovno povezivanje",
+  "mixedAccess": "Mješoviti pristup",
+  "disconnectAccountTitle": "Odspojiti {account}?",
+  "disconnectAccountBody": "Agent putem ovog računa gubi pristup za {apps}."
 }

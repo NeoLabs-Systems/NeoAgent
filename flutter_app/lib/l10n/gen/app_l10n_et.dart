@@ -11658,4 +11658,26 @@ class AppL10nEt extends AppL10n {
 
   @override
   String get calendarLinkAdded => 'Kalender lisatud';
+
+  @override
+  String get toolsApps => 'Rakendused';
+
+  @override
+  String get reconnect => 'Ühenda uuesti';
+
+  @override
+  String get reconnectNeeded => 'Vaja uuesti ühendada';
+
+  @override
+  String get mixedAccess => 'Segajuurdepääs';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Kas katkestada $account?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'Agent kaotab selle konto kaudu juurdepääsu teenustele $apps.';
+  }
 }

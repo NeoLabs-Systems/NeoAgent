@@ -7191,5 +7191,11 @@
   "calendarLink": "Agendalink",
   "calendarLinkHelper": "Het iCal-adres van de agenda. Iedereen met dit adres kan de agenda lezen, dus houd het privé.",
   "calendarLinkName": "Naam (optioneel)",
-  "calendarLinkAdded": "Agenda toegevoegd"
+  "calendarLinkAdded": "Agenda toegevoegd",
+  "toolsApps": "Apps",
+  "reconnect": "Opnieuw verbinden",
+  "reconnectNeeded": "Opnieuw verbinden nodig",
+  "mixedAccess": "Gemengde toegang",
+  "disconnectAccountTitle": "{account} loskoppelen?",
+  "disconnectAccountBody": "De agent verliest via dit account de toegang tot {apps}."
 }

@@ -7191,5 +7191,11 @@
   "calendarLink": "Link tal-kalendarju",
   "calendarLinkHelper": "L-indirizz iCal tal-kalendarju. Kull min għandu jista’ jaqra l-kalendarju, għalhekk żommu privat.",
   "calendarLinkName": "Isem (mhux obbligatorju)",
-  "calendarLinkAdded": "Il-kalendarju żdied"
+  "calendarLinkAdded": "Il-kalendarju żdied",
+  "toolsApps": "Apps",
+  "reconnect": "Erġa' qabbad",
+  "reconnectNeeded": "Jeħtieġ jerġa' jitqabbad",
+  "mixedAccess": "Aċċess imħallat",
+  "disconnectAccountTitle": "Tiskonnettja {account}?",
+  "disconnectAccountBody": "L-aġent jitlef l-aċċess għal {apps} permezz ta' dan il-kont."
 }

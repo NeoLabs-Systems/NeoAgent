@@ -3,9 +3,7 @@ const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const db = require('../db/database');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
-const { normalizeWhatsAppWhitelist } = require('../utils/whatsapp');
 const { getVersionInfo } = require('../utils/version');
-const { UI_LANGUAGE_CODES } = require('../config/ui_languages');
 const { readUpdateStatus } = require('../utils/update_status');
 const { getRuntimeValidation } = require('../services/runtime/validation');
 const { startUpdate, setUpdateChannel } = require('../services/admin/updates');
@@ -14,7 +12,6 @@ const {
   createDefaultAiSettings,
   ensureDefaultAiSettings,
   normalizeProviderConfigs,
-  normalizeSystemOneModel,
   setProviderConfig,
   setProviderSecret,
 } = require('../services/ai/settings');
@@ -22,94 +19,23 @@ const {
   ensureDefaultRuntimeSettings,
   getRuntimeSettings,
   redactRuntimeSettingValue,
-  serializeRuntimeSettingValue,
-  validateRuntimeSettings,
 } = require('../services/runtime/settings');
+const {
+  HIDDEN_SETTING_KEYS,
+  RETIRED_SETTING_KEYS,
+  SERVER_MANAGED_SETTING_KEYS,
+  applySettingsSideEffects,
+  applySettingsUpdate,
+  isAgentScopedSettingKey,
+  isProtectedSecretSettingKey,
+  parseStoredValue,
+  readSettingValue,
+} = require('../services/settings/store');
 const { getAgentIdFromRequest, isMainAgent, resolveAgentId } = require('../services/agents/manager');
 const { getProviderHealthCatalog, getSupportedModels, PROVIDER_FACTORIES } = require('../services/ai/models');
 const { getSystemOneModels } = require('../services/ai/system_one');
 const { hasSignInMethod } = require('../services/ai/provider_sign_in');
 const { validateCloudUrlWithDns } = require('../utils/cloud-security');
-const { normalizeTimeZone } = require('../utils/timezone');
-
-const AGENT_SETTING_KEYS = new Set([
-  'cost_mode',
-  'chat_history_window',
-  'tool_replay_budget_chars',
-  'tool_replay_budget_file_chars',
-  'tool_replay_budget_browser_chars',
-  'tool_replay_budget_command_chars',
-  'max_consecutive_read_only_iterations',
-  'max_consecutive_tool_failures',
-  'subagent_max_children_per_run',
-  'assistant_behavior_notes',
-  'auto_skill_learning',
-  'system_one_model',
-  'ai_provider_configs',
-  'default_chat_model',
-  'default_subagent_model',
-  'default_speech_model',
-  'task_models',
-  'enabled_models',
-  'voice_stt_provider',
-  'voice_stt_model',
-  'voice_live_provider',
-  'voice_live_model',
-  'voice_live_voice',
-  'voice_input_mode',
-  'last_platform',
-  'last_chat_id',
-]);
-
-// Data-sharing consent is only changed through /api/account/data-sharing.
-const SERVER_MANAGED_SETTING_KEYS = new Set([
-  'ai_provider_configs',
-  'ai_provider_api_keys',
-  'usage_data_sharing',
-]);
-
-const HIDDEN_SETTING_KEYS = new Set([
-  'ai_provider_api_keys',
-  'usage_data_sharing',
-]);
-
-function normalizeUiLanguage(value) {
-  const code = String(value ?? '').trim().toLowerCase();
-  return UI_LANGUAGE_CODES.has(code) ? code : null;
-}
-
-const RETIRED_SETTING_KEYS = new Set([
-  'voice_tts_provider',
-  'voice_tts_model',
-  'voice_tts_voice',
-  'voice_media_mode',
-  'browser_backend',
-  'browser_extension_token_id',
-  'selected_browser_extension_token_id',
-  'cli_backend',
-  'cli_desktop_device_id',
-  'desktop_backend',
-  'desktop_device_id',
-  'max_iterations',
-  'max_model_failure_recoveries',
-  'compaction_threshold',
-  'subagent_max_iterations',
-]);
-
-// The prompt clock and recurring task schedules both follow the user's time zone.
-function applyTimeZoneChange(req, userId, agentId) {
-  const { invalidateSystemPromptCache } = require('../services/ai/systemPrompt');
-  invalidateSystemPromptCache(userId, agentId);
-  const taskRuntime = req.app?.locals?.taskRuntime;
-  if (!taskRuntime) return;
-  taskRuntime.rescheduleUserTasks(userId).catch((error) => {
-    console.error('[Settings] Rescheduling tasks after time zone change failed:', error.message);
-  });
-}
-
-function isProtectedSecretSettingKey(key) {
-  return /^social_reach_cookies_/i.test(String(key || ''));
-}
 
 const updateTriggerLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
@@ -148,12 +74,6 @@ router.get('/update/status', requireAuth, (req, res) => {
 });
 
 router.use(requireAuth);
-
-function isAgentScopedSettingKey(key) {
-  return AGENT_SETTING_KEYS.has(key)
-    || key.startsWith('platform_whitelist_')
-    || key.startsWith('platform_access_policy_');
-}
 
 // Get supported models metadata
 router.get('/meta/models', async (req, res) => {
@@ -421,14 +341,7 @@ router.get('/', async (req, res) => {
   ];
   const settings = createDefaultAiSettings();
   for (const row of rows) {
-    try {
-      settings[row.key] = redactRuntimeSettingValue(row.key, JSON.parse(row.value));
-    } catch (e) {
-      if (typeof row.value === 'string' && (row.value.trim().startsWith('{') || row.value.trim().startsWith('['))) {
-        console.warn(`[Settings] Failed to parse '${row.key}' as JSON, treating as raw string. Error:`, e.message);
-      }
-      settings[row.key] = redactRuntimeSettingValue(row.key, row.value);
-    }
+    settings[row.key] = redactRuntimeSettingValue(row.key, parseStoredValue(row.key, row.value));
   }
   settings.agentId = agentId;
   settings.ai_provider_configs = normalizeProviderConfigs(settings.ai_provider_configs);
@@ -445,116 +358,18 @@ router.get('/', async (req, res) => {
 });
 
 // Update settings (batch)
-router.put('/', async (req, res) => {
+router.put('/', (req, res) => {
   const userId = req.session.userId;
-  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
-  ensureDefaultAiSettings(userId, agentId);
-  ensureDefaultRuntimeSettings(userId);
-  const upsert = db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value');
-  const upsertAgent = db.prepare('INSERT INTO agent_settings (user_id, agent_id, key, value) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value');
-  const normalizedBody = { ...req.body };
-
-  for (const key of RETIRED_SETTING_KEYS) delete normalizedBody[key];
-  for (const key of SERVER_MANAGED_SETTING_KEYS) delete normalizedBody[key];
-
-  if ('timezone' in normalizedBody) {
-    const timeZone = normalizeTimeZone(normalizedBody.timezone);
-    if (!timeZone) {
-      return res.status(400).json({ success: false, error: 'Unknown time zone.' });
-    }
-    normalizedBody.timezone = timeZone;
-  }
-
-  if ('ui_language' in normalizedBody) {
-    const language = normalizeUiLanguage(normalizedBody.ui_language);
-    if (!language) {
-      return res.status(400).json({ success: false, error: 'Unknown language.' });
-    }
-    normalizedBody.ui_language = language;
-  }
-
-  if (
-    'system_one_model' in normalizedBody
-    && normalizeSystemOneModel(normalizedBody.system_one_model) !== normalizedBody.system_one_model
-  ) {
-    return res.status(400).json({ success: false, error: 'Unknown SystemOne model selection.' });
-  }
-
-  if ('platform_whitelist_whatsapp' in normalizedBody) {
-    let whitelist = normalizedBody.platform_whitelist_whatsapp;
-    if (typeof whitelist === 'string') {
-      try {
-        whitelist = JSON.parse(whitelist);
-      } catch {
-        whitelist = [];
-      }
-    }
-    normalizedBody.platform_whitelist_whatsapp = JSON.stringify(normalizeWhatsAppWhitelist(whitelist));
-  }
-
-  for (const key of Object.keys(normalizedBody)) {
-    if (isProtectedSecretSettingKey(key)) {
-      delete normalizedBody[key];
-      continue;
-    }
-  }
-
-  if (
-    'runtime_profile' in normalizedBody
-    || 'runtime_backend' in normalizedBody
-    || 'android_backend' in normalizedBody
-    || 'computer_backend' in normalizedBody
-    || 'mcp_backend' in normalizedBody
-  ) {
-    const validation = validateRuntimeSettings({
-      ...getRuntimeSettings(userId),
-      ...normalizedBody,
-    });
-    if (!validation.valid) {
-      return res.status(400).json({
-        success: false,
-        error: validation.issues[0],
-        issues: validation.issues,
-      });
-    }
-    Object.assign(normalizedBody, validation.settings);
-  }
-
-  const previousModels = db.prepare(
-    `SELECT key, value FROM agent_settings
-     WHERE user_id = ? AND agent_id = ? AND key IN ('default_chat_model', 'default_subagent_model')`,
-  ).all(userId, agentId);
-  for (const key of ['default_chat_model', 'default_subagent_model']) {
-    if (!(key in normalizedBody)) continue;
-    const stored = previousModels.find((row) => row.key === key)?.value ?? null;
-    let previous = stored;
-    try { previous = JSON.parse(stored); } catch {}
-    const next = normalizedBody[key];
-    if (previous !== next) {
-      console.info(`[Settings] user=${userId} agent=${agentId} ${key}: ${previous} -> ${next} (client ${req.get('user-agent') || 'unknown'})`);
-    }
-  }
-
-  const tx = db.transaction((entries) => {
-    for (const [key, value] of entries) {
-      const v = serializeRuntimeSettingValue(key, value);
-      if (isAgentScopedSettingKey(key)) {
-        upsertAgent.run(userId, agentId, key, v);
-      } else if (key !== 'agentId' && key !== 'agent_id') {
-        upsert.run(userId, key, v);
-      }
-    }
+  const result = applySettingsUpdate({
+    userId,
+    agentId: resolveAgentId(userId, getAgentIdFromRequest(req)),
+    patch: req.body || {},
+    taskRuntime: req.app?.locals?.taskRuntime || null,
+    source: `client ${req.get('user-agent') || 'unknown'}`,
   });
-
-  tx(Object.entries(normalizedBody));
-  if (Object.prototype.hasOwnProperty.call(normalizedBody, 'assistant_behavior_notes')) {
-    const { invalidateSystemPromptCache } = require('../services/ai/systemPrompt');
-    invalidateSystemPromptCache(userId, agentId);
+  if (!result.ok) {
+    return res.status(400).json({ success: false, error: result.error, issues: result.issues });
   }
-  if ('timezone' in normalizedBody) {
-    applyTimeZoneChange(req, userId, agentId);
-  }
-
   res.json({ success: true });
 });
 
@@ -679,106 +494,40 @@ router.get('/token-usage/summary', (req, res) => {
 
 // Get single setting
 router.get('/:key', (req, res) => {
-  if (RETIRED_SETTING_KEYS.has(req.params.key) || HIDDEN_SETTING_KEYS.has(req.params.key)) {
-    return res.json({ value: null });
-  }
   const userId = req.session.userId;
   const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
-  ensureDefaultRuntimeSettings(userId);
-  const isAgentSetting = isAgentScopedSettingKey(req.params.key);
-  const row = isAgentSetting
-    ? (
-      db.prepare('SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?').get(userId, agentId, req.params.key)
-      || (isMainAgent(userId, agentId)
-        ? db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(userId, req.params.key)
-        : null)
-    )
-    : db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(userId, req.params.key);
-  if (!row) return res.json({ value: null });
-  try {
-    res.json({ value: redactRuntimeSettingValue(req.params.key, JSON.parse(row.value)) });
-  } catch (e) {
-    if (typeof row.value === 'string' && (row.value.trim().startsWith('{') || row.value.trim().startsWith('['))) {
-      console.warn(`[Settings] Failed to parse '${req.params.key}' as JSON, returning as raw string. Error:`, e.message);
-    }
-    res.json({ value: redactRuntimeSettingValue(req.params.key, row.value) });
-  }
+  res.json({ value: readSettingValue(userId, agentId, req.params.key) });
 });
 
 // Set single setting
-router.put('/:key', async (req, res) => {
-  if (RETIRED_SETTING_KEYS.has(req.params.key)) {
-    return res.status(410).json({ success: false, error: `${req.params.key} has been retired` });
+router.put('/:key', (req, res) => {
+  const key = req.params.key;
+  if (RETIRED_SETTING_KEYS.has(key)) {
+    return res.status(410).json({ success: false, error: `${key} has been retired` });
   }
-  if (SERVER_MANAGED_SETTING_KEYS.has(req.params.key)) {
+  if (SERVER_MANAGED_SETTING_KEYS.has(key)) {
     return res.status(403).json({
       success: false,
       error: 'This setting is managed by the server, not per account.',
     });
   }
-  const userId = req.session.userId;
-  const agentId = resolveAgentId(userId, getAgentIdFromRequest(req));
-  ensureDefaultRuntimeSettings(userId);
-  let value = req.body.value;
-  if (isProtectedSecretSettingKey(req.params.key)) {
+  if (isProtectedSecretSettingKey(key)) {
     return res.status(403).json({
       success: false,
-      error: `${req.params.key} is managed by Social Reach cookie setup`,
+      error: `${key} is managed by Social Reach cookie setup`,
     });
   }
-  if (req.params.key === 'platform_whitelist_whatsapp') {
-    if (typeof value === 'string') {
-      try {
-        value = JSON.parse(value);
-      } catch {
-        value = [];
-      }
-    }
-    value = normalizeWhatsAppWhitelist(value);
-  } else if (req.params.key === 'timezone') {
-    value = normalizeTimeZone(value);
-    if (!value) {
-      return res.status(400).json({ success: false, error: 'Unknown time zone.' });
-    }
-  } else if (req.params.key === 'ui_language') {
-    value = normalizeUiLanguage(value);
-    if (!value) {
-      return res.status(400).json({ success: false, error: 'Unknown language.' });
-    }
-  } else if (
-    ['runtime_profile', 'runtime_backend', 'computer_backend', 'android_backend', 'mcp_backend']
-      .includes(req.params.key)
-  ) {
-    const validation = validateRuntimeSettings({
-      ...getRuntimeSettings(req.session.userId),
-      [req.params.key]: value,
-    });
-    if (!validation.valid) {
-      return res.status(400).json({
-        success: false,
-        error: validation.issues[0],
-        issues: validation.issues,
-      });
-    }
-    value = validation.settings[req.params.key];
+  const userId = req.session.userId;
+  const result = applySettingsUpdate({
+    userId,
+    agentId: resolveAgentId(userId, getAgentIdFromRequest(req)),
+    patch: { [key]: req.body.value },
+    taskRuntime: req.app?.locals?.taskRuntime || null,
+    source: `client ${req.get('user-agent') || 'unknown'}`,
+  });
+  if (!result.ok) {
+    return res.status(400).json({ success: false, error: result.error, issues: result.issues });
   }
-  const v = serializeRuntimeSettingValue(req.params.key, value);
-  if (
-    isAgentScopedSettingKey(req.params.key)
-  ) {
-    db.prepare(
-      `INSERT INTO agent_settings (user_id, agent_id, key, value)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT(user_id, agent_id, key) DO UPDATE SET value = excluded.value`
-    ).run(userId, agentId, req.params.key, v);
-  } else {
-    db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value')
-      .run(userId, req.params.key, v);
-  }
-  if (req.params.key === 'timezone') {
-    applyTimeZoneChange(req, userId, agentId);
-  }
-
   res.json({ success: true });
 });
 
@@ -807,9 +556,7 @@ router.delete('/:key', (req, res) => {
   } else {
     db.prepare('DELETE FROM user_settings WHERE user_id = ? AND key = ?').run(userId, req.params.key);
   }
-  if (req.params.key === 'timezone') {
-    applyTimeZoneChange(req, userId, agentId);
-  }
+  applySettingsSideEffects(userId, agentId, { [req.params.key]: null }, req.app?.locals?.taskRuntime || null);
   res.json({ success: true });
 });
 

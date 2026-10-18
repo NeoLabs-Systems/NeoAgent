@@ -1,11 +1,8 @@
 part of 'main.dart';
 
-/// Filters for the Tools page. `all` is the overview: a short, ranked preview
-/// of every group with a "See all" jump into the full list.
-enum _ToolsSegment { all, integrations, mcp, skills, skillsSh }
-
-/// How many rows a group shows in the overview before it is cut off.
-const int _toolsOverviewLimit = 3;
+/// The three kinds of tool on the Tools page, one tab each. skills.sh search
+/// results live inside the Skills tab, next to the skills already installed.
+enum _ToolsSegment { integrations, skills, mcp }
 
 class ToolsPanel extends StatefulWidget {
   const ToolsPanel({super.key, required this.controller});
@@ -60,14 +57,9 @@ class _ToolsPanelState extends State<ToolsPanel> {
     super.dispose();
   }
 
-  /// skills.sh is searched only where its results show: the overview and the
-  /// skills.sh segment.
-  bool get _showsSkillsSh =>
-      _segment == _ToolsSegment.all || _segment == _ToolsSegment.skillsSh;
-
   void _scheduleSkillsShSearch() {
     final query = _searchController.text.trim();
-    if (!_showsSkillsSh || query == _skillsShQuery) return;
+    if (_segment != _ToolsSegment.skills || query == _skillsShQuery) return;
     _skillsShDebounce?.cancel();
     _skillsShQuery = query;
     if (query.length < 2) {
@@ -106,13 +98,13 @@ class _ToolsPanelState extends State<ToolsPanel> {
   }
 
   void _browseSkillsSh() {
-    _selectSegment(_ToolsSegment.skillsSh);
+    _selectSegment(_ToolsSegment.skills);
     _searchFocus.requestFocus();
   }
 
-  /// The sidebar's "Tools" entry is [AppSection.integrations] and opens the
-  /// overview. The other two sections only arrive from restored preferences
-  /// written by builds that navigated to them directly.
+  /// The sidebar's "Tools" entry is [AppSection.integrations]. The other two
+  /// sections only arrive from restored preferences written by builds that
+  /// navigated to them directly.
   _ToolsSegment _segmentForSection(AppSection section) {
     switch (section) {
       case AppSection.mcp:
@@ -120,7 +112,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
       case AppSection.skills:
         return _ToolsSegment.skills;
       default:
-        return _ToolsSegment.all;
+        return _ToolsSegment.integrations;
     }
   }
 
@@ -169,9 +161,6 @@ class _ToolsPanelState extends State<ToolsPanel> {
       ])) {
         return false;
       }
-      if (_segment != _ToolsSegment.skills) {
-        return true;
-      }
       switch (_skillStatus) {
         case 'active':
           if (!skill.enabled || skill.draft) return false;
@@ -189,8 +178,24 @@ class _ToolsPanelState extends State<ToolsPanel> {
     _scheduleSkillsShSearch();
   }
 
+  /// Opens the integration a link asked for, once the list has loaded it.
+  void _openRequestedIntegration() {
+    final controller = widget.controller;
+    final requested = controller.requestedIntegrationId;
+    if (requested == null) return;
+    final item = controller.officialIntegrations
+        .where((candidate) => candidate.id == requested)
+        .firstOrNull;
+    if (item == null) return;
+    controller.clearRequestedIntegration();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _openIntegrationDetail(context, controller, item);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    _openRequestedIntegration();
     final controller = widget.controller;
     final integrations = _visibleIntegrations();
     final servers = _visibleServers();
@@ -208,8 +213,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
             children: <Widget>[
               _PageTitle(
                 title: 'Tools',
-                subtitle:
-                    appStrings.everythingTheAgentCanUseOfficial,
+                subtitle: appStrings.everythingTheAgentCanUseOfficial,
                 trailing: _ToolsAddMenu(
                   controller: controller,
                   onBrowseSkillsSh: _browseSkillsSh,
@@ -235,29 +239,25 @@ class _ToolsPanelState extends State<ToolsPanel> {
               _ToolsSegmentBar(
                 selected: _segment,
                 counts: <_ToolsSegment, int>{
-                  _ToolsSegment.all:
-                      integrations.length +
-                      servers.length +
-                      skills.length +
-                      _skillsShResults.length,
                   _ToolsSegment.integrations: integrations.length,
-                  _ToolsSegment.mcp: servers.length,
                   _ToolsSegment.skills: skills.length,
-                  _ToolsSegment.skillsSh: _skillsShResults.length,
+                  _ToolsSegment.mcp: servers.length,
                 },
                 onSelected: _selectSegment,
               ),
-              ..._buildFilterRow(controller),
-              const SizedBox(height: 16),
+              ..._buildFilterRow(),
+              const SizedBox(height: 18),
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.only(bottom: 24),
-                  children: _buildSections(
-                    controller: controller,
-                    integrations: integrations,
-                    servers: servers,
-                    skills: skills,
-                  ),
+                  children: switch (_segment) {
+                    _ToolsSegment.integrations => _buildIntegrations(
+                      controller,
+                      integrations,
+                    ),
+                    _ToolsSegment.skills => _buildSkills(controller, skills),
+                    _ToolsSegment.mcp => _buildServers(controller, servers),
+                  },
                 ),
               ),
             ],
@@ -267,188 +267,184 @@ class _ToolsPanelState extends State<ToolsPanel> {
     );
   }
 
-  List<Widget> _buildFilterRow(NeoAgentController controller) {
-    final filters = <Widget>[];
-    if (_segment == _ToolsSegment.skills) {
-      filters.add(
-        _ToolsFilterMenu(
-          icon: Icons.tune_rounded,
-          label: appStrings.status,
-          value: _skillStatus,
-          options: const <String>['all', 'active', 'draft', 'disabled'],
-          onSelected: (value) => setState(() => _skillStatus = value),
-        ),
-      );
-      filters.add(
-        _ToolsFilterMenu(
-          icon: Icons.source_outlined,
-          label: appStrings.source,
-          value: _skillSource,
-          options: const <String>[
-            'all',
-            'built-in',
-            'learned',
-            'user',
-            'skills.sh',
-          ],
-          onSelected: (value) => setState(() => _skillSource = value),
-        ),
-      );
-    }
-    if (filters.isEmpty) {
+  List<Widget> _buildFilterRow() {
+    if (_segment != _ToolsSegment.skills) {
       return const <Widget>[];
     }
     return <Widget>[
       const SizedBox(height: 10),
-      Wrap(spacing: 8, runSpacing: 8, children: filters),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: <Widget>[
+          _ToolsFilterMenu(
+            icon: Icons.tune_rounded,
+            label: appStrings.status,
+            value: _skillStatus,
+            options: const <String>['all', 'active', 'draft', 'disabled'],
+            onSelected: (value) => setState(() => _skillStatus = value),
+          ),
+          _ToolsFilterMenu(
+            icon: Icons.source_outlined,
+            label: appStrings.source,
+            value: _skillSource,
+            options: const <String>[
+              'all',
+              'built-in',
+              'learned',
+              'user',
+              'skills.sh',
+            ],
+            onSelected: (value) => setState(() => _skillSource = value),
+          ),
+        ],
+      ),
     ];
   }
 
-  List<Widget> _buildSections({
-    required NeoAgentController controller,
-    required List<OfficialIntegrationItem> integrations,
-    required List<McpServerItem> servers,
-    required List<SkillItem> skills,
-  }) {
-    final overview = _segment == _ToolsSegment.all;
-    final children = <Widget>[];
-
-    children.addAll(
-      _buildGroup(
-        segment: _ToolsSegment.integrations,
-        title: 'Integrations',
-        emptyMessage: _query.isEmpty
-            ? appStrings.noOfficialIntegrationsAreAvailableYet
-            : appStrings.noIntegrationsMatchThisSearch,
-        overview: overview,
-        tiles: integrations
-            .map((item) => _IntegrationTile(controller: controller, item: item))
-            .toList(),
-      ),
-    );
-    children.addAll(
-      _buildGroup(
-        segment: _ToolsSegment.mcp,
-        title: appStrings.mcpServers,
-        emptyMessage: _query.isEmpty
-            ? appStrings.noMcpServersConfiguredYetAddOne
-            : appStrings.noMcpServersMatchThisSearch,
-        overview: overview,
-        tiles: servers
-            .map(
-              (server) =>
-                  _McpServerTile(controller: controller, server: server),
-            )
-            .toList(),
-      ),
-    );
-    children.addAll(
-      _buildGroup(
-        segment: _ToolsSegment.skills,
-        title: 'Skills',
-        emptyMessage:
-            _query.isEmpty && _skillStatus == 'all' && _skillSource == 'all'
-            ? 'No skills installed yet. Install one from skills.sh or write your own.'
-            : appStrings.noSkillsMatchTheseFilters,
-        overview: overview,
-        tiles: skills
-            .map((skill) => _SkillTile(controller: controller, skill: skill))
-            .toList(),
-      ),
-    );
-    children.addAll(_buildSkillsShGroup(controller, overview: overview));
-
-    if (children.isEmpty) {
-      children.add(
+  /// Connected integrations first, then the ones that can still be added.
+  /// An integration with only expired accounts counts as connected: it needs
+  /// a reconnect, not a first-time setup.
+  List<Widget> _buildIntegrations(
+    NeoAgentController controller,
+    List<OfficialIntegrationItem> integrations,
+  ) {
+    if (integrations.isEmpty) {
+      return <Widget>[
         _EmptyCard(
           title: appStrings.nothingFound,
           subtitle: _query.isEmpty
-              ? appStrings.addAnMcpServerOrInstallA
-              : appStrings.noToolMatchesArg1(_searchController.text.trim()),
+              ? appStrings.noOfficialIntegrationsAreAvailableYet
+              : appStrings.noIntegrationsMatchThisSearch,
         ),
-      );
-    }
-    return children;
-  }
-
-  List<Widget> _buildSkillsShGroup(
-    NeoAgentController controller, {
-    required bool overview,
-  }) {
-    if (_skillsShQuery.length < 2) {
-      return overview
-          ? const <Widget>[]
-          : <Widget>[
-              _ToolsSectionHeader(title: 'skills.sh', count: 0),
-              _EmptyCard(
-                title: appStrings.addFromSkillsSh,
-                subtitle: appStrings.skillsShHint,
-              ),
-            ];
-    }
-    if (_skillsShLoading && _skillsShResults.isEmpty) {
-      return <Widget>[
-        _ToolsSectionHeader(title: 'skills.sh', count: 0),
-        const LinearProgressIndicator(),
-        const SizedBox(height: 26),
       ];
     }
-    return _buildGroup(
-      segment: _ToolsSegment.skillsSh,
+    final connected = integrations
+        .where((item) => item.isConnected || item.hasExpiredAccounts)
+        .toList();
+    final available = integrations
+        .where((item) => !item.isConnected && !item.hasExpiredAccounts)
+        .toList();
+    return <Widget>[
+      if (connected.isNotEmpty) ...<Widget>[
+        _ToolsSectionHeader(
+          title: appStrings.connected,
+          count: connected.length,
+        ),
+        _IntegrationGrid(controller: controller, items: connected),
+        const SizedBox(height: 28),
+      ],
+      if (available.isNotEmpty) ...<Widget>[
+        _ToolsSectionHeader(
+          title: appStrings.available,
+          count: available.length,
+        ),
+        _IntegrationGrid(controller: controller, items: available),
+      ],
+    ];
+  }
+
+  List<Widget> _buildSkills(
+    NeoAgentController controller,
+    List<SkillItem> skills,
+  ) {
+    final filtered = _skillStatus != 'all' || _skillSource != 'all';
+    return <Widget>[
+      if (skills.isEmpty)
+        _EmptyCard(
+          title: appStrings.nothingHereYet2,
+          subtitle: _query.isEmpty && !filtered
+              ? 'No skills installed yet. Install one from skills.sh or write your own.'
+              : appStrings.noSkillsMatchTheseFilters,
+        )
+      else
+        ..._spaced(
+          skills
+              .map((skill) => _SkillTile(controller: controller, skill: skill))
+              .toList(),
+        ),
+      const SizedBox(height: 28),
+      ..._buildSkillsSh(controller),
+    ];
+  }
+
+  List<Widget> _buildSkillsSh(NeoAgentController controller) {
+    final header = _ToolsSectionHeader(
       title: 'skills.sh',
-      emptyMessage: _skillsShError ?? appStrings.noSkillsShMatches,
-      overview: overview,
-      tiles: _skillsShResults
-          .map(
-            (item) => _SkillsShTile(
-              key: ValueKey<String>(item.id),
-              controller: controller,
-              item: item,
+      count: _skillsShResults.length,
+    );
+    if (_skillsShQuery.length < 2) {
+      return <Widget>[
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Icon(Icons.travel_explore_rounded, size: 18, color: _textMuted),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                appStrings.skillsShHint,
+                style: TextStyle(color: _textMuted, fontSize: 13, height: 1.4),
+              ),
             ),
-          )
+          ],
+        ),
+      ];
+    }
+    if (_skillsShLoading && _skillsShResults.isEmpty) {
+      return <Widget>[header, const LinearProgressIndicator()];
+    }
+    if (_skillsShResults.isEmpty) {
+      return <Widget>[
+        header,
+        _EmptyCard(
+          title: appStrings.nothingFound,
+          subtitle: _skillsShError ?? appStrings.noSkillsShMatches,
+        ),
+      ];
+    }
+    return <Widget>[
+      header,
+      ..._spaced(
+        _skillsShResults
+            .map(
+              (item) => _SkillsShTile(
+                key: ValueKey<String>(item.id),
+                controller: controller,
+                item: item,
+              ),
+            )
+            .toList(),
+      ),
+    ];
+  }
+
+  List<Widget> _buildServers(
+    NeoAgentController controller,
+    List<McpServerItem> servers,
+  ) {
+    if (servers.isEmpty) {
+      return <Widget>[
+        _EmptyCard(
+          title: appStrings.nothingHereYet2,
+          subtitle: _query.isEmpty
+              ? appStrings.noMcpServersConfiguredYetAddOne
+              : appStrings.noMcpServersMatchThisSearch,
+        ),
+      ];
+    }
+    return _spaced(
+      servers
+          .map((server) => _McpServerTile(controller: controller, server: server))
           .toList(),
     );
   }
 
-  /// One titled group of rows. In the overview only the first few rows show,
-  /// with a "See all" jump; on a segment the full list shows.
-  List<Widget> _buildGroup({
-    required _ToolsSegment segment,
-    required String title,
-    required String emptyMessage,
-    required bool overview,
-    required List<Widget> tiles,
-  }) {
-    if (!overview && _segment != segment) {
-      return const <Widget>[];
-    }
-    if (tiles.isEmpty) {
-      if (overview) {
-        return const <Widget>[];
-      }
-      return <Widget>[
-        _ToolsSectionHeader(title: title, count: 0),
-        _EmptyCard(title: appStrings.nothingHereYet2, subtitle: emptyMessage),
-      ];
-    }
-    final shown = overview && tiles.length > _toolsOverviewLimit
-        ? tiles.take(_toolsOverviewLimit).toList()
-        : tiles;
-    return <Widget>[
-      _ToolsSectionHeader(
-        title: title,
-        count: tiles.length,
-        onSeeAll: overview && tiles.length > shown.length
-            ? () => _selectSegment(segment)
-            : null,
-      ),
-      for (var index = 0; index < shown.length; index++) ...<Widget>[
-        shown[index],
-        if (index < shown.length - 1) const SizedBox(height: 10),
-      ],
-      const SizedBox(height: 26),
-    ];
-  }
+  static List<Widget> _spaced(List<Widget> tiles) => <Widget>[
+    for (var index = 0; index < tiles.length; index++) ...<Widget>[
+      tiles[index],
+      if (index < tiles.length - 1) const SizedBox(height: 10),
+    ],
+  ];
 }
 
 class _ToolsAddMenu extends StatelessWidget {
@@ -502,12 +498,10 @@ class _ToolsSegmentBar extends StatelessWidget {
   final Map<_ToolsSegment, int> counts;
   final ValueChanged<_ToolsSegment> onSelected;
 
-  static const Map<_ToolsSegment, String> _labels = <_ToolsSegment, String>{
-    _ToolsSegment.all: 'All',
-    _ToolsSegment.integrations: 'Integrations',
-    _ToolsSegment.mcp: 'MCP',
-    _ToolsSegment.skills: 'Skills',
-    _ToolsSegment.skillsSh: 'skills.sh',
+  static String _label(_ToolsSegment segment) => switch (segment) {
+    _ToolsSegment.integrations => appStrings.integrations,
+    _ToolsSegment.skills => appStrings.skills,
+    _ToolsSegment.mcp => appStrings.mcpServers,
   };
 
   @override
@@ -520,7 +514,7 @@ class _ToolsSegmentBar extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: _ToolsSegmentChip(
-                label: _labels[segment]!,
+                label: _label(segment),
                 count: counts[segment] ?? 0,
                 selected: segment == selected,
                 onTap: () => onSelected(segment),
@@ -660,15 +654,10 @@ class _ToolsFilterMenu extends StatelessWidget {
 }
 
 class _ToolsSectionHeader extends StatelessWidget {
-  const _ToolsSectionHeader({
-    required this.title,
-    required this.count,
-    this.onSeeAll,
-  });
+  const _ToolsSectionHeader({required this.title, required this.count});
 
   final String title;
   final int count;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -690,9 +679,6 @@ class _ToolsSectionHeader extends StatelessWidget {
             '$count',
             style: TextStyle(color: _textMuted, fontWeight: FontWeight.w700),
           ),
-          const Spacer(),
-          if (onSeeAll != null)
-            TextButton(onPressed: onSeeAll, child: Text(appStrings.seeAll)),
         ],
       ),
     );
@@ -870,48 +856,202 @@ class _ToolActionButton extends StatelessWidget {
   }
 }
 
-class _IntegrationTile extends StatelessWidget {
-  const _IntegrationTile({required this.controller, required this.item});
+/// Integrations as an even grid of cards: three across on wide windows, one
+/// on phones.
+class _IntegrationGrid extends StatelessWidget {
+  const _IntegrationGrid({required this.controller, required this.items});
+
+  final NeoAgentController controller;
+  final List<OfficialIntegrationItem> items;
+
+  static const double _gap = 12;
+  static const double _minCardWidth = 280;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = ((constraints.maxWidth + _gap) / (_minCardWidth + _gap))
+            .floor()
+            .clamp(1, 3);
+        final width = (constraints.maxWidth - _gap * (columns - 1)) / columns;
+        return Wrap(
+          spacing: _gap,
+          runSpacing: _gap,
+          children: <Widget>[
+            for (final item in items)
+              SizedBox(
+                width: width,
+                child: _IntegrationCard(controller: controller, item: item),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// One integration in the grid. A connected card says who is connected and
+/// which apps are on; an available card says what it is and how to start.
+/// Everything else lives in the detail sheet behind the tap.
+class _IntegrationCard extends StatelessWidget {
+  const _IntegrationCard({required this.controller, required this.item});
 
   final NeoAgentController controller;
   final OfficialIntegrationItem item;
 
   @override
   Widget build(BuildContext context) {
-    final needsSetup = !item.env.configured;
+    final linked = item.isConnected || item.hasExpiredAccounts;
     final phoneOnly = item.setUpOnPhoneOnly;
-    final tile = _ToolTile(
-      icon: _OfficialIntegrationIcon(item: item),
-      title: item.label,
-      subtitle: item.description,
-      statusColor: item.isConnected
-          ? _success
-          : item.hasExpiredAccounts || needsSetup
-          ? _warning
-          : _textMuted,
-      meta: <String>[
-        item.statusLabel,
-        appStrings.arg1Tools(item.availableToolCount),
-        appStrings.arg1Accounts(item.connection.accountCount),
-      ],
-      trailing: _ToolActionButton(
-        label: phoneOnly
-            ? appStrings.setUpOnPhone
-            : item.isConnected
-            ? 'Manage'
-            : needsSetup
-            ? appStrings.setUp
-            : 'Connect',
-        primary: !item.isConnected && !phoneOnly,
-        onPressed: phoneOnly
+    final card = Material(
+      color: _bgSecondary,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: phoneOnly
             ? null
             : () => _openIntegrationDetail(context, controller, item),
+        child: Container(
+          height: 124,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: item.hasExpiredAccounts
+                  ? _warning.withValues(alpha: 0.45)
+                  : _border,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  _OfficialIntegrationIcon.named(
+                    icon: item.icon,
+                    label: item.label,
+                    size: 40,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          item.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w700,
+                            color: _textPrimary,
+                          ),
+                        ),
+                        if (linked) ...<Widget>[
+                          const SizedBox(height: 3),
+                          _buildStatusLine(),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (linked)
+                    Icon(Icons.chevron_right_rounded, color: _textMuted)
+                  else if (!phoneOnly)
+                    Text(
+                      item.env.configured ? appStrings.connect : appStrings.setUp,
+                      style: TextStyle(
+                        color: _accent,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                ],
+              ),
+              const Spacer(),
+              Text(
+                phoneOnly ? appStrings.setUpOnPhone : _footnote(linked),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: _textSecondary,
+                  fontSize: 13,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      onTap: () => _openIntegrationDetail(context, controller, item),
     );
     // Set up from the phone app: shown so people know it exists, but muted.
-    return phoneOnly ? Opacity(opacity: 0.55, child: tile) : tile;
+    return phoneOnly ? Opacity(opacity: 0.55, child: card) : card;
   }
+
+  /// Who is connected, counted by person rather than by app connection, or a
+  /// reconnect warning when an account expired.
+  Widget _buildStatusLine() {
+    final expired = item.hasExpiredAccounts;
+    final accounts = _connectedAccountLabels(item);
+    final label = expired
+        ? appStrings.reconnectNeeded
+        : accounts.isEmpty
+        ? appStrings.connected
+        : accounts.length == 1
+        ? accounts.first
+        : '${accounts.first} +${accounts.length - 1}';
+    final color = expired ? _warning : _success;
+    return Row(
+      children: <Widget>[
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+        ),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: expired ? _warning : _textSecondary,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// A connected multi-app integration lists the apps that are on; anything
+  /// else shows its description.
+  String _footnote(bool linked) {
+    if (linked && item.apps.length > 1) {
+      final on = item.apps
+          .where((app) => app.isConnected)
+          .map((app) => app.label)
+          .toList();
+      if (on.isNotEmpty) return on.join(' · ');
+    }
+    return item.description;
+  }
+}
+
+/// Distinct connected accounts across every app of an integration. One Google
+/// account connected to Gmail and Calendar is one person, not two.
+List<String> _connectedAccountLabels(OfficialIntegrationItem item) {
+  final seen = <String>{};
+  final labels = <String>[];
+  for (final app in item.apps) {
+    for (final account in app.accounts) {
+      final email = account.accountEmail?.trim() ?? '';
+      if (!account.connected || email.isEmpty) continue;
+      if (seen.add(email.toLowerCase())) labels.add(email);
+    }
+  }
+  return labels;
 }
 
 void _openIntegrationDetail(
@@ -1005,9 +1145,7 @@ class _SkillTile extends StatelessWidget {
       icon: icon,
       title: skill.name,
       subtitle: skill.description.ifEmpty(appStrings.noDescription),
-      statusColor: skill.enabled ? _success : _textMuted,
       meta: <String>[
-        skill.enabled ? 'Enabled' : 'Disabled',
         skill.category,
         skill.source,
         if (skill.draft) 'Draft',

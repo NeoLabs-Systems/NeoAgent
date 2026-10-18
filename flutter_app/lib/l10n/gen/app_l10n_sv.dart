@@ -11650,4 +11650,26 @@ class AppL10nSv extends AppL10n {
 
   @override
   String get calendarLinkAdded => 'Kalendern har lagts till';
+
+  @override
+  String get toolsApps => 'Appar';
+
+  @override
+  String get reconnect => 'Anslut igen';
+
+  @override
+  String get reconnectNeeded => 'Behöver anslutas igen';
+
+  @override
+  String get mixedAccess => 'Blandad åtkomst';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Koppla från $account?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'Agenten förlorar åtkomsten till $apps via det här kontot.';
+  }
 }

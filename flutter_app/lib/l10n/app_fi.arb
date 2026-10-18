@@ -7191,5 +7191,11 @@
   "calendarLink": "Kalenterilinkki",
   "calendarLinkHelper": "Kalenterin iCal-osoite. Kuka tahansa osoitteen tunteva voi lukea kalenteria, joten pidä se yksityisenä.",
   "calendarLinkName": "Nimi (valinnainen)",
-  "calendarLinkAdded": "Kalenteri lisätty"
+  "calendarLinkAdded": "Kalenteri lisätty",
+  "toolsApps": "Sovellukset",
+  "reconnect": "Yhdistä uudelleen",
+  "reconnectNeeded": "Yhdistettävä uudelleen",
+  "mixedAccess": "Sekalainen käyttöoikeus",
+  "disconnectAccountTitle": "Katkaistaanko {account}?",
+  "disconnectAccountBody": "Agentti menettää tämän tilin kautta pääsyn kohteisiin {apps}."
 }

@@ -7191,5 +7191,11 @@
   "calendarLink": "Naptárhivatkozás",
   "calendarLinkHelper": "A naptár iCal-címe. Bárki, aki ismeri, olvashatja a naptárt, ezért tartsd titokban.",
   "calendarLinkName": "Név (nem kötelező)",
-  "calendarLinkAdded": "Naptár hozzáadva"
+  "calendarLinkAdded": "Naptár hozzáadva",
+  "toolsApps": "Alkalmazások",
+  "reconnect": "Újracsatlakozás",
+  "reconnectNeeded": "Újracsatlakozás szükséges",
+  "mixedAccess": "Vegyes hozzáférés",
+  "disconnectAccountTitle": "Leválasztod: {account}?",
+  "disconnectAccountBody": "Az ügynök ezen a fiókon keresztül elveszíti a hozzáférést ehhez: {apps}."
 }

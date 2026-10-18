@@ -7191,5 +7191,11 @@
   "calendarLink": "Link do kalendarza",
   "calendarLinkHelper": "Adres iCal kalendarza. Każdy, kto go ma, może czytać kalendarz, więc zachowaj go w tajemnicy.",
   "calendarLinkName": "Nazwa (opcjonalnie)",
-  "calendarLinkAdded": "Dodano kalendarz"
+  "calendarLinkAdded": "Dodano kalendarz",
+  "toolsApps": "Aplikacje",
+  "reconnect": "Połącz ponownie",
+  "reconnectNeeded": "Wymaga ponownego połączenia",
+  "mixedAccess": "Dostęp mieszany",
+  "disconnectAccountTitle": "Odłączyć {account}?",
+  "disconnectAccountBody": "Agent traci dostęp do {apps} przez to konto."
 }

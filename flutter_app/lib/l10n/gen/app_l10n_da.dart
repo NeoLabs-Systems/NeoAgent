@@ -11643,4 +11643,26 @@ class AppL10nDa extends AppL10n {
 
   @override
   String get calendarLinkAdded => 'Kalender tilføjet';
+
+  @override
+  String get toolsApps => 'Apps';
+
+  @override
+  String get reconnect => 'Forbind igen';
+
+  @override
+  String get reconnectNeeded => 'Skal forbindes igen';
+
+  @override
+  String get mixedAccess => 'Blandet adgang';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Afbryd $account?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'Agenten mister adgang til $apps via denne konto.';
+  }
 }

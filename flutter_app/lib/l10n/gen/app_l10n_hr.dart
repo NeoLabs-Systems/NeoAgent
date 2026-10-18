@@ -11657,4 +11657,26 @@ class AppL10nHr extends AppL10n {
 
   @override
   String get calendarLinkAdded => 'Kalendar dodan';
+
+  @override
+  String get toolsApps => 'Aplikacije';
+
+  @override
+  String get reconnect => 'Ponovno poveži';
+
+  @override
+  String get reconnectNeeded => 'Potrebno ponovno povezivanje';
+
+  @override
+  String get mixedAccess => 'Mješoviti pristup';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Odspojiti $account?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'Agent putem ovog računa gubi pristup za $apps.';
+  }
 }

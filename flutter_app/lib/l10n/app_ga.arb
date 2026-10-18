@@ -7191,5 +7191,11 @@
   "calendarLink": "Nasc féilire",
   "calendarLinkHelper": "Seoladh iCal an fhéilire. Is féidir le duine ar bith a bhfuil sé aige an féilire a léamh, mar sin coinnigh príobháideach é.",
   "calendarLinkName": "Ainm (roghnach)",
-  "calendarLinkAdded": "Féilire curtha leis"
+  "calendarLinkAdded": "Féilire curtha leis",
+  "toolsApps": "Aipeanna",
+  "reconnect": "Athcheangail",
+  "reconnectNeeded": "Athcheangal ag teastáil",
+  "mixedAccess": "Rochtain mheasctha",
+  "disconnectAccountTitle": "Dícheangail {account}?",
+  "disconnectAccountBody": "Cailleann an gníomhaire rochtain ar {apps} tríd an gcuntas seo."
 }

@@ -11676,4 +11676,26 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get calendarLinkAdded => 'Kalendārs pievienots';
+
+  @override
+  String get toolsApps => 'Lietotnes';
+
+  @override
+  String get reconnect => 'Savienot vēlreiz';
+
+  @override
+  String get reconnectNeeded => 'Jāsavieno vēlreiz';
+
+  @override
+  String get mixedAccess => 'Jaukta piekļuve';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Atvienot $account?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'Aģents caur šo kontu zaudē piekļuvi $apps.';
+  }
 }

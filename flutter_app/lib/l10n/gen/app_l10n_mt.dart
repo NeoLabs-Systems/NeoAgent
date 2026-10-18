@@ -11687,4 +11687,26 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get calendarLinkAdded => 'Il-kalendarju żdied';
+
+  @override
+  String get toolsApps => 'Apps';
+
+  @override
+  String get reconnect => 'Erġa\' qabbad';
+
+  @override
+  String get reconnectNeeded => 'Jeħtieġ jerġa\' jitqabbad';
+
+  @override
+  String get mixedAccess => 'Aċċess imħallat';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Tiskonnettja $account?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'L-aġent jitlef l-aċċess għal $apps permezz ta\' dan il-kont.';
+  }
 }

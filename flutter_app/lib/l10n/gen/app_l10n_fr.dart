@@ -11766,4 +11766,26 @@ class AppL10nFr extends AppL10n {
 
   @override
   String get calendarLinkAdded => 'Calendrier ajouté';
+
+  @override
+  String get toolsApps => 'Applis';
+
+  @override
+  String get reconnect => 'Reconnecter';
+
+  @override
+  String get reconnectNeeded => 'Reconnexion requise';
+
+  @override
+  String get mixedAccess => 'Accès mixte';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Déconnecter $account ?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'L\'agent perd l\'accès à $apps via ce compte.';
+  }
 }

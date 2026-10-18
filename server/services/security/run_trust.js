@@ -53,6 +53,9 @@ const HARNESS_OUTPUT_TOOLS = new Set([
   'spawn_subagent',
   'list_subagents',
   'cancel_subagent',
+  'settings_read',
+  'settings_update',
+  'settings_link',
 ]);
 
 const PHONE_LIKE_RE = /\+?\d[\d\s().-]{4,}\d/g;

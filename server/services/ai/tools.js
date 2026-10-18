@@ -1920,6 +1920,7 @@ async function executeTool(toolName, args, context, engine) {
     const integratedToolResult = await executeIntegratedTool(toolName, args, {
         userId,
         agentId,
+        app,
         cliExecutor: runtime() && typeof runtime().getCommandExecutorForUser === 'function'
             ? await runtime().getCommandExecutorForUser(userId, { deviceTarget })
             : null,

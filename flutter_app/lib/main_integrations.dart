@@ -15,8 +15,9 @@ void _showControllerError(
   );
 }
 
-/// Everything about one official integration — status, guidance, and the
-/// per-app connect/account controls — shown from the Tools page.
+/// Everything about one official integration, shown from the Tools page:
+/// what needs doing (if anything), the connected accounts once each, and for
+/// multi-app integrations which apps are on.
 class IntegrationDetailView extends StatelessWidget {
   const IntegrationDetailView({
     super.key,
@@ -41,6 +42,15 @@ class IntegrationDetailView extends StatelessWidget {
             style: TextStyle(color: _textSecondary),
           );
         }
+        final notice = _integrationNotice(item);
+        final accounts = _groupIntegrationAccounts(item);
+        final primary = _integrationPrimaryAction(context, controller, item);
+        // Per-app connect rows only where each app is signed in on its own.
+        final perApp =
+            item.apps.length > 1 &&
+            item.connectionMethod == 'oauth' &&
+            item.env.configured;
+        final sweepApps = item.apps.where((app) => app.memorySweep).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -48,54 +58,9 @@ class IntegrationDetailView extends StatelessWidget {
               item.description,
               style: TextStyle(color: _textSecondary, height: 1.45),
             ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: <Widget>[
-                _StatusPill(
-                  label: item.statusLabel,
-                  color: item.isConnected
-                      ? _success
-                      : item.hasExpiredAccounts
-                      ? _warning
-                      : item.env.configured
-                      ? _info
-                      : _warning,
-                ),
-                _MetaPill(
-                  label: appStrings.arg1Accounts(item.connection.accountCount),
-                  icon: Icons.alternate_email_rounded,
-                ),
-                _MetaPill(
-                  label: appStrings.arg1AppsActive(item.connection.appCount),
-                  icon: Icons.apps_rounded,
-                ),
-                _MetaPill(
-                  label: appStrings.arg1Tools(item.availableToolCount),
-                  icon: Icons.build_outlined,
-                ),
-                _MetaPill(
-                  label: item.memoryCoverage.supported
-                      ? 'Memory ${item.memoryCoverage.statusLabel}'
-                      : appStrings.noMemorySync,
-                  icon: Icons.psychology_alt_outlined,
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Text(
-              _integrationGuidance(item),
-              style: TextStyle(color: _textSecondary, height: 1.45),
-            ),
-            if (item.usesOwnOAuthApp && item.env.configured) ...<Widget>[
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: () =>
-                    _showOAuthAppSetupDialog(context, controller, item.id),
-                icon: const Icon(Icons.key_rounded),
-                label: Text(appStrings.yourOAuthApp),
-              ),
+            if (notice != null) ...<Widget>[
+              const SizedBox(height: 16),
+              _IntegrationNotice(text: notice.$1, color: notice.$2),
             ],
             if (!item.env.configured &&
                 item.env.alternatives.isNotEmpty) ...<Widget>[
@@ -110,17 +75,67 @@ class IntegrationDetailView extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: 18),
-            ...item.apps.map(
-              (app) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _OfficialIntegrationAppCard(
+            if (item.env.configured || accounts.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 22),
+              _IntegrationSectionLabel(appStrings.accounts),
+              if (accounts.isEmpty)
+                Text(
+                  appStrings.noAccountsConnectedYet,
+                  style: TextStyle(color: _textSecondary),
+                )
+              else
+                _IntegrationGroupedList(
+                  children: accounts
+                      .map(
+                        (group) => _IntegrationAccountRow(
+                          controller: controller,
+                          provider: item,
+                          group: group,
+                        ),
+                      )
+                      .toList(),
+                ),
+            ],
+            if (primary != null) ...<Widget>[
+              const SizedBox(height: 14),
+              primary,
+            ],
+            if (perApp) ...<Widget>[
+              const SizedBox(height: 26),
+              _IntegrationSectionLabel(appStrings.toolsApps),
+              _IntegrationGroupedList(
+                children: item.apps
+                    .map(
+                      (app) => _IntegrationAppRow(
+                        controller: controller,
+                        provider: item,
+                        app: app,
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
+            for (final app in sweepApps)
+              if (app.isConnected || item.env.configured) ...<Widget>[
+                const SizedBox(height: 14),
+                _EmailMemoryPanel(
                   controller: controller,
                   provider: item,
                   app: app,
+                  connectBusy: controller.isOfficialIntegrationBusy(
+                    '${item.id}:${app.id}:connect',
+                  ),
                 ),
+              ],
+            if (item.usesOwnOAuthApp && item.env.configured) ...<Widget>[
+              const SizedBox(height: 18),
+              TextButton.icon(
+                onPressed: () =>
+                    _showOAuthAppSetupDialog(context, controller, item.id),
+                icon: const Icon(Icons.key_rounded, size: 18),
+                label: Text(appStrings.yourOAuthApp),
               ),
-            ),
+            ],
           ],
         );
       },
@@ -128,30 +143,592 @@ class IntegrationDetailView extends StatelessWidget {
   }
 }
 
-String _integrationGuidance(OfficialIntegrationItem item) {
+/// The one thing worth telling someone before they act, or null when the
+/// integration simply works.
+(String, Color)? _integrationNotice(OfficialIntegrationItem item) {
   if (!item.env.configured) {
-    return item.env.summary;
+    final summary = item.env.summary.trim();
+    return summary.isEmpty ? null : (summary, _warning);
   }
   if (item.connectionMethod == 'device' && !item.isConnected) {
-    return PhoneSync.supported
-        ? appStrings.phoneSyncGuidance
-        : appStrings.phoneSyncElsewhereGuidance;
+    return (
+      PhoneSync.supported
+          ? appStrings.phoneSyncGuidance
+          : appStrings.phoneSyncElsewhereGuidance,
+      _info,
+    );
   }
   if (item.hasExpiredAccounts) {
-    return item.id == 'google_workspace'
-        ? appStrings.oneOrMoreAccountsExpiredReconnectTo
-        : appStrings.oneOrMoreAccountsExpiredReconnect;
-  }
-  if (!item.supportsMultipleAccounts && item.isConnected) {
-    return appStrings.thisIntegrationCurrentlySupportsOneConnected;
-  }
-  if (item.isConnected) {
-    return appStrings.connectAsManyAccountsAsYou;
+    return (
+      item.id == 'google_workspace'
+          ? appStrings.oneOrMoreAccountsExpiredReconnectTo
+          : appStrings.oneOrMoreAccountsExpiredReconnect,
+      _warning,
+    );
   }
   final prompt = (item.connectPrompt ?? '').trim();
-  return prompt.isNotEmpty
-      ? prompt
-      : appStrings.connectAppAccountsIndividuallySoThe;
+  if (!item.isConnected && prompt.isNotEmpty) return (prompt, _info);
+  return null;
+}
+
+/// The integration-wide action: setup for integrations configured by hand or
+/// on a phone, and the connect button for a single-app sign-in. Multi-app
+/// sign-ins connect from their app rows instead.
+Widget? _integrationPrimaryAction(
+  BuildContext context,
+  NeoAgentController controller,
+  OfficialIntegrationItem item,
+) {
+  switch (item.connectionMethod) {
+    case 'device':
+      if (!PhoneSync.supported) return null;
+      return FilledButton.icon(
+        onPressed: () => _showPhoneSyncSetup(context, controller),
+        icon: const Icon(Icons.smartphone_rounded),
+        label: Text(
+          item.isConnected
+              ? appStrings.manageOnThisPhone
+              : appStrings.setUpOnThisPhone,
+        ),
+      );
+    case 'user_config':
+      void open() =>
+          _openOfficialIntegrationSetupDialog(context, controller, item.id);
+      return item.env.configured
+          ? OutlinedButton.icon(
+              onPressed: open,
+              icon: const Icon(Icons.settings_rounded),
+              label: Text(appStrings.manage),
+            )
+          : FilledButton.icon(
+              onPressed: open,
+              icon: const Icon(Icons.settings_rounded),
+              label: Text(appStrings.completeSetup),
+            );
+  }
+  if (!item.env.configured) {
+    if (item.env.setupMode != 'user') return null;
+    return FilledButton.icon(
+      onPressed: () =>
+          _openOfficialIntegrationSetupDialog(context, controller, item.id),
+      icon: const Icon(Icons.settings_rounded),
+      label: Text(appStrings.configure),
+    );
+  }
+  if (item.apps.length > 1 && !item.signInCoversAllApps) {
+    return _addAccountToAppMenu(controller, item);
+  }
+  if (item.apps.isEmpty) return null;
+  // A sign-in that covers every app starts from the first one; the server
+  // connects the rest it was granted.
+  final app = item.apps.first;
+  final linked = item.signInCoversAllApps ? item.isConnected : app.isConnected;
+  if (linked && !item.supportsMultipleAccounts) return null;
+  final busy = controller.isOfficialIntegrationBusy(
+    '${item.id}:${app.id}:connect',
+  );
+  final button = linked ? OutlinedButton.icon : FilledButton.icon;
+  return button(
+    onPressed: busy
+        ? null
+        : () => controller.connectOfficialIntegration(item.id, appId: app.id),
+    icon: const Icon(Icons.add_rounded),
+    label: Text(
+      busy
+          ? 'Connecting...'
+          : linked
+          ? appStrings.addAccount
+          : appStrings.connectAccount,
+    ),
+  );
+}
+
+/// Another account for a multi-app sign-in. Each app connects on its own, so
+/// the button asks which app; apps not on yet connect from their rows.
+Widget? _addAccountToAppMenu(
+  NeoAgentController controller,
+  OfficialIntegrationItem item,
+) {
+  final apps = item.apps.where((app) => app.isConnected).toList();
+  if (!item.supportsMultipleAccounts || apps.isEmpty) return null;
+  final busy = apps.any(
+    (app) =>
+        controller.isOfficialIntegrationBusy('${item.id}:${app.id}:connect'),
+  );
+  return MenuAnchor(
+    builder: (context, menu, _) => OutlinedButton.icon(
+      onPressed: busy ? null : () => menu.isOpen ? menu.close() : menu.open(),
+      icon: const Icon(Icons.add_rounded),
+      label: Text(busy ? 'Connecting...' : appStrings.addAccount),
+    ),
+    menuChildren: <Widget>[
+      for (final app in apps)
+        MenuItemButton(
+          onPressed: () =>
+              controller.connectOfficialIntegration(item.id, appId: app.id),
+          child: Text(app.label),
+        ),
+    ],
+  );
+}
+
+/// One person's sign-in to an integration, with the per-app connections it
+/// is made of. Multi-app integrations keep one connection per app, so the
+/// same account would otherwise show once for every app.
+class _IntegrationAccountGroup {
+  _IntegrationAccountGroup(this.label);
+
+  final String label;
+  final List<(OfficialIntegrationAppItem, OfficialIntegrationAccountItem)>
+  links = <(OfficialIntegrationAppItem, OfficialIntegrationAccountItem)>[];
+
+  Iterable<OfficialIntegrationAccountItem> get accounts =>
+      links.map((link) => link.$2);
+
+  bool get connected => accounts.any((account) => account.connected);
+
+  List<String> appLabels({required bool connected}) => links
+      .where((link) => link.$2.connected == connected)
+      .map((link) => link.$1.label)
+      .toList();
+
+  List<OfficialIntegrationAppItem> get expiredApps => links
+      .where((link) => link.$2.isExpired && !link.$2.connected)
+      .map((link) => link.$1)
+      .toList();
+}
+
+List<_IntegrationAccountGroup> _groupIntegrationAccounts(
+  OfficialIntegrationItem item,
+) {
+  final groups = <String, _IntegrationAccountGroup>{};
+  for (final app in item.apps) {
+    for (final account in app.accounts) {
+      final email = account.accountEmail?.trim() ?? '';
+      final key = email.isEmpty
+          ? 'connection:${account.id}'
+          : email.toLowerCase();
+      final group = groups.putIfAbsent(
+        key,
+        () => _IntegrationAccountGroup(
+          email.isEmpty ? appStrings.unknownAccount : email,
+        ),
+      );
+      group.links.add((app, account));
+    }
+  }
+  return groups.values.toList();
+}
+
+class _IntegrationSectionLabel extends StatelessWidget {
+  const _IntegrationSectionLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: _textPrimary,
+          fontSize: 15,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.2,
+        ),
+      ),
+    );
+  }
+}
+
+/// Rows in one rounded box with hairline dividers, like a settings list.
+class _IntegrationGroupedList extends StatelessWidget {
+  const _IntegrationGroupedList({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        children: <Widget>[
+          for (var index = 0; index < children.length; index++) ...<Widget>[
+            if (index > 0) Divider(height: 1, color: _border),
+            children[index],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _IntegrationNotice extends StatelessWidget {
+  const _IntegrationNotice({required this.text, required this.color});
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 11, 14, 11),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(
+            color == _warning
+                ? Icons.error_outline_rounded
+                : Icons.info_outline_rounded,
+            size: 18,
+            color: color,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(color: _textPrimary, height: 1.4, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IntegrationAccountRow extends StatelessWidget {
+  const _IntegrationAccountRow({
+    required this.controller,
+    required this.provider,
+    required this.group,
+  });
+
+  final NeoAgentController controller;
+  final OfficialIntegrationItem provider;
+  final _IntegrationAccountGroup group;
+
+  bool _busy(String action) => group.accounts.any(
+    (account) => controller.isOfficialIntegrationBusy(
+      '${provider.id}:${account.id}:$action',
+    ),
+  );
+
+  Future<void> _setAccessMode(String mode) async {
+    for (final account in group.accounts) {
+      if (account.accessMode == mode) continue;
+      await controller.setOfficialIntegrationAccessMode(
+        provider.id,
+        connectionId: account.id,
+        accessMode: mode,
+      );
+    }
+  }
+
+  Future<void> _test(BuildContext context) async {
+    final account = group.accounts.firstWhere(
+      (account) => account.connected && account.supportsConnectionTest,
+    );
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final result = await controller.testOfficialIntegration(
+        provider.id,
+        connectionId: account.id,
+      );
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            result['message']?.toString() ??
+                appStrings.arg1IsConnectedAndResponding(provider.label),
+          ),
+        ),
+      );
+    } catch (_) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            controller.errorMessage ?? appStrings.theConnectionTestFailed,
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _disconnect(BuildContext context) async {
+    final apps = group.links.map((link) => link.$1.label).toList();
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(appStrings.disconnectAccountTitle(group.label)),
+            content: Text(
+              appStrings.disconnectAccountBody(
+                provider.apps.length > 1 ? apps.join(', ') : provider.label,
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(appStrings.cancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text(appStrings.disconnect),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+    for (final account in group.accounts.toList()) {
+      await controller.disconnectOfficialIntegration(
+        provider.id,
+        connectionId: account.id,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final multiApp = provider.apps.length > 1;
+    final expiredApps = group.expiredApps;
+    final onApps = group.appLabels(connected: true);
+    // What works, then what needs a reconnect, so a partly expired account
+    // still shows the apps it keeps.
+    final working = multiApp && onApps.isNotEmpty
+        ? onApps.join(' · ')
+        : group.connected && expiredApps.isEmpty
+        ? appStrings.connected
+        : expiredApps.isEmpty
+        ? group.accounts.first.statusLabel
+        : '';
+    final warning = expiredApps.isEmpty
+        ? ''
+        : multiApp
+        ? '${appStrings.reconnectNeeded}: ${expiredApps.map((app) => app.label).join(', ')}'
+        : appStrings.reconnectNeeded;
+    final modes = group.accounts.map((account) => account.accessMode).toSet();
+    final accessBusy = _busy('access_mode');
+    // Read / write is the default; only a restriction is worth a word.
+    final access = accessBusy
+        ? appStrings.saving
+        : modes.length > 1
+        ? appStrings.mixedAccess
+        : modes.first == 'read_only'
+        ? appStrings.readOnly
+        : null;
+    final canTest = group.accounts.any(
+      (account) => account.connected && account.supportsConnectionTest,
+    );
+    final initial = group.label.isEmpty ? '?' : group.label[0].toUpperCase();
+    final color = expiredApps.isNotEmpty ? _warning : _accent;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+      child: Row(
+        children: <Widget>[
+          CircleAvatar(
+            radius: 17,
+            backgroundColor: color.withValues(alpha: 0.16),
+            child: Text(
+              initial,
+              style: TextStyle(color: color, fontWeight: FontWeight.w800),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  group.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: _textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text.rich(
+                  TextSpan(
+                    children: <InlineSpan>[
+                      TextSpan(
+                        text: <String>[
+                          working,
+                          ?access,
+                        ].where((part) => part.isNotEmpty).join(' · '),
+                      ),
+                      if (warning.isNotEmpty) ...<InlineSpan>[
+                        if (working.isNotEmpty || access != null)
+                          const TextSpan(text: ' · '),
+                        TextSpan(
+                          text: warning,
+                          style: TextStyle(color: _warning),
+                        ),
+                      ],
+                    ],
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: _textSecondary, fontSize: 12.5),
+                ),
+              ],
+            ),
+          ),
+          PopupMenuButton<String>(
+            tooltip: appStrings.moreActions,
+            enabled: !accessBusy,
+            icon: Icon(Icons.more_horiz_rounded, color: _textSecondary),
+            position: PopupMenuPosition.under,
+            onSelected: (action) {
+              switch (action) {
+                case 'test':
+                  _test(context);
+                case 'reconnect':
+                  controller.connectOfficialIntegration(
+                    provider.id,
+                    appId: expiredApps.first.id,
+                  );
+                case 'disconnect':
+                  _disconnect(context);
+                default:
+                  _setAccessMode(action);
+              }
+            },
+            itemBuilder: (context) => <PopupMenuEntry<String>>[
+              CheckedPopupMenuItem<String>(
+                value: 'read_write',
+                checked: modes.length == 1 && modes.first == 'read_write',
+                child: Text(appStrings.readWrite),
+              ),
+              CheckedPopupMenuItem<String>(
+                value: 'read_only',
+                checked: modes.length == 1 && modes.first == 'read_only',
+                child: Text(appStrings.readOnly),
+              ),
+              const PopupMenuDivider(),
+              if (expiredApps.isNotEmpty && provider.connectionMethod == 'oauth')
+                PopupMenuItem<String>(
+                  value: 'reconnect',
+                  child: Text(appStrings.reconnect),
+                ),
+              if (canTest)
+                PopupMenuItem<String>(
+                  value: 'test',
+                  enabled: !_busy('test'),
+                  child: Text(appStrings.testConnection2),
+                ),
+              PopupMenuItem<String>(
+                value: 'disconnect',
+                enabled: !_busy('disconnect'),
+                child: Text(
+                  appStrings.disconnect,
+                  style: TextStyle(color: _danger),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One app of a multi-app sign-in: whether it is on, and, where each app
+/// signs in on its own, the button that turns it on or reconnects it.
+class _IntegrationAppRow extends StatelessWidget {
+  const _IntegrationAppRow({
+    required this.controller,
+    required this.provider,
+    required this.app,
+  });
+
+  final NeoAgentController controller;
+  final OfficialIntegrationItem provider;
+  final OfficialIntegrationAppItem app;
+
+  @override
+  Widget build(BuildContext context) {
+    final busy = controller.isOfficialIntegrationBusy(
+      '${provider.id}:${app.id}:connect',
+    );
+    final expired = !app.isConnected && app.hasExpiredAccounts;
+    final description = (app.description ?? '').trim();
+    final connect = busy
+        ? null
+        : () => controller.connectOfficialIntegration(provider.id, appId: app.id);
+
+    final Widget? action;
+    if (busy) {
+      action = const SizedBox(
+        width: 18,
+        height: 18,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    } else if (app.isConnected || provider.signInCoversAllApps) {
+      action = null;
+    } else {
+      action = FilledButton.tonal(
+        onPressed: connect,
+        child: Text(expired ? appStrings.reconnect : appStrings.connect),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+      child: Row(
+        children: <Widget>[
+          Icon(
+            app.isConnected
+                ? Icons.check_circle_rounded
+                : expired
+                ? Icons.error_outline_rounded
+                : Icons.radio_button_unchecked_rounded,
+            size: 20,
+            color: app.isConnected
+                ? _success
+                : expired
+                ? _warning
+                : _textMuted,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  app.label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: _textPrimary,
+                  ),
+                ),
+                if (description.isNotEmpty)
+                  Text(
+                    description,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: _textSecondary, fontSize: 12.5),
+                  ),
+              ],
+            ),
+          ),
+          if (action != null) ...<Widget>[const SizedBox(width: 10), action],
+        ],
+      ),
+    );
+  }
 }
 
 void _openOfficialIntegrationSetupDialog(
@@ -1854,365 +2431,6 @@ class _IntegrationSetupStatusItem extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _OfficialIntegrationAppCard extends StatelessWidget {
-  const _OfficialIntegrationAppCard({
-    required this.controller,
-    required this.provider,
-    required this.app,
-  });
-
-  final NeoAgentController controller;
-  final OfficialIntegrationItem provider;
-  final OfficialIntegrationAppItem app;
-
-  @override
-  Widget build(BuildContext context) {
-    final connectBusy = controller.isOfficialIntegrationBusy(
-      '${provider.id}:${app.id}:connect',
-    );
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _bgPrimary,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: Text(
-                                app.label,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            _StatusPill(
-                              label: app.statusLabel,
-                              color: app.isConnected
-                                  ? _success
-                                  : app.hasExpiredAccounts
-                                  ? _warning
-                                  : _textSecondary,
-                            ),
-                          ],
-                        ),
-                        if ((app.description ?? '')
-                            .trim()
-                            .isNotEmpty) ...<Widget>[
-                          const SizedBox(height: 4),
-                          Text(
-                            app.description!,
-                            style: TextStyle(color: _textSecondary),
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: <Widget>[
-                            _MetaPill(
-                              label: appStrings.arg1Accounts(app.accounts.length),
-                              icon: Icons.account_circle_outlined,
-                            ),
-                            _MetaPill(
-                              label: appStrings.arg1Tools(app.availableToolCount),
-                              icon: Icons.build_circle_outlined,
-                            ),
-                            if (!app.memorySweep)
-                              _MetaPill(
-                                label: app.memoryCoverage.supported
-                                    ? 'Memory ${app.memoryCoverage.statusLabel}'
-                                    : appStrings.noMemorySync,
-                                icon: Icons.psychology_alt_outlined,
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: _buildIntegrationActionButton(context, connectBusy),
-              ),
-              if (app.memorySweep) ...<Widget>[
-                const SizedBox(height: 12),
-                _EmailMemoryPanel(
-                  controller: controller,
-                  provider: provider,
-                  app: app,
-                  connectBusy: connectBusy,
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (app.accounts.isEmpty)
-            Text(
-              appStrings.noAccountsConnectedYet,
-              style: TextStyle(color: _textSecondary),
-            )
-          else
-            Column(
-              children: app.accounts.map((account) {
-                final disconnectBusy = controller.isOfficialIntegrationBusy(
-                  '${provider.id}:${account.id}:disconnect',
-                );
-                final accessBusy = controller.isOfficialIntegrationBusy(
-                  '${provider.id}:${account.id}:access_mode',
-                );
-                final testBusy = controller.isOfficialIntegrationBusy(
-                  '${provider.id}:${account.id}:test',
-                );
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _bgSecondary,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: account.connected ? _accentMuted : _border,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        account.accountEmail ?? appStrings.unknownAccount,
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        appStrings.connectionArg1(account.id),
-                        style: TextStyle(color: _textSecondary),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        appStrings.accessArg1(account.accessModeLabel),
-                        style: TextStyle(color: _textSecondary),
-                      ),
-                      if (account.memoryCoverage.supported && !app.memorySweep) ...<Widget>[
-                        const SizedBox(height: 4),
-                        Text(
-                          appStrings.memoryArg1(account.memoryCoverage.statusLabel),
-                          style: TextStyle(color: _textSecondary),
-                        ),
-                      ],
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: <Widget>[
-                          PopupMenuButton<String>(
-                            enabled: !accessBusy,
-                            tooltip: appStrings.accessMode,
-                            onSelected: (value) {
-                              if (value == account.accessMode) return;
-                              controller.setOfficialIntegrationAccessMode(
-                                provider.id,
-                                connectionId: account.id,
-                                accessMode: value,
-                              );
-                            },
-                            itemBuilder: (context) =>
-                                <PopupMenuEntry<String>>[
-                                  PopupMenuItem<String>(
-                                    value: 'read_write',
-                                    child: Text(appStrings.readWrite),
-                                  ),
-                                  PopupMenuItem<String>(
-                                    value: 'read_only',
-                                    child: Text(appStrings.readOnly),
-                                  ),
-                                ],
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: _border),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: <Widget>[
-                                  Icon(
-                                    Icons.lock_open_rounded,
-                                    size: 16,
-                                    color: _textSecondary,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    accessBusy
-                                        ? appStrings.saving
-                                        : account.accessModeLabel,
-                                    style: TextStyle(color: _textSecondary),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          _StatusPill(
-                            label: account.statusLabel,
-                            color: account.connected
-                                ? _success
-                                : account.isExpired
-                                ? _warning
-                                : _textSecondary,
-                          ),
-                          if (account.supportsConnectionTest)
-                            OutlinedButton.icon(
-                              onPressed: testBusy
-                                  ? null
-                                  : () async {
-                                      try {
-                                        final result = await controller
-                                            .testOfficialIntegration(
-                                              provider.id,
-                                              connectionId: account.id,
-                                            );
-                                        if (!context.mounted) return;
-                                        final message =
-                                            result['message']?.toString() ??
-                                            appStrings.arg1IsConnectedAndResponding(provider.label);
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(content: Text(message)),
-                                        );
-                                      } catch (_) {
-                                        if (!context.mounted) return;
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              controller.errorMessage ??
-                                                  appStrings.theConnectionTestFailed,
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    },
-                              icon: Icon(Icons.network_check_rounded),
-                              label: Text(
-                                testBusy ? 'Testing...' : appStrings.testConnection2,
-                              ),
-                            ),
-                          OutlinedButton.icon(
-                            onPressed: disconnectBusy
-                                ? null
-                                : () =>
-                                      controller.disconnectOfficialIntegration(
-                                        provider.id,
-                                        connectionId: account.id,
-                                      ),
-                            icon: Icon(Icons.link_off_rounded),
-                            label: Text(
-                              disconnectBusy ? 'Working...' : 'Disconnect',
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIntegrationActionButton(BuildContext context, bool connectBusy) {
-    if (provider.connectionMethod == 'device') {
-      return PhoneSync.supported
-          ? FilledButton.icon(
-              onPressed: () => _showPhoneSyncSetup(context, controller),
-              icon: const Icon(Icons.smartphone_rounded),
-              label: Text(
-                app.isConnected
-                    ? appStrings.manageOnThisPhone
-                    : appStrings.setUpOnThisPhone,
-              ),
-            )
-          : OutlinedButton.icon(
-              onPressed: null,
-              icon: const Icon(Icons.smartphone_rounded),
-              label: Text(appStrings.setUpOnPhone),
-            );
-    }
-    if (provider.connectionMethod == 'user_config') {
-      return FilledButton.icon(
-        onPressed: () => _openOfficialIntegrationSetupDialog(
-          context,
-          controller,
-          provider.id,
-        ),
-        icon: Icon(Icons.settings_rounded),
-        label: Text(
-          provider.env.configured ? 'Manage Setup' : appStrings.completeSetup,
-        ),
-      );
-    }
-
-    if (!provider.env.configured) {
-      return provider.env.setupMode == 'user'
-          ? FilledButton.icon(
-              onPressed: () => _openOfficialIntegrationSetupDialog(
-                context,
-                controller,
-                provider.id,
-              ),
-              icon: Icon(Icons.settings_rounded),
-              label: Text(appStrings.configure),
-            )
-          : OutlinedButton.icon(
-              onPressed: null,
-              icon: Icon(Icons.settings_suggest_outlined),
-              label: Text(appStrings.setupRequired),
-            );
-    }
-
-    return FilledButton.icon(
-      onPressed: connectBusy
-          ? null
-          : () => controller.connectOfficialIntegration(
-              provider.id,
-              appId: app.id,
-            ),
-      icon: Icon(Icons.link_rounded),
-      label: Text(
-        connectBusy
-            ? 'Connecting...'
-            : provider.supportsMultipleAccounts && app.isConnected
-            ? appStrings.addAccount
-            : appStrings.connectAccount,
       ),
     );
   }

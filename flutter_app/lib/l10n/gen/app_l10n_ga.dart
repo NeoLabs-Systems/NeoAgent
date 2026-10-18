@@ -11730,4 +11730,26 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get calendarLinkAdded => 'Féilire curtha leis';
+
+  @override
+  String get toolsApps => 'Aipeanna';
+
+  @override
+  String get reconnect => 'Athcheangail';
+
+  @override
+  String get reconnectNeeded => 'Athcheangal ag teastáil';
+
+  @override
+  String get mixedAccess => 'Rochtain mheasctha';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Dícheangail $account?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'Cailleann an gníomhaire rochtain ar $apps tríd an gcuntas seo.';
+  }
 }

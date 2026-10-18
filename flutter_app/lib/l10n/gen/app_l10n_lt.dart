@@ -11684,4 +11684,26 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get calendarLinkAdded => 'Kalendorius pridėtas';
+
+  @override
+  String get toolsApps => 'Programos';
+
+  @override
+  String get reconnect => 'Prijungti iš naujo';
+
+  @override
+  String get reconnectNeeded => 'Reikia prijungti iš naujo';
+
+  @override
+  String get mixedAccess => 'Mišri prieiga';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Atjungti $account?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'Agentas per šią paskyrą praras prieigą prie $apps.';
+  }
 }

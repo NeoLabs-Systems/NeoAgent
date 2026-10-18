@@ -44,6 +44,7 @@ const PERSISTENCE_TOOLS = new Set([
   'create_skill',
   'update_skill',
   'mcp_add_server',
+  'settings_update',
 ]);
 
 const RECIPIENT_ARGS = ['to', 'cc', 'bcc', 'recipient', 'recipients'];

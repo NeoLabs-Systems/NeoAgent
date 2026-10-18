@@ -11712,4 +11712,26 @@ class AppL10nRo extends AppL10n {
 
   @override
   String get calendarLinkAdded => 'Calendar adăugat';
+
+  @override
+  String get toolsApps => 'Aplicații';
+
+  @override
+  String get reconnect => 'Reconectează';
+
+  @override
+  String get reconnectNeeded => 'Necesită reconectare';
+
+  @override
+  String get mixedAccess => 'Acces mixt';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Deconectezi $account?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'Agentul pierde accesul la $apps prin acest cont.';
+  }
 }

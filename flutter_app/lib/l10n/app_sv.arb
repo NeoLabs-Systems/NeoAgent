@@ -7191,5 +7191,11 @@
   "calendarLink": "Kalenderlänk",
   "calendarLinkHelper": "Kalenderns iCal-adress. Alla som har den kan läsa kalendern, så håll den privat.",
   "calendarLinkName": "Namn (valfritt)",
-  "calendarLinkAdded": "Kalendern har lagts till"
+  "calendarLinkAdded": "Kalendern har lagts till",
+  "toolsApps": "Appar",
+  "reconnect": "Anslut igen",
+  "reconnectNeeded": "Behöver anslutas igen",
+  "mixedAccess": "Blandad åtkomst",
+  "disconnectAccountTitle": "Koppla från {account}?",
+  "disconnectAccountBody": "Agenten förlorar åtkomsten till {apps} via det här kontot."
 }

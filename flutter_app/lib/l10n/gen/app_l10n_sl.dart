@@ -11667,4 +11667,26 @@ class AppL10nSl extends AppL10n {
 
   @override
   String get calendarLinkAdded => 'Koledar dodan';
+
+  @override
+  String get toolsApps => 'Aplikacije';
+
+  @override
+  String get reconnect => 'Znova poveži';
+
+  @override
+  String get reconnectNeeded => 'Potrebna ponovna povezava';
+
+  @override
+  String get mixedAccess => 'Mešan dostop';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Prekinem povezavo $account?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'Agent prek tega računa izgubi dostop do $apps.';
+  }
 }

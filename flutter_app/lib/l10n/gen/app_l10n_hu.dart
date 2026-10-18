@@ -11715,4 +11715,26 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get calendarLinkAdded => 'Naptár hozzáadva';
+
+  @override
+  String get toolsApps => 'Alkalmazások';
+
+  @override
+  String get reconnect => 'Újracsatlakozás';
+
+  @override
+  String get reconnectNeeded => 'Újracsatlakozás szükséges';
+
+  @override
+  String get mixedAccess => 'Vegyes hozzáférés';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Leválasztod: $account?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'Az ügynök ezen a fiókon keresztül elveszíti a hozzáférést ehhez: $apps.';
+  }
 }

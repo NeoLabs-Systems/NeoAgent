@@ -540,6 +540,7 @@ test('calendar compaction excludes overlapping events from start-window reminder
   assert.equal(parsed.omittedOngoingTimedCount, 1);
   assert.equal(parsed.omittedAllDayCount, 9);
   assert.equal(parsed.upcomingTimed[0].summary, 'Zahnarzt Termin');
+  assert.equal(parsed.upcomingTimed[0].id, 'real', 'event id survives for update/delete');
   assert.equal(parsed.hasUpcomingTimedEvents, true);
   assert.equal(parsed.hasOngoingTimedEvents, false);
   assert.ok(!compact.includes('Düsseldorf'));

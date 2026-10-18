@@ -455,16 +455,26 @@ class IntegrationManager {
     );
     assertDurableOAuthCredentials(provider, mergedCredentials);
 
-    upsertConnectedIntegration({
-      userId: stateRow.user_id,
-      agentId: stateRow.agent_id || resolveAgentId(stateRow.user_id, null),
-      providerKey: provider.key,
-      appKey: stateRow.app_key,
-      accountEmail: result.accountEmail,
-      scopes: result.scopes || [],
-      credentialsJson: encryptValue(JSON.stringify(mergedCredentials)),
-      metadata: result.metadata || {},
-    });
+    // A provider whose one grant covers several apps (Google Workspace) names
+    // the others, and each gets its connection from this sign-in.
+    const appKeys = [
+      stateRow.app_key,
+      ...(Array.isArray(result.alsoConnectsAppIds) ? result.alsoConnectsAppIds : []),
+    ].filter((appKey, index, all) => appKey && all.indexOf(appKey) === index);
+    for (const appKey of appKeys) {
+      upsertConnectedIntegration({
+        userId: stateRow.user_id,
+        agentId: stateRow.agent_id || resolveAgentId(stateRow.user_id, null),
+        providerKey: provider.key,
+        appKey,
+        accountEmail: result.accountEmail,
+        scopes: result.scopes || [],
+        credentialsJson: encryptValue(JSON.stringify(mergedCredentials)),
+        metadata: appKey === stateRow.app_key
+          ? result.metadata || {}
+          : { ...(result.metadata || {}), appId: appKey },
+      });
+    }
 
     this.persistSharedCredentials(
       stateRow.user_id,

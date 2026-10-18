@@ -7191,5 +7191,11 @@
   "calendarLink": "Σύνδεσμος ημερολογίου",
   "calendarLinkHelper": "Η διεύθυνση iCal του ημερολογίου. Όποιος την έχει μπορεί να διαβάσει το ημερολόγιο, οπότε κρατήστε την ιδιωτική.",
   "calendarLinkName": "Όνομα (προαιρετικό)",
-  "calendarLinkAdded": "Το ημερολόγιο προστέθηκε"
+  "calendarLinkAdded": "Το ημερολόγιο προστέθηκε",
+  "toolsApps": "Εφαρμογές",
+  "reconnect": "Επανασύνδεση",
+  "reconnectNeeded": "Απαιτείται επανασύνδεση",
+  "mixedAccess": "Μικτή πρόσβαση",
+  "disconnectAccountTitle": "Αποσύνδεση του {account};",
+  "disconnectAccountBody": "Ο πράκτορας χάνει την πρόσβαση στα {apps} μέσω αυτού του λογαριασμού."
 }

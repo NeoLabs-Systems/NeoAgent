@@ -1,5 +1,6 @@
 'use strict';
 
+const { executeAppSettingsTool, getAppSettingsToolDefinitions } = require('./app_settings');
 const { generateSlideDeck } = require('./slidev');
 const { generateVideoWithRemotion } = require('./remotion');
 const {
@@ -83,6 +84,7 @@ function getIntegratedToolDefinitions(options = {}) {
       },
     },
   ];
+  tools.push(...getAppSettingsToolDefinitions());
   if (isSynthIdDetectorAvailable(options)) {
     tools.push({
       name: 'detect_synthid_watermark',
@@ -112,7 +114,7 @@ async function executeIntegratedTool(toolName, args, context = {}) {
     case 'detect_synthid_watermark':
       return detectSynthIdWatermark(args, context);
     default:
-      return null;
+      return executeAppSettingsTool(toolName, args, context);
   }
 }
 

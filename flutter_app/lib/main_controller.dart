@@ -209,6 +209,10 @@ class NeoAgentController extends ChangeNotifier {
   /// The open Settings page. Null on a phone means the page list is showing;
   /// wider layouts show the profile page in its place.
   SettingsPage? settingsPage;
+
+  /// The setting a search result or link pointed at. Its page scrolls to it
+  /// and flashes it once.
+  SettingsHighlight? settingsHighlight;
   Map<String, dynamic>? user;
   Map<String, dynamic> accountTwoFactor = const <String, dynamic>{};
   List<AccountSessionItem> accountSessions = const <AccountSessionItem>[];
@@ -310,6 +314,7 @@ class NeoAgentController extends ChangeNotifier {
   String? _chatHistoryBeforeSource;
   String? _chatHistoryBeforeId;
   String? _requestedRunFocusId;
+  String? _requestedIntegrationId;
 
   ActiveRunState? activeRun;
   // The foreground run that last ended in an error, cleared when the next one
@@ -378,6 +383,10 @@ class NeoAgentController extends ChangeNotifier {
   String get computerProvider =>
       computerRuntime['provider']?.toString() == 'local' ? 'local' : 'cloud';
   String? get requestedRunFocusId => _requestedRunFocusId;
+
+  /// The integration a link asked to open. The Tools page opens its sheet once
+  /// the integration list has it.
+  String? get requestedIntegrationId => _requestedIntegrationId;
 
   bool get hasLiveRun => isSendingMessage && activeRun != null;
 
@@ -829,6 +838,8 @@ class NeoAgentController extends ChangeNotifier {
     _notificationTriggersEnabled =
         _prefs?.getBool('mobile.notificationTriggersEnabled') ?? true;
     _restoreSelectedSectionFromPrefs();
+    final launchLink = takeLaunchAppLink();
+    if (launchLink != null) openAppLink(launchLink);
     appUpdateChannel =
         _prefs?.getString('app.update.channel')?.trim().toLowerCase() == 'beta'
         ? 'beta'
@@ -2202,17 +2213,63 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   /// Opens Settings, on [page] when one is given and otherwise on the page
-  /// that was open last.
-  void openSettings([SettingsPage? page]) {
-    if (page != null) settingsPage = page;
+  /// that was open last. [anchor] scrolls to one setting on that page.
+  void openSettings([SettingsPage? page, String? anchor]) {
+    if (page != null) {
+      settingsPage = page;
+      settingsHighlight = anchor == null ? null : SettingsHighlight(anchor);
+    }
     setSelectedSection(AppSection.settings);
   }
 
-  void setSettingsPage(SettingsPage? page) {
-    if (settingsPage == page) return;
+  void setSettingsPage(SettingsPage? page, {String? anchor}) {
+    if (settingsPage == page && anchor == null) return;
     settingsPage = page;
+    settingsHighlight = anchor == null ? null : SettingsHighlight(anchor);
     errorMessage = null;
     notifyListeners();
+  }
+
+  /// Opens the place [link] points at. Returns false when this app has no
+  /// such place, so the caller can open the link elsewhere.
+  bool openAppLink(AppLink link) {
+    if (link.section == AppSection.settings.name) {
+      final page = _visibleSettingsPages()
+          .where((candidate) => candidate.name == link.page)
+          .firstOrNull;
+      openSettings(page, page == null ? null : link.focus);
+      return true;
+    }
+    final section = AppSection.values
+        .where((candidate) => candidate.name == link.section)
+        .firstOrNull;
+    if (section == null) return false;
+    if (section == AppSection.integrations) {
+      _requestedIntegrationId = link.focus;
+    }
+    setSelectedSection(section);
+    return true;
+  }
+
+  void clearRequestedIntegration() {
+    _requestedIntegrationId = null;
+  }
+
+  /// Opens a link from a message: app links navigate in place, web and mail
+  /// links open outside the app.
+  void openMessageLink(String href) {
+    final uri = Uri.tryParse(href.trim());
+    if (uri == null) return;
+    final link = AppLink.tryParse(uri);
+    if (link != null && openAppLink(link)) return;
+    if (const <String>{'https', 'http', 'mailto'}.contains(uri.scheme)) {
+      unawaited(
+        url_launcher.launchUrl(
+          uri,
+          mode: url_launcher.LaunchMode.externalApplication,
+        ),
+      );
+    }
   }
 
   Future<void> stopRun(String runId) async {
@@ -6345,6 +6402,34 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  /// Re-reads settings someone else changed, such as the assistant. A save
+  /// from this app that is still in flight wins over what was read.
+  Future<void> _reloadSettingsChangedElsewhere(List<String> keys) async {
+    if (!isAuthenticated) return;
+    final agentId = _scopedAgentId;
+    final mutationId = _settingsMutationId;
+    final languageRevision = _languageRevision;
+    try {
+      final response = await _backendClient.fetchSettings(
+        backendUrl,
+        agentId: agentId,
+      );
+      if (_pendingSettingsWrites > 0 ||
+          mutationId != _settingsMutationId ||
+          agentId != _scopedAgentId) {
+        return;
+      }
+      settings = Map<String, dynamic>.from(response);
+      _reconcileLanguage(languageRevision);
+      notifyListeners();
+      if (keys.contains('assistant_behavior_notes')) {
+        unawaited(refreshMemory());
+      }
+    } catch (error) {
+      debugPrint('Reloading changed settings failed: $error');
+    }
+  }
+
   void _beginSettingsSave() {
     _activeSettingsSaves += 1;
     isSavingSettings = true;
@@ -7761,6 +7846,14 @@ class NeoAgentController extends ChangeNotifier {
       if (!progress.isRunning) unawaited(refreshSkills());
     });
     socket.on('device_sync:wake', phoneSync.handleWake);
+    socket.on('settings:changed', (dynamic data) {
+      final keys = _jsonMap(data)['keys'];
+      unawaited(
+        _reloadSettingsChangedElsewhere(
+          keys is List ? keys.map((key) => key.toString()).toList() : const [],
+        ),
+      );
+    });
     socket.on('integrations:status', (dynamic data) {
       officialIntegrations = _decodeModelList(
         'official_integrations.socket',

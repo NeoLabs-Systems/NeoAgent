@@ -30,6 +30,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'src/android_launcher_bridge.dart';
 import 'src/app_launch_bridge.dart';
+import 'src/app_link.dart';
 import 'src/app_release_updater.dart' as app_release_updater;
 import 'src/background_keepalive.dart';
 import 'src/call/call_bridge.dart';
@@ -89,6 +90,7 @@ part 'main_phone_sync.dart';
 part 'main_phone_sync_setup.dart';
 part 'main_models.dart';
 part 'main_shared.dart';
+part 'main_app_links.dart';
 part 'main_mascot.dart';
 part 'main_home_widgets.dart';
 part 'main_call_screen.dart';

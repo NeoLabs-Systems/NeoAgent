@@ -21,10 +21,6 @@ class SettingsPanel extends StatefulWidget {
 class _SettingsPanelState extends State<SettingsPanel> {
   final TextEditingController _searchController = TextEditingController();
 
-  /// The setting a search result pointed at. Its page scrolls to it and
-  /// flashes it once.
-  _SettingsHighlight? _highlight;
-
   NeoAgentController get _controller => widget.controller;
 
   String get _query => _searchController.text.trim();
@@ -36,11 +32,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
   }
 
   void _openPage(SettingsPage page, {String? anchor}) {
-    _searchController.clear();
-    setState(() {
-      _highlight = anchor == null ? null : _SettingsHighlight(anchor);
-    });
-    _controller.setSettingsPage(page);
+    setState(_searchController.clear);
+    _controller.setSettingsPage(page, anchor: anchor);
   }
 
   @override
@@ -74,7 +67,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         key: ValueKey<SettingsPage>(shown),
                         controller: _controller,
                         page: shown,
-                        highlight: _highlight,
+                        highlight: _controller.settingsHighlight,
                       )
                     : ListView(
                         padding: _pagePadding(context),
@@ -110,7 +103,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             key: ValueKey<SettingsPage>(page),
             controller: _controller,
             page: page,
-            highlight: _highlight,
+            highlight: _controller.settingsHighlight,
             onBack: () => _controller.setSettingsPage(null),
           ),
         );
@@ -732,7 +725,7 @@ class _SettingsPageView extends StatelessWidget {
 
   final NeoAgentController controller;
   final SettingsPage page;
-  final _SettingsHighlight? highlight;
+  final SettingsHighlight? highlight;
 
   /// Set on a phone, where the page covers the list.
   final VoidCallback? onBack;
@@ -1448,8 +1441,8 @@ class _AutosaveTextFieldState extends State<_AutosaveTextField> {
 
 /// Which setting a search result pointed at. A new instance per search tap,
 /// so opening the same result twice flashes it twice.
-class _SettingsHighlight {
-  _SettingsHighlight(this.anchor);
+class SettingsHighlight {
+  SettingsHighlight(this.anchor);
 
   final String anchor;
 }
@@ -1460,9 +1453,9 @@ class _SettingsHighlightScope extends InheritedWidget {
     required super.child,
   });
 
-  final _SettingsHighlight? highlight;
+  final SettingsHighlight? highlight;
 
-  static _SettingsHighlight? of(BuildContext context) => context
+  static SettingsHighlight? of(BuildContext context) => context
       .dependOnInheritedWidgetOfExactType<_SettingsHighlightScope>()
       ?.highlight;
 
@@ -1484,7 +1477,7 @@ class _SettingsAnchor extends StatefulWidget {
 }
 
 class _SettingsAnchorState extends State<_SettingsAnchor> {
-  _SettingsHighlight? _handled;
+  SettingsHighlight? _handled;
   bool _lit = false;
   Timer? _fade;
 

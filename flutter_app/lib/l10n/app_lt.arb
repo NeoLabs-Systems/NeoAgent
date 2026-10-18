@@ -7191,5 +7191,11 @@
   "calendarLink": "Kalendoriaus nuoroda",
   "calendarLinkHelper": "Kalendoriaus iCal adresas. Kas jį turi, gali skaityti kalendorių, todėl laikykite jį privačiu.",
   "calendarLinkName": "Pavadinimas (nebūtina)",
-  "calendarLinkAdded": "Kalendorius pridėtas"
+  "calendarLinkAdded": "Kalendorius pridėtas",
+  "toolsApps": "Programos",
+  "reconnect": "Prijungti iš naujo",
+  "reconnectNeeded": "Reikia prijungti iš naujo",
+  "mixedAccess": "Mišri prieiga",
+  "disconnectAccountTitle": "Atjungti {account}?",
+  "disconnectAccountBody": "Agentas per šią paskyrą praras prieigą prie {apps}."
 }

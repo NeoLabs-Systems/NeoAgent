@@ -7191,5 +7191,11 @@
   "calendarLink": "Kalendāra saite",
   "calendarLinkHelper": "Kalendāra iCal adrese. Ikviens, kam tā ir, var lasīt kalendāru, tāpēc glabājiet to privāti.",
   "calendarLinkName": "Nosaukums (neobligāti)",
-  "calendarLinkAdded": "Kalendārs pievienots"
+  "calendarLinkAdded": "Kalendārs pievienots",
+  "toolsApps": "Lietotnes",
+  "reconnect": "Savienot vēlreiz",
+  "reconnectNeeded": "Jāsavieno vēlreiz",
+  "mixedAccess": "Jaukta piekļuve",
+  "disconnectAccountTitle": "Atvienot {account}?",
+  "disconnectAccountBody": "Aģents caur šo kontu zaudē piekļuvi {apps}."
 }

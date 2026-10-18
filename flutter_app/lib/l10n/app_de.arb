@@ -7142,5 +7142,11 @@
   "calendarLink": "Kalenderlink",
   "calendarLinkHelper": "Die iCal-Adresse des Kalenders. Wer sie kennt, kann den Kalender lesen, also halte sie geheim.",
   "calendarLinkName": "Name (optional)",
-  "calendarLinkAdded": "Kalender hinzugefügt"
+  "calendarLinkAdded": "Kalender hinzugefügt",
+  "toolsApps": "Apps",
+  "reconnect": "Neu verbinden",
+  "reconnectNeeded": "Neu verbinden nötig",
+  "mixedAccess": "Gemischter Zugriff",
+  "disconnectAccountTitle": "{account} trennen?",
+  "disconnectAccountBody": "Der Agent verliert über dieses Konto den Zugriff auf {apps}."
 }

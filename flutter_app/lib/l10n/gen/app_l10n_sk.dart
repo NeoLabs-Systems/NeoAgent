@@ -11676,4 +11676,26 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get calendarLinkAdded => 'Kalendár pridaný';
+
+  @override
+  String get toolsApps => 'Aplikácie';
+
+  @override
+  String get reconnect => 'Znova pripojiť';
+
+  @override
+  String get reconnectNeeded => 'Treba znova pripojiť';
+
+  @override
+  String get mixedAccess => 'Zmiešaný prístup';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Odpojiť $account?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'Agent cez tento účet stratí prístup k $apps.';
+  }
 }

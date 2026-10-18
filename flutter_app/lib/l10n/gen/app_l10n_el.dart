@@ -11760,4 +11760,26 @@ class AppL10nEl extends AppL10n {
 
   @override
   String get calendarLinkAdded => 'Το ημερολόγιο προστέθηκε';
+
+  @override
+  String get toolsApps => 'Εφαρμογές';
+
+  @override
+  String get reconnect => 'Επανασύνδεση';
+
+  @override
+  String get reconnectNeeded => 'Απαιτείται επανασύνδεση';
+
+  @override
+  String get mixedAccess => 'Μικτή πρόσβαση';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Αποσύνδεση του $account;';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'Ο πράκτορας χάνει την πρόσβαση στα $apps μέσω αυτού του λογαριασμού.';
+  }
 }

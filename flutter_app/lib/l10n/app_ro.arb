@@ -7191,5 +7191,11 @@
   "calendarLink": "Link calendar",
   "calendarLinkHelper": "Adresa iCal a calendarului. Oricine o are poate citi calendarul, așa că păstreaz-o privată.",
   "calendarLinkName": "Nume (opțional)",
-  "calendarLinkAdded": "Calendar adăugat"
+  "calendarLinkAdded": "Calendar adăugat",
+  "toolsApps": "Aplicații",
+  "reconnect": "Reconectează",
+  "reconnectNeeded": "Necesită reconectare",
+  "mixedAccess": "Acces mixt",
+  "disconnectAccountTitle": "Deconectezi {account}?",
+  "disconnectAccountBody": "Agentul pierde accesul la {apps} prin acest cont."
 }

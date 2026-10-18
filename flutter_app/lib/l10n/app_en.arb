@@ -7281,5 +7281,25 @@
   "calendarLink": "Calendar link",
   "calendarLinkHelper": "The calendar's iCal address. Anyone with it can read the calendar, so keep it private.",
   "calendarLinkName": "Name (optional)",
-  "calendarLinkAdded": "Calendar added"
+  "calendarLinkAdded": "Calendar added",
+  "toolsApps": "Apps",
+  "reconnect": "Reconnect",
+  "reconnectNeeded": "Reconnect needed",
+  "mixedAccess": "Mixed access",
+  "disconnectAccountTitle": "Disconnect {account}?",
+  "@disconnectAccountTitle": {
+    "placeholders": {
+      "account": {
+        "type": "String"
+      }
+    }
+  },
+  "disconnectAccountBody": "The agent loses access to {apps} through this account.",
+  "@disconnectAccountBody": {
+    "placeholders": {
+      "apps": {
+        "type": "String"
+      }
+    }
+  }
 }

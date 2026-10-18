@@ -33,6 +33,7 @@ const TOOL_CATEGORIES = {
 const SAFE_TOOLS = new Set([
   'think',
   'send_interim_update',
+  'search_tools',
   'activate_tools',
   'notify_user',
   'memory_recall',
@@ -151,6 +152,9 @@ const BUILT_IN_TOOLS = new Set([
   'mcp_add_server',
   'mcp_list_servers',
   'mcp_remove_server',
+  'settings_read',
+  'settings_update',
+  'settings_link',
   'generate_image',
   'generate_table',
   'generate_graph',

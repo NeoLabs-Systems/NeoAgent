@@ -7191,5 +7191,11 @@
   "calendarLink": "Odkaz na kalendář",
   "calendarLinkHelper": "Adresa iCal kalendáře. Kdo ji zná, může kalendář číst, proto ji uchovejte v soukromí.",
   "calendarLinkName": "Název (volitelné)",
-  "calendarLinkAdded": "Kalendář přidán"
+  "calendarLinkAdded": "Kalendář přidán",
+  "toolsApps": "Aplikace",
+  "reconnect": "Znovu připojit",
+  "reconnectNeeded": "Je potřeba znovu připojit",
+  "mixedAccess": "Smíšený přístup",
+  "disconnectAccountTitle": "Odpojit {account}?",
+  "disconnectAccountBody": "Agent přes tento účet ztratí přístup k {apps}."
 }

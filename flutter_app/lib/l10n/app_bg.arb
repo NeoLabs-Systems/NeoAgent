@@ -7191,5 +7191,11 @@
   "calendarLink": "Връзка към календара",
   "calendarLinkHelper": "iCal адресът на календара. Всеки с него може да чете календара, затова го пазете в тайна.",
   "calendarLinkName": "Име (по избор)",
-  "calendarLinkAdded": "Календарът е добавен"
+  "calendarLinkAdded": "Календарът е добавен",
+  "toolsApps": "Приложения",
+  "reconnect": "Свържи отново",
+  "reconnectNeeded": "Нужно е повторно свързване",
+  "mixedAccess": "Смесен достъп",
+  "disconnectAccountTitle": "Да се прекъсне ли {account}?",
+  "disconnectAccountBody": "Агентът губи достъп до {apps} чрез този акаунт."
 }

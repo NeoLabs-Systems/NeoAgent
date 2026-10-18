@@ -158,6 +158,16 @@ function getAppScopes(appId) {
   return Array.from(new Set([...GOOGLE_ACCOUNT_IDENTITY_SCOPES, ...app.scopes]));
 }
 
+// The apps a grant fully covers. One sign-in requests every workspace scope,
+// but Google lets the user untick some, so only apps with all their scopes
+// granted are connected by it.
+function getGrantedAppIds(grantedScopes) {
+  const granted = new Set(grantedScopes);
+  return GOOGLE_WORKSPACE_APPS
+    .filter((app) => app.scopes.every((scope) => granted.has(scope)))
+    .map((app) => app.id);
+}
+
 function getAllWorkspaceScopes() {
   return Array.from(
     new Set([
@@ -382,6 +392,7 @@ function createGoogleWorkspaceProvider() {
         env,
         connection: rollup.connection,
         availableToolCount: rollup.availableToolCount,
+        signInCoversAllApps: true,
       };
     },
     async beginOAuth({ state, codeVerifier, appKey, userId, agentId }) {
@@ -431,21 +442,23 @@ function createGoogleWorkspaceProvider() {
       if (!accountEmail) {
         throw new Error('Google OAuth did not return an account email address.');
       }
+      const scopes = Array.from(
+        new Set(
+          String(client.credentials.scope || '')
+            .split(/\s+/)
+            .map((scope) => scope.trim())
+            .filter(Boolean),
+        ),
+      );
       return {
         appId: app.id,
         accountEmail,
         credentials: client.credentials,
-        scopes: Array.from(
-          new Set(
-            String(client.credentials.scope || '')
-              .split(/\s+/)
-              .map((scope) => scope.trim())
-              .filter(Boolean),
-          ),
-        ),
+        scopes,
         metadata: {
           appId: app.id,
         },
+        alsoConnectsAppIds: getGrantedAppIds(scopes).filter((id) => id !== app.id),
       };
     },
     async disconnect(connectionRow, executionOptions = {}) {
@@ -537,6 +550,7 @@ function createGoogleWorkspaceProvider() {
 
 module.exports = {
   createGoogleWorkspaceProvider,
+  getGrantedAppIds,
   GOOGLE_ACCOUNT_IDENTITY_SCOPES,
   GOOGLE_WORKSPACE_APPS: GOOGLE_WORKSPACE_APPS.map(
     ({ id, label, description, scopes }) => ({

@@ -19476,6 +19476,42 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Calendar added'**
   String get calendarLinkAdded;
+
+  /// No description provided for @toolsApps.
+  ///
+  /// In en, this message translates to:
+  /// **'Apps'**
+  String get toolsApps;
+
+  /// No description provided for @reconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnect'**
+  String get reconnect;
+
+  /// No description provided for @reconnectNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnect needed'**
+  String get reconnectNeeded;
+
+  /// No description provided for @mixedAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Mixed access'**
+  String get mixedAccess;
+
+  /// No description provided for @disconnectAccountTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect {account}?'**
+  String disconnectAccountTitle(String account);
+
+  /// No description provided for @disconnectAccountBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The agent loses access to {apps} through this account.'**
+  String disconnectAccountBody(String apps);
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

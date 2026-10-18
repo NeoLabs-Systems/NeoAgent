@@ -7191,5 +7191,11 @@
   "calendarLink": "Kalendri link",
   "calendarLinkHelper": "Kalendri iCal-aadress. Igaüks, kellel see on, saab kalendrit lugeda, seega hoia see privaatsena.",
   "calendarLinkName": "Nimi (valikuline)",
-  "calendarLinkAdded": "Kalender lisatud"
+  "calendarLinkAdded": "Kalender lisatud",
+  "toolsApps": "Rakendused",
+  "reconnect": "Ühenda uuesti",
+  "reconnectNeeded": "Vaja uuesti ühendada",
+  "mixedAccess": "Segajuurdepääs",
+  "disconnectAccountTitle": "Kas katkestada {account}?",
+  "disconnectAccountBody": "Agent kaotab selle konto kaudu juurdepääsu teenustele {apps}."
 }

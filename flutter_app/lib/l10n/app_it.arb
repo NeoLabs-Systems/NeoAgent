@@ -7191,5 +7191,11 @@
   "calendarLink": "Link del calendario",
   "calendarLinkHelper": "L’indirizzo iCal del calendario. Chi lo conosce può leggere il calendario, quindi tienilo privato.",
   "calendarLinkName": "Nome (facoltativo)",
-  "calendarLinkAdded": "Calendario aggiunto"
+  "calendarLinkAdded": "Calendario aggiunto",
+  "toolsApps": "App",
+  "reconnect": "Riconnetti",
+  "reconnectNeeded": "Riconnessione necessaria",
+  "mixedAccess": "Accesso misto",
+  "disconnectAccountTitle": "Disconnettere {account}?",
+  "disconnectAccountBody": "L'agente perde l'accesso a {apps} tramite questo account."
 }

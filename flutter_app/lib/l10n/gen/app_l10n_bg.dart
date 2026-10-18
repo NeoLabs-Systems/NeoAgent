@@ -11706,4 +11706,26 @@ class AppL10nBg extends AppL10n {
 
   @override
   String get calendarLinkAdded => 'Календарът е добавен';
+
+  @override
+  String get toolsApps => 'Приложения';
+
+  @override
+  String get reconnect => 'Свържи отново';
+
+  @override
+  String get reconnectNeeded => 'Нужно е повторно свързване';
+
+  @override
+  String get mixedAccess => 'Смесен достъп';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Да се прекъсне ли $account?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'Агентът губи достъп до $apps чрез този акаунт.';
+  }
 }

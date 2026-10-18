@@ -763,6 +763,7 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
               liveController: identical(entry, liveAvatarEntry)
                   ? controller
                   : null,
+              linkController: controller,
             ),
           ),
         ),

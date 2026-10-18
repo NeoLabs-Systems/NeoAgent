@@ -11666,4 +11666,26 @@ class AppL10nFi extends AppL10n {
 
   @override
   String get calendarLinkAdded => 'Kalenteri lisätty';
+
+  @override
+  String get toolsApps => 'Sovellukset';
+
+  @override
+  String get reconnect => 'Yhdistä uudelleen';
+
+  @override
+  String get reconnectNeeded => 'Yhdistettävä uudelleen';
+
+  @override
+  String get mixedAccess => 'Sekalainen käyttöoikeus';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Katkaistaanko $account?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'Agentti menettää tämän tilin kautta pääsyn kohteisiin $apps.';
+  }
 }

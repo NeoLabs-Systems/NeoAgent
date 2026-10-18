@@ -7191,5 +7191,11 @@
   "calendarLink": "Povezava do koledarja",
   "calendarLinkHelper": "Naslov iCal koledarja. Kdor ga pozna, lahko bere koledar, zato ga ohranite zasebnega.",
   "calendarLinkName": "Ime (neobvezno)",
-  "calendarLinkAdded": "Koledar dodan"
+  "calendarLinkAdded": "Koledar dodan",
+  "toolsApps": "Aplikacije",
+  "reconnect": "Znova poveži",
+  "reconnectNeeded": "Potrebna ponovna povezava",
+  "mixedAccess": "Mešan dostop",
+  "disconnectAccountTitle": "Prekinem povezavo {account}?",
+  "disconnectAccountBody": "Agent prek tega računa izgubi dostop do {apps}."
 }

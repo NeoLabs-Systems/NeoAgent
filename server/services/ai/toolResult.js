@@ -405,6 +405,16 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       const allDay = Array.isArray(toolResult?.allDayEvents)
         ? toolResult.allDayEvents
         : events.filter((event) => event?.allDay);
+      // The event id is what update/delete tools need; without it the model
+      // cannot act on an event it just listed.
+      const digestTimed = (event) => trimObject({
+        id: event?.id || undefined,
+        summary: clampText(event?.summary || '(no title)', 140),
+        start: event?.start || null,
+        end: event?.end || null,
+        location: event?.location ? clampText(event.location, 80) : undefined,
+        status: event?.status && event.status !== 'confirmed' ? event.status : undefined,
+      });
       const queryWindow = trimObject({
         timeMin: toolResult?.queryWindow?.timeMin || toolArgs.time_min || toolArgs.timeMin,
         timeMax: toolResult?.queryWindow?.timeMax || toolArgs.time_max || toolArgs.timeMax,
@@ -432,22 +442,11 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
           || (upcomingTimed.length === 0 && ongoingTimed.length > 0),
         hasOnlyAllDayEvents: toolResult?.hasOnlyAllDayEvents === true
           || (timed.length === 0 && allDay.length > 0),
-        upcomingTimed: upcomingTimed.map((event) => trimObject({
-          summary: clampText(event?.summary || '(no title)', 140),
-          start: event?.start || null,
-          end: event?.end || null,
-          location: event?.location ? clampText(event.location, 80) : undefined,
-          status: event?.status && event.status !== 'confirmed' ? event.status : undefined,
-        })),
-        ongoingTimed: ongoingTimed.map((event) => trimObject({
-          summary: clampText(event?.summary || '(no title)', 140),
-          start: event?.start || null,
-          end: event?.end || null,
-          location: event?.location ? clampText(event.location, 80) : undefined,
-          status: event?.status && event.status !== 'confirmed' ? event.status : undefined,
-        })),
+        upcomingTimed: upcomingTimed.map(digestTimed),
+        ongoingTimed: ongoingTimed.map(digestTimed),
         // All-day entries are usually birthdays / markers — names + dates suffice.
         allDay: allDay.map((event) => trimObject({
+          id: event?.id || undefined,
           summary: clampText(event?.summary || '(no title)', 140),
           start: event?.start || null,
           end: event?.end || null,
