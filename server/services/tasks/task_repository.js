@@ -131,6 +131,8 @@ class TaskRepository {
     return db.prepare('SELECT * FROM scheduled_tasks WHERE enabled = 1').all();
   }
 
+  // run_at is compared as a time, not as text: ISO values ("...T05:00:00.000Z")
+  // sort after SQLite's "... 09:00:00" on the same day as strings.
   listDueOneTimeTasks() {
     return db.prepare(
       `SELECT * FROM scheduled_tasks
@@ -138,7 +140,7 @@ class TaskRepository {
          AND one_time = 1
          AND enabled = 1
          AND run_at IS NOT NULL
-         AND run_at <= datetime('now')`
+         AND julianday(run_at) <= julianday('now')`
     ).all();
   }
 

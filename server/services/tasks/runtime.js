@@ -985,7 +985,7 @@ class TaskRuntime {
         ? triggerConfig.cronExpression
         : null,
       legacyRunAt: triggerType === 'schedule' && triggerConfig.mode === 'one_time'
-        ? String(triggerConfig.runAt || '').replace('T', ' ').replace(/\.\d{3}Z$/, '')
+        ? triggerConfig.runAt
         : null,
       legacyOneTime: triggerType === 'schedule' && triggerConfig.mode === 'one_time',
     };
