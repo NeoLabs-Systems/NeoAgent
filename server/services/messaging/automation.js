@@ -34,6 +34,7 @@ const { getErrorMessage } = require('../bootstrap_helpers');
 const { processInboundQueue } = require('./inbound_queue');
 const { annotateInboundJobs, attachRunToInboundJobs } = require('./inbound_store');
 const { startTypingKeepalive } = require('./typing_keepalive');
+const { isUsageLimitError, sendUsageLimitNotice } = require('./usage_limit_notice');
 const { waitForBoundedResult } = require('../network/http');
 const { createAbortError, throwIfAborted } = require('../../utils/abort');
 const {
@@ -181,7 +182,14 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
       userId,
       msg,
       signal,
-      onProcessingError: ({ error, runId, failedMessage }) => {
+      onProcessingError: async ({ error, runId, failedMessage }) => {
+        if (isUsageLimitError(error)) {
+          try {
+            await sendUsageLimitNotice({ messagingManager, userId, msg: failedMessage, error });
+          } catch (sendError) {
+            console.error(`[Messaging] Failed to send usage limit notice on ${failedMessage.platform}:`, getErrorMessage(sendError));
+          }
+        }
         const errorMessage = getErrorMessage(error);
         console.error(
           `[MessagingAutomation] Agent run failed platform=${failedMessage.platform} user=${userId}:`,

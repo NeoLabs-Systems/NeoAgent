@@ -6,6 +6,9 @@ const PLATFORM_FORMATTING = {
   whatsapp: {
     spokenOnly: false,
     inlineCode: true,
+    extraGuidance: [
+      'WhatsApp does not render Markdown links like [text](link). Write the bare URL instead.',
+    ],
   },
   telegram: {
     spokenOnly: false,
@@ -32,7 +35,8 @@ function buildPlatformFormattingGuide(platform, options = {}) {
   const intro = options.intro === false
     ? ''
     : 'Reply formatting guide:';
-  const lines = getPlatformFormattingProfile(platform).markdownDocument
+  const profile = getPlatformFormattingProfile(platform);
+  const lines = profile.markdownDocument
     ? [
       'Your reply is one public comment in GitHub-flavored Markdown. Every send_message in this run overwrites that same comment, so only the last message you send stays posted.',
       'Make that last message the complete answer on its own. Never end with a short follow-up, recap pointer, or sign-off, because it would replace the answer.',
@@ -44,7 +48,8 @@ function buildPlatformFormattingGuide(platform, options = {}) {
       'Use simple single-level lists only when they genuinely improve clarity.',
       'Avoid tables, raw HTML, and formal report formatting in chat replies.',
       'A blank line may be delivered as a separate message bubble, so use one only for an intentional conversational beat.',
-      'The runtime will adapt the final text to the destination platform.'
+      'The runtime will adapt the final text to the destination platform.',
+      ...(profile.extraGuidance || []),
     ];
   const body = lines.map((line) => `- ${line}`).join('\n');
   return [intro, body].filter(Boolean).join('\n');
