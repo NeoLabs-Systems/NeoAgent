@@ -7197,5 +7197,54 @@
   "reconnectNeeded": "Vaja uuesti ühendada",
   "mixedAccess": "Segajuurdepääs",
   "disconnectAccountTitle": "Kas katkestada {account}?",
-  "disconnectAccountBody": "Agent kaotab selle konto kaudu juurdepääsu teenustele {apps}."
+  "disconnectAccountBody": "Agent kaotab selle konto kaudu juurdepääsu teenustele {apps}.",
+  "neoRouterServerDescription": "Ühenda oma NeoRouter üks kord ja iga konto siin kasutab seda allpool sisse lülitatud töödeks.",
+  "neoRouterUserDescription": "Kasuta allpool sisse lülitatud töödeks oma NeoRouteri kontot selle serveri teenusepakkujate asemel.",
+  "neoRouterAddress": "NeoRouteri aadress",
+  "neoRouterConnect": "Ühenda NeoRouter",
+  "neoRouterWaitingArg1": "Kinnita NeoAgent NeoRouteris. Seal on kood {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Ava uuesti",
+  "neoRouterConnectedArg1": "Ühendatud: {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "NeoRouter pole praegu kättesaadav.",
+  "neoRouterDisconnect": "Katkesta ühendus",
+  "neoRouterDisconnectBody": "NeoAgent lõpetab selle NeoRouteri kasutamise. Võta ka võti tagasi NeoRouteri API-võtmete all.",
+  "neoRouterServerInUseArg1": "See server kasutab juba NeoRouterit aadressil {arg1}. Ühenda seal oma konto, et saada oma mudelid ja eelarve.",
+  "@neoRouterServerInUseArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterConnected": "NeoRouter on ühendatud.",
+  "neoRouterRoleChat": "Vestlus ja pildituvastus",
+  "neoRouterRoleSystemOne": "System One otsused",
+  "neoRouterRoleTranscription": "Kõne tekstiks",
+  "neoRouterRoleLive": "Otsehääl",
+  "neoRouterRoleEmbeddings": "Mälust otsimine",
+  "neoRouterRoleImages": "Piltide loomine",
+  "neoRouterRoleSearch": "Veebiotsing",
+  "neoRouterModelCountArg1": "Sinu NeoRouteris saadaval: {arg1}",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Sinu NeoRouteris pole veel midagi."
 }

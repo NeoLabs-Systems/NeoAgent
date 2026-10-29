@@ -7197,5 +7197,54 @@
   "reconnectNeeded": "Нужно е повторно свързване",
   "mixedAccess": "Смесен достъп",
   "disconnectAccountTitle": "Да се прекъсне ли {account}?",
-  "disconnectAccountBody": "Агентът губи достъп до {apps} чрез този акаунт."
+  "disconnectAccountBody": "Агентът губи достъп до {apps} чрез този акаунт.",
+  "neoRouterServerDescription": "Свържете своя NeoRouter веднъж и всеки акаунт тук ще го използва за задачите, включени по-долу.",
+  "neoRouterUserDescription": "Използвайте собствения си акаунт в NeoRouter за задачите, включени по-долу, вместо доставчиците на този сървър.",
+  "neoRouterAddress": "Адрес на NeoRouter",
+  "neoRouterConnect": "Свързване на NeoRouter",
+  "neoRouterWaitingArg1": "Одобрете NeoAgent в NeoRouter. Там е показан кодът {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Отваряне отново",
+  "neoRouterConnectedArg1": "Свързано с {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "NeoRouter не е достъпен в момента.",
+  "neoRouterDisconnect": "Прекъсване",
+  "neoRouterDisconnectBody": "NeoAgent спира да използва този NeoRouter. За да оттеглите и ключа, отменете го в NeoRouter в API ключове.",
+  "neoRouterServerInUseArg1": "Този сървър вече използва NeoRouter на {arg1}. Свържете там собствения си акаунт за свои модели и бюджет.",
+  "@neoRouterServerInUseArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterConnected": "NeoRouter е свързан.",
+  "neoRouterRoleChat": "Чат и разпознаване на изображения",
+  "neoRouterRoleSystemOne": "Решения на System One",
+  "neoRouterRoleTranscription": "Говор в текст",
+  "neoRouterRoleLive": "Глас на живо",
+  "neoRouterRoleEmbeddings": "Търсене в паметта",
+  "neoRouterRoleImages": "Създаване на изображения",
+  "neoRouterRoleSearch": "Търсене в мрежата",
+  "neoRouterModelCountArg1": "Налични във вашия NeoRouter: {arg1}",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Във вашия NeoRouter все още няма нищо."
 }

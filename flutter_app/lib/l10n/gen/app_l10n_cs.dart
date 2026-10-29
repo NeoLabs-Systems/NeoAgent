@@ -11679,4 +11679,78 @@ class AppL10nCs extends AppL10n {
   String disconnectAccountBody(String apps) {
     return 'Agent přes tento účet ztratí přístup k $apps.';
   }
+
+  @override
+  String get neoRouterServerDescription =>
+      'Připojte svůj NeoRouter jednou a každý účet zde ho použije pro úkoly zapnuté níže.';
+
+  @override
+  String get neoRouterUserDescription =>
+      'Pro úkoly zapnuté níže použijte vlastní účet NeoRouter místo poskytovatelů tohoto serveru.';
+
+  @override
+  String get neoRouterAddress => 'Adresa NeoRouteru';
+
+  @override
+  String get neoRouterConnect => 'Připojit NeoRouter';
+
+  @override
+  String neoRouterWaitingArg1(Object? arg1) {
+    return 'Schvalte NeoAgent v NeoRouteru. Zobrazuje kód $arg1.';
+  }
+
+  @override
+  String get neoRouterOpenAgain => 'Otevřít znovu';
+
+  @override
+  String neoRouterConnectedArg1(Object? arg1) {
+    return 'Připojeno k $arg1';
+  }
+
+  @override
+  String get neoRouterUnreachable => 'NeoRouter teď není dostupný.';
+
+  @override
+  String get neoRouterDisconnect => 'Odpojit';
+
+  @override
+  String get neoRouterDisconnectBody =>
+      'NeoAgent přestane tento NeoRouter používat. Chcete-li odebrat i klíč, zrušte ho v NeoRouteru v části Klíče API.';
+
+  @override
+  String neoRouterServerInUseArg1(Object? arg1) {
+    return 'Tento server už používá NeoRouter na $arg1. Připojte tam vlastní účet pro vlastní modely a rozpočet.';
+  }
+
+  @override
+  String get neoRouterConnected => 'NeoRouter je připojen.';
+
+  @override
+  String get neoRouterRoleChat => 'Chat a rozpoznávání obrazu';
+
+  @override
+  String get neoRouterRoleSystemOne => 'Rozhodnutí System One';
+
+  @override
+  String get neoRouterRoleTranscription => 'Řeč na text';
+
+  @override
+  String get neoRouterRoleLive => 'Živý hlas';
+
+  @override
+  String get neoRouterRoleEmbeddings => 'Hledání v paměti';
+
+  @override
+  String get neoRouterRoleImages => 'Tvorba obrázků';
+
+  @override
+  String get neoRouterRoleSearch => 'Vyhledávání na webu';
+
+  @override
+  String neoRouterModelCountArg1(Object? arg1) {
+    return 'V NeoRouteru dostupné: $arg1';
+  }
+
+  @override
+  String get neoRouterNoModels => 'V NeoRouteru zatím nic není.';
 }

@@ -108,6 +108,7 @@ part 'main_data_sharing.dart';
 part 'main_settings.dart';
 part 'main_settings_pages.dart';
 part 'main_byok_settings.dart';
+part 'main_neorouter.dart';
 part 'main_security.dart';
 part 'main_model_picker.dart';
 part 'main_operations.dart';

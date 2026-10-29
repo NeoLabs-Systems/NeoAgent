@@ -19512,6 +19512,132 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'The agent loses access to {apps} through this account.'**
   String disconnectAccountBody(String apps);
+
+  /// No description provided for @neoRouterServerDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect your NeoRouter once and every account here uses it for the work switched on below.'**
+  String get neoRouterServerDescription;
+
+  /// No description provided for @neoRouterUserDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Use your own NeoRouter account for the work switched on below instead of this server\'s providers.'**
+  String get neoRouterUserDescription;
+
+  /// No description provided for @neoRouterAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoRouter address'**
+  String get neoRouterAddress;
+
+  /// No description provided for @neoRouterConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect NeoRouter'**
+  String get neoRouterConnect;
+
+  /// No description provided for @neoRouterWaitingArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve NeoAgent in NeoRouter. It shows the code {arg1}.'**
+  String neoRouterWaitingArg1(Object? arg1);
+
+  /// No description provided for @neoRouterOpenAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Open again'**
+  String get neoRouterOpenAgain;
+
+  /// No description provided for @neoRouterConnectedArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected to {arg1}'**
+  String neoRouterConnectedArg1(Object? arg1);
+
+  /// No description provided for @neoRouterUnreachable.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoRouter cannot be reached right now.'**
+  String get neoRouterUnreachable;
+
+  /// No description provided for @neoRouterDisconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect'**
+  String get neoRouterDisconnect;
+
+  /// No description provided for @neoRouterDisconnectBody.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent stops using this NeoRouter. To withdraw its key as well, revoke it under API keys in NeoRouter.'**
+  String get neoRouterDisconnectBody;
+
+  /// No description provided for @neoRouterServerInUseArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'This server already uses NeoRouter at {arg1}. Connect your own account there for your own models and budget.'**
+  String neoRouterServerInUseArg1(Object? arg1);
+
+  /// No description provided for @neoRouterConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoRouter is connected.'**
+  String get neoRouterConnected;
+
+  /// No description provided for @neoRouterRoleChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat and vision'**
+  String get neoRouterRoleChat;
+
+  /// No description provided for @neoRouterRoleSystemOne.
+  ///
+  /// In en, this message translates to:
+  /// **'System One decisions'**
+  String get neoRouterRoleSystemOne;
+
+  /// No description provided for @neoRouterRoleTranscription.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech to text'**
+  String get neoRouterRoleTranscription;
+
+  /// No description provided for @neoRouterRoleLive.
+  ///
+  /// In en, this message translates to:
+  /// **'Live voice'**
+  String get neoRouterRoleLive;
+
+  /// No description provided for @neoRouterRoleEmbeddings.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory search'**
+  String get neoRouterRoleEmbeddings;
+
+  /// No description provided for @neoRouterRoleImages.
+  ///
+  /// In en, this message translates to:
+  /// **'Image generation'**
+  String get neoRouterRoleImages;
+
+  /// No description provided for @neoRouterRoleSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Web search'**
+  String get neoRouterRoleSearch;
+
+  /// No description provided for @neoRouterModelCountArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'{arg1} available in your NeoRouter'**
+  String neoRouterModelCountArg1(Object? arg1);
+
+  /// No description provided for @neoRouterNoModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing available in your NeoRouter yet.'**
+  String get neoRouterNoModels;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

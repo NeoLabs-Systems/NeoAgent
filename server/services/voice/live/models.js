@@ -9,15 +9,16 @@ const {
   resolveLiveVoice,
   serverDefaultProvider,
 } = require('./catalog');
+const { providerServesRole } = require('../../ai/neorouter/connection');
 
 // A provider's live models come from its own model list, refreshed and cached
 // like the chat models; the last list serves while the next one loads. Without
 // a key there is nothing to list.
 async function listLiveModels({ userId = null, agentId = null, providerId }) {
-  const runtimeProvider = LIVE_VOICE_PROVIDERS[providerId].runtimeProvider;
+  const { runtimeProvider, protocol } = LIVE_VOICE_PROVIDERS[providerId];
   const runtime = getProviderRuntimeConfig(userId, runtimeProvider, agentId);
-  if (!runtime.apiKey) return [];
-  return refreshProviderModelList({
+  if (!runtime.apiKey || !providerServesRole(runtimeProvider, userId, agentId, 'live')) return [];
+  const models = await refreshProviderModelList({
     providerId: runtimeProvider,
     factory: PROVIDER_FACTORIES[runtimeProvider],
     userId,
@@ -26,6 +27,8 @@ async function listLiveModels({ userId = null, agentId = null, providerId }) {
     catalog: 'voice',
     staleOk: true,
   });
+  // A NeoRouter lists its live models once, with the protocols that reach each.
+  return protocol ? models.filter((model) => (model.protocols || []).includes(protocol)) : models;
 }
 
 function versionOf(modelId) {

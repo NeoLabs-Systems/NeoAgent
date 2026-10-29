@@ -11679,4 +11679,78 @@ class AppL10nHr extends AppL10n {
   String disconnectAccountBody(String apps) {
     return 'Agent putem ovog računa gubi pristup za $apps.';
   }
+
+  @override
+  String get neoRouterServerDescription =>
+      'Povežite svoj NeoRouter jednom i svaki račun ovdje koristit će ga za zadatke uključene u nastavku.';
+
+  @override
+  String get neoRouterUserDescription =>
+      'Za zadatke uključene u nastavku koristite vlastiti NeoRouter račun umjesto pružatelja ovog poslužitelja.';
+
+  @override
+  String get neoRouterAddress => 'Adresa NeoRoutera';
+
+  @override
+  String get neoRouterConnect => 'Poveži NeoRouter';
+
+  @override
+  String neoRouterWaitingArg1(Object? arg1) {
+    return 'Odobrite NeoAgent u NeoRouteru. Prikazuje kod $arg1.';
+  }
+
+  @override
+  String get neoRouterOpenAgain => 'Otvori ponovno';
+
+  @override
+  String neoRouterConnectedArg1(Object? arg1) {
+    return 'Povezano s $arg1';
+  }
+
+  @override
+  String get neoRouterUnreachable => 'NeoRouter trenutačno nije dostupan.';
+
+  @override
+  String get neoRouterDisconnect => 'Prekini vezu';
+
+  @override
+  String get neoRouterDisconnectBody =>
+      'NeoAgent prestaje koristiti ovaj NeoRouter. Da biste povukli i ključ, opozovite ga u NeoRouteru pod API ključevi.';
+
+  @override
+  String neoRouterServerInUseArg1(Object? arg1) {
+    return 'Ovaj poslužitelj već koristi NeoRouter na $arg1. Ondje povežite vlastiti račun za vlastite modele i proračun.';
+  }
+
+  @override
+  String get neoRouterConnected => 'NeoRouter je povezan.';
+
+  @override
+  String get neoRouterRoleChat => 'Razgovor i prepoznavanje slika';
+
+  @override
+  String get neoRouterRoleSystemOne => 'Odluke System One';
+
+  @override
+  String get neoRouterRoleTranscription => 'Govor u tekst';
+
+  @override
+  String get neoRouterRoleLive => 'Glas uživo';
+
+  @override
+  String get neoRouterRoleEmbeddings => 'Pretraživanje memorije';
+
+  @override
+  String get neoRouterRoleImages => 'Izrada slika';
+
+  @override
+  String get neoRouterRoleSearch => 'Pretraživanje weba';
+
+  @override
+  String neoRouterModelCountArg1(Object? arg1) {
+    return 'Dostupno u vašem NeoRouteru: $arg1';
+  }
+
+  @override
+  String get neoRouterNoModels => 'U vašem NeoRouteru još nema ničega.';
 }

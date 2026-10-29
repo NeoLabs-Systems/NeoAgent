@@ -11688,4 +11688,79 @@ class AppL10nFi extends AppL10n {
   String disconnectAccountBody(String apps) {
     return 'Agentti menettää tämän tilin kautta pääsyn kohteisiin $apps.';
   }
+
+  @override
+  String get neoRouterServerDescription =>
+      'Yhdistä NeoRouter kerran, niin jokainen tämän palvelimen tili käyttää sitä alla päälle kytkettyihin tehtäviin.';
+
+  @override
+  String get neoRouterUserDescription =>
+      'Käytä omaa NeoRouter-tiliäsi alla päälle kytkettyihin tehtäviin tämän palvelimen palveluntarjoajien sijaan.';
+
+  @override
+  String get neoRouterAddress => 'NeoRouterin osoite';
+
+  @override
+  String get neoRouterConnect => 'Yhdistä NeoRouter';
+
+  @override
+  String neoRouterWaitingArg1(Object? arg1) {
+    return 'Hyväksy NeoAgent NeoRouterissa. Se näyttää koodin $arg1.';
+  }
+
+  @override
+  String get neoRouterOpenAgain => 'Avaa uudelleen';
+
+  @override
+  String neoRouterConnectedArg1(Object? arg1) {
+    return 'Yhdistetty: $arg1';
+  }
+
+  @override
+  String get neoRouterUnreachable =>
+      'NeoRouteriin ei saada juuri nyt yhteyttä.';
+
+  @override
+  String get neoRouterDisconnect => 'Katkaise yhteys';
+
+  @override
+  String get neoRouterDisconnectBody =>
+      'NeoAgent lopettaa tämän NeoRouterin käytön. Peru myös avain NeoRouterin API-avaimista.';
+
+  @override
+  String neoRouterServerInUseArg1(Object? arg1) {
+    return 'Tämä palvelin käyttää jo NeoRouteria osoitteessa $arg1. Yhdistä siellä oma tilisi omia malleja ja budjettia varten.';
+  }
+
+  @override
+  String get neoRouterConnected => 'NeoRouter on yhdistetty.';
+
+  @override
+  String get neoRouterRoleChat => 'Keskustelu ja kuvantunnistus';
+
+  @override
+  String get neoRouterRoleSystemOne => 'System One -päätökset';
+
+  @override
+  String get neoRouterRoleTranscription => 'Puheesta tekstiksi';
+
+  @override
+  String get neoRouterRoleLive => 'Livepuhe';
+
+  @override
+  String get neoRouterRoleEmbeddings => 'Muistihaku';
+
+  @override
+  String get neoRouterRoleImages => 'Kuvien luonti';
+
+  @override
+  String get neoRouterRoleSearch => 'Verkkohaku';
+
+  @override
+  String neoRouterModelCountArg1(Object? arg1) {
+    return 'NeoRouterissasi saatavilla: $arg1';
+  }
+
+  @override
+  String get neoRouterNoModels => 'NeoRouterissasi ei ole vielä mitään.';
 }

@@ -108,7 +108,7 @@ class LiveVoiceSession {
       runningTasks: this.tasks.checkTasks().tasks,
       taskTools: this.provider.taskTools,
     });
-    const Adapter = ADAPTERS[this.provider.id];
+    const Adapter = ADAPTERS[this.provider.adapter || this.provider.id];
     const adapter = new Adapter({
       apiKey: this.credentials.apiKey,
       baseUrl: this.credentials.baseUrl,

@@ -113,9 +113,21 @@ function rankModels(models, { isSubagent = false, selectionHint = {}, settings =
     .map((entry) => entry.model);
 }
 
+// NeoRouter routes across all of its providers by itself, so a connected
+// NeoRouter's matching profile goes first.
+const NEOROUTER_PROFILES = Object.freeze({
+  balanced: 'auto:balanced',
+  fast: 'auto:fast',
+  economy: 'auto:cheap',
+  quality: 'auto:best',
+});
+
 function chooseAutomaticModel(models, options) {
   if (!models.length) return null;
-  return rankModels(models, options)[0] || models[0];
+  const { isSubagent = false, selectionHint = {}, settings = {} } = options || {};
+  const profile = NEOROUTER_PROFILES[routingProfile({ isSubagent, selectionHint, settings })];
+  const routed = models.find((model) => model.provider === 'neorouter' && model.modelId === profile);
+  return routed || rankModels(models, options)[0] || models[0];
 }
 
 function resolveReadyModel(readyModels, selectionId) {

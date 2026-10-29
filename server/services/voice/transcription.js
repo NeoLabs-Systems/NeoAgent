@@ -4,6 +4,7 @@ const { getProviderRuntimeConfig } = require('../ai/models');
 const { getVoiceRuntimeSettings } = require('./liveSettings');
 const { AUTO_STT_PROVIDER, STT_PROVIDERS, transcribeVoiceInput } = require('./providers');
 const { resolveApiKey } = require('./providers/credentials');
+const { forRole } = require('../ai/neorouter/connection');
 
 // A key set in the app's AI provider settings wins over the server env, the
 // same precedence the chat models use.
@@ -23,6 +24,10 @@ function sttCredentials(userId, agentId, provider) {
 }
 
 function resolveSttTarget(userId, agentId, settings) {
+  // On automatic, a NeoRouter that handles transcription picks the model; it
+  // speaks OpenAI's transcription API.
+  const router = settings.sttProvider === AUTO_STT_PROVIDER ? forRole(userId, agentId, 'transcription') : null;
+  if (router) return { provider: 'openai', model: 'auto', apiKey: router.apiKey, baseUrl: router.apiBase };
   if (settings.sttProvider !== AUTO_STT_PROVIDER) {
     return {
       provider: settings.sttProvider,

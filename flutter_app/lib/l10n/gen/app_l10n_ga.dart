@@ -11752,4 +11752,79 @@ class AppL10nGa extends AppL10n {
   String disconnectAccountBody(String apps) {
     return 'Cailleann an gníomhaire rochtain ar $apps tríd an gcuntas seo.';
   }
+
+  @override
+  String get neoRouterServerDescription =>
+      'Ceangail do NeoRouter uair amháin agus úsáidfidh gach cuntas anseo é don obair atá ar siúl thíos.';
+
+  @override
+  String get neoRouterUserDescription =>
+      'Úsáid do chuntas NeoRouter féin don obair atá ar siúl thíos in ionad sholáthraithe an fhreastalaí seo.';
+
+  @override
+  String get neoRouterAddress => 'Seoladh NeoRouter';
+
+  @override
+  String get neoRouterConnect => 'Ceangail NeoRouter';
+
+  @override
+  String neoRouterWaitingArg1(Object? arg1) {
+    return 'Ceadaigh NeoAgent in NeoRouter. Taispeánann sé an cód $arg1.';
+  }
+
+  @override
+  String get neoRouterOpenAgain => 'Oscail arís';
+
+  @override
+  String neoRouterConnectedArg1(Object? arg1) {
+    return 'Ceangailte le $arg1';
+  }
+
+  @override
+  String get neoRouterUnreachable =>
+      'Ní féidir NeoRouter a bhaint amach faoi láthair.';
+
+  @override
+  String get neoRouterDisconnect => 'Dícheangail';
+
+  @override
+  String get neoRouterDisconnectBody =>
+      'Stopann NeoAgent ag úsáid an NeoRouter seo. Chun an eochair a tharraingt siar freisin, cúlghair í in NeoRouter faoi Eochracha API.';
+
+  @override
+  String neoRouterServerInUseArg1(Object? arg1) {
+    return 'Úsáideann an freastalaí seo NeoRouter ag $arg1 cheana féin. Ceangail do chuntas féin ansin le haghaidh do mhúnlaí agus do bhuiséid féin.';
+  }
+
+  @override
+  String get neoRouterConnected => 'Tá NeoRouter ceangailte.';
+
+  @override
+  String get neoRouterRoleChat => 'Comhrá agus aithint íomhánna';
+
+  @override
+  String get neoRouterRoleSystemOne => 'Cinntí System One';
+
+  @override
+  String get neoRouterRoleTranscription => 'Caint go téacs';
+
+  @override
+  String get neoRouterRoleLive => 'Guth beo';
+
+  @override
+  String get neoRouterRoleEmbeddings => 'Cuardach cuimhne';
+
+  @override
+  String get neoRouterRoleImages => 'Íomhánna a chruthú';
+
+  @override
+  String get neoRouterRoleSearch => 'Cuardach gréasáin';
+
+  @override
+  String neoRouterModelCountArg1(Object? arg1) {
+    return 'Ar fáil i do NeoRouter: $arg1';
+  }
+
+  @override
+  String get neoRouterNoModels => 'Níl aon rud ar fáil i do NeoRouter fós.';
 }

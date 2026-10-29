@@ -7197,5 +7197,54 @@
   "reconnectNeeded": "Yhdistettävä uudelleen",
   "mixedAccess": "Sekalainen käyttöoikeus",
   "disconnectAccountTitle": "Katkaistaanko {account}?",
-  "disconnectAccountBody": "Agentti menettää tämän tilin kautta pääsyn kohteisiin {apps}."
+  "disconnectAccountBody": "Agentti menettää tämän tilin kautta pääsyn kohteisiin {apps}.",
+  "neoRouterServerDescription": "Yhdistä NeoRouter kerran, niin jokainen tämän palvelimen tili käyttää sitä alla päälle kytkettyihin tehtäviin.",
+  "neoRouterUserDescription": "Käytä omaa NeoRouter-tiliäsi alla päälle kytkettyihin tehtäviin tämän palvelimen palveluntarjoajien sijaan.",
+  "neoRouterAddress": "NeoRouterin osoite",
+  "neoRouterConnect": "Yhdistä NeoRouter",
+  "neoRouterWaitingArg1": "Hyväksy NeoAgent NeoRouterissa. Se näyttää koodin {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Avaa uudelleen",
+  "neoRouterConnectedArg1": "Yhdistetty: {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "NeoRouteriin ei saada juuri nyt yhteyttä.",
+  "neoRouterDisconnect": "Katkaise yhteys",
+  "neoRouterDisconnectBody": "NeoAgent lopettaa tämän NeoRouterin käytön. Peru myös avain NeoRouterin API-avaimista.",
+  "neoRouterServerInUseArg1": "Tämä palvelin käyttää jo NeoRouteria osoitteessa {arg1}. Yhdistä siellä oma tilisi omia malleja ja budjettia varten.",
+  "@neoRouterServerInUseArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterConnected": "NeoRouter on yhdistetty.",
+  "neoRouterRoleChat": "Keskustelu ja kuvantunnistus",
+  "neoRouterRoleSystemOne": "System One -päätökset",
+  "neoRouterRoleTranscription": "Puheesta tekstiksi",
+  "neoRouterRoleLive": "Livepuhe",
+  "neoRouterRoleEmbeddings": "Muistihaku",
+  "neoRouterRoleImages": "Kuvien luonti",
+  "neoRouterRoleSearch": "Verkkohaku",
+  "neoRouterModelCountArg1": "NeoRouterissasi saatavilla: {arg1}",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "NeoRouterissasi ei ole vielä mitään."
 }

@@ -70,8 +70,11 @@ class _AdminSearchEntry {
   final String keywords;
 
   bool matches(String query) {
-    final haystack =
-        appStrings.arg1Arg2Arg37(title.toLowerCase(), keywords, tab.label.toLowerCase());
+    final haystack = appStrings.arg1Arg2Arg37(
+      title.toLowerCase(),
+      keywords,
+      tab.label.toLowerCase(),
+    );
     return query
         .split(RegExp(r'\s+'))
         .where((word) => word.isNotEmpty)
@@ -379,7 +382,12 @@ class _AdminPanelState extends State<AdminPanel> {
       case _AdminTab.server:
         return _AdminServerTab(controller: controller);
       case _AdminTab.providers:
-        return _AdminProvidersTab(controller: controller);
+        return _SectionStack(
+          children: <Widget>[
+            NeoRouterConnectCard(controller: controller, scope: 'server'),
+            _AdminProvidersTab(controller: controller),
+          ],
+        );
       case _AdminTab.models:
         return _AdminModelsTab(controller: controller);
       case _AdminTab.integrations:

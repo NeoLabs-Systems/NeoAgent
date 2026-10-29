@@ -1,5 +1,6 @@
 const db = require('../../db/database');
 const { getProviderHealthCatalog } = require('./models');
+const { forRole } = require('./neorouter/connection');
 
 function capabilityEntry(overrides = {}) {
   return {
@@ -132,7 +133,10 @@ function getMessagingHealth(userId, app, engine, agentId = null, sourcePlatform 
   });
 }
 
-function getSearchHealth() {
+function getSearchHealth(userId = null, agentId = null) {
+  if (forRole(userId, agentId, 'search')) {
+    return capabilityEntry({ connected: true, configured: true, healthy: true, summary: 'Web search goes through NeoRouter.' });
+  }
   const configured = Boolean(String(process.env.BRAVE_SEARCH_API_KEY || '').trim());
   return capabilityEntry({
     connected: configured,
@@ -296,7 +300,7 @@ async function getCapabilityHealth({
       command: getCommandHealth(userId, app, engine),
       files: getFileHealth(app, engine, { triggerSource, workspaceRoot }),
       memory: getMemoryHealth(engine),
-      search: getSearchHealth(),
+      search: getSearchHealth(userId, agentId),
       browser: await getBrowserHealth(userId, app, engine, deviceTarget),
       android: await getAndroidHealth(userId, app, engine, deviceTarget),
       messaging: getMessagingHealth(userId, app, engine, agentId, sourcePlatform),

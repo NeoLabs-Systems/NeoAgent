@@ -7197,5 +7197,54 @@
   "reconnectNeeded": "Necesită reconectare",
   "mixedAccess": "Acces mixt",
   "disconnectAccountTitle": "Deconectezi {account}?",
-  "disconnectAccountBody": "Agentul pierde accesul la {apps} prin acest cont."
+  "disconnectAccountBody": "Agentul pierde accesul la {apps} prin acest cont.",
+  "neoRouterServerDescription": "Conectează-ți NeoRouterul o dată și fiecare cont de aici îl folosește pentru sarcinile activate mai jos.",
+  "neoRouterUserDescription": "Folosește propriul cont NeoRouter pentru sarcinile activate mai jos în locul furnizorilor acestui server.",
+  "neoRouterAddress": "Adresa NeoRouter",
+  "neoRouterConnect": "Conectează NeoRouter",
+  "neoRouterWaitingArg1": "Aprobă NeoAgent în NeoRouter. Acolo apare codul {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Deschide din nou",
+  "neoRouterConnectedArg1": "Conectat la {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "NeoRouter nu poate fi accesat acum.",
+  "neoRouterDisconnect": "Deconectează",
+  "neoRouterDisconnectBody": "NeoAgent nu mai folosește acest NeoRouter. Pentru a retrage și cheia, revoc-o în NeoRouter la Chei API.",
+  "neoRouterServerInUseArg1": "Acest server folosește deja NeoRouter la {arg1}. Conectează acolo propriul cont pentru modele și buget proprii.",
+  "@neoRouterServerInUseArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterConnected": "NeoRouter este conectat.",
+  "neoRouterRoleChat": "Chat și recunoaștere de imagini",
+  "neoRouterRoleSystemOne": "Decizii System One",
+  "neoRouterRoleTranscription": "Vorbire în text",
+  "neoRouterRoleLive": "Voce live",
+  "neoRouterRoleEmbeddings": "Căutare în memorie",
+  "neoRouterRoleImages": "Generare de imagini",
+  "neoRouterRoleSearch": "Căutare pe web",
+  "neoRouterModelCountArg1": "{arg1} disponibile în NeoRouterul tău",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Încă nu este nimic disponibil în NeoRouterul tău."
 }

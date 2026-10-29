@@ -11737,4 +11737,78 @@ class AppL10nHu extends AppL10n {
   String disconnectAccountBody(String apps) {
     return 'Az ügynök ezen a fiókon keresztül elveszíti a hozzáférést ehhez: $apps.';
   }
+
+  @override
+  String get neoRouterServerDescription =>
+      'Csatlakoztasd egyszer a NeoRoutered, és minden itteni fiók azt használja a lent bekapcsolt feladatokhoz.';
+
+  @override
+  String get neoRouterUserDescription =>
+      'A lent bekapcsolt feladatokhoz a saját NeoRouter-fiókodat használd a szerver szolgáltatói helyett.';
+
+  @override
+  String get neoRouterAddress => 'NeoRouter címe';
+
+  @override
+  String get neoRouterConnect => 'NeoRouter csatlakoztatása';
+
+  @override
+  String neoRouterWaitingArg1(Object? arg1) {
+    return 'Hagyd jóvá a NeoAgentet a NeoRouterben. Ott a(z) $arg1 kód látható.';
+  }
+
+  @override
+  String get neoRouterOpenAgain => 'Újra megnyitás';
+
+  @override
+  String neoRouterConnectedArg1(Object? arg1) {
+    return 'Csatlakoztatva: $arg1';
+  }
+
+  @override
+  String get neoRouterUnreachable => 'A NeoRouter most nem érhető el.';
+
+  @override
+  String get neoRouterDisconnect => 'Leválasztás';
+
+  @override
+  String get neoRouterDisconnectBody =>
+      'A NeoAgent többé nem használja ezt a NeoRoutert. A kulcsot is vond vissza a NeoRouter API-kulcsok részében.';
+
+  @override
+  String neoRouterServerInUseArg1(Object? arg1) {
+    return 'Ez a szerver már használja a NeoRoutert itt: $arg1. Csatlakoztasd ott a saját fiókodat saját modellekhez és kerethez.';
+  }
+
+  @override
+  String get neoRouterConnected => 'A NeoRouter csatlakoztatva.';
+
+  @override
+  String get neoRouterRoleChat => 'Csevegés és képfelismerés';
+
+  @override
+  String get neoRouterRoleSystemOne => 'System One döntések';
+
+  @override
+  String get neoRouterRoleTranscription => 'Beszédből szöveg';
+
+  @override
+  String get neoRouterRoleLive => 'Élő hang';
+
+  @override
+  String get neoRouterRoleEmbeddings => 'Keresés a memóriában';
+
+  @override
+  String get neoRouterRoleImages => 'Képek készítése';
+
+  @override
+  String get neoRouterRoleSearch => 'Webes keresés';
+
+  @override
+  String neoRouterModelCountArg1(Object? arg1) {
+    return 'Elérhető a NeoRouteredben: $arg1';
+  }
+
+  @override
+  String get neoRouterNoModels => 'A NeoRouteredben még nincs semmi.';
 }

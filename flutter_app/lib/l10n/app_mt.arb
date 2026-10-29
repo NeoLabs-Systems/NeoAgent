@@ -7197,5 +7197,54 @@
   "reconnectNeeded": "Jeħtieġ jerġa' jitqabbad",
   "mixedAccess": "Aċċess imħallat",
   "disconnectAccountTitle": "Tiskonnettja {account}?",
-  "disconnectAccountBody": "L-aġent jitlef l-aċċess għal {apps} permezz ta' dan il-kont."
+  "disconnectAccountBody": "L-aġent jitlef l-aċċess għal {apps} permezz ta' dan il-kont.",
+  "neoRouterServerDescription": "Qabbad in-NeoRouter tiegħek darba u kull kont hawn jużah għax-xogħol mixgħul hawn taħt.",
+  "neoRouterUserDescription": "Uża l-kont NeoRouter tiegħek għax-xogħol mixgħul hawn taħt minflok il-fornituri ta' dan is-server.",
+  "neoRouterAddress": "Indirizz tan-NeoRouter",
+  "neoRouterConnect": "Qabbad in-NeoRouter",
+  "neoRouterWaitingArg1": "Approva lil NeoAgent fin-NeoRouter. Juri l-kodiċi {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Iftaħ mill-ġdid",
+  "neoRouterConnectedArg1": "Imqabbad ma' {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "In-NeoRouter mhux disponibbli bħalissa.",
+  "neoRouterDisconnect": "Aqta'",
+  "neoRouterDisconnectBody": "NeoAgent jieqaf juża dan in-NeoRouter. Biex tirtira wkoll iċ-ċavetta, revokaha fin-NeoRouter taħt Ċwievet API.",
+  "neoRouterServerInUseArg1": "Dan is-server diġà juża n-NeoRouter f'{arg1}. Qabbad il-kont tiegħek hemmhekk għall-mudelli u l-baġit tiegħek.",
+  "@neoRouterServerInUseArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterConnected": "In-NeoRouter huwa mqabbad.",
+  "neoRouterRoleChat": "Chat u għarfien tal-istampi",
+  "neoRouterRoleSystemOne": "Deċiżjonijiet System One",
+  "neoRouterRoleTranscription": "Diskors għal test",
+  "neoRouterRoleLive": "Vuċi diretta",
+  "neoRouterRoleEmbeddings": "Tfittxija fil-memorja",
+  "neoRouterRoleImages": "Ħolqien ta' stampi",
+  "neoRouterRoleSearch": "Tfittxija fuq il-web",
+  "neoRouterModelCountArg1": "Disponibbli fin-NeoRouter tiegħek: {arg1}",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Għad m'hemm xejn fin-NeoRouter tiegħek."
 }

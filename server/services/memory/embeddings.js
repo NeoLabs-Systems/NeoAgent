@@ -4,12 +4,15 @@
  * Embedding helpers for the semantic memory system.
  *
  * Provider selection (in priority order):
+ *   0. NeoRouter — when a connected NeoRouter handles embeddings (it pins one model per key)
  *   1. Google (gemini-embedding-2, 768 dims) — when provider hint is 'google' and GOOGLE_AI_KEY is set
  *   2. OpenAI (text-embedding-3-small, 1536 dims) — when OPENAI_API_KEY is set
  *   3. Keyword fallback — when no API key is available
  */
 
 const https = require('https');
+const { forRole } = require('../ai/neorouter/connection');
+const neorouter = require('../ai/neorouter/client');
 const {
   createAbortError,
   isAbortError,
@@ -203,9 +206,25 @@ async function getEmbedding(text, provider, options = {}) {
   return result?.vector || null;
 }
 
+async function getNeoRouterEmbedding(text, options = {}) {
+  const connection = forRole(options.userId || null, options.agentId || null, 'embeddings');
+  if (!connection) return null;
+  try {
+    const result = await neorouter.embed(connection, text.slice(0, 25000), options);
+    const vector = result && toEmbeddingVector(result.vector, result.vector.length);
+    return vector ? { vector, provider: 'neorouter', model: result.model, dimensions: vector.length } : null;
+  } catch (error) {
+    if (isAbortError(error, options.signal)) throw createAbortError(options.signal);
+    console.warn('[Embeddings] NeoRouter embedding failed:', error.message);
+    return null;
+  }
+}
+
 async function getEmbeddingWithMetadata(text, provider, options = {}) {
   if (!text || !text.trim()) return null;
   throwIfAborted(options.signal, 'Embedding request aborted.');
+  const routed = await getNeoRouterEmbedding(text, options);
+  if (routed) return routed;
   if (provider === 'google' && process.env.GOOGLE_AI_KEY) {
     const vec = await getGeminiEmbedding(text, options);
     if (vec) {

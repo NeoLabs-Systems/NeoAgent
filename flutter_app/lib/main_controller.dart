@@ -105,6 +105,7 @@ class NeoAgentController extends ChangeNotifier {
   static const Duration _manualRunCooldownDuration = Duration(seconds: 10);
   static const int _chatHistoryPageSize = 20;
   int _authCycle = 0;
+
   /// The challenge whose status check is in flight; a held check for an old
   /// code must not block the new one.
   String? _qrLoginPollingChallengeId;
@@ -6536,6 +6537,84 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> _refreshAfterProviderKeySaved() async {
     aiModelsUnavailable = false;
     await refreshByokProviders();
+    await refreshAiCatalog();
+  }
+
+  // ---- NeoRouter --------------------------------------------------------
+
+  Future<Map<String, dynamic>> fetchNeoRouter() =>
+      _backendClient.fetchNeoRouter(backendUrl, agentId: _scopedAgentId);
+
+  /// Opens NeoRouter's approval page and returns the sign-in to wait for
+  /// (`id`) and the code NeoRouter shows (`userCode`).
+  Future<Map<String, dynamic>> startNeoRouterConnect(
+    String scope,
+    String address,
+  ) async {
+    final begin = await _backendClient.beginNeoRouterConnect(
+      backendUrl,
+      scope: scope,
+      address: address,
+      agentId: _scopedAgentId,
+    );
+    await openNeoRouterApproval(begin['url']?.toString() ?? '');
+    return begin;
+  }
+
+  Future<void> openNeoRouterApproval(String url) async {
+    final launch = await _oauthLauncher.openExternal(
+      url: url,
+      label: 'neorouter',
+    );
+    if (!launch.launched) {
+      throw Exception(launch.error ?? appStrings.couldNotOpenTheProviderSign);
+    }
+  }
+
+  /// Waits until the server has the key, then reloads the models.
+  Future<void> waitForNeoRouterConnect(
+    String id, {
+    required bool Function() isActive,
+  }) async {
+    final deadline = DateTime.now().add(const Duration(minutes: 10));
+    while (DateTime.now().isBefore(deadline)) {
+      if (!isActive()) {
+        throw Exception(appStrings.authenticationWasCanceledBeforeCompletion);
+      }
+      final response = await _backendClient.fetchNeoRouterConnect(
+        backendUrl,
+        id,
+      );
+      switch (response['status']?.toString()) {
+        case 'completed':
+          await _refreshAfterProviderKeySaved();
+          return;
+        case 'failed':
+          throw Exception(
+            response['error']?.toString() ?? appStrings.authenticationFailed,
+          );
+      }
+      await Future<void>.delayed(const Duration(seconds: 2));
+    }
+    throw Exception(appStrings.authenticationIsStillPendingFinishThe);
+  }
+
+  Future<void> saveNeoRouterRoles(String scope, List<String> roles) async {
+    await _backendClient.saveNeoRouterRoles(
+      backendUrl,
+      scope: scope,
+      roles: roles,
+      agentId: _scopedAgentId,
+    );
+    await refreshAiCatalog();
+  }
+
+  Future<void> disconnectNeoRouter(String scope) async {
+    await _backendClient.disconnectNeoRouter(
+      backendUrl,
+      scope: scope,
+      agentId: _scopedAgentId,
+    );
     await refreshAiCatalog();
   }
 

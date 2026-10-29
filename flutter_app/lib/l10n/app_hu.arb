@@ -7197,5 +7197,54 @@
   "reconnectNeeded": "Újracsatlakozás szükséges",
   "mixedAccess": "Vegyes hozzáférés",
   "disconnectAccountTitle": "Leválasztod: {account}?",
-  "disconnectAccountBody": "Az ügynök ezen a fiókon keresztül elveszíti a hozzáférést ehhez: {apps}."
+  "disconnectAccountBody": "Az ügynök ezen a fiókon keresztül elveszíti a hozzáférést ehhez: {apps}.",
+  "neoRouterServerDescription": "Csatlakoztasd egyszer a NeoRoutered, és minden itteni fiók azt használja a lent bekapcsolt feladatokhoz.",
+  "neoRouterUserDescription": "A lent bekapcsolt feladatokhoz a saját NeoRouter-fiókodat használd a szerver szolgáltatói helyett.",
+  "neoRouterAddress": "NeoRouter címe",
+  "neoRouterConnect": "NeoRouter csatlakoztatása",
+  "neoRouterWaitingArg1": "Hagyd jóvá a NeoAgentet a NeoRouterben. Ott a(z) {arg1} kód látható.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Újra megnyitás",
+  "neoRouterConnectedArg1": "Csatlakoztatva: {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "A NeoRouter most nem érhető el.",
+  "neoRouterDisconnect": "Leválasztás",
+  "neoRouterDisconnectBody": "A NeoAgent többé nem használja ezt a NeoRoutert. A kulcsot is vond vissza a NeoRouter API-kulcsok részében.",
+  "neoRouterServerInUseArg1": "Ez a szerver már használja a NeoRoutert itt: {arg1}. Csatlakoztasd ott a saját fiókodat saját modellekhez és kerethez.",
+  "@neoRouterServerInUseArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterConnected": "A NeoRouter csatlakoztatva.",
+  "neoRouterRoleChat": "Csevegés és képfelismerés",
+  "neoRouterRoleSystemOne": "System One döntések",
+  "neoRouterRoleTranscription": "Beszédből szöveg",
+  "neoRouterRoleLive": "Élő hang",
+  "neoRouterRoleEmbeddings": "Keresés a memóriában",
+  "neoRouterRoleImages": "Képek készítése",
+  "neoRouterRoleSearch": "Webes keresés",
+  "neoRouterModelCountArg1": "Elérhető a NeoRouteredben: {arg1}",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "A NeoRouteredben még nincs semmi."
 }

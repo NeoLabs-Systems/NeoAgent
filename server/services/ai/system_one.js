@@ -17,6 +17,7 @@ const {
   recordModelFailure,
 } = require('./model_failure_cache');
 const { recordModelUsage } = require('./usage');
+const { providerServesRole } = require('./neorouter/connection');
 const { isAbortError, throwIfAborted } = require('../../utils/abort');
 const { createServiceLogger } = require('../../utils/logger');
 
@@ -70,7 +71,7 @@ async function getSystemOneModels(userId, agentId = null, { signal = null } = {}
   const disabled = new Set(getDisabledModelIds());
   const catalogs = await Promise.allSettled(SYSTEM_ONE_PROVIDERS.map(async (providerId) => {
     const runtime = getProviderRuntimeConfig(userId, providerId, agentId);
-    if (!isProviderUsable(runtime)) return [];
+    if (!isProviderUsable(runtime) || !providerServesRole(providerId, userId, agentId, 'system_one')) return [];
     const models = await refreshProviderModelList({
       providerId,
       factory: PROVIDER_FACTORIES[providerId],

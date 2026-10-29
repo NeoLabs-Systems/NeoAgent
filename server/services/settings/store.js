@@ -31,6 +31,7 @@ const AGENT_SETTING_KEYS = new Set([
   'assistant_behavior_notes',
   'auto_skill_learning',
   'system_one_model',
+  'neorouter_roles',
   'ai_provider_configs',
   'default_chat_model',
   'default_subagent_model',

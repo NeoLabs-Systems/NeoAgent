@@ -7197,5 +7197,54 @@
   "reconnectNeeded": "Potrebna ponovna povezava",
   "mixedAccess": "Mešan dostop",
   "disconnectAccountTitle": "Prekinem povezavo {account}?",
-  "disconnectAccountBody": "Agent prek tega računa izgubi dostop do {apps}."
+  "disconnectAccountBody": "Agent prek tega računa izgubi dostop do {apps}.",
+  "neoRouterServerDescription": "Enkrat povežite svoj NeoRouter in vsak račun tukaj ga bo uporabljal za spodaj vklopljena opravila.",
+  "neoRouterUserDescription": "Za spodaj vklopljena opravila uporabite svoj račun NeoRouter namesto ponudnikov tega strežnika.",
+  "neoRouterAddress": "Naslov NeoRouterja",
+  "neoRouterConnect": "Poveži NeoRouter",
+  "neoRouterWaitingArg1": "Odobrite NeoAgent v NeoRouterju. Prikazuje kodo {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Odpri znova",
+  "neoRouterConnectedArg1": "Povezano z {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "NeoRouter trenutno ni dosegljiv.",
+  "neoRouterDisconnect": "Prekini povezavo",
+  "neoRouterDisconnectBody": "NeoAgent preneha uporabljati ta NeoRouter. Če želite odvzeti tudi ključ, ga prekličite v NeoRouterju pod API ključi.",
+  "neoRouterServerInUseArg1": "Ta strežnik že uporablja NeoRouter na {arg1}. Tam povežite svoj račun za lastne modele in proračun.",
+  "@neoRouterServerInUseArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterConnected": "NeoRouter je povezan.",
+  "neoRouterRoleChat": "Klepet in prepoznavanje slik",
+  "neoRouterRoleSystemOne": "Odločitve System One",
+  "neoRouterRoleTranscription": "Govor v besedilo",
+  "neoRouterRoleLive": "Glas v živo",
+  "neoRouterRoleEmbeddings": "Iskanje po spominu",
+  "neoRouterRoleImages": "Ustvarjanje slik",
+  "neoRouterRoleSearch": "Iskanje po spletu",
+  "neoRouterModelCountArg1": "Na voljo v vašem NeoRouterju: {arg1}",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "V vašem NeoRouterju še ni ničesar."
 }

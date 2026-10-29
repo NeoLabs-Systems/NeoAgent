@@ -7197,5 +7197,54 @@
   "reconnectNeeded": "Hay que reconectar",
   "mixedAccess": "Acceso mixto",
   "disconnectAccountTitle": "¿Desconectar {account}?",
-  "disconnectAccountBody": "El agente pierde el acceso a {apps} con esta cuenta."
+  "disconnectAccountBody": "El agente pierde el acceso a {apps} con esta cuenta.",
+  "neoRouterServerDescription": "Conecta tu NeoRouter una vez y todas las cuentas de aquí lo usarán para las tareas activadas abajo.",
+  "neoRouterUserDescription": "Usa tu propia cuenta de NeoRouter para las tareas activadas abajo en lugar de los proveedores de este servidor.",
+  "neoRouterAddress": "Dirección de NeoRouter",
+  "neoRouterConnect": "Conectar NeoRouter",
+  "neoRouterWaitingArg1": "Aprueba NeoAgent en NeoRouter. Muestra el código {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Abrir de nuevo",
+  "neoRouterConnectedArg1": "Conectado a {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "No se puede acceder a NeoRouter ahora mismo.",
+  "neoRouterDisconnect": "Desconectar",
+  "neoRouterDisconnectBody": "NeoAgent deja de usar este NeoRouter. Para retirar también su clave, revócala en NeoRouter en Claves API.",
+  "neoRouterServerInUseArg1": "Este servidor ya usa NeoRouter en {arg1}. Conecta allí tu propia cuenta para tener tus propios modelos y presupuesto.",
+  "@neoRouterServerInUseArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterConnected": "NeoRouter está conectado.",
+  "neoRouterRoleChat": "Chat y visión",
+  "neoRouterRoleSystemOne": "Decisiones de System One",
+  "neoRouterRoleTranscription": "Voz a texto",
+  "neoRouterRoleLive": "Voz en directo",
+  "neoRouterRoleEmbeddings": "Búsqueda en la memoria",
+  "neoRouterRoleImages": "Generación de imágenes",
+  "neoRouterRoleSearch": "Búsqueda web",
+  "neoRouterModelCountArg1": "{arg1} disponibles en tu NeoRouter",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Todavía no hay nada disponible en tu NeoRouter."
 }

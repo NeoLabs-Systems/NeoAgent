@@ -459,9 +459,11 @@ class BackendClient {
     required String baseUrl,
     required Map<String, dynamic> client,
   }) async {
-    return putMap(baseUrl, '/api/account/data-sharing/client', <String, dynamic>{
-      'client': client,
-    });
+    return putMap(
+      baseUrl,
+      '/api/account/data-sharing/client',
+      <String, dynamic>{'client': client},
+    );
   }
 
   Future<Map<String, dynamic>> updateAccountDisplayName({
@@ -994,6 +996,48 @@ class BackendClient {
       _withAgentId(payload, agentId),
     );
   }
+
+  // "Connect NeoRouter": scope is 'server' (admins) or 'user'.
+  Future<Map<String, dynamic>> fetchNeoRouter(
+    String baseUrl, {
+    String? agentId,
+  }) => getMap(baseUrl, _withAgentQuery('/api/neorouter', agentId));
+
+  Future<Map<String, dynamic>> beginNeoRouterConnect(
+    String baseUrl, {
+    required String scope,
+    required String address,
+    String? agentId,
+  }) => postMap(
+    baseUrl,
+    _withAgentQuery('/api/neorouter/connect', agentId),
+    _withAgentId(<String, dynamic>{
+      'scope': scope,
+      'address': address,
+    }, agentId),
+  );
+
+  Future<Map<String, dynamic>> fetchNeoRouterConnect(
+    String baseUrl,
+    String id,
+  ) => getMap(baseUrl, '/api/neorouter/connect/${Uri.encodeComponent(id)}');
+
+  Future<Map<String, dynamic>> saveNeoRouterRoles(
+    String baseUrl, {
+    required String scope,
+    required List<String> roles,
+    String? agentId,
+  }) => putMap(
+    baseUrl,
+    _withAgentQuery('/api/neorouter/$scope/roles', agentId),
+    _withAgentId(<String, dynamic>{'roles': roles}, agentId),
+  );
+
+  Future<Map<String, dynamic>> disconnectNeoRouter(
+    String baseUrl, {
+    required String scope,
+    String? agentId,
+  }) => deleteMap(baseUrl, _withAgentQuery('/api/neorouter/$scope', agentId));
 
   Future<Map<String, dynamic>> beginProviderSignIn(
     String baseUrl,

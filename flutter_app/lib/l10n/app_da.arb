@@ -7197,5 +7197,54 @@
   "reconnectNeeded": "Skal forbindes igen",
   "mixedAccess": "Blandet adgang",
   "disconnectAccountTitle": "Afbryd {account}?",
-  "disconnectAccountBody": "Agenten mister adgang til {apps} via denne konto."
+  "disconnectAccountBody": "Agenten mister adgang til {apps} via denne konto.",
+  "neoRouterServerDescription": "Forbind din NeoRouter én gang, så bruger alle konti her den til opgaverne, der er slået til nedenfor.",
+  "neoRouterUserDescription": "Brug din egen NeoRouter-konto til opgaverne, der er slået til nedenfor, i stedet for serverens udbydere.",
+  "neoRouterAddress": "NeoRouter-adresse",
+  "neoRouterConnect": "Forbind NeoRouter",
+  "neoRouterWaitingArg1": "Godkend NeoAgent i NeoRouter. Den viser koden {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Åbn igen",
+  "neoRouterConnectedArg1": "Forbundet til {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "NeoRouter kan ikke nås lige nu.",
+  "neoRouterDisconnect": "Afbryd",
+  "neoRouterDisconnectBody": "NeoAgent holder op med at bruge denne NeoRouter. Tilbagekald også nøglen under API-nøgler i NeoRouter.",
+  "neoRouterServerInUseArg1": "Denne server bruger allerede NeoRouter på {arg1}. Forbind din egen konto der for egne modeller og eget budget.",
+  "@neoRouterServerInUseArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterConnected": "NeoRouter er forbundet.",
+  "neoRouterRoleChat": "Chat og billedgenkendelse",
+  "neoRouterRoleSystemOne": "System One-beslutninger",
+  "neoRouterRoleTranscription": "Tale til tekst",
+  "neoRouterRoleLive": "Live-stemme",
+  "neoRouterRoleEmbeddings": "Søgning i hukommelsen",
+  "neoRouterRoleImages": "Billedgenerering",
+  "neoRouterRoleSearch": "Websøgning",
+  "neoRouterModelCountArg1": "{arg1} tilgængelige i din NeoRouter",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Der er endnu intet tilgængeligt i din NeoRouter."
 }

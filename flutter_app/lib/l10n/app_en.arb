@@ -7301,5 +7301,54 @@
         "type": "String"
       }
     }
-  }
+  },
+  "neoRouterServerDescription": "Connect your NeoRouter once and every account here uses it for the work switched on below.",
+  "neoRouterUserDescription": "Use your own NeoRouter account for the work switched on below instead of this server's providers.",
+  "neoRouterAddress": "NeoRouter address",
+  "neoRouterConnect": "Connect NeoRouter",
+  "neoRouterWaitingArg1": "Approve NeoAgent in NeoRouter. It shows the code {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Open again",
+  "neoRouterConnectedArg1": "Connected to {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "NeoRouter cannot be reached right now.",
+  "neoRouterDisconnect": "Disconnect",
+  "neoRouterDisconnectBody": "NeoAgent stops using this NeoRouter. To withdraw its key as well, revoke it under API keys in NeoRouter.",
+  "neoRouterServerInUseArg1": "This server already uses NeoRouter at {arg1}. Connect your own account there for your own models and budget.",
+  "@neoRouterServerInUseArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterConnected": "NeoRouter is connected.",
+  "neoRouterRoleChat": "Chat and vision",
+  "neoRouterRoleSystemOne": "System One decisions",
+  "neoRouterRoleTranscription": "Speech to text",
+  "neoRouterRoleLive": "Live voice",
+  "neoRouterRoleEmbeddings": "Memory search",
+  "neoRouterRoleImages": "Image generation",
+  "neoRouterRoleSearch": "Web search",
+  "neoRouterModelCountArg1": "{arg1} available in your NeoRouter",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Nothing available in your NeoRouter yet."
 }

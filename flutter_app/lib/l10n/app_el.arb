@@ -7197,5 +7197,54 @@
   "reconnectNeeded": "Απαιτείται επανασύνδεση",
   "mixedAccess": "Μικτή πρόσβαση",
   "disconnectAccountTitle": "Αποσύνδεση του {account};",
-  "disconnectAccountBody": "Ο πράκτορας χάνει την πρόσβαση στα {apps} μέσω αυτού του λογαριασμού."
+  "disconnectAccountBody": "Ο πράκτορας χάνει την πρόσβαση στα {apps} μέσω αυτού του λογαριασμού.",
+  "neoRouterServerDescription": "Συνδέστε το NeoRouter σας μία φορά και κάθε λογαριασμός εδώ θα το χρησιμοποιεί για τις εργασίες που είναι ενεργές παρακάτω.",
+  "neoRouterUserDescription": "Χρησιμοποιήστε τον δικό σας λογαριασμό NeoRouter για τις εργασίες που είναι ενεργές παρακάτω αντί για τους παρόχους αυτού του διακομιστή.",
+  "neoRouterAddress": "Διεύθυνση NeoRouter",
+  "neoRouterConnect": "Σύνδεση NeoRouter",
+  "neoRouterWaitingArg1": "Εγκρίνετε το NeoAgent στο NeoRouter. Εμφανίζει τον κωδικό {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Άνοιγμα ξανά",
+  "neoRouterConnectedArg1": "Συνδέθηκε με {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "Το NeoRouter δεν είναι προσβάσιμο αυτή τη στιγμή.",
+  "neoRouterDisconnect": "Αποσύνδεση",
+  "neoRouterDisconnectBody": "Το NeoAgent σταματά να χρησιμοποιεί αυτό το NeoRouter. Για να ανακαλέσετε και το κλειδί, κάντε το στο NeoRouter στα Κλειδιά API.",
+  "neoRouterServerInUseArg1": "Αυτός ο διακομιστής χρησιμοποιεί ήδη το NeoRouter στο {arg1}. Συνδέστε εκεί τον δικό σας λογαριασμό για δικά σας μοντέλα και προϋπολογισμό.",
+  "@neoRouterServerInUseArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterConnected": "Το NeoRouter συνδέθηκε.",
+  "neoRouterRoleChat": "Συνομιλία και αναγνώριση εικόνας",
+  "neoRouterRoleSystemOne": "Αποφάσεις System One",
+  "neoRouterRoleTranscription": "Ομιλία σε κείμενο",
+  "neoRouterRoleLive": "Ζωντανή φωνή",
+  "neoRouterRoleEmbeddings": "Αναζήτηση στη μνήμη",
+  "neoRouterRoleImages": "Δημιουργία εικόνων",
+  "neoRouterRoleSearch": "Αναζήτηση στο web",
+  "neoRouterModelCountArg1": "Διαθέσιμα στο NeoRouter σας: {arg1}",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Δεν υπάρχει ακόμη τίποτα στο NeoRouter σας."
 }

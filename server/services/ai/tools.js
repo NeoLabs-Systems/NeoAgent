@@ -27,6 +27,8 @@ const { runFileDiagnostics } = require('./file_diagnostics');
 const { coerceWritableText } = require('../workspace/text_edits');
 const { normalizeStoredString } = require('../../utils/text');
 const { AI_PROVIDER_DEFINITIONS } = require('./provider_definitions');
+const { forRole: forNeoRouterRole } = require('./neorouter/connection');
+const neorouter = require('./neorouter/client');
 const { buildGuestGitEnv } = require('../integrations/github/git_proxy');
 const { checkPublicToolCall, getPublicRunScope } = require('../messaging/public_audience');
 const { isTainted } = require('../security/run_trust');
@@ -1506,7 +1508,7 @@ function getAvailableTools(app, options = {}) {
         },
         {
             name: 'generate_image',
-            description: 'Generate an image using Grok (grok-imagine-image). Saves the image locally and returns the file path — send it via send_message with media_path to share it on WhatsApp, Discord, etc.',
+            description: 'Generate an image from a description. Saves the image locally and returns the file path — send it via send_message with media_path to share it on WhatsApp, Discord, etc.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -2113,6 +2115,17 @@ async function executeTool(toolName, args, context, engine) {
             return await executeDesktopTool(toolName, args, { getController: dc, signal });
 
         case 'web_search': {
+            const router = forNeoRouterRole(userId, agentId, 'search');
+            if (router) {
+                try {
+                    const limit = Math.max(1, Math.min(Number(args.count) || 5, 10));
+                    const results = await neorouter.searchWeb(router, { query: args.query, count: limit, freshness: args.freshness, signal });
+                    return { query: args.query, count: results.length, results };
+                } catch (err) {
+                    if (isAbortError(err, signal)) throw err;
+                    return { error: err.message };
+                }
+            }
             const apiKey = process.env.BRAVE_SEARCH_API_KEY;
             if (!apiKey) return { error: 'BRAVE_SEARCH_API_KEY is not configured' };
 
@@ -3191,27 +3204,34 @@ async function executeTool(toolName, args, context, engine) {
                 if (!artifactStore) {
                     return { error: 'Artifact storage is unavailable.' };
                 }
-                const OpenAI = require('openai');
-                const grokDefinition = AI_PROVIDER_DEFINITIONS.grok;
-                const xai = new OpenAI({
-                  apiKey: process.env.XAI_API_KEY,
-                  baseURL: process.env.XAI_BASE_URL || grokDefinition.defaultBaseUrl,
-                });
                 const count = Math.min(args.n || 1, 4);
-                const result = await xai.images.generate({
-                    model: 'grok-imagine-image',
-                    prompt: args.prompt,
-                    n: count,
-                    response_format: 'b64_json'
-                });
+                const router = forNeoRouterRole(userId, agentId, 'images');
+                let images;
+                if (router) {
+                    images = await neorouter.generateImages(router, { prompt: args.prompt, n: count, signal });
+                } else {
+                    const OpenAI = require('openai');
+                    const grokDefinition = AI_PROVIDER_DEFINITIONS.grok;
+                    const xai = new OpenAI({
+                      apiKey: process.env.XAI_API_KEY,
+                      baseURL: process.env.XAI_BASE_URL || grokDefinition.defaultBaseUrl,
+                    });
+                    const result = await xai.images.generate({
+                        model: 'grok-imagine-image',
+                        prompt: args.prompt,
+                        n: count,
+                        response_format: 'b64_json'
+                    });
+                    images = result.data.map((img) => img.b64_json);
+                }
                 const artifacts = [];
-                for (const img of result.data) {
+                for (const b64 of images) {
                     const artifact = await artifactStore.createBufferArtifact(userId, {
                         kind: 'generated-image',
                         filenameBase: 'generated-image',
                         extension: 'png',
                         contentType: 'image/png',
-                        content: Buffer.from(img.b64_json, 'base64'),
+                        content: Buffer.from(b64, 'base64'),
                     });
                     artifacts.push({
                         artifactId: artifact.artifactId,

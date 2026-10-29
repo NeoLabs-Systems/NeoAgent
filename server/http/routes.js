@@ -15,6 +15,7 @@ const routeRegistry = [
   { basePath: '/api/admin', modulePath: '../routes/admin' },
   { basePath: '/api/settings', modulePath: '../routes/settings' },
   { basePath: '/api/provider-sign-in', modulePath: '../routes/provider_sign_in' },
+  { basePath: '/api/neorouter', modulePath: '../routes/neorouter' },
   { basePath: '/api/behavior', modulePath: '../routes/behavior' },
   { basePath: '/api/agent-profiles', modulePath: '../routes/agent_profiles' },
   { basePath: '/api/agents', modulePath: '../routes/agents' },

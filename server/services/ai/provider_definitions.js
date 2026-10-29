@@ -150,6 +150,21 @@ const AI_PROVIDER_DEFINITIONS = Object.freeze({
     defaultEnabled: false,
     defaultBaseUrl: ''
   },
+  // Connected through "Connect NeoRouter" (services/ai/neorouter), not a
+  // pasted key: one sign-in reaches every model, voice and tool it routes.
+  neorouter: {
+    id: 'neorouter',
+    label: 'NeoRouter',
+    description: 'Your NeoRouter: the models, voices and tools of all its providers through one connection.',
+    envKey: 'NEOROUTER_API_KEY',
+    baseUrlEnvKey: 'NEOROUTER_BASE_URL',
+    authentication: 'oauth',
+    supportsApiKey: true,
+    supportsBaseUrl: true,
+    requiresBaseUrl: true,
+    defaultEnabled: true,
+    defaultBaseUrl: ''
+  },
   ollama: {
     id: 'ollama',
     label: 'Ollama',

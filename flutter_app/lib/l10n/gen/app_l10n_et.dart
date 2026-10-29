@@ -11680,4 +11680,78 @@ class AppL10nEt extends AppL10n {
   String disconnectAccountBody(String apps) {
     return 'Agent kaotab selle konto kaudu juurdepääsu teenustele $apps.';
   }
+
+  @override
+  String get neoRouterServerDescription =>
+      'Ühenda oma NeoRouter üks kord ja iga konto siin kasutab seda allpool sisse lülitatud töödeks.';
+
+  @override
+  String get neoRouterUserDescription =>
+      'Kasuta allpool sisse lülitatud töödeks oma NeoRouteri kontot selle serveri teenusepakkujate asemel.';
+
+  @override
+  String get neoRouterAddress => 'NeoRouteri aadress';
+
+  @override
+  String get neoRouterConnect => 'Ühenda NeoRouter';
+
+  @override
+  String neoRouterWaitingArg1(Object? arg1) {
+    return 'Kinnita NeoAgent NeoRouteris. Seal on kood $arg1.';
+  }
+
+  @override
+  String get neoRouterOpenAgain => 'Ava uuesti';
+
+  @override
+  String neoRouterConnectedArg1(Object? arg1) {
+    return 'Ühendatud: $arg1';
+  }
+
+  @override
+  String get neoRouterUnreachable => 'NeoRouter pole praegu kättesaadav.';
+
+  @override
+  String get neoRouterDisconnect => 'Katkesta ühendus';
+
+  @override
+  String get neoRouterDisconnectBody =>
+      'NeoAgent lõpetab selle NeoRouteri kasutamise. Võta ka võti tagasi NeoRouteri API-võtmete all.';
+
+  @override
+  String neoRouterServerInUseArg1(Object? arg1) {
+    return 'See server kasutab juba NeoRouterit aadressil $arg1. Ühenda seal oma konto, et saada oma mudelid ja eelarve.';
+  }
+
+  @override
+  String get neoRouterConnected => 'NeoRouter on ühendatud.';
+
+  @override
+  String get neoRouterRoleChat => 'Vestlus ja pildituvastus';
+
+  @override
+  String get neoRouterRoleSystemOne => 'System One otsused';
+
+  @override
+  String get neoRouterRoleTranscription => 'Kõne tekstiks';
+
+  @override
+  String get neoRouterRoleLive => 'Otsehääl';
+
+  @override
+  String get neoRouterRoleEmbeddings => 'Mälust otsimine';
+
+  @override
+  String get neoRouterRoleImages => 'Piltide loomine';
+
+  @override
+  String get neoRouterRoleSearch => 'Veebiotsing';
+
+  @override
+  String neoRouterModelCountArg1(Object? arg1) {
+    return 'Sinu NeoRouteris saadaval: $arg1';
+  }
+
+  @override
+  String get neoRouterNoModels => 'Sinu NeoRouteris pole veel midagi.';
 }

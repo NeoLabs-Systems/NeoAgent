@@ -7197,5 +7197,54 @@
   "reconnectNeeded": "Jāsavieno vēlreiz",
   "mixedAccess": "Jaukta piekļuve",
   "disconnectAccountTitle": "Atvienot {account}?",
-  "disconnectAccountBody": "Aģents caur šo kontu zaudē piekļuvi {apps}."
+  "disconnectAccountBody": "Aģents caur šo kontu zaudē piekļuvi {apps}.",
+  "neoRouterServerDescription": "Pievienojiet savu NeoRouter vienreiz, un katrs konts šeit to izmantos tālāk ieslēgtajiem darbiem.",
+  "neoRouterUserDescription": "Tālāk ieslēgtajiem darbiem izmantojiet savu NeoRouter kontu, nevis šī servera pakalpojumu sniedzējus.",
+  "neoRouterAddress": "NeoRouter adrese",
+  "neoRouterConnect": "Pievienot NeoRouter",
+  "neoRouterWaitingArg1": "Apstipriniet NeoAgent NeoRouter. Tas rāda kodu {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Atvērt vēlreiz",
+  "neoRouterConnectedArg1": "Savienots ar {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "NeoRouter pašlaik nav sasniedzams.",
+  "neoRouterDisconnect": "Atvienot",
+  "neoRouterDisconnectBody": "NeoAgent vairs neizmanto šo NeoRouter. Lai atsauktu arī atslēgu, atsauciet to NeoRouter sadaļā API atslēgas.",
+  "neoRouterServerInUseArg1": "Šis serveris jau izmanto NeoRouter adresē {arg1}. Pievienojiet tur savu kontu, lai būtu savi modeļi un budžets.",
+  "@neoRouterServerInUseArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterConnected": "NeoRouter ir pievienots.",
+  "neoRouterRoleChat": "Tērzēšana un attēlu atpazīšana",
+  "neoRouterRoleSystemOne": "System One lēmumi",
+  "neoRouterRoleTranscription": "Runa uz tekstu",
+  "neoRouterRoleLive": "Tiešraides balss",
+  "neoRouterRoleEmbeddings": "Meklēšana atmiņā",
+  "neoRouterRoleImages": "Attēlu veidošana",
+  "neoRouterRoleSearch": "Meklēšana tīmeklī",
+  "neoRouterModelCountArg1": "Jūsu NeoRouter pieejami: {arg1}",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Jūsu NeoRouter vēl nekā nav."
 }

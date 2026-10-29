@@ -11709,4 +11709,78 @@ class AppL10nMt extends AppL10n {
   String disconnectAccountBody(String apps) {
     return 'L-aġent jitlef l-aċċess għal $apps permezz ta\' dan il-kont.';
   }
+
+  @override
+  String get neoRouterServerDescription =>
+      'Qabbad in-NeoRouter tiegħek darba u kull kont hawn jużah għax-xogħol mixgħul hawn taħt.';
+
+  @override
+  String get neoRouterUserDescription =>
+      'Uża l-kont NeoRouter tiegħek għax-xogħol mixgħul hawn taħt minflok il-fornituri ta\' dan is-server.';
+
+  @override
+  String get neoRouterAddress => 'Indirizz tan-NeoRouter';
+
+  @override
+  String get neoRouterConnect => 'Qabbad in-NeoRouter';
+
+  @override
+  String neoRouterWaitingArg1(Object? arg1) {
+    return 'Approva lil NeoAgent fin-NeoRouter. Juri l-kodiċi $arg1.';
+  }
+
+  @override
+  String get neoRouterOpenAgain => 'Iftaħ mill-ġdid';
+
+  @override
+  String neoRouterConnectedArg1(Object? arg1) {
+    return 'Imqabbad ma\' $arg1';
+  }
+
+  @override
+  String get neoRouterUnreachable => 'In-NeoRouter mhux disponibbli bħalissa.';
+
+  @override
+  String get neoRouterDisconnect => 'Aqta\'';
+
+  @override
+  String get neoRouterDisconnectBody =>
+      'NeoAgent jieqaf juża dan in-NeoRouter. Biex tirtira wkoll iċ-ċavetta, revokaha fin-NeoRouter taħt Ċwievet API.';
+
+  @override
+  String neoRouterServerInUseArg1(Object? arg1) {
+    return 'Dan is-server diġà juża n-NeoRouter f\'$arg1. Qabbad il-kont tiegħek hemmhekk għall-mudelli u l-baġit tiegħek.';
+  }
+
+  @override
+  String get neoRouterConnected => 'In-NeoRouter huwa mqabbad.';
+
+  @override
+  String get neoRouterRoleChat => 'Chat u għarfien tal-istampi';
+
+  @override
+  String get neoRouterRoleSystemOne => 'Deċiżjonijiet System One';
+
+  @override
+  String get neoRouterRoleTranscription => 'Diskors għal test';
+
+  @override
+  String get neoRouterRoleLive => 'Vuċi diretta';
+
+  @override
+  String get neoRouterRoleEmbeddings => 'Tfittxija fil-memorja';
+
+  @override
+  String get neoRouterRoleImages => 'Ħolqien ta\' stampi';
+
+  @override
+  String get neoRouterRoleSearch => 'Tfittxija fuq il-web';
+
+  @override
+  String neoRouterModelCountArg1(Object? arg1) {
+    return 'Disponibbli fin-NeoRouter tiegħek: $arg1';
+  }
+
+  @override
+  String get neoRouterNoModels => 'Għad m\'hemm xejn fin-NeoRouter tiegħek.';
 }

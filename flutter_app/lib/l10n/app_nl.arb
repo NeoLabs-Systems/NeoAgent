@@ -7197,5 +7197,54 @@
   "reconnectNeeded": "Opnieuw verbinden nodig",
   "mixedAccess": "Gemengde toegang",
   "disconnectAccountTitle": "{account} loskoppelen?",
-  "disconnectAccountBody": "De agent verliest via dit account de toegang tot {apps}."
+  "disconnectAccountBody": "De agent verliest via dit account de toegang tot {apps}.",
+  "neoRouterServerDescription": "Verbind je NeoRouter één keer en elk account hier gebruikt hem voor de taken die hieronder aanstaan.",
+  "neoRouterUserDescription": "Gebruik je eigen NeoRouter-account voor de taken die hieronder aanstaan in plaats van de providers van deze server.",
+  "neoRouterAddress": "NeoRouter-adres",
+  "neoRouterConnect": "NeoRouter verbinden",
+  "neoRouterWaitingArg1": "Keur NeoAgent goed in NeoRouter. Daar staat de code {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Opnieuw openen",
+  "neoRouterConnectedArg1": "Verbonden met {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "NeoRouter is nu niet bereikbaar.",
+  "neoRouterDisconnect": "Loskoppelen",
+  "neoRouterDisconnectBody": "NeoAgent gebruikt deze NeoRouter niet meer. Trek ook de sleutel in via API-sleutels in NeoRouter.",
+  "neoRouterServerInUseArg1": "Deze server gebruikt al NeoRouter op {arg1}. Verbind daar je eigen account voor eigen modellen en budget.",
+  "@neoRouterServerInUseArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterConnected": "NeoRouter is verbonden.",
+  "neoRouterRoleChat": "Chat en beeldherkenning",
+  "neoRouterRoleSystemOne": "System One-beslissingen",
+  "neoRouterRoleTranscription": "Spraak naar tekst",
+  "neoRouterRoleLive": "Live spraak",
+  "neoRouterRoleEmbeddings": "Geheugen doorzoeken",
+  "neoRouterRoleImages": "Afbeeldingen maken",
+  "neoRouterRoleSearch": "Zoeken op het web",
+  "neoRouterModelCountArg1": "{arg1} beschikbaar in je NeoRouter",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Er is nog niets beschikbaar in je NeoRouter."
 }

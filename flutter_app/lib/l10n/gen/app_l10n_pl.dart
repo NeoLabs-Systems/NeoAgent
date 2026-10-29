@@ -11732,4 +11732,78 @@ class AppL10nPl extends AppL10n {
   String disconnectAccountBody(String apps) {
     return 'Agent traci dostęp do $apps przez to konto.';
   }
+
+  @override
+  String get neoRouterServerDescription =>
+      'Połącz swój NeoRouter raz, a każde konto tutaj będzie go używać do zadań włączonych poniżej.';
+
+  @override
+  String get neoRouterUserDescription =>
+      'Używaj własnego konta NeoRouter do zadań włączonych poniżej zamiast dostawców tego serwera.';
+
+  @override
+  String get neoRouterAddress => 'Adres NeoRoutera';
+
+  @override
+  String get neoRouterConnect => 'Połącz NeoRouter';
+
+  @override
+  String neoRouterWaitingArg1(Object? arg1) {
+    return 'Zatwierdź NeoAgent w NeoRouterze. Wyświetla kod $arg1.';
+  }
+
+  @override
+  String get neoRouterOpenAgain => 'Otwórz ponownie';
+
+  @override
+  String neoRouterConnectedArg1(Object? arg1) {
+    return 'Połączono z $arg1';
+  }
+
+  @override
+  String get neoRouterUnreachable => 'NeoRouter jest teraz niedostępny.';
+
+  @override
+  String get neoRouterDisconnect => 'Rozłącz';
+
+  @override
+  String get neoRouterDisconnectBody =>
+      'NeoAgent przestaje używać tego NeoRoutera. Aby cofnąć też klucz, unieważnij go w NeoRouterze w sekcji Klucze API.';
+
+  @override
+  String neoRouterServerInUseArg1(Object? arg1) {
+    return 'Ten serwer już korzysta z NeoRoutera pod adresem $arg1. Połącz tam własne konto, aby mieć własne modele i budżet.';
+  }
+
+  @override
+  String get neoRouterConnected => 'NeoRouter jest połączony.';
+
+  @override
+  String get neoRouterRoleChat => 'Czat i rozpoznawanie obrazu';
+
+  @override
+  String get neoRouterRoleSystemOne => 'Decyzje System One';
+
+  @override
+  String get neoRouterRoleTranscription => 'Mowa na tekst';
+
+  @override
+  String get neoRouterRoleLive => 'Głos na żywo';
+
+  @override
+  String get neoRouterRoleEmbeddings => 'Przeszukiwanie pamięci';
+
+  @override
+  String get neoRouterRoleImages => 'Tworzenie obrazów';
+
+  @override
+  String get neoRouterRoleSearch => 'Wyszukiwanie w sieci';
+
+  @override
+  String neoRouterModelCountArg1(Object? arg1) {
+    return 'Dostępne w NeoRouterze: $arg1';
+  }
+
+  @override
+  String get neoRouterNoModels => 'W NeoRouterze nic jeszcze nie ma.';
 }

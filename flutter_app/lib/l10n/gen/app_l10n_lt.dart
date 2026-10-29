@@ -11706,4 +11706,78 @@ class AppL10nLt extends AppL10n {
   String disconnectAccountBody(String apps) {
     return 'Agentas per šią paskyrą praras prieigą prie $apps.';
   }
+
+  @override
+  String get neoRouterServerDescription =>
+      'Prijunkite savo NeoRouter vieną kartą ir kiekviena paskyra čia naudos jį toliau įjungtiems darbams.';
+
+  @override
+  String get neoRouterUserDescription =>
+      'Toliau įjungtiems darbams naudokite savo NeoRouter paskyrą vietoj šio serverio teikėjų.';
+
+  @override
+  String get neoRouterAddress => 'NeoRouter adresas';
+
+  @override
+  String get neoRouterConnect => 'Prijungti NeoRouter';
+
+  @override
+  String neoRouterWaitingArg1(Object? arg1) {
+    return 'Patvirtinkite NeoAgent NeoRouter. Jis rodo kodą $arg1.';
+  }
+
+  @override
+  String get neoRouterOpenAgain => 'Atidaryti dar kartą';
+
+  @override
+  String neoRouterConnectedArg1(Object? arg1) {
+    return 'Prisijungta prie $arg1';
+  }
+
+  @override
+  String get neoRouterUnreachable => 'NeoRouter šiuo metu nepasiekiamas.';
+
+  @override
+  String get neoRouterDisconnect => 'Atjungti';
+
+  @override
+  String get neoRouterDisconnectBody =>
+      'NeoAgent nustoja naudoti šį NeoRouter. Norėdami atšaukti ir raktą, atšaukite jį NeoRouter skiltyje API raktai.';
+
+  @override
+  String neoRouterServerInUseArg1(Object? arg1) {
+    return 'Šis serveris jau naudoja NeoRouter adresu $arg1. Prijunkite ten savo paskyrą, kad turėtumėte savo modelius ir biudžetą.';
+  }
+
+  @override
+  String get neoRouterConnected => 'NeoRouter prijungtas.';
+
+  @override
+  String get neoRouterRoleChat => 'Pokalbiai ir vaizdų atpažinimas';
+
+  @override
+  String get neoRouterRoleSystemOne => 'System One sprendimai';
+
+  @override
+  String get neoRouterRoleTranscription => 'Kalba į tekstą';
+
+  @override
+  String get neoRouterRoleLive => 'Tiesioginis balsas';
+
+  @override
+  String get neoRouterRoleEmbeddings => 'Paieška atmintyje';
+
+  @override
+  String get neoRouterRoleImages => 'Vaizdų kūrimas';
+
+  @override
+  String get neoRouterRoleSearch => 'Paieška internete';
+
+  @override
+  String neoRouterModelCountArg1(Object? arg1) {
+    return 'Jūsų NeoRouter pasiekiama: $arg1';
+  }
+
+  @override
+  String get neoRouterNoModels => 'Jūsų NeoRouter dar nieko nėra.';
 }

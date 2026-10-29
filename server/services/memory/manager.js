@@ -1709,7 +1709,7 @@ class MemoryManager {
     const embeddingResult = await getEmbeddingWithMetadata(
       content,
       await getActiveProvider(userId, agentId, options),
-      { signal: options.signal, inputType: 'document' },
+      { signal: options.signal, inputType: 'document', userId, agentId },
     );
     const embedding = embeddingResult?.vector || null;
 
@@ -1974,7 +1974,7 @@ class MemoryManager {
       : await getEmbeddingWithMetadata(
         query,
         await getActiveProvider(userId, agentId, options),
-        { signal: options.signal, inputType: 'query' },
+        { signal: options.signal, inputType: 'query', userId, agentId },
       );
     const queryVec = queryEmbeddingResult?.vector || null;
     const lexicalHits = this._searchMemoryFts(userId, agentId, query, Math.max(80, limit * 12));
@@ -2279,7 +2279,7 @@ class MemoryManager {
       embeddingResult = await getEmbeddingWithMetadata(
         newContent,
         await getActiveProvider(mem.user_id, mem.agent_id, { signal }),
-        { signal, inputType: 'document' },
+        { signal, inputType: 'document', userId: mem.user_id, agentId: mem.agent_id },
       );
       newEmbed = embeddingResult?.vector
         ? serializeEmbedding(embeddingResult.vector)

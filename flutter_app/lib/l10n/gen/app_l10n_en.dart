@@ -11633,4 +11633,78 @@ class AppL10nEn extends AppL10n {
   String disconnectAccountBody(String apps) {
     return 'The agent loses access to $apps through this account.';
   }
+
+  @override
+  String get neoRouterServerDescription =>
+      'Connect your NeoRouter once and every account here uses it for the work switched on below.';
+
+  @override
+  String get neoRouterUserDescription =>
+      'Use your own NeoRouter account for the work switched on below instead of this server\'s providers.';
+
+  @override
+  String get neoRouterAddress => 'NeoRouter address';
+
+  @override
+  String get neoRouterConnect => 'Connect NeoRouter';
+
+  @override
+  String neoRouterWaitingArg1(Object? arg1) {
+    return 'Approve NeoAgent in NeoRouter. It shows the code $arg1.';
+  }
+
+  @override
+  String get neoRouterOpenAgain => 'Open again';
+
+  @override
+  String neoRouterConnectedArg1(Object? arg1) {
+    return 'Connected to $arg1';
+  }
+
+  @override
+  String get neoRouterUnreachable => 'NeoRouter cannot be reached right now.';
+
+  @override
+  String get neoRouterDisconnect => 'Disconnect';
+
+  @override
+  String get neoRouterDisconnectBody =>
+      'NeoAgent stops using this NeoRouter. To withdraw its key as well, revoke it under API keys in NeoRouter.';
+
+  @override
+  String neoRouterServerInUseArg1(Object? arg1) {
+    return 'This server already uses NeoRouter at $arg1. Connect your own account there for your own models and budget.';
+  }
+
+  @override
+  String get neoRouterConnected => 'NeoRouter is connected.';
+
+  @override
+  String get neoRouterRoleChat => 'Chat and vision';
+
+  @override
+  String get neoRouterRoleSystemOne => 'System One decisions';
+
+  @override
+  String get neoRouterRoleTranscription => 'Speech to text';
+
+  @override
+  String get neoRouterRoleLive => 'Live voice';
+
+  @override
+  String get neoRouterRoleEmbeddings => 'Memory search';
+
+  @override
+  String get neoRouterRoleImages => 'Image generation';
+
+  @override
+  String get neoRouterRoleSearch => 'Web search';
+
+  @override
+  String neoRouterModelCountArg1(Object? arg1) {
+    return '$arg1 available in your NeoRouter';
+  }
+
+  @override
+  String get neoRouterNoModels => 'Nothing available in your NeoRouter yet.';
 }

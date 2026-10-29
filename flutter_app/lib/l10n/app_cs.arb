@@ -7197,5 +7197,54 @@
   "reconnectNeeded": "Je potřeba znovu připojit",
   "mixedAccess": "Smíšený přístup",
   "disconnectAccountTitle": "Odpojit {account}?",
-  "disconnectAccountBody": "Agent přes tento účet ztratí přístup k {apps}."
+  "disconnectAccountBody": "Agent přes tento účet ztratí přístup k {apps}.",
+  "neoRouterServerDescription": "Připojte svůj NeoRouter jednou a každý účet zde ho použije pro úkoly zapnuté níže.",
+  "neoRouterUserDescription": "Pro úkoly zapnuté níže použijte vlastní účet NeoRouter místo poskytovatelů tohoto serveru.",
+  "neoRouterAddress": "Adresa NeoRouteru",
+  "neoRouterConnect": "Připojit NeoRouter",
+  "neoRouterWaitingArg1": "Schvalte NeoAgent v NeoRouteru. Zobrazuje kód {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Otevřít znovu",
+  "neoRouterConnectedArg1": "Připojeno k {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "NeoRouter teď není dostupný.",
+  "neoRouterDisconnect": "Odpojit",
+  "neoRouterDisconnectBody": "NeoAgent přestane tento NeoRouter používat. Chcete-li odebrat i klíč, zrušte ho v NeoRouteru v části Klíče API.",
+  "neoRouterServerInUseArg1": "Tento server už používá NeoRouter na {arg1}. Připojte tam vlastní účet pro vlastní modely a rozpočet.",
+  "@neoRouterServerInUseArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterConnected": "NeoRouter je připojen.",
+  "neoRouterRoleChat": "Chat a rozpoznávání obrazu",
+  "neoRouterRoleSystemOne": "Rozhodnutí System One",
+  "neoRouterRoleTranscription": "Řeč na text",
+  "neoRouterRoleLive": "Živý hlas",
+  "neoRouterRoleEmbeddings": "Hledání v paměti",
+  "neoRouterRoleImages": "Tvorba obrázků",
+  "neoRouterRoleSearch": "Vyhledávání na webu",
+  "neoRouterModelCountArg1": "V NeoRouteru dostupné: {arg1}",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "V NeoRouteru zatím nic není."
 }

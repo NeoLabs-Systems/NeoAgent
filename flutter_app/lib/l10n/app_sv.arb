@@ -7197,5 +7197,54 @@
   "reconnectNeeded": "Behöver anslutas igen",
   "mixedAccess": "Blandad åtkomst",
   "disconnectAccountTitle": "Koppla från {account}?",
-  "disconnectAccountBody": "Agenten förlorar åtkomsten till {apps} via det här kontot."
+  "disconnectAccountBody": "Agenten förlorar åtkomsten till {apps} via det här kontot.",
+  "neoRouterServerDescription": "Anslut din NeoRouter en gång så använder alla konton här den för uppgifterna som är påslagna nedan.",
+  "neoRouterUserDescription": "Använd ditt eget NeoRouter-konto för uppgifterna som är påslagna nedan i stället för serverns leverantörer.",
+  "neoRouterAddress": "NeoRouter-adress",
+  "neoRouterConnect": "Anslut NeoRouter",
+  "neoRouterWaitingArg1": "Godkänn NeoAgent i NeoRouter. Där visas koden {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Öppna igen",
+  "neoRouterConnectedArg1": "Ansluten till {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "NeoRouter går inte att nå just nu.",
+  "neoRouterDisconnect": "Koppla från",
+  "neoRouterDisconnectBody": "NeoAgent slutar använda den här NeoRoutern. Återkalla även nyckeln under API-nycklar i NeoRouter.",
+  "neoRouterServerInUseArg1": "Den här servern använder redan NeoRouter på {arg1}. Anslut ditt eget konto där för egna modeller och egen budget.",
+  "@neoRouterServerInUseArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterConnected": "NeoRouter är ansluten.",
+  "neoRouterRoleChat": "Chatt och bildigenkänning",
+  "neoRouterRoleSystemOne": "System One-beslut",
+  "neoRouterRoleTranscription": "Tal till text",
+  "neoRouterRoleLive": "Liveröst",
+  "neoRouterRoleEmbeddings": "Sökning i minnet",
+  "neoRouterRoleImages": "Bildgenerering",
+  "neoRouterRoleSearch": "Webbsökning",
+  "neoRouterModelCountArg1": "{arg1} tillgängliga i din NeoRouter",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Inget är tillgängligt i din NeoRouter än."
 }
