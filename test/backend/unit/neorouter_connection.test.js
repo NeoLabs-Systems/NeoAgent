@@ -27,7 +27,7 @@ function fakeNeoRouter() {
   });
   const auth = (req, res, next) => (req.get('authorization') === 'Bearer nrt_fake_key' ? next() : res.status(401).json({ error: { message: 'bad key' } }));
   const lists = {
-    chat: [{ id: 'auto', object: 'model' }, { id: 'groq/llama-4', pricing: { prompt: '0', completion: '0' }, neorouter: { free: true, tools: true } }],
+    chat: [{ id: 'auto', name: 'Auto (Balanced)' }, { id: 'auto:fast', name: 'Auto (Fastest)' }, { id: 'auto-free:fast', name: 'Auto (Fastest, free models only)' }, { id: 'groq/llama-4', pricing: { prompt: '0', completion: '0' }, neorouter: { free: true, tools: true } }],
     moderation: [{ id: 'openrouter/liquid-d1', neorouter: { decision: true } }, { id: 'groq/llama-guard-4', neorouter: { decision: false } }],
     live: [{ id: 'google/gemini-3.8-flash-live', neorouter: { protocols: ['gemini_live'] } }],
     embedding: [{ id: 'nvidia/embed' }],
@@ -100,6 +100,8 @@ test('every kind of work goes through the connected router', async () => {
   const provider = createProviderInstance('neorouter', user.userId);
   const models = await provider.listModels();
   assert.ok(models.some((model) => model.id === 'auto:balanced'), 'routing profiles are offered as models');
+  assert.ok(models.some((model) => model.id === 'auto-free:fast'), 'and the variants limited to one kind of model');
+  assert.ok(!models.some((model) => model.id === 'auto'), 'bare auto is listed by its full name');
   assert.equal(models.find((model) => model.id === 'groq/llama-4').priceTier, 'free');
   assert.deepEqual((await provider.listDecisionModels()).map((model) => model.id), ['openrouter/liquid-d1'], 'only decision models, no classifiers');
   const { describeOffer } = require('../../../server/services/ai/neorouter/offer');
@@ -141,6 +143,24 @@ test('tool turns move a NeoRouter run to the profile for that work', async () =>
   assert.equal(neoRouterTaskSelection('coding'), 'neorouter::auto:best');
   assert.equal(neoRouterTaskSelection('research'), 'neorouter::auto:smart');
   assert.equal(neoRouterTaskSelection('unknown'), null);
+});
+
+test('live voice moves to the router once it has live models and the current choice cannot work', async () => {
+  const signIn = require('../../../server/services/ai/neorouter/sign_in');
+  const { serverConnection } = require('../../../server/services/ai/neorouter/connection');
+  const admin = await createTestUser(ctx.db, { username: 'nr_live' });
+  delete process.env.OPENAI_API_KEY;
+  require('../../../server/services/admin/env_config').persistEnv('VOICE_LIVE_PROVIDER', 'openai');
+  const offer = { roles: { live: 1 }, notAllowed: {}, liveProtocols: ['gemini_live'] };
+  await signIn.applyLiveChoice(serverConnection(), { scope: 'server', userId: admin.userId, onlyIfUnusable: true, offer });
+  assert.equal(process.env.VOICE_LIVE_PROVIDER, 'neorouter_google', 'OpenAI has no key, so NeoRouter takes over');
+  process.env.OPENAI_API_KEY = 'server-key';
+  require('../../../server/services/admin/env_config').persistEnv('VOICE_LIVE_PROVIDER', 'openai');
+  await signIn.applyLiveChoice(serverConnection(), { scope: 'server', userId: admin.userId, onlyIfUnusable: true, offer });
+  assert.equal(process.env.VOICE_LIVE_PROVIDER, 'openai', 'a working choice is kept');
+  delete process.env.OPENAI_API_KEY;
+  await signIn.applyLiveChoice(serverConnection(), { scope: 'server', userId: admin.userId, onlyIfUnusable: true, offer });
+  assert.equal(process.env.VOICE_LIVE_PROVIDER, 'neorouter_google');
 });
 
 test('turning a role off hands it back to the usual provider', async () => {

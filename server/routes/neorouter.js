@@ -38,10 +38,13 @@ function scopeOf(req, res) {
 
 const agentOf = (req) => resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
 
-async function describe(connection, withOffer) {
+// The settings page always asks the router afresh: what a key may use is
+// changed in NeoRouter, not here. Live voice follows newly available models.
+async function describe(connection, context) {
   if (!connection) return { connected: false, address: null, roles: [], offer: null };
-  const offer = withOffer ? await describeOffer(connection).catch(() => null) : null;
-  return { connected: true, address: connection.origin, roles: [...connection.roles], offer, reachable: withOffer ? Boolean(offer) : null };
+  const offer = await describeOffer(connection, { fresh: true }).catch(() => null);
+  if (offer) await signIn.applyLiveChoice(connection, { ...context, onlyIfUnusable: true, offer }).catch(() => {});
+  return { connected: true, address: connection.origin, roles: [...connection.roles], offer, reachable: Boolean(offer) };
 }
 
 router.get('/', async (req, res) => {
@@ -51,8 +54,8 @@ router.get('/', async (req, res) => {
   const [serverState, userState] = await Promise.all([
     // Only admins see where the server's NeoRouter lives and what it offers;
     // everyone else only learns that one is connected.
-    isAdmin ? describe(server, true) : { connected: Boolean(server) },
-    describe(userConnection(userId, agentOf(req)), true),
+    isAdmin ? describe(server, { scope: 'server', userId, agentId: null }) : { connected: Boolean(server) },
+    describe(userConnection(userId, agentOf(req)), { scope: 'user', userId, agentId: agentOf(req) }),
   ]);
   res.json({ roles: ROLES, isAdmin, server: serverState, user: userState });
 });

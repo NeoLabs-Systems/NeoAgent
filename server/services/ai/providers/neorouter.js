@@ -5,16 +5,12 @@ const { postSystemOneDecision } = require('./system_one_api');
 const { isDecisionModel, listModels } = require('../neorouter/client');
 const { priceTierForCost } = require('../model_reference');
 
-// NeoRouter routing profiles, offered as models. "auto" alone is not a valid
-// selection id, so the balanced profile is listed by its full name.
-const PROFILE_NAMES = Object.freeze({
-  'auto:balanced': 'NeoRouter Auto',
-  'auto:fast': 'NeoRouter Auto (fastest)',
-  'auto:cheap': 'NeoRouter Auto (cheapest)',
-  'auto:best': 'NeoRouter Auto (best)',
-  'auto:smart': 'NeoRouter Auto (smartest)',
-  'auto:reliable': 'NeoRouter Auto (most reliable)',
-});
+// NeoRouter's auto models: one per routing profile, and the same limited to
+// free, subscription or paid models when the key may use more than one kind.
+// "auto" alone is not a valid selection id, so the balanced profile is
+// listed by its full name ("auto:balanced", "auto-free:balanced").
+const isAuto = (id) => /^auto(-(free|plan|paid))?(:|$)/.test(String(id));
+const selectableAutoId = (id) => (String(id).includes(':') ? String(id) : `${id}:balanced`);
 const contextWindows = new Map();
 
 // A NeoRouter speaks the OpenAI API for every kind of model and routes each
@@ -32,9 +28,11 @@ class NeoRouterProvider extends CustomOpenAIProvider {
 
   async listModels(signal = null) {
     const models = await listModels(this.connection, 'chat', { signal });
-    const profiles = Object.entries(PROFILE_NAMES).map(([id, name]) => ({ id, name, supportsTools: true }));
+    const profiles = models
+      .filter((model) => isAuto(model.id))
+      .map((model) => ({ id: selectableAutoId(model.id), name: `NeoRouter ${model.name || model.id}`, supportsTools: true }));
     const listed = models
-      .filter((model) => !String(model.id).startsWith('auto'))
+      .filter((model) => !isAuto(model.id))
       .map((model) => {
         if (model.context_length) contextWindows.set(model.id, model.context_length);
         const facts = model.neorouter || {};

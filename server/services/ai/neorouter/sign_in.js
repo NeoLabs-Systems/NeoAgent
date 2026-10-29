@@ -55,9 +55,20 @@ function liveProviderFor(offer) {
 
 const isNeoRouterLive = (provider) => Object.values(LIVE_PROVIDER_BY_PROTOCOL).includes(provider);
 
-// Live voice is picked once per server or person; NeoRouter's takes over when
-// the live role is on and gives the choice back when it is turned off.
-async function applyLiveChoice(connection, { scope, userId, agentId }) {
+// Whether live voice can work with this provider: it needs a key.
+function liveProviderUsable(provider, { scope, userId, agentId }) {
+  const { LIVE_VOICE_PROVIDERS, normalizeLiveProvider } = require('../../voice/live/catalog');
+  const { getProviderRuntimeConfig } = require('../models');
+  const { runtimeProvider } = LIVE_VOICE_PROVIDERS[normalizeLiveProvider(provider)];
+  return Boolean(getProviderRuntimeConfig(scope === 'server' ? null : userId, runtimeProvider, agentId).apiKey);
+}
+
+// Live voice is picked per server or person. Connecting, or switching the
+// live role on, hands it to NeoRouter; switching the role off gives the
+// choice back. `onlyIfUnusable` is for later checks: once the router has
+// live models, voice moves to it only when the current choice cannot work
+// (models often arrive after connecting, or once paid ones are allowed).
+async function applyLiveChoice(connection, { scope, userId, agentId, onlyIfUnusable = false, offer = null }) {
   const { persistEnv } = require('../../admin/env_config');
   const { applySettingsUpdate } = require('../../settings/store');
   const current = scope === 'server'
@@ -65,8 +76,11 @@ async function applyLiveChoice(connection, { scope, userId, agentId }) {
     : require('../settings').getAiSettings(userId, agentId).voice_live_provider;
   let next = current;
   if (connection?.roles.has('live')) {
-    const offer = await describeOffer(connection).catch(() => null);
-    next = (offer && liveProviderFor(offer)) || current;
+    const known = offer || await describeOffer(connection).catch(() => null);
+    const routed = known && liveProviderFor(known);
+    const keep = onlyIfUnusable && liveProviderUsable(current, { scope, userId, agentId })
+      && (!isNeoRouterLive(current) || routed === current);
+    next = keep ? current : routed || current;
   } else if (isNeoRouterLive(current)) {
     next = '';
   }
@@ -213,4 +227,4 @@ async function updateRoles({ scope, userId, agentId = null, roles }) {
   return list;
 }
 
-module.exports = { begin, disconnect, status, updateRoles };
+module.exports = { applyLiveChoice, begin, disconnect, status, updateRoles };
