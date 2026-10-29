@@ -7222,14 +7222,7 @@
   "neoRouterUnreachable": "NeoRouter не е достъпен в момента.",
   "neoRouterDisconnect": "Прекъсване",
   "neoRouterDisconnectBody": "NeoAgent спира да използва този NeoRouter. За да оттеглите и ключа, отменете го в NeoRouter в API ключове.",
-  "neoRouterServerInUseArg1": "Този сървър вече използва NeoRouter на {arg1}. Свържете там собствения си акаунт за свои модели и бюджет.",
-  "@neoRouterServerInUseArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
+  "neoRouterServerInUse": "Този сървър вече използва NeoRouter за всички. Свържете собствения си акаунт в NeoRouter за свои модели и бюджет.",
   "neoRouterConnected": "NeoRouter е свързан.",
   "neoRouterRoleChat": "Чат и разпознаване на изображения",
   "neoRouterRoleSystemOne": "Решения на System One",
@@ -7247,5 +7240,14 @@
     }
   },
   "neoRouterNoModels": "Във вашия NeoRouter все още няма нищо.",
-  "neoRouterPicksModels": "NeoRouter избира модела за всяка заявка, затова тази селекция не се използва."
+  "neoRouterPicksModels": "NeoRouter избира модела за всяка заявка, затова тази селекция не се използва.",
+  "neoRouterNotAllowedArg1": "Във вашия NeoRouter: {arg1}, но ключът на NeoAgent още не може да ги използва (напр. платените). Разрешете ги за NeoAgent в API ключове в NeoRouter.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Нужни са модели за решения като Jev. Класификаторите за безопасност не отговарят на тези въпроси."
 }

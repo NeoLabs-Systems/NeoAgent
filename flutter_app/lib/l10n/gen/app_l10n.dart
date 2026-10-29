@@ -19644,6 +19644,18 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'NeoRouter picks the model for every request, so this pool is not used.'**
   String get neoRouterPicksModels;
+
+  /// No description provided for @neoRouterNotAllowedArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'{arg1} in your NeoRouter, but NeoAgent\'s key may not use them yet (for example paid ones). Allow them for NeoAgent under API keys in NeoRouter.'**
+  String neoRouterNotAllowedArg1(Object? arg1);
+
+  /// No description provided for @neoRouterNoDecisionModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs decision models such as Jev. Safety classifiers cannot answer these questions.'**
+  String get neoRouterNoDecisionModels;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

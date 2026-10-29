@@ -7222,14 +7222,7 @@
   "neoRouterUnreachable": "NeoRouter pole praegu kättesaadav.",
   "neoRouterDisconnect": "Katkesta ühendus",
   "neoRouterDisconnectBody": "NeoAgent lõpetab selle NeoRouteri kasutamise. Võta ka võti tagasi NeoRouteri API-võtmete all.",
-  "neoRouterServerInUseArg1": "See server kasutab juba NeoRouterit aadressil {arg1}. Ühenda seal oma konto, et saada oma mudelid ja eelarve.",
-  "@neoRouterServerInUseArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
+  "neoRouterServerInUse": "See server kasutab juba kõigi jaoks NeoRouterit. Ühenda oma NeoRouteri konto, et saada oma mudelid ja eelarve.",
   "neoRouterConnected": "NeoRouter on ühendatud.",
   "neoRouterRoleChat": "Vestlus ja pildituvastus",
   "neoRouterRoleSystemOne": "System One otsused",
@@ -7247,5 +7240,14 @@
     }
   },
   "neoRouterNoModels": "Sinu NeoRouteris pole veel midagi.",
-  "neoRouterPicksModels": "NeoRouter valib iga päringu jaoks mudeli, nii et seda valikut ei kasutata."
+  "neoRouterPicksModels": "NeoRouter valib iga päringu jaoks mudeli, nii et seda valikut ei kasutata.",
+  "neoRouterNotAllowedArg1": "Sinu NeoRouteris: {arg1}, kuid NeoAgenti võti ei tohi neid veel kasutada (nt tasulisi). Luba need NeoAgentile NeoRouteri API-võtmete all.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Vajab otsustusmudeleid, nagu Jev. Turvaklassifikaatorid ei vasta neile küsimustele."
 }

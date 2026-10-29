@@ -11767,4 +11767,13 @@ class AppL10nFi extends AppL10n {
   @override
   String get neoRouterPicksModels =>
       'NeoRouter valitsee mallin jokaiseen pyyntöön, joten tätä valikoimaa ei käytetä.';
+
+  @override
+  String neoRouterNotAllowedArg1(Object? arg1) {
+    return 'NeoRouterissasi: $arg1, mutta NeoAgentin avain ei vielä saa käyttää niitä (esim. maksullisia). Salli ne NeoAgentille NeoRouterin API-avaimissa.';
+  }
+
+  @override
+  String get neoRouterNoDecisionModels =>
+      'Tarvitsee päätösmalleja, kuten Jev. Turvallisuusluokittimet eivät vastaa näihin kysymyksiin.';
 }

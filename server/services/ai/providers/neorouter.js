@@ -2,8 +2,7 @@
 
 const { CustomOpenAIProvider } = require('./openai_compatible_custom');
 const { postSystemOneDecision } = require('./system_one_api');
-const { listModels } = require('../neorouter/client');
-const { DECISION_MODEL } = require('../neorouter/offer');
+const { isDecisionModel, listModels } = require('../neorouter/client');
 const { priceTierForCost } = require('../model_reference');
 
 // NeoRouter routing profiles, offered as models. "auto" alone is not a valid
@@ -58,7 +57,7 @@ class NeoRouterProvider extends CustomOpenAIProvider {
 
   async listDecisionModels(signal = null) {
     const models = await listModels(this.connection, 'moderation', { signal });
-    return models.filter((model) => DECISION_MODEL.test(model.id)).map((model) => ({ id: model.id, name: model.name || model.id }));
+    return models.filter(isDecisionModel).map((model) => ({ id: model.id, name: model.name || model.id }));
   }
 
   async listLiveVoiceModels(signal = null) {

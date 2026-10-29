@@ -7222,14 +7222,7 @@
   "neoRouterUnreachable": "Το NeoRouter δεν είναι προσβάσιμο αυτή τη στιγμή.",
   "neoRouterDisconnect": "Αποσύνδεση",
   "neoRouterDisconnectBody": "Το NeoAgent σταματά να χρησιμοποιεί αυτό το NeoRouter. Για να ανακαλέσετε και το κλειδί, κάντε το στο NeoRouter στα Κλειδιά API.",
-  "neoRouterServerInUseArg1": "Αυτός ο διακομιστής χρησιμοποιεί ήδη το NeoRouter στο {arg1}. Συνδέστε εκεί τον δικό σας λογαριασμό για δικά σας μοντέλα και προϋπολογισμό.",
-  "@neoRouterServerInUseArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
+  "neoRouterServerInUse": "Αυτός ο διακομιστής χρησιμοποιεί ήδη NeoRouter για όλους. Συνδέστε τον δικό σας λογαριασμό NeoRouter για δικά σας μοντέλα και προϋπολογισμό.",
   "neoRouterConnected": "Το NeoRouter συνδέθηκε.",
   "neoRouterRoleChat": "Συνομιλία και αναγνώριση εικόνας",
   "neoRouterRoleSystemOne": "Αποφάσεις System One",
@@ -7247,5 +7240,14 @@
     }
   },
   "neoRouterNoModels": "Δεν υπάρχει ακόμη τίποτα στο NeoRouter σας.",
-  "neoRouterPicksModels": "Το NeoRouter επιλέγει το μοντέλο για κάθε αίτημα, οπότε αυτή η επιλογή δεν χρησιμοποιείται."
+  "neoRouterPicksModels": "Το NeoRouter επιλέγει το μοντέλο για κάθε αίτημα, οπότε αυτή η επιλογή δεν χρησιμοποιείται.",
+  "neoRouterNotAllowedArg1": "Στο NeoRouter σας: {arg1}, αλλά το κλειδί του NeoAgent δεν μπορεί ακόμη να τα χρησιμοποιήσει (π.χ. τα επί πληρωμή). Επιτρέψτε τα για το NeoAgent στα Κλειδιά API του NeoRouter.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Χρειάζονται μοντέλα αποφάσεων όπως το Jev. Οι ταξινομητές ασφάλειας δεν απαντούν σε αυτές τις ερωτήσεις."
 }

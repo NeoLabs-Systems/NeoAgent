@@ -11711,4 +11711,13 @@ class AppL10nEn extends AppL10n {
   @override
   String get neoRouterPicksModels =>
       'NeoRouter picks the model for every request, so this pool is not used.';
+
+  @override
+  String neoRouterNotAllowedArg1(Object? arg1) {
+    return '$arg1 in your NeoRouter, but NeoAgent\'s key may not use them yet (for example paid ones). Allow them for NeoAgent under API keys in NeoRouter.';
+  }
+
+  @override
+  String get neoRouterNoDecisionModels =>
+      'Needs decision models such as Jev. Safety classifiers cannot answer these questions.';
 }

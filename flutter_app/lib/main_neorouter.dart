@@ -242,6 +242,7 @@ class _NeoRouterConnectCardState extends State<NeoRouterConnectCard> {
     ).map((item) => item.toString()).toSet();
     final offer = mine['offer'] is Map ? _neoMap(mine['offer']) : null;
     final counts = _neoMap(offer?['roles']);
+    final notAllowed = _neoMap(offer?['notAllowed']);
     return <Widget>[
       _SettingsRow(
         label: appStrings.neoRouterConnectedArg1(
@@ -272,15 +273,28 @@ class _NeoRouterConnectCardState extends State<NeoRouterConnectCard> {
           label: _roleLabel(role),
           description: offer == null
               ? null
-              : _asInt(counts[role]) > 0
-              ? appStrings.neoRouterModelCountArg1(_asInt(counts[role]))
-              : appStrings.neoRouterNoModels,
+              : _roleAvailability(role, counts, notAllowed),
           control: Switch(
             value: roles.contains(role),
             onChanged: _busy ? null : (value) => _setRole(role, value),
           ),
         ),
     ];
+  }
+
+  // How many models NeoRouter has for this work; when there are none, why:
+  // the key may not use them, or (System One) only safety classifiers exist.
+  String _roleAvailability(
+    String role,
+    Map<String, dynamic> counts,
+    Map<String, dynamic> notAllowed,
+  ) {
+    final available = _asInt(counts[role]);
+    if (available > 0) return appStrings.neoRouterModelCountArg1(available);
+    final hidden = _asInt(notAllowed[role]);
+    if (hidden > 0) return appStrings.neoRouterNotAllowedArg1(hidden);
+    if (role == 'system_one') return appStrings.neoRouterNoDecisionModels;
+    return appStrings.neoRouterNoModels;
   }
 
   @override

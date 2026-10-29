@@ -7222,14 +7222,7 @@
   "neoRouterUnreachable": "NeoRouter pašlaik nav sasniedzams.",
   "neoRouterDisconnect": "Atvienot",
   "neoRouterDisconnectBody": "NeoAgent vairs neizmanto šo NeoRouter. Lai atsauktu arī atslēgu, atsauciet to NeoRouter sadaļā API atslēgas.",
-  "neoRouterServerInUseArg1": "Šis serveris jau izmanto NeoRouter adresē {arg1}. Pievienojiet tur savu kontu, lai būtu savi modeļi un budžets.",
-  "@neoRouterServerInUseArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
+  "neoRouterServerInUse": "Šis serveris jau izmanto NeoRouter visiem. Pievienojiet savu NeoRouter kontu, lai būtu savi modeļi un budžets.",
   "neoRouterConnected": "NeoRouter ir pievienots.",
   "neoRouterRoleChat": "Tērzēšana un attēlu atpazīšana",
   "neoRouterRoleSystemOne": "System One lēmumi",
@@ -7247,5 +7240,14 @@
     }
   },
   "neoRouterNoModels": "Jūsu NeoRouter vēl nekā nav.",
-  "neoRouterPicksModels": "NeoRouter izvēlas modeli katram pieprasījumam, tāpēc šī izlase netiek izmantota."
+  "neoRouterPicksModels": "NeoRouter izvēlas modeli katram pieprasījumam, tāpēc šī izlase netiek izmantota.",
+  "neoRouterNotAllowedArg1": "Jūsu NeoRouter: {arg1}, bet NeoAgent atslēga tos vēl nedrīkst izmantot (piem., maksas). Atļaujiet tos NeoAgent NeoRouter sadaļā API atslēgas.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Vajadzīgi lēmumu modeļi, piemēram, Jev. Drošības klasifikatori uz šiem jautājumiem neatbild."
 }

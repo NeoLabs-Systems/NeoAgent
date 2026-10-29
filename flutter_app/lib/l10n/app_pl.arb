@@ -7222,14 +7222,7 @@
   "neoRouterUnreachable": "NeoRouter jest teraz niedostępny.",
   "neoRouterDisconnect": "Rozłącz",
   "neoRouterDisconnectBody": "NeoAgent przestaje używać tego NeoRoutera. Aby cofnąć też klucz, unieważnij go w NeoRouterze w sekcji Klucze API.",
-  "neoRouterServerInUseArg1": "Ten serwer już korzysta z NeoRoutera pod adresem {arg1}. Połącz tam własne konto, aby mieć własne modele i budżet.",
-  "@neoRouterServerInUseArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
+  "neoRouterServerInUse": "Ten serwer już korzysta z NeoRoutera dla wszystkich. Połącz własne konto NeoRouter, aby mieć własne modele i budżet.",
   "neoRouterConnected": "NeoRouter jest połączony.",
   "neoRouterRoleChat": "Czat i rozpoznawanie obrazu",
   "neoRouterRoleSystemOne": "Decyzje System One",
@@ -7247,5 +7240,14 @@
     }
   },
   "neoRouterNoModels": "W NeoRouterze nic jeszcze nie ma.",
-  "neoRouterPicksModels": "NeoRouter wybiera model dla każdego żądania, więc ta pula nie jest używana."
+  "neoRouterPicksModels": "NeoRouter wybiera model dla każdego żądania, więc ta pula nie jest używana.",
+  "neoRouterNotAllowedArg1": "W NeoRouterze: {arg1}, ale klucz NeoAgenta nie może ich jeszcze używać (np. płatnych). Zezwól na nie dla NeoAgenta w sekcji Klucze API w NeoRouterze.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Wymaga modeli decyzyjnych, takich jak Jev. Klasyfikatory bezpieczeństwa nie odpowiadają na te pytania."
 }

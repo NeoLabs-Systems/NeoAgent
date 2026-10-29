@@ -33,10 +33,19 @@ async function call(connection, path, { method = 'GET', body, signal, timeoutMs 
   return data;
 }
 
-async function listModels(connection, type = 'chat', { signal } = {}) {
+// The models of a kind the key may use, and how many more the router has
+// that the key's free/plan/paid choice leaves out.
+async function modelList(connection, type = 'chat', { signal } = {}) {
   const data = await call(connection, `/models?type=${encodeURIComponent(type)}`, { signal });
-  return Array.isArray(data?.data) ? data.data : [];
+  return { models: Array.isArray(data?.data) ? data.data : [], notAllowed: data?.neorouter?.not_allowed_for_key || {} };
 }
+
+async function listModels(connection, type = 'chat', options = {}) {
+  return (await modelList(connection, type, options)).models;
+}
+
+// System One decision models, as opposed to NeoRouter's safety classifiers.
+const isDecisionModel = (model) => model?.neorouter?.decision === true;
 
 async function embed(connection, text, { inputType, signal } = {}) {
   const data = await call(connection, '/embeddings', {
@@ -76,4 +85,4 @@ async function searchWeb(connection, { query, count = 5, freshness, signal }) {
   }));
 }
 
-module.exports = { call, embed, generateImages, listModels, searchWeb };
+module.exports = { call, embed, generateImages, isDecisionModel, listModels, modelList, searchWeb };

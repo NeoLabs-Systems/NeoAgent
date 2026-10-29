@@ -11831,4 +11831,13 @@ class AppL10nGa extends AppL10n {
   @override
   String get neoRouterPicksModels =>
       'Roghnaíonn NeoRouter an múnla do gach iarratas, mar sin ní úsáidtear an rogha seo.';
+
+  @override
+  String neoRouterNotAllowedArg1(Object? arg1) {
+    return '$arg1 i do NeoRouter, ach ní féidir le heochair NeoAgent iad a úsáid fós (mar shampla na cinn íoctha). Ceadaigh iad do NeoAgent faoi Eochracha API in NeoRouter.';
+  }
+
+  @override
+  String get neoRouterNoDecisionModels =>
+      'Teastaíonn múnlaí cinnteoireachta ar nós Jev. Ní féidir le haicmitheoirí sábháilteachta na ceisteanna seo a fhreagairt.';
 }

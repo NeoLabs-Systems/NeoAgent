@@ -7222,14 +7222,7 @@
   "neoRouterUnreachable": "NeoRouter teď není dostupný.",
   "neoRouterDisconnect": "Odpojit",
   "neoRouterDisconnectBody": "NeoAgent přestane tento NeoRouter používat. Chcete-li odebrat i klíč, zrušte ho v NeoRouteru v části Klíče API.",
-  "neoRouterServerInUseArg1": "Tento server už používá NeoRouter na {arg1}. Připojte tam vlastní účet pro vlastní modely a rozpočet.",
-  "@neoRouterServerInUseArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
+  "neoRouterServerInUse": "Tento server už používá NeoRouter pro všechny. Připojte vlastní účet NeoRouter pro vlastní modely a rozpočet.",
   "neoRouterConnected": "NeoRouter je připojen.",
   "neoRouterRoleChat": "Chat a rozpoznávání obrazu",
   "neoRouterRoleSystemOne": "Rozhodnutí System One",
@@ -7247,5 +7240,14 @@
     }
   },
   "neoRouterNoModels": "V NeoRouteru zatím nic není.",
-  "neoRouterPicksModels": "NeoRouter vybírá model pro každý požadavek, takže tento výběr se nepoužívá."
+  "neoRouterPicksModels": "NeoRouter vybírá model pro každý požadavek, takže tento výběr se nepoužívá.",
+  "neoRouterNotAllowedArg1": "V NeoRouteru: {arg1}, ale klíč NeoAgentu je zatím nesmí používat (např. placené). Povolte je pro NeoAgent v NeoRouteru v části Klíče API.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Potřebuje rozhodovací modely, jako je Jev. Bezpečnostní klasifikátory na tyto otázky neodpoví."
 }

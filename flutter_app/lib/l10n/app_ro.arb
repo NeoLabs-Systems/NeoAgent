@@ -7222,14 +7222,7 @@
   "neoRouterUnreachable": "NeoRouter nu poate fi accesat acum.",
   "neoRouterDisconnect": "Deconectează",
   "neoRouterDisconnectBody": "NeoAgent nu mai folosește acest NeoRouter. Pentru a retrage și cheia, revoc-o în NeoRouter la Chei API.",
-  "neoRouterServerInUseArg1": "Acest server folosește deja NeoRouter la {arg1}. Conectează acolo propriul cont pentru modele și buget proprii.",
-  "@neoRouterServerInUseArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
+  "neoRouterServerInUse": "Acest server folosește deja un NeoRouter pentru toți. Conectează propriul cont NeoRouter pentru modele și buget proprii.",
   "neoRouterConnected": "NeoRouter este conectat.",
   "neoRouterRoleChat": "Chat și recunoaștere de imagini",
   "neoRouterRoleSystemOne": "Decizii System One",
@@ -7247,5 +7240,14 @@
     }
   },
   "neoRouterNoModels": "Încă nu este nimic disponibil în NeoRouterul tău.",
-  "neoRouterPicksModels": "NeoRouter alege modelul pentru fiecare cerere, așa că această selecție nu este folosită."
+  "neoRouterPicksModels": "NeoRouter alege modelul pentru fiecare cerere, așa că această selecție nu este folosită.",
+  "neoRouterNotAllowedArg1": "{arg1} în NeoRouterul tău, dar cheia NeoAgent nu le poate folosi încă (de exemplu, cele plătite). Permite-le pentru NeoAgent la Chei API în NeoRouter.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Are nevoie de modele de decizie precum Jev. Clasificatoarele de siguranță nu pot răspunde la aceste întrebări."
 }

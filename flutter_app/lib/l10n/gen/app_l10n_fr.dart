@@ -11868,4 +11868,13 @@ class AppL10nFr extends AppL10n {
   @override
   String get neoRouterPicksModels =>
       'NeoRouter choisit le modèle pour chaque requête, cette sélection n\'est donc pas utilisée.';
+
+  @override
+  String neoRouterNotAllowedArg1(Object? arg1) {
+    return '$arg1 dans votre NeoRouter, mais la clé de NeoAgent ne peut pas encore les utiliser (par exemple les payants). Autorisez-les pour NeoAgent sous Clés API dans NeoRouter.';
+  }
+
+  @override
+  String get neoRouterNoDecisionModels =>
+      'Nécessite des modèles de décision comme Jev. Les classificateurs de sécurité ne peuvent pas répondre à ces questions.';
 }

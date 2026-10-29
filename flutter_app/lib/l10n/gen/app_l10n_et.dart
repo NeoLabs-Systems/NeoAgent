@@ -11758,4 +11758,13 @@ class AppL10nEt extends AppL10n {
   @override
   String get neoRouterPicksModels =>
       'NeoRouter valib iga päringu jaoks mudeli, nii et seda valikut ei kasutata.';
+
+  @override
+  String neoRouterNotAllowedArg1(Object? arg1) {
+    return 'Sinu NeoRouteris: $arg1, kuid NeoAgenti võti ei tohi neid veel kasutada (nt tasulisi). Luba need NeoAgentile NeoRouteri API-võtmete all.';
+  }
+
+  @override
+  String get neoRouterNoDecisionModels =>
+      'Vajab otsustusmudeleid, nagu Jev. Turvaklassifikaatorid ei vasta neile küsimustele.';
 }

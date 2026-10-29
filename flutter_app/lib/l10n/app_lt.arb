@@ -7222,14 +7222,7 @@
   "neoRouterUnreachable": "NeoRouter šiuo metu nepasiekiamas.",
   "neoRouterDisconnect": "Atjungti",
   "neoRouterDisconnectBody": "NeoAgent nustoja naudoti šį NeoRouter. Norėdami atšaukti ir raktą, atšaukite jį NeoRouter skiltyje API raktai.",
-  "neoRouterServerInUseArg1": "Šis serveris jau naudoja NeoRouter adresu {arg1}. Prijunkite ten savo paskyrą, kad turėtumėte savo modelius ir biudžetą.",
-  "@neoRouterServerInUseArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
+  "neoRouterServerInUse": "Šis serveris jau naudoja NeoRouter visiems. Prijunkite savo NeoRouter paskyrą, kad turėtumėte savo modelius ir biudžetą.",
   "neoRouterConnected": "NeoRouter prijungtas.",
   "neoRouterRoleChat": "Pokalbiai ir vaizdų atpažinimas",
   "neoRouterRoleSystemOne": "System One sprendimai",
@@ -7247,5 +7240,14 @@
     }
   },
   "neoRouterNoModels": "Jūsų NeoRouter dar nieko nėra.",
-  "neoRouterPicksModels": "NeoRouter parenka modelį kiekvienai užklausai, todėl šis rinkinys nenaudojamas."
+  "neoRouterPicksModels": "NeoRouter parenka modelį kiekvienai užklausai, todėl šis rinkinys nenaudojamas.",
+  "neoRouterNotAllowedArg1": "Jūsų NeoRouter: {arg1}, bet NeoAgent raktas jų dar negali naudoti (pvz., mokamų). Leiskite juos NeoAgent NeoRouter skiltyje API raktai.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Reikia sprendimų modelių, pvz., Jev. Saugos klasifikatoriai į šiuos klausimus neatsako."
 }

@@ -7326,14 +7326,7 @@
   "neoRouterUnreachable": "NeoRouter cannot be reached right now.",
   "neoRouterDisconnect": "Disconnect",
   "neoRouterDisconnectBody": "NeoAgent stops using this NeoRouter. To withdraw its key as well, revoke it under API keys in NeoRouter.",
-  "neoRouterServerInUseArg1": "This server already uses NeoRouter at {arg1}. Connect your own account there for your own models and budget.",
-  "@neoRouterServerInUseArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
+  "neoRouterServerInUse": "This server already uses a NeoRouter for everyone. Connect your own NeoRouter account for your own models and budget.",
   "neoRouterConnected": "NeoRouter is connected.",
   "neoRouterRoleChat": "Chat and vision",
   "neoRouterRoleSystemOne": "System One decisions",
@@ -7351,5 +7344,14 @@
     }
   },
   "neoRouterNoModels": "Nothing available in your NeoRouter yet.",
-  "neoRouterPicksModels": "NeoRouter picks the model for every request, so this pool is not used."
+  "neoRouterPicksModels": "NeoRouter picks the model for every request, so this pool is not used.",
+  "neoRouterNotAllowedArg1": "{arg1} in your NeoRouter, but NeoAgent's key may not use them yet (for example paid ones). Allow them for NeoAgent under API keys in NeoRouter.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Needs decision models such as Jev. Safety classifiers cannot answer these questions."
 }

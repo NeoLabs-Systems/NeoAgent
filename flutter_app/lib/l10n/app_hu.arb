@@ -7222,14 +7222,7 @@
   "neoRouterUnreachable": "A NeoRouter most nem érhető el.",
   "neoRouterDisconnect": "Leválasztás",
   "neoRouterDisconnectBody": "A NeoAgent többé nem használja ezt a NeoRoutert. A kulcsot is vond vissza a NeoRouter API-kulcsok részében.",
-  "neoRouterServerInUseArg1": "Ez a szerver már használja a NeoRoutert itt: {arg1}. Csatlakoztasd ott a saját fiókodat saját modellekhez és kerethez.",
-  "@neoRouterServerInUseArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
+  "neoRouterServerInUse": "Ez a szerver már mindenkinek NeoRoutert használ. Csatlakoztasd a saját NeoRouter-fiókodat saját modellekhez és kerethez.",
   "neoRouterConnected": "A NeoRouter csatlakoztatva.",
   "neoRouterRoleChat": "Csevegés és képfelismerés",
   "neoRouterRoleSystemOne": "System One döntések",
@@ -7247,5 +7240,14 @@
     }
   },
   "neoRouterNoModels": "A NeoRouteredben még nincs semmi.",
-  "neoRouterPicksModels": "A NeoRouter minden kéréshez maga választ modellt, ezért ez a készlet nincs használatban."
+  "neoRouterPicksModels": "A NeoRouter minden kéréshez maga választ modellt, ezért ez a készlet nincs használatban.",
+  "neoRouterNotAllowedArg1": "A NeoRouteredben: {arg1}, de a NeoAgent kulcsa még nem használhatja őket (pl. a fizetőseket). Engedélyezd őket a NeoAgentnek a NeoRouter API-kulcsok részében.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Döntési modellek kellenek, például a Jev. A biztonsági osztályozók nem válaszolnak ezekre a kérdésekre."
 }

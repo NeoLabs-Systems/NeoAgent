@@ -11787,4 +11787,13 @@ class AppL10nMt extends AppL10n {
   @override
   String get neoRouterPicksModels =>
       'NeoRouter jagħżel il-mudell għal kull talba, għalhekk din l-għażla ma tintużax.';
+
+  @override
+  String neoRouterNotAllowedArg1(Object? arg1) {
+    return '$arg1 fin-NeoRouter tiegħek, iżda ċ-ċavetta ta\' NeoAgent għadha ma tistax tużahom (pereżempju dawk bi ħlas). Ippermettihom għal NeoAgent taħt Ċwievet API fin-NeoRouter.';
+  }
+
+  @override
+  String get neoRouterNoDecisionModels =>
+      'Jeħtieġ mudelli tad-deċiżjoni bħal Jev. Il-klassifikaturi tas-sigurtà ma jistgħux iwieġbu dawn il-mistoqsijiet.';
 }

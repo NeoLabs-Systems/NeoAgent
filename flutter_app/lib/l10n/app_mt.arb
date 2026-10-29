@@ -7222,14 +7222,7 @@
   "neoRouterUnreachable": "In-NeoRouter mhux disponibbli bħalissa.",
   "neoRouterDisconnect": "Aqta'",
   "neoRouterDisconnectBody": "NeoAgent jieqaf juża dan in-NeoRouter. Biex tirtira wkoll iċ-ċavetta, revokaha fin-NeoRouter taħt Ċwievet API.",
-  "neoRouterServerInUseArg1": "Dan is-server diġà juża n-NeoRouter f'{arg1}. Qabbad il-kont tiegħek hemmhekk għall-mudelli u l-baġit tiegħek.",
-  "@neoRouterServerInUseArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
+  "neoRouterServerInUse": "Dan is-server diġà juża NeoRouter għal kulħadd. Qabbad il-kont NeoRouter tiegħek għall-mudelli u l-baġit tiegħek.",
   "neoRouterConnected": "In-NeoRouter huwa mqabbad.",
   "neoRouterRoleChat": "Chat u għarfien tal-istampi",
   "neoRouterRoleSystemOne": "Deċiżjonijiet System One",
@@ -7247,5 +7240,14 @@
     }
   },
   "neoRouterNoModels": "Għad m'hemm xejn fin-NeoRouter tiegħek.",
-  "neoRouterPicksModels": "NeoRouter jagħżel il-mudell għal kull talba, għalhekk din l-għażla ma tintużax."
+  "neoRouterPicksModels": "NeoRouter jagħżel il-mudell għal kull talba, għalhekk din l-għażla ma tintużax.",
+  "neoRouterNotAllowedArg1": "{arg1} fin-NeoRouter tiegħek, iżda ċ-ċavetta ta' NeoAgent għadha ma tistax tużahom (pereżempju dawk bi ħlas). Ippermettihom għal NeoAgent taħt Ċwievet API fin-NeoRouter.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Jeħtieġ mudelli tad-deċiżjoni bħal Jev. Il-klassifikaturi tas-sigurtà ma jistgħux iwieġbu dawn il-mistoqsijiet."
 }

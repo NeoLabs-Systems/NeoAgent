@@ -7222,14 +7222,7 @@
   "neoRouterUnreachable": "NeoRouter trenutačno nije dostupan.",
   "neoRouterDisconnect": "Prekini vezu",
   "neoRouterDisconnectBody": "NeoAgent prestaje koristiti ovaj NeoRouter. Da biste povukli i ključ, opozovite ga u NeoRouteru pod API ključevi.",
-  "neoRouterServerInUseArg1": "Ovaj poslužitelj već koristi NeoRouter na {arg1}. Ondje povežite vlastiti račun za vlastite modele i proračun.",
-  "@neoRouterServerInUseArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
+  "neoRouterServerInUse": "Ovaj poslužitelj već koristi NeoRouter za sve. Povežite vlastiti NeoRouter račun za vlastite modele i proračun.",
   "neoRouterConnected": "NeoRouter je povezan.",
   "neoRouterRoleChat": "Razgovor i prepoznavanje slika",
   "neoRouterRoleSystemOne": "Odluke System One",
@@ -7247,5 +7240,14 @@
     }
   },
   "neoRouterNoModels": "U vašem NeoRouteru još nema ničega.",
-  "neoRouterPicksModels": "NeoRouter bira model za svaki zahtjev, pa se ovaj odabir ne koristi."
+  "neoRouterPicksModels": "NeoRouter bira model za svaki zahtjev, pa se ovaj odabir ne koristi.",
+  "neoRouterNotAllowedArg1": "U vašem NeoRouteru: {arg1}, ali ključ NeoAgenta ih još ne smije koristiti (npr. plaćene). Dopustite ih za NeoAgent pod API ključevi u NeoRouteru.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Potrebni su modeli odlučivanja poput Jeva. Sigurnosni klasifikatori ne odgovaraju na ova pitanja."
 }

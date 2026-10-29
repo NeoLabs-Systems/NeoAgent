@@ -28,12 +28,17 @@ function fakeNeoRouter() {
   const auth = (req, res, next) => (req.get('authorization') === 'Bearer nrt_fake_key' ? next() : res.status(401).json({ error: { message: 'bad key' } }));
   const lists = {
     chat: [{ id: 'auto', object: 'model' }, { id: 'groq/llama-4', pricing: { prompt: '0', completion: '0' }, neorouter: { free: true, tools: true } }],
-    moderation: [{ id: 'openrouter/jev-1.13' }, { id: 'groq/llama-guard-4' }],
+    moderation: [{ id: 'openrouter/liquid-d1', neorouter: { decision: true } }, { id: 'groq/llama-guard-4', neorouter: { decision: false } }],
     live: [{ id: 'google/gemini-3.8-flash-live', neorouter: { protocols: ['gemini_live'] } }],
     embedding: [{ id: 'nvidia/embed' }],
     transcription: [], image: [], search: [{ id: 'brave-search/web' }],
   };
-  app.get('/v1/models', auth, (req, res) => res.json({ object: 'list', data: lists[req.query.type || 'chat'] || [] }));
+  app.get('/v1/models', auth, (req, res) => res.json({
+    object: 'list',
+    data: lists[req.query.type || 'chat'] || [],
+    // Paid image models the free-only key may not use.
+    neorouter: { not_allowed_for_key: req.query.type === 'image' ? { free: 0, plan: 0, paid: 30 } : { free: 0, plan: 0, paid: 0 } },
+  }));
   app.post('/v1/embeddings', auth, (req, res) => res.json({ model: 'nvidia/embed', data: [{ index: 0, embedding: [0.1, 0.2, 0.3] }] }));
   app.post('/v1/search', auth, (req, res) => res.json({ results: [{ title: 'NeoRouter', url: 'https://example.com', content: `about ${req.body.query}` }] }));
   app.post('/v1/systemone', auth, (req, res) => res.json({ model: req.body.model, answers: { ok: true } }));
@@ -96,7 +101,13 @@ test('every kind of work goes through the connected router', async () => {
   const models = await provider.listModels();
   assert.ok(models.some((model) => model.id === 'auto:balanced'), 'routing profiles are offered as models');
   assert.equal(models.find((model) => model.id === 'groq/llama-4').priceTier, 'free');
-  assert.deepEqual((await provider.listDecisionModels()).map((model) => model.id), ['openrouter/jev-1.13'], 'only decision models, no classifiers');
+  assert.deepEqual((await provider.listDecisionModels()).map((model) => model.id), ['openrouter/liquid-d1'], 'only decision models, no classifiers');
+  const { describeOffer } = require('../../../server/services/ai/neorouter/offer');
+  const { serverConnection } = require('../../../server/services/ai/neorouter/connection');
+  const offer = await describeOffer(serverConnection(), { fresh: true });
+  assert.equal(offer.roles.system_one, 1);
+  assert.equal(offer.roles.images, 0);
+  assert.equal(offer.notAllowed.images, 30, 'paid image models the key may not use are reported');
   assert.deepEqual((await provider.decide({ model: 'auto', state: {}, questions: { ok: {} } })).answers, { ok: true });
 
   const { resolveSttTarget } = require('../../../server/services/voice/transcription');

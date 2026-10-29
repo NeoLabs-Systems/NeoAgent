@@ -7222,14 +7222,7 @@
   "neoRouterUnreachable": "NeoRouter går inte att nå just nu.",
   "neoRouterDisconnect": "Koppla från",
   "neoRouterDisconnectBody": "NeoAgent slutar använda den här NeoRoutern. Återkalla även nyckeln under API-nycklar i NeoRouter.",
-  "neoRouterServerInUseArg1": "Den här servern använder redan NeoRouter på {arg1}. Anslut ditt eget konto där för egna modeller och egen budget.",
-  "@neoRouterServerInUseArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
+  "neoRouterServerInUse": "Den här servern använder redan en NeoRouter för alla. Anslut ditt eget NeoRouter-konto för egna modeller och egen budget.",
   "neoRouterConnected": "NeoRouter är ansluten.",
   "neoRouterRoleChat": "Chatt och bildigenkänning",
   "neoRouterRoleSystemOne": "System One-beslut",
@@ -7247,5 +7240,14 @@
     }
   },
   "neoRouterNoModels": "Inget är tillgängligt i din NeoRouter än.",
-  "neoRouterPicksModels": "NeoRouter väljer modellen för varje förfrågan, så den här poolen används inte."
+  "neoRouterPicksModels": "NeoRouter väljer modellen för varje förfrågan, så den här poolen används inte.",
+  "neoRouterNotAllowedArg1": "{arg1} i din NeoRouter, men NeoAgents nyckel får inte använda dem än (t.ex. betalda). Tillåt dem för NeoAgent under API-nycklar i NeoRouter.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Kräver beslutsmodeller som Jev. Säkerhetsklassificerare kan inte svara på de här frågorna."
 }

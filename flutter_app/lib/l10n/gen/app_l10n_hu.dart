@@ -11815,4 +11815,13 @@ class AppL10nHu extends AppL10n {
   @override
   String get neoRouterPicksModels =>
       'A NeoRouter minden kéréshez maga választ modellt, ezért ez a készlet nincs használatban.';
+
+  @override
+  String neoRouterNotAllowedArg1(Object? arg1) {
+    return 'A NeoRouteredben: $arg1, de a NeoAgent kulcsa még nem használhatja őket (pl. a fizetőseket). Engedélyezd őket a NeoAgentnek a NeoRouter API-kulcsok részében.';
+  }
+
+  @override
+  String get neoRouterNoDecisionModels =>
+      'Döntési modellek kellenek, például a Jev. A biztonsági osztályozók nem válaszolnak ezekre a kérdésekre.';
 }

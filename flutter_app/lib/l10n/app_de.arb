@@ -7173,14 +7173,7 @@
   "neoRouterUnreachable": "NeoRouter ist gerade nicht erreichbar.",
   "neoRouterDisconnect": "Trennen",
   "neoRouterDisconnectBody": "NeoAgent nutzt diesen NeoRouter nicht mehr. Um auch den Key zu entziehen, widerrufe ihn in NeoRouter unter API-Keys.",
-  "neoRouterServerInUseArg1": "Dieser Server nutzt bereits NeoRouter unter {arg1}. Verbinde dort dein eigenes Konto für eigene Modelle und eigenes Budget.",
-  "@neoRouterServerInUseArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
+  "neoRouterServerInUse": "Dieser Server nutzt bereits einen NeoRouter für alle. Verbinde dein eigenes NeoRouter-Konto für eigene Modelle und eigenes Budget.",
   "neoRouterConnected": "NeoRouter ist verbunden.",
   "neoRouterRoleChat": "Chat und Bilderkennung",
   "neoRouterRoleSystemOne": "System-One-Entscheidungen",
@@ -7198,5 +7191,14 @@
     }
   },
   "neoRouterNoModels": "In deinem NeoRouter ist noch nichts verfügbar.",
-  "neoRouterPicksModels": "NeoRouter wählt für jede Anfrage das Modell, daher wird diese Auswahl nicht genutzt."
+  "neoRouterPicksModels": "NeoRouter wählt für jede Anfrage das Modell, daher wird diese Auswahl nicht genutzt.",
+  "neoRouterNotAllowedArg1": "{arg1} in deinem NeoRouter, aber der Key von NeoAgent darf sie noch nicht nutzen (z. B. Bezahl-Modelle). Erlaube sie für NeoAgent in NeoRouter unter API-Keys.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Braucht Entscheidungsmodelle wie Jev. Sicherheitsprüfer können diese Fragen nicht beantworten."
 }

@@ -7222,14 +7222,7 @@
   "neoRouterUnreachable": "NeoRouter is nu niet bereikbaar.",
   "neoRouterDisconnect": "Loskoppelen",
   "neoRouterDisconnectBody": "NeoAgent gebruikt deze NeoRouter niet meer. Trek ook de sleutel in via API-sleutels in NeoRouter.",
-  "neoRouterServerInUseArg1": "Deze server gebruikt al NeoRouter op {arg1}. Verbind daar je eigen account voor eigen modellen en budget.",
-  "@neoRouterServerInUseArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
+  "neoRouterServerInUse": "Deze server gebruikt al een NeoRouter voor iedereen. Verbind je eigen NeoRouter-account voor eigen modellen en budget.",
   "neoRouterConnected": "NeoRouter is verbonden.",
   "neoRouterRoleChat": "Chat en beeldherkenning",
   "neoRouterRoleSystemOne": "System One-beslissingen",
@@ -7247,5 +7240,14 @@
     }
   },
   "neoRouterNoModels": "Er is nog niets beschikbaar in je NeoRouter.",
-  "neoRouterPicksModels": "NeoRouter kiest voor elk verzoek het model, dus deze selectie wordt niet gebruikt."
+  "neoRouterPicksModels": "NeoRouter kiest voor elk verzoek het model, dus deze selectie wordt niet gebruikt.",
+  "neoRouterNotAllowedArg1": "{arg1} in je NeoRouter, maar de sleutel van NeoAgent mag ze nog niet gebruiken (bijvoorbeeld betaalde). Sta ze toe voor NeoAgent onder API-sleutels in NeoRouter.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Heeft beslismodellen zoals Jev nodig. Veiligheidsclassificatoren kunnen deze vragen niet beantwoorden."
 }

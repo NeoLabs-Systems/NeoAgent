@@ -7222,14 +7222,7 @@
   "neoRouterUnreachable": "NeoRouteriin ei saada juuri nyt yhteyttä.",
   "neoRouterDisconnect": "Katkaise yhteys",
   "neoRouterDisconnectBody": "NeoAgent lopettaa tämän NeoRouterin käytön. Peru myös avain NeoRouterin API-avaimista.",
-  "neoRouterServerInUseArg1": "Tämä palvelin käyttää jo NeoRouteria osoitteessa {arg1}. Yhdistä siellä oma tilisi omia malleja ja budjettia varten.",
-  "@neoRouterServerInUseArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
+  "neoRouterServerInUse": "Tämä palvelin käyttää jo NeoRouteria kaikille. Yhdistä oma NeoRouter-tilisi omia malleja ja budjettia varten.",
   "neoRouterConnected": "NeoRouter on yhdistetty.",
   "neoRouterRoleChat": "Keskustelu ja kuvantunnistus",
   "neoRouterRoleSystemOne": "System One -päätökset",
@@ -7247,5 +7240,14 @@
     }
   },
   "neoRouterNoModels": "NeoRouterissasi ei ole vielä mitään.",
-  "neoRouterPicksModels": "NeoRouter valitsee mallin jokaiseen pyyntöön, joten tätä valikoimaa ei käytetä."
+  "neoRouterPicksModels": "NeoRouter valitsee mallin jokaiseen pyyntöön, joten tätä valikoimaa ei käytetä.",
+  "neoRouterNotAllowedArg1": "NeoRouterissasi: {arg1}, mutta NeoAgentin avain ei vielä saa käyttää niitä (esim. maksullisia). Salli ne NeoAgentille NeoRouterin API-avaimissa.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Tarvitsee päätösmalleja, kuten Jev. Turvallisuusluokittimet eivät vastaa näihin kysymyksiin."
 }
