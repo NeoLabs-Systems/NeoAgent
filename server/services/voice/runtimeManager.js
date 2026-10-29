@@ -158,6 +158,7 @@ class VoiceRuntimeManager {
     const session = this.getSession(sessionId);
     if (!session) return;
     this.#assertOwner(session, userId);
+    logger.info('Live voice call ending', { sessionId, reason, provider: session.provider?.id || null });
     if (session.tasks.hasRunningWork && !cancelTask) {
       await session.detach();
     } else {
@@ -195,6 +196,7 @@ class VoiceRuntimeManager {
 
   #forget(session, reason = 'released') {
     if (this.sessions.get(session.id) !== session) return;
+    logger.info('Live voice call ending', { sessionId: session.id, reason, provider: session.provider?.id || null });
     this.sessions.delete(session.id);
     void session.close(reason);
     this.agentCallCoordinator?.notifySessionClosed(session, reason);
