@@ -1,12 +1,14 @@
 'use strict';
 
 // 'auto' picks the first provider in STT_PROVIDERS that has an API key.
+// 'neorouter' is a connected NeoRouter; its model 'auto' lets it choose.
 const AUTO_STT_PROVIDER = 'auto';
-const STT_PROVIDERS = Object.freeze(['openai', 'gemini', 'deepgram']);
+const STT_PROVIDERS = Object.freeze(['openai', 'gemini', 'deepgram', 'neorouter']);
 const DEFAULT_STT_MODELS = Object.freeze({
   openai: 'gpt-transcribe',
   gemini: 'gemini-3-flash-preview',
   deepgram: 'nova-3',
+  neorouter: 'auto',
 });
 
 function normalizeSttProvider(provider) {

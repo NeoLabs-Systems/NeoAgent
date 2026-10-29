@@ -35,7 +35,7 @@ class VoiceRuntimeManager {
   async getCapabilities({ userId = null, agentId = null } = {}) {
     return {
       ...await describeLiveVoiceCatalog({ userId, agentId }),
-      transcription: describeSttProviders(userId, agentId),
+      transcription: await describeSttProviders(userId, agentId),
     };
   }
 

@@ -31,7 +31,7 @@ function fakeNeoRouter() {
     moderation: [{ id: 'auto', name: 'Auto (Balanced)', neorouter: { auto: true, decision: true } }, { id: 'openrouter/liquid-d1', neorouter: { decision: true } }, { id: 'groq/llama-guard-4', neorouter: { decision: false } }],
     live: [{ id: 'auto', name: 'Auto (Balanced)', neorouter: { auto: true, protocols: ['gemini_live'] } }, { id: 'google/gemini-3.8-flash-live', neorouter: { protocols: ['gemini_live'] } }],
     embedding: [{ id: 'nvidia/embed' }],
-    transcription: [], image: [], search: [{ id: 'brave-search/web' }],
+    transcription: [{ id: 'auto', name: 'Auto (key default: Balanced)' }, { id: 'groq/whisper-large-v3', name: 'Whisper large v3' }], image: [], search: [{ id: 'brave-search/web' }],
   };
   app.get('/v1/models', auth, (req, res) => res.json({
     object: 'list',
@@ -112,7 +112,13 @@ test('every kind of work goes through the connected router', async () => {
   assert.equal(offer.notAllowed.images, 30, 'paid image models the key may not use are reported');
   assert.deepEqual((await provider.decide({ model: 'auto', state: {}, questions: { ok: {} } })).answers, { ok: true });
 
-  const { resolveSttTarget } = require('../../../server/services/voice/transcription');
+  const { describeSttProviders, resolveSttTarget } = require('../../../server/services/voice/transcription');
+  const stt = await describeSttProviders(user.userId);
+  const routerStt = stt.providers.find((item) => item.id === 'neorouter');
+  assert.equal(routerStt.available, true);
+  assert.deepEqual(routerStt.models.map((model) => model.id), ['auto', 'groq/whisper-large-v3'], 'the router offers its own transcription models');
+  assert.deepEqual(resolveSttTarget(user.userId, null, { sttProvider: 'neorouter', sttModel: 'groq/whisper-large-v3' }),
+    { provider: 'neorouter', model: 'groq/whisper-large-v3', apiKey: 'nrt_fake_key', baseUrl: `${address}/v1` });
   const target = resolveSttTarget(user.userId, null, { sttProvider: 'auto', sttModel: '' });
   assert.deepEqual(target, { provider: 'openai', model: 'auto', apiKey: 'nrt_fake_key', baseUrl: `${address}/v1` });
 });

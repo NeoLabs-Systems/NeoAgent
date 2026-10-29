@@ -64,7 +64,7 @@ describe('speech-to-text provider resolution', () => {
   test('settings only call a provider available when it has a key', async () => {
     setProviderSecret(userId, 'google', 'app-gemini-key');
     const { describeSttProviders } = require('../../../server/services/voice/transcription');
-    const stt = describeSttProviders(userId);
+    const stt = await describeSttProviders(userId);
     assert.equal(stt.neorouter, false);
     assert.deepEqual(stt.providers.filter((item) => item.available).map((item) => item.id), ['gemini']);
     assert.equal(stt.providers.find((item) => item.id === 'deepgram').label, 'Deepgram');

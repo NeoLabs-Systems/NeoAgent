@@ -830,7 +830,10 @@ class _VoiceSettingsPage extends StatelessWidget {
             pickerRow(
               anchor: 'speechToText',
               label: appStrings.speechToText,
-              value: selectedStt,
+              // NeoRouter is offered per model, as "neorouter::<model>".
+              value: selectedStt == 'neorouter'
+                  ? 'neorouter::${controller.voiceSttModel.isEmpty ? 'auto' : controller.voiceSttModel}'
+                  : selectedStt,
               options: <_ModelPickerOption>[
                 _ModelPickerOption(
                   value: 'auto',
@@ -840,17 +843,33 @@ class _VoiceSettingsPage extends StatelessWidget {
                   isAuto: true,
                 ),
                 for (final provider in sttProviders)
-                  if (provider['available'] == true ||
+                  if (provider['id'] == 'neorouter')
+                    for (final model in _maps(provider['models']))
+                      _providerOption(
+                        provider,
+                        value: 'neorouter::${model['id']}',
+                        label:
+                            'NeoRouter · ${model['id'] == 'auto' ? appStrings.voiceSttAutoNeoRouter : model['label']}',
+                      )
+                  else if (provider['available'] == true ||
                       provider['id'] == selectedStt)
                     _providerOption(provider),
               ],
-              onChanged: (value) =>
+              onChanged: (value) {
+                if (value.startsWith('neorouter::')) {
                   _autosaveSettings(controller, <String, dynamic>{
-                    'voice_stt_provider': value,
-                    'voice_stt_model': value == 'auto'
-                        ? ''
-                        : sttDefaultModel(value),
-                  }),
+                    'voice_stt_provider': 'neorouter',
+                    'voice_stt_model': value.substring('neorouter::'.length),
+                  });
+                  return;
+                }
+                _autosaveSettings(controller, <String, dynamic>{
+                  'voice_stt_provider': value,
+                  'voice_stt_model': value == 'auto'
+                      ? ''
+                      : sttDefaultModel(value),
+                });
+              },
             ),
             pickerRow(
               anchor: 'voiceReplyModel',
