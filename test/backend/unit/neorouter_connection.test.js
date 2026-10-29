@@ -99,11 +99,11 @@ test('every kind of work goes through the connected router', async () => {
   const { createProviderInstance } = require('../../../server/services/ai/models');
   const provider = createProviderInstance('neorouter', user.userId);
   const models = await provider.listModels();
-  assert.ok(models.some((model) => model.id === 'auto:balanced'), 'routing profiles are offered as models');
+  assert.ok(models.some((model) => model.id === 'auto:default'), 'plain auto is offered as auto:default');
   assert.ok(models.some((model) => model.id === 'auto-free:fast'), 'and the variants limited to one kind of model');
   assert.ok(!models.some((model) => model.id === 'auto'), 'bare auto is listed by its full name');
   assert.equal(models.find((model) => model.id === 'groq/llama-4').priceTier, 'free');
-  assert.deepEqual((await provider.listDecisionModels()).map((model) => model.id), ['auto:balanced', 'openrouter/liquid-d1'], 'NeoRouter auto and decision models, no classifiers');
+  assert.deepEqual((await provider.listDecisionModels()).map((model) => model.id), ['auto:default', 'openrouter/liquid-d1'], 'NeoRouter auto and decision models, no classifiers');
   const { describeOffer } = require('../../../server/services/ai/neorouter/offer');
   const { serverConnection } = require('../../../server/services/ai/neorouter/connection');
   const offer = await describeOffer(serverConnection(), { fresh: true });
@@ -122,7 +122,7 @@ test('live voice lists the router models for the protocol it speaks', async () =
   const { describeLiveVoiceCatalog } = require('../../../server/services/voice/live/models');
   const catalog = await describeLiveVoiceCatalog({ userId: user.userId });
   const byId = Object.fromEntries(catalog.providers.map((provider) => [provider.id, provider.models]));
-  assert.deepEqual(byId.neorouter_google, ['auto:balanced', 'google/gemini-3.8-flash-live'], 'NeoRouter auto leads the live models');
+  assert.deepEqual(byId.neorouter_google, ['auto:default', 'google/gemini-3.8-flash-live'], 'NeoRouter auto leads the live models');
   assert.deepEqual(byId.neorouter_openai, [], 'no GPT-Live models in this router');
 
   const { getSupportedModels } = require('../../../server/services/ai/models');
@@ -134,26 +134,26 @@ test('automatic chat picks the router profile that fits the request', () => {
   const { selectInitialModel } = require('../../../server/services/ai/model_router');
   const models = [
     { id: 'openai::gpt-5', provider: 'openai', modelId: 'gpt-5', priceTier: 'expensive' },
-    { id: 'neorouter::auto:balanced', provider: 'neorouter', modelId: 'auto:balanced' },
+    { id: 'neorouter::auto:default', provider: 'neorouter', modelId: 'auto:default' },
     { id: 'neorouter::auto:fast', provider: 'neorouter', modelId: 'auto:fast' },
   ];
   const settings = { default_chat_model: 'auto', enabled_models: [], cost_mode: 'balanced_auto' };
-  assert.equal(selectInitialModel({ models, settings, userId: 1 }).model.id, 'neorouter::auto:balanced');
+  assert.equal(selectInitialModel({ models, settings, userId: 1 }).model.id, 'neorouter::auto:default');
   assert.equal(selectInitialModel({ models, settings, userId: 1, selectionHint: { purpose: 'fast' } }).model.id, 'neorouter::auto:fast');
-  const more = [...models, ...['cheap', 'best', 'smart'].map((profile) => ({ id: `neorouter::auto:${profile}`, provider: 'neorouter', modelId: `auto:${profile}` }))];
-  assert.equal(selectInitialModel({ models: more, settings: { ...settings, cost_mode: 'economy' }, userId: 1 }).model.id, 'neorouter::auto:cheap');
+  const more = [...models, ...['smart'].map((profile) => ({ id: `neorouter::auto:${profile}`, provider: 'neorouter', modelId: `auto:${profile}` }))];
+  assert.equal(selectInitialModel({ models: more, settings: { ...settings, cost_mode: 'economy' }, userId: 1 }).model.id, 'neorouter::auto:default');
   assert.equal(selectInitialModel({ models: more, settings, userId: 1, selectionHint: { complexity: 'complex' } }).model.id, 'neorouter::auto:smart');
-  assert.equal(selectInitialModel({ models: more, settings, userId: 1, selectionHint: { requiredConfidence: 'high' } }).model.id, 'neorouter::auto:best');
+  assert.equal(selectInitialModel({ models: more, settings, userId: 1, selectionHint: { requiredConfidence: 'high' } }).model.id, 'neorouter::auto:smart');
   // NeoRouter's routing replaces the Smart Selector pool.
   const pooled = { ...settings, enabled_models: ['openai::gpt-5'] };
-  assert.equal(selectInitialModel({ models: more, settings: pooled, userId: 1 }).model.id, 'neorouter::auto:balanced');
+  assert.equal(selectInitialModel({ models: more, settings: pooled, userId: 1 }).model.id, 'neorouter::auto:default');
   // A model the user picked still wins.
   assert.equal(selectInitialModel({ models: more, settings: { ...settings, default_chat_model: 'openai::gpt-5' }, userId: 1 }).model.id, 'openai::gpt-5');
 });
 
 test('tool turns move a NeoRouter run to the profile for that work', async () => {
   const { neoRouterTaskSelection } = require('../../../server/services/ai/model_router');
-  assert.equal(neoRouterTaskSelection('coding'), 'neorouter::auto:best');
+  assert.equal(neoRouterTaskSelection('coding'), 'neorouter::auto:smart');
   assert.equal(neoRouterTaskSelection('research'), 'neorouter::auto:smart');
   assert.equal(neoRouterTaskSelection('unknown'), null);
 });

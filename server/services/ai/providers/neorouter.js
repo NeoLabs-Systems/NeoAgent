@@ -5,12 +5,12 @@ const { postSystemOneDecision } = require('./system_one_api');
 const { isDecisionModel, listModels } = require('../neorouter/client');
 const { priceTierForCost } = require('../model_reference');
 
-// NeoRouter's auto models: one per routing profile, and the same limited to
-// free, subscription or paid models when the key may use more than one kind.
-// "auto" alone is not a valid selection id, so the balanced profile is
-// listed by its full name ("auto:balanced", "auto-free:balanced").
+// NeoRouter's auto models: plain auto (the key's own profile), one per
+// routing profile, and the same limited to free, subscription or paid models
+// when the key may use more than one kind. "auto" alone is not a valid
+// selection id, so plain auto is listed as "auto:default" ("auto-free:default").
 const isAuto = (id) => /^auto(-(free|plan|paid))?(:|$)/.test(String(id));
-const selectableAutoId = (id) => (String(id).includes(':') ? String(id) : `${id}:balanced`);
+const selectableAutoId = (id) => (String(id).includes(':') ? String(id) : `${id}:default`);
 const contextWindows = new Map();
 
 // A NeoRouter speaks the OpenAI API for every kind of model and routes each

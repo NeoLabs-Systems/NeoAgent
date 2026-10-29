@@ -111,7 +111,7 @@ async function resolveModel(userId, agentId, signal) {
   const ready = (await getSystemOneModels(userId, agentId, { signal }))
     .filter((model) => model.available);
   return ready.find((model) => model.id === selection)
-    || ready.find((model) => model.provider === 'neorouter' && model.modelId === 'auto:balanced')
+    || ready.find((model) => model.provider === 'neorouter' && model.modelId === 'auto:default')
     || ready.find((model) => CALIBRATED_MODEL_IDS.includes(model.modelId))
     || ready[0]
     || null;

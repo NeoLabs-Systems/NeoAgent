@@ -44,12 +44,12 @@ function versionOf(modelId) {
   return match ? Number(match[0]) : 0;
 }
 
-// A router's balanced auto model first, then released models before
+// A router's plain auto model first, then released models before
 // previews, the newest version first, and the plain model before its variants. The first one is what a call uses when nobody
 // picked a model.
 function rankLiveModels(models) {
   // A router's auto model picks the best live model per call, so it leads.
-  const isAuto = (model) => Number(/^auto(-(free|plan|paid))?:balanced$/.test(model.id));
+  const isAuto = (model) => Number(/^auto(-(free|plan|paid))?:default$/.test(model.id));
   return [...models].sort((a, b) => (
     isAuto(b) - isAuto(a)
     || Number(/preview/i.test(a.id)) - Number(/preview/i.test(b.id))

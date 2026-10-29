@@ -122,20 +122,23 @@ function chooseAutomaticModel(models, options) {
 // an automatic choice goes to the NeoRouter profile that fits the request,
 // whatever the Smart Selector pool holds, and NeoRouter itself picks the
 // model and falls back across its providers for every request.
+// "auto:default" follows the profile set on NeoAgent's key in NeoRouter;
+// NeoRouter already takes the cheaper of similar models, so economy needs no
+// profile of its own.
 const NEOROUTER_PROFILES = Object.freeze({
-  economy: 'auto:cheap',
-  quality: 'auto:best',
+  economy: 'auto:default',
+  quality: 'auto:smart',
   fast: 'auto:fast',
   planning: 'auto:smart',
-  coding: 'auto:best',
-  general: 'auto:balanced',
+  coding: 'auto:smart',
+  general: 'auto:default',
 });
 // Work a tool turn shows (task_models.js) and the profile it gets when the
 // user pinned no model for it.
 const NEOROUTER_TASK_PROFILES = Object.freeze({
-  coding: 'auto:best',
-  computer_use: 'auto:best',
-  android_use: 'auto:best',
+  coding: 'auto:smart',
+  computer_use: 'auto:smart',
+  android_use: 'auto:smart',
   research: 'auto:smart',
 });
 
