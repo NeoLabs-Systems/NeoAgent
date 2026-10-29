@@ -102,6 +102,7 @@ test('every kind of work goes through the connected router', async () => {
   assert.ok(models.some((model) => model.id === 'auto:default'), 'plain auto is offered as auto:default');
   assert.ok(models.some((model) => model.id === 'auto-free:fast'), 'and the variants limited to one kind of model');
   assert.ok(!models.some((model) => model.id === 'auto'), 'bare auto is listed by its full name');
+  assert.equal(models.find((model) => model.id === 'auto-free:fast').name, 'NeoRouter Auto · Fastest · free models only', 'labels survive pickers that drop text in parentheses');
   assert.equal(models.find((model) => model.id === 'groq/llama-4').priceTier, 'free');
   assert.deepEqual((await provider.listDecisionModels()).map((model) => model.id), ['auto:default', 'openrouter/liquid-d1'], 'NeoRouter auto and decision models, no classifiers');
   const { describeOffer } = require('../../../server/services/ai/neorouter/offer');

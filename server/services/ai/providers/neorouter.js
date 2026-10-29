@@ -11,6 +11,13 @@ const { priceTierForCost } = require('../model_reference');
 // selection id, so plain auto is listed as "auto:default" ("auto-free:default").
 const isAuto = (id) => /^auto(-(free|plan|paid))?(:|$)/.test(String(id));
 const selectableAutoId = (id) => (String(id).includes(':') ? String(id) : `${id}:default`);
+// "Auto (Smartest, free models only)" → "NeoRouter Auto · Smartest · free models
+// only": model pickers drop text in parentheses as a provider suffix.
+function autoLabel(model) {
+  const name = String(model.name || model.id);
+  const inner = /^Auto \((.*)\)$/.exec(name);
+  return inner ? `NeoRouter Auto · ${inner[1].split(', ').join(' · ')}` : `NeoRouter ${name}`;
+}
 const contextWindows = new Map();
 
 // A NeoRouter speaks the OpenAI API for every kind of model and routes each
@@ -30,7 +37,7 @@ class NeoRouterProvider extends CustomOpenAIProvider {
     const models = await listModels(this.connection, 'chat', { signal });
     const profiles = models
       .filter((model) => isAuto(model.id))
-      .map((model) => ({ id: selectableAutoId(model.id), name: `NeoRouter ${model.name || model.id}`, supportsTools: true }));
+      .map((model) => ({ id: selectableAutoId(model.id), name: autoLabel(model), supportsTools: true }));
     const listed = models
       .filter((model) => !isAuto(model.id))
       .map((model) => {
@@ -59,7 +66,7 @@ class NeoRouterProvider extends CustomOpenAIProvider {
     const models = await listModels(this.connection, 'moderation', { signal });
     return models.filter(isDecisionModel).map((model) => ({
       id: isAuto(model.id) ? selectableAutoId(model.id) : model.id,
-      name: isAuto(model.id) ? `NeoRouter ${model.name || model.id}` : model.name || model.id,
+      name: isAuto(model.id) ? autoLabel(model) : model.name || model.id,
     }));
   }
 
@@ -67,7 +74,7 @@ class NeoRouterProvider extends CustomOpenAIProvider {
     const models = await listModels(this.connection, 'live', { signal });
     return models.map((model) => ({
       id: isAuto(model.id) ? selectableAutoId(model.id) : model.id,
-      name: isAuto(model.id) ? `NeoRouter ${model.name || model.id}` : model.name || model.id,
+      name: isAuto(model.id) ? autoLabel(model) : model.name || model.id,
       protocols: model.neorouter?.protocols || [],
     }));
   }
