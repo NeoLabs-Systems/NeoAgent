@@ -7249,5 +7249,8 @@
       }
     }
   },
-  "neoRouterNoDecisionModels": "Tarvitsee päätösmalleja, kuten Jev. Turvallisuusluokittimet eivät vastaa näihin kysymyksiin."
+  "neoRouterNoDecisionModels": "Tarvitsee päätösmalleja, kuten Jev. Turvallisuusluokittimet eivät vastaa näihin kysymyksiin.",
+  "voiceLiveNoProvider": "Live-äänen palveluntarjoajaa ei ole määritetty. Lisää OpenAI- tai Google AI -avain tai yhdistä NeoRouter kohdassa Mallit → Oma avain mukaan.",
+  "voiceSttAutoNeoRouter": "Automaattinen (NeoRouter valitsee mallin)",
+  "voiceNotOffered": "Ei enää tarjolla, valitse toinen"
 }

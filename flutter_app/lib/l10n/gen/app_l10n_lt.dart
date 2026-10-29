@@ -11792,4 +11792,14 @@ class AppL10nLt extends AppL10n {
   @override
   String get neoRouterNoDecisionModels =>
       'Reikia sprendimų modelių, pvz., Jev. Saugos klasifikatoriai į šiuos klausimus neatsako.';
+
+  @override
+  String get voiceLiveNoProvider =>
+      'Nenustatytas joks tiesioginio balso teikėjas. Pridėkite OpenAI arba Google AI raktą arba prijunkite NeoRouter skiltyje Modeliai → Atsineškite savo raktą.';
+
+  @override
+  String get voiceSttAutoNeoRouter => 'Automatiškai (modelį renkasi NeoRouter)';
+
+  @override
+  String get voiceNotOffered => 'Nebesiūloma, pasirinkite kitą';
 }

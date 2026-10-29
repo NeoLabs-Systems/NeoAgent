@@ -7249,5 +7249,8 @@
       }
     }
   },
-  "neoRouterNoDecisionModels": "Potrebni su modeli odlučivanja poput Jeva. Sigurnosni klasifikatori ne odgovaraju na ova pitanja."
+  "neoRouterNoDecisionModels": "Potrebni su modeli odlučivanja poput Jeva. Sigurnosni klasifikatori ne odgovaraju na ova pitanja.",
+  "voiceLiveNoProvider": "Nijedan pružatelj glasa uživo nije postavljen. Dodajte OpenAI ili Google AI ključ ili povežite NeoRouter pod Modeli → Ponesite svoj ključ.",
+  "voiceSttAutoNeoRouter": "Automatski (NeoRouter bira model)",
+  "voiceNotOffered": "Više nije dostupno, odaberite drugo"
 }

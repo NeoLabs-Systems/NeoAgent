@@ -11775,4 +11775,15 @@ class AppL10nFi extends AppL10n {
   @override
   String get neoRouterNoDecisionModels =>
       'Tarvitsee päätösmalleja, kuten Jev. Turvallisuusluokittimet eivät vastaa näihin kysymyksiin.';
+
+  @override
+  String get voiceLiveNoProvider =>
+      'Live-äänen palveluntarjoajaa ei ole määritetty. Lisää OpenAI- tai Google AI -avain tai yhdistä NeoRouter kohdassa Mallit → Oma avain mukaan.';
+
+  @override
+  String get voiceSttAutoNeoRouter =>
+      'Automaattinen (NeoRouter valitsee mallin)';
+
+  @override
+  String get voiceNotOffered => 'Ei enää tarjolla, valitse toinen';
 }

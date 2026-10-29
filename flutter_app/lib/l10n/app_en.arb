@@ -7353,5 +7353,8 @@
       }
     }
   },
-  "neoRouterNoDecisionModels": "Needs decision models such as Jev. Safety classifiers cannot answer these questions."
+  "neoRouterNoDecisionModels": "Needs decision models such as Jev. Safety classifiers cannot answer these questions.",
+  "voiceLiveNoProvider": "No live voice provider is set up. Add an OpenAI or Google AI key, or connect a NeoRouter, under Models → Bring your own key.",
+  "voiceSttAutoNeoRouter": "Auto (NeoRouter picks the model)",
+  "voiceNotOffered": "No longer offered, pick another"
 }

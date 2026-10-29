@@ -11784,4 +11784,14 @@ class AppL10nSk extends AppL10n {
   @override
   String get neoRouterNoDecisionModels =>
       'Potrebuje rozhodovacie modely, ako je Jev. Bezpečnostné klasifikátory na tieto otázky neodpovedia.';
+
+  @override
+  String get voiceLiveNoProvider =>
+      'Nie je nastavený žiadny poskytovateľ živého hlasu. Pridajte kľúč OpenAI alebo Google AI, alebo pripojte NeoRouter (Modelky → Prineste si vlastný kľúč).';
+
+  @override
+  String get voiceSttAutoNeoRouter => 'Automaticky (model vyberá NeoRouter)';
+
+  @override
+  String get voiceNotOffered => 'Už nie je k dispozícii, vyberte iné';
 }

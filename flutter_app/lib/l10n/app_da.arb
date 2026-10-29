@@ -7249,5 +7249,8 @@
       }
     }
   },
-  "neoRouterNoDecisionModels": "Kræver beslutningsmodeller som Jev. Sikkerhedsklassifikatorer kan ikke svare på disse spørgsmål."
+  "neoRouterNoDecisionModels": "Kræver beslutningsmodeller som Jev. Sikkerhedsklassifikatorer kan ikke svare på disse spørgsmål.",
+  "voiceLiveNoProvider": "Der er ingen udbyder af live-stemme sat op. Tilføj en OpenAI- eller Google AI-nøgle, eller forbind en NeoRouter, under Modeller → Medbring din egen nøgle.",
+  "voiceSttAutoNeoRouter": "Auto (NeoRouter vælger modellen)",
+  "voiceNotOffered": "Tilbydes ikke længere, vælg en anden"
 }

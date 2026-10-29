@@ -7200,5 +7200,8 @@
       }
     }
   },
-  "neoRouterNoDecisionModels": "Braucht Entscheidungsmodelle wie Jev. Sicherheitsprüfer können diese Fragen nicht beantworten."
+  "neoRouterNoDecisionModels": "Braucht Entscheidungsmodelle wie Jev. Sicherheitsprüfer können diese Fragen nicht beantworten.",
+  "voiceLiveNoProvider": "Noch kein Live-Sprachanbieter eingerichtet. Füge einen OpenAI- oder Google-AI-Schlüssel hinzu oder verbinde einen NeoRouter (Modelle → Eigenen Schlüssel verwenden).",
+  "voiceSttAutoNeoRouter": "Auto (NeoRouter wählt das Modell)",
+  "voiceNotOffered": "Nicht mehr verfügbar, wähle etwas anderes"
 }

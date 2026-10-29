@@ -7249,5 +7249,8 @@
       }
     }
   },
-  "neoRouterNoDecisionModels": "Wymaga modeli decyzyjnych, takich jak Jev. Klasyfikatory bezpieczeństwa nie odpowiadają na te pytania."
+  "neoRouterNoDecisionModels": "Wymaga modeli decyzyjnych, takich jak Jev. Klasyfikatory bezpieczeństwa nie odpowiadają na te pytania.",
+  "voiceLiveNoProvider": "Nie skonfigurowano dostawcy głosu na żywo. Dodaj klucz OpenAI lub Google AI albo połącz NeoRouter w Modele → Przynieś swój własny klucz.",
+  "voiceSttAutoNeoRouter": "Automatycznie (model wybiera NeoRouter)",
+  "voiceNotOffered": "Już niedostępne, wybierz inne"
 }

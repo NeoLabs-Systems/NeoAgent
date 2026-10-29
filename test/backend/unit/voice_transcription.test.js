@@ -60,6 +60,20 @@ describe('speech-to-text provider resolution', () => {
   test('auto without any key names the providers it tried', () => {
     assert.throws(() => resolveSttTarget(userId, null, auto), /No speech-to-text provider has an API key/);
   });
+
+  test('settings only call a provider available when it has a key', async () => {
+    setProviderSecret(userId, 'google', 'app-gemini-key');
+    const { describeSttProviders } = require('../../../server/services/voice/transcription');
+    const stt = describeSttProviders(userId);
+    assert.equal(stt.neorouter, false);
+    assert.deepEqual(stt.providers.filter((item) => item.available).map((item) => item.id), ['gemini']);
+    assert.equal(stt.providers.find((item) => item.id === 'deepgram').label, 'Deepgram');
+
+    const { describeLiveVoiceCatalog } = require('../../../server/services/voice/live/models');
+    const live = await describeLiveVoiceCatalog({ userId });
+    assert.deepEqual(live.providers.filter((item) => item.available).map((item) => item.id), ['google']);
+    assert.deepEqual(live.providers.find((item) => item.id === 'openai').models, []);
+  });
 });
 
 test('seeded OpenAI speech-to-text defaults migrate to auto once', () => {

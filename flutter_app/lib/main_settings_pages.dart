@@ -615,69 +615,101 @@ class _BehaviorSettingsPageState extends State<_BehaviorSettingsPage> {
   }
 }
 
-/// Settings › Voice: live calls, dictation and spoken replies.
+/// Settings › Voice: live calls, dictation and spoken replies. Pickers only
+/// offer what this person can use: providers with a key, and the models those
+/// providers list. A saved choice that is no longer usable stays visible,
+/// marked, so it can be changed.
 class _VoiceSettingsPage extends StatelessWidget {
   const _VoiceSettingsPage({required this.controller});
 
   final NeoAgentController controller;
 
+  static List<Map<String, dynamic>> _maps(Object? value) => _jsonList(
+    value,
+  ).whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+
+  static _ModelPickerOption _providerOption(
+    Map<String, dynamic> provider, {
+    String? value,
+    String? label,
+  }) {
+    final id = provider['id']?.toString() ?? '';
+    return _ModelPickerOption(
+      value: value ?? id,
+      label: label ?? provider['label']?.toString() ?? id,
+      subtitle: provider['available'] == false ? appStrings.notSetUp : null,
+      color: _providerPickerColor(id),
+      icon: _providerPickerIcon(id),
+    );
+  }
+
+  // The default first, then what the provider offers; a saved value it no
+  // longer offers is kept so the picker still shows it, marked.
+  static List<_ModelPickerOption> _withDefault(
+    String defaultLabel,
+    List<String> values,
+    String current,
+  ) {
+    return <_ModelPickerOption>[
+      _ModelPickerOption(value: '', label: defaultLabel, isAuto: true),
+      for (final value in values)
+        _ModelPickerOption(value: value, label: value),
+      if (current.isNotEmpty && !values.contains(current))
+        _ModelPickerOption(
+          value: current,
+          label: current,
+          subtitle: appStrings.voiceNotOffered,
+        ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final capabilities = controller.voiceCapabilities;
-    final liveProviders = _jsonList(
-      capabilities['providers'],
-    ).whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+    final liveProviders = _maps(capabilities['providers']);
+    final usableLive = liveProviders
+        .where((item) => item['available'] == true)
+        .toList();
     final defaultProviderId =
         capabilities['defaultProvider']?.toString() ?? 'openai';
     Map<String, dynamic> liveProvider(String id) => liveProviders.firstWhere(
       (item) => item['id']?.toString() == id,
-      orElse: () => <String, dynamic>{},
+      orElse: () => <String, dynamic>{'id': id, 'available': false},
     );
     final serverDefault = liveProvider(defaultProviderId);
+    final selectedLive = controller.voiceLiveProvider;
     final effective = liveProvider(
-      controller.voiceLiveProvider.isEmpty
-          ? defaultProviderId
-          : controller.voiceLiveProvider,
+      selectedLive.isEmpty ? defaultProviderId : selectedLive,
     );
-    List<_ModelPickerOption> withDefault(
-      String defaultLabel,
-      List<String> values,
-      String current,
-    ) {
-      return <_ModelPickerOption>[
-        _ModelPickerOption(value: '', label: defaultLabel),
-        for (final value in <String>{
-          ...values,
-          if (current.isNotEmpty) current,
-        })
-          _ModelPickerOption(value: value, label: value),
-      ];
-    }
+    final liveReady = effective['available'] == true;
+    final liveModels = _jsonStringList(effective['models']);
+    final liveVoices = _jsonStringList(effective['voices']);
+    final effectiveLabel =
+        effective['label']?.toString() ?? effective['id'].toString();
 
-    final transcriptionProviders = _jsonList(
-      _jsonMap(capabilities['transcription'])['providers'],
-    ).whereType<Map>().toList();
-    String sttDefaultModel(String id) {
-      for (final provider in transcriptionProviders) {
-        if (provider['id']?.toString() == id) {
-          return provider['defaultModel']?.toString() ?? '';
-        }
-      }
-      return '';
-    }
+    final transcription = _jsonMap(capabilities['transcription']);
+    final sttProviders = _maps(transcription['providers']);
+    final sttViaNeoRouter = transcription['neorouter'] == true;
+    final selectedStt = controller.voiceSttProvider;
+    String sttDefaultModel(String id) =>
+        sttProviders
+            .firstWhere(
+              (item) => item['id']?.toString() == id,
+              orElse: () => <String, dynamic>{},
+            )['defaultModel']
+            ?.toString() ??
+        '';
 
     final availableModels = controller.supportedModels
         .where((model) => model.available)
         .toList();
-    final routingModels = availableModels.isEmpty
-        ? controller.supportedModels
-        : availableModels;
     final handsFree = controller.voiceInputMode != 'ptt';
 
     _SettingsRow pickerRow({
       required String anchor,
       required String label,
       String? description,
+      bool enabled = true,
       required String value,
       required List<_ModelPickerOption> options,
       required ValueChanged<String> onChanged,
@@ -686,14 +718,18 @@ class _VoiceSettingsPage extends StatelessWidget {
         anchor: anchor,
         label: label,
         description: description,
+        enabled: enabled,
         fillControl: true,
-        control: _ModelPickerButton(
-          value: value,
-          options: options,
-          dialogTitle: appStrings.selectArg1(label),
-          onChanged: (next) {
-            if (next != null) onChanged(next);
-          },
+        control: IgnorePointer(
+          ignoring: !enabled,
+          child: _ModelPickerButton(
+            value: value,
+            options: options,
+            dialogTitle: appStrings.selectArg1(label),
+            onChanged: (next) {
+              if (next != null) onChanged(next);
+            },
+          ),
         ),
       );
     }
@@ -726,20 +762,22 @@ class _VoiceSettingsPage extends StatelessWidget {
             pickerRow(
               anchor: 'liveProvider',
               label: appStrings.liveModelProvider,
-              description: appStrings.gptLiveUsesYourOpenaiApi,
-              value: controller.voiceLiveProvider,
+              description: usableLive.isEmpty
+                  ? appStrings.voiceLiveNoProvider
+                  : appStrings.gptLiveUsesYourOpenaiApi,
+              value: selectedLive,
               options: <_ModelPickerOption>[
-                _ModelPickerOption(
+                _providerOption(
+                  serverDefault,
                   value: '',
                   label: appStrings.serverDefaultArg1(
                     serverDefault['label'] ?? defaultProviderId,
                   ),
                 ),
-                for (final provider in liveProviders)
-                  _ModelPickerOption(
-                    value: provider['id']?.toString() ?? '',
-                    label: provider['label']?.toString() ?? '',
-                  ),
+                for (final provider in usableLive) _providerOption(provider),
+                if (selectedLive.isNotEmpty &&
+                    !usableLive.any((item) => item['id'] == selectedLive))
+                  _providerOption(liveProvider(selectedLive)),
               ],
               // A model or voice only fits the provider it came from.
               onChanged: (value) =>
@@ -752,12 +790,13 @@ class _VoiceSettingsPage extends StatelessWidget {
             pickerRow(
               anchor: 'liveModel',
               label: appStrings.liveModel,
+              enabled: liveReady,
               value: controller.voiceLiveModel,
-              options: withDefault(
+              options: _withDefault(
                 appStrings.defaultArg1(
-                  effective['defaultModel'] ?? 'provider default',
+                  effective['defaultModel']?.toString() ?? effectiveLabel,
                 ),
-                _jsonStringList(effective['models']),
+                liveModels,
                 controller.voiceLiveModel,
               ),
               onChanged: (value) => _autosaveSettings(
@@ -768,12 +807,13 @@ class _VoiceSettingsPage extends StatelessWidget {
             pickerRow(
               anchor: 'liveVoice',
               label: appStrings.settingsLiveVoice,
+              enabled: liveReady,
               value: controller.voiceLiveVoice,
-              options: withDefault(
+              options: _withDefault(
                 appStrings.defaultArg1(
-                  effective['defaultVoice'] ?? 'provider default',
+                  effective['defaultVoice']?.toString() ?? effectiveLabel,
                 ),
-                _jsonStringList(effective['voices']),
+                liveVoices,
                 controller.voiceLiveVoice,
               ),
               onChanged: (value) => _autosaveSettings(
@@ -790,17 +830,19 @@ class _VoiceSettingsPage extends StatelessWidget {
             pickerRow(
               anchor: 'speechToText',
               label: appStrings.speechToText,
-              value: controller.voiceSttProvider,
+              value: selectedStt,
               options: <_ModelPickerOption>[
                 _ModelPickerOption(
                   value: 'auto',
-                  label: appStrings.autoFirstProviderWithAnApi,
+                  label: sttViaNeoRouter
+                      ? appStrings.voiceSttAutoNeoRouter
+                      : appStrings.autoFirstProviderWithAnApi,
+                  isAuto: true,
                 ),
-                for (final provider in transcriptionProviders)
-                  _ModelPickerOption(
-                    value: provider['id']?.toString() ?? '',
-                    label: provider['id']?.toString() ?? '',
-                  ),
+                for (final provider in sttProviders)
+                  if (provider['available'] == true ||
+                      provider['id'] == selectedStt)
+                    _providerOption(provider),
               ],
               onChanged: (value) =>
                   _autosaveSettings(controller, <String, dynamic>{
@@ -813,13 +855,14 @@ class _VoiceSettingsPage extends StatelessWidget {
             pickerRow(
               anchor: 'voiceReplyModel',
               label: appStrings.voiceReplyModel,
+              // Until the model list has loaded, keep showing the saved pick.
               value: _ensureModelValue(
                 controller.defaultSpeechModel,
-                routingModels,
+                availableModels,
                 allowAuto: true,
-                preserveUnknown: true,
+                preserveUnknown: availableModels.isEmpty,
               ),
-              options: _modelPickerOptions(routingModels, allowAuto: true),
+              options: _modelPickerOptions(availableModels, allowAuto: true),
               onChanged: (value) => _autosaveSettings(
                 controller,
                 <String, dynamic>{'default_speech_model': value},

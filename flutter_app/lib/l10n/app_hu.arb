@@ -7249,5 +7249,8 @@
       }
     }
   },
-  "neoRouterNoDecisionModels": "Döntési modellek kellenek, például a Jev. A biztonsági osztályozók nem válaszolnak ezekre a kérdésekre."
+  "neoRouterNoDecisionModels": "Döntési modellek kellenek, például a Jev. A biztonsági osztályozók nem válaszolnak ezekre a kérdésekre.",
+  "voiceLiveNoProvider": "Nincs beállítva élő hang szolgáltató. Adj meg OpenAI- vagy Google AI-kulcsot, vagy csatlakoztass egy NeoRoutert a Modellek → Hozd a saját kulcsodat.",
+  "voiceSttAutoNeoRouter": "Automatikus (a modellt a NeoRouter választja)",
+  "voiceNotOffered": "Már nem érhető el, válassz másikat"
 }

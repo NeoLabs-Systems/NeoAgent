@@ -7249,5 +7249,8 @@
       }
     }
   },
-  "neoRouterNoDecisionModels": "Are nevoie de modele de decizie precum Jev. Clasificatoarele de siguranță nu pot răspunde la aceste întrebări."
+  "neoRouterNoDecisionModels": "Are nevoie de modele de decizie precum Jev. Clasificatoarele de siguranță nu pot răspunde la aceste întrebări.",
+  "voiceLiveNoProvider": "Niciun furnizor de voce live nu este configurat. Adaugă o cheie OpenAI sau Google AI ori conectează un NeoRouter din Modele → Adu-ți propria cheie.",
+  "voiceSttAutoNeoRouter": "Automat (NeoRouter alege modelul)",
+  "voiceNotOffered": "Nu mai este oferit, alege altul"
 }

@@ -11821,4 +11821,14 @@ class AppL10nRo extends AppL10n {
   @override
   String get neoRouterNoDecisionModels =>
       'Are nevoie de modele de decizie precum Jev. Clasificatoarele de siguranță nu pot răspunde la aceste întrebări.';
+
+  @override
+  String get voiceLiveNoProvider =>
+      'Niciun furnizor de voce live nu este configurat. Adaugă o cheie OpenAI sau Google AI ori conectează un NeoRouter din Modele → Adu-ți propria cheie.';
+
+  @override
+  String get voiceSttAutoNeoRouter => 'Automat (NeoRouter alege modelul)';
+
+  @override
+  String get voiceNotOffered => 'Nu mai este oferit, alege altul';
 }

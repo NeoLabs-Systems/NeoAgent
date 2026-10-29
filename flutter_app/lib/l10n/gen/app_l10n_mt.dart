@@ -11795,4 +11795,15 @@ class AppL10nMt extends AppL10n {
   @override
   String get neoRouterNoDecisionModels =>
       'Jeħtieġ mudelli tad-deċiżjoni bħal Jev. Il-klassifikaturi tas-sigurtà ma jistgħux iwieġbu dawn il-mistoqsijiet.';
+
+  @override
+  String get voiceLiveNoProvider =>
+      'L-ebda fornitur tal-vuċi diretta mhu mwaqqaf. Żid ċavetta ta\' OpenAI jew Google AI, jew qabbad NeoRouter, taħt Mudelli → Ġib iċ-ċavetta tiegħek.';
+
+  @override
+  String get voiceSttAutoNeoRouter =>
+      'Awtomatiku (NeoRouter jagħżel il-mudell)';
+
+  @override
+  String get voiceNotOffered => 'M\'għadux offrut, agħżel ieħor';
 }

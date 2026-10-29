@@ -11823,4 +11823,15 @@ class AppL10nHu extends AppL10n {
   @override
   String get neoRouterNoDecisionModels =>
       'Döntési modellek kellenek, például a Jev. A biztonsági osztályozók nem válaszolnak ezekre a kérdésekre.';
+
+  @override
+  String get voiceLiveNoProvider =>
+      'Nincs beállítva élő hang szolgáltató. Adj meg OpenAI- vagy Google AI-kulcsot, vagy csatlakoztass egy NeoRoutert a Modellek → Hozd a saját kulcsodat.';
+
+  @override
+  String get voiceSttAutoNeoRouter =>
+      'Automatikus (a modellt a NeoRouter választja)';
+
+  @override
+  String get voiceNotOffered => 'Már nem érhető el, válassz másikat';
 }

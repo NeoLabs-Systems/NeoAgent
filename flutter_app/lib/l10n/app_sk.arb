@@ -7249,5 +7249,8 @@
       }
     }
   },
-  "neoRouterNoDecisionModels": "Potrebuje rozhodovacie modely, ako je Jev. Bezpečnostné klasifikátory na tieto otázky neodpovedia."
+  "neoRouterNoDecisionModels": "Potrebuje rozhodovacie modely, ako je Jev. Bezpečnostné klasifikátory na tieto otázky neodpovedia.",
+  "voiceLiveNoProvider": "Nie je nastavený žiadny poskytovateľ živého hlasu. Pridajte kľúč OpenAI alebo Google AI, alebo pripojte NeoRouter (Modelky → Prineste si vlastný kľúč).",
+  "voiceSttAutoNeoRouter": "Automaticky (model vyberá NeoRouter)",
+  "voiceNotOffered": "Už nie je k dispozícii, vyberte iné"
 }

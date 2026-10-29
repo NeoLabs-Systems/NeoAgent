@@ -11839,4 +11839,16 @@ class AppL10nGa extends AppL10n {
   @override
   String get neoRouterNoDecisionModels =>
       'Teastaíonn múnlaí cinnteoireachta ar nós Jev. Ní féidir le haicmitheoirí sábháilteachta na ceisteanna seo a fhreagairt.';
+
+  @override
+  String get voiceLiveNoProvider =>
+      'Níl aon soláthraí gutha beo socraithe. Cuir eochair OpenAI nó Google AI leis, nó ceangail NeoRouter, faoi Múnlaí → Beir leat d\'eochair féin.';
+
+  @override
+  String get voiceSttAutoNeoRouter =>
+      'Uathoibríoch (roghnaíonn NeoRouter an múnla)';
+
+  @override
+  String get voiceNotOffered =>
+      'Níl sé ar fáil a thuilleadh, roghnaigh ceann eile';
 }

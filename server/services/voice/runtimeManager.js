@@ -8,7 +8,7 @@ const { LIVE_VOICE_PROVIDERS } = require('./live/catalog');
 const { describeLiveVoiceCatalog, resolveLiveModel } = require('./live/models');
 const { LiveVoiceSession } = require('./live/session');
 const { getVoiceRuntimeSettings } = require('./liveSettings');
-const { DEFAULT_STT_MODELS, STT_PROVIDERS } = require('./providers/provider_defaults');
+const { describeSttProviders } = require('./transcription');
 const { createSocketVoiceSink } = require('./voice_transport');
 
 const logger = createServiceLogger('VoiceRuntime');
@@ -35,9 +35,7 @@ class VoiceRuntimeManager {
   async getCapabilities({ userId = null, agentId = null } = {}) {
     return {
       ...await describeLiveVoiceCatalog({ userId, agentId }),
-      transcription: {
-        providers: STT_PROVIDERS.map((id) => ({ id, defaultModel: DEFAULT_STT_MODELS[id] })),
-      },
+      transcription: describeSttProviders(userId, agentId),
     };
   }
 

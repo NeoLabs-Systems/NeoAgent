@@ -7249,5 +7249,8 @@
       }
     }
   },
-  "neoRouterNoDecisionModels": "Teastaíonn múnlaí cinnteoireachta ar nós Jev. Ní féidir le haicmitheoirí sábháilteachta na ceisteanna seo a fhreagairt."
+  "neoRouterNoDecisionModels": "Teastaíonn múnlaí cinnteoireachta ar nós Jev. Ní féidir le haicmitheoirí sábháilteachta na ceisteanna seo a fhreagairt.",
+  "voiceLiveNoProvider": "Níl aon soláthraí gutha beo socraithe. Cuir eochair OpenAI nó Google AI leis, nó ceangail NeoRouter, faoi Múnlaí → Beir leat d'eochair féin.",
+  "voiceSttAutoNeoRouter": "Uathoibríoch (roghnaíonn NeoRouter an múnla)",
+  "voiceNotOffered": "Níl sé ar fáil a thuilleadh, roghnaigh ceann eile"
 }

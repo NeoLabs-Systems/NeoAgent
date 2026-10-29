@@ -11752,4 +11752,14 @@ class AppL10nDa extends AppL10n {
   @override
   String get neoRouterNoDecisionModels =>
       'Kræver beslutningsmodeller som Jev. Sikkerhedsklassifikatorer kan ikke svare på disse spørgsmål.';
+
+  @override
+  String get voiceLiveNoProvider =>
+      'Der er ingen udbyder af live-stemme sat op. Tilføj en OpenAI- eller Google AI-nøgle, eller forbind en NeoRouter, under Modeller → Medbring din egen nøgle.';
+
+  @override
+  String get voiceSttAutoNeoRouter => 'Auto (NeoRouter vælger modellen)';
+
+  @override
+  String get voiceNotOffered => 'Tilbydes ikke længere, vælg en anden';
 }

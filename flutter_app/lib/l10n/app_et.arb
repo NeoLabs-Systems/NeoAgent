@@ -7249,5 +7249,8 @@
       }
     }
   },
-  "neoRouterNoDecisionModels": "Vajab otsustusmudeleid, nagu Jev. Turvaklassifikaatorid ei vasta neile küsimustele."
+  "neoRouterNoDecisionModels": "Vajab otsustusmudeleid, nagu Jev. Turvaklassifikaatorid ei vasta neile küsimustele.",
+  "voiceLiveNoProvider": "Ühtegi otsehääle pakkujat pole seadistatud. Lisa OpenAI või Google AI võti või ühenda NeoRouter jaotises Mudelid → Kaasa oma võti.",
+  "voiceSttAutoNeoRouter": "Automaatne (mudeli valib NeoRouter)",
+  "voiceNotOffered": "Pole enam saadaval, vali muu"
 }

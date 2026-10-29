@@ -11784,4 +11784,14 @@ class AppL10nLv extends AppL10n {
   @override
   String get neoRouterNoDecisionModels =>
       'Vajadzīgi lēmumu modeļi, piemēram, Jev. Drošības klasifikatori uz šiem jautājumiem neatbild.';
+
+  @override
+  String get voiceLiveNoProvider =>
+      'Nav iestatīts neviens tiešraides balss nodrošinātājs. Pievienojiet OpenAI vai Google AI atslēgu vai pievienojiet NeoRouter sadaļā Modeļi → Paņemiet līdzi savu atslēgu.';
+
+  @override
+  String get voiceSttAutoNeoRouter => 'Automātiski (modeli izvēlas NeoRouter)';
+
+  @override
+  String get voiceNotOffered => 'Vairs netiek piedāvāts, izvēlieties citu';
 }

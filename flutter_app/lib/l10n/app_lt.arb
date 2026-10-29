@@ -7249,5 +7249,8 @@
       }
     }
   },
-  "neoRouterNoDecisionModels": "Reikia sprendimų modelių, pvz., Jev. Saugos klasifikatoriai į šiuos klausimus neatsako."
+  "neoRouterNoDecisionModels": "Reikia sprendimų modelių, pvz., Jev. Saugos klasifikatoriai į šiuos klausimus neatsako.",
+  "voiceLiveNoProvider": "Nenustatytas joks tiesioginio balso teikėjas. Pridėkite OpenAI arba Google AI raktą arba prijunkite NeoRouter skiltyje Modeliai → Atsineškite savo raktą.",
+  "voiceSttAutoNeoRouter": "Automatiškai (modelį renkasi NeoRouter)",
+  "voiceNotOffered": "Nebesiūloma, pasirinkite kitą"
 }

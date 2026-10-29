@@ -11766,4 +11766,14 @@ class AppL10nEt extends AppL10n {
   @override
   String get neoRouterNoDecisionModels =>
       'Vajab otsustusmudeleid, nagu Jev. Turvaklassifikaatorid ei vasta neile küsimustele.';
+
+  @override
+  String get voiceLiveNoProvider =>
+      'Ühtegi otsehääle pakkujat pole seadistatud. Lisa OpenAI või Google AI võti või ühenda NeoRouter jaotises Mudelid → Kaasa oma võti.';
+
+  @override
+  String get voiceSttAutoNeoRouter => 'Automaatne (mudeli valib NeoRouter)';
+
+  @override
+  String get voiceNotOffered => 'Pole enam saadaval, vali muu';
 }

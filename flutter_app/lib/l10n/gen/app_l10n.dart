@@ -19656,6 +19656,24 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Needs decision models such as Jev. Safety classifiers cannot answer these questions.'**
   String get neoRouterNoDecisionModels;
+
+  /// No description provided for @voiceLiveNoProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'No live voice provider is set up. Add an OpenAI or Google AI key, or connect a NeoRouter, under Models → Bring your own key.'**
+  String get voiceLiveNoProvider;
+
+  /// No description provided for @voiceSttAutoNeoRouter.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto (NeoRouter picks the model)'**
+  String get voiceSttAutoNeoRouter;
+
+  /// No description provided for @voiceNotOffered.
+  ///
+  /// In en, this message translates to:
+  /// **'No longer offered, pick another'**
+  String get voiceNotOffered;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {
