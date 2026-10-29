@@ -99,9 +99,11 @@ async function getSystemOneModels(userId, agentId = null, { signal = null } = {}
   return catalogs.flatMap((result) => (result.status === 'fulfilled' ? result.value : []));
 }
 
-// The agent's chosen model while it is available; otherwise (and for Auto)
-// the calibrated model, then any other available SystemOne model in catalog
-// order, so a retired or failing model hands over to the next one.
+// The agent's chosen model while it is available; otherwise (and for Auto) a
+// connected NeoRouter's own auto choice, which picks among all of its decision
+// models from experience, then the calibrated model, then any other available
+// SystemOne model in catalog order, so a retired or failing model hands over
+// to the next one.
 async function resolveModel(userId, agentId, signal) {
   if (userId == null) return null;
   const selection = selectionFor(userId, agentId);
@@ -109,6 +111,7 @@ async function resolveModel(userId, agentId, signal) {
   const ready = (await getSystemOneModels(userId, agentId, { signal }))
     .filter((model) => model.available);
   return ready.find((model) => model.id === selection)
+    || ready.find((model) => model.provider === 'neorouter' && model.modelId === 'auto:balanced')
     || ready.find((model) => CALIBRATED_MODEL_IDS.includes(model.modelId))
     || ready[0]
     || null;

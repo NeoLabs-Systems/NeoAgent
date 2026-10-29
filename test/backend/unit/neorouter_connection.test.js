@@ -28,8 +28,8 @@ function fakeNeoRouter() {
   const auth = (req, res, next) => (req.get('authorization') === 'Bearer nrt_fake_key' ? next() : res.status(401).json({ error: { message: 'bad key' } }));
   const lists = {
     chat: [{ id: 'auto', name: 'Auto (Balanced)' }, { id: 'auto:fast', name: 'Auto (Fastest)' }, { id: 'auto-free:fast', name: 'Auto (Fastest, free models only)' }, { id: 'groq/llama-4', pricing: { prompt: '0', completion: '0' }, neorouter: { free: true, tools: true } }],
-    moderation: [{ id: 'openrouter/liquid-d1', neorouter: { decision: true } }, { id: 'groq/llama-guard-4', neorouter: { decision: false } }],
-    live: [{ id: 'google/gemini-3.8-flash-live', neorouter: { protocols: ['gemini_live'] } }],
+    moderation: [{ id: 'auto', name: 'Auto (Balanced)', neorouter: { auto: true, decision: true } }, { id: 'openrouter/liquid-d1', neorouter: { decision: true } }, { id: 'groq/llama-guard-4', neorouter: { decision: false } }],
+    live: [{ id: 'auto', name: 'Auto (Balanced)', neorouter: { auto: true, protocols: ['gemini_live'] } }, { id: 'google/gemini-3.8-flash-live', neorouter: { protocols: ['gemini_live'] } }],
     embedding: [{ id: 'nvidia/embed' }],
     transcription: [], image: [], search: [{ id: 'brave-search/web' }],
   };
@@ -103,7 +103,7 @@ test('every kind of work goes through the connected router', async () => {
   assert.ok(models.some((model) => model.id === 'auto-free:fast'), 'and the variants limited to one kind of model');
   assert.ok(!models.some((model) => model.id === 'auto'), 'bare auto is listed by its full name');
   assert.equal(models.find((model) => model.id === 'groq/llama-4').priceTier, 'free');
-  assert.deepEqual((await provider.listDecisionModels()).map((model) => model.id), ['openrouter/liquid-d1'], 'only decision models, no classifiers');
+  assert.deepEqual((await provider.listDecisionModels()).map((model) => model.id), ['auto:balanced', 'openrouter/liquid-d1'], 'NeoRouter auto and decision models, no classifiers');
   const { describeOffer } = require('../../../server/services/ai/neorouter/offer');
   const { serverConnection } = require('../../../server/services/ai/neorouter/connection');
   const offer = await describeOffer(serverConnection(), { fresh: true });
@@ -122,7 +122,7 @@ test('live voice lists the router models for the protocol it speaks', async () =
   const { describeLiveVoiceCatalog } = require('../../../server/services/voice/live/models');
   const catalog = await describeLiveVoiceCatalog({ userId: user.userId });
   const byId = Object.fromEntries(catalog.providers.map((provider) => [provider.id, provider.models]));
-  assert.deepEqual(byId.neorouter_google, ['google/gemini-3.8-flash-live']);
+  assert.deepEqual(byId.neorouter_google, ['auto:balanced', 'google/gemini-3.8-flash-live'], 'NeoRouter auto leads the live models');
   assert.deepEqual(byId.neorouter_openai, [], 'no GPT-Live models in this router');
 
   const { getSupportedModels } = require('../../../server/services/ai/models');

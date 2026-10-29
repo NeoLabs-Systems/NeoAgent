@@ -45,6 +45,7 @@ async function listModels(connection, type = 'chat', options = {}) {
 }
 
 // System One decision models, as opposed to NeoRouter's safety classifiers.
+// Auto models carry the flag when they can answer decisions.
 const isDecisionModel = (model) => model?.neorouter?.decision === true;
 
 async function embed(connection, text, { inputType, signal } = {}) {

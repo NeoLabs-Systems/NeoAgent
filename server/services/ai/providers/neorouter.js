@@ -53,14 +53,23 @@ class NeoRouterProvider extends CustomOpenAIProvider {
     return true;
   }
 
+  // Auto models (NeoRouter picks the model per request) come first, under
+  // their selectable ids.
   async listDecisionModels(signal = null) {
     const models = await listModels(this.connection, 'moderation', { signal });
-    return models.filter(isDecisionModel).map((model) => ({ id: model.id, name: model.name || model.id }));
+    return models.filter(isDecisionModel).map((model) => ({
+      id: isAuto(model.id) ? selectableAutoId(model.id) : model.id,
+      name: isAuto(model.id) ? `NeoRouter ${model.name || model.id}` : model.name || model.id,
+    }));
   }
 
   async listLiveVoiceModels(signal = null) {
     const models = await listModels(this.connection, 'live', { signal });
-    return models.map((model) => ({ id: model.id, name: model.name || model.id, protocols: model.neorouter?.protocols || [] }));
+    return models.map((model) => ({
+      id: isAuto(model.id) ? selectableAutoId(model.id) : model.id,
+      name: isAuto(model.id) ? `NeoRouter ${model.name || model.id}` : model.name || model.id,
+      protocols: model.neorouter?.protocols || [],
+    }));
   }
 
   async decide({ model, state, questions, signal = null, timeoutMs } = {}) {
