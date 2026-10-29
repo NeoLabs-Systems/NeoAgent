@@ -7246,5 +7246,6 @@
       }
     }
   },
-  "neoRouterNoModels": "Níl aon rud ar fáil i do NeoRouter fós."
+  "neoRouterNoModels": "Níl aon rud ar fáil i do NeoRouter fós.",
+  "neoRouterPicksModels": "Roghnaíonn NeoRouter an múnla do gach iarratas, mar sin ní úsáidtear an rogha seo."
 }

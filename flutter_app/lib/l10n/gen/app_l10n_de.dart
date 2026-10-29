@@ -11838,4 +11838,8 @@ class AppL10nDe extends AppL10n {
   @override
   String get neoRouterNoModels =>
       'In deinem NeoRouter ist noch nichts verfügbar.';
+
+  @override
+  String get neoRouterPicksModels =>
+      'NeoRouter wählt für jede Anfrage das Modell, daher wird diese Auswahl nicht genutzt.';
 }

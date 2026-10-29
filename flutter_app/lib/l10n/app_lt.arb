@@ -7246,5 +7246,6 @@
       }
     }
   },
-  "neoRouterNoModels": "Jūsų NeoRouter dar nieko nėra."
+  "neoRouterNoModels": "Jūsų NeoRouter dar nieko nėra.",
+  "neoRouterPicksModels": "NeoRouter parenka modelį kiekvienai užklausai, todėl šis rinkinys nenaudojamas."
 }

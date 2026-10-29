@@ -7246,5 +7246,6 @@
       }
     }
   },
-  "neoRouterNoModels": "Δεν υπάρχει ακόμη τίποτα στο NeoRouter σας."
+  "neoRouterNoModels": "Δεν υπάρχει ακόμη τίποτα στο NeoRouter σας.",
+  "neoRouterPicksModels": "Το NeoRouter επιλέγει το μοντέλο για κάθε αίτημα, οπότε αυτή η επιλογή δεν χρησιμοποιείται."
 }

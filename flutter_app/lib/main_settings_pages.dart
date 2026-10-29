@@ -23,6 +23,10 @@ class _ModelsSettingsPage extends StatelessWidget {
     final pool = controller.enabledModelIds.isEmpty
         ? availableModels.map((model) => model.id).toSet()
         : controller.enabledModelIds.toSet();
+    final neoRouterRoutes = availableModels.any(
+      (model) =>
+          model.provider == 'neorouter' && model.modelId.startsWith('auto:'),
+    );
     final poolSize = availableModels
         .where((model) => pool.contains(model.id))
         .length;
@@ -82,15 +86,21 @@ class _ModelsSettingsPage extends StatelessWidget {
               settingKey: 'default_chat_model',
             ),
             // Smart Selector and failure fallbacks only route between these.
+            // A connected NeoRouter does that routing itself.
             _SettingsRow(
               anchor: 'modelPool',
               label: appStrings.settingsModelPool,
-              description: appStrings.arg1OfArg2Models(
-                poolSize,
-                availableModels.length,
-              ),
+              description: neoRouterRoutes
+                  ? appStrings.neoRouterPicksModels
+                  : appStrings.arg1OfArg2Models(
+                      poolSize,
+                      availableModels.length,
+                    ),
+              enabled: !neoRouterRoutes,
               control: OutlinedButton.icon(
-                onPressed: () => _managePool(context, pool),
+                onPressed: neoRouterRoutes
+                    ? null
+                    : () => _managePool(context, pool),
                 icon: Icon(Icons.tune_rounded, size: 16),
                 label: Text(appStrings.manage),
               ),

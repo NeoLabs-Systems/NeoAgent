@@ -19638,6 +19638,12 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Nothing available in your NeoRouter yet.'**
   String get neoRouterNoModels;
+
+  /// No description provided for @neoRouterPicksModels.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoRouter picks the model for every request, so this pool is not used.'**
+  String get neoRouterPicksModels;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

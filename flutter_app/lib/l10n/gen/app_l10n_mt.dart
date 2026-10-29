@@ -11783,4 +11783,8 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get neoRouterNoModels => 'Għad m\'hemm xejn fin-NeoRouter tiegħek.';
+
+  @override
+  String get neoRouterPicksModels =>
+      'NeoRouter jagħżel il-mudell għal kull talba, għalhekk din l-għażla ma tintużax.';
 }

@@ -7246,5 +7246,6 @@
       }
     }
   },
-  "neoRouterNoModels": "NeoRouterissasi ei ole vielä mitään."
+  "neoRouterNoModels": "NeoRouterissasi ei ole vielä mitään.",
+  "neoRouterPicksModels": "NeoRouter valitsee mallin jokaiseen pyyntöön, joten tätä valikoimaa ei käytetä."
 }

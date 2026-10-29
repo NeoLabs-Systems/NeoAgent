@@ -114,6 +114,22 @@ test('automatic chat picks the router profile that fits the request', () => {
   const settings = { default_chat_model: 'auto', enabled_models: [], cost_mode: 'balanced_auto' };
   assert.equal(selectInitialModel({ models, settings, userId: 1 }).model.id, 'neorouter::auto:balanced');
   assert.equal(selectInitialModel({ models, settings, userId: 1, selectionHint: { purpose: 'fast' } }).model.id, 'neorouter::auto:fast');
+  const more = [...models, ...['cheap', 'best', 'smart'].map((profile) => ({ id: `neorouter::auto:${profile}`, provider: 'neorouter', modelId: `auto:${profile}` }))];
+  assert.equal(selectInitialModel({ models: more, settings: { ...settings, cost_mode: 'economy' }, userId: 1 }).model.id, 'neorouter::auto:cheap');
+  assert.equal(selectInitialModel({ models: more, settings, userId: 1, selectionHint: { complexity: 'complex' } }).model.id, 'neorouter::auto:smart');
+  assert.equal(selectInitialModel({ models: more, settings, userId: 1, selectionHint: { requiredConfidence: 'high' } }).model.id, 'neorouter::auto:best');
+  // NeoRouter's routing replaces the Smart Selector pool.
+  const pooled = { ...settings, enabled_models: ['openai::gpt-5'] };
+  assert.equal(selectInitialModel({ models: more, settings: pooled, userId: 1 }).model.id, 'neorouter::auto:balanced');
+  // A model the user picked still wins.
+  assert.equal(selectInitialModel({ models: more, settings: { ...settings, default_chat_model: 'openai::gpt-5' }, userId: 1 }).model.id, 'openai::gpt-5');
+});
+
+test('tool turns move a NeoRouter run to the profile for that work', async () => {
+  const { neoRouterTaskSelection } = require('../../../server/services/ai/model_router');
+  assert.equal(neoRouterTaskSelection('coding'), 'neorouter::auto:best');
+  assert.equal(neoRouterTaskSelection('research'), 'neorouter::auto:smart');
+  assert.equal(neoRouterTaskSelection('unknown'), null);
 });
 
 test('turning a role off hands it back to the usual provider', async () => {

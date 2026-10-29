@@ -7246,5 +7246,6 @@
       }
     }
   },
-  "neoRouterNoModels": "Във вашия NeoRouter все още няма нищо."
+  "neoRouterNoModels": "Във вашия NeoRouter все още няма нищо.",
+  "neoRouterPicksModels": "NeoRouter избира модела за всяка заявка, затова тази селекция не се използва."
 }

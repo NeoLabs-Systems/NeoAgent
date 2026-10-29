@@ -11754,4 +11754,8 @@ class AppL10nEt extends AppL10n {
 
   @override
   String get neoRouterNoModels => 'Sinu NeoRouteris pole veel midagi.';
+
+  @override
+  String get neoRouterPicksModels =>
+      'NeoRouter valib iga päringu jaoks mudeli, nii et seda valikut ei kasutata.';
 }

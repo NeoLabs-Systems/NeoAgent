@@ -11740,4 +11740,8 @@ class AppL10nDa extends AppL10n {
   @override
   String get neoRouterNoModels =>
       'Der er endnu intet tilgængeligt i din NeoRouter.';
+
+  @override
+  String get neoRouterPicksModels =>
+      'NeoRouter vælger modellen til hver forespørgsel, så denne pulje bruges ikke.';
 }

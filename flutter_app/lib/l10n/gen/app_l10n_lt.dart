@@ -11780,4 +11780,8 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get neoRouterNoModels => 'Jūsų NeoRouter dar nieko nėra.';
+
+  @override
+  String get neoRouterPicksModels =>
+      'NeoRouter parenka modelį kiekvienai užklausai, todėl šis rinkinys nenaudojamas.';
 }

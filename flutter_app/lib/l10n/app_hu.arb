@@ -7246,5 +7246,6 @@
       }
     }
   },
-  "neoRouterNoModels": "A NeoRouteredben még nincs semmi."
+  "neoRouterNoModels": "A NeoRouteredben még nincs semmi.",
+  "neoRouterPicksModels": "A NeoRouter minden kéréshez maga választ modellt, ezért ez a készlet nincs használatban."
 }

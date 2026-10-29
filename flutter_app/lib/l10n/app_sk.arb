@@ -7246,5 +7246,6 @@
       }
     }
   },
-  "neoRouterNoModels": "V NeoRouteri zatiaľ nič nie je."
+  "neoRouterNoModels": "V NeoRouteri zatiaľ nič nie je.",
+  "neoRouterPicksModels": "NeoRouter vyberá model pre každú požiadavku, takže tento výber sa nepoužíva."
 }

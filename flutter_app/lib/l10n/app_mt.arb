@@ -7246,5 +7246,6 @@
       }
     }
   },
-  "neoRouterNoModels": "Għad m'hemm xejn fin-NeoRouter tiegħek."
+  "neoRouterNoModels": "Għad m'hemm xejn fin-NeoRouter tiegħek.",
+  "neoRouterPicksModels": "NeoRouter jagħżel il-mudell għal kull talba, għalhekk din l-għażla ma tintużax."
 }

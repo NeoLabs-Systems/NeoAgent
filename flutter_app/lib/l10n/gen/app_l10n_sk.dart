@@ -11772,4 +11772,8 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get neoRouterNoModels => 'V NeoRouteri zatiaľ nič nie je.';
+
+  @override
+  String get neoRouterPicksModels =>
+      'NeoRouter vyberá model pre každú požiadavku, takže tento výber sa nepoužíva.';
 }

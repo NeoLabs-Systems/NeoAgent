@@ -7246,5 +7246,6 @@
       }
     }
   },
-  "neoRouterNoModels": "W NeoRouterze nic jeszcze nie ma."
+  "neoRouterNoModels": "W NeoRouterze nic jeszcze nie ma.",
+  "neoRouterPicksModels": "NeoRouter wybiera model dla każdego żądania, więc ta pula nie jest używana."
 }

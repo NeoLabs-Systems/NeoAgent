@@ -7197,5 +7197,6 @@
       }
     }
   },
-  "neoRouterNoModels": "In deinem NeoRouter ist noch nichts verfügbar."
+  "neoRouterNoModels": "In deinem NeoRouter ist noch nichts verfügbar.",
+  "neoRouterPicksModels": "NeoRouter wählt für jede Anfrage das Modell, daher wird diese Auswahl nicht genutzt."
 }

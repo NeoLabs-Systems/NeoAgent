@@ -113,21 +113,46 @@ function rankModels(models, { isSubagent = false, selectionHint = {}, settings =
     .map((entry) => entry.model);
 }
 
-// NeoRouter routes across all of its providers by itself, so a connected
-// NeoRouter's matching profile goes first.
-const NEOROUTER_PROFILES = Object.freeze({
-  balanced: 'auto:balanced',
-  fast: 'auto:fast',
-  economy: 'auto:cheap',
-  quality: 'auto:best',
-});
-
 function chooseAutomaticModel(models, options) {
   if (!models.length) return null;
-  const { isSubagent = false, selectionHint = {}, settings = {} } = options || {};
-  const profile = NEOROUTER_PROFILES[routingProfile({ isSubagent, selectionHint, settings })];
-  const routed = models.find((model) => model.provider === 'neorouter' && model.modelId === profile);
-  return routed || rankModels(models, options)[0] || models[0];
+  return rankModels(models, options)[0] || models[0];
+}
+
+// With NeoRouter connected for chat, its routing replaces the Smart Selector:
+// an automatic choice goes to the NeoRouter profile that fits the request,
+// whatever the Smart Selector pool holds, and NeoRouter itself picks the
+// model and falls back across its providers for every request.
+const NEOROUTER_PROFILES = Object.freeze({
+  economy: 'auto:cheap',
+  quality: 'auto:best',
+  fast: 'auto:fast',
+  planning: 'auto:smart',
+  coding: 'auto:best',
+  general: 'auto:balanced',
+});
+// Work a tool turn shows (task_models.js) and the profile it gets when the
+// user pinned no model for it.
+const NEOROUTER_TASK_PROFILES = Object.freeze({
+  coding: 'auto:best',
+  computer_use: 'auto:best',
+  android_use: 'auto:best',
+  research: 'auto:smart',
+});
+
+function neoRouterProfile({ isSubagent = false, selectionHint = {}, settings = {} }) {
+  const profile = routingProfile({ isSubagent, selectionHint, settings });
+  if (profile !== 'balanced') return NEOROUTER_PROFILES[profile];
+  return NEOROUTER_PROFILES[requestedPurpose({ isSubagent, selectionHint })];
+}
+
+function neoRouterModel(models, profile) {
+  return models.find((model) => model.provider === 'neorouter' && model.modelId === profile) || null;
+}
+
+/** The NeoRouter profile a tool turn of this kind moves to, or null. */
+function neoRouterTaskSelection(kind) {
+  const profile = NEOROUTER_TASK_PROFILES[kind];
+  return profile ? `neorouter::${profile}` : null;
 }
 
 function resolveReadyModel(readyModels, selectionId) {
@@ -175,6 +200,11 @@ function selectInitialModel({
   if (requestedId !== 'auto') {
     const requested = resolveReadyModel(pools.readyModels, requestedId);
     if (requested) return { model: requested, reason: null };
+  }
+
+  const routed = neoRouterModel(pools.readyModels, neoRouterProfile({ isSubagent, selectionHint, settings }));
+  if (routed) {
+    return { model: routed, reason: requestedId !== 'auto' ? 'requested_model_unavailable' : null };
   }
 
   // With enabled_models configured, automatic routing may only ever pick from
@@ -236,6 +266,7 @@ function selectFallbackModel({
 
 module.exports = {
   buildRoutingPools,
+  neoRouterTaskSelection,
   rankModels,
   selectFallbackModel,
   selectInitialModel,

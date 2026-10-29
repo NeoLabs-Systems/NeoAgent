@@ -11827,4 +11827,8 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get neoRouterNoModels => 'Níl aon rud ar fáil i do NeoRouter fós.';
+
+  @override
+  String get neoRouterPicksModels =>
+      'Roghnaíonn NeoRouter an múnla do gach iarratas, mar sin ní úsáidtear an rogha seo.';
 }

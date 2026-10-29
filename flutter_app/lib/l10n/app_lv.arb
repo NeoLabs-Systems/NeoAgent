@@ -7246,5 +7246,6 @@
       }
     }
   },
-  "neoRouterNoModels": "Jūsu NeoRouter vēl nekā nav."
+  "neoRouterNoModels": "Jūsu NeoRouter vēl nekā nav.",
+  "neoRouterPicksModels": "NeoRouter izvēlas modeli katram pieprasījumam, tāpēc šī izlase netiek izmantota."
 }

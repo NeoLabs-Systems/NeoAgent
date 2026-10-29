@@ -7246,5 +7246,6 @@
       }
     }
   },
-  "neoRouterNoModels": "Inget är tillgängligt i din NeoRouter än."
+  "neoRouterNoModels": "Inget är tillgängligt i din NeoRouter än.",
+  "neoRouterPicksModels": "NeoRouter väljer modellen för varje förfrågan, så den här poolen används inte."
 }
