@@ -101,6 +101,7 @@ class _ByokSettingsCardState extends State<ByokSettingsCard> {
             : Icon(Icons.refresh_rounded),
       ),
       children: <Widget>[
+        NeoRouterConnectCard(controller: controller, scope: 'user'),
         if (!_loadedOnce && controller.isLoadingByokProviders)
           const _SettingsBlock(
             child: Center(child: CircularProgressIndicator()),

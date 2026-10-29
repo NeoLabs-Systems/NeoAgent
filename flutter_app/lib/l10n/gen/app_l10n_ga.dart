@@ -11792,9 +11792,8 @@ class AppL10nGa extends AppL10n {
       'Stopann NeoAgent ag úsáid an NeoRouter seo. Chun an eochair a tharraingt siar freisin, cúlghair í in NeoRouter faoi Eochracha API.';
 
   @override
-  String neoRouterServerInUseArg1(Object? arg1) {
-    return 'Úsáideann an freastalaí seo NeoRouter ag $arg1 cheana féin. Ceangail do chuntas féin ansin le haghaidh do mhúnlaí agus do bhuiséid féin.';
-  }
+  String get neoRouterServerInUse =>
+      'Úsáideann an freastalaí seo NeoRouter do chách cheana féin. Ceangail do chuntas NeoRouter féin le haghaidh do mhúnlaí agus do bhuiséid féin.';
 
   @override
   String get neoRouterConnected => 'Tá NeoRouter ceangailte.';

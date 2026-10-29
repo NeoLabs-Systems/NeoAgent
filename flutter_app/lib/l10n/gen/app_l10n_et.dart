@@ -11719,9 +11719,8 @@ class AppL10nEt extends AppL10n {
       'NeoAgent lõpetab selle NeoRouteri kasutamise. Võta ka võti tagasi NeoRouteri API-võtmete all.';
 
   @override
-  String neoRouterServerInUseArg1(Object? arg1) {
-    return 'See server kasutab juba NeoRouterit aadressil $arg1. Ühenda seal oma konto, et saada oma mudelid ja eelarve.';
-  }
+  String get neoRouterServerInUse =>
+      'See server kasutab juba kõigi jaoks NeoRouterit. Ühenda oma NeoRouteri konto, et saada oma mudelid ja eelarve.';
 
   @override
   String get neoRouterConnected => 'NeoRouter on ühendatud.';

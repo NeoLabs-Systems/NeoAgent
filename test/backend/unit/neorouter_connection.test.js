@@ -154,3 +154,36 @@ test('turning a role off hands it back to the usual provider', async () => {
   await signIn.disconnect({ scope: 'server', userId: admin.userId });
   assert.equal(forRole(admin.userId, null, 'search'), null);
 });
+
+test('only admins learn where the server NeoRouter lives', async () => {
+  const { createTestApp, loginAs } = require('../../helpers/app');
+  const { agent } = require('../../helpers/supertest');
+  process.env.NEOROUTER_BASE_URL = `${address}/v1`;
+  process.env.NEOROUTER_API_KEY = 'nrt_fake_key';
+  process.env.NEOROUTER_ROLES = 'chat';
+  try {
+    const { app } = createTestApp();
+    const owner = await createTestUser(ctx.db, { username: 'nr_view_admin' });
+    const member = await createTestUser(ctx.db, { username: 'nr_view_member' });
+    ctx.db.prepare('UPDATE users SET is_admin = CASE WHEN id = ? THEN 1 ELSE 0 END WHERE id IN (?, ?)').run(owner.userId, owner.userId, member.userId);
+    const asAdmin = agent(app);
+    const asMember = agent(app);
+    await loginAs(asAdmin, owner);
+    await loginAs(asMember, member);
+
+    const adminView = (await asAdmin.get('/api/neorouter').expect(200)).body;
+    assert.equal(adminView.server.address, address);
+    const memberView = (await asMember.get('/api/neorouter').expect(200)).body;
+    assert.deepEqual(memberView.server, { connected: true });
+    assert.ok(!JSON.stringify(memberView).includes(address), 'the address is nowhere in the answer');
+
+    const providers = (await asMember.get('/api/settings/meta/ai-providers').expect(200)).body.providers;
+    assert.ok(!JSON.stringify(providers).includes(address), 'nor in the provider list');
+    const adminProviders = (await asAdmin.get('/api/settings/meta/ai-providers').expect(200)).body.providers;
+    assert.equal(adminProviders.find((provider) => provider.id === 'neorouter').baseUrl, `${address}/v1`);
+  } finally {
+    delete process.env.NEOROUTER_BASE_URL;
+    delete process.env.NEOROUTER_API_KEY;
+    delete process.env.NEOROUTER_ROLES;
+  }
+});

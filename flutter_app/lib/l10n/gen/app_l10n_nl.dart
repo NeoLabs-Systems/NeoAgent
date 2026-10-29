@@ -11747,9 +11747,8 @@ class AppL10nNl extends AppL10n {
       'NeoAgent gebruikt deze NeoRouter niet meer. Trek ook de sleutel in via API-sleutels in NeoRouter.';
 
   @override
-  String neoRouterServerInUseArg1(Object? arg1) {
-    return 'Deze server gebruikt al NeoRouter op $arg1. Verbind daar je eigen account voor eigen modellen en budget.';
-  }
+  String get neoRouterServerInUse =>
+      'Deze server gebruikt al een NeoRouter voor iedereen. Verbind je eigen NeoRouter-account voor eigen modellen en budget.';
 
   @override
   String get neoRouterConnected => 'NeoRouter is verbonden.';

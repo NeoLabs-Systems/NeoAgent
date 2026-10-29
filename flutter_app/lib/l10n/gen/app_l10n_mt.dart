@@ -11748,9 +11748,8 @@ class AppL10nMt extends AppL10n {
       'NeoAgent jieqaf juża dan in-NeoRouter. Biex tirtira wkoll iċ-ċavetta, revokaha fin-NeoRouter taħt Ċwievet API.';
 
   @override
-  String neoRouterServerInUseArg1(Object? arg1) {
-    return 'Dan is-server diġà juża n-NeoRouter f\'$arg1. Qabbad il-kont tiegħek hemmhekk għall-mudelli u l-baġit tiegħek.';
-  }
+  String get neoRouterServerInUse =>
+      'Dan is-server diġà juża NeoRouter għal kulħadd. Qabbad il-kont NeoRouter tiegħek għall-mudelli u l-baġit tiegħek.';
 
   @override
   String get neoRouterConnected => 'In-NeoRouter huwa mqabbad.';

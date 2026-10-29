@@ -11718,9 +11718,8 @@ class AppL10nCs extends AppL10n {
       'NeoAgent přestane tento NeoRouter používat. Chcete-li odebrat i klíč, zrušte ho v NeoRouteru v části Klíče API.';
 
   @override
-  String neoRouterServerInUseArg1(Object? arg1) {
-    return 'Tento server už používá NeoRouter na $arg1. Připojte tam vlastní účet pro vlastní modely a rozpočet.';
-  }
+  String get neoRouterServerInUse =>
+      'Tento server už používá NeoRouter pro všechny. Připojte vlastní účet NeoRouter pro vlastní modely a rozpočet.';
 
   @override
   String get neoRouterConnected => 'NeoRouter je připojen.';

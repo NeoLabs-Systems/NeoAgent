@@ -11776,9 +11776,8 @@ class AppL10nHu extends AppL10n {
       'A NeoAgent többé nem használja ezt a NeoRoutert. A kulcsot is vond vissza a NeoRouter API-kulcsok részében.';
 
   @override
-  String neoRouterServerInUseArg1(Object? arg1) {
-    return 'Ez a szerver már használja a NeoRoutert itt: $arg1. Csatlakoztasd ott a saját fiókodat saját modellekhez és kerethez.';
-  }
+  String get neoRouterServerInUse =>
+      'Ez a szerver már mindenkinek NeoRoutert használ. Csatlakoztasd a saját NeoRouter-fiókodat saját modellekhez és kerethez.';
 
   @override
   String get neoRouterConnected => 'A NeoRouter csatlakoztatva.';

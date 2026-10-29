@@ -11672,9 +11672,8 @@ class AppL10nEn extends AppL10n {
       'NeoAgent stops using this NeoRouter. To withdraw its key as well, revoke it under API keys in NeoRouter.';
 
   @override
-  String neoRouterServerInUseArg1(Object? arg1) {
-    return 'This server already uses NeoRouter at $arg1. Connect your own account there for your own models and budget.';
-  }
+  String get neoRouterServerInUse =>
+      'This server already uses a NeoRouter for everyone. Connect your own NeoRouter account for your own models and budget.';
 
   @override
   String get neoRouterConnected => 'NeoRouter is connected.';

@@ -3,6 +3,7 @@ const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const db = require('../db/database');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { isAdminUser } = require('../services/access/admin');
 const { getVersionInfo } = require('../utils/version');
 const { readUpdateStatus } = require('../utils/update_status');
 const { getRuntimeValidation } = require('../services/runtime/validation');
@@ -107,12 +108,22 @@ router.get('/meta/ai-providers', async (req, res) => {
     return acc;
   }, {});
 
+  // A base URL from the server's environment (a NeoRouter, a LAN Ollama, …)
+  // is the operator's business: people see only addresses they set up.
+  const isAdmin = isAdminUser(req.session.userId);
   res.json({
-    providers: providers.map((provider) => ({
-      ...provider,
-      modelCount: modelCounts[provider.id] || 0,
-      availableModelCount: modelCounts[`${provider.id}:available`] || 0,
-    })),
+    providers: providers.map((provider) => {
+      const hideBaseUrl = !isAdmin && !provider.isByok && Boolean(provider.baseUrl);
+      return {
+        ...provider,
+        baseUrl: hideBaseUrl ? '' : provider.baseUrl,
+        availabilityReason: hideBaseUrl
+          ? String(provider.availabilityReason || '').split(provider.baseUrl).join('the configured address')
+          : provider.availabilityReason,
+        modelCount: modelCounts[provider.id] || 0,
+        availableModelCount: modelCounts[`${provider.id}:available`] || 0,
+      };
+    }),
   });
 });
 

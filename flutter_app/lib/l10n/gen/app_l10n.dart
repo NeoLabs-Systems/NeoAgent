@@ -19573,11 +19573,11 @@ abstract class AppL10n {
   /// **'NeoAgent stops using this NeoRouter. To withdraw its key as well, revoke it under API keys in NeoRouter.'**
   String get neoRouterDisconnectBody;
 
-  /// No description provided for @neoRouterServerInUseArg1.
+  /// No description provided for @neoRouterServerInUse.
   ///
   /// In en, this message translates to:
-  /// **'This server already uses NeoRouter at {arg1}. Connect your own account there for your own models and budget.'**
-  String neoRouterServerInUseArg1(Object? arg1);
+  /// **'This server already uses a NeoRouter for everyone. Connect your own NeoRouter account for your own models and budget.'**
+  String get neoRouterServerInUse;
 
   /// No description provided for @neoRouterConnected.
   ///

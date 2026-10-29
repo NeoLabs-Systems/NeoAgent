@@ -73,7 +73,6 @@ class _ModelsSettingsPage extends StatelessWidget {
           ),
           const SizedBox(height: 20),
         ],
-        NeoRouterConnectCard(controller: controller, scope: 'user'),
         _SettingsGroup(
           title: appStrings.settingsDefaultModels,
           description: appStrings.settingsDefaultModelsDescription,

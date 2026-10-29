@@ -11767,9 +11767,8 @@ class AppL10nBg extends AppL10n {
       'NeoAgent спира да използва този NeoRouter. За да оттеглите и ключа, отменете го в NeoRouter в API ключове.';
 
   @override
-  String neoRouterServerInUseArg1(Object? arg1) {
-    return 'Този сървър вече използва NeoRouter на $arg1. Свържете там собствения си акаунт за свои модели и бюджет.';
-  }
+  String get neoRouterServerInUse =>
+      'Този сървър вече използва NeoRouter за всички. Свържете собствения си акаунт в NeoRouter за свои модели и бюджет.';
 
   @override
   String get neoRouterConnected => 'NeoRouter е свързан.';

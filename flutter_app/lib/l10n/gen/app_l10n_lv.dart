@@ -11737,9 +11737,8 @@ class AppL10nLv extends AppL10n {
       'NeoAgent vairs neizmanto šo NeoRouter. Lai atsauktu arī atslēgu, atsauciet to NeoRouter sadaļā API atslēgas.';
 
   @override
-  String neoRouterServerInUseArg1(Object? arg1) {
-    return 'Šis serveris jau izmanto NeoRouter adresē $arg1. Pievienojiet tur savu kontu, lai būtu savi modeļi un budžets.';
-  }
+  String get neoRouterServerInUse =>
+      'Šis serveris jau izmanto NeoRouter visiem. Pievienojiet savu NeoRouter kontu, lai būtu savi modeļi un budžets.';
 
   @override
   String get neoRouterConnected => 'NeoRouter ir pievienots.';

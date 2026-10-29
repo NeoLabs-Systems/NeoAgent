@@ -11822,9 +11822,8 @@ class AppL10nEl extends AppL10n {
       'Το NeoAgent σταματά να χρησιμοποιεί αυτό το NeoRouter. Για να ανακαλέσετε και το κλειδί, κάντε το στο NeoRouter στα Κλειδιά API.';
 
   @override
-  String neoRouterServerInUseArg1(Object? arg1) {
-    return 'Αυτός ο διακομιστής χρησιμοποιεί ήδη το NeoRouter στο $arg1. Συνδέστε εκεί τον δικό σας λογαριασμό για δικά σας μοντέλα και προϋπολογισμό.';
-  }
+  String get neoRouterServerInUse =>
+      'Αυτός ο διακομιστής χρησιμοποιεί ήδη NeoRouter για όλους. Συνδέστε τον δικό σας λογαριασμό NeoRouter για δικά σας μοντέλα και προϋπολογισμό.';
 
   @override
   String get neoRouterConnected => 'Το NeoRouter συνδέθηκε.';

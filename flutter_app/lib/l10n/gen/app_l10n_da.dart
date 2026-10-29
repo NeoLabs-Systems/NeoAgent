@@ -11704,9 +11704,8 @@ class AppL10nDa extends AppL10n {
       'NeoAgent holder op med at bruge denne NeoRouter. Tilbagekald også nøglen under API-nøgler i NeoRouter.';
 
   @override
-  String neoRouterServerInUseArg1(Object? arg1) {
-    return 'Denne server bruger allerede NeoRouter på $arg1. Forbind din egen konto der for egne modeller og eget budget.';
-  }
+  String get neoRouterServerInUse =>
+      'Denne server bruger allerede en NeoRouter for alle. Forbind din egen NeoRouter-konto for egne modeller og eget budget.';
 
   @override
   String get neoRouterConnected => 'NeoRouter er forbundet.';

@@ -46,12 +46,15 @@ async function describe(connection, withOffer) {
 
 router.get('/', async (req, res) => {
   const userId = req.session.userId;
+  const isAdmin = isAdminUser(userId);
   const server = serverConnection();
   const [serverState, userState] = await Promise.all([
-    describe(server, true),
+    // Only admins see where the server's NeoRouter lives and what it offers;
+    // everyone else only learns that one is connected.
+    isAdmin ? describe(server, true) : { connected: Boolean(server) },
     describe(userConnection(userId, agentOf(req)), true),
   ]);
-  res.json({ roles: ROLES, isAdmin: isAdminUser(userId), server: serverState, user: userState });
+  res.json({ roles: ROLES, isAdmin, server: serverState, user: userState });
 });
 
 router.post('/connect', writeLimiter, async (req, res) => {
