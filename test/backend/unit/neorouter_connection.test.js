@@ -117,6 +117,19 @@ test('every kind of work goes through the connected router', async () => {
   assert.deepEqual(target, { provider: 'openai', model: 'auto', apiKey: 'nrt_fake_key', baseUrl: `${address}/v1` });
 });
 
+test('live voice lists the router models for the protocol it speaks', async () => {
+  const user = await createTestUser(ctx.db, { username: 'nr_live_models' });
+  const { describeLiveVoiceCatalog } = require('../../../server/services/voice/live/models');
+  const catalog = await describeLiveVoiceCatalog({ userId: user.userId });
+  const byId = Object.fromEntries(catalog.providers.map((provider) => [provider.id, provider.models]));
+  assert.deepEqual(byId.neorouter_google, ['google/gemini-3.8-flash-live']);
+  assert.deepEqual(byId.neorouter_openai, [], 'no GPT-Live models in this router');
+
+  const { getSupportedModels } = require('../../../server/services/ai/models');
+  const chatModels = await getSupportedModels(user.userId);
+  assert.equal(chatModels.find((model) => model.id === 'neorouter::groq/llama-4').priceTier, 'free', 'the router\'s own prices survive discovery');
+});
+
 test('automatic chat picks the router profile that fits the request', () => {
   const { selectInitialModel } = require('../../../server/services/ai/model_router');
   const models = [
