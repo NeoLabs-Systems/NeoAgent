@@ -74,7 +74,9 @@ async function describeLiveVoiceCatalog({ userId = null, agentId = null } = {}) 
     return {
       id: provider.id,
       label: provider.label,
-      available: liveProviderReady({ userId, agentId, providerId: provider.id }),
+      // A key alone is not enough: one that does not work, or a router
+      // without live models for this protocol, lists nothing to call with.
+      available: models.length > 0,
       defaultModel: configuredLiveModel(provider.id, '') || models[0]?.id || null,
       models: models.map((model) => model.id),
       defaultVoice: resolveLiveVoice(provider.id, ''),

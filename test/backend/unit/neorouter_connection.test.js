@@ -112,6 +112,11 @@ test('every kind of work goes through the connected router', async () => {
   assert.equal(offer.notAllowed.images, 30, 'paid image models the key may not use are reported');
   assert.deepEqual((await provider.decide({ model: 'auto', state: {}, questions: { ok: {} } })).answers, { ok: true });
 
+  // Voice settings offer only the router protocol that has live models.
+  const { describeLiveVoiceCatalog } = require('../../../server/services/voice/live/models');
+  const live = await describeLiveVoiceCatalog({ userId: user.userId });
+  assert.deepEqual(live.providers.filter((item) => item.available).map((item) => item.id), ['neorouter_google']);
+
   const { describeSttProviders, resolveSttTarget } = require('../../../server/services/voice/transcription');
   const stt = await describeSttProviders(user.userId);
   const routerStt = stt.providers.find((item) => item.id === 'neorouter');

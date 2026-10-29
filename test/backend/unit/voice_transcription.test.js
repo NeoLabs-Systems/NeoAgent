@@ -69,10 +69,10 @@ describe('speech-to-text provider resolution', () => {
     assert.deepEqual(stt.providers.filter((item) => item.available).map((item) => item.id), ['gemini']);
     assert.equal(stt.providers.find((item) => item.id === 'deepgram').label, 'Deepgram');
 
+    // No key, or a key that lists no live models: nothing to call with.
     const { describeLiveVoiceCatalog } = require('../../../server/services/voice/live/models');
     const live = await describeLiveVoiceCatalog({ userId });
-    assert.deepEqual(live.providers.filter((item) => item.available).map((item) => item.id), ['google']);
-    assert.deepEqual(live.providers.find((item) => item.id === 'openai').models, []);
+    assert.deepEqual(live.providers.filter((item) => item.available).map((item) => item.id), []);
   });
 });
 
