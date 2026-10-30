@@ -4740,6 +4740,13 @@ class AppL10nDa extends AppL10n {
   String get modelAvailability => 'Model tilgængelighed';
 
   @override
+  String get autoEnableNewModels => 'Aktivér nye modeller automatisk';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Når slået fra, forbliver modeller, som en udbyder tilføjer senere, deaktiveret, indtil du aktiverer dem.';
+
+  @override
   String get modelAvailabilitySaved => 'Modeltilgængelighed gemt.';
 
   @override

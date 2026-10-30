@@ -4779,6 +4779,13 @@ class AppL10nGa extends AppL10n {
   String get modelAvailability => 'Infhaighteacht múnla';
 
   @override
+  String get autoEnableNewModels => 'Cumasaigh samhlacha nua go huathoibríoch';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Nuair a bhíonn sé múchta, fanann samhlacha a chuireann soláthraí leis níos déanaí díchumasaithe go gcumasaíonn tú iad.';
+
+  @override
   String get modelAvailabilitySaved => 'Infhaighteacht mhúnla sábháilte.';
 
   @override

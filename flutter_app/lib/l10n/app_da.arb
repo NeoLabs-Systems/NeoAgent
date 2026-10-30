@@ -3628,6 +3628,8 @@
     }
   },
   "modelAvailability": "Model tilgængelighed",
+  "autoEnableNewModels": "Aktivér nye modeller automatisk",
+  "autoEnableNewModelsHint": "Når slået fra, forbliver modeller, som en udbyder tilføjer senere, deaktiveret, indtil du aktiverer dem.",
   "modelAvailabilitySaved": "Modeltilgængelighed gemt.",
   "modelForThisSession": "Model til denne session",
   "modelOverride": "Modeltilsidesættelse",

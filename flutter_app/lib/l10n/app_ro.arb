@@ -3628,6 +3628,8 @@
     }
   },
   "modelAvailability": "Disponibilitatea modelului",
+  "autoEnableNewModels": "Activează automat modelele noi",
+  "autoEnableNewModelsHint": "Când este dezactivat, modelele adăugate ulterior de un furnizor rămân dezactivate până le activezi.",
   "modelAvailabilitySaved": "Disponibilitatea modelului a fost salvată.",
   "modelForThisSession": "Model pentru această sesiune",
   "modelOverride": "Modificare model",

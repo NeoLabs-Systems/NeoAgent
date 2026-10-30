@@ -4761,6 +4761,13 @@ class AppL10nRo extends AppL10n {
   String get modelAvailability => 'Disponibilitatea modelului';
 
   @override
+  String get autoEnableNewModels => 'Activează automat modelele noi';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Când este dezactivat, modelele adăugate ulterior de un furnizor rămân dezactivate până le activezi.';
+
+  @override
   String get modelAvailabilitySaved =>
       'Disponibilitatea modelului a fost salvată.';
 

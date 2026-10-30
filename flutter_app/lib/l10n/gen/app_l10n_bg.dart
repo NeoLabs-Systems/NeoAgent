@@ -4759,6 +4759,13 @@ class AppL10nBg extends AppL10n {
   String get modelAvailability => 'Наличност на модела';
 
   @override
+  String get autoEnableNewModels => 'Автоматично включване на нови модели';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Когато е изключено, модели, добавени по-късно от доставчика, остават изключени, докато не ги включите.';
+
+  @override
   String get modelAvailabilitySaved => 'Наличността на модела е запазена.';
 
   @override

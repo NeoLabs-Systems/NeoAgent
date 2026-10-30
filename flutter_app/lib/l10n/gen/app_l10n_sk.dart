@@ -4754,6 +4754,13 @@ class AppL10nSk extends AppL10n {
   String get modelAvailability => 'Dostupnosť modelu';
 
   @override
+  String get autoEnableNewModels => 'Automaticky povoliť nové modely';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Keď je vypnuté, modely, ktoré poskytovateľ pridá neskôr, zostanú vypnuté, kým ich nepovolíte.';
+
+  @override
   String get modelAvailabilitySaved => 'Dostupnosť modelu bola uložená.';
 
   @override

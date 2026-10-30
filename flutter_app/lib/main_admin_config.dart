@@ -633,7 +633,11 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
   @override
   NeoAgentController get _controller => widget.controller;
 
-  bool get _dirty => !setEquals(_savedDisabled, _disabled);
+  bool _savedAutoEnable = true;
+  bool _autoEnable = true;
+
+  bool get _dirty =>
+      !setEquals(_savedDisabled, _disabled) || _savedAutoEnable != _autoEnable;
 
   @override
   void initState() {
@@ -653,6 +657,12 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
     _systemOneModels = _adminCfgParseModels(data, key: 'systemOneModels')
       ..sort(_compareModels);
     _resetDisabled(_jsonStringList(data['disabledModels']).toSet());
+    _resetAutoEnable(data['autoEnableNewModels'] != false);
+  }
+
+  void _resetAutoEnable(bool value) {
+    _savedAutoEnable = value;
+    _autoEnable = value;
   }
 
   void _resetDisabled(Set<String> disabled) {
@@ -700,6 +710,7 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
   void _discard() {
     setState(() {
       _disabled = Set<String>.of(_savedDisabled);
+      _autoEnable = _savedAutoEnable;
       _saveError = null;
     });
   }
@@ -709,8 +720,10 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
       final data = await _client.saveAdminDisabledModels(
         _baseUrl,
         _disabled.toList()..sort(),
+        autoEnableNewModels: _autoEnable,
       );
       _resetDisabled(_jsonStringList(data['disabledModels']).toSet());
+      _resetAutoEnable(data['autoEnableNewModels'] != false);
     }, appStrings.modelAvailabilitySaved);
   }
 
@@ -802,7 +815,20 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
                   _narrow(() => _kind = selection.first),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 8),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            title: Text(appStrings.autoEnableNewModels),
+            subtitle: Text(appStrings.autoEnableNewModelsHint),
+            value: _autoEnable,
+            onChanged: _saving
+                ? null
+                : (value) => setState(() {
+                    _saveNotice = null;
+                    _autoEnable = value;
+                  }),
+          ),
+          const SizedBox(height: 6),
           Wrap(
             spacing: 12,
             runSpacing: 10,

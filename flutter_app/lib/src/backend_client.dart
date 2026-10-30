@@ -810,10 +810,12 @@ class BackendClient {
 
   Future<Map<String, dynamic>> saveAdminDisabledModels(
     String baseUrl,
-    List<String> disabledModels,
-  ) async {
+    List<String> disabledModels, {
+    required bool autoEnableNewModels,
+  }) async {
     return putMap(baseUrl, '/api/admin/models/config', <String, dynamic>{
       'disabledModels': disabledModels,
+      'autoEnableNewModels': autoEnableNewModels,
     });
   }
 

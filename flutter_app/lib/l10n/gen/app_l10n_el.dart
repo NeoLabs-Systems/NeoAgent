@@ -4790,6 +4790,13 @@ class AppL10nEl extends AppL10n {
   String get modelAvailability => 'Διαθεσιμότητα μοντέλου';
 
   @override
+  String get autoEnableNewModels => 'Αυτόματη ενεργοποίηση νέων μοντέλων';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Όταν είναι ανενεργό, τα μοντέλα που προσθέτει αργότερα ένας πάροχος παραμένουν απενεργοποιημένα μέχρι να τα ενεργοποιήσετε.';
+
+  @override
   String get modelAvailabilitySaved =>
       'Η διαθεσιμότητα του μοντέλου αποθηκεύτηκε.';
 

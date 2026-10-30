@@ -3628,6 +3628,8 @@
     }
   },
   "modelAvailability": "Modelltillgänglighet",
+  "autoEnableNewModels": "Aktivera nya modeller automatiskt",
+  "autoEnableNewModelsHint": "När det är av förblir modeller som en leverantör lägger till senare inaktiverade tills du aktiverar dem.",
   "modelAvailabilitySaved": "Modelltillgänglighet sparad.",
   "modelForThisSession": "Modell för denna session",
   "modelOverride": "Åsidosätt modell",

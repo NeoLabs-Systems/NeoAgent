@@ -3628,6 +3628,8 @@
     }
   },
   "modelAvailability": "Mudeli saadavus",
+  "autoEnableNewModels": "Luba uued mudelid automaatselt",
+  "autoEnableNewModelsHint": "Kui välja lülitatud, jäävad pakkuja hiljem lisatud mudelid keelatuks, kuni need lubad.",
   "modelAvailabilitySaved": "Mudeli saadavus on salvestatud.",
   "modelForThisSession": "Selle seansi mudel",
   "modelOverride": "Mudeli alistamine",

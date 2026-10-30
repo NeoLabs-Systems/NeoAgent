@@ -3628,6 +3628,8 @@
     }
   },
   "modelAvailability": "Disponibbiltà tal-mudell",
+  "autoEnableNewModels": "Ippermetti awtomatikament mudelli ġodda",
+  "autoEnableNewModelsHint": "Meta jkun mitfi, mudelli miżjuda aktar tard minn fornitur jibqgħu diżattivati sakemm inti tattivahom.",
   "modelAvailabilitySaved": "Disponibbiltà tal-mudell salvata.",
   "modelForThisSession": "Mudell għal din is-sessjoni",
   "modelOverride": "Mudell Override",

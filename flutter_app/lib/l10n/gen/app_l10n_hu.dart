@@ -4770,6 +4770,13 @@ class AppL10nHu extends AppL10n {
   String get modelAvailability => 'A modell elérhetősége';
 
   @override
+  String get autoEnableNewModels => 'Új modellek automatikus engedélyezése';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Kikapcsolva a szolgáltató által később hozzáadott modellek letiltva maradnak, amíg engedélyezed őket.';
+
+  @override
   String get modelAvailabilitySaved => 'A modell elérhetősége mentve.';
 
   @override

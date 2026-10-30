@@ -3628,6 +3628,8 @@
     }
   },
   "modelAvailability": "Model availability",
+  "autoEnableNewModels": "Enable new models automatically",
+  "autoEnableNewModelsHint": "When off, models a provider adds later stay disabled until you enable them.",
   "modelAvailabilitySaved": "Model availability saved.",
   "modelForThisSession": "Model for this session",
   "modelOverride": "Model Override",

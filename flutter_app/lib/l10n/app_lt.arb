@@ -3628,6 +3628,8 @@
     }
   },
   "modelAvailability": "Modelio prieinamumas",
+  "autoEnableNewModels": "Automatiškai įjungti naujus modelius",
+  "autoEnableNewModelsHint": "Kai išjungta, vėliau tiekėjo pridėti modeliai lieka išjungti, kol juos įjungsite.",
   "modelAvailabilitySaved": "Modelio prieinamumas išsaugotas.",
   "modelForThisSession": "Šios sesijos modelis",
   "modelOverride": "Modelio nepaisymas",

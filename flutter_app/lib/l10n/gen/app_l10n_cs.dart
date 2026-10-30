@@ -4747,6 +4747,13 @@ class AppL10nCs extends AppL10n {
   String get modelAvailability => 'Dostupnost modelu';
 
   @override
+  String get autoEnableNewModels => 'Automaticky povolit nové modely';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Když je vypnuto, modely, které poskytovatel přidá později, zůstanou vypnuté, dokud je nepovolíte.';
+
+  @override
   String get modelAvailabilitySaved => 'Dostupnost modelu uložena.';
 
   @override

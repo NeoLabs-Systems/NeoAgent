@@ -3628,6 +3628,8 @@
     }
   },
   "modelAvailability": "A modell elérhetősége",
+  "autoEnableNewModels": "Új modellek automatikus engedélyezése",
+  "autoEnableNewModelsHint": "Kikapcsolva a szolgáltató által később hozzáadott modellek letiltva maradnak, amíg engedélyezed őket.",
   "modelAvailabilitySaved": "A modell elérhetősége mentve.",
   "modelForThisSession": "Modell ehhez a munkamenethez",
   "modelOverride": "Modell felülbírálása",

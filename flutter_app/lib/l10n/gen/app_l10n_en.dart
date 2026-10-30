@@ -4727,6 +4727,13 @@ class AppL10nEn extends AppL10n {
   String get modelAvailability => 'Model availability';
 
   @override
+  String get autoEnableNewModels => 'Enable new models automatically';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'When off, models a provider adds later stay disabled until you enable them.';
+
+  @override
   String get modelAvailabilitySaved => 'Model availability saved.';
 
   @override

@@ -4754,6 +4754,13 @@ class AppL10nLv extends AppL10n {
   String get modelAvailability => 'Modeļa pieejamība';
 
   @override
+  String get autoEnableNewModels => 'Automātiski iespējot jaunos modeļus';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Ja izslēgts, modeļi, ko nodrošinātājs pievieno vēlāk, paliek atspējoti, līdz tos iespējosiet.';
+
+  @override
   String get modelAvailabilitySaved => 'Modeļa pieejamība saglabāta.';
 
   @override

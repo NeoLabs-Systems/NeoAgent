@@ -4758,6 +4758,13 @@ class AppL10nLt extends AppL10n {
   String get modelAvailability => 'Modelio prieinamumas';
 
   @override
+  String get autoEnableNewModels => 'Automatiškai įjungti naujus modelius';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Kai išjungta, vėliau tiekėjo pridėti modeliai lieka išjungti, kol juos įjungsite.';
+
+  @override
   String get modelAvailabilitySaved => 'Modelio prieinamumas išsaugotas.';
 
   @override

@@ -4757,6 +4757,13 @@ class AppL10nSl extends AppL10n {
   String get modelAvailability => 'Razpoložljivost modela';
 
   @override
+  String get autoEnableNewModels => 'Samodejno omogoči nove modele';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Ko je izklopljeno, modeli, ki jih ponudnik doda pozneje, ostanejo onemogočeni, dokler jih ne omogočite.';
+
+  @override
   String get modelAvailabilitySaved => 'Razpoložljivost modela je shranjena.';
 
   @override

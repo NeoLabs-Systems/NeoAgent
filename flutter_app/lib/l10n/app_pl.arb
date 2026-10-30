@@ -3628,6 +3628,8 @@
     }
   },
   "modelAvailability": "Dostępność modelu",
+  "autoEnableNewModels": "Automatycznie włączaj nowe modele",
+  "autoEnableNewModelsHint": "Gdy wyłączone, modele dodane później przez dostawcę pozostają wyłączone, dopóki ich nie włączysz.",
   "modelAvailabilitySaved": "Dostępność modelu została zapisana.",
   "modelForThisSession": "Modelka na tę sesję",
   "modelOverride": "Nadpisanie modelu",

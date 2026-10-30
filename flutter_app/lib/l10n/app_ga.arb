@@ -3628,6 +3628,8 @@
     }
   },
   "modelAvailability": "Infhaighteacht múnla",
+  "autoEnableNewModels": "Cumasaigh samhlacha nua go huathoibríoch",
+  "autoEnableNewModelsHint": "Nuair a bhíonn sé múchta, fanann samhlacha a chuireann soláthraí leis níos déanaí díchumasaithe go gcumasaíonn tú iad.",
   "modelAvailabilitySaved": "Infhaighteacht mhúnla sábháilte.",
   "modelForThisSession": "Múnla don seisiún seo",
   "modelOverride": "Sárú Múnla",

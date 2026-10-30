@@ -4765,6 +4765,13 @@ class AppL10nNl extends AppL10n {
   String get modelAvailability => 'Beschikbaarheid van modellen';
 
   @override
+  String get autoEnableNewModels => 'Nieuwe modellen automatisch inschakelen';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Indien uit, blijven modellen die een provider later toevoegt uitgeschakeld totdat je ze inschakelt.';
+
+  @override
   String get modelAvailabilitySaved =>
       'Beschikbaarheid van modellen opgeslagen.';
 

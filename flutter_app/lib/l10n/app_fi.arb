@@ -3628,6 +3628,8 @@
     }
   },
   "modelAvailability": "Mallin saatavuus",
+  "autoEnableNewModels": "Ota uudet mallit käyttöön automaattisesti",
+  "autoEnableNewModelsHint": "Kun pois päältä, palveluntarjoajan myöhemmin lisäämät mallit pysyvät pois käytöstä, kunnes otat ne käyttöön.",
   "modelAvailabilitySaved": "Mallin saatavuus tallennettu.",
   "modelForThisSession": "Malli tälle istunnolle",
   "modelOverride": "Mallin ohitus",

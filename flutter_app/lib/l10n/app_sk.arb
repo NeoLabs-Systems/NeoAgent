@@ -3628,6 +3628,8 @@
     }
   },
   "modelAvailability": "Dostupnosť modelu",
+  "autoEnableNewModels": "Automaticky povoliť nové modely",
+  "autoEnableNewModelsHint": "Keď je vypnuté, modely, ktoré poskytovateľ pridá neskôr, zostanú vypnuté, kým ich nepovolíte.",
   "modelAvailabilitySaved": "Dostupnosť modelu bola uložená.",
   "modelForThisSession": "Model pre túto reláciu",
   "modelOverride": "Prepísanie modelu",

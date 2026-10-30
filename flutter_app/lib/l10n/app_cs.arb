@@ -3628,6 +3628,8 @@
     }
   },
   "modelAvailability": "Dostupnost modelu",
+  "autoEnableNewModels": "Automaticky povolit nové modely",
+  "autoEnableNewModelsHint": "Když je vypnuto, modely, které poskytovatel přidá později, zůstanou vypnuté, dokud je nepovolíte.",
   "modelAvailabilitySaved": "Dostupnost modelu uložena.",
   "modelForThisSession": "Model pro tuto relaci",
   "modelOverride": "Přepsání modelu",

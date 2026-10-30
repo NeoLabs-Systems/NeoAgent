@@ -4758,6 +4758,13 @@ class AppL10nEt extends AppL10n {
   String get modelAvailability => 'Mudeli saadavus';
 
   @override
+  String get autoEnableNewModels => 'Luba uued mudelid automaatselt';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Kui välja lülitatud, jäävad pakkuja hiljem lisatud mudelid keelatuks, kuni need lubad.';
+
+  @override
   String get modelAvailabilitySaved => 'Mudeli saadavus on salvestatud.';
 
   @override

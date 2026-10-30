@@ -4772,6 +4772,13 @@ class AppL10nPt extends AppL10n {
   String get modelAvailability => 'Disponibilidade do modelo';
 
   @override
+  String get autoEnableNewModels => 'Ativar novos modelos automaticamente';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Quando desativado, os modelos adicionados mais tarde por um fornecedor permanecem desativados até que os ative.';
+
+  @override
   String get modelAvailabilitySaved => 'Disponibilidade do modelo salva.';
 
   @override

@@ -4763,6 +4763,13 @@ class AppL10nMt extends AppL10n {
   String get modelAvailability => 'Disponibbiltà tal-mudell';
 
   @override
+  String get autoEnableNewModels => 'Ippermetti awtomatikament mudelli ġodda';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Meta jkun mitfi, mudelli miżjuda aktar tard minn fornitur jibqgħu diżattivati sakemm inti tattivahom.';
+
+  @override
   String get modelAvailabilitySaved => 'Disponibbiltà tal-mudell salvata.';
 
   @override

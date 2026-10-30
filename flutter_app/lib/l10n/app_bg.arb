@@ -3628,6 +3628,8 @@
     }
   },
   "modelAvailability": "Наличност на модела",
+  "autoEnableNewModels": "Автоматично включване на нови модели",
+  "autoEnableNewModelsHint": "Когато е изключено, модели, добавени по-късно от доставчика, остават изключени, докато не ги включите.",
   "modelAvailabilitySaved": "Наличността на модела е запазена.",
   "modelForThisSession": "Модел за тази сесия",
   "modelOverride": "Отмяна на модела",

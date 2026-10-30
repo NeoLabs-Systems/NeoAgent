@@ -7819,6 +7819,18 @@ abstract class AppL10n {
   /// **'Model availability'**
   String get modelAvailability;
 
+  /// No description provided for @autoEnableNewModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable new models automatically'**
+  String get autoEnableNewModels;
+
+  /// No description provided for @autoEnableNewModelsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'When off, models a provider adds later stay disabled until you enable them.'**
+  String get autoEnableNewModelsHint;
+
   /// No description provided for @modelAvailabilitySaved.
   ///
   /// In en, this message translates to:

@@ -3628,6 +3628,8 @@
     }
   },
   "modelAvailability": "Modeļa pieejamība",
+  "autoEnableNewModels": "Automātiski iespējot jaunos modeļus",
+  "autoEnableNewModelsHint": "Ja izslēgts, modeļi, ko nodrošinātājs pievieno vēlāk, paliek atspējoti, līdz tos iespējosiet.",
   "modelAvailabilitySaved": "Modeļa pieejamība saglabāta.",
   "modelForThisSession": "Šīs sesijas modelis",
   "modelOverride": "Modeļa ignorēšana",

@@ -3628,6 +3628,8 @@
     }
   },
   "modelAvailability": "Disponibilidade do modelo",
+  "autoEnableNewModels": "Ativar novos modelos automaticamente",
+  "autoEnableNewModelsHint": "Quando desativado, os modelos adicionados mais tarde por um fornecedor permanecem desativados até que os ative.",
   "modelAvailabilitySaved": "Disponibilidade do modelo salva.",
   "modelForThisSession": "Modelo para esta sessão",
   "modelOverride": "Substituição de modelo",

@@ -4746,6 +4746,13 @@ class AppL10nSv extends AppL10n {
   String get modelAvailability => 'Modelltillgänglighet';
 
   @override
+  String get autoEnableNewModels => 'Aktivera nya modeller automatiskt';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'När det är av förblir modeller som en leverantör lägger till senare inaktiverade tills du aktiverar dem.';
+
+  @override
   String get modelAvailabilitySaved => 'Modelltillgänglighet sparad.';
 
   @override

@@ -3628,6 +3628,8 @@
     }
   },
   "modelAvailability": "Beschikbaarheid van modellen",
+  "autoEnableNewModels": "Nieuwe modellen automatisch inschakelen",
+  "autoEnableNewModelsHint": "Indien uit, blijven modellen die een provider later toevoegt uitgeschakeld totdat je ze inschakelt.",
   "modelAvailabilitySaved": "Beschikbaarheid van modellen opgeslagen.",
   "modelForThisSession": "Model voor deze sessie",
   "modelOverride": "Modeloverschrijving",

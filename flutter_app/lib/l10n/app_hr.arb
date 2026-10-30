@@ -3628,6 +3628,8 @@
     }
   },
   "modelAvailability": "Dostupnost modela",
+  "autoEnableNewModels": "Automatski omogući nove modele",
+  "autoEnableNewModelsHint": "Kada je isključeno, modeli koje pružatelj kasnije doda ostaju onemogućeni dok ih ne omogućite.",
   "modelAvailabilitySaved": "Dostupnost modela spremljena.",
   "modelForThisSession": "Model za ovu sesiju",
   "modelOverride": "Nadjačavanje modela",

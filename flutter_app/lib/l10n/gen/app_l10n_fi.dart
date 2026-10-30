@@ -4754,6 +4754,13 @@ class AppL10nFi extends AppL10n {
   String get modelAvailability => 'Mallin saatavuus';
 
   @override
+  String get autoEnableNewModels => 'Ota uudet mallit käyttöön automaattisesti';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Kun pois päältä, palveluntarjoajan myöhemmin lisäämät mallit pysyvät pois käytöstä, kunnes otat ne käyttöön.';
+
+  @override
   String get modelAvailabilitySaved => 'Mallin saatavuus tallennettu.';
 
   @override
