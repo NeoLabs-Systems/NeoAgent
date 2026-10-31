@@ -1389,8 +1389,9 @@ class _AuthViewState extends State<AuthView> {
     required bool awaitingTwoFactor,
     required bool showRegisterToggle,
   }) {
-    if (awaitingTwoFactor || widget.controller.isAwaitingProviderUsername)
+    if (awaitingTwoFactor || widget.controller.isAwaitingProviderUsername) {
       return const <Widget>[];
+    }
     final backendHost =
         Uri.tryParse(controller.backendUrl)?.authority ?? controller.backendUrl;
     return <Widget>[
