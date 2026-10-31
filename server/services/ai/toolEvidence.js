@@ -5,6 +5,7 @@
 // narration read it. Kept free of engine state so the rules are pure and unit
 // testable.
 
+const { commandFailureMessage } = require('./commandOutcome');
 const { compactToolResult } = require('./toolResult');
 const { summarizeForLog } = require('./logFormat');
 const { normalizeOutgoingMessage, clampRunContext } = require('./messagingFallback');
@@ -120,14 +121,8 @@ function classifyToolExecution(
     || ['browser_act', 'browser_click', 'browser_evaluate', 'browser_navigate', 'browser_type'].includes(name);
 
   let normalizedError = String(errorMessage || result?.error || '').trim();
-  if (!normalizedError && name === 'execute_command' && result && typeof result === 'object') {
-    if (result.timedOut) {
-      normalizedError = `Command timed out after ${result.durationMs || 'unknown'} ms`;
-    } else if (result.killed || result.signal) {
-      normalizedError = 'Command was killed before it finished';
-    } else if (typeof result.exitCode === 'number' && result.exitCode !== 0) {
-      normalizedError = summarizeForLog(result.stderr || result.stdout || `Command exited with code ${result.exitCode}`, 220);
-    }
+  if (!normalizedError && name === 'execute_command') {
+    normalizedError = commandFailureMessage(result);
   }
 
   if (!normalizedError && result && typeof result === 'object') {
@@ -214,17 +209,7 @@ function inferToolFailureMessage(toolName, result) {
 
   if (!result || typeof result !== 'object') return '';
 
-  if (toolName === 'execute_command') {
-    if (result.timedOut) {
-      return `Command timed out after ${result.durationMs || 'unknown'} ms`;
-    }
-    if (result.killed || result.signal) {
-      return 'Command was killed before it finished';
-    }
-    if (typeof result.exitCode === 'number' && result.exitCode !== 0) {
-      return summarizeForLog(result.stderr || result.stdout || `Command exited with code ${result.exitCode}`, 220);
-    }
-  }
+  if (toolName === 'execute_command') return commandFailureMessage(result);
 
   if (toolName === 'http_request' && typeof result.status === 'number' && result.status >= 400) {
     const bodySnippet = normalizeOutgoingMessage(result.body || '');

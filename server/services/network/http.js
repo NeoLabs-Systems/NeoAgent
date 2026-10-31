@@ -119,6 +119,18 @@ async function readResponseText(response, options = {}) {
   return (await readResponseBuffer(response, options)).toString('utf8');
 }
 
+// fetchResponse enforces its own deadline, so the connection pool's idle
+// timers (undici waits at most 300s for headers or between body chunks) must
+// not end a longer request before that deadline does.
+let deadlineOwnedDispatcher = null;
+function dispatcherForOwnDeadline() {
+  if (!deadlineOwnedDispatcher) {
+    const { Agent } = require('undici');
+    deadlineOwnedDispatcher = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
+  }
+  return deadlineOwnedDispatcher;
+}
+
 async function fetchResponse(url, options = {}, reader = readResponseBuffer) {
   const serviceName = String(options.serviceName || 'Remote service').trim()
     || 'Remote service';
@@ -163,6 +175,7 @@ async function fetchResponse(url, options = {}, reader = readResponseBuffer) {
   } = options;
   const operation = Promise.resolve().then(async () => {
     const response = await fetchImpl(url, {
+      dispatcher: dispatcherForOwnDeadline(),
       ...fetchOptions,
       signal: controller.signal,
     });

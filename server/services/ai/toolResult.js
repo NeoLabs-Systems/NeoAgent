@@ -1,3 +1,5 @@
+const { commandFailureMessage } = require('./commandOutcome');
+
 function clampText(text, maxChars) {
   const str = String(text || '');
   if (str.length <= maxChars) return str;
@@ -76,7 +78,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
     case 'execute_command':
       envelope = trimObject({
         tool: toolName,
-        status: toolResult?.timedOut ? 'timed_out' : (toolResult?.exitCode === 0 ? 'ok' : 'error'),
+        status: toolResult?.timedOut ? 'timed_out' : (commandFailureMessage(toolResult) ? 'error' : 'ok'),
         command: clampText(toolArgs.command || '', Math.floor(softLimit * 0.28)),
         exitCode: toolResult?.exitCode,
         cwd: toolResult?.cwd || toolArgs.cwd,
