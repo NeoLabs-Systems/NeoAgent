@@ -99,6 +99,15 @@ ok "Dependencies ready"
 
 echo
 info "Installing the neoagent CLI globally..."
+# Distribution Node.js (Arch, Fedora, Debian packages) puts npm's global prefix
+# in /usr, which a normal user cannot write. Use ~/.local then, the usual
+# per-user place, instead of asking for sudo.
+NPM_PREFIX="$(npm prefix --global)"
+if [[ ! -w "$NPM_PREFIX" ]] || [[ -d "$NPM_PREFIX/lib/node_modules" && ! -w "$NPM_PREFIX/lib/node_modules" ]]; then
+  info "npm's global folder (${NPM_PREFIX}) is not writable; using ~/.local instead"
+  mkdir -p "$HOME/.local/bin" "$HOME/.local/lib"
+  npm config set prefix "$HOME/.local" --location=user
+fi
 if ! npm link --ignore-scripts --no-audit --no-fund; then
   err "Could not install the global neoagent command. Check permissions for your npm global prefix: $(npm prefix --global)"
   exit 1
@@ -111,12 +120,21 @@ if [[ ! -x "$GLOBAL_CLI" ]]; then
   exit 1
 fi
 
+# Not on PATH yet: add it for new terminals and for the rest of this run.
 case ":${PATH}:" in
   *":${GLOBAL_BIN_DIR}:"*) ;;
   *)
-    err "The global CLI was installed at ${GLOBAL_CLI}, but ${GLOBAL_BIN_DIR} is not on PATH."
-    echo "     Add this directory to PATH, then rerun the installer: ${GLOBAL_BIN_DIR}" >&2
-    exit 1
+    for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+      if [[ -f "$rc" || "$rc" == "$HOME/.bashrc" ]] && ! grep -qs "${GLOBAL_BIN_DIR}" "$rc"; then
+        printf '\n# Added by the neoagent installer\nexport PATH="%s:$PATH"\n' "$GLOBAL_BIN_DIR" >> "$rc"
+      fi
+    done
+    if [[ -d "$HOME/.config/fish" ]]; then
+      mkdir -p "$HOME/.config/fish/conf.d"
+      printf 'fish_add_path %s\n' "$GLOBAL_BIN_DIR" > "$HOME/.config/fish/conf.d/neoagent.fish"
+    fi
+    export PATH="${GLOBAL_BIN_DIR}:$PATH"
+    info "Added ${GLOBAL_BIN_DIR} to PATH (open a new terminal to use neoagent there)"
     ;;
 esac
 hash -r
