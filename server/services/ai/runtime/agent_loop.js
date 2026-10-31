@@ -16,12 +16,16 @@ const stateMachine = require('./run_state_machine');
 const leases = require('./leases');
 const { decisionFromModelResponse, DECISION_KINDS } = require('./decision_engine');
 const { isContextOverflowError } = require('./context/context_pressure');
+const { isModelCallTimeout } = require('../loop/model_call_guard');
 const { getFailureFallbackModelId } = require('./model_fallback');
 const { executeToolTurn } = require('./tool_turn');
 const { applyTaskModel } = require('./task_model_switch');
 
 const MAX_BLANK_RECOVERIES = 2;
 const MAX_TRUNCATION_RETRIES = 2;
+// A stalled model stream with no fallback left is re-requested on the same
+// model; a fresh request usually goes through where the stalled one hung.
+const MAX_STALL_RETRIES = 5;
 
 function usageTokens(usage) {
   usage = usage || {};
@@ -74,12 +78,14 @@ async function switchModel(session, error) {
 }
 
 // One model request. A context overflow is compacted and retried once; other
-// provider failures switch to a fallback model. Returns the model turn, or a
-// loop result when the run cannot continue.
+// provider failures switch to a fallback model, and a timeout with no fallback
+// left retries the same model. Returns the model turn, or a loop result when
+// the run cannot continue.
 async function requestTurn(session) {
   const { engine, eventBus, runId, userId, agentId } = session;
   const signal = session.getActiveSignal();
   let overflowRetried = false;
+  let stallRetries = 0;
   while (true) {
     try {
       const turn = await engine.requestModelResponse({
@@ -135,6 +141,16 @@ async function requestTurn(session) {
       recordModelFailure(userId, agentId, session.model.modelSelectionId, error);
       session.failedModelIds.add(session.model.modelSelectionId);
       if (shouldSwitchModel(error) && await switchModel(session, error)) continue;
+      if (isModelCallTimeout(error) && stallRetries < MAX_STALL_RETRIES) {
+        stallRetries += 1;
+        console.warn(
+          `[AgentLoop] run=${runId} ${session.model.modelSelectionId} timed out with no fallback left;`
+          + ` retrying the same model (${stallRetries}/${MAX_STALL_RETRIES})`,
+        );
+        // Drop the partial text the stalled stream already showed.
+        engine.emit(userId, 'run:stream', { runId, content: '', iteration: session.iterations });
+        continue;
+      }
       throw error;
     }
   }
