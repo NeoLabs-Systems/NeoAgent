@@ -95,7 +95,6 @@
     "mailparser": "^3.9.45",
     "multer": "^2.2.0",
     "node-cron": "^4.6.0",
-    "node-pty": "^1.0.0",
     "nodemailer": "^9.0.5",
     "openai": "^6.49.0",
     "otplib": "^13.4.0",
@@ -109,6 +108,18 @@
     "tesseract.js": "^7.0.0",
     "uuid": "^11.1.0",
     "ws": "^8.21.3"
+  },
+  "optionalDependencies": {
+    "node-pty": "^1.0.0"
+  },
+  "allowScripts": {
+    "baileys": true,
+    "bcrypt": true,
+    "better-sqlite3": true,
+    "esbuild": true,
+    "node-pty": true,
+    "playwright-chromium": true,
+    "protobufjs": true
   },
   "overrides": {
     "@bitwarden/cli": {
