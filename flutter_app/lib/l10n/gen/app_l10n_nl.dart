@@ -11812,4 +11812,181 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get voiceNotOffered => 'Niet meer beschikbaar, kies een ander';
+
+  @override
+  String get agentImport => 'Bring over another agent';
+
+  @override
+  String get agentImportDescription =>
+      'Copies OpenClaw or Hermes Agent from the server\'s computer (~/.openclaw and ~/.hermes) into your account. Nothing is removed there, and importing twice does not duplicate anything.';
+
+  @override
+  String get agentImportNoneFound =>
+      'No OpenClaw or Hermes Agent was found in ~/.openclaw or ~/.hermes on the server\'s computer.';
+
+  @override
+  String get agentImportWhatComes => 'What comes over';
+
+  @override
+  String get agentImportAgentsAlways =>
+      'Agents and their personality always come over; everything else is attached to them.';
+
+  @override
+  String get agentImportPartKeys => 'Keys and AI providers';
+
+  @override
+  String get agentImportPartMemories => 'Memories and notes';
+
+  @override
+  String get agentImportPartSkills => 'Skills';
+
+  @override
+  String get agentImportPartModel => 'Default model';
+
+  @override
+  String get agentImportPartTasks => 'Automations';
+
+  @override
+  String get agentImportPartMcp => 'MCP servers';
+
+  @override
+  String get agentImportPartChannels => 'Chat apps';
+
+  @override
+  String agentImportCountAgents(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count agents',
+      one: '1 agent',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountKeys(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count connections',
+      one: '1 connection',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountMemories(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count memories',
+      one: '1 memory',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days of notes',
+      one: '1 day of notes',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountSkills(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count skills',
+      one: '1 skill',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountTasks(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count automations',
+      one: '1 automation',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountMcp(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count MCP servers',
+      one: '1 MCP server',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportNeedsHandCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count things need a hand afterwards',
+      one: '1 thing needs a hand afterwards',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get agentImportFinish => 'Let NeoAgent finish moving in';
+
+  @override
+  String get agentImportFinishHint =>
+      'After the restart, your agent reworks imported skills for its own tools and rebuilds what the importer left behind. Needs a connected AI.';
+
+  @override
+  String get agentImportRun => 'Bring it over';
+
+  @override
+  String get agentImportRunning => 'Bringing it over…';
+
+  @override
+  String get agentImportMovedIn => 'Moved in';
+
+  @override
+  String get agentImportAlreadyMovedIn => 'Everything was already in NeoAgent.';
+
+  @override
+  String agentImportAlreadyThere(int count) {
+    return '$count already in NeoAgent, left as they were';
+  }
+
+  @override
+  String get agentImportNeedsHand => 'Needs a hand';
+
+  @override
+  String agentImportMore(int count) {
+    return '…and $count more in the report.';
+  }
+
+  @override
+  String agentImportReport(String path) {
+    return 'Full report: $path';
+  }
+
+  @override
+  String agentImportFinishQueued(String name) {
+    return 'Queued \"$name\". It starts two minutes after NeoAgent restarts, and you\'ll get a message when it\'s done.';
+  }
+
+  @override
+  String get agentImportRestartNeeded =>
+      'Restart NeoAgent to load everything that came over.';
+
+  @override
+  String get agentImportRestarted =>
+      'NeoAgent restarted and loaded everything.';
 }

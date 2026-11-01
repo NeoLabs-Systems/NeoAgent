@@ -7358,5 +7358,122 @@
   "neoRouterNoDecisionModels": "Needs decision models such as Jev. Safety classifiers cannot answer these questions.",
   "voiceLiveNoProvider": "No live voice provider is set up. Add an OpenAI or Google AI key, or connect a NeoRouter, under Models → Bring your own key.",
   "voiceSttAutoNeoRouter": "Auto (NeoRouter picks the model)",
-  "voiceNotOffered": "No longer offered, pick another"
+  "voiceNotOffered": "No longer offered, pick another",
+  "agentImport": "Bring over another agent",
+  "agentImportDescription": "Copies OpenClaw or Hermes Agent from the server's computer (~/.openclaw and ~/.hermes) into your account. Nothing is removed there, and importing twice does not duplicate anything.",
+  "agentImportNoneFound": "No OpenClaw or Hermes Agent was found in ~/.openclaw or ~/.hermes on the server's computer.",
+  "agentImportWhatComes": "What comes over",
+  "agentImportAgentsAlways": "Agents and their personality always come over; everything else is attached to them.",
+  "agentImportPartKeys": "Keys and AI providers",
+  "agentImportPartMemories": "Memories and notes",
+  "agentImportPartSkills": "Skills",
+  "agentImportPartModel": "Default model",
+  "agentImportPartTasks": "Automations",
+  "agentImportPartMcp": "MCP servers",
+  "agentImportPartChannels": "Chat apps",
+  "agentImportCountAgents": "{count, plural, =1{1 agent} other{{count} agents}}",
+  "@agentImportCountAgents": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentImportCountKeys": "{count, plural, =1{1 connection} other{{count} connections}}",
+  "@agentImportCountKeys": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentImportCountMemories": "{count, plural, =1{1 memory} other{{count} memories}}",
+  "@agentImportCountMemories": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentImportCountDays": "{count, plural, =1{1 day of notes} other{{count} days of notes}}",
+  "@agentImportCountDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentImportCountSkills": "{count, plural, =1{1 skill} other{{count} skills}}",
+  "@agentImportCountSkills": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentImportCountTasks": "{count, plural, =1{1 automation} other{{count} automations}}",
+  "@agentImportCountTasks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentImportCountMcp": "{count, plural, =1{1 MCP server} other{{count} MCP servers}}",
+  "@agentImportCountMcp": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentImportNeedsHandCount": "{count, plural, =1{1 thing needs a hand afterwards} other{{count} things need a hand afterwards}}",
+  "@agentImportNeedsHandCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentImportFinish": "Let NeoAgent finish moving in",
+  "agentImportFinishHint": "After the restart, your agent reworks imported skills for its own tools and rebuilds what the importer left behind. Needs a connected AI.",
+  "agentImportRun": "Bring it over",
+  "agentImportRunning": "Bringing it over…",
+  "agentImportMovedIn": "Moved in",
+  "agentImportAlreadyMovedIn": "Everything was already in NeoAgent.",
+  "agentImportAlreadyThere": "{count} already in NeoAgent, left as they were",
+  "@agentImportAlreadyThere": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentImportNeedsHand": "Needs a hand",
+  "agentImportMore": "…and {count} more in the report.",
+  "@agentImportMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentImportReport": "Full report: {path}",
+  "@agentImportReport": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "agentImportFinishQueued": "Queued \"{name}\". It starts two minutes after NeoAgent restarts, and you'll get a message when it's done.",
+  "@agentImportFinishQueued": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "agentImportRestartNeeded": "Restart NeoAgent to load everything that came over.",
+  "agentImportRestarted": "NeoAgent restarted and loaded everything."
 }

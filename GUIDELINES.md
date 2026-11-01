@@ -56,7 +56,7 @@ scripts/         Build and release utility scripts
 - All DB access goes through `server/db/database.js`. Never instantiate a second `Database`.
 - Use the `better-sqlite3` synchronous API. No async wrappers or callbacks.
 - All queries use parameterized statements. No string interpolation into SQL.
-- Schema changes belong in `lib/schema_migrations.js`: idempotent startup migrations in `runSchemaMigrations()`, one-shot data changes appended to `VERSIONED_MIGRATIONS`. No `ALTER TABLE` or `CREATE TABLE` inline in service files. (`lib/migrations.js` is the OpenClaw/Hermes importer.)
+- Schema changes belong in `lib/schema_migrations.js`: idempotent startup migrations in `runSchemaMigrations()`, one-shot data changes appended to `VERSIONED_MIGRATIONS`. No `ALTER TABLE` or `CREATE TABLE` inline in service files. (`lib/migrations.js` is the OpenClaw/Hermes import command; the readers and writer live in `lib/importers/`.)
 
 ### AI / LLM
 

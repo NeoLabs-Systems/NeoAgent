@@ -1539,6 +1539,7 @@ class _AdminConfigTabState extends State<_AdminConfigTab> {
         _AdminCfgGeneralCard(controller: controller),
         _AdminCfgVmCard(controller: controller),
         _AdminCfgEmailCard(controller: controller),
+        _AdminImportCard(controller: controller),
       ],
     );
   }

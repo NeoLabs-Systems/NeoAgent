@@ -19686,6 +19686,204 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'No longer offered, pick another'**
   String get voiceNotOffered;
+
+  /// No description provided for @agentImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Bring over another agent'**
+  String get agentImport;
+
+  /// No description provided for @agentImportDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Copies OpenClaw or Hermes Agent from the server\'s computer (~/.openclaw and ~/.hermes) into your account. Nothing is removed there, and importing twice does not duplicate anything.'**
+  String get agentImportDescription;
+
+  /// No description provided for @agentImportNoneFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No OpenClaw or Hermes Agent was found in ~/.openclaw or ~/.hermes on the server\'s computer.'**
+  String get agentImportNoneFound;
+
+  /// No description provided for @agentImportWhatComes.
+  ///
+  /// In en, this message translates to:
+  /// **'What comes over'**
+  String get agentImportWhatComes;
+
+  /// No description provided for @agentImportAgentsAlways.
+  ///
+  /// In en, this message translates to:
+  /// **'Agents and their personality always come over; everything else is attached to them.'**
+  String get agentImportAgentsAlways;
+
+  /// No description provided for @agentImportPartKeys.
+  ///
+  /// In en, this message translates to:
+  /// **'Keys and AI providers'**
+  String get agentImportPartKeys;
+
+  /// No description provided for @agentImportPartMemories.
+  ///
+  /// In en, this message translates to:
+  /// **'Memories and notes'**
+  String get agentImportPartMemories;
+
+  /// No description provided for @agentImportPartSkills.
+  ///
+  /// In en, this message translates to:
+  /// **'Skills'**
+  String get agentImportPartSkills;
+
+  /// No description provided for @agentImportPartModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Default model'**
+  String get agentImportPartModel;
+
+  /// No description provided for @agentImportPartTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Automations'**
+  String get agentImportPartTasks;
+
+  /// No description provided for @agentImportPartMcp.
+  ///
+  /// In en, this message translates to:
+  /// **'MCP servers'**
+  String get agentImportPartMcp;
+
+  /// No description provided for @agentImportPartChannels.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat apps'**
+  String get agentImportPartChannels;
+
+  /// No description provided for @agentImportCountAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 agent} other{{count} agents}}'**
+  String agentImportCountAgents(int count);
+
+  /// No description provided for @agentImportCountKeys.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 connection} other{{count} connections}}'**
+  String agentImportCountKeys(int count);
+
+  /// No description provided for @agentImportCountMemories.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 memory} other{{count} memories}}'**
+  String agentImportCountMemories(int count);
+
+  /// No description provided for @agentImportCountDays.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 day of notes} other{{count} days of notes}}'**
+  String agentImportCountDays(int count);
+
+  /// No description provided for @agentImportCountSkills.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 skill} other{{count} skills}}'**
+  String agentImportCountSkills(int count);
+
+  /// No description provided for @agentImportCountTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 automation} other{{count} automations}}'**
+  String agentImportCountTasks(int count);
+
+  /// No description provided for @agentImportCountMcp.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 MCP server} other{{count} MCP servers}}'**
+  String agentImportCountMcp(int count);
+
+  /// No description provided for @agentImportNeedsHandCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 thing needs a hand afterwards} other{{count} things need a hand afterwards}}'**
+  String agentImportNeedsHandCount(int count);
+
+  /// No description provided for @agentImportFinish.
+  ///
+  /// In en, this message translates to:
+  /// **'Let NeoAgent finish moving in'**
+  String get agentImportFinish;
+
+  /// No description provided for @agentImportFinishHint.
+  ///
+  /// In en, this message translates to:
+  /// **'After the restart, your agent reworks imported skills for its own tools and rebuilds what the importer left behind. Needs a connected AI.'**
+  String get agentImportFinishHint;
+
+  /// No description provided for @agentImportRun.
+  ///
+  /// In en, this message translates to:
+  /// **'Bring it over'**
+  String get agentImportRun;
+
+  /// No description provided for @agentImportRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Bringing it over…'**
+  String get agentImportRunning;
+
+  /// No description provided for @agentImportMovedIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Moved in'**
+  String get agentImportMovedIn;
+
+  /// No description provided for @agentImportAlreadyMovedIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Everything was already in NeoAgent.'**
+  String get agentImportAlreadyMovedIn;
+
+  /// No description provided for @agentImportAlreadyThere.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} already in NeoAgent, left as they were'**
+  String agentImportAlreadyThere(int count);
+
+  /// No description provided for @agentImportNeedsHand.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs a hand'**
+  String get agentImportNeedsHand;
+
+  /// No description provided for @agentImportMore.
+  ///
+  /// In en, this message translates to:
+  /// **'…and {count} more in the report.'**
+  String agentImportMore(int count);
+
+  /// No description provided for @agentImportReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Full report: {path}'**
+  String agentImportReport(String path);
+
+  /// No description provided for @agentImportFinishQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Queued \"{name}\". It starts two minutes after NeoAgent restarts, and you\'ll get a message when it\'s done.'**
+  String agentImportFinishQueued(String name);
+
+  /// No description provided for @agentImportRestartNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Restart NeoAgent to load everything that came over.'**
+  String get agentImportRestartNeeded;
+
+  /// No description provided for @agentImportRestarted.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent restarted and loaded everything.'**
+  String get agentImportRestarted;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

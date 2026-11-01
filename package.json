@@ -92,6 +92,7 @@
     "helmet": "^8.0.0",
     "ical.js": "^2.2.1",
     "imapflow": "^2.5.4",
+    "json5": "^2.2.3",
     "mailparser": "^3.9.45",
     "multer": "^2.2.0",
     "node-cron": "^4.6.0",
@@ -107,7 +108,8 @@
     "telegraf": "^4.16.3",
     "tesseract.js": "^7.0.0",
     "uuid": "^11.1.0",
-    "ws": "^8.21.3"
+    "ws": "^8.21.3",
+    "yaml": "^2.9.1"
   },
   "optionalDependencies": {
     "node-pty": "^1.0.0"

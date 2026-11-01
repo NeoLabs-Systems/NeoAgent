@@ -62,6 +62,7 @@ import 'src/auth/auth_provider_icon.dart';
 import 'src/security/password_strength.dart';
 import 'src/setup_diagnostics_service.dart';
 import 'src/signup_keys.dart';
+import 'src/agent_import_service.dart';
 import 'src/telecom_bridge.dart';
 import 'src/text_file_saver.dart';
 import 'src/theme/palette.dart';
@@ -122,6 +123,7 @@ part 'main_admin_server.dart';
 part 'main_admin_shared_usage.dart';
 part 'main_admin_config.dart';
 part 'main_admin_signup_keys.dart';
+part 'main_admin_import.dart';
 part 'main_unified.dart';
 part 'main_install.dart';
 

@@ -13,6 +13,7 @@ const routeRegistry = [
   { basePath: '/api/account', modulePath: '../routes/account' },
   { basePath: '/api/delegation', modulePath: '../routes/delegation' },
   { basePath: '/api/admin', modulePath: '../routes/admin' },
+  { basePath: '/api/admin/import', modulePath: '../routes/agent_import' },
   { basePath: '/api/settings', modulePath: '../routes/settings' },
   { basePath: '/api/provider-sign-in', modulePath: '../routes/provider_sign_in' },
   { basePath: '/api/neorouter', modulePath: '../routes/neorouter' },
