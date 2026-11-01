@@ -31,8 +31,8 @@ class AgentCallCoordinator {
     if (recipients.size === 0) {
       return {
         status: 'unavailable',
-        reason: 'no_connected_flutter_client',
-        message: 'The call_user tool is available, but no Flutter app client is currently connected to receive the call.',
+        reason: 'no_connected_app',
+        message: 'The call_user tool is available, but the app is not currently connected to receive the call.',
       };
     }
 

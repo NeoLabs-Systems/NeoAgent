@@ -19,6 +19,7 @@ import android.provider.Settings
 import android.view.WindowManager
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
+import com.neoagent.flutter_app.MainActivity
 import com.neoagent.flutter_app.telecom.NeoAgentConnectionService
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
@@ -28,20 +29,28 @@ import io.flutter.plugin.common.MethodChannel
  * Native side of agent calls: the phone's ringtone and vibration, showing the
  * call screen over the lock screen, bringing the app forward from the
  * background, the permissions that allow it, and the speakerphone.
+ *
+ * It lives as long as the Flutter engine, which outlives the activity: a call
+ * can ring after the user swiped the app away, and then brings it back.
  */
-class CallBridge(private val activity: Activity) : MethodChannel.MethodCallHandler {
+class CallBridge private constructor(private val context: Context) : MethodChannel.MethodCallHandler {
 
     companion object {
         private const val CHANNEL = "neoagent/call"
         private val VIBRATION_PATTERN = longArrayOf(0, 800, 600, 800, 1600)
 
-        fun register(messenger: BinaryMessenger, activity: Activity): CallBridge {
-            val bridge = CallBridge(activity)
+        @Volatile
+        private var shared: CallBridge? = null
+
+        fun attach(messenger: BinaryMessenger, activity: Activity): CallBridge {
+            val bridge = shared ?: CallBridge(activity.applicationContext).also { shared = it }
             MethodChannel(messenger, CHANNEL).setMethodCallHandler(bridge)
+            bridge.attachActivity(activity)
             return bridge
         }
     }
 
+    private var activity: Activity? = null
     private var ringtone: Ringtone? = null
     private var presenting = false
 
@@ -56,7 +65,7 @@ class CallBridge(private val activity: Activity) : MethodChannel.MethodCallHandl
         when (call.method) {
             "permissionStatus" -> result.success(
                 mapOf(
-                    "overlay" to Settings.canDrawOverlays(activity),
+                    "overlay" to Settings.canDrawOverlays(context),
                     "fullScreenIntent" to canUseFullScreenIntent(),
                     "unrestrictedBattery" to isIgnoringBatteryOptimizations(),
                 ),
@@ -65,7 +74,7 @@ class CallBridge(private val activity: Activity) : MethodChannel.MethodCallHandl
                 openSettings(
                     Intent(
                         Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:${activity.packageName}"),
+                        Uri.parse("package:${context.packageName}"),
                     ),
                 )
                 result.success(null)
@@ -75,7 +84,7 @@ class CallBridge(private val activity: Activity) : MethodChannel.MethodCallHandl
                     openSettings(
                         Intent(
                             Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
-                            Uri.parse("package:${activity.packageName}"),
+                            Uri.parse("package:${context.packageName}"),
                         ),
                     )
                 }
@@ -86,7 +95,7 @@ class CallBridge(private val activity: Activity) : MethodChannel.MethodCallHandl
                 openSettings(
                     Intent(
                         Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                        Uri.parse("package:${activity.packageName}"),
+                        Uri.parse("package:${context.packageName}"),
                     ),
                 )
                 result.success(null)
@@ -112,9 +121,14 @@ class CallBridge(private val activity: Activity) : MethodChannel.MethodCallHandl
         }
     }
 
-    fun release() {
-        stopRinging()
-        setSpeakerphone(false)
+    private fun attachActivity(activity: Activity) {
+        this.activity = activity
+        // The activity a call brought back must show over the lock screen too.
+        if (presenting) setShowOverLockScreen(activity, true)
+    }
+
+    fun detach(activity: Activity) {
+        if (this.activity === activity) this.activity = null
     }
 
     private fun setSpeakerphone(on: Boolean) {
@@ -124,7 +138,7 @@ class CallBridge(private val activity: Activity) : MethodChannel.MethodCallHandl
             it.setSpeaker(on)
             return
         }
-        val audio = activity.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (!on) {
                 audio.clearCommunicationDevice()
@@ -141,23 +155,23 @@ class CallBridge(private val activity: Activity) : MethodChannel.MethodCallHandl
 
     private fun canUseFullScreenIntent(): Boolean {
         if (Build.VERSION.SDK_INT < 34) return true
-        val manager = activity.getSystemService(NotificationManager::class.java)
+        val manager = context.getSystemService(NotificationManager::class.java)
         return manager?.canUseFullScreenIntent() ?: false
     }
 
     private fun isIgnoringBatteryOptimizations(): Boolean {
-        val power = activity.getSystemService(Context.POWER_SERVICE) as PowerManager
-        return power.isIgnoringBatteryOptimizations(activity.packageName)
+        val power = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        return power.isIgnoringBatteryOptimizations(context.packageName)
     }
 
     private fun openSettings(intent: Intent) {
         try {
-            activity.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         } catch (_: Exception) {
-            activity.startActivity(
+            context.startActivity(
                 Intent(
                     Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    Uri.parse("package:${activity.packageName}"),
+                    Uri.parse("package:${context.packageName}"),
                 ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )
         }
@@ -167,12 +181,12 @@ class CallBridge(private val activity: Activity) : MethodChannel.MethodCallHandl
     // vibrate only, or stay silent.
     private fun startRinging() {
         stopRinging()
-        val audio = activity.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         val mode = audio.ringerMode
         if (mode == AudioManager.RINGER_MODE_NORMAL) {
-            val uri = RingtoneManager.getActualDefaultRingtoneUri(activity, RingtoneManager.TYPE_RINGTONE)
+            val uri = RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_RINGTONE)
                 ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-            ringtone = RingtoneManager.getRingtone(activity, uri)?.apply {
+            ringtone = RingtoneManager.getRingtone(context, uri)?.apply {
                 audioAttributes = AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -194,46 +208,49 @@ class CallBridge(private val activity: Activity) : MethodChannel.MethodCallHandl
 
     private fun vibrator(): Vibrator? =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            (activity.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
+            (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
         } else {
             @Suppress("DEPRECATION")
-            activity.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
         }
 
     /**
      * Shows the app over the lock screen and brings it forward. Returns
      * whether it was in the background, so the caller can send it back
-     * once the call is declined.
+     * once the call is declined. Without an activity the user had swiped
+     * the app away.
      */
     private fun present(): Boolean {
-        val resumed = (activity as LifecycleOwner).lifecycle.currentState
-            .isAtLeast(Lifecycle.State.RESUMED)
+        val current = activity
+        val resumed = (current as? LifecycleOwner)?.lifecycle?.currentState
+            ?.isAtLeast(Lifecycle.State.RESUMED) == true
         presenting = true
-        setShowOverLockScreen(true)
+        current?.let { setShowOverLockScreen(it, true) }
         if (!resumed) {
-            activity.startActivity(
-                Intent(activity, activity.javaClass).addFlags(
+            context.startActivity(
+                Intent(context, MainActivity::class.java).addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or
                         Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
                         Intent.FLAG_ACTIVITY_SINGLE_TOP,
                 ),
             )
         }
-        return !resumed && leftByUser
+        return !resumed && (leftByUser || current == null)
     }
 
     private fun dismiss(moveToBack: Boolean) {
         stopRinging()
         if (!presenting) return
         presenting = false
-        setShowOverLockScreen(false)
+        val current = activity ?: return
+        setShowOverLockScreen(current, false)
         if (moveToBack) {
-            activity.moveTaskToBack(true)
+            current.moveTaskToBack(true)
             leftByUser = true
         }
     }
 
-    private fun setShowOverLockScreen(show: Boolean) {
+    private fun setShowOverLockScreen(activity: Activity, show: Boolean) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             activity.setShowWhenLocked(show)
             activity.setTurnScreenOn(show)

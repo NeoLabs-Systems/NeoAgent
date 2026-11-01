@@ -79,6 +79,7 @@ test('a watched repository alone never admits commenters on GitHub', () => {
     sharedActorRules: [{ scope: 'user', value: '10' }],
   });
   assert.equal(evaluateAccessPolicy(withPerson, githubContext(), 'github').allowed, true);
+  assert.equal(evaluateAccessPolicy(withPerson, githubContext(), 'github').approvedSender, true);
   // A person approved everywhere is answered in any repository they tag it in.
   assert.equal(evaluateAccessPolicy(withPerson, githubContext({ groupId: 'neo/other', chatId: 'neo/other#1' }), 'github').allowed, true);
 
@@ -88,6 +89,8 @@ test('a watched repository alone never admits commenters on GitHub', () => {
     sharedActorRules: [{ scope: 'role', value: 'OWNER' }],
   });
   assert.equal(evaluateAccessPolicy(anyOwner, githubContext({ roleIds: ['OWNER'] }), 'github').allowed, true);
+  // A role admits people, but does not name one the owner vouches for.
+  assert.equal(evaluateAccessPolicy(anyOwner, githubContext({ roleIds: ['OWNER'] }), 'github').approvedSender, false);
   assert.equal(evaluateAccessPolicy(anyOwner, githubContext({ roleIds: ['OWNER'], groupId: 'stranger/repo', chatId: 'stranger/repo#1' }), 'github').allowed, false);
 
   const byRole = normalizeAccessPolicy('github', {

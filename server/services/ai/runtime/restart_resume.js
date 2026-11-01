@@ -34,6 +34,7 @@ const RESUME_OPTION_KEYS = Object.freeze([
   'deviceTarget',
   'workspaceRoot',
   'audience',
+  'approvedSpeaker',
   'memoryAudience',
   'memoryScope',
   'skipGlobalRecall',

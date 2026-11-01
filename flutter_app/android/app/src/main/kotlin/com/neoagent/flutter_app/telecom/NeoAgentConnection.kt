@@ -7,6 +7,7 @@ import android.telecom.CallAudioState
 import android.telecom.Connection
 import android.telecom.DisconnectCause
 import android.telecom.TelecomManager
+import com.neoagent.flutter_app.background.KeepAliveService
 
 class NeoAgentConnection(private val context: Context) : Connection() {
     private var speakerRequested = false
@@ -98,5 +99,6 @@ class NeoAgentConnection(private val context: Context) : Connection() {
     private fun cleanup() {
         proximityLock?.takeIf { it.isHeld }?.release()
         NeoAgentConnectionService.getAndClearCurrentConnection()
+        KeepAliveService.setInCall(context, false)
     }
 }

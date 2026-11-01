@@ -9,7 +9,8 @@ const { describeTaint, isOriginTarget, isOwnerNamed, isTainted } = require('./ru
 // Two kinds of review, both answered by asking the owner:
 //   'audience' — someone other than the owner is steering the run. Holds even
 //                in allow_all mode: that mode is the owner's choice for their
-//                own requests, not for a group chat's.
+//                own requests, not for a group chat's. A person the owner
+//                listed by name speaking in the group is not "someone else".
 //   'taint'    — the run has read outside content and the call would carry
 //                data somewhere new or plant an instruction for later runs
 //                (the "lethal trifecta" / Rule of Two). allow_all skips it.
@@ -162,7 +163,7 @@ function reviewTaintedCall(toolName, toolArgs, category, trust) {
 function reviewToolCall({ toolName, toolArgs = {}, category = null, trust = null }) {
   if (!trust) return null;
   const args = toolArgs && typeof toolArgs === 'object' ? toolArgs : {};
-  if (trust.audience === 'shared') {
+  if (trust.audience === 'shared' && !trust.approvedSpeaker) {
     const reason = reviewSharedAudienceCall(toolName, args, trust);
     if (reason) return { kind: 'audience', reason };
   }

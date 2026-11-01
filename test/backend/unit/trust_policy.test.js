@@ -186,6 +186,17 @@ test('approval hook: allow_all skips taint review but never audience review, and
   const groupShell = { toolName: 'execute_command', toolArgs: { command: 'id' }, userId: user.userId, runId: 'r2', trust: shared };
   assert.equal((await globalHooks.run('before_tool_call', groupShell)).blocked_by, 'user_denied');
   assert.equal(requests.length, 2);
+
+  // The owner asking in their own group is not someone else steering the run.
+  const ownerInGroup = create({
+    audience: 'shared',
+    approvedSpeaker: true,
+    triggerSource: 'messaging',
+    messages: [],
+    origin: { platform: 'discord', chatId: '1552033962002743336' },
+  });
+  assert.equal((await globalHooks.run('before_tool_call', { ...groupShell, trust: ownerInGroup })).block, undefined);
+  assert.equal(requests.length, 2);
   assert.ok(requests.every((request) => request.reason));
 
   policyService.getSecurityMode = () => { throw new Error('db down'); };

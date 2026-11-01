@@ -14,6 +14,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.core.content.FileProvider
 import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.lifecycleScope
+import com.neoagent.flutter_app.background.KeepAliveService
 import com.neoagent.flutter_app.call.CallBridge
 import com.neoagent.flutter_app.devicesync.DeviceSyncChannel
 import com.neoagent.flutter_app.health.HealthConnectGateway
@@ -32,7 +33,8 @@ import com.neoagent.flutter_app.telecom.NeoAgentConnectionService
 import com.neoagent.flutter_app.voice.VoicePcmPlayer
 import com.neoagent.flutter_app.widgets.HomeWidgets
 import io.flutter.plugin.common.MethodChannel
-import io.flutter.plugins.GeneratedPluginRegistrant
+import io.flutter.embedding.engine.FlutterEngineCache
+import io.flutter.embedding.engine.dart.DartExecutor
 import kotlinx.coroutines.launch
 import java.io.File
 import java.time.Instant
@@ -43,11 +45,31 @@ class MainActivity : FlutterFragmentActivity() {
     private lateinit var healthSyncScheduler: HealthSyncScheduler
     private lateinit var permissionLauncher: ActivityResultLauncher<Set<String>>
     private var pendingPermissionResult: MethodChannel.Result? = null
-    private var launcherButtonSink: EventChannel.EventSink? = null
-    private var appLaunchEventSink: EventChannel.EventSink? = null
-    private var pendingLaunchPayload: Map<String, Any?>? = null
-    private val voicePlayer = VoicePcmPlayer()
     private var callBridge: CallBridge? = null
+
+    companion object {
+        private const val ENGINE_ID = "main"
+
+        // Engine-scoped like the engine itself: Dart subscribes to the event
+        // channels once, and a call may be playing when the activity goes.
+        private var launcherButtonSink: EventChannel.EventSink? = null
+        private var appLaunchEventSink: EventChannel.EventSink? = null
+        private var pendingLaunchPayload: Map<String, Any?>? = null
+        private val voicePlayer = VoicePcmPlayer()
+    }
+
+    // The engine, and with it the server connection calls and approvals
+    // arrive on, outlives the activity: swiping the app away or Android
+    // reclaiming the activity leaves it running under the background service.
+    override fun getCachedEngineId(): String {
+        val cache = FlutterEngineCache.getInstance()
+        if (!cache.contains(ENGINE_ID)) {
+            val engine = FlutterEngine(applicationContext)
+            engine.dartExecutor.executeDartEntrypoint(DartExecutor.DartEntrypoint.createDefault())
+            cache.put(ENGINE_ID, engine)
+        }
+        return ENGINE_ID
+    }
 
     override fun onResume() {
         super.onResume()
@@ -60,14 +82,13 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun onDestroy() {
-        voicePlayer.stop()
-        callBridge?.release()
+        callBridge?.detach(this)
         super.onDestroy()
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        GeneratedPluginRegistrant.registerWith(flutterEngine)
+        KeepAliveService.register(flutterEngine.dartExecutor.binaryMessenger, this)
 
         healthGateway = HealthConnectGateway(this)
         healthSyncScheduler = HealthSyncScheduler(this)
@@ -133,6 +154,7 @@ class MainActivity : FlutterFragmentActivity() {
                         it.setDisconnected(DisconnectCause(DisconnectCause.LOCAL))
                         it.destroy()
                     }
+                    KeepAliveService.setInCall(this, false)
                     result.success(true)
                 }
                 else -> result.notImplemented()
@@ -515,7 +537,7 @@ class MainActivity : FlutterFragmentActivity() {
         )
 
         HomeWidgets.registerChannel(flutterEngine.dartExecutor.binaryMessenger, this)
-        callBridge = CallBridge.register(flutterEngine.dartExecutor.binaryMessenger, this)
+        callBridge = CallBridge.attach(flutterEngine.dartExecutor.binaryMessenger, this)
 
         captureLaunchIntent(intent)
     }

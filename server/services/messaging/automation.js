@@ -431,6 +431,7 @@ async function executeQueuedMessage({
     const publicScope = buildPublicRunScope(msg);
     const ownerAudience = !publicScope && msg.ownerTrusted === true;
     runOptions.audience = publicScope ? 'public' : (ownerAudience ? 'owner' : 'shared');
+    runOptions.approvedSpeaker = !publicScope && msg.approvedSpeaker === true;
     runOptions.skipGlobalRecall = !ownerAudience;
     runOptions.memoryAudience = ownerAudience ? 'owner' : 'shared';
     runOptions.memoryScope = !ownerAudience
@@ -616,6 +617,9 @@ async function isAllowedMessagingSender({ io, userId, msg }) {
     // A DM from a sender the owner listed speaks for the owner. Group
     // members and senders let in by an open policy do not.
     msg.ownerTrusted = !msg.isGroup && decision.policy?.directPolicy === 'allowlist';
+    // In a group the room stays shared (memory, persona), but a request from
+    // a listed person is theirs to make and need not be held for approval.
+    msg.approvedSpeaker = msg.ownerTrusted || (msg.isGroup && decision.approvedSender === true);
     return true;
   }
 

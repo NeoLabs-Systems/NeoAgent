@@ -661,6 +661,7 @@ class DurableRunRuntime {
       if (conversationId && !options.resumedFromRunId) this.#storeUserMessage(session);
       this.engine.getRunMeta(runId).trust = options.parentTrust || createRunTrust({
         audience: publicScope ? 'public' : (options.audience || 'owner'),
+        approvedSpeaker: !publicScope && options.approvedSpeaker === true,
         triggerSource,
         messages: [...openingMessages, userTurn],
         origin: triggerSource === 'messaging'
