@@ -33,3 +33,20 @@ test('HTTP request signal listeners are removed after a normal response', () => 
   assert.equal(req.listenerCount('aborted'), 0);
   assert.equal(res.listenerCount('close'), 0);
 });
+
+// Node 24 defines IncomingMessage#signal as a getter with no setter.
+test('HTTP request signal works where the request has a read-only signal', () => {
+  class ReadOnlySignalRequest extends EventEmitter {
+    get signal() {
+      return new AbortController().signal;
+    }
+  }
+  const req = new ReadOnlySignalRequest();
+  const res = new EventEmitter();
+  res.writableEnded = false;
+
+  attachRequestSignal(req, res, () => {});
+  req.emit('aborted');
+
+  assert.equal(req.signal.aborted, true);
+});
