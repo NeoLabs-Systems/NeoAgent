@@ -12,6 +12,9 @@ const {
 const { isPrivateHost } = require('../../utils/cloud-security');
 
 const ALLOWED_METHODS = new Set(['GET', 'POST', 'PUT', 'DELETE', 'PATCH']);
+// node:http sends no User-Agent of its own, and APIs such as GitHub's refuse
+// a request without one.
+const DEFAULT_USER_AGENT = `NeoAgent/${require('../../../package.json').version}`;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const SENSITIVE_REDIRECT_HEADERS = new Set([
   'authorization',
@@ -236,6 +239,9 @@ async function executeSafeHttpRequest(args = {}, context = {}) {
   };
   if (requestState.body != null && !requestState.headers['content-type']) {
     requestState.headers['content-type'] = 'application/json';
+  }
+  if (!requestState.headers['user-agent']) {
+    requestState.headers['user-agent'] = DEFAULT_USER_AGENT;
   }
   const redirects = [];
 

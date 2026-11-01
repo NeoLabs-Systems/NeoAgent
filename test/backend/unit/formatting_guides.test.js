@@ -7,6 +7,7 @@ const {
   getPlatformFormattingProfile,
   normalizeOutgoingMessageForPlatform,
   splitOutgoingMessageForPlatform,
+  splitToMessageLimit,
   buildPlatformFormattingGuide,
 } = require('../../../server/services/messaging/formatting_guides');
 
@@ -157,5 +158,49 @@ describe('buildPlatformFormattingGuide', () => {
   it('omits intro when options.intro is false', () => {
     const guide = buildPlatformFormattingGuide('default', { intro: false });
     assert.ok(!guide.startsWith('Reply formatting guide:'));
+  });
+});
+
+// ── splitToMessageLimit ─────────────────────────────────────────────────────
+
+describe('splitToMessageLimit', () => {
+  const paragraph = (label) => `${label} ${'word '.repeat(150).trim()}`;
+
+  it('keeps a message that fits as one', () => {
+    assert.deepEqual(splitToMessageLimit('discord', 'short recap'), ['short recap']);
+  });
+
+  it('leaves platforms without a cap alone', () => {
+    const long = 'x'.repeat(5000);
+    assert.deepEqual(splitToMessageLimit('whatsapp', long), [long]);
+  });
+
+  it('breaks a long Discord message at paragraphs into parts that fit', () => {
+    const text = ['A', 'B', 'C', 'D'].map(paragraph).join('\n\n');
+    const parts = splitToMessageLimit('discord', text);
+
+    assert.ok(parts.length > 1);
+    assert.ok(parts.every((part) => part.length <= 2000));
+    assert.equal(parts.join('\n\n'), text);
+  });
+
+  it('breaks one oversized paragraph at lines, then words', () => {
+    const lines = Array.from({ length: 40 }, (_, i) => `• item ${i} ${'detail '.repeat(10).trim()}`);
+    const lineParts = splitToMessageLimit('discord', lines.join('\n'));
+    assert.ok(lineParts.every((part) => part.length <= 2000));
+    assert.equal(lineParts.join('\n'), lines.join('\n'));
+
+    const words = 'word '.repeat(1000).trim();
+    const wordParts = splitToMessageLimit('discord', words);
+    assert.ok(wordParts.every((part) => part.length <= 2000));
+    assert.equal(wordParts.join(' '), words);
+  });
+
+  it('cuts text with no boundaries without splitting an emoji', () => {
+    const text = '🚀'.repeat(1500);
+    const parts = splitToMessageLimit('discord', text);
+
+    assert.ok(parts.every((part) => part.length <= 2000));
+    assert.equal(parts.join(''), text);
   });
 });

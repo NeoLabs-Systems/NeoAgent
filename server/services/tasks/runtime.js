@@ -523,10 +523,14 @@ class TaskRuntime {
       return;
     }
     const timeZone = getUserTimeZone(task.user_id);
-    const job = this.cron.schedule(cronExpression, async () => {
+    // node-cron drops a tick that fires more than a second late, which happens
+    // whenever another task due at the same minute keeps the event loop busy.
+    // Let every tick through and leave lateness to the start-delay check, which
+    // measures it from the slot the tick was for.
+    const job = this.cron.schedule(cronExpression, async (context) => {
       try {
         await this._executeTask(task.id, task.user_id, {
-          scheduledAt: new Date().toISOString(),
+          scheduledAt: (context?.date || new Date()).toISOString(),
           manual: false,
           oneTime: false,
           triggerType: 'schedule',
@@ -535,7 +539,10 @@ class TaskRuntime {
       } catch (error) {
         console.error(`[Tasks] Scheduled task ${task.id} error:`, error.message);
       }
-    }, timeZone ? { timezone: timeZone } : undefined);
+    }, {
+      missedExecutionTolerance: MAX_RECURRING_TASK_START_DELAY_MS,
+      ...(timeZone ? { timezone: timeZone } : {}),
+    });
     this.scheduleJobs.set(task.id, { task: job, userId: task.user_id });
   }
 

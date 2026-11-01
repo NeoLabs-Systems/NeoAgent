@@ -13,10 +13,12 @@ const PLATFORM_FORMATTING = {
   telegram: {
     spokenOnly: false,
     inlineCode: true,
+    maxMessageLength: 4096,
   },
   discord: {
     spokenOnly: false,
     inlineCode: true,
+    maxMessageLength: 2000,
   },
   // A GitHub comment is a rendered Markdown document, not a chat bubble.
   github: {
@@ -166,10 +168,61 @@ function splitOutgoingMessageForPlatform(platform, content) {
   return chunks.length ? chunks : [normalized];
 }
 
+// A cut that keeps whole code points, so an emoji is never split in half.
+function cutToLength(text, limit) {
+  const parts = [];
+  let current = '';
+  for (const char of text) {
+    if (current.length + char.length > limit) {
+      parts.push(current);
+      current = '';
+    }
+    current += char;
+  }
+  if (current) parts.push(current);
+  return parts;
+}
+
+function packToLength(text, limit, separators) {
+  if (text.length <= limit) return [text];
+  const [separator, ...finer] = separators;
+  if (separator === undefined) return cutToLength(text, limit);
+  const parts = [];
+  let current = '';
+  for (const piece of text.split(separator)) {
+    const joined = current ? `${current}${separator}${piece}` : piece;
+    if (joined.length <= limit) {
+      current = joined;
+      continue;
+    }
+    if (current) parts.push(current);
+    const pieceParts = packToLength(piece, limit, finer);
+    current = pieceParts.pop();
+    parts.push(...pieceParts);
+  }
+  if (current) parts.push(current);
+  return parts;
+}
+
+/**
+ * The messages a text has to go out as on a platform that caps message
+ * length: as few as fit, broken at the largest boundary that still fits
+ * (paragraph, then line, then word).
+ */
+function splitToMessageLimit(platform, text) {
+  const value = String(text || '');
+  const limit = getPlatformFormattingProfile(platform).maxMessageLength;
+  if (!limit || value.length <= limit) return [value];
+  return packToLength(value, limit, ['\n\n', '\n', ' '])
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
 module.exports = {
   buildPlatformFormattingGuide,
   buildSendMessageFormattingReference,
   getPlatformFormattingProfile,
   normalizeOutgoingMessageForPlatform,
   splitOutgoingMessageForPlatform,
+  splitToMessageLimit,
 };

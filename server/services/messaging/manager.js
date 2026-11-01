@@ -23,7 +23,7 @@ const {
   BlueBubblesPlatform,
   createGenericPlatformClass,
 } = require('./http_platforms');
-const { normalizeOutgoingMessageForPlatform } = require('./formatting_guides');
+const { normalizeOutgoingMessageForPlatform, splitToMessageLimit } = require('./formatting_guides');
 const {
   accessPolicyKey,
   legacyWhitelistKey,
@@ -937,19 +937,26 @@ class MessagingManager extends EventEmitter {
       return { success: true, suppressed: true };
     }
 
-    const result = await this._runOperation(
-      sendOptions,
-      `${platformName} message delivery`,
-      (signal) => platform.sendMessage(to, normalizedContent, { ...platformSendOptions, signal }),
-    );
-    this._assertRunning();
-    throwIfAborted(sendOptions.signal, 'Message delivery aborted.');
-    if (result?.success === false) {
-      const reason = result.error || result.reason || 'platform rejected the message';
-      const error = new Error(`Platform ${platformName} delivery failed: ${reason}`);
-      error.code = 'MESSAGING_DELIVERY_FAILED';
-      error.deliveryResult = result;
-      throw error;
+    // Text longer than the platform takes in one message goes out as several,
+    // in order; an attachment rides with the first.
+    let result = null;
+    for (const [index, part] of splitToMessageLimit(platformName, normalizedContent).entries()) {
+      const partOptions = index === 0 ? platformSendOptions : { ...platformSendOptions, mediaPath: null };
+      const partResult = await this._runOperation(
+        sendOptions,
+        `${platformName} message delivery`,
+        (signal) => platform.sendMessage(to, part, { ...partOptions, signal }),
+      );
+      this._assertRunning();
+      throwIfAborted(sendOptions.signal, 'Message delivery aborted.');
+      if (partResult?.success === false) {
+        const reason = partResult.error || partResult.reason || 'platform rejected the message';
+        const error = new Error(`Platform ${platformName} delivery failed: ${reason}`);
+        error.code = 'MESSAGING_DELIVERY_FAILED';
+        error.deliveryResult = partResult;
+        throw error;
+      }
+      result ??= partResult;
     }
 
     db.prepare('INSERT INTO messages (user_id, agent_id, run_id, role, content, platform, platform_msg_id, platform_chat_id, media_path, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
