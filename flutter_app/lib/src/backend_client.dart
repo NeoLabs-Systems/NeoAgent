@@ -444,6 +444,28 @@ class BackendClient {
     });
   }
 
+  Future<Map<String, dynamic>> updateDataSharing({
+    required String baseUrl,
+    required bool enabled,
+    Map<String, dynamic>? client,
+  }) async {
+    return putMap(baseUrl, '/api/account/data-sharing', <String, dynamic>{
+      'enabled': enabled,
+      if (client != null) 'client': client,
+    });
+  }
+
+  Future<Map<String, dynamic>> reportDataSharingClient({
+    required String baseUrl,
+    required Map<String, dynamic> client,
+  }) async {
+    return putMap(
+      baseUrl,
+      '/api/account/data-sharing/client',
+      <String, dynamic>{'client': client},
+    );
+  }
+
   Future<Map<String, dynamic>> updateAccountDisplayName({
     required String baseUrl,
     required String displayName,
@@ -788,10 +810,12 @@ class BackendClient {
 
   Future<Map<String, dynamic>> saveAdminDisabledModels(
     String baseUrl,
-    List<String> disabledModels,
-  ) async {
+    List<String> disabledModels, {
+    required bool autoEnableNewModels,
+  }) async {
     return putMap(baseUrl, '/api/admin/models/config', <String, dynamic>{
       'disabledModels': disabledModels,
+      'autoEnableNewModels': autoEnableNewModels,
     });
   }
 
@@ -974,6 +998,48 @@ class BackendClient {
       _withAgentId(payload, agentId),
     );
   }
+
+  // "Connect NeoRouter": scope is 'server' (admins) or 'user'.
+  Future<Map<String, dynamic>> fetchNeoRouter(
+    String baseUrl, {
+    String? agentId,
+  }) => getMap(baseUrl, _withAgentQuery('/api/neorouter', agentId));
+
+  Future<Map<String, dynamic>> beginNeoRouterConnect(
+    String baseUrl, {
+    required String scope,
+    required String address,
+    String? agentId,
+  }) => postMap(
+    baseUrl,
+    _withAgentQuery('/api/neorouter/connect', agentId),
+    _withAgentId(<String, dynamic>{
+      'scope': scope,
+      'address': address,
+    }, agentId),
+  );
+
+  Future<Map<String, dynamic>> fetchNeoRouterConnect(
+    String baseUrl,
+    String id,
+  ) => getMap(baseUrl, '/api/neorouter/connect/${Uri.encodeComponent(id)}');
+
+  Future<Map<String, dynamic>> saveNeoRouterRoles(
+    String baseUrl, {
+    required String scope,
+    required List<String> roles,
+    String? agentId,
+  }) => putMap(
+    baseUrl,
+    _withAgentQuery('/api/neorouter/$scope/roles', agentId),
+    _withAgentId(<String, dynamic>{'roles': roles}, agentId),
+  );
+
+  Future<Map<String, dynamic>> disconnectNeoRouter(
+    String baseUrl, {
+    required String scope,
+    String? agentId,
+  }) => deleteMap(baseUrl, _withAgentQuery('/api/neorouter/$scope', agentId));
 
   Future<Map<String, dynamic>> beginProviderSignIn(
     String baseUrl,
@@ -1599,6 +1665,41 @@ class BackendClient {
     return postMap(baseUrl, '/api/mobile/health/sync', payload);
   }
 
+  /// Starts or updates calendar and contacts sharing from this phone.
+  Future<Map<String, dynamic>> registerDeviceSync(
+    String baseUrl, {
+    required String deviceId,
+    required String deviceName,
+    required String platform,
+    required List<String> kinds,
+    String? agentId,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/mobile/device-sync/register',
+      _withAgentId(<String, dynamic>{
+        'deviceId': deviceId,
+        'deviceName': deviceName,
+        'platform': platform,
+        'kinds': kinds,
+      }, agentId),
+    );
+  }
+
+  Future<Map<String, dynamic>> unregisterDeviceSync(
+    String baseUrl, {
+    required String deviceId,
+    String? agentId,
+  }) async {
+    return deleteMap(
+      baseUrl,
+      _withAgentQuery(
+        '/api/mobile/device-sync/register?deviceId=${Uri.encodeQueryComponent(deviceId)}',
+        agentId,
+      ),
+    );
+  }
+
   Future<List<Map<String, dynamic>>> fetchSkills(String baseUrl) async {
     return getList(baseUrl, '/api/skills');
   }
@@ -1687,12 +1788,32 @@ class BackendClient {
     String baseUrl,
     String providerId, {
     required String appId,
+    bool memorySweep = false,
     String? agentId,
   }) async {
     return postMap(
       baseUrl,
       '/api/integrations/$providerId/connect',
-      _withAgentId(<String, dynamic>{'appId': appId}, agentId),
+      _withAgentId(<String, dynamic>{
+        'appId': appId,
+        'memorySweep': memorySweep,
+      }, agentId),
+    );
+  }
+
+  Future<Map<String, dynamic>> startMemorySweep(
+    String baseUrl,
+    String providerId, {
+    required String appId,
+    String? agentId,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/memory/ingestion/sweep',
+      _withAgentId(<String, dynamic>{
+        'providerKey': providerId,
+        'appId': appId,
+      }, agentId),
     );
   }
 
@@ -2083,19 +2204,6 @@ class BackendClient {
     return postList(
       baseUrl,
       _withAgentQuery('/api/memory/memories/recall', agentId),
-      {'query': query, 'limit': limit},
-    );
-  }
-
-  Future<Map<String, dynamic>> inspectMemory(
-    String baseUrl,
-    String query, {
-    int limit = 20,
-    String? agentId,
-  }) async {
-    return postMap(
-      baseUrl,
-      _withAgentQuery('/api/memory/memories/inspect', agentId),
       {'query': query, 'limit': limit},
     );
   }

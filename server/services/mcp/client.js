@@ -4,6 +4,7 @@ const EventEmitter = require('events');
 const db = require('../../db/database');
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 const { SSEClientTransport } = require('@modelcontextprotocol/sdk/client/sse.js');
+const { StreamableHTTPClientTransport } = require('@modelcontextprotocol/sdk/client/streamableHttp.js');
 const { validateRemoteMcpEndpoint } = require('../runtime/mcp');
 const {
   buildTransportOptions,
@@ -30,7 +31,9 @@ class MCPClient extends EventEmitter {
     this._operationTimeoutMs = options.operationTimeoutMs ?? DEFAULT_OPERATION_TIMEOUT_MS;
     this._toolFailureThreshold = options.toolFailureThreshold ?? 3;
     this._createTransport = options.createTransport
-      || ((endpoint, transportOptions) => new SSEClientTransport(new URL(endpoint), transportOptions));
+      || ((endpoint, { transport, ...transportOptions }) => (transport === 'streamable-http'
+        ? new StreamableHTTPClientTransport(new URL(endpoint), transportOptions)
+        : new SSEClientTransport(new URL(endpoint), transportOptions)));
     this._createClient = options.createClient
       || (() => new Client(
         { name: 'NeoAgent', version: '1.0.0' },

@@ -8,7 +8,8 @@ const defaults = require('./providers/provider_defaults');
 
 const DEFAULT_STT_TIMEOUT_MS = 60000;
 
-const IMPLEMENTATIONS = Object.freeze({ openai, deepgram, gemini });
+// NeoRouter speaks OpenAI's transcription API.
+const IMPLEMENTATIONS = Object.freeze({ openai, deepgram, gemini, neorouter: openai });
 
 // Bounded speech-to-text for recorded audio: messaging voice notes, dictation,
 // the transcribe_audio tool, and social video. Live calls never pass through

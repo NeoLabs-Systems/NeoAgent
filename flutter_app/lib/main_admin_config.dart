@@ -633,7 +633,11 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
   @override
   NeoAgentController get _controller => widget.controller;
 
-  bool get _dirty => !setEquals(_savedDisabled, _disabled);
+  bool _savedAutoEnable = true;
+  bool _autoEnable = true;
+
+  bool get _dirty =>
+      !setEquals(_savedDisabled, _disabled) || _savedAutoEnable != _autoEnable;
 
   @override
   void initState() {
@@ -653,6 +657,12 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
     _systemOneModels = _adminCfgParseModels(data, key: 'systemOneModels')
       ..sort(_compareModels);
     _resetDisabled(_jsonStringList(data['disabledModels']).toSet());
+    _resetAutoEnable(data['autoEnableNewModels'] != false);
+  }
+
+  void _resetAutoEnable(bool value) {
+    _savedAutoEnable = value;
+    _autoEnable = value;
   }
 
   void _resetDisabled(Set<String> disabled) {
@@ -700,6 +710,7 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
   void _discard() {
     setState(() {
       _disabled = Set<String>.of(_savedDisabled);
+      _autoEnable = _savedAutoEnable;
       _saveError = null;
     });
   }
@@ -709,8 +720,10 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
       final data = await _client.saveAdminDisabledModels(
         _baseUrl,
         _disabled.toList()..sort(),
+        autoEnableNewModels: _autoEnable,
       );
       _resetDisabled(_jsonStringList(data['disabledModels']).toSet());
+      _resetAutoEnable(data['autoEnableNewModels'] != false);
     }, appStrings.modelAvailabilitySaved);
   }
 
@@ -802,7 +815,20 @@ class _AdminModelsTabState extends State<_AdminModelsTab>
                   _narrow(() => _kind = selection.first),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 8),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            title: Text(appStrings.autoEnableNewModels),
+            subtitle: Text(appStrings.autoEnableNewModelsHint),
+            value: _autoEnable,
+            onChanged: _saving
+                ? null
+                : (value) => setState(() {
+                    _saveNotice = null;
+                    _autoEnable = value;
+                  }),
+          ),
+          const SizedBox(height: 6),
           Wrap(
             spacing: 12,
             runSpacing: 10,
@@ -1352,12 +1378,8 @@ class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
     return _SectionStack(
       children: <Widget>[
         _SectionCard(
-          title: appStrings.integrationApps,
-          description:
-              appStrings.oauthAppCredentialsThatLetAccounts +
-              appStrings.microsoftSlackAndTheOtherIntegrations +
-              appStrings.everyAccountOnThisServerSecrets +
-              appStrings.oneBlankToKeepWhatIs,
+          title: appStrings.globalIntegrationConfiguration,
+          description: appStrings.globalIntegrationConfigurationDescription,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
@@ -1387,7 +1409,9 @@ class _AdminIntegrationsTabState extends State<_AdminIntegrationsTab>
       (field) =>
           field.isBoolean && field.name == 'enabled' && field.value == 'false',
     );
-    var statusLabel = integration.configured ? 'Configured' : appStrings.notSet;
+    var statusLabel = integration.configured
+        ? appStrings.globalStatus
+        : appStrings.perUserStatus;
     if (disabled) statusLabel = appStrings.disabled;
     return _SectionCard(
       title: integration.label,
@@ -1515,6 +1539,7 @@ class _AdminConfigTabState extends State<_AdminConfigTab> {
         _AdminCfgGeneralCard(controller: controller),
         _AdminCfgVmCard(controller: controller),
         _AdminCfgEmailCard(controller: controller),
+        _AdminImportCard(controller: controller),
       ],
     );
   }
@@ -1533,7 +1558,6 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
     with _LoadSaveState<_AdminCfgGeneralCard> {
   final TextEditingController _publicUrl = TextEditingController();
   final TextEditingController _allowedOrigins = TextEditingController();
-  final TextEditingController _ingestionInterval = TextEditingController();
   bool _secureCookies = false;
 
   @override
@@ -1549,7 +1573,6 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
   void dispose() {
     _publicUrl.dispose();
     _allowedOrigins.dispose();
-    _ingestionInterval.dispose();
     super.dispose();
   }
 
@@ -1558,18 +1581,12 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
     final settings = _jsonMap(data['settings']);
     _publicUrl.text = settings['publicUrl']?.toString() ?? '';
     _allowedOrigins.text = settings['allowedOrigins']?.toString() ?? '';
-    _ingestionInterval.text =
-        settings['memoryIngestionIntervalMs']?.toString() ?? '';
     _secureCookies = settings['secureCookies'] == true;
   }
 
   Future<void> _save() async {
-    final interval = _parseBoundedInt(_ingestionInterval.text, min: 1000);
     var problem = _adminCfgUrlProblem(_publicUrl.text, appStrings.publicUrl);
     problem ??= _adminCfgOriginsProblem(_allowedOrigins.text);
-    if (problem == null && interval == null) {
-      problem = appStrings.memoryIngestionIntervalMustBeAt;
-    }
     if (problem != null) {
       _rejectSave(problem);
       return;
@@ -1579,7 +1596,6 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
         'publicUrl': _publicUrl.text.trim(),
         'secureCookies': _secureCookies,
         'allowedOrigins': _allowedOrigins.text.trim(),
-        'memoryIngestionIntervalMs': interval,
       }),
       appStrings.generalSettingsSaved,
     );
@@ -1619,13 +1635,6 @@ class _AdminCfgGeneralCardState extends State<_AdminCfgGeneralCard>
               helper:
                   '${appStrings.exactWebOriginsAllowedToMake}comma-separated.',
               keyboardType: TextInputType.url,
-              onChanged: (_) => _onEdited(),
-            ),
-            _FormTextField(
-              controller: _ingestionInterval,
-              label: appStrings.memoryIngestionIntervalMs,
-              helper: appStrings.atLeast1000AppliesAfterA,
-              wholeNumber: true,
               onChanged: (_) => _onEdited(),
             ),
           ],

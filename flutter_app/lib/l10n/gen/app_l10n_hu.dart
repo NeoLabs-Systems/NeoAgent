@@ -375,6 +375,13 @@ class AppL10nHu extends AppL10n {
   String get addMemory => 'Memória hozzáadása';
 
   @override
+  String get memoryReview => 'Áttekintés';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Nézd át az összes emlékemet és tegyél rendet: archiváld a duplikátumokat, az elavult tényeket és mindent, aminek nincs tartós értéke. Utána röviden mondd el, mit változtattál.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Adjon hozzá több hosszúságot vagy más karaktertípust.';
 
@@ -1615,10 +1622,6 @@ class AppL10nHu extends AppL10n {
   String get atLeast1 => 'Legalább 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Legalább 1000. A szerver újraindítása után érvényes.';
-
-  @override
   String get attachFiles => 'Fájlok csatolása';
 
   @override
@@ -1856,9 +1859,6 @@ class AppL10nHu extends AppL10n {
   String get braveSearch => 'Bátor keresés';
 
   @override
-  String get breakdown => 'Lebontás:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Híd minden olyan szolgáltatót, amely képes közzétenni és fogadni a webhook hasznos terheit.';
 
@@ -1907,11 +1907,6 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get cancelTask => 'Feladat megszakítása';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'A jelöltek száma: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Az előnézet nem tekinthető meg';
@@ -2384,11 +2379,6 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get content => 'Tartalom';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Tartalom: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'tartalombiztonsági szabályzat';
@@ -3291,11 +3281,6 @@ class AppL10nHu extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Hiba: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Hibák a legutóbbi naplóból, üzenet szerint csoportosítva.';
 
@@ -3315,10 +3300,6 @@ class AppL10nHu extends AppL10n {
   @override
   String get everyAccountOnThisServerLoses =>
       'Ezen a szerveren minden fiók elveszíti ezt a megosztott kulcsot. Fiókok ';
-
-  @override
-  String get everyAccountOnThisServerSecrets =>
-      'minden fiók ezen a szerveren. A titkok csak írhatók: hagyd ';
 
   @override
   String get everyAccountOnThisServerUses =>
@@ -3676,11 +3657,6 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get fullSetup => 'Teljes beállítás';
-
-  @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Teljes szöveg (FTS): $arg1';
-  }
 
   @override
   String get general => 'tábornok';
@@ -4051,9 +4027,6 @@ class AppL10nHu extends AppL10n {
   String get insertATemplate => 'Szúrjon be egy sablont';
 
   @override
-  String get inspect => 'Vizsgálja meg';
-
-  @override
   String get install => 'Telepítés';
 
   @override
@@ -4107,9 +4080,6 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get integration => 'Integráció';
-
-  @override
-  String get integrationApps => 'Integrációs alkalmazások';
 
   @override
   String get integrationConnections => 'Integrációs kapcsolatok';
@@ -4419,11 +4389,6 @@ class AppL10nHu extends AppL10n {
   }
 
   @override
-  String lexicalArg1(Object? arg1) {
-    return 'Lexical: $arg1';
-  }
-
-  @override
   String get limit20 => 'LIMIT 20';
 
   @override
@@ -4700,19 +4665,6 @@ class AppL10nHu extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'memória import szinkronizálás';
-
-  @override
-  String get memoryIngestionInterval => 'Memóriabeviteli intervallum';
-
-  @override
-  String get memoryIngestionIntervalMs => 'Memóriafeldolgozási időköz (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'A memóriafeldolgozási intervallumnak legalább 1000 ms-nak kell lennie.';
-
-  @override
   String get memoryInjected => 'Memória beadva';
 
   @override
@@ -4773,10 +4725,6 @@ class AppL10nHu extends AppL10n {
   String get microsoft365 => 'Microsoft 365';
 
   @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack és a többi integráció. -ra vonatkoznak ';
-
-  @override
   String get microsoftTeams => 'Microsoft Teams';
 
   @override
@@ -4820,6 +4768,13 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get modelAvailability => 'A modell elérhetősége';
+
+  @override
+  String get autoEnableNewModels => 'Új modellek automatikus engedélyezése';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Kikapcsolva a szolgáltató által később hozzáadott modellek letiltva maradnak, amíg engedélyezed őket.';
 
   @override
   String get modelAvailabilitySaved => 'A modell elérhetősége mentve.';
@@ -5300,6 +5255,51 @@ class AppL10nHu extends AppL10n {
   String get noMemorySync => 'Nincs memória szinkronizálás';
 
   @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Egyszer végigolvassa az elmúlt 12 hónap fontos és elküldött leveleit, hogy az ügynök ismerje a kapcsolataidat és projektjeidet.';
+
+  @override
+  String get emailMemory => 'E-mail-memória';
+
+  @override
+  String get importNow => 'Importálás most';
+
+  @override
+  String get importOnConnect =>
+      'Korábbi levelek importálása fiók csatlakoztatásakor';
+
+  @override
+  String get sweepStarting => 'Előkészítés…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'E-mailek olvasása · $done/$total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'E-mailek olvasása · $count találat';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Tanulás az e-mailekből · $done/$total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Legutóbbi importálás: $emails e-mail · $memories új emlék';
+  }
+
+  @override
+  String get sweepNothingNew => 'Nincs új importálandó e-mail';
+
+  @override
+  String sweepFailed(String error) {
+    return 'Az importálás sikertelen: $error';
+  }
+
+  @override
   String noModelMatchesArg1(Object? arg1) {
     return 'Egyik modell sem felel meg a \"$arg1\" kifejezésnek.';
   }
@@ -5497,10 +5497,6 @@ class AppL10nHu extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'OAuth alkalmazás hitelesítő adatai, amelyek lehetővé teszik a fiókok számára, hogy összekapcsolják a Google-lal, ';
-
-  @override
   String get oauthClientId => 'OAuth-ügyfélazonosító';
 
   @override
@@ -5572,10 +5568,6 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get once => 'Egyszer';
-
-  @override
-  String get oneBlankToKeepWhatIs =>
-      'egy üres, hogy megtartsa a tárolt dolgokat.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -6117,9 +6109,6 @@ class AppL10nHu extends AppL10n {
       'lekérdezések futnak; bármit, ami ír, elutasítják.';
 
   @override
-  String get query => 'Lekérdezés';
-
-  @override
   String get queryFilter => 'Lekérdezés / szűrő';
 
   @override
@@ -6287,11 +6276,6 @@ class AppL10nHu extends AppL10n {
       'Érvénytelen TLS-tanúsítványok elutasítása';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Kapcsolat: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'engedje el és újraindul. A csatlakoztatott alkalmazások újra csatlakoznak, miután visszatértek.';
 
@@ -6451,9 +6435,6 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get results => 'Eredmények';
-
-  @override
-  String get retrievalInspector => 'Visszakeresés ellenőr';
 
   @override
   String get retry => 'Próbálja újra';
@@ -6787,11 +6768,6 @@ class AppL10nHu extends AppL10n {
       'ütemezett időpont. A futások mérése után korábban indul.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Pontszám: $arg1';
-  }
-
-  @override
   String get screen => 'Képernyő';
 
   @override
@@ -6931,11 +6907,6 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get selectTrigger => 'Válassza a Trigger lehetőséget';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Szemantika: $arg1';
-  }
 
   @override
   String get send => 'Küldés (⌘↵)';
@@ -8724,11 +8695,6 @@ class AppL10nHu extends AppL10n {
   String get vaultOperationFailed => 'A trezorművelet meghiúsult.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Vektor rangja: $arg1';
-  }
-
-  @override
   String get verification => 'Ellenőrzés';
 
   @override
@@ -10154,6 +10120,9 @@ class AppL10nHu extends AppL10n {
   String get settingsPageSystem => 'Rendszer';
 
   @override
+  String get settingsPagePlatforms => 'Platformok';
+
+  @override
   String get settingsPageProfileDescription =>
       'Az Ön neve és e-mail címe, adatainak másolata és kijelentkezés.';
 
@@ -11324,9 +11293,729 @@ class AppL10nHu extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Válassz felhasználónevet';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Válassz egy szabad felhasználónevet a fiók létrehozásának befejezéséhez.';
+
+  @override
+  String get dataSharingTitle => 'Használati adatok megosztása';
+
+  @override
+  String get dataSharingDescription =>
+      'Segíts a szerver üzemeltetőinek jobbá tenni. Azt osztja meg, hogyan használod a NeoAgentet, soha nem azt, amit írsz vagy tárolsz.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Megosztva ekkortól: $date.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'Mi kerül megosztásra';
+
+  @override
+  String get dataSharingIncluded => 'Megosztva';
+
+  @override
+  String get dataSharingExcluded => 'Soha nincs megosztva';
+
+  @override
+  String get dataSharingIncludedDevice => 'Eszköztípus és alkalmazásverzió';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'Az alkalmazás nyelve és az időzóna régiója, például Európa';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Mely funkciókat állítottad be, például feladatokat, skilleket és integrációkat';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Mely eszközöket és modelleket használnak a futtatásaid, időtartammal és tokenszámmal';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'Mikor használod a NeoAgentet, a hét napja és óra szerint';
+
+  @override
+  String get dataSharingExcludedContent => 'Üzenetek, promptok és válaszok';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Futtatások címei, eszközök bemenetei és eredményei';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Fájlok, emlékek és minden más, amit tárolsz';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'A neved, e-mail-címed, IP-címed és helyzeted';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'A fiókok, amelyekkel integrációkat kapcsolsz össze';
+
+  @override
+  String get dataSharingPooledNote =>
+      'Az adminisztrátorok csak az összes megosztó összesített adatait látják, soha nem téged külön. Bármikor kikapcsolhatod, és azonnal kikerülsz az összesítésből.';
+
+  @override
+  String get dataSharingConfirmTitle => 'Megosztod a használati adatokat?';
+
+  @override
+  String get dataSharingConfirmAction => 'Megosztás';
+
+  @override
+  String get sharedUsageTitle => 'Megosztott használat';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Használati adatokat megosztó fiókok: $sharing / $total. Csak összesítések, tartalom nélkül.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Még senki sem oszt meg használati adatokat. Bekapcsolható itt: Beállítások, Profil, Az Ön adatai.';
+
+  @override
+  String get sharedUsageRuns => 'Megosztott futtatások';
+
+  @override
+  String get sharedUsageAvgDuration => 'Átl. időtartam';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Befejezett futtatások';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Lépések futtatásonként';
+
+  @override
+  String get sharedUsageDevices => 'Készülékek';
+
+  @override
+  String get sharedUsageAppVersions => 'Alkalmazásverziók';
+
+  @override
+  String get sharedUsageLanguages => 'Nyelvek';
+
+  @override
+  String get sharedUsageRegions => 'Régiók';
+
+  @override
+  String get sharedUsageFeatures => 'Funkcióhasználat';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'A megosztó fiókok aránya, amelyek beállították.';
+
+  @override
+  String get sharedUsageTools => 'Eszközök';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'Leggyakrabban hívott eszközök ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Hívások: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Sikertelen: $percent%';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Integrációk';
+
+  @override
+  String get sharedUsageMessaging => 'Üzenetküldő csatornák';
+
+  @override
+  String get sharedUsageTriggers => 'Hogyan indulnak a futtatások';
+
+  @override
+  String get sharedUsageActivity => 'Mikor használják';
+
+  @override
+  String get sharedUsageActivityDescription =>
+      'Futtatások a hét napja és óra szerint, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Modellteljesítmény';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return 'átl. $latency · $cached% gyorsítótárból · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Fiókok: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'Ebben az időszakban nincs adat.';
+
+  @override
+  String get sharedUsageNotReported => 'Még nincs jelentve';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Több mint egy ügynök';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Ütemezett feladatok';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Skillek';
+
+  @override
+  String get sharedUsageFeatureMcp => 'MCP-szerverek';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Integrációk';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Üzenetküldő csatornák';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Memória';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'opt-in adatmegosztás telemetria készülékek funkciók eszközök modellek aktivitás';
+
+  @override
+  String get yourOAuthApp => 'Saját OAuth-alkalmazásod';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'Saját $provider OAuth-alkalmazásod';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Ezen a szerveren nincs globális $provider-alkalmazás, ezért egy saját magad által regisztrált OAuth-alkalmazással csatlakozol. A klienstitok titkosítva tárolódik, és többé nem jelenik meg.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Hozd létre az alkalmazást';
+
+  @override
+  String get openDeveloperConsole => 'Fejlesztői konzol megnyitása';
+
+  @override
+  String get oauthAppStepCallback => '2. Regisztráld ezt a visszahívási URL-t';
+
+  @override
+  String get callbackUrlCopied => 'Visszahívási URL másolva';
+
+  @override
+  String get oauthAppScopes => 'Engedélyezendő hatókörök';
+
+  @override
+  String get scopesCopied => 'Hatókörök másolva';
+
+  @override
+  String get oauthAppStepCredentials =>
+      '3. Illeszd be az alkalmazás hitelesítő adatait';
+
+  @override
+  String get couldNotSaveOAuthApp =>
+      'Az OAuth-alkalmazást nem sikerült menteni.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Eltávolítod a(z) $provider-alkalmazásodat?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'A csatlakoztatott fiókok a listában maradnak, de nem működnek, amíg újra nem adsz hozzá alkalmazást.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Globális integrációs beállítások';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Opcionális, az egész szerverre érvényes OAuth-alkalmazások. Ha egy integrációnak van ilyen, minden fiók azt használja, és nem adhat hozzá sajátot. Hagyd üresen az integrációt, és minden felhasználó saját alkalmazást állít be. A titkok csak írhatók: hagyd üresen a tárolt érték megtartásához.';
+
+  @override
+  String get globalStatus => 'Globális';
+
+  @override
+  String get perUserStatus => 'Felhasználónként';
+
+  @override
+  String get phoneSyncGuidance =>
+      'Oszd meg a telefon naptárait és névjegyeit az ügynököddel. Minden, már a telefonon lévő fiókkal működik.';
+
+  @override
+  String get phoneSyncElsewhereGuidance =>
+      'Nyisd meg a NeoAgentet a telefonon, és ott kapcsold be a megosztást. Az ügynököd ezután látja a telefon összes fiókjának naptárait és névjegyeit.';
+
+  @override
+  String get manageOnThisPhone => 'Kezelés ezen a telefonon';
+
+  @override
+  String get setUpOnThisPhone => 'Beállítás ezen a telefonon';
+
+  @override
+  String get setUpOnPhone => 'Beállítás a telefonodon';
+
+  @override
+  String emailConnectedArg1(String email) {
+    return '$email csatlakoztatva';
+  }
+
+  @override
+  String get couldNotConnectEmail => 'A fiókot nem sikerült csatlakoztatni.';
+
+  @override
+  String get emailSetupTitle => 'E-mail és naptár csatlakoztatása';
+
+  @override
+  String get emailChecking => 'Postafiók ellenőrzése…';
+
+  @override
+  String get emailSetupIntro =>
+      'Használj alkalmazásjelszót a levelezőszolgáltatódtól. Fejlesztői konzol nélkül, pár perc alatt kész.';
+
+  @override
+  String emailOpenArg1(String provider) {
+    return '$provider megnyitása';
+  }
+
+  @override
+  String get emailStepServers => '1. Add meg a szervereket';
+
+  @override
+  String get emailStepPassword => '1. Hozz létre alkalmazásjelszót';
+
+  @override
+  String emailOpenPasswordPageArg1(String provider) {
+    return '$provider alkalmazásjelszavainak megnyitása';
+  }
+
+  @override
+  String get emailStepSignIn => '2. Bejelentkezés';
+
+  @override
+  String get appPassword => 'Alkalmazásjelszó';
+
+  @override
+  String get appPasswordHelper =>
+      'A szóközök nem számítanak. A NeoAgent titkosítva tárolja.';
+
+  @override
+  String get emailUsernameOptional => 'Felhasználónév, ha nem az e-mail-címed';
+
+  @override
+  String get emailIncludeCalendar => 'Naptár is';
+
+  @override
+  String get emailIncludeContacts => 'Névjegyek is';
+
+  @override
+  String get imapServer => 'IMAP-szerver';
+
+  @override
+  String get smtpServer => 'SMTP-szerver';
+
+  @override
+  String get caldavUrlOptional => 'CalDAV URL (nem kötelező)';
+
+  @override
+  String get carddavUrlOptional => 'CardDAV URL (nem kötelező)';
+
+  @override
+  String get alternativeEmail =>
+      'Csatlakoztasd a postafiókot alkalmazásjelszóval, vagy a naptárat az iCal-hivatkozásával. Pár perc alatt kész.';
+
+  @override
+  String get alternativePhone =>
+      'Oszd meg a telefonon már meglévő naptárat és névjegyeket a NeoAgent alkalmazással.';
+
+  @override
+  String get alternativePhoneElsewhere =>
+      'Oszd meg a telefonon már meglévő naptárat és névjegyeket. Állítsd be a telefonos NeoAgent alkalmazásban.';
+
+  @override
+  String get skipTheDeveloperConsole => 'Fejlesztői konzol nélkül';
+
+  @override
+  String get phoneSyncPromptTitle => 'Láthatja az ügynököd a naptáradat?';
+
+  @override
+  String get phoneSyncPromptBody =>
+      'Oszd meg a telefon naptárait és névjegyeit, hogy az ügynököd a napodhoz igazodva tervezhessen. Bármikor módosíthatod: Eszközök › Integrációk.';
+
+  @override
+  String get phoneSyncTitle =>
+      'A telefon naptárának és névjegyeinek megosztása';
+
+  @override
+  String get phoneSyncIntro =>
+      'Az ügynököd látja a telefon összes fiókjának naptárait és névjegyeit. Nincs fejlesztői konzol, nincs külön bejelentkezés.';
+
+  @override
+  String get phoneSyncPointAccounts =>
+      'Működik a telefonon lévő Google-, Outlook-, iCloud- és Exchange-fiókokkal.';
+
+  @override
+  String get phoneSyncPointPrivate =>
+      'Csak a NeoAgent-szervereddel osztod meg, amely titkosítva tárolja.';
+
+  @override
+  String get phoneSyncPointWrites =>
+      'Az ügynök által hozzáadott eseményeket ez a telefon hozza létre, és a szokásos módon szinkronizálódnak.';
+
+  @override
+  String get phoneSyncCalendarHint =>
+      'Események 30 nappal ezelőttől 90 nappal előre';
+
+  @override
+  String get phoneSyncContacts => 'Névjegyek';
+
+  @override
+  String get phoneSyncContactsHint => 'Nevek, e-mail-címek és telefonszámok';
+
+  @override
+  String get phoneSyncOtherAgent =>
+      'Ez a telefon egy másik ügynökkel oszt meg. Az itteni megosztás áthelyezi ehhez az ügynökhöz.';
+
+  @override
+  String get phoneSyncDenied =>
+      'A NeoAgent még nem fér hozzá. Engedélyezd a Beállításokban, majd gyere vissza.';
+
+  @override
+  String get openPhoneSettings => 'Beállítások megnyitása';
+
+  @override
+  String get phoneSyncShare => 'Megosztás a NeoAgenttel';
+
+  @override
+  String get phoneSyncStop => 'Megosztás leállítása';
+
+  @override
+  String get phoneSyncWaiting => 'Várakozás az első szinkronizálásra…';
+
+  @override
+  String phoneSyncLastSyncedArg1(String time) {
+    return 'Utoljára szinkronizálva: $time';
+  }
+
+  @override
+  String get calendarLink => 'Naptárhivatkozás';
+
+  @override
+  String get calendarLinkHelper =>
+      'A naptár iCal-címe. Bárki, aki ismeri, olvashatja a naptárt, ezért tartsd titokban.';
+
+  @override
+  String get calendarLinkName => 'Név (nem kötelező)';
+
+  @override
+  String get calendarLinkAdded => 'Naptár hozzáadva';
+
+  @override
+  String get toolsApps => 'Alkalmazások';
+
+  @override
+  String get reconnect => 'Újracsatlakozás';
+
+  @override
+  String get reconnectNeeded => 'Újracsatlakozás szükséges';
+
+  @override
+  String get mixedAccess => 'Vegyes hozzáférés';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Leválasztod: $account?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'Az ügynök ezen a fiókon keresztül elveszíti a hozzáférést ehhez: $apps.';
+  }
+
+  @override
+  String get neoRouterServerDescription =>
+      'Csatlakoztasd egyszer a NeoRoutered, és minden itteni fiók azt használja a lent bekapcsolt feladatokhoz.';
+
+  @override
+  String get neoRouterUserDescription =>
+      'A lent bekapcsolt feladatokhoz a saját NeoRouter-fiókodat használd a szerver szolgáltatói helyett.';
+
+  @override
+  String get neoRouterAddress => 'NeoRouter címe';
+
+  @override
+  String get neoRouterConnect => 'NeoRouter csatlakoztatása';
+
+  @override
+  String neoRouterWaitingArg1(Object? arg1) {
+    return 'Hagyd jóvá a NeoAgentet a NeoRouterben. Ott a(z) $arg1 kód látható.';
+  }
+
+  @override
+  String get neoRouterOpenAgain => 'Újra megnyitás';
+
+  @override
+  String neoRouterConnectedArg1(Object? arg1) {
+    return 'Csatlakoztatva: $arg1';
+  }
+
+  @override
+  String get neoRouterUnreachable => 'A NeoRouter most nem érhető el.';
+
+  @override
+  String get neoRouterDisconnect => 'Leválasztás';
+
+  @override
+  String get neoRouterDisconnectBody =>
+      'A NeoAgent többé nem használja ezt a NeoRoutert. A kulcsot is vond vissza a NeoRouter API-kulcsok részében.';
+
+  @override
+  String get neoRouterServerInUse =>
+      'Ez a szerver már mindenkinek NeoRoutert használ. Csatlakoztasd a saját NeoRouter-fiókodat saját modellekhez és kerethez.';
+
+  @override
+  String get neoRouterConnected => 'A NeoRouter csatlakoztatva.';
+
+  @override
+  String get neoRouterRoleChat => 'Csevegés és képfelismerés';
+
+  @override
+  String get neoRouterRoleSystemOne => 'System One döntések';
+
+  @override
+  String get neoRouterRoleTranscription => 'Beszédből szöveg';
+
+  @override
+  String get neoRouterRoleLive => 'Élő hang';
+
+  @override
+  String get neoRouterRoleEmbeddings => 'Keresés a memóriában';
+
+  @override
+  String get neoRouterRoleImages => 'Képek készítése';
+
+  @override
+  String get neoRouterRoleSearch => 'Webes keresés';
+
+  @override
+  String neoRouterModelCountArg1(Object? arg1) {
+    return 'Elérhető a NeoRouteredben: $arg1';
+  }
+
+  @override
+  String get neoRouterNoModels => 'A NeoRouteredben még nincs semmi.';
+
+  @override
+  String get neoRouterPicksModels =>
+      'A NeoRouter minden kéréshez maga választ modellt, ezért ez a készlet nincs használatban.';
+
+  @override
+  String neoRouterNotAllowedArg1(Object? arg1) {
+    return 'A NeoRouteredben: $arg1, de a NeoAgent kulcsa még nem használhatja őket (pl. a fizetőseket). Engedélyezd őket a NeoAgentnek a NeoRouter API-kulcsok részében.';
+  }
+
+  @override
+  String get neoRouterNoDecisionModels =>
+      'Döntési modellek kellenek, például a Jev. A biztonsági osztályozók nem válaszolnak ezekre a kérdésekre.';
+
+  @override
+  String get voiceLiveNoProvider =>
+      'Nincs beállítva élő hang szolgáltató. Adj meg OpenAI- vagy Google AI-kulcsot, vagy csatlakoztass egy NeoRoutert a Modellek → Hozd a saját kulcsodat.';
+
+  @override
+  String get voiceSttAutoNeoRouter =>
+      'Automatikus (a modellt a NeoRouter választja)';
+
+  @override
+  String get voiceNotOffered => 'Már nem érhető el, válassz másikat';
+
+  @override
+  String get agentImport => 'Bring over another agent';
+
+  @override
+  String get agentImportDescription =>
+      'Copies OpenClaw or Hermes Agent from the server\'s computer (~/.openclaw and ~/.hermes) into your account. Nothing is removed there, and importing twice does not duplicate anything.';
+
+  @override
+  String get agentImportNoneFound =>
+      'No OpenClaw or Hermes Agent was found in ~/.openclaw or ~/.hermes on the server\'s computer.';
+
+  @override
+  String get agentImportWhatComes => 'What comes over';
+
+  @override
+  String get agentImportAgentsAlways =>
+      'Agents and their personality always come over; everything else is attached to them.';
+
+  @override
+  String get agentImportPartKeys => 'Keys and AI providers';
+
+  @override
+  String get agentImportPartMemories => 'Memories and notes';
+
+  @override
+  String get agentImportPartSkills => 'Skills';
+
+  @override
+  String get agentImportPartModel => 'Default model';
+
+  @override
+  String get agentImportPartTasks => 'Automations';
+
+  @override
+  String get agentImportPartMcp => 'MCP servers';
+
+  @override
+  String get agentImportPartChannels => 'Chat apps';
+
+  @override
+  String agentImportCountAgents(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count agents',
+      one: '1 agent',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountKeys(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count connections',
+      one: '1 connection',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountMemories(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count memories',
+      one: '1 memory',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days of notes',
+      one: '1 day of notes',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountSkills(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count skills',
+      one: '1 skill',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountTasks(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count automations',
+      one: '1 automation',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountMcp(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count MCP servers',
+      one: '1 MCP server',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportNeedsHandCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count things need a hand afterwards',
+      one: '1 thing needs a hand afterwards',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get agentImportFinish => 'Let NeoAgent finish moving in';
+
+  @override
+  String get agentImportFinishHint =>
+      'After the restart, your agent reworks imported skills for its own tools and rebuilds what the importer left behind. Needs a connected AI.';
+
+  @override
+  String get agentImportRun => 'Bring it over';
+
+  @override
+  String get agentImportRunning => 'Bringing it over…';
+
+  @override
+  String get agentImportMovedIn => 'Moved in';
+
+  @override
+  String get agentImportAlreadyMovedIn => 'Everything was already in NeoAgent.';
+
+  @override
+  String agentImportAlreadyThere(int count) {
+    return '$count already in NeoAgent, left as they were';
+  }
+
+  @override
+  String get agentImportNeedsHand => 'Needs a hand';
+
+  @override
+  String agentImportMore(int count) {
+    return '…and $count more in the report.';
+  }
+
+  @override
+  String agentImportReport(String path) {
+    return 'Full report: $path';
+  }
+
+  @override
+  String agentImportFinishQueued(String name) {
+    return 'Queued \"$name\". It starts two minutes after NeoAgent restarts, and you\'ll get a message when it\'s done.';
+  }
+
+  @override
+  String get agentImportRestartNeeded =>
+      'Restart NeoAgent to load everything that came over.';
+
+  @override
+  String get agentImportRestarted =>
+      'NeoAgent restarted and loaded everything.';
 }

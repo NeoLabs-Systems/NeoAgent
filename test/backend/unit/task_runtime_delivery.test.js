@@ -165,6 +165,47 @@ describe('scheduled task result delivery', () => {
     assert.equal(optionsSeen[0].stageProactiveMessages, true);
   });
 
+  test('task runs see the target chat and what the previous run sent', async () => {
+    const calls = [];
+    const task = await createScheduledTask({
+      async runWithModel(_userId, prompt, options) {
+        calls.push({ prompt, options });
+        return { content: 'Nothing new.' };
+      },
+    }, createMessagingManager());
+    ctx.db.prepare(
+      `INSERT INTO agent_runs (
+        id, user_id, agent_id, title, status, trigger_type, trigger_source, metadata_json
+      ) VALUES ('previous-run', ?, ?, 'Daily summary', 'completed', 'schedule', 'schedule', ?)`
+    ).run(user.userId, task.agentId, JSON.stringify({ taskId: task.id }));
+    ctx.db.prepare(
+      `INSERT INTO messages (user_id, agent_id, run_id, role, content, platform, platform_chat_id)
+       VALUES (?, ?, 'previous-run', 'assistant', 'Invoice 42 is overdue.', 'whatsapp', 'recipient')`
+    ).run(user.userId, task.agentId);
+    ctx.db.prepare(
+      `INSERT INTO conversations (id, user_id, agent_id, platform, platform_chat_id, title)
+       VALUES ('chat-1', ?, ?, 'whatsapp', 'recipient', 'chat')`
+    ).run(user.userId, task.agentId);
+    ctx.db.prepare(
+      `INSERT INTO conversation_messages (conversation_id, role, content, created_at) VALUES
+       ('chat-1', 'assistant', 'Invoice 42 is overdue.', '2026-10-14 08:00:00'),
+       ('chat-1', 'user', 'Paid it, stop reminding me.', '2026-10-14 08:05:00')`
+    ).run();
+
+    await runtime._executeTaskSerial(task.id, user.userId, {
+      manual: true,
+      triggerType: 'schedule',
+      triggerSource: 'schedule',
+      scheduledAt: new Date().toISOString(),
+    });
+
+    assert.match(calls[0].prompt, /Previous run of this task[^\n]*completed\]\nIt sent the user:\nInvoice 42 is overdue\./);
+    assert.deepEqual(
+      calls[0].options.priorMessages.map((message) => message.content),
+      ['Invoice 42 is overdue.', 'Paid it, stop reminding me.'],
+    );
+  });
+
   test('manual task runs bypass user token admission limits', async () => {
     const optionsSeen = [];
     const task = await createScheduledTask({
@@ -633,7 +674,7 @@ describe('scheduled task result delivery', () => {
     assert.deepEqual(runState.sentMessages, []);
   });
 
-  test('a reply in the originating chat is progress, not the run\'s final delivery', async () => {
+  test('a reply in the originating chat is neither the run\'s final delivery nor a move to the background', async () => {
     const { executeTool } = require('../../../server/services/ai/tools');
     const runState = {
       messagingSent: false,
@@ -642,6 +683,7 @@ describe('scheduled task result delivery', () => {
       sentMessages: [],
     };
     const sent = [];
+    const visible = [];
     const engine = {
       activeRuns: new Map([['run-id', runState]]),
       messagingManager: {
@@ -650,6 +692,8 @@ describe('scheduled task result delivery', () => {
           return { success: true };
         },
       },
+      markRunVisibleReply: (runId) => visible.push(['reply', runId]),
+      markRunVisibleProgress: (runId) => visible.push(['progress', runId]),
     };
     const context = {
       userId: user.userId,
@@ -669,6 +713,7 @@ describe('scheduled task result delivery', () => {
     assert.equal(runState.messagingSent, false);
     assert.equal(runState.explicitMessageSent, false);
     assert.equal(runState.finalDeliverySent, false);
+    assert.deepEqual(visible, []);
 
     await executeTool('send_message', {
       platform: 'WHATSAPP',
@@ -679,6 +724,7 @@ describe('scheduled task result delivery', () => {
     assert.equal(sent.length, 2);
     assert.equal(runState.explicitMessageSent, true);
     assert.equal(runState.finalDeliverySent, false);
+    assert.deepEqual(visible, [['reply', 'run-id']]);
   });
 
   test('send_message does not use phrase matching to classify an origin reply', async () => {

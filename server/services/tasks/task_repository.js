@@ -131,6 +131,8 @@ class TaskRepository {
     return db.prepare('SELECT * FROM scheduled_tasks WHERE enabled = 1').all();
   }
 
+  // run_at is compared as a time, not as text: ISO values ("...T05:00:00.000Z")
+  // sort after SQLite's "... 09:00:00" on the same day as strings.
   listDueOneTimeTasks() {
     return db.prepare(
       `SELECT * FROM scheduled_tasks
@@ -138,7 +140,7 @@ class TaskRepository {
          AND one_time = 1
          AND enabled = 1
          AND run_at IS NOT NULL
-         AND run_at <= datetime('now')`
+         AND julianday(run_at) <= julianday('now')`
     ).all();
   }
 
@@ -219,6 +221,24 @@ class TaskRepository {
   getUserSetting(userId, key) {
     return db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
       .get(userId, key);
+  }
+
+  // The latest run of a task with the messages it delivered.
+  getLastTaskRun(userId, taskId) {
+    const run = db.prepare(
+      `SELECT id, status, error, final_response, created_at
+       FROM agent_runs
+       WHERE user_id = ?
+         AND json_valid(metadata_json)
+         AND CAST(json_extract(metadata_json, '$.taskId') AS TEXT) = ?
+       ORDER BY created_at DESC, rowid DESC
+       LIMIT 1`
+    ).get(userId, String(taskId));
+    if (!run) return null;
+    const sentMessages = db.prepare(
+      "SELECT content FROM messages WHERE run_id = ? AND role = 'assistant' ORDER BY id"
+    ).all(run.id).map((row) => row.content);
+    return { ...run, sentMessages };
   }
 
   getTaskConversation(userId, agentId, platform, platformChatId) {

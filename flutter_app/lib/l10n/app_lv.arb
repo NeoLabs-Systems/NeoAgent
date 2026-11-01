@@ -154,6 +154,8 @@
   "addKey": "Pievienot atslēgu",
   "addMcpServer": "Pievienojiet MCP serveri",
   "addMemory": "Pievienot atmiņu",
+  "memoryReview": "Pārskatīt",
+  "memoryReviewPrompt": "Pārskati visas manas atmiņas un sakārto tās: arhivē dublikātus, novecojušus faktus un visu, kam nav paliekošas vērtības. Pēc tam īsi pastāsti, ko mainīji.",
   "addMoreLengthOrAnotherCharacter": "Pievienojiet vairāk garuma vai cita veida rakstzīmes.",
   "addPeopleOrGroups": "Pievienojiet personas vai grupas",
   "addSecurityKey": "Pievienojiet drošības atslēgu",
@@ -1901,7 +1903,6 @@
   "assistant": "Asistents",
   "assistantKey131": "Asistenta atslēga 131",
   "atLeast1": "Vismaz 1.",
-  "atLeast1000AppliesAfterA": "Vismaz 1000. Attiecas pēc servera restartēšanas.",
   "attachFiles": "Pievienojiet failus",
   "attentionArg1": "Uzmanību {arg1}",
   "@attentionArg1": {
@@ -2007,7 +2008,6 @@
   "botUsername": "Bota lietotājvārds",
   "brandName": "Zīmola nosaukums",
   "braveSearch": "Drosmīga meklēšana",
-  "breakdown": "Sadalījums:",
   "bridgeAnyProviderThatCanPost": "Pārvietojiet jebkuru pakalpojumu sniedzēju, kas var izlikt un saņemt tīmekļa aizķeres lietderīgās slodzes.",
   "bringYourOwnKey": "paņem līdzi savu atslēgu",
   "bringYourOwnKey2": "Paņemiet līdzi savu atslēgu",
@@ -2030,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Var saņemt deleģētos uzdevumus",
   "cancel": "Atcelt",
   "cancelTask": "Atcelt uzdevumu",
-  "candidateCountArg1": "Kandidātu skaits: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Nevar priekšskatīt",
   "cannotReceiveDelegatedTasks": "nevar saņemt deleģētos uzdevumus",
   "cannotRunYet": "vēl nevar skriet.",
@@ -2308,14 +2300,6 @@
   "connectionMethod": "Savienojuma metode",
   "containsTextOptional": "Satur tekstu (pēc izvēles)",
   "content": "Saturs",
-  "contentArg1": "Sastāvs: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "satura drošības politika",
   "continue2": "Turpināt",
   "continueFullSetup": "Turpiniet pilnu iestatīšanu",
@@ -2752,21 +2736,12 @@
       }
     }
   },
-  "errorArg12": "Kļūda: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Kļūdas no nesenā žurnāla, grupētas pēc ziņojuma.",
   "errorsProblemsFailures": "kļūdas problēmas neveiksmes",
   "eventTypesCommaSeparated": "Pasākumu veidi (atdalīti ar komatu)",
   "every15Minutes": "Ik pēc 15 minūtēm",
   "every30Minutes": "Ik pēc 30 minūtēm",
   "everyAccountOnThisServerLoses": "Katrs konts šajā serverī zaudē šo koplietoto atslēgu. Konti ",
-  "everyAccountOnThisServerSecrets": "katrs konts šajā serverī. Noslēpumus var rakstīt tikai: atstājiet ",
   "everyAccountOnThisServerUses": "Katrs konts šajā serverī izmanto šo adresi ",
   "everyActiveSessionForThisAccount": "Katra šī konta aktīvā sesija beidzas. Viņi var pierakstīties ",
   "everyDay0800": "Katru dienu · 08:00",
@@ -3012,14 +2987,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Pilna uzvedne",
   "fullSetup": "Pilna iestatīšana",
-  "fullTextFtsArg1": "Pilns teksts (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Ģenerālis",
   "generalSettings": "Vispārīgi iestatījumi",
   "generalSettingsSaved": "Vispārīgie iestatījumi ir saglabāti.",
@@ -3218,7 +3185,6 @@
   "input": "Ievade",
   "inputMode": "Ievades režīms",
   "insertATemplate": "Ievietojiet veidni",
-  "inspect": "Pārbaudīt",
   "install": "Instalējiet",
   "installASignedSelfContainedRuntime": "Instalējiet parakstītu, autonomu izpildlaiku. Node.js, npm, Git un termināļa komandas nav nepieciešamas.",
   "installApk": "Instalējiet APK",
@@ -3251,7 +3217,6 @@
   },
   "instructions": "Norādījumi",
   "integration": "Integrācija",
-  "integrationApps": "Integrācijas lietotnes",
   "integrationConnections": "Integrācijas savienojumi",
   "integrationSettingsSaved": "Integrācijas iestatījumi ir saglabāti.",
   "integrations": "Integrācijas",
@@ -3470,14 +3435,6 @@
       }
     }
   },
-  "lexicalArg1": "Leksiskā: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "limit20": "LIMIT 20",
   "limit50": "LIMIT 50",
   "linkArg1": "Saite {arg1}",
@@ -3601,10 +3558,6 @@
       }
     }
   },
-  "memoryImportSync": "atmiņas importa sinhronizācija",
-  "memoryIngestionInterval": "Atmiņas uzņemšanas intervāls",
-  "memoryIngestionIntervalMs": "Atmiņas uzņemšanas intervāls (ms)",
-  "memoryIngestionIntervalMustBeAt": "Atmiņas ievades intervālam ir jābūt vismaz 1000 ms.",
   "memoryInjected": "Atmiņa ievadīta",
   "mentionOrReplyOnly": "Tikai pieminēt vai atbildēt",
   "mergedServerAndFlutterRuntimeLogs": "Šai lietotnes sesijai ir apvienoti servera un Flutter izpildlaika žurnāli.",
@@ -3629,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Mikrofons izslēgts. Pieskarieties, lai ieslēgtu skaņu.",
   "microphonePermissionIsRequiredForLive": "Tiešraides balsij ir nepieciešama mikrofona atļauja.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack un citas integrācijas. Tie attiecas uz ",
   "microsoftTeams": "Microsoft Teams",
   "minimumContributionValueArg1": "Minimālā iemaksas vērtība: {arg1}",
   "@minimumContributionValueArg1": {
@@ -3676,6 +3628,8 @@
     }
   },
   "modelAvailability": "Modeļa pieejamība",
+  "autoEnableNewModels": "Automātiski iespējot jaunos modeļus",
+  "autoEnableNewModelsHint": "Ja izslēgts, modeļi, ko nodrošinātājs pievieno vēlāk, paliek atspējoti, līdz tos iespējosiet.",
   "modelAvailabilitySaved": "Modeļa pieejamība saglabāta.",
   "modelForThisSession": "Šīs sesijas modelis",
   "modelOverride": "Modeļa ignorēšana",
@@ -3911,6 +3865,61 @@
   "noMcpServersMatchThisSearch": "Šim meklējumam neatbilst neviens MCP serveris.",
   "noMemoryEntriesFound": "Atmiņas ieraksti nav atrasti.",
   "noMemorySync": "Nav atmiņas sinhronizācijas",
+  "importPastEmailsIntoMemoryHint": "Vienreiz izlasa pēdējo 12 mēnešu svarīgos un nosūtītos e-pastus, lai aģents zinātu jūsu kontaktus un projektus.",
+  "emailMemory": "E-pasta atmiņa",
+  "importNow": "Importēt tagad",
+  "importOnConnect": "Pievienojot kontu, importēt iepriekšējos e-pastus",
+  "sweepStarting": "Sagatavo…",
+  "sweepReadingProgress": "Lasa e-pastus · {done} no {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Lasa e-pastus · atrasti {count}",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Mācās no e-pastiem · {done} no {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Pēdējais imports: {emails} e-pasti · {memories} jaunas atmiņas",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Nav jaunu e-pastu importēšanai",
+  "sweepFailed": "Importēšana neizdevās: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Neviens modelis neatbilst \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -3997,7 +4006,6 @@
   "nothingStoredYet": "Vēl nekas nav saglabāts.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "OAuth lietotnes akreditācijas dati, kas ļauj kontiem izveidot savienojumu ar Google, ",
   "oauthClientId": "OAuth klienta ID",
   "oauthClientIdSecretRedirectApi": "oauth klienta ID slepenā novirzīšanas api atslēga",
   "oauthClientIdSecretRedirectGmail": "oauth klienta ID slepenais novirzīšanas Gmail kalendāra disks",
@@ -4035,7 +4043,6 @@
   "onTheyCanJoinAgainOnly": "ieslēgts. Viņi var atkal pievienoties, tikai izmantojot jaunu uzaicinājuma saiti.",
   "onYourOwnTheDefault": "Viens pats (noklusējums)",
   "once": "Vienreiz",
-  "oneBlankToKeepWhatIs": "viena tukša, lai saglabātu to, kas tiek glabāts.",
   "oneIsSavedOtherChangesIn": "viens ir izglābts. Tiek saglabātas arī citas izmaiņas šajā veidlapā.",
   "oneOrMoreAccountsExpiredReconnect": "Vienam vai vairākiem kontiem ir beidzies derīguma termiņš. Atkārtoti pievienojiet ietekmēto kontu, lai atjaunotu piekļuvi rīkam.",
   "oneRuntimeControlsPersonaGroupTurn": "Viens izpildlaiks kontrolē personu, grupu gājienu uzņemšanu, telpas atmiņu, normas, prāta teoriju un piegādi.",
@@ -4292,7 +4299,6 @@
   "qrLoginRequestWasNotFound": "qr pieteikšanās pieprasījums netika atrasts",
   "qrPairing": "QR savienošana pārī",
   "queriesRunAnythingThatWritesIs": "tiek izpildīti vaicājumi; viss, kas raksta, tiek noraidīts.",
-  "query": "Vaicājums",
   "queryFilter": "Vaicājums / filtrs",
   "queuedAsSteeringForTheCurrent": "Rindā kā stūrēšana pašreizējam braucienam: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4377,14 +4383,6 @@
   "registrationIsClosed": "reģistrācija ir slēgta",
   "registrationRegisterNewAccountsAllowSignup": "reģistrācija reģistrēt jaunus kontus ļauj reģistrēties",
   "rejectInvalidTlsCertificates": "Noraidīt nederīgos TLS sertifikātus",
-  "relationArg1": "Saistība: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "atlaist un restartēt. Pievienotās lietotnes tiek atkārtoti savienotas, tiklīdz tās ir atjaunotas.",
   "releaseChannel": "Atbrīvošanas kanāls",
   "releaseCommitBranchNode": "atbrīvot commit filiāles mezglu",
@@ -4487,7 +4485,6 @@
   "resultDelivery": "Rezultātu piegāde",
   "resultOneClickAddsOneYou": "rezultāts. Viens klikšķis pievieno vienu; jūs varat to rediģēt vēlāk.",
   "results": "Rezultāti",
-  "retrievalInspector": "Atgūšanas inspektors",
   "retry": "Mēģiniet vēlreiz",
   "reusableUsedArg1": "Atkārtoti lietojams · lietots {arg1}×",
   "@reusableUsedArg1": {
@@ -4643,14 +4640,6 @@
   "scansNewEmailAndOnlyPings": "Skenē jaunos e-pasta ziņojumus un nosūta jums ping tikai tad, kad kaut kas ir svarīgs.",
   "schedule": "Grafiks",
   "scheduledTimeOnceRunsAreMeasured": "ieplānotais laiks. Kad skrējieni ir izmērīti, tie sāksies agrāk.",
-  "scoreArg1": "Rezultāts: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Ekrāns",
   "screenAction": "ekrāna darbība",
   "scrollIsNotSupportedOnThis": "ritināšana šajā platformā netiek atbalstīta.",
@@ -4712,14 +4701,6 @@
     }
   },
   "selectTrigger": "Atlasiet Trigger",
-  "semanticArg1": "Semantika: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Sūtīt (⌘↵)",
   "send2": "Sūtīt",
   "sendATaskFromChatAnd": "Nosūtiet uzdevumu no tērzēšanas, un šeit tiks parādīta tā izpildes vēsture.",
@@ -5633,14 +5614,6 @@
   "value": "Vērtība",
   "vaultLocked": "Velve aizslēgta",
   "vaultOperationFailed": "Vault darbība neizdevās.",
-  "vectorRankArg1": "Vektora rangs: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Verifikācija",
   "verificationArg1": "Verifikācija: {arg1}",
   "@verificationArg1": {
@@ -6553,6 +6526,7 @@
   "settingsPageComputer": "Dators un tīmeklis",
   "settingsPageBehavior": "Uzvedība",
   "settingsPageSystem": "Sistēma",
+  "settingsPagePlatforms": "Platformas",
   "settingsPageProfileDescription": "Jūsu vārds un e-pasts, jūsu datu kopija un izrakstīšanās.",
   "settingsPageSecurityDescription": "Parole, divu faktoru autentifikācija, drošības atslēgas un vieta, kur esat pierakstījies.",
   "settingsPageUsageDescription": "Jūsu ierobežojumi un pilnvaru tēriņi — viss vienuviet.",
@@ -6990,5 +6964,295 @@
   "signupKeysSaveDialogTitle": "Saglabāt reģistrācijas atslēgas",
   "signupKeysExported": "Atslēgas eksportētas.",
   "auditSignupKeysCreated": "{actor} izveidoja reģistrācijas atslēgas ({count})",
-  "auditSignupKeyRevoked": "{actor} atsauca reģistrācijas atslēgu"
+  "auditSignupKeyRevoked": "{actor} atsauca reģistrācijas atslēgu",
+  "dataSharingTitle": "Kopīgot lietojuma datus",
+  "dataSharingDescription": "Palīdziet šī servera uzturētājiem to uzlabot. Tiek kopīgots, kā lietojat NeoAgent, nekad ne tas, ko rakstāt vai glabājat.",
+  "dataSharingSince": "Kopīgots kopš {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Kas tiek kopīgots",
+  "dataSharingIncluded": "Tiek kopīgots",
+  "dataSharingExcluded": "Nekad netiek kopīgots",
+  "dataSharingIncludedDevice": "Ierīces veids un lietotnes versija",
+  "dataSharingIncludedLocale": "Lietotnes valoda un laika joslas reģions, piemēram, Eiropa",
+  "dataSharingIncludedFeatures": "Kuras funkcijas esat iestatījis, piemēram, uzdevumi, prasmes un integrācijas",
+  "dataSharingIncludedRuns": "Kurus rīkus un modeļus izmanto jūsu palaidieni, ar ilgumu un marķieru skaitu",
+  "dataSharingIncludedActivity": "Kad lietojat NeoAgent, pa nedēļas dienām un stundām",
+  "dataSharingExcludedContent": "Ziņas, uzvednes un atbildes",
+  "dataSharingExcludedRuns": "Palaidienu nosaukumi, rīku ievade un rezultāti",
+  "dataSharingExcludedFiles": "Faili, atmiņas un viss pārējais, ko glabājat",
+  "dataSharingExcludedIdentity": "Jūsu vārds, e-pasts, IP adrese un atrašanās vieta",
+  "dataSharingExcludedAccounts": "Konti, ar kuriem savienojat integrācijas",
+  "dataSharingPooledNote": "Administratori redz tikai visu kopīgotāju kopsummas, nekad jūs atsevišķi. Izslēdziet jebkurā laikā, un uzreiz izkrītat no kopsummām.",
+  "dataSharingConfirmTitle": "Kopīgot lietojuma datus?",
+  "dataSharingConfirmAction": "Kopīgot",
+  "sharedUsageTitle": "Kopīgotais lietojums",
+  "sharedUsageParticipants": "Konti, kas kopīgo lietojuma datus: {sharing} no {total}. Tikai kopsummas, bez satura.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Neviens vēl nekopīgo lietojuma datus. To var ieslēgt šeit: Iestatījumi, Profils, Jūsu dati.",
+  "sharedUsageRuns": "Kopīgotie palaidieni",
+  "sharedUsageAvgDuration": "Vid. ilgums",
+  "sharedUsageCompletedRuns": "Pabeigtie palaidieni",
+  "sharedUsageStepsPerRun": "Soļi vienā palaidienā",
+  "sharedUsageDevices": "Ierīces",
+  "sharedUsageAppVersions": "Lietotnes versijas",
+  "sharedUsageLanguages": "Valodas",
+  "sharedUsageRegions": "Reģioni",
+  "sharedUsageFeatures": "Funkciju izmantošana",
+  "sharedUsageFeaturesDescription": "To kopīgojošo kontu daļa, kas to ir iestatījuši.",
+  "sharedUsageTools": "Rīki",
+  "sharedUsageToolsDescription": "Visbiežāk izsauktie rīki ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Izsaukumi: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Neizdevās: {percent}%",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integrācijas",
+  "sharedUsageMessaging": "Ziņojumu kanāli",
+  "sharedUsageTriggers": "Kā sākas palaidieni",
+  "sharedUsageActivity": "Kad to lieto",
+  "sharedUsageActivityDescription": "Palaidieni pa nedēļas dienām un stundām, UTC.",
+  "sharedUsageModels": "Modeļu veiktspēja",
+  "sharedUsageModelDetail": "vid. {latency} · {cached}% no kešatmiņas · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Konti: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Šajā periodā nekā nav.",
+  "sharedUsageNotReported": "Vēl nav ziņots",
+  "sharedUsageFeatureAgents": "Vairāk nekā viens aģents",
+  "sharedUsageFeatureTasks": "Ieplānotie uzdevumi",
+  "sharedUsageFeatureSkills": "Prasmes",
+  "sharedUsageFeatureMcp": "MCP serveri",
+  "sharedUsageFeatureIntegrations": "Integrācijas",
+  "sharedUsageFeatureMessaging": "Ziņojumu kanāli",
+  "sharedUsageFeatureMemory": "Atmiņa",
+  "sharedUsageSearchKeywords": "opt-in datu kopīgošana telemetrija ierīces funkcijas rīki modeļi aktivitāte",
+  "providerChooseUsername": "Izvēlieties lietotājvārdu",
+  "providerChooseUsernameBody": "Izvēlieties brīvu lietotājvārdu, lai pabeigtu konta izveidi.",
+  "yourOAuthApp": "Jūsu OAuth lietotne",
+  "oauthAppSetupTitle": "Jūsu {provider} OAuth lietotne",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Šim serverim nav globālas {provider} lietotnes, tāpēc jūs pievienojaties ar paša reģistrētu OAuth lietotni. Klienta noslēpums tiek glabāts šifrēts un vairs netiek rādīts.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Izveidojiet lietotni",
+  "openDeveloperConsole": "Atvērt izstrādātāju konsoli",
+  "oauthAppStepCallback": "2. Reģistrējiet šo atzvanīšanas URL",
+  "callbackUrlCopied": "Atzvanīšanas URL nokopēts",
+  "oauthAppScopes": "Atļaujamie tvērumi",
+  "scopesCopied": "Tvērumi nokopēti",
+  "oauthAppStepCredentials": "3. Ielīmējiet lietotnes akreditācijas datus",
+  "couldNotSaveOAuthApp": "Neizdevās saglabāt OAuth lietotni.",
+  "removeOAuthAppTitle": "Vai noņemt jūsu {provider} lietotni?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Pievienotie konti paliek sarakstā, bet pārstāj darboties, līdz atkal pievienosiet lietotni.",
+  "globalIntegrationConfiguration": "Globālā integrāciju konfigurācija",
+  "globalIntegrationConfigurationDescription": "Neobligātas visa servera OAuth lietotnes. Ja integrācijai tāda ir, to izmanto katrs konts un nevar pievienot savu. Atstājiet integrāciju neiestatītu, un katrs lietotājs iestatīs savu lietotni. Noslēpumus var tikai ierakstīt: atstājiet tukšu, lai saglabātu esošo vērtību.",
+  "globalStatus": "Globāli",
+  "perUserStatus": "Katram lietotājam",
+  "phoneSyncGuidance": "Kopīgojiet šī tālruņa kalendārus un kontaktus ar savu aģentu. Darbojas ar visiem kontiem, kas jau ir tālrunī.",
+  "phoneSyncElsewhereGuidance": "Atveriet NeoAgent tālrunī un tur ieslēdziet kopīgošanu. Aģents tad redzēs visu šī tālruņa kontu kalendārus un kontaktus.",
+  "manageOnThisPhone": "Pārvaldīt šajā tālrunī",
+  "setUpOnThisPhone": "Iestatīt šajā tālrunī",
+  "setUpOnPhone": "Iestatīt tālrunī",
+  "emailConnectedArg1": "{email} pievienots",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Kontu neizdevās pievienot.",
+  "emailSetupTitle": "Pievienot e-pastu un kalendāru",
+  "emailChecking": "Pārbauda pastkastīti…",
+  "emailSetupIntro": "Izmantojiet lietotnes paroli no e-pasta pakalpojuma sniedzēja. Bez izstrādātāju konsoles, gatavs pāris minūtēs.",
+  "emailOpenArg1": "Atvērt {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Ievadiet serverus",
+  "emailStepPassword": "1. Izveidojiet lietotnes paroli",
+  "emailOpenPasswordPageArg1": "Atvērt {provider} lietotņu paroles",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Pierakstīšanās",
+  "appPassword": "Lietotnes parole",
+  "appPasswordHelper": "Atstarpēm nav nozīmes. NeoAgent to glabā šifrētu.",
+  "emailUsernameOptional": "Lietotājvārds, ja tas nav jūsu e-pasts",
+  "emailIncludeCalendar": "Iekļaut kalendāru",
+  "emailIncludeContacts": "Iekļaut kontaktus",
+  "imapServer": "IMAP serveris",
+  "smtpServer": "SMTP serveris",
+  "caldavUrlOptional": "CalDAV URL (neobligāti)",
+  "carddavUrlOptional": "CardDAV URL (neobligāti)",
+  "alternativeEmail": "Pievienojiet pastkastīti ar lietotnes paroli vai kalendāru ar tā iCal saiti. Gatavs pāris minūtēs.",
+  "alternativePhone": "Kopīgojiet tālrunī jau esošo kalendāru un kontaktus ar lietotni NeoAgent.",
+  "alternativePhoneElsewhere": "Kopīgojiet tālrunī jau esošo kalendāru un kontaktus. Iestatiet to NeoAgent lietotnē tālrunī.",
+  "skipTheDeveloperConsole": "Bez izstrādātāju konsoles",
+  "phoneSyncPromptTitle": "Ļaut aģentam redzēt jūsu kalendāru?",
+  "phoneSyncPromptBody": "Kopīgojiet šī tālruņa kalendārus un kontaktus, lai aģents varētu plānot jūsu dienu. To var mainīt jebkurā laikā sadaļā Rīki › Integrācijas.",
+  "phoneSyncTitle": "Kopīgot tālruņa kalendāru un kontaktus",
+  "phoneSyncIntro": "Aģents redz visu šī tālruņa kontu kalendārus un kontaktus. Bez izstrādātāju konsoles un papildu pierakstīšanās.",
+  "phoneSyncPointAccounts": "Darbojas ar šī tālruņa Google, Outlook, iCloud un Exchange kontiem.",
+  "phoneSyncPointPrivate": "Kopīgots tikai ar jūsu NeoAgent serveri, kas tos glabā šifrētus.",
+  "phoneSyncPointWrites": "Aģenta pievienotos notikumus izveido šis tālrunis, un tie sinhronizējas kā parasti.",
+  "phoneSyncCalendarHint": "Notikumi no 30 dienām atpakaļ līdz 90 dienām uz priekšu",
+  "phoneSyncContacts": "Kontakti",
+  "phoneSyncContactsHint": "Vārdi, e-pasta adreses un tālruņa numuri",
+  "phoneSyncOtherAgent": "Šis tālrunis kopīgo ar citu aģentu. Kopīgojot šeit, tas pāriet pie šī aģenta.",
+  "phoneSyncDenied": "NeoAgent vēl nav piekļuves. Atļaujiet to iestatījumos un atgriezieties.",
+  "openPhoneSettings": "Atvērt iestatījumus",
+  "phoneSyncShare": "Kopīgot ar NeoAgent",
+  "phoneSyncStop": "Pārtraukt kopīgošanu",
+  "phoneSyncWaiting": "Gaida pirmo sinhronizāciju…",
+  "phoneSyncLastSyncedArg1": "Pēdējoreiz sinhronizēts {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Kalendāra saite",
+  "calendarLinkHelper": "Kalendāra iCal adrese. Ikviens, kam tā ir, var lasīt kalendāru, tāpēc glabājiet to privāti.",
+  "calendarLinkName": "Nosaukums (neobligāti)",
+  "calendarLinkAdded": "Kalendārs pievienots",
+  "toolsApps": "Lietotnes",
+  "reconnect": "Savienot vēlreiz",
+  "reconnectNeeded": "Jāsavieno vēlreiz",
+  "mixedAccess": "Jaukta piekļuve",
+  "disconnectAccountTitle": "Atvienot {account}?",
+  "disconnectAccountBody": "Aģents caur šo kontu zaudē piekļuvi {apps}.",
+  "neoRouterServerDescription": "Pievienojiet savu NeoRouter vienreiz, un katrs konts šeit to izmantos tālāk ieslēgtajiem darbiem.",
+  "neoRouterUserDescription": "Tālāk ieslēgtajiem darbiem izmantojiet savu NeoRouter kontu, nevis šī servera pakalpojumu sniedzējus.",
+  "neoRouterAddress": "NeoRouter adrese",
+  "neoRouterConnect": "Pievienot NeoRouter",
+  "neoRouterWaitingArg1": "Apstipriniet NeoAgent NeoRouter. Tas rāda kodu {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Atvērt vēlreiz",
+  "neoRouterConnectedArg1": "Savienots ar {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "NeoRouter pašlaik nav sasniedzams.",
+  "neoRouterDisconnect": "Atvienot",
+  "neoRouterDisconnectBody": "NeoAgent vairs neizmanto šo NeoRouter. Lai atsauktu arī atslēgu, atsauciet to NeoRouter sadaļā API atslēgas.",
+  "neoRouterServerInUse": "Šis serveris jau izmanto NeoRouter visiem. Pievienojiet savu NeoRouter kontu, lai būtu savi modeļi un budžets.",
+  "neoRouterConnected": "NeoRouter ir pievienots.",
+  "neoRouterRoleChat": "Tērzēšana un attēlu atpazīšana",
+  "neoRouterRoleSystemOne": "System One lēmumi",
+  "neoRouterRoleTranscription": "Runa uz tekstu",
+  "neoRouterRoleLive": "Tiešraides balss",
+  "neoRouterRoleEmbeddings": "Meklēšana atmiņā",
+  "neoRouterRoleImages": "Attēlu veidošana",
+  "neoRouterRoleSearch": "Meklēšana tīmeklī",
+  "neoRouterModelCountArg1": "Jūsu NeoRouter pieejami: {arg1}",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Jūsu NeoRouter vēl nekā nav.",
+  "neoRouterPicksModels": "NeoRouter izvēlas modeli katram pieprasījumam, tāpēc šī izlase netiek izmantota.",
+  "neoRouterNotAllowedArg1": "Jūsu NeoRouter: {arg1}, bet NeoAgent atslēga tos vēl nedrīkst izmantot (piem., maksas). Atļaujiet tos NeoAgent NeoRouter sadaļā API atslēgas.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Vajadzīgi lēmumu modeļi, piemēram, Jev. Drošības klasifikatori uz šiem jautājumiem neatbild.",
+  "voiceLiveNoProvider": "Nav iestatīts neviens tiešraides balss nodrošinātājs. Pievienojiet OpenAI vai Google AI atslēgu vai pievienojiet NeoRouter sadaļā Modeļi → Paņemiet līdzi savu atslēgu.",
+  "voiceSttAutoNeoRouter": "Automātiski (modeli izvēlas NeoRouter)",
+  "voiceNotOffered": "Vairs netiek piedāvāts, izvēlieties citu"
 }

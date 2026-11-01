@@ -69,7 +69,7 @@ The shared callback also serves two other flows, told apart by the `state` prefi
 
 ## Memory ingestion
 
-- **Collectors.** A provider may implement `collectMemoryDocuments()`; Google Workspace is the only one today.
+- **Sweep.** A mail provider may implement `collectMemorySweep()`, run once when an account connects; Google Workspace (Gmail) and Microsoft 365 (Outlook) do.
 - **Coverage.** Snapshots shown in the app are decorated with ingestion status, domains and document counts.
 - **Details.** See [Memory architecture](memory-architecture.md#integration-ingestion).
 

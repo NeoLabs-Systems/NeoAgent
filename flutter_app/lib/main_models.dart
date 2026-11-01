@@ -3034,6 +3034,7 @@ class OfficialIntegrationAppItem {
     this.accounts = const <OfficialIntegrationAccountItem>[],
     this.availableToolCount = 0,
     this.memoryCoverage = const OfficialIntegrationMemoryCoverage(),
+    this.memorySweep = false,
   });
 
   factory OfficialIntegrationAppItem.fromJson(Map<dynamic, dynamic> json) {
@@ -3055,6 +3056,7 @@ class OfficialIntegrationAppItem {
       memoryCoverage: OfficialIntegrationMemoryCoverage.fromJson(
         _jsonMap(json['memoryCoverage']),
       ),
+      memorySweep: json['memorySweep'] == true,
     );
   }
 
@@ -3065,6 +3067,9 @@ class OfficialIntegrationAppItem {
   final List<OfficialIntegrationAccountItem> accounts;
   final int availableToolCount;
   final OfficialIntegrationMemoryCoverage memoryCoverage;
+
+  /// Connecting this app can import its important past mail into memory.
+  final bool memorySweep;
 
   bool get isConnected => connection.connected;
 
@@ -3084,6 +3089,7 @@ class OfficialIntegrationEnvStatus {
     required this.missing,
     required this.summary,
     this.setupMode,
+    this.alternatives = const <String>[],
   });
 
   factory OfficialIntegrationEnvStatus.fromJson(Map<dynamic, dynamic> json) {
@@ -3095,6 +3101,7 @@ class OfficialIntegrationEnvStatus {
           : const <String>[],
       summary: json['summary']?.toString() ?? '',
       setupMode: json['setupMode']?.toString(),
+      alternatives: _jsonStringList(json['alternatives']),
     );
   }
 
@@ -3102,6 +3109,9 @@ class OfficialIntegrationEnvStatus {
   final List<String> missing;
   final String summary;
   final String? setupMode;
+
+  /// Integrations that reach the same data without registering an app.
+  final List<String> alternatives;
 }
 
 class OfficialIntegrationConnectionStatus {
@@ -3159,8 +3169,8 @@ class OfficialIntegrationMemoryCoverage {
     this.dataDomains = const <String>[],
     this.documentCount = 0,
     this.lastRefreshAt,
-    this.nextRefreshAt,
     this.error,
+    this.sweep,
   });
 
   factory OfficialIntegrationMemoryCoverage.fromJson(
@@ -3177,8 +3187,10 @@ class OfficialIntegrationMemoryCoverage {
           : const <String>[],
       documentCount: _asInt(json['documentCount']),
       lastRefreshAt: _parseOptionalTimestamp(json['lastRefreshAt']?.toString()),
-      nextRefreshAt: _parseOptionalTimestamp(json['nextRefreshAt']?.toString()),
       error: json['error']?.toString(),
+      sweep: json['sweep'] is Map
+          ? MemorySweepProgress.fromJson(_jsonMap(json['sweep']))
+          : null,
     );
   }
 
@@ -3189,10 +3201,70 @@ class OfficialIntegrationMemoryCoverage {
   final List<String> dataDomains;
   final int documentCount;
   final DateTime? lastRefreshAt;
-  final DateTime? nextRefreshAt;
   final String? error;
 
+  /// The latest import of past mail for this account, while it runs and
+  /// after it finished (until the server restarts).
+  final MemorySweepProgress? sweep;
+
   String get statusLabel => _titleCase(status.replaceAll('_', ' '));
+}
+
+/// Where an import of past mail into memory stands: reading the mailbox,
+/// then learning durable facts from what it read.
+class MemorySweepProgress {
+  const MemorySweepProgress({
+    required this.state,
+    this.phase = 'reading',
+    this.done = 0,
+    this.total,
+    this.imported = 0,
+    this.learned = 0,
+    this.error,
+  });
+
+  const MemorySweepProgress.starting() : this(state: 'running');
+
+  factory MemorySweepProgress.fromJson(Map<dynamic, dynamic> json) {
+    return MemorySweepProgress(
+      state: json['state']?.toString() ?? 'running',
+      phase: json['phase']?.toString() ?? 'reading',
+      done: _asInt(json['done']),
+      total: json['total'] == null ? null : _asInt(json['total']),
+      imported: _asInt(json['imported']),
+      learned: _asInt(json['learned']),
+      error: json['error']?.toString(),
+    );
+  }
+
+  final String state;
+  final String phase;
+  final int done;
+  final int? total;
+  /// Emails read in a finished import.
+  final int imported;
+
+  /// New memories a finished import added; duplicates of what memory
+  /// already held do not count.
+  final int learned;
+  final String? error;
+
+  bool get isRunning => state == 'running';
+  bool get isFailed => state == 'failed';
+  bool get isCompleted => state == 'completed';
+
+  /// Progress through the whole import, 0 to 1; null while the size of the
+  /// current phase is not known yet.
+  double? get fraction {
+    final (start, span) = switch (phase) {
+      'learning' => (0.3, 0.7),
+      _ => (0.0, 0.3),
+    };
+    final phaseTotal = total;
+    if (phaseTotal == null) return done == 0 && phase == 'reading' ? null : start;
+    if (phaseTotal == 0) return start + span;
+    return start + span * (done / phaseTotal).clamp(0.0, 1.0);
+  }
 }
 
 class OfficialIntegrationAccountItem {
@@ -3261,6 +3333,7 @@ class OfficialIntegrationItem {
     this.supportsMultipleAccounts = true,
     this.connectionMethod = 'oauth',
     this.memoryCoverage = const OfficialIntegrationMemoryCoverage(),
+    this.signInCoversAllApps = false,
   });
 
   factory OfficialIntegrationItem.fromJson(Map<dynamic, dynamic> json) {
@@ -3287,6 +3360,7 @@ class OfficialIntegrationItem {
       memoryCoverage: OfficialIntegrationMemoryCoverage.fromJson(
         _jsonMap(json['memoryCoverage']),
       ),
+      signInCoversAllApps: json['signInCoversAllApps'] == true,
     );
   }
 
@@ -3303,9 +3377,22 @@ class OfficialIntegrationItem {
   final String connectionMethod;
   final OfficialIntegrationMemoryCoverage memoryCoverage;
 
+  /// One sign-in connects every app it was granted (Google Workspace), so
+  /// apps need no connect buttons of their own.
+  final bool signInCoversAllApps;
+
   bool get isConnected => connection.connected;
 
   bool get hasExpiredAccounts => apps.any((app) => app.hasExpiredAccounts);
+
+  /// OAuth sign-in through an app the user registers, because the server has
+  /// no global app for this provider.
+  bool get usesOwnOAuthApp =>
+      connectionMethod == 'oauth' && env.setupMode == 'user';
+
+  /// Shared from the phone app, which this device is not.
+  bool get setUpOnPhoneOnly =>
+      connectionMethod == 'device' && !PhoneSync.supported && !isConnected;
 
   String get effectiveStatus =>
       !isConnected && hasExpiredAccounts ? 'expired' : connection.status;

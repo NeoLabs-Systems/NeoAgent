@@ -31,6 +31,10 @@ function abortError(reason = null) {
   return error;
 }
 
+function isModelCallTimeout(err) {
+  return err?.code === 'MODEL_CALL_TIMEOUT';
+}
+
 async function withModelCallTimeout(promise, options = {}, label = 'Model call') {
   const timeoutMs = resolveModelCallTimeoutMs(options);
   const signal = options?.modelAbortController?.signal || options?.signal || null;
@@ -89,6 +93,7 @@ async function runAbortableModelCall(factory, options = {}, label = 'Model call'
 
 module.exports = {
   abortError,
+  isModelCallTimeout,
   resolveModelCallTimeoutMs,
   runAbortableModelCall,
   withModelCallTimeout,

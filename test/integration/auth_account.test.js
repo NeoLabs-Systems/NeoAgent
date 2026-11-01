@@ -104,6 +104,32 @@ describe('auth and account routes', () => {
     await client.post('/api/account/2fa/setup').send({ currentPassword: 'wrong' }).expect(401);
   });
 
+  test('usage data sharing is opt-in and only changes through its own route', async () => {
+    const user = await createTestUser(ctx.db, { username: 'sharing_user' });
+    const client = agent(app);
+    await loginAs(client, user);
+
+    const before = await client.get('/api/account').expect(200);
+    assert.equal(before.body.dataSharing.enabled, false);
+    assert.equal((await client.get('/api/auth/me').expect(200)).body.user.sharesUsageData, false);
+
+    await client.put('/api/settings').send({ usage_data_sharing: { enabled: true } }).expect(200);
+    await client.put('/api/settings/usage_data_sharing').send({ value: { enabled: true } }).expect(403);
+    assert.equal((await client.get('/api/account').expect(200)).body.dataSharing.enabled, false);
+
+    await client.put('/api/account/data-sharing').send({ enabled: 'yes' }).expect(400);
+    const on = await client
+      .put('/api/account/data-sharing')
+      .send({ enabled: true, client: { platform: 'web', appVersion: '3.6.1' } })
+      .expect(200);
+    assert.equal(on.body.dataSharing.enabled, true);
+    assert.deepEqual(on.body.dataSharing.client, { platform: 'web', appVersion: '3.6.1' });
+    assert.equal((await client.get('/api/auth/me').expect(200)).body.user.sharesUsageData, true);
+
+    const off = await client.put('/api/account/data-sharing').send({ enabled: false }).expect(200);
+    assert.deepEqual(off.body.dataSharing, { enabled: false, since: null, client: null });
+  });
+
   test('sign-up failures name the field with a stable code', async () => {
     const attempt = (body) => request(app).post('/api/auth/register').set('X-Forwarded-For', '10.77.0.2').send({
       username: 'code_user',

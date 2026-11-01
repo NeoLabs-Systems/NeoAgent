@@ -113,6 +113,10 @@ function normalizeRawModels(rawModels, providerId) {
       createdAt,
       supportsTools,
       ...(model.thinking === true ? { thinking: true } : {}),
+      // A provider that knows its own prices (NeoRouter) keeps its tier.
+      ...(model.priceTier ? { priceTier: model.priceTier } : {}),
+      // Live models a router relays: the protocols that reach them.
+      ...(Array.isArray(model.protocols) ? { protocols: model.protocols } : {}),
     });
   }
   return normalized;

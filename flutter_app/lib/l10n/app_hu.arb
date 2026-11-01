@@ -154,6 +154,8 @@
   "addKey": "Kulcs hozzáadása",
   "addMcpServer": "MCP szerver hozzáadása",
   "addMemory": "Memória hozzáadása",
+  "memoryReview": "Áttekintés",
+  "memoryReviewPrompt": "Nézd át az összes emlékemet és tegyél rendet: archiváld a duplikátumokat, az elavult tényeket és mindent, aminek nincs tartós értéke. Utána röviden mondd el, mit változtattál.",
   "addMoreLengthOrAnotherCharacter": "Adjon hozzá több hosszúságot vagy más karaktertípust.",
   "addPeopleOrGroups": "Személyek vagy csoportok hozzáadása",
   "addSecurityKey": "Biztonsági kulcs hozzáadása",
@@ -1901,7 +1903,6 @@
   "assistant": "Asszisztens",
   "assistantKey131": "Segéd gomb 131",
   "atLeast1": "Legalább 1.",
-  "atLeast1000AppliesAfterA": "Legalább 1000. A szerver újraindítása után érvényes.",
   "attachFiles": "Fájlok csatolása",
   "attentionArg1": "Figyelem {arg1}",
   "@attentionArg1": {
@@ -2007,7 +2008,6 @@
   "botUsername": "Bot felhasználónév",
   "brandName": "Márkanév",
   "braveSearch": "Bátor keresés",
-  "breakdown": "Lebontás:",
   "bridgeAnyProviderThatCanPost": "Híd minden olyan szolgáltatót, amely képes közzétenni és fogadni a webhook hasznos terheit.",
   "bringYourOwnKey": "hozza a saját kulcsát",
   "bringYourOwnKey2": "Hozd a saját kulcsodat",
@@ -2030,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Képes átruházott feladatokat fogadni",
   "cancel": "Mégsem",
   "cancelTask": "Feladat megszakítása",
-  "candidateCountArg1": "A jelöltek száma: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Az előnézet nem tekinthető meg",
   "cannotReceiveDelegatedTasks": "nem kaphat átruházott feladatokat",
   "cannotRunYet": "még nem futhat.",
@@ -2308,14 +2300,6 @@
   "connectionMethod": "Csatlakozási mód",
   "containsTextOptional": "Szöveget tartalmaz (nem kötelező)",
   "content": "Tartalom",
-  "contentArg1": "Tartalom: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "tartalombiztonsági szabályzat",
   "continue2": "Folytatás",
   "continueFullSetup": "Folytassa a teljes beállítást",
@@ -2752,21 +2736,12 @@
       }
     }
   },
-  "errorArg12": "Hiba: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Hibák a legutóbbi naplóból, üzenet szerint csoportosítva.",
   "errorsProblemsFailures": "hibák problémák kudarcok",
   "eventTypesCommaSeparated": "Eseménytípusok (vesszővel elválasztva)",
   "every15Minutes": "15 percenként",
   "every30Minutes": "30 percenként",
   "everyAccountOnThisServerLoses": "Ezen a szerveren minden fiók elveszíti ezt a megosztott kulcsot. Fiókok ",
-  "everyAccountOnThisServerSecrets": "minden fiók ezen a szerveren. A titkok csak írhatók: hagyd ",
   "everyAccountOnThisServerUses": "Ezen a szerveren minden fiók ezt a címet használja: ",
   "everyActiveSessionForThisAccount": "A fiók minden aktív munkamenete véget ér. Be tudnak jelentkezni ",
   "everyDay0800": "Minden nap · 08:00",
@@ -3012,14 +2987,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Teljes prompt",
   "fullSetup": "Teljes beállítás",
-  "fullTextFtsArg1": "Teljes szöveg (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "tábornok",
   "generalSettings": "Általános beállítások",
   "generalSettingsSaved": "Általános beállítások mentve.",
@@ -3218,7 +3185,6 @@
   "input": "Bemenet",
   "inputMode": "Beviteli mód",
   "insertATemplate": "Szúrjon be egy sablont",
-  "inspect": "Vizsgálja meg",
   "install": "Telepítés",
   "installASignedSelfContainedRuntime": "Telepítsen aláírt, önálló futtatókörnyezetet. Node.js, npm, Git és terminál parancsok nem szükségesek.",
   "installApk": "Telepítse az APK-t",
@@ -3251,7 +3217,6 @@
   },
   "instructions": "Utasítások",
   "integration": "Integráció",
-  "integrationApps": "Integrációs alkalmazások",
   "integrationConnections": "Integrációs kapcsolatok",
   "integrationSettingsSaved": "Az integrációs beállítások elmentve.",
   "integrations": "Integrációk",
@@ -3470,14 +3435,6 @@
       }
     }
   },
-  "lexicalArg1": "Lexical: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "limit20": "LIMIT 20",
   "limit50": "LIMIT 50",
   "linkArg1": "Link {arg1}",
@@ -3601,10 +3558,6 @@
       }
     }
   },
-  "memoryImportSync": "memória import szinkronizálás",
-  "memoryIngestionInterval": "Memóriabeviteli intervallum",
-  "memoryIngestionIntervalMs": "Memóriafeldolgozási időköz (ms)",
-  "memoryIngestionIntervalMustBeAt": "A memóriafeldolgozási intervallumnak legalább 1000 ms-nak kell lennie.",
   "memoryInjected": "Memória beadva",
   "mentionOrReplyOnly": "Csak említse meg vagy válaszoljon",
   "mergedServerAndFlutterRuntimeLogs": "Egyesített szerver és Flutter futásidejű naplók ehhez az alkalmazás-munkamenethez.",
@@ -3629,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Mikrofon elnémítva. Koppintson a némítás feloldásához.",
   "microphonePermissionIsRequiredForLive": "Az élő hanghoz mikrofonengedély szükséges.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack és a többi integráció. -ra vonatkoznak ",
   "microsoftTeams": "Microsoft Teams",
   "minimumContributionValueArg1": "Minimális hozzájárulási érték: {arg1}",
   "@minimumContributionValueArg1": {
@@ -3676,6 +3628,8 @@
     }
   },
   "modelAvailability": "A modell elérhetősége",
+  "autoEnableNewModels": "Új modellek automatikus engedélyezése",
+  "autoEnableNewModelsHint": "Kikapcsolva a szolgáltató által később hozzáadott modellek letiltva maradnak, amíg engedélyezed őket.",
   "modelAvailabilitySaved": "A modell elérhetősége mentve.",
   "modelForThisSession": "Modell ehhez a munkamenethez",
   "modelOverride": "Modell felülbírálása",
@@ -3911,6 +3865,61 @@
   "noMcpServersMatchThisSearch": "Egyetlen MCP-kiszolgáló sem felel meg ennek a keresésnek.",
   "noMemoryEntriesFound": "Nem találhatók memóriabejegyzések.",
   "noMemorySync": "Nincs memória szinkronizálás",
+  "importPastEmailsIntoMemoryHint": "Egyszer végigolvassa az elmúlt 12 hónap fontos és elküldött leveleit, hogy az ügynök ismerje a kapcsolataidat és projektjeidet.",
+  "emailMemory": "E-mail-memória",
+  "importNow": "Importálás most",
+  "importOnConnect": "Korábbi levelek importálása fiók csatlakoztatásakor",
+  "sweepStarting": "Előkészítés…",
+  "sweepReadingProgress": "E-mailek olvasása · {done}/{total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "E-mailek olvasása · {count} találat",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Tanulás az e-mailekből · {done}/{total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Legutóbbi importálás: {emails} e-mail · {memories} új emlék",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Nincs új importálandó e-mail",
+  "sweepFailed": "Az importálás sikertelen: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Egyik modell sem felel meg a \"{arg1}\" kifejezésnek.",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -3997,7 +4006,6 @@
   "nothingStoredYet": "Még nincs tárolva semmi.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "OAuth alkalmazás hitelesítő adatai, amelyek lehetővé teszik a fiókok számára, hogy összekapcsolják a Google-lal, ",
   "oauthClientId": "OAuth-ügyfélazonosító",
   "oauthClientIdSecretRedirectApi": "oauth ügyfélazonosító titkos átirányítási API-kulcs",
   "oauthClientIdSecretRedirectGmail": "oauth ügyfélazonosító titkos átirányítási gmail naptármeghajtó",
@@ -4035,7 +4043,6 @@
   "onTheyCanJoinAgainOnly": "be. Csak új meghívólinkkel csatlakozhatnak újra.",
   "onYourOwnTheDefault": "Önállóan (alapértelmezett)",
   "once": "Egyszer",
-  "oneBlankToKeepWhatIs": "egy üres, hogy megtartsa a tárolt dolgokat.",
   "oneIsSavedOtherChangesIn": "az egyik meg van mentve. Az űrlap többi módosítása is mentésre kerül.",
   "oneOrMoreAccountsExpiredReconnect": "Egy vagy több fiók lejárt. Csatlakoztassa újra az érintett fiókot az eszköz hozzáférésének visszaállításához.",
   "oneRuntimeControlsPersonaGroupTurn": "Egy futási idő vezérli a személyt, a csoportok átvételét, a helyiség memóriáját, a normákat, az elmeelméletet és a kézbesítést.",
@@ -4292,7 +4299,6 @@
   "qrLoginRequestWasNotFound": "qr bejelentkezési kérés nem található",
   "qrPairing": "QR-párosítás",
   "queriesRunAnythingThatWritesIs": "lekérdezések futnak; bármit, ami ír, elutasítják.",
-  "query": "Lekérdezés",
   "queryFilter": "Lekérdezés / szűrő",
   "queuedAsSteeringForTheCurrent": "Kormányzóként sorba állítva az aktuális futáshoz: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4377,14 +4383,6 @@
   "registrationIsClosed": "regisztráció lezárult",
   "registrationRegisterNewAccountsAllowSignup": "regisztráció regisztráció új fiókok lehetővé teszik a regisztrációt",
   "rejectInvalidTlsCertificates": "Érvénytelen TLS-tanúsítványok elutasítása",
-  "relationArg1": "Kapcsolat: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "engedje el és újraindul. A csatlakoztatott alkalmazások újra csatlakoznak, miután visszatértek.",
   "releaseChannel": "Kiadási csatorna",
   "releaseCommitBranchNode": "commit elágazó csomópont kiadása",
@@ -4487,7 +4485,6 @@
   "resultDelivery": "Eredmény kézbesítés",
   "resultOneClickAddsOneYou": "eredményt. Egy kattintás hozzáad egyet; később szerkesztheti.",
   "results": "Eredmények",
-  "retrievalInspector": "Visszakeresés ellenőr",
   "retry": "Próbálja újra",
   "reusableUsedArg1": "Újrafelhasználható · használt {arg1}×",
   "@reusableUsedArg1": {
@@ -4643,14 +4640,6 @@
   "scansNewEmailAndOnlyPings": "Megvizsgálja az új e-maileket, és csak akkor ping-el, ha valami számít.",
   "schedule": "Ütemezés",
   "scheduledTimeOnceRunsAreMeasured": "ütemezett időpont. A futások mérése után korábban indul.",
-  "scoreArg1": "Pontszám: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Képernyő",
   "screenAction": "képernyő művelet",
   "scrollIsNotSupportedOnThis": "a görgetés nem támogatott ezen a platformon.",
@@ -4712,14 +4701,6 @@
     }
   },
   "selectTrigger": "Válassza a Trigger lehetőséget",
-  "semanticArg1": "Szemantika: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Küldés (⌘↵)",
   "send2": "Küldés",
   "sendATaskFromChatAnd": "Küldjön el egy feladatot a csevegésből, és a végrehajtási előzmények itt fognak megjelenni.",
@@ -5633,14 +5614,6 @@
   "value": "Érték",
   "vaultLocked": "A páncélszekrény zárva",
   "vaultOperationFailed": "A trezorművelet meghiúsult.",
-  "vectorRankArg1": "Vektor rangja: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Ellenőrzés",
   "verificationArg1": "Ellenőrzés: {arg1}",
   "@verificationArg1": {
@@ -6553,6 +6526,7 @@
   "settingsPageComputer": "Számítógép és web",
   "settingsPageBehavior": "Viselkedés",
   "settingsPageSystem": "Rendszer",
+  "settingsPagePlatforms": "Platformok",
   "settingsPageProfileDescription": "Az Ön neve és e-mail címe, adatainak másolata és kijelentkezés.",
   "settingsPageSecurityDescription": "Jelszó, kétfaktoros hitelesítés, biztonsági kulcsok és bejelentkezési hely.",
   "settingsPageUsageDescription": "Korlátai és tokenköltései – mindez egy helyen.",
@@ -6990,5 +6964,295 @@
   "signupKeysSaveDialogTitle": "Regisztrációs kulcsok mentése",
   "signupKeysExported": "Kulcsok exportálva.",
   "auditSignupKeysCreated": "{actor} regisztrációs kulcsokat hozott létre ({count})",
-  "auditSignupKeyRevoked": "{actor} visszavont egy regisztrációs kulcsot"
+  "auditSignupKeyRevoked": "{actor} visszavont egy regisztrációs kulcsot",
+  "dataSharingTitle": "Használati adatok megosztása",
+  "dataSharingDescription": "Segíts a szerver üzemeltetőinek jobbá tenni. Azt osztja meg, hogyan használod a NeoAgentet, soha nem azt, amit írsz vagy tárolsz.",
+  "dataSharingSince": "Megosztva ekkortól: {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Mi kerül megosztásra",
+  "dataSharingIncluded": "Megosztva",
+  "dataSharingExcluded": "Soha nincs megosztva",
+  "dataSharingIncludedDevice": "Eszköztípus és alkalmazásverzió",
+  "dataSharingIncludedLocale": "Az alkalmazás nyelve és az időzóna régiója, például Európa",
+  "dataSharingIncludedFeatures": "Mely funkciókat állítottad be, például feladatokat, skilleket és integrációkat",
+  "dataSharingIncludedRuns": "Mely eszközöket és modelleket használnak a futtatásaid, időtartammal és tokenszámmal",
+  "dataSharingIncludedActivity": "Mikor használod a NeoAgentet, a hét napja és óra szerint",
+  "dataSharingExcludedContent": "Üzenetek, promptok és válaszok",
+  "dataSharingExcludedRuns": "Futtatások címei, eszközök bemenetei és eredményei",
+  "dataSharingExcludedFiles": "Fájlok, emlékek és minden más, amit tárolsz",
+  "dataSharingExcludedIdentity": "A neved, e-mail-címed, IP-címed és helyzeted",
+  "dataSharingExcludedAccounts": "A fiókok, amelyekkel integrációkat kapcsolsz össze",
+  "dataSharingPooledNote": "Az adminisztrátorok csak az összes megosztó összesített adatait látják, soha nem téged külön. Bármikor kikapcsolhatod, és azonnal kikerülsz az összesítésből.",
+  "dataSharingConfirmTitle": "Megosztod a használati adatokat?",
+  "dataSharingConfirmAction": "Megosztás",
+  "sharedUsageTitle": "Megosztott használat",
+  "sharedUsageParticipants": "Használati adatokat megosztó fiókok: {sharing} / {total}. Csak összesítések, tartalom nélkül.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Még senki sem oszt meg használati adatokat. Bekapcsolható itt: Beállítások, Profil, Az Ön adatai.",
+  "sharedUsageRuns": "Megosztott futtatások",
+  "sharedUsageAvgDuration": "Átl. időtartam",
+  "sharedUsageCompletedRuns": "Befejezett futtatások",
+  "sharedUsageStepsPerRun": "Lépések futtatásonként",
+  "sharedUsageDevices": "Készülékek",
+  "sharedUsageAppVersions": "Alkalmazásverziók",
+  "sharedUsageLanguages": "Nyelvek",
+  "sharedUsageRegions": "Régiók",
+  "sharedUsageFeatures": "Funkcióhasználat",
+  "sharedUsageFeaturesDescription": "A megosztó fiókok aránya, amelyek beállították.",
+  "sharedUsageTools": "Eszközök",
+  "sharedUsageToolsDescription": "Leggyakrabban hívott eszközök ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Hívások: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Sikertelen: {percent}%",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integrációk",
+  "sharedUsageMessaging": "Üzenetküldő csatornák",
+  "sharedUsageTriggers": "Hogyan indulnak a futtatások",
+  "sharedUsageActivity": "Mikor használják",
+  "sharedUsageActivityDescription": "Futtatások a hét napja és óra szerint, UTC.",
+  "sharedUsageModels": "Modellteljesítmény",
+  "sharedUsageModelDetail": "átl. {latency} · {cached}% gyorsítótárból · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Fiókok: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Ebben az időszakban nincs adat.",
+  "sharedUsageNotReported": "Még nincs jelentve",
+  "sharedUsageFeatureAgents": "Több mint egy ügynök",
+  "sharedUsageFeatureTasks": "Ütemezett feladatok",
+  "sharedUsageFeatureSkills": "Skillek",
+  "sharedUsageFeatureMcp": "MCP-szerverek",
+  "sharedUsageFeatureIntegrations": "Integrációk",
+  "sharedUsageFeatureMessaging": "Üzenetküldő csatornák",
+  "sharedUsageFeatureMemory": "Memória",
+  "sharedUsageSearchKeywords": "opt-in adatmegosztás telemetria készülékek funkciók eszközök modellek aktivitás",
+  "providerChooseUsername": "Válassz felhasználónevet",
+  "providerChooseUsernameBody": "Válassz egy szabad felhasználónevet a fiók létrehozásának befejezéséhez.",
+  "yourOAuthApp": "Saját OAuth-alkalmazásod",
+  "oauthAppSetupTitle": "Saját {provider} OAuth-alkalmazásod",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Ezen a szerveren nincs globális {provider}-alkalmazás, ezért egy saját magad által regisztrált OAuth-alkalmazással csatlakozol. A klienstitok titkosítva tárolódik, és többé nem jelenik meg.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Hozd létre az alkalmazást",
+  "openDeveloperConsole": "Fejlesztői konzol megnyitása",
+  "oauthAppStepCallback": "2. Regisztráld ezt a visszahívási URL-t",
+  "callbackUrlCopied": "Visszahívási URL másolva",
+  "oauthAppScopes": "Engedélyezendő hatókörök",
+  "scopesCopied": "Hatókörök másolva",
+  "oauthAppStepCredentials": "3. Illeszd be az alkalmazás hitelesítő adatait",
+  "couldNotSaveOAuthApp": "Az OAuth-alkalmazást nem sikerült menteni.",
+  "removeOAuthAppTitle": "Eltávolítod a(z) {provider}-alkalmazásodat?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "A csatlakoztatott fiókok a listában maradnak, de nem működnek, amíg újra nem adsz hozzá alkalmazást.",
+  "globalIntegrationConfiguration": "Globális integrációs beállítások",
+  "globalIntegrationConfigurationDescription": "Opcionális, az egész szerverre érvényes OAuth-alkalmazások. Ha egy integrációnak van ilyen, minden fiók azt használja, és nem adhat hozzá sajátot. Hagyd üresen az integrációt, és minden felhasználó saját alkalmazást állít be. A titkok csak írhatók: hagyd üresen a tárolt érték megtartásához.",
+  "globalStatus": "Globális",
+  "perUserStatus": "Felhasználónként",
+  "phoneSyncGuidance": "Oszd meg a telefon naptárait és névjegyeit az ügynököddel. Minden, már a telefonon lévő fiókkal működik.",
+  "phoneSyncElsewhereGuidance": "Nyisd meg a NeoAgentet a telefonon, és ott kapcsold be a megosztást. Az ügynököd ezután látja a telefon összes fiókjának naptárait és névjegyeit.",
+  "manageOnThisPhone": "Kezelés ezen a telefonon",
+  "setUpOnThisPhone": "Beállítás ezen a telefonon",
+  "setUpOnPhone": "Beállítás a telefonodon",
+  "emailConnectedArg1": "{email} csatlakoztatva",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "A fiókot nem sikerült csatlakoztatni.",
+  "emailSetupTitle": "E-mail és naptár csatlakoztatása",
+  "emailChecking": "Postafiók ellenőrzése…",
+  "emailSetupIntro": "Használj alkalmazásjelszót a levelezőszolgáltatódtól. Fejlesztői konzol nélkül, pár perc alatt kész.",
+  "emailOpenArg1": "{provider} megnyitása",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Add meg a szervereket",
+  "emailStepPassword": "1. Hozz létre alkalmazásjelszót",
+  "emailOpenPasswordPageArg1": "{provider} alkalmazásjelszavainak megnyitása",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Bejelentkezés",
+  "appPassword": "Alkalmazásjelszó",
+  "appPasswordHelper": "A szóközök nem számítanak. A NeoAgent titkosítva tárolja.",
+  "emailUsernameOptional": "Felhasználónév, ha nem az e-mail-címed",
+  "emailIncludeCalendar": "Naptár is",
+  "emailIncludeContacts": "Névjegyek is",
+  "imapServer": "IMAP-szerver",
+  "smtpServer": "SMTP-szerver",
+  "caldavUrlOptional": "CalDAV URL (nem kötelező)",
+  "carddavUrlOptional": "CardDAV URL (nem kötelező)",
+  "alternativeEmail": "Csatlakoztasd a postafiókot alkalmazásjelszóval, vagy a naptárat az iCal-hivatkozásával. Pár perc alatt kész.",
+  "alternativePhone": "Oszd meg a telefonon már meglévő naptárat és névjegyeket a NeoAgent alkalmazással.",
+  "alternativePhoneElsewhere": "Oszd meg a telefonon már meglévő naptárat és névjegyeket. Állítsd be a telefonos NeoAgent alkalmazásban.",
+  "skipTheDeveloperConsole": "Fejlesztői konzol nélkül",
+  "phoneSyncPromptTitle": "Láthatja az ügynököd a naptáradat?",
+  "phoneSyncPromptBody": "Oszd meg a telefon naptárait és névjegyeit, hogy az ügynököd a napodhoz igazodva tervezhessen. Bármikor módosíthatod: Eszközök › Integrációk.",
+  "phoneSyncTitle": "A telefon naptárának és névjegyeinek megosztása",
+  "phoneSyncIntro": "Az ügynököd látja a telefon összes fiókjának naptárait és névjegyeit. Nincs fejlesztői konzol, nincs külön bejelentkezés.",
+  "phoneSyncPointAccounts": "Működik a telefonon lévő Google-, Outlook-, iCloud- és Exchange-fiókokkal.",
+  "phoneSyncPointPrivate": "Csak a NeoAgent-szervereddel osztod meg, amely titkosítva tárolja.",
+  "phoneSyncPointWrites": "Az ügynök által hozzáadott eseményeket ez a telefon hozza létre, és a szokásos módon szinkronizálódnak.",
+  "phoneSyncCalendarHint": "Események 30 nappal ezelőttől 90 nappal előre",
+  "phoneSyncContacts": "Névjegyek",
+  "phoneSyncContactsHint": "Nevek, e-mail-címek és telefonszámok",
+  "phoneSyncOtherAgent": "Ez a telefon egy másik ügynökkel oszt meg. Az itteni megosztás áthelyezi ehhez az ügynökhöz.",
+  "phoneSyncDenied": "A NeoAgent még nem fér hozzá. Engedélyezd a Beállításokban, majd gyere vissza.",
+  "openPhoneSettings": "Beállítások megnyitása",
+  "phoneSyncShare": "Megosztás a NeoAgenttel",
+  "phoneSyncStop": "Megosztás leállítása",
+  "phoneSyncWaiting": "Várakozás az első szinkronizálásra…",
+  "phoneSyncLastSyncedArg1": "Utoljára szinkronizálva: {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Naptárhivatkozás",
+  "calendarLinkHelper": "A naptár iCal-címe. Bárki, aki ismeri, olvashatja a naptárt, ezért tartsd titokban.",
+  "calendarLinkName": "Név (nem kötelező)",
+  "calendarLinkAdded": "Naptár hozzáadva",
+  "toolsApps": "Alkalmazások",
+  "reconnect": "Újracsatlakozás",
+  "reconnectNeeded": "Újracsatlakozás szükséges",
+  "mixedAccess": "Vegyes hozzáférés",
+  "disconnectAccountTitle": "Leválasztod: {account}?",
+  "disconnectAccountBody": "Az ügynök ezen a fiókon keresztül elveszíti a hozzáférést ehhez: {apps}.",
+  "neoRouterServerDescription": "Csatlakoztasd egyszer a NeoRoutered, és minden itteni fiók azt használja a lent bekapcsolt feladatokhoz.",
+  "neoRouterUserDescription": "A lent bekapcsolt feladatokhoz a saját NeoRouter-fiókodat használd a szerver szolgáltatói helyett.",
+  "neoRouterAddress": "NeoRouter címe",
+  "neoRouterConnect": "NeoRouter csatlakoztatása",
+  "neoRouterWaitingArg1": "Hagyd jóvá a NeoAgentet a NeoRouterben. Ott a(z) {arg1} kód látható.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Újra megnyitás",
+  "neoRouterConnectedArg1": "Csatlakoztatva: {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "A NeoRouter most nem érhető el.",
+  "neoRouterDisconnect": "Leválasztás",
+  "neoRouterDisconnectBody": "A NeoAgent többé nem használja ezt a NeoRoutert. A kulcsot is vond vissza a NeoRouter API-kulcsok részében.",
+  "neoRouterServerInUse": "Ez a szerver már mindenkinek NeoRoutert használ. Csatlakoztasd a saját NeoRouter-fiókodat saját modellekhez és kerethez.",
+  "neoRouterConnected": "A NeoRouter csatlakoztatva.",
+  "neoRouterRoleChat": "Csevegés és képfelismerés",
+  "neoRouterRoleSystemOne": "System One döntések",
+  "neoRouterRoleTranscription": "Beszédből szöveg",
+  "neoRouterRoleLive": "Élő hang",
+  "neoRouterRoleEmbeddings": "Keresés a memóriában",
+  "neoRouterRoleImages": "Képek készítése",
+  "neoRouterRoleSearch": "Webes keresés",
+  "neoRouterModelCountArg1": "Elérhető a NeoRouteredben: {arg1}",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "A NeoRouteredben még nincs semmi.",
+  "neoRouterPicksModels": "A NeoRouter minden kéréshez maga választ modellt, ezért ez a készlet nincs használatban.",
+  "neoRouterNotAllowedArg1": "A NeoRouteredben: {arg1}, de a NeoAgent kulcsa még nem használhatja őket (pl. a fizetőseket). Engedélyezd őket a NeoAgentnek a NeoRouter API-kulcsok részében.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Döntési modellek kellenek, például a Jev. A biztonsági osztályozók nem válaszolnak ezekre a kérdésekre.",
+  "voiceLiveNoProvider": "Nincs beállítva élő hang szolgáltató. Adj meg OpenAI- vagy Google AI-kulcsot, vagy csatlakoztass egy NeoRoutert a Modellek → Hozd a saját kulcsodat.",
+  "voiceSttAutoNeoRouter": "Automatikus (a modellt a NeoRouter választja)",
+  "voiceNotOffered": "Már nem érhető el, válassz másikat"
 }

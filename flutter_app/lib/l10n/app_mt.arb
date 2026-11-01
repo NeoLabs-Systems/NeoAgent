@@ -154,6 +154,8 @@
   "addKey": "Żid ċavetta",
   "addMcpServer": "Żid server MCP",
   "addMemory": "Żid Memorja",
+  "memoryReview": "Irrevedi",
+  "memoryReviewPrompt": "Irrevedi l-memorji kollha tiegħi u naddafhom: arkivja d-duplikati, il-fatti skaduti u kull ħaġa mingħajr valur dejjiemi. Imbagħad għidli fil-qosor x'biddilt.",
   "addMoreLengthOrAnotherCharacter": "Żid aktar tul jew tip ta 'karattru ieħor.",
   "addPeopleOrGroups": "Żid nies jew gruppi",
   "addSecurityKey": "Żid iċ-ċavetta tas-sigurtà",
@@ -1901,7 +1903,6 @@
   "assistant": "Assistent",
   "assistantKey131": "Assistent ċavetta 131",
   "atLeast1": "Mill-inqas 1.",
-  "atLeast1000AppliesAfterA": "Mill-inqas 1000. Japplika wara li jerġa' jibda server.",
   "attachFiles": "Ehmeż fajls",
   "attentionArg1": "Attenzjoni {arg1}",
   "@attentionArg1": {
@@ -2007,7 +2008,6 @@
   "botUsername": "Isem tal-utent tal-bot",
   "brandName": "Isem tad-ditta",
   "braveSearch": "Fittex Brave",
-  "breakdown": "Tqassim:",
   "bridgeAnyProviderThatCanPost": "Tgħaqqad kwalunkwe fornitur li jista' jpoġġi u jirċievi payloads tal-webhook.",
   "bringYourOwnKey": "ġib iċ-ċavetta tiegħek",
   "bringYourOwnKey2": "Ġib iċ-ċavetta tiegħek",
@@ -2030,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Jista' jirċievi kompiti delegati",
   "cancel": "Ikkanċella",
   "cancelTask": "Ikkanċella kompitu",
-  "candidateCountArg1": "Għadd ta' Kandidati: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Ma tistax tipprevedi",
   "cannotReceiveDelegatedTasks": "ma jistax jirċievi kompiti delegati",
   "cannotRunYet": "għadha ma tistax taħdem.",
@@ -2308,14 +2300,6 @@
   "connectionMethod": "Metodu ta' Konnessjoni",
   "containsTextOptional": "Fih it-Test (mhux obbligatorju)",
   "content": "Kontenut",
-  "contentArg1": "Kontenut: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "politika tas-sigurtà tal-kontenut",
   "continue2": "Kompli",
   "continueFullSetup": "Kompli setup sħiħ",
@@ -2752,21 +2736,12 @@
       }
     }
   },
-  "errorArg12": "Żball: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Żbalji mill-ġurnal reċenti, miġbura skont il-messaġġ.",
   "errorsProblemsFailures": "żbalji problemi fallimenti",
   "eventTypesCommaSeparated": "Tipi ta' Avvenimenti (separati bil-virgola)",
   "every15Minutes": "Kull 15-il minuta",
   "every30Minutes": "Kull 30 minuta",
   "everyAccountOnThisServerLoses": "Kull kont fuq dan is-server jitlef din iċ-ċavetta kondiviża. Kontijiet ",
-  "everyAccountOnThisServerSecrets": "kull kont fuq dan is-server. Is-sigrieti huma bil-miktub biss: leave ",
   "everyAccountOnThisServerUses": "Kull kont fuq dan is-server juża dan l-indirizz għal ",
   "everyActiveSessionForThisAccount": "Kull sessjoni attiva għal dan il-kont tispiċċa. Jistgħu jiffirmaw ",
   "everyDay0800": "Kull jum · 08:00",
@@ -3012,14 +2987,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Sħiħ fil-pront",
   "fullSetup": "Setup sħiħ",
-  "fullTextFtsArg1": "Test sħiħ (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Ġenerali",
   "generalSettings": "Settings ġenerali",
   "generalSettingsSaved": "Issettjar ġenerali ssejvjat.",
@@ -3218,7 +3185,6 @@
   "input": "Input",
   "inputMode": "Mod tad-dħul",
   "insertATemplate": "Daħħal mudell",
-  "inspect": "Spezzjona",
   "install": "Installa",
   "installASignedSelfContainedRuntime": "Installa runtime ffirmat u awtonomu. Node.js, npm, Git, u kmandi tat-terminal mhumiex meħtieġa.",
   "installApk": "Installa APK",
@@ -3251,7 +3217,6 @@
   },
   "instructions": "Istruzzjonijiet",
   "integration": "Integrazzjoni",
-  "integrationApps": "Apps ta' integrazzjoni",
   "integrationConnections": "Konnessjonijiet ta 'integrazzjoni",
   "integrationSettingsSaved": "Issettjar ta' integrazzjoni salvati.",
   "integrations": "Integrazzjonijiet",
@@ -3470,14 +3435,6 @@
       }
     }
   },
-  "lexicalArg1": "Lessiku: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "limit20": "LIMIT 20",
   "limit50": "LIMIT 50",
   "linkArg1": "Link {arg1}",
@@ -3601,10 +3558,6 @@
       }
     }
   },
-  "memoryImportSync": "sinkronizzazzjoni tal-importazzjoni tal-memorja",
-  "memoryIngestionInterval": "Intervall ta' inġestjoni tal-memorja",
-  "memoryIngestionIntervalMs": "Intervall ta' inġestjoni tal-memorja (ms)",
-  "memoryIngestionIntervalMustBeAt": "L-intervall ta' inġestjoni tal-memorja għandu jkun mill-inqas 1000 ms.",
   "memoryInjected": "Memorja injettata",
   "mentionOrReplyOnly": "Semmi jew irrispondi biss",
   "mergedServerAndFlutterRuntimeLogs": "Server magħquda u zkuk tar-runtime Flutter għal din is-sessjoni tal-app.",
@@ -3629,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Mikrofonu siekta. Tektek biex tneħħi l-mute.",
   "microphonePermissionIsRequiredForLive": "Il-permess tal-mikrofonu huwa meħtieġ għal vuċi diretta.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack u l-integrazzjonijiet l-oħra. Dawn japplikaw għal ",
   "microsoftTeams": "Timijiet tal-Microsoft",
   "minimumContributionValueArg1": "Valur tal-kontribuzzjoni minima: {arg1}",
   "@minimumContributionValueArg1": {
@@ -3676,6 +3628,8 @@
     }
   },
   "modelAvailability": "Disponibbiltà tal-mudell",
+  "autoEnableNewModels": "Ippermetti awtomatikament mudelli ġodda",
+  "autoEnableNewModelsHint": "Meta jkun mitfi, mudelli miżjuda aktar tard minn fornitur jibqgħu diżattivati sakemm inti tattivahom.",
   "modelAvailabilitySaved": "Disponibbiltà tal-mudell salvata.",
   "modelForThisSession": "Mudell għal din is-sessjoni",
   "modelOverride": "Mudell Override",
@@ -3911,6 +3865,61 @@
   "noMcpServersMatchThisSearch": "Ebda servers MCP ma jaqblu ma' din it-tfittxija.",
   "noMemoryEntriesFound": "Ma nstabet l-ebda dħul tal-memorja.",
   "noMemorySync": "L-ebda sinkronizzazzjoni tal-memorja",
+  "importPastEmailsIntoMemoryHint": "Jaqra darba waħda l-posta importanti u mibgħuta tal-aħħar 12-il xahar, biex l-aġent ikun jaf il-kuntatti u l-proġetti tiegħek.",
+  "emailMemory": "Memorja tal-email",
+  "importNow": "Importa issa",
+  "importOnConnect": "Importa posta tal-passat meta tikkonnettja kont",
+  "sweepStarting": "Qed jitħejja…",
+  "sweepReadingProgress": "Qed jaqra l-emails · {done} minn {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Qed jaqra l-emails · {count} misjuba",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Qed jitgħallem mill-emails · {done} minn {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "L-aħħar importazzjoni: {emails} emails · {memories} memorji ġodda",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "M'hemmx emails ġodda x'jiġu importati",
+  "sweepFailed": "L-importazzjoni falliet: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "L-ebda mudell ma jaqbel ma' \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -3997,7 +4006,6 @@
   "nothingStoredYet": "S'issa xejn maħżun.",
   "notionSlackFigmaGithubSpotifyTrello": "Nozzjoni, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "Kredenzjali tal-app OAuth li jippermettu lill-kontijiet jgħaqqdu lil Google, ",
   "oauthClientId": "ID tal-Klijent OAuth",
   "oauthClientIdSecretRedirectApi": "oauth client id sigriet redirect api key",
   "oauthClientIdSecretRedirectGmail": "oauth client id sigriet redirect gmail calendar drive",
@@ -4035,7 +4043,6 @@
   "onTheyCanJoinAgainOnly": "fuq. Jistgħu jerġgħu jingħaqdu biss b'rabta ġdida ta' stedina.",
   "onYourOwnTheDefault": "Waħdek (id-default)",
   "once": "Darba",
-  "oneBlankToKeepWhatIs": "wieħed vojt biex iżżomm dak li jkun maħżun.",
   "oneIsSavedOtherChangesIn": "wieħed jiġi salvat. Bidliet oħra f'din il-formola huma salvati wkoll.",
   "oneOrMoreAccountsExpiredReconnect": "Kont wieħed jew aktar skada. Erġa' qabbad il-kont affettwat biex tirrestawra l-aċċess għall-għodda.",
   "oneRuntimeControlsPersonaGroupTurn": "Runtime wieħed jikkontrolla l-persuna, it-teħid tad-dawran tal-grupp, il-memorja tal-kamra, in-normi, it-Teorija tal-Moħħ, u l-kunsinna.",
@@ -4292,7 +4299,6 @@
   "qrLoginRequestWasNotFound": "Qr login talba ma nstabitx",
   "qrPairing": "QR Pairing",
   "queriesRunAnythingThatWritesIs": "mistoqsijiet jitmexxew; kull ħaġa li tikteb tiġi miċħuda.",
-  "query": "Mistoqsija",
   "queryFilter": "Mistoqsija / Iffiltra",
   "queuedAsSteeringForTheCurrent": "Fil-kju bħala istering għall-ġirja kurrenti: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4377,14 +4383,6 @@
   "registrationIsClosed": "ir-reġistrazzjoni hija magħluqa",
   "registrationRegisterNewAccountsAllowSignup": "reġistrazzjoni reġistru kontijiet ġodda jippermettu signup",
   "rejectInvalidTlsCertificates": "Irrifjuta ċertifikati TLS invalidi",
-  "relationArg1": "Relazzjoni: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "rilaxx u jerġa 'jibda. Apps konnessi jerġgħu jikkonnettjaw ladarba tkun lura.",
   "releaseChannel": "Kanal tar-rilaxx",
   "releaseCommitBranchNode": "rilaxx node tal-fergħa tal-kommit",
@@ -4487,7 +4485,6 @@
   "resultDelivery": "Kunsinna tar-Riżultati",
   "resultOneClickAddsOneYou": "riżultat. Klikk waħda żżid waħda; tista teditjaha aktar tard.",
   "results": "Riżultati",
-  "retrievalInspector": "Spettur tal-Irkupru",
   "retry": "Ipprova mill-ġdid",
   "reusableUsedArg1": "Jintuża mill-ġdid · użat {arg1}×",
   "@reusableUsedArg1": {
@@ -4643,14 +4640,6 @@
   "scansNewEmailAndOnlyPings": "Skennja email ġdid u jagħtik ping biss meta xi ħaġa tkun importanti.",
   "schedule": "Skeda",
   "scheduledTimeOnceRunsAreMeasured": "ħin skedat. Ladarba jitkejlu l-ġirjiet, dan jibda qabel.",
-  "scoreArg1": "Score: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Skrin",
   "screenAction": "azzjoni fuq l-iskrin",
   "scrollIsNotSupportedOnThis": "iscroll mhuwiex appoġġjat fuq din il-pjattaforma.",
@@ -4712,14 +4701,6 @@
     }
   },
   "selectTrigger": "Agħżel Trigger",
-  "semanticArg1": "Semantiku: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Ibgħat (⌘↵)",
   "send2": "Ibgħat",
   "sendATaskFromChatAnd": "Ibgħat kompitu miċ-chat u l-istorja tal-eżekuzzjoni tagħha tidher hawn.",
@@ -5633,14 +5614,6 @@
   "value": "Valur",
   "vaultLocked": "Vault msakkra",
   "vaultOperationFailed": "L-operazzjoni tal-kaxxa-forti falliet.",
-  "vectorRankArg1": "Vector Rank: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Verifika",
   "verificationArg1": "Verifika: {arg1}",
   "@verificationArg1": {
@@ -6553,6 +6526,7 @@
   "settingsPageComputer": "Kompjuter u web",
   "settingsPageBehavior": "Imġieba",
   "settingsPageSystem": "Sistema",
+  "settingsPagePlatforms": "Pjattaformi",
   "settingsPageProfileDescription": "Ismek u l-email, kopja tad-data tiegħek, u l-iffirmar.",
   "settingsPageSecurityDescription": "Password, awtentikazzjoni b'żewġ fatturi, ċwievet tas-sigurtà u fejn int iddaħħal.",
   "settingsPageUsageDescription": "Il-limiti u t-token tiegħek jonfqu, kollha f'post wieħed.",
@@ -6990,5 +6964,295 @@
   "signupKeysSaveDialogTitle": "Issejvja ċ-ċwievet tar-reġistrazzjoni",
   "signupKeysExported": "Iċ-ċwievet ġew esportati.",
   "auditSignupKeysCreated": "{actor} ħoloq ċwievet tar-reġistrazzjoni ({count})",
-  "auditSignupKeyRevoked": "{actor} irrevoka ċavetta tar-reġistrazzjoni"
+  "auditSignupKeyRevoked": "{actor} irrevoka ċavetta tar-reġistrazzjoni",
+  "dataSharingTitle": "Aqsam id-dejta tal-użu",
+  "dataSharingDescription": "Għin lil min imexxi dan is-server itejbu. Jaqsam kif tuża NeoAgent, qatt dak li tikteb jew taħżen.",
+  "dataSharingSince": "Qed jinqasam minn {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "X'jinqasam",
+  "dataSharingIncluded": "Jinqasam",
+  "dataSharingExcluded": "Qatt ma jinqasam",
+  "dataSharingIncludedDevice": "It-tip ta' apparat u l-verżjoni tal-app",
+  "dataSharingIncludedLocale": "Il-lingwa tal-app u r-reġjun taż-żona tal-ħin, bħall-Ewropa",
+  "dataSharingIncludedFeatures": "Liema funzjonijiet issettjajt, bħal kompiti, skills u integrazzjonijiet",
+  "dataSharingIncludedRuns": "Liema għodod u mudelli jużaw il-ġirjiet tiegħek, bil-ħinijiet u l-għadd ta' tokens",
+  "dataSharingIncludedActivity": "Meta tuża NeoAgent, skont il-jum tal-ġimgħa u s-siegħa",
+  "dataSharingExcludedContent": "Messaġġi, prompts u tweġibiet",
+  "dataSharingExcludedRuns": "Titli tal-ġirjiet, input u riżultati tal-għodod",
+  "dataSharingExcludedFiles": "Fajls, memorji u kull ħaġa oħra li taħżen",
+  "dataSharingExcludedIdentity": "Ismek, l-email, l-indirizz IP u l-post tiegħek",
+  "dataSharingExcludedAccounts": "Il-kontijiet li magħhom tqabbad l-integrazzjonijiet",
+  "dataSharingPooledNote": "L-amministraturi jaraw biss totali ta' kull min jaqsam, qatt lilek waħdek. Itfih meta trid u toħroġ mit-totali minnufih.",
+  "dataSharingConfirmTitle": "Taqsam id-dejta tal-użu?",
+  "dataSharingConfirmAction": "Aqsam",
+  "sharedUsageTitle": "Użu maqsum",
+  "sharedUsageParticipants": "Kontijiet li jaqsmu d-dejta tal-użu: {sharing} minn {total}. Totali biss, l-ebda kontenut.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Għadu ħadd ma jaqsam dejta tal-użu. Jista' jinxtegħel minn Settings, Profil, Id-dejta tiegħek.",
+  "sharedUsageRuns": "Ġirjiet maqsuma",
+  "sharedUsageAvgDuration": "Tul medju",
+  "sharedUsageCompletedRuns": "Ġirjiet lesti",
+  "sharedUsageStepsPerRun": "Passi għal kull ġirja",
+  "sharedUsageDevices": "Apparati",
+  "sharedUsageAppVersions": "Verżjonijiet tal-app",
+  "sharedUsageLanguages": "Lingwi",
+  "sharedUsageRegions": "Reġjuni",
+  "sharedUsageFeatures": "Użu tal-funzjonijiet",
+  "sharedUsageFeaturesDescription": "Is-sehem tal-kontijiet li jaqsmu li ssettjawha.",
+  "sharedUsageTools": "Għodod",
+  "sharedUsageToolsDescription": "L-aktar għodod imsejħa ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Sejħiet: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Fallew: {percent}%",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integrazzjonijiet",
+  "sharedUsageMessaging": "Kanali tal-messaġġi",
+  "sharedUsageTriggers": "Kif jibdew il-ġirjiet",
+  "sharedUsageActivity": "Meta jintuża",
+  "sharedUsageActivityDescription": "Ġirjiet skont il-jum tal-ġimgħa u s-siegħa, UTC.",
+  "sharedUsageModels": "Prestazzjoni tal-mudelli",
+  "sharedUsageModelDetail": "medja {latency} · {cached}% mill-cache · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Kontijiet: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Xejn f'dan il-perjodu.",
+  "sharedUsageNotReported": "Għadu mhux irrappurtat",
+  "sharedUsageFeatureAgents": "Aktar minn aġent wieħed",
+  "sharedUsageFeatureTasks": "Kompiti skedati",
+  "sharedUsageFeatureSkills": "Skills",
+  "sharedUsageFeatureMcp": "Servers MCP",
+  "sharedUsageFeatureIntegrations": "Integrazzjonijiet",
+  "sharedUsageFeatureMessaging": "Kanali tal-messaġġi",
+  "sharedUsageFeatureMemory": "Memorja",
+  "sharedUsageSearchKeywords": "opt-in qsim tad-dejta telemetrija apparati funzjonijiet għodod mudelli attività",
+  "providerChooseUsername": "Agħżel l-isem tal-utent tiegħek",
+  "providerChooseUsernameBody": "Agħżel isem tal-utent disponibbli biex tlesti l-ħolqien tal-kont tiegħek.",
+  "yourOAuthApp": "L-app OAuth tiegħek",
+  "oauthAppSetupTitle": "L-app OAuth tiegħek ta’ {provider}",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Dan is-server m’għandux app globali ta’ {provider}, għalhekk tikkonnettja b’app OAuth li tirreġistra int stess. Is-sigriet tal-klijent jinħażen ikkriptat u qatt ma jerġa’ jintwera.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Oħloq l-app",
+  "openDeveloperConsole": "Iftaħ il-konsol tal-iżviluppatur",
+  "oauthAppStepCallback": "2. Irreġistra dan il-URL tal-callback",
+  "callbackUrlCopied": "URL tal-callback ikkupjat",
+  "oauthAppScopes": "Scopes li għandhom jiġu permessi",
+  "scopesCopied": "Scopes ikkupjati",
+  "oauthAppStepCredentials": "3. Waħħal il-kredenzjali tal-app",
+  "couldNotSaveOAuthApp": "Ma setgħetx tiġi ssejvjata l-app OAuth.",
+  "removeOAuthAppTitle": "Tneħħi l-app tiegħek ta’ {provider}?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Il-kontijiet konnessi jibqgħu fil-lista iżda ma jibqgħux jaħdmu sakemm iżżid app mill-ġdid.",
+  "globalIntegrationConfiguration": "Konfigurazzjoni globali tal-integrazzjonijiet",
+  "globalIntegrationConfigurationDescription": "Apps OAuth fakultattivi għas-server kollu. Meta integrazzjoni jkollha waħda, kull kont jużaha u ma jistax iżid tiegħu. Ħalli integrazzjoni mhux issettjata u kull utent iwaqqaf l-app tiegħu. Is-sigrieti huma għall-kitba biss: ħallih vojt biex iżżomm il-valur maħżun.",
+  "globalStatus": "Globali",
+  "perUserStatus": "Għal kull utent",
+  "phoneSyncGuidance": "Aqsam il-kalendarji u l-kuntatti ta’ dan it-telefon mal-aġent tiegħek. Jaħdem ma’ kull kont li diġà jinsab fuq it-telefon.",
+  "phoneSyncElsewhereGuidance": "Iftaħ NeoAgent fuq it-telefon u ixgħel il-qsim hemmhekk. L-aġent imbagħad jara l-kalendarji u l-kuntatti tal-kontijiet kollha fuq dak it-telefon.",
+  "manageOnThisPhone": "Immaniġġja fuq dan it-telefon",
+  "setUpOnThisPhone": "Waqqaf fuq dan it-telefon",
+  "setUpOnPhone": "Waqqaf fuq it-telefon tiegħek",
+  "emailConnectedArg1": "{email} konness",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Dan il-kont ma setax jiġi konness.",
+  "emailSetupTitle": "Qabbad l-email u l-kalendarju",
+  "emailChecking": "Qed tiġi ċċekkjata l-kaxxa postali…",
+  "emailSetupIntro": "Uża password tal-app mill-fornitur tal-email. Mingħajr konsol tal-iżviluppatur, lest f’ftit minuti.",
+  "emailOpenArg1": "Iftaħ {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Daħħal is-servers",
+  "emailStepPassword": "1. Oħloq password tal-app",
+  "emailOpenPasswordPageArg1": "Iftaħ il-passwords tal-app ta’ {provider}",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Idħol",
+  "appPassword": "Password tal-app",
+  "appPasswordHelper": "L-ispazji ma jimpurtawx. NeoAgent jaħżinha kriptata.",
+  "emailUsernameOptional": "Isem l-utent, jekk mhux l-email tiegħek",
+  "emailIncludeCalendar": "Inkludi l-kalendarju",
+  "emailIncludeContacts": "Inkludi l-kuntatti",
+  "imapServer": "Server IMAP",
+  "smtpServer": "Server SMTP",
+  "caldavUrlOptional": "URL CalDAV (mhux obbligatorju)",
+  "carddavUrlOptional": "URL CardDAV (mhux obbligatorju)",
+  "alternativeEmail": "Qabbad il-kaxxa postali b’password tal-app, jew il-kalendarju bil-link iCal tiegħu. Lest f’ftit minuti.",
+  "alternativePhone": "Aqsam il-kalendarju u l-kuntatti li diġà għandek fuq it-telefon permezz tal-app NeoAgent.",
+  "alternativePhoneElsewhere": "Aqsam il-kalendarju u l-kuntatti li diġà għandek fuq it-telefon. Waqqafha fl-app NeoAgent fuq it-telefon.",
+  "skipTheDeveloperConsole": "Mingħajr il-konsol tal-iżviluppatur",
+  "phoneSyncPromptTitle": "Tħalli lill-aġent jara l-kalendarju tiegħek?",
+  "phoneSyncPromptBody": "Aqsam il-kalendarji u l-kuntatti ta’ dan it-telefon biex l-aġent jippjana madwar jumek. Tista’ tibdel dan meta trid f’Għodod › Integrazzjonijiet.",
+  "phoneSyncTitle": "Aqsam il-kalendarju u l-kuntatti tat-telefon",
+  "phoneSyncIntro": "L-aġent jara l-kalendarji u l-kuntatti tal-kontijiet kollha fuq dan it-telefon. Mingħajr konsol tal-iżviluppatur u mingħajr dħul ieħor.",
+  "phoneSyncPointAccounts": "Jaħdem mal-kontijiet Google, Outlook, iCloud u Exchange fuq dan it-telefon.",
+  "phoneSyncPointPrivate": "Maqsum biss mas-server NeoAgent tiegħek, li jaħżinhom kriptati.",
+  "phoneSyncPointWrites": "L-avvenimenti li jżid l-aġent joħloqhom dan it-telefon u jissinkronizzaw bħas-soltu.",
+  "phoneSyncCalendarHint": "Avvenimenti minn 30 jum ilu sa 90 jum ’il quddiem",
+  "phoneSyncContacts": "Kuntatti",
+  "phoneSyncContactsHint": "Ismijiet, indirizzi tal-email u numri tat-telefon",
+  "phoneSyncOtherAgent": "Dan it-telefon qed jaqsam ma’ aġent ieħor. Jekk taqsam hawn jgħaddi għal dan l-aġent.",
+  "phoneSyncDenied": "NeoAgent għad m’għandux aċċess. Ippermettih fis-Settings u erġa’ lura.",
+  "openPhoneSettings": "Iftaħ is-Settings",
+  "phoneSyncShare": "Aqsam ma’ NeoAgent",
+  "phoneSyncStop": "Waqqaf il-qsim",
+  "phoneSyncWaiting": "Qed nistennew l-ewwel sinkronizzazzjoni…",
+  "phoneSyncLastSyncedArg1": "L-aħħar sinkronizzazzjoni {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Link tal-kalendarju",
+  "calendarLinkHelper": "L-indirizz iCal tal-kalendarju. Kull min għandu jista’ jaqra l-kalendarju, għalhekk żommu privat.",
+  "calendarLinkName": "Isem (mhux obbligatorju)",
+  "calendarLinkAdded": "Il-kalendarju żdied",
+  "toolsApps": "Apps",
+  "reconnect": "Erġa' qabbad",
+  "reconnectNeeded": "Jeħtieġ jerġa' jitqabbad",
+  "mixedAccess": "Aċċess imħallat",
+  "disconnectAccountTitle": "Tiskonnettja {account}?",
+  "disconnectAccountBody": "L-aġent jitlef l-aċċess għal {apps} permezz ta' dan il-kont.",
+  "neoRouterServerDescription": "Qabbad in-NeoRouter tiegħek darba u kull kont hawn jużah għax-xogħol mixgħul hawn taħt.",
+  "neoRouterUserDescription": "Uża l-kont NeoRouter tiegħek għax-xogħol mixgħul hawn taħt minflok il-fornituri ta' dan is-server.",
+  "neoRouterAddress": "Indirizz tan-NeoRouter",
+  "neoRouterConnect": "Qabbad in-NeoRouter",
+  "neoRouterWaitingArg1": "Approva lil NeoAgent fin-NeoRouter. Juri l-kodiċi {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Iftaħ mill-ġdid",
+  "neoRouterConnectedArg1": "Imqabbad ma' {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "In-NeoRouter mhux disponibbli bħalissa.",
+  "neoRouterDisconnect": "Aqta'",
+  "neoRouterDisconnectBody": "NeoAgent jieqaf juża dan in-NeoRouter. Biex tirtira wkoll iċ-ċavetta, revokaha fin-NeoRouter taħt Ċwievet API.",
+  "neoRouterServerInUse": "Dan is-server diġà juża NeoRouter għal kulħadd. Qabbad il-kont NeoRouter tiegħek għall-mudelli u l-baġit tiegħek.",
+  "neoRouterConnected": "In-NeoRouter huwa mqabbad.",
+  "neoRouterRoleChat": "Chat u għarfien tal-istampi",
+  "neoRouterRoleSystemOne": "Deċiżjonijiet System One",
+  "neoRouterRoleTranscription": "Diskors għal test",
+  "neoRouterRoleLive": "Vuċi diretta",
+  "neoRouterRoleEmbeddings": "Tfittxija fil-memorja",
+  "neoRouterRoleImages": "Ħolqien ta' stampi",
+  "neoRouterRoleSearch": "Tfittxija fuq il-web",
+  "neoRouterModelCountArg1": "Disponibbli fin-NeoRouter tiegħek: {arg1}",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Għad m'hemm xejn fin-NeoRouter tiegħek.",
+  "neoRouterPicksModels": "NeoRouter jagħżel il-mudell għal kull talba, għalhekk din l-għażla ma tintużax.",
+  "neoRouterNotAllowedArg1": "{arg1} fin-NeoRouter tiegħek, iżda ċ-ċavetta ta' NeoAgent għadha ma tistax tużahom (pereżempju dawk bi ħlas). Ippermettihom għal NeoAgent taħt Ċwievet API fin-NeoRouter.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Jeħtieġ mudelli tad-deċiżjoni bħal Jev. Il-klassifikaturi tas-sigurtà ma jistgħux iwieġbu dawn il-mistoqsijiet.",
+  "voiceLiveNoProvider": "L-ebda fornitur tal-vuċi diretta mhu mwaqqaf. Żid ċavetta ta' OpenAI jew Google AI, jew qabbad NeoRouter, taħt Mudelli → Ġib iċ-ċavetta tiegħek.",
+  "voiceSttAutoNeoRouter": "Awtomatiku (NeoRouter jagħżel il-mudell)",
+  "voiceNotOffered": "M'għadux offrut, agħżel ieħor"
 }

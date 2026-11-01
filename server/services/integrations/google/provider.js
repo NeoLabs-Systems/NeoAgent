@@ -1,7 +1,7 @@
 'use strict';
 
 const { google } = require('googleapis');
-const { describeEnvStatus, resolveGoogleOAuthConfig } = require('../env');
+const { createOAuthApp } = require('../oauth_app');
 const { decryptValue } = require('../secrets');
 const { gmailToolDefinitions, executeGmailTool } = require('./gmail');
 const { calendarToolDefinitions, executeCalendarTool } = require('./calendar');
@@ -11,6 +11,7 @@ const { sheetsToolDefinitions, executeSheetsTool } = require('./sheets');
 const { waitForAbortableResult } = require('../http');
 const {
   buildConnectedAppSummary,
+  describeIncompleteSetupForModel,
   formatAccountSummary,
   summarizeAppConnection,
   summarizeProviderConnection,
@@ -102,16 +103,8 @@ const toolAppMap = new Map(
   googleWorkspaceToolDefinitions.map((tool) => [tool.name, tool.appId]),
 );
 
-function createOAuthClient() {
-  const config = resolveGoogleOAuthConfig();
-  return {
-    config,
-    client: new google.auth.OAuth2(
-      config.clientId,
-      config.clientSecret,
-      config.redirectUri,
-    ),
-  };
+function createOAuthClient(config) {
+  return new google.auth.OAuth2(config.clientId, config.clientSecret, config.redirectUri);
 }
 
 function attachAbortSignal(client, signal) {
@@ -125,7 +118,9 @@ function attachAbortSignal(client, signal) {
 }
 
 async function buildAuthorizedClient(connection, options = {}) {
-  const { client } = createOAuthClient();
+  const client = createOAuthClient(
+    googleOAuthApp.resolve({ userId: connection.user_id, agentId: connection.agent_id }),
+  );
   let credentials = {};
   try {
     credentials = JSON.parse(
@@ -163,6 +158,16 @@ function getAppScopes(appId) {
   return Array.from(new Set([...GOOGLE_ACCOUNT_IDENTITY_SCOPES, ...app.scopes]));
 }
 
+// The apps a grant fully covers. One sign-in requests every workspace scope,
+// but Google lets the user untick some, so only apps with all their scopes
+// granted are connected by it.
+function getGrantedAppIds(grantedScopes) {
+  const granted = new Set(grantedScopes);
+  return GOOGLE_WORKSPACE_APPS
+    .filter((app) => app.scopes.every((scope) => granted.has(scope)))
+    .map((app) => app.id);
+}
+
 function getAllWorkspaceScopes() {
   return Array.from(
     new Set([
@@ -171,6 +176,17 @@ function getAllWorkspaceScopes() {
     ]),
   );
 }
+
+const googleOAuthApp = createOAuthApp({
+  providerKey: 'google_workspace',
+  label: 'Google Workspace',
+  envPrefix: 'GOOGLE',
+  // Enables all five APIs in one step, creating a project when there is none.
+  consoleUrl: 'https://console.cloud.google.com/flows/enableapi?apiid=gmail.googleapis.com,calendar-json.googleapis.com,drive.googleapis.com,docs.googleapis.com,sheets.googleapis.com',
+  notes: 'The console button enables the Gmail, Calendar, Drive, Docs and Sheets APIs. Then, under APIs & Services › Credentials, create an OAuth client ID of type Web application with the callback URL as an authorized redirect URI. Set the consent screen to In production: in Testing, Google signs accounts out every 7 days. Continue past the unverified-app warning when you connect.',
+  scopes: getAllWorkspaceScopes(),
+  alternatives: ['email', 'phone'],
+});
 
 async function executeGoogleWorkspaceTool(
   toolName,
@@ -194,20 +210,59 @@ async function executeGoogleWorkspaceTool(
   return { result, credentials: auth.credentials };
 }
 
-async function collectGoogleMemoryDocuments({ connection, sourceTypes = [], signal = null }) {
-  const appKey = String(connection?.app_key || '').trim();
-  const documents = [];
-  const collectedAt = new Date().toISOString();
+const GMAIL_SWEEP_QUERY = 'newer_than:12m (is:important OR is:starred OR in:sent) '
+  + '-category:promotions -category:social -category:updates -category:forums';
+const GMAIL_SWEEP_THREAD_LIMIT = 100;
+const GMAIL_SWEEP_MAX_PAGES = 20;
+const GMAIL_SWEEP_CONCURRENCY = 4;
+const GMAIL_SWEEP_BODY_CHARS = 2000;
 
-  if (appKey === 'gmail' && sourceTypes.includes('email')) {
-    const { result } = await executeGoogleWorkspaceTool(
-      'google_workspace_gmail_search_threads',
-      { query: 'newer_than:7d', max_results: 8 },
-      connection,
-      { signal },
-    );
-    for (const thread of Array.isArray(result?.threads) ? result.threads : []) {
-      const subject = String(thread.subject || 'Gmail thread').trim();
+// Imports the past year's important mail: threads the user marked, Gmail
+// ranked important, or the user replied to. Threads already in memory are
+// skipped, so a repeat sweep picks up the next ones instead.
+async function collectGmailSweepDocuments(caller, collectedAt, skipObjectIds, onProgress) {
+  const threadIds = [];
+  let pageToken = null;
+  for (let page = 0; page < GMAIL_SWEEP_MAX_PAGES; page += 1) {
+    const response = await caller.call('google_workspace_gmail_api_request', {
+      method: 'GET',
+      path: '/gmail/v1/users/me/threads',
+      query: {
+        q: GMAIL_SWEEP_QUERY,
+        maxResults: 100,
+        ...(pageToken ? { pageToken } : {}),
+      },
+    });
+    for (const thread of Array.isArray(response?.data?.threads) ? response.data.threads : []) {
+      if (thread.id && !skipObjectIds.has(thread.id) && !threadIds.includes(thread.id)) {
+        threadIds.push(thread.id);
+      }
+    }
+    pageToken = response?.data?.nextPageToken || null;
+    if (!pageToken || threadIds.length >= GMAIL_SWEEP_THREAD_LIMIT) break;
+  }
+
+  const documents = [];
+  const queue = threadIds.slice(0, GMAIL_SWEEP_THREAD_LIMIT);
+  const total = queue.length;
+  let read = 0;
+  onProgress(read, total);
+  const worker = async () => {
+    while (queue.length) {
+      const threadId = queue.shift();
+      const thread = await caller.call(
+        'google_workspace_gmail_get_thread',
+        { thread_id: threadId },
+      );
+      read += 1;
+      onProgress(read, total);
+      const messages = Array.isArray(thread?.messages) ? thread.messages : [];
+      const last = messages[messages.length - 1];
+      if (!last) continue;
+      const subject = String(messages[0].subject || last.subject || 'Gmail thread').trim();
+      const participants = [...new Set(messages.flatMap((message) => [message.from, message.to])
+        .filter(Boolean))];
+      const labelIds = [...new Set(messages.flatMap((message) => message.labelIds || []))];
       documents.push({
         externalObjectId: thread.id,
         sourceType: 'email',
@@ -215,66 +270,49 @@ async function collectGoogleMemoryDocuments({ connection, sourceTypes = [], sign
         title: subject,
         content: [
           subject,
-          thread.from ? `From: ${thread.from}` : '',
-          thread.date ? `Date: ${thread.date}` : '',
-          thread.snippet || '',
+          participants.length ? `Participants: ${participants.join(', ')}` : '',
+          last.date ? `Date: ${last.date}` : '',
+          `Messages: ${messages.length}`,
+          String(last.bodyText || thread.snippet || '').slice(0, GMAIL_SWEEP_BODY_CHARS),
         ].filter(Boolean).join('\n'),
         summary: thread.snippet || subject,
-        sourceTimestamp: thread.date || collectedAt,
-        salience: Array.isArray(thread.labelIds) && thread.labelIds.includes('IMPORTANT') ? 8 : 5,
-        payload: thread,
+        sourceTimestamp: last.internalDate || last.date || collectedAt,
+        salience: labelIds.includes('IMPORTANT') || labelIds.includes('STARRED') ? 8 : 7,
+        payload: { id: thread.id, labelIds, messageCount: messages.length },
       });
     }
-  }
+  };
+  await Promise.all(Array.from({ length: GMAIL_SWEEP_CONCURRENCY }, worker));
+  return documents;
+}
 
-  if (appKey === 'calendar' && sourceTypes.includes('calendar')) {
-    const timeMin = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const timeMax = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
-    const { result } = await executeGoogleWorkspaceTool(
-      'google_workspace_calendar_list_events',
-      {
-        time_min: timeMin,
-        time_max: timeMax,
-        max_results: 12,
-        include_ongoing: true,
-        include_all_day: true,
-      },
-      connection,
-      { signal },
-    );
-    for (const event of Array.isArray(result?.events) ? result.events : []) {
-      const title = String(event.summary || 'Calendar event').trim();
-      documents.push({
-        externalObjectId: event.id,
-        sourceType: 'calendar',
-        normalizedType: 'calendar',
-        title,
-        content: [
-          title,
-          event.start ? `Start: ${event.start}` : '',
-          event.end ? `End: ${event.end}` : '',
-          event.location ? `Location: ${event.location}` : '',
-          event.description || '',
-          Array.isArray(event.attendees) && event.attendees.length
-            ? `Attendees: ${event.attendees.join(', ')}`
-            : '',
-        ].filter(Boolean).join('\n'),
-        summary: [event.start, event.location, event.description].filter(Boolean).join(' | ') || title,
-        sourceTimestamp: event.start || collectedAt,
-        salience: 6,
-        payload: event,
-      });
-    }
-  }
-
-  return {
-    documents,
-    cursor: {
-      collectedAt,
-      appKey,
-      sourceTypes,
+// Collectors hand refreshed tokens back so ingestion can persist them.
+function createGoogleToolCaller(connection, signal) {
+  const caller = {
+    credentials: null,
+    async call(toolName, args) {
+      const execution = await executeGoogleWorkspaceTool(toolName, args, connection, { signal });
+      caller.credentials = execution.credentials || caller.credentials;
+      return execution.result;
     },
   };
+  return caller;
+}
+
+async function collectGoogleMemorySweep({
+  connection,
+  sourceTypes = [],
+  skipObjectIds = new Set(),
+  onProgress = () => {},
+  signal = null,
+}) {
+  const appKey = String(connection?.app_key || '').trim();
+  const collectedAt = new Date().toISOString();
+  const caller = createGoogleToolCaller(connection, signal);
+  const documents = appKey === 'gmail' && sourceTypes.includes('email')
+    ? await collectGmailSweepDocuments(caller, collectedAt, skipObjectIds, onProgress)
+    : [];
+  return { documents, cursor: { collectedAt, appKey, sourceTypes }, credentials: caller.credentials };
 }
 
 function getAppToolNames(appId) {
@@ -318,11 +356,10 @@ function createGoogleWorkspaceProvider() {
     getToolAppId(toolName) {
       return toolAppMap.get(String(toolName || '').trim()) || null;
     },
-    getEnvStatus() {
-      return describeEnvStatus(resolveGoogleOAuthConfig(), {
-        label: 'Google Workspace',
-      });
+    getEnvStatus(context = {}) {
+      return googleOAuthApp.getEnvStatus(context);
     },
+    ...googleOAuthApp.userConfigHandlers,
     getToolDefinitions(options = {}) {
       const connectedAppIds = new Set(options.connectedAppIds || []);
       return googleWorkspaceToolDefinitions.filter((tool) =>
@@ -332,8 +369,8 @@ function createGoogleWorkspaceProvider() {
     supportsTool(toolName) {
       return toolAppMap.has(String(toolName || '').trim());
     },
-    buildSnapshot(connectionRows) {
-      const env = this.getEnvStatus();
+    buildSnapshot(connectionRows, context = {}) {
+      const env = this.getEnvStatus(context);
       const byApp = new Map();
       for (const row of Array.isArray(connectionRows) ? connectionRows : []) {
         const appId = String(row.app_key || '').trim();
@@ -355,19 +392,19 @@ function createGoogleWorkspaceProvider() {
         env,
         connection: rollup.connection,
         availableToolCount: rollup.availableToolCount,
+        signInCoversAllApps: true,
       };
     },
-    async beginOAuth({ state, codeVerifier, appKey }) {
+    async beginOAuth({ state, codeVerifier, appKey, userId, agentId }) {
       const app = getApp(appKey);
       if (!app) {
         throw new Error(`Unknown Google Workspace app: ${appKey}`);
       }
-      const { config, client } = createOAuthClient();
+      const config = googleOAuthApp.resolve({ userId, agentId });
       if (!config.configured) {
-        throw new Error(
-          'Google Workspace still needs administrator setup before accounts can connect.',
-        );
+        throw new Error(googleOAuthApp.getEnvStatus({ userId, agentId }).summary);
       }
+      const client = createOAuthClient(config);
       const codeChallenge = base64UrlSha256(codeVerifier);
       const url = client.generateAuthUrl({
         access_type: 'offline',
@@ -382,13 +419,15 @@ function createGoogleWorkspaceProvider() {
       });
       return { url, appId: app.id };
     },
-    async finishOAuth({ code, codeVerifier, appKey, signal }) {
+    async finishOAuth({ code, codeVerifier, appKey, userId, agentId, signal }) {
       const app = getApp(appKey);
       if (!app) {
         throw new Error(`Unknown Google Workspace app: ${appKey}`);
       }
-      const oauthClient = createOAuthClient();
-      const client = attachAbortSignal(oauthClient.client, signal);
+      const client = attachAbortSignal(
+        createOAuthClient(googleOAuthApp.resolve({ userId, agentId })),
+        signal,
+      );
       const { tokens } = await waitForAbortableResult(
         client.getToken({
           code,
@@ -403,21 +442,23 @@ function createGoogleWorkspaceProvider() {
       if (!accountEmail) {
         throw new Error('Google OAuth did not return an account email address.');
       }
+      const scopes = Array.from(
+        new Set(
+          String(client.credentials.scope || '')
+            .split(/\s+/)
+            .map((scope) => scope.trim())
+            .filter(Boolean),
+        ),
+      );
       return {
         appId: app.id,
         accountEmail,
         credentials: client.credentials,
-        scopes: Array.from(
-          new Set(
-            String(client.credentials.scope || '')
-              .split(/\s+/)
-              .map((scope) => scope.trim())
-              .filter(Boolean),
-          ),
-        ),
+        scopes,
         metadata: {
           appId: app.id,
         },
+        alsoConnectsAppIds: getGrantedAppIds(scopes).filter((id) => id !== app.id),
       };
     },
     async disconnect(connectionRow, executionOptions = {}) {
@@ -461,8 +502,8 @@ function createGoogleWorkspaceProvider() {
         executionOptions,
       );
     },
-    async collectMemoryDocuments(options) {
-      return collectGoogleMemoryDocuments(options);
+    async collectMemorySweep(options) {
+      return collectGoogleMemorySweep(options);
     },
     summarizeConnection(connectionRows) {
       const snapshot = this.buildSnapshot(connectionRows);
@@ -486,7 +527,7 @@ function createGoogleWorkspaceProvider() {
     },
     summarizeForModel(snapshot) {
       if (!snapshot?.env?.configured) {
-        return `${this.label}: workspace setup is not complete yet. If the user wants to use it, tell them to open Official Integrations and ask an administrator to finish setup first.`;
+        return describeIncompleteSetupForModel(this.label, snapshot.env);
       }
 
       const statusLines = buildModelStatusLines(snapshot.apps);
@@ -509,6 +550,7 @@ function createGoogleWorkspaceProvider() {
 
 module.exports = {
   createGoogleWorkspaceProvider,
+  getGrantedAppIds,
   GOOGLE_ACCOUNT_IDENTITY_SCOPES,
   GOOGLE_WORKSPACE_APPS: GOOGLE_WORKSPACE_APPS.map(
     ({ id, label, description, scopes }) => ({

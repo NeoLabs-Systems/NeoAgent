@@ -1,6 +1,6 @@
 'use strict';
 
-const { describeEnvStatus, resolveGithubOAuthConfig } = require('../env');
+const { createOAuthApp } = require('../oauth_app');
 const { decryptValue } = require('../secrets');
 const { githubToolDefinitions, executeGithubTool } = require('./repos');
 const { githubApiRequest } = require('./common');
@@ -10,6 +10,7 @@ const { fetchJson } = require('../oauth_provider');
 const { fetchResponseText } = require('../http');
 const {
   buildConnectedAppSummary,
+  describeIncompleteSetupForModel,
   formatAccountSummary,
   summarizeAppConnection,
   summarizeProviderConnection,
@@ -50,13 +51,6 @@ const toolAppMap = new Map(
   githubToolDefinitions.map((tool) => [tool.name, tool.appId || 'repos']),
 );
 
-function createOAuthClient() {
-  const config = resolveGithubOAuthConfig();
-  return {
-    config,
-  };
-}
-
 async function buildAuthorizedClient(connection) {
   let credentials = {};
   try {
@@ -92,6 +86,15 @@ function getAllGithubScopes() {
     ]),
   );
 }
+
+const githubOAuthApp = createOAuthApp({
+  providerKey: 'github',
+  label: 'GitHub',
+  envPrefix: 'GITHUB',
+  consoleUrl: 'https://github.com/settings/applications/new',
+  notes: 'Create an OAuth App (not a GitHub App), use the callback URL as the Authorization callback URL, then generate a client secret.',
+  scopes: getAllGithubScopes(),
+});
 
 async function executeGithubRepoTool(toolName, args, connection, executionOptions = {}) {
   const auth = await buildAuthorizedClient(connection);
@@ -158,11 +161,10 @@ function createGithubProvider() {
     getToolAppId(toolName) {
       return toolAppMap.get(String(toolName || '').trim()) || null;
     },
-    getEnvStatus() {
-      return describeEnvStatus(resolveGithubOAuthConfig(), {
-        label: 'GitHub',
-      });
+    getEnvStatus(context = {}) {
+      return githubOAuthApp.getEnvStatus(context);
     },
+    ...githubOAuthApp.userConfigHandlers,
     getToolDefinitions(options = {}) {
       const connectedAppIds = new Set(options.connectedAppIds || []);
       return githubToolDefinitions.filter((tool) =>
@@ -172,8 +174,8 @@ function createGithubProvider() {
     supportsTool(toolName) {
       return toolAppMap.has(String(toolName || '').trim());
     },
-    buildSnapshot(connectionRows) {
-      const env = this.getEnvStatus();
+    buildSnapshot(connectionRows, context = {}) {
+      const env = this.getEnvStatus(context);
       const byApp = new Map();
       for (const row of Array.isArray(connectionRows) ? connectionRows : []) {
         const appId = String(row.app_key || '').trim();
@@ -197,16 +199,14 @@ function createGithubProvider() {
         availableToolCount: rollup.availableToolCount,
       };
     },
-    async beginOAuth({ state, codeVerifier, appKey }) {
+    async beginOAuth({ state, codeVerifier, appKey, userId, agentId }) {
       const app = getApp(appKey);
       if (!app) {
         throw new Error(`Unknown GitHub app: ${appKey}`);
       }
-      const { config } = createOAuthClient();
+      const config = githubOAuthApp.resolve({ userId, agentId });
       if (!config.configured) {
-        throw new Error(
-          'GitHub still needs administrator setup before accounts can connect.',
-        );
+        throw new Error(githubOAuthApp.getEnvStatus({ userId, agentId }).summary);
       }
       const codeChallenge = base64UrlSha256(codeVerifier);
       const scopes = getAllGithubScopes().join(' ');
@@ -221,12 +221,12 @@ function createGithubProvider() {
       const url = `https://github.com/login/oauth/authorize?${params.toString()}`;
       return { url, appId: app.id };
     },
-    async finishOAuth({ code, codeVerifier, appKey, signal }) {
+    async finishOAuth({ code, codeVerifier, appKey, userId, agentId, signal }) {
       const app = getApp(appKey);
       if (!app) {
         throw new Error(`Unknown GitHub app: ${appKey}`);
       }
-      const { config } = createOAuthClient();
+      const config = githubOAuthApp.resolve({ userId, agentId });
 
       const tokenData = await fetchJson(
         'https://github.com/login/oauth/access_token',
@@ -292,7 +292,10 @@ function createGithubProvider() {
         const accessToken = String(credentials?.access_token || '').trim();
         if (!accessToken) return;
 
-        const { config } = createOAuthClient();
+        const config = githubOAuthApp.resolve({
+          userId: connectionRow.user_id,
+          agentId: connectionRow.agent_id,
+        });
         const clientId = String(config?.clientId || '').trim();
         const clientSecret = String(config?.clientSecret || '').trim();
         if (!clientId || !clientSecret) {
@@ -364,7 +367,7 @@ function createGithubProvider() {
     },
     summarizeForModel(snapshot) {
       if (!snapshot?.env?.configured) {
-        return `${this.label}: workspace setup is not complete yet. If the user wants to use it, tell them to open Official Integrations and ask an administrator to finish setup first.`;
+        return describeIncompleteSetupForModel(this.label, snapshot.env);
       }
 
       const statusLines = buildModelStatusLines(snapshot.apps);

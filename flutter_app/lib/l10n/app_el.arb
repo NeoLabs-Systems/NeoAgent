@@ -154,6 +154,8 @@
   "addKey": "Προσθήκη κλειδιού",
   "addMcpServer": "Προσθήκη διακομιστή MCP",
   "addMemory": "Προσθήκη μνήμης",
+  "memoryReview": "Έλεγχος",
+  "memoryReviewPrompt": "Έλεγξε όλες τις αναμνήσεις μου και τακτοποίησέ τες: αρχειοθέτησε διπλότυπα, παρωχημένα στοιχεία και ό,τι δεν έχει μόνιμη αξία. Μετά πες μου σύντομα τι άλλαξες.",
   "addMoreLengthOrAnotherCharacter": "Προσθέστε περισσότερο μήκος ή άλλο τύπο χαρακτήρα.",
   "addPeopleOrGroups": "Προσθέστε άτομα ή ομάδες",
   "addSecurityKey": "Προσθήκη κλειδιού ασφαλείας",
@@ -1901,7 +1903,6 @@
   "assistant": "Βοηθός",
   "assistantKey131": "Βοηθητικό κλειδί 131",
   "atLeast1": "Τουλάχιστον 1.",
-  "atLeast1000AppliesAfterA": "Τουλάχιστον 1000. Ισχύει μετά από επανεκκίνηση διακομιστή.",
   "attachFiles": "Επισύναψη αρχείων",
   "attentionArg1": "Προσοχή {arg1}",
   "@attentionArg1": {
@@ -2007,7 +2008,6 @@
   "botUsername": "Όνομα χρήστη bot",
   "brandName": "Επωνυμία",
   "braveSearch": "Γενναία αναζήτηση",
-  "breakdown": "Ανάλυση:",
   "bridgeAnyProviderThatCanPost": "Γεφυρώστε κάθε πάροχο που μπορεί να δημοσιεύει και να λαμβάνει ωφέλιμα φορτία webhook.",
   "bringYourOwnKey": "φέρτε το δικό σας κλειδί",
   "bringYourOwnKey2": "Φέρτε το δικό σας κλειδί",
@@ -2030,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Μπορεί να λαμβάνει εργασίες που έχουν ανατεθεί",
   "cancel": "Ακύρωση",
   "cancelTask": "Ακύρωση εργασίας",
-  "candidateCountArg1": "Πλήθος υποψηφίων: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Δεν είναι δυνατή η προεπισκόπηση",
   "cannotReceiveDelegatedTasks": "δεν μπορεί να λάβει ανατεθείσες εργασίες",
   "cannotRunYet": "δεν μπορεί να τρέξει ακόμα.",
@@ -2308,14 +2300,6 @@
   "connectionMethod": "Μέθοδος Σύνδεσης",
   "containsTextOptional": "Περιέχει κείμενο (προαιρετικό)",
   "content": "περιεχόμενο",
-  "contentArg1": "Περιεχόμενο: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "πολιτική ασφάλειας περιεχομένου",
   "continue2": "Συνέχεια",
   "continueFullSetup": "Συνεχίστε την πλήρη εγκατάσταση",
@@ -2752,21 +2736,12 @@
       }
     }
   },
-  "errorArg12": "Σφάλμα: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Σφάλματα από το πρόσφατο αρχείο καταγραφής, ομαδοποιημένα κατά μήνυμα.",
   "errorsProblemsFailures": "λάθη προβλήματα αποτυχίες",
   "eventTypesCommaSeparated": "Τύποι συμβάντων (χωρισμένοι με κόμματα)",
   "every15Minutes": "Κάθε 15 λεπτά",
   "every30Minutes": "Κάθε 30 λεπτά",
   "everyAccountOnThisServerLoses": "Κάθε λογαριασμός σε αυτόν τον διακομιστή χάνει αυτό το κοινόχρηστο κλειδί. Λογαριασμοί ",
-  "everyAccountOnThisServerSecrets": "κάθε λογαριασμό σε αυτόν τον διακομιστή. Τα μυστικά είναι μόνο για εγγραφή: φύγετε ",
   "everyAccountOnThisServerUses": "Κάθε λογαριασμός σε αυτόν τον διακομιστή χρησιμοποιεί αυτήν τη διεύθυνση ",
   "everyActiveSessionForThisAccount": "Κάθε ενεργή περίοδος σύνδεσης για αυτόν τον λογαριασμό τελειώνει. Μπορούν να συνδεθούν ",
   "everyDay0800": "Καθημερινά · 08:00",
@@ -3012,14 +2987,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Πλήρης προτροπή",
   "fullSetup": "Πλήρης ρύθμιση",
-  "fullTextFtsArg1": "Πλήρες κείμενο (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Στρατηγός",
   "generalSettings": "Γενικές ρυθμίσεις",
   "generalSettingsSaved": "Οι γενικές ρυθμίσεις αποθηκεύτηκαν.",
@@ -3218,7 +3185,6 @@
   "input": "Εισαγωγή",
   "inputMode": "Λειτουργία εισαγωγής",
   "insertATemplate": "Εισαγάγετε ένα πρότυπο",
-  "inspect": "Επιθεωρήστε",
   "install": "Εγκατάσταση",
   "installASignedSelfContainedRuntime": "Εγκαταστήστε έναν υπογεγραμμένο, αυτόνομο χρόνο εκτέλεσης. Δεν απαιτούνται εντολές Node.js, npm, Git και τερματικού.",
   "installApk": "Εγκαταστήστε το APK",
@@ -3251,7 +3217,6 @@
   },
   "instructions": "Οδηγίες",
   "integration": "Ένταξη",
-  "integrationApps": "Εφαρμογές ενοποίησης",
   "integrationConnections": "Συνδέσεις ολοκλήρωσης",
   "integrationSettingsSaved": "Οι ρυθμίσεις ενσωμάτωσης αποθηκεύτηκαν.",
   "integrations": "Ενσωματώσεις",
@@ -3470,14 +3435,6 @@
       }
     }
   },
-  "lexicalArg1": "Λεξικό: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "limit20": "LIMIT 20",
   "limit50": "LIMIT 50",
   "linkArg1": "Σύνδεσμος {arg1}",
@@ -3601,10 +3558,6 @@
       }
     }
   },
-  "memoryImportSync": "συγχρονισμός εισαγωγής μνήμης",
-  "memoryIngestionInterval": "Διάστημα κατάποσης μνήμης",
-  "memoryIngestionIntervalMs": "Διάστημα κατάποσης μνήμης (ms)",
-  "memoryIngestionIntervalMustBeAt": "Το διάστημα κατάποσης μνήμης πρέπει να είναι τουλάχιστον 1000 ms.",
   "memoryInjected": "Έγινε ένεση μνήμης",
   "mentionOrReplyOnly": "Μόνο αναφορά ή απάντηση",
   "mergedServerAndFlutterRuntimeLogs": "Συγχωνευμένα αρχεία καταγραφής χρόνου εκτέλεσης διακομιστή και Flutter για αυτήν την περίοδο λειτουργίας εφαρμογής.",
@@ -3629,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Σίγαση του μικροφώνου. Πατήστε για κατάργηση σίγασης.",
   "microphonePermissionIsRequiredForLive": "Απαιτείται άδεια μικροφώνου για ζωντανή φωνή.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack και άλλες ενσωματώσεις. Ισχύουν για ",
   "microsoftTeams": "Ομάδες της Microsoft",
   "minimumContributionValueArg1": "Ελάχιστη αξία συνεισφοράς: {arg1}",
   "@minimumContributionValueArg1": {
@@ -3676,6 +3628,8 @@
     }
   },
   "modelAvailability": "Διαθεσιμότητα μοντέλου",
+  "autoEnableNewModels": "Αυτόματη ενεργοποίηση νέων μοντέλων",
+  "autoEnableNewModelsHint": "Όταν είναι ανενεργό, τα μοντέλα που προσθέτει αργότερα ένας πάροχος παραμένουν απενεργοποιημένα μέχρι να τα ενεργοποιήσετε.",
   "modelAvailabilitySaved": "Η διαθεσιμότητα του μοντέλου αποθηκεύτηκε.",
   "modelForThisSession": "Μοντέλο για αυτήν τη συνεδρία",
   "modelOverride": "Παράκαμψη μοντέλου",
@@ -3911,6 +3865,61 @@
   "noMcpServersMatchThisSearch": "Κανένας διακομιστής MCP δεν αντιστοιχεί σε αυτήν την αναζήτηση.",
   "noMemoryEntriesFound": "Δεν βρέθηκαν καταχωρήσεις μνήμης.",
   "noMemorySync": "Δεν υπάρχει συγχρονισμός μνήμης",
+  "importPastEmailsIntoMemoryHint": "Διαβάζει μία φορά τα σημαντικά και τα απεσταλμένα email των τελευταίων 12 μηνών, ώστε ο πράκτορας να γνωρίζει τις επαφές και τα έργα σας.",
+  "emailMemory": "Μνήμη email",
+  "importNow": "Εισαγωγή τώρα",
+  "importOnConnect": "Εισαγωγή παλαιότερων μηνυμάτων κατά τη σύνδεση λογαριασμού",
+  "sweepStarting": "Προετοιμασία…",
+  "sweepReadingProgress": "Ανάγνωση email · {done} από {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Ανάγνωση email · βρέθηκαν {count}",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Μάθηση από τα email · {done} από {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Τελευταία εισαγωγή: {emails} email · {memories} νέες αναμνήσεις",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Δεν υπάρχουν νέα email για εισαγωγή",
+  "sweepFailed": "Η εισαγωγή απέτυχε: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Κανένα μοντέλο δεν ταιριάζει με το \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -3997,7 +4006,6 @@
   "nothingStoredYet": "Δεν έχει αποθηκευτεί τίποτα ακόμα.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "Διαπιστευτήρια εφαρμογής OAuth που επιτρέπουν στους λογαριασμούς να συνδέουν την Google, ",
   "oauthClientId": "Αναγνωριστικό πελάτη OAuth",
   "oauthClientIdSecretRedirectApi": "oauth κλειδί api μυστικής ανακατεύθυνσης αναγνωριστικού πελάτη",
   "oauthClientIdSecretRedirectGmail": "oauth αναγνωριστικό πελάτη μυστική ανακατεύθυνση μονάδας ημερολογίου gmail",
@@ -4035,7 +4043,6 @@
   "onTheyCanJoinAgainOnly": "επάνω. Μπορούν να εγγραφούν ξανά μόνο με έναν νέο σύνδεσμο πρόσκλησης.",
   "onYourOwnTheDefault": "Μόνοι σας (η προεπιλογή)",
   "once": "Μια φορά",
-  "oneBlankToKeepWhatIs": "ένα κενό για να κρατήσει αυτό που είναι αποθηκευμένο.",
   "oneIsSavedOtherChangesIn": "ένας σώζεται. Άλλες αλλαγές σε αυτήν τη φόρμα αποθηκεύονται επίσης.",
   "oneOrMoreAccountsExpiredReconnect": "Ένας ή περισσότεροι λογαριασμοί έληξαν. Επανασυνδέστε τον επηρεαζόμενο λογαριασμό για να επαναφέρετε την πρόσβαση στο εργαλείο.",
   "oneRuntimeControlsPersonaGroupTurn": "Ένας χρόνος εκτέλεσης ελέγχει την προσωπικότητα, την ομαδική στροφή, τη μνήμη δωματίου, τους κανόνες, τη Θεωρία του Νου και την παράδοση.",
@@ -4292,7 +4299,6 @@
   "qrLoginRequestWasNotFound": "Το αίτημα σύνδεσης qr δεν βρέθηκε",
   "qrPairing": "Σύζευξη QR",
   "queriesRunAnythingThatWritesIs": "εκτελούνται ερωτήματα. οτιδήποτε γράφει απορρίπτεται.",
-  "query": "Ερώτημα",
   "queryFilter": "Ερώτημα / Φίλτρο",
   "queuedAsSteeringForTheCurrent": "Σε ουρά ως σύστημα διεύθυνσης για την τρέχουσα διαδρομή: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4377,14 +4383,6 @@
   "registrationIsClosed": "η εγγραφή έχει κλείσει",
   "registrationRegisterNewAccountsAllowSignup": "εγγραφή εγγραφή νέου λογαριασμούς επιτρέπουν την εγγραφή",
   "rejectInvalidTlsCertificates": "Απόρριψη μη έγκυρων πιστοποιητικών TLS",
-  "relationArg1": "Σχέση: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "απελευθέρωση και επανεκκίνηση. Οι συνδεδεμένες εφαρμογές επανασυνδέονται μόλις επιστρέψει.",
   "releaseChannel": "Έκδοση καναλιού",
   "releaseCommitBranchNode": "κόμβος διακλάδωσης δέσμευσης απελευθέρωσης",
@@ -4487,7 +4485,6 @@
   "resultDelivery": "Παράδοση αποτελεσμάτων",
   "resultOneClickAddsOneYou": "αποτέλεσμα. Ένα κλικ προσθέτει ένα? μπορείτε να το επεξεργαστείτε αργότερα.",
   "results": "Αποτελέσματα",
-  "retrievalInspector": "Επιθεωρητής ανάκτησης",
   "retry": "Επανάληψη",
   "reusableUsedArg1": "Επαναχρησιμοποιήσιμο · μεταχειρισμένο {arg1}×",
   "@reusableUsedArg1": {
@@ -4643,14 +4640,6 @@
   "scansNewEmailAndOnlyPings": "Σαρώνει νέα email και σας κάνει ping μόνο όταν κάτι έχει σημασία.",
   "schedule": "Πρόγραμμα",
   "scheduledTimeOnceRunsAreMeasured": "προγραμματισμένη ώρα. Μόλις μετρηθούν οι διαδρομές, θα ξεκινήσει νωρίτερα.",
-  "scoreArg1": "Βαθμολογία: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Οθόνη",
   "screenAction": "δράση οθόνης",
   "scrollIsNotSupportedOnThis": "Η κύλιση δεν υποστηρίζεται σε αυτήν την πλατφόρμα.",
@@ -4712,14 +4701,6 @@
     }
   },
   "selectTrigger": "Επιλέξτε Trigger",
-  "semanticArg1": "Σημασιολογική: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Αποστολή (⌘↵)",
   "send2": "Αποστολή",
   "sendATaskFromChatAnd": "Στείλτε μια εργασία από τη συνομιλία και το ιστορικό εκτέλεσής της θα εμφανιστεί εδώ.",
@@ -5633,14 +5614,6 @@
   "value": "Αξία",
   "vaultLocked": "Θόλος κλειδωμένος",
   "vaultOperationFailed": "Η λειτουργία του θησαυροφυλάκιου απέτυχε.",
-  "vectorRankArg1": "Διανυσματική κατάταξη: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Επαλήθευση",
   "verificationArg1": "Επαλήθευση: {arg1}",
   "@verificationArg1": {
@@ -6553,6 +6526,7 @@
   "settingsPageComputer": "Υπολογιστής & web",
   "settingsPageBehavior": "Συμπεριφορά",
   "settingsPageSystem": "Σύστημα",
+  "settingsPagePlatforms": "Πλατφόρμες",
   "settingsPageProfileDescription": "Το όνομα και το email σας, ένα αντίγραφο των δεδομένων σας και η αποσύνδεση.",
   "settingsPageSecurityDescription": "Κωδικός πρόσβασης, έλεγχος ταυτότητας δύο παραγόντων, κλειδιά ασφαλείας και πού είστε συνδεδεμένοι.",
   "settingsPageUsageDescription": "Τα όρια και οι συμβολικές δαπάνες σας, όλα σε ένα μέρος.",
@@ -6990,5 +6964,295 @@
   "signupKeysSaveDialogTitle": "Αποθήκευση κλειδιών εγγραφής",
   "signupKeysExported": "Τα κλειδιά εξήχθησαν.",
   "auditSignupKeysCreated": "{actor} δημιούργησε κλειδιά εγγραφής ({count})",
-  "auditSignupKeyRevoked": "{actor} ανακάλεσε ένα κλειδί εγγραφής"
+  "auditSignupKeyRevoked": "{actor} ανακάλεσε ένα κλειδί εγγραφής",
+  "dataSharingTitle": "Κοινοποίηση δεδομένων χρήσης",
+  "dataSharingDescription": "Βοηθήστε όσους διαχειρίζονται αυτόν τον διακομιστή να τον βελτιώσουν. Κοινοποιεί πώς χρησιμοποιείτε το NeoAgent, ποτέ τι γράφετε ή αποθηκεύετε.",
+  "dataSharingSince": "Κοινοποίηση από {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Τι κοινοποιείται",
+  "dataSharingIncluded": "Κοινοποιείται",
+  "dataSharingExcluded": "Δεν κοινοποιείται ποτέ",
+  "dataSharingIncludedDevice": "Τύπος συσκευής και έκδοση εφαρμογής",
+  "dataSharingIncludedLocale": "Γλώσσα εφαρμογής και περιοχή ζώνης ώρας, π.χ. Ευρώπη",
+  "dataSharingIncludedFeatures": "Ποιες λειτουργίες έχετε ρυθμίσει, όπως εργασίες, skills και ενσωματώσεις",
+  "dataSharingIncludedRuns": "Ποια εργαλεία και μοντέλα χρησιμοποιούν οι εκτελέσεις σας, με χρόνους και αριθμό tokens",
+  "dataSharingIncludedActivity": "Πότε χρησιμοποιείτε το NeoAgent, ανά ημέρα της εβδομάδας και ώρα",
+  "dataSharingExcludedContent": "Μηνύματα, prompts και απαντήσεις",
+  "dataSharingExcludedRuns": "Τίτλοι εκτελέσεων, είσοδοι και αποτελέσματα εργαλείων",
+  "dataSharingExcludedFiles": "Αρχεία, αναμνήσεις και ό,τι άλλο αποθηκεύετε",
+  "dataSharingExcludedIdentity": "Το όνομα, το email, η διεύθυνση IP και η τοποθεσία σας",
+  "dataSharingExcludedAccounts": "Οι λογαριασμοί με τους οποίους συνδέετε ενσωματώσεις",
+  "dataSharingPooledNote": "Οι διαχειριστές βλέπουν μόνο σύνολα για όλους όσους κοινοποιούν, ποτέ εσάς μεμονωμένα. Απενεργοποιήστε το οποτεδήποτε και βγαίνετε αμέσως από τα σύνολα.",
+  "dataSharingConfirmTitle": "Κοινοποίηση δεδομένων χρήσης;",
+  "dataSharingConfirmAction": "Κοινοποίηση",
+  "sharedUsageTitle": "Κοινόχρηστη χρήση",
+  "sharedUsageParticipants": "Λογαριασμοί που κοινοποιούν δεδομένα χρήσης: {sharing} από {total}. Μόνο σύνολα, χωρίς περιεχόμενο.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Κανείς δεν κοινοποιεί ακόμη δεδομένα χρήσης. Ενεργοποιείται από Ρυθμίσεις, Προφίλ, Τα δεδομένα σας.",
+  "sharedUsageRuns": "Κοινοποιημένες εκτελέσεις",
+  "sharedUsageAvgDuration": "Μέση διάρκεια",
+  "sharedUsageCompletedRuns": "Ολοκληρωμένες εκτελέσεις",
+  "sharedUsageStepsPerRun": "Βήματα ανά εκτέλεση",
+  "sharedUsageDevices": "Συσκευές",
+  "sharedUsageAppVersions": "Εκδόσεις εφαρμογής",
+  "sharedUsageLanguages": "Γλώσσες",
+  "sharedUsageRegions": "Περιοχές",
+  "sharedUsageFeatures": "Υιοθέτηση λειτουργιών",
+  "sharedUsageFeaturesDescription": "Ποσοστό των λογαριασμών που κοινοποιούν και την έχουν ρυθμίσει.",
+  "sharedUsageTools": "Εργαλεία",
+  "sharedUsageToolsDescription": "Τα πιο συχνά καλούμενα εργαλεία ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Κλήσεις: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Αποτυχίες: {percent}%",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Ενσωματώσεις",
+  "sharedUsageMessaging": "Κανάλια μηνυμάτων",
+  "sharedUsageTriggers": "Πώς ξεκινούν οι εκτελέσεις",
+  "sharedUsageActivity": "Πότε χρησιμοποιείται",
+  "sharedUsageActivityDescription": "Εκτελέσεις ανά ημέρα της εβδομάδας και ώρα, UTC.",
+  "sharedUsageModels": "Απόδοση μοντέλων",
+  "sharedUsageModelDetail": "μέσος όρος {latency} · {cached}% από cache · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Λογαριασμοί: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Τίποτα σε αυτό το διάστημα.",
+  "sharedUsageNotReported": "Δεν έχει αναφερθεί ακόμη",
+  "sharedUsageFeatureAgents": "Περισσότεροι από ένας πράκτορες",
+  "sharedUsageFeatureTasks": "Προγραμματισμένες εργασίες",
+  "sharedUsageFeatureSkills": "Skills",
+  "sharedUsageFeatureMcp": "Διακομιστές MCP",
+  "sharedUsageFeatureIntegrations": "Ενσωματώσεις",
+  "sharedUsageFeatureMessaging": "Κανάλια μηνυμάτων",
+  "sharedUsageFeatureMemory": "Μνήμη",
+  "sharedUsageSearchKeywords": "opt-in κοινοποίηση δεδομένων τηλεμετρία συσκευές λειτουργίες εργαλεία μοντέλα δραστηριότητα",
+  "providerChooseUsername": "Επιλέξτε όνομα χρήστη",
+  "providerChooseUsernameBody": "Επιλέξτε ένα διαθέσιμο όνομα χρήστη για να ολοκληρώσετε τη δημιουργία του λογαριασμού σας.",
+  "yourOAuthApp": "Η εφαρμογή OAuth σας",
+  "oauthAppSetupTitle": "Η εφαρμογή OAuth σας για {provider}",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Αυτός ο διακομιστής δεν έχει καθολική εφαρμογή {provider}, οπότε συνδέεστε με μια εφαρμογή OAuth που καταχωρίζετε εσείς. Το μυστικό πελάτη αποθηκεύεται κρυπτογραφημένο και δεν εμφανίζεται ποτέ ξανά.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Δημιουργήστε την εφαρμογή",
+  "openDeveloperConsole": "Άνοιγμα κονσόλας προγραμματιστή",
+  "oauthAppStepCallback": "2. Καταχωρίστε αυτό το URL επιστροφής",
+  "callbackUrlCopied": "Το URL επιστροφής αντιγράφηκε",
+  "oauthAppScopes": "Εύρη πρόσβασης προς έγκριση",
+  "scopesCopied": "Τα εύρη πρόσβασης αντιγράφηκαν",
+  "oauthAppStepCredentials": "3. Επικολλήστε τα διαπιστευτήρια της εφαρμογής",
+  "couldNotSaveOAuthApp": "Δεν ήταν δυνατή η αποθήκευση της εφαρμογής OAuth.",
+  "removeOAuthAppTitle": "Κατάργηση της εφαρμογής σας για {provider};",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Οι συνδεδεμένοι λογαριασμοί παραμένουν στη λίστα, αλλά σταματούν να λειτουργούν μέχρι να προσθέσετε ξανά εφαρμογή.",
+  "globalIntegrationConfiguration": "Καθολική διαμόρφωση ενοποιήσεων",
+  "globalIntegrationConfigurationDescription": "Προαιρετικές εφαρμογές OAuth για όλο τον διακομιστή. Όταν μια ενοποίηση έχει μία, κάθε λογαριασμός τη χρησιμοποιεί και δεν μπορεί να προσθέσει δική του. Αφήστε μια ενοποίηση κενή και κάθε χρήστης ρυθμίζει τη δική του εφαρμογή. Τα μυστικά είναι μόνο για εγγραφή: αφήστε κενό για να διατηρηθεί η αποθηκευμένη τιμή.",
+  "globalStatus": "Καθολικά",
+  "perUserStatus": "Ανά χρήστη",
+  "phoneSyncGuidance": "Μοιραστείτε τα ημερολόγια και τις επαφές αυτού του τηλεφώνου με τον πράκτορά σας. Λειτουργεί με κάθε λογαριασμό που υπάρχει ήδη στο τηλέφωνο.",
+  "phoneSyncElsewhereGuidance": "Ανοίξτε το NeoAgent στο τηλέφωνο και ενεργοποιήστε εκεί την κοινή χρήση. Ο πράκτορας θα βλέπει τα ημερολόγια και τις επαφές όλων των λογαριασμών του τηλεφώνου.",
+  "manageOnThisPhone": "Διαχείριση σε αυτό το τηλέφωνο",
+  "setUpOnThisPhone": "Ρύθμιση σε αυτό το τηλέφωνο",
+  "setUpOnPhone": "Ρύθμιση στο τηλέφωνό σας",
+  "emailConnectedArg1": "Συνδέθηκε το {email}",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Δεν ήταν δυνατή η σύνδεση του λογαριασμού.",
+  "emailSetupTitle": "Σύνδεση email και ημερολογίου",
+  "emailChecking": "Έλεγχος γραμματοκιβωτίου…",
+  "emailSetupIntro": "Χρησιμοποιήστε κωδικό εφαρμογής από τον πάροχο email. Χωρίς κονσόλα προγραμματιστή, έτοιμο σε λίγα λεπτά.",
+  "emailOpenArg1": "Άνοιγμα {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Εισαγάγετε τους διακομιστές",
+  "emailStepPassword": "1. Δημιουργήστε κωδικό εφαρμογής",
+  "emailOpenPasswordPageArg1": "Άνοιγμα κωδικών εφαρμογών {provider}",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Σύνδεση",
+  "appPassword": "Κωδικός εφαρμογής",
+  "appPasswordHelper": "Τα κενά δεν μετράνε. Το NeoAgent τον αποθηκεύει κρυπτογραφημένο.",
+  "emailUsernameOptional": "Όνομα χρήστη, αν δεν είναι το email σας",
+  "emailIncludeCalendar": "Συμπερίληψη ημερολογίου",
+  "emailIncludeContacts": "Συμπερίληψη επαφών",
+  "imapServer": "Διακομιστής IMAP",
+  "smtpServer": "Διακομιστής SMTP",
+  "caldavUrlOptional": "URL CalDAV (προαιρετικό)",
+  "carddavUrlOptional": "URL CardDAV (προαιρετικό)",
+  "alternativeEmail": "Συνδέστε το γραμματοκιβώτιο με κωδικό εφαρμογής ή το ημερολόγιο με τον σύνδεσμο iCal του. Έτοιμο σε λίγα λεπτά.",
+  "alternativePhone": "Μοιραστείτε το ημερολόγιο και τις επαφές του τηλεφώνου μέσω της εφαρμογής NeoAgent.",
+  "alternativePhoneElsewhere": "Μοιραστείτε το ημερολόγιο και τις επαφές του τηλεφώνου. Ρυθμίστε το στην εφαρμογή NeoAgent του τηλεφώνου.",
+  "skipTheDeveloperConsole": "Χωρίς κονσόλα προγραμματιστή",
+  "phoneSyncPromptTitle": "Να βλέπει ο πράκτορας το ημερολόγιό σας;",
+  "phoneSyncPromptBody": "Μοιραστείτε τα ημερολόγια και τις επαφές του τηλεφώνου ώστε ο πράκτορας να οργανώνει τη μέρα σας. Μπορείτε να το αλλάξετε ανά πάσα στιγμή στα Εργαλεία › Ενοποιήσεις.",
+  "phoneSyncTitle": "Κοινή χρήση ημερολογίου και επαφών του τηλεφώνου",
+  "phoneSyncIntro": "Ο πράκτορας βλέπει τα ημερολόγια και τις επαφές όλων των λογαριασμών του τηλεφώνου. Χωρίς κονσόλα προγραμματιστή, χωρίς επιπλέον σύνδεση.",
+  "phoneSyncPointAccounts": "Λειτουργεί με τους λογαριασμούς Google, Outlook, iCloud και Exchange του τηλεφώνου.",
+  "phoneSyncPointPrivate": "Κοινοποιείται μόνο στον διακομιστή NeoAgent σας, που τα αποθηκεύει κρυπτογραφημένα.",
+  "phoneSyncPointWrites": "Τα συμβάντα που προσθέτει ο πράκτορας δημιουργούνται από αυτό το τηλέφωνο και συγχρονίζονται κανονικά.",
+  "phoneSyncCalendarHint": "Συμβάντα από 30 ημέρες πριν έως 90 ημέρες μετά",
+  "phoneSyncContacts": "Επαφές",
+  "phoneSyncContactsHint": "Ονόματα, διευθύνσεις email και αριθμοί τηλεφώνου",
+  "phoneSyncOtherAgent": "Αυτό το τηλέφωνο μοιράζεται με άλλον πράκτορα. Η κοινή χρήση εδώ το μεταφέρει σε αυτόν.",
+  "phoneSyncDenied": "Το NeoAgent δεν έχει ακόμη πρόσβαση. Επιτρέψτε την στις Ρυθμίσεις και επιστρέψτε.",
+  "openPhoneSettings": "Άνοιγμα Ρυθμίσεων",
+  "phoneSyncShare": "Κοινή χρήση με το NeoAgent",
+  "phoneSyncStop": "Διακοπή κοινής χρήσης",
+  "phoneSyncWaiting": "Αναμονή για τον πρώτο συγχρονισμό…",
+  "phoneSyncLastSyncedArg1": "Τελευταίος συγχρονισμός {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Σύνδεσμος ημερολογίου",
+  "calendarLinkHelper": "Η διεύθυνση iCal του ημερολογίου. Όποιος την έχει μπορεί να διαβάσει το ημερολόγιο, οπότε κρατήστε την ιδιωτική.",
+  "calendarLinkName": "Όνομα (προαιρετικό)",
+  "calendarLinkAdded": "Το ημερολόγιο προστέθηκε",
+  "toolsApps": "Εφαρμογές",
+  "reconnect": "Επανασύνδεση",
+  "reconnectNeeded": "Απαιτείται επανασύνδεση",
+  "mixedAccess": "Μικτή πρόσβαση",
+  "disconnectAccountTitle": "Αποσύνδεση του {account};",
+  "disconnectAccountBody": "Ο πράκτορας χάνει την πρόσβαση στα {apps} μέσω αυτού του λογαριασμού.",
+  "neoRouterServerDescription": "Συνδέστε το NeoRouter σας μία φορά και κάθε λογαριασμός εδώ θα το χρησιμοποιεί για τις εργασίες που είναι ενεργές παρακάτω.",
+  "neoRouterUserDescription": "Χρησιμοποιήστε τον δικό σας λογαριασμό NeoRouter για τις εργασίες που είναι ενεργές παρακάτω αντί για τους παρόχους αυτού του διακομιστή.",
+  "neoRouterAddress": "Διεύθυνση NeoRouter",
+  "neoRouterConnect": "Σύνδεση NeoRouter",
+  "neoRouterWaitingArg1": "Εγκρίνετε το NeoAgent στο NeoRouter. Εμφανίζει τον κωδικό {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Άνοιγμα ξανά",
+  "neoRouterConnectedArg1": "Συνδέθηκε με {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "Το NeoRouter δεν είναι προσβάσιμο αυτή τη στιγμή.",
+  "neoRouterDisconnect": "Αποσύνδεση",
+  "neoRouterDisconnectBody": "Το NeoAgent σταματά να χρησιμοποιεί αυτό το NeoRouter. Για να ανακαλέσετε και το κλειδί, κάντε το στο NeoRouter στα Κλειδιά API.",
+  "neoRouterServerInUse": "Αυτός ο διακομιστής χρησιμοποιεί ήδη NeoRouter για όλους. Συνδέστε τον δικό σας λογαριασμό NeoRouter για δικά σας μοντέλα και προϋπολογισμό.",
+  "neoRouterConnected": "Το NeoRouter συνδέθηκε.",
+  "neoRouterRoleChat": "Συνομιλία και αναγνώριση εικόνας",
+  "neoRouterRoleSystemOne": "Αποφάσεις System One",
+  "neoRouterRoleTranscription": "Ομιλία σε κείμενο",
+  "neoRouterRoleLive": "Ζωντανή φωνή",
+  "neoRouterRoleEmbeddings": "Αναζήτηση στη μνήμη",
+  "neoRouterRoleImages": "Δημιουργία εικόνων",
+  "neoRouterRoleSearch": "Αναζήτηση στο web",
+  "neoRouterModelCountArg1": "Διαθέσιμα στο NeoRouter σας: {arg1}",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Δεν υπάρχει ακόμη τίποτα στο NeoRouter σας.",
+  "neoRouterPicksModels": "Το NeoRouter επιλέγει το μοντέλο για κάθε αίτημα, οπότε αυτή η επιλογή δεν χρησιμοποιείται.",
+  "neoRouterNotAllowedArg1": "Στο NeoRouter σας: {arg1}, αλλά το κλειδί του NeoAgent δεν μπορεί ακόμη να τα χρησιμοποιήσει (π.χ. τα επί πληρωμή). Επιτρέψτε τα για το NeoAgent στα Κλειδιά API του NeoRouter.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Χρειάζονται μοντέλα αποφάσεων όπως το Jev. Οι ταξινομητές ασφάλειας δεν απαντούν σε αυτές τις ερωτήσεις.",
+  "voiceLiveNoProvider": "Δεν έχει ρυθμιστεί πάροχος ζωντανής φωνής. Προσθέστε κλειδί OpenAI ή Google AI ή συνδέστε ένα NeoRouter στα Μοντέλα → Φέρτε το δικό σας κλειδί.",
+  "voiceSttAutoNeoRouter": "Αυτόματα (το NeoRouter επιλέγει το μοντέλο)",
+  "voiceNotOffered": "Δεν προσφέρεται πλέον, επιλέξτε άλλο"
 }

@@ -2123,6 +2123,7 @@ class _AdminOpsAnalytics {
     required this.statuses,
     required this.topUsers,
     required this.recentRuns,
+    required this.sharedUsage,
   });
 
   factory _AdminOpsAnalytics.fromJson(Map<String, dynamic> json) {
@@ -2173,6 +2174,7 @@ class _AdminOpsAnalytics {
         for (final row in _jsonMapList(json['recentRuns']))
           (run: RunSummary.fromJson(row), username: _asText(row['username'])),
       ],
+      sharedUsage: _AdminSharedUsage.fromJson(_jsonMap(json['sharedUsage'])),
     );
   }
 
@@ -2185,6 +2187,7 @@ class _AdminOpsAnalytics {
   final List<({String status, int count})> statuses;
   final List<({String name, int runs, int tokens, int storage})> topUsers;
   final List<({RunSummary run, String username})> recentRuns;
+  final _AdminSharedUsage sharedUsage;
 
   int stat(String key) => stats[key] ?? 0;
 }
@@ -2446,6 +2449,7 @@ class _AdminAnalyticsTabState extends State<_AdminAnalyticsTab> {
           ],
         ),
       ),
+      ..._adminSharedUsageCards(data.sharedUsage, _rangeLabel),
       _SectionCard(
         title: appStrings.recentRuns,
         description: appStrings.theLatestRunsAcrossEveryAccount,

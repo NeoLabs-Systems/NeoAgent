@@ -8,7 +8,7 @@ const { LIVE_VOICE_PROVIDERS } = require('./live/catalog');
 const { describeLiveVoiceCatalog, resolveLiveModel } = require('./live/models');
 const { LiveVoiceSession } = require('./live/session');
 const { getVoiceRuntimeSettings } = require('./liveSettings');
-const { DEFAULT_STT_MODELS, STT_PROVIDERS } = require('./providers/provider_defaults');
+const { describeSttProviders } = require('./transcription');
 const { createSocketVoiceSink } = require('./voice_transport');
 
 const logger = createServiceLogger('VoiceRuntime');
@@ -35,9 +35,7 @@ class VoiceRuntimeManager {
   async getCapabilities({ userId = null, agentId = null } = {}) {
     return {
       ...await describeLiveVoiceCatalog({ userId, agentId }),
-      transcription: {
-        providers: STT_PROVIDERS.map((id) => ({ id, defaultModel: DEFAULT_STT_MODELS[id] })),
-      },
+      transcription: await describeSttProviders(userId, agentId),
     };
   }
 
@@ -160,6 +158,7 @@ class VoiceRuntimeManager {
     const session = this.getSession(sessionId);
     if (!session) return;
     this.#assertOwner(session, userId);
+    logger.info('Live voice call ending', { sessionId, reason, provider: session.provider?.id || null });
     if (session.tasks.hasRunningWork && !cancelTask) {
       await session.detach();
     } else {
@@ -197,6 +196,7 @@ class VoiceRuntimeManager {
 
   #forget(session, reason = 'released') {
     if (this.sessions.get(session.id) !== session) return;
+    logger.info('Live voice call ending', { sessionId: session.id, reason, provider: session.provider?.id || null });
     this.sessions.delete(session.id);
     void session.close(reason);
     this.agentCallCoordinator?.notifySessionClosed(session, reason);

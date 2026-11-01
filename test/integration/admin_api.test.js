@@ -178,6 +178,7 @@ describe('admin API', () => {
     assert.ok(health.body.results.some((result) => result.id === 'database' && result.passed));
     const analytics = await client.get('/api/admin/analytics').query({ range: 7 }).expect(200);
     assert.equal(analytics.body.stats.totalUsers >= 2, true);
+    assert.equal(analytics.body.sharedUsage.participants.sharing, 0);
     const logs = await client.get('/api/admin/logs').expect(200);
     assert.ok(Array.isArray(logs.body.logs));
   });

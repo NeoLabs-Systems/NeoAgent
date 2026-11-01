@@ -14,6 +14,7 @@ const {
 const { AI_PROVIDER_DEFINITIONS } = require('./provider_definitions');
 const { parseModelSelectionId } = require('./model_identity');
 const { normalizeTaskModels } = require('./task_models');
+const { normalizeRoles } = require('./neorouter/connection');
 
 function createDefaultProviderConfigs() {
   return Object.fromEntries(
@@ -63,6 +64,8 @@ function createDefaultAiSettings() {
     voice_live_model: '',
     voice_live_voice: '',
     voice_input_mode: DEFAULT_INPUT_MODE,
+    // What a NeoRouter this agent signed in to handles; null means everything.
+    neorouter_roles: null,
   };
 }
 
@@ -307,6 +310,7 @@ function getAiSettings(userId, agentId = null) {
   settings.voice_live_voice = String(settings.voice_live_voice || '').trim();
   settings.voice_input_mode = normalizeInputMode(settings.voice_input_mode);
   settings.ai_provider_configs = normalizeProviderConfigs(settings.ai_provider_configs);
+  settings.neorouter_roles = settings.neorouter_roles == null ? null : normalizeRoles(settings.neorouter_roles);
 
   return settings;
 }

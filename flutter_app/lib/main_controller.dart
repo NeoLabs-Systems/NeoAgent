@@ -32,11 +32,10 @@ class NeoAgentController extends ChangeNotifier {
        _webAuthnClient = webAuthnClient ?? createWebAuthnClient() {
     _backendClient.onSessionExpired = handleSessionExpired;
     _desktopCompanion.addListener(_onDesktopCompanionChanged);
-    AndroidAutoBridge.instance.onStartVoiceMode = startLiveVoiceCapture;
     _AppNotificationService.onCallAction = _handleCallNotificationAction;
     _AppNotificationService.onApprovalAction = _resolveApprovalFromNotification;
     _AppNotificationService.listenForActions();
-    AndroidAutoBridge.instance.onStopVoiceMode = interruptLiveVoiceAssistant;
+    _systemCallActions = CallBridge.actions.listen(_handleSystemCallAction);
 
     _clientLogs = AppDiagnostics.recentEntries
         .map(_logEntryFromDiagnostic)
@@ -50,6 +49,7 @@ class NeoAgentController extends ChangeNotifier {
   final NeoAgentAppMode appMode;
   final BackendClient _backendClient;
   final HealthBridge _healthBridge;
+  late final PhoneSync phoneSync = PhoneSync(this);
   final OAuthLauncher _oauthLauncher;
   final WebAuthnClient _webAuthnClient;
   final BackendDiscoveryService _backendDiscoveryService =
@@ -96,12 +96,16 @@ class NeoAgentController extends ChangeNotifier {
   final Set<String> _detachedChatRunIds = <String>{};
   final Set<String> _voiceRunIds = <String>{};
   final Set<String> _busyOfficialIntegrationKeys = <String>{};
+  final Set<String> _memorySweepOptOutKeys = <String>{};
+  final Map<int, MemorySweepProgress> _liveMemorySweeps =
+      <int, MemorySweepProgress>{};
   final Set<String> _busyMessagingPlatformKeys = <String>{};
   final Map<String, DateTime> _manualRunCooldowns = <String, DateTime>{};
   final Set<String> _addingTaskRecommendations = <String>{};
   static const Duration _manualRunCooldownDuration = Duration(seconds: 10);
   static const int _chatHistoryPageSize = 20;
   int _authCycle = 0;
+
   /// The challenge whose status check is in flight; a held check for an old
   /// code must not block the new one.
   String? _qrLoginPollingChallengeId;
@@ -206,6 +210,10 @@ class NeoAgentController extends ChangeNotifier {
   /// The open Settings page. Null on a phone means the page list is showing;
   /// wider layouts show the profile page in its place.
   SettingsPage? settingsPage;
+
+  /// The setting a search result or link pointed at. Its page scrolls to it
+  /// and flashes it once.
+  SettingsHighlight? settingsHighlight;
   Map<String, dynamic>? user;
   Map<String, dynamic> accountTwoFactor = const <String, dynamic>{};
   List<AccountSessionItem> accountSessions = const <AccountSessionItem>[];
@@ -216,6 +224,12 @@ class NeoAgentController extends ChangeNotifier {
   List<LinkedAuthProviderItem> linkedAuthProviders =
       const <LinkedAuthProviderItem>[];
   List<SecurityKeyItem> accountSecurityKeys = const <SecurityKeyItem>[];
+
+  /// Opt-in usage data sharing; see `server/services/account/data_sharing.js`.
+  bool sharesUsageData = false;
+  DateTime? usageDataSharingSince;
+  bool isSavingDataSharing = false;
+  int? _dataSharingReportedCycle;
   QrLoginChallenge? qrLoginChallenge;
 
   /// Set while a phone that scanned [qrLoginChallenge] decides on it.
@@ -301,6 +315,7 @@ class NeoAgentController extends ChangeNotifier {
   String? _chatHistoryBeforeSource;
   String? _chatHistoryBeforeId;
   String? _requestedRunFocusId;
+  String? _requestedIntegrationId;
 
   ActiveRunState? activeRun;
   // The foreground run that last ended in an error, cleared when the next one
@@ -320,6 +335,11 @@ class NeoAgentController extends ChangeNotifier {
   bool _returnHomeAfterCall = false;
   final HomeWidgetBridge _homeWidgetBridge = HomeWidgetBridge();
   Timer? _incomingCallExpiryTimer;
+  StreamSubscription<({String callId, String action})>? _systemCallActions;
+
+  /// A call answered or declined on the system's call screen before the
+  /// server's invitation reached the app.
+  ({String callId, String action})? _earlySystemCallAction;
   Completer<void>? _liveVoiceSessionOpenCompleter;
   final LiveVoicePlayer _liveVoicePlayer = LiveVoicePlayer();
   VoiceWorkClicks? _voiceWorkClicks;
@@ -364,6 +384,10 @@ class NeoAgentController extends ChangeNotifier {
   String get computerProvider =>
       computerRuntime['provider']?.toString() == 'local' ? 'local' : 'cloud';
   String? get requestedRunFocusId => _requestedRunFocusId;
+
+  /// The integration a link asked to open. The Tools page opens its sheet once
+  /// the integration list has it.
+  String? get requestedIntegrationId => _requestedIntegrationId;
 
   bool get hasLiveRun => isSendingMessage && activeRun != null;
 
@@ -487,17 +511,16 @@ class NeoAgentController extends ChangeNotifier {
 
   @override
   void dispose() {
-    AndroidAutoBridge.instance.onStartVoiceMode = null;
     _AppNotificationService.onCallAction = null;
     _AppNotificationService.onApprovalAction = null;
     _AppNotificationService.stopListeningForActions();
     unawaited(CallBridge.dismiss());
-    AndroidAutoBridge.instance.onStopVoiceMode = null;
     _updatePollTimer?.cancel();
     _qrLoginPollTimer?.cancel();
     _backendClient.onSessionExpired = null;
     _manualRunCooldownTimer?.cancel();
     _incomingCallExpiryTimer?.cancel();
+    _systemCallActions?.cancel();
     _socket?.dispose();
     runActivity.dispose();
     _diagnosticLogSubscription?.cancel();
@@ -816,6 +839,8 @@ class NeoAgentController extends ChangeNotifier {
     _notificationTriggersEnabled =
         _prefs?.getBool('mobile.notificationTriggersEnabled') ?? true;
     _restoreSelectedSectionFromPrefs();
+    final launchLink = takeLaunchAppLink();
+    if (launchLink != null) openAppLink(launchLink);
     appUpdateChannel =
         _prefs?.getString('app.update.channel')?.trim().toLowerCase() == 'beta'
         ? 'beta'
@@ -1988,6 +2013,8 @@ class NeoAgentController extends ChangeNotifier {
     accessSummary = null;
     linkedAuthProviders = const <LinkedAuthProviderItem>[];
     accountSecurityKeys = const <SecurityKeyItem>[];
+    sharesUsageData = false;
+    usageDataSharingSince = null;
     settings = const <String, dynamic>{};
     behaviorConfig = const <String, dynamic>{};
     chatMessages = const <ChatEntry>[];
@@ -2044,6 +2071,7 @@ class NeoAgentController extends ChangeNotifier {
         sessionCookie: '',
       ),
     );
+    unawaited(phoneSync.pause());
   }
 
   Future<void> _persistCredentials() async {
@@ -2153,6 +2181,7 @@ class NeoAgentController extends ChangeNotifier {
     await _desktopCompanion.reconnectIfNeeded(force: true);
     _ensureSocketConnected();
     unawaited(refreshComputerRuntime(silent: true));
+    unawaited(phoneSync.resume());
   }
 
   void _restoreSelectedSectionFromPrefs() {
@@ -2185,17 +2214,63 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   /// Opens Settings, on [page] when one is given and otherwise on the page
-  /// that was open last.
-  void openSettings([SettingsPage? page]) {
-    if (page != null) settingsPage = page;
+  /// that was open last. [anchor] scrolls to one setting on that page.
+  void openSettings([SettingsPage? page, String? anchor]) {
+    if (page != null) {
+      settingsPage = page;
+      settingsHighlight = anchor == null ? null : SettingsHighlight(anchor);
+    }
     setSelectedSection(AppSection.settings);
   }
 
-  void setSettingsPage(SettingsPage? page) {
-    if (settingsPage == page) return;
+  void setSettingsPage(SettingsPage? page, {String? anchor}) {
+    if (settingsPage == page && anchor == null) return;
     settingsPage = page;
+    settingsHighlight = anchor == null ? null : SettingsHighlight(anchor);
     errorMessage = null;
     notifyListeners();
+  }
+
+  /// Opens the place [link] points at. Returns false when this app has no
+  /// such place, so the caller can open the link elsewhere.
+  bool openAppLink(AppLink link) {
+    if (link.section == AppSection.settings.name) {
+      final page = _visibleSettingsPages()
+          .where((candidate) => candidate.name == link.page)
+          .firstOrNull;
+      openSettings(page, page == null ? null : link.focus);
+      return true;
+    }
+    final section = AppSection.values
+        .where((candidate) => candidate.name == link.section)
+        .firstOrNull;
+    if (section == null) return false;
+    if (section == AppSection.integrations) {
+      _requestedIntegrationId = link.focus;
+    }
+    setSelectedSection(section);
+    return true;
+  }
+
+  void clearRequestedIntegration() {
+    _requestedIntegrationId = null;
+  }
+
+  /// Opens a link from a message: app links navigate in place, web and mail
+  /// links open outside the app.
+  void openMessageLink(String href) {
+    final uri = Uri.tryParse(href.trim());
+    if (uri == null) return;
+    final link = AppLink.tryParse(uri);
+    if (link != null && openAppLink(link)) return;
+    if (const <String>{'https', 'http', 'mailto'}.contains(uri.scheme)) {
+      unawaited(
+        url_launcher.launchUrl(
+          uri,
+          mode: url_launcher.LaunchMode.externalApplication,
+        ),
+      );
+    }
   }
 
   Future<void> stopRun(String runId) async {
@@ -2716,6 +2791,8 @@ class NeoAgentController extends ChangeNotifier {
         authStatus['user'] as Map<String, dynamic>,
       );
       _syncOnboardingFromAccount();
+      sharesUsageData = user?['sharesUsageData'] == true;
+      unawaited(_reportDataSharingClient(authCycle));
 
       final profilesResponse = await _backendClient.fetchAgentProfiles(
         backendUrl,
@@ -3001,6 +3078,7 @@ class NeoAgentController extends ChangeNotifier {
       if (!_isCurrentAuthCycle(authCycle)) {
         return;
       }
+      unawaited(phoneSync.resume());
       await _syncDesktopCompanionSession();
       if (!_isCurrentAuthCycle(authCycle)) return;
       unawaited(ensureLocalDeviceConnected());
@@ -4313,7 +4391,7 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> _startLiveVoiceTelecomRouting() async {
     if (_liveVoiceTelecomRouting) return;
     try {
-      _liveVoiceTelecomRouting = await AndroidAutoBridge.instance
+      _liveVoiceTelecomRouting = await TelecomBridge.instance
           .startTelecomCallRouting();
     } catch (_) {
       // Call routing is an Android nicety; the session works without it.
@@ -4368,8 +4446,16 @@ class NeoAgentController extends ChangeNotifier {
       unawaited(windowManager.show());
       unawaited(windowManager.focus());
     }
-    unawaited(CallBridge.startRinging());
-    unawaited(_AppNotificationService.showIncomingCallNotification(call));
+    unawaited(
+      CallBridge.startRinging(
+        callId: call.callId,
+        callerName: call.agentName,
+        expiresAt: call.expiresAt,
+      ),
+    );
+    if (!CallBridge.showsSystemCallScreen) {
+      unawaited(_AppNotificationService.showIncomingCallNotification(call));
+    }
     final broughtForward = await CallBridge.present();
     if (incomingAgentCall?.callId == call.callId) {
       _callBroughtAppForward = _callBroughtAppForward || broughtForward;
@@ -4383,6 +4469,18 @@ class NeoAgentController extends ChangeNotifier {
     final moveToBack = _callBroughtAppForward;
     _callBroughtAppForward = false;
     unawaited(CallBridge.dismiss(moveToBack: moveToBack));
+  }
+
+  void _handleSystemCallAction(({String callId, String action}) event) {
+    if (event.action == CallBridge.endAction) {
+      if (_liveVoiceSessionStartedAt != null) unawaited(hangUpVoiceCall());
+      return;
+    }
+    if (incomingAgentCall?.callId != event.callId) {
+      _earlySystemCallAction = event;
+      return;
+    }
+    _handleCallNotificationAction(event.callId, event.action);
   }
 
   void _handleCallNotificationAction(String callId, String action) {
@@ -4516,7 +4614,7 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> _stopLiveVoiceTelecomRouting() async {
     if (!_liveVoiceTelecomRouting) return;
     _liveVoiceTelecomRouting = false;
-    await AndroidAutoBridge.instance.stopTelecomCallRouting();
+    await TelecomBridge.instance.stopTelecomCallRouting();
   }
 
   Future<void> toggleLiveVoiceCapture() async {
@@ -4546,20 +4644,6 @@ class NeoAgentController extends ChangeNotifier {
     }
     AppDiagnostics.log('desktop.assistant', 'ptt.capture_stopped');
     notifyListeners();
-  }
-
-  /// Silences the assistant and the microphone (Android Auto stop, desktop
-  /// popup cancel).
-  Future<void> interruptLiveVoiceAssistant() async {
-    await stopLiveVoiceCapture();
-    await stopLiveVoicePlayback();
-  }
-
-  Future<void> stopLiveVoicePlayback() async {
-    final sessionId = voiceAssistantLiveState.sessionId.trim();
-    if (sessionId.isEmpty || _socket == null) return;
-    await _liveVoicePlayer.flush();
-    _socket!.emit('voice:interrupt', <String, dynamic>{'sessionId': sessionId});
   }
 
   /// Stops the task the call screen shows, the newest one.
@@ -5036,6 +5120,50 @@ class NeoAgentController extends ChangeNotifier {
           .whereType<Map<dynamic, dynamic>>()
           .map(LinkedAuthProviderItem.fromJson)
           .toList();
+    }
+    final dataSharing = response['dataSharing'];
+    if (dataSharing is Map) {
+      sharesUsageData = dataSharing['enabled'] == true;
+      usageDataSharingSince = DateTime.tryParse(
+        dataSharing['since']?.toString() ?? '',
+      )?.toLocal();
+    }
+  }
+
+  Future<bool> setUsageDataSharing(bool enabled) async {
+    isSavingDataSharing = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      _applyAccountResponse(
+        await _backendClient.updateDataSharing(
+          baseUrl: backendUrl,
+          enabled: enabled,
+          client: enabled ? await describeClientForDataSharing() : null,
+        ),
+      );
+      return true;
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      return false;
+    } finally {
+      isSavingDataSharing = false;
+      notifyListeners();
+    }
+  }
+
+  /// Keeps the shared platform and app version current, once per sign-in.
+  Future<void> _reportDataSharingClient(int authCycle) async {
+    if (!sharesUsageData || _dataSharingReportedCycle == authCycle) return;
+    _dataSharingReportedCycle = authCycle;
+    try {
+      await _backendClient.reportDataSharingClient(
+        baseUrl: backendUrl,
+        client: await describeClientForDataSharing(),
+      );
+    } catch (_) {
+      // Best effort: the next sign-in reports again.
+      _dataSharingReportedCycle = null;
     }
   }
 
@@ -5810,6 +5938,9 @@ class NeoAgentController extends ChangeNotifier {
         backendUrl,
         providerId,
         appId: appId,
+        memorySweep:
+            before?.memorySweep == true &&
+            isMemorySweepEnabled(providerId, appId),
         agentId: _scopedAgentId,
       );
       final url = response['url']?.toString();
@@ -5847,6 +5978,58 @@ class NeoAgentController extends ChangeNotifier {
       );
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
+    } finally {
+      _busyOfficialIntegrationKeys.remove(busyKey);
+      notifyListeners();
+    }
+  }
+
+  /// The latest mail import for this account: live socket updates win over
+  /// the state the last integration snapshot carried.
+  MemorySweepProgress? memorySweepFor(OfficialIntegrationAccountItem account) =>
+      _liveMemorySweeps[account.id] ?? account.memoryCoverage.sweep;
+
+  /// Whether connecting this app imports its important past mail into
+  /// memory. On unless the user unticked it.
+  bool isMemorySweepEnabled(String providerId, String appId) =>
+      !_memorySweepOptOutKeys.contains('$providerId:$appId');
+
+  void setMemorySweepEnabled(String providerId, String appId, bool enabled) {
+    final key = '$providerId:$appId';
+    final changed = enabled
+        ? _memorySweepOptOutKeys.remove(key)
+        : _memorySweepOptOutKeys.add(key);
+    if (changed) notifyListeners();
+  }
+
+  /// Imports past mail of every connected account of this app that is not
+  /// in memory yet. The server runs it in the background.
+  Future<void> importPastEmails(String providerId, String appId) async {
+    final busyKey = '$providerId:$appId:sweep';
+    if (_busyOfficialIntegrationKeys.contains(busyKey)) {
+      return;
+    }
+
+    _busyOfficialIntegrationKeys.add(busyKey);
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await _backendClient.startMemorySweep(
+        backendUrl,
+        providerId,
+        appId: appId,
+        agentId: _scopedAgentId,
+      );
+      final connectionIds = response['connectionIds'];
+      if (connectionIds is List) {
+        for (final id in connectionIds) {
+          _liveMemorySweeps[_asInt(id)] = const MemorySweepProgress.starting();
+        }
+      }
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      rethrow;
     } finally {
       _busyOfficialIntegrationKeys.remove(busyKey);
       notifyListeners();
@@ -6220,6 +6403,34 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  /// Re-reads settings someone else changed, such as the assistant. A save
+  /// from this app that is still in flight wins over what was read.
+  Future<void> _reloadSettingsChangedElsewhere(List<String> keys) async {
+    if (!isAuthenticated) return;
+    final agentId = _scopedAgentId;
+    final mutationId = _settingsMutationId;
+    final languageRevision = _languageRevision;
+    try {
+      final response = await _backendClient.fetchSettings(
+        backendUrl,
+        agentId: agentId,
+      );
+      if (_pendingSettingsWrites > 0 ||
+          mutationId != _settingsMutationId ||
+          agentId != _scopedAgentId) {
+        return;
+      }
+      settings = Map<String, dynamic>.from(response);
+      _reconcileLanguage(languageRevision);
+      notifyListeners();
+      if (keys.contains('assistant_behavior_notes')) {
+        unawaited(refreshMemory());
+      }
+    } catch (error) {
+      debugPrint('Reloading changed settings failed: $error');
+    }
+  }
+
   void _beginSettingsSave() {
     _activeSettingsSaves += 1;
     isSavingSettings = true;
@@ -6326,6 +6537,84 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> _refreshAfterProviderKeySaved() async {
     aiModelsUnavailable = false;
     await refreshByokProviders();
+    await refreshAiCatalog();
+  }
+
+  // ---- NeoRouter --------------------------------------------------------
+
+  Future<Map<String, dynamic>> fetchNeoRouter() =>
+      _backendClient.fetchNeoRouter(backendUrl, agentId: _scopedAgentId);
+
+  /// Opens NeoRouter's approval page and returns the sign-in to wait for
+  /// (`id`) and the code NeoRouter shows (`userCode`).
+  Future<Map<String, dynamic>> startNeoRouterConnect(
+    String scope,
+    String address,
+  ) async {
+    final begin = await _backendClient.beginNeoRouterConnect(
+      backendUrl,
+      scope: scope,
+      address: address,
+      agentId: _scopedAgentId,
+    );
+    await openNeoRouterApproval(begin['url']?.toString() ?? '');
+    return begin;
+  }
+
+  Future<void> openNeoRouterApproval(String url) async {
+    final launch = await _oauthLauncher.openExternal(
+      url: url,
+      label: 'neorouter',
+    );
+    if (!launch.launched) {
+      throw Exception(launch.error ?? appStrings.couldNotOpenTheProviderSign);
+    }
+  }
+
+  /// Waits until the server has the key, then reloads the models.
+  Future<void> waitForNeoRouterConnect(
+    String id, {
+    required bool Function() isActive,
+  }) async {
+    final deadline = DateTime.now().add(const Duration(minutes: 10));
+    while (DateTime.now().isBefore(deadline)) {
+      if (!isActive()) {
+        throw Exception(appStrings.authenticationWasCanceledBeforeCompletion);
+      }
+      final response = await _backendClient.fetchNeoRouterConnect(
+        backendUrl,
+        id,
+      );
+      switch (response['status']?.toString()) {
+        case 'completed':
+          await _refreshAfterProviderKeySaved();
+          return;
+        case 'failed':
+          throw Exception(
+            response['error']?.toString() ?? appStrings.authenticationFailed,
+          );
+      }
+      await Future<void>.delayed(const Duration(seconds: 2));
+    }
+    throw Exception(appStrings.authenticationIsStillPendingFinishThe);
+  }
+
+  Future<void> saveNeoRouterRoles(String scope, List<String> roles) async {
+    await _backendClient.saveNeoRouterRoles(
+      backendUrl,
+      scope: scope,
+      roles: roles,
+      agentId: _scopedAgentId,
+    );
+    await refreshAiCatalog();
+  }
+
+  Future<void> disconnectNeoRouter(String scope) async {
+    await _backendClient.disconnectNeoRouter(
+      backendUrl,
+      scope: scope,
+      agentId: _scopedAgentId,
+    );
     await refreshAiCatalog();
   }
 
@@ -6589,14 +6878,6 @@ class NeoAgentController extends ChangeNotifier {
   void clearMemorySearch() {
     memoryRecallResults = const <MemoryItem>[];
     notifyListeners();
-  }
-
-  Future<Map<String, dynamic>> inspectMemory(String query) async {
-    return _backendClient.inspectMemory(
-      backendUrl,
-      query,
-      agentId: _scopedAgentId,
-    );
   }
 
   Future<void> updateAssistantBehaviorNotes(String content) async {
@@ -7423,7 +7704,9 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   bool get showHealthSection =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   Future<void> _syncBackgroundHealthConfig() async {
     final cookie = _backendClient.sessionCookie ?? '';
@@ -7632,6 +7915,24 @@ class NeoAgentController extends ChangeNotifier {
         );
       }
     });
+    socket.on('memory:sweep_progress', (dynamic data) {
+      final payload = _jsonMap(data);
+      final connectionId = _asInt(payload['connectionId']);
+      if (connectionId <= 0) return;
+      final progress = MemorySweepProgress.fromJson(payload);
+      _liveMemorySweeps[connectionId] = progress;
+      notifyListeners();
+      if (!progress.isRunning) unawaited(refreshSkills());
+    });
+    socket.on('device_sync:wake', phoneSync.handleWake);
+    socket.on('settings:changed', (dynamic data) {
+      final keys = _jsonMap(data)['keys'];
+      unawaited(
+        _reloadSettingsChangedElsewhere(
+          keys is List ? keys.map((key) => key.toString()).toList() : const [],
+        ),
+      );
+    });
     socket.on('integrations:status', (dynamic data) {
       officialIntegrations = _decodeModelList(
         'official_integrations.socket',
@@ -7709,6 +8010,11 @@ class NeoAgentController extends ChangeNotifier {
       );
       lastEndedCall = null;
       unawaited(_ringIncomingAgentCall(call));
+      final early = _earlySystemCallAction;
+      _earlySystemCallAction = null;
+      if (early?.callId == call.callId) {
+        _handleCallNotificationAction(early!.callId, early.action);
+      }
       notifyListeners();
     });
     socket.on('voice:call_cancelled', (dynamic data) {

@@ -73,9 +73,9 @@ function ppmNonBlackPixels(file) {
   return { width: Number(header[1]), height: Number(header[2]), nonempty };
 }
 
+// No boot media: the UEFI firmware draws its boot screen on the display
+// device by itself, which is all a framebuffer check needs.
 async function capture(device, directory) {
-  const iso = '/tmp/neoagent-display-test/alpine-virt-aarch64.iso';
-  if (!fs.existsSync(iso)) throw new Error('Alpine virt ISO is missing.');
   const qmpSocket = path.join(directory, `${device}.sock`);
   const dump = path.join(directory, `${device}.ppm`);
   const child = spawn('qemu-system-aarch64', [
@@ -88,8 +88,6 @@ async function capture(device, directory) {
     '-display', 'none',
     '-qmp', `unix:${qmpSocket},server=on,wait=off`,
     '-serial', 'null',
-    '-cdrom', iso,
-    '-boot', 'd',
   ], { stdio: 'ignore' });
   try {
     for (let i = 0; i < 50 && !fs.existsSync(qmpSocket); i += 1) {

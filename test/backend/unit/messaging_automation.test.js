@@ -474,6 +474,27 @@ describe('messaging automation queue', () => {
 
     finishFirst({ status: 'completed', content: 'laptop comparison' });
   });
+
+  test('a chat run gives up on a stalled model call after two minutes', async () => {
+    const manager = new MessagingManagerStub();
+    const runOptions = [];
+    const agentEngine = {
+      async run(userId, prompt, options) {
+        runOptions.push(options);
+        return { status: 'completed', content: 'done' };
+      },
+    };
+
+    await automation.processQueuedMessage({
+      userQueues: Object.create(null),
+      messagingManager: manager,
+      agentEngine,
+      userId: user.userId,
+      msg: createMessage(mainAgentId, 'was geht in Frankreich ab'),
+    });
+
+    assert.equal(runOptions[0].modelCallTimeoutMs, 2 * 60 * 1000);
+  });
 });
 
 test('incoming prompt tells the agent when an attachment could not be retrieved', () => {

@@ -4,10 +4,12 @@ const db = require('../../../db/database');
 const { getAiSettings } = require('../settings');
 const { getProviderForUser } = require('../provider_selector');
 const { inferTaskKind, normalizeTaskModels } = require('../task_models');
+const { neoRouterTaskSelection } = require('../model_router');
 
 // After a tool turn, moves the run onto the model the user pinned for the
 // kind of work those tools show, and back to the run's own model when the work
-// has no pin. Turns with no recognised tools leave the model alone. A failure
+// has no pin. Runs NeoRouter routes switch to the NeoRouter profile for that
+// kind of work instead. Turns with no recognised tools leave the model alone. A failure
 // to switch keeps the current model.
 async function applyTaskModel(session, toolCalls) {
   if (session.explicitModel) return;
@@ -17,7 +19,11 @@ async function applyTaskModel(session, toolCalls) {
   const pinned = normalizeTaskModels(
     getAiSettings(session.userId, session.agentId).task_models,
   )[kind];
-  const wanted = pinned || session.baseModelSelectionId;
+  // A run that NeoRouter routes moves between its profiles instead.
+  const routed = String(session.baseModelSelectionId || '').startsWith('neorouter::auto:')
+    ? neoRouterTaskSelection(kind)
+    : null;
+  const wanted = pinned || routed || session.baseModelSelectionId;
   if (!wanted || wanted === session.model.modelSelectionId) return;
   if (session.failedModelIds.has(wanted)) return;
   session.unroutableTaskModels ||= new Set();

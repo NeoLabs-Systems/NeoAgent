@@ -46,6 +46,11 @@ const {
   listCredentials: listWebAuthnCredentials,
   renameCredential: renameWebAuthnCredential,
 } = require('../services/account/webauthn');
+const {
+  getDataSharing,
+  recordClientSnapshot,
+  setDataSharing,
+} = require('../services/account/data_sharing');
 const { getRateLimitSnapshot } = require('../services/ai/rate_limits');
 const { isAdminUser } = require('../services/access/admin');
 
@@ -92,6 +97,7 @@ function accountPayload(req) {
     authProviders: authProviderManager
       ? authProviderManager.listUserProviders(req.session.userId)
       : [],
+    dataSharing: getDataSharing(req.session.userId),
   };
 }
 
@@ -125,6 +131,22 @@ router.get('/', (req, res) => {
 router.get('/usage', (req, res) => {
   try {
     res.json(getRateLimitSnapshot(req.session.userId));
+  } catch (err) {
+    sendRouteError(res, err);
+  }
+});
+
+router.put('/data-sharing', accountLimiter, (req, res) => {
+  try {
+    res.json({ dataSharing: setDataSharing(req.session.userId, req.body || {}) });
+  } catch (err) {
+    sendRouteError(res, err);
+  }
+});
+
+router.put('/data-sharing/client', (req, res) => {
+  try {
+    res.json({ dataSharing: recordClientSnapshot(req.session.userId, req.body?.client) });
   } catch (err) {
     sendRouteError(res, err);
   }

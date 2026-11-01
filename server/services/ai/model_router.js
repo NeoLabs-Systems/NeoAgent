@@ -118,6 +118,46 @@ function chooseAutomaticModel(models, options) {
   return rankModels(models, options)[0] || models[0];
 }
 
+// With NeoRouter connected for chat, its routing replaces the Smart Selector:
+// an automatic choice goes to the NeoRouter profile that fits the request,
+// whatever the Smart Selector pool holds, and NeoRouter itself picks the
+// model and falls back across its providers for every request.
+// "auto:default" follows the profile set on NeoAgent's key in NeoRouter;
+// NeoRouter already takes the cheaper of similar models, so economy needs no
+// profile of its own.
+const NEOROUTER_PROFILES = Object.freeze({
+  economy: 'auto:default',
+  quality: 'auto:smart',
+  fast: 'auto:fast',
+  planning: 'auto:smart',
+  coding: 'auto:smart',
+  general: 'auto:default',
+});
+// Work a tool turn shows (task_models.js) and the profile it gets when the
+// user pinned no model for it.
+const NEOROUTER_TASK_PROFILES = Object.freeze({
+  coding: 'auto:smart',
+  computer_use: 'auto:smart',
+  android_use: 'auto:smart',
+  research: 'auto:smart',
+});
+
+function neoRouterProfile({ isSubagent = false, selectionHint = {}, settings = {} }) {
+  const profile = routingProfile({ isSubagent, selectionHint, settings });
+  if (profile !== 'balanced') return NEOROUTER_PROFILES[profile];
+  return NEOROUTER_PROFILES[requestedPurpose({ isSubagent, selectionHint })];
+}
+
+function neoRouterModel(models, profile) {
+  return models.find((model) => model.provider === 'neorouter' && model.modelId === profile) || null;
+}
+
+/** The NeoRouter profile a tool turn of this kind moves to, or null. */
+function neoRouterTaskSelection(kind) {
+  const profile = NEOROUTER_TASK_PROFILES[kind];
+  return profile ? `neorouter::${profile}` : null;
+}
+
 function resolveReadyModel(readyModels, selectionId) {
   return resolveModelSelection(readyModels, selectionId);
 }
@@ -163,6 +203,11 @@ function selectInitialModel({
   if (requestedId !== 'auto') {
     const requested = resolveReadyModel(pools.readyModels, requestedId);
     if (requested) return { model: requested, reason: null };
+  }
+
+  const routed = neoRouterModel(pools.readyModels, neoRouterProfile({ isSubagent, selectionHint, settings }));
+  if (routed) {
+    return { model: routed, reason: requestedId !== 'auto' ? 'requested_model_unavailable' : null };
   }
 
   // With enabled_models configured, automatic routing may only ever pick from
@@ -224,6 +269,7 @@ function selectFallbackModel({
 
 module.exports = {
   buildRoutingPools,
+  neoRouterTaskSelection,
   rankModels,
   selectFallbackModel,
   selectInitialModel,

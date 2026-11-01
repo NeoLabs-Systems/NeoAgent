@@ -25,7 +25,7 @@ These projects change weekly. Check the linked sources before relying on a detai
 | **Voice and hardware** | Live voice, in-app calls, ESP32 wearable | Voice wake and talk mode | Voice mode in the CLI, chat apps and Discord calls |
 | **License** | AGPL-3.0 | MIT | MIT |
 
-`neoagent migrate` imports skills, memory files and selected keys from OpenClaw and Hermes. See [Migration](migration.md).
+Setup finds OpenClaw and Hermes Agent and brings over their agents, memory, skills, keys, automations, MCP servers and chat apps (`neoagent migrate` does the same later). See [Migration](migration.md).
 
 ## ☁️ Hosted agents
 

@@ -8,6 +8,7 @@ const { degenerateOutputDetails, isDegenerateOutputError } = require('../provide
 const { normalizeUsage, recordModelUsage } = require('../usage');
 const { journalAndReconstructModelRequest } = require('../runtime/model_request_journal');
 const {
+  isModelCallTimeout,
   resolveModelCallTimeoutMs,
   runAbortableModelCall,
   withModelCallTimeout,
@@ -16,7 +17,7 @@ const {
 // The per-call ceiling already waited minutes on this model; retrying it
 // repeats that wait instead of moving on to the next model.
 function isRetryableModelError(err) {
-  return err?.code !== 'MODEL_CALL_TIMEOUT' && isTransientError(err);
+  return !isModelCallTimeout(err) && isTransientError(err);
 }
 
 function isoNow() {

@@ -10,6 +10,8 @@ const log = createServiceLogger('WhatsApp');
 
 const AUTH_DIR = path.join(DATA_DIR, 'whatsapp-auth');
 const SENT_MESSAGE_MEMORY = 200;
+const BAD_SESSION_RETRY_LIMIT = 5;
+const STABLE_CONNECTION_MS = 2 * 60 * 1000;
 
 // Baileys reports this as a number, a numeric string, or a protobuf Long,
 // depending on how the message reached the socket.
@@ -43,12 +45,15 @@ class WhatsAppPlatform extends BasePlatform {
     this._connectedAt = Infinity;
   }
 
+  // Baileys copies sock.user once, when it builds the socket, and only adds the
+  // LID to the live creds after the connection opens. On a freshly linked
+  // session, sock.user has no LID while the phone already addresses the self
+  // chat by it, so every note looked like another contact's. Both places are
+  // read, since which one carries which id differs between client versions.
   _ownIds() {
-    return new Set([
-      this.sock?.user?.id,
-      this.sock?.user?.jid,
-      this.sock?.user?.lid,
-    ]
+    const identities = [this.sock?.user, this.sock?.authState?.creds?.me];
+    return new Set(identities
+      .flatMap((me) => [me?.id, me?.jid, me?.lid])
       .map(normalizeWhatsAppId)
       .filter(Boolean));
   }
@@ -261,9 +266,16 @@ class WhatsAppPlatform extends BasePlatform {
 
       if (connection === 'close') {
         const statusCode = lastDisconnect?.error?.output?.statusCode;
-        const shouldReconnect = !this._manualDisconnect && statusCode !== DisconnectReason.loggedOut;
+        clearTimeout(this._stableTimer);
         const reasonName = Object.keys(DisconnectReason)
           .find((name) => DisconnectReason[name] === statusCode) || 'unknown';
+        // A session WhatsApp keeps rejecting will not heal by reconnecting;
+        // every retry is a fresh device login that pings the phone.
+        const sessionBroken = statusCode === DisconnectReason.badSession
+          && this.reconnectAttempts >= BAD_SESSION_RETRY_LIMIT;
+        const shouldReconnect = !this._manualDisconnect
+          && statusCode !== DisconnectReason.loggedOut
+          && !sessionBroken;
         log.warn(
           `Connection closed (${reasonName}, status ${statusCode ?? 'none'}).`
           + ` ${this._manualDisconnect ? 'Stopped on request.' : shouldReconnect ? 'Reconnecting.' : 'Not reconnecting.'}`
@@ -278,8 +290,8 @@ class WhatsAppPlatform extends BasePlatform {
           shouldReconnect,
           willReconnect: shouldReconnect,
           manual: this._manualDisconnect,
-          requiresUserAction: false,
-          reason: shouldReconnect ? 'connection_lost' : null,
+          requiresUserAction: sessionBroken,
+          reason: sessionBroken ? 'bad_session' : shouldReconnect ? 'connection_lost' : null,
         });
 
         if (shouldReconnect) {
@@ -299,7 +311,11 @@ class WhatsAppPlatform extends BasePlatform {
         this._connectedAt = Math.floor(Date.now() / 1000);
         this.status = 'connected';
         this.qrCode = null;
-        this.reconnectAttempts = 0;
+        // Only a link that survives a while earns a fresh backoff; resetting on
+        // open made a link that dies right after opening retry every 2 seconds.
+        clearTimeout(this._stableTimer);
+        this._stableTimer = setTimeout(() => { this.reconnectAttempts = 0; }, STABLE_CONNECTION_MS);
+        this._stableTimer.unref?.();
         this.emit('connected');
       }
     });
@@ -309,6 +325,9 @@ class WhatsAppPlatform extends BasePlatform {
     this.sock.ev.on('messages.upsert', async ({ messages, type }) => {
       for (const msg of messages) {
         if (!this._shouldProcessInbound(msg, type)) continue;
+        // The phone's own sync traffic (history notices, app-state keys) is
+        // addressed to the self chat as well; it is not a note.
+        if (msg.message?.protocolMessage) continue;
 
         const chatId = msg.key.remoteJid;
         const isGroup = chatId?.endsWith('@g.us');

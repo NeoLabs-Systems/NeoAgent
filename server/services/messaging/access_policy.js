@@ -681,10 +681,15 @@ function evaluateAccessPolicy(policyInput, context, platform) {
       }
     }
     const allowUntagged = allowUntaggedForContext(policy, context);
+    // A person the owner listed by name, not by role, who happens to be
+    // speaking in a shared space.
+    const approvedSender = policy.sharedActorRules.some((rule) => rule.scope !== 'role'
+      && contextMatchesRule(rule, context));
     return {
       allowed: true,
       reason: 'allowed',
       policy,
+      approvedSender,
       allowUntagged,
       participationHint: allowUntagged ? 'automatic' : 'mention_only',
     };

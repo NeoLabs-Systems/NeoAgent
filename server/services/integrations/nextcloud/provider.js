@@ -9,24 +9,26 @@ const {
   getProviderConfig,
   setProviderConfig,
 } = require('../provider_config_store');
-const { getConnectionAccessMode } = require('../access');
-const { decryptValue, encryptValue } = require('../secrets');
+const { decryptValue } = require('../secrets');
 const {
   APPS,
+  CALENDAR_APP,
+  CONTACTS_APP,
   FILES_APP,
   LOGIN_TIMEOUT_MS,
   PROVIDER_KEY,
 } = require('./constants');
-const { fetchStatus, fetchUser } = require('./client');
-const { CALENDAR_TOOLS, executeCalendarTool } = require('./calendar');
-const { CONTACT_TOOLS, executeContactsTool } = require('./contacts');
+const { davRequest, fetchStatus, fetchUser, parseCredentials } = require('./client');
+const { createCalendarTools } = require('../dav/calendar_tools');
+const { createContactTools } = require('../dav/contact_tools');
 const { FILE_TOOLS, executeFilesTool } = require('./files');
 const { pollLoginFlow, revokeAppPassword, startLoginFlow } = require('./login');
 const { normalizeBaseUrl, text } = require('./network');
-const { parseJsonObject } = require('../../../utils/text');
-const { upsertConnectedIntegration } = require('../connection_store');
+const { deleteSiblingConnections, upsertAccountApp } = require('../connection_store');
 
-const TOOLS = Object.freeze([...FILE_TOOLS, ...CALENDAR_TOOLS, ...CONTACT_TOOLS]);
+const calendarTools = createCalendarTools({ prefix: PROVIDER_KEY, label: 'Nextcloud', appId: CALENDAR_APP.id });
+const contactTools = createContactTools({ prefix: PROVIDER_KEY, label: 'Nextcloud', appId: CONTACTS_APP.id });
+const TOOLS = Object.freeze([...FILE_TOOLS, ...calendarTools.tools, ...contactTools.tools]);
 const SESSION_TTL_MS = LOGIN_TIMEOUT_MS + 60_000;
 
 function parseConfig(input, existing = {}) {
@@ -53,6 +55,15 @@ function envStatus(context = {}) {
   };
 }
 
+// Calendars and address books live in per-user DAV homes on the instance.
+function davStore(credentials, collection) {
+  const auth = parseCredentials(credentials);
+  return {
+    home: `/remote.php/dav/${collection}/${encodeURIComponent(auth.username)}/`,
+    request: (path, options) => davRequest(auth, path, options),
+  };
+}
+
 function connectionCredentials(connection) {
   try {
     const parsed = JSON.parse(decryptValue(connection?.credentials_json || '{}') || '{}');
@@ -76,30 +87,6 @@ function connectedAccountCount(userId, agentId) {
 function accountEmailForUser(baseUrl, user) {
   const host = new URL(normalizeBaseUrl(baseUrl)).host;
   return text(user.email) || `${text(user.id) || 'nextcloud'}@${host}`;
-}
-
-function upsertAppConnection(userId, agentId, appId, accountEmail, credentials, metadata) {
-  const existing = db.prepare(`SELECT * FROM integration_connections
-    WHERE user_id=? AND agent_id=? AND provider_key=? AND app_key=? AND account_email=?`)
-    .get(userId, agentId, PROVIDER_KEY, appId, accountEmail);
-  const accessMode = getConnectionAccessMode(existing || null);
-  upsertConnectedIntegration({
-    userId,
-    agentId,
-    providerKey: PROVIDER_KEY,
-    appKey: appId,
-    accountEmail,
-    scopes: ['nextcloud:dav', 'nextcloud:ocs'],
-    credentialsJson: encryptValue(JSON.stringify(credentials)),
-    metadata: {
-      ...parseJsonObject(existing?.metadata_json),
-      access_mode: accessMode,
-      ...metadata,
-    },
-  });
-  return db.prepare(`SELECT * FROM integration_connections
-    WHERE user_id=? AND agent_id=? AND provider_key=? AND app_key=? AND account_email=?`)
-    .get(userId, agentId, PROVIDER_KEY, appId, accountEmail);
 }
 
 async function revokeUniqueAccounts(rows, signal) {
@@ -141,14 +128,16 @@ function createNextcloudProvider() {
       };
       let filesConnection = null;
       for (const app of APPS) {
-        const connection = upsertAppConnection(
-          session.userId,
-          session.agentId,
-          app.id,
+        const connection = upsertAccountApp({
+          userId: session.userId,
+          agentId: session.agentId,
+          providerKey: PROVIDER_KEY,
+          appKey: app.id,
           accountEmail,
+          scopes: ['nextcloud:dav', 'nextcloud:ocs'],
           credentials,
           metadata,
-        );
+        });
         if (app.id === FILES_APP.id) filesConnection = connection;
       }
       session.status = 'connected';
@@ -178,26 +167,18 @@ function createNextcloudProvider() {
     async finishOAuth() {
       throw new Error('Nextcloud uses Login Flow v2 rather than an OAuth callback.');
     },
-    executeTool(toolName, args, context) {
+    async executeTool(toolName, args, context) {
       const credentials = context.credentials;
       const options = { signal: context.signal || null };
-      const result = executeFilesTool(toolName, args || {}, credentials, options)
-        || executeCalendarTool(toolName, args || {}, credentials, options)
-        || executeContactsTool(toolName, args || {}, credentials, options);
+      const result = await executeFilesTool(toolName, args || {}, credentials, options)
+        ?? await calendarTools.execute(toolName, args || {}, davStore(credentials, 'calendars'), options)
+        ?? await contactTools.execute(toolName, args || {}, davStore(credentials, 'addressbooks'), options);
       if (result) return result;
       throw new Error(`Unsupported Nextcloud tool: ${toolName}`);
     },
     async disconnect(connection, executionOptions = {}) {
       await revokeUniqueAccounts([connection], executionOptions.signal || null);
-      db.prepare(`DELETE FROM integration_connections
-        WHERE user_id=? AND agent_id=? AND provider_key=? AND account_email=? AND id!=?`)
-        .run(
-          connection.user_id,
-          connection.agent_id,
-          PROVIDER_KEY,
-          connection.account_email,
-          connection.id,
-        );
+      deleteSiblingConnections(connection);
     },
     async testConnection(context) {
       await fetchUser(context.credentials, { signal: context.signal });

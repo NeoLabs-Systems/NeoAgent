@@ -53,6 +53,9 @@ const HARNESS_OUTPUT_TOOLS = new Set([
   'spawn_subagent',
   'list_subagents',
   'cancel_subagent',
+  'settings_read',
+  'settings_update',
+  'settings_link',
 ]);
 
 const PHONE_LIKE_RE = /\+?\d[\d\s().-]{4,}\d/g;
@@ -82,15 +85,20 @@ function messageText(message) {
 /**
  * @param {object} input
  * @param {'owner'|'shared'|'public'} input.audience
+ * @param {boolean} [input.approvedSpeaker]  a shared run started by a person
+ *   the owner listed, so the audience review does not apply to it
  * @param {string} input.triggerSource
  * @param {Array} input.messages   opening transcript (system, history, request)
  * @param {{platform: string, chatId: string, senderId?: string}|null} input.origin
  *   chat the run answers, and who wrote the message that started it
  * @param {string[]} input.mediaPaths  files that arrived with the inbound message
  */
-function createRunTrust({ audience = 'owner', triggerSource, messages = [], origin = null, mediaPaths = [] }) {
+function createRunTrust({
+  audience = 'owner', approvedSpeaker = false, triggerSource, messages = [], origin = null, mediaPaths = [],
+}) {
   const trust = {
     audience,
+    approvedSpeaker: approvedSpeaker === true,
     origin: origin?.chatId
       ? {
         platform: String(origin.platform || ''),

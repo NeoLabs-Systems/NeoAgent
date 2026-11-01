@@ -193,16 +193,18 @@ async function downloadSkillsShSkill(ref) {
   return { skillContent: scrubInvisible(located.content), files };
 }
 
-// skills.sh skills are written for generic agents; point their tool names at
-// NeoAgent's equivalents.
+// skills.sh and imported skills are written for other agents; point their
+// tool names at NeoAgent's equivalents.
 function prependNeoAgentNotes(body) {
   const note = [
     '## NeoAgent Notes',
     '',
     'Map any generic tool references in this skill to NeoAgent equivalents:',
-    '- shell and scripts: `execute_command`',
-    '- local files and code search: `read_file`, `search_files`, `write_file`, `edit_file`',
-    '- remote pages and APIs: `http_request`, `web_search`, and `browser_*` tools',
+    '- shell and scripts (terminal, bash, exec): `execute_command`',
+    '- local files and code search (read, write, patch, grep): `read_file`, `search_files`, `write_file`, `edit_file`',
+    '- remote pages and APIs (web_extract, web_fetch, browser): `http_request`, `web_search`, and `browser_*` tools',
+    '- schedules (cronjob, cron): `create_task`',
+    '- memory and messages (memory, send_message): `memory_save`, `memory_recall`, `send_message`',
     '',
   ].join('\n');
 
@@ -248,5 +250,6 @@ module.exports = {
   installSkillsShSkill,
   parseFrontmatter,
   parseSkillsShRef,
+  prependNeoAgentNotes,
   searchSkillsSh,
 };

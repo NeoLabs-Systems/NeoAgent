@@ -6,6 +6,11 @@
 //   res/drawable/neoagent_face_<mood>.xml            the loop, as an animation-list
 //   res/layout/neoagent_widget_face_<mood>.xml       a ProgressBar that plays it
 //
+// iOS widgets are snapshots that cannot animate, so each mood also becomes
+// one still face in the widget extension's asset catalog:
+//
+//   ios/NeoAgentWidgets/Assets.xcassets/neoagent_face_<mood>.imageset
+//
 // Rerun after changing the mascot's frames or painter:
 //
 //   flutter test tool/render_widget_faces.dart
@@ -17,6 +22,7 @@ import 'package:neoagent_flutter/src/mascot/mascot_mood.dart';
 import 'package:neoagent_flutter/src/mascot/neo_mascot.dart';
 
 const String _res = 'android/app/src/main/res';
+const String _iosAssets = 'ios/NeoAgentWidgets/Assets.xcassets';
 
 /// Widget faces fill the widget's smaller side, up to a 2x2 cell (~180dp);
 /// 384px keeps that sharp at xxhdpi.
@@ -73,6 +79,25 @@ int _fadeMs(MascotMood mood, List<_Step> loop) {
   return fade < shortest ? fade : 0;
 }
 
+/// The still an iOS widget shows: the face the loop holds longest.
+MascotFrame _still(List<_Step> loop) =>
+    loop.reduce((a, b) => b.holdMs > a.holdMs ? b : a).frame;
+
+Future<void> _writeIosFace(MascotMood mood, List<_Step> loop) async {
+  final name = 'neoagent_face_${mood.name}';
+  final imageSet = Directory('$_iosAssets/$name.imageset')
+    ..createSync(recursive: true);
+  File(
+    '${imageSet.path}/$name.png',
+  ).writeAsBytesSync(await renderMascotFramePng(_still(loop), size: _size));
+  File('${imageSet.path}/Contents.json').writeAsStringSync('''
+{
+  "images" : [{ "filename" : "$name.png", "idiom" : "universal" }],
+  "info" : { "author" : "xcode", "version" : 1 }
+}
+''');
+}
+
 String _look(MascotFrame frame) =>
     '${frame.dots.join(',')}|${frame.alert}|${frame.shift}|${frame.scale}|${frame.rim}';
 
@@ -87,6 +112,7 @@ void main() {
     for (final mood in MascotMood.values) {
       final name = 'neoagent_face_${mood.name}';
       final loop = _loop(mood);
+      await _writeIosFace(mood, loop);
       // Frames that look the same share one PNG.
       final drawables = <String, String>{};
       for (final step in loop) {

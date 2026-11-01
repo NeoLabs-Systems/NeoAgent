@@ -9,15 +9,24 @@ const {
   resolveLiveVoice,
   serverDefaultProvider,
 } = require('./catalog');
+const { providerServesRole } = require('../../ai/neorouter/connection');
 
 // A provider's live models come from its own model list, refreshed and cached
 // like the chat models; the last list serves while the next one loads. Without
 // a key there is nothing to list.
-async function listLiveModels({ userId = null, agentId = null, providerId }) {
-  const runtimeProvider = LIVE_VOICE_PROVIDERS[providerId].runtimeProvider;
+// Whether this person can call through the provider at all: it needs a key,
+// and a NeoRouter also needs live voice switched on for it.
+function liveProviderReady({ userId = null, agentId = null, providerId }) {
+  const { runtimeProvider } = LIVE_VOICE_PROVIDERS[providerId];
   const runtime = getProviderRuntimeConfig(userId, runtimeProvider, agentId);
-  if (!runtime.apiKey) return [];
-  return refreshProviderModelList({
+  return Boolean(runtime.apiKey) && providerServesRole(runtimeProvider, userId, agentId, 'live');
+}
+
+async function listLiveModels({ userId = null, agentId = null, providerId }) {
+  const { runtimeProvider, protocol } = LIVE_VOICE_PROVIDERS[providerId];
+  if (!liveProviderReady({ userId, agentId, providerId })) return [];
+  const runtime = getProviderRuntimeConfig(userId, runtimeProvider, agentId);
+  const models = await refreshProviderModelList({
     providerId: runtimeProvider,
     factory: PROVIDER_FACTORIES[runtimeProvider],
     userId,
@@ -26,6 +35,8 @@ async function listLiveModels({ userId = null, agentId = null, providerId }) {
     catalog: 'voice',
     staleOk: true,
   });
+  // A NeoRouter lists its live models once, with the protocols that reach each.
+  return protocol ? models.filter((model) => (model.protocols || []).includes(protocol)) : models;
 }
 
 function versionOf(modelId) {
@@ -33,12 +44,15 @@ function versionOf(modelId) {
   return match ? Number(match[0]) : 0;
 }
 
-// Released models before previews, the newest version first, and the plain
-// model before its variants. The first one is what a call uses when nobody
+// A router's plain auto model first, then released models before
+// previews, the newest version first, and the plain model before its variants. The first one is what a call uses when nobody
 // picked a model.
 function rankLiveModels(models) {
+  // A router's auto model picks the best live model per call, so it leads.
+  const isAuto = (model) => Number(/^auto(-(free|plan|paid))?:default$/.test(model.id));
   return [...models].sort((a, b) => (
-    Number(/preview/i.test(a.id)) - Number(/preview/i.test(b.id))
+    isAuto(b) - isAuto(a)
+    || Number(/preview/i.test(a.id)) - Number(/preview/i.test(b.id))
     || versionOf(b.id) - versionOf(a.id)
     || a.id.length - b.id.length
   ));
@@ -60,6 +74,9 @@ async function describeLiveVoiceCatalog({ userId = null, agentId = null } = {}) 
     return {
       id: provider.id,
       label: provider.label,
+      // A key alone is not enough: one that does not work, or a router
+      // without live models for this protocol, lists nothing to call with.
+      available: models.length > 0,
       defaultModel: configuredLiveModel(provider.id, '') || models[0]?.id || null,
       models: models.map((model) => model.id),
       defaultVoice: resolveLiveVoice(provider.id, ''),

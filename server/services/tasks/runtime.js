@@ -12,6 +12,7 @@ const {
 } = require('./trigger_polling');
 const { attachTriggerEventSources } = require('./trigger_events');
 const { TaskRepository } = require('./task_repository');
+const { buildLastRunNote, buildTaskChatContext } = require('./run_context');
 const { TriggerRegistry } = require('./trigger_registry');
 const scheduleAdapter = require('./adapters/schedule');
 const {
@@ -522,10 +523,14 @@ class TaskRuntime {
       return;
     }
     const timeZone = getUserTimeZone(task.user_id);
-    const job = this.cron.schedule(cronExpression, async () => {
+    // node-cron drops a tick that fires more than a second late, which happens
+    // whenever another task due at the same minute keeps the event loop busy.
+    // Let every tick through and leave lateness to the start-delay check, which
+    // measures it from the slot the tick was for.
+    const job = this.cron.schedule(cronExpression, async (context) => {
       try {
         await this._executeTask(task.id, task.user_id, {
-          scheduledAt: new Date().toISOString(),
+          scheduledAt: (context?.date || new Date()).toISOString(),
           manual: false,
           oneTime: false,
           triggerType: 'schedule',
@@ -534,7 +539,10 @@ class TaskRuntime {
       } catch (error) {
         console.error(`[Tasks] Scheduled task ${task.id} error:`, error.message);
       }
-    }, timeZone ? { timezone: timeZone } : undefined);
+    }, {
+      missedExecutionTolerance: MAX_RECURRING_TASK_START_DELAY_MS,
+      ...(timeZone ? { timezone: timeZone } : {}),
+    });
     this.scheduleJobs.set(task.id, { task: job, userId: task.user_id });
   }
 
@@ -718,11 +726,23 @@ class TaskRuntime {
         task.task_type === 'agent_prompt'
           ? (normalizedConfig.prompt || `You have been triggered to run the background task "${taskName}".`)
           : '',
+        buildLastRunNote(this.taskRepository.getLastTaskRun(userId, taskId)),
         triggerPayloadText.trim(),
         notifyHint,
       ].filter(Boolean).join('\n\n');
 
       const conversationId = this._getTaskConversation(userId, taskId, taskName, agentId);
+      // History comes from the chat the task reports to; the task's own
+      // conversation only repeats this prompt run after run.
+      const { priorMessages, priorSummary } = buildTaskChatContext({
+        taskRepository: this.taskRepository,
+        userId,
+        agentId: resolveAgentId(userId, agentId),
+        notifyTarget: normalizeNotifyTarget({
+          platform: normalizedConfig.notifyPlatform,
+          to: normalizedConfig.notifyTo,
+        }),
+      });
       let attempt = 0;
       let recoveryNote = '';
       while (attempt <= MAX_AUTONOMOUS_RETRIES) {
@@ -742,6 +762,8 @@ class TaskRuntime {
           stageProactiveMessages: true,
           skipGlobalRecall: true,
           skipConversationHistory: true,
+          priorMessages,
+          priorSummary,
           stream: false,
           context: executionMeta.triggerPayload || {},
           signal,
@@ -970,7 +992,7 @@ class TaskRuntime {
         ? triggerConfig.cronExpression
         : null,
       legacyRunAt: triggerType === 'schedule' && triggerConfig.mode === 'one_time'
-        ? String(triggerConfig.runAt || '').replace('T', ' ').replace(/\.\d{3}Z$/, '')
+        ? triggerConfig.runAt
         : null,
       legacyOneTime: triggerType === 'schedule' && triggerConfig.mode === 'one_time',
     };

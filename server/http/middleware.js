@@ -162,7 +162,9 @@ function attachRequestSignal(req, res, next) {
     res.removeListener('close', abort);
     res.removeListener('finish', cleanup);
   };
-  req.signal = controller.signal;
+  // Node 24 gives IncomingMessage a read-only `signal` getter; an own
+  // property shadows it and keeps the disconnect-on-close semantics here.
+  Object.defineProperty(req, 'signal', { value: controller.signal, configurable: true, writable: true });
   req.once('aborted', abort);
   res.once('close', abort);
   res.once('finish', cleanup);

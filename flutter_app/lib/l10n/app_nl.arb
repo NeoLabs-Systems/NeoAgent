@@ -154,6 +154,8 @@
   "addKey": "Sleutel toevoegen",
   "addMcpServer": "MCP-server toevoegen",
   "addMemory": "Geheugen toevoegen",
+  "memoryReview": "Beoordelen",
+  "memoryReviewPrompt": "Loop al mijn herinneringen door en ruim ze op: archiveer duplicaten, verouderde feiten en alles zonder blijvende waarde. Vertel me daarna kort wat je hebt veranderd.",
   "addMoreLengthOrAnotherCharacter": "Voeg meer lengte of een ander tekentype toe.",
   "addPeopleOrGroups": "Voeg mensen of groepen toe",
   "addSecurityKey": "Beveiligingssleutel toevoegen",
@@ -1901,7 +1903,6 @@
   "assistant": "Assistent",
   "assistantKey131": "Assistent-toets 131",
   "atLeast1": "Minstens 1.",
-  "atLeast1000AppliesAfterA": "Minimaal 1000. Van toepassing na een herstart van de server.",
   "attachFiles": "Bestanden bijvoegen",
   "attentionArg1": "Let op {arg1}",
   "@attentionArg1": {
@@ -2007,7 +2008,6 @@
   "botUsername": "Bot-gebruikersnaam",
   "brandName": "Merknaam",
   "braveSearch": "Moedig zoeken",
-  "breakdown": "Uitsplitsing:",
   "bridgeAnyProviderThatCanPost": "Overbrug elke provider die webhook-payloads kan posten en ontvangen.",
   "bringYourOwnKey": "neem je eigen sleutel mee",
   "bringYourOwnKey2": "Neem uw eigen sleutel mee",
@@ -2030,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Kan gedelegeerde taken ontvangen",
   "cancel": "Annuleren",
   "cancelTask": "Taak annuleren",
-  "candidateCountArg1": "Aantal kandidaten: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Kan geen voorbeeld bekijken",
   "cannotReceiveDelegatedTasks": "kan geen gedelegeerde taken ontvangen",
   "cannotRunYet": "kan nog niet draaien.",
@@ -2308,14 +2300,6 @@
   "connectionMethod": "Verbindingsmethode",
   "containsTextOptional": "Bevat tekst (optioneel)",
   "content": "Inhoud",
-  "contentArg1": "Inhoud: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "inhoud beveiligingsbeleid",
   "continue2": "Ga door",
   "continueFullSetup": "Ga door met de volledige installatie",
@@ -2752,21 +2736,12 @@
       }
     }
   },
-  "errorArg12": "Fout: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Fouten uit het recente logboek, gegroepeerd op bericht.",
   "errorsProblemsFailures": "fouten problemen mislukkingen",
   "eventTypesCommaSeparated": "Gebeurtenistypen (door komma's gescheiden)",
   "every15Minutes": "Elke 15 minuten",
   "every30Minutes": "Elke 30 minuten",
   "everyAccountOnThisServerLoses": "Elk account op deze server verliest deze gedeelde sleutel. Rekeningen ",
-  "everyAccountOnThisServerSecrets": "elk account op deze server. Geheimen kunnen alleen worden geschreven: vertrek ",
   "everyAccountOnThisServerUses": "Elk account op deze server gebruikt dit adres voor ",
   "everyActiveSessionForThisAccount": "Elke actieve sessie voor dit account eindigt. Zij kunnen inloggen ",
   "everyDay0800": "Elke dag · 08:00 uur",
@@ -3012,14 +2987,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Volledige prompt",
   "fullSetup": "Volledige installatie",
-  "fullTextFtsArg1": "Volledige tekst (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Algemeen",
   "generalSettings": "Algemene instellingen",
   "generalSettingsSaved": "Algemene instellingen opgeslagen.",
@@ -3218,7 +3185,6 @@
   "input": "Invoer",
   "inputMode": "Invoermodus",
   "insertATemplate": "Voeg een sjabloon in",
-  "inspect": "Inspecteer",
   "install": "Installeren",
   "installASignedSelfContainedRuntime": "Installeer een ondertekende, op zichzelf staande runtime. Node.js-, npm-, Git- en terminalopdrachten zijn niet vereist.",
   "installApk": "Installeer APK",
@@ -3251,7 +3217,6 @@
   },
   "instructions": "Instructies",
   "integration": "Integratie",
-  "integrationApps": "Integratie-apps",
   "integrationConnections": "Integratie verbindingen",
   "integrationSettingsSaved": "Integratie-instellingen opgeslagen.",
   "integrations": "Integraties",
@@ -3470,14 +3435,6 @@
       }
     }
   },
-  "lexicalArg1": "Lexicaal: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "limit20": "LIMIT 20",
   "limit50": "LIMIT 50",
   "linkArg1": "Link {arg1}",
@@ -3601,10 +3558,6 @@
       }
     }
   },
-  "memoryImportSync": "Synchronisatie van geheugenimport",
-  "memoryIngestionInterval": "Interval voor geheugenopname",
-  "memoryIngestionIntervalMs": "Interval voor geheugenopname (ms)",
-  "memoryIngestionIntervalMustBeAt": "Het geheugenopname-interval moet minimaal 1000 ms zijn.",
   "memoryInjected": "Geheugen geïnjecteerd",
   "mentionOrReplyOnly": "Alleen vermelden of reageren",
   "mergedServerAndFlutterRuntimeLogs": "Samengevoegde server- en Flutter-runtimelogboeken voor deze app-sessie.",
@@ -3629,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Microfoon gedempt. Tik om het dempen op te heffen.",
   "microphonePermissionIsRequiredForLive": "Voor live stem is toestemming voor de microfoon vereist.",
   "microsoft365": "Microsoft365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack en de andere integraties. Ze zijn van toepassing op ",
   "microsoftTeams": "Microsoft Teams",
   "minimumContributionValueArg1": "Minimale bijdragewaarde: {arg1}",
   "@minimumContributionValueArg1": {
@@ -3676,6 +3628,8 @@
     }
   },
   "modelAvailability": "Beschikbaarheid van modellen",
+  "autoEnableNewModels": "Nieuwe modellen automatisch inschakelen",
+  "autoEnableNewModelsHint": "Indien uit, blijven modellen die een provider later toevoegt uitgeschakeld totdat je ze inschakelt.",
   "modelAvailabilitySaved": "Beschikbaarheid van modellen opgeslagen.",
   "modelForThisSession": "Model voor deze sessie",
   "modelOverride": "Modeloverschrijving",
@@ -3911,6 +3865,61 @@
   "noMcpServersMatchThisSearch": "Er komen geen MCP-servers overeen met deze zoekopdracht.",
   "noMemoryEntriesFound": "Geen geheugenvermeldingen gevonden.",
   "noMemorySync": "Geen geheugensynchronisatie",
+  "importPastEmailsIntoMemoryHint": "Leest eenmalig de belangrijke en verzonden mail van de afgelopen 12 maanden, zodat de agent je contacten en projecten kent.",
+  "emailMemory": "E-mailgeheugen",
+  "importNow": "Nu importeren",
+  "importOnConnect": "Eerdere mail importeren bij het koppelen van een account",
+  "sweepStarting": "Voorbereiden…",
+  "sweepReadingProgress": "E-mails lezen · {done} van {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "E-mails lezen · {count} gevonden",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Leren van e-mails · {done} van {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Laatste import: {emails} e-mails · {memories} nieuwe herinneringen",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Geen nieuwe e-mails om te importeren",
+  "sweepFailed": "Importeren mislukt: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Geen enkel model komt overeen met \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -3997,7 +4006,6 @@
   "nothingStoredYet": "Nog niets opgeslagen.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "OAuth-app-inloggegevens waarmee accounts verbinding kunnen maken met Google, ",
   "oauthClientId": "OAuth-client-ID",
   "oauthClientIdSecretRedirectApi": "oauth client-id geheime omleiding API-sleutel",
   "oauthClientIdSecretRedirectGmail": "oauth client-id geheime omleiding gmail-agendastation",
@@ -4035,7 +4043,6 @@
   "onTheyCanJoinAgainOnly": "op. Ze kunnen alleen opnieuw deelnemen met een nieuwe uitnodigingslink.",
   "onYourOwnTheDefault": "Zelf (de standaard)",
   "once": "Een keer",
-  "oneBlankToKeepWhatIs": "één blanco om te bewaren wat is opgeslagen.",
   "oneIsSavedOtherChangesIn": "één wordt gered. Andere wijzigingen in dit formulier worden ook opgeslagen.",
   "oneOrMoreAccountsExpiredReconnect": "Een of meer accounts zijn verlopen. Maak opnieuw verbinding met het getroffen account om de toegang tot het hulpprogramma te herstellen.",
   "oneRuntimeControlsPersonaGroupTurn": "Eén runtime regelt persona, groepsbeurten, ruimtegeheugen, normen, Theory of Mind en levering.",
@@ -4292,7 +4299,6 @@
   "qrLoginRequestWasNotFound": "qr-inlogverzoek is niet gevonden",
   "qrPairing": "QR-koppeling",
   "queriesRunAnythingThatWritesIs": "zoekopdrachten worden uitgevoerd; alles wat schrijft wordt afgewezen.",
-  "query": "Vraag",
   "queryFilter": "Opvragen/filteren",
   "queuedAsSteeringForTheCurrent": "In de wachtrij als besturing voor de huidige run: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4377,14 +4383,6 @@
   "registrationIsClosed": "inschrijving is gesloten",
   "registrationRegisterNewAccountsAllowSignup": "registratie registreer nieuwe accounts sta aanmelding toe",
   "rejectInvalidTlsCertificates": "Weiger ongeldige TLS-certificaten",
-  "relationArg1": "Relatie: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "loslaten en opnieuw opstarten. Verbonden apps maken opnieuw verbinding zodra deze terug is.",
   "releaseChannel": "Kanaal vrijgeven",
   "releaseCommitBranchNode": "geef het commit-takknooppunt vrij",
@@ -4487,7 +4485,6 @@
   "resultDelivery": "Resultaat levering",
   "resultOneClickAddsOneYou": "resultaat. Met één klik wordt er één toegevoegd; je kunt het later bewerken.",
   "results": "Resultaten",
-  "retrievalInspector": "Ophaalinspecteur",
   "retry": "Opnieuw proberen",
   "reusableUsedArg1": "Herbruikbaar · gebruikte {arg1}×",
   "@reusableUsedArg1": {
@@ -4643,14 +4640,6 @@
   "scansNewEmailAndOnlyPings": "Scant nieuwe e-mail en pingt u alleen als er iets belangrijks is.",
   "schedule": "Schema",
   "scheduledTimeOnceRunsAreMeasured": "geplande tijd. Zodra de runs zijn gemeten, begint deze eerder.",
-  "scoreArg1": "Score: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Scherm",
   "screenAction": "scherm actie",
   "scrollIsNotSupportedOnThis": "scrollen wordt niet ondersteund op dit platform.",
@@ -4712,14 +4701,6 @@
     }
   },
   "selectTrigger": "Selecteer Trigger",
-  "semanticArg1": "Semantisch: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Verzenden (⌘↵)",
   "send2": "Verzenden",
   "sendATaskFromChatAnd": "Verzend een taak vanuit de chat en de uitvoeringsgeschiedenis ervan wordt hier weergegeven.",
@@ -5633,14 +5614,6 @@
   "value": "Waarde",
   "vaultLocked": "Kluis vergrendeld",
   "vaultOperationFailed": "Kluisbewerking mislukt.",
-  "vectorRankArg1": "Vectorrang: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Verificatie",
   "verificationArg1": "Verificatie: {arg1}",
   "@verificationArg1": {
@@ -6553,6 +6526,7 @@
   "settingsPageComputer": "Computer en internet",
   "settingsPageBehavior": "Gedrag",
   "settingsPageSystem": "Systeem",
+  "settingsPagePlatforms": "Platforms",
   "settingsPageProfileDescription": "Uw naam en e-mailadres, een kopie van uw gegevens en uitloggen.",
   "settingsPageSecurityDescription": "Wachtwoord, tweefactorauthenticatie, beveiligingssleutels en waar u bent aangemeld.",
   "settingsPageUsageDescription": "Uw limieten en tokenuitgaven, allemaal op één plek.",
@@ -6990,5 +6964,295 @@
   "signupKeysSaveDialogTitle": "Registratiesleutels opslaan",
   "signupKeysExported": "Sleutels geëxporteerd.",
   "auditSignupKeysCreated": "{actor} heeft registratiesleutels aangemaakt ({count})",
-  "auditSignupKeyRevoked": "{actor} heeft een registratiesleutel ingetrokken"
+  "auditSignupKeyRevoked": "{actor} heeft een registratiesleutel ingetrokken",
+  "dataSharingTitle": "Gebruiksgegevens delen",
+  "dataSharingDescription": "Help de beheerders van deze server hem te verbeteren. Deelt hoe je NeoAgent gebruikt, nooit wat je schrijft of opslaat.",
+  "dataSharingSince": "Gedeeld sinds {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Wat er gedeeld wordt",
+  "dataSharingIncluded": "Gedeeld",
+  "dataSharingExcluded": "Nooit gedeeld",
+  "dataSharingIncludedDevice": "Apparaattype en app-versie",
+  "dataSharingIncludedLocale": "App-taal en tijdzoneregio, zoals Europa",
+  "dataSharingIncludedFeatures": "Welke functies je hebt ingesteld, zoals taken, skills en integraties",
+  "dataSharingIncludedRuns": "Welke tools en modellen je runs gebruiken, met duur en aantal tokens",
+  "dataSharingIncludedActivity": "Wanneer je NeoAgent gebruikt, per weekdag en uur",
+  "dataSharingExcludedContent": "Berichten, prompts en antwoorden",
+  "dataSharingExcludedRuns": "Run-titels, tool-invoer en -resultaten",
+  "dataSharingExcludedFiles": "Bestanden, herinneringen en alles wat je verder opslaat",
+  "dataSharingExcludedIdentity": "Je naam, e-mail, IP-adres en locatie",
+  "dataSharingExcludedAccounts": "De accounts waarmee je integraties koppelt",
+  "dataSharingPooledNote": "Beheerders zien alleen totalen over iedereen die deelt, nooit jou afzonderlijk. Zet het op elk moment uit en je valt direct uit de totalen.",
+  "dataSharingConfirmTitle": "Gebruiksgegevens delen?",
+  "dataSharingConfirmAction": "Delen",
+  "sharedUsageTitle": "Gedeeld gebruik",
+  "sharedUsageParticipants": "Accounts die gebruiksgegevens delen: {sharing} van {total}. Alleen totalen, geen inhoud.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Nog niemand deelt gebruiksgegevens. Het staat aan te zetten onder Instellingen, Profiel, Jouw gegevens.",
+  "sharedUsageRuns": "Gedeelde runs",
+  "sharedUsageAvgDuration": "Gem. duur",
+  "sharedUsageCompletedRuns": "Voltooide runs",
+  "sharedUsageStepsPerRun": "Stappen per run",
+  "sharedUsageDevices": "Apparaten",
+  "sharedUsageAppVersions": "App-versies",
+  "sharedUsageLanguages": "Talen",
+  "sharedUsageRegions": "Regio's",
+  "sharedUsageFeatures": "Gebruik van functies",
+  "sharedUsageFeaturesDescription": "Aandeel van de delende accounts dat het heeft ingesteld.",
+  "sharedUsageTools": "Tools",
+  "sharedUsageToolsDescription": "Meest aangeroepen tools ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Aanroepen: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Mislukt: {percent}%",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integraties",
+  "sharedUsageMessaging": "Berichtenkanalen",
+  "sharedUsageTriggers": "Hoe runs starten",
+  "sharedUsageActivity": "Wanneer het gebruikt wordt",
+  "sharedUsageActivityDescription": "Runs per weekdag en uur, UTC.",
+  "sharedUsageModels": "Modelprestaties",
+  "sharedUsageModelDetail": "gem. {latency} · {cached}% gecachet · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Accounts: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Niets in deze periode.",
+  "sharedUsageNotReported": "Nog niet gemeld",
+  "sharedUsageFeatureAgents": "Meer dan één agent",
+  "sharedUsageFeatureTasks": "Geplande taken",
+  "sharedUsageFeatureSkills": "Skills",
+  "sharedUsageFeatureMcp": "MCP-servers",
+  "sharedUsageFeatureIntegrations": "Integraties",
+  "sharedUsageFeatureMessaging": "Berichtenkanalen",
+  "sharedUsageFeatureMemory": "Geheugen",
+  "sharedUsageSearchKeywords": "opt-in gegevens delen telemetrie apparaten functies tools modellen activiteit",
+  "providerChooseUsername": "Kies je gebruikersnaam",
+  "providerChooseUsernameBody": "Kies een beschikbare gebruikersnaam om je account af te ronden.",
+  "yourOAuthApp": "Je OAuth-app",
+  "oauthAppSetupTitle": "Je {provider}-OAuth-app",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Deze server heeft geen globale {provider}-app, dus je verbindt met een OAuth-app die je zelf registreert. Het clientgeheim wordt versleuteld opgeslagen en nooit meer getoond.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Maak de app",
+  "openDeveloperConsole": "Ontwikkelaarsconsole openen",
+  "oauthAppStepCallback": "2. Registreer deze callback-URL",
+  "callbackUrlCopied": "Callback-URL gekopieerd",
+  "oauthAppScopes": "Toe te staan scopes",
+  "scopesCopied": "Scopes gekopieerd",
+  "oauthAppStepCredentials": "3. Plak de app-gegevens",
+  "couldNotSaveOAuthApp": "Kon de OAuth-app niet opslaan.",
+  "removeOAuthAppTitle": "Je {provider}-app verwijderen?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Verbonden accounts blijven in de lijst staan maar werken pas weer als je opnieuw een app toevoegt.",
+  "globalIntegrationConfiguration": "Globale integratieconfiguratie",
+  "globalIntegrationConfigurationDescription": "Optionele serverbrede OAuth-apps. Heeft een integratie er een, dan gebruikt elk account die en kan het geen eigen app toevoegen. Laat een integratie leeg en elke gebruiker stelt zijn eigen app in. Geheimen zijn alleen-schrijven: laat leeg om de opgeslagen waarde te behouden.",
+  "globalStatus": "Globaal",
+  "perUserStatus": "Per gebruiker",
+  "phoneSyncGuidance": "Deel de agenda's en contacten van deze telefoon met je agent. Het werkt met elk account dat al op de telefoon staat.",
+  "phoneSyncElsewhereGuidance": "Open NeoAgent op je telefoon en zet daar delen aan. Je agent ziet dan de agenda's en contacten van alle accounts op die telefoon.",
+  "manageOnThisPhone": "Beheren op deze telefoon",
+  "setUpOnThisPhone": "Instellen op deze telefoon",
+  "setUpOnPhone": "Instellen op je telefoon",
+  "emailConnectedArg1": "{email} gekoppeld",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Dit account kon niet worden gekoppeld.",
+  "emailSetupTitle": "E-mail & agenda koppelen",
+  "emailChecking": "Je mailbox wordt gecontroleerd…",
+  "emailSetupIntro": "Gebruik een app-wachtwoord van je mailprovider. Geen ontwikkelaarsconsole, binnen een paar minuten klaar.",
+  "emailOpenArg1": "{provider} openen",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Vul je servers in",
+  "emailStepPassword": "1. Maak een app-wachtwoord",
+  "emailOpenPasswordPageArg1": "App-wachtwoorden van {provider} openen",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Inloggen",
+  "appPassword": "App-wachtwoord",
+  "appPasswordHelper": "Spaties maken niet uit. NeoAgent bewaart het versleuteld.",
+  "emailUsernameOptional": "Gebruikersnaam, als die niet je e-mailadres is",
+  "emailIncludeCalendar": "Agenda meenemen",
+  "emailIncludeContacts": "Contacten meenemen",
+  "imapServer": "IMAP-server",
+  "smtpServer": "SMTP-server",
+  "caldavUrlOptional": "CalDAV-URL (optioneel)",
+  "carddavUrlOptional": "CardDAV-URL (optioneel)",
+  "alternativeEmail": "Koppel je mailbox met een app-wachtwoord, of je agenda via de iCal-link. Binnen een paar minuten klaar.",
+  "alternativePhone": "Deel de agenda en contacten die al op je telefoon staan via de NeoAgent-app.",
+  "alternativePhoneElsewhere": "Deel de agenda en contacten die al op je telefoon staan. Stel het in in de NeoAgent-app op je telefoon.",
+  "skipTheDeveloperConsole": "Zonder ontwikkelaarsconsole",
+  "phoneSyncPromptTitle": "Mag je agent je agenda zien?",
+  "phoneSyncPromptBody": "Deel de agenda's en contacten van deze telefoon zodat je agent rond je dag kan plannen. Je kunt dit altijd wijzigen onder Tools › Integraties.",
+  "phoneSyncTitle": "Agenda & contacten van deze telefoon delen",
+  "phoneSyncIntro": "Je agent ziet de agenda's en contacten van alle accounts op deze telefoon. Geen ontwikkelaarsconsole, geen extra login.",
+  "phoneSyncPointAccounts": "Werkt met de Google-, Outlook-, iCloud- en Exchange-accounts op deze telefoon.",
+  "phoneSyncPointPrivate": "Alleen gedeeld met je NeoAgent-server, die het versleuteld bewaart.",
+  "phoneSyncPointWrites": "Afspraken die je agent toevoegt, maakt deze telefoon aan en ze synchroniseren zoals altijd.",
+  "phoneSyncCalendarHint": "Afspraken van 30 dagen geleden tot 90 dagen vooruit",
+  "phoneSyncContacts": "Contacten",
+  "phoneSyncContactsHint": "Namen, e-mailadressen en telefoonnummers",
+  "phoneSyncOtherAgent": "Deze telefoon deelt met een andere agent. Hier delen verplaatst het naar deze agent.",
+  "phoneSyncDenied": "NeoAgent heeft nog geen toegang. Sta het toe in Instellingen en kom terug.",
+  "openPhoneSettings": "Instellingen openen",
+  "phoneSyncShare": "Delen met NeoAgent",
+  "phoneSyncStop": "Stoppen met delen",
+  "phoneSyncWaiting": "Wachten op de eerste synchronisatie…",
+  "phoneSyncLastSyncedArg1": "Laatst gesynchroniseerd {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Agendalink",
+  "calendarLinkHelper": "Het iCal-adres van de agenda. Iedereen met dit adres kan de agenda lezen, dus houd het privé.",
+  "calendarLinkName": "Naam (optioneel)",
+  "calendarLinkAdded": "Agenda toegevoegd",
+  "toolsApps": "Apps",
+  "reconnect": "Opnieuw verbinden",
+  "reconnectNeeded": "Opnieuw verbinden nodig",
+  "mixedAccess": "Gemengde toegang",
+  "disconnectAccountTitle": "{account} loskoppelen?",
+  "disconnectAccountBody": "De agent verliest via dit account de toegang tot {apps}.",
+  "neoRouterServerDescription": "Verbind je NeoRouter één keer en elk account hier gebruikt hem voor de taken die hieronder aanstaan.",
+  "neoRouterUserDescription": "Gebruik je eigen NeoRouter-account voor de taken die hieronder aanstaan in plaats van de providers van deze server.",
+  "neoRouterAddress": "NeoRouter-adres",
+  "neoRouterConnect": "NeoRouter verbinden",
+  "neoRouterWaitingArg1": "Keur NeoAgent goed in NeoRouter. Daar staat de code {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Opnieuw openen",
+  "neoRouterConnectedArg1": "Verbonden met {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "NeoRouter is nu niet bereikbaar.",
+  "neoRouterDisconnect": "Loskoppelen",
+  "neoRouterDisconnectBody": "NeoAgent gebruikt deze NeoRouter niet meer. Trek ook de sleutel in via API-sleutels in NeoRouter.",
+  "neoRouterServerInUse": "Deze server gebruikt al een NeoRouter voor iedereen. Verbind je eigen NeoRouter-account voor eigen modellen en budget.",
+  "neoRouterConnected": "NeoRouter is verbonden.",
+  "neoRouterRoleChat": "Chat en beeldherkenning",
+  "neoRouterRoleSystemOne": "System One-beslissingen",
+  "neoRouterRoleTranscription": "Spraak naar tekst",
+  "neoRouterRoleLive": "Live spraak",
+  "neoRouterRoleEmbeddings": "Geheugen doorzoeken",
+  "neoRouterRoleImages": "Afbeeldingen maken",
+  "neoRouterRoleSearch": "Zoeken op het web",
+  "neoRouterModelCountArg1": "{arg1} beschikbaar in je NeoRouter",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Er is nog niets beschikbaar in je NeoRouter.",
+  "neoRouterPicksModels": "NeoRouter kiest voor elk verzoek het model, dus deze selectie wordt niet gebruikt.",
+  "neoRouterNotAllowedArg1": "{arg1} in je NeoRouter, maar de sleutel van NeoAgent mag ze nog niet gebruiken (bijvoorbeeld betaalde). Sta ze toe voor NeoAgent onder API-sleutels in NeoRouter.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Heeft beslismodellen zoals Jev nodig. Veiligheidsclassificatoren kunnen deze vragen niet beantwoorden.",
+  "voiceLiveNoProvider": "Er is geen aanbieder voor live spraak ingesteld. Voeg een OpenAI- of Google AI-sleutel toe, of verbind een NeoRouter, onder Modellen → Neem uw eigen sleutel mee.",
+  "voiceSttAutoNeoRouter": "Automatisch (NeoRouter kiest het model)",
+  "voiceNotOffered": "Niet meer beschikbaar, kies een ander"
 }

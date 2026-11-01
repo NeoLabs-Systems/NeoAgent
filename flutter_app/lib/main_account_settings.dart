@@ -203,8 +203,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     super.dispose();
   }
 
-  bool get _supportsQrLoginApproval =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  bool get _supportsQrLoginApproval => _isMobileDevice();
 
   Future<void> _startQrLoginApproval() async {
     final scanned = await showDialog<String>(
@@ -420,6 +419,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                 label: Text(appStrings.settingsExport),
               ),
             ),
+            _DataSharingSetting(controller: controller),
           ],
         ),
         _SettingsGroup(

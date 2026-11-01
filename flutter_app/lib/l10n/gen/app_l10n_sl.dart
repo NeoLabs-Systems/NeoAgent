@@ -373,6 +373,13 @@ class AppL10nSl extends AppL10n {
   String get addMemory => 'Dodaj pomnilnik';
 
   @override
+  String get memoryReview => 'Preglej';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Preglej vse moje spomine in jih pospravi: arhiviraj dvojnike, zastarela dejstva in vse brez trajne vrednosti. Nato mi na kratko povej, kaj si spremenil.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Dodajte večjo dolžino ali drugo vrsto znaka.';
 
@@ -1611,10 +1618,6 @@ class AppL10nSl extends AppL10n {
   String get atLeast1 => 'Vsaj 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Vsaj 1000. Velja po ponovnem zagonu strežnika.';
-
-  @override
   String get attachFiles => 'Priloži datoteke';
 
   @override
@@ -1852,9 +1855,6 @@ class AppL10nSl extends AppL10n {
   String get braveSearch => 'Pogumno iskanje';
 
   @override
-  String get breakdown => 'Razčlenitev:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Premostite vse ponudnike, ki lahko objavljajo in prejemajo obremenitve webhook.';
 
@@ -1903,11 +1903,6 @@ class AppL10nSl extends AppL10n {
 
   @override
   String get cancelTask => 'Prekliči nalogo';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Število kandidatov: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Predogleda ni mogoče';
@@ -2377,11 +2372,6 @@ class AppL10nSl extends AppL10n {
 
   @override
   String get content => 'Vsebina';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Vsebina: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'politiko varnosti vsebine';
@@ -3281,11 +3271,6 @@ class AppL10nSl extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Napaka: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Napake iz nedavnega dnevnika, razvrščene po sporočilih.';
 
@@ -3304,10 +3289,6 @@ class AppL10nSl extends AppL10n {
   @override
   String get everyAccountOnThisServerLoses =>
       'Vsak račun na tem strežniku izgubi ta skupni ključ. Računi ';
-
-  @override
-  String get everyAccountOnThisServerSecrets =>
-      'vsak račun na tem strežniku. Skrivnosti so samo za pisanje: pusti ';
 
   @override
   String get everyAccountOnThisServerUses =>
@@ -3663,11 +3644,6 @@ class AppL10nSl extends AppL10n {
 
   @override
   String get fullSetup => 'Popolna nastavitev';
-
-  @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Celotno besedilo (FTS): $arg1';
-  }
 
   @override
   String get general => 'Splošno';
@@ -4037,9 +4013,6 @@ class AppL10nSl extends AppL10n {
   String get insertATemplate => 'Vstavite predlogo';
 
   @override
-  String get inspect => 'Preglejte';
-
-  @override
   String get install => 'Namestite';
 
   @override
@@ -4093,9 +4066,6 @@ class AppL10nSl extends AppL10n {
 
   @override
   String get integration => 'Integracija';
-
-  @override
-  String get integrationApps => 'Integracijske aplikacije';
 
   @override
   String get integrationConnections => 'Integracijske povezave';
@@ -4405,11 +4375,6 @@ class AppL10nSl extends AppL10n {
   }
 
   @override
-  String lexicalArg1(Object? arg1) {
-    return 'Leksikalno: $arg1';
-  }
-
-  @override
   String get limit20 => 'LIMIT 20';
 
   @override
@@ -4686,19 +4651,6 @@ class AppL10nSl extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'sinhronizacija uvoza pomnilnika';
-
-  @override
-  String get memoryIngestionInterval => 'Interval zaužitja pomnilnika';
-
-  @override
-  String get memoryIngestionIntervalMs => 'Interval zaužitja pomnilnika (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'Interval vnosa pomnilnika mora biti vsaj 1000 ms.';
-
-  @override
   String get memoryInjected => 'Pomnilnik vstavljen';
 
   @override
@@ -4759,10 +4711,6 @@ class AppL10nSl extends AppL10n {
   String get microsoft365 => 'Microsoft 365';
 
   @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack in druge integracije. Veljajo za ';
-
-  @override
   String get microsoftTeams => 'Microsoft Teams';
 
   @override
@@ -4807,6 +4755,13 @@ class AppL10nSl extends AppL10n {
 
   @override
   String get modelAvailability => 'Razpoložljivost modela';
+
+  @override
+  String get autoEnableNewModels => 'Samodejno omogoči nove modele';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Ko je izklopljeno, modeli, ki jih ponudnik doda pozneje, ostanejo onemogočeni, dokler jih ne omogočite.';
 
   @override
   String get modelAvailabilitySaved => 'Razpoložljivost modela je shranjena.';
@@ -5285,6 +5240,50 @@ class AppL10nSl extends AppL10n {
   String get noMemorySync => 'Ni sinhronizacije pomnilnika';
 
   @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Enkrat prebere pomembna in poslana sporočila zadnjih 12 mesecev, da agent pozna vaše stike in projekte.';
+
+  @override
+  String get emailMemory => 'Pomnilnik e-pošte';
+
+  @override
+  String get importNow => 'Uvozi zdaj';
+
+  @override
+  String get importOnConnect => 'Ob povezavi računa uvozi starejšo pošto';
+
+  @override
+  String get sweepStarting => 'Pripravljanje…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'Branje e-pošte · $done od $total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'Branje e-pošte · najdenih $count';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Učenje iz e-pošte · $done od $total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Zadnji uvoz: $emails e-sporočil · $memories novih spominov';
+  }
+
+  @override
+  String get sweepNothingNew => 'Ni novih e-sporočil za uvoz';
+
+  @override
+  String sweepFailed(String error) {
+    return 'Uvoz ni uspel: $error';
+  }
+
+  @override
   String noModelMatchesArg1(Object? arg1) {
     return 'Noben model se ne ujema z \"$arg1\".';
   }
@@ -5481,10 +5480,6 @@ class AppL10nSl extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'Poverilnice aplikacije OAuth, ki računom omogočajo povezavo z Googlom, ';
-
-  @override
   String get oauthClientId => 'ID odjemalca OAuth';
 
   @override
@@ -5555,9 +5550,6 @@ class AppL10nSl extends AppL10n {
 
   @override
   String get once => 'Enkrat';
-
-  @override
-  String get oneBlankToKeepWhatIs => 'ena prazna, da ostane shranjeno.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -6093,9 +6085,6 @@ class AppL10nSl extends AppL10n {
       'izvajanje poizvedb; vse kar piše se zavrne.';
 
   @override
-  String get query => 'Poizvedba';
-
-  @override
   String get queryFilter => 'Poizvedba / Filter';
 
   @override
@@ -6262,11 +6251,6 @@ class AppL10nSl extends AppL10n {
   String get rejectInvalidTlsCertificates => 'Zavrni neveljavna potrdila TLS';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Razmerje: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'sprostite in znova zaženite. Povezane aplikacije se znova povežejo, ko se vrne.';
 
@@ -6426,9 +6410,6 @@ class AppL10nSl extends AppL10n {
 
   @override
   String get results => 'Rezultati';
-
-  @override
-  String get retrievalInspector => 'Inšpektor za pridobivanje';
 
   @override
   String get retry => 'Poskusite znova';
@@ -6760,11 +6741,6 @@ class AppL10nSl extends AppL10n {
       'načrtovani čas. Ko bodo teki izmerjeni, se bo začelo prej.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Rezultat: $arg1';
-  }
-
-  @override
   String get screen => 'zaslon';
 
   @override
@@ -6902,11 +6878,6 @@ class AppL10nSl extends AppL10n {
 
   @override
   String get selectTrigger => 'Izberite Sprožilec';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Semantično: $arg1';
-  }
 
   @override
   String get send => 'Pošlji (⌘↵)';
@@ -8682,11 +8653,6 @@ class AppL10nSl extends AppL10n {
   String get vaultOperationFailed => 'Operacija trezorja ni uspela.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Vektorski rang: $arg1';
-  }
-
-  @override
   String get verification => 'Preverjanje';
 
   @override
@@ -10105,6 +10071,9 @@ class AppL10nSl extends AppL10n {
   String get settingsPageSystem => 'Sistem';
 
   @override
+  String get settingsPagePlatforms => 'Platforme';
+
+  @override
   String get settingsPageProfileDescription =>
       'Vaše ime in e-pošta, kopija vaših podatkov in odjava.';
 
@@ -11275,9 +11244,729 @@ class AppL10nSl extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Izberite uporabniško ime';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Izberite razpoložljivo uporabniško ime, da dokončate ustvarjanje računa.';
+
+  @override
+  String get dataSharingTitle => 'Deli podatke o uporabi';
+
+  @override
+  String get dataSharingDescription =>
+      'Pomagajte upraviteljem tega strežnika, da ga izboljšajo. Deli, kako uporabljate NeoAgent, nikoli tega, kar pišete ali shranjujete.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Deljeno od $date.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'Kaj se deli';
+
+  @override
+  String get dataSharingIncluded => 'Deli se';
+
+  @override
+  String get dataSharingExcluded => 'Nikoli se ne deli';
+
+  @override
+  String get dataSharingIncludedDevice =>
+      'Vrsta naprave in različica aplikacije';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'Jezik aplikacije in regija časovnega pasu, na primer Evropa';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Katere funkcije imate nastavljene, npr. opravila, skille in integracije';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Katera orodja in modele uporabljajo vaši zagoni, s trajanjem in številom žetonov';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'Kdaj uporabljate NeoAgent, po dnevih v tednu in urah';
+
+  @override
+  String get dataSharingExcludedContent => 'Sporočila, pozivi in odgovori';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Naslovi zagonov, vhodi in rezultati orodij';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Datoteke, spomini in vse drugo, kar shranjujete';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'Vaše ime, e-pošta, naslov IP in lokacija';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'Računi, s katerimi povezujete integracije';
+
+  @override
+  String get dataSharingPooledNote =>
+      'Skrbniki vidijo le seštevke vseh, ki delijo, nikoli vas posebej. Kadar koli izklopite in takoj izpadete iz seštevkov.';
+
+  @override
+  String get dataSharingConfirmTitle => 'Želite deliti podatke o uporabi?';
+
+  @override
+  String get dataSharingConfirmAction => 'Deli';
+
+  @override
+  String get sharedUsageTitle => 'Deljena uporaba';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Računi, ki delijo podatke o uporabi: $sharing od $total. Samo seštevki, brez vsebine.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Nihče še ne deli podatkov o uporabi. Vklopiti se da v: Nastavitve, Profil, Vaši podatki.';
+
+  @override
+  String get sharedUsageRuns => 'Deljeni zagoni';
+
+  @override
+  String get sharedUsageAvgDuration => 'Povpr. trajanje';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Dokončani zagoni';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Koraki na zagon';
+
+  @override
+  String get sharedUsageDevices => 'Naprave';
+
+  @override
+  String get sharedUsageAppVersions => 'Različice aplikacije';
+
+  @override
+  String get sharedUsageLanguages => 'Jeziki';
+
+  @override
+  String get sharedUsageRegions => 'Regije';
+
+  @override
+  String get sharedUsageFeatures => 'Uporaba funkcij';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'Delež računov, ki delijo in so jo nastavili.';
+
+  @override
+  String get sharedUsageTools => 'Orodja';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'Najpogosteje klicana orodja ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Klici: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Neuspešno: $percent %';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Integracije';
+
+  @override
+  String get sharedUsageMessaging => 'Kanali za sporočila';
+
+  @override
+  String get sharedUsageTriggers => 'Kako se zagoni začnejo';
+
+  @override
+  String get sharedUsageActivity => 'Kdaj se uporablja';
+
+  @override
+  String get sharedUsageActivityDescription =>
+      'Zagoni po dnevih v tednu in urah, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Zmogljivost modelov';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return 'povpr. $latency · $cached % iz predpomnilnika · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Računi: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'V tem obdobju ni ničesar.';
+
+  @override
+  String get sharedUsageNotReported => 'Še ni sporočeno';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Več kot en agent';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Načrtovana opravila';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Skilli';
+
+  @override
+  String get sharedUsageFeatureMcp => 'Strežniki MCP';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Integracije';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Kanali za sporočila';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Spomin';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'opt-in deljenje podatkov telemetrija naprave funkcije orodja modeli dejavnost';
+
+  @override
+  String get yourOAuthApp => 'Vaša aplikacija OAuth';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'Vaša aplikacija OAuth za $provider';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Ta strežnik nima globalne aplikacije $provider, zato se povežete z aplikacijo OAuth, ki jo registrirate sami. Skrivnost odjemalca je shranjena šifrirano in se ne prikaže nikoli več.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Ustvarite aplikacijo';
+
+  @override
+  String get openDeveloperConsole => 'Odpri razvijalsko konzolo';
+
+  @override
+  String get oauthAppStepCallback => '2. Registrirajte ta URL za povratni klic';
+
+  @override
+  String get callbackUrlCopied => 'URL za povratni klic kopiran';
+
+  @override
+  String get oauthAppScopes => 'Obsegi za dovolitev';
+
+  @override
+  String get scopesCopied => 'Obsegi kopirani';
+
+  @override
+  String get oauthAppStepCredentials => '3. Prilepite poverilnice aplikacije';
+
+  @override
+  String get couldNotSaveOAuthApp =>
+      'Aplikacije OAuth ni bilo mogoče shraniti.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Odstranim vašo aplikacijo $provider?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Povezani računi ostanejo na seznamu, vendar ne delujejo, dokler znova ne dodate aplikacije.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Globalna konfiguracija integracij';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Neobvezne aplikacije OAuth za celoten strežnik. Ko jo integracija ima, jo uporablja vsak račun in ne more dodati svoje. Pustite integracijo nenastavljeno in vsak uporabnik nastavi svojo aplikacijo. Skrivnosti je mogoče le zapisati: pustite prazno, da ohranite shranjeno vrednost.';
+
+  @override
+  String get globalStatus => 'Globalno';
+
+  @override
+  String get perUserStatus => 'Na uporabnika';
+
+  @override
+  String get phoneSyncGuidance =>
+      'Delite koledarje in stike tega telefona s svojim agentom. Deluje z vsemi računi, ki so že v telefonu.';
+
+  @override
+  String get phoneSyncElsewhereGuidance =>
+      'Odprite NeoAgent v telefonu in tam vklopite deljenje. Agent bo nato videl koledarje in stike vseh računov v tem telefonu.';
+
+  @override
+  String get manageOnThisPhone => 'Upravljaj v tem telefonu';
+
+  @override
+  String get setUpOnThisPhone => 'Nastavi v tem telefonu';
+
+  @override
+  String get setUpOnPhone => 'Nastavi v telefonu';
+
+  @override
+  String emailConnectedArg1(String email) {
+    return '$email povezan';
+  }
+
+  @override
+  String get couldNotConnectEmail => 'Računa ni bilo mogoče povezati.';
+
+  @override
+  String get emailSetupTitle => 'Poveži e-pošto in koledar';
+
+  @override
+  String get emailChecking => 'Preverjam nabiralnik…';
+
+  @override
+  String get emailSetupIntro =>
+      'Uporabite geslo za aplikacijo od ponudnika e-pošte. Brez razvijalske konzole, v nekaj minutah.';
+
+  @override
+  String emailOpenArg1(String provider) {
+    return 'Odpri $provider';
+  }
+
+  @override
+  String get emailStepServers => '1. Vnesite strežnike';
+
+  @override
+  String get emailStepPassword => '1. Ustvarite geslo za aplikacijo';
+
+  @override
+  String emailOpenPasswordPageArg1(String provider) {
+    return 'Odpri gesla za aplikacije pri $provider';
+  }
+
+  @override
+  String get emailStepSignIn => '2. Prijava';
+
+  @override
+  String get appPassword => 'Geslo za aplikacijo';
+
+  @override
+  String get appPasswordHelper =>
+      'Presledki niso pomembni. NeoAgent ga shrani šifrirano.';
+
+  @override
+  String get emailUsernameOptional =>
+      'Uporabniško ime, če ni vaš e-poštni naslov';
+
+  @override
+  String get emailIncludeCalendar => 'Vključi koledar';
+
+  @override
+  String get emailIncludeContacts => 'Vključi stike';
+
+  @override
+  String get imapServer => 'Strežnik IMAP';
+
+  @override
+  String get smtpServer => 'Strežnik SMTP';
+
+  @override
+  String get caldavUrlOptional => 'URL CalDAV (neobvezno)';
+
+  @override
+  String get carddavUrlOptional => 'URL CardDAV (neobvezno)';
+
+  @override
+  String get alternativeEmail =>
+      'Povežite nabiralnik z geslom za aplikacijo ali koledar z njegovo povezavo iCal. V nekaj minutah.';
+
+  @override
+  String get alternativePhone =>
+      'Delite koledar in stike, ki so že v telefonu, prek aplikacije NeoAgent.';
+
+  @override
+  String get alternativePhoneElsewhere =>
+      'Delite koledar in stike, ki so že v telefonu. Nastavite v aplikaciji NeoAgent v telefonu.';
+
+  @override
+  String get skipTheDeveloperConsole => 'Brez razvijalske konzole';
+
+  @override
+  String get phoneSyncPromptTitle => 'Naj agent vidi vaš koledar?';
+
+  @override
+  String get phoneSyncPromptBody =>
+      'Delite koledarje in stike tega telefona, da lahko agent načrtuje okoli vašega dne. To lahko kadar koli spremenite v Orodja › Integracije.';
+
+  @override
+  String get phoneSyncTitle => 'Deli koledar in stike tega telefona';
+
+  @override
+  String get phoneSyncIntro =>
+      'Agent vidi koledarje in stike vseh računov v tem telefonu. Brez razvijalske konzole in dodatne prijave.';
+
+  @override
+  String get phoneSyncPointAccounts =>
+      'Deluje z računi Google, Outlook, iCloud in Exchange v tem telefonu.';
+
+  @override
+  String get phoneSyncPointPrivate =>
+      'Deljeno samo z vašim strežnikom NeoAgent, ki jih shrani šifrirano.';
+
+  @override
+  String get phoneSyncPointWrites =>
+      'Dogodke, ki jih doda agent, ustvari ta telefon in se sinhronizirajo kot običajno.';
+
+  @override
+  String get phoneSyncCalendarHint =>
+      'Dogodki od 30 dni nazaj do 90 dni naprej';
+
+  @override
+  String get phoneSyncContacts => 'Stiki';
+
+  @override
+  String get phoneSyncContactsHint =>
+      'Imena, e-poštni naslovi in telefonske številke';
+
+  @override
+  String get phoneSyncOtherAgent =>
+      'Ta telefon deli z drugim agentom. Deljenje tukaj ga prestavi k temu agentu.';
+
+  @override
+  String get phoneSyncDenied =>
+      'NeoAgent še nima dostopa. Dovolite ga v Nastavitvah in se vrnite.';
+
+  @override
+  String get openPhoneSettings => 'Odpri Nastavitve';
+
+  @override
+  String get phoneSyncShare => 'Deli z NeoAgent';
+
+  @override
+  String get phoneSyncStop => 'Ustavi deljenje';
+
+  @override
+  String get phoneSyncWaiting => 'Čakam na prvo sinhronizacijo…';
+
+  @override
+  String phoneSyncLastSyncedArg1(String time) {
+    return 'Zadnja sinhronizacija $time';
+  }
+
+  @override
+  String get calendarLink => 'Povezava do koledarja';
+
+  @override
+  String get calendarLinkHelper =>
+      'Naslov iCal koledarja. Kdor ga pozna, lahko bere koledar, zato ga ohranite zasebnega.';
+
+  @override
+  String get calendarLinkName => 'Ime (neobvezno)';
+
+  @override
+  String get calendarLinkAdded => 'Koledar dodan';
+
+  @override
+  String get toolsApps => 'Aplikacije';
+
+  @override
+  String get reconnect => 'Znova poveži';
+
+  @override
+  String get reconnectNeeded => 'Potrebna ponovna povezava';
+
+  @override
+  String get mixedAccess => 'Mešan dostop';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Prekinem povezavo $account?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'Agent prek tega računa izgubi dostop do $apps.';
+  }
+
+  @override
+  String get neoRouterServerDescription =>
+      'Enkrat povežite svoj NeoRouter in vsak račun tukaj ga bo uporabljal za spodaj vklopljena opravila.';
+
+  @override
+  String get neoRouterUserDescription =>
+      'Za spodaj vklopljena opravila uporabite svoj račun NeoRouter namesto ponudnikov tega strežnika.';
+
+  @override
+  String get neoRouterAddress => 'Naslov NeoRouterja';
+
+  @override
+  String get neoRouterConnect => 'Poveži NeoRouter';
+
+  @override
+  String neoRouterWaitingArg1(Object? arg1) {
+    return 'Odobrite NeoAgent v NeoRouterju. Prikazuje kodo $arg1.';
+  }
+
+  @override
+  String get neoRouterOpenAgain => 'Odpri znova';
+
+  @override
+  String neoRouterConnectedArg1(Object? arg1) {
+    return 'Povezano z $arg1';
+  }
+
+  @override
+  String get neoRouterUnreachable => 'NeoRouter trenutno ni dosegljiv.';
+
+  @override
+  String get neoRouterDisconnect => 'Prekini povezavo';
+
+  @override
+  String get neoRouterDisconnectBody =>
+      'NeoAgent preneha uporabljati ta NeoRouter. Če želite odvzeti tudi ključ, ga prekličite v NeoRouterju pod API ključi.';
+
+  @override
+  String get neoRouterServerInUse =>
+      'Ta strežnik že uporablja NeoRouter za vse. Povežite svoj račun NeoRouter za lastne modele in proračun.';
+
+  @override
+  String get neoRouterConnected => 'NeoRouter je povezan.';
+
+  @override
+  String get neoRouterRoleChat => 'Klepet in prepoznavanje slik';
+
+  @override
+  String get neoRouterRoleSystemOne => 'Odločitve System One';
+
+  @override
+  String get neoRouterRoleTranscription => 'Govor v besedilo';
+
+  @override
+  String get neoRouterRoleLive => 'Glas v živo';
+
+  @override
+  String get neoRouterRoleEmbeddings => 'Iskanje po spominu';
+
+  @override
+  String get neoRouterRoleImages => 'Ustvarjanje slik';
+
+  @override
+  String get neoRouterRoleSearch => 'Iskanje po spletu';
+
+  @override
+  String neoRouterModelCountArg1(Object? arg1) {
+    return 'Na voljo v vašem NeoRouterju: $arg1';
+  }
+
+  @override
+  String get neoRouterNoModels => 'V vašem NeoRouterju še ni ničesar.';
+
+  @override
+  String get neoRouterPicksModels =>
+      'NeoRouter izbere model za vsako zahtevo, zato se ta izbor ne uporablja.';
+
+  @override
+  String neoRouterNotAllowedArg1(Object? arg1) {
+    return 'V vašem NeoRouterju: $arg1, vendar jih ključ NeoAgenta še ne sme uporabljati (npr. plačljivih). Dovolite jih za NeoAgent pod API ključi v NeoRouterju.';
+  }
+
+  @override
+  String get neoRouterNoDecisionModels =>
+      'Potrebuje modele za odločanje, kot je Jev. Varnostni klasifikatorji na ta vprašanja ne odgovorijo.';
+
+  @override
+  String get voiceLiveNoProvider =>
+      'Ponudnik glasu v živo ni nastavljen. Dodajte ključ OpenAI ali Google AI ali povežite NeoRouter v Modeli → Prinesite svoj ključ.';
+
+  @override
+  String get voiceSttAutoNeoRouter => 'Samodejno (model izbere NeoRouter)';
+
+  @override
+  String get voiceNotOffered => 'Ni več na voljo, izberite drugo';
+
+  @override
+  String get agentImport => 'Bring over another agent';
+
+  @override
+  String get agentImportDescription =>
+      'Copies OpenClaw or Hermes Agent from the server\'s computer (~/.openclaw and ~/.hermes) into your account. Nothing is removed there, and importing twice does not duplicate anything.';
+
+  @override
+  String get agentImportNoneFound =>
+      'No OpenClaw or Hermes Agent was found in ~/.openclaw or ~/.hermes on the server\'s computer.';
+
+  @override
+  String get agentImportWhatComes => 'What comes over';
+
+  @override
+  String get agentImportAgentsAlways =>
+      'Agents and their personality always come over; everything else is attached to them.';
+
+  @override
+  String get agentImportPartKeys => 'Keys and AI providers';
+
+  @override
+  String get agentImportPartMemories => 'Memories and notes';
+
+  @override
+  String get agentImportPartSkills => 'Skills';
+
+  @override
+  String get agentImportPartModel => 'Default model';
+
+  @override
+  String get agentImportPartTasks => 'Automations';
+
+  @override
+  String get agentImportPartMcp => 'MCP servers';
+
+  @override
+  String get agentImportPartChannels => 'Chat apps';
+
+  @override
+  String agentImportCountAgents(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count agents',
+      one: '1 agent',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountKeys(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count connections',
+      one: '1 connection',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountMemories(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count memories',
+      one: '1 memory',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days of notes',
+      one: '1 day of notes',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountSkills(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count skills',
+      one: '1 skill',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountTasks(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count automations',
+      one: '1 automation',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountMcp(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count MCP servers',
+      one: '1 MCP server',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportNeedsHandCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count things need a hand afterwards',
+      one: '1 thing needs a hand afterwards',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get agentImportFinish => 'Let NeoAgent finish moving in';
+
+  @override
+  String get agentImportFinishHint =>
+      'After the restart, your agent reworks imported skills for its own tools and rebuilds what the importer left behind. Needs a connected AI.';
+
+  @override
+  String get agentImportRun => 'Bring it over';
+
+  @override
+  String get agentImportRunning => 'Bringing it over…';
+
+  @override
+  String get agentImportMovedIn => 'Moved in';
+
+  @override
+  String get agentImportAlreadyMovedIn => 'Everything was already in NeoAgent.';
+
+  @override
+  String agentImportAlreadyThere(int count) {
+    return '$count already in NeoAgent, left as they were';
+  }
+
+  @override
+  String get agentImportNeedsHand => 'Needs a hand';
+
+  @override
+  String agentImportMore(int count) {
+    return '…and $count more in the report.';
+  }
+
+  @override
+  String agentImportReport(String path) {
+    return 'Full report: $path';
+  }
+
+  @override
+  String agentImportFinishQueued(String name) {
+    return 'Queued \"$name\". It starts two minutes after NeoAgent restarts, and you\'ll get a message when it\'s done.';
+  }
+
+  @override
+  String get agentImportRestartNeeded =>
+      'Restart NeoAgent to load everything that came over.';
+
+  @override
+  String get agentImportRestarted =>
+      'NeoAgent restarted and loaded everything.';
 }

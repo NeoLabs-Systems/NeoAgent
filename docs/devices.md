@@ -81,7 +81,6 @@ The desktop app for macOS, Windows and Linux can lend your own computer: switch 
 - **Voice assistant.** Live spoken calls through OpenAI GPT-Live or Google Gemini Live, hands-free or hold-to-talk.
 - **Phone triggers.** **Location triggers** and **Notification triggers** (Android only) feed [automation](automation.md).
 - **Widgets.** **NeoAgent status** and **Call NeoAgent** for the Android home screen.
-- **Android Auto.** A **Voice mode** tile starts a voice call.
 
 ### When the agent calls you
 

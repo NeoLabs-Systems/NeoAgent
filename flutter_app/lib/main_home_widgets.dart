@@ -1,6 +1,6 @@
 part of 'main.dart';
 
-/// Keeps the Android home-screen widgets on what the in-app mascot shows.
+/// Keeps the home-screen widgets on what the in-app mascot shows.
 ///
 /// The controller notifies many times a second while a run streams, so
 /// publishing is coalesced and skipped when nothing visible changed. Leaving

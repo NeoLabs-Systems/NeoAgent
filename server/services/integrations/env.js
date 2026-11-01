@@ -48,34 +48,6 @@ function resolveGoogleOAuthConfig() {
   return resolveOAuthConfig('GOOGLE');
 }
 
-function resolveNotionOAuthConfig() {
-  return resolveOAuthConfig('NOTION');
-}
-
-function resolveSlackOAuthConfig() {
-  return resolveOAuthConfig('SLACK');
-}
-
-function resolveFigmaOAuthConfig() {
-  return resolveOAuthConfig('FIGMA');
-}
-
-function resolveMicrosoftOAuthConfig() {
-  const base = resolveOAuthConfig('MICROSOFT');
-  return {
-    ...base,
-    tenantId: trimEnv('MICROSOFT_OAUTH_TENANT_ID') || 'common',
-  };
-}
-
-function resolveSpotifyOAuthConfig() {
-  return resolveOAuthConfig('SPOTIFY');
-}
-
-function resolveGithubOAuthConfig() {
-  return resolveOAuthConfig('GITHUB');
-}
-
 function describeEnvStatus(config, options = {}) {
   const label = String(options.label || 'This integration').trim() || 'This integration';
   if (config.configured) {
@@ -95,14 +67,8 @@ function describeEnvStatus(config, options = {}) {
 
 module.exports = {
   describeEnvStatus,
-  resolveFigmaOAuthConfig,
-  resolveMicrosoftOAuthConfig,
-  resolveNotionOAuthConfig,
   resolveOAuthConfig,
   resolveGoogleOAuthConfig,
   getTrustedPostMessageOrigin,
   resolvePublicBaseUrl,
-  resolveSpotifyOAuthConfig,
-  resolveSlackOAuthConfig,
-  resolveGithubOAuthConfig,
 };

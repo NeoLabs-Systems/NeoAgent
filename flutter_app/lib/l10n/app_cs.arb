@@ -154,6 +154,8 @@
   "addKey": "Přidat klíč",
   "addMcpServer": "Přidat MCP server",
   "addMemory": "Přidat paměť",
+  "memoryReview": "Zkontrolovat",
+  "memoryReviewPrompt": "Projdi všechny mé vzpomínky a ukliď je: archivuj duplicity, zastaralá fakta a vše bez trvalé hodnoty. Pak mi stručně řekni, co jsi změnil.",
   "addMoreLengthOrAnotherCharacter": "Přidejte větší délku nebo jiný typ znaku.",
   "addPeopleOrGroups": "Přidejte lidi nebo skupiny",
   "addSecurityKey": "Přidejte bezpečnostní klíč",
@@ -1901,7 +1903,6 @@
   "assistant": "asistent",
   "assistantKey131": "Klíč asistenta 131",
   "atLeast1": "Minimálně 1.",
-  "atLeast1000AppliesAfterA": "Minimálně 1000. Platí po restartu serveru.",
   "attachFiles": "Připojit soubory",
   "attentionArg1": "Pozor {arg1}",
   "@attentionArg1": {
@@ -2007,7 +2008,6 @@
   "botUsername": "Uživatelské jméno robota",
   "brandName": "Název značky",
   "braveSearch": "Brave Search",
-  "breakdown": "Rozdělení:",
   "bridgeAnyProviderThatCanPost": "Přemostění jakéhokoli poskytovatele, který může odesílat a přijímat data webhooku.",
   "bringYourOwnKey": "přinést vlastní klíč",
   "bringYourOwnKey2": "Přineste si vlastní klíč",
@@ -2030,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Může přijímat delegované úkoly",
   "cancel": "Zrušit",
   "cancelTask": "Zrušit úkol",
-  "candidateCountArg1": "Počet kandidátů: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Nelze zobrazit náhled",
   "cannotReceiveDelegatedTasks": "nemůže přijímat delegované úkoly",
   "cannotRunYet": "ještě nemůže běžet.",
@@ -2308,14 +2300,6 @@
   "connectionMethod": "Způsob připojení",
   "containsTextOptional": "Obsahuje text (volitelné)",
   "content": "Obsah",
-  "contentArg1": "Obsah: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "zásady zabezpečení obsahu",
   "continue2": "Pokračovat",
   "continueFullSetup": "Pokračujte v úplném nastavení",
@@ -2752,21 +2736,12 @@
       }
     }
   },
-  "errorArg12": "Chyba: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Chyby z posledního protokolu, seskupené podle zpráv.",
   "errorsProblemsFailures": "chyby problémy selhání",
   "eventTypesCommaSeparated": "Typy událostí (oddělené čárkami)",
   "every15Minutes": "Každých 15 minut",
   "every30Minutes": "Každých 30 minut",
   "everyAccountOnThisServerLoses": "Každý účet na tomto serveru ztratí tento sdílený klíč. Účty ",
-  "everyAccountOnThisServerSecrets": "každý účet na tomto serveru. Tajemství jsou pouze pro zápis: odejděte ",
   "everyAccountOnThisServerUses": "Každý účet na tomto serveru používá tuto adresu ",
   "everyActiveSessionForThisAccount": "Každá aktivní relace pro tento účet končí. Mohou se přihlásit ",
   "everyDay0800": "Každý den · 08:00",
@@ -3012,14 +2987,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Úplná výzva",
   "fullSetup": "Kompletní nastavení",
-  "fullTextFtsArg1": "Plné znění (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Generál",
   "generalSettings": "Obecná nastavení",
   "generalSettingsSaved": "Obecná nastavení uložena.",
@@ -3218,7 +3185,6 @@
   "input": "Vstup",
   "inputMode": "Vstupní režim",
   "insertATemplate": "Vložte šablonu",
-  "inspect": "Zkontrolujte",
   "install": "Instalovat",
   "installASignedSelfContainedRuntime": "Nainstalujte podepsané, samostatné runtime. Příkazy Node.js, npm, Git a terminálu nejsou vyžadovány.",
   "installApk": "Nainstalujte APK",
@@ -3251,7 +3217,6 @@
   },
   "instructions": "Instrukce",
   "integration": "Integrace",
-  "integrationApps": "Integrační aplikace",
   "integrationConnections": "Integrační spojení",
   "integrationSettingsSaved": "Nastavení integrace uloženo.",
   "integrations": "Integrace",
@@ -3470,14 +3435,6 @@
       }
     }
   },
-  "lexicalArg1": "Lexikální: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "limit20": "LIMIT 20",
   "limit50": "LIMIT 50",
   "linkArg1": "Odkaz {arg1}",
@@ -3601,10 +3558,6 @@
       }
     }
   },
-  "memoryImportSync": "synchronizace importu paměti",
-  "memoryIngestionInterval": "Interval příjmu paměti",
-  "memoryIngestionIntervalMs": "Interval příjmu paměti (ms)",
-  "memoryIngestionIntervalMustBeAt": "Interval příjmu do paměti musí být alespoň 1000 ms.",
   "memoryInjected": "Injekce paměti",
   "mentionOrReplyOnly": "Pouze zmínit nebo odpovědět",
   "mergedServerAndFlutterRuntimeLogs": "Sloučené protokoly běhového prostředí serveru a Flutter pro tuto relaci aplikace.",
@@ -3629,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Mikrofon ztlumen. Klepnutím zapněte zvuk.",
   "microphonePermissionIsRequiredForLive": "Pro živý hlas je vyžadováno povolení mikrofonu.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack a další integrace. Vztahují se na ",
   "microsoftTeams": "Microsoft Teams",
   "minimumContributionValueArg1": "Minimální hodnota příspěvku: {arg1}",
   "@minimumContributionValueArg1": {
@@ -3676,6 +3628,8 @@
     }
   },
   "modelAvailability": "Dostupnost modelu",
+  "autoEnableNewModels": "Automaticky povolit nové modely",
+  "autoEnableNewModelsHint": "Když je vypnuto, modely, které poskytovatel přidá později, zůstanou vypnuté, dokud je nepovolíte.",
   "modelAvailabilitySaved": "Dostupnost modelu uložena.",
   "modelForThisSession": "Model pro tuto relaci",
   "modelOverride": "Přepsání modelu",
@@ -3911,6 +3865,61 @@
   "noMcpServersMatchThisSearch": "Tomuto vyhledávání neodpovídají žádné servery MCP.",
   "noMemoryEntriesFound": "Nebyly nalezeny žádné položky paměti.",
   "noMemorySync": "Žádná synchronizace paměti",
+  "importPastEmailsIntoMemoryHint": "Jednorázově přečte důležité a odeslané e-maily za posledních 12 měsíců, aby agent znal vaše kontakty a projekty.",
+  "emailMemory": "Paměť z e-mailů",
+  "importNow": "Importovat teď",
+  "importOnConnect": "Při připojení účtu importovat starší poštu",
+  "sweepStarting": "Připravuje se…",
+  "sweepReadingProgress": "Čtení e-mailů · {done} z {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Čtení e-mailů · nalezeno {count}",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Učení z e-mailů · {done} z {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Poslední import: {emails} e-mailů · {memories} nových vzpomínek",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Žádné nové e-maily k importu",
+  "sweepFailed": "Import se nezdařil: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "\"{arg1}\" neodpovídá žádný model.",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -3997,7 +4006,6 @@
   "nothingStoredYet": "Zatím není nic uloženo.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "přihlašovací údaje aplikace OAuth, které umožňují účtům propojit Google, ",
   "oauthClientId": "ID klienta OAuth",
   "oauthClientIdSecretRedirectApi": "ID klienta oauth tajný klíč přesměrování API",
   "oauthClientIdSecretRedirectGmail": "ID klienta oauth tajné přesměrování gmail kalendář disk",
@@ -4035,7 +4043,6 @@
   "onTheyCanJoinAgainOnly": "na. Mohou se znovu připojit pouze s novým odkazem na pozvánku.",
   "onYourOwnTheDefault": "Sami (výchozí)",
   "once": "Jednou",
-  "oneBlankToKeepWhatIs": "jeden prázdný, aby se zachovalo to, co je uloženo.",
   "oneIsSavedOtherChangesIn": "jeden je zachráněn. Ostatní změny v tomto formuláři jsou také uloženy.",
   "oneOrMoreAccountsExpiredReconnect": "Platnost jednoho nebo více účtů vypršela. Chcete-li obnovit přístup k nástroji, znovu připojte dotčený účet.",
   "oneRuntimeControlsPersonaGroupTurn": "Jeden runtime řídí persona, skupinové tahy, paměť místnosti, normy, teorii mysli a doručení.",
@@ -4292,7 +4299,6 @@
   "qrLoginRequestWasNotFound": "qr požadavek na přihlášení nebyl nalezen",
   "qrPairing": "QR párování",
   "queriesRunAnythingThatWritesIs": "běží dotazy; vše, co napíše, je odmítnuto.",
-  "query": "Dotaz",
   "queryFilter": "Dotaz / Filtr",
   "queuedAsSteeringForTheCurrent": "Ve frontě jako řízení pro aktuální běh: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4377,14 +4383,6 @@
   "registrationIsClosed": "registrace je uzavřena",
   "registrationRegisterNewAccountsAllowSignup": "registrace registrovat nové účty umožňují registraci",
   "rejectInvalidTlsCertificates": "Odmítněte neplatné certifikáty TLS",
-  "relationArg1": "Vztah: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "uvolnit a restartovat. Připojené aplikace se znovu připojí, jakmile budou zpět.",
   "releaseChannel": "Uvolněte kanál",
   "releaseCommitBranchNode": "uvolnit uzel větve potvrzení",
@@ -4487,7 +4485,6 @@
   "resultDelivery": "Doručení výsledku",
   "resultOneClickAddsOneYou": "výsledek. Jedno kliknutí přidá jedno; můžete upravit později.",
   "results": "Výsledky",
-  "retrievalInspector": "Inspektor vyhledávání",
   "retry": "Zkuste to znovu",
   "reusableUsedArg1": "Opakovaně použitelné · použité {arg1}×",
   "@reusableUsedArg1": {
@@ -4643,14 +4640,6 @@
   "scansNewEmailAndOnlyPings": "Prohledá nový e-mail a odešle vám pouze ping, když na něčem záleží.",
   "schedule": "Rozvrh",
   "scheduledTimeOnceRunsAreMeasured": "naplánovaný čas. Jakmile jsou jízdy změřeny, začne dříve.",
-  "scoreArg1": "Skóre: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Obrazovka",
   "screenAction": "akce obrazovky",
   "scrollIsNotSupportedOnThis": "rolování není na této platformě podporováno.",
@@ -4712,14 +4701,6 @@
     }
   },
   "selectTrigger": "Vyberte možnost Spustit",
-  "semanticArg1": "Sémantický: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Odeslat (⌘↵)",
   "send2": "Odeslat",
   "sendATaskFromChatAnd": "Odešlete úkol z chatu a zde se zobrazí historie jeho provádění.",
@@ -5633,14 +5614,6 @@
   "value": "Hodnota",
   "vaultLocked": "Trezor zamčený",
   "vaultOperationFailed": "Operace trezoru se nezdařila.",
-  "vectorRankArg1": "Pořadí vektoru: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Ověření",
   "verificationArg1": "Ověření: {arg1}",
   "@verificationArg1": {
@@ -6553,6 +6526,7 @@
   "settingsPageComputer": "Počítač a web",
   "settingsPageBehavior": "Chování",
   "settingsPageSystem": "Systém",
+  "settingsPagePlatforms": "Platformy",
   "settingsPageProfileDescription": "Vaše jméno a e-mail, kopie vašich dat a odhlášení.",
   "settingsPageSecurityDescription": "Heslo, dvoufaktorové ověření, bezpečnostní klíče a místo, kde jste přihlášeni.",
   "settingsPageUsageDescription": "Vaše limity a tokeny, vše na jednom místě.",
@@ -6990,5 +6964,295 @@
   "signupKeysSaveDialogTitle": "Uložit registrační klíče",
   "signupKeysExported": "Klíče exportovány.",
   "auditSignupKeysCreated": "{actor} vytvořil(a) registrační klíče ({count})",
-  "auditSignupKeyRevoked": "{actor} zrušil(a) registrační klíč"
+  "auditSignupKeyRevoked": "{actor} zrušil(a) registrační klíč",
+  "dataSharingTitle": "Sdílet data o používání",
+  "dataSharingDescription": "Pomozte správcům tohoto serveru ho vylepšovat. Sdílí, jak NeoAgent používáte, nikdy to, co píšete nebo ukládáte.",
+  "dataSharingSince": "Sdíleno od {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Co se sdílí",
+  "dataSharingIncluded": "Sdílí se",
+  "dataSharingExcluded": "Nikdy se nesdílí",
+  "dataSharingIncludedDevice": "Typ zařízení a verze aplikace",
+  "dataSharingIncludedLocale": "Jazyk aplikace a oblast časového pásma, například Evropa",
+  "dataSharingIncludedFeatures": "Které funkce máte nastavené, například úlohy, skilly a integrace",
+  "dataSharingIncludedRuns": "Které nástroje a modely vaše běhy používají, s dobou trvání a počtem tokenů",
+  "dataSharingIncludedActivity": "Kdy NeoAgent používáte, podle dne v týdnu a hodiny",
+  "dataSharingExcludedContent": "Zprávy, prompty a odpovědi",
+  "dataSharingExcludedRuns": "Názvy běhů, vstupy a výsledky nástrojů",
+  "dataSharingExcludedFiles": "Soubory, vzpomínky a vše ostatní, co ukládáte",
+  "dataSharingExcludedIdentity": "Vaše jméno, e-mail, IP adresa a poloha",
+  "dataSharingExcludedAccounts": "Účty, se kterými propojujete integrace",
+  "dataSharingPooledNote": "Správci vidí jen součty za všechny, kdo sdílejí, nikdy vás samotné. Kdykoli to vypněte a hned ze součtů vypadnete.",
+  "dataSharingConfirmTitle": "Sdílet data o používání?",
+  "dataSharingConfirmAction": "Sdílet",
+  "sharedUsageTitle": "Sdílené používání",
+  "sharedUsageParticipants": "Účty sdílející data o používání: {sharing} z {total}. Jen součty, žádný obsah.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Zatím nikdo nesdílí data o používání. Zapnout to lze v: Nastavení, Profil, Vaše data.",
+  "sharedUsageRuns": "Sdílené běhy",
+  "sharedUsageAvgDuration": "Prům. doba",
+  "sharedUsageCompletedRuns": "Dokončené běhy",
+  "sharedUsageStepsPerRun": "Kroky na běh",
+  "sharedUsageDevices": "Zařízení",
+  "sharedUsageAppVersions": "Verze aplikace",
+  "sharedUsageLanguages": "Jazyky",
+  "sharedUsageRegions": "Oblasti",
+  "sharedUsageFeatures": "Využití funkcí",
+  "sharedUsageFeaturesDescription": "Podíl sdílejících účtů, které ji mají nastavenou.",
+  "sharedUsageTools": "Nástroje",
+  "sharedUsageToolsDescription": "Nejčastěji volané nástroje ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Volání: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Selhalo: {percent} %",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integrace",
+  "sharedUsageMessaging": "Kanály zpráv",
+  "sharedUsageTriggers": "Jak běhy začínají",
+  "sharedUsageActivity": "Kdy se používá",
+  "sharedUsageActivityDescription": "Běhy podle dne v týdnu a hodiny, UTC.",
+  "sharedUsageModels": "Výkon modelů",
+  "sharedUsageModelDetail": "prům. {latency} · {cached} % z cache · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Účty: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "V tomto období nic.",
+  "sharedUsageNotReported": "Zatím nenahlášeno",
+  "sharedUsageFeatureAgents": "Více než jeden agent",
+  "sharedUsageFeatureTasks": "Plánované úlohy",
+  "sharedUsageFeatureSkills": "Skilly",
+  "sharedUsageFeatureMcp": "MCP servery",
+  "sharedUsageFeatureIntegrations": "Integrace",
+  "sharedUsageFeatureMessaging": "Kanály zpráv",
+  "sharedUsageFeatureMemory": "Paměť",
+  "sharedUsageSearchKeywords": "opt-in sdílení dat telemetrie zařízení funkce nástroje modely aktivita",
+  "providerChooseUsername": "Zvolte si uživatelské jméno",
+  "providerChooseUsernameBody": "Zvolte si dostupné uživatelské jméno a dokončete vytvoření účtu.",
+  "yourOAuthApp": "Vaše OAuth aplikace",
+  "oauthAppSetupTitle": "Vaše OAuth aplikace {provider}",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Tento server nemá globální aplikaci {provider}, proto se připojujete přes OAuth aplikaci, kterou si zaregistrujete sami. Tajný klíč klienta je uložen šifrovaně a už se nikdy nezobrazí.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Vytvořte aplikaci",
+  "openDeveloperConsole": "Otevřít vývojářskou konzoli",
+  "oauthAppStepCallback": "2. Zaregistrujte tuto callback URL",
+  "callbackUrlCopied": "Callback URL zkopírována",
+  "oauthAppScopes": "Povolované scopy",
+  "scopesCopied": "Scopy zkopírovány",
+  "oauthAppStepCredentials": "3. Vložte přihlašovací údaje aplikace",
+  "couldNotSaveOAuthApp": "OAuth aplikaci se nepodařilo uložit.",
+  "removeOAuthAppTitle": "Odebrat vaši aplikaci {provider}?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Připojené účty zůstanou v seznamu, ale přestanou fungovat, dokud znovu nepřidáte aplikaci.",
+  "globalIntegrationConfiguration": "Globální konfigurace integrací",
+  "globalIntegrationConfigurationDescription": "Volitelné OAuth aplikace pro celý server. Pokud ji integrace má, používá ji každý účet a nemůže přidat vlastní. Ponechte integraci nenastavenou a každý uživatel si nastaví vlastní aplikaci. Tajné údaje lze pouze zapisovat: ponechte prázdné, chcete-li zachovat uloženou hodnotu.",
+  "globalStatus": "Globální",
+  "perUserStatus": "Pro uživatele",
+  "phoneSyncGuidance": "Sdílejte kalendáře a kontakty z tohoto telefonu se svým agentem. Funguje se všemi účty, které už v telefonu jsou.",
+  "phoneSyncElsewhereGuidance": "Otevřete NeoAgent v telefonu a zapněte tam sdílení. Agent pak uvidí kalendáře a kontakty všech účtů v tom telefonu.",
+  "manageOnThisPhone": "Spravovat v tomto telefonu",
+  "setUpOnThisPhone": "Nastavit v tomto telefonu",
+  "setUpOnPhone": "Nastavit v telefonu",
+  "emailConnectedArg1": "Připojeno {email}",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Účet se nepodařilo připojit.",
+  "emailSetupTitle": "Připojit e-mail a kalendář",
+  "emailChecking": "Kontroluji schránku…",
+  "emailSetupIntro": "Použijte heslo aplikace od poskytovatele e-mailu. Bez vývojářské konzole, hotovo za pár minut.",
+  "emailOpenArg1": "Otevřít {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Zadejte servery",
+  "emailStepPassword": "1. Vytvořte heslo aplikace",
+  "emailOpenPasswordPageArg1": "Otevřít hesla aplikací {provider}",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Přihlášení",
+  "appPassword": "Heslo aplikace",
+  "appPasswordHelper": "Na mezerách nezáleží. NeoAgent ho ukládá šifrovaně.",
+  "emailUsernameOptional": "Uživatelské jméno, pokud to není váš e-mail",
+  "emailIncludeCalendar": "Zahrnout kalendář",
+  "emailIncludeContacts": "Zahrnout kontakty",
+  "imapServer": "Server IMAP",
+  "smtpServer": "Server SMTP",
+  "caldavUrlOptional": "Adresa CalDAV (volitelné)",
+  "carddavUrlOptional": "Adresa CardDAV (volitelné)",
+  "alternativeEmail": "Připojte schránku heslem aplikace, nebo kalendář jeho odkazem iCal. Hotovo za pár minut.",
+  "alternativePhone": "Sdílejte kalendář a kontakty z telefonu přes aplikaci NeoAgent.",
+  "alternativePhoneElsewhere": "Sdílejte kalendář a kontakty z telefonu. Nastavte to v aplikaci NeoAgent v telefonu.",
+  "skipTheDeveloperConsole": "Bez vývojářské konzole",
+  "phoneSyncPromptTitle": "Smí agent vidět váš kalendář?",
+  "phoneSyncPromptBody": "Sdílejte kalendáře a kontakty z tohoto telefonu, aby agent mohl plánovat podle vašeho dne. Změnit to můžete kdykoli v Nástroje › Integrace.",
+  "phoneSyncTitle": "Sdílet kalendář a kontakty z telefonu",
+  "phoneSyncIntro": "Agent vidí kalendáře a kontakty všech účtů v tomto telefonu. Bez vývojářské konzole a dalšího přihlášení.",
+  "phoneSyncPointAccounts": "Funguje s účty Google, Outlook, iCloud a Exchange v tomto telefonu.",
+  "phoneSyncPointPrivate": "Sdílí se jen s vaším serverem NeoAgent, který je ukládá šifrovaně.",
+  "phoneSyncPointWrites": "Události přidané agentem vytvoří tento telefon a synchronizují se jako obvykle.",
+  "phoneSyncCalendarHint": "Události od 30 dnů zpět do 90 dnů dopředu",
+  "phoneSyncContacts": "Kontakty",
+  "phoneSyncContactsHint": "Jména, e-mailové adresy a telefonní čísla",
+  "phoneSyncOtherAgent": "Tento telefon sdílí s jiným agentem. Sdílením zde se přesune k tomuto agentovi.",
+  "phoneSyncDenied": "NeoAgent zatím nemá přístup. Povolte ho v Nastavení a vraťte se.",
+  "openPhoneSettings": "Otevřít Nastavení",
+  "phoneSyncShare": "Sdílet s NeoAgent",
+  "phoneSyncStop": "Ukončit sdílení",
+  "phoneSyncWaiting": "Čekám na první synchronizaci…",
+  "phoneSyncLastSyncedArg1": "Naposledy synchronizováno {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Odkaz na kalendář",
+  "calendarLinkHelper": "Adresa iCal kalendáře. Kdo ji zná, může kalendář číst, proto ji uchovejte v soukromí.",
+  "calendarLinkName": "Název (volitelné)",
+  "calendarLinkAdded": "Kalendář přidán",
+  "toolsApps": "Aplikace",
+  "reconnect": "Znovu připojit",
+  "reconnectNeeded": "Je potřeba znovu připojit",
+  "mixedAccess": "Smíšený přístup",
+  "disconnectAccountTitle": "Odpojit {account}?",
+  "disconnectAccountBody": "Agent přes tento účet ztratí přístup k {apps}.",
+  "neoRouterServerDescription": "Připojte svůj NeoRouter jednou a každý účet zde ho použije pro úkoly zapnuté níže.",
+  "neoRouterUserDescription": "Pro úkoly zapnuté níže použijte vlastní účet NeoRouter místo poskytovatelů tohoto serveru.",
+  "neoRouterAddress": "Adresa NeoRouteru",
+  "neoRouterConnect": "Připojit NeoRouter",
+  "neoRouterWaitingArg1": "Schvalte NeoAgent v NeoRouteru. Zobrazuje kód {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Otevřít znovu",
+  "neoRouterConnectedArg1": "Připojeno k {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "NeoRouter teď není dostupný.",
+  "neoRouterDisconnect": "Odpojit",
+  "neoRouterDisconnectBody": "NeoAgent přestane tento NeoRouter používat. Chcete-li odebrat i klíč, zrušte ho v NeoRouteru v části Klíče API.",
+  "neoRouterServerInUse": "Tento server už používá NeoRouter pro všechny. Připojte vlastní účet NeoRouter pro vlastní modely a rozpočet.",
+  "neoRouterConnected": "NeoRouter je připojen.",
+  "neoRouterRoleChat": "Chat a rozpoznávání obrazu",
+  "neoRouterRoleSystemOne": "Rozhodnutí System One",
+  "neoRouterRoleTranscription": "Řeč na text",
+  "neoRouterRoleLive": "Živý hlas",
+  "neoRouterRoleEmbeddings": "Hledání v paměti",
+  "neoRouterRoleImages": "Tvorba obrázků",
+  "neoRouterRoleSearch": "Vyhledávání na webu",
+  "neoRouterModelCountArg1": "V NeoRouteru dostupné: {arg1}",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "V NeoRouteru zatím nic není.",
+  "neoRouterPicksModels": "NeoRouter vybírá model pro každý požadavek, takže tento výběr se nepoužívá.",
+  "neoRouterNotAllowedArg1": "V NeoRouteru: {arg1}, ale klíč NeoAgentu je zatím nesmí používat (např. placené). Povolte je pro NeoAgent v NeoRouteru v části Klíče API.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Potřebuje rozhodovací modely, jako je Jev. Bezpečnostní klasifikátory na tyto otázky neodpoví.",
+  "voiceLiveNoProvider": "Není nastaven žádný poskytovatel živého hlasu. Přidejte klíč OpenAI nebo Google AI, nebo připojte NeoRouter (Modelky → Přineste si vlastní klíč).",
+  "voiceSttAutoNeoRouter": "Auto (model vybírá NeoRouter)",
+  "voiceNotOffered": "Už není k dispozici, vyberte jiné"
 }

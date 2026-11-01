@@ -231,7 +231,7 @@ class SkillRunner {
 
     const lines = [
       '## Installed Skills',
-      'These are reusable local workflows loaded into NeoAgent. Use a matching skill when it clearly fits the task. For exact metadata and file paths, use `list_skills`.',
+      'These are reusable local workflows loaded into NeoAgent. Use a matching skill when it clearly fits the task: load its full instructions by passing its name to `list_skills`, then follow them.',
     ];
     for (const skill of skills) {
       const parts = [`- \`${skill.name}\``];

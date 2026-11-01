@@ -3,10 +3,9 @@ import 'package:flutter/services.dart';
 
 import 'diagnostics_logger.dart';
 
-/// What the Android home-screen widgets show. The app publishes one whenever
-/// the agent's state changes. Faces and labels live in the Android
-/// resources, so the widgets animate and can refresh from the server while
-/// the app is closed.
+/// What the home-screen widgets show. The app publishes one whenever the
+/// agent's state changes. Faces and labels live in the native widgets, so
+/// they can refresh from the server while the app is closed.
 class HomeWidgetStatus {
   const HomeWidgetStatus({
     required this.mood,
@@ -44,7 +43,9 @@ class HomeWidgetBridge {
   static const MethodChannel _channel = MethodChannel('neoagent/home_widgets');
 
   static bool get isSupported =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   Future<void> publish(HomeWidgetStatus status) async {
     if (!isSupported) return;
@@ -65,8 +66,9 @@ class HomeWidgetBridge {
 
   /// Sends the app to the background, back to the home screen the call
   /// widget was tapped on. The app keeps running, so the next call is quick.
+  /// iOS gives an app no way to leave the screen by itself.
   Future<void> returnToHomeScreen() async {
-    if (!isSupported) return;
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
     try {
       await _channel.invokeMethod<void>('returnToHomeScreen');
     } catch (error) {

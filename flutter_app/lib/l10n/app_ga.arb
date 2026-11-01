@@ -154,6 +154,8 @@
   "addKey": "Cuir eochair leis",
   "addMcpServer": "Cuir freastalaí MCP leis",
   "addMemory": "Cuir Cuimhne leis",
+  "memoryReview": "Athbhreithnigh",
+  "memoryReviewPrompt": "Athbhreithnigh mo chuimhní go léir agus glan iad: cuir dúblaigh, fíricí as dáta agus aon rud gan luach buan sa chartlann. Ansin inis dom go hachomair cad a d'athraigh tú.",
   "addMoreLengthOrAnotherCharacter": "Cuir níos mó faid nó cineál carachtair eile leis.",
   "addPeopleOrGroups": "Cuir daoine nó grúpaí leis",
   "addSecurityKey": "Cuir eochair shlándála leis",
@@ -1901,7 +1903,6 @@
   "assistant": "Cúntóir",
   "assistantKey131": "Eochair cúntóir 131 saor in aisce,",
   "atLeast1": "1 ar a laghad.",
-  "atLeast1000AppliesAfterA": "Ar a laghad 1000. Baineann sé tar éis atosú freastalaí.",
   "attachFiles": "Ceangail comhaid",
   "attentionArg1": "Aird {arg1}",
   "@attentionArg1": {
@@ -2007,7 +2008,6 @@
   "botUsername": "Ainm úsáideora bot",
   "brandName": "Ainm branda",
   "braveSearch": "Cuardach Cróga",
-  "breakdown": "Miondealú:",
   "bridgeAnyProviderThatCanPost": "Droichead aon soláthraí atá in ann ualaí pálasta gréasáin a phostáil agus a fháil.",
   "bringYourOwnKey": "tabhair leat d'eochair féin",
   "bringYourOwnKey2": "Beir leat d'eochair féin",
@@ -2030,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Is féidir tascanna tarmligthe a fháil",
   "cancel": "Cealaigh",
   "cancelTask": "Cealaigh tasc",
-  "candidateCountArg1": "Líon na nIarrthóirí: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Ní féidir réamhamharc a dhéanamh",
   "cannotReceiveDelegatedTasks": "ní féidir tascanna tarmligthe a fháil",
   "cannotRunYet": "ní féidir rith go fóill.",
@@ -2308,14 +2300,6 @@
   "connectionMethod": "Modh Ceangail",
   "containsTextOptional": "Téacs atá ann (roghnach)",
   "content": "Ábhar",
-  "contentArg1": "Ábhar: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "polasaí slándála ábhair",
   "continue2": "Lean ort",
   "continueFullSetup": "Lean ar aghaidh leis an socrú iomlán",
@@ -2752,21 +2736,12 @@
       }
     }
   },
-  "errorArg12": "Earráid: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Earráidí ón loga le déanaí, grúpáilte de réir teachtaireachta.",
   "errorsProblemsFailures": "earráidí fadhbanna teipeanna",
   "eventTypesCommaSeparated": "Cineálacha Imeachtaí (camóg scartha)",
   "every15Minutes": "Gach 15 nóiméad",
   "every30Minutes": "Gach 30 nóiméad",
   "everyAccountOnThisServerLoses": "Cailleann gach cuntas ar an bhfreastalaí seo an eochair roinnte seo. Cuntais ",
-  "everyAccountOnThisServerSecrets": "gach cuntas ar an bhfreastalaí seo. Tá rúin scríofa amháin: fág ",
   "everyAccountOnThisServerUses": "Úsáideann gach cuntas ar an bhfreastalaí seo an seoladh seo le haghaidh ",
   "everyActiveSessionForThisAccount": "Críochnaíonn gach seisiún gníomhach don chuntas seo. Is féidir leo síniú isteach ",
   "everyDay0800": "Gach lá · 08:00",
@@ -3012,14 +2987,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Leid iomlán",
   "fullSetup": "Socrú iomlán",
-  "fullTextFtsArg1": "Téacs Iomlán (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Ginearálta",
   "generalSettings": "Socruithe ginearálta",
   "generalSettingsSaved": "Socruithe ginearálta sábháilte.",
@@ -3218,7 +3185,6 @@
   "input": "Ionchur",
   "inputMode": "Mód ionchuir",
   "insertATemplate": "Cuir isteach teimpléad",
-  "inspect": "Iniúchadh",
   "install": "Suiteáil",
   "installASignedSelfContainedRuntime": "Suiteáil am rite sínithe, féinchuimsitheach. Níl orduithe Node.js, npm, Git, agus teirminéil ag teastáil.",
   "installApk": "Suiteáil APK",
@@ -3251,7 +3217,6 @@
   },
   "instructions": "Treoracha",
   "integration": "Comhtháthú",
-  "integrationApps": "Aipeanna comhtháthú",
   "integrationConnections": "Naisc chomhtháthaithe",
   "integrationSettingsSaved": "Sábháladh socruithe comhtháthaithe.",
   "integrations": "Comhtháthaithe",
@@ -3470,14 +3435,6 @@
       }
     }
   },
-  "lexicalArg1": "Foclóir: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "limit20": "LIMIT 20",
   "limit50": "LIMIT 50",
   "linkArg1": "Nasc {arg1}",
@@ -3601,10 +3558,6 @@
       }
     }
   },
-  "memoryImportSync": "sioncronú allmhairiú cuimhne",
-  "memoryIngestionInterval": "Eatramh ionghabhála cuimhne",
-  "memoryIngestionIntervalMs": "Eatramh ionghabhála cuimhne (ms)",
-  "memoryIngestionIntervalMustBeAt": "Caithfidh an t-eatramh ionghabhála cuimhne a bheith 1000 ms ar a laghad.",
   "memoryInjected": "Cuimhne ghann",
   "mentionOrReplyOnly": "Luaigh nó freagra amháin",
   "mergedServerAndFlutterRuntimeLogs": "Logaí freastalaí cumaisc agus am rite Flutter don seisiún aipe seo.",
@@ -3629,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Micreafón balbhaithe. Tapáil chun díbhalbhú.",
   "microphonePermissionIsRequiredForLive": "Teastaíonn cead micreafón le haghaidh guth beo.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack agus na comhtháthú eile. Baineann siad le ",
   "microsoftTeams": "Foirne Microsoft",
   "minimumContributionValueArg1": "Íosluach ranníocaíochta: {arg1}",
   "@minimumContributionValueArg1": {
@@ -3676,6 +3628,8 @@
     }
   },
   "modelAvailability": "Infhaighteacht múnla",
+  "autoEnableNewModels": "Cumasaigh samhlacha nua go huathoibríoch",
+  "autoEnableNewModelsHint": "Nuair a bhíonn sé múchta, fanann samhlacha a chuireann soláthraí leis níos déanaí díchumasaithe go gcumasaíonn tú iad.",
   "modelAvailabilitySaved": "Infhaighteacht mhúnla sábháilte.",
   "modelForThisSession": "Múnla don seisiún seo",
   "modelOverride": "Sárú Múnla",
@@ -3911,6 +3865,61 @@
   "noMcpServersMatchThisSearch": "Níl aon fhreastalaí MCP ag teacht leis an gcuardach seo.",
   "noMemoryEntriesFound": "Níor aimsíodh aon iontrálacha cuimhne.",
   "noMemorySync": "Gan sioncronú cuimhne",
+  "importPastEmailsIntoMemoryHint": "Léann sé an post tábhachtach agus seolta ó na 12 mhí seo caite uair amháin, ionas go mbeidh aithne ag an ngníomhaire ar do theagmhálaithe agus do thionscadail.",
+  "emailMemory": "Cuimhne ríomhphoist",
+  "importNow": "Iompórtáil anois",
+  "importOnConnect": "Iompórtáil seanphost nuair a nascar cuntas",
+  "sweepStarting": "Á ullmhú…",
+  "sweepReadingProgress": "Ríomhphoist á léamh · {done} as {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Ríomhphoist á léamh · {count} aimsithe",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Ag foghlaim ó ríomhphoist · {done} as {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Iompórtáil dheireanach: {emails} ríomhphost · {memories} cuimhne nua",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Níl aon ríomhphoist nua le hiompórtáil",
+  "sweepFailed": "Theip ar an iompórtáil: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Níl aon mhúnla ag teacht le \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -3997,7 +4006,6 @@
   "nothingStoredYet": "Ní dhéanfaidh aon ní a stóráil go fóill.",
   "notionSlackFigmaGithubSpotifyTrello": "Nóisean, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "Dintiúir aip OAuth a ligeann do chuntais Google a nascadh, ",
   "oauthClientId": "Aitheantas Cliant OAuth",
   "oauthClientIdSecretRedirectApi": "oauth cliant id rún atreorú eochair api",
   "oauthClientIdSecretRedirectGmail": "oauth cliant id rúnda atreorú tiomáint féilire gmail",
@@ -4035,7 +4043,6 @@
   "onTheyCanJoinAgainOnly": "ar. Ní féidir leo páirt a ghlacadh arís ach le nasc cuirí nua.",
   "onYourOwnTheDefault": "Ar do shon féin (an réamhshocrú)",
   "once": "Uair amháin",
-  "oneBlankToKeepWhatIs": "bán amháin chun an méid atá stóráilte a choinneáil.",
   "oneIsSavedOtherChangesIn": "tá ceann amháin shábháil. Déantar athruithe eile ar an bhfoirm seo a shábháil freisin.",
   "oneOrMoreAccountsExpiredReconnect": "Chuaigh cuntas amháin nó níos mó in éag. Athcheangail an cuntas lena mbaineann chun rochtain uirlisí a aischur.",
   "oneRuntimeControlsPersonaGroupTurn": "Rialaíonn am rite amháin pearsana, sealaíocht ghrúpa, cuimhne an tseomra, noirm, Teoiric na hIntinne, agus seachadadh.",
@@ -4292,7 +4299,6 @@
   "qrLoginRequestWasNotFound": "Níor aimsíodh iarratas logáil isteach qr",
   "qrPairing": "Péireáil QR",
   "queriesRunAnythingThatWritesIs": "ritheann ceisteanna; diúltaítear d’aon rud a scríobhann.",
-  "query": "Ceist",
   "queryFilter": "Iarratas / Scagaire",
   "queuedAsSteeringForTheCurrent": "Ciúáilte mar stiúrtha don rith reatha: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4377,14 +4383,6 @@
   "registrationIsClosed": "tá an clárú dúnta",
   "registrationRegisterNewAccountsAllowSignup": "ceadaíonn cuntais nua a chlárú clárú",
   "rejectInvalidTlsCertificates": "Diúltaigh teastais TLS neamhbhailí",
-  "relationArg1": "Gaol: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "scaoileadh agus atosú. Athnascann aipeanna nasctha nuair a bhíonn sé ar ais.",
   "releaseChannel": "Cainéal scaoileadh",
   "releaseCommitBranchNode": "nód brainse tiomnaithe a scaoileadh",
@@ -4487,7 +4485,6 @@
   "resultDelivery": "Seachadadh Torthaí",
   "resultOneClickAddsOneYou": "toradh. Cuireann cliceáil amháin leis; is féidir leat é a chur in eagar níos déanaí.",
   "results": "Torthaí",
-  "retrievalInspector": "Cigire Aisghabhála",
   "retry": "Bain triail eile as",
   "reusableUsedArg1": "In-athúsáidte · úsáidte {arg1}×",
   "@reusableUsedArg1": {
@@ -4643,14 +4640,6 @@
   "scansNewEmailAndOnlyPings": "Scanann sé ríomhphost nua agus ní chuireann sé pingin ort ach nuair a bhíonn tábhacht le rud éigin.",
   "schedule": "Sceideal",
   "scheduledTimeOnceRunsAreMeasured": "am sceidealta. Nuair a thomhaistear na ritheanna cuirfear tús leis níos luaithe.",
-  "scoreArg1": "Scór: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Scáileán",
   "screenAction": "gníomh scáileáin",
   "scrollIsNotSupportedOnThis": "ní thacaítear le scrollbharra ar an ardán seo.",
@@ -4712,14 +4701,6 @@
     }
   },
   "selectTrigger": "Roghnaigh Truicear",
-  "semanticArg1": "Séimeantach: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Seol (⌘↵)",
   "send2": "Seol",
   "sendATaskFromChatAnd": "Seol tasc ón gcomhrá agus taispeánfar a stair fhorghníomhaithe anseo.",
@@ -5633,14 +5614,6 @@
   "value": "Luach",
   "vaultLocked": "Cruinneachán faoi ghlas",
   "vaultOperationFailed": "Theip ar oibríocht cruinneachán.",
-  "vectorRankArg1": "Céim Veicteoir: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Fíorú",
   "verificationArg1": "Fíorú: {arg1}",
   "@verificationArg1": {
@@ -6553,6 +6526,7 @@
   "settingsPageComputer": "Ríomhaire & Gréasán",
   "settingsPageBehavior": "Iompar",
   "settingsPageSystem": "Córas",
+  "settingsPagePlatforms": "Ardáin",
   "settingsPageProfileDescription": "D’ainm agus do ríomhphost, cóip de do shonraí, agus síniú amach.",
   "settingsPageSecurityDescription": "Pasfhocal, fíordheimhniú dhá fhachtóir, eochracha slándála agus an áit a bhfuil tú sínithe isteach.",
   "settingsPageUsageDescription": "Do theorainneacha agus do chaiteachas comharthaí, ar fad in aon áit amháin.",
@@ -6990,5 +6964,295 @@
   "signupKeysSaveDialogTitle": "Sábháil eochracha clárúcháin",
   "signupKeysExported": "Easpórtáladh na heochracha.",
   "auditSignupKeysCreated": "Chruthaigh {actor} eochracha clárúcháin ({count})",
-  "auditSignupKeyRevoked": "Chúlghair {actor} eochair chlárúcháin"
+  "auditSignupKeyRevoked": "Chúlghair {actor} eochair chlárúcháin",
+  "dataSharingTitle": "Comhroinn sonraí úsáide",
+  "dataSharingDescription": "Cabhraigh leo siúd a ritheann an freastalaí seo é a fheabhsú. Roinntear conas a úsáideann tú NeoAgent, ach ní roinntear riamh a scríobhann nó a stórálann tú.",
+  "dataSharingSince": "Á chomhroinnt ó {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Cad a roinntear",
+  "dataSharingIncluded": "Roinntear",
+  "dataSharingExcluded": "Ní roinntear riamh",
+  "dataSharingIncludedDevice": "Cineál gléis agus leagan na haipe",
+  "dataSharingIncludedLocale": "Teanga na haipe agus réigiún an chriosa ama, mar shampla an Eoraip",
+  "dataSharingIncludedFeatures": "Na gnéithe atá socraithe agat, mar thascanna, scileanna agus comhtháthuithe",
+  "dataSharingIncludedRuns": "Na huirlisí agus na samhlacha a úsáideann do rití, le hamanna agus líon comharthaí",
+  "dataSharingIncludedActivity": "Cathain a úsáideann tú NeoAgent, de réir lá na seachtaine agus uaire",
+  "dataSharingExcludedContent": "Teachtaireachtaí, leideanna agus freagraí",
+  "dataSharingExcludedRuns": "Teidil rití, ionchuir agus torthaí uirlisí",
+  "dataSharingExcludedFiles": "Comhaid, cuimhní agus aon rud eile a stórálann tú",
+  "dataSharingExcludedIdentity": "D'ainm, do ríomhphost, do sheoladh IP agus do shuíomh",
+  "dataSharingExcludedAccounts": "Na cuntais lena nascann tú comhtháthuithe",
+  "dataSharingPooledNote": "Ní fheiceann riarthóirí ach iomláin do gach duine a roinneann, riamh tusa leat féin. Múch é am ar bith agus fágann tú na hiomláin láithreach.",
+  "dataSharingConfirmTitle": "Sonraí úsáide a chomhroinnt?",
+  "dataSharingConfirmAction": "Comhroinn",
+  "sharedUsageTitle": "Úsáid chomhroinnte",
+  "sharedUsageParticipants": "Cuntais a roinneann sonraí úsáide: {sharing} as {total}. Iomláin amháin, gan ábhar.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Níl aon duine ag comhroinnt sonraí úsáide fós. Is féidir é a chur ar siúl faoi Socruithe, Próifíl, Do shonraí.",
+  "sharedUsageRuns": "Rití comhroinnte",
+  "sharedUsageAvgDuration": "Meánfhad",
+  "sharedUsageCompletedRuns": "Rití críochnaithe",
+  "sharedUsageStepsPerRun": "Céimeanna in aghaidh an rith",
+  "sharedUsageDevices": "Gléasanna",
+  "sharedUsageAppVersions": "Leaganacha aipe",
+  "sharedUsageLanguages": "Teangacha",
+  "sharedUsageRegions": "Réigiúin",
+  "sharedUsageFeatures": "Glacadh le gnéithe",
+  "sharedUsageFeaturesDescription": "Sciar de na cuntais chomhroinnte a bhfuil sé socraithe acu.",
+  "sharedUsageTools": "Uirlisí",
+  "sharedUsageToolsDescription": "Na huirlisí is mó a nglaotar orthu ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Glaonna: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Theip: {percent}%",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Comhtháthuithe",
+  "sharedUsageMessaging": "Cainéil teachtaireachtaí",
+  "sharedUsageTriggers": "Conas a thosaíonn rití",
+  "sharedUsageActivity": "Cathain a úsáidtear é",
+  "sharedUsageActivityDescription": "Rití de réir lá na seachtaine agus uaire, UTC.",
+  "sharedUsageModels": "Feidhmíocht samhlacha",
+  "sharedUsageModelDetail": "meán {latency} · {cached}% ón taisce · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Cuntais: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Faic sa tréimhse seo.",
+  "sharedUsageNotReported": "Gan tuairisc fós",
+  "sharedUsageFeatureAgents": "Níos mó ná gníomhaire amháin",
+  "sharedUsageFeatureTasks": "Tascanna sceidealaithe",
+  "sharedUsageFeatureSkills": "Scileanna",
+  "sharedUsageFeatureMcp": "Freastalaithe MCP",
+  "sharedUsageFeatureIntegrations": "Comhtháthuithe",
+  "sharedUsageFeatureMessaging": "Cainéil teachtaireachtaí",
+  "sharedUsageFeatureMemory": "Cuimhne",
+  "sharedUsageSearchKeywords": "opt-in comhroinnt sonraí teiliméadracht gléasanna gnéithe uirlisí samhlacha gníomhaíocht",
+  "providerChooseUsername": "Roghnaigh d'ainm úsáideora",
+  "providerChooseUsernameBody": "Roghnaigh ainm úsáideora atá ar fáil chun do chuntas a chríochnú.",
+  "yourOAuthApp": "Do aip OAuth",
+  "oauthAppSetupTitle": "Do aip OAuth {provider}",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Níl aip {provider} dhomhanda ar an bhfreastalaí seo, mar sin ceanglaíonn tú le haip OAuth a chláraíonn tú féin. Stóráiltear rún an chliaint criptithe agus ní thaispeántar arís é.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Cruthaigh an aip",
+  "openDeveloperConsole": "Oscail consól an fhorbróra",
+  "oauthAppStepCallback": "2. Cláraigh an URL aisghlaoch seo",
+  "callbackUrlCopied": "URL aisghlaoch cóipeáilte",
+  "oauthAppScopes": "Raonta le ceadú",
+  "scopesCopied": "Raonta cóipeáilte",
+  "oauthAppStepCredentials": "3. Greamaigh dintiúir na haipe",
+  "couldNotSaveOAuthApp": "Níorbh fhéidir an aip OAuth a shábháil.",
+  "removeOAuthAppTitle": "Bain d’aip {provider}?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Fanann cuntais cheangailte ar an liosta ach stopann siad ag obair go dtí go gcuireann tú aip leis arís.",
+  "globalIntegrationConfiguration": "Cumraíocht dhomhanda comhtháthaithe",
+  "globalIntegrationConfigurationDescription": "Aipeanna OAuth roghnacha don fhreastalaí ar fad. Nuair atá ceann ag comhtháthú, úsáideann gach cuntas é agus ní féidir leo a gceann féin a chur leis. Fág comhtháthú gan socrú agus socraíonn gach úsáideoir a aip féin. Is le scríobh amháin iad rúin: fág bán chun an luach stóráilte a choinneáil.",
+  "globalStatus": "Domhanda",
+  "perUserStatus": "In aghaidh an úsáideora",
+  "phoneSyncGuidance": "Roinn féilirí agus teagmhálaithe an fhóin seo le do ghníomhaire. Oibríonn sé le gach cuntas atá ar an bhfón cheana.",
+  "phoneSyncElsewhereGuidance": "Oscail NeoAgent ar d’fhón agus cas air roinnt ansin. Feicfidh do ghníomhaire féilirí agus teagmhálaithe gach cuntais ar an bhfón sin.",
+  "manageOnThisPhone": "Bainistigh ar an bhfón seo",
+  "setUpOnThisPhone": "Socraigh ar an bhfón seo",
+  "setUpOnPhone": "Socraigh ar d’fhón",
+  "emailConnectedArg1": "{email} ceangailte",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Níorbh fhéidir an cuntas seo a cheangal.",
+  "emailSetupTitle": "Ceangail ríomhphost agus féilire",
+  "emailChecking": "Do bhosca poist á sheiceáil…",
+  "emailSetupIntro": "Úsáid pasfhocal aipe ó do sholáthraí ríomhphoist. Gan chonsól forbróra, réidh i gceann cúpla nóiméad.",
+  "emailOpenArg1": "Oscail {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Cuir isteach do fhreastalaithe",
+  "emailStepPassword": "1. Cruthaigh pasfhocal aipe",
+  "emailOpenPasswordPageArg1": "Oscail pasfhocail aipe {provider}",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Sínigh isteach",
+  "appPassword": "Pasfhocal aipe",
+  "appPasswordHelper": "Is cuma faoi spásanna. Stórálann NeoAgent é criptithe.",
+  "emailUsernameOptional": "Ainm úsáideora, mura é do sheoladh ríomhphoist é",
+  "emailIncludeCalendar": "Cuir an féilire san áireamh",
+  "emailIncludeContacts": "Cuir teagmhálaithe san áireamh",
+  "imapServer": "Freastalaí IMAP",
+  "smtpServer": "Freastalaí SMTP",
+  "caldavUrlOptional": "URL CalDAV (roghnach)",
+  "carddavUrlOptional": "URL CardDAV (roghnach)",
+  "alternativeEmail": "Ceangail do bhosca poist le pasfhocal aipe, nó d’fhéilire lena nasc iCal. Réidh i gceann cúpla nóiméad.",
+  "alternativePhone": "Roinn an féilire agus na teagmhálaithe atá ar d’fhón cheana tríd an aip NeoAgent.",
+  "alternativePhoneElsewhere": "Roinn an féilire agus na teagmhálaithe atá ar d’fhón cheana. Socraigh é san aip NeoAgent ar an bhfón.",
+  "skipTheDeveloperConsole": "Gan an consól forbróra",
+  "phoneSyncPromptTitle": "An bhfeicfidh do ghníomhaire d’fhéilire?",
+  "phoneSyncPromptBody": "Roinn féilirí agus teagmhálaithe an fhóin seo ionas gur féidir le do ghníomhaire do lá a phleanáil. Is féidir é seo a athrú am ar bith in Uirlisí › Comhtháthuithe.",
+  "phoneSyncTitle": "Roinn féilire agus teagmhálaithe an fhóin",
+  "phoneSyncIntro": "Feiceann do ghníomhaire féilirí agus teagmhálaithe gach cuntais ar an bhfón seo. Gan chonsól forbróra, gan síniú isteach breise.",
+  "phoneSyncPointAccounts": "Oibríonn sé leis na cuntais Google, Outlook, iCloud agus Exchange ar an bhfón seo.",
+  "phoneSyncPointPrivate": "Roinnte le do fhreastalaí NeoAgent amháin, a stórálann criptithe iad.",
+  "phoneSyncPointWrites": "Cruthaíonn an fón seo imeachtaí a chuireann do ghníomhaire leis, agus sioncronaíonn siad mar is gnách.",
+  "phoneSyncCalendarHint": "Imeachtaí ó 30 lá ó shin go 90 lá chun cinn",
+  "phoneSyncContacts": "Teagmhálaithe",
+  "phoneSyncContactsHint": "Ainmneacha, seoltaí ríomhphoist agus uimhreacha gutháin",
+  "phoneSyncOtherAgent": "Roinneann an fón seo le gníomhaire eile. Má roinneann tú anseo bogtar chuig an ngníomhaire seo é.",
+  "phoneSyncDenied": "Níl rochtain ag NeoAgent fós. Ceadaigh é sna Socruithe, ansin fill ar ais.",
+  "openPhoneSettings": "Oscail Socruithe",
+  "phoneSyncShare": "Roinn le NeoAgent",
+  "phoneSyncStop": "Stop ag roinnt",
+  "phoneSyncWaiting": "Ag fanacht leis an gcéad sioncrónú…",
+  "phoneSyncLastSyncedArg1": "Sioncronaithe go deireanach {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Nasc féilire",
+  "calendarLinkHelper": "Seoladh iCal an fhéilire. Is féidir le duine ar bith a bhfuil sé aige an féilire a léamh, mar sin coinnigh príobháideach é.",
+  "calendarLinkName": "Ainm (roghnach)",
+  "calendarLinkAdded": "Féilire curtha leis",
+  "toolsApps": "Aipeanna",
+  "reconnect": "Athcheangail",
+  "reconnectNeeded": "Athcheangal ag teastáil",
+  "mixedAccess": "Rochtain mheasctha",
+  "disconnectAccountTitle": "Dícheangail {account}?",
+  "disconnectAccountBody": "Cailleann an gníomhaire rochtain ar {apps} tríd an gcuntas seo.",
+  "neoRouterServerDescription": "Ceangail do NeoRouter uair amháin agus úsáidfidh gach cuntas anseo é don obair atá ar siúl thíos.",
+  "neoRouterUserDescription": "Úsáid do chuntas NeoRouter féin don obair atá ar siúl thíos in ionad sholáthraithe an fhreastalaí seo.",
+  "neoRouterAddress": "Seoladh NeoRouter",
+  "neoRouterConnect": "Ceangail NeoRouter",
+  "neoRouterWaitingArg1": "Ceadaigh NeoAgent in NeoRouter. Taispeánann sé an cód {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Oscail arís",
+  "neoRouterConnectedArg1": "Ceangailte le {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "Ní féidir NeoRouter a bhaint amach faoi láthair.",
+  "neoRouterDisconnect": "Dícheangail",
+  "neoRouterDisconnectBody": "Stopann NeoAgent ag úsáid an NeoRouter seo. Chun an eochair a tharraingt siar freisin, cúlghair í in NeoRouter faoi Eochracha API.",
+  "neoRouterServerInUse": "Úsáideann an freastalaí seo NeoRouter do chách cheana féin. Ceangail do chuntas NeoRouter féin le haghaidh do mhúnlaí agus do bhuiséid féin.",
+  "neoRouterConnected": "Tá NeoRouter ceangailte.",
+  "neoRouterRoleChat": "Comhrá agus aithint íomhánna",
+  "neoRouterRoleSystemOne": "Cinntí System One",
+  "neoRouterRoleTranscription": "Caint go téacs",
+  "neoRouterRoleLive": "Guth beo",
+  "neoRouterRoleEmbeddings": "Cuardach cuimhne",
+  "neoRouterRoleImages": "Íomhánna a chruthú",
+  "neoRouterRoleSearch": "Cuardach gréasáin",
+  "neoRouterModelCountArg1": "Ar fáil i do NeoRouter: {arg1}",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Níl aon rud ar fáil i do NeoRouter fós.",
+  "neoRouterPicksModels": "Roghnaíonn NeoRouter an múnla do gach iarratas, mar sin ní úsáidtear an rogha seo.",
+  "neoRouterNotAllowedArg1": "{arg1} i do NeoRouter, ach ní féidir le heochair NeoAgent iad a úsáid fós (mar shampla na cinn íoctha). Ceadaigh iad do NeoAgent faoi Eochracha API in NeoRouter.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Teastaíonn múnlaí cinnteoireachta ar nós Jev. Ní féidir le haicmitheoirí sábháilteachta na ceisteanna seo a fhreagairt.",
+  "voiceLiveNoProvider": "Níl aon soláthraí gutha beo socraithe. Cuir eochair OpenAI nó Google AI leis, nó ceangail NeoRouter, faoi Múnlaí → Beir leat d'eochair féin.",
+  "voiceSttAutoNeoRouter": "Uathoibríoch (roghnaíonn NeoRouter an múnla)",
+  "voiceNotOffered": "Níl sé ar fáil a thuilleadh, roghnaigh ceann eile"
 }

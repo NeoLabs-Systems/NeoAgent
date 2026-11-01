@@ -65,6 +65,7 @@ Server code tracks who each run acts for and what it has read, so a persuaded mo
 | A GitHub mention thread | The public, limited to a fixed tool list |
 
 - **Runs for someone else** may reply in their chat, search the web and use media sent with the message; anything else asks.
+- **Approved people in a group.** A message from a person you approved by name (not by role) skips that question, so your own requests in a group follow your security mode. The run still uses channel memory and the group persona.
 - **Slash commands** such as `/memory` and `/tasks` answer only senders who act for you.
 - **Channel memory.** Runs for someone else use memory scoped to that chat and never see your core memory.
 

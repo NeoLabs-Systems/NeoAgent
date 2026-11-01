@@ -630,7 +630,7 @@ class WhatsAppPersonalProvider extends EventEmitter {
       connectTimeoutMs: 60000,
       defaultQueryTimeoutMs: 60000,
       markOnlineOnConnect: false,
-      syncFullHistory: true,
+      syncFullHistory: !state.creds?.registered,
     };
     if (Array.isArray(version) && version.length > 0) {
       socketConfig.version = version;
@@ -966,7 +966,7 @@ class WhatsAppPersonalProvider extends EventEmitter {
       connectTimeoutMs: 60000,
       defaultQueryTimeoutMs: 60000,
       markOnlineOnConnect: false,
-      syncFullHistory: true,
+      syncFullHistory: !state.creds?.registered,
     };
     if (Array.isArray(version) && version.length > 0) {
       socketConfig.version = version;

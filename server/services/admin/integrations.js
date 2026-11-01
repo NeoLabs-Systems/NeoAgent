@@ -5,7 +5,8 @@ const { httpError } = require('../../utils/http_error');
 const { LIVE_VOICE_PROVIDERS } = require('../voice/live/catalog');
 const { describeLiveVoiceCatalog } = require('../voice/live/models');
 
-// Server-wide integration app credentials and account sign-in controls.
+// Global integration app credentials and account sign-in controls. A provider
+// left unset here falls back to each user registering their own OAuth app.
 const INTEGRATION_SETTINGS = [
   {
     key: 'google',

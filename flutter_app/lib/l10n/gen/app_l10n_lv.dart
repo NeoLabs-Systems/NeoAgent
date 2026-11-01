@@ -377,6 +377,13 @@ class AppL10nLv extends AppL10n {
   String get addMemory => 'Pievienot atmiņu';
 
   @override
+  String get memoryReview => 'Pārskatīt';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Pārskati visas manas atmiņas un sakārto tās: arhivē dublikātus, novecojušus faktus un visu, kam nav paliekošas vērtības. Pēc tam īsi pastāsti, ko mainīji.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Pievienojiet vairāk garuma vai cita veida rakstzīmes.';
 
@@ -1614,10 +1621,6 @@ class AppL10nLv extends AppL10n {
   String get atLeast1 => 'Vismaz 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Vismaz 1000. Attiecas pēc servera restartēšanas.';
-
-  @override
   String get attachFiles => 'Pievienojiet failus';
 
   @override
@@ -1856,9 +1859,6 @@ class AppL10nLv extends AppL10n {
   String get braveSearch => 'Drosmīga meklēšana';
 
   @override
-  String get breakdown => 'Sadalījums:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Pārvietojiet jebkuru pakalpojumu sniedzēju, kas var izlikt un saņemt tīmekļa aizķeres lietderīgās slodzes.';
 
@@ -1907,11 +1907,6 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get cancelTask => 'Atcelt uzdevumu';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Kandidātu skaits: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Nevar priekšskatīt';
@@ -2384,11 +2379,6 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get content => 'Saturs';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Sastāvs: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'satura drošības politika';
@@ -3279,11 +3269,6 @@ class AppL10nLv extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Kļūda: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Kļūdas no nesenā žurnāla, grupētas pēc ziņojuma.';
 
@@ -3302,10 +3287,6 @@ class AppL10nLv extends AppL10n {
   @override
   String get everyAccountOnThisServerLoses =>
       'Katrs konts šajā serverī zaudē šo koplietoto atslēgu. Konti ';
-
-  @override
-  String get everyAccountOnThisServerSecrets =>
-      'katrs konts šajā serverī. Noslēpumus var rakstīt tikai: atstājiet ';
 
   @override
   String get everyAccountOnThisServerUses =>
@@ -3658,11 +3639,6 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get fullSetup => 'Pilna iestatīšana';
-
-  @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Pilns teksts (FTS): $arg1';
-  }
 
   @override
   String get general => 'Ģenerālis';
@@ -4032,9 +4008,6 @@ class AppL10nLv extends AppL10n {
   String get insertATemplate => 'Ievietojiet veidni';
 
   @override
-  String get inspect => 'Pārbaudīt';
-
-  @override
   String get install => 'Instalējiet';
 
   @override
@@ -4088,9 +4061,6 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get integration => 'Integrācija';
-
-  @override
-  String get integrationApps => 'Integrācijas lietotnes';
 
   @override
   String get integrationConnections => 'Integrācijas savienojumi';
@@ -4401,11 +4371,6 @@ class AppL10nLv extends AppL10n {
   }
 
   @override
-  String lexicalArg1(Object? arg1) {
-    return 'Leksiskā: $arg1';
-  }
-
-  @override
   String get limit20 => 'LIMIT 20';
 
   @override
@@ -4683,19 +4648,6 @@ class AppL10nLv extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'atmiņas importa sinhronizācija';
-
-  @override
-  String get memoryIngestionInterval => 'Atmiņas uzņemšanas intervāls';
-
-  @override
-  String get memoryIngestionIntervalMs => 'Atmiņas uzņemšanas intervāls (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'Atmiņas ievades intervālam ir jābūt vismaz 1000 ms.';
-
-  @override
   String get memoryInjected => 'Atmiņa ievadīta';
 
   @override
@@ -4756,10 +4708,6 @@ class AppL10nLv extends AppL10n {
   String get microsoft365 => 'Microsoft 365';
 
   @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack un citas integrācijas. Tie attiecas uz ';
-
-  @override
   String get microsoftTeams => 'Microsoft Teams';
 
   @override
@@ -4804,6 +4752,13 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get modelAvailability => 'Modeļa pieejamība';
+
+  @override
+  String get autoEnableNewModels => 'Automātiski iespējot jaunos modeļus';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Ja izslēgts, modeļi, ko nodrošinātājs pievieno vēlāk, paliek atspējoti, līdz tos iespējosiet.';
 
   @override
   String get modelAvailabilitySaved => 'Modeļa pieejamība saglabāta.';
@@ -5283,6 +5238,51 @@ class AppL10nLv extends AppL10n {
   String get noMemorySync => 'Nav atmiņas sinhronizācijas';
 
   @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Vienreiz izlasa pēdējo 12 mēnešu svarīgos un nosūtītos e-pastus, lai aģents zinātu jūsu kontaktus un projektus.';
+
+  @override
+  String get emailMemory => 'E-pasta atmiņa';
+
+  @override
+  String get importNow => 'Importēt tagad';
+
+  @override
+  String get importOnConnect =>
+      'Pievienojot kontu, importēt iepriekšējos e-pastus';
+
+  @override
+  String get sweepStarting => 'Sagatavo…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'Lasa e-pastus · $done no $total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'Lasa e-pastus · atrasti $count';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Mācās no e-pastiem · $done no $total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Pēdējais imports: $emails e-pasti · $memories jaunas atmiņas';
+  }
+
+  @override
+  String get sweepNothingNew => 'Nav jaunu e-pastu importēšanai';
+
+  @override
+  String sweepFailed(String error) {
+    return 'Importēšana neizdevās: $error';
+  }
+
+  @override
   String noModelMatchesArg1(Object? arg1) {
     return 'Neviens modelis neatbilst \"$arg1\".';
   }
@@ -5479,10 +5479,6 @@ class AppL10nLv extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'OAuth lietotnes akreditācijas dati, kas ļauj kontiem izveidot savienojumu ar Google, ';
-
-  @override
   String get oauthClientId => 'OAuth klienta ID';
 
   @override
@@ -5554,10 +5550,6 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get once => 'Vienreiz';
-
-  @override
-  String get oneBlankToKeepWhatIs =>
-      'viena tukša, lai saglabātu to, kas tiek glabāts.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -6094,9 +6086,6 @@ class AppL10nLv extends AppL10n {
       'tiek izpildīti vaicājumi; viss, kas raksta, tiek noraidīts.';
 
   @override
-  String get query => 'Vaicājums';
-
-  @override
   String get queryFilter => 'Vaicājums / filtrs';
 
   @override
@@ -6265,11 +6254,6 @@ class AppL10nLv extends AppL10n {
       'Noraidīt nederīgos TLS sertifikātus';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Saistība: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'atlaist un restartēt. Pievienotās lietotnes tiek atkārtoti savienotas, tiklīdz tās ir atjaunotas.';
 
@@ -6429,9 +6413,6 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get results => 'Rezultāti';
-
-  @override
-  String get retrievalInspector => 'Atgūšanas inspektors';
 
   @override
   String get retry => 'Mēģiniet vēlreiz';
@@ -6763,11 +6744,6 @@ class AppL10nLv extends AppL10n {
       'ieplānotais laiks. Kad skrējieni ir izmērīti, tie sāksies agrāk.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Rezultāts: $arg1';
-  }
-
-  @override
   String get screen => 'Ekrāns';
 
   @override
@@ -6907,11 +6883,6 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get selectTrigger => 'Atlasiet Trigger';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Semantika: $arg1';
-  }
 
   @override
   String get send => 'Sūtīt (⌘↵)';
@@ -8689,11 +8660,6 @@ class AppL10nLv extends AppL10n {
   String get vaultOperationFailed => 'Vault darbība neizdevās.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Vektora rangs: $arg1';
-  }
-
-  @override
   String get verification => 'Verifikācija';
 
   @override
@@ -10118,6 +10084,9 @@ class AppL10nLv extends AppL10n {
   String get settingsPageSystem => 'Sistēma';
 
   @override
+  String get settingsPagePlatforms => 'Platformas';
+
+  @override
   String get settingsPageProfileDescription =>
       'Jūsu vārds un e-pasts, jūsu datu kopija un izrakstīšanās.';
 
@@ -11286,9 +11255,727 @@ class AppL10nLv extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Izvēlieties lietotājvārdu';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Izvēlieties brīvu lietotājvārdu, lai pabeigtu konta izveidi.';
+
+  @override
+  String get dataSharingTitle => 'Kopīgot lietojuma datus';
+
+  @override
+  String get dataSharingDescription =>
+      'Palīdziet šī servera uzturētājiem to uzlabot. Tiek kopīgots, kā lietojat NeoAgent, nekad ne tas, ko rakstāt vai glabājat.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Kopīgots kopš $date.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'Kas tiek kopīgots';
+
+  @override
+  String get dataSharingIncluded => 'Tiek kopīgots';
+
+  @override
+  String get dataSharingExcluded => 'Nekad netiek kopīgots';
+
+  @override
+  String get dataSharingIncludedDevice => 'Ierīces veids un lietotnes versija';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'Lietotnes valoda un laika joslas reģions, piemēram, Eiropa';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Kuras funkcijas esat iestatījis, piemēram, uzdevumi, prasmes un integrācijas';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Kurus rīkus un modeļus izmanto jūsu palaidieni, ar ilgumu un marķieru skaitu';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'Kad lietojat NeoAgent, pa nedēļas dienām un stundām';
+
+  @override
+  String get dataSharingExcludedContent => 'Ziņas, uzvednes un atbildes';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Palaidienu nosaukumi, rīku ievade un rezultāti';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Faili, atmiņas un viss pārējais, ko glabājat';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'Jūsu vārds, e-pasts, IP adrese un atrašanās vieta';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'Konti, ar kuriem savienojat integrācijas';
+
+  @override
+  String get dataSharingPooledNote =>
+      'Administratori redz tikai visu kopīgotāju kopsummas, nekad jūs atsevišķi. Izslēdziet jebkurā laikā, un uzreiz izkrītat no kopsummām.';
+
+  @override
+  String get dataSharingConfirmTitle => 'Kopīgot lietojuma datus?';
+
+  @override
+  String get dataSharingConfirmAction => 'Kopīgot';
+
+  @override
+  String get sharedUsageTitle => 'Kopīgotais lietojums';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Konti, kas kopīgo lietojuma datus: $sharing no $total. Tikai kopsummas, bez satura.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Neviens vēl nekopīgo lietojuma datus. To var ieslēgt šeit: Iestatījumi, Profils, Jūsu dati.';
+
+  @override
+  String get sharedUsageRuns => 'Kopīgotie palaidieni';
+
+  @override
+  String get sharedUsageAvgDuration => 'Vid. ilgums';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Pabeigtie palaidieni';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Soļi vienā palaidienā';
+
+  @override
+  String get sharedUsageDevices => 'Ierīces';
+
+  @override
+  String get sharedUsageAppVersions => 'Lietotnes versijas';
+
+  @override
+  String get sharedUsageLanguages => 'Valodas';
+
+  @override
+  String get sharedUsageRegions => 'Reģioni';
+
+  @override
+  String get sharedUsageFeatures => 'Funkciju izmantošana';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'To kopīgojošo kontu daļa, kas to ir iestatījuši.';
+
+  @override
+  String get sharedUsageTools => 'Rīki';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'Visbiežāk izsauktie rīki ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Izsaukumi: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Neizdevās: $percent%';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Integrācijas';
+
+  @override
+  String get sharedUsageMessaging => 'Ziņojumu kanāli';
+
+  @override
+  String get sharedUsageTriggers => 'Kā sākas palaidieni';
+
+  @override
+  String get sharedUsageActivity => 'Kad to lieto';
+
+  @override
+  String get sharedUsageActivityDescription =>
+      'Palaidieni pa nedēļas dienām un stundām, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Modeļu veiktspēja';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return 'vid. $latency · $cached% no kešatmiņas · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Konti: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'Šajā periodā nekā nav.';
+
+  @override
+  String get sharedUsageNotReported => 'Vēl nav ziņots';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Vairāk nekā viens aģents';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Ieplānotie uzdevumi';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Prasmes';
+
+  @override
+  String get sharedUsageFeatureMcp => 'MCP serveri';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Integrācijas';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Ziņojumu kanāli';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Atmiņa';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'opt-in datu kopīgošana telemetrija ierīces funkcijas rīki modeļi aktivitāte';
+
+  @override
+  String get yourOAuthApp => 'Jūsu OAuth lietotne';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'Jūsu $provider OAuth lietotne';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Šim serverim nav globālas $provider lietotnes, tāpēc jūs pievienojaties ar paša reģistrētu OAuth lietotni. Klienta noslēpums tiek glabāts šifrēts un vairs netiek rādīts.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Izveidojiet lietotni';
+
+  @override
+  String get openDeveloperConsole => 'Atvērt izstrādātāju konsoli';
+
+  @override
+  String get oauthAppStepCallback => '2. Reģistrējiet šo atzvanīšanas URL';
+
+  @override
+  String get callbackUrlCopied => 'Atzvanīšanas URL nokopēts';
+
+  @override
+  String get oauthAppScopes => 'Atļaujamie tvērumi';
+
+  @override
+  String get scopesCopied => 'Tvērumi nokopēti';
+
+  @override
+  String get oauthAppStepCredentials =>
+      '3. Ielīmējiet lietotnes akreditācijas datus';
+
+  @override
+  String get couldNotSaveOAuthApp => 'Neizdevās saglabāt OAuth lietotni.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Vai noņemt jūsu $provider lietotni?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Pievienotie konti paliek sarakstā, bet pārstāj darboties, līdz atkal pievienosiet lietotni.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Globālā integrāciju konfigurācija';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Neobligātas visa servera OAuth lietotnes. Ja integrācijai tāda ir, to izmanto katrs konts un nevar pievienot savu. Atstājiet integrāciju neiestatītu, un katrs lietotājs iestatīs savu lietotni. Noslēpumus var tikai ierakstīt: atstājiet tukšu, lai saglabātu esošo vērtību.';
+
+  @override
+  String get globalStatus => 'Globāli';
+
+  @override
+  String get perUserStatus => 'Katram lietotājam';
+
+  @override
+  String get phoneSyncGuidance =>
+      'Kopīgojiet šī tālruņa kalendārus un kontaktus ar savu aģentu. Darbojas ar visiem kontiem, kas jau ir tālrunī.';
+
+  @override
+  String get phoneSyncElsewhereGuidance =>
+      'Atveriet NeoAgent tālrunī un tur ieslēdziet kopīgošanu. Aģents tad redzēs visu šī tālruņa kontu kalendārus un kontaktus.';
+
+  @override
+  String get manageOnThisPhone => 'Pārvaldīt šajā tālrunī';
+
+  @override
+  String get setUpOnThisPhone => 'Iestatīt šajā tālrunī';
+
+  @override
+  String get setUpOnPhone => 'Iestatīt tālrunī';
+
+  @override
+  String emailConnectedArg1(String email) {
+    return '$email pievienots';
+  }
+
+  @override
+  String get couldNotConnectEmail => 'Kontu neizdevās pievienot.';
+
+  @override
+  String get emailSetupTitle => 'Pievienot e-pastu un kalendāru';
+
+  @override
+  String get emailChecking => 'Pārbauda pastkastīti…';
+
+  @override
+  String get emailSetupIntro =>
+      'Izmantojiet lietotnes paroli no e-pasta pakalpojuma sniedzēja. Bez izstrādātāju konsoles, gatavs pāris minūtēs.';
+
+  @override
+  String emailOpenArg1(String provider) {
+    return 'Atvērt $provider';
+  }
+
+  @override
+  String get emailStepServers => '1. Ievadiet serverus';
+
+  @override
+  String get emailStepPassword => '1. Izveidojiet lietotnes paroli';
+
+  @override
+  String emailOpenPasswordPageArg1(String provider) {
+    return 'Atvērt $provider lietotņu paroles';
+  }
+
+  @override
+  String get emailStepSignIn => '2. Pierakstīšanās';
+
+  @override
+  String get appPassword => 'Lietotnes parole';
+
+  @override
+  String get appPasswordHelper =>
+      'Atstarpēm nav nozīmes. NeoAgent to glabā šifrētu.';
+
+  @override
+  String get emailUsernameOptional => 'Lietotājvārds, ja tas nav jūsu e-pasts';
+
+  @override
+  String get emailIncludeCalendar => 'Iekļaut kalendāru';
+
+  @override
+  String get emailIncludeContacts => 'Iekļaut kontaktus';
+
+  @override
+  String get imapServer => 'IMAP serveris';
+
+  @override
+  String get smtpServer => 'SMTP serveris';
+
+  @override
+  String get caldavUrlOptional => 'CalDAV URL (neobligāti)';
+
+  @override
+  String get carddavUrlOptional => 'CardDAV URL (neobligāti)';
+
+  @override
+  String get alternativeEmail =>
+      'Pievienojiet pastkastīti ar lietotnes paroli vai kalendāru ar tā iCal saiti. Gatavs pāris minūtēs.';
+
+  @override
+  String get alternativePhone =>
+      'Kopīgojiet tālrunī jau esošo kalendāru un kontaktus ar lietotni NeoAgent.';
+
+  @override
+  String get alternativePhoneElsewhere =>
+      'Kopīgojiet tālrunī jau esošo kalendāru un kontaktus. Iestatiet to NeoAgent lietotnē tālrunī.';
+
+  @override
+  String get skipTheDeveloperConsole => 'Bez izstrādātāju konsoles';
+
+  @override
+  String get phoneSyncPromptTitle => 'Ļaut aģentam redzēt jūsu kalendāru?';
+
+  @override
+  String get phoneSyncPromptBody =>
+      'Kopīgojiet šī tālruņa kalendārus un kontaktus, lai aģents varētu plānot jūsu dienu. To var mainīt jebkurā laikā sadaļā Rīki › Integrācijas.';
+
+  @override
+  String get phoneSyncTitle => 'Kopīgot tālruņa kalendāru un kontaktus';
+
+  @override
+  String get phoneSyncIntro =>
+      'Aģents redz visu šī tālruņa kontu kalendārus un kontaktus. Bez izstrādātāju konsoles un papildu pierakstīšanās.';
+
+  @override
+  String get phoneSyncPointAccounts =>
+      'Darbojas ar šī tālruņa Google, Outlook, iCloud un Exchange kontiem.';
+
+  @override
+  String get phoneSyncPointPrivate =>
+      'Kopīgots tikai ar jūsu NeoAgent serveri, kas tos glabā šifrētus.';
+
+  @override
+  String get phoneSyncPointWrites =>
+      'Aģenta pievienotos notikumus izveido šis tālrunis, un tie sinhronizējas kā parasti.';
+
+  @override
+  String get phoneSyncCalendarHint =>
+      'Notikumi no 30 dienām atpakaļ līdz 90 dienām uz priekšu';
+
+  @override
+  String get phoneSyncContacts => 'Kontakti';
+
+  @override
+  String get phoneSyncContactsHint =>
+      'Vārdi, e-pasta adreses un tālruņa numuri';
+
+  @override
+  String get phoneSyncOtherAgent =>
+      'Šis tālrunis kopīgo ar citu aģentu. Kopīgojot šeit, tas pāriet pie šī aģenta.';
+
+  @override
+  String get phoneSyncDenied =>
+      'NeoAgent vēl nav piekļuves. Atļaujiet to iestatījumos un atgriezieties.';
+
+  @override
+  String get openPhoneSettings => 'Atvērt iestatījumus';
+
+  @override
+  String get phoneSyncShare => 'Kopīgot ar NeoAgent';
+
+  @override
+  String get phoneSyncStop => 'Pārtraukt kopīgošanu';
+
+  @override
+  String get phoneSyncWaiting => 'Gaida pirmo sinhronizāciju…';
+
+  @override
+  String phoneSyncLastSyncedArg1(String time) {
+    return 'Pēdējoreiz sinhronizēts $time';
+  }
+
+  @override
+  String get calendarLink => 'Kalendāra saite';
+
+  @override
+  String get calendarLinkHelper =>
+      'Kalendāra iCal adrese. Ikviens, kam tā ir, var lasīt kalendāru, tāpēc glabājiet to privāti.';
+
+  @override
+  String get calendarLinkName => 'Nosaukums (neobligāti)';
+
+  @override
+  String get calendarLinkAdded => 'Kalendārs pievienots';
+
+  @override
+  String get toolsApps => 'Lietotnes';
+
+  @override
+  String get reconnect => 'Savienot vēlreiz';
+
+  @override
+  String get reconnectNeeded => 'Jāsavieno vēlreiz';
+
+  @override
+  String get mixedAccess => 'Jaukta piekļuve';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Atvienot $account?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'Aģents caur šo kontu zaudē piekļuvi $apps.';
+  }
+
+  @override
+  String get neoRouterServerDescription =>
+      'Pievienojiet savu NeoRouter vienreiz, un katrs konts šeit to izmantos tālāk ieslēgtajiem darbiem.';
+
+  @override
+  String get neoRouterUserDescription =>
+      'Tālāk ieslēgtajiem darbiem izmantojiet savu NeoRouter kontu, nevis šī servera pakalpojumu sniedzējus.';
+
+  @override
+  String get neoRouterAddress => 'NeoRouter adrese';
+
+  @override
+  String get neoRouterConnect => 'Pievienot NeoRouter';
+
+  @override
+  String neoRouterWaitingArg1(Object? arg1) {
+    return 'Apstipriniet NeoAgent NeoRouter. Tas rāda kodu $arg1.';
+  }
+
+  @override
+  String get neoRouterOpenAgain => 'Atvērt vēlreiz';
+
+  @override
+  String neoRouterConnectedArg1(Object? arg1) {
+    return 'Savienots ar $arg1';
+  }
+
+  @override
+  String get neoRouterUnreachable => 'NeoRouter pašlaik nav sasniedzams.';
+
+  @override
+  String get neoRouterDisconnect => 'Atvienot';
+
+  @override
+  String get neoRouterDisconnectBody =>
+      'NeoAgent vairs neizmanto šo NeoRouter. Lai atsauktu arī atslēgu, atsauciet to NeoRouter sadaļā API atslēgas.';
+
+  @override
+  String get neoRouterServerInUse =>
+      'Šis serveris jau izmanto NeoRouter visiem. Pievienojiet savu NeoRouter kontu, lai būtu savi modeļi un budžets.';
+
+  @override
+  String get neoRouterConnected => 'NeoRouter ir pievienots.';
+
+  @override
+  String get neoRouterRoleChat => 'Tērzēšana un attēlu atpazīšana';
+
+  @override
+  String get neoRouterRoleSystemOne => 'System One lēmumi';
+
+  @override
+  String get neoRouterRoleTranscription => 'Runa uz tekstu';
+
+  @override
+  String get neoRouterRoleLive => 'Tiešraides balss';
+
+  @override
+  String get neoRouterRoleEmbeddings => 'Meklēšana atmiņā';
+
+  @override
+  String get neoRouterRoleImages => 'Attēlu veidošana';
+
+  @override
+  String get neoRouterRoleSearch => 'Meklēšana tīmeklī';
+
+  @override
+  String neoRouterModelCountArg1(Object? arg1) {
+    return 'Jūsu NeoRouter pieejami: $arg1';
+  }
+
+  @override
+  String get neoRouterNoModels => 'Jūsu NeoRouter vēl nekā nav.';
+
+  @override
+  String get neoRouterPicksModels =>
+      'NeoRouter izvēlas modeli katram pieprasījumam, tāpēc šī izlase netiek izmantota.';
+
+  @override
+  String neoRouterNotAllowedArg1(Object? arg1) {
+    return 'Jūsu NeoRouter: $arg1, bet NeoAgent atslēga tos vēl nedrīkst izmantot (piem., maksas). Atļaujiet tos NeoAgent NeoRouter sadaļā API atslēgas.';
+  }
+
+  @override
+  String get neoRouterNoDecisionModels =>
+      'Vajadzīgi lēmumu modeļi, piemēram, Jev. Drošības klasifikatori uz šiem jautājumiem neatbild.';
+
+  @override
+  String get voiceLiveNoProvider =>
+      'Nav iestatīts neviens tiešraides balss nodrošinātājs. Pievienojiet OpenAI vai Google AI atslēgu vai pievienojiet NeoRouter sadaļā Modeļi → Paņemiet līdzi savu atslēgu.';
+
+  @override
+  String get voiceSttAutoNeoRouter => 'Automātiski (modeli izvēlas NeoRouter)';
+
+  @override
+  String get voiceNotOffered => 'Vairs netiek piedāvāts, izvēlieties citu';
+
+  @override
+  String get agentImport => 'Bring over another agent';
+
+  @override
+  String get agentImportDescription =>
+      'Copies OpenClaw or Hermes Agent from the server\'s computer (~/.openclaw and ~/.hermes) into your account. Nothing is removed there, and importing twice does not duplicate anything.';
+
+  @override
+  String get agentImportNoneFound =>
+      'No OpenClaw or Hermes Agent was found in ~/.openclaw or ~/.hermes on the server\'s computer.';
+
+  @override
+  String get agentImportWhatComes => 'What comes over';
+
+  @override
+  String get agentImportAgentsAlways =>
+      'Agents and their personality always come over; everything else is attached to them.';
+
+  @override
+  String get agentImportPartKeys => 'Keys and AI providers';
+
+  @override
+  String get agentImportPartMemories => 'Memories and notes';
+
+  @override
+  String get agentImportPartSkills => 'Skills';
+
+  @override
+  String get agentImportPartModel => 'Default model';
+
+  @override
+  String get agentImportPartTasks => 'Automations';
+
+  @override
+  String get agentImportPartMcp => 'MCP servers';
+
+  @override
+  String get agentImportPartChannels => 'Chat apps';
+
+  @override
+  String agentImportCountAgents(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count agents',
+      one: '1 agent',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountKeys(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count connections',
+      one: '1 connection',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountMemories(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count memories',
+      one: '1 memory',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days of notes',
+      one: '1 day of notes',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountSkills(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count skills',
+      one: '1 skill',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountTasks(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count automations',
+      one: '1 automation',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountMcp(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count MCP servers',
+      one: '1 MCP server',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportNeedsHandCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count things need a hand afterwards',
+      one: '1 thing needs a hand afterwards',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get agentImportFinish => 'Let NeoAgent finish moving in';
+
+  @override
+  String get agentImportFinishHint =>
+      'After the restart, your agent reworks imported skills for its own tools and rebuilds what the importer left behind. Needs a connected AI.';
+
+  @override
+  String get agentImportRun => 'Bring it over';
+
+  @override
+  String get agentImportRunning => 'Bringing it over…';
+
+  @override
+  String get agentImportMovedIn => 'Moved in';
+
+  @override
+  String get agentImportAlreadyMovedIn => 'Everything was already in NeoAgent.';
+
+  @override
+  String agentImportAlreadyThere(int count) {
+    return '$count already in NeoAgent, left as they were';
+  }
+
+  @override
+  String get agentImportNeedsHand => 'Needs a hand';
+
+  @override
+  String agentImportMore(int count) {
+    return '…and $count more in the report.';
+  }
+
+  @override
+  String agentImportReport(String path) {
+    return 'Full report: $path';
+  }
+
+  @override
+  String agentImportFinishQueued(String name) {
+    return 'Queued \"$name\". It starts two minutes after NeoAgent restarts, and you\'ll get a message when it\'s done.';
+  }
+
+  @override
+  String get agentImportRestartNeeded =>
+      'Restart NeoAgent to load everything that came over.';
+
+  @override
+  String get agentImportRestarted =>
+      'NeoAgent restarted and loaded everything.';
 }

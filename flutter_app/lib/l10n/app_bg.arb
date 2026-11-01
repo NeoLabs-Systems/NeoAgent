@@ -154,6 +154,8 @@
   "addKey": "Добавете ключ",
   "addMcpServer": "Добавете MCP сървър",
   "addMemory": "Добавяне на памет",
+  "memoryReview": "Преглед",
+  "memoryReviewPrompt": "Прегледай всички мои спомени и ги подреди: архивирай дубликатите, остарелите факти и всичко без трайна стойност. След това ми кажи накратко какво промени.",
   "addMoreLengthOrAnotherCharacter": "Добавете повече дължина или друг тип знак.",
   "addPeopleOrGroups": "Добавете хора или групи",
   "addSecurityKey": "Добавете ключ за сигурност",
@@ -1901,7 +1903,6 @@
   "assistant": "Помощник",
   "assistantKey131": "Асистент ключ 131",
   "atLeast1": "Най-малко 1.",
-  "atLeast1000AppliesAfterA": "Най-малко 1000. Прилага се след рестартиране на сървъра.",
   "attachFiles": "Прикачване на файлове",
   "attentionArg1": "Внимание {arg1}",
   "@attentionArg1": {
@@ -2007,7 +2008,6 @@
   "botUsername": "Потребителско име на бот",
   "brandName": "Име на марката",
   "braveSearch": "Brave Search",
-  "breakdown": "Breakdown:",
   "bridgeAnyProviderThatCanPost": "Bridge any provider that can post and receive webhook payloads.",
   "bringYourOwnKey": "bring your own key",
   "bringYourOwnKey2": "Носете свой собствен ключ",
@@ -2030,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Can receive delegated tasks",
   "cancel": "Отказ",
   "cancelTask": "Отмени задачата",
-  "candidateCountArg1": "Candidate Count: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Не може да се визуализира",
   "cannotReceiveDelegatedTasks": "cannot receive delegated tasks",
   "cannotRunYet": "cannot run yet.",
@@ -2308,14 +2300,6 @@
   "connectionMethod": "Метод на свързване",
   "containsTextOptional": "Съдържа текст (по избор)",
   "content": "Съдържание",
-  "contentArg1": "Content: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "политика за сигурност на съдържанието",
   "continue2": "Продължи",
   "continueFullSetup": "Продължете пълната настройка",
@@ -2752,21 +2736,12 @@
       }
     }
   },
-  "errorArg12": "Грешка: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Грешки от последния дневник, групирани по съобщение.",
   "errorsProblemsFailures": "грешки проблеми неуспехи",
   "eventTypesCommaSeparated": "Типове събития (разделени със запетая)",
   "every15Minutes": "На всеки 15 минути",
   "every30Minutes": "На всеки 30 минути",
   "everyAccountOnThisServerLoses": "Всеки акаунт на този сървър губи този споделен ключ. Сметки ",
-  "everyAccountOnThisServerSecrets": "всеки акаунт на този сървър. Тайните са само за писане: оставете ",
   "everyAccountOnThisServerUses": "Всеки акаунт на този сървър използва този адрес за ",
   "everyActiveSessionForThisAccount": "Всяка активна сесия за този акаунт приключва. Те могат да влязат ",
   "everyDay0800": "Всеки ден · 08:00ч",
@@ -3012,14 +2987,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Пълна подкана",
   "fullSetup": "Пълна настройка",
-  "fullTextFtsArg1": "Пълен текст (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "генерал",
   "generalSettings": "Общи настройки",
   "generalSettingsSaved": "Общите настройки са запазени.",
@@ -3218,7 +3185,6 @@
   "input": "Вход",
   "inputMode": "Режим на въвеждане",
   "insertATemplate": "Поставете шаблон",
-  "inspect": "Инспектирайте",
   "install": "Инсталирайте",
   "installASignedSelfContainedRuntime": "Инсталирайте подписана, самостоятелна среда за изпълнение. Не се изискват команди Node.js, npm, Git и терминал.",
   "installApk": "Инсталирайте APK",
@@ -3251,7 +3217,6 @@
   },
   "instructions": "Инструкции",
   "integration": "Интеграция",
-  "integrationApps": "Приложения за интегриране",
   "integrationConnections": "Интеграционни връзки",
   "integrationSettingsSaved": "Настройките за интегриране са запазени.",
   "integrations": "Интеграции",
@@ -3470,14 +3435,6 @@
       }
     }
   },
-  "lexicalArg1": "Лексикално: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "limit20": "LIMIT 20",
   "limit50": "LIMIT 50",
   "linkArg1": "Линк {arg1}",
@@ -3601,10 +3558,6 @@
       }
     }
   },
-  "memoryImportSync": "синхронизиране на импортиране на паметта",
-  "memoryIngestionInterval": "Интервал на поглъщане на паметта",
-  "memoryIngestionIntervalMs": "Интервал на поглъщане на паметта (ms)",
-  "memoryIngestionIntervalMustBeAt": "Интервалът на поглъщане на паметта трябва да бъде поне 1000 ms.",
   "memoryInjected": "Инжектирана памет",
   "mentionOrReplyOnly": "Само споменаване или отговор",
   "mergedServerAndFlutterRuntimeLogs": "Обединени регистрационни файлове на сървъра и времето за изпълнение на Flutter за тази сесия на приложението.",
@@ -3629,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Микрофонът е изключен. Докоснете, за да включите звука.",
   "microphonePermissionIsRequiredForLive": "Изисква се разрешение за микрофон за глас на живо.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack и други интеграции. Те се отнасят за ",
   "microsoftTeams": "Microsoft Teams",
   "minimumContributionValueArg1": "Минимална стойност на вноската: {arg1}",
   "@minimumContributionValueArg1": {
@@ -3676,6 +3628,8 @@
     }
   },
   "modelAvailability": "Наличност на модела",
+  "autoEnableNewModels": "Автоматично включване на нови модели",
+  "autoEnableNewModelsHint": "Когато е изключено, модели, добавени по-късно от доставчика, остават изключени, докато не ги включите.",
   "modelAvailabilitySaved": "Наличността на модела е запазена.",
   "modelForThisSession": "Модел за тази сесия",
   "modelOverride": "Отмяна на модела",
@@ -3911,6 +3865,61 @@
   "noMcpServersMatchThisSearch": "Няма MCP сървъри, отговарящи на това търсене.",
   "noMemoryEntriesFound": "Няма намерени записи в паметта.",
   "noMemorySync": "Няма синхронизиране на паметта",
+  "importPastEmailsIntoMemoryHint": "Прочита еднократно важните и изпратените писма от последните 12 месеца, за да познава агентът вашите контакти и проекти.",
+  "emailMemory": "Памет от имейли",
+  "importNow": "Импортирай сега",
+  "importOnConnect": "Импортиране на минали писма при свързване на акаунт",
+  "sweepStarting": "Подготовка…",
+  "sweepReadingProgress": "Четене на имейли · {done} от {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Четене на имейли · {count} намерени",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Учене от имейлите · {done} от {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Последен импорт: {emails} имейла · {memories} нови спомена",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Няма нови имейли за импортиране",
+  "sweepFailed": "Импортирането не бе успешно: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Няма модел, съответстващ на „{arg1}“.",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -3997,7 +4006,6 @@
   "nothingStoredYet": "Все още нищо не е съхранено.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "Идентификационните данни на приложението OAuth, които позволяват на акаунтите да се свързват с Google, ",
   "oauthClientId": "OAuth ИД на клиента",
   "oauthClientIdSecretRedirectApi": "oauth клиент id тайно пренасочване api ключ",
   "oauthClientIdSecretRedirectGmail": "oauth клиент id тайно пренасочване gmail календар устройство",
@@ -4035,7 +4043,6 @@
   "onTheyCanJoinAgainOnly": "на. Те могат да се присъединят отново само с нова връзка за покана.",
   "onYourOwnTheDefault": "Сами (по подразбиране)",
   "once": "Веднъж",
-  "oneBlankToKeepWhatIs": "една празна, за да запазите това, което се съхранява.",
   "oneIsSavedOtherChangesIn": "един е спасен. Други промени в тази форма също се запазват.",
   "oneOrMoreAccountsExpiredReconnect": "Един или повече акаунти са изтекли. Свържете отново засегнатия акаунт, за да възстановите достъпа до инструмента.",
   "oneRuntimeControlsPersonaGroupTurn": "Едно време за изпълнение контролира личността, груповото редуване, паметта на стаята, нормите, теорията на ума и доставката.",
@@ -4292,7 +4299,6 @@
   "qrLoginRequestWasNotFound": "qr заявката за влизане не беше намерена",
   "qrPairing": "QR сдвояване",
   "queriesRunAnythingThatWritesIs": "изпълнение на заявки; всичко, което пише, се отхвърля.",
-  "query": "Запитване",
   "queryFilter": "Заявка / Филтър",
   "queuedAsSteeringForTheCurrent": "На опашка като управление за текущото изпълнение: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4377,14 +4383,6 @@
   "registrationIsClosed": "регистрацията е затворена",
   "registrationRegisterNewAccountsAllowSignup": "регистрация регистрация нови акаунти позволяват регистрация",
   "rejectInvalidTlsCertificates": "Отхвърляне на невалидни TLS сертификати",
-  "relationArg1": "Отношение: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "освобождаване и рестартиране. Свързаните приложения се свързват отново, след като се върне.",
   "releaseChannel": "Канал за освобождаване",
   "releaseCommitBranchNode": "освобождаване на ангажимент клон възел",
@@ -4487,7 +4485,6 @@
   "resultDelivery": "Доставка на резултат",
   "resultOneClickAddsOneYou": "резултат. Едно кликване добавя едно; можете да го редактирате по-късно.",
   "results": "Резултати",
-  "retrievalInspector": "Инспектор по извличане",
   "retry": "Опитайте отново",
   "reusableUsedArg1": "За многократна употреба · използван {arg1}×",
   "@reusableUsedArg1": {
@@ -4643,14 +4640,6 @@
   "scansNewEmailAndOnlyPings": "Сканира нов имейл и ви пингва само когато нещо има значение.",
   "schedule": "График",
   "scheduledTimeOnceRunsAreMeasured": "планирано време. След като бяганията бъдат измерени, ще започне по-рано.",
-  "scoreArg1": "Резултат: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "екран",
   "screenAction": "действие на екрана",
   "scrollIsNotSupportedOnThis": "превъртане не се поддържа на тази платформа.",
@@ -4712,14 +4701,6 @@
     }
   },
   "selectTrigger": "Изберете Тригер",
-  "semanticArg1": "Семантика: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Изпрати (⌘↵)",
   "send2": "Изпратете",
   "sendATaskFromChatAnd": "Изпратете задача от чата и историята на нейното изпълнение ще се покаже тук.",
@@ -5633,14 +5614,6 @@
   "value": "Стойност",
   "vaultLocked": "Трезорът е заключен",
   "vaultOperationFailed": "Операцията на хранилището е неуспешна.",
-  "vectorRankArg1": "Векторен ранг: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Проверка",
   "verificationArg1": "Проверка: {arg1}",
   "@verificationArg1": {
@@ -6553,6 +6526,7 @@
   "settingsPageComputer": "Компютър и мрежа",
   "settingsPageBehavior": "Поведение",
   "settingsPageSystem": "система",
+  "settingsPagePlatforms": "Платформи",
   "settingsPageProfileDescription": "Вашето име и имейл, копие на вашите данни и излизане.",
   "settingsPageSecurityDescription": "Парола, двуфакторно удостоверяване, ключове за сигурност и къде сте влезли.",
   "settingsPageUsageDescription": "Вашите лимити и символични разходи, всичко на едно място.",
@@ -6990,5 +6964,295 @@
   "signupKeysSaveDialogTitle": "Запазване на ключовете за регистрация",
   "signupKeysExported": "Ключовете са експортирани.",
   "auditSignupKeysCreated": "{actor} създаде ключове за регистрация ({count})",
-  "auditSignupKeyRevoked": "{actor} отмени ключ за регистрация"
+  "auditSignupKeyRevoked": "{actor} отмени ключ за регистрация",
+  "dataSharingTitle": "Споделяне на данни за използването",
+  "dataSharingDescription": "Помогнете на хората, които поддържат този сървър, да го подобрят. Споделя как използвате NeoAgent, никога какво пишете или съхранявате.",
+  "dataSharingSince": "Споделя се от {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Какво се споделя",
+  "dataSharingIncluded": "Споделя се",
+  "dataSharingExcluded": "Никога не се споделя",
+  "dataSharingIncludedDevice": "Вид устройство и версия на приложението",
+  "dataSharingIncludedLocale": "Език на приложението и регион на часовата зона, например Европа",
+  "dataSharingIncludedFeatures": "Кои функции сте настроили, като задачи, умения и интеграции",
+  "dataSharingIncludedRuns": "Кои инструменти и модели използват вашите изпълнения, с продължителност и брой токени",
+  "dataSharingIncludedActivity": "Кога използвате NeoAgent, по ден от седмицата и час",
+  "dataSharingExcludedContent": "Съобщения, промптове и отговори",
+  "dataSharingExcludedRuns": "Заглавия на изпълнения, входни данни и резултати от инструменти",
+  "dataSharingExcludedFiles": "Файлове, спомени и всичко друго, което съхранявате",
+  "dataSharingExcludedIdentity": "Вашето име, имейл, IP адрес и местоположение",
+  "dataSharingExcludedAccounts": "Акаунтите, с които свързвате интеграции",
+  "dataSharingPooledNote": "Администраторите виждат само общи суми за всички, които споделят, никога само вас. Изключете го по всяко време и веднага отпадате от сумите.",
+  "dataSharingConfirmTitle": "Да се споделят ли данните за използването?",
+  "dataSharingConfirmAction": "Споделяне",
+  "sharedUsageTitle": "Споделено използване",
+  "sharedUsageParticipants": "Акаунти, които споделят данни за използването: {sharing} от {total}. Само суми, без съдържание.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Все още никой не споделя данни за използването. Може да се включи в Настройки, Профил, Вашите данни.",
+  "sharedUsageRuns": "Споделени изпълнения",
+  "sharedUsageAvgDuration": "Средна продълж.",
+  "sharedUsageCompletedRuns": "Завършени изпълнения",
+  "sharedUsageStepsPerRun": "Стъпки на изпълнение",
+  "sharedUsageDevices": "Устройства",
+  "sharedUsageAppVersions": "Версии на приложението",
+  "sharedUsageLanguages": "Езици",
+  "sharedUsageRegions": "Региони",
+  "sharedUsageFeatures": "Използване на функции",
+  "sharedUsageFeaturesDescription": "Дял на споделящите акаунти, които са я настроили.",
+  "sharedUsageTools": "Инструменти",
+  "sharedUsageToolsDescription": "Най-извиквани инструменти ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Извиквания: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Неуспешни: {percent}%",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Интеграции",
+  "sharedUsageMessaging": "Канали за съобщения",
+  "sharedUsageTriggers": "Как започват изпълненията",
+  "sharedUsageActivity": "Кога се използва",
+  "sharedUsageActivityDescription": "Изпълнения по ден от седмицата и час, UTC.",
+  "sharedUsageModels": "Производителност на моделите",
+  "sharedUsageModelDetail": "средно {latency} · {cached}% от кеша · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Акаунти: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Няма нищо за този период.",
+  "sharedUsageNotReported": "Все още не е отчетено",
+  "sharedUsageFeatureAgents": "Повече от един агент",
+  "sharedUsageFeatureTasks": "Планирани задачи",
+  "sharedUsageFeatureSkills": "Умения",
+  "sharedUsageFeatureMcp": "MCP сървъри",
+  "sharedUsageFeatureIntegrations": "Интеграции",
+  "sharedUsageFeatureMessaging": "Канали за съобщения",
+  "sharedUsageFeatureMemory": "Памет",
+  "sharedUsageSearchKeywords": "opt-in споделяне на данни телеметрия устройства функции инструменти модели активност",
+  "providerChooseUsername": "Изберете потребителско име",
+  "providerChooseUsernameBody": "Изберете свободно потребителско име, за да завършите създаването на акаунта си.",
+  "yourOAuthApp": "Вашето OAuth приложение",
+  "oauthAppSetupTitle": "Вашето OAuth приложение за {provider}",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Този сървър няма глобално приложение за {provider}, затова се свързвате с OAuth приложение, което регистрирате сами. Клиентската тайна се съхранява криптирана и никога повече не се показва.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Създайте приложението",
+  "openDeveloperConsole": "Отвори конзолата за разработчици",
+  "oauthAppStepCallback": "2. Регистрирайте този callback URL",
+  "callbackUrlCopied": "Callback URL е копиран",
+  "oauthAppScopes": "Обхвати за разрешаване",
+  "scopesCopied": "Обхватите са копирани",
+  "oauthAppStepCredentials": "3. Поставете данните за достъп на приложението",
+  "couldNotSaveOAuthApp": "OAuth приложението не можа да бъде запазено.",
+  "removeOAuthAppTitle": "Да се премахне ли вашето приложение за {provider}?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Свързаните акаунти остават в списъка, но спират да работят, докато не добавите приложение отново.",
+  "globalIntegrationConfiguration": "Глобална конфигурация на интеграциите",
+  "globalIntegrationConfigurationDescription": "Незадължителни OAuth приложения за целия сървър. Когато интеграция има такова, всеки акаунт го използва и не може да добави свое. Оставете интеграцията незададена и всеки потребител настройва собствено приложение. Тайните са само за запис: оставете празно, за да запазите съхранената стойност.",
+  "globalStatus": "Глобално",
+  "perUserStatus": "За потребител",
+  "phoneSyncGuidance": "Споделете календарите и контактите на този телефон с вашия агент. Работи с всеки акаунт, който вече е на телефона.",
+  "phoneSyncElsewhereGuidance": "Отворете NeoAgent на телефона и включете споделянето там. Агентът ще вижда календарите и контактите на всички акаунти на този телефон.",
+  "manageOnThisPhone": "Управление на този телефон",
+  "setUpOnThisPhone": "Настройка на този телефон",
+  "setUpOnPhone": "Настройка на телефона",
+  "emailConnectedArg1": "{email} е свързан",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Акаунтът не можа да бъде свързан.",
+  "emailSetupTitle": "Свързване на имейл и календар",
+  "emailChecking": "Проверка на пощата…",
+  "emailSetupIntro": "Използвайте парола за приложение от доставчика на имейл. Без конзола за разработчици, готово за няколко минути.",
+  "emailOpenArg1": "Отвори {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Въведете сървърите",
+  "emailStepPassword": "1. Създайте парола за приложение",
+  "emailOpenPasswordPageArg1": "Отвори паролите за приложения на {provider}",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Вход",
+  "appPassword": "Парола за приложение",
+  "appPasswordHelper": "Интервалите нямат значение. NeoAgent я съхранява криптирана.",
+  "emailUsernameOptional": "Потребителско име, ако не е имейлът ви",
+  "emailIncludeCalendar": "Включи календара",
+  "emailIncludeContacts": "Включи контактите",
+  "imapServer": "IMAP сървър",
+  "smtpServer": "SMTP сървър",
+  "caldavUrlOptional": "CalDAV URL (по избор)",
+  "carddavUrlOptional": "CardDAV URL (по избор)",
+  "alternativeEmail": "Свържете пощата с парола за приложение или календара чрез неговата iCal връзка. Готово за няколко минути.",
+  "alternativePhone": "Споделете календара и контактите от телефона чрез приложението NeoAgent.",
+  "alternativePhoneElsewhere": "Споделете календара и контактите от телефона. Настройте го в приложението NeoAgent на телефона.",
+  "skipTheDeveloperConsole": "Без конзола за разработчици",
+  "phoneSyncPromptTitle": "Да вижда ли агентът календара ви?",
+  "phoneSyncPromptBody": "Споделете календарите и контактите на този телефон, за да планира агентът деня ви. Можете да промените това по всяко време в Инструменти › Интеграции.",
+  "phoneSyncTitle": "Споделяне на календара и контактите на телефона",
+  "phoneSyncIntro": "Агентът вижда календарите и контактите на всички акаунти на този телефон. Без конзола за разработчици и допълнителен вход.",
+  "phoneSyncPointAccounts": "Работи с акаунтите в Google, Outlook, iCloud и Exchange на този телефон.",
+  "phoneSyncPointPrivate": "Споделя се само с вашия сървър NeoAgent, който ги съхранява криптирани.",
+  "phoneSyncPointWrites": "Събитията, добавени от агента, се създават от този телефон и се синхронизират както обикновено.",
+  "phoneSyncCalendarHint": "Събития от преди 30 дни до 90 дни напред",
+  "phoneSyncContacts": "Контакти",
+  "phoneSyncContactsHint": "Имена, имейл адреси и телефонни номера",
+  "phoneSyncOtherAgent": "Този телефон споделя с друг агент. Споделянето тук го премества към този агент.",
+  "phoneSyncDenied": "NeoAgent все още няма достъп. Разрешете го в Настройки и се върнете.",
+  "openPhoneSettings": "Отвори Настройки",
+  "phoneSyncShare": "Сподели с NeoAgent",
+  "phoneSyncStop": "Спри споделянето",
+  "phoneSyncWaiting": "Изчакване на първата синхронизация…",
+  "phoneSyncLastSyncedArg1": "Последна синхронизация {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Връзка към календара",
+  "calendarLinkHelper": "iCal адресът на календара. Всеки с него може да чете календара, затова го пазете в тайна.",
+  "calendarLinkName": "Име (по избор)",
+  "calendarLinkAdded": "Календарът е добавен",
+  "toolsApps": "Приложения",
+  "reconnect": "Свържи отново",
+  "reconnectNeeded": "Нужно е повторно свързване",
+  "mixedAccess": "Смесен достъп",
+  "disconnectAccountTitle": "Да се прекъсне ли {account}?",
+  "disconnectAccountBody": "Агентът губи достъп до {apps} чрез този акаунт.",
+  "neoRouterServerDescription": "Свържете своя NeoRouter веднъж и всеки акаунт тук ще го използва за задачите, включени по-долу.",
+  "neoRouterUserDescription": "Използвайте собствения си акаунт в NeoRouter за задачите, включени по-долу, вместо доставчиците на този сървър.",
+  "neoRouterAddress": "Адрес на NeoRouter",
+  "neoRouterConnect": "Свързване на NeoRouter",
+  "neoRouterWaitingArg1": "Одобрете NeoAgent в NeoRouter. Там е показан кодът {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Отваряне отново",
+  "neoRouterConnectedArg1": "Свързано с {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "NeoRouter не е достъпен в момента.",
+  "neoRouterDisconnect": "Прекъсване",
+  "neoRouterDisconnectBody": "NeoAgent спира да използва този NeoRouter. За да оттеглите и ключа, отменете го в NeoRouter в API ключове.",
+  "neoRouterServerInUse": "Този сървър вече използва NeoRouter за всички. Свържете собствения си акаунт в NeoRouter за свои модели и бюджет.",
+  "neoRouterConnected": "NeoRouter е свързан.",
+  "neoRouterRoleChat": "Чат и разпознаване на изображения",
+  "neoRouterRoleSystemOne": "Решения на System One",
+  "neoRouterRoleTranscription": "Говор в текст",
+  "neoRouterRoleLive": "Глас на живо",
+  "neoRouterRoleEmbeddings": "Търсене в паметта",
+  "neoRouterRoleImages": "Създаване на изображения",
+  "neoRouterRoleSearch": "Търсене в мрежата",
+  "neoRouterModelCountArg1": "Налични във вашия NeoRouter: {arg1}",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Във вашия NeoRouter все още няма нищо.",
+  "neoRouterPicksModels": "NeoRouter избира модела за всяка заявка, затова тази селекция не се използва.",
+  "neoRouterNotAllowedArg1": "Във вашия NeoRouter: {arg1}, но ключът на NeoAgent още не може да ги използва (напр. платените). Разрешете ги за NeoAgent в API ключове в NeoRouter.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Нужни са модели за решения като Jev. Класификаторите за безопасност не отговарят на тези въпроси.",
+  "voiceLiveNoProvider": "Няма настроен доставчик за глас на живо. Добавете ключ за OpenAI или Google AI или свържете NeoRouter в Модели → Носете свой собствен ключ.",
+  "voiceSttAutoNeoRouter": "Авто (NeoRouter избира модела)",
+  "voiceNotOffered": "Вече не се предлага, изберете друго"
 }

@@ -39,6 +39,7 @@ const {
   isRunStopped: isRunStoppedImpl,
   markRunFinalDelivery: markRunFinalDeliveryImpl,
   markRunVisibleProgress: markRunVisibleProgressImpl,
+  markRunVisibleReply: markRunVisibleReplyImpl,
   persistProgressLedger: persistProgressLedgerImpl,
   persistRunMetadata: persistRunMetadataImpl,
   recordRunEventSafe,
@@ -68,6 +69,12 @@ const {
   buildMemoryConsolidationInstructions,
   normalizeMemoryCandidates,
 } = require('../../memory/consolidation');
+const {
+  batchUnits,
+  buildDocumentFactsPrompt,
+  buildExtractionUnits,
+  normalizeDocumentFacts,
+} = require('../../memory/document_facts');
 const systemOne = require('../system_one');
 const {
   createAbortError,
@@ -268,9 +275,6 @@ class AgentEngine {
     userId,
     agentId,
     query,
-    provider,
-    providerName,
-    model,
     runId,
     options = {},
   }) {
@@ -279,102 +283,95 @@ class AgentEngine {
       agentId,
       signal,
     });
-
-    const pendingChunks = memoryManager.getPendingExtractionChunks?.(userId, agentId, 5) || [];
-    if (pendingChunks.length) {
-      this.trackBackgroundTask((backgroundSignal) => this.extractPendingChunks(
-        pendingChunks,
-        {
-          userId,
-          agentId,
-          provider,
-          providerName,
-          model,
-          memoryManager,
-          signal: backgroundSignal,
-        },
-      ), {
-        key: `memory-extraction:${userId}:${agentId || 'main'}`,
-        coalesce: true,
-        signal,
-      }).catch((err) => {
-        if (!isAbortError(err, signal) && !this.shuttingDown) {
-          console.warn('[Memory] Background chunk extraction failed:', err.message);
-        }
-      });
-    }
-
     return memoryManager.buildRecallMessage(userId, query, { agentId, recalled });
   }
 
-  async extractPendingChunks(chunks, {
-    userId,
-    agentId,
-    provider,
-    providerName,
-    model,
-    memoryManager,
+  // Turns ingested documents (mail threads, notes) into a few durable facts
+  // about the user, checked against what memory already holds. Source text
+  // never becomes memory itself.
+  extractDocumentFacts(userId, agentId, {
+    documents,
+    owner = {},
+    metadata = {},
     signal = null,
+    onProgress = () => {},
   }) {
-    const consolidationSchema = JSON.stringify({
-      memory_candidates: [{
-        memory: 'Concise standalone fact.',
-        subject: 'Canonical entity or person.',
-        predicate: 'Normalized relationship or attribute.',
-        object: 'Current atomic value.',
-        relation: 'new | updates | extends | derives',
-        category: 'identity | preferences | projects | contacts | events | tasks | episodic | assistant_self',
-        confidence: 0.8,
-        importance: 5,
-        is_static: false,
-        valid_from: null,
-        valid_to: null,
-        forget_after: null,
-        evidence: 'Short source-grounded quote.',
-      }],
-    }, null, 2);
+    const memoryManager = this.memoryManager;
+    return this.trackBackgroundTask(async (backgroundSignal) => {
+      const units = buildExtractionUnits(documents);
+      const batches = batchUnits(units);
+      const memoryIds = new Set();
+      let done = 0;
+      onProgress(done, units.length);
+      if (!batches.length) return { memoryIds: [] };
 
-    for (const chunk of chunks) {
-      try {
-        throwIfAborted(signal, 'Memory extraction aborted.');
-        const result = await this.requestStructuredJson({
-          provider,
-          providerName,
-          model,
-          messages: [],
-          prompt: [
-            'Return JSON only. Extract durable memory facts from the document chunk below.',
-            buildMemoryConsolidationInstructions(new Date().toISOString()),
-            `Source type: ${chunk.sourceType || 'document'}`,
-            chunk.title ? `Document title: ${chunk.title}` : '',
-            `Content:\n${String(chunk.content || '').slice(0, 2400)}`,
-            `Schema:\n${consolidationSchema}`,
-          ].filter(Boolean).join('\n\n'),
-          maxTokens: 800,
-          normalize: (raw) => normalizeMemoryCandidates(raw?.memory_candidates || []),
-          fallback: [],
-          telemetry: { userId, agentId, signal },
-          phase: 'document_extraction',
-        });
-
-        const candidates = Array.isArray(result.value) ? result.value : [];
-        if (candidates.length) {
-          await memoryManager.consolidateMemoryCandidates(userId, candidates, {
+      const selected = await getProviderForUser(
+        userId,
+        'Extract durable memory facts from documents.',
+        false,
+        null,
+        { agentId, signal: backgroundSignal },
+      );
+      // Facts from earlier batches count as known, so a later mail about the
+      // same thing does not add it again.
+      const learned = [];
+      let failedBatches = 0;
+      let lastError = null;
+      for (const batch of batches) {
+        throwIfAborted(backgroundSignal, 'Memory extraction aborted.');
+        try {
+          const known = await memoryManager.listKnownMemories(userId, {
             agentId,
-            metadata: {
-              trustLevel: 'external_source',
-              sourceChunkMemoryId: chunk.id,
-            },
-            signal,
+            query: batch.map((unit) => unit.document.title).join('\n'),
+            signal: backgroundSignal,
           });
+          const result = await this.requestStructuredJson({
+            provider: selected.provider,
+            providerName: selected.providerName,
+            model: selected.model,
+            messages: [],
+            prompt: buildDocumentFactsPrompt({
+              owner,
+              units: batch,
+              knownMemories: [...learned, ...known],
+            }),
+            // Thinking models spend most of this on reasoning; the facts
+            // themselves are short.
+            maxTokens: 8000,
+            normalize: (raw) => normalizeDocumentFacts(raw, batch),
+            fallback: [],
+            telemetry: { userId, agentId, signal: backgroundSignal },
+            phase: 'document_extraction',
+          });
+          for (const { candidate, document } of result.value || []) {
+            const ids = await memoryManager.consolidateMemoryCandidates(userId, [candidate], {
+              agentId,
+              sourceRef: {
+                sourceType: document.sourceType,
+                sourceId: document.externalObjectId,
+                sourceLabel: document.title,
+              },
+              metadata: { ...metadata, trustLevel: 'external_source' },
+              signal: backgroundSignal,
+            });
+            for (const id of ids) memoryIds.add(id);
+            learned.push(candidate.memory);
+          }
+        } catch (err) {
+          if (isAbortError(err, backgroundSignal)) throw err;
+          failedBatches += 1;
+          lastError = err;
+          console.warn('[Memory] Document fact extraction failed:', err.message);
         }
-        memoryManager.markChunksExtracted?.([chunk.id], { success: true });
-      } catch (err) {
-        memoryManager.markChunksExtracted?.([chunk.id], { success: false });
-        if (isAbortError(err, signal)) throw err;
-        console.warn('[Memory] Document chunk extraction failed:', err.message);
+        done += batch.length;
+        onProgress(done, units.length);
       }
-    }
+      if (failedBatches === batches.length) throw lastError;
+      return { memoryIds: [...memoryIds] };
+    }, {
+      key: `memory-extraction:${userId}:${agentId || 'main'}`,
+      signal,
+    });
   }
 
   persistRunMetadata(runId, patch = {}) {
@@ -395,6 +392,10 @@ class AgentEngine {
 
   markRunVisibleProgress(runId, timestamp = isoNow()) {
     return markRunVisibleProgressImpl(this, runId, timestamp);
+  }
+
+  markRunVisibleReply(runId, timestamp = isoNow()) {
+    return markRunVisibleReplyImpl(this, runId, timestamp);
   }
 
   markRunFinalDelivery(runId, content = '', timestamp = isoNow()) {

@@ -78,6 +78,41 @@ test('WhatsApp self-chat mode only accepts notes from the account self-chat', ()
   );
 });
 
+test('WhatsApp self-chat mode recognizes the LID self chat right after linking', () => {
+  const platform = selfChatPlatform();
+  // What a freshly linked session looks like: sock.user is the copy Baileys
+  // took before the connection opened, so only the live creds hold the LID.
+  platform.sock.authState = {
+    creds: {
+      me: { id: '49123456789:21@s.whatsapp.net', lid: '210987654321055:21@lid' },
+    },
+  };
+
+  assert.equal(
+    platform._shouldProcessInbound(
+      message({ remoteJid: '210987654321055@lid', fromMe: true }),
+      'notify'
+    ),
+    true
+  );
+  // The phone-number form of the self chat keeps working alongside it.
+  assert.equal(
+    platform._shouldProcessInbound(
+      message({ remoteJid: OWN_JID, fromMe: true }),
+      'notify'
+    ),
+    true
+  );
+  // Someone else's LID chat is still not the self chat.
+  assert.equal(
+    platform._shouldProcessInbound(
+      message({ remoteJid: '219876543210099@lid', fromMe: true }),
+      'notify'
+    ),
+    false
+  );
+});
+
 test('WhatsApp self-chat mode never reads back what the agent wrote', () => {
   const platform = selfChatPlatform();
   const agentReply = message({

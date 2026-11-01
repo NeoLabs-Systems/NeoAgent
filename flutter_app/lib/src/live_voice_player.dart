@@ -41,9 +41,22 @@ class LiveVoicePlayer {
     return remaining.isNegative ? Duration.zero : remaining;
   }
 
+  /// Opening, flushing and closing run one after another. A new call that
+  /// starts while the last one is still closing would otherwise find the old
+  /// stream about to close and play into nothing.
+  Future<void> _queue = Future<void>.value();
+
+  Future<void> _serial(Future<void> Function() step) {
+    final next = _queue.then((_) => step());
+    _queue = next.catchError((Object _) {});
+    return next;
+  }
+
   Future<void> start({required int sampleRate}) {
-    _sampleRate = sampleRate;
-    return _starting = _openPlayback();
+    return _starting = _serial(() {
+      _sampleRate = sampleRate;
+      return _openPlayback();
+    });
   }
 
   Future<void> _openPlayback() async {
@@ -190,7 +203,9 @@ class LiveVoicePlayer {
     SoLoud.instance.setPause(handle, false);
   }
 
-  Future<void> flush() async {
+  Future<void> flush() => _serial(_flush);
+
+  Future<void> _flush() async {
     _speechEndsAt = DateTime.fromMillisecondsSinceEpoch(0);
     if (_useAndroidTrack) {
       if (_androidStarted) await _androidChannel.invokeMethod<void>('flush');
@@ -201,7 +216,9 @@ class LiveVoicePlayer {
     await _openStream();
   }
 
-  Future<void> stop() async {
+  Future<void> stop() => _serial(_stop);
+
+  Future<void> _stop() async {
     _speechEndsAt = DateTime.fromMillisecondsSinceEpoch(0);
     await _releaseWorkClicks();
     if (_useAndroidTrack) {

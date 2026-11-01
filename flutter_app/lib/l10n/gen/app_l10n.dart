@@ -771,6 +771,18 @@ abstract class AppL10n {
   /// **'Add Memory'**
   String get addMemory;
 
+  /// No description provided for @memoryReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Review'**
+  String get memoryReview;
+
+  /// No description provided for @memoryReviewPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Review all my memories and clean them up: archive duplicates, outdated facts and anything without lasting value. Then tell me briefly what you changed.'**
+  String get memoryReviewPrompt;
+
   /// No description provided for @addMoreLengthOrAnotherCharacter.
   ///
   /// In en, this message translates to:
@@ -2479,12 +2491,6 @@ abstract class AppL10n {
   /// **'At least 1.'**
   String get atLeast1;
 
-  /// No description provided for @atLeast1000AppliesAfterA.
-  ///
-  /// In en, this message translates to:
-  /// **'At least 1000. Applies after a server restart.'**
-  String get atLeast1000AppliesAfterA;
-
   /// No description provided for @attachFiles.
   ///
   /// In en, this message translates to:
@@ -2905,12 +2911,6 @@ abstract class AppL10n {
   /// **'Brave Search'**
   String get braveSearch;
 
-  /// No description provided for @breakdown.
-  ///
-  /// In en, this message translates to:
-  /// **'Breakdown:'**
-  String get breakdown;
-
   /// No description provided for @bridgeAnyProviderThatCanPost.
   ///
   /// In en, this message translates to:
@@ -3000,12 +3000,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Cancel task'**
   String get cancelTask;
-
-  /// No description provided for @candidateCountArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Candidate Count: {arg1}'**
-  String candidateCountArg1(Object? arg1);
 
   /// No description provided for @cannotPreview.
   ///
@@ -3792,12 +3786,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Content'**
   String get content;
-
-  /// No description provided for @contentArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Content: {arg1}'**
-  String contentArg1(Object? arg1);
 
   /// No description provided for @contentSecurityPolicy.
   ///
@@ -5353,12 +5341,6 @@ abstract class AppL10n {
   /// **'\nerror: {arg1}'**
   String errorArg1(Object? arg1);
 
-  /// No description provided for @errorArg12.
-  ///
-  /// In en, this message translates to:
-  /// **'Error: {arg1}'**
-  String errorArg12(Object? arg1);
-
   /// No description provided for @errorsFromTheRecentLogGrouped.
   ///
   /// In en, this message translates to:
@@ -5394,12 +5376,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Every account on this server loses this shared key. Accounts '**
   String get everyAccountOnThisServerLoses;
-
-  /// No description provided for @everyAccountOnThisServerSecrets.
-  ///
-  /// In en, this message translates to:
-  /// **'every account on this server. Secrets are write-only: leave '**
-  String get everyAccountOnThisServerSecrets;
 
   /// No description provided for @everyAccountOnThisServerUses.
   ///
@@ -5976,12 +5952,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Full setup'**
   String get fullSetup;
-
-  /// No description provided for @fullTextFtsArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Full Text (FTS): {arg1}'**
-  String fullTextFtsArg1(Object? arg1);
 
   /// No description provided for @general.
   ///
@@ -6607,12 +6577,6 @@ abstract class AppL10n {
   /// **'Insert a template'**
   String get insertATemplate;
 
-  /// No description provided for @inspect.
-  ///
-  /// In en, this message translates to:
-  /// **'Inspect'**
-  String get inspect;
-
   /// No description provided for @install.
   ///
   /// In en, this message translates to:
@@ -6702,12 +6666,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Integration'**
   String get integration;
-
-  /// No description provided for @integrationApps.
-  ///
-  /// In en, this message translates to:
-  /// **'Integration apps'**
-  String get integrationApps;
 
   /// No description provided for @integrationConnections.
   ///
@@ -7207,12 +7165,6 @@ abstract class AppL10n {
   /// **'Level {arg1}/{arg2}{arg3}'**
   String levelArg1Arg2Arg3(Object? arg1, Object? arg2, Object? arg3);
 
-  /// No description provided for @lexicalArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Lexical: {arg1}'**
-  String lexicalArg1(Object? arg1);
-
   /// No description provided for @limit20.
   ///
   /// In en, this message translates to:
@@ -7699,30 +7651,6 @@ abstract class AppL10n {
   /// **'Memory: {arg1}'**
   String memoryArg1(Object? arg1);
 
-  /// No description provided for @memoryImportSync.
-  ///
-  /// In en, this message translates to:
-  /// **'memory import sync'**
-  String get memoryImportSync;
-
-  /// No description provided for @memoryIngestionInterval.
-  ///
-  /// In en, this message translates to:
-  /// **'Memory ingestion interval'**
-  String get memoryIngestionInterval;
-
-  /// No description provided for @memoryIngestionIntervalMs.
-  ///
-  /// In en, this message translates to:
-  /// **'Memory ingestion interval (ms)'**
-  String get memoryIngestionIntervalMs;
-
-  /// No description provided for @memoryIngestionIntervalMustBeAt.
-  ///
-  /// In en, this message translates to:
-  /// **'Memory ingestion interval must be at least 1000 ms.'**
-  String get memoryIngestionIntervalMustBeAt;
-
   /// No description provided for @memoryInjected.
   ///
   /// In en, this message translates to:
@@ -7825,12 +7753,6 @@ abstract class AppL10n {
   /// **'Microsoft 365'**
   String get microsoft365;
 
-  /// No description provided for @microsoftSlackAndTheOtherIntegrations.
-  ///
-  /// In en, this message translates to:
-  /// **'Microsoft, Slack and the other integrations. They apply to '**
-  String get microsoftSlackAndTheOtherIntegrations;
-
   /// No description provided for @microsoftTeams.
   ///
   /// In en, this message translates to:
@@ -7896,6 +7818,18 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Model availability'**
   String get modelAvailability;
+
+  /// No description provided for @autoEnableNewModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable new models automatically'**
+  String get autoEnableNewModels;
+
+  /// No description provided for @autoEnableNewModelsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'When off, models a provider adds later stay disabled until you enable them.'**
+  String get autoEnableNewModelsHint;
 
   /// No description provided for @modelAvailabilitySaved.
   ///
@@ -8725,6 +8659,72 @@ abstract class AppL10n {
   /// **'No memory sync'**
   String get noMemorySync;
 
+  /// No description provided for @importPastEmailsIntoMemoryHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Reads the last 12 months of important and sent mail once, so the agent knows your contacts and projects.'**
+  String get importPastEmailsIntoMemoryHint;
+
+  /// No description provided for @emailMemory.
+  ///
+  /// In en, this message translates to:
+  /// **'Email memory'**
+  String get emailMemory;
+
+  /// No description provided for @importNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Import now'**
+  String get importNow;
+
+  /// No description provided for @importOnConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Import past mail when connecting an account'**
+  String get importOnConnect;
+
+  /// No description provided for @sweepStarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Getting ready…'**
+  String get sweepStarting;
+
+  /// No description provided for @sweepReadingProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading emails · {done} of {total}'**
+  String sweepReadingProgress(int done, int total);
+
+  /// No description provided for @sweepReadingFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading emails · {count} found'**
+  String sweepReadingFound(int count);
+
+  /// No description provided for @sweepLearningProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Learning from emails · {done} of {total}'**
+  String sweepLearningProgress(int done, int total);
+
+  /// No description provided for @sweepLastImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Last import: {emails} emails · {memories} new memories'**
+  String sweepLastImport(int emails, int memories);
+
+  /// No description provided for @sweepNothingNew.
+  ///
+  /// In en, this message translates to:
+  /// **'No new emails to import'**
+  String get sweepNothingNew;
+
+  /// No description provided for @sweepFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Import failed: {error}'**
+  String sweepFailed(String error);
+
   /// No description provided for @noModelMatchesArg1.
   ///
   /// In en, this message translates to:
@@ -9073,12 +9073,6 @@ abstract class AppL10n {
   /// **'NVIDIA NIM'**
   String get nvidiaNim;
 
-  /// No description provided for @oauthAppCredentialsThatLetAccounts.
-  ///
-  /// In en, this message translates to:
-  /// **'OAuth app credentials that let accounts connect Google, '**
-  String get oauthAppCredentialsThatLetAccounts;
-
   /// No description provided for @oauthClientId.
   ///
   /// In en, this message translates to:
@@ -9198,12 +9192,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Once'**
   String get once;
-
-  /// No description provided for @oneBlankToKeepWhatIs.
-  ///
-  /// In en, this message translates to:
-  /// **'one blank to keep what is stored.'**
-  String get oneBlankToKeepWhatIs;
 
   /// No description provided for @oneIsSavedOtherChangesIn.
   ///
@@ -10117,12 +10105,6 @@ abstract class AppL10n {
   /// **'queries run; anything that writes is rejected.'**
   String get queriesRunAnythingThatWritesIs;
 
-  /// No description provided for @query.
-  ///
-  /// In en, this message translates to:
-  /// **'Query'**
-  String get query;
-
   /// No description provided for @queryFilter.
   ///
   /// In en, this message translates to:
@@ -10417,12 +10399,6 @@ abstract class AppL10n {
   /// **'Reject invalid TLS certificates'**
   String get rejectInvalidTlsCertificates;
 
-  /// No description provided for @relationArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Relation: {arg1}'**
-  String relationArg1(Object? arg1);
-
   /// No description provided for @releaseAndRestartsConnectedAppsReconnect.
   ///
   /// In en, this message translates to:
@@ -10698,12 +10674,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Results'**
   String get results;
-
-  /// No description provided for @retrievalInspector.
-  ///
-  /// In en, this message translates to:
-  /// **'Retrieval Inspector'**
-  String get retrievalInspector;
 
   /// No description provided for @retry.
   ///
@@ -11257,12 +11227,6 @@ abstract class AppL10n {
   /// **'scheduled time. Once runs are measured it will start earlier.'**
   String get scheduledTimeOnceRunsAreMeasured;
 
-  /// No description provided for @scoreArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Score: {arg1}'**
-  String scoreArg1(Object? arg1);
-
   /// No description provided for @screen.
   ///
   /// In en, this message translates to:
@@ -11502,12 +11466,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Select Trigger'**
   String get selectTrigger;
-
-  /// No description provided for @semanticArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Semantic: {arg1}'**
-  String semanticArg1(Object? arg1);
 
   /// No description provided for @send.
   ///
@@ -14431,12 +14389,6 @@ abstract class AppL10n {
   /// **'Vault operation failed.'**
   String get vaultOperationFailed;
 
-  /// No description provided for @vectorRankArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Vector Rank: {arg1}'**
-  String vectorRankArg1(Object? arg1);
-
   /// No description provided for @verification.
   ///
   /// In en, this message translates to:
@@ -16777,6 +16729,12 @@ abstract class AppL10n {
   /// **'System'**
   String get settingsPageSystem;
 
+  /// No description provided for @settingsPagePlatforms.
+  ///
+  /// In en, this message translates to:
+  /// **'Platforms'**
+  String get settingsPagePlatforms;
+
   /// No description provided for @settingsPageProfileDescription.
   ///
   /// In en, this message translates to:
@@ -18810,6 +18768,1122 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Choose an available username to finish creating your account.'**
   String get providerChooseUsernameBody;
+
+  /// No description provided for @dataSharingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Share usage data'**
+  String get dataSharingTitle;
+
+  /// No description provided for @dataSharingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Help the people running this server improve it. Shares how you use NeoAgent, never what you write or store.'**
+  String get dataSharingDescription;
+
+  /// No description provided for @dataSharingSince.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing since {date}.'**
+  String dataSharingSince(String date);
+
+  /// No description provided for @dataSharingWhatsShared.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s shared'**
+  String get dataSharingWhatsShared;
+
+  /// No description provided for @dataSharingIncluded.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared'**
+  String get dataSharingIncluded;
+
+  /// No description provided for @dataSharingExcluded.
+  ///
+  /// In en, this message translates to:
+  /// **'Never shared'**
+  String get dataSharingExcluded;
+
+  /// No description provided for @dataSharingIncludedDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Device type and app version'**
+  String get dataSharingIncludedDevice;
+
+  /// No description provided for @dataSharingIncludedLocale.
+  ///
+  /// In en, this message translates to:
+  /// **'App language and time zone region, such as Europe'**
+  String get dataSharingIncludedLocale;
+
+  /// No description provided for @dataSharingIncludedFeatures.
+  ///
+  /// In en, this message translates to:
+  /// **'Which features you have set up, like tasks, skills and integrations'**
+  String get dataSharingIncludedFeatures;
+
+  /// No description provided for @dataSharingIncludedRuns.
+  ///
+  /// In en, this message translates to:
+  /// **'Which tools and models your runs use, with timings and token counts'**
+  String get dataSharingIncludedRuns;
+
+  /// No description provided for @dataSharingIncludedActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'When you use NeoAgent, by weekday and hour'**
+  String get dataSharingIncludedActivity;
+
+  /// No description provided for @dataSharingExcludedContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Messages, prompts and replies'**
+  String get dataSharingExcludedContent;
+
+  /// No description provided for @dataSharingExcludedRuns.
+  ///
+  /// In en, this message translates to:
+  /// **'Run titles, tool inputs and results'**
+  String get dataSharingExcludedRuns;
+
+  /// No description provided for @dataSharingExcludedFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Files, memories and anything else you store'**
+  String get dataSharingExcludedFiles;
+
+  /// No description provided for @dataSharingExcludedIdentity.
+  ///
+  /// In en, this message translates to:
+  /// **'Your name, email, IP address and location'**
+  String get dataSharingExcludedIdentity;
+
+  /// No description provided for @dataSharingExcludedAccounts.
+  ///
+  /// In en, this message translates to:
+  /// **'The accounts you connect integrations with'**
+  String get dataSharingExcludedAccounts;
+
+  /// No description provided for @dataSharingPooledNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Admins only see totals across everyone who shares, never you on your own. Turn it off any time and you drop out of the totals right away.'**
+  String get dataSharingPooledNote;
+
+  /// No description provided for @dataSharingConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Share usage data?'**
+  String get dataSharingConfirmTitle;
+
+  /// No description provided for @dataSharingConfirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get dataSharingConfirmAction;
+
+  /// No description provided for @sharedUsageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared usage'**
+  String get sharedUsageTitle;
+
+  /// No description provided for @sharedUsageParticipants.
+  ///
+  /// In en, this message translates to:
+  /// **'{sharing} of {total} accounts share usage data. Totals only, no content.'**
+  String sharedUsageParticipants(int sharing, int total);
+
+  /// No description provided for @sharedUsageEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nobody shares usage data yet. People can turn it on under Settings, Profile, Your data.'**
+  String get sharedUsageEmpty;
+
+  /// No description provided for @sharedUsageRuns.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared runs'**
+  String get sharedUsageRuns;
+
+  /// No description provided for @sharedUsageAvgDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'Avg. duration'**
+  String get sharedUsageAvgDuration;
+
+  /// No description provided for @sharedUsageCompletedRuns.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed runs'**
+  String get sharedUsageCompletedRuns;
+
+  /// No description provided for @sharedUsageStepsPerRun.
+  ///
+  /// In en, this message translates to:
+  /// **'Steps per run'**
+  String get sharedUsageStepsPerRun;
+
+  /// No description provided for @sharedUsageDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Devices'**
+  String get sharedUsageDevices;
+
+  /// No description provided for @sharedUsageAppVersions.
+  ///
+  /// In en, this message translates to:
+  /// **'App versions'**
+  String get sharedUsageAppVersions;
+
+  /// No description provided for @sharedUsageLanguages.
+  ///
+  /// In en, this message translates to:
+  /// **'Languages'**
+  String get sharedUsageLanguages;
+
+  /// No description provided for @sharedUsageRegions.
+  ///
+  /// In en, this message translates to:
+  /// **'Regions'**
+  String get sharedUsageRegions;
+
+  /// No description provided for @sharedUsageFeatures.
+  ///
+  /// In en, this message translates to:
+  /// **'Feature adoption'**
+  String get sharedUsageFeatures;
+
+  /// No description provided for @sharedUsageFeaturesDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Share of sharing accounts that have set each one up.'**
+  String get sharedUsageFeaturesDescription;
+
+  /// No description provided for @sharedUsageTools.
+  ///
+  /// In en, this message translates to:
+  /// **'Tools'**
+  String get sharedUsageTools;
+
+  /// No description provided for @sharedUsageToolsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Most called tools in the last {range}.'**
+  String sharedUsageToolsDescription(String range);
+
+  /// No description provided for @sharedUsageToolCalls.
+  ///
+  /// In en, this message translates to:
+  /// **'{calls} calls'**
+  String sharedUsageToolCalls(String calls);
+
+  /// No description provided for @sharedUsageToolFailures.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% failed'**
+  String sharedUsageToolFailures(int percent);
+
+  /// No description provided for @sharedUsageIntegrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Integrations'**
+  String get sharedUsageIntegrations;
+
+  /// No description provided for @sharedUsageMessaging.
+  ///
+  /// In en, this message translates to:
+  /// **'Messaging channels'**
+  String get sharedUsageMessaging;
+
+  /// No description provided for @sharedUsageTriggers.
+  ///
+  /// In en, this message translates to:
+  /// **'How runs start'**
+  String get sharedUsageTriggers;
+
+  /// No description provided for @sharedUsageActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'When people use it'**
+  String get sharedUsageActivity;
+
+  /// No description provided for @sharedUsageActivityDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Runs by weekday and hour, UTC.'**
+  String get sharedUsageActivityDescription;
+
+  /// No description provided for @sharedUsageModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Model performance'**
+  String get sharedUsageModels;
+
+  /// No description provided for @sharedUsageModelDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'{latency} avg · {cached}% cached · {cost}'**
+  String sharedUsageModelDetail(String latency, int cached, String cost);
+
+  /// No description provided for @sharedUsageAccounts.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 account} other{{count} accounts}}'**
+  String sharedUsageAccounts(int count);
+
+  /// No description provided for @sharedUsageNoData.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing in this range.'**
+  String get sharedUsageNoData;
+
+  /// No description provided for @sharedUsageNotReported.
+  ///
+  /// In en, this message translates to:
+  /// **'Not reported yet'**
+  String get sharedUsageNotReported;
+
+  /// No description provided for @sharedUsageFeatureAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'More than one agent'**
+  String get sharedUsageFeatureAgents;
+
+  /// No description provided for @sharedUsageFeatureTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled tasks'**
+  String get sharedUsageFeatureTasks;
+
+  /// No description provided for @sharedUsageFeatureSkills.
+  ///
+  /// In en, this message translates to:
+  /// **'Skills'**
+  String get sharedUsageFeatureSkills;
+
+  /// No description provided for @sharedUsageFeatureMcp.
+  ///
+  /// In en, this message translates to:
+  /// **'MCP servers'**
+  String get sharedUsageFeatureMcp;
+
+  /// No description provided for @sharedUsageFeatureIntegrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Integrations'**
+  String get sharedUsageFeatureIntegrations;
+
+  /// No description provided for @sharedUsageFeatureMessaging.
+  ///
+  /// In en, this message translates to:
+  /// **'Messaging channels'**
+  String get sharedUsageFeatureMessaging;
+
+  /// No description provided for @sharedUsageFeatureMemory.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory'**
+  String get sharedUsageFeatureMemory;
+
+  /// No description provided for @sharedUsageSearchKeywords.
+  ///
+  /// In en, this message translates to:
+  /// **'opt-in data sharing telemetry devices features tools models activity'**
+  String get sharedUsageSearchKeywords;
+
+  /// No description provided for @yourOAuthApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Your OAuth app'**
+  String get yourOAuthApp;
+
+  /// No description provided for @oauthAppSetupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {provider} OAuth app'**
+  String oauthAppSetupTitle(String provider);
+
+  /// No description provided for @oauthAppSetupIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'This server has no global {provider} app, so you connect with an OAuth app you register yourself. The client secret is stored encrypted and is never shown again.'**
+  String oauthAppSetupIntro(String provider);
+
+  /// No description provided for @oauthAppStepCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'1. Create the app'**
+  String get oauthAppStepCreate;
+
+  /// No description provided for @openDeveloperConsole.
+  ///
+  /// In en, this message translates to:
+  /// **'Open developer console'**
+  String get openDeveloperConsole;
+
+  /// No description provided for @oauthAppStepCallback.
+  ///
+  /// In en, this message translates to:
+  /// **'2. Register this callback URL'**
+  String get oauthAppStepCallback;
+
+  /// No description provided for @callbackUrlCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Callback URL copied'**
+  String get callbackUrlCopied;
+
+  /// No description provided for @oauthAppScopes.
+  ///
+  /// In en, this message translates to:
+  /// **'Scopes to allow'**
+  String get oauthAppScopes;
+
+  /// No description provided for @scopesCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Scopes copied'**
+  String get scopesCopied;
+
+  /// No description provided for @oauthAppStepCredentials.
+  ///
+  /// In en, this message translates to:
+  /// **'3. Paste the app credentials'**
+  String get oauthAppStepCredentials;
+
+  /// No description provided for @couldNotSaveOAuthApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save the OAuth app.'**
+  String get couldNotSaveOAuthApp;
+
+  /// No description provided for @removeOAuthAppTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove your {provider} app?'**
+  String removeOAuthAppTitle(String provider);
+
+  /// No description provided for @removeOAuthAppBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected accounts stay listed but stop working until you add an app again.'**
+  String get removeOAuthAppBody;
+
+  /// No description provided for @globalIntegrationConfiguration.
+  ///
+  /// In en, this message translates to:
+  /// **'Global integration configuration'**
+  String get globalIntegrationConfiguration;
+
+  /// No description provided for @globalIntegrationConfigurationDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional server-wide OAuth apps. When an integration has one, every account uses it and cannot add its own. Leave an integration unset and each user sets up their own app instead. Secrets are write-only: leave one blank to keep what is stored.'**
+  String get globalIntegrationConfigurationDescription;
+
+  /// No description provided for @globalStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Global'**
+  String get globalStatus;
+
+  /// No description provided for @perUserStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Per user'**
+  String get perUserStatus;
+
+  /// No description provided for @phoneSyncGuidance.
+  ///
+  /// In en, this message translates to:
+  /// **'Share this phone\'s calendars and contacts with your agent. It works with every account already on the phone.'**
+  String get phoneSyncGuidance;
+
+  /// No description provided for @phoneSyncElsewhereGuidance.
+  ///
+  /// In en, this message translates to:
+  /// **'Open NeoAgent on your phone and turn on sharing there. Your agent then sees the calendars and contacts of every account on that phone.'**
+  String get phoneSyncElsewhereGuidance;
+
+  /// No description provided for @manageOnThisPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage on this phone'**
+  String get manageOnThisPhone;
+
+  /// No description provided for @setUpOnThisPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up on this phone'**
+  String get setUpOnThisPhone;
+
+  /// No description provided for @setUpOnPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up on your phone'**
+  String get setUpOnPhone;
+
+  /// No description provided for @emailConnectedArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected {email}'**
+  String emailConnectedArg1(String email);
+
+  /// No description provided for @couldNotConnectEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not connect this account.'**
+  String get couldNotConnectEmail;
+
+  /// No description provided for @emailSetupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect email & calendar'**
+  String get emailSetupTitle;
+
+  /// No description provided for @emailChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking your mailbox…'**
+  String get emailChecking;
+
+  /// No description provided for @emailSetupIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Use an app password from your mail provider. No developer console, ready in a couple of minutes.'**
+  String get emailSetupIntro;
+
+  /// No description provided for @emailOpenArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Open {provider}'**
+  String emailOpenArg1(String provider);
+
+  /// No description provided for @emailStepServers.
+  ///
+  /// In en, this message translates to:
+  /// **'1. Enter your servers'**
+  String get emailStepServers;
+
+  /// No description provided for @emailStepPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'1. Create an app password'**
+  String get emailStepPassword;
+
+  /// No description provided for @emailOpenPasswordPageArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Open {provider} app passwords'**
+  String emailOpenPasswordPageArg1(String provider);
+
+  /// No description provided for @emailStepSignIn.
+  ///
+  /// In en, this message translates to:
+  /// **'2. Sign in'**
+  String get emailStepSignIn;
+
+  /// No description provided for @appPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'App password'**
+  String get appPassword;
+
+  /// No description provided for @appPasswordHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Spaces don\'t matter. NeoAgent stores it encrypted.'**
+  String get appPasswordHelper;
+
+  /// No description provided for @emailUsernameOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Username, if not your email address'**
+  String get emailUsernameOptional;
+
+  /// No description provided for @emailIncludeCalendar.
+  ///
+  /// In en, this message translates to:
+  /// **'Include calendar'**
+  String get emailIncludeCalendar;
+
+  /// No description provided for @emailIncludeContacts.
+  ///
+  /// In en, this message translates to:
+  /// **'Include contacts'**
+  String get emailIncludeContacts;
+
+  /// No description provided for @imapServer.
+  ///
+  /// In en, this message translates to:
+  /// **'IMAP server'**
+  String get imapServer;
+
+  /// No description provided for @smtpServer.
+  ///
+  /// In en, this message translates to:
+  /// **'SMTP server'**
+  String get smtpServer;
+
+  /// No description provided for @caldavUrlOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'CalDAV URL (optional)'**
+  String get caldavUrlOptional;
+
+  /// No description provided for @carddavUrlOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'CardDAV URL (optional)'**
+  String get carddavUrlOptional;
+
+  /// No description provided for @alternativeEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect your mailbox with an app password, or your calendar by its iCal link. Ready in a couple of minutes.'**
+  String get alternativeEmail;
+
+  /// No description provided for @alternativePhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Share the calendar and contacts already on your phone through the NeoAgent app.'**
+  String get alternativePhone;
+
+  /// No description provided for @alternativePhoneElsewhere.
+  ///
+  /// In en, this message translates to:
+  /// **'Share the calendar and contacts already on your phone. Set it up in the NeoAgent phone app.'**
+  String get alternativePhoneElsewhere;
+
+  /// No description provided for @skipTheDeveloperConsole.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip the developer console'**
+  String get skipTheDeveloperConsole;
+
+  /// No description provided for @phoneSyncPromptTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Let your agent see your calendar?'**
+  String get phoneSyncPromptTitle;
+
+  /// No description provided for @phoneSyncPromptBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Share this phone\'s calendars and contacts so your agent can plan around your day. You can change this anytime in Tools › Integrations.'**
+  String get phoneSyncPromptBody;
+
+  /// No description provided for @phoneSyncTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Share this phone\'s calendar & contacts'**
+  String get phoneSyncTitle;
+
+  /// No description provided for @phoneSyncIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Your agent sees the calendars and contacts of every account already on this phone. No developer console, no extra sign-in.'**
+  String get phoneSyncIntro;
+
+  /// No description provided for @phoneSyncPointAccounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Works with the Google, Outlook, iCloud and Exchange accounts on this phone.'**
+  String get phoneSyncPointAccounts;
+
+  /// No description provided for @phoneSyncPointPrivate.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared only with your NeoAgent server, where it is stored encrypted.'**
+  String get phoneSyncPointPrivate;
+
+  /// No description provided for @phoneSyncPointWrites.
+  ///
+  /// In en, this message translates to:
+  /// **'Events your agent adds are created by this phone and sync on as usual.'**
+  String get phoneSyncPointWrites;
+
+  /// No description provided for @phoneSyncCalendarHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Events from 30 days ago to 90 days ahead'**
+  String get phoneSyncCalendarHint;
+
+  /// No description provided for @phoneSyncContacts.
+  ///
+  /// In en, this message translates to:
+  /// **'Contacts'**
+  String get phoneSyncContacts;
+
+  /// No description provided for @phoneSyncContactsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Names, email addresses and phone numbers'**
+  String get phoneSyncContactsHint;
+
+  /// No description provided for @phoneSyncOtherAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'This phone shares with another agent. Sharing here moves it to this agent.'**
+  String get phoneSyncOtherAgent;
+
+  /// No description provided for @phoneSyncDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent doesn\'t have access yet. Allow it in Settings, then come back.'**
+  String get phoneSyncDenied;
+
+  /// No description provided for @openPhoneSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get openPhoneSettings;
+
+  /// No description provided for @phoneSyncShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share with NeoAgent'**
+  String get phoneSyncShare;
+
+  /// No description provided for @phoneSyncStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop sharing'**
+  String get phoneSyncStop;
+
+  /// No description provided for @phoneSyncWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for the first sync…'**
+  String get phoneSyncWaiting;
+
+  /// No description provided for @phoneSyncLastSyncedArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Last synced {time}'**
+  String phoneSyncLastSyncedArg1(String time);
+
+  /// No description provided for @calendarLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Calendar link'**
+  String get calendarLink;
+
+  /// No description provided for @calendarLinkHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'The calendar\'s iCal address. Anyone with it can read the calendar, so keep it private.'**
+  String get calendarLinkHelper;
+
+  /// No description provided for @calendarLinkName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name (optional)'**
+  String get calendarLinkName;
+
+  /// No description provided for @calendarLinkAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Calendar added'**
+  String get calendarLinkAdded;
+
+  /// No description provided for @toolsApps.
+  ///
+  /// In en, this message translates to:
+  /// **'Apps'**
+  String get toolsApps;
+
+  /// No description provided for @reconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnect'**
+  String get reconnect;
+
+  /// No description provided for @reconnectNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnect needed'**
+  String get reconnectNeeded;
+
+  /// No description provided for @mixedAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Mixed access'**
+  String get mixedAccess;
+
+  /// No description provided for @disconnectAccountTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect {account}?'**
+  String disconnectAccountTitle(String account);
+
+  /// No description provided for @disconnectAccountBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The agent loses access to {apps} through this account.'**
+  String disconnectAccountBody(String apps);
+
+  /// No description provided for @neoRouterServerDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect your NeoRouter once and every account here uses it for the work switched on below.'**
+  String get neoRouterServerDescription;
+
+  /// No description provided for @neoRouterUserDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Use your own NeoRouter account for the work switched on below instead of this server\'s providers.'**
+  String get neoRouterUserDescription;
+
+  /// No description provided for @neoRouterAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoRouter address'**
+  String get neoRouterAddress;
+
+  /// No description provided for @neoRouterConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect NeoRouter'**
+  String get neoRouterConnect;
+
+  /// No description provided for @neoRouterWaitingArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve NeoAgent in NeoRouter. It shows the code {arg1}.'**
+  String neoRouterWaitingArg1(Object? arg1);
+
+  /// No description provided for @neoRouterOpenAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Open again'**
+  String get neoRouterOpenAgain;
+
+  /// No description provided for @neoRouterConnectedArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected to {arg1}'**
+  String neoRouterConnectedArg1(Object? arg1);
+
+  /// No description provided for @neoRouterUnreachable.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoRouter cannot be reached right now.'**
+  String get neoRouterUnreachable;
+
+  /// No description provided for @neoRouterDisconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect'**
+  String get neoRouterDisconnect;
+
+  /// No description provided for @neoRouterDisconnectBody.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent stops using this NeoRouter. To withdraw its key as well, revoke it under API keys in NeoRouter.'**
+  String get neoRouterDisconnectBody;
+
+  /// No description provided for @neoRouterServerInUse.
+  ///
+  /// In en, this message translates to:
+  /// **'This server already uses a NeoRouter for everyone. Connect your own NeoRouter account for your own models and budget.'**
+  String get neoRouterServerInUse;
+
+  /// No description provided for @neoRouterConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoRouter is connected.'**
+  String get neoRouterConnected;
+
+  /// No description provided for @neoRouterRoleChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat and vision'**
+  String get neoRouterRoleChat;
+
+  /// No description provided for @neoRouterRoleSystemOne.
+  ///
+  /// In en, this message translates to:
+  /// **'System One decisions'**
+  String get neoRouterRoleSystemOne;
+
+  /// No description provided for @neoRouterRoleTranscription.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech to text'**
+  String get neoRouterRoleTranscription;
+
+  /// No description provided for @neoRouterRoleLive.
+  ///
+  /// In en, this message translates to:
+  /// **'Live voice'**
+  String get neoRouterRoleLive;
+
+  /// No description provided for @neoRouterRoleEmbeddings.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory search'**
+  String get neoRouterRoleEmbeddings;
+
+  /// No description provided for @neoRouterRoleImages.
+  ///
+  /// In en, this message translates to:
+  /// **'Image generation'**
+  String get neoRouterRoleImages;
+
+  /// No description provided for @neoRouterRoleSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Web search'**
+  String get neoRouterRoleSearch;
+
+  /// No description provided for @neoRouterModelCountArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'{arg1} available in your NeoRouter'**
+  String neoRouterModelCountArg1(Object? arg1);
+
+  /// No description provided for @neoRouterNoModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing available in your NeoRouter yet.'**
+  String get neoRouterNoModels;
+
+  /// No description provided for @neoRouterPicksModels.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoRouter picks the model for every request, so this pool is not used.'**
+  String get neoRouterPicksModels;
+
+  /// No description provided for @neoRouterNotAllowedArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'{arg1} in your NeoRouter, but NeoAgent\'s key may not use them yet (for example paid ones). Allow them for NeoAgent under API keys in NeoRouter.'**
+  String neoRouterNotAllowedArg1(Object? arg1);
+
+  /// No description provided for @neoRouterNoDecisionModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs decision models such as Jev. Safety classifiers cannot answer these questions.'**
+  String get neoRouterNoDecisionModels;
+
+  /// No description provided for @voiceLiveNoProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'No live voice provider is set up. Add an OpenAI or Google AI key, or connect a NeoRouter, under Models → Bring your own key.'**
+  String get voiceLiveNoProvider;
+
+  /// No description provided for @voiceSttAutoNeoRouter.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto (NeoRouter picks the model)'**
+  String get voiceSttAutoNeoRouter;
+
+  /// No description provided for @voiceNotOffered.
+  ///
+  /// In en, this message translates to:
+  /// **'No longer offered, pick another'**
+  String get voiceNotOffered;
+
+  /// No description provided for @agentImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Bring over another agent'**
+  String get agentImport;
+
+  /// No description provided for @agentImportDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Copies OpenClaw or Hermes Agent from the server\'s computer (~/.openclaw and ~/.hermes) into your account. Nothing is removed there, and importing twice does not duplicate anything.'**
+  String get agentImportDescription;
+
+  /// No description provided for @agentImportNoneFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No OpenClaw or Hermes Agent was found in ~/.openclaw or ~/.hermes on the server\'s computer.'**
+  String get agentImportNoneFound;
+
+  /// No description provided for @agentImportWhatComes.
+  ///
+  /// In en, this message translates to:
+  /// **'What comes over'**
+  String get agentImportWhatComes;
+
+  /// No description provided for @agentImportAgentsAlways.
+  ///
+  /// In en, this message translates to:
+  /// **'Agents and their personality always come over; everything else is attached to them.'**
+  String get agentImportAgentsAlways;
+
+  /// No description provided for @agentImportPartKeys.
+  ///
+  /// In en, this message translates to:
+  /// **'Keys and AI providers'**
+  String get agentImportPartKeys;
+
+  /// No description provided for @agentImportPartMemories.
+  ///
+  /// In en, this message translates to:
+  /// **'Memories and notes'**
+  String get agentImportPartMemories;
+
+  /// No description provided for @agentImportPartSkills.
+  ///
+  /// In en, this message translates to:
+  /// **'Skills'**
+  String get agentImportPartSkills;
+
+  /// No description provided for @agentImportPartModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Default model'**
+  String get agentImportPartModel;
+
+  /// No description provided for @agentImportPartTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Automations'**
+  String get agentImportPartTasks;
+
+  /// No description provided for @agentImportPartMcp.
+  ///
+  /// In en, this message translates to:
+  /// **'MCP servers'**
+  String get agentImportPartMcp;
+
+  /// No description provided for @agentImportPartChannels.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat apps'**
+  String get agentImportPartChannels;
+
+  /// No description provided for @agentImportCountAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 agent} other{{count} agents}}'**
+  String agentImportCountAgents(int count);
+
+  /// No description provided for @agentImportCountKeys.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 connection} other{{count} connections}}'**
+  String agentImportCountKeys(int count);
+
+  /// No description provided for @agentImportCountMemories.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 memory} other{{count} memories}}'**
+  String agentImportCountMemories(int count);
+
+  /// No description provided for @agentImportCountDays.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 day of notes} other{{count} days of notes}}'**
+  String agentImportCountDays(int count);
+
+  /// No description provided for @agentImportCountSkills.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 skill} other{{count} skills}}'**
+  String agentImportCountSkills(int count);
+
+  /// No description provided for @agentImportCountTasks.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 automation} other{{count} automations}}'**
+  String agentImportCountTasks(int count);
+
+  /// No description provided for @agentImportCountMcp.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 MCP server} other{{count} MCP servers}}'**
+  String agentImportCountMcp(int count);
+
+  /// No description provided for @agentImportNeedsHandCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 thing needs a hand afterwards} other{{count} things need a hand afterwards}}'**
+  String agentImportNeedsHandCount(int count);
+
+  /// No description provided for @agentImportFinish.
+  ///
+  /// In en, this message translates to:
+  /// **'Let NeoAgent finish moving in'**
+  String get agentImportFinish;
+
+  /// No description provided for @agentImportFinishHint.
+  ///
+  /// In en, this message translates to:
+  /// **'After the restart, your agent reworks imported skills for its own tools and rebuilds what the importer left behind. Needs a connected AI.'**
+  String get agentImportFinishHint;
+
+  /// No description provided for @agentImportRun.
+  ///
+  /// In en, this message translates to:
+  /// **'Bring it over'**
+  String get agentImportRun;
+
+  /// No description provided for @agentImportRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Bringing it over…'**
+  String get agentImportRunning;
+
+  /// No description provided for @agentImportMovedIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Moved in'**
+  String get agentImportMovedIn;
+
+  /// No description provided for @agentImportAlreadyMovedIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Everything was already in NeoAgent.'**
+  String get agentImportAlreadyMovedIn;
+
+  /// No description provided for @agentImportAlreadyThere.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} already in NeoAgent, left as they were'**
+  String agentImportAlreadyThere(int count);
+
+  /// No description provided for @agentImportNeedsHand.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs a hand'**
+  String get agentImportNeedsHand;
+
+  /// No description provided for @agentImportMore.
+  ///
+  /// In en, this message translates to:
+  /// **'…and {count} more in the report.'**
+  String agentImportMore(int count);
+
+  /// No description provided for @agentImportReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Full report: {path}'**
+  String agentImportReport(String path);
+
+  /// No description provided for @agentImportFinishQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Queued \"{name}\". It starts two minutes after NeoAgent restarts, and you\'ll get a message when it\'s done.'**
+  String agentImportFinishQueued(String name);
+
+  /// No description provided for @agentImportRestartNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Restart NeoAgent to load everything that came over.'**
+  String get agentImportRestartNeeded;
+
+  /// No description provided for @agentImportRestarted.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent restarted and loaded everything.'**
+  String get agentImportRestarted;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

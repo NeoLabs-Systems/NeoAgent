@@ -154,6 +154,8 @@
   "addKey": "Dodaj ključ",
   "addMcpServer": "Dodajte strežnik MCP",
   "addMemory": "Dodaj pomnilnik",
+  "memoryReview": "Preglej",
+  "memoryReviewPrompt": "Preglej vse moje spomine in jih pospravi: arhiviraj dvojnike, zastarela dejstva in vse brez trajne vrednosti. Nato mi na kratko povej, kaj si spremenil.",
   "addMoreLengthOrAnotherCharacter": "Dodajte večjo dolžino ali drugo vrsto znaka.",
   "addPeopleOrGroups": "Dodajte osebe ali skupine",
   "addSecurityKey": "Dodajte varnostni ključ",
@@ -1901,7 +1903,6 @@
   "assistant": "Pomočnik",
   "assistantKey131": "Tipka pomočnika 131",
   "atLeast1": "Vsaj 1.",
-  "atLeast1000AppliesAfterA": "Vsaj 1000. Velja po ponovnem zagonu strežnika.",
   "attachFiles": "Priloži datoteke",
   "attentionArg1": "Pozor {arg1}",
   "@attentionArg1": {
@@ -2007,7 +2008,6 @@
   "botUsername": "Uporabniško ime za bota",
   "brandName": "Blagovna znamka",
   "braveSearch": "Pogumno iskanje",
-  "breakdown": "Razčlenitev:",
   "bridgeAnyProviderThatCanPost": "Premostite vse ponudnike, ki lahko objavljajo in prejemajo obremenitve webhook.",
   "bringYourOwnKey": "prinesite svoj ključ",
   "bringYourOwnKey2": "Prinesite svoj ključ",
@@ -2030,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Lahko prejema delegirane naloge",
   "cancel": "Prekliči",
   "cancelTask": "Prekliči nalogo",
-  "candidateCountArg1": "Število kandidatov: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Predogleda ni mogoče",
   "cannotReceiveDelegatedTasks": "ne more prejemati prenesenih nalog",
   "cannotRunYet": "še ne more teči.",
@@ -2308,14 +2300,6 @@
   "connectionMethod": "Način povezave",
   "containsTextOptional": "Vsebuje besedilo (neobvezno)",
   "content": "Vsebina",
-  "contentArg1": "Vsebina: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "politiko varnosti vsebine",
   "continue2": "Nadaljuj",
   "continueFullSetup": "Nadaljujte s popolno nastavitvijo",
@@ -2752,21 +2736,12 @@
       }
     }
   },
-  "errorArg12": "Napaka: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Napake iz nedavnega dnevnika, razvrščene po sporočilih.",
   "errorsProblemsFailures": "napake težave napake",
   "eventTypesCommaSeparated": "Vrste dogodkov (ločeno z vejicami)",
   "every15Minutes": "Vsakih 15 minut",
   "every30Minutes": "Vsakih 30 minut",
   "everyAccountOnThisServerLoses": "Vsak račun na tem strežniku izgubi ta skupni ključ. Računi ",
-  "everyAccountOnThisServerSecrets": "vsak račun na tem strežniku. Skrivnosti so samo za pisanje: pusti ",
   "everyAccountOnThisServerUses": "Vsak račun na tem strežniku uporablja ta naslov za ",
   "everyActiveSessionForThisAccount": "Vsaka aktivna seja za ta račun se konča. Lahko se prijavijo ",
   "everyDay0800": "Vsak dan · 08:00",
@@ -3012,14 +2987,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Celoten poziv",
   "fullSetup": "Popolna nastavitev",
-  "fullTextFtsArg1": "Celotno besedilo (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Splošno",
   "generalSettings": "Splošne nastavitve",
   "generalSettingsSaved": "Splošne nastavitve so shranjene.",
@@ -3218,7 +3185,6 @@
   "input": "Vnos",
   "inputMode": "Način vnosa",
   "insertATemplate": "Vstavite predlogo",
-  "inspect": "Preglejte",
   "install": "Namestite",
   "installASignedSelfContainedRuntime": "Namestite podpisano, samostojno izvajalno okolje. Ukazi Node.js, npm, Git in terminal niso potrebni.",
   "installApk": "Namestite APK",
@@ -3251,7 +3217,6 @@
   },
   "instructions": "Navodila",
   "integration": "Integracija",
-  "integrationApps": "Integracijske aplikacije",
   "integrationConnections": "Integracijske povezave",
   "integrationSettingsSaved": "Nastavitve integracije so shranjene.",
   "integrations": "Integracije",
@@ -3470,14 +3435,6 @@
       }
     }
   },
-  "lexicalArg1": "Leksikalno: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "limit20": "LIMIT 20",
   "limit50": "LIMIT 50",
   "linkArg1": "Povezava {arg1}",
@@ -3601,10 +3558,6 @@
       }
     }
   },
-  "memoryImportSync": "sinhronizacija uvoza pomnilnika",
-  "memoryIngestionInterval": "Interval zaužitja pomnilnika",
-  "memoryIngestionIntervalMs": "Interval zaužitja pomnilnika (ms)",
-  "memoryIngestionIntervalMustBeAt": "Interval vnosa pomnilnika mora biti vsaj 1000 ms.",
   "memoryInjected": "Pomnilnik vstavljen",
   "mentionOrReplyOnly": "Samo omemba ali odgovor",
   "mergedServerAndFlutterRuntimeLogs": "Združeni dnevniki strežnika in izvajalnega okolja Flutter za to sejo aplikacije.",
@@ -3629,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Mikrofon izklopljen. Tapnite za vklop zvoka.",
   "microphonePermissionIsRequiredForLive": "Za glas v živo je potrebno dovoljenje za mikrofon.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack in druge integracije. Veljajo za ",
   "microsoftTeams": "Microsoft Teams",
   "minimumContributionValueArg1": "Najmanjša vrednost prispevka: {arg1}",
   "@minimumContributionValueArg1": {
@@ -3676,6 +3628,8 @@
     }
   },
   "modelAvailability": "Razpoložljivost modela",
+  "autoEnableNewModels": "Samodejno omogoči nove modele",
+  "autoEnableNewModelsHint": "Ko je izklopljeno, modeli, ki jih ponudnik doda pozneje, ostanejo onemogočeni, dokler jih ne omogočite.",
   "modelAvailabilitySaved": "Razpoložljivost modela je shranjena.",
   "modelForThisSession": "Model za to sejo",
   "modelOverride": "Preglasitev modela",
@@ -3911,6 +3865,61 @@
   "noMcpServersMatchThisSearch": "Noben strežnik MCP ne ustreza temu iskanju.",
   "noMemoryEntriesFound": "Ni najdenih vnosov v pomnilnik.",
   "noMemorySync": "Ni sinhronizacije pomnilnika",
+  "importPastEmailsIntoMemoryHint": "Enkrat prebere pomembna in poslana sporočila zadnjih 12 mesecev, da agent pozna vaše stike in projekte.",
+  "emailMemory": "Pomnilnik e-pošte",
+  "importNow": "Uvozi zdaj",
+  "importOnConnect": "Ob povezavi računa uvozi starejšo pošto",
+  "sweepStarting": "Pripravljanje…",
+  "sweepReadingProgress": "Branje e-pošte · {done} od {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Branje e-pošte · najdenih {count}",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Učenje iz e-pošte · {done} od {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Zadnji uvoz: {emails} e-sporočil · {memories} novih spominov",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Ni novih e-sporočil za uvoz",
+  "sweepFailed": "Uvoz ni uspel: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Noben model se ne ujema z \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -3997,7 +4006,6 @@
   "nothingStoredYet": "Nič še ni shranjeno.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "Poverilnice aplikacije OAuth, ki računom omogočajo povezavo z Googlom, ",
   "oauthClientId": "ID odjemalca OAuth",
   "oauthClientIdSecretRedirectApi": "ID odjemalca oauth skrivni ključ API za preusmeritev",
   "oauthClientIdSecretRedirectGmail": "oauth id odjemalca skrivna preusmeritev gmail koledar pogon",
@@ -4035,7 +4043,6 @@
   "onTheyCanJoinAgainOnly": "na. Ponovno se lahko pridružijo le z novo povezavo s povabilom.",
   "onYourOwnTheDefault": "Sami (privzeto)",
   "once": "Enkrat",
-  "oneBlankToKeepWhatIs": "ena prazna, da ostane shranjeno.",
   "oneIsSavedOtherChangesIn": "eden je shranjen. Shranijo se tudi druge spremembe v tem obrazcu.",
   "oneOrMoreAccountsExpiredReconnect": "Eden ali več računov je poteklo. Znova povežite prizadeti račun, da obnovite dostop do orodja.",
   "oneRuntimeControlsPersonaGroupTurn": "En čas izvajanja nadzoruje osebnost, nadomestne skupine, pomnilnik sobe, norme, teorijo uma in dostavo.",
@@ -4292,7 +4299,6 @@
   "qrLoginRequestWasNotFound": "zahteve za prijavo qr ni bilo mogoče najti",
   "qrPairing": "Seznanjanje QR",
   "queriesRunAnythingThatWritesIs": "izvajanje poizvedb; vse kar piše se zavrne.",
-  "query": "Poizvedba",
   "queryFilter": "Poizvedba / Filter",
   "queuedAsSteeringForTheCurrent": "V čakalni vrsti kot krmiljenje za trenutno vožnjo: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4377,14 +4383,6 @@
   "registrationIsClosed": "registracija je zaključena",
   "registrationRegisterNewAccountsAllowSignup": "registracija registracija novih računov omogoča prijavo",
   "rejectInvalidTlsCertificates": "Zavrni neveljavna potrdila TLS",
-  "relationArg1": "Razmerje: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "sprostite in znova zaženite. Povezane aplikacije se znova povežejo, ko se vrne.",
   "releaseChannel": "Izpusti kanal",
   "releaseCommitBranchNode": "sprosti vozlišče veje potrditve",
@@ -4487,7 +4485,6 @@
   "resultDelivery": "Dostava rezultatov",
   "resultOneClickAddsOneYou": "rezultat. En klik doda eno; lahko uredite pozneje.",
   "results": "Rezultati",
-  "retrievalInspector": "Inšpektor za pridobivanje",
   "retry": "Poskusite znova",
   "reusableUsedArg1": "Za večkratno uporabo · rabljen {arg1}×",
   "@reusableUsedArg1": {
@@ -4643,14 +4640,6 @@
   "scansNewEmailAndOnlyPings": "Pregleda novo e-pošto in vas pinga samo, ko je nekaj pomembno.",
   "schedule": "Urnik",
   "scheduledTimeOnceRunsAreMeasured": "načrtovani čas. Ko bodo teki izmerjeni, se bo začelo prej.",
-  "scoreArg1": "Rezultat: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "zaslon",
   "screenAction": "dejanje zaslona",
   "scrollIsNotSupportedOnThis": "drsenje ni podprto na tej platformi.",
@@ -4712,14 +4701,6 @@
     }
   },
   "selectTrigger": "Izberite Sprožilec",
-  "semanticArg1": "Semantično: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Pošlji (⌘↵)",
   "send2": "Pošlji",
   "sendATaskFromChatAnd": "Pošljite nalogo iz klepeta in tukaj se bo prikazala njena zgodovina izvajanja.",
@@ -5633,14 +5614,6 @@
   "value": "Vrednost",
   "vaultLocked": "Trezor zaklenjen",
   "vaultOperationFailed": "Operacija trezorja ni uspela.",
-  "vectorRankArg1": "Vektorski rang: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Preverjanje",
   "verificationArg1": "Preverjanje: {arg1}",
   "@verificationArg1": {
@@ -6553,6 +6526,7 @@
   "settingsPageComputer": "Računalnik in splet",
   "settingsPageBehavior": "Vedenje",
   "settingsPageSystem": "Sistem",
+  "settingsPagePlatforms": "Platforme",
   "settingsPageProfileDescription": "Vaše ime in e-pošta, kopija vaših podatkov in odjava.",
   "settingsPageSecurityDescription": "Geslo, dvostopenjsko preverjanje pristnosti, varnostni ključi in kje ste prijavljeni.",
   "settingsPageUsageDescription": "Vaše omejitve in žetonska poraba, vse na enem mestu.",
@@ -6990,5 +6964,295 @@
   "signupKeysSaveDialogTitle": "Shrani registracijske ključe",
   "signupKeysExported": "Ključi izvoženi.",
   "auditSignupKeysCreated": "{actor} je ustvaril(a) registracijske ključe ({count})",
-  "auditSignupKeyRevoked": "{actor} je preklical(a) registracijski ključ"
+  "auditSignupKeyRevoked": "{actor} je preklical(a) registracijski ključ",
+  "dataSharingTitle": "Deli podatke o uporabi",
+  "dataSharingDescription": "Pomagajte upraviteljem tega strežnika, da ga izboljšajo. Deli, kako uporabljate NeoAgent, nikoli tega, kar pišete ali shranjujete.",
+  "dataSharingSince": "Deljeno od {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Kaj se deli",
+  "dataSharingIncluded": "Deli se",
+  "dataSharingExcluded": "Nikoli se ne deli",
+  "dataSharingIncludedDevice": "Vrsta naprave in različica aplikacije",
+  "dataSharingIncludedLocale": "Jezik aplikacije in regija časovnega pasu, na primer Evropa",
+  "dataSharingIncludedFeatures": "Katere funkcije imate nastavljene, npr. opravila, skille in integracije",
+  "dataSharingIncludedRuns": "Katera orodja in modele uporabljajo vaši zagoni, s trajanjem in številom žetonov",
+  "dataSharingIncludedActivity": "Kdaj uporabljate NeoAgent, po dnevih v tednu in urah",
+  "dataSharingExcludedContent": "Sporočila, pozivi in odgovori",
+  "dataSharingExcludedRuns": "Naslovi zagonov, vhodi in rezultati orodij",
+  "dataSharingExcludedFiles": "Datoteke, spomini in vse drugo, kar shranjujete",
+  "dataSharingExcludedIdentity": "Vaše ime, e-pošta, naslov IP in lokacija",
+  "dataSharingExcludedAccounts": "Računi, s katerimi povezujete integracije",
+  "dataSharingPooledNote": "Skrbniki vidijo le seštevke vseh, ki delijo, nikoli vas posebej. Kadar koli izklopite in takoj izpadete iz seštevkov.",
+  "dataSharingConfirmTitle": "Želite deliti podatke o uporabi?",
+  "dataSharingConfirmAction": "Deli",
+  "sharedUsageTitle": "Deljena uporaba",
+  "sharedUsageParticipants": "Računi, ki delijo podatke o uporabi: {sharing} od {total}. Samo seštevki, brez vsebine.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Nihče še ne deli podatkov o uporabi. Vklopiti se da v: Nastavitve, Profil, Vaši podatki.",
+  "sharedUsageRuns": "Deljeni zagoni",
+  "sharedUsageAvgDuration": "Povpr. trajanje",
+  "sharedUsageCompletedRuns": "Dokončani zagoni",
+  "sharedUsageStepsPerRun": "Koraki na zagon",
+  "sharedUsageDevices": "Naprave",
+  "sharedUsageAppVersions": "Različice aplikacije",
+  "sharedUsageLanguages": "Jeziki",
+  "sharedUsageRegions": "Regije",
+  "sharedUsageFeatures": "Uporaba funkcij",
+  "sharedUsageFeaturesDescription": "Delež računov, ki delijo in so jo nastavili.",
+  "sharedUsageTools": "Orodja",
+  "sharedUsageToolsDescription": "Najpogosteje klicana orodja ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Klici: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Neuspešno: {percent} %",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integracije",
+  "sharedUsageMessaging": "Kanali za sporočila",
+  "sharedUsageTriggers": "Kako se zagoni začnejo",
+  "sharedUsageActivity": "Kdaj se uporablja",
+  "sharedUsageActivityDescription": "Zagoni po dnevih v tednu in urah, UTC.",
+  "sharedUsageModels": "Zmogljivost modelov",
+  "sharedUsageModelDetail": "povpr. {latency} · {cached} % iz predpomnilnika · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Računi: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "V tem obdobju ni ničesar.",
+  "sharedUsageNotReported": "Še ni sporočeno",
+  "sharedUsageFeatureAgents": "Več kot en agent",
+  "sharedUsageFeatureTasks": "Načrtovana opravila",
+  "sharedUsageFeatureSkills": "Skilli",
+  "sharedUsageFeatureMcp": "Strežniki MCP",
+  "sharedUsageFeatureIntegrations": "Integracije",
+  "sharedUsageFeatureMessaging": "Kanali za sporočila",
+  "sharedUsageFeatureMemory": "Spomin",
+  "sharedUsageSearchKeywords": "opt-in deljenje podatkov telemetrija naprave funkcije orodja modeli dejavnost",
+  "providerChooseUsername": "Izberite uporabniško ime",
+  "providerChooseUsernameBody": "Izberite razpoložljivo uporabniško ime, da dokončate ustvarjanje računa.",
+  "yourOAuthApp": "Vaša aplikacija OAuth",
+  "oauthAppSetupTitle": "Vaša aplikacija OAuth za {provider}",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Ta strežnik nima globalne aplikacije {provider}, zato se povežete z aplikacijo OAuth, ki jo registrirate sami. Skrivnost odjemalca je shranjena šifrirano in se ne prikaže nikoli več.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Ustvarite aplikacijo",
+  "openDeveloperConsole": "Odpri razvijalsko konzolo",
+  "oauthAppStepCallback": "2. Registrirajte ta URL za povratni klic",
+  "callbackUrlCopied": "URL za povratni klic kopiran",
+  "oauthAppScopes": "Obsegi za dovolitev",
+  "scopesCopied": "Obsegi kopirani",
+  "oauthAppStepCredentials": "3. Prilepite poverilnice aplikacije",
+  "couldNotSaveOAuthApp": "Aplikacije OAuth ni bilo mogoče shraniti.",
+  "removeOAuthAppTitle": "Odstranim vašo aplikacijo {provider}?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Povezani računi ostanejo na seznamu, vendar ne delujejo, dokler znova ne dodate aplikacije.",
+  "globalIntegrationConfiguration": "Globalna konfiguracija integracij",
+  "globalIntegrationConfigurationDescription": "Neobvezne aplikacije OAuth za celoten strežnik. Ko jo integracija ima, jo uporablja vsak račun in ne more dodati svoje. Pustite integracijo nenastavljeno in vsak uporabnik nastavi svojo aplikacijo. Skrivnosti je mogoče le zapisati: pustite prazno, da ohranite shranjeno vrednost.",
+  "globalStatus": "Globalno",
+  "perUserStatus": "Na uporabnika",
+  "phoneSyncGuidance": "Delite koledarje in stike tega telefona s svojim agentom. Deluje z vsemi računi, ki so že v telefonu.",
+  "phoneSyncElsewhereGuidance": "Odprite NeoAgent v telefonu in tam vklopite deljenje. Agent bo nato videl koledarje in stike vseh računov v tem telefonu.",
+  "manageOnThisPhone": "Upravljaj v tem telefonu",
+  "setUpOnThisPhone": "Nastavi v tem telefonu",
+  "setUpOnPhone": "Nastavi v telefonu",
+  "emailConnectedArg1": "{email} povezan",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Računa ni bilo mogoče povezati.",
+  "emailSetupTitle": "Poveži e-pošto in koledar",
+  "emailChecking": "Preverjam nabiralnik…",
+  "emailSetupIntro": "Uporabite geslo za aplikacijo od ponudnika e-pošte. Brez razvijalske konzole, v nekaj minutah.",
+  "emailOpenArg1": "Odpri {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Vnesite strežnike",
+  "emailStepPassword": "1. Ustvarite geslo za aplikacijo",
+  "emailOpenPasswordPageArg1": "Odpri gesla za aplikacije pri {provider}",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Prijava",
+  "appPassword": "Geslo za aplikacijo",
+  "appPasswordHelper": "Presledki niso pomembni. NeoAgent ga shrani šifrirano.",
+  "emailUsernameOptional": "Uporabniško ime, če ni vaš e-poštni naslov",
+  "emailIncludeCalendar": "Vključi koledar",
+  "emailIncludeContacts": "Vključi stike",
+  "imapServer": "Strežnik IMAP",
+  "smtpServer": "Strežnik SMTP",
+  "caldavUrlOptional": "URL CalDAV (neobvezno)",
+  "carddavUrlOptional": "URL CardDAV (neobvezno)",
+  "alternativeEmail": "Povežite nabiralnik z geslom za aplikacijo ali koledar z njegovo povezavo iCal. V nekaj minutah.",
+  "alternativePhone": "Delite koledar in stike, ki so že v telefonu, prek aplikacije NeoAgent.",
+  "alternativePhoneElsewhere": "Delite koledar in stike, ki so že v telefonu. Nastavite v aplikaciji NeoAgent v telefonu.",
+  "skipTheDeveloperConsole": "Brez razvijalske konzole",
+  "phoneSyncPromptTitle": "Naj agent vidi vaš koledar?",
+  "phoneSyncPromptBody": "Delite koledarje in stike tega telefona, da lahko agent načrtuje okoli vašega dne. To lahko kadar koli spremenite v Orodja › Integracije.",
+  "phoneSyncTitle": "Deli koledar in stike tega telefona",
+  "phoneSyncIntro": "Agent vidi koledarje in stike vseh računov v tem telefonu. Brez razvijalske konzole in dodatne prijave.",
+  "phoneSyncPointAccounts": "Deluje z računi Google, Outlook, iCloud in Exchange v tem telefonu.",
+  "phoneSyncPointPrivate": "Deljeno samo z vašim strežnikom NeoAgent, ki jih shrani šifrirano.",
+  "phoneSyncPointWrites": "Dogodke, ki jih doda agent, ustvari ta telefon in se sinhronizirajo kot običajno.",
+  "phoneSyncCalendarHint": "Dogodki od 30 dni nazaj do 90 dni naprej",
+  "phoneSyncContacts": "Stiki",
+  "phoneSyncContactsHint": "Imena, e-poštni naslovi in telefonske številke",
+  "phoneSyncOtherAgent": "Ta telefon deli z drugim agentom. Deljenje tukaj ga prestavi k temu agentu.",
+  "phoneSyncDenied": "NeoAgent še nima dostopa. Dovolite ga v Nastavitvah in se vrnite.",
+  "openPhoneSettings": "Odpri Nastavitve",
+  "phoneSyncShare": "Deli z NeoAgent",
+  "phoneSyncStop": "Ustavi deljenje",
+  "phoneSyncWaiting": "Čakam na prvo sinhronizacijo…",
+  "phoneSyncLastSyncedArg1": "Zadnja sinhronizacija {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Povezava do koledarja",
+  "calendarLinkHelper": "Naslov iCal koledarja. Kdor ga pozna, lahko bere koledar, zato ga ohranite zasebnega.",
+  "calendarLinkName": "Ime (neobvezno)",
+  "calendarLinkAdded": "Koledar dodan",
+  "toolsApps": "Aplikacije",
+  "reconnect": "Znova poveži",
+  "reconnectNeeded": "Potrebna ponovna povezava",
+  "mixedAccess": "Mešan dostop",
+  "disconnectAccountTitle": "Prekinem povezavo {account}?",
+  "disconnectAccountBody": "Agent prek tega računa izgubi dostop do {apps}.",
+  "neoRouterServerDescription": "Enkrat povežite svoj NeoRouter in vsak račun tukaj ga bo uporabljal za spodaj vklopljena opravila.",
+  "neoRouterUserDescription": "Za spodaj vklopljena opravila uporabite svoj račun NeoRouter namesto ponudnikov tega strežnika.",
+  "neoRouterAddress": "Naslov NeoRouterja",
+  "neoRouterConnect": "Poveži NeoRouter",
+  "neoRouterWaitingArg1": "Odobrite NeoAgent v NeoRouterju. Prikazuje kodo {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Odpri znova",
+  "neoRouterConnectedArg1": "Povezano z {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "NeoRouter trenutno ni dosegljiv.",
+  "neoRouterDisconnect": "Prekini povezavo",
+  "neoRouterDisconnectBody": "NeoAgent preneha uporabljati ta NeoRouter. Če želite odvzeti tudi ključ, ga prekličite v NeoRouterju pod API ključi.",
+  "neoRouterServerInUse": "Ta strežnik že uporablja NeoRouter za vse. Povežite svoj račun NeoRouter za lastne modele in proračun.",
+  "neoRouterConnected": "NeoRouter je povezan.",
+  "neoRouterRoleChat": "Klepet in prepoznavanje slik",
+  "neoRouterRoleSystemOne": "Odločitve System One",
+  "neoRouterRoleTranscription": "Govor v besedilo",
+  "neoRouterRoleLive": "Glas v živo",
+  "neoRouterRoleEmbeddings": "Iskanje po spominu",
+  "neoRouterRoleImages": "Ustvarjanje slik",
+  "neoRouterRoleSearch": "Iskanje po spletu",
+  "neoRouterModelCountArg1": "Na voljo v vašem NeoRouterju: {arg1}",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "V vašem NeoRouterju še ni ničesar.",
+  "neoRouterPicksModels": "NeoRouter izbere model za vsako zahtevo, zato se ta izbor ne uporablja.",
+  "neoRouterNotAllowedArg1": "V vašem NeoRouterju: {arg1}, vendar jih ključ NeoAgenta še ne sme uporabljati (npr. plačljivih). Dovolite jih za NeoAgent pod API ključi v NeoRouterju.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Potrebuje modele za odločanje, kot je Jev. Varnostni klasifikatorji na ta vprašanja ne odgovorijo.",
+  "voiceLiveNoProvider": "Ponudnik glasu v živo ni nastavljen. Dodajte ključ OpenAI ali Google AI ali povežite NeoRouter v Modeli → Prinesite svoj ključ.",
+  "voiceSttAutoNeoRouter": "Samodejno (model izbere NeoRouter)",
+  "voiceNotOffered": "Ni več na voljo, izberite drugo"
 }

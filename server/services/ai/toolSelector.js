@@ -17,11 +17,12 @@ const ALWAYS_INCLUDE_BUILT_INS = [
   'react_to_message',
   'send_interim_update',
   'call_user',
+  // Reads the retained full copy of any tool result that had to be cut.
+  'read_artifact',
 ];
 const CORE_FILE_TOOLS = [
   'read_file',
   'read_files',
-  'read_artifact',
   'list_directory',
   'search_files',
   'edit_file',

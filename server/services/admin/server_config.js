@@ -4,7 +4,6 @@ const {
   cleanLine,
   persistEnv,
   readEnvBool,
-  readEnvInt,
 } = require('./env_config');
 const { httpError } = require('../../utils/http_error');
 const { getComputerResourceProfile } = require('../runtime/resource_profile');
@@ -38,7 +37,6 @@ function getGeneralSettings() {
       publicUrl: process.env.PUBLIC_URL || '',
       secureCookies: readEnvBool('SECURE_COOKIES', false),
       allowedOrigins: process.env.ALLOWED_ORIGINS || '',
-      memoryIngestionIntervalMs: readEnvInt('NEOAGENT_MEMORY_INGESTION_INTERVAL_MS', 600000),
     },
   };
 }
@@ -47,13 +45,11 @@ function updateGeneralSettings(body = {}) {
   const publicUrl = cleanLine(body.publicUrl);
   assertOptionalUrl(publicUrl, 'publicUrl');
   const allowedOrigins = cleanLine(body.allowedOrigins);
-  const intervalMs = parseMinInt(body.memoryIngestionIntervalMs, 1000, 'memoryIngestionIntervalMs');
   assertBoolean(body.secureCookies, 'secureCookies');
 
   persistEnv('PUBLIC_URL', publicUrl);
   persistEnv('SECURE_COOKIES', body.secureCookies ? 'true' : 'false');
   persistEnv('ALLOWED_ORIGINS', allowedOrigins);
-  persistEnv('NEOAGENT_MEMORY_INGESTION_INTERVAL_MS', intervalMs);
   return { ok: true };
 }
 

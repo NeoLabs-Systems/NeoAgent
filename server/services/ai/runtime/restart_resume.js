@@ -34,6 +34,7 @@ const RESUME_OPTION_KEYS = Object.freeze([
   'deviceTarget',
   'workspaceRoot',
   'audience',
+  'approvedSpeaker',
   'memoryAudience',
   'memoryScope',
   'skipGlobalRecall',
@@ -43,6 +44,7 @@ const RESUME_OPTION_KEYS = Object.freeze([
   'latencyProfile',
   'latencyPriority',
   'reasoningEffort',
+  'modelCallTimeoutMs',
 ]);
 
 const STEP_LIMIT = 40;

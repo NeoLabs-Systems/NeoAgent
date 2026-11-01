@@ -34,6 +34,7 @@ const { getErrorMessage } = require('../bootstrap_helpers');
 const { processInboundQueue } = require('./inbound_queue');
 const { annotateInboundJobs, attachRunToInboundJobs } = require('./inbound_store');
 const { startTypingKeepalive } = require('./typing_keepalive');
+const { isUsageLimitError, sendUsageLimitNotice } = require('./usage_limit_notice');
 const { waitForBoundedResult } = require('../network/http');
 const { createAbortError, throwIfAborted } = require('../../utils/abort');
 const {
@@ -42,6 +43,11 @@ const {
 } = require('../behavior');
 
 const MOVED_TO_BACKGROUND = Symbol('moved-to-background');
+// The model-call timeout measures the wait for the next streamed reply chunk,
+// and a turn that reasons or calls a tool streams nothing until it is done.
+// Someone is waiting in the chat, so a stalled provider fails over after two
+// minutes instead of the default five.
+const MESSAGING_MODEL_CALL_TIMEOUT_MS = 2 * 60 * 1000;
 
 function registerMessagingAutomation({ app, io, messagingManager, agentEngine }) {
   const userQueues = Object.create(null);
@@ -176,7 +182,14 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
       userId,
       msg,
       signal,
-      onProcessingError: ({ error, runId, failedMessage }) => {
+      onProcessingError: async ({ error, runId, failedMessage }) => {
+        if (isUsageLimitError(error)) {
+          try {
+            await sendUsageLimitNotice({ messagingManager, userId, msg: failedMessage, error });
+          } catch (sendError) {
+            console.error(`[Messaging] Failed to send usage limit notice on ${failedMessage.platform}:`, getErrorMessage(sendError));
+          }
+        }
         const errorMessage = getErrorMessage(error);
         console.error(
           `[MessagingAutomation] Agent run failed platform=${failedMessage.platform} user=${userId}:`,
@@ -418,6 +431,7 @@ async function executeQueuedMessage({
     const publicScope = buildPublicRunScope(msg);
     const ownerAudience = !publicScope && msg.ownerTrusted === true;
     runOptions.audience = publicScope ? 'public' : (ownerAudience ? 'owner' : 'shared');
+    runOptions.approvedSpeaker = !publicScope && msg.approvedSpeaker === true;
     runOptions.skipGlobalRecall = !ownerAudience;
     runOptions.memoryAudience = ownerAudience ? 'owner' : 'shared';
     runOptions.memoryScope = !ownerAudience
@@ -440,6 +454,7 @@ async function executeQueuedMessage({
     }
 
     runOptions.messagingInboundJobId = inboundJobIds[0] || null;
+    runOptions.modelCallTimeoutMs = MESSAGING_MODEL_CALL_TIMEOUT_MS;
     runOptions.signal = signal;
 
     // A run that moves to the background frees this chat's queue: the next
@@ -602,6 +617,9 @@ async function isAllowedMessagingSender({ io, userId, msg }) {
     // A DM from a sender the owner listed speaks for the owner. Group
     // members and senders let in by an open policy do not.
     msg.ownerTrusted = !msg.isGroup && decision.policy?.directPolicy === 'allowlist';
+    // In a group the room stays shared (memory, persona), but a request from
+    // a listed person is theirs to make and need not be held for approval.
+    msg.approvedSpeaker = msg.ownerTrusted || (msg.isGroup && decision.approvedSender === true);
     return true;
   }
 

@@ -1,5 +1,7 @@
 'use strict';
 
+const { MAX_MEMORY_CHARS } = require('./policy');
+
 const MEMORY_RELATIONS = new Set(['new', 'updates', 'extends', 'derives']);
 const MEMORY_CATEGORIES = new Set([
   'identity',
@@ -38,8 +40,9 @@ function normalizeMemoryCandidate(candidate) {
   const subject = cleanText(candidate.subject, 180);
   const predicate = cleanText(candidate.predicate, 120).toLowerCase();
   const object = cleanText(candidate.object, 900);
-  const memory = cleanText(candidate.memory, 1200);
-  if (!subject || !predicate || !object || !memory) return null;
+  // A fact over the length limit is dropped, never cut off mid-sentence.
+  const memory = cleanText(candidate.memory, MAX_MEMORY_CHARS + 1);
+  if (!subject || !predicate || !object || !memory || memory.length > MAX_MEMORY_CHARS) return null;
 
   const relation = cleanText(candidate.relation, 24).toLowerCase();
   const category = cleanText(candidate.category, 40).toLowerCase();
@@ -94,6 +97,7 @@ function buildMemoryConsolidationInstructions(currentDateTime) {
     'Also extract durable memory candidates from the thread.',
     `Current date/time: ${currentDateTime}. Resolve relative dates against this value.`,
     'A memory candidate must be an atomic fact that will improve a future conversation.',
+    `Write each memory as one self-contained sentence of at most ${MAX_MEMORY_CHARS} characters.`,
     'Prefer explicit user statements and verified outcomes. Do not turn assistant guesses, suggestions, questions, or unverified claims into user facts.',
     'Exclude secrets, credentials, private tokens, raw tool output, routine task narration, and facts useful only inside this thread.',
     'Use relation="updates" when a fact replaces an older value for the same subject and predicate.',

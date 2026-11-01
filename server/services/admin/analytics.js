@@ -1,6 +1,7 @@
 'use strict';
 
 const db = require('../../db/database');
+const { getSharedUsage } = require('./shared_usage');
 
 const DAY_MS = 86_400_000;
 
@@ -107,6 +108,7 @@ function getAnalytics(rangeValue) {
     statusBreakdown,
     topUsers,
     recentRuns,
+    sharedUsage: getSharedUsage(rangeAgo),
   };
 }
 

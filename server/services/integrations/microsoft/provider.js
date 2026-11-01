@@ -1,6 +1,6 @@
 'use strict';
 
-const { describeEnvStatus, resolveMicrosoftOAuthConfig } = require('../env');
+const { createOAuthApp } = require('../oauth_app');
 const {
   appendQuery,
   buildPinnedApiUrl,
@@ -16,6 +16,7 @@ const {
   withRefreshedOAuthCredentials,
 } = require('../oauth_tokens');
 const { requireText } = require('../../../utils/text');
+const { isAbortError } = require('../../../utils/abort');
 
 const MICROSOFT_BASE_SCOPES = ['openid', 'profile', 'email', 'offline_access', 'User.Read'];
 
@@ -195,11 +196,9 @@ const microsoftToolDefinitions = [
   graphApiTool('teams', 'Teams'),
 ];
 
-function getMicrosoftEndpoints() {
-  const config = resolveMicrosoftOAuthConfig();
+function getMicrosoftEndpoints(config) {
   const tenant = encodeURIComponent(config.tenantId);
   return {
-    config,
     authorizeUrl: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize`,
     tokenUrl: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`,
   };
@@ -219,14 +218,14 @@ function graphUrl(path, query) {
   }).toString();
 }
 
-async function refreshMicrosoftCredentials(credentials, signal) {
+async function refreshMicrosoftCredentials(config, credentials, signal) {
   const refreshToken = String(credentials?.refresh_token || '').trim();
   if (!refreshToken) {
     throw new Error(
       'Microsoft 365 refresh token is missing. Reconnect this integration account.',
     );
   }
-  const { config, tokenUrl } = getMicrosoftEndpoints();
+  const { tokenUrl } = getMicrosoftEndpoints(config);
   const token = await fetchJson(
     tokenUrl,
     {
@@ -261,7 +260,7 @@ async function graphRequest(context, {
 }) {
   const { signal } = context;
   return withRefreshedOAuthCredentials(context, {
-    refresh: refreshMicrosoftCredentials,
+    refresh: (credentials, refreshSignal) => refreshMicrosoftCredentials(context.oauth, credentials, refreshSignal),
     request: (activeCredentials) => fetchJson(
       graphUrl(path, query),
       {
@@ -304,6 +303,141 @@ function summarizeMicrosoftCalendarEvent(event) {
         .filter(Boolean)
       : [],
   };
+}
+
+const OUTLOOK_MESSAGE_FIELDS = [
+  'subject', 'from', 'toRecipients', 'receivedDateTime', 'sentDateTime',
+  'body', 'bodyPreview', 'conversationId', 'importance', 'flag', 'inferenceClassification',
+].join(',');
+const OUTLOOK_SWEEP_CONVERSATION_LIMIT = 100;
+// Received mail fills most of the sweep; sent mail (who the user writes to)
+// fills the rest.
+const OUTLOOK_SWEEP_RECEIVED_LIMIT = 70;
+const OUTLOOK_SWEEP_MAX_PAGES = 20;
+const OUTLOOK_SWEEP_BODY_CHARS = 2000;
+const OUTLOOK_TEXT_BODY = { Prefer: 'outlook.body-content-type="text"' };
+
+function formatOutlookAddress(recipient) {
+  const name = String(recipient?.emailAddress?.name || '').trim();
+  const address = String(recipient?.emailAddress?.address || '').trim();
+  if (name && address && name !== address) return `${name} <${address}>`;
+  return address || name;
+}
+
+function isImportantOutlookMessage(message) {
+  return message.importance === 'high' || message.flag?.flagStatus === 'flagged';
+}
+
+async function listOutlookMessages(context, { path, query, accept = () => true, onMessage }) {
+  let next = { path, query };
+  for (let page = 0; next && page < OUTLOOK_SWEEP_MAX_PAGES; page += 1) {
+    const payload = await graphRequest(context, { ...next, headers: OUTLOOK_TEXT_BODY });
+    for (const message of Array.isArray(payload?.value) ? payload.value : []) {
+      if (accept(message) && onMessage(message) === false) return;
+    }
+    const nextLink = payload?.['@odata.nextLink'];
+    next = nextLink ? { path: nextLink, query: {} } : null;
+  }
+}
+
+// Imports the past year's important mail: high-importance, flagged and
+// Focused Inbox mail the user received, plus what they sent. Conversations
+// already in memory are skipped, so a repeat sweep picks up the next ones.
+async function collectOutlookSweepDocuments(context, collectedAt, skipObjectIds, onProgress) {
+  const since = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
+  const conversations = new Map();
+  const addMessage = (limit) => (message) => {
+    const conversationId = message.conversationId || message.id;
+    if (!conversationId || skipObjectIds.has(conversationId)) return true;
+    const existing = conversations.get(conversationId);
+    if (existing) {
+      existing.messages.push(message);
+      return true;
+    }
+    if (conversations.size >= limit) return false;
+    conversations.set(conversationId, { conversationId, latest: message, messages: [message] });
+    onProgress(conversations.size);
+    return conversations.size < limit;
+  };
+
+  const receivedQuery = (filter) => ({
+    '$filter': filter,
+    '$orderby': 'receivedDateTime desc',
+    '$select': OUTLOOK_MESSAGE_FIELDS,
+    '$top': 50,
+  });
+  try {
+    await listOutlookMessages(context, {
+      path: '/v1.0/me/messages',
+      query: receivedQuery(
+        `receivedDateTime ge ${since} and (importance eq 'high' `
+        + "or flag/flagStatus eq 'flagged' or inferenceClassification eq 'focused')",
+      ),
+      onMessage: addMessage(OUTLOOK_SWEEP_RECEIVED_LIMIT),
+    });
+  } catch (err) {
+    // Some mailboxes reject the combined filter; narrow it down locally then.
+    // A later page failing keeps what the earlier pages already gave.
+    if (isAbortError(err, context.signal)) throw err;
+    if (conversations.size === 0) {
+      await listOutlookMessages(context, {
+        path: '/v1.0/me/messages',
+        query: receivedQuery(`receivedDateTime ge ${since}`),
+        accept: (message) => isImportantOutlookMessage(message)
+          || message.inferenceClassification === 'focused',
+        onMessage: addMessage(OUTLOOK_SWEEP_RECEIVED_LIMIT),
+      });
+    }
+  }
+  await listOutlookMessages(context, {
+    path: '/v1.0/me/mailFolders/sentitems/messages',
+    query: {
+      '$filter': `sentDateTime ge ${since}`,
+      '$orderby': 'sentDateTime desc',
+      '$select': OUTLOOK_MESSAGE_FIELDS,
+      '$top': 50,
+    },
+    onMessage: addMessage(OUTLOOK_SWEEP_CONVERSATION_LIMIT),
+  });
+
+  return [...conversations.values()].map(({ conversationId, latest, messages }) => {
+    const subject = String(latest.subject || 'Outlook conversation').trim();
+    const participants = [...new Set(messages.flatMap((message) => [
+      formatOutlookAddress(message.from),
+      ...(message.toRecipients || []).map(formatOutlookAddress),
+    ]).filter(Boolean))];
+    const date = latest.receivedDateTime || latest.sentDateTime || collectedAt;
+    return {
+      externalObjectId: conversationId,
+      sourceType: 'email',
+      normalizedType: 'email',
+      title: subject,
+      content: [
+        subject,
+        participants.length ? `Participants: ${participants.join(', ')}` : '',
+        `Date: ${date}`,
+        `Messages: ${messages.length}`,
+        String(latest.body?.content || latest.bodyPreview || '').trim().slice(0, OUTLOOK_SWEEP_BODY_CHARS),
+      ].filter(Boolean).join('\n'),
+      summary: latest.bodyPreview || subject,
+      sourceTimestamp: date,
+      salience: messages.some(isImportantOutlookMessage) ? 8 : 7,
+      payload: { conversationId, messageCount: messages.length },
+    };
+  });
+}
+
+async function collectMicrosoftMemorySweep(context, {
+  sourceTypes = [],
+  skipObjectIds = new Set(),
+  onProgress = () => {},
+} = {}) {
+  const appKey = String(context.connection?.app_key || '').trim();
+  const collectedAt = new Date().toISOString();
+  const documents = appKey === 'outlook' && sourceTypes.includes('email')
+    ? await collectOutlookSweepDocuments(context, collectedAt, skipObjectIds, onProgress)
+    : [];
+  return { documents, cursor: { collectedAt, appKey, sourceTypes } };
 }
 
 async function executeMicrosoftTool(toolName, args, context, executionOptions = {}) {
@@ -482,13 +616,24 @@ function createMicrosoftProvider() {
     toolDefinitions: microsoftToolDefinitions,
     connectPrompt:
       'Connect Microsoft 365 to work with Outlook mail, calendars, OneDrive files, and Teams chats.',
-    getEnvStatus() {
-      return describeEnvStatus(resolveMicrosoftOAuthConfig(), {
-        label: 'Microsoft 365',
-      });
-    },
-    async beginOAuth({ state, app }) {
-      const { config, authorizeUrl } = getMicrosoftEndpoints();
+    oauthApp: createOAuthApp({
+      providerKey: 'microsoft_365',
+      label: 'Microsoft 365',
+      envPrefix: 'MICROSOFT',
+      consoleUrl: 'https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
+      notes: 'Register an app with a Web redirect URI set to the callback URL, create a client secret under Certificates & secrets, and add these delegated Microsoft Graph permissions.',
+      scopes: MICROSOFT_APPS.flatMap((app) => app.scopes),
+      alternatives: ['phone'],
+      fields: [{
+        name: 'tenantId',
+        label: 'Tenant ID',
+        env: 'MICROSOFT_OAUTH_TENANT_ID',
+        defaultValue: 'common',
+        hint: 'Leave blank to allow any work, school or personal account, or enter your directory (tenant) ID.',
+      }],
+    }),
+    async beginOAuth({ state, app, oauth: config }) {
+      const { authorizeUrl } = getMicrosoftEndpoints(config);
       return {
         url: appendQuery(authorizeUrl, {
           client_id: config.clientId,
@@ -502,8 +647,8 @@ function createMicrosoftProvider() {
         appId: app.id,
       };
     },
-    async finishOAuth({ code, app, signal }) {
-      const { config, tokenUrl } = getMicrosoftEndpoints();
+    async finishOAuth({ code, app, signal, oauth: config }) {
+      const { tokenUrl } = getMicrosoftEndpoints(config);
       const token = await fetchJson(
         tokenUrl,
         {
@@ -567,6 +712,7 @@ function createMicrosoftProvider() {
       return {};
     },
     executeTool: executeMicrosoftTool,
+    collectMemorySweep: collectMicrosoftMemorySweep,
   });
 }
 

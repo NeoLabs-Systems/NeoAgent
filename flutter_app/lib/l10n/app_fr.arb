@@ -154,6 +154,8 @@
   "addKey": "Ajouter une clé",
   "addMcpServer": "Ajouter un serveur MCP",
   "addMemory": "Ajouter de la mémoire",
+  "memoryReview": "Réviser",
+  "memoryReviewPrompt": "Passe en revue tous mes souvenirs et fais le ménage : archive les doublons, les faits obsolètes et tout ce qui n'a pas de valeur durable. Dis-moi ensuite brièvement ce que tu as modifié.",
   "addMoreLengthOrAnotherCharacter": "Ajoutez plus de longueur ou un autre type de caractère.",
   "addPeopleOrGroups": "Ajouter des personnes ou des groupes",
   "addSecurityKey": "Ajouter une clé de sécurité",
@@ -1901,7 +1903,6 @@
   "assistant": "Assistante",
   "assistantKey131": "Clé assistante 131",
   "atLeast1": "Au moins 1.",
-  "atLeast1000AppliesAfterA": "Au moins 1 000. S'applique après un redémarrage du serveur.",
   "attachFiles": "Joindre des fichiers",
   "attentionArg1": "Attention {arg1}",
   "@attentionArg1": {
@@ -2007,7 +2008,6 @@
   "botUsername": "Nom d'utilisateur du robot",
   "brandName": "Nom de la marque",
   "braveSearch": "Recherche courageuse",
-  "breakdown": "Répartition :",
   "bridgeAnyProviderThatCanPost": "Reliez tout fournisseur capable de publier et de recevoir des charges utiles de webhook.",
   "bringYourOwnKey": "apportez votre propre clé",
   "bringYourOwnKey2": "Apportez votre propre clé",
@@ -2030,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Peut recevoir des tâches déléguées",
   "cancel": "Annuler",
   "cancelTask": "Annuler la tâche",
-  "candidateCountArg1": "Nombre de candidats : {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Impossible de prévisualiser",
   "cannotReceiveDelegatedTasks": "ne peut pas recevoir de tâches déléguées",
   "cannotRunYet": "Je ne peux pas encore courir.",
@@ -2308,14 +2300,6 @@
   "connectionMethod": "Méthode de connexion",
   "containsTextOptional": "Contient du texte (facultatif)",
   "content": "Contenu",
-  "contentArg1": "Contenu : {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "politique de sécurité du contenu",
   "continue2": "Continuer",
   "continueFullSetup": "Continuer la configuration complète",
@@ -2752,21 +2736,12 @@
       }
     }
   },
-  "errorArg12": "Erreur : {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Erreurs du journal récent, regroupées par message.",
   "errorsProblemsFailures": "erreurs problèmes échecs",
   "eventTypesCommaSeparated": "Types d'événements (séparés par des virgules)",
   "every15Minutes": "Toutes les 15 minutes",
   "every30Minutes": "Toutes les 30 minutes",
   "everyAccountOnThisServerLoses": "Chaque compte sur ce serveur perd cette clé partagée. Comptes ",
-  "everyAccountOnThisServerSecrets": "chaque compte sur ce serveur. Les secrets sont en écriture seule : quittez ",
   "everyAccountOnThisServerUses": "Chaque compte sur ce serveur utilise cette adresse pour ",
   "everyActiveSessionForThisAccount": "Chaque session active pour ce compte se termine. Ils peuvent se connecter ",
   "everyDay0800": "Tous les jours · 08h00",
@@ -3012,14 +2987,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Invite complète",
   "fullSetup": "Configuration complète",
-  "fullTextFtsArg1": "Texte intégral (FTS) : {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Général",
   "generalSettings": "Paramètres généraux",
   "generalSettingsSaved": "Paramètres généraux enregistrés.",
@@ -3218,7 +3185,6 @@
   "input": "Entrée",
   "inputMode": "Mode de saisie",
   "insertATemplate": "Insérer un modèle",
-  "inspect": "Inspecter",
   "install": "Installer",
   "installASignedSelfContainedRuntime": "Installez un runtime signé et autonome. Les commandes Node.js, npm, Git et terminal ne sont pas requises.",
   "installApk": "Installer l'APK",
@@ -3251,7 +3217,6 @@
   },
   "instructions": "Instructions",
   "integration": "Intégration",
-  "integrationApps": "Applications d'intégration",
   "integrationConnections": "Connexions d'intégration",
   "integrationSettingsSaved": "Paramètres d'intégration enregistrés.",
   "integrations": "Intégrations",
@@ -3470,14 +3435,6 @@
       }
     }
   },
-  "lexicalArg1": "Lexical : {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "limit20": "LIMIT 20",
   "limit50": "LIMIT 50",
   "linkArg1": "Lien {arg1}",
@@ -3601,10 +3558,6 @@
       }
     }
   },
-  "memoryImportSync": "synchronisation de l'importation de mémoire",
-  "memoryIngestionInterval": "Intervalle d'ingestion de mémoire",
-  "memoryIngestionIntervalMs": "Intervalle d'ingestion de mémoire (ms)",
-  "memoryIngestionIntervalMustBeAt": "L’intervalle d’ingestion de mémoire doit être d’au moins 1 000 ms.",
   "memoryInjected": "Mémoire injectée",
   "mentionOrReplyOnly": "Mentionner ou répondre uniquement",
   "mergedServerAndFlutterRuntimeLogs": "Journaux d'exécution du serveur et de Flutter fusionnés pour cette session d'application.",
@@ -3629,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Micro coupé. Appuyez pour réactiver le son.",
   "microphonePermissionIsRequiredForLive": "L'autorisation du microphone est requise pour la voix en direct.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack et les autres intégrations. Ils s'appliquent à ",
   "microsoftTeams": "Équipes Microsoft",
   "minimumContributionValueArg1": "Valeur minimale de cotisation : {arg1}",
   "@minimumContributionValueArg1": {
@@ -3676,6 +3628,8 @@
     }
   },
   "modelAvailability": "Disponibilité du modèle",
+  "autoEnableNewModels": "Activer automatiquement les nouveaux modèles",
+  "autoEnableNewModelsHint": "Désactivé, les modèles ajoutés plus tard par un fournisseur restent désactivés jusqu'à ce que vous les activiez.",
   "modelAvailabilitySaved": "Disponibilité du modèle enregistrée.",
   "modelForThisSession": "Modèle pour cette séance",
   "modelOverride": "Remplacement du modèle",
@@ -3911,6 +3865,61 @@
   "noMcpServersMatchThisSearch": "Aucun serveur MCP ne correspond à cette recherche.",
   "noMemoryEntriesFound": "Aucune entrée de mémoire trouvée.",
   "noMemorySync": "Pas de synchronisation de la mémoire",
+  "importPastEmailsIntoMemoryHint": "Lit une seule fois les e-mails importants et envoyés des 12 derniers mois pour que l'agent connaisse vos contacts et vos projets.",
+  "emailMemory": "Mémoire des e-mails",
+  "importNow": "Importer maintenant",
+  "importOnConnect": "Importer les anciens e-mails à la connexion d'un compte",
+  "sweepStarting": "Préparation…",
+  "sweepReadingProgress": "Lecture des e-mails · {done} sur {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Lecture des e-mails · {count} trouvés",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Apprentissage à partir des e-mails · {done} sur {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Dernier import : {emails} e-mails · {memories} nouveaux souvenirs",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Aucun nouvel e-mail à importer",
+  "sweepFailed": "Échec de l'import : {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Aucun modèle ne correspond à \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -3997,7 +4006,6 @@
   "nothingStoredYet": "Rien de stocké pour l'instant.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NIM NVIDIA",
-  "oauthAppCredentialsThatLetAccounts": "Informations d'identification de l'application OAuth qui permettent aux comptes de connecter Google, ",
   "oauthClientId": "ID client OAuth",
   "oauthClientIdSecretRedirectApi": "Clé API de redirection secrète de l'identifiant client oauth",
   "oauthClientIdSecretRedirectGmail": "oauth client id redirection secrète lecteur de calendrier gmail",
@@ -4035,7 +4043,6 @@
   "onTheyCanJoinAgainOnly": "sur. Ils ne peuvent se joindre à nouveau qu'avec un nouveau lien d'invitation.",
   "onYourOwnTheDefault": "Seul (par défaut)",
   "once": "Une fois",
-  "oneBlankToKeepWhatIs": "un blanc pour conserver ce qui est stocké.",
   "oneIsSavedOtherChangesIn": "on est sauvé. Les autres modifications apportées à ce formulaire sont également enregistrées.",
   "oneOrMoreAccountsExpiredReconnect": "Un ou plusieurs comptes ont expiré. Reconnectez le compte concerné pour restaurer l'accès à l'outil.",
   "oneRuntimeControlsPersonaGroupTurn": "Un environnement d'exécution contrôle le personnage, le tour de rôle du groupe, la mémoire de la salle, les normes, la théorie de l'esprit et la livraison.",
@@ -4292,7 +4299,6 @@
   "qrLoginRequestWasNotFound": "La demande de connexion QR n'a pas été trouvée",
   "qrPairing": "Couplage QR",
   "queriesRunAnythingThatWritesIs": "les requêtes sont exécutées ; tout ce qui écrit est rejeté.",
-  "query": "Requête",
   "queryFilter": "Requête/Filtre",
   "queuedAsSteeringForTheCurrent": "En file d'attente comme direction pour l'exécution en cours : {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4377,14 +4383,6 @@
   "registrationIsClosed": "les inscriptions sont closes",
   "registrationRegisterNewAccountsAllowSignup": "inscription enregistrer de nouveaux comptes permettre l'inscription",
   "rejectInvalidTlsCertificates": "Rejeter les certificats TLS invalides",
-  "relationArg1": "Relation : {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "libération et redémarrages. Les applications connectées se reconnectent une fois de retour.",
   "releaseChannel": "Canal de sortie",
   "releaseCommitBranchNode": "libérer le nœud de branche de validation",
@@ -4487,7 +4485,6 @@
   "resultDelivery": "Livraison des résultats",
   "resultOneClickAddsOneYou": "résultat. Un clic en ajoute un ; vous pourrez le modifier plus tard.",
   "results": "Résultats",
-  "retrievalInspector": "Inspecteur de récupération",
   "retry": "Réessayer",
   "reusableUsedArg1": "Réutilisable · utilisé {arg1}×",
   "@reusableUsedArg1": {
@@ -4643,14 +4640,6 @@
   "scansNewEmailAndOnlyPings": "Analyse les nouveaux e-mails et vous envoie un ping uniquement lorsque quelque chose est important.",
   "schedule": "Calendrier",
   "scheduledTimeOnceRunsAreMeasured": "heure prévue. Une fois les courses mesurées, elles commenceront plus tôt.",
-  "scoreArg1": "Note : {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Écran",
   "screenAction": "action à l'écran",
   "scrollIsNotSupportedOnThis": "le défilement n'est pas pris en charge sur cette plate-forme.",
@@ -4712,14 +4701,6 @@
     }
   },
   "selectTrigger": "Sélectionnez le déclencheur",
-  "semanticArg1": "Sémantique : {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Envoyer (⌘↵)",
   "send2": "Envoyer",
   "sendATaskFromChatAnd": "Envoyez une tâche depuis le chat et son historique d'exécution s'affichera ici.",
@@ -5633,14 +5614,6 @@
   "value": "Valeur",
   "vaultLocked": "Coffre verrouillé",
   "vaultOperationFailed": "L'opération du coffre-fort a échoué.",
-  "vectorRankArg1": "Rang vectoriel : {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Vérification",
   "verificationArg1": "Vérification : {arg1}",
   "@verificationArg1": {
@@ -6553,6 +6526,7 @@
   "settingsPageComputer": "Informatique et Internet",
   "settingsPageBehavior": "Comportement",
   "settingsPageSystem": "Système",
+  "settingsPagePlatforms": "Plateformes",
   "settingsPageProfileDescription": "Votre nom et votre e-mail, une copie de vos données et votre déconnexion.",
   "settingsPageSecurityDescription": "Mot de passe, authentification à deux facteurs, clés de sécurité et où vous êtes connecté.",
   "settingsPageUsageDescription": "Vos limites et vos dépenses symboliques, le tout au même endroit.",
@@ -6990,5 +6964,295 @@
   "signupKeysSaveDialogTitle": "Enregistrer les clés d’inscription",
   "signupKeysExported": "Clés exportées.",
   "auditSignupKeysCreated": "{actor} a créé des clés d’inscription ({count})",
-  "auditSignupKeyRevoked": "{actor} a révoqué une clé d’inscription"
+  "auditSignupKeyRevoked": "{actor} a révoqué une clé d’inscription",
+  "dataSharingTitle": "Partager les données d'utilisation",
+  "dataSharingDescription": "Aidez les responsables de ce serveur à l'améliorer. Partage la façon dont vous utilisez NeoAgent, jamais ce que vous écrivez ou stockez.",
+  "dataSharingSince": "Partagé depuis le {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Ce qui est partagé",
+  "dataSharingIncluded": "Partagé",
+  "dataSharingExcluded": "Jamais partagé",
+  "dataSharingIncludedDevice": "Type d'appareil et version de l'application",
+  "dataSharingIncludedLocale": "Langue de l'application et région du fuseau horaire, par exemple Europe",
+  "dataSharingIncludedFeatures": "Les fonctionnalités que vous avez configurées, comme les tâches, les skills et les intégrations",
+  "dataSharingIncludedRuns": "Les outils et modèles utilisés par vos exécutions, avec durées et nombre de tokens",
+  "dataSharingIncludedActivity": "Quand vous utilisez NeoAgent, par jour de la semaine et par heure",
+  "dataSharingExcludedContent": "Messages, prompts et réponses",
+  "dataSharingExcludedRuns": "Titres des exécutions, entrées et résultats des outils",
+  "dataSharingExcludedFiles": "Fichiers, souvenirs et tout ce que vous stockez",
+  "dataSharingExcludedIdentity": "Votre nom, e-mail, adresse IP et localisation",
+  "dataSharingExcludedAccounts": "Les comptes avec lesquels vous connectez des intégrations",
+  "dataSharingPooledNote": "Les administrateurs ne voient que des totaux sur l'ensemble des personnes qui partagent, jamais vous seul. Désactivez-le à tout moment et vous sortez immédiatement des totaux.",
+  "dataSharingConfirmTitle": "Partager les données d'utilisation ?",
+  "dataSharingConfirmAction": "Partager",
+  "sharedUsageTitle": "Utilisation partagée",
+  "sharedUsageParticipants": "Comptes qui partagent leurs données d'utilisation : {sharing} sur {total}. Totaux uniquement, aucun contenu.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Personne ne partage encore ses données d'utilisation. Chacun peut l'activer dans Paramètres, Profil, Vos données.",
+  "sharedUsageRuns": "Exécutions partagées",
+  "sharedUsageAvgDuration": "Durée moy.",
+  "sharedUsageCompletedRuns": "Exécutions terminées",
+  "sharedUsageStepsPerRun": "Étapes par exécution",
+  "sharedUsageDevices": "Appareils",
+  "sharedUsageAppVersions": "Versions de l'application",
+  "sharedUsageLanguages": "Langues",
+  "sharedUsageRegions": "Régions",
+  "sharedUsageFeatures": "Adoption des fonctionnalités",
+  "sharedUsageFeaturesDescription": "Part des comptes qui partagent et l'ont configurée.",
+  "sharedUsageTools": "Outils",
+  "sharedUsageToolsDescription": "Outils les plus appelés ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Appels : {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Échecs : {percent} %",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Intégrations",
+  "sharedUsageMessaging": "Canaux de messagerie",
+  "sharedUsageTriggers": "Comment les exécutions démarrent",
+  "sharedUsageActivity": "Quand c'est utilisé",
+  "sharedUsageActivityDescription": "Exécutions par jour de la semaine et par heure, UTC.",
+  "sharedUsageModels": "Performance des modèles",
+  "sharedUsageModelDetail": "moy. {latency} · {cached} % en cache · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Comptes : {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Rien sur cette période.",
+  "sharedUsageNotReported": "Pas encore signalé",
+  "sharedUsageFeatureAgents": "Plus d'un agent",
+  "sharedUsageFeatureTasks": "Tâches planifiées",
+  "sharedUsageFeatureSkills": "Skills",
+  "sharedUsageFeatureMcp": "Serveurs MCP",
+  "sharedUsageFeatureIntegrations": "Intégrations",
+  "sharedUsageFeatureMessaging": "Canaux de messagerie",
+  "sharedUsageFeatureMemory": "Mémoire",
+  "sharedUsageSearchKeywords": "partage de données opt-in télémétrie appareils fonctionnalités outils modèles activité",
+  "providerChooseUsername": "Choisissez votre nom d'utilisateur",
+  "providerChooseUsernameBody": "Choisissez un nom d'utilisateur disponible pour finir de créer votre compte.",
+  "yourOAuthApp": "Votre app OAuth",
+  "oauthAppSetupTitle": "Votre app OAuth {provider}",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Ce serveur n’a pas d’app {provider} globale : vous vous connectez donc avec une app OAuth que vous enregistrez vous-même. Le secret client est stocké chiffré et n’est plus jamais affiché.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Créer l’app",
+  "openDeveloperConsole": "Ouvrir la console développeur",
+  "oauthAppStepCallback": "2. Enregistrer cette URL de rappel",
+  "callbackUrlCopied": "URL de rappel copiée",
+  "oauthAppScopes": "Scopes à autoriser",
+  "scopesCopied": "Scopes copiés",
+  "oauthAppStepCredentials": "3. Coller les identifiants de l’app",
+  "couldNotSaveOAuthApp": "Impossible d’enregistrer l’app OAuth.",
+  "removeOAuthAppTitle": "Supprimer votre app {provider} ?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Les comptes connectés restent listés mais ne fonctionnent plus jusqu’à ce que vous ajoutiez une nouvelle app.",
+  "globalIntegrationConfiguration": "Configuration globale des intégrations",
+  "globalIntegrationConfigurationDescription": "Apps OAuth facultatives pour tout le serveur. Lorsqu’une intégration en a une, chaque compte l’utilise et ne peut pas ajouter la sienne. Laissez une intégration vide et chaque utilisateur configure sa propre app. Les secrets sont en écriture seule : laissez vide pour conserver la valeur enregistrée.",
+  "globalStatus": "Globale",
+  "perUserStatus": "Par utilisateur",
+  "phoneSyncGuidance": "Partagez les calendriers et contacts de ce téléphone avec votre agent. Cela fonctionne avec chaque compte déjà présent sur le téléphone.",
+  "phoneSyncElsewhereGuidance": "Ouvrez NeoAgent sur votre téléphone et activez-y le partage. Votre agent voit alors les calendriers et contacts de tous les comptes de ce téléphone.",
+  "manageOnThisPhone": "Gérer sur ce téléphone",
+  "setUpOnThisPhone": "Configurer sur ce téléphone",
+  "setUpOnPhone": "Configurer sur votre téléphone",
+  "emailConnectedArg1": "{email} connecté",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Impossible de connecter ce compte.",
+  "emailSetupTitle": "Connecter e-mail et calendrier",
+  "emailChecking": "Vérification de votre boîte…",
+  "emailSetupIntro": "Utilisez un mot de passe d’application de votre fournisseur. Sans console développeur, prêt en quelques minutes.",
+  "emailOpenArg1": "Ouvrir {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Saisissez vos serveurs",
+  "emailStepPassword": "1. Créez un mot de passe d’application",
+  "emailOpenPasswordPageArg1": "Ouvrir les mots de passe d’application {provider}",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Connexion",
+  "appPassword": "Mot de passe d’application",
+  "appPasswordHelper": "Les espaces ne comptent pas. NeoAgent le stocke chiffré.",
+  "emailUsernameOptional": "Nom d’utilisateur, s’il diffère de votre e-mail",
+  "emailIncludeCalendar": "Inclure le calendrier",
+  "emailIncludeContacts": "Inclure les contacts",
+  "imapServer": "Serveur IMAP",
+  "smtpServer": "Serveur SMTP",
+  "caldavUrlOptional": "URL CalDAV (facultative)",
+  "carddavUrlOptional": "URL CardDAV (facultative)",
+  "alternativeEmail": "Connectez votre boîte avec un mot de passe d’application, ou votre calendrier par son lien iCal. Prêt en quelques minutes.",
+  "alternativePhone": "Partagez le calendrier et les contacts déjà sur votre téléphone via l’app NeoAgent.",
+  "alternativePhoneElsewhere": "Partagez le calendrier et les contacts déjà sur votre téléphone. Configurez-le dans l’app NeoAgent du téléphone.",
+  "skipTheDeveloperConsole": "Sans console développeur",
+  "phoneSyncPromptTitle": "Votre agent peut-il voir votre calendrier ?",
+  "phoneSyncPromptBody": "Partagez les calendriers et contacts de ce téléphone pour que votre agent organise votre journée. Modifiable à tout moment dans Outils › Intégrations.",
+  "phoneSyncTitle": "Partager calendrier et contacts de ce téléphone",
+  "phoneSyncIntro": "Votre agent voit les calendriers et contacts de tous les comptes de ce téléphone. Sans console développeur ni connexion supplémentaire.",
+  "phoneSyncPointAccounts": "Fonctionne avec les comptes Google, Outlook, iCloud et Exchange de ce téléphone.",
+  "phoneSyncPointPrivate": "Partagé uniquement avec votre serveur NeoAgent, qui le stocke chiffré.",
+  "phoneSyncPointWrites": "Les événements ajoutés par votre agent sont créés par ce téléphone et se synchronisent normalement.",
+  "phoneSyncCalendarHint": "Événements d’il y a 30 jours à 90 jours à venir",
+  "phoneSyncContacts": "Contacts",
+  "phoneSyncContactsHint": "Noms, adresses e-mail et numéros de téléphone",
+  "phoneSyncOtherAgent": "Ce téléphone partage avec un autre agent. Partager ici le déplace vers cet agent.",
+  "phoneSyncDenied": "NeoAgent n’a pas encore accès. Autorisez-le dans Réglages, puis revenez.",
+  "openPhoneSettings": "Ouvrir les réglages",
+  "phoneSyncShare": "Partager avec NeoAgent",
+  "phoneSyncStop": "Arrêter le partage",
+  "phoneSyncWaiting": "En attente de la première synchronisation…",
+  "phoneSyncLastSyncedArg1": "Dernière synchronisation {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Lien du calendrier",
+  "calendarLinkHelper": "L’adresse iCal du calendrier. Quiconque la connaît peut lire le calendrier : gardez-la privée.",
+  "calendarLinkName": "Nom (facultatif)",
+  "calendarLinkAdded": "Calendrier ajouté",
+  "toolsApps": "Applis",
+  "reconnect": "Reconnecter",
+  "reconnectNeeded": "Reconnexion requise",
+  "mixedAccess": "Accès mixte",
+  "disconnectAccountTitle": "Déconnecter {account} ?",
+  "disconnectAccountBody": "L'agent perd l'accès à {apps} via ce compte.",
+  "neoRouterServerDescription": "Connectez votre NeoRouter une fois et chaque compte ici l'utilise pour les tâches activées ci-dessous.",
+  "neoRouterUserDescription": "Utilisez votre propre compte NeoRouter pour les tâches activées ci-dessous au lieu des fournisseurs de ce serveur.",
+  "neoRouterAddress": "Adresse de NeoRouter",
+  "neoRouterConnect": "Connecter NeoRouter",
+  "neoRouterWaitingArg1": "Approuvez NeoAgent dans NeoRouter. Il affiche le code {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Rouvrir",
+  "neoRouterConnectedArg1": "Connecté à {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "NeoRouter est injoignable pour le moment.",
+  "neoRouterDisconnect": "Déconnecter",
+  "neoRouterDisconnectBody": "NeoAgent n'utilise plus ce NeoRouter. Pour retirer aussi sa clé, révoquez-la dans NeoRouter sous Clés API.",
+  "neoRouterServerInUse": "Ce serveur utilise déjà un NeoRouter pour tout le monde. Connectez votre propre compte NeoRouter pour vos propres modèles et votre budget.",
+  "neoRouterConnected": "NeoRouter est connecté.",
+  "neoRouterRoleChat": "Chat et vision",
+  "neoRouterRoleSystemOne": "Décisions System One",
+  "neoRouterRoleTranscription": "Parole en texte",
+  "neoRouterRoleLive": "Voix en direct",
+  "neoRouterRoleEmbeddings": "Recherche dans la mémoire",
+  "neoRouterRoleImages": "Génération d'images",
+  "neoRouterRoleSearch": "Recherche web",
+  "neoRouterModelCountArg1": "{arg1} disponible(s) dans votre NeoRouter",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Rien n'est encore disponible dans votre NeoRouter.",
+  "neoRouterPicksModels": "NeoRouter choisit le modèle pour chaque requête, cette sélection n'est donc pas utilisée.",
+  "neoRouterNotAllowedArg1": "{arg1} dans votre NeoRouter, mais la clé de NeoAgent ne peut pas encore les utiliser (par exemple les payants). Autorisez-les pour NeoAgent sous Clés API dans NeoRouter.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Nécessite des modèles de décision comme Jev. Les classificateurs de sécurité ne peuvent pas répondre à ces questions.",
+  "voiceLiveNoProvider": "Aucun fournisseur de voix en direct n'est configuré. Ajoutez une clé OpenAI ou Google AI, ou connectez un NeoRouter, dans Modèles → Apportez votre propre clé.",
+  "voiceSttAutoNeoRouter": "Auto (NeoRouter choisit le modèle)",
+  "voiceNotOffered": "N'est plus proposé, choisissez-en un autre"
 }

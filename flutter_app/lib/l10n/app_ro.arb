@@ -154,6 +154,8 @@
   "addKey": "Adăugați cheia",
   "addMcpServer": "Adăugați server MCP",
   "addMemory": "Adăugați memorie",
+  "memoryReview": "Revizuiește",
+  "memoryReviewPrompt": "Revizuiește toate amintirile mele și fă ordine: arhivează duplicatele, faptele depășite și tot ce nu are valoare de durată. Apoi spune-mi pe scurt ce ai schimbat.",
   "addMoreLengthOrAnotherCharacter": "Adăugați mai multă lungime sau alt tip de caracter.",
   "addPeopleOrGroups": "Adăugați persoane sau grupuri",
   "addSecurityKey": "Adăugați cheia de securitate",
@@ -1901,7 +1903,6 @@
   "assistant": "Asistent",
   "assistantKey131": "Tasta asistent 131",
   "atLeast1": "Cel putin 1.",
-  "atLeast1000AppliesAfterA": "Cel puțin 1000. Se aplică după repornirea unui server.",
   "attachFiles": "Atașați fișiere",
   "attentionArg1": "Atentie {arg1}",
   "@attentionArg1": {
@@ -2007,7 +2008,6 @@
   "botUsername": "Nume de utilizator bot",
   "brandName": "Nume de marcă",
   "braveSearch": "Căutare curajoasă",
-  "breakdown": "Defalcare:",
   "bridgeAnyProviderThatCanPost": "Bridge orice furnizor care poate posta și primi încărcături utile webhook.",
   "bringYourOwnKey": "aduceți-vă propria cheie",
   "bringYourOwnKey2": "Adu-ți propria cheie",
@@ -2030,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Poate primi sarcini delegate",
   "cancel": "Anulează",
   "cancelTask": "Anulați sarcina",
-  "candidateCountArg1": "Număr de candidați: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Nu se poate previzualiza",
   "cannotReceiveDelegatedTasks": "nu pot primi sarcini delegate",
   "cannotRunYet": "nu pot rula încă.",
@@ -2308,14 +2300,6 @@
   "connectionMethod": "Metoda de conectare",
   "containsTextOptional": "Conține text (opțional)",
   "content": "Conținut",
-  "contentArg1": "Conținut: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "politica de securitate a conținutului",
   "continue2": "Continuă",
   "continueFullSetup": "Continuați configurarea completă",
@@ -2752,21 +2736,12 @@
       }
     }
   },
-  "errorArg12": "Eroare: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Erori din jurnalul recent, grupate după mesaj.",
   "errorsProblemsFailures": "erori probleme eșecuri",
   "eventTypesCommaSeparated": "Tipuri de evenimente (separate prin virgulă)",
   "every15Minutes": "La fiecare 15 minute",
   "every30Minutes": "La fiecare 30 de minute",
   "everyAccountOnThisServerLoses": "Fiecare cont de pe acest server pierde această cheie partajată. Conturi ",
-  "everyAccountOnThisServerSecrets": "fiecare cont de pe acest server. Secretele sunt doar scrise: plecați ",
   "everyAccountOnThisServerUses": "Fiecare cont de pe acest server folosește această adresă pentru ",
   "everyActiveSessionForThisAccount": "Fiecare sesiune activă pentru acest cont se încheie. Se pot conecta ",
   "everyDay0800": "În fiecare zi · 08:00",
@@ -3012,14 +2987,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Solicitare completă",
   "fullSetup": "Configurare completă",
-  "fullTextFtsArg1": "Text complet (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "general",
   "generalSettings": "Setări generale",
   "generalSettingsSaved": "Setări generale salvate.",
@@ -3218,7 +3185,6 @@
   "input": "Intrare",
   "inputMode": "Modul de intrare",
   "insertATemplate": "Introduceți un șablon",
-  "inspect": "Inspectați",
   "install": "Instalați",
   "installASignedSelfContainedRuntime": "Instalați un runtime semnat, autonom. Comenzile Node.js, npm, Git și terminal nu sunt necesare.",
   "installApk": "Instalați APK",
@@ -3251,7 +3217,6 @@
   },
   "instructions": "Instrucțiuni",
   "integration": "Integrarea",
-  "integrationApps": "Aplicații de integrare",
   "integrationConnections": "Conexiuni de integrare",
   "integrationSettingsSaved": "Setările de integrare au fost salvate.",
   "integrations": "Integrari",
@@ -3470,14 +3435,6 @@
       }
     }
   },
-  "lexicalArg1": "Lexical: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "limit20": "LIMIT 20",
   "limit50": "LIMIT 50",
   "linkArg1": "Link {arg1}",
@@ -3601,10 +3558,6 @@
       }
     }
   },
-  "memoryImportSync": "sincronizare import memorie",
-  "memoryIngestionInterval": "Intervalul de ingerare a memoriei",
-  "memoryIngestionIntervalMs": "Interval de absorbție a memoriei (ms)",
-  "memoryIngestionIntervalMustBeAt": "Intervalul de absorbție a memoriei trebuie să fie de cel puțin 1000 ms.",
   "memoryInjected": "Memorie injectată",
   "mentionOrReplyOnly": "Menționați sau răspundeți doar",
   "mergedServerAndFlutterRuntimeLogs": "Serverul îmbinat și jurnalele de rulare Flutter pentru această sesiune de aplicație.",
@@ -3629,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Microfonul este dezactivat. Atingeți pentru a activa sunetul.",
   "microphonePermissionIsRequiredForLive": "Este necesară permisiunea microfonului pentru vocea live.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack și celelalte integrări. Se aplică la ",
   "microsoftTeams": "Microsoft Teams",
   "minimumContributionValueArg1": "Valoarea minimă a contribuției: {arg1}",
   "@minimumContributionValueArg1": {
@@ -3676,6 +3628,8 @@
     }
   },
   "modelAvailability": "Disponibilitatea modelului",
+  "autoEnableNewModels": "Activează automat modelele noi",
+  "autoEnableNewModelsHint": "Când este dezactivat, modelele adăugate ulterior de un furnizor rămân dezactivate până le activezi.",
   "modelAvailabilitySaved": "Disponibilitatea modelului a fost salvată.",
   "modelForThisSession": "Model pentru această sesiune",
   "modelOverride": "Modificare model",
@@ -3911,6 +3865,61 @@
   "noMcpServersMatchThisSearch": "Niciun server MCP nu corespunde acestei căutări.",
   "noMemoryEntriesFound": "Nu s-au găsit intrări de memorie.",
   "noMemorySync": "Fără sincronizare de memorie",
+  "importPastEmailsIntoMemoryHint": "Citește o singură dată e-mailurile importante și trimise din ultimele 12 luni, ca agentul să-ți cunoască contactele și proiectele.",
+  "emailMemory": "Memorie din e-mail",
+  "importNow": "Importă acum",
+  "importOnConnect": "Importă mesajele vechi la conectarea unui cont",
+  "sweepStarting": "Se pregătește…",
+  "sweepReadingProgress": "Se citesc e-mailurile · {done} din {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Se citesc e-mailurile · {count} găsite",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Învață din e-mailuri · {done} din {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Ultimul import: {emails} e-mailuri · {memories} amintiri noi",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Nu există e-mailuri noi de importat",
+  "sweepFailed": "Importul a eșuat: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Niciun model nu se potrivește cu „{arg1}”.",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -3997,7 +4006,6 @@
   "nothingStoredYet": "Nimic încă stocat.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "Acreditările aplicației OAuth care permit conturilor să conecteze Google, ",
   "oauthClientId": "ID client OAuth",
   "oauthClientIdSecretRedirectApi": "oauth client id secret redirecționare cheie API",
   "oauthClientIdSecretRedirectGmail": "oauth client id secret redirecționare gmail calendar drive",
@@ -4035,7 +4043,6 @@
   "onTheyCanJoinAgainOnly": "pe. Se pot alătura din nou numai cu un nou link de invitație.",
   "onYourOwnTheDefault": "Pe cont propriu (prestabilit)",
   "once": "Odată",
-  "oneBlankToKeepWhatIs": "unul gol pentru a păstra ceea ce este depozitat.",
   "oneIsSavedOtherChangesIn": "unul este salvat. Sunt salvate și alte modificări din acest formular.",
   "oneOrMoreAccountsExpiredReconnect": "Unul sau mai multe conturi au expirat. Reconectați contul afectat pentru a restabili accesul la instrument.",
   "oneRuntimeControlsPersonaGroupTurn": "Un timp de rulare controlează persoana, turnarea în grup, memoria camerei, normele, teoria minții și livrarea.",
@@ -4292,7 +4299,6 @@
   "qrLoginRequestWasNotFound": "Cererea de conectare qr nu a fost găsită",
   "qrPairing": "Împerecherea QR",
   "queriesRunAnythingThatWritesIs": "interogările rulează; orice scrie este respins.",
-  "query": "Interogare",
   "queryFilter": "Interogare / Filtru",
   "queuedAsSteeringForTheCurrent": "Așezat în coadă ca direcție pentru rularea curentă: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4377,14 +4383,6 @@
   "registrationIsClosed": "înregistrarea este închisă",
   "registrationRegisterNewAccountsAllowSignup": "înregistrarea înregistrare conturi noi permit înscrierea",
   "rejectInvalidTlsCertificates": "Respinge certificatele TLS nevalide",
-  "relationArg1": "Relație: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "eliberați și repornește. Aplicațiile conectate se reconectează odată ce revin.",
   "releaseChannel": "Lansați canalul",
   "releaseCommitBranchNode": "eliberați nodul de ramură de comitere",
@@ -4487,7 +4485,6 @@
   "resultDelivery": "Livrarea rezultatelor",
   "resultOneClickAddsOneYou": "rezultat. Un clic adaugă unul; îl poți edita mai târziu.",
   "results": "Rezultate",
-  "retrievalInspector": "Inspector de recuperare",
   "retry": "Reîncercați",
   "reusableUsedArg1": "Reutilizabil · folosit {arg1}×",
   "@reusableUsedArg1": {
@@ -4643,14 +4640,6 @@
   "scansNewEmailAndOnlyPings": "Scanează e-mailuri noi și vă trimite un ping doar când ceva contează.",
   "schedule": "Program",
   "scheduledTimeOnceRunsAreMeasured": "ora programata. Odată ce rulările sunt măsurate, va începe mai devreme.",
-  "scoreArg1": "Scor: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Ecran",
   "screenAction": "acțiunea ecranului",
   "scrollIsNotSupportedOnThis": "scroll nu este acceptat pe această platformă.",
@@ -4712,14 +4701,6 @@
     }
   },
   "selectTrigger": "Selectați Declanșare",
-  "semanticArg1": "Semantic: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Trimite (⌘↵)",
   "send2": "Trimite",
   "sendATaskFromChatAnd": "Trimiteți o sarcină din chat și istoricul executării acesteia va apărea aici.",
@@ -5633,14 +5614,6 @@
   "value": "Valoare",
   "vaultLocked": "Seif blocat",
   "vaultOperationFailed": "Operarea seifului a eșuat.",
-  "vectorRankArg1": "Rang Vector: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Verificare",
   "verificationArg1": "Verificare: {arg1}",
   "@verificationArg1": {
@@ -6553,6 +6526,7 @@
   "settingsPageComputer": "Computer și web",
   "settingsPageBehavior": "Comportament",
   "settingsPageSystem": "Sistem",
+  "settingsPagePlatforms": "Platforme",
   "settingsPageProfileDescription": "Numele și adresa dvs. de e-mail, o copie a datelor dvs. și deconectarea.",
   "settingsPageSecurityDescription": "Parola, autentificarea cu doi factori, cheile de securitate și locul în care sunteți conectat.",
   "settingsPageUsageDescription": "Limitele și cheltuielile tale simbol, toate într-un singur loc.",
@@ -6990,5 +6964,295 @@
   "signupKeysSaveDialogTitle": "Salvați cheile de înregistrare",
   "signupKeysExported": "Chei exportate.",
   "auditSignupKeysCreated": "{actor} a creat chei de înregistrare ({count})",
-  "auditSignupKeyRevoked": "{actor} a revocat o cheie de înregistrare"
+  "auditSignupKeyRevoked": "{actor} a revocat o cheie de înregistrare",
+  "dataSharingTitle": "Partajează datele de utilizare",
+  "dataSharingDescription": "Ajută-i pe cei care administrează acest server să-l îmbunătățească. Partajează cum folosești NeoAgent, niciodată ce scrii sau stochezi.",
+  "dataSharingSince": "Partajat din {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Ce se partajează",
+  "dataSharingIncluded": "Se partajează",
+  "dataSharingExcluded": "Nu se partajează niciodată",
+  "dataSharingIncludedDevice": "Tipul dispozitivului și versiunea aplicației",
+  "dataSharingIncludedLocale": "Limba aplicației și regiunea fusului orar, de exemplu Europa",
+  "dataSharingIncludedFeatures": "Ce funcții ai configurat, cum ar fi sarcini, skilluri și integrări",
+  "dataSharingIncludedRuns": "Ce instrumente și modele folosesc rulările tale, cu durate și număr de tokenuri",
+  "dataSharingIncludedActivity": "Când folosești NeoAgent, pe zile ale săptămânii și ore",
+  "dataSharingExcludedContent": "Mesaje, prompturi și răspunsuri",
+  "dataSharingExcludedRuns": "Titlurile rulărilor, intrările și rezultatele instrumentelor",
+  "dataSharingExcludedFiles": "Fișiere, amintiri și orice altceva stochezi",
+  "dataSharingExcludedIdentity": "Numele, e-mailul, adresa IP și locația ta",
+  "dataSharingExcludedAccounts": "Conturile cu care conectezi integrări",
+  "dataSharingPooledNote": "Administratorii văd doar totaluri pentru toți cei care partajează, niciodată pe tine separat. Dezactivează oricând și ieși imediat din totaluri.",
+  "dataSharingConfirmTitle": "Partajezi datele de utilizare?",
+  "dataSharingConfirmAction": "Partajează",
+  "sharedUsageTitle": "Utilizare partajată",
+  "sharedUsageParticipants": "Conturi care partajează date de utilizare: {sharing} din {total}. Doar totaluri, fără conținut.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Nimeni nu partajează încă date de utilizare. Se poate activa din Setări, Profil, Datele dvs.",
+  "sharedUsageRuns": "Rulări partajate",
+  "sharedUsageAvgDuration": "Durată medie",
+  "sharedUsageCompletedRuns": "Rulări finalizate",
+  "sharedUsageStepsPerRun": "Pași per rulare",
+  "sharedUsageDevices": "Dispozitive",
+  "sharedUsageAppVersions": "Versiuni ale aplicației",
+  "sharedUsageLanguages": "Limbi",
+  "sharedUsageRegions": "Regiuni",
+  "sharedUsageFeatures": "Adoptarea funcțiilor",
+  "sharedUsageFeaturesDescription": "Proporția conturilor care partajează și au configurat-o.",
+  "sharedUsageTools": "Instrumente",
+  "sharedUsageToolsDescription": "Cele mai apelate instrumente ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Apeluri: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Eșuate: {percent}%",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integrări",
+  "sharedUsageMessaging": "Canale de mesagerie",
+  "sharedUsageTriggers": "Cum pornesc rulările",
+  "sharedUsageActivity": "Când este folosit",
+  "sharedUsageActivityDescription": "Rulări pe zile ale săptămânii și ore, UTC.",
+  "sharedUsageModels": "Performanța modelelor",
+  "sharedUsageModelDetail": "medie {latency} · {cached}% din cache · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Conturi: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Nimic în această perioadă.",
+  "sharedUsageNotReported": "Încă neraportat",
+  "sharedUsageFeatureAgents": "Mai mult de un agent",
+  "sharedUsageFeatureTasks": "Sarcini programate",
+  "sharedUsageFeatureSkills": "Skilluri",
+  "sharedUsageFeatureMcp": "Servere MCP",
+  "sharedUsageFeatureIntegrations": "Integrări",
+  "sharedUsageFeatureMessaging": "Canale de mesagerie",
+  "sharedUsageFeatureMemory": "Memorie",
+  "sharedUsageSearchKeywords": "opt-in partajare date telemetrie dispozitive funcții instrumente modele activitate",
+  "providerChooseUsername": "Alege-ți numele de utilizator",
+  "providerChooseUsernameBody": "Alege un nume de utilizator disponibil pentru a finaliza crearea contului.",
+  "yourOAuthApp": "Aplicația ta OAuth",
+  "oauthAppSetupTitle": "Aplicația ta OAuth {provider}",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Acest server nu are o aplicație {provider} globală, așa că te conectezi cu o aplicație OAuth pe care o înregistrezi tu. Secretul clientului este stocat criptat și nu mai este afișat niciodată.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Creează aplicația",
+  "openDeveloperConsole": "Deschide consola pentru dezvoltatori",
+  "oauthAppStepCallback": "2. Înregistrează acest URL de callback",
+  "callbackUrlCopied": "URL de callback copiat",
+  "oauthAppScopes": "Scope-uri de permis",
+  "scopesCopied": "Scope-uri copiate",
+  "oauthAppStepCredentials": "3. Lipește datele de autentificare ale aplicației",
+  "couldNotSaveOAuthApp": "Aplicația OAuth nu a putut fi salvată.",
+  "removeOAuthAppTitle": "Elimini aplicația ta {provider}?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Conturile conectate rămân în listă, dar nu mai funcționează până nu adaugi din nou o aplicație.",
+  "globalIntegrationConfiguration": "Configurație globală a integrărilor",
+  "globalIntegrationConfigurationDescription": "Aplicații OAuth opționale pentru tot serverul. Când o integrare are una, fiecare cont o folosește și nu își poate adăuga propria aplicație. Lasă o integrare nesetată și fiecare utilizator își configurează propria aplicație. Secretele pot fi doar scrise: lasă gol pentru a păstra valoarea stocată.",
+  "globalStatus": "Global",
+  "perUserStatus": "Per utilizator",
+  "phoneSyncGuidance": "Partajează calendarele și contactele acestui telefon cu agentul tău. Funcționează cu fiecare cont aflat deja pe telefon.",
+  "phoneSyncElsewhereGuidance": "Deschide NeoAgent pe telefon și activează acolo partajarea. Agentul va vedea apoi calendarele și contactele tuturor conturilor de pe acel telefon.",
+  "manageOnThisPhone": "Gestionează pe acest telefon",
+  "setUpOnThisPhone": "Configurează pe acest telefon",
+  "setUpOnPhone": "Configurează pe telefon",
+  "emailConnectedArg1": "{email} conectat",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Contul nu a putut fi conectat.",
+  "emailSetupTitle": "Conectează e-mail și calendar",
+  "emailChecking": "Se verifică căsuța…",
+  "emailSetupIntro": "Folosește o parolă de aplicație de la furnizorul de e-mail. Fără consolă de dezvoltator, gata în câteva minute.",
+  "emailOpenArg1": "Deschide {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Introdu serverele",
+  "emailStepPassword": "1. Creează o parolă de aplicație",
+  "emailOpenPasswordPageArg1": "Deschide parolele de aplicație {provider}",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Conectare",
+  "appPassword": "Parolă de aplicație",
+  "appPasswordHelper": "Spațiile nu contează. NeoAgent o stochează criptat.",
+  "emailUsernameOptional": "Nume de utilizator, dacă nu e adresa de e-mail",
+  "emailIncludeCalendar": "Include calendarul",
+  "emailIncludeContacts": "Include contactele",
+  "imapServer": "Server IMAP",
+  "smtpServer": "Server SMTP",
+  "caldavUrlOptional": "URL CalDAV (opțional)",
+  "carddavUrlOptional": "URL CardDAV (opțional)",
+  "alternativeEmail": "Conectează căsuța cu o parolă de aplicație sau calendarul prin linkul iCal. Gata în câteva minute.",
+  "alternativePhone": "Partajează calendarul și contactele de pe telefon prin aplicația NeoAgent.",
+  "alternativePhoneElsewhere": "Partajează calendarul și contactele de pe telefon. Configurează în aplicația NeoAgent de pe telefon.",
+  "skipTheDeveloperConsole": "Fără consolă de dezvoltator",
+  "phoneSyncPromptTitle": "Îi permiți agentului să-ți vadă calendarul?",
+  "phoneSyncPromptBody": "Partajează calendarele și contactele acestui telefon ca agentul să-ți planifice ziua. Poți schimba oricând în Instrumente › Integrări.",
+  "phoneSyncTitle": "Partajează calendarul și contactele acestui telefon",
+  "phoneSyncIntro": "Agentul vede calendarele și contactele tuturor conturilor de pe acest telefon. Fără consolă de dezvoltator, fără conectare suplimentară.",
+  "phoneSyncPointAccounts": "Funcționează cu conturile Google, Outlook, iCloud și Exchange de pe acest telefon.",
+  "phoneSyncPointPrivate": "Partajat doar cu serverul tău NeoAgent, care le stochează criptat.",
+  "phoneSyncPointWrites": "Evenimentele adăugate de agent sunt create de acest telefon și se sincronizează ca de obicei.",
+  "phoneSyncCalendarHint": "Evenimente de acum 30 de zile până peste 90 de zile",
+  "phoneSyncContacts": "Contacte",
+  "phoneSyncContactsHint": "Nume, adrese de e-mail și numere de telefon",
+  "phoneSyncOtherAgent": "Acest telefon partajează cu alt agent. Partajarea aici îl mută la acest agent.",
+  "phoneSyncDenied": "NeoAgent nu are încă acces. Permite-l în Setări, apoi revino.",
+  "openPhoneSettings": "Deschide Setările",
+  "phoneSyncShare": "Partajează cu NeoAgent",
+  "phoneSyncStop": "Oprește partajarea",
+  "phoneSyncWaiting": "Se așteaptă prima sincronizare…",
+  "phoneSyncLastSyncedArg1": "Ultima sincronizare {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Link calendar",
+  "calendarLinkHelper": "Adresa iCal a calendarului. Oricine o are poate citi calendarul, așa că păstreaz-o privată.",
+  "calendarLinkName": "Nume (opțional)",
+  "calendarLinkAdded": "Calendar adăugat",
+  "toolsApps": "Aplicații",
+  "reconnect": "Reconectează",
+  "reconnectNeeded": "Necesită reconectare",
+  "mixedAccess": "Acces mixt",
+  "disconnectAccountTitle": "Deconectezi {account}?",
+  "disconnectAccountBody": "Agentul pierde accesul la {apps} prin acest cont.",
+  "neoRouterServerDescription": "Conectează-ți NeoRouterul o dată și fiecare cont de aici îl folosește pentru sarcinile activate mai jos.",
+  "neoRouterUserDescription": "Folosește propriul cont NeoRouter pentru sarcinile activate mai jos în locul furnizorilor acestui server.",
+  "neoRouterAddress": "Adresa NeoRouter",
+  "neoRouterConnect": "Conectează NeoRouter",
+  "neoRouterWaitingArg1": "Aprobă NeoAgent în NeoRouter. Acolo apare codul {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Deschide din nou",
+  "neoRouterConnectedArg1": "Conectat la {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "NeoRouter nu poate fi accesat acum.",
+  "neoRouterDisconnect": "Deconectează",
+  "neoRouterDisconnectBody": "NeoAgent nu mai folosește acest NeoRouter. Pentru a retrage și cheia, revoc-o în NeoRouter la Chei API.",
+  "neoRouterServerInUse": "Acest server folosește deja un NeoRouter pentru toți. Conectează propriul cont NeoRouter pentru modele și buget proprii.",
+  "neoRouterConnected": "NeoRouter este conectat.",
+  "neoRouterRoleChat": "Chat și recunoaștere de imagini",
+  "neoRouterRoleSystemOne": "Decizii System One",
+  "neoRouterRoleTranscription": "Vorbire în text",
+  "neoRouterRoleLive": "Voce live",
+  "neoRouterRoleEmbeddings": "Căutare în memorie",
+  "neoRouterRoleImages": "Generare de imagini",
+  "neoRouterRoleSearch": "Căutare pe web",
+  "neoRouterModelCountArg1": "{arg1} disponibile în NeoRouterul tău",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Încă nu este nimic disponibil în NeoRouterul tău.",
+  "neoRouterPicksModels": "NeoRouter alege modelul pentru fiecare cerere, așa că această selecție nu este folosită.",
+  "neoRouterNotAllowedArg1": "{arg1} în NeoRouterul tău, dar cheia NeoAgent nu le poate folosi încă (de exemplu, cele plătite). Permite-le pentru NeoAgent la Chei API în NeoRouter.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Are nevoie de modele de decizie precum Jev. Clasificatoarele de siguranță nu pot răspunde la aceste întrebări.",
+  "voiceLiveNoProvider": "Niciun furnizor de voce live nu este configurat. Adaugă o cheie OpenAI sau Google AI ori conectează un NeoRouter din Modele → Adu-ți propria cheie.",
+  "voiceSttAutoNeoRouter": "Automat (NeoRouter alege modelul)",
+  "voiceNotOffered": "Nu mai este oferit, alege altul"
 }

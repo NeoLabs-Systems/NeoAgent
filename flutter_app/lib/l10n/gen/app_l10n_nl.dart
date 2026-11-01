@@ -380,6 +380,13 @@ class AppL10nNl extends AppL10n {
   String get addMemory => 'Geheugen toevoegen';
 
   @override
+  String get memoryReview => 'Beoordelen';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Loop al mijn herinneringen door en ruim ze op: archiveer duplicaten, verouderde feiten en alles zonder blijvende waarde. Vertel me daarna kort wat je hebt veranderd.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Voeg meer lengte of een ander tekentype toe.';
 
@@ -1620,10 +1627,6 @@ class AppL10nNl extends AppL10n {
   String get atLeast1 => 'Minstens 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Minimaal 1000. Van toepassing na een herstart van de server.';
-
-  @override
   String get attachFiles => 'Bestanden bijvoegen';
 
   @override
@@ -1862,9 +1865,6 @@ class AppL10nNl extends AppL10n {
   String get braveSearch => 'Moedig zoeken';
 
   @override
-  String get breakdown => 'Uitsplitsing:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Overbrug elke provider die webhook-payloads kan posten en ontvangen.';
 
@@ -1913,11 +1913,6 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get cancelTask => 'Taak annuleren';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Aantal kandidaten: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Kan geen voorbeeld bekijken';
@@ -2389,11 +2384,6 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get content => 'Inhoud';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Inhoud: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'inhoud beveiligingsbeleid';
@@ -3285,11 +3275,6 @@ class AppL10nNl extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Fout: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Fouten uit het recente logboek, gegroepeerd op bericht.';
 
@@ -3309,10 +3294,6 @@ class AppL10nNl extends AppL10n {
   @override
   String get everyAccountOnThisServerLoses =>
       'Elk account op deze server verliest deze gedeelde sleutel. Rekeningen ';
-
-  @override
-  String get everyAccountOnThisServerSecrets =>
-      'elk account op deze server. Geheimen kunnen alleen worden geschreven: vertrek ';
 
   @override
   String get everyAccountOnThisServerUses =>
@@ -3668,11 +3649,6 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get fullSetup => 'Volledige installatie';
-
-  @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Volledige tekst (FTS): $arg1';
-  }
 
   @override
   String get general => 'Algemeen';
@@ -4043,9 +4019,6 @@ class AppL10nNl extends AppL10n {
   String get insertATemplate => 'Voeg een sjabloon in';
 
   @override
-  String get inspect => 'Inspecteer';
-
-  @override
   String get install => 'Installeren';
 
   @override
@@ -4099,9 +4072,6 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get integration => 'Integratie';
-
-  @override
-  String get integrationApps => 'Integratie-apps';
 
   @override
   String get integrationConnections => 'Integratie verbindingen';
@@ -4413,11 +4383,6 @@ class AppL10nNl extends AppL10n {
   }
 
   @override
-  String lexicalArg1(Object? arg1) {
-    return 'Lexicaal: $arg1';
-  }
-
-  @override
   String get limit20 => 'LIMIT 20';
 
   @override
@@ -4694,19 +4659,6 @@ class AppL10nNl extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'Synchronisatie van geheugenimport';
-
-  @override
-  String get memoryIngestionInterval => 'Interval voor geheugenopname';
-
-  @override
-  String get memoryIngestionIntervalMs => 'Interval voor geheugenopname (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'Het geheugenopname-interval moet minimaal 1000 ms zijn.';
-
-  @override
   String get memoryInjected => 'Geheugen geïnjecteerd';
 
   @override
@@ -4767,10 +4719,6 @@ class AppL10nNl extends AppL10n {
   String get microsoft365 => 'Microsoft365';
 
   @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack en de andere integraties. Ze zijn van toepassing op ';
-
-  @override
   String get microsoftTeams => 'Microsoft Teams';
 
   @override
@@ -4815,6 +4763,13 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get modelAvailability => 'Beschikbaarheid van modellen';
+
+  @override
+  String get autoEnableNewModels => 'Nieuwe modellen automatisch inschakelen';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Indien uit, blijven modellen die een provider later toevoegt uitgeschakeld totdat je ze inschakelt.';
 
   @override
   String get modelAvailabilitySaved =>
@@ -5297,6 +5252,51 @@ class AppL10nNl extends AppL10n {
   String get noMemorySync => 'Geen geheugensynchronisatie';
 
   @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Leest eenmalig de belangrijke en verzonden mail van de afgelopen 12 maanden, zodat de agent je contacten en projecten kent.';
+
+  @override
+  String get emailMemory => 'E-mailgeheugen';
+
+  @override
+  String get importNow => 'Nu importeren';
+
+  @override
+  String get importOnConnect =>
+      'Eerdere mail importeren bij het koppelen van een account';
+
+  @override
+  String get sweepStarting => 'Voorbereiden…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'E-mails lezen · $done van $total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'E-mails lezen · $count gevonden';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Leren van e-mails · $done van $total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Laatste import: $emails e-mails · $memories nieuwe herinneringen';
+  }
+
+  @override
+  String get sweepNothingNew => 'Geen nieuwe e-mails om te importeren';
+
+  @override
+  String sweepFailed(String error) {
+    return 'Importeren mislukt: $error';
+  }
+
+  @override
   String noModelMatchesArg1(Object? arg1) {
     return 'Geen enkel model komt overeen met \"$arg1\".';
   }
@@ -5494,10 +5494,6 @@ class AppL10nNl extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'OAuth-app-inloggegevens waarmee accounts verbinding kunnen maken met Google, ';
-
-  @override
   String get oauthClientId => 'OAuth-client-ID';
 
   @override
@@ -5569,10 +5565,6 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get once => 'Een keer';
-
-  @override
-  String get oneBlankToKeepWhatIs =>
-      'één blanco om te bewaren wat is opgeslagen.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -6110,9 +6102,6 @@ class AppL10nNl extends AppL10n {
       'zoekopdrachten worden uitgevoerd; alles wat schrijft wordt afgewezen.';
 
   @override
-  String get query => 'Vraag';
-
-  @override
   String get queryFilter => 'Opvragen/filteren';
 
   @override
@@ -6280,11 +6269,6 @@ class AppL10nNl extends AppL10n {
       'Weiger ongeldige TLS-certificaten';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Relatie: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'loslaten en opnieuw opstarten. Verbonden apps maken opnieuw verbinding zodra deze terug is.';
 
@@ -6444,9 +6428,6 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get results => 'Resultaten';
-
-  @override
-  String get retrievalInspector => 'Ophaalinspecteur';
 
   @override
   String get retry => 'Opnieuw proberen';
@@ -6776,11 +6757,6 @@ class AppL10nNl extends AppL10n {
       'geplande tijd. Zodra de runs zijn gemeten, begint deze eerder.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Score: $arg1';
-  }
-
-  @override
   String get screen => 'Scherm';
 
   @override
@@ -6917,11 +6893,6 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get selectTrigger => 'Selecteer Trigger';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Semantisch: $arg1';
-  }
 
   @override
   String get send => 'Verzenden (⌘↵)';
@@ -8702,11 +8673,6 @@ class AppL10nNl extends AppL10n {
   String get vaultOperationFailed => 'Kluisbewerking mislukt.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Vectorrang: $arg1';
-  }
-
-  @override
   String get verification => 'Verificatie';
 
   @override
@@ -10127,6 +10093,9 @@ class AppL10nNl extends AppL10n {
   String get settingsPageSystem => 'Systeem';
 
   @override
+  String get settingsPagePlatforms => 'Platforms';
+
+  @override
   String get settingsPageProfileDescription =>
       'Uw naam en e-mailadres, een kopie van uw gegevens en uitloggen.';
 
@@ -11298,9 +11267,726 @@ class AppL10nNl extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Kies je gebruikersnaam';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Kies een beschikbare gebruikersnaam om je account af te ronden.';
+
+  @override
+  String get dataSharingTitle => 'Gebruiksgegevens delen';
+
+  @override
+  String get dataSharingDescription =>
+      'Help de beheerders van deze server hem te verbeteren. Deelt hoe je NeoAgent gebruikt, nooit wat je schrijft of opslaat.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Gedeeld sinds $date.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'Wat er gedeeld wordt';
+
+  @override
+  String get dataSharingIncluded => 'Gedeeld';
+
+  @override
+  String get dataSharingExcluded => 'Nooit gedeeld';
+
+  @override
+  String get dataSharingIncludedDevice => 'Apparaattype en app-versie';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'App-taal en tijdzoneregio, zoals Europa';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Welke functies je hebt ingesteld, zoals taken, skills en integraties';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Welke tools en modellen je runs gebruiken, met duur en aantal tokens';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'Wanneer je NeoAgent gebruikt, per weekdag en uur';
+
+  @override
+  String get dataSharingExcludedContent => 'Berichten, prompts en antwoorden';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Run-titels, tool-invoer en -resultaten';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Bestanden, herinneringen en alles wat je verder opslaat';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'Je naam, e-mail, IP-adres en locatie';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'De accounts waarmee je integraties koppelt';
+
+  @override
+  String get dataSharingPooledNote =>
+      'Beheerders zien alleen totalen over iedereen die deelt, nooit jou afzonderlijk. Zet het op elk moment uit en je valt direct uit de totalen.';
+
+  @override
+  String get dataSharingConfirmTitle => 'Gebruiksgegevens delen?';
+
+  @override
+  String get dataSharingConfirmAction => 'Delen';
+
+  @override
+  String get sharedUsageTitle => 'Gedeeld gebruik';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Accounts die gebruiksgegevens delen: $sharing van $total. Alleen totalen, geen inhoud.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Nog niemand deelt gebruiksgegevens. Het staat aan te zetten onder Instellingen, Profiel, Jouw gegevens.';
+
+  @override
+  String get sharedUsageRuns => 'Gedeelde runs';
+
+  @override
+  String get sharedUsageAvgDuration => 'Gem. duur';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Voltooide runs';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Stappen per run';
+
+  @override
+  String get sharedUsageDevices => 'Apparaten';
+
+  @override
+  String get sharedUsageAppVersions => 'App-versies';
+
+  @override
+  String get sharedUsageLanguages => 'Talen';
+
+  @override
+  String get sharedUsageRegions => 'Regio\'s';
+
+  @override
+  String get sharedUsageFeatures => 'Gebruik van functies';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'Aandeel van de delende accounts dat het heeft ingesteld.';
+
+  @override
+  String get sharedUsageTools => 'Tools';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'Meest aangeroepen tools ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Aanroepen: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Mislukt: $percent%';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Integraties';
+
+  @override
+  String get sharedUsageMessaging => 'Berichtenkanalen';
+
+  @override
+  String get sharedUsageTriggers => 'Hoe runs starten';
+
+  @override
+  String get sharedUsageActivity => 'Wanneer het gebruikt wordt';
+
+  @override
+  String get sharedUsageActivityDescription => 'Runs per weekdag en uur, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Modelprestaties';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return 'gem. $latency · $cached% gecachet · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Accounts: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'Niets in deze periode.';
+
+  @override
+  String get sharedUsageNotReported => 'Nog niet gemeld';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Meer dan één agent';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Geplande taken';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Skills';
+
+  @override
+  String get sharedUsageFeatureMcp => 'MCP-servers';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Integraties';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Berichtenkanalen';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Geheugen';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'opt-in gegevens delen telemetrie apparaten functies tools modellen activiteit';
+
+  @override
+  String get yourOAuthApp => 'Je OAuth-app';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'Je $provider-OAuth-app';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Deze server heeft geen globale $provider-app, dus je verbindt met een OAuth-app die je zelf registreert. Het clientgeheim wordt versleuteld opgeslagen en nooit meer getoond.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Maak de app';
+
+  @override
+  String get openDeveloperConsole => 'Ontwikkelaarsconsole openen';
+
+  @override
+  String get oauthAppStepCallback => '2. Registreer deze callback-URL';
+
+  @override
+  String get callbackUrlCopied => 'Callback-URL gekopieerd';
+
+  @override
+  String get oauthAppScopes => 'Toe te staan scopes';
+
+  @override
+  String get scopesCopied => 'Scopes gekopieerd';
+
+  @override
+  String get oauthAppStepCredentials => '3. Plak de app-gegevens';
+
+  @override
+  String get couldNotSaveOAuthApp => 'Kon de OAuth-app niet opslaan.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Je $provider-app verwijderen?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Verbonden accounts blijven in de lijst staan maar werken pas weer als je opnieuw een app toevoegt.';
+
+  @override
+  String get globalIntegrationConfiguration => 'Globale integratieconfiguratie';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Optionele serverbrede OAuth-apps. Heeft een integratie er een, dan gebruikt elk account die en kan het geen eigen app toevoegen. Laat een integratie leeg en elke gebruiker stelt zijn eigen app in. Geheimen zijn alleen-schrijven: laat leeg om de opgeslagen waarde te behouden.';
+
+  @override
+  String get globalStatus => 'Globaal';
+
+  @override
+  String get perUserStatus => 'Per gebruiker';
+
+  @override
+  String get phoneSyncGuidance =>
+      'Deel de agenda\'s en contacten van deze telefoon met je agent. Het werkt met elk account dat al op de telefoon staat.';
+
+  @override
+  String get phoneSyncElsewhereGuidance =>
+      'Open NeoAgent op je telefoon en zet daar delen aan. Je agent ziet dan de agenda\'s en contacten van alle accounts op die telefoon.';
+
+  @override
+  String get manageOnThisPhone => 'Beheren op deze telefoon';
+
+  @override
+  String get setUpOnThisPhone => 'Instellen op deze telefoon';
+
+  @override
+  String get setUpOnPhone => 'Instellen op je telefoon';
+
+  @override
+  String emailConnectedArg1(String email) {
+    return '$email gekoppeld';
+  }
+
+  @override
+  String get couldNotConnectEmail => 'Dit account kon niet worden gekoppeld.';
+
+  @override
+  String get emailSetupTitle => 'E-mail & agenda koppelen';
+
+  @override
+  String get emailChecking => 'Je mailbox wordt gecontroleerd…';
+
+  @override
+  String get emailSetupIntro =>
+      'Gebruik een app-wachtwoord van je mailprovider. Geen ontwikkelaarsconsole, binnen een paar minuten klaar.';
+
+  @override
+  String emailOpenArg1(String provider) {
+    return '$provider openen';
+  }
+
+  @override
+  String get emailStepServers => '1. Vul je servers in';
+
+  @override
+  String get emailStepPassword => '1. Maak een app-wachtwoord';
+
+  @override
+  String emailOpenPasswordPageArg1(String provider) {
+    return 'App-wachtwoorden van $provider openen';
+  }
+
+  @override
+  String get emailStepSignIn => '2. Inloggen';
+
+  @override
+  String get appPassword => 'App-wachtwoord';
+
+  @override
+  String get appPasswordHelper =>
+      'Spaties maken niet uit. NeoAgent bewaart het versleuteld.';
+
+  @override
+  String get emailUsernameOptional =>
+      'Gebruikersnaam, als die niet je e-mailadres is';
+
+  @override
+  String get emailIncludeCalendar => 'Agenda meenemen';
+
+  @override
+  String get emailIncludeContacts => 'Contacten meenemen';
+
+  @override
+  String get imapServer => 'IMAP-server';
+
+  @override
+  String get smtpServer => 'SMTP-server';
+
+  @override
+  String get caldavUrlOptional => 'CalDAV-URL (optioneel)';
+
+  @override
+  String get carddavUrlOptional => 'CardDAV-URL (optioneel)';
+
+  @override
+  String get alternativeEmail =>
+      'Koppel je mailbox met een app-wachtwoord, of je agenda via de iCal-link. Binnen een paar minuten klaar.';
+
+  @override
+  String get alternativePhone =>
+      'Deel de agenda en contacten die al op je telefoon staan via de NeoAgent-app.';
+
+  @override
+  String get alternativePhoneElsewhere =>
+      'Deel de agenda en contacten die al op je telefoon staan. Stel het in in de NeoAgent-app op je telefoon.';
+
+  @override
+  String get skipTheDeveloperConsole => 'Zonder ontwikkelaarsconsole';
+
+  @override
+  String get phoneSyncPromptTitle => 'Mag je agent je agenda zien?';
+
+  @override
+  String get phoneSyncPromptBody =>
+      'Deel de agenda\'s en contacten van deze telefoon zodat je agent rond je dag kan plannen. Je kunt dit altijd wijzigen onder Tools › Integraties.';
+
+  @override
+  String get phoneSyncTitle => 'Agenda & contacten van deze telefoon delen';
+
+  @override
+  String get phoneSyncIntro =>
+      'Je agent ziet de agenda\'s en contacten van alle accounts op deze telefoon. Geen ontwikkelaarsconsole, geen extra login.';
+
+  @override
+  String get phoneSyncPointAccounts =>
+      'Werkt met de Google-, Outlook-, iCloud- en Exchange-accounts op deze telefoon.';
+
+  @override
+  String get phoneSyncPointPrivate =>
+      'Alleen gedeeld met je NeoAgent-server, die het versleuteld bewaart.';
+
+  @override
+  String get phoneSyncPointWrites =>
+      'Afspraken die je agent toevoegt, maakt deze telefoon aan en ze synchroniseren zoals altijd.';
+
+  @override
+  String get phoneSyncCalendarHint =>
+      'Afspraken van 30 dagen geleden tot 90 dagen vooruit';
+
+  @override
+  String get phoneSyncContacts => 'Contacten';
+
+  @override
+  String get phoneSyncContactsHint =>
+      'Namen, e-mailadressen en telefoonnummers';
+
+  @override
+  String get phoneSyncOtherAgent =>
+      'Deze telefoon deelt met een andere agent. Hier delen verplaatst het naar deze agent.';
+
+  @override
+  String get phoneSyncDenied =>
+      'NeoAgent heeft nog geen toegang. Sta het toe in Instellingen en kom terug.';
+
+  @override
+  String get openPhoneSettings => 'Instellingen openen';
+
+  @override
+  String get phoneSyncShare => 'Delen met NeoAgent';
+
+  @override
+  String get phoneSyncStop => 'Stoppen met delen';
+
+  @override
+  String get phoneSyncWaiting => 'Wachten op de eerste synchronisatie…';
+
+  @override
+  String phoneSyncLastSyncedArg1(String time) {
+    return 'Laatst gesynchroniseerd $time';
+  }
+
+  @override
+  String get calendarLink => 'Agendalink';
+
+  @override
+  String get calendarLinkHelper =>
+      'Het iCal-adres van de agenda. Iedereen met dit adres kan de agenda lezen, dus houd het privé.';
+
+  @override
+  String get calendarLinkName => 'Naam (optioneel)';
+
+  @override
+  String get calendarLinkAdded => 'Agenda toegevoegd';
+
+  @override
+  String get toolsApps => 'Apps';
+
+  @override
+  String get reconnect => 'Opnieuw verbinden';
+
+  @override
+  String get reconnectNeeded => 'Opnieuw verbinden nodig';
+
+  @override
+  String get mixedAccess => 'Gemengde toegang';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return '$account loskoppelen?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'De agent verliest via dit account de toegang tot $apps.';
+  }
+
+  @override
+  String get neoRouterServerDescription =>
+      'Verbind je NeoRouter één keer en elk account hier gebruikt hem voor de taken die hieronder aanstaan.';
+
+  @override
+  String get neoRouterUserDescription =>
+      'Gebruik je eigen NeoRouter-account voor de taken die hieronder aanstaan in plaats van de providers van deze server.';
+
+  @override
+  String get neoRouterAddress => 'NeoRouter-adres';
+
+  @override
+  String get neoRouterConnect => 'NeoRouter verbinden';
+
+  @override
+  String neoRouterWaitingArg1(Object? arg1) {
+    return 'Keur NeoAgent goed in NeoRouter. Daar staat de code $arg1.';
+  }
+
+  @override
+  String get neoRouterOpenAgain => 'Opnieuw openen';
+
+  @override
+  String neoRouterConnectedArg1(Object? arg1) {
+    return 'Verbonden met $arg1';
+  }
+
+  @override
+  String get neoRouterUnreachable => 'NeoRouter is nu niet bereikbaar.';
+
+  @override
+  String get neoRouterDisconnect => 'Loskoppelen';
+
+  @override
+  String get neoRouterDisconnectBody =>
+      'NeoAgent gebruikt deze NeoRouter niet meer. Trek ook de sleutel in via API-sleutels in NeoRouter.';
+
+  @override
+  String get neoRouterServerInUse =>
+      'Deze server gebruikt al een NeoRouter voor iedereen. Verbind je eigen NeoRouter-account voor eigen modellen en budget.';
+
+  @override
+  String get neoRouterConnected => 'NeoRouter is verbonden.';
+
+  @override
+  String get neoRouterRoleChat => 'Chat en beeldherkenning';
+
+  @override
+  String get neoRouterRoleSystemOne => 'System One-beslissingen';
+
+  @override
+  String get neoRouterRoleTranscription => 'Spraak naar tekst';
+
+  @override
+  String get neoRouterRoleLive => 'Live spraak';
+
+  @override
+  String get neoRouterRoleEmbeddings => 'Geheugen doorzoeken';
+
+  @override
+  String get neoRouterRoleImages => 'Afbeeldingen maken';
+
+  @override
+  String get neoRouterRoleSearch => 'Zoeken op het web';
+
+  @override
+  String neoRouterModelCountArg1(Object? arg1) {
+    return '$arg1 beschikbaar in je NeoRouter';
+  }
+
+  @override
+  String get neoRouterNoModels =>
+      'Er is nog niets beschikbaar in je NeoRouter.';
+
+  @override
+  String get neoRouterPicksModels =>
+      'NeoRouter kiest voor elk verzoek het model, dus deze selectie wordt niet gebruikt.';
+
+  @override
+  String neoRouterNotAllowedArg1(Object? arg1) {
+    return '$arg1 in je NeoRouter, maar de sleutel van NeoAgent mag ze nog niet gebruiken (bijvoorbeeld betaalde). Sta ze toe voor NeoAgent onder API-sleutels in NeoRouter.';
+  }
+
+  @override
+  String get neoRouterNoDecisionModels =>
+      'Heeft beslismodellen zoals Jev nodig. Veiligheidsclassificatoren kunnen deze vragen niet beantwoorden.';
+
+  @override
+  String get voiceLiveNoProvider =>
+      'Er is geen aanbieder voor live spraak ingesteld. Voeg een OpenAI- of Google AI-sleutel toe, of verbind een NeoRouter, onder Modellen → Neem uw eigen sleutel mee.';
+
+  @override
+  String get voiceSttAutoNeoRouter => 'Automatisch (NeoRouter kiest het model)';
+
+  @override
+  String get voiceNotOffered => 'Niet meer beschikbaar, kies een ander';
+
+  @override
+  String get agentImport => 'Bring over another agent';
+
+  @override
+  String get agentImportDescription =>
+      'Copies OpenClaw or Hermes Agent from the server\'s computer (~/.openclaw and ~/.hermes) into your account. Nothing is removed there, and importing twice does not duplicate anything.';
+
+  @override
+  String get agentImportNoneFound =>
+      'No OpenClaw or Hermes Agent was found in ~/.openclaw or ~/.hermes on the server\'s computer.';
+
+  @override
+  String get agentImportWhatComes => 'What comes over';
+
+  @override
+  String get agentImportAgentsAlways =>
+      'Agents and their personality always come over; everything else is attached to them.';
+
+  @override
+  String get agentImportPartKeys => 'Keys and AI providers';
+
+  @override
+  String get agentImportPartMemories => 'Memories and notes';
+
+  @override
+  String get agentImportPartSkills => 'Skills';
+
+  @override
+  String get agentImportPartModel => 'Default model';
+
+  @override
+  String get agentImportPartTasks => 'Automations';
+
+  @override
+  String get agentImportPartMcp => 'MCP servers';
+
+  @override
+  String get agentImportPartChannels => 'Chat apps';
+
+  @override
+  String agentImportCountAgents(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count agents',
+      one: '1 agent',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountKeys(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count connections',
+      one: '1 connection',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountMemories(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count memories',
+      one: '1 memory',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days of notes',
+      one: '1 day of notes',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountSkills(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count skills',
+      one: '1 skill',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountTasks(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count automations',
+      one: '1 automation',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountMcp(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count MCP servers',
+      one: '1 MCP server',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportNeedsHandCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count things need a hand afterwards',
+      one: '1 thing needs a hand afterwards',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get agentImportFinish => 'Let NeoAgent finish moving in';
+
+  @override
+  String get agentImportFinishHint =>
+      'After the restart, your agent reworks imported skills for its own tools and rebuilds what the importer left behind. Needs a connected AI.';
+
+  @override
+  String get agentImportRun => 'Bring it over';
+
+  @override
+  String get agentImportRunning => 'Bringing it over…';
+
+  @override
+  String get agentImportMovedIn => 'Moved in';
+
+  @override
+  String get agentImportAlreadyMovedIn => 'Everything was already in NeoAgent.';
+
+  @override
+  String agentImportAlreadyThere(int count) {
+    return '$count already in NeoAgent, left as they were';
+  }
+
+  @override
+  String get agentImportNeedsHand => 'Needs a hand';
+
+  @override
+  String agentImportMore(int count) {
+    return '…and $count more in the report.';
+  }
+
+  @override
+  String agentImportReport(String path) {
+    return 'Full report: $path';
+  }
+
+  @override
+  String agentImportFinishQueued(String name) {
+    return 'Queued \"$name\". It starts two minutes after NeoAgent restarts, and you\'ll get a message when it\'s done.';
+  }
+
+  @override
+  String get agentImportRestartNeeded =>
+      'Restart NeoAgent to load everything that came over.';
+
+  @override
+  String get agentImportRestarted =>
+      'NeoAgent restarted and loaded everything.';
 }

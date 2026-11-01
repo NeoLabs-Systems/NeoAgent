@@ -3,15 +3,15 @@
 // Tracks which auto-fetched models the admin has explicitly disabled, and
 // reconciles that list as providers add or retire models over time.
 //
-// Policy for models the admin has never seen before:
-//   - If nothing is currently disabled, new models default to enabled.
-//   - If at least one model is already disabled, new models default to
-//     disabled too, so an admin who is curating the list isn't silently
-//     opted back into everything a provider adds.
+// Policy for models the admin has never seen before is an explicit admin
+// setting (auto-enable new models). When off, new models are added to the
+// disabled list so a curating admin isn't silently opted into everything a
+// provider adds. Defaults to on.
 
 const { ENV_FILE, upsertEnvValue } = require('../../../runtime/paths');
 
 const DISABLED_MODELS_ENV_KEY = 'NEOAGENT_DISABLED_MODELS';
+const AUTO_ENABLE_NEW_ENV_KEY = 'NEOAGENT_AUTO_ENABLE_NEW_MODELS';
 // Chat models and SystemOne decision models share the disabled list, but each
 // catalog keeps its own known list so one never retires the other's models.
 const KNOWN_MODELS_ENV_KEYS = Object.freeze({
@@ -40,6 +40,15 @@ function setDisabledModelIds(disabledIds) {
     return unique;
 }
 
+function getAutoEnableNewModels() {
+    return process.env[AUTO_ENABLE_NEW_ENV_KEY] !== 'false';
+}
+
+function setAutoEnableNewModels(enabled) {
+    persistIdList(AUTO_ENABLE_NEW_ENV_KEY, [String(Boolean(enabled))]);
+    return Boolean(enabled);
+}
+
 // null means "never bootstrapped" -- distinct from an empty list.
 function getKnownModelIds(knownEnvKey) {
     return process.env[knownEnvKey] === undefined
@@ -66,11 +75,13 @@ function reconcileModelVisibility(currentModelIds, catalog = 'llm') {
 
     const knownSet = new Set(knownIds);
     const newIds = Array.from(currentSet).filter((id) => !knownSet.has(id));
-    const staleIds = knownIds.filter((id) => !currentSet.has(id));
-    if (!newIds.length && !staleIds.length) return disabledIds;
+    // Models missing from this fetch are left alone in both lists: a provider
+    // hiccup or partial catalog must not erase the admin's choices, or the
+    // model would come back as "new" and be re-enabled.
+    if (!newIds.length) return disabledIds;
 
     const disabledSet = new Set(disabledIds);
-    const autoDisableNewModels = disabledSet.size > 0;
+    const autoDisableNewModels = !getAutoEnableNewModels();
     let disabledChanged = false;
 
     for (const id of newIds) {
@@ -80,10 +91,6 @@ function reconcileModelVisibility(currentModelIds, catalog = 'llm') {
             disabledChanged = true;
         }
     }
-    for (const id of staleIds) {
-        knownSet.delete(id);
-        disabledChanged = disabledSet.delete(id) || disabledChanged;
-    }
 
     persistIdList(knownEnvKey, Array.from(knownSet));
     if (disabledChanged) persistIdList(DISABLED_MODELS_ENV_KEY, Array.from(disabledSet));
@@ -92,6 +99,8 @@ function reconcileModelVisibility(currentModelIds, catalog = 'llm') {
 
 module.exports = {
     getDisabledModelIds,
+    getAutoEnableNewModels,
+    setAutoEnableNewModels,
     setDisabledModelIds,
     reconcileModelVisibility,
 };

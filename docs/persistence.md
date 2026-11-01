@@ -45,7 +45,7 @@ description: The single SQLite instance, what it owns, how schema changes are ap
 | Data migrations | `VERSIONED_MIGRATIONS` in `lib/schema_migrations.js`, run by `runVersionedMigrations()` | Once each, tracked by `PRAGMA user_version`; append only |
 | Shared DDL | `lib/shared_schema.js` | Reused where the base schema and a migration create the same tables |
 
-- **Not schema.** `lib/migrations.js` is the OpenClaw and Hermes importer behind `neoagent migrate`.
+- **Not schema.** `lib/migrations.js` and `lib/importers/` are the OpenClaw and Hermes importer behind `neoagent migrate`.
 - **Preserve data.** A migration must keep existing user data and tolerate a partly migrated database.
 
 :::danger Do not bypass the migration layer

@@ -271,7 +271,7 @@ extension SettingsPageX on SettingsPage {
       case SettingsPage.voice:
         return appStrings.voice;
       case SettingsPage.messaging:
-        return appStrings.messaging;
+        return appStrings.settingsPagePlatforms;
       case SettingsPage.general:
         return appStrings.general;
       case SettingsPage.system:

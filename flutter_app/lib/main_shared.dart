@@ -1418,10 +1418,14 @@ class _ChatBubble extends StatelessWidget {
     this.onLoadRunDetail,
     this.onSendMessage,
     this.liveController,
+    this.linkController,
   });
 
   final ChatEntry entry;
   final NeoAgentController? liveController;
+
+  /// Opens the links in the message and names the app places they point at.
+  final NeoAgentController? linkController;
   final Future<RunDetailSnapshot> Function(String runId)? onLoadRunDetail;
   final void Function(String)? onSendMessage;
 
@@ -1440,6 +1444,9 @@ class _ChatBubble extends StatelessWidget {
     if (entry.typing) {
       return const _TypingIndicatorBubble();
     }
+    final appLinks = !isUser && linkController != null
+        ? _appLinksIn(entry.content)
+        : const <AppLink>[];
 
     return Opacity(
       opacity: isTransient ? 0.92 : 1,
@@ -1509,6 +1516,13 @@ class _ChatBubble extends StatelessWidget {
                       data: entry.content,
                       selectable: false,
                       sizedImageBuilder: _markdownImageLink,
+                      onTapLink: linkController == null
+                          ? null
+                          : (_, href, _) {
+                              if (href != null) {
+                                linkController!.openMessageLink(href);
+                              }
+                            },
                       styleSheet:
                           MarkdownStyleSheet.fromTheme(
                             Theme.of(context),
@@ -1531,6 +1545,13 @@ class _ChatBubble extends StatelessWidget {
                             ),
                           ),
                     ),
+                    if (appLinks.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 12),
+                      _AppLinkCards(
+                        links: appLinks,
+                        controller: linkController!,
+                      ),
+                    ],
                     if (sharedAttachments.isNotEmpty) ...<Widget>[
                       const SizedBox(height: 10),
                       _SharedAttachmentChipWrap(

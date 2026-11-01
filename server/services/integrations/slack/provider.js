@@ -1,6 +1,6 @@
 'use strict';
 
-const { describeEnvStatus, resolveSlackOAuthConfig } = require('../env');
+const { createOAuthApp } = require('../oauth_app');
 const {
   appendQuery,
   createOAuthProvider,
@@ -158,12 +158,11 @@ async function slackApi(
   );
 }
 
-async function refreshSlackCredentials(credentials, signal) {
+async function refreshSlackCredentials(config, credentials, signal) {
   const refreshToken = String(credentials?.refresh_token || '').trim();
   if (!refreshToken) {
     throw new Error('Slack refresh token is missing. Reconnect this integration account.');
   }
-  const config = resolveSlackOAuthConfig();
   const basic = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64');
   const token = await fetchJson(
     'https://slack.com/api/oauth.v2.access',
@@ -204,7 +203,7 @@ async function refreshSlackCredentials(credentials, signal) {
 async function slackRequest(context, methodName, options = {}) {
   const { signal } = context;
   return withRefreshedOAuthCredentials(context, {
-    refresh: refreshSlackCredentials,
+    refresh: (credentials, refreshSignal) => refreshSlackCredentials(context.oauth, credentials, refreshSignal),
     request: (activeCredentials) => slackApi(activeCredentials, methodName, { ...options, signal }),
     shouldRetry: (error, credentials) => {
       const code = String(error?.data?.error || '').toLowerCase();
@@ -289,13 +288,15 @@ function createSlackProvider() {
     toolDefinitions: slackToolDefinitions,
     connectPrompt:
       'Connect Slack to browse conversations, read and search messages, and post replies.',
-    getEnvStatus() {
-      return describeEnvStatus(resolveSlackOAuthConfig(), {
-        label: 'Slack',
-      });
-    },
-    async beginOAuth({ state, app }) {
-      const config = resolveSlackOAuthConfig();
+    oauthApp: createOAuthApp({
+      providerKey: 'slack',
+      label: 'Slack',
+      envPrefix: 'SLACK',
+      consoleUrl: 'https://api.slack.com/apps',
+      notes: 'Create an app, add the callback URL under OAuth & Permissions › Redirect URLs (Slack requires HTTPS), and add these user token scopes.',
+      scopes: SLACK_APPS.flatMap((app) => app.userScopes),
+    }),
+    async beginOAuth({ state, app, oauth: config }) {
       return {
         url: appendQuery('https://slack.com/oauth/v2/authorize', {
           client_id: config.clientId,
@@ -306,8 +307,7 @@ function createSlackProvider() {
         appId: app.id,
       };
     },
-    async finishOAuth({ code, app, signal }) {
-      const config = resolveSlackOAuthConfig();
+    async finishOAuth({ code, app, signal, oauth: config }) {
       const token = await fetchJson(
         'https://slack.com/api/oauth.v2.access',
         {

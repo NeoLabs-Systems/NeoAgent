@@ -1,6 +1,6 @@
 'use strict';
 
-const { describeEnvStatus, resolveNotionOAuthConfig } = require('../env');
+const { createOAuthApp } = require('../oauth_app');
 const {
   appendQuery,
   buildPinnedApiUrl,
@@ -301,13 +301,14 @@ function createNotionProvider() {
     toolDefinitions: notionToolDefinitions,
     connectPrompt:
       'Connect Notion to search, read, create, and update workspace content.',
-    getEnvStatus() {
-      return describeEnvStatus(resolveNotionOAuthConfig(), {
-        label: 'Notion',
-      });
-    },
-    async beginOAuth({ state, app }) {
-      const config = resolveNotionOAuthConfig();
+    oauthApp: createOAuthApp({
+      providerKey: 'notion',
+      label: 'Notion',
+      envPrefix: 'NOTION',
+      consoleUrl: 'https://www.notion.so/profile/integrations',
+      notes: 'Create a public integration, add the callback URL as its redirect URI, and copy the OAuth client ID and secret.',
+    }),
+    async beginOAuth({ state, app, oauth: config }) {
       return {
         url: appendQuery('https://api.notion.com/v1/oauth/authorize', {
           owner: 'user',
@@ -319,8 +320,7 @@ function createNotionProvider() {
         appId: app.id,
       };
     },
-    async finishOAuth({ code, app, signal }) {
-      const config = resolveNotionOAuthConfig();
+    async finishOAuth({ code, app, signal, oauth: config }) {
       const basic = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString(
         'base64',
       );

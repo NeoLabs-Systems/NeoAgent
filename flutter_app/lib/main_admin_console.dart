@@ -70,8 +70,11 @@ class _AdminSearchEntry {
   final String keywords;
 
   bool matches(String query) {
-    final haystack =
-        appStrings.arg1Arg2Arg37(title.toLowerCase(), keywords, tab.label.toLowerCase());
+    final haystack = appStrings.arg1Arg2Arg37(
+      title.toLowerCase(),
+      keywords,
+      tab.label.toLowerCase(),
+    );
     return query
         .split(RegExp(r'\s+'))
         .where((word) => word.isNotEmpty)
@@ -222,7 +225,7 @@ List<_AdminSearchEntry> _adminSearchIndex = <_AdminSearchEntry>[
     appStrings.notionSlackFigmaGithubSpotifyTrello,
     _AdminTab.integrations,
     appStrings.oauthClientIdSecretRedirectApi,
-    card: appStrings.integrationApps,
+    card: appStrings.globalIntegrationConfiguration,
   ),
   _AdminSearchEntry(
     appStrings.liveVoiceDefaults,
@@ -249,12 +252,6 @@ List<_AdminSearchEntry> _adminSearchIndex = <_AdminSearchEntry>[
     card: 'General',
   ),
   _AdminSearchEntry(
-    appStrings.memoryIngestionInterval,
-    _AdminTab.config,
-    appStrings.memoryImportSync,
-    card: 'General',
-  ),
-  _AdminSearchEntry(
     appStrings.cloudComputerVm,
     _AdminTab.config,
     appStrings.vmImageMemoryCpuQemuRuntime,
@@ -276,6 +273,12 @@ List<_AdminSearchEntry> _adminSearchIndex = <_AdminSearchEntry>[
     _AdminTab.analytics,
     appStrings.usageLeaderboard,
     card: appStrings.topUsers,
+  ),
+  _AdminSearchEntry(
+    appStrings.sharedUsageTitle,
+    _AdminTab.analytics,
+    appStrings.sharedUsageSearchKeywords,
+    card: appStrings.sharedUsageTitle,
   ),
   _AdminSearchEntry(
     appStrings.sqlConsole,
@@ -379,7 +382,12 @@ class _AdminPanelState extends State<AdminPanel> {
       case _AdminTab.server:
         return _AdminServerTab(controller: controller);
       case _AdminTab.providers:
-        return _AdminProvidersTab(controller: controller);
+        return _SectionStack(
+          children: <Widget>[
+            NeoRouterConnectCard(controller: controller, scope: 'server'),
+            _AdminProvidersTab(controller: controller),
+          ],
+        );
       case _AdminTab.models:
         return _AdminModelsTab(controller: controller);
       case _AdminTab.integrations:

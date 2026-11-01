@@ -154,6 +154,8 @@
   "addKey": "Add key",
   "addMcpServer": "Add MCP server",
   "addMemory": "Add Memory",
+  "memoryReview": "Review",
+  "memoryReviewPrompt": "Review all my memories and clean them up: archive duplicates, outdated facts and anything without lasting value. Then tell me briefly what you changed.",
   "addMoreLengthOrAnotherCharacter": "Add more length or another character type.",
   "addPeopleOrGroups": "Add people or groups",
   "addSecurityKey": "Add security key",
@@ -1901,7 +1903,6 @@
   "assistant": "Assistant",
   "assistantKey131": "Assistant key 131",
   "atLeast1": "At least 1.",
-  "atLeast1000AppliesAfterA": "At least 1000. Applies after a server restart.",
   "attachFiles": "Attach files",
   "attentionArg1": "Attention {arg1}",
   "@attentionArg1": {
@@ -2007,7 +2008,6 @@
   "botUsername": "Bot username",
   "brandName": "Brand name",
   "braveSearch": "Brave Search",
-  "breakdown": "Breakdown:",
   "bridgeAnyProviderThatCanPost": "Bridge any provider that can post and receive webhook payloads.",
   "bringYourOwnKey": "bring your own key",
   "bringYourOwnKey2": "Bring your own key",
@@ -2030,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Can receive delegated tasks",
   "cancel": "Cancel",
   "cancelTask": "Cancel task",
-  "candidateCountArg1": "Candidate Count: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Cannot preview",
   "cannotReceiveDelegatedTasks": "cannot receive delegated tasks",
   "cannotRunYet": "cannot run yet.",
@@ -2308,14 +2300,6 @@
   "connectionMethod": "Connection Method",
   "containsTextOptional": "Contains Text (optional)",
   "content": "Content",
-  "contentArg1": "Content: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "content security policy",
   "continue2": "Continue",
   "continueFullSetup": "Continue full setup",
@@ -2752,21 +2736,12 @@
       }
     }
   },
-  "errorArg12": "Error: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Errors from the recent log, grouped by message.",
   "errorsProblemsFailures": "errors problems failures",
   "eventTypesCommaSeparated": "Event Types (comma separated)",
   "every15Minutes": "Every 15 minutes",
   "every30Minutes": "Every 30 minutes",
   "everyAccountOnThisServerLoses": "Every account on this server loses this shared key. Accounts ",
-  "everyAccountOnThisServerSecrets": "every account on this server. Secrets are write-only: leave ",
   "everyAccountOnThisServerUses": "Every account on this server uses this address for ",
   "everyActiveSessionForThisAccount": "Every active session for this account ends. They can sign in ",
   "everyDay0800": "Every day · 08:00",
@@ -3012,14 +2987,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Full prompt",
   "fullSetup": "Full setup",
-  "fullTextFtsArg1": "Full Text (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "General",
   "generalSettings": "General settings",
   "generalSettingsSaved": "General settings saved.",
@@ -3218,7 +3185,6 @@
   "input": "Input",
   "inputMode": "Input mode",
   "insertATemplate": "Insert a template",
-  "inspect": "Inspect",
   "install": "Install",
   "installASignedSelfContainedRuntime": "Install a signed, self-contained runtime. Node.js, npm, Git, and terminal commands are not required.",
   "installApk": "Install APK",
@@ -3251,7 +3217,6 @@
   },
   "instructions": "Instructions",
   "integration": "Integration",
-  "integrationApps": "Integration apps",
   "integrationConnections": "Integration connections",
   "integrationSettingsSaved": "Integration settings saved.",
   "integrations": "Integrations",
@@ -3470,14 +3435,6 @@
       }
     }
   },
-  "lexicalArg1": "Lexical: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "limit20": "LIMIT 20",
   "limit50": "LIMIT 50",
   "linkArg1": "Link {arg1}",
@@ -3601,10 +3558,6 @@
       }
     }
   },
-  "memoryImportSync": "memory import sync",
-  "memoryIngestionInterval": "Memory ingestion interval",
-  "memoryIngestionIntervalMs": "Memory ingestion interval (ms)",
-  "memoryIngestionIntervalMustBeAt": "Memory ingestion interval must be at least 1000 ms.",
   "memoryInjected": "Memory injected",
   "mentionOrReplyOnly": "Mention or reply only",
   "mergedServerAndFlutterRuntimeLogs": "Merged server and Flutter runtime logs for this app session.",
@@ -3629,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Microphone muted. Tap to unmute.",
   "microphonePermissionIsRequiredForLive": "Microphone permission is required for live voice.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "Microsoft, Slack and the other integrations. They apply to ",
   "microsoftTeams": "Microsoft Teams",
   "minimumContributionValueArg1": "Minimum contribution value: {arg1}",
   "@minimumContributionValueArg1": {
@@ -3676,6 +3628,8 @@
     }
   },
   "modelAvailability": "Model availability",
+  "autoEnableNewModels": "Enable new models automatically",
+  "autoEnableNewModelsHint": "When off, models a provider adds later stay disabled until you enable them.",
   "modelAvailabilitySaved": "Model availability saved.",
   "modelForThisSession": "Model for this session",
   "modelOverride": "Model Override",
@@ -3911,6 +3865,61 @@
   "noMcpServersMatchThisSearch": "No MCP servers match this search.",
   "noMemoryEntriesFound": "No memory entries found.",
   "noMemorySync": "No memory sync",
+  "importPastEmailsIntoMemoryHint": "Reads the last 12 months of important and sent mail once, so the agent knows your contacts and projects.",
+  "emailMemory": "Email memory",
+  "importNow": "Import now",
+  "importOnConnect": "Import past mail when connecting an account",
+  "sweepStarting": "Getting ready…",
+  "sweepReadingProgress": "Reading emails · {done} of {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Reading emails · {count} found",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Learning from emails · {done} of {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Last import: {emails} emails · {memories} new memories",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "No new emails to import",
+  "sweepFailed": "Import failed: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "No model matches \"{arg1}\".",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -3997,7 +4006,6 @@
   "nothingStoredYet": "Nothing stored yet.",
   "notionSlackFigmaGithubSpotifyTrello": "Notion, Slack, Figma, GitHub, Spotify, Trello",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "OAuth app credentials that let accounts connect Google, ",
   "oauthClientId": "OAuth Client ID",
   "oauthClientIdSecretRedirectApi": "oauth client id secret redirect api key",
   "oauthClientIdSecretRedirectGmail": "oauth client id secret redirect gmail calendar drive",
@@ -4035,7 +4043,6 @@
   "onTheyCanJoinAgainOnly": "on. They can join again only with a new invite link.",
   "onYourOwnTheDefault": "On your own (the default)",
   "once": "Once",
-  "oneBlankToKeepWhatIs": "one blank to keep what is stored.",
   "oneIsSavedOtherChangesIn": "one is saved. Other changes in this form are saved too.",
   "oneOrMoreAccountsExpiredReconnect": "One or more accounts expired. Reconnect the affected account to restore tool access.",
   "oneRuntimeControlsPersonaGroupTurn": "One runtime controls persona, group turn-taking, room memory, norms, Theory of Mind, and delivery.",
@@ -4292,7 +4299,6 @@
   "qrLoginRequestWasNotFound": "qr login request was not found",
   "qrPairing": "QR Pairing",
   "queriesRunAnythingThatWritesIs": "queries run; anything that writes is rejected.",
-  "query": "Query",
   "queryFilter": "Query / Filter",
   "queuedAsSteeringForTheCurrent": "Queued as steering for the current run: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4377,14 +4383,6 @@
   "registrationIsClosed": "registration is closed",
   "registrationRegisterNewAccountsAllowSignup": "registration register new accounts allow signup",
   "rejectInvalidTlsCertificates": "Reject invalid TLS certificates",
-  "relationArg1": "Relation: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "release and restarts. Connected apps reconnect once it is back.",
   "releaseChannel": "Release channel",
   "releaseCommitBranchNode": "release commit branch node",
@@ -4487,7 +4485,6 @@
   "resultDelivery": "Result Delivery",
   "resultOneClickAddsOneYou": "result. One click adds one; you can edit it later.",
   "results": "Results",
-  "retrievalInspector": "Retrieval Inspector",
   "retry": "Retry",
   "reusableUsedArg1": "Reusable · used {arg1}×",
   "@reusableUsedArg1": {
@@ -4643,14 +4640,6 @@
   "scansNewEmailAndOnlyPings": "Scans new email and only pings you when something matters.",
   "schedule": "Schedule",
   "scheduledTimeOnceRunsAreMeasured": "scheduled time. Once runs are measured it will start earlier.",
-  "scoreArg1": "Score: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Screen",
   "screenAction": "screen action",
   "scrollIsNotSupportedOnThis": "scroll is not supported on this platform.",
@@ -4712,14 +4701,6 @@
     }
   },
   "selectTrigger": "Select Trigger",
-  "semanticArg1": "Semantic: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Send (⌘↵)",
   "send2": "Send",
   "sendATaskFromChatAnd": "Send a task from chat and its execution history will show up here.",
@@ -5633,14 +5614,6 @@
   "value": "Value",
   "vaultLocked": "Vault locked",
   "vaultOperationFailed": "Vault operation failed.",
-  "vectorRankArg1": "Vector Rank: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Verification",
   "verificationArg1": "Verification: {arg1}",
   "@verificationArg1": {
@@ -6553,6 +6526,7 @@
   "settingsPageComputer": "Computer & web",
   "settingsPageBehavior": "Behavior",
   "settingsPageSystem": "System",
+  "settingsPagePlatforms": "Platforms",
   "settingsPageProfileDescription": "Your name and email, a copy of your data, and signing out.",
   "settingsPageSecurityDescription": "Password, two-factor authentication, security keys and where you're signed in.",
   "settingsPageUsageDescription": "Your limits and token spend, all in one place.",
@@ -7082,5 +7056,424 @@
     }
   },
   "providerChooseUsername": "Choose your username",
-  "providerChooseUsernameBody": "Choose an available username to finish creating your account."
+  "providerChooseUsernameBody": "Choose an available username to finish creating your account.",
+  "dataSharingTitle": "Share usage data",
+  "dataSharingDescription": "Help the people running this server improve it. Shares how you use NeoAgent, never what you write or store.",
+  "dataSharingSince": "Sharing since {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "What's shared",
+  "dataSharingIncluded": "Shared",
+  "dataSharingExcluded": "Never shared",
+  "dataSharingIncludedDevice": "Device type and app version",
+  "dataSharingIncludedLocale": "App language and time zone region, such as Europe",
+  "dataSharingIncludedFeatures": "Which features you have set up, like tasks, skills and integrations",
+  "dataSharingIncludedRuns": "Which tools and models your runs use, with timings and token counts",
+  "dataSharingIncludedActivity": "When you use NeoAgent, by weekday and hour",
+  "dataSharingExcludedContent": "Messages, prompts and replies",
+  "dataSharingExcludedRuns": "Run titles, tool inputs and results",
+  "dataSharingExcludedFiles": "Files, memories and anything else you store",
+  "dataSharingExcludedIdentity": "Your name, email, IP address and location",
+  "dataSharingExcludedAccounts": "The accounts you connect integrations with",
+  "dataSharingPooledNote": "Admins only see totals across everyone who shares, never you on your own. Turn it off any time and you drop out of the totals right away.",
+  "dataSharingConfirmTitle": "Share usage data?",
+  "dataSharingConfirmAction": "Share",
+  "sharedUsageTitle": "Shared usage",
+  "sharedUsageParticipants": "{sharing} of {total} accounts share usage data. Totals only, no content.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Nobody shares usage data yet. People can turn it on under Settings, Profile, Your data.",
+  "sharedUsageRuns": "Shared runs",
+  "sharedUsageAvgDuration": "Avg. duration",
+  "sharedUsageCompletedRuns": "Completed runs",
+  "sharedUsageStepsPerRun": "Steps per run",
+  "sharedUsageDevices": "Devices",
+  "sharedUsageAppVersions": "App versions",
+  "sharedUsageLanguages": "Languages",
+  "sharedUsageRegions": "Regions",
+  "sharedUsageFeatures": "Feature adoption",
+  "sharedUsageFeaturesDescription": "Share of sharing accounts that have set each one up.",
+  "sharedUsageTools": "Tools",
+  "sharedUsageToolsDescription": "Most called tools in the last {range}.",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "{calls} calls",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "{percent}% failed",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integrations",
+  "sharedUsageMessaging": "Messaging channels",
+  "sharedUsageTriggers": "How runs start",
+  "sharedUsageActivity": "When people use it",
+  "sharedUsageActivityDescription": "Runs by weekday and hour, UTC.",
+  "sharedUsageModels": "Model performance",
+  "sharedUsageModelDetail": "{latency} avg · {cached}% cached · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "{count, plural, =1{1 account} other{{count} accounts}}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Nothing in this range.",
+  "sharedUsageNotReported": "Not reported yet",
+  "sharedUsageFeatureAgents": "More than one agent",
+  "sharedUsageFeatureTasks": "Scheduled tasks",
+  "sharedUsageFeatureSkills": "Skills",
+  "sharedUsageFeatureMcp": "MCP servers",
+  "sharedUsageFeatureIntegrations": "Integrations",
+  "sharedUsageFeatureMessaging": "Messaging channels",
+  "sharedUsageFeatureMemory": "Memory",
+  "sharedUsageSearchKeywords": "opt-in data sharing telemetry devices features tools models activity",
+  "yourOAuthApp": "Your OAuth app",
+  "oauthAppSetupTitle": "Your {provider} OAuth app",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "This server has no global {provider} app, so you connect with an OAuth app you register yourself. The client secret is stored encrypted and is never shown again.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Create the app",
+  "openDeveloperConsole": "Open developer console",
+  "oauthAppStepCallback": "2. Register this callback URL",
+  "callbackUrlCopied": "Callback URL copied",
+  "oauthAppScopes": "Scopes to allow",
+  "scopesCopied": "Scopes copied",
+  "oauthAppStepCredentials": "3. Paste the app credentials",
+  "couldNotSaveOAuthApp": "Could not save the OAuth app.",
+  "removeOAuthAppTitle": "Remove your {provider} app?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Connected accounts stay listed but stop working until you add an app again.",
+  "globalIntegrationConfiguration": "Global integration configuration",
+  "globalIntegrationConfigurationDescription": "Optional server-wide OAuth apps. When an integration has one, every account uses it and cannot add its own. Leave an integration unset and each user sets up their own app instead. Secrets are write-only: leave one blank to keep what is stored.",
+  "globalStatus": "Global",
+  "perUserStatus": "Per user",
+  "phoneSyncGuidance": "Share this phone's calendars and contacts with your agent. It works with every account already on the phone.",
+  "phoneSyncElsewhereGuidance": "Open NeoAgent on your phone and turn on sharing there. Your agent then sees the calendars and contacts of every account on that phone.",
+  "manageOnThisPhone": "Manage on this phone",
+  "setUpOnThisPhone": "Set up on this phone",
+  "setUpOnPhone": "Set up on your phone",
+  "emailConnectedArg1": "Connected {email}",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Could not connect this account.",
+  "emailSetupTitle": "Connect email & calendar",
+  "emailChecking": "Checking your mailbox…",
+  "emailSetupIntro": "Use an app password from your mail provider. No developer console, ready in a couple of minutes.",
+  "emailOpenArg1": "Open {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Enter your servers",
+  "emailStepPassword": "1. Create an app password",
+  "emailOpenPasswordPageArg1": "Open {provider} app passwords",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Sign in",
+  "appPassword": "App password",
+  "appPasswordHelper": "Spaces don't matter. NeoAgent stores it encrypted.",
+  "emailUsernameOptional": "Username, if not your email address",
+  "emailIncludeCalendar": "Include calendar",
+  "emailIncludeContacts": "Include contacts",
+  "imapServer": "IMAP server",
+  "smtpServer": "SMTP server",
+  "caldavUrlOptional": "CalDAV URL (optional)",
+  "carddavUrlOptional": "CardDAV URL (optional)",
+  "alternativeEmail": "Connect your mailbox with an app password, or your calendar by its iCal link. Ready in a couple of minutes.",
+  "alternativePhone": "Share the calendar and contacts already on your phone through the NeoAgent app.",
+  "alternativePhoneElsewhere": "Share the calendar and contacts already on your phone. Set it up in the NeoAgent phone app.",
+  "skipTheDeveloperConsole": "Skip the developer console",
+  "phoneSyncPromptTitle": "Let your agent see your calendar?",
+  "phoneSyncPromptBody": "Share this phone's calendars and contacts so your agent can plan around your day. You can change this anytime in Tools › Integrations.",
+  "phoneSyncTitle": "Share this phone's calendar & contacts",
+  "phoneSyncIntro": "Your agent sees the calendars and contacts of every account already on this phone. No developer console, no extra sign-in.",
+  "phoneSyncPointAccounts": "Works with the Google, Outlook, iCloud and Exchange accounts on this phone.",
+  "phoneSyncPointPrivate": "Shared only with your NeoAgent server, where it is stored encrypted.",
+  "phoneSyncPointWrites": "Events your agent adds are created by this phone and sync on as usual.",
+  "phoneSyncCalendarHint": "Events from 30 days ago to 90 days ahead",
+  "phoneSyncContacts": "Contacts",
+  "phoneSyncContactsHint": "Names, email addresses and phone numbers",
+  "phoneSyncOtherAgent": "This phone shares with another agent. Sharing here moves it to this agent.",
+  "phoneSyncDenied": "NeoAgent doesn't have access yet. Allow it in Settings, then come back.",
+  "openPhoneSettings": "Open Settings",
+  "phoneSyncShare": "Share with NeoAgent",
+  "phoneSyncStop": "Stop sharing",
+  "phoneSyncWaiting": "Waiting for the first sync…",
+  "phoneSyncLastSyncedArg1": "Last synced {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Calendar link",
+  "calendarLinkHelper": "The calendar's iCal address. Anyone with it can read the calendar, so keep it private.",
+  "calendarLinkName": "Name (optional)",
+  "calendarLinkAdded": "Calendar added",
+  "toolsApps": "Apps",
+  "reconnect": "Reconnect",
+  "reconnectNeeded": "Reconnect needed",
+  "mixedAccess": "Mixed access",
+  "disconnectAccountTitle": "Disconnect {account}?",
+  "@disconnectAccountTitle": {
+    "placeholders": {
+      "account": {
+        "type": "String"
+      }
+    }
+  },
+  "disconnectAccountBody": "The agent loses access to {apps} through this account.",
+  "@disconnectAccountBody": {
+    "placeholders": {
+      "apps": {
+        "type": "String"
+      }
+    }
+  },
+  "neoRouterServerDescription": "Connect your NeoRouter once and every account here uses it for the work switched on below.",
+  "neoRouterUserDescription": "Use your own NeoRouter account for the work switched on below instead of this server's providers.",
+  "neoRouterAddress": "NeoRouter address",
+  "neoRouterConnect": "Connect NeoRouter",
+  "neoRouterWaitingArg1": "Approve NeoAgent in NeoRouter. It shows the code {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Open again",
+  "neoRouterConnectedArg1": "Connected to {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "NeoRouter cannot be reached right now.",
+  "neoRouterDisconnect": "Disconnect",
+  "neoRouterDisconnectBody": "NeoAgent stops using this NeoRouter. To withdraw its key as well, revoke it under API keys in NeoRouter.",
+  "neoRouterServerInUse": "This server already uses a NeoRouter for everyone. Connect your own NeoRouter account for your own models and budget.",
+  "neoRouterConnected": "NeoRouter is connected.",
+  "neoRouterRoleChat": "Chat and vision",
+  "neoRouterRoleSystemOne": "System One decisions",
+  "neoRouterRoleTranscription": "Speech to text",
+  "neoRouterRoleLive": "Live voice",
+  "neoRouterRoleEmbeddings": "Memory search",
+  "neoRouterRoleImages": "Image generation",
+  "neoRouterRoleSearch": "Web search",
+  "neoRouterModelCountArg1": "{arg1} available in your NeoRouter",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Nothing available in your NeoRouter yet.",
+  "neoRouterPicksModels": "NeoRouter picks the model for every request, so this pool is not used.",
+  "neoRouterNotAllowedArg1": "{arg1} in your NeoRouter, but NeoAgent's key may not use them yet (for example paid ones). Allow them for NeoAgent under API keys in NeoRouter.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Needs decision models such as Jev. Safety classifiers cannot answer these questions.",
+  "voiceLiveNoProvider": "No live voice provider is set up. Add an OpenAI or Google AI key, or connect a NeoRouter, under Models → Bring your own key.",
+  "voiceSttAutoNeoRouter": "Auto (NeoRouter picks the model)",
+  "voiceNotOffered": "No longer offered, pick another",
+  "agentImport": "Bring over another agent",
+  "agentImportDescription": "Copies OpenClaw or Hermes Agent from the server's computer (~/.openclaw and ~/.hermes) into your account. Nothing is removed there, and importing twice does not duplicate anything.",
+  "agentImportNoneFound": "No OpenClaw or Hermes Agent was found in ~/.openclaw or ~/.hermes on the server's computer.",
+  "agentImportWhatComes": "What comes over",
+  "agentImportAgentsAlways": "Agents and their personality always come over; everything else is attached to them.",
+  "agentImportPartKeys": "Keys and AI providers",
+  "agentImportPartMemories": "Memories and notes",
+  "agentImportPartSkills": "Skills",
+  "agentImportPartModel": "Default model",
+  "agentImportPartTasks": "Automations",
+  "agentImportPartMcp": "MCP servers",
+  "agentImportPartChannels": "Chat apps",
+  "agentImportCountAgents": "{count, plural, =1{1 agent} other{{count} agents}}",
+  "@agentImportCountAgents": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentImportCountKeys": "{count, plural, =1{1 connection} other{{count} connections}}",
+  "@agentImportCountKeys": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentImportCountMemories": "{count, plural, =1{1 memory} other{{count} memories}}",
+  "@agentImportCountMemories": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentImportCountDays": "{count, plural, =1{1 day of notes} other{{count} days of notes}}",
+  "@agentImportCountDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentImportCountSkills": "{count, plural, =1{1 skill} other{{count} skills}}",
+  "@agentImportCountSkills": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentImportCountTasks": "{count, plural, =1{1 automation} other{{count} automations}}",
+  "@agentImportCountTasks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentImportCountMcp": "{count, plural, =1{1 MCP server} other{{count} MCP servers}}",
+  "@agentImportCountMcp": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentImportNeedsHandCount": "{count, plural, =1{1 thing needs a hand afterwards} other{{count} things need a hand afterwards}}",
+  "@agentImportNeedsHandCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentImportFinish": "Let NeoAgent finish moving in",
+  "agentImportFinishHint": "After the restart, your agent reworks imported skills for its own tools and rebuilds what the importer left behind. Needs a connected AI.",
+  "agentImportRun": "Bring it over",
+  "agentImportRunning": "Bringing it over…",
+  "agentImportMovedIn": "Moved in",
+  "agentImportAlreadyMovedIn": "Everything was already in NeoAgent.",
+  "agentImportAlreadyThere": "{count} already in NeoAgent, left as they were",
+  "@agentImportAlreadyThere": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentImportNeedsHand": "Needs a hand",
+  "agentImportMore": "…and {count} more in the report.",
+  "@agentImportMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentImportReport": "Full report: {path}",
+  "@agentImportReport": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "agentImportFinishQueued": "Queued \"{name}\". It starts two minutes after NeoAgent restarts, and you'll get a message when it's done.",
+  "@agentImportFinishQueued": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "agentImportRestartNeeded": "Restart NeoAgent to load everything that came over.",
+  "agentImportRestarted": "NeoAgent restarted and loaded everything."
 }

@@ -13,8 +13,10 @@ const routeRegistry = [
   { basePath: '/api/account', modulePath: '../routes/account' },
   { basePath: '/api/delegation', modulePath: '../routes/delegation' },
   { basePath: '/api/admin', modulePath: '../routes/admin' },
+  { basePath: '/api/admin/import', modulePath: '../routes/agent_import' },
   { basePath: '/api/settings', modulePath: '../routes/settings' },
   { basePath: '/api/provider-sign-in', modulePath: '../routes/provider_sign_in' },
+  { basePath: '/api/neorouter', modulePath: '../routes/neorouter' },
   { basePath: '/api/behavior', modulePath: '../routes/behavior' },
   { basePath: '/api/agent-profiles', modulePath: '../routes/agent_profiles' },
   { basePath: '/api/agents', modulePath: '../routes/agents' },
@@ -34,6 +36,7 @@ const routeRegistry = [
   { basePath: '/api/voice-assistant', modulePath: '../routes/voice_assistant' },
   { basePath: '/api/wearable', modulePath: '../routes/wearable' },
   { basePath: '/api/mobile/health', modulePath: '../routes/mobile-health' },
+  { basePath: '/api/mobile/device-sync', modulePath: '../routes/mobile-device-sync' },
   { basePath: '/api/triggers', modulePath: '../routes/triggers' },
   { basePath: '/api/security', modulePath: '../routes/security' },
 ];

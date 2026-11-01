@@ -154,6 +154,8 @@
   "addKey": "Pridėti raktą",
   "addMcpServer": "Pridėti MCP serverį",
   "addMemory": "Pridėti atmintį",
+  "memoryReview": "Peržiūrėti",
+  "memoryReviewPrompt": "Peržiūrėk visus mano prisiminimus ir sutvarkyk juos: archyvuok dublikatus, pasenusius faktus ir viską, kas neturi ilgalaikės vertės. Tada trumpai pasakyk, ką pakeitei.",
   "addMoreLengthOrAnotherCharacter": "Pridėkite daugiau ilgio arba kito tipo simbolių.",
   "addPeopleOrGroups": "Pridėkite žmonių arba grupių",
   "addSecurityKey": "Pridėkite saugos raktą",
@@ -1901,7 +1903,6 @@
   "assistant": "Padėjėjas",
   "assistantKey131": "Asistento raktas 131",
   "atLeast1": "Bent 1.",
-  "atLeast1000AppliesAfterA": "Mažiausiai 1000. Taikoma iš naujo paleidus serverį.",
   "attachFiles": "Pridėkite failus",
   "attentionArg1": "Dėmesio {arg1}",
   "@attentionArg1": {
@@ -2007,7 +2008,6 @@
   "botUsername": "Boto vartotojo vardas",
   "brandName": "Prekės ženklo pavadinimas",
   "braveSearch": "Drąsi paieška",
-  "breakdown": "Suskirstymas:",
   "bridgeAnyProviderThatCanPost": "Sujunkite bet kurį teikėją, galintį skelbti ir gauti „Webhook“ naudingąsias apkrovas.",
   "bringYourOwnKey": "atsinešk savo raktą",
   "bringYourOwnKey2": "Atsineškite savo raktą",
@@ -2030,14 +2030,6 @@
   "canReceiveDelegatedTasks": "Gali priimti deleguotas užduotis",
   "cancel": "Atšaukti",
   "cancelTask": "Atšaukti užduotį",
-  "candidateCountArg1": "Kandidatų skaičius: {arg1}",
-  "@candidateCountArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "cannotPreview": "Negalima peržiūrėti",
   "cannotReceiveDelegatedTasks": "negali gauti deleguotų užduočių",
   "cannotRunYet": "dar negali bėgti.",
@@ -2308,14 +2300,6 @@
   "connectionMethod": "Prisijungimo būdas",
   "containsTextOptional": "Yra tekstas (neprivaloma)",
   "content": "Turinys",
-  "contentArg1": "Turinys: {arg1}",
-  "@contentArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "contentSecurityPolicy": "turinio saugumo politika",
   "continue2": "Tęsti",
   "continueFullSetup": "Tęskite visą sąranką",
@@ -2752,21 +2736,12 @@
       }
     }
   },
-  "errorArg12": "Klaida: {arg1}",
-  "@errorArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "errorsFromTheRecentLogGrouped": "Klaidos iš naujausio žurnalo, sugrupuotos pagal pranešimą.",
   "errorsProblemsFailures": "klaidos problemos gedimai",
   "eventTypesCommaSeparated": "Įvykių tipai (atskirti kableliais)",
   "every15Minutes": "Kas 15 minučių",
   "every30Minutes": "Kas 30 minučių",
   "everyAccountOnThisServerLoses": "Kiekviena šio serverio paskyra praranda šį bendrinamą raktą. Sąskaitos ",
-  "everyAccountOnThisServerSecrets": "kiekviena šio serverio paskyra. Paslaptys rašomos tik: palik ",
   "everyAccountOnThisServerUses": "Kiekviena šio serverio paskyra naudoja šį adresą ",
   "everyActiveSessionForThisAccount": "Kiekviena aktyvi šios paskyros sesija baigiasi. Jie gali prisijungti ",
   "everyDay0800": "Kiekvieną dieną · 08:00",
@@ -3012,14 +2987,6 @@
   "fromUsersU": "FROM users u\n",
   "fullPrompt": "Pilnas raginimas",
   "fullSetup": "Pilna sąranka",
-  "fullTextFtsArg1": "Visas tekstas (FTS): {arg1}",
-  "@fullTextFtsArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "general": "Generolas",
   "generalSettings": "Bendrieji nustatymai",
   "generalSettingsSaved": "Bendrieji nustatymai išsaugoti.",
@@ -3218,7 +3185,6 @@
   "input": "Įvestis",
   "inputMode": "Įvesties režimas",
   "insertATemplate": "Įdėkite šabloną",
-  "inspect": "Apžiūrėti",
   "install": "Įdiegti",
   "installASignedSelfContainedRuntime": "Įdiekite pasirašytą, savarankišką vykdymo laiką. Node.js, npm, Git ir terminalo komandos nėra būtinos.",
   "installApk": "Įdiekite APK",
@@ -3251,7 +3217,6 @@
   },
   "instructions": "Instrukcijos",
   "integration": "Integracija",
-  "integrationApps": "Integravimo programos",
   "integrationConnections": "Integraciniai ryšiai",
   "integrationSettingsSaved": "Integravimo nustatymai išsaugoti.",
   "integrations": "Integracijos",
@@ -3470,14 +3435,6 @@
       }
     }
   },
-  "lexicalArg1": "Leksinė: {arg1}",
-  "@lexicalArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "limit20": "LIMIT 20",
   "limit50": "LIMIT 50",
   "linkArg1": "Nuoroda {arg1}",
@@ -3601,10 +3558,6 @@
       }
     }
   },
-  "memoryImportSync": "atminties importo sinchronizavimas",
-  "memoryIngestionInterval": "Atminties įsisavinimo intervalas",
-  "memoryIngestionIntervalMs": "Atminties įtraukimo intervalas (ms)",
-  "memoryIngestionIntervalMustBeAt": "Atminties įtraukimo intervalas turi būti bent 1000 ms.",
   "memoryInjected": "Įvesta atmintis",
   "mentionOrReplyOnly": "Tik paminėkite arba atsakykite",
   "mergedServerAndFlutterRuntimeLogs": "Sujungti šios programos seanso serverio ir „Flutter“ vykdymo laiko žurnalai.",
@@ -3629,7 +3582,6 @@
   "microphoneMutedTapToUnmute": "Mikrofonas nutildytas. Palieskite, kad įjungtumėte garsą.",
   "microphonePermissionIsRequiredForLive": "Tiesioginiam balsui reikalingas mikrofono leidimas.",
   "microsoft365": "Microsoft 365",
-  "microsoftSlackAndTheOtherIntegrations": "„Microsoft“, „Slack“ ir kitos integracijos. Jie taikomi ",
   "microsoftTeams": "Microsoft komandos",
   "minimumContributionValueArg1": "Minimali įnašo vertė: {arg1}",
   "@minimumContributionValueArg1": {
@@ -3676,6 +3628,8 @@
     }
   },
   "modelAvailability": "Modelio prieinamumas",
+  "autoEnableNewModels": "Automatiškai įjungti naujus modelius",
+  "autoEnableNewModelsHint": "Kai išjungta, vėliau tiekėjo pridėti modeliai lieka išjungti, kol juos įjungsite.",
   "modelAvailabilitySaved": "Modelio prieinamumas išsaugotas.",
   "modelForThisSession": "Šios sesijos modelis",
   "modelOverride": "Modelio nepaisymas",
@@ -3911,6 +3865,61 @@
   "noMcpServersMatchThisSearch": "Nė vienas MCP serveris neatitinka šios paieškos.",
   "noMemoryEntriesFound": "Atminties įrašų nerasta.",
   "noMemorySync": "Nėra atminties sinchronizavimo",
+  "importPastEmailsIntoMemoryHint": "Vieną kartą perskaito svarbius ir išsiųstus pastarųjų 12 mėnesių laiškus, kad agentas žinotų jūsų kontaktus ir projektus.",
+  "emailMemory": "El. pašto atmintis",
+  "importNow": "Importuoti dabar",
+  "importOnConnect": "Prijungiant paskyrą importuoti ankstesnius laiškus",
+  "sweepStarting": "Ruošiamasi…",
+  "sweepReadingProgress": "Skaitomi laiškai · {done} iš {total}",
+  "@sweepReadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepReadingFound": "Skaitomi laiškai · rasta {count}",
+  "@sweepReadingFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLearningProgress": "Mokomasi iš laiškų · {done} iš {total}",
+  "@sweepLearningProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepLastImport": "Paskutinis importas: {emails} laiškai · {memories} nauji prisiminimai",
+  "@sweepLastImport": {
+    "placeholders": {
+      "emails": {
+        "type": "int"
+      },
+      "memories": {
+        "type": "int"
+      }
+    }
+  },
+  "sweepNothingNew": "Nėra naujų laiškų importuoti",
+  "sweepFailed": "Importuoti nepavyko: {error}",
+  "@sweepFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "noModelMatchesArg1": "Nė vienas modelis neatitinka „{arg1}“.",
   "@noModelMatchesArg1": {
     "placeholders": {
@@ -3997,7 +4006,6 @@
   "nothingStoredYet": "Dar nieko nėra saugoma.",
   "notionSlackFigmaGithubSpotifyTrello": "„Notion“, „Slack“, „Figma“, „GitHub“, „Spotify“, „Trello“.",
   "nvidiaNim": "NVIDIA NIM",
-  "oauthAppCredentialsThatLetAccounts": "„OAuth“ programos kredencialai, leidžiantys paskyroms sujungti „Google“, ",
   "oauthClientId": "„OAuth“ kliento ID",
   "oauthClientIdSecretRedirectApi": "oauth kliento ID slaptas peradresavimo API raktas",
   "oauthClientIdSecretRedirectGmail": "„oauth“ kliento ID slaptas peradresavimo „Gmail“ kalendoriaus diskas",
@@ -4035,7 +4043,6 @@
   "onTheyCanJoinAgainOnly": "įjungta. Jie vėl gali prisijungti tik naudodami naują kvietimo nuorodą.",
   "onYourOwnTheDefault": "Savarankiškai (numatytasis)",
   "once": "Kartą",
-  "oneBlankToKeepWhatIs": "vienas tuščias, kad liktų tai, kas saugoma.",
   "oneIsSavedOtherChangesIn": "vienas išgelbėtas. Kiti šios formos pakeitimai taip pat išsaugomi.",
   "oneOrMoreAccountsExpiredReconnect": "Vienos ar daugiau paskyrų galiojimo laikas baigėsi. Iš naujo prijunkite paveiktą paskyrą, kad atkurtumėte prieigą prie įrankio.",
   "oneRuntimeControlsPersonaGroupTurn": "Vienas vykdymo laikas valdo asmenį, grupės eilutę, kambario atmintį, normas, proto teoriją ir pristatymą.",
@@ -4292,7 +4299,6 @@
   "qrLoginRequestWasNotFound": "qr prisijungimo užklausa nerasta",
   "qrPairing": "QR poravimas",
   "queriesRunAnythingThatWritesIs": "vykdomos užklausos; viskas, kas rašo, yra atmetama.",
-  "query": "Užklausa",
   "queryFilter": "Užklausa / filtras",
   "queuedAsSteeringForTheCurrent": "Eilėje kaip vairavimo priemonė dabartiniam važiavimui: {arg1}",
   "@queuedAsSteeringForTheCurrent": {
@@ -4377,14 +4383,6 @@
   "registrationIsClosed": "registracija uždaryta",
   "registrationRegisterNewAccountsAllowSignup": "registracija registracija naujos paskyros leidžia registruotis",
   "rejectInvalidTlsCertificates": "Atmesti netinkamus TLS sertifikatus",
-  "relationArg1": "Ryšys: {arg1}",
-  "@relationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "releaseAndRestartsConnectedAppsReconnect": "atleisti ir paleisti iš naujo. Prijungtos programos vėl prisijungia, kai tik ji grįžta.",
   "releaseChannel": "Išleidimo kanalas",
   "releaseCommitBranchNode": "atleiskite įsipareigojimo šakos mazgą",
@@ -4487,7 +4485,6 @@
   "resultDelivery": "Rezultatų pristatymas",
   "resultOneClickAddsOneYou": "rezultatas. Vienas paspaudimas prideda vieną; vėliau galėsite redaguoti.",
   "results": "Rezultatai",
-  "retrievalInspector": "Paėmimo inspektorius",
   "retry": "Bandykite dar kartą",
   "reusableUsedArg1": "Daugkartinis · naudotas {arg1}×",
   "@reusableUsedArg1": {
@@ -4643,14 +4640,6 @@
   "scansNewEmailAndOnlyPings": "Nuskaito naujus el. laiškus ir praneša jums tik tada, kai kas nors svarbu.",
   "schedule": "Tvarkaraštis",
   "scheduledTimeOnceRunsAreMeasured": "numatytu laiku. Kai bėgiai bus išmatuoti, jie prasidės anksčiau.",
-  "scoreArg1": "Rezultatas: {arg1}",
-  "@scoreArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "screen": "Ekranas",
   "screenAction": "ekrano veiksmas",
   "scrollIsNotSupportedOnThis": "slinkimas šioje platformoje nepalaikomas.",
@@ -4712,14 +4701,6 @@
     }
   },
   "selectTrigger": "Pasirinkite Trigger",
-  "semanticArg1": "Semantika: {arg1}",
-  "@semanticArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "send": "Siųsti (⌘↵)",
   "send2": "Siųsti",
   "sendATaskFromChatAnd": "Siųskite užduotį iš pokalbio ir čia bus rodoma jos vykdymo istorija.",
@@ -5633,14 +5614,6 @@
   "value": "Vertė",
   "vaultLocked": "Skliautas užrakintas",
   "vaultOperationFailed": "Skliauto operacija nepavyko.",
-  "vectorRankArg1": "Vektoriaus reitingas: {arg1}",
-  "@vectorRankArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "verification": "Patikrinimas",
   "verificationArg1": "Patikrinimas: {arg1}",
   "@verificationArg1": {
@@ -6553,6 +6526,7 @@
   "settingsPageComputer": "Kompiuteris ir žiniatinklis",
   "settingsPageBehavior": "Elgesys",
   "settingsPageSystem": "Sistema",
+  "settingsPagePlatforms": "Platformos",
   "settingsPageProfileDescription": "Jūsų vardas ir el. pašto adresas, jūsų duomenų kopija ir atsijungimas.",
   "settingsPageSecurityDescription": "Slaptažodis, dviejų veiksnių autentifikavimas, saugos raktai ir vieta, kur esate prisijungę.",
   "settingsPageUsageDescription": "Jūsų limitai ir žetonų išlaidos – viskas vienoje vietoje.",
@@ -6990,5 +6964,295 @@
   "signupKeysSaveDialogTitle": "Išsaugoti registracijos raktus",
   "signupKeysExported": "Raktai eksportuoti.",
   "auditSignupKeysCreated": "{actor} sukūrė registracijos raktų ({count})",
-  "auditSignupKeyRevoked": "{actor} atšaukė registracijos raktą"
+  "auditSignupKeyRevoked": "{actor} atšaukė registracijos raktą",
+  "dataSharingTitle": "Bendrinti naudojimo duomenis",
+  "dataSharingDescription": "Padėkite šio serverio prižiūrėtojams jį tobulinti. Bendrinama, kaip naudojate NeoAgent, bet niekada ne tai, ką rašote ar saugote.",
+  "dataSharingSince": "Bendrinama nuo {date}.",
+  "@dataSharingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSharingWhatsShared": "Kas bendrinama",
+  "dataSharingIncluded": "Bendrinama",
+  "dataSharingExcluded": "Niekada nebendrinama",
+  "dataSharingIncludedDevice": "Įrenginio tipas ir programėlės versija",
+  "dataSharingIncludedLocale": "Programėlės kalba ir laiko juostos regionas, pvz., Europa",
+  "dataSharingIncludedFeatures": "Kokias funkcijas esate nustatę, pvz., užduotis, įgūdžius ir integracijas",
+  "dataSharingIncludedRuns": "Kokius įrankius ir modelius naudoja jūsų vykdymai, su trukme ir žetonų skaičiumi",
+  "dataSharingIncludedActivity": "Kada naudojate NeoAgent, pagal savaitės dieną ir valandą",
+  "dataSharingExcludedContent": "Žinutės, užklausos ir atsakymai",
+  "dataSharingExcludedRuns": "Vykdymų pavadinimai, įrankių įvestys ir rezultatai",
+  "dataSharingExcludedFiles": "Failai, prisiminimai ir visa kita, ką saugote",
+  "dataSharingExcludedIdentity": "Jūsų vardas, el. paštas, IP adresas ir vieta",
+  "dataSharingExcludedAccounts": "Paskyros, su kuriomis jungiate integracijas",
+  "dataSharingPooledNote": "Administratoriai mato tik visų bendrinančiųjų sumas, niekada jūsų atskirai. Išjunkite bet kada ir iškart dingsite iš sumų.",
+  "dataSharingConfirmTitle": "Bendrinti naudojimo duomenis?",
+  "dataSharingConfirmAction": "Bendrinti",
+  "sharedUsageTitle": "Bendrinamas naudojimas",
+  "sharedUsageParticipants": "Naudojimo duomenis bendrinančios paskyros: {sharing} iš {total}. Tik sumos, jokio turinio.",
+  "@sharedUsageParticipants": {
+    "placeholders": {
+      "sharing": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageEmpty": "Dar niekas nebendrina naudojimo duomenų. Įjungti galima čia: Nustatymai, Profilis, Jūsų duomenys.",
+  "sharedUsageRuns": "Bendrinami vykdymai",
+  "sharedUsageAvgDuration": "Vid. trukmė",
+  "sharedUsageCompletedRuns": "Užbaigti vykdymai",
+  "sharedUsageStepsPerRun": "Žingsniai per vykdymą",
+  "sharedUsageDevices": "Įrenginiai",
+  "sharedUsageAppVersions": "Programėlės versijos",
+  "sharedUsageLanguages": "Kalbos",
+  "sharedUsageRegions": "Regionai",
+  "sharedUsageFeatures": "Funkcijų naudojimas",
+  "sharedUsageFeaturesDescription": "Bendrinančių paskyrų dalis, kuri ją nustatė.",
+  "sharedUsageTools": "Įrankiai",
+  "sharedUsageToolsDescription": "Dažniausiai kviečiami įrankiai ({range}).",
+  "@sharedUsageToolsDescription": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolCalls": "Kvietimai: {calls}",
+  "@sharedUsageToolCalls": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageToolFailures": "Nepavyko: {percent} %",
+  "@sharedUsageToolFailures": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageIntegrations": "Integracijos",
+  "sharedUsageMessaging": "Žinučių kanalai",
+  "sharedUsageTriggers": "Kaip prasideda vykdymai",
+  "sharedUsageActivity": "Kada naudojama",
+  "sharedUsageActivityDescription": "Vykdymai pagal savaitės dieną ir valandą, UTC.",
+  "sharedUsageModels": "Modelių našumas",
+  "sharedUsageModelDetail": "vid. {latency} · {cached} % iš talpyklos · {cost}",
+  "@sharedUsageModelDetail": {
+    "placeholders": {
+      "latency": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "int"
+      },
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedUsageAccounts": "Paskyros: {count}",
+  "@sharedUsageAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedUsageNoData": "Šiuo laikotarpiu nieko nėra.",
+  "sharedUsageNotReported": "Dar nepranešta",
+  "sharedUsageFeatureAgents": "Daugiau nei vienas agentas",
+  "sharedUsageFeatureTasks": "Suplanuotos užduotys",
+  "sharedUsageFeatureSkills": "Įgūdžiai",
+  "sharedUsageFeatureMcp": "MCP serveriai",
+  "sharedUsageFeatureIntegrations": "Integracijos",
+  "sharedUsageFeatureMessaging": "Žinučių kanalai",
+  "sharedUsageFeatureMemory": "Atmintis",
+  "sharedUsageSearchKeywords": "opt-in duomenų bendrinimas telemetrija įrenginiai funkcijos įrankiai modeliai veikla",
+  "providerChooseUsername": "Pasirinkite naudotojo vardą",
+  "providerChooseUsernameBody": "Pasirinkite laisvą naudotojo vardą, kad užbaigtumėte paskyros kūrimą.",
+  "yourOAuthApp": "Jūsų OAuth programa",
+  "oauthAppSetupTitle": "Jūsų {provider} OAuth programa",
+  "@oauthAppSetupTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppSetupIntro": "Šiame serveryje nėra visuotinės {provider} programos, todėl jungiatės naudodami patys užregistruotą OAuth programą. Kliento paslaptis saugoma užšifruota ir daugiau niekada nerodoma.",
+  "@oauthAppSetupIntro": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthAppStepCreate": "1. Sukurkite programą",
+  "openDeveloperConsole": "Atidaryti kūrėjų konsolę",
+  "oauthAppStepCallback": "2. Užregistruokite šį atgalinio iškvietimo URL",
+  "callbackUrlCopied": "Atgalinio iškvietimo URL nukopijuotas",
+  "oauthAppScopes": "Leistinos aprėptys",
+  "scopesCopied": "Aprėptys nukopijuotos",
+  "oauthAppStepCredentials": "3. Įklijuokite programos prisijungimo duomenis",
+  "couldNotSaveOAuthApp": "Nepavyko išsaugoti OAuth programos.",
+  "removeOAuthAppTitle": "Pašalinti jūsų {provider} programą?",
+  "@removeOAuthAppTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "removeOAuthAppBody": "Prijungtos paskyros lieka sąraše, bet nustoja veikti, kol vėl pridėsite programą.",
+  "globalIntegrationConfiguration": "Visuotinė integracijų konfigūracija",
+  "globalIntegrationConfigurationDescription": "Pasirenkamos viso serverio OAuth programos. Kai integracija tokią turi, ją naudoja kiekviena paskyra ir negali pridėti savos. Palikite integraciją nenustatytą ir kiekvienas naudotojas nustatys savo programą. Paslaptys tik įrašomos: palikite tuščią, kad išliktų išsaugota reikšmė.",
+  "globalStatus": "Visuotinė",
+  "perUserStatus": "Kiekvienam naudotojui",
+  "phoneSyncGuidance": "Bendrinkite šio telefono kalendorius ir kontaktus su agentu. Veikia su visomis telefone jau esančiomis paskyromis.",
+  "phoneSyncElsewhereGuidance": "Atidarykite NeoAgent telefone ir ten įjunkite bendrinimą. Agentas matys visų to telefono paskyrų kalendorius ir kontaktus.",
+  "manageOnThisPhone": "Tvarkyti šiame telefone",
+  "setUpOnThisPhone": "Nustatyti šiame telefone",
+  "setUpOnPhone": "Nustatyti telefone",
+  "emailConnectedArg1": "Prijungta {email}",
+  "@emailConnectedArg1": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotConnectEmail": "Nepavyko prijungti paskyros.",
+  "emailSetupTitle": "Prijungti el. paštą ir kalendorių",
+  "emailChecking": "Tikrinama pašto dėžutė…",
+  "emailSetupIntro": "Naudokite programėlės slaptažodį iš el. pašto paslaugų teikėjo. Be kūrėjų konsolės, paruošta per kelias minutes.",
+  "emailOpenArg1": "Atidaryti {provider}",
+  "@emailOpenArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepServers": "1. Įveskite serverius",
+  "emailStepPassword": "1. Sukurkite programėlės slaptažodį",
+  "emailOpenPasswordPageArg1": "Atidaryti {provider} programėlių slaptažodžius",
+  "@emailOpenPasswordPageArg1": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "emailStepSignIn": "2. Prisijungimas",
+  "appPassword": "Programėlės slaptažodis",
+  "appPasswordHelper": "Tarpai nesvarbūs. NeoAgent jį saugo užšifruotą.",
+  "emailUsernameOptional": "Naudotojo vardas, jei tai ne jūsų el. paštas",
+  "emailIncludeCalendar": "Įtraukti kalendorių",
+  "emailIncludeContacts": "Įtraukti kontaktus",
+  "imapServer": "IMAP serveris",
+  "smtpServer": "SMTP serveris",
+  "caldavUrlOptional": "CalDAV URL (nebūtina)",
+  "carddavUrlOptional": "CardDAV URL (nebūtina)",
+  "alternativeEmail": "Prijunkite pašto dėžutę programėlės slaptažodžiu arba kalendorių jo iCal nuoroda. Paruošta per kelias minutes.",
+  "alternativePhone": "Bendrinkite telefone jau esantį kalendorių ir kontaktus per NeoAgent programėlę.",
+  "alternativePhoneElsewhere": "Bendrinkite telefone jau esantį kalendorių ir kontaktus. Nustatykite tai NeoAgent programėlėje telefone.",
+  "skipTheDeveloperConsole": "Be kūrėjų konsolės",
+  "phoneSyncPromptTitle": "Leisti agentui matyti jūsų kalendorių?",
+  "phoneSyncPromptBody": "Bendrinkite šio telefono kalendorius ir kontaktus, kad agentas galėtų planuoti pagal jūsų dieną. Pakeisti galite bet kada skiltyje Įrankiai › Integracijos.",
+  "phoneSyncTitle": "Bendrinti telefono kalendorių ir kontaktus",
+  "phoneSyncIntro": "Agentas mato visų šio telefono paskyrų kalendorius ir kontaktus. Be kūrėjų konsolės ir papildomo prisijungimo.",
+  "phoneSyncPointAccounts": "Veikia su šio telefono Google, Outlook, iCloud ir Exchange paskyromis.",
+  "phoneSyncPointPrivate": "Bendrinama tik su jūsų NeoAgent serveriu, kuris juos saugo užšifruotus.",
+  "phoneSyncPointWrites": "Agento pridėtus įvykius sukuria šis telefonas, ir jie sinchronizuojami kaip įprasta.",
+  "phoneSyncCalendarHint": "Įvykiai nuo 30 dienų atgal iki 90 dienų į priekį",
+  "phoneSyncContacts": "Kontaktai",
+  "phoneSyncContactsHint": "Vardai, el. pašto adresai ir telefono numeriai",
+  "phoneSyncOtherAgent": "Šis telefonas bendrina su kitu agentu. Bendrinant čia jis perkeliamas šiam agentui.",
+  "phoneSyncDenied": "NeoAgent dar neturi prieigos. Leiskite ją nustatymuose ir grįžkite.",
+  "openPhoneSettings": "Atidaryti nustatymus",
+  "phoneSyncShare": "Bendrinti su NeoAgent",
+  "phoneSyncStop": "Nebendrinti",
+  "phoneSyncWaiting": "Laukiama pirmojo sinchronizavimo…",
+  "phoneSyncLastSyncedArg1": "Paskutinį kartą sinchronizuota {time}",
+  "@phoneSyncLastSyncedArg1": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarLink": "Kalendoriaus nuoroda",
+  "calendarLinkHelper": "Kalendoriaus iCal adresas. Kas jį turi, gali skaityti kalendorių, todėl laikykite jį privačiu.",
+  "calendarLinkName": "Pavadinimas (nebūtina)",
+  "calendarLinkAdded": "Kalendorius pridėtas",
+  "toolsApps": "Programos",
+  "reconnect": "Prijungti iš naujo",
+  "reconnectNeeded": "Reikia prijungti iš naujo",
+  "mixedAccess": "Mišri prieiga",
+  "disconnectAccountTitle": "Atjungti {account}?",
+  "disconnectAccountBody": "Agentas per šią paskyrą praras prieigą prie {apps}.",
+  "neoRouterServerDescription": "Prijunkite savo NeoRouter vieną kartą ir kiekviena paskyra čia naudos jį toliau įjungtiems darbams.",
+  "neoRouterUserDescription": "Toliau įjungtiems darbams naudokite savo NeoRouter paskyrą vietoj šio serverio teikėjų.",
+  "neoRouterAddress": "NeoRouter adresas",
+  "neoRouterConnect": "Prijungti NeoRouter",
+  "neoRouterWaitingArg1": "Patvirtinkite NeoAgent NeoRouter. Jis rodo kodą {arg1}.",
+  "@neoRouterWaitingArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterOpenAgain": "Atidaryti dar kartą",
+  "neoRouterConnectedArg1": "Prisijungta prie {arg1}",
+  "@neoRouterConnectedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterUnreachable": "NeoRouter šiuo metu nepasiekiamas.",
+  "neoRouterDisconnect": "Atjungti",
+  "neoRouterDisconnectBody": "NeoAgent nustoja naudoti šį NeoRouter. Norėdami atšaukti ir raktą, atšaukite jį NeoRouter skiltyje API raktai.",
+  "neoRouterServerInUse": "Šis serveris jau naudoja NeoRouter visiems. Prijunkite savo NeoRouter paskyrą, kad turėtumėte savo modelius ir biudžetą.",
+  "neoRouterConnected": "NeoRouter prijungtas.",
+  "neoRouterRoleChat": "Pokalbiai ir vaizdų atpažinimas",
+  "neoRouterRoleSystemOne": "System One sprendimai",
+  "neoRouterRoleTranscription": "Kalba į tekstą",
+  "neoRouterRoleLive": "Tiesioginis balsas",
+  "neoRouterRoleEmbeddings": "Paieška atmintyje",
+  "neoRouterRoleImages": "Vaizdų kūrimas",
+  "neoRouterRoleSearch": "Paieška internete",
+  "neoRouterModelCountArg1": "Jūsų NeoRouter pasiekiama: {arg1}",
+  "@neoRouterModelCountArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoModels": "Jūsų NeoRouter dar nieko nėra.",
+  "neoRouterPicksModels": "NeoRouter parenka modelį kiekvienai užklausai, todėl šis rinkinys nenaudojamas.",
+  "neoRouterNotAllowedArg1": "Jūsų NeoRouter: {arg1}, bet NeoAgent raktas jų dar negali naudoti (pvz., mokamų). Leiskite juos NeoAgent NeoRouter skiltyje API raktai.",
+  "@neoRouterNotAllowedArg1": {
+    "placeholders": {
+      "arg1": {
+        "type": "Object?"
+      }
+    }
+  },
+  "neoRouterNoDecisionModels": "Reikia sprendimų modelių, pvz., Jev. Saugos klasifikatoriai į šiuos klausimus neatsako.",
+  "voiceLiveNoProvider": "Nenustatytas joks tiesioginio balso teikėjas. Pridėkite OpenAI arba Google AI raktą arba prijunkite NeoRouter skiltyje Modeliai → Atsineškite savo raktą.",
+  "voiceSttAutoNeoRouter": "Automatiškai (modelį renkasi NeoRouter)",
+  "voiceNotOffered": "Nebesiūloma, pasirinkite kitą"
 }

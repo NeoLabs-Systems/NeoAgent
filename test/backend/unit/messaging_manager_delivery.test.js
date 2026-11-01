@@ -684,3 +684,34 @@ test('reactions go through the adapter and are kept as assistant chat context', 
   assert.equal(row.content, '❤️');
   assert.deepEqual(JSON.parse(row.metadata), { kind: 'reaction', targetMessageId: 'in-9' });
 });
+
+test('messaging manager sends text longer than the platform cap as several messages in order', async () => {
+  const manager = new MessagingManager({
+    to() {
+      return { emit() {} };
+    },
+  });
+  const agentId = manager._agentId(user.userId, {});
+  const sent = [];
+  manager.platforms.set(manager._key(user.userId, agentId, 'discord'), {
+    async sendMessage(to, content) {
+      sent.push(content);
+      return { success: true, messageId: `msg-${sent.length}` };
+    },
+  });
+  const recap = ['NeoAgent', 'NeoRecall', 'NeoRouter']
+    .map((product) => `${product}\n${'- a change users will notice\n'.repeat(30).trim()}`)
+    .join('\n\n');
+
+  const result = await manager.sendMessage(user.userId, 'discord', 'channel-1', recap, {
+    agentId,
+    runId: 'long-run',
+  });
+
+  assert.ok(sent.length > 1);
+  assert.ok(sent.every((part) => part.length <= 2000));
+  assert.equal(sent.join('\n\n'), recap);
+  assert.equal(result.result.messageId, 'msg-1');
+  const persisted = ctx.db.prepare('SELECT content FROM messages WHERE run_id = ?').all('long-run');
+  assert.deepEqual(persisted.map((row) => row.content), [recap]);
+});

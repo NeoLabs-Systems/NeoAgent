@@ -184,6 +184,20 @@ test('classifyToolExecution derives failure from execute_command exit code', () 
   assert.match(failed.error, /command not found/);
 });
 
+test('a command that exits non-zero without a diagnostic is a result, not a failure', () => {
+  const noMatch = classifyToolExecution('execute_command', { command: 'grep -rl needle /srv' }, {
+    exitCode: 1,
+    stdout: '',
+    stderr: '',
+  });
+  assert.equal(noMatch.ok, true);
+  assert.equal(inferToolFailureMessage('execute_command', { exitCode: 141, stdout: 'first lines', stderr: '' }), '');
+  assert.match(
+    inferToolFailureMessage('execute_command', { exitCode: 2, stdout: '', stderr: 'No such file or directory' }),
+    /No such file/,
+  );
+});
+
 test('classifyToolExecution marks read-only execute_command as non-state-changing', () => {
   const readOnly = classifyToolExecution('execute_command', {
     command: 'curl -s https://api.github.com/repos/NeoLabs-Systems/NeoAgent/issues/91 | python3 -m json.tool | head -80',

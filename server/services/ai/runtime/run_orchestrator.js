@@ -54,11 +54,9 @@ const { createContextPressureController } = require('./context/context_pressure'
 const { createRunGuards } = require('./run_guards');
 const { runAgentLoop, setSteeringIntake } = require('./agent_loop');
 const { buildResumeEnvelope, clearResumeEnvelope } = require('./restart_resume');
+const { selectWrapUpHistory } = require('./wrap_up_history');
 
 const logger = createServiceLogger('Runtime');
-
-// The last messages a wrap-up turn sees next to the system prompt.
-const WRAP_UP_HISTORY_MESSAGES = 24;
 
 function isoNow() {
   return new Date().toISOString();
@@ -143,6 +141,8 @@ class DurableRunRuntime {
       // A model chosen for this run (message, schedule, parent agent) wins over task pins.
       explicitModel: Boolean(modelOverride),
       messages: [],
+      // The user turn this run answers, kept for its wrap-up turn.
+      requestTurn: null,
       tools: [],
       systemPrompt: '',
       toolExecutions: [],
@@ -377,8 +377,14 @@ class DurableRunRuntime {
           const meta = this.engine.getRunMeta(runId);
           if (!meta || meta.aborted || meta.status === 'paused') return true;
           // terminalInterim means the agent asked the user something and is
-          // waiting; anything after that would talk over the question.
-          if (meta.finalDeliverySent || meta.noResponse || meta.terminalInterim) return true;
+          // waiting; anything after that would talk over the question. A chat
+          // reply that is still the run's last word is its answer, not a pause.
+          if (
+            meta.finalDeliverySent
+            || meta.noResponse
+            || meta.terminalInterim
+            || meta.explicitMessageSent
+          ) return true;
           return meta.deliveryState?.finalContentDelivered === true
             || meta.deliveryState?.noResponse === true;
         },
@@ -540,9 +546,6 @@ class DurableRunRuntime {
           userId,
           agentId,
           query: options.context?.rawUserMessage || userMessage,
-          provider: session.model.provider,
-          providerName: session.model.providerName,
-          model: session.model.model,
           runId,
           options,
         }));
@@ -652,11 +655,13 @@ class DurableRunRuntime {
 
       const userTurn = this.engine.buildUserMessage(userMessage, options);
       messages.push(userTurn);
+      session.requestTurn = userTurn;
       session.messages = sanitizeConversationMessages(messages);
       // A resumed run's request is the turn the interrupted run already stored.
       if (conversationId && !options.resumedFromRunId) this.#storeUserMessage(session);
       this.engine.getRunMeta(runId).trust = options.parentTrust || createRunTrust({
         audience: publicScope ? 'public' : (options.audience || 'owner'),
+        approvedSpeaker: !publicScope && options.approvedSpeaker === true,
         triggerSource,
         messages: [...openingMessages, userTurn],
         origin: triggerSource === 'messaging'
@@ -982,15 +987,7 @@ class DurableRunRuntime {
       userId,
       conversationId: session.conversationId,
     });
-    const leadingSystem = [];
-    for (const message of session.messages) {
-      if (message.role !== 'system') break;
-      leadingSystem.push(message);
-    }
-    const history = [
-      ...leadingSystem,
-      ...session.messages.slice(leadingSystem.length).slice(-WRAP_UP_HISTORY_MESSAGES),
-    ];
+    const history = selectWrapUpHistory(session.messages, session.requestTurn);
     try {
       const wrapUp = await this.engine.requestModelResponse({
         provider: session.model.provider,

@@ -80,6 +80,24 @@ test('HTTP tool validates redirects and strips credentials across origins', asyn
   assert.deepEqual(result.redirects, [`http://second.example:${secondPort}/finish`]);
 });
 
+test('HTTP tool identifies itself unless the caller sets a User-Agent', async () => {
+  const seen = [];
+  const port = await listen((request, response) => {
+    seen.push(request.headers['user-agent']);
+    response.end('ok');
+  });
+  const options = { allowPrivate: true, lookup: localLookup };
+
+  await executeHttpRequest({ url: `http://api.example:${port}/` }, options);
+  await executeHttpRequest({
+    url: `http://api.example:${port}/`,
+    headers: { 'User-Agent': 'custom-client' },
+  }, options);
+
+  assert.match(seen[0], /^NeoAgent\//);
+  assert.equal(seen[1], 'custom-client');
+});
+
 test('HTTP tool cancels a live request with the caller reason', async () => {
   let markRequestArrived;
   const requestArrived = new Promise((resolve) => {

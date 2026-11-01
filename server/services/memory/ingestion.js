@@ -1,13 +1,11 @@
 'use strict';
 
-const { v4: uuidv4 } = require('uuid');
 const db = require('../../db/database');
 const { resolveAgentId } = require('../agents/manager');
 const { getErrorMessage } = require('../bootstrap_helpers');
 const {
   createLinkedAbortController,
   isAbortError,
-  throwIfAborted,
 } = require('../../utils/abort');
 const { ingestDocuments } = require('./ingestion_documents');
 const {
@@ -15,86 +13,48 @@ const {
   listConnectionStatuses,
 } = require('./ingestion_coverage');
 const {
-  FRESHNESS_POLICIES,
   SOURCE_TYPES,
-  getFreshnessPolicy,
-  nextSyncFromPolicy,
   normalizeSourceType,
+  parseJsonObject,
   sourceTypesForConnection,
 } = require('./ingestion_support');
 
-const DEFAULT_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+// Progress events are sent at most this often while a phase is counting up.
+const SWEEP_PROGRESS_INTERVAL_MS = 400;
 
+// Integrations reach memory once: a sweep of past mail when an account is
+// connected. Nothing polls connected accounts afterwards.
 class MemoryIngestionService {
   constructor({
     memoryManager,
     integrationManager,
-    intervalMs = DEFAULT_REFRESH_INTERVAL_MS,
+    extractFacts = null,
+    io = null,
     database = db,
-    setIntervalFn = setInterval,
-    clearIntervalFn = clearInterval,
   } = {}) {
     this.memoryManager = memoryManager;
     this.integrationManager = integrationManager;
-    this.intervalMs = Number(intervalMs);
-    if (!Number.isSafeInteger(this.intervalMs) || this.intervalMs < 1000) {
-      throw new Error('Memory ingestion intervalMs must be an integer greater than or equal to 1000.');
-    }
+    this.extractFacts = extractFacts;
+    this.io = io;
     this.db = database;
-    this.setInterval = setIntervalFn;
-    this.clearInterval = clearIntervalFn;
-    this.timer = null;
+    // Live sweep state per connection id, shown in the app while it runs and
+    // as the last result afterwards (until the server restarts).
+    this.sweepProgress = new Map();
+    this.sweepProgressEmittedAt = new Map();
     this.abortController = new AbortController();
-    this.activeBatches = new Map();
     this.activeConnections = new Map();
     this.stopping = false;
     this.stopPromise = null;
-    this.state = 'idle';
-    this.lastRunAt = null;
-    this.lastCompletedAt = null;
+    this.state = 'running';
     this.lastError = null;
   }
 
   getStatus() {
     return {
       state: this.state,
-      intervalMs: this.intervalMs,
-      activeBatchCount: this.activeBatches.size,
-      activeConnectionCount: this.activeConnections.size,
-      lastRunAt: this.lastRunAt,
-      lastCompletedAt: this.lastCompletedAt,
+      activeSweepCount: this.activeConnections.size,
       lastError: this.lastError,
     };
-  }
-
-  start() {
-    if (this.timer) return this.getStatus();
-    if (this.stopPromise) {
-      throw new Error('Memory ingestion cannot start while shutdown is in progress.');
-    }
-
-    if (this.abortController.signal.aborted) {
-      this.abortController = new AbortController();
-    }
-    this.stopping = false;
-    this.state = 'running';
-    this.lastError = null;
-    this.timer = this.setInterval(() => {
-      void this._runBackgroundRefresh();
-    }, this.intervalMs);
-    this.timer.unref?.();
-    void this._runBackgroundRefresh();
-    return this.getStatus();
-  }
-
-  async _runBackgroundRefresh() {
-    try {
-      await this.refreshDueConnections();
-    } catch (err) {
-      if (isAbortError(err, this.abortController.signal) && this.stopping) return;
-      this.lastError = getErrorMessage(err);
-      console.warn('[MemoryIngestion] Background refresh failed:', this.lastError);
-    }
   }
 
   async stop() {
@@ -102,15 +62,10 @@ class MemoryIngestionService {
     this.stopping = true;
     this.state = 'stopping';
     this.abortController.abort('Memory ingestion service is stopping.');
-    if (this.timer) this.clearInterval(this.timer);
-    this.timer = null;
 
     this.stopPromise = (async () => {
-      while (this.activeBatches.size > 0 || this.activeConnections.size > 0) {
-        await Promise.allSettled([
-          ...this.activeBatches.values(),
-          ...this.activeConnections.values(),
-        ]);
+      while (this.activeConnections.size > 0) {
+        await Promise.allSettled([...this.activeConnections.values()]);
       }
       this.stopping = false;
       this.state = 'stopped';
@@ -136,192 +91,165 @@ class MemoryIngestionService {
     }
   }
 
-  refreshDueConnections(userId = null) {
-    const scopeKey = userId == null ? 'all' : `user:${userId}`;
-    if (this.stopping || this.abortController.signal.aborted) {
-      return Promise.resolve({
-        skipped: true,
-        reason: this.stopping ? 'service_stopping' : 'service_stopped',
-      });
+  _saveCollectorCredentials(connection, collected) {
+    if (collected?.credentials) {
+      this.integrationManager?.saveRefreshedCredentials?.(connection, collected.credentials);
     }
-    const active = this.activeBatches.get(scopeKey);
-    if (active) return active;
+  }
 
-    const promise = this._refreshDueConnections(userId).finally(() => {
-      if (this.activeBatches.get(scopeKey) === promise) {
-        this.activeBatches.delete(scopeKey);
-      }
+  getSweepProgress(connectionId) {
+    return this.sweepProgress.get(Number(connectionId)) || null;
+  }
+
+  _reportSweep(connection, patch, { force = false } = {}) {
+    const connectionId = Number(connection.id);
+    const progress = {
+      ...this.sweepProgress.get(connectionId),
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    };
+    this.sweepProgress.set(connectionId, progress);
+    const now = Date.now();
+    if (!force && now - (this.sweepProgressEmittedAt.get(connectionId) || 0) < SWEEP_PROGRESS_INTERVAL_MS) {
+      return;
+    }
+    this.sweepProgressEmittedAt.set(connectionId, now);
+    this.io?.to?.(`user:${connection.user_id}`).emit('memory:sweep_progress', {
+      connectionId,
+      providerKey: connection.provider_key,
+      appKey: connection.app_key,
+      ...progress,
     });
-    this.activeBatches.set(scopeKey, promise);
-    return promise;
   }
 
-  async _refreshDueConnections(userId = null) {
-    const signal = this.abortController.signal;
-    this.lastRunAt = new Date().toISOString();
-    try {
-      const params = [];
-      let sql = `SELECT *
-                 FROM integration_connections
-                 WHERE status = 'connected'`;
-      if (userId != null) {
-        sql += ' AND user_id = ?';
-        params.push(userId);
-      }
-      const connections = this.db.prepare(sql).all(...params);
-      const results = [];
-      for (const connection of connections) {
-        if (this.stopping || signal.aborted) break;
-        results.push(await this._refreshConnectionSafely(connection, { signal }));
-      }
-      if (!results.some((result) => result?.status === 'failed')) {
-        this.lastError = null;
-      }
-      this.lastCompletedAt = new Date().toISOString();
-      return { refreshed: results.length, results };
-    } catch (err) {
-      if (isAbortError(err, signal) && this.stopping) {
-        return { refreshed: 0, results: [], cancelled: true };
-      }
-      this.lastError = getErrorMessage(err);
-      throw err;
+  // Runs the one-time sweep of past mail when the user left it switched on.
+  handleConnected({ connection, memorySweep = false } = {}) {
+    if (!connection || !memorySweep || this.abortController.signal.aborted) {
+      return Promise.resolve(null);
     }
+    return this.sweepConnection(connection);
   }
 
-  _refreshConnectionSafely(connection, options = {}) {
-    const connectionKey = `${connection.user_id}:${connection.id}`;
-    const active = this.activeConnections.get(connectionKey);
+  // Sweeps every connected account of one app again on request, importing
+  // only threads that are not in memory yet.
+  sweepApp(userId, { agentId, providerKey, appKey }) {
+    if (this.abortController.signal.aborted) return [];
+    const connections = this.db.prepare(
+      `SELECT *
+       FROM integration_connections
+       WHERE user_id = ? AND agent_id = ? AND provider_key = ? AND app_key = ? AND status = 'connected'`,
+    ).all(userId, agentId, providerKey, appKey);
+    for (const connection of connections) {
+      void this.sweepConnection(connection, { repeat: true });
+    }
+    return connections.map((connection) => connection.id);
+  }
+
+  sweepConnection(connection, { repeat = false } = {}) {
+    const sweepKey = `sweep:${connection.user_id}:${connection.id}`;
+    const active = this.activeConnections.get(sweepKey);
     if (active) return active;
 
-    const promise = Promise.resolve()
-      .then(() => this.refreshConnection(connection, options))
+    const promise = this._sweepConnection(connection, { repeat })
       .catch((err) => {
-        if (isAbortError(err, options.signal) && this.stopping) {
-          return {
-            connectionId: connection.id,
-            status: 'cancelled',
-          };
+        if (isAbortError(err, this.abortController.signal) && this.stopping) {
+          this.sweepProgress.delete(Number(connection.id));
+          return { connectionId: connection.id, status: 'cancelled' };
         }
         const error = getErrorMessage(err);
         this.lastError = error;
-        console.warn(
-          `[MemoryIngestion] Connection ${connection.id} refresh failed:`,
+        this._reportSweep(connection, {
+          state: 'failed',
           error,
-        );
-        return {
-          connectionId: connection.id,
-          status: 'failed',
-          error,
-        };
+          finishedAt: new Date().toISOString(),
+        }, { force: true });
+        console.warn(`[MemoryIngestion] Connection ${connection.id} sweep failed:`, error);
+        return { connectionId: connection.id, status: 'failed', error };
       })
       .finally(() => {
-        if (this.activeConnections.get(connectionKey) === promise) {
-          this.activeConnections.delete(connectionKey);
+        if (this.activeConnections.get(sweepKey) === promise) {
+          this.activeConnections.delete(sweepKey);
         }
       });
-    this.activeConnections.set(connectionKey, promise);
+    this.activeConnections.set(sweepKey, promise);
     return promise;
   }
 
-  _recordCollectorFailure(connection, sourceType, policy, agentId, err) {
-    try {
-      this.memoryManager.recordIngestionJob(connection.user_id, {
-        id: uuidv4(),
-        sourceType,
-        providerKey: connection.provider_key,
-        connectionId: connection.id,
-        status: 'failed',
-        freshnessPolicy: policy,
-        documentCount: 0,
-        error: getErrorMessage(err),
-        completedAt: new Date().toISOString(),
-        nextSyncAt: nextSyncFromPolicy(policy),
-        metadata: {
-          appKey: connection.app_key,
-          sourceTypes: sourceTypesForConnection(connection.provider_key, connection.app_key),
-        },
-      }, { agentId });
-    } catch (recordError) {
-      console.warn(
-        `[MemoryIngestion] Could not persist failure for connection ${connection.id}:`,
-        getErrorMessage(recordError),
-      );
-    }
-  }
-
-  async refreshConnection(connection, options = {}) {
-    const signal = options.signal || this.abortController.signal;
-    throwIfAborted(signal, 'Memory ingestion refresh aborted.');
+  async _sweepConnection(connection, { repeat }) {
+    const signal = this.abortController.signal;
     const sourceTypes = sourceTypesForConnection(connection.provider_key, connection.app_key);
-    if (sourceTypes.length === 0) {
+    const provider = this.integrationManager?.getProvider?.(connection.provider_key);
+    if (!sourceTypes.includes('email') || typeof provider?.collectMemorySweep !== 'function') {
       return { connectionId: connection.id, status: 'not_supported' };
     }
-    const provider = this.integrationManager?.getProvider?.(connection.provider_key);
     const agentId = connection.agent_id || resolveAgentId(connection.user_id, null);
-    const primarySource = sourceTypes[0];
-    const policy = getFreshnessPolicy(primarySource);
-    const latestJob = this.memoryManager
+    const alreadySwept = !repeat && this.memoryManager
       .listIngestionJobs(connection.user_id, {
         agentId,
         providerKey: connection.provider_key,
-        limit: 1,
+        limit: 100,
       })
-      .find((job) => Number(job.connectionId || 0) === Number(connection.id));
+      .some((job) => Number(job.connectionId || 0) === Number(connection.id)
+        && job.status === 'completed'
+        && job.metadata?.mode === 'sweep');
+    if (alreadySwept) return { connectionId: connection.id, status: 'already_swept' };
 
-    if (latestJob?.nextSyncAt && Date.parse(latestJob.nextSyncAt) > Date.now()) {
-      return { connectionId: connection.id, status: 'fresh' };
-    }
-
-    if (typeof provider?.collectMemoryDocuments === 'function') {
-      let collected;
-      try {
-        collected = await provider.collectMemoryDocuments({
-          connection,
-          sourceTypes,
-          cursor: latestJob?.cursor || {},
-          signal,
-        });
-      } catch (err) {
-        if (!isAbortError(err, signal)) {
-          this._recordCollectorFailure(connection, primarySource, policy, agentId, err);
-        }
-        throw err;
-      }
-      return this.ingestDocuments(connection.user_id, collected.documents || [], {
+    const startedAt = new Date().toISOString();
+    this.sweepProgress.delete(Number(connection.id));
+    this._reportSweep(connection, {
+      state: 'running',
+      phase: 'reading',
+      done: 0,
+      total: null,
+      imported: 0,
+      learned: 0,
+      startedAt,
+      finishedAt: null,
+      error: null,
+    }, { force: true });
+    const collected = await provider.collectMemorySweep({
+      connection,
+      sourceTypes,
+      skipObjectIds: this.memoryManager.listIngestedObjectIds(connection.user_id, connection.id, {
         agentId,
-        sourceType: primarySource,
-        providerKey: connection.provider_key,
-        connectionId: connection.id,
-        sourceAccount: connection.account_email,
-        metadata: {
-          appKey: connection.app_key,
-          sourceTypes,
-          cursor: collected.cursor || null,
-        },
-        signal,
-      });
-    }
-
-    const jobId = this.memoryManager.recordIngestionJob(connection.user_id, {
-      id: uuidv4(),
-      sourceType: primarySource,
+      }),
+      onProgress: (done, total = null) => this._reportSweep(connection, { done, total }),
+      signal,
+    });
+    this._saveCollectorCredentials(connection, collected);
+    const documents = collected.documents || [];
+    this._reportSweep(connection, {
+      phase: 'learning',
+      done: 0,
+      total: documents.length,
+    }, { force: true });
+    const connectionMetadata = parseJsonObject(connection.metadata_json, {});
+    const result = await this.ingestDocuments(connection.user_id, documents, {
+      agentId,
+      sourceType: 'email',
       providerKey: connection.provider_key,
       connectionId: connection.id,
-      status: 'ready',
-      freshnessPolicy: policy,
-      summary: {
-        appKey: connection.app_key,
-        sourceTypes,
-        collectorAvailable: false,
+      sourceAccount: connection.account_email,
+      owner: {
+        email: connection.account_email || null,
+        name: connectionMetadata.displayName || null,
       },
       metadata: {
-        accountEmail: connection.account_email || null,
+        appKey: connection.app_key,
+        sourceTypes,
+        mode: 'sweep',
+        cursor: collected.cursor || null,
       },
-      documentCount: 0,
-      completedAt: new Date().toISOString(),
-      nextSyncAt: nextSyncFromPolicy(policy),
-    }, { agentId });
-    return { connectionId: connection.id, status: 'ready', jobId };
+      onProgress: (done, total) => this._reportSweep(connection, { done, total }),
+      signal,
+    });
+    this._reportSweep(connection, {
+      state: 'completed',
+      imported: documents.length,
+      learned: this.memoryManager.countMemoriesCreatedSince(result.memoryIds, startedAt),
+      finishedAt: new Date().toISOString(),
+    }, { force: true });
+    return result;
   }
 
   listConnectionStatuses(userId, { agentId = null } = {}) {
@@ -336,7 +264,6 @@ class MemoryIngestionService {
 module.exports = {
   MemoryIngestionService,
   SOURCE_TYPES,
-  FRESHNESS_POLICIES,
   normalizeSourceType,
   sourceTypesForConnection,
 };

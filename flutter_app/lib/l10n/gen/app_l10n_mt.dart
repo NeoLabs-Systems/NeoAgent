@@ -373,6 +373,13 @@ class AppL10nMt extends AppL10n {
   String get addMemory => 'Żid Memorja';
 
   @override
+  String get memoryReview => 'Irrevedi';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Irrevedi l-memorji kollha tiegħi u naddafhom: arkivja d-duplikati, il-fatti skaduti u kull ħaġa mingħajr valur dejjiemi. Imbagħad għidli fil-qosor x\'biddilt.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Żid aktar tul jew tip ta \'karattru ieħor.';
 
@@ -1611,10 +1618,6 @@ class AppL10nMt extends AppL10n {
   String get atLeast1 => 'Mill-inqas 1.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Mill-inqas 1000. Japplika wara li jerġa\' jibda server.';
-
-  @override
   String get attachFiles => 'Ehmeż fajls';
 
   @override
@@ -1851,9 +1854,6 @@ class AppL10nMt extends AppL10n {
   String get braveSearch => 'Fittex Brave';
 
   @override
-  String get breakdown => 'Tqassim:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Tgħaqqad kwalunkwe fornitur li jista\' jpoġġi u jirċievi payloads tal-webhook.';
 
@@ -1902,11 +1902,6 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get cancelTask => 'Ikkanċella kompitu';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Għadd ta\' Kandidati: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Ma tistax tipprevedi';
@@ -2377,11 +2372,6 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get content => 'Kontenut';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Kontenut: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'politika tas-sigurtà tal-kontenut';
@@ -3280,11 +3270,6 @@ class AppL10nMt extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Żball: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Żbalji mill-ġurnal reċenti, miġbura skont il-messaġġ.';
 
@@ -3304,10 +3289,6 @@ class AppL10nMt extends AppL10n {
   @override
   String get everyAccountOnThisServerLoses =>
       'Kull kont fuq dan is-server jitlef din iċ-ċavetta kondiviża. Kontijiet ';
-
-  @override
-  String get everyAccountOnThisServerSecrets =>
-      'kull kont fuq dan is-server. Is-sigrieti huma bil-miktub biss: leave ';
 
   @override
   String get everyAccountOnThisServerUses =>
@@ -3663,11 +3644,6 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get fullSetup => 'Setup sħiħ';
-
-  @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Test sħiħ (FTS): $arg1';
-  }
 
   @override
   String get general => 'Ġenerali';
@@ -4040,9 +4016,6 @@ class AppL10nMt extends AppL10n {
   String get insertATemplate => 'Daħħal mudell';
 
   @override
-  String get inspect => 'Spezzjona';
-
-  @override
   String get install => 'Installa';
 
   @override
@@ -4096,9 +4069,6 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get integration => 'Integrazzjoni';
-
-  @override
-  String get integrationApps => 'Apps ta\' integrazzjoni';
 
   @override
   String get integrationConnections => 'Konnessjonijiet ta \'integrazzjoni';
@@ -4409,11 +4379,6 @@ class AppL10nMt extends AppL10n {
   }
 
   @override
-  String lexicalArg1(Object? arg1) {
-    return 'Lessiku: $arg1';
-  }
-
-  @override
   String get limit20 => 'LIMIT 20';
 
   @override
@@ -4692,21 +4657,6 @@ class AppL10nMt extends AppL10n {
   }
 
   @override
-  String get memoryImportSync =>
-      'sinkronizzazzjoni tal-importazzjoni tal-memorja';
-
-  @override
-  String get memoryIngestionInterval => 'Intervall ta\' inġestjoni tal-memorja';
-
-  @override
-  String get memoryIngestionIntervalMs =>
-      'Intervall ta\' inġestjoni tal-memorja (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'L-intervall ta\' inġestjoni tal-memorja għandu jkun mill-inqas 1000 ms.';
-
-  @override
   String get memoryInjected => 'Memorja injettata';
 
   @override
@@ -4767,10 +4717,6 @@ class AppL10nMt extends AppL10n {
   String get microsoft365 => 'Microsoft 365';
 
   @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack u l-integrazzjonijiet l-oħra. Dawn japplikaw għal ';
-
-  @override
   String get microsoftTeams => 'Timijiet tal-Microsoft';
 
   @override
@@ -4815,6 +4761,13 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get modelAvailability => 'Disponibbiltà tal-mudell';
+
+  @override
+  String get autoEnableNewModels => 'Ippermetti awtomatikament mudelli ġodda';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Meta jkun mitfi, mudelli miżjuda aktar tard minn fornitur jibqgħu diżattivati sakemm inti tattivahom.';
 
   @override
   String get modelAvailabilitySaved => 'Disponibbiltà tal-mudell salvata.';
@@ -5294,6 +5247,51 @@ class AppL10nMt extends AppL10n {
   String get noMemorySync => 'L-ebda sinkronizzazzjoni tal-memorja';
 
   @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Jaqra darba waħda l-posta importanti u mibgħuta tal-aħħar 12-il xahar, biex l-aġent ikun jaf il-kuntatti u l-proġetti tiegħek.';
+
+  @override
+  String get emailMemory => 'Memorja tal-email';
+
+  @override
+  String get importNow => 'Importa issa';
+
+  @override
+  String get importOnConnect =>
+      'Importa posta tal-passat meta tikkonnettja kont';
+
+  @override
+  String get sweepStarting => 'Qed jitħejja…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'Qed jaqra l-emails · $done minn $total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'Qed jaqra l-emails · $count misjuba';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Qed jitgħallem mill-emails · $done minn $total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'L-aħħar importazzjoni: $emails emails · $memories memorji ġodda';
+  }
+
+  @override
+  String get sweepNothingNew => 'M\'hemmx emails ġodda x\'jiġu importati';
+
+  @override
+  String sweepFailed(String error) {
+    return 'L-importazzjoni falliet: $error';
+  }
+
+  @override
   String noModelMatchesArg1(Object? arg1) {
     return 'L-ebda mudell ma jaqbel ma\' \"$arg1\".';
   }
@@ -5491,10 +5489,6 @@ class AppL10nMt extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'Kredenzjali tal-app OAuth li jippermettu lill-kontijiet jgħaqqdu lil Google, ';
-
-  @override
   String get oauthClientId => 'ID tal-Klijent OAuth';
 
   @override
@@ -5566,10 +5560,6 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get once => 'Darba';
-
-  @override
-  String get oneBlankToKeepWhatIs =>
-      'wieħed vojt biex iżżomm dak li jkun maħżun.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -6105,9 +6095,6 @@ class AppL10nMt extends AppL10n {
       'mistoqsijiet jitmexxew; kull ħaġa li tikteb tiġi miċħuda.';
 
   @override
-  String get query => 'Mistoqsija';
-
-  @override
   String get queryFilter => 'Mistoqsija / Iffiltra';
 
   @override
@@ -6275,11 +6262,6 @@ class AppL10nMt extends AppL10n {
       'Irrifjuta ċertifikati TLS invalidi';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Relazzjoni: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'rilaxx u jerġa \'jibda. Apps konnessi jerġgħu jikkonnettjaw ladarba tkun lura.';
 
@@ -6439,9 +6421,6 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get results => 'Riżultati';
-
-  @override
-  String get retrievalInspector => 'Spettur tal-Irkupru';
 
   @override
   String get retry => 'Ipprova mill-ġdid';
@@ -6770,11 +6749,6 @@ class AppL10nMt extends AppL10n {
       'ħin skedat. Ladarba jitkejlu l-ġirjiet, dan jibda qabel.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Score: $arg1';
-  }
-
-  @override
   String get screen => 'Skrin';
 
   @override
@@ -6911,11 +6885,6 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get selectTrigger => 'Agħżel Trigger';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Semantiku: $arg1';
-  }
 
   @override
   String get send => 'Ibgħat (⌘↵)';
@@ -8695,11 +8664,6 @@ class AppL10nMt extends AppL10n {
   String get vaultOperationFailed => 'L-operazzjoni tal-kaxxa-forti falliet.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Vector Rank: $arg1';
-  }
-
-  @override
   String get verification => 'Verifika';
 
   @override
@@ -10122,6 +10086,9 @@ class AppL10nMt extends AppL10n {
   String get settingsPageSystem => 'Sistema';
 
   @override
+  String get settingsPagePlatforms => 'Pjattaformi';
+
+  @override
   String get settingsPageProfileDescription =>
       'Ismek u l-email, kopja tad-data tiegħek, u l-iffirmar.';
 
@@ -11298,9 +11265,729 @@ class AppL10nMt extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Agħżel l-isem tal-utent tiegħek';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Agħżel isem tal-utent disponibbli biex tlesti l-ħolqien tal-kont tiegħek.';
+
+  @override
+  String get dataSharingTitle => 'Aqsam id-dejta tal-użu';
+
+  @override
+  String get dataSharingDescription =>
+      'Għin lil min imexxi dan is-server itejbu. Jaqsam kif tuża NeoAgent, qatt dak li tikteb jew taħżen.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Qed jinqasam minn $date.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'X\'jinqasam';
+
+  @override
+  String get dataSharingIncluded => 'Jinqasam';
+
+  @override
+  String get dataSharingExcluded => 'Qatt ma jinqasam';
+
+  @override
+  String get dataSharingIncludedDevice =>
+      'It-tip ta\' apparat u l-verżjoni tal-app';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'Il-lingwa tal-app u r-reġjun taż-żona tal-ħin, bħall-Ewropa';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Liema funzjonijiet issettjajt, bħal kompiti, skills u integrazzjonijiet';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Liema għodod u mudelli jużaw il-ġirjiet tiegħek, bil-ħinijiet u l-għadd ta\' tokens';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'Meta tuża NeoAgent, skont il-jum tal-ġimgħa u s-siegħa';
+
+  @override
+  String get dataSharingExcludedContent => 'Messaġġi, prompts u tweġibiet';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Titli tal-ġirjiet, input u riżultati tal-għodod';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Fajls, memorji u kull ħaġa oħra li taħżen';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'Ismek, l-email, l-indirizz IP u l-post tiegħek';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'Il-kontijiet li magħhom tqabbad l-integrazzjonijiet';
+
+  @override
+  String get dataSharingPooledNote =>
+      'L-amministraturi jaraw biss totali ta\' kull min jaqsam, qatt lilek waħdek. Itfih meta trid u toħroġ mit-totali minnufih.';
+
+  @override
+  String get dataSharingConfirmTitle => 'Taqsam id-dejta tal-użu?';
+
+  @override
+  String get dataSharingConfirmAction => 'Aqsam';
+
+  @override
+  String get sharedUsageTitle => 'Użu maqsum';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Kontijiet li jaqsmu d-dejta tal-użu: $sharing minn $total. Totali biss, l-ebda kontenut.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Għadu ħadd ma jaqsam dejta tal-użu. Jista\' jinxtegħel minn Settings, Profil, Id-dejta tiegħek.';
+
+  @override
+  String get sharedUsageRuns => 'Ġirjiet maqsuma';
+
+  @override
+  String get sharedUsageAvgDuration => 'Tul medju';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Ġirjiet lesti';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Passi għal kull ġirja';
+
+  @override
+  String get sharedUsageDevices => 'Apparati';
+
+  @override
+  String get sharedUsageAppVersions => 'Verżjonijiet tal-app';
+
+  @override
+  String get sharedUsageLanguages => 'Lingwi';
+
+  @override
+  String get sharedUsageRegions => 'Reġjuni';
+
+  @override
+  String get sharedUsageFeatures => 'Użu tal-funzjonijiet';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'Is-sehem tal-kontijiet li jaqsmu li ssettjawha.';
+
+  @override
+  String get sharedUsageTools => 'Għodod';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'L-aktar għodod imsejħa ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Sejħiet: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Fallew: $percent%';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Integrazzjonijiet';
+
+  @override
+  String get sharedUsageMessaging => 'Kanali tal-messaġġi';
+
+  @override
+  String get sharedUsageTriggers => 'Kif jibdew il-ġirjiet';
+
+  @override
+  String get sharedUsageActivity => 'Meta jintuża';
+
+  @override
+  String get sharedUsageActivityDescription =>
+      'Ġirjiet skont il-jum tal-ġimgħa u s-siegħa, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Prestazzjoni tal-mudelli';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return 'medja $latency · $cached% mill-cache · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Kontijiet: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'Xejn f\'dan il-perjodu.';
+
+  @override
+  String get sharedUsageNotReported => 'Għadu mhux irrappurtat';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Aktar minn aġent wieħed';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Kompiti skedati';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Skills';
+
+  @override
+  String get sharedUsageFeatureMcp => 'Servers MCP';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Integrazzjonijiet';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Kanali tal-messaġġi';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Memorja';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'opt-in qsim tad-dejta telemetrija apparati funzjonijiet għodod mudelli attività';
+
+  @override
+  String get yourOAuthApp => 'L-app OAuth tiegħek';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'L-app OAuth tiegħek ta’ $provider';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Dan is-server m’għandux app globali ta’ $provider, għalhekk tikkonnettja b’app OAuth li tirreġistra int stess. Is-sigriet tal-klijent jinħażen ikkriptat u qatt ma jerġa’ jintwera.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Oħloq l-app';
+
+  @override
+  String get openDeveloperConsole => 'Iftaħ il-konsol tal-iżviluppatur';
+
+  @override
+  String get oauthAppStepCallback => '2. Irreġistra dan il-URL tal-callback';
+
+  @override
+  String get callbackUrlCopied => 'URL tal-callback ikkupjat';
+
+  @override
+  String get oauthAppScopes => 'Scopes li għandhom jiġu permessi';
+
+  @override
+  String get scopesCopied => 'Scopes ikkupjati';
+
+  @override
+  String get oauthAppStepCredentials => '3. Waħħal il-kredenzjali tal-app';
+
+  @override
+  String get couldNotSaveOAuthApp => 'Ma setgħetx tiġi ssejvjata l-app OAuth.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Tneħħi l-app tiegħek ta’ $provider?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Il-kontijiet konnessi jibqgħu fil-lista iżda ma jibqgħux jaħdmu sakemm iżżid app mill-ġdid.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Konfigurazzjoni globali tal-integrazzjonijiet';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Apps OAuth fakultattivi għas-server kollu. Meta integrazzjoni jkollha waħda, kull kont jużaha u ma jistax iżid tiegħu. Ħalli integrazzjoni mhux issettjata u kull utent iwaqqaf l-app tiegħu. Is-sigrieti huma għall-kitba biss: ħallih vojt biex iżżomm il-valur maħżun.';
+
+  @override
+  String get globalStatus => 'Globali';
+
+  @override
+  String get perUserStatus => 'Għal kull utent';
+
+  @override
+  String get phoneSyncGuidance =>
+      'Aqsam il-kalendarji u l-kuntatti ta’ dan it-telefon mal-aġent tiegħek. Jaħdem ma’ kull kont li diġà jinsab fuq it-telefon.';
+
+  @override
+  String get phoneSyncElsewhereGuidance =>
+      'Iftaħ NeoAgent fuq it-telefon u ixgħel il-qsim hemmhekk. L-aġent imbagħad jara l-kalendarji u l-kuntatti tal-kontijiet kollha fuq dak it-telefon.';
+
+  @override
+  String get manageOnThisPhone => 'Immaniġġja fuq dan it-telefon';
+
+  @override
+  String get setUpOnThisPhone => 'Waqqaf fuq dan it-telefon';
+
+  @override
+  String get setUpOnPhone => 'Waqqaf fuq it-telefon tiegħek';
+
+  @override
+  String emailConnectedArg1(String email) {
+    return '$email konness';
+  }
+
+  @override
+  String get couldNotConnectEmail => 'Dan il-kont ma setax jiġi konness.';
+
+  @override
+  String get emailSetupTitle => 'Qabbad l-email u l-kalendarju';
+
+  @override
+  String get emailChecking => 'Qed tiġi ċċekkjata l-kaxxa postali…';
+
+  @override
+  String get emailSetupIntro =>
+      'Uża password tal-app mill-fornitur tal-email. Mingħajr konsol tal-iżviluppatur, lest f’ftit minuti.';
+
+  @override
+  String emailOpenArg1(String provider) {
+    return 'Iftaħ $provider';
+  }
+
+  @override
+  String get emailStepServers => '1. Daħħal is-servers';
+
+  @override
+  String get emailStepPassword => '1. Oħloq password tal-app';
+
+  @override
+  String emailOpenPasswordPageArg1(String provider) {
+    return 'Iftaħ il-passwords tal-app ta’ $provider';
+  }
+
+  @override
+  String get emailStepSignIn => '2. Idħol';
+
+  @override
+  String get appPassword => 'Password tal-app';
+
+  @override
+  String get appPasswordHelper =>
+      'L-ispazji ma jimpurtawx. NeoAgent jaħżinha kriptata.';
+
+  @override
+  String get emailUsernameOptional => 'Isem l-utent, jekk mhux l-email tiegħek';
+
+  @override
+  String get emailIncludeCalendar => 'Inkludi l-kalendarju';
+
+  @override
+  String get emailIncludeContacts => 'Inkludi l-kuntatti';
+
+  @override
+  String get imapServer => 'Server IMAP';
+
+  @override
+  String get smtpServer => 'Server SMTP';
+
+  @override
+  String get caldavUrlOptional => 'URL CalDAV (mhux obbligatorju)';
+
+  @override
+  String get carddavUrlOptional => 'URL CardDAV (mhux obbligatorju)';
+
+  @override
+  String get alternativeEmail =>
+      'Qabbad il-kaxxa postali b’password tal-app, jew il-kalendarju bil-link iCal tiegħu. Lest f’ftit minuti.';
+
+  @override
+  String get alternativePhone =>
+      'Aqsam il-kalendarju u l-kuntatti li diġà għandek fuq it-telefon permezz tal-app NeoAgent.';
+
+  @override
+  String get alternativePhoneElsewhere =>
+      'Aqsam il-kalendarju u l-kuntatti li diġà għandek fuq it-telefon. Waqqafha fl-app NeoAgent fuq it-telefon.';
+
+  @override
+  String get skipTheDeveloperConsole => 'Mingħajr il-konsol tal-iżviluppatur';
+
+  @override
+  String get phoneSyncPromptTitle =>
+      'Tħalli lill-aġent jara l-kalendarju tiegħek?';
+
+  @override
+  String get phoneSyncPromptBody =>
+      'Aqsam il-kalendarji u l-kuntatti ta’ dan it-telefon biex l-aġent jippjana madwar jumek. Tista’ tibdel dan meta trid f’Għodod › Integrazzjonijiet.';
+
+  @override
+  String get phoneSyncTitle => 'Aqsam il-kalendarju u l-kuntatti tat-telefon';
+
+  @override
+  String get phoneSyncIntro =>
+      'L-aġent jara l-kalendarji u l-kuntatti tal-kontijiet kollha fuq dan it-telefon. Mingħajr konsol tal-iżviluppatur u mingħajr dħul ieħor.';
+
+  @override
+  String get phoneSyncPointAccounts =>
+      'Jaħdem mal-kontijiet Google, Outlook, iCloud u Exchange fuq dan it-telefon.';
+
+  @override
+  String get phoneSyncPointPrivate =>
+      'Maqsum biss mas-server NeoAgent tiegħek, li jaħżinhom kriptati.';
+
+  @override
+  String get phoneSyncPointWrites =>
+      'L-avvenimenti li jżid l-aġent joħloqhom dan it-telefon u jissinkronizzaw bħas-soltu.';
+
+  @override
+  String get phoneSyncCalendarHint =>
+      'Avvenimenti minn 30 jum ilu sa 90 jum ’il quddiem';
+
+  @override
+  String get phoneSyncContacts => 'Kuntatti';
+
+  @override
+  String get phoneSyncContactsHint =>
+      'Ismijiet, indirizzi tal-email u numri tat-telefon';
+
+  @override
+  String get phoneSyncOtherAgent =>
+      'Dan it-telefon qed jaqsam ma’ aġent ieħor. Jekk taqsam hawn jgħaddi għal dan l-aġent.';
+
+  @override
+  String get phoneSyncDenied =>
+      'NeoAgent għad m’għandux aċċess. Ippermettih fis-Settings u erġa’ lura.';
+
+  @override
+  String get openPhoneSettings => 'Iftaħ is-Settings';
+
+  @override
+  String get phoneSyncShare => 'Aqsam ma’ NeoAgent';
+
+  @override
+  String get phoneSyncStop => 'Waqqaf il-qsim';
+
+  @override
+  String get phoneSyncWaiting => 'Qed nistennew l-ewwel sinkronizzazzjoni…';
+
+  @override
+  String phoneSyncLastSyncedArg1(String time) {
+    return 'L-aħħar sinkronizzazzjoni $time';
+  }
+
+  @override
+  String get calendarLink => 'Link tal-kalendarju';
+
+  @override
+  String get calendarLinkHelper =>
+      'L-indirizz iCal tal-kalendarju. Kull min għandu jista’ jaqra l-kalendarju, għalhekk żommu privat.';
+
+  @override
+  String get calendarLinkName => 'Isem (mhux obbligatorju)';
+
+  @override
+  String get calendarLinkAdded => 'Il-kalendarju żdied';
+
+  @override
+  String get toolsApps => 'Apps';
+
+  @override
+  String get reconnect => 'Erġa\' qabbad';
+
+  @override
+  String get reconnectNeeded => 'Jeħtieġ jerġa\' jitqabbad';
+
+  @override
+  String get mixedAccess => 'Aċċess imħallat';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Tiskonnettja $account?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'L-aġent jitlef l-aċċess għal $apps permezz ta\' dan il-kont.';
+  }
+
+  @override
+  String get neoRouterServerDescription =>
+      'Qabbad in-NeoRouter tiegħek darba u kull kont hawn jużah għax-xogħol mixgħul hawn taħt.';
+
+  @override
+  String get neoRouterUserDescription =>
+      'Uża l-kont NeoRouter tiegħek għax-xogħol mixgħul hawn taħt minflok il-fornituri ta\' dan is-server.';
+
+  @override
+  String get neoRouterAddress => 'Indirizz tan-NeoRouter';
+
+  @override
+  String get neoRouterConnect => 'Qabbad in-NeoRouter';
+
+  @override
+  String neoRouterWaitingArg1(Object? arg1) {
+    return 'Approva lil NeoAgent fin-NeoRouter. Juri l-kodiċi $arg1.';
+  }
+
+  @override
+  String get neoRouterOpenAgain => 'Iftaħ mill-ġdid';
+
+  @override
+  String neoRouterConnectedArg1(Object? arg1) {
+    return 'Imqabbad ma\' $arg1';
+  }
+
+  @override
+  String get neoRouterUnreachable => 'In-NeoRouter mhux disponibbli bħalissa.';
+
+  @override
+  String get neoRouterDisconnect => 'Aqta\'';
+
+  @override
+  String get neoRouterDisconnectBody =>
+      'NeoAgent jieqaf juża dan in-NeoRouter. Biex tirtira wkoll iċ-ċavetta, revokaha fin-NeoRouter taħt Ċwievet API.';
+
+  @override
+  String get neoRouterServerInUse =>
+      'Dan is-server diġà juża NeoRouter għal kulħadd. Qabbad il-kont NeoRouter tiegħek għall-mudelli u l-baġit tiegħek.';
+
+  @override
+  String get neoRouterConnected => 'In-NeoRouter huwa mqabbad.';
+
+  @override
+  String get neoRouterRoleChat => 'Chat u għarfien tal-istampi';
+
+  @override
+  String get neoRouterRoleSystemOne => 'Deċiżjonijiet System One';
+
+  @override
+  String get neoRouterRoleTranscription => 'Diskors għal test';
+
+  @override
+  String get neoRouterRoleLive => 'Vuċi diretta';
+
+  @override
+  String get neoRouterRoleEmbeddings => 'Tfittxija fil-memorja';
+
+  @override
+  String get neoRouterRoleImages => 'Ħolqien ta\' stampi';
+
+  @override
+  String get neoRouterRoleSearch => 'Tfittxija fuq il-web';
+
+  @override
+  String neoRouterModelCountArg1(Object? arg1) {
+    return 'Disponibbli fin-NeoRouter tiegħek: $arg1';
+  }
+
+  @override
+  String get neoRouterNoModels => 'Għad m\'hemm xejn fin-NeoRouter tiegħek.';
+
+  @override
+  String get neoRouterPicksModels =>
+      'NeoRouter jagħżel il-mudell għal kull talba, għalhekk din l-għażla ma tintużax.';
+
+  @override
+  String neoRouterNotAllowedArg1(Object? arg1) {
+    return '$arg1 fin-NeoRouter tiegħek, iżda ċ-ċavetta ta\' NeoAgent għadha ma tistax tużahom (pereżempju dawk bi ħlas). Ippermettihom għal NeoAgent taħt Ċwievet API fin-NeoRouter.';
+  }
+
+  @override
+  String get neoRouterNoDecisionModels =>
+      'Jeħtieġ mudelli tad-deċiżjoni bħal Jev. Il-klassifikaturi tas-sigurtà ma jistgħux iwieġbu dawn il-mistoqsijiet.';
+
+  @override
+  String get voiceLiveNoProvider =>
+      'L-ebda fornitur tal-vuċi diretta mhu mwaqqaf. Żid ċavetta ta\' OpenAI jew Google AI, jew qabbad NeoRouter, taħt Mudelli → Ġib iċ-ċavetta tiegħek.';
+
+  @override
+  String get voiceSttAutoNeoRouter =>
+      'Awtomatiku (NeoRouter jagħżel il-mudell)';
+
+  @override
+  String get voiceNotOffered => 'M\'għadux offrut, agħżel ieħor';
+
+  @override
+  String get agentImport => 'Bring over another agent';
+
+  @override
+  String get agentImportDescription =>
+      'Copies OpenClaw or Hermes Agent from the server\'s computer (~/.openclaw and ~/.hermes) into your account. Nothing is removed there, and importing twice does not duplicate anything.';
+
+  @override
+  String get agentImportNoneFound =>
+      'No OpenClaw or Hermes Agent was found in ~/.openclaw or ~/.hermes on the server\'s computer.';
+
+  @override
+  String get agentImportWhatComes => 'What comes over';
+
+  @override
+  String get agentImportAgentsAlways =>
+      'Agents and their personality always come over; everything else is attached to them.';
+
+  @override
+  String get agentImportPartKeys => 'Keys and AI providers';
+
+  @override
+  String get agentImportPartMemories => 'Memories and notes';
+
+  @override
+  String get agentImportPartSkills => 'Skills';
+
+  @override
+  String get agentImportPartModel => 'Default model';
+
+  @override
+  String get agentImportPartTasks => 'Automations';
+
+  @override
+  String get agentImportPartMcp => 'MCP servers';
+
+  @override
+  String get agentImportPartChannels => 'Chat apps';
+
+  @override
+  String agentImportCountAgents(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count agents',
+      one: '1 agent',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountKeys(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count connections',
+      one: '1 connection',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountMemories(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count memories',
+      one: '1 memory',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days of notes',
+      one: '1 day of notes',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountSkills(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count skills',
+      one: '1 skill',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountTasks(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count automations',
+      one: '1 automation',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountMcp(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count MCP servers',
+      one: '1 MCP server',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportNeedsHandCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count things need a hand afterwards',
+      one: '1 thing needs a hand afterwards',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get agentImportFinish => 'Let NeoAgent finish moving in';
+
+  @override
+  String get agentImportFinishHint =>
+      'After the restart, your agent reworks imported skills for its own tools and rebuilds what the importer left behind. Needs a connected AI.';
+
+  @override
+  String get agentImportRun => 'Bring it over';
+
+  @override
+  String get agentImportRunning => 'Bringing it over…';
+
+  @override
+  String get agentImportMovedIn => 'Moved in';
+
+  @override
+  String get agentImportAlreadyMovedIn => 'Everything was already in NeoAgent.';
+
+  @override
+  String agentImportAlreadyThere(int count) {
+    return '$count already in NeoAgent, left as they were';
+  }
+
+  @override
+  String get agentImportNeedsHand => 'Needs a hand';
+
+  @override
+  String agentImportMore(int count) {
+    return '…and $count more in the report.';
+  }
+
+  @override
+  String agentImportReport(String path) {
+    return 'Full report: $path';
+  }
+
+  @override
+  String agentImportFinishQueued(String name) {
+    return 'Queued \"$name\". It starts two minutes after NeoAgent restarts, and you\'ll get a message when it\'s done.';
+  }
+
+  @override
+  String get agentImportRestartNeeded =>
+      'Restart NeoAgent to load everything that came over.';
+
+  @override
+  String get agentImportRestarted =>
+      'NeoAgent restarted and loaded everything.';
 }

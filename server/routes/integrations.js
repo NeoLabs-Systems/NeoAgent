@@ -595,6 +595,7 @@ router.post('/:provider/connect', async (req, res) => {
       {
         appKey: req.body?.appId,
         agentId: resolveAgentId(req.session.userId, getAgentIdFromRequest(req)),
+        memorySweep: req.body?.memorySweep === true,
         signal: req.signal,
       },
     );

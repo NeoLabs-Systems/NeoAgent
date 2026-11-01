@@ -6,6 +6,7 @@ import androidx.work.WorkerParameters
 import org.json.JSONObject
 import java.io.IOException
 import com.neoagent.flutter_app.net.BackendHttp
+import com.neoagent.flutter_app.net.BackendSession
 import java.net.HttpURLConnection
 import java.time.Instant
 
@@ -154,44 +155,11 @@ class HealthSyncWorker(
         return if (retry) Result.retry() else Result.failure()
     }
 
-    private fun ensureSessionCookie(
-        backendUrl: String,
-        currentCookie: String,
-    ): String? {
-        if (currentCookie.isNotBlank()) {
-            return currentCookie
+    private fun ensureSessionCookie(backendUrl: String, currentCookie: String): String? =
+        BackendSession.ensureCookie(applicationContext, backendUrl, currentCookie) { cookie ->
+            HealthSyncPrefs.read(applicationContext)
+                .edit()
+                .putString(HealthSyncPrefs.KEY_SESSION_COOKIE, cookie)
+                .apply()
         }
-
-        val flutterPrefs =
-            applicationContext.getSharedPreferences(
-                "FlutterSharedPreferences",
-                Context.MODE_PRIVATE,
-            )
-        val username = flutterPrefs.getString("flutter.username", "")?.trim().orEmpty()
-        val password = flutterPrefs.getString("flutter.password", "")?.trim().orEmpty()
-        if (username.isBlank() || password.isBlank()) {
-            return null
-        }
-
-        val response = BackendHttp.request(
-            method = "POST",
-            baseUrl = backendUrl,
-            path = "/api/auth/login",
-            jsonBody =
-                JSONObject()
-                    .put("username", username)
-                    .put("password", password)
-                    .toString(),
-        )
-        if (response.code !in 200..299 || response.cookie.isNullOrBlank()) {
-            return null
-        }
-
-        val cookie = response.cookie.substringBefore(";")
-        HealthSyncPrefs.read(applicationContext)
-            .edit()
-            .putString(HealthSyncPrefs.KEY_SESSION_COOKIE, cookie)
-            .apply()
-        return cookie
-    }
 }

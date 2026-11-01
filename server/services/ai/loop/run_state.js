@@ -91,18 +91,24 @@ function updateRunProgress(engine, runId, patch = {}, options = {}) {
   return runMeta.progressLedger;
 }
 
-function markRunVisibleProgress(engine, runId, timestamp = isoNow()) {
+// A reply in the chat the run answers reached the user, but it says nothing
+// about work still to come, so the run stays in the foreground and its chat
+// waits for it.
+function markRunVisibleReply(engine, runId, timestamp = isoNow()) {
   const runMeta = engine.getRunMeta(runId);
   if (!runMeta) return null;
   if (!runMeta.deliveryState) runMeta.deliveryState = createDeliveryState();
   markInterimDelivered(runMeta.deliveryState);
-  const ledger = updateRunProgress(engine, runId, {
+  return updateRunProgress(engine, runId, {
     lastUserVisibleUpdateAt: timestamp,
-  }, {
-    persist: false,
   });
-  persistProgressLedger(engine, runId);
-  moveRunToBackground(engine, runId);
+}
+
+// A progress update tells the user the run is still working on something,
+// which is what moves an owner's chat run to the background.
+function markRunVisibleProgress(engine, runId, timestamp = isoNow()) {
+  const ledger = markRunVisibleReply(engine, runId, timestamp);
+  if (ledger) moveRunToBackground(engine, runId);
   return ledger;
 }
 
@@ -403,6 +409,7 @@ module.exports = {
   isRunStopped,
   markRunFinalDelivery,
   markRunVisibleProgress,
+  markRunVisibleReply,
   persistProgressLedger,
   persistRunMetadata,
   recordRunEventSafe,

@@ -16,6 +16,7 @@ const ENV_KEYS = [
   'TYPESAFE_API_KEY',
   'OLLAMA_URL',
   'NEOAGENT_DISABLED_MODELS',
+  'NEOAGENT_AUTO_ENABLE_NEW_MODELS',
   'NEOAGENT_KNOWN_MODELS',
   'NEOAGENT_KNOWN_SYSTEM_ONE_MODELS',
 ];
@@ -336,16 +337,23 @@ test('system_one_model defaults off and keeps only auto or a provider-scoped mod
 
 test('SystemOne models keep their own known list in the admin availability catalog', async () => {
   await setup();
-  const { getDisabledModelIds, reconcileModelVisibility, setDisabledModelIds } = require('../../../server/services/ai/model_visibility');
+  const {
+    getDisabledModelIds,
+    reconcileModelVisibility,
+    setAutoEnableNewModels,
+    setDisabledModelIds,
+  } = require('../../../server/services/ai/model_visibility');
 
+  // A curating admin: new models arrive switched off.
+  setAutoEnableNewModels(false);
   setDisabledModelIds(['openrouter::some/chat-model']);
   reconcileModelVisibility(['openrouter::some/chat-model', 'openrouter::other/chat-model'], 'llm');
   // The first SystemOne listing is the baseline: nothing is switched off.
   reconcileModelVisibility(['openrouter::typesafe/jev-1.13'], 'decisions');
   assert.deepEqual(getDisabledModelIds(), ['openrouter::some/chat-model']);
 
-  // Later arrivals follow the curated list, as chat models do, and neither
-  // catalog retires the other's models.
+  // Later arrivals follow the admin's new-model setting, as chat models do,
+  // and neither catalog retires the other's models.
   reconcileModelVisibility(['openrouter::typesafe/jev-1.13', 'ollama::nimble:latest'], 'decisions');
   reconcileModelVisibility(['openrouter::some/chat-model', 'openrouter::other/chat-model'], 'llm');
   assert.deepEqual(getDisabledModelIds(), ['openrouter::some/chat-model', 'ollama::nimble:latest']);

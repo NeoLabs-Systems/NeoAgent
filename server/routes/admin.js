@@ -9,7 +9,12 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { sendJsonError } = require('../http/errors');
 const { getSupportedModels } = require('../services/ai/models');
 const { getSystemOneModels } = require('../services/ai/system_one');
-const { reconcileModelVisibility, setDisabledModelIds } = require('../services/ai/model_visibility');
+const {
+  reconcileModelVisibility,
+  setDisabledModelIds,
+  getAutoEnableNewModels,
+  setAutoEnableNewModels,
+} = require('../services/ai/model_visibility');
 const { getAdminEmailSettings, updateAdminEmailSettings } = require('../services/account/service_email_settings');
 const { getServerVersion, runHealthChecks } = require('../services/admin/health');
 const { getAnalytics } = require('../services/admin/analytics');
@@ -132,7 +137,12 @@ router.get('/models', async (req, res) => {
       systemOneModels.map((model) => model.id),
       'decisions',
     );
-    res.json({ models, systemOneModels, disabledModels });
+    res.json({
+      models,
+      systemOneModels,
+      disabledModels,
+      autoEnableNewModels: getAutoEnableNewModels(),
+    });
   } catch (err) {
     sendJsonError(res, err);
   }
@@ -141,7 +151,14 @@ router.get('/models', async (req, res) => {
 router.put('/models/config', jsonHandler((req) => {
   const disabledModels = req.body?.disabledModels;
   if (!Array.isArray(disabledModels)) throw httpError(400, 'disabledModels must be an array');
-  return { ok: true, disabledModels: setDisabledModelIds(disabledModels) };
+  if (typeof req.body?.autoEnableNewModels === 'boolean') {
+    setAutoEnableNewModels(req.body.autoEnableNewModels);
+  }
+  return {
+    ok: true,
+    disabledModels: setDisabledModelIds(disabledModels),
+    autoEnableNewModels: getAutoEnableNewModels(),
+  };
 }));
 
 // --- Server configuration ---

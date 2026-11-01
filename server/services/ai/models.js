@@ -11,8 +11,11 @@ const { OpenAICodexProvider } = require('./providers/openaiCodex');
 const { ClaudeCodeProvider } = require('./providers/claudeCode');
 const { GrokOAuthProvider } = require('./providers/grokOauth');
 const { NvidiaProvider } = require('./providers/nvidia');
+const { NousProvider } = require('./providers/nous');
 const { OpenRouterProvider } = require('./providers/openrouter');
 const { TypeSafeProvider } = require('./providers/typesafe');
+const { NeoRouterProvider } = require('./providers/neorouter');
+const { providerServesRole } = require('./neorouter/connection');
 const {
     AI_PROVIDER_DEFINITIONS,
     getAiSettings,
@@ -59,8 +62,10 @@ const PROVIDER_FACTORIES = Object.freeze({
     'claude-code': { Provider: ClaudeCodeProvider, apiKey: true, baseUrl: false },
     'grok-oauth': { Provider: GrokOAuthProvider, apiKey: true, baseUrl: false },
     nvidia: { Provider: NvidiaProvider, apiKey: true, baseUrl: true },
+    nous: { Provider: NousProvider, apiKey: true, baseUrl: true },
     openrouter: { Provider: OpenRouterProvider, apiKey: true, baseUrl: true },
     typesafe: { Provider: TypeSafeProvider, apiKey: true, baseUrl: false },
+    neorouter: { Provider: NeoRouterProvider, apiKey: true, baseUrl: true },
 });
 
 // Ollama has a shorter cache lifetime and dedicated discovery path. Every other
@@ -134,6 +139,10 @@ async function probeOllama(baseUrl, timeoutMs = 1500, signal = null) {
 // and is exempt: it was never attacker-supplied.
 function isUnsafeUserBaseUrl(url, definition) {
     if (!url || url === definition.defaultBaseUrl) return false;
+    // The operator's own configured address is not attacker-supplied either
+    // (users sign in to the server's NeoRouter on the home network).
+    const operatorUrl = definition.baseUrlEnvKey ? String(process.env[definition.baseUrlEnvKey] || '').trim() : '';
+    if (operatorUrl && url === operatorUrl) return false;
     try {
         return isPrivateHost(new URL(url).hostname);
     } catch {
@@ -223,6 +232,8 @@ function getProviderCatalog(userId, agentId = null) {
         const hasRequiredBaseUrl = !definition.requiresBaseUrl
             || (runtime.baseUrlConfigured && runtime.baseUrlValid);
         let available = hasCredential && hasRequiredBaseUrl;
+        // A NeoRouter offers chat models only when chat goes through it.
+        if (available && !providerServesRole(definition.id, userId, agentId, 'chat')) available = false;
         if (
             definition.id === 'openai'
             && available

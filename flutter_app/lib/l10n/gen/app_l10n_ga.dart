@@ -377,6 +377,13 @@ class AppL10nGa extends AppL10n {
   String get addMemory => 'Cuir Cuimhne leis';
 
   @override
+  String get memoryReview => 'Athbhreithnigh';
+
+  @override
+  String get memoryReviewPrompt =>
+      'Athbhreithnigh mo chuimhní go léir agus glan iad: cuir dúblaigh, fíricí as dáta agus aon rud gan luach buan sa chartlann. Ansin inis dom go hachomair cad a d\'athraigh tú.';
+
+  @override
   String get addMoreLengthOrAnotherCharacter =>
       'Cuir níos mó faid nó cineál carachtair eile leis.';
 
@@ -1617,10 +1624,6 @@ class AppL10nGa extends AppL10n {
   String get atLeast1 => '1 ar a laghad.';
 
   @override
-  String get atLeast1000AppliesAfterA =>
-      'Ar a laghad 1000. Baineann sé tar éis atosú freastalaí.';
-
-  @override
   String get attachFiles => 'Ceangail comhaid';
 
   @override
@@ -1861,9 +1864,6 @@ class AppL10nGa extends AppL10n {
   String get braveSearch => 'Cuardach Cróga';
 
   @override
-  String get breakdown => 'Miondealú:';
-
-  @override
   String get bridgeAnyProviderThatCanPost =>
       'Droichead aon soláthraí atá in ann ualaí pálasta gréasáin a phostáil agus a fháil.';
 
@@ -1913,11 +1913,6 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get cancelTask => 'Cealaigh tasc';
-
-  @override
-  String candidateCountArg1(Object? arg1) {
-    return 'Líon na nIarrthóirí: $arg1';
-  }
 
   @override
   String get cannotPreview => 'Ní féidir réamhamharc a dhéanamh';
@@ -2392,11 +2387,6 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get content => 'Ábhar';
-
-  @override
-  String contentArg1(Object? arg1) {
-    return 'Ábhar: $arg1';
-  }
 
   @override
   String get contentSecurityPolicy => 'polasaí slándála ábhair';
@@ -3302,11 +3292,6 @@ class AppL10nGa extends AppL10n {
   }
 
   @override
-  String errorArg12(Object? arg1) {
-    return 'Earráid: $arg1';
-  }
-
-  @override
   String get errorsFromTheRecentLogGrouped =>
       'Earráidí ón loga le déanaí, grúpáilte de réir teachtaireachta.';
 
@@ -3325,10 +3310,6 @@ class AppL10nGa extends AppL10n {
   @override
   String get everyAccountOnThisServerLoses =>
       'Cailleann gach cuntas ar an bhfreastalaí seo an eochair roinnte seo. Cuntais ';
-
-  @override
-  String get everyAccountOnThisServerSecrets =>
-      'gach cuntas ar an bhfreastalaí seo. Tá rúin scríofa amháin: fág ';
 
   @override
   String get everyAccountOnThisServerUses =>
@@ -3684,11 +3665,6 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get fullSetup => 'Socrú iomlán';
-
-  @override
-  String fullTextFtsArg1(Object? arg1) {
-    return 'Téacs Iomlán (FTS): $arg1';
-  }
 
   @override
   String get general => 'Ginearálta';
@@ -4059,9 +4035,6 @@ class AppL10nGa extends AppL10n {
   String get insertATemplate => 'Cuir isteach teimpléad';
 
   @override
-  String get inspect => 'Iniúchadh';
-
-  @override
   String get install => 'Suiteáil';
 
   @override
@@ -4115,9 +4088,6 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get integration => 'Comhtháthú';
-
-  @override
-  String get integrationApps => 'Aipeanna comhtháthú';
 
   @override
   String get integrationConnections => 'Naisc chomhtháthaithe';
@@ -4428,11 +4398,6 @@ class AppL10nGa extends AppL10n {
   }
 
   @override
-  String lexicalArg1(Object? arg1) {
-    return 'Foclóir: $arg1';
-  }
-
-  @override
   String get limit20 => 'LIMIT 20';
 
   @override
@@ -4708,19 +4673,6 @@ class AppL10nGa extends AppL10n {
   }
 
   @override
-  String get memoryImportSync => 'sioncronú allmhairiú cuimhne';
-
-  @override
-  String get memoryIngestionInterval => 'Eatramh ionghabhála cuimhne';
-
-  @override
-  String get memoryIngestionIntervalMs => 'Eatramh ionghabhála cuimhne (ms)';
-
-  @override
-  String get memoryIngestionIntervalMustBeAt =>
-      'Caithfidh an t-eatramh ionghabhála cuimhne a bheith 1000 ms ar a laghad.';
-
-  @override
   String get memoryInjected => 'Cuimhne ghann';
 
   @override
@@ -4782,10 +4734,6 @@ class AppL10nGa extends AppL10n {
   String get microsoft365 => 'Microsoft 365';
 
   @override
-  String get microsoftSlackAndTheOtherIntegrations =>
-      'Microsoft, Slack agus na comhtháthú eile. Baineann siad le ';
-
-  @override
   String get microsoftTeams => 'Foirne Microsoft';
 
   @override
@@ -4829,6 +4777,13 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get modelAvailability => 'Infhaighteacht múnla';
+
+  @override
+  String get autoEnableNewModels => 'Cumasaigh samhlacha nua go huathoibríoch';
+
+  @override
+  String get autoEnableNewModelsHint =>
+      'Nuair a bhíonn sé múchta, fanann samhlacha a chuireann soláthraí leis níos déanaí díchumasaithe go gcumasaíonn tú iad.';
 
   @override
   String get modelAvailabilitySaved => 'Infhaighteacht mhúnla sábháilte.';
@@ -5307,6 +5262,50 @@ class AppL10nGa extends AppL10n {
   String get noMemorySync => 'Gan sioncronú cuimhne';
 
   @override
+  String get importPastEmailsIntoMemoryHint =>
+      'Léann sé an post tábhachtach agus seolta ó na 12 mhí seo caite uair amháin, ionas go mbeidh aithne ag an ngníomhaire ar do theagmhálaithe agus do thionscadail.';
+
+  @override
+  String get emailMemory => 'Cuimhne ríomhphoist';
+
+  @override
+  String get importNow => 'Iompórtáil anois';
+
+  @override
+  String get importOnConnect => 'Iompórtáil seanphost nuair a nascar cuntas';
+
+  @override
+  String get sweepStarting => 'Á ullmhú…';
+
+  @override
+  String sweepReadingProgress(int done, int total) {
+    return 'Ríomhphoist á léamh · $done as $total';
+  }
+
+  @override
+  String sweepReadingFound(int count) {
+    return 'Ríomhphoist á léamh · $count aimsithe';
+  }
+
+  @override
+  String sweepLearningProgress(int done, int total) {
+    return 'Ag foghlaim ó ríomhphoist · $done as $total';
+  }
+
+  @override
+  String sweepLastImport(int emails, int memories) {
+    return 'Iompórtáil dheireanach: $emails ríomhphost · $memories cuimhne nua';
+  }
+
+  @override
+  String get sweepNothingNew => 'Níl aon ríomhphoist nua le hiompórtáil';
+
+  @override
+  String sweepFailed(String error) {
+    return 'Theip ar an iompórtáil: $error';
+  }
+
+  @override
   String noModelMatchesArg1(Object? arg1) {
     return 'Níl aon mhúnla ag teacht le \"$arg1\".';
   }
@@ -5505,10 +5504,6 @@ class AppL10nGa extends AppL10n {
   String get nvidiaNim => 'NVIDIA NIM';
 
   @override
-  String get oauthAppCredentialsThatLetAccounts =>
-      'Dintiúir aip OAuth a ligeann do chuntais Google a nascadh, ';
-
-  @override
   String get oauthClientId => 'Aitheantas Cliant OAuth';
 
   @override
@@ -5580,10 +5575,6 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get once => 'Uair amháin';
-
-  @override
-  String get oneBlankToKeepWhatIs =>
-      'bán amháin chun an méid atá stóráilte a choinneáil.';
 
   @override
   String get oneIsSavedOtherChangesIn =>
@@ -6126,9 +6117,6 @@ class AppL10nGa extends AppL10n {
       'ritheann ceisteanna; diúltaítear d’aon rud a scríobhann.';
 
   @override
-  String get query => 'Ceist';
-
-  @override
   String get queryFilter => 'Iarratas / Scagaire';
 
   @override
@@ -6295,11 +6283,6 @@ class AppL10nGa extends AppL10n {
       'Diúltaigh teastais TLS neamhbhailí';
 
   @override
-  String relationArg1(Object? arg1) {
-    return 'Gaol: $arg1';
-  }
-
-  @override
   String get releaseAndRestartsConnectedAppsReconnect =>
       'scaoileadh agus atosú. Athnascann aipeanna nasctha nuair a bhíonn sé ar ais.';
 
@@ -6462,9 +6445,6 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get results => 'Torthaí';
-
-  @override
-  String get retrievalInspector => 'Cigire Aisghabhála';
 
   @override
   String get retry => 'Bain triail eile as';
@@ -6797,11 +6777,6 @@ class AppL10nGa extends AppL10n {
       'am sceidealta. Nuair a thomhaistear na ritheanna cuirfear tús leis níos luaithe.';
 
   @override
-  String scoreArg1(Object? arg1) {
-    return 'Scór: $arg1';
-  }
-
-  @override
   String get screen => 'Scáileán';
 
   @override
@@ -6940,11 +6915,6 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get selectTrigger => 'Roghnaigh Truicear';
-
-  @override
-  String semanticArg1(Object? arg1) {
-    return 'Séimeantach: $arg1';
-  }
 
   @override
   String get send => 'Seol (⌘↵)';
@@ -8734,11 +8704,6 @@ class AppL10nGa extends AppL10n {
   String get vaultOperationFailed => 'Theip ar oibríocht cruinneachán.';
 
   @override
-  String vectorRankArg1(Object? arg1) {
-    return 'Céim Veicteoir: $arg1';
-  }
-
-  @override
   String get verification => 'Fíorú';
 
   @override
@@ -10168,6 +10133,9 @@ class AppL10nGa extends AppL10n {
   String get settingsPageSystem => 'Córas';
 
   @override
+  String get settingsPagePlatforms => 'Ardáin';
+
+  @override
   String get settingsPageProfileDescription =>
       'D’ainm agus do ríomhphost, cóip de do shonraí, agus síniú amach.';
 
@@ -11340,9 +11308,731 @@ class AppL10nGa extends AppL10n {
   }
 
   @override
-  String get providerChooseUsername => 'Choose your username';
+  String get providerChooseUsername => 'Roghnaigh d\'ainm úsáideora';
 
   @override
   String get providerChooseUsernameBody =>
-      'Choose an available username to finish creating your account.';
+      'Roghnaigh ainm úsáideora atá ar fáil chun do chuntas a chríochnú.';
+
+  @override
+  String get dataSharingTitle => 'Comhroinn sonraí úsáide';
+
+  @override
+  String get dataSharingDescription =>
+      'Cabhraigh leo siúd a ritheann an freastalaí seo é a fheabhsú. Roinntear conas a úsáideann tú NeoAgent, ach ní roinntear riamh a scríobhann nó a stórálann tú.';
+
+  @override
+  String dataSharingSince(String date) {
+    return 'Á chomhroinnt ó $date.';
+  }
+
+  @override
+  String get dataSharingWhatsShared => 'Cad a roinntear';
+
+  @override
+  String get dataSharingIncluded => 'Roinntear';
+
+  @override
+  String get dataSharingExcluded => 'Ní roinntear riamh';
+
+  @override
+  String get dataSharingIncludedDevice => 'Cineál gléis agus leagan na haipe';
+
+  @override
+  String get dataSharingIncludedLocale =>
+      'Teanga na haipe agus réigiún an chriosa ama, mar shampla an Eoraip';
+
+  @override
+  String get dataSharingIncludedFeatures =>
+      'Na gnéithe atá socraithe agat, mar thascanna, scileanna agus comhtháthuithe';
+
+  @override
+  String get dataSharingIncludedRuns =>
+      'Na huirlisí agus na samhlacha a úsáideann do rití, le hamanna agus líon comharthaí';
+
+  @override
+  String get dataSharingIncludedActivity =>
+      'Cathain a úsáideann tú NeoAgent, de réir lá na seachtaine agus uaire';
+
+  @override
+  String get dataSharingExcludedContent =>
+      'Teachtaireachtaí, leideanna agus freagraí';
+
+  @override
+  String get dataSharingExcludedRuns =>
+      'Teidil rití, ionchuir agus torthaí uirlisí';
+
+  @override
+  String get dataSharingExcludedFiles =>
+      'Comhaid, cuimhní agus aon rud eile a stórálann tú';
+
+  @override
+  String get dataSharingExcludedIdentity =>
+      'D\'ainm, do ríomhphost, do sheoladh IP agus do shuíomh';
+
+  @override
+  String get dataSharingExcludedAccounts =>
+      'Na cuntais lena nascann tú comhtháthuithe';
+
+  @override
+  String get dataSharingPooledNote =>
+      'Ní fheiceann riarthóirí ach iomláin do gach duine a roinneann, riamh tusa leat féin. Múch é am ar bith agus fágann tú na hiomláin láithreach.';
+
+  @override
+  String get dataSharingConfirmTitle => 'Sonraí úsáide a chomhroinnt?';
+
+  @override
+  String get dataSharingConfirmAction => 'Comhroinn';
+
+  @override
+  String get sharedUsageTitle => 'Úsáid chomhroinnte';
+
+  @override
+  String sharedUsageParticipants(int sharing, int total) {
+    return 'Cuntais a roinneann sonraí úsáide: $sharing as $total. Iomláin amháin, gan ábhar.';
+  }
+
+  @override
+  String get sharedUsageEmpty =>
+      'Níl aon duine ag comhroinnt sonraí úsáide fós. Is féidir é a chur ar siúl faoi Socruithe, Próifíl, Do shonraí.';
+
+  @override
+  String get sharedUsageRuns => 'Rití comhroinnte';
+
+  @override
+  String get sharedUsageAvgDuration => 'Meánfhad';
+
+  @override
+  String get sharedUsageCompletedRuns => 'Rití críochnaithe';
+
+  @override
+  String get sharedUsageStepsPerRun => 'Céimeanna in aghaidh an rith';
+
+  @override
+  String get sharedUsageDevices => 'Gléasanna';
+
+  @override
+  String get sharedUsageAppVersions => 'Leaganacha aipe';
+
+  @override
+  String get sharedUsageLanguages => 'Teangacha';
+
+  @override
+  String get sharedUsageRegions => 'Réigiúin';
+
+  @override
+  String get sharedUsageFeatures => 'Glacadh le gnéithe';
+
+  @override
+  String get sharedUsageFeaturesDescription =>
+      'Sciar de na cuntais chomhroinnte a bhfuil sé socraithe acu.';
+
+  @override
+  String get sharedUsageTools => 'Uirlisí';
+
+  @override
+  String sharedUsageToolsDescription(String range) {
+    return 'Na huirlisí is mó a nglaotar orthu ($range).';
+  }
+
+  @override
+  String sharedUsageToolCalls(String calls) {
+    return 'Glaonna: $calls';
+  }
+
+  @override
+  String sharedUsageToolFailures(int percent) {
+    return 'Theip: $percent%';
+  }
+
+  @override
+  String get sharedUsageIntegrations => 'Comhtháthuithe';
+
+  @override
+  String get sharedUsageMessaging => 'Cainéil teachtaireachtaí';
+
+  @override
+  String get sharedUsageTriggers => 'Conas a thosaíonn rití';
+
+  @override
+  String get sharedUsageActivity => 'Cathain a úsáidtear é';
+
+  @override
+  String get sharedUsageActivityDescription =>
+      'Rití de réir lá na seachtaine agus uaire, UTC.';
+
+  @override
+  String get sharedUsageModels => 'Feidhmíocht samhlacha';
+
+  @override
+  String sharedUsageModelDetail(String latency, int cached, String cost) {
+    return 'meán $latency · $cached% ón taisce · $cost';
+  }
+
+  @override
+  String sharedUsageAccounts(int count) {
+    return 'Cuntais: $count';
+  }
+
+  @override
+  String get sharedUsageNoData => 'Faic sa tréimhse seo.';
+
+  @override
+  String get sharedUsageNotReported => 'Gan tuairisc fós';
+
+  @override
+  String get sharedUsageFeatureAgents => 'Níos mó ná gníomhaire amháin';
+
+  @override
+  String get sharedUsageFeatureTasks => 'Tascanna sceidealaithe';
+
+  @override
+  String get sharedUsageFeatureSkills => 'Scileanna';
+
+  @override
+  String get sharedUsageFeatureMcp => 'Freastalaithe MCP';
+
+  @override
+  String get sharedUsageFeatureIntegrations => 'Comhtháthuithe';
+
+  @override
+  String get sharedUsageFeatureMessaging => 'Cainéil teachtaireachtaí';
+
+  @override
+  String get sharedUsageFeatureMemory => 'Cuimhne';
+
+  @override
+  String get sharedUsageSearchKeywords =>
+      'opt-in comhroinnt sonraí teiliméadracht gléasanna gnéithe uirlisí samhlacha gníomhaíocht';
+
+  @override
+  String get yourOAuthApp => 'Do aip OAuth';
+
+  @override
+  String oauthAppSetupTitle(String provider) {
+    return 'Do aip OAuth $provider';
+  }
+
+  @override
+  String oauthAppSetupIntro(String provider) {
+    return 'Níl aip $provider dhomhanda ar an bhfreastalaí seo, mar sin ceanglaíonn tú le haip OAuth a chláraíonn tú féin. Stóráiltear rún an chliaint criptithe agus ní thaispeántar arís é.';
+  }
+
+  @override
+  String get oauthAppStepCreate => '1. Cruthaigh an aip';
+
+  @override
+  String get openDeveloperConsole => 'Oscail consól an fhorbróra';
+
+  @override
+  String get oauthAppStepCallback => '2. Cláraigh an URL aisghlaoch seo';
+
+  @override
+  String get callbackUrlCopied => 'URL aisghlaoch cóipeáilte';
+
+  @override
+  String get oauthAppScopes => 'Raonta le ceadú';
+
+  @override
+  String get scopesCopied => 'Raonta cóipeáilte';
+
+  @override
+  String get oauthAppStepCredentials => '3. Greamaigh dintiúir na haipe';
+
+  @override
+  String get couldNotSaveOAuthApp => 'Níorbh fhéidir an aip OAuth a shábháil.';
+
+  @override
+  String removeOAuthAppTitle(String provider) {
+    return 'Bain d’aip $provider?';
+  }
+
+  @override
+  String get removeOAuthAppBody =>
+      'Fanann cuntais cheangailte ar an liosta ach stopann siad ag obair go dtí go gcuireann tú aip leis arís.';
+
+  @override
+  String get globalIntegrationConfiguration =>
+      'Cumraíocht dhomhanda comhtháthaithe';
+
+  @override
+  String get globalIntegrationConfigurationDescription =>
+      'Aipeanna OAuth roghnacha don fhreastalaí ar fad. Nuair atá ceann ag comhtháthú, úsáideann gach cuntas é agus ní féidir leo a gceann féin a chur leis. Fág comhtháthú gan socrú agus socraíonn gach úsáideoir a aip féin. Is le scríobh amháin iad rúin: fág bán chun an luach stóráilte a choinneáil.';
+
+  @override
+  String get globalStatus => 'Domhanda';
+
+  @override
+  String get perUserStatus => 'In aghaidh an úsáideora';
+
+  @override
+  String get phoneSyncGuidance =>
+      'Roinn féilirí agus teagmhálaithe an fhóin seo le do ghníomhaire. Oibríonn sé le gach cuntas atá ar an bhfón cheana.';
+
+  @override
+  String get phoneSyncElsewhereGuidance =>
+      'Oscail NeoAgent ar d’fhón agus cas air roinnt ansin. Feicfidh do ghníomhaire féilirí agus teagmhálaithe gach cuntais ar an bhfón sin.';
+
+  @override
+  String get manageOnThisPhone => 'Bainistigh ar an bhfón seo';
+
+  @override
+  String get setUpOnThisPhone => 'Socraigh ar an bhfón seo';
+
+  @override
+  String get setUpOnPhone => 'Socraigh ar d’fhón';
+
+  @override
+  String emailConnectedArg1(String email) {
+    return '$email ceangailte';
+  }
+
+  @override
+  String get couldNotConnectEmail => 'Níorbh fhéidir an cuntas seo a cheangal.';
+
+  @override
+  String get emailSetupTitle => 'Ceangail ríomhphost agus féilire';
+
+  @override
+  String get emailChecking => 'Do bhosca poist á sheiceáil…';
+
+  @override
+  String get emailSetupIntro =>
+      'Úsáid pasfhocal aipe ó do sholáthraí ríomhphoist. Gan chonsól forbróra, réidh i gceann cúpla nóiméad.';
+
+  @override
+  String emailOpenArg1(String provider) {
+    return 'Oscail $provider';
+  }
+
+  @override
+  String get emailStepServers => '1. Cuir isteach do fhreastalaithe';
+
+  @override
+  String get emailStepPassword => '1. Cruthaigh pasfhocal aipe';
+
+  @override
+  String emailOpenPasswordPageArg1(String provider) {
+    return 'Oscail pasfhocail aipe $provider';
+  }
+
+  @override
+  String get emailStepSignIn => '2. Sínigh isteach';
+
+  @override
+  String get appPassword => 'Pasfhocal aipe';
+
+  @override
+  String get appPasswordHelper =>
+      'Is cuma faoi spásanna. Stórálann NeoAgent é criptithe.';
+
+  @override
+  String get emailUsernameOptional =>
+      'Ainm úsáideora, mura é do sheoladh ríomhphoist é';
+
+  @override
+  String get emailIncludeCalendar => 'Cuir an féilire san áireamh';
+
+  @override
+  String get emailIncludeContacts => 'Cuir teagmhálaithe san áireamh';
+
+  @override
+  String get imapServer => 'Freastalaí IMAP';
+
+  @override
+  String get smtpServer => 'Freastalaí SMTP';
+
+  @override
+  String get caldavUrlOptional => 'URL CalDAV (roghnach)';
+
+  @override
+  String get carddavUrlOptional => 'URL CardDAV (roghnach)';
+
+  @override
+  String get alternativeEmail =>
+      'Ceangail do bhosca poist le pasfhocal aipe, nó d’fhéilire lena nasc iCal. Réidh i gceann cúpla nóiméad.';
+
+  @override
+  String get alternativePhone =>
+      'Roinn an féilire agus na teagmhálaithe atá ar d’fhón cheana tríd an aip NeoAgent.';
+
+  @override
+  String get alternativePhoneElsewhere =>
+      'Roinn an féilire agus na teagmhálaithe atá ar d’fhón cheana. Socraigh é san aip NeoAgent ar an bhfón.';
+
+  @override
+  String get skipTheDeveloperConsole => 'Gan an consól forbróra';
+
+  @override
+  String get phoneSyncPromptTitle => 'An bhfeicfidh do ghníomhaire d’fhéilire?';
+
+  @override
+  String get phoneSyncPromptBody =>
+      'Roinn féilirí agus teagmhálaithe an fhóin seo ionas gur féidir le do ghníomhaire do lá a phleanáil. Is féidir é seo a athrú am ar bith in Uirlisí › Comhtháthuithe.';
+
+  @override
+  String get phoneSyncTitle => 'Roinn féilire agus teagmhálaithe an fhóin';
+
+  @override
+  String get phoneSyncIntro =>
+      'Feiceann do ghníomhaire féilirí agus teagmhálaithe gach cuntais ar an bhfón seo. Gan chonsól forbróra, gan síniú isteach breise.';
+
+  @override
+  String get phoneSyncPointAccounts =>
+      'Oibríonn sé leis na cuntais Google, Outlook, iCloud agus Exchange ar an bhfón seo.';
+
+  @override
+  String get phoneSyncPointPrivate =>
+      'Roinnte le do fhreastalaí NeoAgent amháin, a stórálann criptithe iad.';
+
+  @override
+  String get phoneSyncPointWrites =>
+      'Cruthaíonn an fón seo imeachtaí a chuireann do ghníomhaire leis, agus sioncronaíonn siad mar is gnách.';
+
+  @override
+  String get phoneSyncCalendarHint =>
+      'Imeachtaí ó 30 lá ó shin go 90 lá chun cinn';
+
+  @override
+  String get phoneSyncContacts => 'Teagmhálaithe';
+
+  @override
+  String get phoneSyncContactsHint =>
+      'Ainmneacha, seoltaí ríomhphoist agus uimhreacha gutháin';
+
+  @override
+  String get phoneSyncOtherAgent =>
+      'Roinneann an fón seo le gníomhaire eile. Má roinneann tú anseo bogtar chuig an ngníomhaire seo é.';
+
+  @override
+  String get phoneSyncDenied =>
+      'Níl rochtain ag NeoAgent fós. Ceadaigh é sna Socruithe, ansin fill ar ais.';
+
+  @override
+  String get openPhoneSettings => 'Oscail Socruithe';
+
+  @override
+  String get phoneSyncShare => 'Roinn le NeoAgent';
+
+  @override
+  String get phoneSyncStop => 'Stop ag roinnt';
+
+  @override
+  String get phoneSyncWaiting => 'Ag fanacht leis an gcéad sioncrónú…';
+
+  @override
+  String phoneSyncLastSyncedArg1(String time) {
+    return 'Sioncronaithe go deireanach $time';
+  }
+
+  @override
+  String get calendarLink => 'Nasc féilire';
+
+  @override
+  String get calendarLinkHelper =>
+      'Seoladh iCal an fhéilire. Is féidir le duine ar bith a bhfuil sé aige an féilire a léamh, mar sin coinnigh príobháideach é.';
+
+  @override
+  String get calendarLinkName => 'Ainm (roghnach)';
+
+  @override
+  String get calendarLinkAdded => 'Féilire curtha leis';
+
+  @override
+  String get toolsApps => 'Aipeanna';
+
+  @override
+  String get reconnect => 'Athcheangail';
+
+  @override
+  String get reconnectNeeded => 'Athcheangal ag teastáil';
+
+  @override
+  String get mixedAccess => 'Rochtain mheasctha';
+
+  @override
+  String disconnectAccountTitle(String account) {
+    return 'Dícheangail $account?';
+  }
+
+  @override
+  String disconnectAccountBody(String apps) {
+    return 'Cailleann an gníomhaire rochtain ar $apps tríd an gcuntas seo.';
+  }
+
+  @override
+  String get neoRouterServerDescription =>
+      'Ceangail do NeoRouter uair amháin agus úsáidfidh gach cuntas anseo é don obair atá ar siúl thíos.';
+
+  @override
+  String get neoRouterUserDescription =>
+      'Úsáid do chuntas NeoRouter féin don obair atá ar siúl thíos in ionad sholáthraithe an fhreastalaí seo.';
+
+  @override
+  String get neoRouterAddress => 'Seoladh NeoRouter';
+
+  @override
+  String get neoRouterConnect => 'Ceangail NeoRouter';
+
+  @override
+  String neoRouterWaitingArg1(Object? arg1) {
+    return 'Ceadaigh NeoAgent in NeoRouter. Taispeánann sé an cód $arg1.';
+  }
+
+  @override
+  String get neoRouterOpenAgain => 'Oscail arís';
+
+  @override
+  String neoRouterConnectedArg1(Object? arg1) {
+    return 'Ceangailte le $arg1';
+  }
+
+  @override
+  String get neoRouterUnreachable =>
+      'Ní féidir NeoRouter a bhaint amach faoi láthair.';
+
+  @override
+  String get neoRouterDisconnect => 'Dícheangail';
+
+  @override
+  String get neoRouterDisconnectBody =>
+      'Stopann NeoAgent ag úsáid an NeoRouter seo. Chun an eochair a tharraingt siar freisin, cúlghair í in NeoRouter faoi Eochracha API.';
+
+  @override
+  String get neoRouterServerInUse =>
+      'Úsáideann an freastalaí seo NeoRouter do chách cheana féin. Ceangail do chuntas NeoRouter féin le haghaidh do mhúnlaí agus do bhuiséid féin.';
+
+  @override
+  String get neoRouterConnected => 'Tá NeoRouter ceangailte.';
+
+  @override
+  String get neoRouterRoleChat => 'Comhrá agus aithint íomhánna';
+
+  @override
+  String get neoRouterRoleSystemOne => 'Cinntí System One';
+
+  @override
+  String get neoRouterRoleTranscription => 'Caint go téacs';
+
+  @override
+  String get neoRouterRoleLive => 'Guth beo';
+
+  @override
+  String get neoRouterRoleEmbeddings => 'Cuardach cuimhne';
+
+  @override
+  String get neoRouterRoleImages => 'Íomhánna a chruthú';
+
+  @override
+  String get neoRouterRoleSearch => 'Cuardach gréasáin';
+
+  @override
+  String neoRouterModelCountArg1(Object? arg1) {
+    return 'Ar fáil i do NeoRouter: $arg1';
+  }
+
+  @override
+  String get neoRouterNoModels => 'Níl aon rud ar fáil i do NeoRouter fós.';
+
+  @override
+  String get neoRouterPicksModels =>
+      'Roghnaíonn NeoRouter an múnla do gach iarratas, mar sin ní úsáidtear an rogha seo.';
+
+  @override
+  String neoRouterNotAllowedArg1(Object? arg1) {
+    return '$arg1 i do NeoRouter, ach ní féidir le heochair NeoAgent iad a úsáid fós (mar shampla na cinn íoctha). Ceadaigh iad do NeoAgent faoi Eochracha API in NeoRouter.';
+  }
+
+  @override
+  String get neoRouterNoDecisionModels =>
+      'Teastaíonn múnlaí cinnteoireachta ar nós Jev. Ní féidir le haicmitheoirí sábháilteachta na ceisteanna seo a fhreagairt.';
+
+  @override
+  String get voiceLiveNoProvider =>
+      'Níl aon soláthraí gutha beo socraithe. Cuir eochair OpenAI nó Google AI leis, nó ceangail NeoRouter, faoi Múnlaí → Beir leat d\'eochair féin.';
+
+  @override
+  String get voiceSttAutoNeoRouter =>
+      'Uathoibríoch (roghnaíonn NeoRouter an múnla)';
+
+  @override
+  String get voiceNotOffered =>
+      'Níl sé ar fáil a thuilleadh, roghnaigh ceann eile';
+
+  @override
+  String get agentImport => 'Bring over another agent';
+
+  @override
+  String get agentImportDescription =>
+      'Copies OpenClaw or Hermes Agent from the server\'s computer (~/.openclaw and ~/.hermes) into your account. Nothing is removed there, and importing twice does not duplicate anything.';
+
+  @override
+  String get agentImportNoneFound =>
+      'No OpenClaw or Hermes Agent was found in ~/.openclaw or ~/.hermes on the server\'s computer.';
+
+  @override
+  String get agentImportWhatComes => 'What comes over';
+
+  @override
+  String get agentImportAgentsAlways =>
+      'Agents and their personality always come over; everything else is attached to them.';
+
+  @override
+  String get agentImportPartKeys => 'Keys and AI providers';
+
+  @override
+  String get agentImportPartMemories => 'Memories and notes';
+
+  @override
+  String get agentImportPartSkills => 'Skills';
+
+  @override
+  String get agentImportPartModel => 'Default model';
+
+  @override
+  String get agentImportPartTasks => 'Automations';
+
+  @override
+  String get agentImportPartMcp => 'MCP servers';
+
+  @override
+  String get agentImportPartChannels => 'Chat apps';
+
+  @override
+  String agentImportCountAgents(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count agents',
+      one: '1 agent',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountKeys(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count connections',
+      one: '1 connection',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountMemories(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count memories',
+      one: '1 memory',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days of notes',
+      one: '1 day of notes',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountSkills(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count skills',
+      one: '1 skill',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountTasks(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count automations',
+      one: '1 automation',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportCountMcp(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count MCP servers',
+      one: '1 MCP server',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String agentImportNeedsHandCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count things need a hand afterwards',
+      one: '1 thing needs a hand afterwards',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get agentImportFinish => 'Let NeoAgent finish moving in';
+
+  @override
+  String get agentImportFinishHint =>
+      'After the restart, your agent reworks imported skills for its own tools and rebuilds what the importer left behind. Needs a connected AI.';
+
+  @override
+  String get agentImportRun => 'Bring it over';
+
+  @override
+  String get agentImportRunning => 'Bringing it over…';
+
+  @override
+  String get agentImportMovedIn => 'Moved in';
+
+  @override
+  String get agentImportAlreadyMovedIn => 'Everything was already in NeoAgent.';
+
+  @override
+  String agentImportAlreadyThere(int count) {
+    return '$count already in NeoAgent, left as they were';
+  }
+
+  @override
+  String get agentImportNeedsHand => 'Needs a hand';
+
+  @override
+  String agentImportMore(int count) {
+    return '…and $count more in the report.';
+  }
+
+  @override
+  String agentImportReport(String path) {
+    return 'Full report: $path';
+  }
+
+  @override
+  String agentImportFinishQueued(String name) {
+    return 'Queued \"$name\". It starts two minutes after NeoAgent restarts, and you\'ll get a message when it\'s done.';
+  }
+
+  @override
+  String get agentImportRestartNeeded =>
+      'Restart NeoAgent to load everything that came over.';
+
+  @override
+  String get agentImportRestarted =>
+      'NeoAgent restarted and loaded everything.';
 }
