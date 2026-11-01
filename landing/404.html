@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Page not found · NeoAgent</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0e1511" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f4f1e8" media="(prefers-color-scheme: light)">
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,420;0,9..144,560;0,9..144,640;1,9..144,420&family=IBM+Plex+Mono:wght@450;500;600&family=Inter:wght@440;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    body { min-height: 100vh; display: flex; flex-direction: column; }
+    .nav { position: relative; }
+    .lost { flex: 1; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: clamp(32px, 6vw, 80px); align-items: center; padding-block: clamp(32px, 8vh, 96px); }
+    .lost h1 { font-size: clamp(40px, 6vw, 72px); margin: 18px 0 20px; }
+    .lost .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
+    .run { border: 1px solid var(--line-2); border-radius: 22px; background: var(--surface); backdrop-filter: blur(16px) saturate(140%); box-shadow: var(--shadow-md); overflow: hidden; }
+    .run header { display: flex; align-items: center; gap: 14px; padding: 18px 20px; border-bottom: 1px solid var(--line); }
+    .run header .mascot { width: 52px; height: 52px; }
+    .run header div { min-width: 0; }
+    .run header b { display: block; font-weight: 650; letter-spacing: -0.02em; }
+    .run header span { display: block; font-family: var(--mono); font-size: 13px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .run ol { list-style: none; margin: 0; padding: 8px 0; }
+    .run li { display: flex; align-items: baseline; gap: 12px; padding: 10px 20px; color: var(--ink-2); opacity: 0; animation: step .5s var(--ease) forwards; }
+    .run li::before { content: "✓"; font-family: var(--mono); font-size: 13px; color: var(--ink-3); width: 14px; flex: 0 0 auto; }
+    .run li.miss { color: var(--ink); font-weight: 600; }
+    .run li.miss::before { content: "✕"; color: var(--gold-ink); }
+    .run li:nth-child(2) { animation-delay: .4s; }
+    .run li:nth-child(3) { animation-delay: .8s; }
+    .run li:nth-child(4) { animation-delay: 1.2s; }
+    .run li:nth-child(5) { animation-delay: 1.8s; }
+    .run footer { padding: 14px 20px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 14px; opacity: 0; animation: step .5s var(--ease) 2.3s forwards; }
+    @keyframes step { to { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { .run li, .run footer { animation: none; opacity: 1; } }
+    @media (max-width: 860px) { .lost { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="/" aria-label="NeoAgent home">
+        <span class="brand-mark mascot" data-mascot="still" aria-hidden="true"></span>
+        NeoAgent
+      </a>
+      <div class="nav-actions">
+        <a class="btn btn-ghost" href="/app">Open app</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap lost">
+    <div>
+      <span class="eyebrow">Error 404 · Task failed</span>
+      <h1>Your agent looked everywhere. <em>It's not here.</em></h1>
+      <p class="lede">NeoAgent keeps working long after the chat ends. Not on this one, though: there's no page at this address, and no amount of trying in the background will make one appear.</p>
+      <div class="actions">
+        <a class="btn btn-primary btn-lg" href="/">
+          Back to the start
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <a class="btn btn-secondary btn-lg" href="/app">Open NeoAgent</a>
+      </div>
+    </div>
+
+    <section class="run" aria-label="The agent's search for this page">
+      <header>
+        <span class="mascot" data-mascot="lost" aria-hidden="true"></span>
+        <div><b>Find this page</b><span data-path>/this-page</span></div>
+      </header>
+      <ol>
+        <li>Opened the address</li>
+        <li>Searched the whole site</li>
+        <li>Checked the browser history</li>
+        <li>Looked under the sofa</li>
+        <li class="miss">Found the page</li>
+      </ol>
+      <footer>Run ended. The agent would like it noted that it tried very hard.</footer>
+    </section>
+  </main>
+
+  <script>
+    document.querySelector('[data-path]').textContent = location.pathname;
+  </script>
+  <script src="/js/mascot.js" defer></script>
+</body>
+</html>
