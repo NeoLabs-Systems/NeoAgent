@@ -150,6 +150,14 @@ function buildTransportOptions(serverId) {
     eventSourceInit: { headers: {} },
   };
 
+  // Extra headers come from servers imported from other agents (API keys
+  // sent as X-Api-Key and the like).
+  for (const [name, value] of Object.entries(config.headers || {})) {
+    if (typeof value !== 'string' || !value) continue;
+    transportOptions.requestInit.headers[name] = value;
+    transportOptions.eventSourceInit.headers[name] = value;
+  }
+
   if (auth.type === 'bearer' && auth.token) {
     const authorization = `Bearer ${auth.token}`;
     transportOptions.requestInit.headers.Authorization = authorization;
@@ -162,6 +170,7 @@ function buildTransportOptions(serverId) {
     );
   }
 
+  transportOptions.transport = config.transport === 'streamable-http' ? 'streamable-http' : 'sse';
   return transportOptions;
 }
 
