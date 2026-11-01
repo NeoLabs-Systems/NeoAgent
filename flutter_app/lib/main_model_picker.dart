@@ -48,6 +48,7 @@ Color _providerPickerColor(String provider) {
   if (p.contains('openrouter')) return const Color(0xFF6366F1);
   if (p.contains('typesafe')) return const Color(0xFF14B8A6);
   if (p.contains('nvidia')) return const Color(0xFF76B900);
+  if (p.contains('nous')) return const Color(0xFFE8E2D0);
   if (p.contains('minimax')) return const Color(0xFF0EA5E9);
   if (p.contains('deepgram')) return const Color(0xFF13D4A0);
   if (p.contains('ollama')) return const Color(0xFF6C8EBF);
@@ -73,6 +74,7 @@ IconData _providerPickerIcon(String provider) {
   if (p.contains('openrouter')) return Icons.hub_rounded;
   if (p.contains('typesafe')) return Icons.bolt_rounded;
   if (p.contains('nvidia')) return Icons.speed_rounded;
+  if (p.contains('nous')) return Icons.travel_explore_rounded;
   if (p.contains('minimax')) return Icons.water_rounded;
   if (p.contains('deepgram')) return Icons.hearing_rounded;
   if (p.contains('ollama')) return Icons.device_hub_rounded;
@@ -98,6 +100,7 @@ String _providerPickerLabel(String id) {
     'openrouter': 'OpenRouter',
     'typesafe': 'TypeSafe',
     'nvidia': appStrings.nvidiaNim,
+    'nous': 'Nous Portal',
     'minimax': 'MiniMax',
     'deepgram': 'Deepgram',
   };

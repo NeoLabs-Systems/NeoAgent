@@ -125,6 +125,18 @@ const AI_PROVIDER_DEFINITIONS = Object.freeze({
     defaultEnabled: false,
     defaultBaseUrl: ''
   },
+  nous: {
+    id: 'nous',
+    label: 'Nous Portal',
+    description: 'Hermes, DeepSeek, Kimi and hundreds more through Nous Research, the provider behind Hermes Agent. Get a key at portal.nousresearch.com.',
+    envKey: 'NOUS_API_KEY',
+    authentication: 'api_key',
+    supportsApiKey: true,
+    supportsBaseUrl: true,
+    aggregator: true,
+    defaultEnabled: false,
+    defaultBaseUrl: 'https://inference-api.nousresearch.com/v1'
+  },
   openrouter: {
     id: 'openrouter',
     label: 'OpenRouter',

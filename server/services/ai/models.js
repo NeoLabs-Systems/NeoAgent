@@ -11,6 +11,7 @@ const { OpenAICodexProvider } = require('./providers/openaiCodex');
 const { ClaudeCodeProvider } = require('./providers/claudeCode');
 const { GrokOAuthProvider } = require('./providers/grokOauth');
 const { NvidiaProvider } = require('./providers/nvidia');
+const { NousProvider } = require('./providers/nous');
 const { OpenRouterProvider } = require('./providers/openrouter');
 const { TypeSafeProvider } = require('./providers/typesafe');
 const { NeoRouterProvider } = require('./providers/neorouter');
@@ -61,6 +62,7 @@ const PROVIDER_FACTORIES = Object.freeze({
     'claude-code': { Provider: ClaudeCodeProvider, apiKey: true, baseUrl: false },
     'grok-oauth': { Provider: GrokOAuthProvider, apiKey: true, baseUrl: false },
     nvidia: { Provider: NvidiaProvider, apiKey: true, baseUrl: true },
+    nous: { Provider: NousProvider, apiKey: true, baseUrl: true },
     openrouter: { Provider: OpenRouterProvider, apiKey: true, baseUrl: true },
     typesafe: { Provider: TypeSafeProvider, apiKey: true, baseUrl: false },
     neorouter: { Provider: NeoRouterProvider, apiKey: true, baseUrl: true },
