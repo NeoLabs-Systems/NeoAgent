@@ -6,6 +6,7 @@
 //   data-mascot="look"   idle, eyes follow the pointer
 //   data-mascot="story"  acts out the hero run log it sits in
 //   data-mascot="still"  one idle face, no motion
+//   data-mascot="lost"   looks left and right for something that isn't there (404)
 (() => {
   'use strict';
 
@@ -61,6 +62,11 @@
     waiting: { fade: 160, loop: true, frames: [
       frame([BLANK, '..##.##..', '..##.##..', '..##.##..', '..##.##..', BLANK, BLANK, '...###...', BLANK], { hold: 530, rim: 1 }),
       frame([BLANK, '..##.##..', '..##.##..', '..##.##..', '..##.##..', BLANK, BLANK, BLANK, BLANK], { hold: 530, rim: 0.35 }),
+    ] },
+    searching: { fade: 140, loop: true, frames: [
+      frame([BLANK, BLANK, '.##.##...', '.##.##...', '.##.##...', BLANK, BLANK, BLANK, BLANK], { hold: 900 }),
+      frame([BLANK, BLANK, '...##.##.', '...##.##.', '...##.##.', BLANK, BLANK, BLANK, BLANK], { hold: 900 }),
+      frame([BLANK, BLANK, '..##.##..', '..##.##..', '..##.##..', BLANK, BLANK, '...###...', BLANK], { hold: 1200 }),
     ] },
     done: { fade: 110, loop: false, frames: [
       frame(DONE, { hold: 110, scale: 1.12 }),
@@ -260,7 +266,7 @@
       mascot.setMood(read());
       if (!mascot.still) setInterval(() => mascot.running && mascot.setMood(read()), 200);
     } else {
-      mascot.setMood('idle');
+      mascot.setMood(mascot.mode === 'lost' ? 'searching' : 'idle');
     }
     return mascot;
   });

@@ -59,6 +59,14 @@ function registerStaticRoutes(app) {
     app.use(express.static(LANDING_DIR));
     app.get('/status', (req, res) => res.sendFile(path.join(LANDING_DIR, 'status.html')));
     app.get('/', (req, res) => res.sendFile(path.join(LANDING_DIR, 'index.html')));
+    // A mistyped address in a browser gets a page; API clients keep the JSON error.
+    app.use((req, res, next) => {
+      if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+      if (req.path.startsWith('/api/') || req.accepts(['json', 'html']) !== 'html') return next();
+      return res.status(404).sendFile(path.join(LANDING_DIR, '404.html'), (err) => {
+        if (err && !res.headersSent) next();
+      });
+    });
   }
 }
 
