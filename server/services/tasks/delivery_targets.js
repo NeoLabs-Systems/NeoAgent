@@ -3,6 +3,7 @@
 const db = require('../../db/database');
 const { resolveAgentId } = require('../agents/manager');
 const { getPublicProfile } = require('../messaging/public_audience');
+const { listLinksForUser } = require('../messaging/shared_store');
 
 const DISCOVERABLE_PLATFORMS = Object.freeze([
   'whatsapp',
@@ -107,7 +108,28 @@ class TaskDeliveryTargetService {
     const discovered = await this._discoverTargets(userId, agentId, platformFilter);
     const defaults = this._defaultTargets(userId, agentId, platformFilter);
     const recent = this._recentTargets(userId, agentId, platformFilter);
-    return this._filterAndSort([...discovered, ...defaults, ...recent], query);
+    return this._filterAndSort(
+      this._limitToLinkedChats(userId, agentId, platformFilter, [...discovered, ...defaults, ...recent]),
+      query,
+    );
+  }
+
+  // A shared account only reaches its owner's own chat, so contacts from before
+  // the switch to it are no longer places a task can report to.
+  _limitToLinkedChats(userId, agentId, platformFilter, targets) {
+    const links = listLinksForUser(userId).filter((link) => link.agent_id === agentId);
+    if (links.length === 0) return targets;
+    const sharedPlatforms = new Set(links.map((link) => link.platform));
+    const ownChats = links
+      .filter((link) => !platformFilter || link.platform === platformFilter)
+      .map((link) => normalizeTarget({
+        platform: link.platform,
+        to: link.chat_id,
+        label: link.display_name || link.chat_id,
+        subtitle: 'Your own chat on the shared account',
+        source: 'default',
+      }));
+    return [...ownChats, ...targets.filter((target) => !sharedPlatforms.has(target.platform))];
   }
 
   async _discoverTargets(userId, agentId, platformFilter) {

@@ -90,6 +90,7 @@ For a personal Telegram bot, open **Settings › Platforms › Telegram**, creat
 - **Do not send your code on request.** If someone gets you to send *their* code, your messages go to *their* agent.
 - **Linked people are trusted with their own account, not with each other's.** Sharing a bot does not change [what separates accounts](agents-and-users.md#isolation), and accounts are still not a hostile-tenant boundary. With `TERMINAL_ENV=host`, every account's agent runs as the same OS user.
 - **The operator can read everything.** Whoever runs the server, and the platform itself, can see these messages.
+- **Tasks report to you.** On a shared account a task's destination can only be your own chat. Tasks saved earlier with another destination are marked **Can't deliver** until you change it; their results are never sent somewhere else instead.
 - **Unlinked people get silence.** A shared bot does not answer strangers, by design, so tell people to link in the app first.
 - **New Telegram tokens.** Replacing the bot keeps links, since Telegram IDs do not change, but people must open the new bot once before it can message them.
 - **One number, one risk.** If WhatsApp bans or logs out the shared number, everyone on it stops until an admin reconnects. Nobody is moved to another account in the meantime.

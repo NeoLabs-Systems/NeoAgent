@@ -2544,6 +2544,28 @@ class _TaskDeliveryTargetPickerSheetState
     _manualController = TextEditingController();
     _manualPlatform = widget.selected?.platform;
     _loadTargets();
+    _dropSharedManualPlatform();
+    // An admin can set one up, or this person link to one, while the app is open.
+    unawaited(
+      widget.controller.refreshSharedMessagingOptions().then((_) {
+        if (!mounted) return;
+        setState(_dropSharedManualPlatform);
+      }),
+    );
+  }
+
+  /// Platforms this agent reaches through a shared account, which only delivers
+  /// to the person's own chat, so there is nothing to type a destination for.
+  Set<String> get _sharedPlatforms {
+    final agentId = widget.agentId ?? widget.controller._scopedAgentId;
+    return <String>{
+      for (final option in widget.controller.sharedMessagingOptions.values)
+        if (option.linkedAgentId == agentId) option.platform,
+    };
+  }
+
+  void _dropSharedManualPlatform() {
+    if (_sharedPlatforms.contains(_manualPlatform)) _manualPlatform = null;
   }
 
   @override
@@ -2594,8 +2616,7 @@ class _TaskDeliveryTargetPickerSheetState
 
   void _submitManual() {
     final to = _manualController.text.trim();
-    final platform =
-        _manualPlatform ?? _platformFilter ?? widget.selected?.platform ?? '';
+    final platform = _manualPlatform ?? '';
     if (to.isEmpty || platform.isEmpty) return;
     Navigator.of(context).pop(
       TaskDeliveryTarget(
@@ -2671,6 +2692,10 @@ class _TaskDeliveryTargetPickerSheetState
           builder: (context, snapshot) {
             final targets = snapshot.data ?? const <TaskDeliveryTarget>[];
             final platformIds = _platformIds(targets);
+            final shared = _sharedPlatforms;
+            final manualPlatformIds = platformIds
+                .where((platform) => !shared.contains(platform))
+                .toList(growable: false);
             return SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -2778,6 +2803,16 @@ class _TaskDeliveryTargetPickerSheetState
                   else
                     ...targets.take(40).map(_buildTargetTile),
                   const Divider(height: 28),
+                  if (shared.isNotEmpty) ...<Widget>[
+                    _TaskDeliveryNotice(
+                      icon: Icons.dns_outlined,
+                      title: appStrings.taskDeliverySharedTitle,
+                      detail: appStrings.taskDeliverySharedDetail(
+                        shared.map(_taskDeliveryPlatformLabel).join(', '),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
                   Text(
                     appStrings.manualDestination,
                     style: TextStyle(fontWeight: FontWeight.w700),
@@ -2788,11 +2823,13 @@ class _TaskDeliveryTargetPickerSheetState
                       Expanded(
                         flex: 2,
                         child: DropdownButtonFormField<String>(
+                          // Its value must stay in the list as that changes.
+                          key: ValueKey<String>(shared.join(',')),
                           initialValue: _manualPlatform,
                           decoration: InputDecoration(
                             labelText: appStrings.platform,
                           ),
-                          items: platformIds
+                          items: manualPlatformIds
                               .map(
                                 (platform) => DropdownMenuItem<String>(
                                   value: platform,
@@ -3223,6 +3260,13 @@ class _TasksPanelState extends State<TasksPanel> {
                   if (task.loopPaused) ...<Widget>[
                     const SizedBox(width: 8),
                     _StatusPill(label: appStrings.loopPaused, color: _warning),
+                  ],
+                  if (task.deliveryBlocked) ...<Widget>[
+                    const SizedBox(width: 8),
+                    _StatusPill(
+                      label: appStrings.taskDeliveryBlockedBadge,
+                      color: _warning,
+                    ),
                   ],
                   if (task.hasLastRunStatus) ...<Widget>[
                     const SizedBox(width: 8),
@@ -4004,6 +4048,17 @@ class _TasksPanelState extends State<TasksPanel> {
                               child: InputDecorator(
                                 decoration: InputDecoration(
                                   labelText: appStrings.resultDelivery,
+                                  // Stays until the destination changes; results
+                                  // are never quietly sent somewhere else.
+                                  errorText:
+                                      task?.deliveryBlocked == true &&
+                                          deliveryTarget?.to ==
+                                              task?.taskConfig['notifyTo']
+                                                  ?.toString()
+                                                  .trim()
+                                      ? appStrings.taskDeliveryBlockedDetail
+                                      : null,
+                                  errorMaxLines: 3,
                                 ),
                                 child: Row(
                                   children: <Widget>[

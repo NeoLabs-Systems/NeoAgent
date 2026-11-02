@@ -4,6 +4,7 @@ const cron = require('node-cron');
 const crypto = require('crypto');
 const { EventEmitter } = require('events');
 const { isMainAgent, resolveAgentId } = require('../agents/manager');
+const { isRefusedSharedRecipient } = require('../messaging/shared_route');
 const taskAdapters = require('./adapters');
 const {
   POLLED_TRIGGER_TYPES,
@@ -250,7 +251,26 @@ class TaskRuntime {
     }));
   }
 
+  // Checked when a destination is set, not on every save, so a task whose saved
+  // destination stopped being allowed can still be renamed, paused or deleted.
+  _assertDeliveryAllowed(userId, agentId, taskConfig, previous = null) {
+    const target = normalizeNotifyTarget({ platform: taskConfig?.notifyPlatform, to: taskConfig?.notifyTo });
+    if (!target) return;
+    if (previous
+      && previous.agentId === agentId
+      && previous.target?.platform === target.platform
+      && previous.target?.to === target.to) return;
+    if (isRefusedSharedRecipient(userId, agentId, target.platform, target.to)) {
+      throw new Error(`The shared ${target.platform} account can only deliver to your own chat. Choose your own chat or the default channel.`);
+    }
+  }
+
   async createTask(userId, input = {}) {
+    this._assertDeliveryAllowed(
+      userId,
+      resolveAgentId(userId, input.agentId || input.agent_id || null),
+      input.taskConfig ?? input.task_config,
+    );
     const normalized = await this._normalizeTaskInput(userId, input);
     const taskId = this.taskRepository.createTask(userId, normalized);
     if (normalized.enabled) {
@@ -262,6 +282,16 @@ class TaskRuntime {
   async updateTask(taskId, userId, updates) {
     const existing = this.taskRepository.getTaskById(taskId, userId);
     if (!existing) throw new Error('Task not found');
+    const existingConfig = this._normalizeJson(existing.task_config);
+    this._assertDeliveryAllowed(
+      userId,
+      resolveAgentId(userId, updates.agentId ?? updates.agent_id ?? existing.agent_id ?? null),
+      updates.taskConfig ?? updates.task_config ?? existingConfig,
+      {
+        agentId: resolveAgentId(userId, existing.agent_id || null),
+        target: normalizeNotifyTarget({ platform: existingConfig?.notifyPlatform, to: existingConfig?.notifyTo }),
+      },
+    );
     const normalized = await this._normalizeTaskInput(userId, {
       id: taskId,
       name: updates.name ?? existing.name,
@@ -1010,6 +1040,7 @@ class TaskRuntime {
     delete taskConfig.callTo;
     delete taskConfig.callGreeting;
     const agentId = row.agent_id || resolveAgentId(userId, null);
+    const notifyTarget = normalizeNotifyTarget({ platform: taskConfig.notifyPlatform, to: taskConfig.notifyTo });
     const triggerSummary = this._summarizeTrigger(triggerType, triggerConfig);
     // Reported for every schedule task, not only those already compensating for
     // their duration, so the editor can preview what a head start would do.
@@ -1024,6 +1055,9 @@ class TaskRuntime {
       triggerSummary,
       nextRun: triggerType === 'schedule' ? scheduleAdapter.nextRun(triggerConfig, getUserTimeZone(userId)) : null,
       averageRunSeconds: averageRunSeconds === null ? null : Math.round(averageRunSeconds),
+      // Its saved destination can't be reached any more, so results won't arrive.
+      deliveryBlocked: Boolean(notifyTarget)
+        && isRefusedSharedRecipient(userId, agentId, notifyTarget.platform, notifyTarget.to),
       enabled: !!row.enabled,
       lastRun: row.last_run_started_at || row.last_run || null,
       lastRunId: row.last_run_id || null,

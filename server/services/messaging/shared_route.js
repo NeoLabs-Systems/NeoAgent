@@ -25,6 +25,24 @@ function isSendersOwnChat(platform, chatId, externalId) {
   return false;
 }
 
+// The link this agent reaches a platform through, if it uses the shared account.
+function sharedLinkFor(userId, agentId, platform) {
+  const link = findLinkForUser(platform, userId);
+  return link?.agent_id === agentId ? link : null;
+}
+
+function isLinkRecipient(platform, link, to) {
+  const requested = chatKey(platform, to);
+  return requested === chatKey(platform, link.chat_id) || requested === link.external_id;
+}
+
+// Whether a shared account would refuse this recipient for this agent. A
+// personal connection has no such limit, so it never counts as refused.
+function isRefusedSharedRecipient(userId, agentId, platform, to) {
+  const link = sharedLinkFor(userId, agentId, platform);
+  return Boolean(link) && !isLinkRecipient(platform, link, to);
+}
+
 class SlidingWindowLimiter {
   constructor(limit, windowMs, maxKeys = 10000) {
     this.limit = limit;
@@ -60,8 +78,7 @@ class SharedRoutePlatform {
   }
 
   _activeLink() {
-    const link = findLinkForUser(this.name, this.userId);
-    return link?.agent_id === this.agentId ? link : null;
+    return sharedLinkFor(this.userId, this.agentId, this.name);
   }
 
   // Replies always go to the chat stored on the link, whatever form `to` used.
@@ -73,8 +90,7 @@ class SharedRoutePlatform {
       error.code = 'SHARED_RECIPIENT_NOT_ALLOWED';
       throw error;
     }
-    const requested = chatKey(this.name, to);
-    if (requested !== chatKey(this.name, link.chat_id) && requested !== link.external_id) {
+    if (!isLinkRecipient(this.name, link, to)) {
       const error = new Error(`The shared ${this.name} account can only message your own linked chat.`);
       error.code = 'SHARED_RECIPIENT_NOT_ALLOWED';
       throw error;
@@ -127,4 +143,10 @@ class SharedRoutePlatform {
   async disconnect() {}
 }
 
-module.exports = { SharedRoutePlatform, SlidingWindowLimiter, chatKey, isSendersOwnChat };
+module.exports = {
+  SharedRoutePlatform,
+  SlidingWindowLimiter,
+  chatKey,
+  isRefusedSharedRecipient,
+  isSendersOwnChat,
+};
