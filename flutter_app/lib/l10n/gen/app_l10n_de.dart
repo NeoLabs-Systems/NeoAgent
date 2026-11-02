@@ -888,11 +888,6 @@ class AppL10nDe extends AppL10n {
   }
 
   @override
-  String arg1Arg211(Object? arg1, Object? arg2) {
-    return '$arg1 -> $arg2';
-  }
-
-  @override
   String arg1Arg215(Object? arg1, Object? arg2) {
     return '$arg1 $arg2 * * 1-5';
   }
@@ -1947,17 +1942,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get channelAccessToken => 'Kanal-Zugriffstoken';
-
-  @override
-  String channelArg1Arg2UpdateVersionArg3(
-    Object? arg1,
-    Object? arg2,
-    Object? arg3,
-    Object? arg4,
-    Object? arg5,
-  ) {
-    return 'Kanal: $arg1$arg2 | Update-Version: $arg3$arg4$arg5';
-  }
 
   @override
   String get channelScopedSocialMemory => 'Kanalbezogenes soziales Gedächtnis';
@@ -4061,10 +4045,6 @@ class AppL10nDe extends AppL10n {
       'Installieren Sie NeoAgent auf diesem Computer ohne Terminal, oder verbinden Sie sich mit einer bereits laufenden Instanz.';
 
   @override
-  String get installNewReleasesAndChooseWhich =>
-      'Installieren Sie neue Versionen und wählen Sie, welchen Kanal dieser Server folgt.';
-
-  @override
   String get installTheBackend => 'Backend installieren';
 
   @override
@@ -4074,11 +4054,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get installTheSecureCoreThenCreate =>
       'Installieren Sie den sicheren Kern und erstellen Sie anschließend Ihr Konto. KI-Anbieterschlüssel fügen Sie danach hinzu.';
-
-  @override
-  String installedArg1(Object? arg1) {
-    return ' | Installiert: $arg1';
-  }
 
   @override
   String installedArg1LastCheckedArg2(Object? arg1, Object? arg2) {
@@ -4967,11 +4942,6 @@ class AppL10nDe extends AppL10n {
   String get neoagentFlutterUpdater => 'NeoAgent Flutter Updater';
 
   @override
-  String neoagentInstallsTheLatestArg1(Object? arg1) {
-    return 'NeoAgent installiert die neueste $arg1 ';
-  }
-
-  @override
   String get neoagentIsInstalledAndRunning =>
       'NeoAgent ist installiert und läuft.';
 
@@ -5429,9 +5399,6 @@ class AppL10nDe extends AppL10n {
   String noToolMatchesArg1(Object? arg1) {
     return 'Kein Tool passt zu \"$arg1\".';
   }
-
-  @override
-  String get noUpdateRunning => 'Kein Update läuft';
 
   @override
   String get noUsageYet => 'Noch keine Nutzung.';
@@ -6292,10 +6259,6 @@ class AppL10nDe extends AppL10n {
       'Ungültige TLS-Zertifikate ablehnen';
 
   @override
-  String get releaseAndRestartsConnectedAppsReconnect =>
-      'Version und startet neu. Verbundene Apps verbinden sich wieder, sobald er zurück ist.';
-
-  @override
   String get releaseChannel => 'Release-Kanal';
 
   @override
@@ -6665,17 +6628,8 @@ class AppL10nDe extends AppL10n {
   }
 
   @override
-  String runtimeArg12(Object? arg1) {
-    return ' | Laufzeit: $arg1';
-  }
-
-  @override
   String get runtimeSettingsThisServerStartedWith =>
       'Runtime-Einstellungen, mit denen dieser Server gestartet wurde. Bearbeiten Sie sie unter ';
-
-  @override
-  String get runtimeSetupRequired =>
-      'Laufzeitumgebung muss eingerichtet werden';
 
   @override
   String get runtimeSigningPublicKeyMustBe =>
@@ -7950,7 +7904,7 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get thisAccountWillUnlockNeoagentOn =>
-      'Dieses Konto entsperrt NeoAgent auf diesem Gerät.';
+      'Dies ist das erste Konto auf diesem Server. Es verwaltet auch die Servereinstellungen und den Zugriff.';
 
   @override
   String get thisAgentCanDelegateToAny =>
@@ -8006,10 +7960,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get thisIntroIsDesignedForFull =>
       'Diese Einführung ist für die Vollbildwiedergabe im Querformat gedacht.';
-
-  @override
-  String get thisIsAManagedDeploymentIts =>
-      'Dies ist ein verwaltetes Deployment. Der Betreiber rollt ';
 
   @override
   String get thisMayTakeAMoment => 'Das kann einen Moment dauern.';
@@ -8507,9 +8457,6 @@ class AppL10nDe extends AppL10n {
       'Aktualisieren Sie die Zugriffsliste, um Antworten zu erlauben.';
 
   @override
-  String get updateTheServer => 'Server aktualisieren?';
-
-  @override
   String get updateTheServer2 => 'Server aktualisieren';
 
   @override
@@ -8527,10 +8474,6 @@ class AppL10nDe extends AppL10n {
   @override
   String get updatesAreNotConfiguredForThis =>
       'Updates sind für diesen Build nicht konfiguriert.';
-
-  @override
-  String get updatesSoSelfUpdateAndChannel =>
-      'Updates aus, daher sind Selbstaktualisierung und Kanalwechsel hier deaktiviert.';
 
   @override
   String get upgradeUpdateNowReleaseChannelStable =>
@@ -9481,10 +9424,6 @@ class AppL10nDe extends AppL10n {
   String get inProgress => 'In Bearbeitung';
 
   @override
-  String get waitingForUpdateJobOutput =>
-      'Warten auf die Ausgabe des Update-Auftrags…';
-
-  @override
   String get taskTrigger => 'Aufgabenauslöser';
 
   @override
@@ -9660,9 +9599,6 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get changes => 'Änderungen';
-
-  @override
-  String get runtimeReady => 'Laufzeit bereit';
 
   @override
   String get saving => 'Wird gespeichert…';
@@ -9937,11 +9873,6 @@ class AppL10nDe extends AppL10n {
   @override
   String arg1Default2(Object? arg1) {
     return '$arg1 (Standard)';
-  }
-
-  @override
-  String branchArg1(Object? arg1) {
-    return ' | Zweig: $arg1';
   }
 
   @override
@@ -12044,4 +11975,568 @@ class AppL10nDe extends AppL10n {
   @override
   String get agentImportRestarted =>
       'NeoAgent wurde neu gestartet und hat alles geladen.';
+
+  @override
+  String get adminTabMessaging => 'Nachrichten';
+
+  @override
+  String auditMessagingConfigured(Object? actor, Object? platform) {
+    return '$actor hat das geteilte $platform-Konto geändert';
+  }
+
+  @override
+  String auditMessagingRemoved(Object? actor, Object? platform) {
+    return '$actor hat das geteilte $platform-Konto entfernt';
+  }
+
+  @override
+  String auditMessagingLinked(Object? subject, Object? platform) {
+    return '$subject hat sich mit dem geteilten $platform-Konto verknüpft';
+  }
+
+  @override
+  String auditMessagingUnlinked(Object? subject, Object? platform) {
+    return '$subject hat die Verknüpfung mit dem geteilten $platform-Konto getrennt';
+  }
+
+  @override
+  String auditMessagingConflict(Object? subject, Object? platform) {
+    return '$subject wollte eine $platform-Identität verknüpfen, die bereits jemand anderem gehört';
+  }
+
+  @override
+  String get sharedAccountsTitle => 'Geteilte Konten';
+
+  @override
+  String get sharedAccountsIntro =>
+      'Ein Bot oder eine Nummer für alle auf diesem Server. Die Verknüpfung nimmt jede Person selbst unter Einstellungen › Plattformen vor. Wenn nur Sie diesen Server nutzen, brauchen Sie das nicht.';
+
+  @override
+  String get sharedAccountTelegramPitch =>
+      'Ein Bot, mit dem sich alle auf diesem Server verknüpfen können';
+
+  @override
+  String get sharedAccountWhatsappPitch =>
+      'Eine Nummer, die alle auf diesem Server anschreiben können';
+
+  @override
+  String get sharedAccountStatusLive => 'Aktiv';
+
+  @override
+  String get sharedAccountStatusStarting => 'Verbindet';
+
+  @override
+  String get sharedAccountStatusFailed => 'Prüfen';
+
+  @override
+  String get sharedAccountStatusOff => 'Aus';
+
+  @override
+  String get sharedAccountStatusNotSetUp => 'Nicht eingerichtet';
+
+  @override
+  String get sharedAccountTelegramStepBot =>
+      'Erstellen Sie mit @BotFather einen Bot und kopieren Sie sein Token.';
+
+  @override
+  String get sharedAccountTelegramStepToken => 'Fügen Sie das Token hier ein.';
+
+  @override
+  String get sharedAccountBotToken => 'Bot-Token';
+
+  @override
+  String get sharedAccountTokenMissing => 'Fügen Sie zuerst das Bot-Token ein.';
+
+  @override
+  String get sharedAccountShowToken => 'Token anzeigen';
+
+  @override
+  String get sharedAccountHideToken => 'Token verbergen';
+
+  @override
+  String get sharedAccountConnect => 'Verbinden';
+
+  @override
+  String get sharedAccountTurnOn => 'Einschalten';
+
+  @override
+  String get sharedAccountTurnOff => 'Ausschalten';
+
+  @override
+  String get sharedAccountReconnect => 'Neu verbinden';
+
+  @override
+  String get sharedAccountReplaceToken => 'Token ersetzen';
+
+  @override
+  String get sharedAccountRemove => 'Entfernen';
+
+  @override
+  String get sharedAccountMore => 'Mehr';
+
+  @override
+  String get sharedAccountRetry => 'Erneut versuchen';
+
+  @override
+  String get sharedAccountShowQr => 'QR-Code anzeigen';
+
+  @override
+  String get sharedAccountWhatsappWarning =>
+      'Verwenden Sie eine Nummer, auf die Sie verzichten können. WhatsApp kann automatisierte Nummern sperren, und dann verlieren alle auf diesem Konto den Zugang.';
+
+  @override
+  String get sharedAccountScanStepOpen =>
+      'Öffnen Sie WhatsApp auf dem Telefon mit der geteilten Nummer.';
+
+  @override
+  String get sharedAccountScanStepDevices =>
+      'Gehen Sie zu „Verknüpfte Geräte“ und tippen Sie auf „Gerät verknüpfen“.';
+
+  @override
+  String get sharedAccountScanStepPoint =>
+      'Richten Sie die Kamera auf diesen Code.';
+
+  @override
+  String get sharedAccountTelegramFailed =>
+      'Telegram hat dieses Token abgelehnt. Kopieren Sie es erneut von @BotFather und fügen Sie es unten ein.';
+
+  @override
+  String get sharedAccountWhatsappFailed =>
+      'WhatsApp hat diese Sitzung beendet, verknüpfte Personen können es daher nicht nutzen. Scannen Sie einen neuen Code, um es wiederherzustellen.';
+
+  @override
+  String get sharedAccountAvailable => 'Nutzern anbieten';
+
+  @override
+  String get sharedAccountAvailableHint =>
+      'Aus blendet dieses Konto aus und es antwortet niemandem mehr. Verknüpfungen bleiben erhalten.';
+
+  @override
+  String get sharedAccountAllowPersonal => 'Eigene Konten erlauben';
+
+  @override
+  String get sharedAccountAllowPersonalHint =>
+      'Aus verhindert, dass Personen hier ein eigenes Konto verbinden. Bestehende Verbindungen und Admins sind nicht betroffen.';
+
+  @override
+  String get adminMessagingSearchKeywords =>
+      'geteilt instanz telegram whatsapp bot nummer verknüpfen nutzer';
+
+  @override
+  String get sharedMessagingBadge => 'Geteiltes Konto';
+
+  @override
+  String get sharedMessagingUseShared => 'Geteiltes Konto nutzen';
+
+  @override
+  String get sharedMessagingUseOwn => 'Eigenes Konto nutzen';
+
+  @override
+  String get sharedMessagingUseOwnHint =>
+      'Verbinden Sie Ihren eigenen Bot oder Ihre Nummer und verwalten Sie sie selbst.';
+
+  @override
+  String get sharedMessagingNewCode => 'Neuen Code holen';
+
+  @override
+  String get sharedMessagingCopyCode => 'Code kopieren';
+
+  @override
+  String get sharedMessagingCopied => 'Kopiert';
+
+  @override
+  String get sharedMessagingScanHint =>
+      'Mit dem Telefon scannen, um den Chat dort zu öffnen';
+
+  @override
+  String get sharedMessagingCodeNote =>
+      'Behandeln Sie diesen Code wie ein Passwort: Wer ihn sendet, kann Ihren Agenten nutzen.';
+
+  @override
+  String get sharedMessagingCodeExpired => 'Dieser Code ist abgelaufen.';
+
+  @override
+  String get sharedMessagingWaiting => 'Warte auf Ihre Nachricht…';
+
+  @override
+  String get sharedMessagingLinkedHint =>
+      'Schreiben Sie jederzeit in diesen Chat, um diesen Agenten zu erreichen.';
+
+  @override
+  String get sharedMessagingDone => 'Fertig';
+
+  @override
+  String get sharedMessagingIdentityTaken =>
+      'Dieses Konto ist bereits mit jemand anderem auf diesem Server verknüpft. Die Person muss die Verbindung zuerst trennen.';
+
+  @override
+  String sharedAccountRemoveTitle(Object? label) {
+    return 'Geteiltes $label-Konto entfernen?';
+  }
+
+  @override
+  String sharedAccountRemoveBody(Object? count) {
+    return '$count verknüpfte Personen verlieren den Zugang, bis sie sich erneut verbinden.';
+  }
+
+  @override
+  String sharedAccountRemoved(Object? label) {
+    return 'Das geteilte $label-Konto wurde entfernt.';
+  }
+
+  @override
+  String sharedAccountLinkedCount(Object? count) {
+    return '$count verknüpft';
+  }
+
+  @override
+  String sharedMessagingTitle(Object? platform) {
+    return '$platform verbinden';
+  }
+
+  @override
+  String sharedMessagingMovesLink(Object? platform) {
+    return 'Ihr $platform ist mit einem anderen Agenten verknüpft. Eine Verknüpfung hier verschiebt es zu diesem.';
+  }
+
+  @override
+  String sharedMessagingOpenAndSend(Object? platform) {
+    return 'Öffnen Sie $platform mit dem Konto, das Sie nutzen möchten, und senden Sie diesen Code. Er wird automatisch eingetragen.';
+  }
+
+  @override
+  String sharedMessagingSendCode(Object? account) {
+    return 'Senden Sie diesen Code von dem Konto, das Sie nutzen möchten, an $account.';
+  }
+
+  @override
+  String sharedMessagingOpenApp(Object? platform) {
+    return '$platform öffnen';
+  }
+
+  @override
+  String sharedMessagingLinked(Object? platform, Object? identity) {
+    return '$platform verknüpft als $identity';
+  }
+
+  @override
+  String get messagingHubSubtitle =>
+      'Verknüpfen Sie die Chat-App, die Sie schon nutzen, und schreiben Sie Ihrem Agenten wie allen anderen.';
+
+  @override
+  String get messagingHubOfferTagline =>
+      'Keine Einrichtung nötig. Ihre Chats bleiben privat, und nur Sie erreichen Ihren Agenten.';
+
+  @override
+  String get messagingHubAdvanced => 'Erweitert';
+
+  @override
+  String get messagingHubYourApps => 'Ihre Apps';
+
+  @override
+  String get messagingHubAddApp => 'App hinzufügen';
+
+  @override
+  String get messagingHubShowFewer => 'Weniger anzeigen';
+
+  @override
+  String get messagingHubConnected => 'Verbunden';
+
+  @override
+  String get messagingHubConnecting => 'Verbindet…';
+
+  @override
+  String get messagingHubNotRunning => 'Läuft nicht';
+
+  @override
+  String get messagingHubDisabled => 'Auf diesem Server nicht verfügbar';
+
+  @override
+  String get messagingHubReconnect => 'Neu verbinden';
+
+  @override
+  String get messagingHubDisconnect => 'Trennen';
+
+  @override
+  String get messagingHubMoreSettings => 'Weitere Einstellungen';
+
+  @override
+  String get messagingHubMoreSettingsHint =>
+      'Gruppenchats und letzte Aktivität';
+
+  @override
+  String get onboardingMessagingTitle =>
+      'Schreiben Sie Ihrem Agenten von überall.';
+
+  @override
+  String get onboardingMessagingDescription =>
+      'Verbinden Sie eine Chat-App, um Ihren Agenten außerhalb von NeoAgent zu erreichen. Die Einrichtung hängt von der App ab; Sie können das auch später tun.';
+
+  @override
+  String get onboardingMessagingOtherApps => 'Andere Apps';
+
+  @override
+  String get onboardingMessagingAllSet =>
+      'Sie können Ihrem Agenten jetzt dort schreiben.';
+
+  @override
+  String messagingHubTitle(Object? agent) {
+    return '$agent überall erreichen';
+  }
+
+  @override
+  String messagingHubLink(Object? platform) {
+    return '$platform verknüpfen';
+  }
+
+  @override
+  String messagingHubShowAll(Object? count) {
+    return 'Alle $count Apps anzeigen';
+  }
+
+  @override
+  String messagingHubConnectedAs(Object? identity) {
+    return 'Verbunden als $identity';
+  }
+
+  @override
+  String messagingHubManage(Object? platform) {
+    return '$platform verwalten';
+  }
+
+  @override
+  String get onboardingModelTitle => 'KI verbinden.';
+
+  @override
+  String get onboardingModelNeededDescription =>
+      'NeoAgent braucht ein Modell zum Denken. Das ist das Einzige, worauf es nicht verzichten kann.';
+
+  @override
+  String get onboardingModelReady =>
+      'Verbunden. NeoAgent wählt für jede Aufgabe das beste Modell.';
+
+  @override
+  String get onboardingModelChoose => 'Bestimmtes Modell wählen';
+
+  @override
+  String get onboardingModelUseKey => 'Stattdessen API-Schlüssel verwenden';
+
+  @override
+  String get onboardingComputerPermissions => 'Was es auf diesem Computer darf';
+
+  @override
+  String get onboardingAlmostTitle => 'Fast geschafft.';
+
+  @override
+  String get onboardingAlmostDescription =>
+      'NeoAgent kann erst antworten, wenn es ein KI-Modell hat. Sie können jederzeit eines unter Einstellungen › Modelle hinzufügen.';
+
+  @override
+  String get onboardingRecapModel => 'KI-Modell bereit';
+
+  @override
+  String get onboardingRecapNoModel => 'Noch kein KI-Modell';
+
+  @override
+  String get onboardingRecapNoMessaging =>
+      'Noch keine Chat-App. Später unter Einstellungen › Plattformen hinzufügen.';
+
+  @override
+  String onboardingModelSignInHint(Object? provider) {
+    return 'Melden Sie sich an und bestätigen Sie NeoAgent. Kein Schlüssel zum Kopieren, in Sekunden fertig.';
+  }
+
+  @override
+  String onboardingRecapMessaging(Object? apps) {
+    return 'Erreichbar über $apps';
+  }
+
+  @override
+  String onboardingRecapRoutines(Object? count) {
+    return 'Aktive Routinen: $count';
+  }
+
+  @override
+  String get agentNameRequired => 'Geben Sie diesem Agenten einen Namen.';
+
+  @override
+  String get agentIdentifier => 'Agentenkennung';
+
+  @override
+  String get agentIdentifierHint =>
+      'Wird verwendet, um diesen Agenten anzusprechen. Aus dem Namen vorgeschlagen; Sie können die Kennung ändern.';
+
+  @override
+  String get agentIdentifierInvalid =>
+      'Verwenden Sie 1–48 Kleinbuchstaben (a–z), Ziffern, Bindestriche oder Unterstriche.';
+
+  @override
+  String get uxAdvancedSettings => 'Erweiterte Einstellungen';
+
+  @override
+  String get uxSelected => 'Ausgewählt';
+
+  @override
+  String get uxSelectedDelegationTargets =>
+      'Nur ausgewählte Agenten können Aufgaben von diesem Agenten empfangen.';
+
+  @override
+  String uxFieldRequired(String field) {
+    return 'Geben Sie $field ein.';
+  }
+
+  @override
+  String get uxTaskInstructions => 'Was soll der Agent tun?';
+
+  @override
+  String get uxTaskEnabledHint =>
+      'Wenn aktiviert, läuft diese Aufgabe bei ihrem Auslöser. Ausschalten, um sie zu speichern, ohne sie automatisch auszuführen.';
+
+  @override
+  String get uxSettingsSaveHint =>
+      'Änderungen werden automatisch gespeichert, sofern keine Speichern-Schaltfläche angezeigt wird.';
+
+  @override
+  String get uxSettingsSaveFailed =>
+      'Eine Änderung konnte nicht gespeichert werden. Prüfen Sie den Fehler unten.';
+
+  @override
+  String get uxAdminUsers => 'Benutzer';
+
+  @override
+  String get uxAdminConfiguration => 'Konfiguration';
+
+  @override
+  String get uxAdminAnalytics => 'Analysen';
+
+  @override
+  String get uxMemoryEmptyHint =>
+      'Noch keine Erinnerungen. Bitten Sie diesen Agenten im Chat, sich etwas zu merken, oder fügen Sie hier eine Erinnerung hinzu. Erinnerungen gehören zum ausgewählten Agenten.';
+
+  @override
+  String get uxMemoryFacts => 'Fakten';
+
+  @override
+  String get uxMemoryEntities => 'Entitäten';
+
+  @override
+  String get uxMemoryReflections => 'Reflexionen';
+
+  @override
+  String get uxMemoryDocuments => 'Dokumente';
+
+  @override
+  String get uxOpenChat => 'Chat öffnen';
+
+  @override
+  String get uxModelSkipHint =>
+      'Sie können sich zuerst umsehen. Chat und Aufgaben benötigen jedoch ein Modell, bevor sie funktionieren.';
+
+  @override
+  String get taskDeliveryBlockedBadge => 'Keine Zustellung';
+
+  @override
+  String get taskDeliveryBlockedDetail =>
+      'Dieses Ziel ist über das geteilte Konto nicht erreichbar, daher kommen keine Ergebnisse an. Wählen Sie Ihren eigenen Chat oder den Standardkanal.';
+
+  @override
+  String get taskDeliverySharedTitle => 'Geteilte Konten erreichen nur Sie';
+
+  @override
+  String taskDeliverySharedDetail(Object? platforms) {
+    return '$platforms nutzt das geteilte Konto dieses Servers, daher können Ergebnisse dort nur an Ihren eigenen Chat gehen.';
+  }
+
+  @override
+  String get adminUpdatesHint =>
+      'NeoAgent aktualisiert sich selbst von GitHub. Chats, Einstellungen und Konten bleiben erhalten.';
+
+  @override
+  String get adminUpdateChannelHint =>
+      'Stabil folgt main. Beta bekommt neue Funktionen zuerst.';
+
+  @override
+  String get adminUpdateCheckNow => 'Jetzt prüfen';
+
+  @override
+  String get adminUpdateNeverChecked => 'Noch nicht geprüft';
+
+  @override
+  String adminUpdateCheckedAgo(String time) {
+    return 'Geprüft $time';
+  }
+
+  @override
+  String get adminUpdateUpToDate => 'Du hast die neueste Version';
+
+  @override
+  String get adminUpdateCheckFailed =>
+      'GitHub ist nicht erreichbar. Das letzte Ergebnis wird angezeigt.';
+
+  @override
+  String get adminUpdateContainerHint =>
+      'NeoAgent läuft als Container-Image. Aktualisiere das Image statt des Codes darin, auf dem Docker-Host im Ordner mit deiner Compose-Datei. Das Daten-Volume bleibt erhalten.';
+
+  @override
+  String get adminUpdateManagedHint =>
+      'Dies ist ein verwaltetes Deployment. Updates übernimmt der Betreiber.';
+
+  @override
+  String get adminUpdateNotGitHint =>
+      'Diese Installation stammt nicht aus Git und kann sich nicht selbst aktualisieren. Führe neoagent update im Terminal aus.';
+
+  @override
+  String get adminUpdateDetails => 'Details des letzten Updates';
+
+  @override
+  String adminUpdateReadyTitle(String version) {
+    return 'Version $version ist bereit';
+  }
+
+  @override
+  String adminUpdateReadySubtitle(String current, String channel) {
+    return 'Du hast $current · Kanal $channel';
+  }
+
+  @override
+  String get adminUpdateWhatsNew => 'Neuigkeiten';
+
+  @override
+  String adminUpdateConfirmTitle(String version) {
+    return 'Auf $version aktualisieren?';
+  }
+
+  @override
+  String get adminUpdateConfirmMessage =>
+      'NeoAgent sichert deine Daten, installiert die neue Version und startet neu. Das dauert ein paar Minuten. Schlägt etwas fehl, kehrt es zur aktuellen Version zurück.';
+
+  @override
+  String get adminUpdatingTitle => 'NeoAgent wird aktualisiert';
+
+  @override
+  String adminUpdatingToTitle(String version) {
+    return 'Aktualisiere auf $version';
+  }
+
+  @override
+  String get adminUpdateReconnecting => 'NeoAgent startet neu …';
+
+  @override
+  String get adminUpdateHandsOff =>
+      'Du musst nichts tun. Diese Seite verbindet sich von selbst wieder, sobald NeoAgent zurück ist.';
+
+  @override
+  String adminUpdateDoneTitle(String version) {
+    return 'Auf $version aktualisiert';
+  }
+
+  @override
+  String get adminUpdateDoneReloading =>
+      'Die App wird neu geladen, um die neue Version zu laden …';
+
+  @override
+  String get adminUpdateReload => 'Neu laden';
+
+  @override
+  String get adminUpdateFailedTitle => 'Das Update wurde nicht abgeschlossen';
 }

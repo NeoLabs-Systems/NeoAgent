@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Muuta asetustilaa",
   "channel": "kanava",
   "channelAccessToken": "Kanavan käyttöoikeustunnus",
-  "channelArg1Arg2UpdateVersionArg3": "Kanava: {arg1}{arg2} | Päivitysversio: {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Kanavalaajuinen sosiaalinen muisti",
   "channels": "Kanavat",
   "chat": "Chat",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "Asenna APK — napsauta tai pudota .apk-tiedosto",
   "installNeoagent": "Asenna NeoAgent",
   "installNeoagentOnThisComputerWithout": "Asenna NeoAgent tähän tietokoneeseen ilman päätettä tai muodosta yhteys jo käynnissä olevaan tietokoneeseen.",
-  "installNewReleasesAndChooseWhich": "Asenna uudet julkaisut ja valitse mitä kanavaa tämä palvelin seuraa.",
   "installTheBackend": "Asenna taustaosa",
   "installTheCoreWithExtraOptional": "Asenna ydin ylimääräisellä valinnaisella asetuksella. AI-palveluntarjoajan avaimet lisätään myöhemmin, kuten Quickstart.",
   "installTheSecureCoreThenCreate": "Asenna suojattu ydin ja luo sitten tili. Lisää AI-palveluntarjoajan avaimet jälkeenpäin.",
-  "installedArg1": " | Asennettu: {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Asennettu: {arg1} • Viimeksi tarkistettu: {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "NeoAgent-virheenkorjaustiedot",
   "neoagentDesktopInstaller": "NeoAgent Desktop Installer",
   "neoagentFlutterUpdater": "NeoAgent Flutter Updater",
-  "neoagentInstallsTheLatestArg1": "NeoAgent asentaa uusimman {arg1}:n ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "NeoAgent on asennettu ja käynnissä.",
   "neoagentIsNotInstalledOnThis": "NeoAgentia ei ole asennettu tähän tietokoneeseen.",
   "neoagentIsReady": "NeoAgent on valmis",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "Ei päivitys käynnissä",
   "noUsageYet": "Ei vielä käyttöä.",
   "noVerifiedNeoagentBackendRuntimeIs": "Vahvistettua NeoAgent-taustajärjestelmän suoritusaikaa ei ole vielä saatavilla.",
   "nobodyCanUseItAnyMore": "Kukaan ei voi käyttää sitä enää. Ihmiset, jotka ovat jo liittyneet ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "ilmoittautuminen on suljettu",
   "registrationRegisterNewAccountsAllowSignup": "rekisteröinti rekisteröi uudet tilit mahdollistaa kirjautumisen",
   "rejectInvalidTlsCertificates": "Hylkää virheelliset TLS-varmenteet",
-  "releaseAndRestartsConnectedAppsReconnect": "vapauttaa ja käynnistää uudelleen. Yhdistetyt sovellukset muodostavat yhteyden uudelleen, kun ne ovat palanneet.",
   "releaseChannel": "Vapauta kanava",
   "releaseCommitBranchNode": "vapauta sitoutumishaarasolmu",
   "releaseWhenYouAreDone": "Vapauta, kun olet valmis.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Kesto: {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Ajonaikaiset asetukset, joilla tämä palvelin alkoi. Muokkaa niitä alla ",
-  "runtimeSetupRequired": "Suoritusajan asetukset vaaditaan",
   "runtimeSigningPublicKeyMustBe": "Ajonaikaisen allekirjoituksen julkisen avaimen on oltava 32 tavua.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "Tallenna",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "Tämä integrointi tukee tällä hetkellä yhtä yhdistettyä tiliä agenttia kohden. Avaa asennus uudelleen vaihtaaksesi se.",
   "thisIntegrationIsNoLongerAvailable": "Tämä integrointi ei ole enää saatavilla.",
   "thisIntroIsDesignedForFull": "Tämä johdanto on suunniteltu koko näytön vaakatoistoon.",
-  "thisIsAManagedDeploymentIts": "Tämä on hallittu käyttöönotto. Sen operaattori rullaa ulos ",
   "thisMayTakeAMoment": "Tämä voi kestää hetken.",
   "thisMcpServerIsNoLonger": "Tätä MCP-palvelinta ei ole enää määritetty.",
   "thisMemoryWillBeRemovedPermanently": "Tämä muisti poistetaan pysyvästi.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Päivitys valmis",
   "updateSetup": "Päivitä asetukset",
   "updateTheAccessListToAllow": "Päivitä käyttöoikeusluettelo salliaksesi vastaukset.",
-  "updateTheServer": "Päivitä palvelin?",
   "updateTheServer2": "Päivitä palvelin",
   "updateTheTimeZoneAutomaticallyFrom": "Päivitä aikavyöhyke automaattisesti käyttämästäsi laitteesta.",
   "updatedArg1": "päivitetty {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Päivitykset",
   "updatesAreNotConfiguredForThis": "Päivityksiä ei ole määritetty tälle koontiversiolle.",
-  "updatesSoSelfUpdateAndChannel": "päivitykset, joten itsepäivitykset ja kanavamuutokset eivät ole käytössä täällä.",
   "upgradeUpdateNowReleaseChannelStable": "päivitä päivitys nyt julkaise kanavan vakaa beta",
   "usageAnalytics": "Käyttöanalytiikka",
   "usageAndHealthSignalsThatHelp": "Käyttö- ja terveyssignaalit, jotka auttavat selittämään nykyisen ajonaikaisen käyttäytymisen kaivamatta ensin lokeja.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Liittyy ryhmäkeskusteluihin",
   "label1PersonOrGroupAdded": "1 henkilö tai ryhmä lisätty",
   "inProgress": "Käynnissä",
-  "waitingForUpdateJobOutput": "Odotetaan päivitystyön tulosta…",
   "taskTrigger": "Tehtävän laukaisin",
   "bearerToken": "Kantajatunnus",
   "bearerToken2": "Kantajan Token",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "Suojausavainta ei voitu käyttää.",
   "connecting": "Yhdistetään…",
   "changes": "Muutokset",
-  "runtimeReady": "Käyttöaika valmis",
   "saving": "Tallennetaan...",
   "earlier": "Aikaisemmin",
   "monthJan": "tammikuu",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (oletus)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Haara: {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"

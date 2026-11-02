@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Schimbați modul de configurare",
   "channel": "Canalul",
   "channelAccessToken": "Indicativ de acces la canal",
-  "channelArg1Arg2UpdateVersionArg3": "Canal: {arg1}{arg2} | Versiune de actualizare: {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Memorie socială în funcție de canal",
   "channels": "Canale",
   "chat": "Chat",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "Instalați APK - faceți clic sau plasați un fișier .apk",
   "installNeoagent": "Instalați NeoAgent",
   "installNeoagentOnThisComputerWithout": "Instalați NeoAgent pe acest computer fără terminal sau conectați-vă la unul care rulează deja.",
-  "installNewReleasesAndChooseWhich": "Instalați versiuni noi și alegeți canalul pe care îl urmează acest server.",
   "installTheBackend": "Instalați backend-ul",
   "installTheCoreWithExtraOptional": "Instalați nucleul cu o configurare suplimentară opțională. Cheile furnizorului AI sunt adăugate ulterior, la fel ca Quickstart.",
   "installTheSecureCoreThenCreate": "Instalați nucleul securizat, apoi creați-vă contul. Adăugați apoi cheile furnizorului AI.",
-  "installedArg1": " | Instalat: {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Instalat: {arg1} • Ultima verificare: {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "Informații de depanare NeoAgent",
   "neoagentDesktopInstaller": "NeoAgent Desktop Installer",
   "neoagentFlutterUpdater": "NeoAgent Flutter Updater",
-  "neoagentInstallsTheLatestArg1": "NeoAgent instalează cel mai recent {arg1} ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "NeoAgent este instalat și rulează.",
   "neoagentIsNotInstalledOnThis": "NeoAgent nu este instalat pe acest computer.",
   "neoagentIsReady": "NeoAgent este gata",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "Nu rulează nicio actualizare",
   "noUsageYet": "Nicio utilizare încă.",
   "noVerifiedNeoagentBackendRuntimeIs": "Nu este disponibil încă nicio durată de rulare backend NeoAgent verificată.",
   "nobodyCanUseItAnyMore": "Nimeni nu-l mai poate folosi. Oameni care s-au alăturat deja ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "înregistrarea este închisă",
   "registrationRegisterNewAccountsAllowSignup": "înregistrarea înregistrare conturi noi permit înscrierea",
   "rejectInvalidTlsCertificates": "Respinge certificatele TLS nevalide",
-  "releaseAndRestartsConnectedAppsReconnect": "eliberați și repornește. Aplicațiile conectate se reconectează odată ce revin.",
   "releaseChannel": "Lansați canalul",
   "releaseCommitBranchNode": "eliberați nodul de ramură de comitere",
   "releaseWhenYouAreDone": "Eliberați-vă când ați terminat.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Timp de rulare: {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Setări de rulare cu care a început acest server. Editați-le sub ",
-  "runtimeSetupRequired": "Este necesară configurarea timpului de execuție",
   "runtimeSigningPublicKeyMustBe": "Cheia publică de semnare în timpul executării trebuie să aibă 32 de octeți.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "Salvați",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "Această integrare acceptă în prezent un cont conectat pentru fiecare agent. Redeschideți configurația pentru a o înlocui.",
   "thisIntegrationIsNoLongerAvailable": "Această integrare nu mai este disponibilă.",
   "thisIntroIsDesignedForFull": "Această introducere este concepută pentru redarea peisajului pe tot ecranul.",
-  "thisIsAManagedDeploymentIts": "Aceasta este o implementare gestionată. Operatorul său se lansează ",
   "thisMayTakeAMoment": "Acest lucru poate dura un moment.",
   "thisMcpServerIsNoLonger": "Acest server MCP nu mai este configurat.",
   "thisMemoryWillBeRemovedPermanently": "Această memorie va fi eliminată definitiv.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Actualizare gata",
   "updateSetup": "Actualizați configurarea",
   "updateTheAccessListToAllow": "Actualizați lista de acces pentru a permite răspunsuri.",
-  "updateTheServer": "Actualizați serverul?",
   "updateTheServer2": "Actualizați serverul",
   "updateTheTimeZoneAutomaticallyFrom": "Actualizați automat fusul orar de pe dispozitivul pe care îl utilizați.",
   "updatedArg1": "actualizat {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Actualizări",
   "updatesAreNotConfiguredForThis": "Actualizările nu sunt configurate pentru această versiune.",
-  "updatesSoSelfUpdateAndChannel": "actualizări, așa că autoactualizarea și modificările canalului sunt dezactivate aici.",
   "upgradeUpdateNowReleaseChannelStable": "actualizare de actualizare lansează acum canal beta stabil",
   "usageAnalytics": "Analiza utilizării",
   "usageAndHealthSignalsThatHelp": "Semnale de utilizare și sănătate care ajută la explicarea comportamentului curent de rulare fără a căuta mai întâi jurnalele.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Se alătură conversațiilor de grup",
   "label1PersonOrGroupAdded": "1 persoană sau grup adăugat",
   "inProgress": "În curs",
-  "waitingForUpdateJobOutput": "Se așteaptă actualizarea rezultatelor lucrării...",
   "taskTrigger": "Declanșator de sarcină",
   "bearerToken": "Jeton de purtător",
   "bearerToken2": "Jeton de purtător",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "Cheia de securitate nu a putut fi folosită.",
   "connecting": "Se conectează…",
   "changes": "Schimbări",
-  "runtimeReady": "Timp de rulare gata",
   "saving": "Se salvează...",
   "earlier": "Mai devreme",
   "monthJan": "ian",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (implicit)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Filiala: {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"

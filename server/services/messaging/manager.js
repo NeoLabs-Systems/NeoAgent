@@ -56,6 +56,7 @@ const {
   requeueReplayableInboundJob,
   settleInboundJob,
 } = require('./inbound_store');
+const { SharedMessagingConnections } = require('./shared_connections');
 
 const LEGACY_WHATSAPP_AUTH_DIR = path.join(DATA_DIR, 'whatsapp-auth');
 const MESSAGING_OPERATION_TIMEOUT_MS = 60000;
@@ -109,6 +110,7 @@ class MessagingManager extends EventEmitter {
     this.reconnectMaxDelayMs = options.reconnectMaxDelayMs ?? MESSAGING_RECONNECT_MAX_DELAY_MS;
     this.reconnectWatchdogDelayMs = options.reconnectWatchdogDelayMs ?? MESSAGING_RECONNECT_MAX_DELAY_MS;
     this.inboundJobsReconciled = false;
+    this.shared = new SharedMessagingConnections(this);
     this.platformTypes = {
       whatsapp: WhatsAppPlatform,
       discord:  DiscordPlatform,
@@ -521,6 +523,7 @@ class MessagingManager extends EventEmitter {
   _scheduleReconnect({ userId, agentId, platformName, config }) {
     const key = this._key(userId, agentId, platformName);
     if (this.isShuttingDown || this.reconnectTimers.has(key)) return;
+    if (this.platforms.get(key)?.isSharedRoute) return;
 
     const attempt = (this.reconnectAttempts.get(key) || 0) + 1;
     this.reconnectAttempts.set(key, attempt);
@@ -698,6 +701,13 @@ class MessagingManager extends EventEmitter {
     this._assertRunning();
     throwIfAborted(options.signal, 'Messaging platform connection aborted.');
     const agentId = this._agentId(userId, options);
+    // Reconnects and restores keep what the user chose earlier; only their own
+    // request may move this agent off a shared account.
+    if (options.userInitiated === true) {
+      this.shared.beforePersonalConnect(userId, agentId, platformName);
+    } else if (this.platforms.get(this._key(userId, agentId, platformName))?.isSharedRoute) {
+      return { status: 'skipped' };
+    }
     config = { ...(config || {}) };
     config.userId = userId;
     config.agentId = agentId;
@@ -876,6 +886,7 @@ class MessagingManager extends EventEmitter {
     const agentId = this._agentId(userId, options);
     const key = this._key(userId, agentId, platformName);
     const platform = this.platforms.get(key);
+    if (platform?.isSharedRoute) return this.shared.unlink(userId, platformName, { agentId });
     this._clearReconnect(key);
 
     if (platform) {
@@ -1059,7 +1070,7 @@ class MessagingManager extends EventEmitter {
       };
     }
 
-    return statuses;
+    return { ...statuses, ...this.shared.statusEntries(userId, agentId) };
   }
 
   getPlatformDevices(userId, platformName, options = {}) {
@@ -1074,6 +1085,7 @@ class MessagingManager extends EventEmitter {
     const agentId = this._agentId(userId, options);
     const key = this._key(userId, agentId, platformName);
     const platform = this.platforms.get(key);
+    if (platform?.isSharedRoute) return this.shared.unlink(userId, platformName, { agentId });
     const row = db.prepare(
       'SELECT config FROM platform_connections WHERE user_id = ? AND agent_id = ? AND platform = ?'
     ).get(userId, agentId, platformName);
@@ -1126,6 +1138,7 @@ class MessagingManager extends EventEmitter {
         });
       }
     }
+    await this.shared.start();
   }
 
   async shutdown() {
@@ -1135,6 +1148,7 @@ class MessagingManager extends EventEmitter {
     for (const key of this.reconnectTimers.keys()) this._clearReconnect(key);
 
     this.shutdownPromise = (async () => {
+      await this.shared.stop();
       const activeOperationTasks = Array.from(this.activeOperations, (operation) =>
         waitForBoundedResult(operation, {
           serviceName: 'Messaging operation shutdown',

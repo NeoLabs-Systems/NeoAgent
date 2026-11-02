@@ -125,7 +125,7 @@ class WhatsAppPlatform extends BasePlatform {
     return messageTimestampSeconds(msg) >= this._connectedAt;
   }
 
-  _accessContext(msg, { chatId, isGroup, sender }) {
+  _accessContext(msg, { chatId, isGroup, sender, content = '', pushName = '' }) {
     const senderId = normalizeWhatsAppId(sender);
     return {
       platform: 'whatsapp',
@@ -136,15 +136,21 @@ class WhatsAppPlatform extends BasePlatform {
       groupId: isGroup ? chatId : '',
       phoneNumber: senderId,
       wasMentioned: isGroup && this._isGroupAddressedToBot(msg.message || {}),
+      // A contact can move between a phone-number and a LID address; the phone
+      // number is what stays the same person.
+      stableSenderId: normalizeWhatsAppId(msg.key?.senderPn || sender),
+      text: content,
+      messageId: msg.key?.id || null,
+      senderName: pushName,
     };
   }
 
-  _checkMessageAccess(msg, { chatId, isGroup, sender, pushName }) {
+  _checkMessageAccess(msg, { chatId, isGroup, sender, pushName, content }) {
     // Self-chat mode only ever reaches this point for notes the account owner
     // wrote in their own chat, so the allowlist has nothing left to decide.
     if (this.selfChatMode) return { allowed: true };
 
-    const context = this._accessContext(msg, { chatId, isGroup, sender });
+    const context = this._accessContext(msg, { chatId, isGroup, sender, content, pushName });
     return this._checkInboundAccess(context, {
       senderName: pushName || context.senderId,
       meta: isGroup ? `Group: ${chatId}` : '',
@@ -392,6 +398,7 @@ class WhatsAppPlatform extends BasePlatform {
           isGroup,
           sender,
           pushName,
+          content,
         });
 
         if (!access.allowed) continue;
@@ -415,10 +422,12 @@ class WhatsAppPlatform extends BasePlatform {
               ? fileExtensionForMimeType(audioMimeType)
               : (mediaType === 'document' && nameExt ? nameExt : (extMap[mediaType] || 'bin'));
             const safeId = (msg.key.id || 'file').replace(/[^a-zA-Z0-9]/g, '');
-            if (!this.artifactStore || !this.userId) {
+            // On an instance-wide account the file belongs to the linked sender.
+            const mediaOwnerId = access.ownerUserId || this.userId;
+            if (!this.artifactStore || !mediaOwnerId) {
               throw new Error('Per-user artifact storage is unavailable.');
             }
-            const artifact = await this.artifactStore.createBufferArtifact(this.userId, {
+            const artifact = await this.artifactStore.createBufferArtifact(mediaOwnerId, {
               kind: 'messaging-inbound-media',
               filenameBase: `${Date.now()}_${safeId}`,
               extension: ext,
@@ -654,7 +663,11 @@ class WhatsAppPlatform extends BasePlatform {
   }
 
   getAuthInfo() {
-    return { qrCode: this.qrCode, status: this.status };
+    return {
+      qrCode: this.qrCode,
+      status: this.status,
+      number: normalizeWhatsAppId(this.sock?.user?.id) || null,
+    };
   }
 
   async logout() {

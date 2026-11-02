@@ -419,6 +419,189 @@ describe('scheduled task result delivery', () => {
     assert.equal(JSON.parse(stored.task_config).notifyTo, '1549742688482623558');
   });
 
+  function setLastChat(agentId, platform, chatId) {
+    for (const [key, value] of [['last_platform', platform], ['last_chat_id', chatId]]) {
+      ctx.db.prepare('INSERT OR REPLACE INTO agent_settings (user_id, agent_id, key, value) VALUES (?, ?, ?, ?)')
+        .run(user.userId, agentId, key, value);
+    }
+  }
+
+  async function createDefaultChannelTask(agentEngine, messagingManager) {
+    runtime = new TaskRuntime(createIoRecorder(), agentEngine, { locals: { messagingManager } });
+    return runtime.createTask(user.userId, {
+      name: 'Issue triage',
+      triggerType: 'manual',
+      taskConfig: { prompt: 'Improve the issue.' },
+    });
+  }
+
+  function storedTaskConfig(taskId) {
+    return JSON.parse(runtime.taskRepository.getTaskById(taskId, user.userId).task_config);
+  }
+
+  test('saving a config without a notify target clears the stored one', async () => {
+    const task = await createDefaultChannelTask({}, createMessagingManager());
+    await runtime.updateTask(task.id, user.userId, {
+      taskConfig: { prompt: 'Improve the issue.', notifyPlatform: 'github', notifyTo: 'acme/app#117' },
+    });
+    assert.equal(storedTaskConfig(task.id).notifyTo, 'acme/app#117');
+
+    await runtime.updateTask(task.id, user.userId, { taskConfig: { prompt: 'Improve the issue.' } });
+
+    assert.equal(storedTaskConfig(task.id).notifyPlatform, undefined);
+    assert.equal(storedTaskConfig(task.id).notifyTo, undefined);
+  });
+
+  test('a default-channel run reports to the latest chat without storing it', async () => {
+    const messagingManager = createMessagingManager();
+    const task = await createDefaultChannelTask({
+      async runWithModel() {
+        return { content: 'Done.' };
+      },
+    }, messagingManager);
+    setLastChat(task.agentId, 'telegram', 'chat-1');
+
+    await runtime._executeTaskSerial(task.id, user.userId, {
+      manual: true,
+      triggerType: 'manual',
+      triggerSource: 'manual',
+      scheduledAt: new Date().toISOString(),
+    });
+
+    assert.equal(messagingManager.sent[0].platform, 'telegram');
+    assert.equal(messagingManager.sent[0].to, 'chat-1');
+    assert.equal(storedTaskConfig(task.id).notifyTo, undefined);
+  });
+
+  test('a GitHub thread is never the default channel', async () => {
+    const task = await createDefaultChannelTask({}, createMessagingManager());
+    setLastChat(task.agentId, 'github', 'acme/app#117');
+
+    assert.equal(runtime._latestChatTarget(user.userId, task.agentId), null);
+  });
+
+  function setIssueTrigger(taskId) {
+    ctx.db.prepare("UPDATE scheduled_tasks SET trigger_type = 'github_issue_opened' WHERE id = ?").run(taskId);
+  }
+
+  const issueEvent = {
+    triggerEvent: { provider: 'github', repo: 'acme/app', issueNumber: 118, title: 'Crash' },
+  };
+
+  async function runIssueTask(taskId) {
+    await runtime._executeTaskSerial(taskId, user.userId, {
+      manual: false,
+      triggerType: 'github_issue_opened',
+      triggerSource: 'github_issue_opened',
+      scheduledAt: new Date().toISOString(),
+      triggerPayload: issueEvent,
+    });
+  }
+
+  test('a default-channel issue task is pointed at the new issue', async () => {
+    const prompts = [];
+    const task = await createDefaultChannelTask({
+      async runWithModel(userId, prompt) {
+        prompts.push(prompt);
+        return { content: 'Done.' };
+      },
+    }, createMessagingManager());
+    setIssueTrigger(task.id);
+    setLastChat(task.agentId, 'github', 'acme/app#117');
+
+    await runIssueTask(task.id);
+
+    assert.match(prompts[0], /platform="github" to="acme\/app#118"/);
+    assert.equal(storedTaskConfig(task.id).notifyTo, undefined);
+  });
+
+  test('an issue task delivers to the new issue whatever target the model names', async () => {
+    const { executeTool } = require('../../../server/services/ai/tools');
+    const messagingManager = createMessagingManager();
+    const task = await createDefaultChannelTask({
+      messagingManager,
+      async runWithModel(userId, prompt, options) {
+        const sent = await executeTool('send_message', {
+          platform: 'telegram',
+          to: 'somewhere-else',
+          content: 'Improved issue.',
+          purpose: 'final_result',
+        }, {
+          userId,
+          runId: 'run-id',
+          triggerSource: options.triggerSource,
+          taskId: options.taskId,
+          deliveryState: options.deliveryState,
+          stageProactiveMessages: options.stageProactiveMessages,
+        }, { activeRuns: new Map(), messagingManager });
+        assert.equal(sent.platform, 'github');
+        assert.equal(sent.to, 'acme/app#118');
+        return { content: 'Improved issue.' };
+      },
+    }, messagingManager);
+    setIssueTrigger(task.id);
+
+    await runIssueTask(task.id);
+
+    assert.equal(messagingManager.sent.length, 1);
+    assert.equal(messagingManager.sent[0].platform, 'github');
+    assert.equal(messagingManager.sent[0].to, 'acme/app#118');
+  });
+
+  test('notify_user reports to the target the task run resolved', async () => {
+    const { executeTool } = require('../../../server/services/ai/tools');
+    const messagingManager = createMessagingManager();
+
+    const result = await executeTool('notify_user', { message: 'Heads up.' }, {
+      userId: user.userId,
+      runId: 'run-id',
+      triggerSource: 'github_issue_opened',
+      taskId: 1,
+      deliveryState: { notifyTarget: { platform: 'github', to: 'acme/app#118' } },
+    }, { activeRuns: new Map(), messagingManager });
+
+    assert.equal(result.via, 'messaging');
+    assert.equal(messagingManager.sent[0].to, 'acme/app#118');
+  });
+
+  test('a configured target beats the issue thread', async () => {
+    const prompts = [];
+    const task = await createDefaultChannelTask({
+      async runWithModel(userId, prompt) {
+        prompts.push(prompt);
+        return { content: 'Done.' };
+      },
+    }, createMessagingManager());
+    await runtime.updateTask(task.id, user.userId, {
+      taskConfig: { prompt: 'Improve the issue.', notifyPlatform: 'telegram', notifyTo: 'chat-1' },
+    });
+    setIssueTrigger(task.id);
+
+    await runIssueTask(task.id);
+
+    assert.match(prompts[0], /platform="telegram" to="chat-1"/);
+  });
+
+  test('an issue task falls back to the latest chat when GitHub is not connected', async () => {
+    const prompts = [];
+    const messagingManager = createMessagingManager();
+    messagingManager.getPlatformStatus = (userId, platform) => ({
+      status: platform === 'github' ? 'disconnected' : 'connected',
+    });
+    const task = await createDefaultChannelTask({
+      async runWithModel(userId, prompt) {
+        prompts.push(prompt);
+        return { content: 'Done.' };
+      },
+    }, messagingManager);
+    setIssueTrigger(task.id);
+    setLastChat(task.agentId, 'telegram', 'chat-1');
+
+    await runIssueTask(task.id);
+
+    assert.match(prompts[0], /platform="telegram" to="chat-1"/);
+  });
+
   test('delivers a failure notice when every attempt returns empty', async () => {
     const messagingManager = createMessagingManager();
     let callCount = 0;
@@ -565,6 +748,7 @@ describe('scheduled task result delivery', () => {
       userId: user.userId,
       runId: 'run-id',
       triggerSource: 'schedule',
+      taskId: 1,
       deliveryState,
     }, engine);
 
@@ -592,6 +776,7 @@ describe('scheduled task result delivery', () => {
       userId: user.userId,
       runId: 'run-id',
       triggerSource: 'schedule',
+      taskId: 1,
       deliveryState,
     }, engine);
 
@@ -625,6 +810,7 @@ describe('scheduled task result delivery', () => {
       userId: user.userId,
       runId: 'run-id',
       triggerSource: 'schedule',
+      taskId: 1,
       deliveryState,
       stageProactiveMessages: true,
     }, engine);

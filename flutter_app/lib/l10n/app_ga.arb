@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Athraigh mód socraithe",
   "channel": "Cainéal",
   "channelAccessToken": "Comhartha rochtana cainéal",
-  "channelArg1Arg2UpdateVersionArg3": "Cainéal: {arg1}{arg2} | Leagan Nuashonraithe: {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Cuimhne sóisialta scóip chainéil",
   "channels": "Cainéil",
   "chat": "Comhrá",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "Suiteáil APK - cliceáil nó scaoil comhad .apk",
   "installNeoagent": "Suiteáil NeoAgent",
   "installNeoagentOnThisComputerWithout": "Suiteáil NeoAgent ar an ríomhaire seo gan teirminéal, nó ceangail le ceann atá ag rith cheana féin.",
-  "installNewReleasesAndChooseWhich": "Suiteáil eisiúintí nua agus roghnaigh cén cainéal a leanann an freastalaí seo.",
   "installTheBackend": "Suiteáil an t-inneall",
   "installTheCoreWithExtraOptional": "Suiteáil an croí le socrú breise roghnach. Cuirtear eochracha soláthraí AI leis ina dhiaidh sin, mar an gcéanna le Quickstart.",
   "installTheSecureCoreThenCreate": "Suiteáil an croí slán, ansin cruthaigh do chuntas. Cuir eochracha soláthraí AI leis ina dhiaidh sin.",
-  "installedArg1": " | Suiteáilte: {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Suiteáilte: {arg1} • Seiceáilte go deireanach: {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "Faisnéis dífhabhtaithe NeoAgent",
   "neoagentDesktopInstaller": "Suiteálaí Deisce NeoAgent",
   "neoagentFlutterUpdater": "Nuashonróir Flutter NeoAgent",
-  "neoagentInstallsTheLatestArg1": "Suiteáil NeoAgent an {arg1} is déanaí ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "Tá NeoAgent suiteáilte agus á reáchtáil.",
   "neoagentIsNotInstalledOnThis": "Níl NeoAgent suiteáilte ar an ríomhaire seo.",
   "neoagentIsReady": "Tá NeoAgent réidh",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "Níl aon nuashonrú ar siúl",
   "noUsageYet": "Gan úsáid fós.",
   "noVerifiedNeoagentBackendRuntimeIs": "Níl aon am rite inneall fíoraithe NeoAgent ar fáil go fóill.",
   "nobodyCanUseItAnyMore": "Ní féidir le duine ar bith é a úsáid níos mó. Daoine a chuaigh isteach cheana féin ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "tá an clárú dúnta",
   "registrationRegisterNewAccountsAllowSignup": "ceadaíonn cuntais nua a chlárú clárú",
   "rejectInvalidTlsCertificates": "Diúltaigh teastais TLS neamhbhailí",
-  "releaseAndRestartsConnectedAppsReconnect": "scaoileadh agus atosú. Athnascann aipeanna nasctha nuair a bhíonn sé ar ais.",
   "releaseChannel": "Cainéal scaoileadh",
   "releaseCommitBranchNode": "nód brainse tiomnaithe a scaoileadh",
   "releaseWhenYouAreDone": "Scaoileadh nuair a bhíonn tú críochnaithe.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Am rite: {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Socruithe ama rite a thosaigh an freastalaí seo. Cuir in eagar iad faoi ",
-  "runtimeSetupRequired": "Tá socrú ama rite riachtanach",
   "runtimeSigningPublicKeyMustBe": "Ní mór gur 32 beart é an eochair phoiblí sínithe ama rite.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "Sábháil",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "Tacaíonn an comhtháthú seo le cuntas nasctha amháin in aghaidh an ghníomhaire faoi láthair. Athoscail an socrú chun é a athsholáthar.",
   "thisIntegrationIsNoLongerAvailable": "Níl an comhtháthú seo ar fáil a thuilleadh.",
   "thisIntroIsDesignedForFull": "Tá an intro seo deartha le haghaidh athsheinm tírdhreacha lánscáileáin.",
-  "thisIsAManagedDeploymentIts": "Imscaradh bainistithe é seo. Rollaíonn a oibreoir amach ",
   "thisMayTakeAMoment": "Féadfaidh sé seo nóiméad a ghlacadh.",
   "thisMcpServerIsNoLonger": "Níl an freastalaí MCP seo cumraithe a thuilleadh.",
   "thisMemoryWillBeRemovedPermanently": "Bainfear an chuimhne seo go buan.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Nuashonrú réidh",
   "updateSetup": "Socrú Nuashonraigh",
   "updateTheAccessListToAllow": "Nuashonraigh an liosta rochtana chun freagraí a cheadú.",
-  "updateTheServer": "Nuashonraigh an freastalaí?",
   "updateTheServer2": "Nuashonraigh an freastalaí",
   "updateTheTimeZoneAutomaticallyFrom": "Nuashonraigh an crios ama go huathoibríoch ón bhfeiste atá in úsáid agat.",
   "updatedArg1": "nuashonraithe {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Nuashonruithe",
   "updatesAreNotConfiguredForThis": "Níl nuashonruithe cumraithe don leagan seo.",
-  "updatesSoSelfUpdateAndChannel": "nuashonruithe, mar sin tá féin-nuashonrú agus athruithe cainéal múchta anseo.",
   "upgradeUpdateNowReleaseChannelStable": "nuashonrú uasghrádaithe anois scaoileadh cainéal cobhsaí beta",
   "usageAnalytics": "Anailísíocht úsáide",
   "usageAndHealthSignalsThatHelp": "Comharthaí úsáide agus sláinte a chuidíonn le hiompraíocht reatha ama rite a mhíniú gan tochailt trí logaí ar dtús.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Glacann sé páirt i gcomhráite grúpa",
   "label1PersonOrGroupAdded": "Cuireadh 1 duine nó grúpa leis",
   "inProgress": "Ar siúl",
-  "waitingForUpdateJobOutput": "Ag fanacht le haschur poist nuashonraithe…",
   "taskTrigger": "Truicear tasc",
   "bearerToken": "Comhartha iompróra",
   "bearerToken2": "Comhartha Iompróir",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "Níorbh fhéidir an eochair shlándála a úsáid.",
   "connecting": "Ag nascadh…",
   "changes": "Athruithe",
-  "runtimeReady": "Am rite réidh",
   "saving": "Ag sábháil...",
   "earlier": "Níos luaithe",
   "monthJan": "Ean",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (réamhshocraithe)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Brainse: {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"

@@ -141,4 +141,16 @@ describe('task delivery target discovery', () => {
 
     assert.deepEqual(targets.map((target) => target.to), ['agent-channel']);
   });
+  test('never offers a public thread as the default channel', async () => {
+    const agentId = resolveAgentId(user.userId, null);
+    ctx.db.prepare(
+      `INSERT INTO agent_settings (user_id, agent_id, key, value)
+       VALUES (?, ?, 'last_platform', ?), (?, ?, 'last_chat_id', ?)`
+    ).run(user.userId, agentId, JSON.stringify('github'), user.userId, agentId, JSON.stringify('acme/app#117'));
+
+    const targets = await serviceWith({ messagingManager: { getPlatformStatuses: () => ({}) } })
+      .listTargets(user.userId, { agentId });
+
+    assert.equal(targets.some((target) => target.source === 'default'), false);
+  });
 });

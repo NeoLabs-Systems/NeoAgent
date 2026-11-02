@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Αλλαγή λειτουργίας ρύθμισης",
   "channel": "Κανάλι",
   "channelAccessToken": "Διακριτικό πρόσβασης καναλιού",
-  "channelArg1Arg2UpdateVersionArg3": "Κανάλι: {arg1}{arg2} | Έκδοση ενημέρωσης: {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Κοινωνική μνήμη εύρους καναλιού",
   "channels": "Κανάλια",
   "chat": "Συνομιλία",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "Εγκαταστήστε το APK — κάντε κλικ ή αποθέστε ένα αρχείο .apk",
   "installNeoagent": "Εγκαταστήστε το NeoAgent",
   "installNeoagentOnThisComputerWithout": "Εγκαταστήστε το NeoAgent σε αυτόν τον υπολογιστή χωρίς τερματικό ή συνδεθείτε σε ένα που εκτελείται ήδη.",
-  "installNewReleasesAndChooseWhich": "Εγκαταστήστε νέες εκδόσεις και επιλέξτε ποιο κανάλι ακολουθεί αυτός ο διακομιστής.",
   "installTheBackend": "Εγκαταστήστε το backend",
   "installTheCoreWithExtraOptional": "Εγκαταστήστε τον πυρήνα με επιπλέον προαιρετική ρύθμιση. Στη συνέχεια προστίθενται κλειδιά παρόχου AI, όπως και το Quickstart.",
   "installTheSecureCoreThenCreate": "Εγκαταστήστε τον ασφαλή πυρήνα και, στη συνέχεια, δημιουργήστε τον λογαριασμό σας. Προσθέστε κλειδιά παρόχου AI στη συνέχεια.",
-  "installedArg1": " | Εγκατεστημένο: {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Εγκατεστημένο: {arg1} • Τελευταίο έλεγχο: {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "Πληροφορίες εντοπισμού σφαλμάτων NeoAgent",
   "neoagentDesktopInstaller": "NeoAgent Desktop Installer",
   "neoagentFlutterUpdater": "NeoAgent Flutter Updater",
-  "neoagentInstallsTheLatestArg1": "Το NeoAgent εγκαθιστά το πιο πρόσφατο {arg1} ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "Το NeoAgent είναι εγκατεστημένο και εκτελείται.",
   "neoagentIsNotInstalledOnThis": "Το NeoAgent δεν είναι εγκατεστημένο σε αυτόν τον υπολογιστή.",
   "neoagentIsReady": "Το NeoAgent είναι έτοιμο",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "Δεν εκτελείται ενημέρωση",
   "noUsageYet": "Καμία χρήση ακόμα.",
   "noVerifiedNeoagentBackendRuntimeIs": "Δεν υπάρχει ακόμη διαθέσιμος επαληθευμένος χρόνος εκτέλεσης του NeoAgent.",
   "nobodyCanUseItAnyMore": "Κανείς δεν μπορεί πλέον να το χρησιμοποιήσει. Άτομα που έχουν ήδη εγγραφεί ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "η εγγραφή έχει κλείσει",
   "registrationRegisterNewAccountsAllowSignup": "εγγραφή εγγραφή νέου λογαριασμούς επιτρέπουν την εγγραφή",
   "rejectInvalidTlsCertificates": "Απόρριψη μη έγκυρων πιστοποιητικών TLS",
-  "releaseAndRestartsConnectedAppsReconnect": "απελευθέρωση και επανεκκίνηση. Οι συνδεδεμένες εφαρμογές επανασυνδέονται μόλις επιστρέψει.",
   "releaseChannel": "Έκδοση καναλιού",
   "releaseCommitBranchNode": "κόμβος διακλάδωσης δέσμευσης απελευθέρωσης",
   "releaseWhenYouAreDone": "Αφήστε όταν τελειώσετε.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Χρόνος εκτέλεσης: {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Ρυθμίσεις χρόνου εκτέλεσης με τις οποίες ξεκίνησε αυτός ο διακομιστής. Επεξεργαστείτε τα κάτω από ",
-  "runtimeSetupRequired": "Απαιτείται ρύθμιση χρόνου εκτέλεσης",
   "runtimeSigningPublicKeyMustBe": "Το δημόσιο κλειδί υπογραφής χρόνου εκτέλεσης πρέπει να είναι 32 byte.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "Αποθήκευση",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "Αυτή η ενσωμάτωση υποστηρίζει επί του παρόντος έναν συνδεδεμένο λογαριασμό ανά παράγοντα. Ανοίξτε ξανά τη ρύθμιση για να την αντικαταστήσετε.",
   "thisIntegrationIsNoLongerAvailable": "Αυτή η ενσωμάτωση δεν είναι πλέον διαθέσιμη.",
   "thisIntroIsDesignedForFull": "Αυτή η εισαγωγή έχει σχεδιαστεί για οριζόντια αναπαραγωγή σε πλήρη οθόνη.",
-  "thisIsAManagedDeploymentIts": "Αυτή είναι μια διαχειριζόμενη ανάπτυξη. Ο χειριστής του ανοίγει ",
   "thisMayTakeAMoment": "Αυτό μπορεί να διαρκέσει λίγο.",
   "thisMcpServerIsNoLonger": "Αυτός ο διακομιστής MCP δεν είναι πλέον διαμορφωμένος.",
   "thisMemoryWillBeRemovedPermanently": "Αυτή η μνήμη θα αφαιρεθεί οριστικά.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Έτοιμη η ενημέρωση",
   "updateSetup": "Ενημέρωση εγκατάστασης",
   "updateTheAccessListToAllow": "Ενημερώστε τη λίστα πρόσβασης για να επιτρέψετε τις απαντήσεις.",
-  "updateTheServer": "Ενημέρωση του διακομιστή;",
   "updateTheServer2": "Ενημερώστε τον διακομιστή",
   "updateTheTimeZoneAutomaticallyFrom": "Ενημερώστε τη ζώνη ώρας αυτόματα από τη συσκευή που χρησιμοποιείτε.",
   "updatedArg1": "ενημερώθηκε το {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Ενημερώσεις",
   "updatesAreNotConfiguredForThis": "Οι ενημερώσεις δεν έχουν ρυθμιστεί για αυτήν την έκδοση.",
-  "updatesSoSelfUpdateAndChannel": "ενημερώσεις, επομένως η αυτόματη ενημέρωση και οι αλλαγές καναλιών είναι απενεργοποιημένες εδώ.",
   "upgradeUpdateNowReleaseChannelStable": "αναβάθμιση ενημέρωση τώρα κυκλοφορήσει το κανάλι σταθερή beta",
   "usageAnalytics": "Αναλυτικά στοιχεία χρήσης",
   "usageAndHealthSignalsThatHelp": "Σήματα χρήσης και υγείας που βοηθούν στην εξήγηση της τρέχουσας συμπεριφοράς χρόνου εκτέλεσης χωρίς να ψάξετε πρώτα τα αρχεία καταγραφής.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Συμμετέχει σε ομαδικές συνομιλίες",
   "label1PersonOrGroupAdded": "Προστέθηκε 1 άτομο ή ομάδα",
   "inProgress": "Σε εξέλιξη",
-  "waitingForUpdateJobOutput": "Αναμονή για την έξοδο εργασίας ενημέρωσης…",
   "taskTrigger": "Έναρξη εργασίας",
   "bearerToken": "Κουπόνι φορέα",
   "bearerToken2": "Διακριτικό Φορέα",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "Δεν ήταν δυνατή η χρήση του κλειδιού ασφαλείας.",
   "connecting": "Σύνδεση…",
   "changes": "Αλλαγές",
-  "runtimeReady": "Έτοιμος ο χρόνος εκτέλεσης",
   "saving": "Αποθήκευση...",
   "earlier": "Νωρίτερα",
   "monthJan": "Ιαν",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (προεπιλογή)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Υποκατάστημα: {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"

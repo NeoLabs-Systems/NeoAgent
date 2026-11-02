@@ -334,7 +334,7 @@ class _RunsPanelState extends State<RunsPanel> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         _PageTitle(
-          title: 'Runs',
+          title: appStrings.runs,
           subtitle: appStrings.liveExecutionHistoryToolStepsAnd,
           trailing: _RunsLiveControls(
             paused: _paused,
@@ -363,6 +363,11 @@ class _RunsPanelState extends State<RunsPanel> {
                   child: _EmptyCard(
                     title: appStrings.noRunsYet,
                     subtitle: appStrings.sendATaskFromChatAnd,
+                    action: OutlinedButton.icon(
+                      onPressed: () => controller.setSelectedSection(AppSection.chat),
+                      icon: const Icon(Icons.chat_bubble_outline),
+                      label: Text(appStrings.uxOpenChat),
+                    ),
                   ),
                 )
               : LayoutBuilder(

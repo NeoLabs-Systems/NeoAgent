@@ -194,7 +194,7 @@ Widget? _integrationPrimaryAction(
     case 'user_config':
       void open() =>
           _openOfficialIntegrationSetupDialog(context, controller, item.id);
-      return item.env.configured
+      return item.isConnected
           ? OutlinedButton.icon(
               onPressed: open,
               icon: const Icon(Icons.settings_rounded),
@@ -203,7 +203,7 @@ Widget? _integrationPrimaryAction(
           : FilledButton.icon(
               onPressed: open,
               icon: const Icon(Icons.settings_rounded),
-              label: Text(appStrings.completeSetup),
+              label: Text(appStrings.connect),
             );
   }
   if (!item.env.configured) {

@@ -164,7 +164,7 @@ class TaskRecommendationCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.geistMono(
                         color: p.textMuted,
-                        fontSize: 10.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 1.1,
                       ),
@@ -258,11 +258,14 @@ class _AddButton extends StatelessWidget {
       child: InkWell(
         onTap: status == TaskRecommendationStatus.idle ? onAdd : null,
         borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            child: content,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: content,
+            ),
           ),
         ),
       ),
@@ -296,22 +299,27 @@ class TaskInspirationButton extends StatelessWidget {
           final picked = await showTaskInspirationPicker(context);
           if (picked != null) onPicked(picked);
         },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Icon(Icons.auto_awesome_rounded, size: 14, color: p.accent),
-              const SizedBox(width: 6),
-              Text(
-                appStrings.getInspired,
-                style: GoogleFonts.geist(
-                  color: p.accent,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(Icons.auto_awesome_rounded, size: 14, color: p.accent),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    appStrings.getInspired,
+                    style: GoogleFonts.geist(
+                      color: p.accent,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

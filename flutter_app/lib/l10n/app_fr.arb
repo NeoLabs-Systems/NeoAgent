@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Changer le mode de configuration",
   "channel": "Chaîne",
   "channelAccessToken": "Jeton d'accès au canal",
-  "channelArg1Arg2UpdateVersionArg3": "Chaîne : {arg1}{arg2} | Version mise à jour : {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Mémoire sociale à l'échelle du canal",
   "channels": "Canaux",
   "chat": "Discussion",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "Installer l'APK - cliquez ou déposez un fichier .apk",
   "installNeoagent": "Installer NéoAgent",
   "installNeoagentOnThisComputerWithout": "Installez NeoAgent sur cet ordinateur sans terminal, ou connectez-vous à un terminal déjà en cours d'exécution.",
-  "installNewReleasesAndChooseWhich": "Installez les nouvelles versions et choisissez le canal que suit ce serveur.",
   "installTheBackend": "Installer le back-end",
   "installTheCoreWithExtraOptional": "Installez le noyau avec une configuration facultative supplémentaire. Les clés du fournisseur d’IA sont ajoutées ultérieurement, comme pour Quickstart.",
   "installTheSecureCoreThenCreate": "Installez le noyau sécurisé, puis créez votre compte. Ajoutez ensuite les clés du fournisseur d’IA.",
-  "installedArg1": " | Installé : {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Installé : {arg1} • Dernière vérification : {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "Informations de débogage NeoAgent",
   "neoagentDesktopInstaller": "Programme d'installation du bureau NeoAgent",
   "neoagentFlutterUpdater": "Programme de mise à jour NeoAgent Flutter",
-  "neoagentInstallsTheLatestArg1": "NeoAgent installe le dernier {arg1} ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "NeoAgent est installé et en cours d'exécution.",
   "neoagentIsNotInstalledOnThis": "NeoAgent n'est pas installé sur cet ordinateur.",
   "neoagentIsReady": "NeoAgent est prêt",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "Aucune mise à jour en cours",
   "noUsageYet": "Aucune utilisation pour l'instant.",
   "noVerifiedNeoagentBackendRuntimeIs": "Aucun moteur d’exécution backend NeoAgent vérifié n’est encore disponible.",
   "nobodyCanUseItAnyMore": "Personne ne peut plus l'utiliser. Les personnes qui ont déjà rejoint ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "les inscriptions sont closes",
   "registrationRegisterNewAccountsAllowSignup": "inscription enregistrer de nouveaux comptes permettre l'inscription",
   "rejectInvalidTlsCertificates": "Rejeter les certificats TLS invalides",
-  "releaseAndRestartsConnectedAppsReconnect": "libération et redémarrages. Les applications connectées se reconnectent une fois de retour.",
   "releaseChannel": "Canal de sortie",
   "releaseCommitBranchNode": "libérer le nœud de branche de validation",
   "releaseWhenYouAreDone": "Relâchez lorsque vous avez terminé.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Durée d'exécution : {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Paramètres d'exécution avec lesquels ce serveur a démarré. Modifiez-les sous ",
-  "runtimeSetupRequired": "Configuration d'exécution requise",
   "runtimeSigningPublicKeyMustBe": "La clé publique de signature d’exécution doit être de 32 octets.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "Enregistrer",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "Cette intégration prend actuellement en charge un compte connecté par agent. Rouvrez la configuration pour la remplacer.",
   "thisIntegrationIsNoLongerAvailable": "Cette intégration n'est plus disponible.",
   "thisIntroIsDesignedForFull": "Cette introduction est conçue pour une lecture paysage en plein écran.",
-  "thisIsAManagedDeploymentIts": "Il s'agit d'un déploiement géré. Son opérateur déploie ",
   "thisMayTakeAMoment": "Cela peut prendre un moment.",
   "thisMcpServerIsNoLonger": "Ce serveur MCP n'est plus configuré.",
   "thisMemoryWillBeRemovedPermanently": "Cette mémoire sera supprimée définitivement.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Mise à jour prête",
   "updateSetup": "Configuration de la mise à jour",
   "updateTheAccessListToAllow": "Mettez à jour la liste d'accès pour autoriser les réponses.",
-  "updateTheServer": "Mettre à jour le serveur ?",
   "updateTheServer2": "Mettre à jour le serveur",
   "updateTheTimeZoneAutomaticallyFrom": "Mettez à jour automatiquement le fuseau horaire depuis l'appareil que vous utilisez.",
   "updatedArg1": "mise à jour {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Mises à jour",
   "updatesAreNotConfiguredForThis": "Les mises à jour ne sont pas configurées pour cette version.",
-  "updatesSoSelfUpdateAndChannel": "mises à jour, donc la mise à jour automatique et les changements de chaîne sont désactivés ici.",
   "upgradeUpdateNowReleaseChannelStable": "mettre à jour la mise à jour publie maintenant la version bêta stable du canal",
   "usageAnalytics": "Analyse d'utilisation",
   "usageAndHealthSignalsThatHelp": "Signaux d’utilisation et d’état qui aident à expliquer le comportement d’exécution actuel sans fouiller au préalable dans les journaux.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Rejoint les conversations de groupe",
   "label1PersonOrGroupAdded": "1 personne ou groupe ajouté",
   "inProgress": "En cours",
-  "waitingForUpdateJobOutput": "En attente de la sortie de la tâche de mise à jour…",
   "taskTrigger": "Déclencheur de tâche",
   "bearerToken": "Jeton du porteur",
   "bearerToken2": "Jeton du porteur",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "La clé de sécurité n'a pas pu être utilisée.",
   "connecting": "Connexion…",
   "changes": "Changements",
-  "runtimeReady": "Prêt pour l'exécution",
   "saving": "Sauvegarde...",
   "earlier": "Plus tôt",
   "monthJan": "janvier",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (par défaut)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Branche : {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"

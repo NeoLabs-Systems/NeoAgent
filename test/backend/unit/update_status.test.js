@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { test } = require('node:test');
-const { readUpdateStatus, writeUpdateStatusFile } = require('../../../server/utils/update_status');
+const { readUpdateStatus, writeUpdateStatus } = require('../../../server/utils/update_status');
 
 function statusFile(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-update-status-'));
@@ -19,15 +19,15 @@ test('reading an interrupted job reports failure without overwriting the runner 
   const original = fs.readFileSync(file, 'utf8');
   assert.equal(readUpdateStatus(file).state, 'failed');
   assert.equal(fs.readFileSync(file, 'utf8'), original);
-  writeUpdateStatusFile({ state: 'running', runnerPid: process.pid, phase: 'installing' }, file);
+  writeUpdateStatus({ state: 'running', runnerPid: process.pid, phase: 'installing' }, file);
   assert.equal(readUpdateStatus(file).state, 'running');
   assert.deepEqual(readUpdateStatus(file).logs, ['Downloading']);
 });
 
 test('status updates preserve progress and diagnostics, and atomically replace complete JSON', (t) => {
   const file = statusFile(t);
-  writeUpdateStatusFile({ state: 'running', runnerPid: process.pid, progress: 70, logs: ['Installing'] }, file);
-  writeUpdateStatusFile({ state: 'failed', runnerPid: null, message: 'Restored the previous version' }, file);
+  writeUpdateStatus({ state: 'running', runnerPid: process.pid, progress: 70, logs: ['Installing'] }, file);
+  writeUpdateStatus({ state: 'failed', runnerPid: null, message: 'Restored the previous version' }, file);
   const status = JSON.parse(fs.readFileSync(file, 'utf8'));
   assert.equal(status.state, 'failed');
   assert.equal(status.progress, 70);

@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Módosítsa a beállítási módot",
   "channel": "Csatorna",
   "channelAccessToken": "Csatorna hozzáférési token",
-  "channelArg1Arg2UpdateVersionArg3": "Csatorna: {arg1}{arg2} | Frissítési verzió: {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Csatorna hatókörű társadalmi emlékezet",
   "channels": "Csatornák",
   "chat": "Chat",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "Az APK telepítése – kattintson vagy dobjon egy .apk fájlt",
   "installNeoagent": "Telepítse a NeoAgentet",
   "installNeoagentOnThisComputerWithout": "Telepítse a NeoAgentet erre a számítógépre terminál nélkül, vagy csatlakozzon egy már futóhoz.",
-  "installNewReleasesAndChooseWhich": "Telepítse az új kiadásokat, és válassza ki, hogy a szerver melyik csatornát kövesse.",
   "installTheBackend": "Telepítse a háttérprogramot",
   "installTheCoreWithExtraOptional": "Telepítse a magot extra opcionális beállítással. Az AI-szolgáltató kulcsait utólag adják hozzá, ugyanúgy, mint a Gyorsindításhoz.",
   "installTheSecureCoreThenCreate": "Telepítse a biztonságos magot, majd hozza létre fiókját. Ezután adja hozzá az AI-szolgáltató kulcsait.",
-  "installedArg1": " | Telepítve: {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Telepítve: {arg1} • Utoljára ellenőrizve: {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "NeoAgent hibakeresési információ",
   "neoagentDesktopInstaller": "NeoAgent Desktop Installer",
   "neoagentFlutterUpdater": "NeoAgent Flutter Updater",
-  "neoagentInstallsTheLatestArg1": "A NeoAgent telepíti a legújabb {arg1}-t ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "A NeoAgent telepítve van és fut.",
   "neoagentIsNotInstalledOnThis": "A NeoAgent nincs telepítve erre a számítógépre.",
   "neoagentIsReady": "A NeoAgent készen áll",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "Nem fut frissítés",
   "noUsageYet": "Még nincs használat.",
   "noVerifiedNeoagentBackendRuntimeIs": "Még nem áll rendelkezésre ellenőrzött NeoAgent háttér-futási környezet.",
   "nobodyCanUseItAnyMore": "Senki nem tudja többé használni. Emberek, akik már csatlakoztak ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "regisztráció lezárult",
   "registrationRegisterNewAccountsAllowSignup": "regisztráció regisztráció új fiókok lehetővé teszik a regisztrációt",
   "rejectInvalidTlsCertificates": "Érvénytelen TLS-tanúsítványok elutasítása",
-  "releaseAndRestartsConnectedAppsReconnect": "engedje el és újraindul. A csatlakoztatott alkalmazások újra csatlakoznak, miután visszatértek.",
   "releaseChannel": "Kiadási csatorna",
   "releaseCommitBranchNode": "commit elágazó csomópont kiadása",
   "releaseWhenYouAreDone": "Engedje el, ha végzett.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Üzemidő: {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Futásidejű beállítások, amelyekkel ez a szerver indult. Szerkessze őket alá ",
-  "runtimeSetupRequired": "Futásidejű beállítás szükséges",
   "runtimeSigningPublicKeyMustBe": "A futásidejű aláírás nyilvános kulcsának 32 bájtnak kell lennie.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "Mentés",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "Ez az integráció jelenleg ügynökönként egy csatlakoztatott fiókot támogat. A cseréhez nyissa meg újra a beállítást.",
   "thisIntegrationIsNoLongerAvailable": "Ez az integráció már nem érhető el.",
   "thisIntroIsDesignedForFull": "Ez a bevezető teljes képernyős, fekvő lejátszáshoz készült.",
-  "thisIsAManagedDeploymentIts": "Ez egy felügyelt telepítés. A kezelője kigurul ",
   "thisMayTakeAMoment": "Ez eltarthat egy ideig.",
   "thisMcpServerIsNoLonger": "Ez az MCP-kiszolgáló már nincs konfigurálva.",
   "thisMemoryWillBeRemovedPermanently": "Ez a memória véglegesen el lesz távolítva.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Frissítés kész",
   "updateSetup": "Frissítse a beállítást",
   "updateTheAccessListToAllow": "Frissítse a hozzáférési listát a válaszok engedélyezéséhez.",
-  "updateTheServer": "Frissíti a szervert?",
   "updateTheServer2": "Frissítse a szervert",
   "updateTheTimeZoneAutomaticallyFrom": "Az időzóna automatikus frissítése a használt eszközről.",
   "updatedArg1": "frissített {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Frissítések",
   "updatesAreNotConfiguredForThis": "A frissítések nincsenek konfigurálva ehhez a buildhez.",
-  "updatesSoSelfUpdateAndChannel": "frissítéseket, így az önfrissítés és a csatornaváltás itt ki van kapcsolva.",
   "upgradeUpdateNowReleaseChannelStable": "frissítés frissítés most csatornastabil béta kiadás",
   "usageAnalytics": "Használati elemzés",
   "usageAndHealthSignalsThatHelp": "Használati és állapotjelzések, amelyek segítenek megmagyarázni a jelenlegi futási viselkedést anélkül, hogy először a naplókba bújnának bele.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Csatlakozik a csoportos beszélgetésekhez",
   "label1PersonOrGroupAdded": "1 személy vagy csoport hozzáadva",
   "inProgress": "Folyamatban",
-  "waitingForUpdateJobOutput": "Várakozás a frissítési feladat kimenetére…",
   "taskTrigger": "Feladatindító",
   "bearerToken": "Bemutató jelző",
   "bearerToken2": "Tartó zseton",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "A biztonsági kulcs nem használható.",
   "connecting": "Csatlakozás…",
   "changes": "Változások",
-  "runtimeReady": "Futásidő kész",
   "saving": "Mentés...",
   "earlier": "Korábban",
   "monthJan": "jan",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (alapértelmezett)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Elágazás: {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"

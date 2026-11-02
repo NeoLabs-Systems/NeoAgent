@@ -131,12 +131,11 @@ function choosePreferredBranchForChannel(channel, versions = {}) {
     return 'main';
   }
 
-  const stableVersion = versions.stable;
-  const betaVersion = versions.beta;
-  if (compareVersions(betaVersion, stableVersion) > 0) {
-    return 'beta';
-  }
-  return 'main';
+  // Beta follows the beta branch unless a stable release is newer than the
+  // newest beta tag. Without tags that is always beta: falling back to main
+  // would quietly move a beta install to an older stable version.
+  if (versions.beta && versions.stable && compareVersions(versions.stable, versions.beta) > 0) return 'main';
+  return 'beta';
 }
 
 function readReleaseChannelFromRaw(raw) {

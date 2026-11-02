@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../main.dart';
 import '../../src/mascot/mascot_mood.dart';
 import '../../src/theme/palette.dart';
+import '../messaging_hub/messaging_hub_widgets.dart';
 import 'onboarding_chrome.dart';
 import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
@@ -19,7 +20,7 @@ class OnboardingComputerStep extends StatefulWidget {
   });
 
   final VoidCallback onNext;
-  final VoidCallback onBack;
+  final VoidCallback? onBack;
   final NeoAgentController controller;
 
   @override
@@ -93,6 +94,7 @@ class _OnboardingComputerStepState extends State<OnboardingComputerStep> {
                 ).animate().fadeIn(duration: 420.ms, delay: 250.ms),
                 if (selection == 'local') ...<Widget>[
                   const SizedBox(height: 18),
+                  HubSectionLabel(appStrings.onboardingComputerPermissions),
                   _LocalPermissions(controller: _controller),
                 ],
               ],
@@ -160,12 +162,11 @@ class _PlaceCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    subtitle.toUpperCase(),
-                    style: GoogleFonts.geistMono(
-                      color: p.textMuted,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.4,
+                    subtitle,
+                    style: GoogleFonts.geist(
+                      color: p.textSecondary,
+                      fontSize: 13,
+                      height: 1.35,
                     ),
                   ),
                 ],
@@ -203,7 +204,8 @@ class _LocalPermissions extends StatelessWidget {
     ];
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        color: p.bgCard,
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: p.border),
       ),
       clipBehavior: Clip.antiAlias,

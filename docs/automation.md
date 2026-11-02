@@ -11,10 +11,10 @@ description: Run the agent unattended on schedules, account events, phone signal
 ## 📝 Create a task
 
 1. Open **Tasks** and press **Add Task**.
-2. Choose the **Assigned Agent**; the task uses that agent's memory, accounts and model.
-3. Press **Select Trigger** and pick one from the [trigger list](#trigger-types), or search for it.
-4. Write the **Instructions** the agent follows every time the trigger fires.
-5. Optional: set a **Model Override** and a **Result Delivery** channel, then save.
+2. Enter a name and describe **What should the agent do?** Use **Get inspired** to fill in a starter task.
+3. Choose the **Trigger type** and its schedule or event conditions.
+4. Choose **Result Delivery** and the **Assigned Agent**; the task uses that agent's memory and accounts. Model overrides and loop controls are under **Advanced settings**.
+5. Check **Enabled** before saving. Turn it off to keep the task without running it automatically. Required-field and save errors appear inside the dialog so you can correct them without losing your input.
 
 - **From chat.** Ask the agent for a reminder or a recurring check; it creates the task with its `create_task` tool.
 - **Starter ideas.** **Get inspired** fills in ready-made tasks such as Morning briefing, Hourly inbox check and Weekly review.

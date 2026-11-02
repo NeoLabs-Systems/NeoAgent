@@ -15,11 +15,13 @@ process.env.NEOAGENT_DATA_DIR = path.join(root, 'data');
 process.env.NEOAGENT_AGENT_DATA_DIR = path.join(root, 'agent-data');
 delete process.env.NEOAGENT_CONTAINER_IMAGE;
 delete process.env.NEOAGENT_DEPLOYMENT_MODE;
-const { readUpdateStatus, writeUpdateStatusFile } = require('../../../server/utils/update_status');
+const { readUpdateStatus, writeUpdateStatus } = require('../../../server/utils/update_status');
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 function service(t, spawn) {
   t.mock.method(childProcess, 'spawn', spawn);
+  // Checking asks GitHub; the tests answer "unreachable" instead.
+  t.mock.method(childProcess, 'execFile', (command, args, options, callback) => callback(new Error('offline')));
   const modulePath = require.resolve('../../../server/services/admin/updates');
   delete require.cache[modulePath];
   return require(modulePath);
@@ -32,8 +34,8 @@ function child() {
   return result;
 }
 
-test('accepted updates report running status and prevent duplicate jobs or channel changes', async (t) => {
-  writeUpdateStatusFile({ state: 'idle', runnerPid: null });
+test('accepted updates report running status and prevent duplicate jobs or channel changes', (t) => {
+  writeUpdateStatus({ state: 'idle', runnerPid: null });
   const updates = service(t, (command, args, options) => {
     assert.ok(args.includes(path.resolve(__dirname, '../../../lib/cli/update_runner.js')));
     assert.equal(options.detached, true);
@@ -42,25 +44,26 @@ test('accepted updates report running status and prevent duplicate jobs or chann
     process.nextTick(() => result.emit('spawn'));
     return result;
   });
-  assert.equal((await updates.startUpdate()).state, 'running');
-  await assert.rejects(updates.startUpdate(), { status: 409 });
-  assert.throws(() => updates.setUpdateChannel('beta'), { status: 409 });
+  assert.equal(updates.start().job.state, 'running');
+  assert.throws(() => updates.start(), { status: 409, code: 'UPDATE_RUNNING' });
+  assert.throws(() => updates.setChannel('beta'), { status: 409 });
 });
 
 test('spawn errors are persisted and a retry is allowed', async (t) => {
-  writeUpdateStatusFile({ state: 'idle', runnerPid: null });
+  writeUpdateStatus({ state: 'idle', runnerPid: null });
   const updates = service(t, () => {
     const result = child();
     process.nextTick(() => result.emit('error', new Error('Cannot launch Node')));
     return result;
   });
-  await assert.rejects(updates.startUpdate(), /Cannot launch Node/);
+  updates.start();
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(readUpdateStatus().state, 'failed');
   assert.match(readUpdateStatus().message, /Cannot launch Node/);
-  assert.equal(updates.setUpdateChannel('beta').releaseChannel, 'beta');
+  assert.equal((await updates.setChannel('beta')).channel, 'beta');
 });
 
-test('systemd updates use an independent scope and preserve the installation environment', async (t) => {
+test('systemd updates use an independent scope and preserve the installation environment', (t) => {
   const platform = Object.getOwnPropertyDescriptor(process, 'platform');
   Object.defineProperty(process, 'platform', { value: 'linux' });
   t.after(() => Object.defineProperty(process, 'platform', platform));
@@ -70,7 +73,7 @@ test('systemd updates use an independent scope and preserve the installation env
     if (invocation === undefined) delete process.env.INVOCATION_ID;
     else process.env.INVOCATION_ID = invocation;
   });
-  writeUpdateStatusFile({ state: 'idle', runnerPid: null });
+  writeUpdateStatus({ state: 'idle', runnerPid: null });
   const updates = service(t, (command, args) => {
     assert.equal(command, 'systemd-run');
     assert.deepEqual(args.slice(0, 4), ['--user', '--scope', '--quiet', '--collect']);
@@ -79,20 +82,34 @@ test('systemd updates use an independent scope and preserve the installation env
     process.nextTick(() => result.emit('spawn'));
     return result;
   });
-  await updates.startUpdate();
+  updates.start();
 });
 
-test('configured channel and deployment flags stay current within the version cache', (t) => {
-  const { getVersionInfo } = require('../../../server/utils/version');
-  writeUpdateStatusFile({ state: 'completed', runnerPid: null, releaseChannel: 'stable' });
+test('containers and managed deployments cannot update themselves', async (t) => {
+  writeUpdateStatus({ state: 'idle', runnerPid: null });
   const updates = service(t, () => { throw new Error('Should not spawn'); });
-  updates.setUpdateChannel('stable');
-  assert.equal(getVersionInfo().releaseChannel, 'stable');
-  updates.setUpdateChannel('beta');
-  assert.equal(getVersionInfo().releaseChannel, 'beta');
   process.env.NEOAGENT_CONTAINER_IMAGE = '1';
   t.after(() => { delete process.env.NEOAGENT_CONTAINER_IMAGE; });
-  assert.equal(getVersionInfo().containerImage, true);
-  assert.equal(getVersionInfo().allowSelfUpdate, false);
-  assert.throws(() => updates.setUpdateChannel('stable'), { status: 403 });
+  assert.equal(updates.status().blockedReason, 'container');
+  assert.equal(updates.status().selfUpdate, false);
+  assert.throws(() => updates.start(), { status: 409, code: 'UPDATE_CONTAINER' });
+  assert.throws(() => updates.setChannel('stable'), { status: 409 });
+  delete process.env.NEOAGENT_CONTAINER_IMAGE;
+  process.env.NEOAGENT_DEPLOYMENT_MODE = 'managed';
+  t.after(() => { delete process.env.NEOAGENT_DEPLOYMENT_MODE; });
+  assert.equal(updates.status().blockedReason, 'managed');
+  assert.throws(() => updates.start(), { status: 409, code: 'UPDATE_MANAGED' });
+});
+
+test('the status has the documented shape and an unknown channel is refused', async (t) => {
+  writeUpdateStatus({ state: 'idle', runnerPid: null });
+  const updates = service(t, () => { throw new Error('Should not spawn'); });
+  const status = updates.status();
+  assert.deepEqual(Object.keys(status.job).sort(), [
+    'changelog', 'completedAt', 'logs', 'message', 'phase', 'progress', 'rolledBack',
+    'startedAt', 'state', 'versionAfter', 'versionBefore',
+  ]);
+  assert.equal(status.available, null);
+  assert.throws(() => updates.setChannel('nightly'), { status: 400, code: 'INVALID_CHANNEL' });
+  assert.equal((await updates.setChannel('stable')).channel, 'stable');
 });

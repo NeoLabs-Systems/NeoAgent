@@ -810,10 +810,11 @@ class _OverviewCard extends StatelessWidget {
 }
 
 class _EmptyCard extends StatelessWidget {
-  const _EmptyCard({required this.title, required this.subtitle});
+  const _EmptyCard({required this.title, required this.subtitle, this.action});
 
   final String title;
   final String subtitle;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -821,7 +822,16 @@ class _EmptyCard extends StatelessWidget {
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(34),
-          child: _EmptyState(title: title, subtitle: subtitle),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              _EmptyState(title: title, subtitle: subtitle),
+              if (action != null) ...<Widget>[
+                const SizedBox(height: AppSpacing.md),
+                action!,
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -3821,4 +3831,135 @@ String _relativeTime(DateTime time) {
   ];
   final date = appStrings.arg1Arg23(months[time.month - 1], time.day);
   return time.year == now.year ? date : appStrings.arg1Arg23(date, time.year);
+}
+
+/// Dialog content with a persistent scroll affordance and an owned controller.
+class _ScrollableDialogBody extends StatefulWidget {
+  const _ScrollableDialogBody({required this.width, required this.child});
+
+  final double width;
+  final Widget child;
+
+  @override
+  State<_ScrollableDialogBody> createState() => _ScrollableDialogBodyState();
+}
+
+class _ScrollableDialogBodyState extends State<_ScrollableDialogBody> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: widget.width,
+      child: Scrollbar(
+        controller: _scrollController,
+        thumbVisibility: true,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          padding: const EdgeInsets.only(right: AppSpacing.md),
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+
+/// Keeps failures above the actions, inside the dialog that needs attention.
+class _DialogFormActions extends StatelessWidget {
+  const _DialogFormActions({
+    required this.onSubmit,
+    required this.submitLabel,
+    required this.busy,
+    this.busyLabel,
+    this.error,
+  });
+
+  final VoidCallback onSubmit;
+  final String submitLabel;
+  final bool busy;
+  final String? busyLabel;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        if (error != null) ...<Widget>[
+          Semantics(liveRegion: true, child: _InlineError(message: error!)),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+        Align(
+          alignment: Alignment.centerRight,
+          child: Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: <Widget>[
+              OutlinedButton(
+                onPressed: busy ? null : () => Navigator.of(context).pop(),
+                child: Text(appStrings.cancel),
+              ),
+              FilledButton(
+                onPressed: busy ? null : onSubmit,
+                child: Text(
+                  busy ? busyLabel ?? appStrings.saving : submitLabel,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Bring the first invalid field into view even when it is below the fold.
+bool _validateDialogForm(GlobalKey<FormState> key) {
+  final invalid = key.currentState!.validateGranularly();
+  if (invalid.isEmpty) return true;
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final field = invalid.first;
+    if (field.mounted) {
+      unawaited(Scrollable.ensureVisible(field.context, alignment: 0.15));
+    }
+  });
+  return false;
+}
+
+/// Ties dialog resources to a dialog's lifetime. The future from showDialog
+/// completes when the dialog starts closing, while its fields still animate out
+/// and use them; this state is only disposed once the route is really gone.
+class _DisposesDialogResources extends StatefulWidget {
+  const _DisposesDialogResources({
+    required this.resources,
+    required this.child,
+  });
+
+  final Iterable<ChangeNotifier> resources;
+  final Widget child;
+
+  @override
+  State<_DisposesDialogResources> createState() =>
+      _DisposesDialogResourcesState();
+}
+
+class _DisposesDialogResourcesState extends State<_DisposesDialogResources> {
+  @override
+  void dispose() {
+    for (final controller in widget.resources) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

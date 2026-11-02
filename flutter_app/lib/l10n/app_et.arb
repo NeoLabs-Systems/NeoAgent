@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Muutke seadistusrežiimi",
   "channel": "Kanal",
   "channelAccessToken": "Kanali juurdepääsuluba",
-  "channelArg1Arg2UpdateVersionArg3": "Kanal: {arg1}{arg2} | Värskendatud versioon: {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Kanali ulatusega sotsiaalne mälu",
   "channels": "Kanalid",
   "chat": "Vestlus",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "Installige APK – klõpsake või pukseerige apk-fail",
   "installNeoagent": "Installige NeoAgent",
   "installNeoagentOnThisComputerWithout": "Installige NeoAgent sellesse arvutisse ilma terminalita või ühendage juba töötava terminaliga.",
-  "installNewReleasesAndChooseWhich": "Installige uued versioonid ja valige, millist kanalit see server järgib.",
   "installTheBackend": "Installige taustaprogramm",
   "installTheCoreWithExtraOptional": "Paigaldage tuum täiendava valikulise seadistusega. AI pakkuja võtmed lisatakse hiljem samamoodi nagu Quickstart.",
   "installTheSecureCoreThenCreate": "Installige turvatuum ja looge seejärel oma konto. Seejärel lisage tehisintellekti pakkuja võtmed.",
-  "installedArg1": " | Paigaldatud: {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Paigaldatud: {arg1} • Viimati kontrollitud: {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "NeoAgenti silumise teave",
   "neoagentDesktopInstaller": "NeoAgent Desktop Installer",
   "neoagentFlutterUpdater": "NeoAgent Flutter Updater",
-  "neoagentInstallsTheLatestArg1": "NeoAgent installib uusima {arg1} ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "NeoAgent on installitud ja töötab.",
   "neoagentIsNotInstalledOnThis": "NeoAgent pole sellesse arvutisse installitud.",
   "neoagentIsReady": "NeoAgent on valmis",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "Värskendus ei tööta",
   "noUsageYet": "Pole veel kasutust.",
   "noVerifiedNeoagentBackendRuntimeIs": "Kontrollitud NeoAgenti taustaprogrammi käitusaeg pole veel saadaval.",
   "nobodyCanUseItAnyMore": "Keegi ei saa seda enam kasutada. Inimesed, kes on juba liitunud ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "registreerimine on suletud",
   "registrationRegisterNewAccountsAllowSignup": "registreerimine registreerige uued kontod võimaldavad registreeruda",
   "rejectInvalidTlsCertificates": "Keeldu kehtetutest TLS-sertifikaatidest",
-  "releaseAndRestartsConnectedAppsReconnect": "vabastada ja taaskäivitada. Ühendatud rakendused ühendavad uuesti, kui see on tagasi.",
   "releaseChannel": "Vabasta kanal",
   "releaseCommitBranchNode": "vabasta commit harusõlme",
   "releaseWhenYouAreDone": "Vabastage, kui olete lõpetanud.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Kestus: {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Käitusaja seaded, millega see server algas. Redigeerige neid all ",
-  "runtimeSetupRequired": "Nõutav käitusaja seadistus",
   "runtimeSigningPublicKeyMustBe": "Käitusaja allkirjastamise avalik võti peab olema 32 baiti.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "Salvesta",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "See integratsioon toetab praegu ühte ühendatud kontot agendi kohta. Selle asendamiseks avage seadistus uuesti.",
   "thisIntegrationIsNoLongerAvailable": "See integratsioon pole enam saadaval.",
   "thisIntroIsDesignedForFull": "See sissejuhatus on mõeldud täisekraanil maastiku taasesitamiseks.",
-  "thisIsAManagedDeploymentIts": "See on hallatud juurutus. Selle operaator veereb välja ",
   "thisMayTakeAMoment": "See võib võtta hetke.",
   "thisMcpServerIsNoLonger": "See MCP-server pole enam konfigureeritud.",
   "thisMemoryWillBeRemovedPermanently": "See mälu eemaldatakse jäädavalt.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Värskendus valmis",
   "updateSetup": "Värskenda seadistust",
   "updateTheAccessListToAllow": "Vastuste lubamiseks värskendage juurdepääsuloendit.",
-  "updateTheServer": "Kas värskendada serverit?",
   "updateTheServer2": "Värskendage serverit",
   "updateTheTimeZoneAutomaticallyFrom": "Värskendage kasutatavas seadmes ajavööndit automaatselt.",
   "updatedArg1": "värskendatud {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Värskendused",
   "updatesAreNotConfiguredForThis": "Selle järgu jaoks pole värskendusi konfigureeritud.",
-  "updatesSoSelfUpdateAndChannel": "värskendused, seega on enesevärskendused ja kanalimuudatused siin välja lülitatud.",
   "upgradeUpdateNowReleaseChannelStable": "uuenda värskendus nüüd vabasta kanali stabiilne beetaversioon",
   "usageAnalytics": "Kasutusanalüütika",
   "usageAndHealthSignalsThatHelp": "Kasutus- ja tervisesignaalid, mis aitavad selgitada praegust käitusaja käitumist ilma logisid esmalt uurimata.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Liitub grupivestlustega",
   "label1PersonOrGroupAdded": "Lisatud on 1 inimene või grupp",
   "inProgress": "Pooleli",
-  "waitingForUpdateJobOutput": "Värskendustöö väljundi ootamine…",
   "taskTrigger": "Ülesande käivitaja",
   "bearerToken": "Kandja märk",
   "bearerToken2": "Kandja märk",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "Turvavõtit ei saanud kasutada.",
   "connecting": "Ühendamine…",
   "changes": "Muudatused",
-  "runtimeReady": "Tööaeg valmis",
   "saving": "Salvestamine...",
   "earlier": "Varem",
   "monthJan": "jaan",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (vaikeseade)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Filiaal: {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"

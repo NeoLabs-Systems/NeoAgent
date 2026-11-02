@@ -41,10 +41,15 @@ class AgentsPanel extends StatelessWidget {
                       ),
                     ),
                     if (agent.isDefault)
-                      _StatusPill(label: 'Default', color: _accentHover),
+                      _StatusPill(
+                        label: appStrings.default2,
+                        color: _accentHover,
+                      ),
                     const SizedBox(width: 8),
                     _StatusPill(
-                      label: agent.status,
+                      label: agent.status == 'active'
+                          ? appStrings.active
+                          : appStrings.paused,
                       color: agent.status == 'active'
                           ? _success
                           : _textSecondary,
@@ -78,8 +83,8 @@ class AgentsPanel extends StatelessWidget {
                       onPressed: () => controller.switchAgent(agent.id),
                       child: Text(
                         controller.selectedAgentId == agent.id
-                            ? 'Selected'
-                            : 'Switch',
+                            ? appStrings.uxSelected
+                            : appStrings.switchAgent,
                       ),
                     ),
                     OutlinedButton(
@@ -131,6 +136,10 @@ class AgentsPanel extends StatelessWidget {
     final instructionsController = TextEditingController(
       text: agent?.instructions ?? '',
     );
+    final formKey = GlobalKey<FormState>();
+    var slugEdited = agent != null;
+    var saving = false;
+    String? saveError;
     var status = agent?.status ?? 'active';
     var canDelegate = agent?.canDelegate ?? false;
     var canBeDelegatedTo = agent?.canBeDelegatedTo ?? true;
@@ -141,194 +150,256 @@ class AgentsPanel extends StatelessWidget {
     await showDialog<void>(
       context: context,
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setLocalState) {
-            return AlertDialog(
-              backgroundColor: _bgCard,
-              title: Text(agent == null ? 'Add Agent' : appStrings.editAgent),
-              content: SizedBox(
-                width: 720,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      TextField(
-                        controller: nameController,
-                        decoration: InputDecoration(labelText: appStrings.name),
-                        onChanged: (value) {
-                          if (agent == null && slugController.text.isEmpty) {
-                            slugController.text = value
-                                .trim()
-                                .toLowerCase()
-                                .replaceAll(RegExp(r'[^a-z0-9_-]+'), '-')
-                                .replaceAll(RegExp(r'^-+|-+$'), '');
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: slugController,
-                        decoration: const InputDecoration(labelText: 'Slug'),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: descriptionController,
-                        decoration: InputDecoration(
-                          labelText: appStrings.description,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: responsibilitiesController,
-                        minLines: 3,
-                        maxLines: 6,
-                        decoration: InputDecoration(
-                          labelText: appStrings.responsibilities,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: instructionsController,
-                        minLines: 4,
-                        maxLines: 8,
-                        decoration: InputDecoration(
-                          labelText: appStrings.instructions,
-                          helperText:
-                              appStrings.optionalTheAgentAlreadyHasIts,
-                          helperMaxLines: 3,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        initialValue: status,
-                        decoration: InputDecoration(labelText: appStrings.status),
-                        items: <DropdownMenuItem<String>>[
-                          DropdownMenuItem(
-                            value: 'active',
-                            child: Text(appStrings.active),
+        return _DisposesDialogResources(
+          resources: <ChangeNotifier>[
+            nameController,
+            slugController,
+            descriptionController,
+            responsibilitiesController,
+            instructionsController,
+          ],
+          child: StatefulBuilder(
+            builder: (context, setLocalState) {
+              return AlertDialog(
+                backgroundColor: _bgCard,
+                title: Text(
+                  agent == null ? appStrings.addAgent : appStrings.editAgent,
+                ),
+                content: _ScrollableDialogBody(
+                  width: 720,
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        TextFormField(
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                          controller: nameController,
+                          autofocus: true,
+                          validator: (value) =>
+                              value == null || value.trim().isEmpty
+                              ? appStrings.agentNameRequired
+                              : null,
+                          decoration: InputDecoration(
+                            labelText: appStrings.name,
                           ),
-                          DropdownMenuItem(
-                            value: 'paused',
-                            child: Text(appStrings.paused),
+                          onChanged: (value) {
+                            if (!slugEdited) {
+                              final suggested = value
+                                  .trim()
+                                  .toLowerCase()
+                                  .replaceAll(RegExp(r'[^a-z0-9_-]+'), '-')
+                                  .replaceAll(RegExp(r'^-+|-+$'), '');
+                              slugController.text = suggested.length > 48
+                                  ? suggested.substring(0, 48)
+                                  : suggested;
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                          controller: slugController,
+                          maxLength: 48,
+                          validator: (value) =>
+                              value == null ||
+                                  !RegExp(
+                                    r'^[a-z0-9_-]{1,48}$',
+                                  ).hasMatch(value.trim())
+                              ? appStrings.agentIdentifierInvalid
+                              : null,
+                          decoration: InputDecoration(
+                            labelText: appStrings.agentIdentifier,
+                            counterText: '',
+                            helperText: appStrings.agentIdentifierHint,
+                            helperMaxLines: 3,
                           ),
-                        ],
-                        onChanged: (value) =>
-                            setLocalState(() => status = value ?? 'active'),
-                      ),
-                      const SizedBox(height: 16),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          appStrings.agentCommunication,
-                          style: Theme.of(context).textTheme.titleSmall,
+                          onChanged: (_) =>
+                              slugEdited = slugController.text.isNotEmpty,
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        value: canDelegate,
-                        title: Text(appStrings.canDelegateTasksToOtherAgents),
-                        subtitle: Text(
-                          appStrings.useThisForOrchestratorAgentsLeave,
-                        ),
-                        onChanged: (value) =>
-                            setLocalState(() => canDelegate = value),
-                      ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        value: canBeDelegatedTo,
-                        title: Text(appStrings.canReceiveDelegatedTasks),
-                        subtitle: Text(
-                          appStrings.turnThisOffToKeepThis,
-                        ),
-                        onChanged: (value) =>
-                            setLocalState(() => canBeDelegatedTo = value),
-                      ),
-                      if (canDelegate) ...<Widget>[
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          value: restrictDelegateTargets,
-                          title: Text(appStrings.restrictDelegationTargets),
-                          subtitle: Text(
-                            restrictDelegateTargets
-                                ? 'Only selected agents can receive tasks from this agent.'
-                                : appStrings.thisAgentCanDelegateToAny,
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: descriptionController,
+                          decoration: InputDecoration(
+                            labelText: appStrings.description,
                           ),
-                          onChanged: (value) => setLocalState(() {
-                            restrictDelegateTargets = value;
-                            if (!value) delegateTargets.clear();
-                          }),
                         ),
-                        if (restrictDelegateTargets) ...<Widget>[
-                          const SizedBox(height: 6),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: controller.agentProfiles
-                                  .where((target) => target.id != agent?.id)
-                                  .map((target) {
-                                    final selected = delegateTargets.contains(
-                                      target.id,
-                                    );
-                                    return FilterChip(
-                                      label: Text(target.displayName),
-                                      selected: selected,
-                                      onSelected: (value) => setLocalState(() {
-                                        if (value) {
-                                          delegateTargets.add(target.id);
-                                        } else {
-                                          delegateTargets.remove(target.id);
-                                        }
-                                      }),
-                                    );
-                                  })
-                                  .toList(),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: responsibilitiesController,
+                          minLines: 3,
+                          maxLines: 6,
+                          decoration: InputDecoration(
+                            labelText: appStrings.responsibilities,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ExpansionTile(
+                          tilePadding: EdgeInsets.zero,
+                          title: Text(appStrings.uxAdvancedSettings),
+                          children: <Widget>[
+                            TextField(
+                              controller: instructionsController,
+                              minLines: 4,
+                              maxLines: 8,
+                              decoration: InputDecoration(
+                                labelText: appStrings.instructions,
+                                helperText:
+                                    appStrings.optionalTheAgentAlreadyHasIts,
+                                helperMaxLines: 3,
+                              ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 12),
+                            DropdownButtonFormField<String>(
+                              initialValue: status,
+                              decoration: InputDecoration(
+                                labelText: appStrings.status,
+                              ),
+                              items: <DropdownMenuItem<String>>[
+                                DropdownMenuItem(
+                                  value: 'active',
+                                  child: Text(appStrings.active),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'paused',
+                                  child: Text(appStrings.paused),
+                                ),
+                              ],
+                              onChanged: (value) => setLocalState(
+                                () => status = value ?? 'active',
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                appStrings.agentCommunication,
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              value: canDelegate,
+                              title: Text(
+                                appStrings.canDelegateTasksToOtherAgents,
+                              ),
+                              subtitle: Text(
+                                appStrings.useThisForOrchestratorAgentsLeave,
+                              ),
+                              onChanged: (value) =>
+                                  setLocalState(() => canDelegate = value),
+                            ),
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              value: canBeDelegatedTo,
+                              title: Text(appStrings.canReceiveDelegatedTasks),
+                              subtitle: Text(appStrings.turnThisOffToKeepThis),
+                              onChanged: (value) =>
+                                  setLocalState(() => canBeDelegatedTo = value),
+                            ),
+                            if (canDelegate) ...<Widget>[
+                              SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                value: restrictDelegateTargets,
+                                title: Text(
+                                  appStrings.restrictDelegationTargets,
+                                ),
+                                subtitle: Text(
+                                  restrictDelegateTargets
+                                      ? appStrings.uxSelectedDelegationTargets
+                                      : appStrings.thisAgentCanDelegateToAny,
+                                ),
+                                onChanged: (value) => setLocalState(() {
+                                  restrictDelegateTargets = value;
+                                  if (!value) delegateTargets.clear();
+                                }),
+                              ),
+                              if (restrictDelegateTargets) ...<Widget>[
+                                const SizedBox(height: 6),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: controller.agentProfiles
+                                        .where(
+                                          (target) => target.id != agent?.id,
+                                        )
+                                        .map((target) {
+                                          final selected = delegateTargets
+                                              .contains(target.id);
+                                          return FilterChip(
+                                            label: Text(target.displayName),
+                                            selected: selected,
+                                            onSelected: (value) =>
+                                                setLocalState(() {
+                                                  if (value) {
+                                                    delegateTargets.add(
+                                                      target.id,
+                                                    );
+                                                  } else {
+                                                    delegateTargets.remove(
+                                                      target.id,
+                                                    );
+                                                  }
+                                                }),
+                                          );
+                                        })
+                                        .toList(),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ],
+                        ),
                       ],
-                    ],
+                    ),
                   ),
                 ),
-              ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(appStrings.cancel),
-                ),
-                FilledButton(
-                  onPressed: () async {
-                    final saved = await controller.saveAgentProfile(
-                      id: agent?.id,
-                      displayName: nameController.text.trim(),
-                      slug: slugController.text.trim(),
-                      description: descriptionController.text.trim(),
-                      responsibilities: responsibilitiesController.text.trim(),
-                      instructions: instructionsController.text.trim(),
-                      status: status,
-                      canDelegate: canDelegate,
-                      canBeDelegatedTo: canBeDelegatedTo,
-                      delegateTargets: restrictDelegateTargets
-                          ? delegateTargets.toList(growable: false)
-                          : const <String>[],
-                    );
-                    if (!context.mounted) return;
-                    if (saved) {
-                      Navigator.of(context).pop();
-                    } else {
-                      _showFormError(
-                        context,
-                        controller.errorMessage ?? appStrings.couldNotSaveAgent,
+                actions: <Widget>[
+                  _DialogFormActions(
+                    busy: saving,
+                    error: saveError,
+                    submitLabel: appStrings.save,
+                    onSubmit: () async {
+                      if (!_validateDialogForm(formKey)) return;
+                      setLocalState(() {
+                        saving = true;
+                        saveError = null;
+                      });
+                      final saved = await controller.saveAgentProfile(
+                        id: agent?.id,
+                        displayName: nameController.text.trim(),
+                        slug: slugController.text.trim(),
+                        description: descriptionController.text.trim(),
+                        responsibilities: responsibilitiesController.text
+                            .trim(),
+                        instructions: instructionsController.text.trim(),
+                        status: status,
+                        canDelegate: canDelegate,
+                        canBeDelegatedTo: canBeDelegatedTo,
+                        delegateTargets: restrictDelegateTargets
+                            ? delegateTargets.toList(growable: false)
+                            : const <String>[],
                       );
-                    }
-                  },
-                  child: Text(appStrings.save),
-                ),
-              ],
-            );
-          },
+                      if (!context.mounted) return;
+                      if (saved) {
+                        Navigator.of(context).pop();
+                      } else {
+                        setLocalState(() {
+                          saving = false;
+                          saveError =
+                              controller.errorMessage ??
+                              appStrings.couldNotSaveAgent;
+                        });
+                      }
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
         );
       },
     );
@@ -343,7 +414,11 @@ class AgentsPanel extends StatelessWidget {
       agent.canDelegate
           ? (agent.delegatesToAnyEligibleAgent
                 ? appStrings.canDelegateToAnyReceivingAgent
-                : appStrings.canDelegateToArg1(agent.delegateTargets.map(controller.agentLabelFor).join(', ')))
+                : appStrings.canDelegateToArg1(
+                    agent.delegateTargets
+                        .map(controller.agentLabelFor)
+                        .join(', '),
+                  ))
           : appStrings.handlesDirectTasksItself,
     );
     parts.add(
@@ -418,7 +493,9 @@ class McpServerDetailView extends StatelessWidget {
                   icon: Icons.lock_outline,
                 ),
                 _MetaPill(
-                  label: appStrings.agentArg1(controller.agentLabelFor(server.agentId)),
+                  label: appStrings.agentArg1(
+                    controller.agentLabelFor(server.agentId),
+                  ),
                   icon: Icons.smart_toy_outlined,
                 ),
               ],
@@ -461,8 +538,7 @@ class McpServerDetailView extends StatelessWidget {
                   onPressed: () => _confirmDelete(
                     context,
                     title: appStrings.deleteMcpServer,
-                    message:
-                        appStrings.thisWillRemoveArg1FromThe(server.name),
+                    message: appStrings.thisWillRemoveArg1FromThe(server.name),
                     onConfirm: () async {
                       await controller.deleteMcpServer(server.id);
                       if (context.mounted) {
@@ -471,7 +547,10 @@ class McpServerDetailView extends StatelessWidget {
                     },
                   ),
                   icon: Icon(Icons.delete_outline, color: _danger),
-                  label: Text(appStrings.delete, style: TextStyle(color: _danger)),
+                  label: Text(
+                    appStrings.delete,
+                    style: TextStyle(color: _danger),
+                  ),
                 ),
               ],
             ),
@@ -520,7 +599,9 @@ Future<void> _openMcpEditor(
         builder: (context, setLocalState) {
           return AlertDialog(
             backgroundColor: _bgCard,
-            title: Text(server == null ? 'Add MCP Server' : appStrings.editMcpServer),
+            title: Text(
+              server == null ? 'Add MCP Server' : appStrings.editMcpServer,
+            ),
             content: SizedBox(
               width: 720,
               child: SingleChildScrollView(
@@ -545,7 +626,10 @@ Future<void> _openMcpEditor(
                         labelText: appStrings.authMethod,
                       ),
                       items: <DropdownMenuItem<String>>[
-                        DropdownMenuItem(value: 'none', child: Text(appStrings.none)),
+                        DropdownMenuItem(
+                          value: 'none',
+                          child: Text(appStrings.none),
+                        ),
                         DropdownMenuItem(
                           value: 'bearer',
                           child: Text(appStrings.bearerToken2),
@@ -757,7 +841,9 @@ class HealthPanel extends StatelessWidget {
                     ? appStrings.syncOnceToSeedYourBackend
                     : lastWindowEnd == null
                     ? appStrings.lastWindowEndIsUnknown
-                    : appStrings.lastWindowEndedArg1(_formatTimestamp(lastWindowEnd)),
+                    : appStrings.lastWindowEndedArg1(
+                        _formatTimestamp(lastWindowEnd),
+                      ),
               ),
             ),
           ],
@@ -820,7 +906,9 @@ class HealthPanel extends StatelessWidget {
                       child: Text(
                         lastWindowEnd == null
                             ? 'The latest sync completed successfully but did not find any new Health Connect records. Stored metrics below came from earlier syncs.'
-                            : appStrings.theLatestSyncWindowEndedArg1(_formatTimestamp(lastWindowEnd)),
+                            : appStrings.theLatestSyncWindowEndedArg1(
+                                _formatTimestamp(lastWindowEnd),
+                              ),
                         style: TextStyle(color: _textSecondary),
                       ),
                     ),
@@ -832,7 +920,9 @@ class HealthPanel extends StatelessWidget {
                   Text(
                     lastNonEmptyWindowEnd == null
                         ? appStrings.lastNonEmptySync
-                        : appStrings.lastNonEmptySyncArg1(_formatTimestamp(lastNonEmptyWindowEnd)),
+                        : appStrings.lastNonEmptySyncArg1(
+                            _formatTimestamp(lastNonEmptyWindowEnd),
+                          ),
                     style: TextStyle(
                       color: _textSecondary,
                       fontWeight: FontWeight.w700,
@@ -855,8 +945,10 @@ class HealthPanel extends StatelessWidget {
                     ) {
                       return _MetaPill(
                         icon: Icons.favorite_border,
-                        label:
-                            appStrings.arg1Arg2Samples(map['metricType'], map['sampleCount']),
+                        label: appStrings.arg1Arg2Samples(
+                          map['metricType'],
+                          map['sampleCount'],
+                        ),
                       );
                     }).toList(),
                   ),

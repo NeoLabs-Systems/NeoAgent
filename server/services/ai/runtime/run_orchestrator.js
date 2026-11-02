@@ -690,7 +690,7 @@ class DurableRunRuntime {
       // The heartbeat keeps a run that sits inside a long tool or model call
       // from going silent. Background automation reports through its own
       // delivery target, so it stays off there.
-      if (triggerSource !== 'schedule' && triggerSource !== 'tasks' && triggerType !== 'subagent') {
+      if (!options.taskId && triggerType !== 'subagent') {
         session.progressBroker.start();
       }
       const outcome = await runAgentLoop(session);

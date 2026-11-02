@@ -6,6 +6,7 @@ enum _AdminTab {
   providers,
   models,
   integrations,
+  messaging,
   config,
   analytics,
   sql,
@@ -15,7 +16,7 @@ extension on _AdminTab {
   String get label {
     switch (this) {
       case _AdminTab.users:
-        return 'Users';
+        return appStrings.uxAdminUsers;
       case _AdminTab.server:
         return appStrings.server;
       case _AdminTab.providers:
@@ -24,10 +25,12 @@ extension on _AdminTab {
         return appStrings.models;
       case _AdminTab.integrations:
         return appStrings.integrations;
+      case _AdminTab.messaging:
+        return appStrings.adminTabMessaging;
       case _AdminTab.config:
-        return 'Configuration';
+        return appStrings.uxAdminConfiguration;
       case _AdminTab.analytics:
-        return 'Analytics';
+        return appStrings.uxAdminAnalytics;
       case _AdminTab.sql:
         return 'SQL';
     }
@@ -45,6 +48,8 @@ extension on _AdminTab {
         return Icons.view_list_outlined;
       case _AdminTab.integrations:
         return Icons.extension_outlined;
+      case _AdminTab.messaging:
+        return Icons.forum_outlined;
       case _AdminTab.config:
         return Icons.tune;
       case _AdminTab.analytics:
@@ -129,7 +134,7 @@ List<_AdminSearchEntry> _adminSearchIndex = <_AdminSearchEntry>[
     appStrings.updateTheServer2,
     _AdminTab.server,
     appStrings.upgradeUpdateNowReleaseChannelStable,
-    card: 'Updates',
+    card: appStrings.updates,
   ),
   _AdminSearchEntry(
     appStrings.healthChecks,
@@ -281,6 +286,11 @@ List<_AdminSearchEntry> _adminSearchIndex = <_AdminSearchEntry>[
     card: appStrings.sharedUsageTitle,
   ),
   _AdminSearchEntry(
+    appStrings.adminTabMessaging,
+    _AdminTab.messaging,
+    appStrings.adminMessagingSearchKeywords,
+  ),
+  _AdminSearchEntry(
     appStrings.sqlConsole,
     _AdminTab.sql,
     appStrings.databaseQuerySelectCsvTemplates,
@@ -302,12 +312,23 @@ class AdminPanel extends StatefulWidget {
 class _AdminPanelState extends State<AdminPanel> {
   final TextEditingController _search = TextEditingController();
   _AdminTab _tab = _AdminTab.users;
+  late final _AdminUpdateWatcher _updates = _AdminUpdateWatcher(
+    widget.controller.backendClient,
+    widget.controller.backendUrl,
+  );
 
   /// Card to bring into view after opening a search result.
   String? _targetCard;
 
   @override
+  void initState() {
+    super.initState();
+    _updates.load();
+  }
+
+  @override
   void dispose() {
+    _updates.dispose();
     _search.dispose();
     super.dispose();
   }
@@ -349,6 +370,7 @@ class _AdminPanelState extends State<AdminPanel> {
           },
         ),
         const SizedBox(height: 14),
+        _AdminUpdateBanner(watcher: _updates),
         if (query.isNotEmpty)
           _AdminSearchResults(
             results: results,
@@ -380,7 +402,7 @@ class _AdminPanelState extends State<AdminPanel> {
           ],
         );
       case _AdminTab.server:
-        return _AdminServerTab(controller: controller);
+        return _AdminServerTab(controller: controller, updates: _updates);
       case _AdminTab.providers:
         return _SectionStack(
           children: <Widget>[
@@ -392,6 +414,22 @@ class _AdminPanelState extends State<AdminPanel> {
         return _AdminModelsTab(controller: controller);
       case _AdminTab.integrations:
         return _AdminIntegrationsTab(controller: controller);
+      case _AdminTab.messaging:
+        return SharedAccountsPanel(
+          repository: BackendSharedAccountsRepository(
+            client: controller.backendClient,
+            baseUrl: controller.backendUrl,
+          ),
+          lookFor: (platform) {
+            final look = _messagingPlatformById(platform);
+            return SharedPlatformLook(
+              label: look?.label ?? platform,
+              icon: look?.icon ?? Icons.forum_outlined,
+              color: look?.accent ?? _accent,
+            );
+          },
+          describeError: controller.friendlyErrorMessage,
+        );
       case _AdminTab.config:
         return _AdminConfigTab(controller: controller);
       case _AdminTab.analytics:

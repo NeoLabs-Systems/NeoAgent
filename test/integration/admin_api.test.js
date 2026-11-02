@@ -50,9 +50,11 @@ describe('admin API', () => {
 
   test('server updates are admin-only', async () => {
     const client = await signedIn(member);
-    const update = await client.post('/api/settings/update').expect(403);
+    await client.get('/api/admin/update').expect(403);
+    const update = await client.post('/api/admin/update').expect(403);
     assert.equal(update.body.code, 'ADMIN_REQUIRED');
-    const channel = await client.put('/api/settings/update/channel').send({ channel: 'beta' }).expect(403);
+    await client.post('/api/admin/update/check').expect(403);
+    const channel = await client.put('/api/admin/update/channel').send({ channel: 'beta' }).expect(403);
     assert.equal(channel.body.code, 'ADMIN_REQUIRED');
   });
 
@@ -60,9 +62,12 @@ describe('admin API', () => {
     process.env.NEOAGENT_CONTAINER_IMAGE = '1';
     t.after(() => { delete process.env.NEOAGENT_CONTAINER_IMAGE; });
     const client = await signedIn(owner);
-    const update = await client.post('/api/settings/update').expect(403);
-    assert.match(update.body.error, /pulling a newer image/);
-    await client.put('/api/settings/update/channel').send({ channel: 'beta' }).expect(403);
+    const update = await client.post('/api/admin/update').expect(409);
+    assert.equal(update.body.code, 'UPDATE_CONTAINER');
+    assert.match(update.body.error, /Pull the new image/);
+    await client.put('/api/admin/update/channel').send({ channel: 'beta' }).expect(409);
+    const status = await client.get('/api/admin/update').expect(200);
+    assert.equal(status.body.blockedReason, 'container');
   });
 
   test('admins list and search accounts, including who is admin', async () => {

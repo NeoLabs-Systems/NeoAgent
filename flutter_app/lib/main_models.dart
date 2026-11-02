@@ -18,12 +18,15 @@ List<MessagingPlatformDescriptor> get messagingPlatforms =>
         accent: Color(0xFF2AABEE),
         connectMethod: MessagingConnectMethod.config,
         icon: Icons.send_rounded,
+        receivesViaWebhook: false,
+        setupInstructions: appStrings.sharedAccountTelegramStepBot,
         configFields: <MessagingConfigField>[
           MessagingConfigField(
             key: 'botToken',
             label: appStrings.botToken,
             hint: appStrings.fromBotfatherAfterYouCreateThe,
             obscure: true,
+            isRequired: true,
           ),
         ],
       ),
@@ -34,12 +37,14 @@ List<MessagingPlatformDescriptor> get messagingPlatforms =>
         accent: Color(0xFF5865F2),
         connectMethod: MessagingConnectMethod.config,
         icon: Icons.sports_esports_rounded,
+        receivesViaWebhook: false,
         configFields: <MessagingConfigField>[
           MessagingConfigField(
             key: 'token',
             label: appStrings.botToken,
             hint: appStrings.fromTheDiscordDeveloperPortalUnder,
             obscure: true,
+            isRequired: true,
           ),
         ],
       ),
@@ -56,6 +61,7 @@ List<MessagingPlatformDescriptor> get messagingPlatforms =>
             label: appStrings.botToken,
             hint: appStrings.startsWithXoxbFromYourSlack,
             obscure: true,
+            isRequired: true,
           ),
           MessagingConfigField(
             key: 'signingSecret',
@@ -533,6 +539,7 @@ class MessagingConfigField {
     this.defaultValue,
     this.settingsKey,
     this.includeInConfig = true,
+    this.isRequired = false,
   });
 
   final String key;
@@ -543,6 +550,7 @@ class MessagingConfigField {
   final String? defaultValue;
   final String? settingsKey;
   final bool includeInConfig;
+  final bool isRequired;
 
   String get storageKey => settingsKey ?? key;
 }
@@ -559,6 +567,8 @@ class MessagingPlatformDescriptor {
     this.accessCapabilities,
     this.integrationProvider,
     this.integrationApp,
+    this.receivesViaWebhook = true,
+    this.setupInstructions,
   });
 
   final String id;
@@ -574,6 +584,8 @@ class MessagingPlatformDescriptor {
   /// when [connectMethod] is [MessagingConnectMethod.integration].
   final String? integrationProvider;
   final String? integrationApp;
+  final bool receivesViaWebhook;
+  final String? setupInstructions;
 
   String get settingsKey => '${id}_config';
 }
@@ -625,6 +637,10 @@ class MessagingPlatformStatus {
   final Map<String, dynamic> authInfo;
 
   bool get isConnected => status == 'connected';
+
+  /// Reached through this server's instance-wide account, not the user's own.
+  bool get isShared => authInfo['shared'] == true;
+
   bool get isConnecting =>
       status == 'connecting' ||
       status == 'reconnecting' ||
@@ -632,13 +648,20 @@ class MessagingPlatformStatus {
 
   String get statusLabel => status.replaceAll('_', ' ');
 
-  String get authLabel {
+  /// Who this is connected as, when the platform says.
+  String? get identityLabel {
     for (final key in <String>['phoneNumber', 'tag', 'username', 'label']) {
       final value = authInfo[key]?.toString();
       if (value != null && value.trim().isNotEmpty) {
         return key == 'username' ? '@$value' : value;
       }
     }
+    return null;
+  }
+
+  String get authLabel {
+    final identity = identityLabel;
+    if (identity != null) return identity;
     if (lastConnected != null) {
       return appStrings.lastSeenArg1(_formatTimestamp(lastConnected!));
     }
@@ -2790,128 +2813,6 @@ class TokenUsageSnapshot {
       : '\$${estimatedCostUsd!.toStringAsFixed(4)}';
 }
 
-class UpdateStatusSnapshot {
-  const UpdateStatusSnapshot({
-    this.state = 'idle',
-    this.progress = 0,
-    this.message = 'No update running',
-    this.releaseChannel = 'stable',
-    this.allowSelfUpdate = true,
-    this.deploymentMode = 'self_hosted',
-    this.containerImage = false,
-    this.targetBranch,
-    this.versionBefore,
-    this.versionAfter,
-    this.backendVersion,
-    this.installedVersion,
-    this.runtimeValidationReady = true,
-    this.runtimeValidationIssues = const <String>[],
-    this.runtimeAcceleration,
-    this.changelog = const <String>[],
-    this.logs = const <String>[],
-  });
-
-  factory UpdateStatusSnapshot.fromJson(Map<dynamic, dynamic> json) {
-    return UpdateStatusSnapshot(
-      state: json['state']?.toString() ?? 'idle',
-      progress: _asInt(json['progress']).clamp(0, 100),
-      message: json['message']?.toString() ?? appStrings.noUpdateRunning,
-      releaseChannel: json['releaseChannel']?.toString() ?? 'stable',
-      allowSelfUpdate: json['allowSelfUpdate'] != false,
-      deploymentMode: json['deploymentMode']?.toString() ?? 'self_hosted',
-      containerImage: json['containerImage'] == true,
-      targetBranch: json['targetBranch']?.toString(),
-      versionBefore: json['versionBefore']?.toString(),
-      versionAfter: json['versionAfter']?.toString(),
-      backendVersion: json['backendVersion']?.toString(),
-      installedVersion:
-          json['installedVersion']?.toString() ??
-          json['packageVersion']?.toString(),
-      runtimeValidationReady:
-          _jsonMap(json['runtimeValidation'])['ready'] != false,
-      runtimeValidationIssues: _jsonStringList(
-        _jsonMap(json['runtimeValidation'])['issues'],
-        fallbackToMapValues: true,
-      ),
-      runtimeAcceleration: _jsonMap(
-        _jsonMap(json['runtimeValidation'])['vm'],
-      )['acceleration']?.toString(),
-      changelog: _jsonStringList(json['changelog'], fallbackToMapValues: true),
-      logs: _jsonStringList(json['logs'], fallbackToMapValues: true),
-    );
-  }
-
-  final String state;
-  final int progress;
-  final String message;
-  final String releaseChannel;
-  final bool allowSelfUpdate;
-  final String deploymentMode;
-  final bool containerImage;
-  final String? targetBranch;
-  final String? versionBefore;
-  final String? versionAfter;
-  final String? backendVersion;
-  final String? installedVersion;
-  final bool runtimeValidationReady;
-  final List<String> runtimeValidationIssues;
-  final String? runtimeAcceleration;
-  final List<String> changelog;
-  final List<String> logs;
-
-  String get badgeLabel {
-    switch (state) {
-      case 'running':
-        return appStrings.running;
-      case 'completed':
-        return appStrings.completed;
-      case 'failed':
-        return appStrings.failed;
-      default:
-        return appStrings.idle;
-    }
-  }
-
-  Color get badgeColor {
-    switch (state) {
-      case 'running':
-        return _info;
-      case 'completed':
-        return _success;
-      case 'failed':
-        return _danger;
-      default:
-        return _textSecondary;
-    }
-  }
-
-  String get releaseChannelLabel =>
-      releaseChannel.toLowerCase() == 'beta' ? 'Beta' : 'Stable';
-
-  String get runtimeValidationLabel =>
-      runtimeValidationReady ? appStrings.runtimeReady : appStrings.runtimeSetupRequired;
-
-  Color get runtimeValidationColor =>
-      runtimeValidationReady ? _success : _danger;
-
-  String get versionLine {
-    final before = versionBefore?.ifEmpty('—') ?? '—';
-    final after = versionAfter?.ifEmpty('—') ?? '—';
-    final updateVersion = after == '—' ? before : appStrings.arg1Arg211(before, after);
-    final branch = targetBranch?.trim().isNotEmpty == true
-        ? appStrings.branchArg1(targetBranch)
-        : '';
-    final installed = installedVersion == null
-        ? ''
-        : appStrings.installedArg1(installedVersion);
-    final backend = backendVersion == null ? '' : appStrings.runtimeArg12(backendVersion);
-    return appStrings.channelArg1Arg2UpdateVersionArg3(releaseChannelLabel, branch, updateVersion, installed, backend);
-  }
-
-  String get logsText =>
-      logs.isEmpty ? appStrings.waitingForUpdateJobOutput : logs.join('\n');
-}
-
 class LogEntry {
   const LogEntry({
     required this.type,
@@ -3673,6 +3574,7 @@ class TaskItem {
     required this.lastRunStatus,
     required this.lastRunError,
     required this.averageRunSeconds,
+    this.deliveryBlocked = false,
   });
 
   factory TaskItem.fromJson(Map<dynamic, dynamic> json) {
@@ -3698,6 +3600,7 @@ class TaskItem {
         ? Map<String, dynamic>.from(taskConfig['loopBudget'] as Map)
         : const <String, dynamic>{};
     return TaskItem(
+      deliveryBlocked: json['deliveryBlocked'] == true,
       id: _asInt(json['id']),
       agentId: json['agentId']?.toString() ?? json['agent_id']?.toString(),
       name: json['name']?.toString() ?? 'Task',
@@ -3755,6 +3658,9 @@ class TaskItem {
   /// Mean duration of this task's recent completed runs, or null while it has
   /// never completed one.
   final int? averageRunSeconds;
+
+  /// The saved destination can't be reached any more, so results won't arrive.
+  final bool deliveryBlocked;
 
   String get scheduleLabel =>
       triggerSummary.trim().isEmpty ? appStrings.taskTrigger : triggerSummary;

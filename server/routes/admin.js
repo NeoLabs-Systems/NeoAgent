@@ -17,6 +17,7 @@ const {
 } = require('../services/ai/model_visibility');
 const { getAdminEmailSettings, updateAdminEmailSettings } = require('../services/account/service_email_settings');
 const { getServerVersion, runHealthChecks } = require('../services/admin/health');
+const updates = require('../services/admin/updates');
 const { getAnalytics } = require('../services/admin/analytics');
 const { listUsers, deleteUser, revokeUserSessions, resetUserPassword } = require('../services/admin/users');
 const {
@@ -37,6 +38,8 @@ const {
 } = require('../services/admin/server_config');
 const { createSignupKeys, listSignupKeys, revokeSignupKey } = require('../services/access/signup_keys');
 const { getIntegrationSettings, updateIntegrationSettings } = require('../services/admin/integrations');
+const { adminOverview } = require('../services/messaging/shared_connections');
+const { configureConnection, removeConnection } = require('../services/messaging/shared_store');
 const { httpError } = require('../utils/http_error');
 const { jsonHandler, userIdParam } = require('./_helpers/http');
 
@@ -62,6 +65,11 @@ const sqlLimiter = rateLimit({
 // --- Server ---
 
 router.get('/version', jsonHandler(() => getServerVersion()));
+
+router.get('/update', jsonHandler(() => updates.status()));
+router.post('/update/check', settingsLimiter, jsonHandler(() => updates.check()));
+router.post('/update', settingsLimiter, jsonHandler(() => updates.start(), { status: 202 }));
+router.put('/update/channel', settingsLimiter, jsonHandler((req) => updates.setChannel(req.body?.channel)));
 
 router.get('/health', jsonHandler((req) => runHealthChecks(req.app.locals.runtimeManager)));
 
@@ -97,6 +105,28 @@ router.put('/config/rate-limits', jsonHandler((req) => setDefaultRateLimits(req.
 // --- SQL console (read-only) ---
 
 router.post('/sql', sqlLimiter, jsonHandler((req) => runReadOnlyQuery(req.body?.query)));
+
+// --- Shared messaging accounts ---
+
+router.get('/messaging', jsonHandler(() => ({ connections: adminOverview() })));
+
+router.put('/messaging/:platform', settingsLimiter, jsonHandler(async (req) => {
+  configureConnection(req.params.platform, {
+    botToken: req.body?.botToken,
+    enabled: req.body?.enabled,
+    available: req.body?.available,
+    allowPersonal: req.body?.allowPersonal,
+    reconnect: req.body?.reconnect,
+  }, { actorUserId: req.session.userId });
+  await req.app.locals.messagingManager.shared.reconcile();
+  return { connections: adminOverview() };
+}));
+
+router.delete('/messaging/:platform', settingsLimiter, jsonHandler(async (req) => {
+  removeConnection(req.params.platform, { actorUserId: req.session.userId });
+  await req.app.locals.messagingManager.shared.reconcile();
+  return { connections: adminOverview() };
+}));
 
 // --- Access ---
 

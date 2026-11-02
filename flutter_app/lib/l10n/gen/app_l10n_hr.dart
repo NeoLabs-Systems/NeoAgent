@@ -877,11 +877,6 @@ class AppL10nHr extends AppL10n {
   }
 
   @override
-  String arg1Arg211(Object? arg1, Object? arg2) {
-    return '$arg1 -> $arg2';
-  }
-
-  @override
   String arg1Arg215(Object? arg1, Object? arg2) {
     return '$arg1 $arg2 * * 1-5';
   }
@@ -1935,17 +1930,6 @@ class AppL10nHr extends AppL10n {
 
   @override
   String get channelAccessToken => 'Token za pristup kanalu';
-
-  @override
-  String channelArg1Arg2UpdateVersionArg3(
-    Object? arg1,
-    Object? arg2,
-    Object? arg3,
-    Object? arg4,
-    Object? arg5,
-  ) {
-    return 'Kanal: $arg1$arg2 | Ažuriranje verzije: $arg3$arg4$arg5';
-  }
 
   @override
   String get channelScopedSocialMemory => 'Društveno pamćenje s opsegom kanala';
@@ -4024,10 +4008,6 @@ class AppL10nHr extends AppL10n {
       'Instalirajte NeoAgent na ovo računalo bez terminala ili se povežite s onim koji je već pokrenut.';
 
   @override
-  String get installNewReleasesAndChooseWhich =>
-      'Instalirajte nova izdanja i odaberite koji kanal ovaj poslužitelj prati.';
-
-  @override
   String get installTheBackend => 'Instalirajte pozadinu';
 
   @override
@@ -4037,11 +4017,6 @@ class AppL10nHr extends AppL10n {
   @override
   String get installTheSecureCoreThenCreate =>
       'Instalirajte sigurnu jezgru, a zatim kreirajte svoj račun. Nakon toga dodajte ključeve dobavljača umjetne inteligencije.';
-
-  @override
-  String installedArg1(Object? arg1) {
-    return ' | Instalirano: $arg1';
-  }
 
   @override
   String installedArg1LastCheckedArg2(Object? arg1, Object? arg2) {
@@ -4926,11 +4901,6 @@ class AppL10nHr extends AppL10n {
   String get neoagentFlutterUpdater => 'NeoAgent Flutter Updater';
 
   @override
-  String neoagentInstallsTheLatestArg1(Object? arg1) {
-    return 'NeoAgent instalira najnoviji $arg1 ';
-  }
-
-  @override
   String get neoagentIsInstalledAndRunning => 'NeoAgent je instaliran i radi.';
 
   @override
@@ -5383,9 +5353,6 @@ class AppL10nHr extends AppL10n {
   String noToolMatchesArg1(Object? arg1) {
     return 'Nijedan alat ne odgovara \"$arg1\".';
   }
-
-  @override
-  String get noUpdateRunning => 'Nema ažuriranja u tijeku';
 
   @override
   String get noUsageYet => 'Još se ne koristi.';
@@ -6239,10 +6206,6 @@ class AppL10nHr extends AppL10n {
   String get rejectInvalidTlsCertificates => 'Odbaci nevažeće TLS certifikate';
 
   @override
-  String get releaseAndRestartsConnectedAppsReconnect =>
-      'otpustite i ponovno pokrenite. Povezane aplikacije ponovno se povezuju kada se vrati.';
-
-  @override
   String get releaseChannel => 'Oslobodi kanal';
 
   @override
@@ -6611,16 +6574,8 @@ class AppL10nHr extends AppL10n {
   }
 
   @override
-  String runtimeArg12(Object? arg1) {
-    return ' | Vrijeme izvođenja: $arg1';
-  }
-
-  @override
   String get runtimeSettingsThisServerStartedWith =>
       'Postavke vremena izvođenja s kojima je ovaj poslužitelj započeo. Uredite ih pod ';
-
-  @override
-  String get runtimeSetupRequired => 'Potrebna je postavka vremena izvođenja';
 
   @override
   String get runtimeSigningPublicKeyMustBe =>
@@ -7944,10 +7899,6 @@ class AppL10nHr extends AppL10n {
       'Ovaj uvod je dizajniran za pejzažnu reprodukciju preko cijelog zaslona.';
 
   @override
-  String get thisIsAManagedDeploymentIts =>
-      'Ovo je upravljana implementacija. Njegov operater se izbacuje ';
-
-  @override
   String get thisMayTakeAMoment => 'Ovo može potrajati trenutak.';
 
   @override
@@ -8443,9 +8394,6 @@ class AppL10nHr extends AppL10n {
       'Ažurirajte popis pristupa kako biste omogućili odgovore.';
 
   @override
-  String get updateTheServer => 'Ažurirati poslužitelj?';
-
-  @override
   String get updateTheServer2 => 'Ažurirajte poslužitelj';
 
   @override
@@ -8463,10 +8411,6 @@ class AppL10nHr extends AppL10n {
   @override
   String get updatesAreNotConfiguredForThis =>
       'Ažuriranja nisu konfigurirana za ovu verziju.';
-
-  @override
-  String get updatesSoSelfUpdateAndChannel =>
-      'ažuriranja, tako da su samoažuriranje i promjene kanala ovdje isključeni.';
 
   @override
   String get upgradeUpdateNowReleaseChannelStable =>
@@ -9413,9 +9357,6 @@ class AppL10nHr extends AppL10n {
   String get inProgress => 'U tijeku';
 
   @override
-  String get waitingForUpdateJobOutput => 'Čeka se izlaz zadatka ažuriranja…';
-
-  @override
   String get taskTrigger => 'Okidač zadatka';
 
   @override
@@ -9586,9 +9527,6 @@ class AppL10nHr extends AppL10n {
 
   @override
   String get changes => 'Promjene';
-
-  @override
-  String get runtimeReady => 'Runtime spreman';
 
   @override
   String get saving => 'Spremanje...';
@@ -9863,11 +9801,6 @@ class AppL10nHr extends AppL10n {
   @override
   String arg1Default2(Object? arg1) {
     return '$arg1 (default)';
-  }
-
-  @override
-  String branchArg1(Object? arg1) {
-    return ' | Grana: $arg1';
   }
 
   @override
@@ -11959,4 +11892,565 @@ class AppL10nHr extends AppL10n {
   @override
   String get agentImportRestarted =>
       'NeoAgent restarted and loaded everything.';
+
+  @override
+  String get adminTabMessaging => 'Messaging';
+
+  @override
+  String auditMessagingConfigured(Object? actor, Object? platform) {
+    return '$actor changed the shared $platform account';
+  }
+
+  @override
+  String auditMessagingRemoved(Object? actor, Object? platform) {
+    return '$actor removed the shared $platform account';
+  }
+
+  @override
+  String auditMessagingLinked(Object? subject, Object? platform) {
+    return '$subject linked to the shared $platform account';
+  }
+
+  @override
+  String auditMessagingUnlinked(Object? subject, Object? platform) {
+    return '$subject unlinked from the shared $platform account';
+  }
+
+  @override
+  String auditMessagingConflict(Object? subject, Object? platform) {
+    return '$subject tried to link a $platform identity already linked to someone else';
+  }
+
+  @override
+  String get sharedAccountsTitle => 'Shared accounts';
+
+  @override
+  String get sharedAccountsIntro =>
+      'One bot or number for everyone on this server. People link themselves under Settings › Platforms. Skip this if you\'re the only one using this server.';
+
+  @override
+  String get sharedAccountTelegramPitch =>
+      'One bot that anyone on this server can link to';
+
+  @override
+  String get sharedAccountWhatsappPitch =>
+      'One number that anyone on this server can message';
+
+  @override
+  String get sharedAccountStatusLive => 'Live';
+
+  @override
+  String get sharedAccountStatusStarting => 'Connecting';
+
+  @override
+  String get sharedAccountStatusFailed => 'Needs attention';
+
+  @override
+  String get sharedAccountStatusOff => 'Off';
+
+  @override
+  String get sharedAccountStatusNotSetUp => 'Not set up';
+
+  @override
+  String get sharedAccountTelegramStepBot =>
+      'Create a bot with @BotFather and copy its token.';
+
+  @override
+  String get sharedAccountTelegramStepToken => 'Paste the token here.';
+
+  @override
+  String get sharedAccountBotToken => 'Bot token';
+
+  @override
+  String get sharedAccountTokenMissing => 'Paste the bot token first.';
+
+  @override
+  String get sharedAccountShowToken => 'Show token';
+
+  @override
+  String get sharedAccountHideToken => 'Hide token';
+
+  @override
+  String get sharedAccountConnect => 'Connect';
+
+  @override
+  String get sharedAccountTurnOn => 'Turn on';
+
+  @override
+  String get sharedAccountTurnOff => 'Turn off';
+
+  @override
+  String get sharedAccountReconnect => 'Reconnect';
+
+  @override
+  String get sharedAccountReplaceToken => 'Replace token';
+
+  @override
+  String get sharedAccountRemove => 'Remove';
+
+  @override
+  String get sharedAccountMore => 'More';
+
+  @override
+  String get sharedAccountRetry => 'Try again';
+
+  @override
+  String get sharedAccountShowQr => 'Show QR code';
+
+  @override
+  String get sharedAccountWhatsappWarning =>
+      'Use a number you can spare. WhatsApp can ban automated numbers, and everyone on this account would lose access.';
+
+  @override
+  String get sharedAccountScanStepOpen =>
+      'Open WhatsApp on the phone with the shared number.';
+
+  @override
+  String get sharedAccountScanStepDevices =>
+      'Go to Linked devices and tap Link a device.';
+
+  @override
+  String get sharedAccountScanStepPoint => 'Point the camera at this code.';
+
+  @override
+  String get sharedAccountTelegramFailed =>
+      'Telegram rejected this token. Copy it from @BotFather again and paste it below.';
+
+  @override
+  String get sharedAccountWhatsappFailed =>
+      'WhatsApp ended this session, so linked people can\'t use it. Scan a new code to bring it back.';
+
+  @override
+  String get sharedAccountAvailable => 'Offer to users';
+
+  @override
+  String get sharedAccountAvailableHint =>
+      'Off hides this account and stops it answering anyone. Links are kept.';
+
+  @override
+  String get sharedAccountAllowPersonal => 'Allow personal accounts';
+
+  @override
+  String get sharedAccountAllowPersonalHint =>
+      'Off stops people connecting their own account here. Existing connections and admins aren\'t affected.';
+
+  @override
+  String get adminMessagingSearchKeywords =>
+      'shared instance telegram whatsapp bot number link users';
+
+  @override
+  String get sharedMessagingBadge => 'Shared account';
+
+  @override
+  String get sharedMessagingUseShared => 'Use the shared account';
+
+  @override
+  String get sharedMessagingUseOwn => 'Use my own account';
+
+  @override
+  String get sharedMessagingUseOwnHint =>
+      'Connect your own bot or number and manage it yourself.';
+
+  @override
+  String get sharedMessagingNewCode => 'Get a new code';
+
+  @override
+  String get sharedMessagingCopyCode => 'Copy code';
+
+  @override
+  String get sharedMessagingCopied => 'Copied';
+
+  @override
+  String get sharedMessagingScanHint =>
+      'Scan with your phone to open the chat there';
+
+  @override
+  String get sharedMessagingCodeNote =>
+      'Treat this code like a password: whoever sends it can use your agent.';
+
+  @override
+  String get sharedMessagingCodeExpired => 'This code has expired.';
+
+  @override
+  String get sharedMessagingWaiting => 'Waiting for your message…';
+
+  @override
+  String get sharedMessagingLinkedHint =>
+      'Message that chat any time to reach this agent.';
+
+  @override
+  String get sharedMessagingDone => 'Done';
+
+  @override
+  String get sharedMessagingIdentityTaken =>
+      'That account is already linked to someone else on this server. They need to disconnect it first.';
+
+  @override
+  String sharedAccountRemoveTitle(Object? label) {
+    return 'Remove the shared $label account?';
+  }
+
+  @override
+  String sharedAccountRemoveBody(Object? count) {
+    return '$count linked people will lose access until they connect again.';
+  }
+
+  @override
+  String sharedAccountRemoved(Object? label) {
+    return 'Removed the shared $label account.';
+  }
+
+  @override
+  String sharedAccountLinkedCount(Object? count) {
+    return '$count linked';
+  }
+
+  @override
+  String sharedMessagingTitle(Object? platform) {
+    return 'Connect $platform';
+  }
+
+  @override
+  String sharedMessagingMovesLink(Object? platform) {
+    return 'Your $platform is linked to another agent. Linking here moves it to this one.';
+  }
+
+  @override
+  String sharedMessagingOpenAndSend(Object? platform) {
+    return 'Open $platform on the account you want to use and send this code. It fills in by itself.';
+  }
+
+  @override
+  String sharedMessagingSendCode(Object? account) {
+    return 'Send this code to $account from the account you want to use.';
+  }
+
+  @override
+  String sharedMessagingOpenApp(Object? platform) {
+    return 'Open $platform';
+  }
+
+  @override
+  String sharedMessagingLinked(Object? platform, Object? identity) {
+    return '$platform linked as $identity';
+  }
+
+  @override
+  String get messagingHubSubtitle =>
+      'Link the chat app you already use, then message your agent like anyone else.';
+
+  @override
+  String get messagingHubOfferTagline =>
+      'Nothing to set up. Your chats stay yours, and only you reach your agent.';
+
+  @override
+  String get messagingHubAdvanced => 'Advanced';
+
+  @override
+  String get messagingHubYourApps => 'Your apps';
+
+  @override
+  String get messagingHubAddApp => 'Add an app';
+
+  @override
+  String get messagingHubShowFewer => 'Show fewer';
+
+  @override
+  String get messagingHubConnected => 'Connected';
+
+  @override
+  String get messagingHubConnecting => 'Connecting…';
+
+  @override
+  String get messagingHubNotRunning => 'Not running';
+
+  @override
+  String get messagingHubDisabled => 'Not available on this server';
+
+  @override
+  String get messagingHubReconnect => 'Reconnect';
+
+  @override
+  String get messagingHubDisconnect => 'Disconnect';
+
+  @override
+  String get messagingHubMoreSettings => 'More settings';
+
+  @override
+  String get messagingHubMoreSettingsHint => 'Group chats and recent activity';
+
+  @override
+  String get onboardingMessagingTitle => 'Message your agent from anywhere.';
+
+  @override
+  String get onboardingMessagingDescription =>
+      'Connect a chat app to reach your agent outside NeoAgent. Setup depends on the app; you can do this later.';
+
+  @override
+  String get onboardingMessagingOtherApps => 'Other apps';
+
+  @override
+  String get onboardingMessagingAllSet =>
+      'You can now message your agent there.';
+
+  @override
+  String messagingHubTitle(Object? agent) {
+    return 'Reach $agent anywhere';
+  }
+
+  @override
+  String messagingHubLink(Object? platform) {
+    return 'Link $platform';
+  }
+
+  @override
+  String messagingHubShowAll(Object? count) {
+    return 'Show all $count apps';
+  }
+
+  @override
+  String messagingHubConnectedAs(Object? identity) {
+    return 'Connected as $identity';
+  }
+
+  @override
+  String messagingHubManage(Object? platform) {
+    return 'Manage $platform';
+  }
+
+  @override
+  String get onboardingModelTitle => 'Connect an AI.';
+
+  @override
+  String get onboardingModelNeededDescription =>
+      'NeoAgent needs a model to think with. This is the only thing it can\'t do without.';
+
+  @override
+  String get onboardingModelReady =>
+      'Connected. NeoAgent picks the best model for each task.';
+
+  @override
+  String get onboardingModelChoose => 'Choose a specific model';
+
+  @override
+  String get onboardingModelUseKey => 'Use an API key instead';
+
+  @override
+  String get onboardingComputerPermissions => 'What it may do on this computer';
+
+  @override
+  String get onboardingAlmostTitle => 'Almost there.';
+
+  @override
+  String get onboardingAlmostDescription =>
+      'NeoAgent can\'t answer until it has an AI model. You can add one any time under Settings › Models.';
+
+  @override
+  String get onboardingRecapModel => 'AI model ready';
+
+  @override
+  String get onboardingRecapNoModel => 'No AI model yet';
+
+  @override
+  String get onboardingRecapNoMessaging =>
+      'No chat app yet. Add one later under Settings › Platforms.';
+
+  @override
+  String onboardingModelSignInHint(Object? provider) {
+    return 'Sign in and approve NeoAgent. No key to copy, ready in seconds.';
+  }
+
+  @override
+  String onboardingRecapMessaging(Object? apps) {
+    return 'Reachable on $apps';
+  }
+
+  @override
+  String onboardingRecapRoutines(Object? count) {
+    return 'Routines running: $count';
+  }
+
+  @override
+  String get agentNameRequired => 'Enter a name for this agent.';
+
+  @override
+  String get agentIdentifier => 'Agent identifier';
+
+  @override
+  String get agentIdentifierHint =>
+      'Used to address this agent. Suggested from the name; you can edit it.';
+
+  @override
+  String get agentIdentifierInvalid =>
+      'Use 1–48 lowercase letters, numbers, hyphens or underscores.';
+
+  @override
+  String get uxAdvancedSettings => 'Advanced settings';
+
+  @override
+  String get uxSelected => 'Selected';
+
+  @override
+  String get uxSelectedDelegationTargets =>
+      'Only selected agents can receive tasks from this agent.';
+
+  @override
+  String uxFieldRequired(String field) {
+    return 'Enter $field.';
+  }
+
+  @override
+  String get uxTaskInstructions => 'What should the agent do?';
+
+  @override
+  String get uxTaskEnabledHint =>
+      'When enabled, this task runs when its trigger fires. Switch off to save it without running automatically.';
+
+  @override
+  String get uxSettingsSaveHint =>
+      'Changes save automatically unless a Save button is shown.';
+
+  @override
+  String get uxSettingsSaveFailed =>
+      'A change could not be saved. Check the error below.';
+
+  @override
+  String get uxAdminUsers => 'Users';
+
+  @override
+  String get uxAdminConfiguration => 'Configuration';
+
+  @override
+  String get uxAdminAnalytics => 'Analytics';
+
+  @override
+  String get uxMemoryEmptyHint =>
+      'No memories yet. Ask this agent to remember something in chat, or add a memory here. Memories belong to the selected agent.';
+
+  @override
+  String get uxMemoryFacts => 'Facts';
+
+  @override
+  String get uxMemoryEntities => 'Entities';
+
+  @override
+  String get uxMemoryReflections => 'Reflections';
+
+  @override
+  String get uxMemoryDocuments => 'Documents';
+
+  @override
+  String get uxOpenChat => 'Open chat';
+
+  @override
+  String get uxModelSkipHint =>
+      'You can explore first, but chat and tasks need a model before they can run.';
+
+  @override
+  String get taskDeliveryBlockedBadge => 'Can\'t deliver';
+
+  @override
+  String get taskDeliveryBlockedDetail =>
+      'This destination can\'t be reached through the shared account, so results won\'t arrive. Choose your own chat or the default channel.';
+
+  @override
+  String get taskDeliverySharedTitle => 'Shared accounts only reach you';
+
+  @override
+  String taskDeliverySharedDetail(Object? platforms) {
+    return '$platforms uses this server\'s shared account, so results can only go to your own chat there.';
+  }
+
+  @override
+  String get adminUpdatesHint =>
+      'NeoAgent updates itself from GitHub. Your chats, settings and accounts are kept.';
+
+  @override
+  String get adminUpdateChannelHint =>
+      'Stable follows main. Beta gets new features first.';
+
+  @override
+  String get adminUpdateCheckNow => 'Check now';
+
+  @override
+  String get adminUpdateNeverChecked => 'Not checked yet';
+
+  @override
+  String adminUpdateCheckedAgo(String time) {
+    return 'Checked $time';
+  }
+
+  @override
+  String get adminUpdateUpToDate => 'You have the latest version';
+
+  @override
+  String get adminUpdateCheckFailed =>
+      'Couldn\'t reach GitHub. Showing the last result.';
+
+  @override
+  String get adminUpdateContainerHint =>
+      'NeoAgent runs from a container image. Update the image instead of the code inside it, from the Docker host in the folder with your Compose file. The data volume is kept.';
+
+  @override
+  String get adminUpdateManagedHint =>
+      'This is a managed deployment. Updates are handled by whoever runs it.';
+
+  @override
+  String get adminUpdateNotGitHint =>
+      'This install did not come from Git, so it cannot update itself. Run neoagent update in a terminal.';
+
+  @override
+  String get adminUpdateDetails => 'Details of the last update';
+
+  @override
+  String adminUpdateReadyTitle(String version) {
+    return 'Version $version is ready';
+  }
+
+  @override
+  String adminUpdateReadySubtitle(String current, String channel) {
+    return 'You have $current · $channel channel';
+  }
+
+  @override
+  String get adminUpdateWhatsNew => 'What\'s new';
+
+  @override
+  String adminUpdateConfirmTitle(String version) {
+    return 'Update to $version?';
+  }
+
+  @override
+  String get adminUpdateConfirmMessage =>
+      'NeoAgent saves a backup, installs the new version and restarts. This takes a few minutes. If anything fails, it goes back to the current version.';
+
+  @override
+  String get adminUpdatingTitle => 'Updating NeoAgent';
+
+  @override
+  String adminUpdatingToTitle(String version) {
+    return 'Updating to $version';
+  }
+
+  @override
+  String get adminUpdateReconnecting => 'Restarting NeoAgent…';
+
+  @override
+  String get adminUpdateHandsOff =>
+      'Nothing to do here. This page reconnects by itself when NeoAgent is back.';
+
+  @override
+  String adminUpdateDoneTitle(String version) {
+    return 'Updated to $version';
+  }
+
+  @override
+  String get adminUpdateDoneReloading =>
+      'Reloading the app to load the new version…';
+
+  @override
+  String get adminUpdateReload => 'Reload';
+
+  @override
+  String get adminUpdateFailedTitle => 'The update did not finish';
 }

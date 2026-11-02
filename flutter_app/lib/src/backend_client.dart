@@ -659,6 +659,27 @@ class BackendClient {
     return getMap(baseUrl, '/api/admin/version');
   }
 
+  Future<Map<String, dynamic>> fetchAdminUpdate(String baseUrl) async {
+    return getMap(baseUrl, '/api/admin/update');
+  }
+
+  Future<Map<String, dynamic>> checkAdminUpdate(String baseUrl) async {
+    return _postEmpty(baseUrl, '/api/admin/update/check');
+  }
+
+  Future<Map<String, dynamic>> startAdminUpdate(String baseUrl) async {
+    return _postEmpty(baseUrl, '/api/admin/update');
+  }
+
+  Future<Map<String, dynamic>> setAdminUpdateChannel(
+    String baseUrl,
+    String channel,
+  ) async {
+    return putMap(baseUrl, '/api/admin/update/channel', <String, dynamic>{
+      'channel': channel,
+    });
+  }
+
   Future<Map<String, dynamic>> fetchAdminHealth(String baseUrl) async {
     return getMap(baseUrl, '/api/admin/health');
   }
@@ -752,6 +773,25 @@ class BackendClient {
     return postMap(baseUrl, '/api/admin/sql', <String, dynamic>{
       'query': query,
     });
+  }
+
+  Future<Map<String, dynamic>> fetchAdminMessaging(String baseUrl) async {
+    return getMap(baseUrl, '/api/admin/messaging');
+  }
+
+  Future<Map<String, dynamic>> saveAdminMessaging(
+    String baseUrl,
+    String platform,
+    Map<String, dynamic> changes,
+  ) async {
+    return putMap(baseUrl, '/api/admin/messaging/$platform', changes);
+  }
+
+  Future<Map<String, dynamic>> removeAdminMessaging(
+    String baseUrl,
+    String platform,
+  ) async {
+    return deleteMap(baseUrl, '/api/admin/messaging/$platform');
   }
 
   Future<Map<String, dynamic>> fetchAdminAccess(String baseUrl) async {
@@ -1143,23 +1183,6 @@ class BackendClient {
       baseUrl,
       '/api/social-reach/cookies/${Uri.encodeComponent(platform)}',
     );
-  }
-
-  Future<Map<String, dynamic>> fetchUpdateStatus(String baseUrl) async {
-    return getMap(baseUrl, '/api/settings/update/status');
-  }
-
-  Future<Map<String, dynamic>> triggerUpdate(String baseUrl) async {
-    return _postEmpty(baseUrl, '/api/settings/update');
-  }
-
-  Future<Map<String, dynamic>> setReleaseChannel(
-    String baseUrl,
-    String channel,
-  ) async {
-    return putMap(baseUrl, '/api/settings/update/channel', <String, dynamic>{
-      'channel': channel,
-    });
   }
 
   Future<Map<String, dynamic>> fetchRuns(
@@ -2007,6 +2030,24 @@ class BackendClient {
       'limit=60',
     ];
     return getList(baseUrl, '/api/messaging/messages?${params.join('&')}');
+  }
+
+  Future<Map<String, dynamic>> fetchSharedMessagingOptions(
+    String baseUrl,
+  ) async {
+    return getMap(baseUrl, '/api/messaging/shared');
+  }
+
+  Future<Map<String, dynamic>> startSharedMessagingLink(
+    String baseUrl, {
+    required String platform,
+    String? agentId,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/messaging/shared/$platform/link',
+      _withAgentId(<String, dynamic>{}, agentId),
+    );
   }
 
   Future<Map<String, dynamic>> connectMessagingPlatform(

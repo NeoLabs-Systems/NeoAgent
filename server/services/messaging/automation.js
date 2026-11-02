@@ -32,6 +32,7 @@ const {
 } = require('../voice/voice_note');
 const { getErrorMessage } = require('../bootstrap_helpers');
 const { processInboundQueue } = require('./inbound_queue');
+const { isActiveSharedChat } = require('./shared_connections');
 const { annotateInboundJobs, attachRunToInboundJobs } = require('./inbound_store');
 const { startTypingKeepalive } = require('./typing_keepalive');
 const { isUsageLimitError, sendUsageLimitNotice } = require('./usage_limit_notice');
@@ -589,6 +590,18 @@ async function isAllowedMessagingSender({ io, userId, msg }) {
   // is no sender left to approve and no allowlist prompt worth raising.
   if (msg.metadata?.selfChat === true) {
     msg.ownerTrusted = true;
+    return true;
+  }
+
+  // The sender proved this identity with a one-time code from the owner's
+  // session, so they are the owner. The link is checked again because a queued
+  // message can be replayed after an unlink; it never falls through to the
+  // personal policy below, which would answer from a different account.
+  if (msg.metadata?.sharedConnection === true) {
+    if (!isActiveSharedChat(userId, msg.agentId || null, msg.platform, msg.chatId)) return false;
+    msg.accessPolicyAllowUntagged = true;
+    msg.ownerTrusted = true;
+    msg.approvedSpeaker = true;
     return true;
   }
 

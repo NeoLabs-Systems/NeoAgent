@@ -212,7 +212,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               _PageTitle(
-                title: 'Tools',
+                title: appStrings.tools,
                 subtitle: appStrings.everythingTheAgentCanUseOfficial,
                 trailing: _ToolsAddMenu(
                   controller: controller,

@@ -448,7 +448,7 @@ function setupWebSocket(io, services) {
         }
         const agentId = resolveAgentFromPayload(userId, data);
         console.log(`[WS] messaging:connect requested by user ${userId} platform=${platform || 'unknown'}`);
-        const result = await messagingManager.connectPlatform(userId, platform, asObject(data.config), { agentId });
+        const result = await messagingManager.connectPlatform(userId, platform, asObject(data.config), { agentId, userInitiated: true });
         socket.emit('messaging:connect_result', result);
       } catch (err) {
         console.error(`[WS] messaging:connect failed for user ${userId}:`, err);

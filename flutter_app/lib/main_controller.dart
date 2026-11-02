@@ -76,7 +76,6 @@ class NeoAgentController extends ChangeNotifier {
   SharedPreferences? _prefs;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   io.Socket? _socket;
-  Timer? _updatePollTimer;
   Timer? _qrLoginPollTimer;
   static const Duration _qrLoginPollInterval = Duration(seconds: 5);
   static const Duration _qrLoginHeldPollGap = Duration(milliseconds: 300);
@@ -150,6 +149,7 @@ class NeoAgentController extends ChangeNotifier {
   bool isRefreshingDevices = false;
   bool isSendingMessage = false;
   bool isSavingSettings = false;
+  String? settingsSaveError;
   int _activeSettingsSaves = 0;
   int _pendingSettingsWrites = 0;
   int _settingsMutationId = 0;
@@ -160,8 +160,6 @@ class NeoAgentController extends ChangeNotifier {
   bool isConfiguringTwoFactor = false;
   bool isUsingSecurityKey = false;
   bool isRevokingSession = false;
-  bool isTriggeringUpdate = false;
-  bool isSavingReleaseChannel = false;
   bool isSyncingHealth = false;
   bool isRunningDeviceAction = false;
   bool isLoadingWorkspaceFiles = false;
@@ -260,7 +258,6 @@ class NeoAgentController extends ChangeNotifier {
   final ValueNotifier<({int seq, String runId})> runActivity =
       ValueNotifier<({int seq, String runId})>((seq: 0, runId: ''));
   TokenUsageSnapshot? tokenUsage;
-  UpdateStatusSnapshot updateStatus = const UpdateStatusSnapshot();
   List<LogEntry> logs = const <LogEntry>[];
   Map<String, MessagingPlatformStatus> messagingStatuses =
       const <String, MessagingPlatformStatus>{};
@@ -268,6 +265,11 @@ class NeoAgentController extends ChangeNotifier {
   Map<String, MessagingAccessCatalog> messagingAccessCatalogs =
       const <String, MessagingAccessCatalog>{};
   MessagingQrState? pendingMessagingQr;
+  Map<String, SharedMessagingOption> sharedMessagingOptions =
+      const <String, SharedMessagingOption>{};
+
+  /// Why the code just sent could not link, for the dialog waiting on it.
+  String? sharedMessagingLinkFailure;
   ToolApprovalRequest? pendingApproval;
   final List<BlockedSenderNotice> _blockedSenderQueue = <BlockedSenderNotice>[];
   final Set<String> _ignoredChats = <String>{};
@@ -515,7 +517,6 @@ class NeoAgentController extends ChangeNotifier {
     _AppNotificationService.onApprovalAction = null;
     _AppNotificationService.stopListeningForActions();
     unawaited(CallBridge.dismiss());
-    _updatePollTimer?.cancel();
     _qrLoginPollTimer?.cancel();
     _backendClient.onSessionExpired = null;
     _manualRunCooldownTimer?.cancel();
@@ -1923,7 +1924,7 @@ class NeoAgentController extends ChangeNotifier {
   int get onboardingResumeStep => _prefs?.getInt(_onboardingStepPrefsKey) ?? 0;
 
   /// Per account, so a second person signing in on this device starts fresh.
-  String get _onboardingStepPrefsKey => 'onboarding.step.${user?['id'] ?? ''}';
+  String get _onboardingStepPrefsKey => 'onboarding.page.${user?['id'] ?? ''}';
 
   void rememberOnboardingStep(int step) {
     unawaited(_prefs?.setInt(_onboardingStepPrefsKey, step));
@@ -1987,8 +1988,6 @@ class NeoAgentController extends ChangeNotifier {
   void _clearAuthenticatedState() {
     unawaited(BackgroundKeepAlive.stop());
     _disconnectSocket();
-    _updatePollTimer?.cancel();
-    _updatePollTimer = null;
     _clearQrLoginChallenge();
     isAuthenticated = false;
     isRefreshing = false;
@@ -2027,13 +2026,14 @@ class NeoAgentController extends ChangeNotifier {
     aiProviders = const <AiProviderMeta>[];
     recentRuns = const <RunSummary>[];
     tokenUsage = null;
-    updateStatus = const UpdateStatusSnapshot();
     _clientLogs = const <LogEntry>[];
     logs = const <LogEntry>[];
     messagingStatuses = const <String, MessagingPlatformStatus>{};
     messagingMessages = const <MessagingMessage>[];
     messagingAccessCatalogs = const <String, MessagingAccessCatalog>{};
     pendingMessagingQr = null;
+    sharedMessagingOptions = const <String, SharedMessagingOption>{};
+    sharedMessagingLinkFailure = null;
     skills = const <SkillItem>[];
     officialIntegrations = const <OfficialIntegrationItem>[];
     setupProfile = 'quick';
@@ -2349,6 +2349,7 @@ class NeoAgentController extends ChangeNotifier {
     messagingStatuses = const <String, MessagingPlatformStatus>{};
     messagingMessages = const <MessagingMessage>[];
     messagingAccessCatalogs = const <String, MessagingAccessCatalog>{};
+    sharedMessagingOptions = const <String, SharedMessagingOption>{};
     officialIntegrations = const <OfficialIntegrationItem>[];
     memoryOverview = const MemoryOverview();
     memories = const <MemoryItem>[];
@@ -2870,12 +2871,14 @@ class NeoAgentController extends ChangeNotifier {
         _backendClient.fetchAccountUsage(backendUrl),
         const <String, dynamic>{},
       );
-      final updateFuture = _backendClient
-          .fetchUpdateStatus(backendUrl)
-          .catchError((_) => const <String, dynamic>{});
       final messagingFuture = _softRefreshLoad<Map<String, dynamic>>(
         'messaging_status',
         _backendClient.fetchMessagingStatus(backendUrl, agentId: agentId),
+        const <String, dynamic>{},
+      );
+      final sharedMessagingFuture = _softRefreshLoad<Map<String, dynamic>>(
+        'shared_messaging',
+        _backendClient.fetchSharedMessagingOptions(backendUrl),
         const <String, dynamic>{},
       );
       final messagingMessagesFuture =
@@ -2971,8 +2974,8 @@ class NeoAgentController extends ChangeNotifier {
       final setupStatusResponse = await setupStatusFuture;
       final tokenResponse = await tokenFuture;
       final rateLimitResponse = await rateLimitFuture;
-      final updateResponse = await updateFuture;
       final messagingResponse = await messagingFuture;
+      _applySharedMessagingOptions(await sharedMessagingFuture);
       final messagingMessagesResponse = await messagingMessagesFuture;
       final skillsResponse = await skillsFuture;
       final memoryResponse = await memoryFuture;
@@ -3030,7 +3033,6 @@ class NeoAgentController extends ChangeNotifier {
       backendHealthStatus = healthResponse;
       tokenUsage = TokenUsageSnapshot.fromJson(tokenResponse);
       usageAndLimits = AccountUsageAndLimits.fromJson(rateLimitResponse);
-      updateStatus = UpdateStatusSnapshot.fromJson(updateResponse);
       messagingStatuses = messagingResponse.map(
         (key, value) => MapEntry(
           key,
@@ -3084,7 +3086,6 @@ class NeoAgentController extends ChangeNotifier {
       unawaited(ensureLocalDeviceConnected());
       unawaited(_syncDeviceTimeZone());
       _ensureSocketConnected();
-      _ensureUpdatePolling();
     } catch (error) {
       if (_isCurrentAuthCycle(authCycle)) {
         errorMessage = _friendlyErrorMessage(error);
@@ -3197,11 +3198,37 @@ class NeoAgentController extends ChangeNotifier {
     } catch (_) {}
   }
 
+  void _applySharedMessagingOptions(Map<String, dynamic> data) {
+    final raw = data['options'];
+    sharedMessagingOptions = <String, SharedMessagingOption>{
+      if (raw is List)
+        for (final entry in raw.whereType<Map>())
+          entry['platform'].toString(): SharedMessagingOption.fromJson(
+            Map<String, dynamic>.from(entry),
+          ),
+    };
+  }
+
+  /// An admin can set one up while this app is open, so connecting asks again
+  /// rather than offering only what was known when the page loaded.
+  Future<void> refreshSharedMessagingOptions() async {
+    try {
+      _applySharedMessagingOptions(
+        await _backendClient.fetchSharedMessagingOptions(backendUrl),
+      );
+    } catch (error) {
+      debugPrint('[Messaging] Could not refresh shared accounts: $error');
+    }
+  }
+
   Future<void> refreshMessaging() async {
     try {
       final statuses = await _backendClient.fetchMessagingStatus(
         backendUrl,
         agentId: _scopedAgentId,
+      );
+      _applySharedMessagingOptions(
+        await _backendClient.fetchSharedMessagingOptions(backendUrl),
       );
       messagingStatuses = statuses.map(
         (key, value) => MapEntry(
@@ -4891,15 +4918,6 @@ class NeoAgentController extends ChangeNotifier {
     ]);
   }
 
-  Future<void> refreshUpdateStatus() async {
-    try {
-      updateStatus = UpdateStatusSnapshot.fromJson(
-        await _backendClient.fetchUpdateStatus(backendUrl),
-      );
-      notifyListeners();
-    } catch (_) {}
-  }
-
   Future<RunDetailSnapshot> fetchRunDetail(
     String runId, {
     bool force = false,
@@ -5086,6 +5104,7 @@ class NeoAgentController extends ChangeNotifier {
           : Map<String, dynamic>.from(config);
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
+      settingsSaveError = errorMessage;
     } finally {
       _finishSettingsSave();
     }
@@ -5397,6 +5416,7 @@ class NeoAgentController extends ChangeNotifier {
     required String currentPassword,
   }) async {
     isSavingAccountSettings = true;
+    settingsSaveError = null;
     errorMessage = null;
     notifyListeners();
     try {
@@ -5410,6 +5430,7 @@ class NeoAgentController extends ChangeNotifier {
       return true;
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
+      settingsSaveError = errorMessage;
       return false;
     } finally {
       isSavingAccountSettings = false;
@@ -5422,6 +5443,7 @@ class NeoAgentController extends ChangeNotifier {
     required String newPassword,
   }) async {
     isSavingAccountSettings = true;
+    settingsSaveError = null;
     errorMessage = null;
     notifyListeners();
     try {
@@ -5435,6 +5457,7 @@ class NeoAgentController extends ChangeNotifier {
       return true;
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
+      settingsSaveError = errorMessage;
       return false;
     } finally {
       isSavingAccountSettings = false;
@@ -5444,6 +5467,7 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<bool> updateAccountDisplayName({required String displayName}) async {
     isSavingAccountSettings = true;
+    settingsSaveError = null;
     errorMessage = null;
     notifyListeners();
     try {
@@ -5456,6 +5480,7 @@ class NeoAgentController extends ChangeNotifier {
       return true;
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
+      settingsSaveError = errorMessage;
       return false;
     } finally {
       isSavingAccountSettings = false;
@@ -5465,6 +5490,7 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> linkAccountProvider(String provider) async {
     isSavingAccountSettings = true;
+    settingsSaveError = null;
     errorMessage = null;
     notifyListeners();
     try {
@@ -5494,6 +5520,7 @@ class NeoAgentController extends ChangeNotifier {
       await refreshAccountSettings();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
+      settingsSaveError = errorMessage;
     } finally {
       isSavingAccountSettings = false;
       notifyListeners();
@@ -5502,6 +5529,7 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> unlinkAccountProvider(int providerLinkId) async {
     isSavingAccountSettings = true;
+    settingsSaveError = null;
     errorMessage = null;
     notifyListeners();
     try {
@@ -5513,6 +5541,7 @@ class NeoAgentController extends ChangeNotifier {
       );
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
+      settingsSaveError = errorMessage;
     } finally {
       isSavingAccountSettings = false;
       notifyListeners();
@@ -5781,68 +5810,6 @@ class NeoAgentController extends ChangeNotifier {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
       isRevokingSession = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> triggerUpdate() async {
-    isTriggeringUpdate = true;
-    errorMessage = null;
-    notifyListeners();
-    try {
-      updateStatus = UpdateStatusSnapshot.fromJson(
-        await _backendClient.triggerUpdate(backendUrl),
-      );
-      await refreshUpdateStatus();
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-    } finally {
-      isTriggeringUpdate = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> setReleaseChannel(String channel) async {
-    if (isSavingReleaseChannel) {
-      return;
-    }
-
-    isSavingReleaseChannel = true;
-    errorMessage = null;
-    notifyListeners();
-
-    try {
-      final response = await _backendClient.setReleaseChannel(
-        backendUrl,
-        channel,
-      );
-      final nextChannel = response['releaseChannel']?.toString() ?? channel;
-      updateStatus = UpdateStatusSnapshot.fromJson(<String, dynamic>{
-        ...?versionInfo,
-        'state': updateStatus.state,
-        'progress': updateStatus.progress,
-        'message': updateStatus.message,
-        'releaseChannel': nextChannel,
-        'targetBranch': response['targetBranch'],
-        'versionBefore': updateStatus.versionBefore,
-        'versionAfter': updateStatus.versionAfter,
-        'backendVersion': updateStatus.backendVersion,
-        'installedVersion': updateStatus.installedVersion,
-        'changelog': updateStatus.changelog,
-        'logs': updateStatus.logs,
-      });
-      if (versionInfo != null) {
-        versionInfo = <String, dynamic>{
-          ...versionInfo!,
-          'releaseChannel': nextChannel,
-          'targetBranch': response['targetBranch'],
-        };
-      }
-      await refreshUpdateStatus();
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-    } finally {
-      isSavingReleaseChannel = false;
       notifyListeners();
     }
   }
@@ -6347,6 +6314,17 @@ class NeoAgentController extends ChangeNotifier {
     throw Exception(appStrings.authenticationIsStillPendingFinishThe2);
   }
 
+  Future<SharedMessagingLink> startSharedMessagingLink(String platform) async {
+    sharedMessagingLinkFailure = null;
+    return SharedMessagingLink.fromJson(
+      await _backendClient.startSharedMessagingLink(
+        backendUrl,
+        platform: platform,
+        agentId: _scopedAgentId,
+      ),
+    );
+  }
+
   Future<void> connectMessagingPlatform({
     required String platform,
     Map<String, dynamic>? config,
@@ -6397,6 +6375,7 @@ class NeoAgentController extends ChangeNotifier {
         settings = previousSettings;
       }
       errorMessage = _friendlyErrorMessage(error);
+      settingsSaveError = errorMessage;
       rethrow;
     } finally {
       _finishSettingsSave();
@@ -6432,6 +6411,7 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   void _beginSettingsSave() {
+    if (_activeSettingsSaves == 0) settingsSaveError = null;
     _activeSettingsSaves += 1;
     isSavingSettings = true;
     errorMessage = null;
@@ -6891,6 +6871,7 @@ class NeoAgentController extends ChangeNotifier {
       await refreshMemory();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
+      settingsSaveError = errorMessage;
     } finally {
       _finishSettingsSave();
     }
@@ -7759,14 +7740,6 @@ class NeoAgentController extends ChangeNotifier {
     return _modelForValue(id, supportedModels);
   }
 
-  void _ensureUpdatePolling() {
-    _updatePollTimer ??= Timer.periodic(const Duration(seconds: 5), (_) {
-      if (isAuthenticated) {
-        refreshUpdateStatus();
-      }
-    });
-  }
-
   void _disconnectSocket() {
     socketConnected = false;
     _socketHasConnectedOnce = false;
@@ -7900,6 +7873,14 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('messaging:disconnected', (dynamic _) {
       pendingMessagingQr = null;
       unawaited(refreshMessaging());
+    });
+    socket.on('messaging:linked', (dynamic _) {
+      sharedMessagingLinkFailure = null;
+      unawaited(refreshMessaging());
+    });
+    socket.on('messaging:link_failed', (dynamic _) {
+      sharedMessagingLinkFailure = appStrings.sharedMessagingIdentityTaken;
+      notifyListeners();
     });
     socket.on('messaging:logged_out', (dynamic _) {
       pendingMessagingQr = null;

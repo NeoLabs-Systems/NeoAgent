@@ -15,6 +15,7 @@ const sidebars = {
         'automation',
         'memory',
         'integrations',
+        'shared-messaging',
         'devices',
         'health',
         'skills',

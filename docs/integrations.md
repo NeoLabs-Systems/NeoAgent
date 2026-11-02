@@ -105,7 +105,7 @@ The NeoAgent app on Android or iOS shares the calendars and contacts already on 
 
 ## 💬 Messaging channels {#messaging-channels}
 
-Configure channels for the selected agent under **Settings › Messaging**.
+Configure channels for the selected agent under **Settings › Messaging**. If your server offers a [shared Telegram or WhatsApp account](shared-messaging.md), you can link to it instead of setting up your own.
 
 | Connection | Platforms |
 | --- | --- |

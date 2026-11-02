@@ -4,10 +4,170 @@ part of 'main.dart';
 /// per-provider API keys, or a custom OpenAI-compatible endpoint, instead of
 /// relying on the shared server keys. Keys are encrypted server-side and are
 /// never shown again once saved -- only a "configured" state is displayed.
-class ByokSettingsCard extends StatefulWidget {
-  const ByokSettingsCard({super.key, required this.controller});
+/// Runs one provider sign-in through to the end and reports how it went. A
+/// cancelled attempt ([isActive] false) ends quietly.
+Future<void> _runProviderSignIn(
+  BuildContext context,
+  NeoAgentController controller, {
+  required String providerId,
+  required String providerLabel,
+  required bool Function() isActive,
+}) async {
+  try {
+    final signIn = await controller.startProviderSignIn(providerId);
+    if (!context.mounted || !isActive()) return;
+    if (signIn.needsCode) {
+      final completed = await showDialog<bool>(
+        context: context,
+        builder: (_) => _ProviderSignInCodeDialog(
+          controller: controller,
+          signIn: signIn,
+          providerLabel: providerLabel,
+        ),
+      );
+      if (completed != true) return;
+    } else {
+      await controller.waitForProviderSignIn(signIn, isActive: isActive);
+    }
+    if (!context.mounted || !isActive()) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(appStrings.signedInWithArg1(providerLabel))),
+    );
+  } catch (error) {
+    if (!context.mounted || !isActive()) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          appStrings.signInFailedArg1(controller.friendlyErrorMessage(error)),
+        ),
+      ),
+    );
+  }
+}
+
+/// The quickest way to a working model, on its own: one button for the first
+/// provider that signs in without a key. Empty when none does.
+class ProviderSignInCard extends StatefulWidget {
+  const ProviderSignInCard({super.key, required this.controller});
 
   final NeoAgentController controller;
+
+  @override
+  State<ProviderSignInCard> createState() => _ProviderSignInCardState();
+}
+
+class _ProviderSignInCardState extends State<ProviderSignInCard> {
+  bool _waiting = false;
+  int _attempt = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.controller.refreshByokProviders();
+    });
+  }
+
+  Future<void> _signIn(String id, String label) async {
+    final attempt = ++_attempt;
+    setState(() => _waiting = true);
+    await _runProviderSignIn(
+      context,
+      widget.controller,
+      providerId: id,
+      providerLabel: label,
+      isActive: () => mounted && attempt == _attempt,
+    );
+    if (mounted && attempt == _attempt) setState(() => _waiting = false);
+  }
+
+  void _cancel() {
+    setState(() {
+      _attempt++;
+      _waiting = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Map<String, dynamic>? provider;
+    for (final candidate in widget.controller.byokProviders) {
+      if (candidate['signInAvailable'] == true &&
+          candidate['configured'] != true) {
+        provider = candidate;
+        break;
+      }
+    }
+    if (provider == null) return const SizedBox.shrink();
+    final id = provider['id']?.toString() ?? '';
+    final label = provider['label']?.toString() ?? '';
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _bgCard,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Text(
+            label,
+            style: TextStyle(
+              color: _textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _waiting
+                ? appStrings.waitingForArg1FinishInYourBrowser(label)
+                : appStrings.onboardingModelSignInHint(label),
+            style: TextStyle(color: _textSecondary, fontSize: 13.5, height: 1.45),
+          ),
+          const SizedBox(height: 16),
+          if (_waiting)
+            Row(
+              children: <Widget>[
+                const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const Spacer(),
+                TextButton(onPressed: _cancel, child: Text(appStrings.cancel)),
+              ],
+            )
+          else
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(46),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(13),
+                ),
+              ),
+              onPressed: () => _signIn(id, label),
+              icon: AuthProviderIcon(provider: id),
+              label: Text(appStrings.signInWithArg1(label)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class ByokSettingsCard extends StatefulWidget {
+  const ByokSettingsCard({
+    super.key,
+    required this.controller,
+    this.showSignIn = true,
+  });
+
+  final NeoAgentController controller;
+
+  /// Off when [ProviderSignInCard] already offers it on the same screen.
+  final bool showSignIn;
 
   @override
   State<ByokSettingsCard> createState() => _ByokSettingsCardState();
@@ -33,46 +193,17 @@ class _ByokSettingsCardState extends State<ByokSettingsCard> {
   }
 
   Future<void> _signIn(String providerId, String providerLabel) async {
-    final controller = widget.controller;
     final attempt = ++_signInAttempt;
     bool isCurrent() => attempt == _signInAttempt;
     setState(() => _signingInProviderId = providerId);
-    try {
-      final signIn = await controller.startProviderSignIn(providerId);
-      if (!mounted || !isCurrent()) return;
-      if (signIn.needsCode) {
-        final completed = await showDialog<bool>(
-          context: context,
-          builder: (_) => _ProviderSignInCodeDialog(
-            controller: controller,
-            signIn: signIn,
-            providerLabel: providerLabel,
-          ),
-        );
-        if (completed != true) return;
-      } else {
-        await controller.waitForProviderSignIn(
-          signIn,
-          isActive: () => mounted && isCurrent(),
-        );
-      }
-      if (!mounted || !isCurrent()) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(appStrings.signedInWithArg1(providerLabel))),
-      );
-    } catch (error) {
-      // A cancelled attempt already cleared the busy state; stay quiet then.
-      if (!mounted || !isCurrent()) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            appStrings.signInFailedArg1(controller.friendlyErrorMessage(error)),
-          ),
-        ),
-      );
-    } finally {
-      if (mounted && isCurrent()) setState(() => _signingInProviderId = null);
-    }
+    await _runProviderSignIn(
+      context,
+      widget.controller,
+      providerId: providerId,
+      providerLabel: providerLabel,
+      isActive: () => mounted && isCurrent(),
+    );
+    if (mounted && isCurrent()) setState(() => _signingInProviderId = null);
   }
 
   void _cancelSignIn() {
@@ -115,7 +246,8 @@ class _ByokSettingsCardState extends State<ByokSettingsCard> {
           )
         else ...<Widget>[
           for (final provider in providers)
-            if (provider['signInAvailable'] == true &&
+            if (widget.showSignIn &&
+                provider['signInAvailable'] == true &&
                 provider['configured'] != true)
               _ProviderSignInRow(
                 providerId: provider['id']?.toString() ?? '',

@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Einrichtungsmodus ändern",
   "channel": "Kanal",
   "channelAccessToken": "Kanal-Zugriffstoken",
-  "channelArg1Arg2UpdateVersionArg3": "Kanal: {arg1}{arg2} | Update-Version: {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Kanalbezogenes soziales Gedächtnis",
   "channels": "Kanäle",
   "chat": "Chat",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "APK installieren — klicken oder .apk-Datei ablegen",
   "installNeoagent": "NeoAgent installieren",
   "installNeoagentOnThisComputerWithout": "Installieren Sie NeoAgent auf diesem Computer ohne Terminal, oder verbinden Sie sich mit einer bereits laufenden Instanz.",
-  "installNewReleasesAndChooseWhich": "Installieren Sie neue Versionen und wählen Sie, welchen Kanal dieser Server folgt.",
   "installTheBackend": "Backend installieren",
   "installTheCoreWithExtraOptional": "Installieren Sie den Kern mit zusätzlicher optionaler Einrichtung. KI-Anbieterschlüssel werden danach hinzugefügt, wie beim Schnellstart.",
   "installTheSecureCoreThenCreate": "Installieren Sie den sicheren Kern und erstellen Sie anschließend Ihr Konto. KI-Anbieterschlüssel fügen Sie danach hinzu.",
-  "installedArg1": " | Installiert: {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Installiert: {arg1} • Zuletzt geprüft: {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "NeoAgent-Debug-Info",
   "neoagentDesktopInstaller": "NeoAgent-Desktop-Installer",
   "neoagentFlutterUpdater": "NeoAgent Flutter Updater",
-  "neoagentInstallsTheLatestArg1": "NeoAgent installiert die neueste {arg1} ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "NeoAgent ist installiert und läuft.",
   "neoagentIsNotInstalledOnThis": "NeoAgent ist auf diesem Computer nicht installiert.",
   "neoagentIsReady": "NeoAgent ist bereit",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "Kein Update läuft",
   "noUsageYet": "Noch keine Nutzung.",
   "noVerifiedNeoagentBackendRuntimeIs": "Es ist noch keine verifizierte NeoAgent-Backend-Laufzeit verfügbar.",
   "nobodyCanUseItAnyMore": "Niemand kann ihn mehr nutzen. Personen, die bereits beigetreten sind, ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "Registrierung ist geschlossen",
   "registrationRegisterNewAccountsAllowSignup": "registrierung registrieren neue konten signup erlauben",
   "rejectInvalidTlsCertificates": "Ungültige TLS-Zertifikate ablehnen",
-  "releaseAndRestartsConnectedAppsReconnect": "Version und startet neu. Verbundene Apps verbinden sich wieder, sobald er zurück ist.",
   "releaseChannel": "Release-Kanal",
   "releaseCommitBranchNode": "release commit branch node",
   "releaseWhenYouAreDone": "Loslassen, wenn Sie fertig sind.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Laufzeit: {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Runtime-Einstellungen, mit denen dieser Server gestartet wurde. Bearbeiten Sie sie unter ",
-  "runtimeSetupRequired": "Laufzeitumgebung muss eingerichtet werden",
   "runtimeSigningPublicKeyMustBe": "Der öffentliche Schlüssel zur Laufzeitsignierung muss 32 Bytes lang sein.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "Speichern",
@@ -5209,7 +5150,7 @@
   },
   "thesePeopleInOneGroup": "Diese Personen, in einer Gruppe",
   "theseSwitchesNeverYourChatsMemories": "diese Schalter, nie Ihre Chats, Erinnerungen oder Dateien.",
-  "thisAccountWillUnlockNeoagentOn": "Dieses Konto entsperrt NeoAgent auf diesem Gerät.",
+  "thisAccountWillUnlockNeoagentOn": "Dies ist das erste Konto auf diesem Server. Es verwaltet auch die Servereinstellungen und den Zugriff.",
   "thisAgentCanDelegateToAny": "Dieser Agent kann an jeden geeigneten empfangenden Agenten delegieren.",
   "thisAgentIsUsingAServer": "Dieser Agent verwendet einen serverseitig verwalteten Trello-API-Schlüssel. Sie müssen unten nur ein Kontotoken autorisieren.",
   "thisBuildIsNotAllowedTo": "Dieser Build darf nicht mit diesem NeoAgent-Deployment kommunizieren.",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "Diese Integration unterstützt derzeit ein verbundenes Konto pro Agent. Öffnen Sie die Einrichtung erneut, um es zu ersetzen.",
   "thisIntegrationIsNoLongerAvailable": "Diese Integration ist nicht mehr verfügbar.",
   "thisIntroIsDesignedForFull": "Diese Einführung ist für die Vollbildwiedergabe im Querformat gedacht.",
-  "thisIsAManagedDeploymentIts": "Dies ist ein verwaltetes Deployment. Der Betreiber rollt ",
   "thisMayTakeAMoment": "Das kann einen Moment dauern.",
   "thisMcpServerIsNoLonger": "Dieser MCP-Server ist nicht mehr konfiguriert.",
   "thisMemoryWillBeRemovedPermanently": "Diese Erinnerung wird dauerhaft entfernt.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Update bereit",
   "updateSetup": "Einrichtung aktualisieren",
   "updateTheAccessListToAllow": "Aktualisieren Sie die Zugriffsliste, um Antworten zu erlauben.",
-  "updateTheServer": "Server aktualisieren?",
   "updateTheServer2": "Server aktualisieren",
   "updateTheTimeZoneAutomaticallyFrom": "Zeitzone automatisch vom verwendeten Gerät übernehmen.",
   "updatedArg1": "aktualisiert {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Aktualisierungen",
   "updatesAreNotConfiguredForThis": "Updates sind für diesen Build nicht konfiguriert.",
-  "updatesSoSelfUpdateAndChannel": "Updates aus, daher sind Selbstaktualisierung und Kanalwechsel hier deaktiviert.",
   "upgradeUpdateNowReleaseChannelStable": "upgrade update jetzt release kanal stable beta",
   "usageAnalytics": "Nutzungsanalysen",
   "usageAndHealthSignalsThatHelp": "Nutzungs- und Gesundheitssignale, die das aktuelle Laufzeitverhalten erklären, ohne zuerst die Logs durchsuchen zu müssen.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Nimmt an Gruppengesprächen teil",
   "label1PersonOrGroupAdded": "1 Person oder Gruppe hinzugefügt",
   "inProgress": "In Bearbeitung",
-  "waitingForUpdateJobOutput": "Warten auf die Ausgabe des Update-Auftrags…",
   "taskTrigger": "Aufgabenauslöser",
   "bearerToken": "Bearer-Token",
   "bearerToken2": "Bearer-Token",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "Der Sicherheitsschlüssel konnte nicht verwendet werden.",
   "connecting": "Verbindung wird hergestellt…",
   "changes": "Änderungen",
-  "runtimeReady": "Laufzeit bereit",
   "saving": "Wird gespeichert…",
   "earlier": "Früher",
   "monthJan": "Jan",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (Standard)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Zweig: {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"
@@ -7238,5 +7166,164 @@
   "agentImportReport": "Vollständiger Bericht: {path}",
   "agentImportFinishQueued": "„{name}“ ist eingeplant. Es startet zwei Minuten nach dem Neustart von NeoAgent, und du bekommst eine Nachricht, wenn es fertig ist.",
   "agentImportRestartNeeded": "Starte NeoAgent neu, um alles Übernommene zu laden.",
-  "agentImportRestarted": "NeoAgent wurde neu gestartet und hat alles geladen."
+  "agentImportRestarted": "NeoAgent wurde neu gestartet und hat alles geladen.",
+  "adminTabMessaging": "Nachrichten",
+  "auditMessagingConfigured": "{actor} hat das geteilte {platform}-Konto geändert",
+  "auditMessagingRemoved": "{actor} hat das geteilte {platform}-Konto entfernt",
+  "auditMessagingLinked": "{subject} hat sich mit dem geteilten {platform}-Konto verknüpft",
+  "auditMessagingUnlinked": "{subject} hat die Verknüpfung mit dem geteilten {platform}-Konto getrennt",
+  "auditMessagingConflict": "{subject} wollte eine {platform}-Identität verknüpfen, die bereits jemand anderem gehört",
+  "sharedAccountsTitle": "Geteilte Konten",
+  "sharedAccountsIntro": "Ein Bot oder eine Nummer für alle auf diesem Server. Die Verknüpfung nimmt jede Person selbst unter Einstellungen › Plattformen vor. Wenn nur Sie diesen Server nutzen, brauchen Sie das nicht.",
+  "sharedAccountTelegramPitch": "Ein Bot, mit dem sich alle auf diesem Server verknüpfen können",
+  "sharedAccountWhatsappPitch": "Eine Nummer, die alle auf diesem Server anschreiben können",
+  "sharedAccountStatusLive": "Aktiv",
+  "sharedAccountStatusStarting": "Verbindet",
+  "sharedAccountStatusFailed": "Prüfen",
+  "sharedAccountStatusOff": "Aus",
+  "sharedAccountStatusNotSetUp": "Nicht eingerichtet",
+  "sharedAccountTelegramStepBot": "Erstellen Sie mit @BotFather einen Bot und kopieren Sie sein Token.",
+  "sharedAccountTelegramStepToken": "Fügen Sie das Token hier ein.",
+  "sharedAccountBotToken": "Bot-Token",
+  "sharedAccountTokenMissing": "Fügen Sie zuerst das Bot-Token ein.",
+  "sharedAccountShowToken": "Token anzeigen",
+  "sharedAccountHideToken": "Token verbergen",
+  "sharedAccountConnect": "Verbinden",
+  "sharedAccountTurnOn": "Einschalten",
+  "sharedAccountTurnOff": "Ausschalten",
+  "sharedAccountReconnect": "Neu verbinden",
+  "sharedAccountReplaceToken": "Token ersetzen",
+  "sharedAccountRemove": "Entfernen",
+  "sharedAccountMore": "Mehr",
+  "sharedAccountRetry": "Erneut versuchen",
+  "sharedAccountShowQr": "QR-Code anzeigen",
+  "sharedAccountWhatsappWarning": "Verwenden Sie eine Nummer, auf die Sie verzichten können. WhatsApp kann automatisierte Nummern sperren, und dann verlieren alle auf diesem Konto den Zugang.",
+  "sharedAccountScanStepOpen": "Öffnen Sie WhatsApp auf dem Telefon mit der geteilten Nummer.",
+  "sharedAccountScanStepDevices": "Gehen Sie zu „Verknüpfte Geräte“ und tippen Sie auf „Gerät verknüpfen“.",
+  "sharedAccountScanStepPoint": "Richten Sie die Kamera auf diesen Code.",
+  "sharedAccountTelegramFailed": "Telegram hat dieses Token abgelehnt. Kopieren Sie es erneut von @BotFather und fügen Sie es unten ein.",
+  "sharedAccountWhatsappFailed": "WhatsApp hat diese Sitzung beendet, verknüpfte Personen können es daher nicht nutzen. Scannen Sie einen neuen Code, um es wiederherzustellen.",
+  "sharedAccountAvailable": "Nutzern anbieten",
+  "sharedAccountAvailableHint": "Aus blendet dieses Konto aus und es antwortet niemandem mehr. Verknüpfungen bleiben erhalten.",
+  "sharedAccountAllowPersonal": "Eigene Konten erlauben",
+  "sharedAccountAllowPersonalHint": "Aus verhindert, dass Personen hier ein eigenes Konto verbinden. Bestehende Verbindungen und Admins sind nicht betroffen.",
+  "adminMessagingSearchKeywords": "geteilt instanz telegram whatsapp bot nummer verknüpfen nutzer",
+  "sharedMessagingBadge": "Geteiltes Konto",
+  "sharedMessagingUseShared": "Geteiltes Konto nutzen",
+  "sharedMessagingUseOwn": "Eigenes Konto nutzen",
+  "sharedMessagingUseOwnHint": "Verbinden Sie Ihren eigenen Bot oder Ihre Nummer und verwalten Sie sie selbst.",
+  "sharedMessagingNewCode": "Neuen Code holen",
+  "sharedMessagingCopyCode": "Code kopieren",
+  "sharedMessagingCopied": "Kopiert",
+  "sharedMessagingScanHint": "Mit dem Telefon scannen, um den Chat dort zu öffnen",
+  "sharedMessagingCodeNote": "Behandeln Sie diesen Code wie ein Passwort: Wer ihn sendet, kann Ihren Agenten nutzen.",
+  "sharedMessagingCodeExpired": "Dieser Code ist abgelaufen.",
+  "sharedMessagingWaiting": "Warte auf Ihre Nachricht…",
+  "sharedMessagingLinkedHint": "Schreiben Sie jederzeit in diesen Chat, um diesen Agenten zu erreichen.",
+  "sharedMessagingDone": "Fertig",
+  "sharedMessagingIdentityTaken": "Dieses Konto ist bereits mit jemand anderem auf diesem Server verknüpft. Die Person muss die Verbindung zuerst trennen.",
+  "sharedAccountRemoveTitle": "Geteiltes {label}-Konto entfernen?",
+  "sharedAccountRemoveBody": "{count} verknüpfte Personen verlieren den Zugang, bis sie sich erneut verbinden.",
+  "sharedAccountRemoved": "Das geteilte {label}-Konto wurde entfernt.",
+  "sharedAccountLinkedCount": "{count} verknüpft",
+  "sharedMessagingTitle": "{platform} verbinden",
+  "sharedMessagingMovesLink": "Ihr {platform} ist mit einem anderen Agenten verknüpft. Eine Verknüpfung hier verschiebt es zu diesem.",
+  "sharedMessagingOpenAndSend": "Öffnen Sie {platform} mit dem Konto, das Sie nutzen möchten, und senden Sie diesen Code. Er wird automatisch eingetragen.",
+  "sharedMessagingSendCode": "Senden Sie diesen Code von dem Konto, das Sie nutzen möchten, an {account}.",
+  "sharedMessagingOpenApp": "{platform} öffnen",
+  "sharedMessagingLinked": "{platform} verknüpft als {identity}",
+  "messagingHubSubtitle": "Verknüpfen Sie die Chat-App, die Sie schon nutzen, und schreiben Sie Ihrem Agenten wie allen anderen.",
+  "messagingHubOfferTagline": "Keine Einrichtung nötig. Ihre Chats bleiben privat, und nur Sie erreichen Ihren Agenten.",
+  "messagingHubAdvanced": "Erweitert",
+  "messagingHubYourApps": "Ihre Apps",
+  "messagingHubAddApp": "App hinzufügen",
+  "messagingHubShowFewer": "Weniger anzeigen",
+  "messagingHubConnected": "Verbunden",
+  "messagingHubConnecting": "Verbindet…",
+  "messagingHubNotRunning": "Läuft nicht",
+  "messagingHubDisabled": "Auf diesem Server nicht verfügbar",
+  "messagingHubReconnect": "Neu verbinden",
+  "messagingHubDisconnect": "Trennen",
+  "messagingHubMoreSettings": "Weitere Einstellungen",
+  "messagingHubMoreSettingsHint": "Gruppenchats und letzte Aktivität",
+  "onboardingMessagingTitle": "Schreiben Sie Ihrem Agenten von überall.",
+  "onboardingMessagingDescription": "Verbinden Sie eine Chat-App, um Ihren Agenten außerhalb von NeoAgent zu erreichen. Die Einrichtung hängt von der App ab; Sie können das auch später tun.",
+  "onboardingMessagingOtherApps": "Andere Apps",
+  "onboardingMessagingAllSet": "Sie können Ihrem Agenten jetzt dort schreiben.",
+  "messagingHubTitle": "{agent} überall erreichen",
+  "messagingHubLink": "{platform} verknüpfen",
+  "messagingHubShowAll": "Alle {count} Apps anzeigen",
+  "messagingHubConnectedAs": "Verbunden als {identity}",
+  "messagingHubManage": "{platform} verwalten",
+  "onboardingModelTitle": "KI verbinden.",
+  "onboardingModelNeededDescription": "NeoAgent braucht ein Modell zum Denken. Das ist das Einzige, worauf es nicht verzichten kann.",
+  "onboardingModelReady": "Verbunden. NeoAgent wählt für jede Aufgabe das beste Modell.",
+  "onboardingModelChoose": "Bestimmtes Modell wählen",
+  "onboardingModelUseKey": "Stattdessen API-Schlüssel verwenden",
+  "onboardingComputerPermissions": "Was es auf diesem Computer darf",
+  "onboardingAlmostTitle": "Fast geschafft.",
+  "onboardingAlmostDescription": "NeoAgent kann erst antworten, wenn es ein KI-Modell hat. Sie können jederzeit eines unter Einstellungen › Modelle hinzufügen.",
+  "onboardingRecapModel": "KI-Modell bereit",
+  "onboardingRecapNoModel": "Noch kein KI-Modell",
+  "onboardingRecapNoMessaging": "Noch keine Chat-App. Später unter Einstellungen › Plattformen hinzufügen.",
+  "onboardingModelSignInHint": "Melden Sie sich an und bestätigen Sie NeoAgent. Kein Schlüssel zum Kopieren, in Sekunden fertig.",
+  "onboardingRecapMessaging": "Erreichbar über {apps}",
+  "onboardingRecapRoutines": "Aktive Routinen: {count}",
+  "agentNameRequired": "Geben Sie diesem Agenten einen Namen.",
+  "agentIdentifier": "Agentenkennung",
+  "agentIdentifierHint": "Wird verwendet, um diesen Agenten anzusprechen. Aus dem Namen vorgeschlagen; Sie können die Kennung ändern.",
+  "agentIdentifierInvalid": "Verwenden Sie 1–48 Kleinbuchstaben (a–z), Ziffern, Bindestriche oder Unterstriche.",
+  "uxAdvancedSettings": "Erweiterte Einstellungen",
+  "uxSelected": "Ausgewählt",
+  "uxSelectedDelegationTargets": "Nur ausgewählte Agenten können Aufgaben von diesem Agenten empfangen.",
+  "uxFieldRequired": "Geben Sie {field} ein.",
+  "uxTaskInstructions": "Was soll der Agent tun?",
+  "uxTaskEnabledHint": "Wenn aktiviert, läuft diese Aufgabe bei ihrem Auslöser. Ausschalten, um sie zu speichern, ohne sie automatisch auszuführen.",
+  "uxSettingsSaveHint": "Änderungen werden automatisch gespeichert, sofern keine Speichern-Schaltfläche angezeigt wird.",
+  "uxSettingsSaveFailed": "Eine Änderung konnte nicht gespeichert werden. Prüfen Sie den Fehler unten.",
+  "uxAdminUsers": "Benutzer",
+  "uxAdminConfiguration": "Konfiguration",
+  "uxAdminAnalytics": "Analysen",
+  "@uxFieldRequired": {
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
+  },
+  "uxMemoryEmptyHint": "Noch keine Erinnerungen. Bitten Sie diesen Agenten im Chat, sich etwas zu merken, oder fügen Sie hier eine Erinnerung hinzu. Erinnerungen gehören zum ausgewählten Agenten.",
+  "uxMemoryFacts": "Fakten",
+  "uxMemoryEntities": "Entitäten",
+  "uxMemoryReflections": "Reflexionen",
+  "uxMemoryDocuments": "Dokumente",
+  "uxOpenChat": "Chat öffnen",
+  "uxModelSkipHint": "Sie können sich zuerst umsehen. Chat und Aufgaben benötigen jedoch ein Modell, bevor sie funktionieren.",
+  "taskDeliveryBlockedBadge": "Keine Zustellung",
+  "taskDeliveryBlockedDetail": "Dieses Ziel ist über das geteilte Konto nicht erreichbar, daher kommen keine Ergebnisse an. Wählen Sie Ihren eigenen Chat oder den Standardkanal.",
+  "taskDeliverySharedTitle": "Geteilte Konten erreichen nur Sie",
+  "taskDeliverySharedDetail": "{platforms} nutzt das geteilte Konto dieses Servers, daher können Ergebnisse dort nur an Ihren eigenen Chat gehen.",
+  "adminUpdatesHint": "NeoAgent aktualisiert sich selbst von GitHub. Chats, Einstellungen und Konten bleiben erhalten.",
+  "adminUpdateChannelHint": "Stabil folgt main. Beta bekommt neue Funktionen zuerst.",
+  "adminUpdateCheckNow": "Jetzt prüfen",
+  "adminUpdateNeverChecked": "Noch nicht geprüft",
+  "adminUpdateCheckedAgo": "Geprüft {time}",
+  "adminUpdateUpToDate": "Du hast die neueste Version",
+  "adminUpdateCheckFailed": "GitHub ist nicht erreichbar. Das letzte Ergebnis wird angezeigt.",
+  "adminUpdateContainerHint": "NeoAgent läuft als Container-Image. Aktualisiere das Image statt des Codes darin, auf dem Docker-Host im Ordner mit deiner Compose-Datei. Das Daten-Volume bleibt erhalten.",
+  "adminUpdateManagedHint": "Dies ist ein verwaltetes Deployment. Updates übernimmt der Betreiber.",
+  "adminUpdateNotGitHint": "Diese Installation stammt nicht aus Git und kann sich nicht selbst aktualisieren. Führe neoagent update im Terminal aus.",
+  "adminUpdateDetails": "Details des letzten Updates",
+  "adminUpdateReadyTitle": "Version {version} ist bereit",
+  "adminUpdateReadySubtitle": "Du hast {current} · Kanal {channel}",
+  "adminUpdateWhatsNew": "Neuigkeiten",
+  "adminUpdateConfirmTitle": "Auf {version} aktualisieren?",
+  "adminUpdateConfirmMessage": "NeoAgent sichert deine Daten, installiert die neue Version und startet neu. Das dauert ein paar Minuten. Schlägt etwas fehl, kehrt es zur aktuellen Version zurück.",
+  "adminUpdatingTitle": "NeoAgent wird aktualisiert",
+  "adminUpdatingToTitle": "Aktualisiere auf {version}",
+  "adminUpdateReconnecting": "NeoAgent startet neu …",
+  "adminUpdateHandsOff": "Du musst nichts tun. Diese Seite verbindet sich von selbst wieder, sobald NeoAgent zurück ist.",
+  "adminUpdateDoneTitle": "Auf {version} aktualisiert",
+  "adminUpdateDoneReloading": "Die App wird neu geladen, um die neue Version zu laden …",
+  "adminUpdateReload": "Neu laden",
+  "adminUpdateFailedTitle": "Das Update wurde nicht abgeschlossen"
 }

@@ -193,8 +193,8 @@ class TelegramPlatform extends BasePlatform {
     const senderDisplayName = [msg.from.first_name, msg.from.last_name].filter(Boolean).join(' ')
       || senderUsername || userId;
     const senderName = senderDisplayName;
-    this._seenUsers.set(userId, senderDisplayName);
-    if (!isPrivate) {
+    if (!this.accessGate) this._seenUsers.set(userId, senderDisplayName);
+    if (!isPrivate && !this.accessGate) {
       this._seenGroups.set(rawChatId, msg.chat.title || rawChatId);
     }
 
@@ -217,6 +217,9 @@ class TelegramPlatform extends BasePlatform {
       roleIds: [],
       phoneNumber: '',
       wasMentioned: isPrivate ? false : this._isMentioned(msg),
+      text,
+      messageId: String(msg.message_id),
+      senderName,
     }, {
       senderName,
       meta: msg.chat.title ? `Group: ${msg.chat.title}` : '',

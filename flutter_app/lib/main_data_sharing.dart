@@ -54,9 +54,12 @@ class _DataSharingSettingState extends State<_DataSharingSetting> {
           anchor: 'dataSharing',
           label: appStrings.dataSharingTitle,
           description: description,
-          control: Switch(
-            value: sharing,
-            onChanged: _controller.isSavingDataSharing ? null : _setSharing,
+          control: Semantics(
+            label: appStrings.dataSharingTitle,
+            child: Switch(
+              value: sharing,
+              onChanged: _controller.isSavingDataSharing ? null : _setSharing,
+            ),
           ),
         ),
         Padding(

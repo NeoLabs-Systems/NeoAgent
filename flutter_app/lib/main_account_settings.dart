@@ -320,6 +320,7 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                   appStrings.shownInTheSidebarLeaveBlank,
               fillControl: true,
               control: _AutosaveTextField(
+                label: appStrings.displayName,
                 value: controller.user?['display_name']?.toString() ?? '',
                 maxLength: 64,
                 onSave: (name) async {

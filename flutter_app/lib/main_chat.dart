@@ -1546,15 +1546,6 @@ class _TypingIndicatorBubbleState extends State<_TypingIndicatorBubble>
   }
 }
 
-class MessagingPanel extends StatefulWidget {
-  const MessagingPanel({super.key, required this.controller});
-
-  final NeoAgentController controller;
-
-  @override
-  State<MessagingPanel> createState() => _MessagingPanelState();
-}
-
 MessagingPlatformDescriptor? _messagingPlatformById(String id) {
   for (final platform in messagingPlatforms) {
     if (platform.id == id) return platform;
@@ -1562,515 +1553,6 @@ MessagingPlatformDescriptor? _messagingPlatformById(String id) {
   return null;
 }
 
-class _MessagingPanelState extends State<MessagingPanel> {
-  final TextEditingController _searchController = TextEditingController();
-  String _statusFilter = 'all';
-
-  @override
-  void initState() {
-    super.initState();
-    _searchController.addListener(_handleSearchChanged);
-  }
-
-  @override
-  void dispose() {
-    _searchController
-      ..removeListener(_handleSearchChanged)
-      ..dispose();
-    super.dispose();
-  }
-
-  void _handleSearchChanged() => setState(() {});
-
-  @override
-  Widget build(BuildContext context) {
-    final controller = widget.controller;
-    final groups = [
-      (
-        appStrings.textChat,
-        appStrings.personalChannelsAndDirectSupportSurfaces,
-        [
-          'whatsapp',
-          'signal',
-          'imessage',
-          'bluebubbles',
-          'line',
-          'zalo_personal',
-        ],
-      ),
-      (
-        appStrings.communityChatops,
-        appStrings.teamSpacesRoomsChannelsAndLive,
-        [
-          'discord',
-          'telegram',
-          'slack',
-          'google_chat',
-          'teams',
-          'matrix',
-          'mattermost',
-          'irc',
-          'twitch',
-        ],
-      ),
-      (
-        appStrings.codeHosting,
-        appStrings.publicIssueAndPullRequestThreads,
-        ['github'],
-      ),
-      (
-        appStrings.configurableWebhooks,
-        appStrings.bridgeAnyProviderThatCanPost,
-        [
-          'feishu',
-          'nextcloud_talk',
-          'nostr',
-          'synology_chat',
-          'tlon',
-          'zalo',
-          'wechat',
-          'webchat',
-        ],
-      ),
-    ];
-    final query = _searchController.text.trim().toLowerCase();
-    final counts = _MessagingStatusCounts.from(controller.messagingStatuses);
-    final hasMatches = _hasMessagingMatches(controller, groups, query);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _GroupChatDefaults(controller: controller),
-        _SettingsAnchor(
-          id: 'channels',
-          child: _SettingsHeading(
-            title: appStrings.settingsChannels,
-            description: appStrings.connectChannelsChooseWhoArg1Talks(
-              controller.activeAgentLabel,
-            ),
-            trailing: IconButton(
-              tooltip: appStrings.refresh,
-              onPressed: controller.refreshMessaging,
-              icon: Icon(Icons.refresh_rounded),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        _MessagingOverviewStrip(counts: counts),
-        const SizedBox(height: 16),
-        _MessagingToolbar(
-          controller: _searchController,
-          selectedFilter: _statusFilter,
-          onFilterChanged: (value) => setState(() => _statusFilter = value),
-          counts: counts,
-        ),
-        if (controller.pendingMessagingQr != null) ...[
-          const SizedBox(height: 18),
-          MessagingQrPanel(qrState: controller.pendingMessagingQr!),
-        ],
-        const SizedBox(height: 18),
-        for (final group in groups)
-          Builder(
-            builder: (context) {
-              final platforms = group.$3
-                  .map(_messagingPlatformById)
-                  .nonNulls
-                  .where((platform) {
-                    final status =
-                        controller.messagingStatuses[platform.id] ??
-                        MessagingPlatformStatus.empty(platform.id);
-                    final haystack = appStrings
-                        .arg1Arg2Arg37(
-                          platform.label,
-                          platform.subtitle,
-                          group.$1,
-                        )
-                        .toLowerCase();
-                    return _matchesMessagingStatusFilter(status) &&
-                        (query.isEmpty || haystack.contains(query));
-                  })
-                  .toList(growable: false);
-              if (platforms.isEmpty) return const SizedBox.shrink();
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 22),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _MessagingGroupHeader(
-                      title: group.$1,
-                      subtitle: group.$2,
-                      count: platforms.length,
-                    ),
-                    const SizedBox(height: 12),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final width = constraints.maxWidth;
-                        final crossAxisCount = width >= 1380
-                            ? 4
-                            : width >= 1020
-                            ? 3
-                            : width >= 700
-                            ? 2
-                            : 1;
-                        return GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: platforms.length,
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: crossAxisCount,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                                mainAxisExtent: 268,
-                              ),
-                          itemBuilder: (context, index) {
-                            final platform = platforms[index];
-                            return _MessagingCard(
-                              platform: platform,
-                              status:
-                                  controller.messagingStatuses[platform.id] ??
-                                  MessagingPlatformStatus.empty(platform.id),
-                              accessCatalog: controller
-                                  .currentMessagingAccessCatalog(platform.id),
-                              controller: controller,
-                              onConnect: () => openMessagingConfig(
-                                context,
-                                controller,
-                                platform,
-                              ),
-                              onDisconnect: () => controller
-                                  .disconnectMessagingPlatform(platform.id),
-                              onLogout: () => controller
-                                  .logoutMessagingPlatform(platform.id),
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        if (!hasMatches) ...[
-          const SizedBox(height: 10),
-          _EmptyCard(
-            title: appStrings.noPlatformsMatch,
-            subtitle: appStrings.adjustTheSearchOrStatusFilter,
-          ),
-          const SizedBox(height: 22),
-        ],
-        if (controller.ignoredChats.isNotEmpty) ...[
-          const SizedBox(height: 18),
-          _IgnoredChatsPanel(controller: controller),
-        ],
-        _MessagingActivityPanel(messages: controller.messagingMessages),
-      ],
-    );
-  }
-
-  bool _hasMessagingMatches(
-    NeoAgentController controller,
-    List<(String, String, List<String>)> groups,
-    String query,
-  ) {
-    for (final group in groups) {
-      for (final key in group.$3) {
-        final platform = _messagingPlatformById(key);
-        if (platform == null) continue;
-        final status =
-            controller.messagingStatuses[platform.id] ??
-            MessagingPlatformStatus.empty(platform.id);
-        final haystack = appStrings
-            .arg1Arg2Arg37(platform.label, platform.subtitle, group.$1)
-            .toLowerCase();
-        if (_matchesMessagingStatusFilter(status) &&
-            (query.isEmpty || haystack.contains(query))) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  bool _matchesMessagingStatusFilter(MessagingPlatformStatus? status) {
-    final effective = status ?? MessagingPlatformStatus.empty('unknown');
-    return switch (_statusFilter) {
-      'connected' => effective.isConnected,
-      'configured' => effective.status != 'not_configured',
-      'attention' => const {
-        'connecting',
-        'awaiting_qr',
-        'logged_out',
-        'disconnected',
-        'error',
-      }.contains(effective.status),
-      _ => true,
-    };
-  }
-}
-
-class _MessagingStatusCounts {
-  const _MessagingStatusCounts({
-    required this.total,
-    required this.connected,
-    required this.configured,
-    required this.attention,
-  });
-
-  final int total;
-  final int connected;
-  final int configured;
-  final int attention;
-
-  factory _MessagingStatusCounts.from(
-    Map<String, MessagingPlatformStatus> statuses,
-  ) {
-    var connected = 0;
-    var configured = 0;
-    var attention = 0;
-    for (final platform in messagingPlatforms) {
-      final status =
-          statuses[platform.id] ?? MessagingPlatformStatus.empty(platform.id);
-      if (status.isConnected) connected++;
-      if (status.status != 'not_configured') configured++;
-      if (const {
-        'connecting',
-        'awaiting_qr',
-        'logged_out',
-        'disconnected',
-        'error',
-      }.contains(status.status)) {
-        attention++;
-      }
-    }
-    return _MessagingStatusCounts(
-      total: messagingPlatforms.length,
-      connected: connected,
-      configured: configured,
-      attention: attention,
-    );
-  }
-}
-
-class _MessagingOverviewStrip extends StatelessWidget {
-  const _MessagingOverviewStrip({required this.counts});
-
-  final _MessagingStatusCounts counts;
-
-  @override
-  Widget build(BuildContext context) {
-    final cards = [
-      _MessagingMetricCard(
-        icon: Icons.link_rounded,
-        label: appStrings.connected,
-        value: '${counts.connected}',
-        helper: appStrings.arg1Configured(counts.configured),
-        color: _success,
-      ),
-      _MessagingMetricCard(
-        icon: Icons.error_outline_rounded,
-        label: appStrings.needsAttention,
-        value: '${counts.attention}',
-        helper: appStrings.reconnectOrFinishSetup,
-        color: counts.attention > 0 ? _warning : _textSecondary,
-      ),
-      _MessagingMetricCard(
-        icon: Icons.apps_rounded,
-        label: appStrings.available,
-        value: '${counts.total}',
-        helper: appStrings.nativeAndWebhookChannels,
-        color: _info,
-      ),
-    ];
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 760;
-        if (compact) {
-          return Column(
-            children: [
-              for (var index = 0; index < cards.length; index++) ...[
-                if (index > 0) const SizedBox(height: 10),
-                cards[index],
-              ],
-            ],
-          );
-        }
-        return Row(
-          children: [
-            for (var index = 0; index < cards.length; index++) ...[
-              if (index > 0) const SizedBox(width: 12),
-              Expanded(child: cards[index]),
-            ],
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _MessagingMetricCard extends StatelessWidget {
-  const _MessagingMetricCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.helper,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final String helper;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _bgCard,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _borderLight),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(color: _textSecondary, fontSize: 12),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: TextStyle(
-                    color: _textPrimary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  helper,
-                  style: TextStyle(color: _textMuted, fontSize: 12),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MessagingToolbar extends StatelessWidget {
-  const _MessagingToolbar({
-    required this.controller,
-    required this.selectedFilter,
-    required this.onFilterChanged,
-    required this.counts,
-  });
-
-  final TextEditingController controller;
-  final String selectedFilter;
-  final ValueChanged<String> onFilterChanged;
-  final _MessagingStatusCounts counts;
-
-  @override
-  Widget build(BuildContext context) {
-    final filters = <(String, String)>[
-      ('all', appStrings.allArg1(counts.total)),
-      ('connected', appStrings.connectedArg1(counts.connected)),
-      ('configured', appStrings.configuredArg1(counts.configured)),
-      ('attention', appStrings.attentionArg1(counts.attention)),
-    ];
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _borderLight),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 780;
-          final search = TextField(
-            controller: controller,
-            style: TextStyle(color: _textPrimary),
-            decoration: InputDecoration(
-              labelText: appStrings.findAPlatform,
-              prefixIcon: Icon(Icons.search_rounded),
-              suffixIcon: controller.text.isEmpty
-                  ? null
-                  : IconButton(
-                      tooltip: appStrings.clearSearch,
-                      onPressed: controller.clear,
-                      icon: Icon(Icons.close_rounded),
-                    ),
-            ),
-          );
-          final chips = Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final filter in filters)
-                ChoiceChip(
-                  label: Text(filter.$2),
-                  selected: selectedFilter == filter.$1,
-                  onSelected: (_) => onFilterChanged(filter.$1),
-                  selectedColor: _accent.withValues(alpha: 0.18),
-                  backgroundColor: _bgCard,
-                  side: BorderSide(
-                    color: selectedFilter == filter.$1
-                        ? _accent.withValues(alpha: 0.42)
-                        : _borderLight,
-                  ),
-                  labelStyle: TextStyle(
-                    color: selectedFilter == filter.$1
-                        ? _textPrimary
-                        : _textSecondary,
-                    fontWeight: selectedFilter == filter.$1
-                        ? FontWeight.w700
-                        : FontWeight.w500,
-                  ),
-                ),
-            ],
-          );
-          if (compact) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [search, const SizedBox(height: 12), chips],
-            );
-          }
-          return Row(
-            children: [
-              Expanded(child: search),
-              const SizedBox(width: 14),
-              Flexible(child: chips),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// Shown in chat while no AI model can answer: before the first message on a
-/// fresh install, or after a run failed because no model is set up.
 class _ModelSetupCard extends StatelessWidget {
   const _ModelSetupCard({required this.controller});
 
@@ -2202,49 +1684,6 @@ class MessagingQrPanel extends StatelessWidget {
           );
         },
       ),
-    );
-  }
-}
-
-class _MessagingGroupHeader extends StatelessWidget {
-  const _MessagingGroupHeader({
-    required this.title,
-    required this.subtitle,
-    required this.count,
-  });
-
-  final String title;
-  final String subtitle;
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  color: _textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: TextStyle(color: _textSecondary, height: 1.35),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        _StatusPill(label: appStrings.arg1Shown(count), color: _textSecondary),
-      ],
     );
   }
 }
@@ -2630,265 +2069,6 @@ class _PendingApprovalBannerState extends State<_PendingApprovalBanner> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _MessagingCard extends StatelessWidget {
-  const _MessagingCard({
-    required this.platform,
-    required this.status,
-    required this.accessCatalog,
-    required this.controller,
-    required this.onConnect,
-    required this.onDisconnect,
-    required this.onLogout,
-  });
-
-  final MessagingPlatformDescriptor platform;
-  final MessagingPlatformStatus? status;
-  final MessagingAccessCatalog accessCatalog;
-  final NeoAgentController controller;
-  final Future<void> Function() onConnect;
-  final Future<void> Function() onDisconnect;
-  final Future<void> Function() onLogout;
-
-  @override
-  Widget build(BuildContext context) {
-    final connected = status?.isConnected ?? false;
-    final configured = status != null && status!.status != 'not_configured';
-    final disabled = status?.status == 'disabled';
-    final canDisconnect = configured && !connected && !disabled;
-    final isDisconnecting = controller.isMessagingPlatformBusy(
-      platform.id,
-      'disconnect',
-    );
-    final isSigningIn =
-        platform.connectMethod == MessagingConnectMethod.integration &&
-        controller.isOfficialIntegrationBusy(
-          '${platform.integrationProvider}:${platform.integrationApp}:connect',
-        );
-    final accent = platform.accent;
-    final actionLabel = connected
-        ? 'Connected'
-        : isSigningIn
-        ? appStrings.signingIn
-        : disabled
-        ? 'Disabled'
-        : configured
-        ? 'Reconnect'
-        : 'Connect';
-    final accessLabel = accessCatalog.compactAccessLabel;
-    // Self-chat mode answers only the account owner's own notes, so there is
-    // nobody to allow and no other chat to review.
-    final selfChatOnly =
-        platform.id == 'whatsapp' && readWhatsAppSelfChatMode(controller);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _bgCard,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: connected ? accent.withValues(alpha: 0.48) : _borderLight,
-        ),
-        boxShadow: [
-          if (connected)
-            BoxShadow(
-              color: accent.withValues(alpha: 0.08),
-              blurRadius: 18,
-              offset: const Offset(0, 10),
-            ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(platform.icon, color: accent, size: 23),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      platform.label,
-                      style: TextStyle(
-                        color: _textPrimary,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      status?.authLabel ?? appStrings.notConfigured,
-                      style: TextStyle(color: _textSecondary, fontSize: 12),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              _StatusPill(
-                label: connected
-                    ? 'Live'
-                    : disabled
-                    ? 'Disabled'
-                    : configured
-                    ? 'Ready'
-                    : 'Setup',
-                color: connected
-                    ? _success
-                    : disabled
-                    ? _textMuted
-                    : configured
-                    ? _warning
-                    : _textMuted,
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            platform.subtitle,
-            style: TextStyle(color: _textSecondary, height: 1.4),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const Spacer(),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (!selfChatOnly)
-                _MessagingMiniPill(
-                  icon: Icons.forum_outlined,
-                  label: accessLabel,
-                ),
-              if (configured && !connected)
-                _MessagingMiniPill(
-                  icon: Icons.tune_rounded,
-                  label: appStrings.readyToConnect,
-                ),
-              if (platform.id == 'whatsapp')
-                _MessagingMiniPill(
-                  icon: selfChatOnly
-                      ? Icons.bookmark_border_rounded
-                      : Icons.smartphone_rounded,
-                  label: selfChatOnly
-                      ? 'Self-chat only'
-                      : appStrings.separateAccount,
-                ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: connected
-                    ? OutlinedButton.icon(
-                        onPressed: isDisconnecting ? null : onDisconnect,
-                        icon: isDisconnecting
-                            ? SizedBox.square(
-                                dimension: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : Icon(Icons.link_off_rounded, size: 18),
-                        label: Text(
-                          'Disconnect',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      )
-                    : FilledButton.icon(
-                        onPressed: disabled || isDisconnecting || isSigningIn
-                            ? null
-                            : onConnect,
-                        icon: Icon(Icons.power_settings_new_rounded, size: 18),
-                        label: Text(
-                          actionLabel,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: accent,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-              ),
-              if (canDisconnect) ...[
-                const SizedBox(width: 8),
-                IconButton.outlined(
-                  tooltip: appStrings.disconnectPlatform,
-                  onPressed: isDisconnecting ? null : onDisconnect,
-                  icon: isDisconnecting
-                      ? SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Icon(Icons.link_off_rounded),
-                ),
-              ],
-              if (platform.id == 'whatsapp') ...[
-                const SizedBox(width: 8),
-                IconButton.outlined(
-                  tooltip: appStrings.chatMode,
-                  onPressed: onConnect,
-                  icon: Icon(Icons.swap_horiz_rounded),
-                ),
-              ],
-              if (!selfChatOnly) ...[
-                const SizedBox(width: 8),
-                IconButton.outlined(
-                  tooltip: appStrings.whoCanMessage,
-                  onPressed: () => _editAccessPolicy(context, controller),
-                  icon: Icon(Icons.forum_outlined),
-                ),
-              ],
-              if (connected) ...[
-                const SizedBox(width: 8),
-                IconButton.outlined(
-                  tooltip: appStrings.logout,
-                  onPressed: onLogout,
-                  icon: Icon(Icons.logout_rounded),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _editAccessPolicy(
-    BuildContext context,
-    NeoAgentController controller,
-  ) async {
-    final catalog = await controller.loadMessagingAccessCatalog(
-      platform.id,
-      force: true,
-    );
-    if (!context.mounted) return;
-    await _showMessagingAccessPolicyDialog(
-      context,
-      platform: platform,
-      agentName: controller.activeAgentLabel,
-      initialCatalog: catalog,
-      onRefreshCatalog: () =>
-          controller.loadMessagingAccessCatalog(platform.id, force: true),
-      onSave: (policy) =>
-          controller.saveMessagingAccessPolicy(platform.id, policy),
-      onLoadDecisions: () => controller.loadBehaviorDecisions(platform.id),
     );
   }
 }
@@ -4853,50 +4033,9 @@ class _MessagingWebhookCard extends StatelessWidget {
   }
 }
 
-class _MessagingMiniPill extends StatelessWidget {
-  const _MessagingMiniPill({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _borderLight),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 260),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: _textSecondary),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: _textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // ──────────────────────────────────────────────────────────────────────────────
 
-Future<void> openMessagingConfig(
+Future<void> _openPersonalMessagingConfig(
   BuildContext context,
   NeoAgentController controller,
   MessagingPlatformDescriptor platform,
@@ -5192,11 +4331,16 @@ Future<void> _openGenericMessagingConfigHelper(
     }
   }
 
-  try {
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
+  final formKey = GlobalKey<FormState>();
+  var connecting = false;
+  String? connectError;
+
+  await showDialog<void>(
+    context: context,
+    builder: (context) {
+      return _DisposesDialogResources(
+        resources: textControllers.values,
+        child: StatefulBuilder(
           builder: (context, setLocalState) {
             return AlertDialog(
               backgroundColor: _bgCard,
@@ -5237,9 +4381,10 @@ Future<void> _openGenericMessagingConfigHelper(
                   ),
                 ],
               ),
-              content: SizedBox(
+              content: _ScrollableDialogBody(
                 width: 620,
-                child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -5256,6 +4401,10 @@ Future<void> _openGenericMessagingConfigHelper(
                         style: TextStyle(color: _textSecondary, height: 1.4),
                       ),
                       const SizedBox(height: 16),
+                      if (platform.setupInstructions != null) ...<Widget>[
+                        Text(platform.setupInstructions!),
+                        const SizedBox(height: AppSpacing.md),
+                      ],
                       if (platform.configFields.isEmpty)
                         const SizedBox.shrink()
                       else
@@ -5284,8 +4433,16 @@ Future<void> _openGenericMessagingConfigHelper(
                           final fieldController = textControllers[field.key]!;
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 12),
-                            child: TextField(
+                            child: TextFormField(
+                              autovalidateMode:
+                                  AutovalidateMode.onUserInteraction,
                               controller: fieldController,
+                              enabled: !connecting,
+                              validator: (value) =>
+                                  field.isRequired &&
+                                      (value == null || value.trim().isEmpty)
+                                  ? appStrings.uxFieldRequired(field.label)
+                                  : null,
                               obscureText:
                                   field.obscure ||
                                   field.kind ==
@@ -5309,23 +4466,29 @@ Future<void> _openGenericMessagingConfigHelper(
                           );
                         }),
                       const SizedBox(height: 8),
-                      _MessagingWebhookCard(
-                        url:
-                            '${controller.backendUrl}/api/messaging/webhook/${platform.id}',
-                        platformLabel: platform.label,
-                        agentName: controller.activeAgentLabel,
-                      ),
+                      if (platform.receivesViaWebhook)
+                        _MessagingWebhookCard(
+                          url:
+                              '${controller.backendUrl}/api/messaging/webhook/${platform.id}',
+                          platformLabel: platform.label,
+                          agentName: controller.activeAgentLabel,
+                        ),
                     ],
                   ),
                 ),
               ),
               actions: <Widget>[
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(appStrings.cancel),
-                ),
-                FilledButton(
-                  onPressed: () async {
+                _DialogFormActions(
+                  busy: connecting,
+                  busyLabel: appStrings.connecting,
+                  error: connectError,
+                  submitLabel: appStrings.connect,
+                  onSubmit: () async {
+                    if (!_validateDialogForm(formKey)) return;
+                    setLocalState(() {
+                      connecting = true;
+                      connectError = null;
+                    });
                     final config = <String, dynamic>{};
                     final snapshot = <String, dynamic>{};
                     for (final field in platform.configFields) {
@@ -5355,31 +4518,29 @@ Future<void> _openGenericMessagingConfigHelper(
                       }
                     }
                     snapshot[platform.settingsKey] = jsonEncode(config);
-                    final connected = await _connectMessagingPlatformHelper(
-                      context,
-                      controller,
-                      platform: platform.id,
-                      platformLabel: platform.label,
-                      config: config,
-                      configSnapshot: snapshot,
-                    );
-                    if (connected && context.mounted) {
-                      Navigator.of(context).pop();
+                    try {
+                      await controller.connectMessagingPlatform(
+                        platform: platform.id,
+                        config: config,
+                        configSnapshot: snapshot,
+                      );
+                      if (context.mounted) Navigator.of(context).pop();
+                    } catch (error) {
+                      if (!context.mounted) return;
+                      setLocalState(() {
+                        connecting = false;
+                        connectError = controller.friendlyErrorMessage(error);
+                      });
                     }
                   },
-                  child: Text(appStrings.connect),
                 ),
               ],
             );
           },
-        );
-      },
-    );
-  } finally {
-    for (final controller in textControllers.values) {
-      controller.dispose();
-    }
-  }
+        ),
+      );
+    },
+  );
 }
 
 /// Tasks the server moved to the background keep working while the chat stays

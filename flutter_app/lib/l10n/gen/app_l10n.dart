@@ -1581,12 +1581,6 @@ abstract class AppL10n {
   /// **'{arg1} {arg2} * * *'**
   String arg1Arg210(Object? arg1, Object? arg2);
 
-  /// No description provided for @arg1Arg211.
-  ///
-  /// In en, this message translates to:
-  /// **'{arg1} -> {arg2}'**
-  String arg1Arg211(Object? arg1, Object? arg2);
-
   /// No description provided for @arg1Arg215.
   ///
   /// In en, this message translates to:
@@ -3054,18 +3048,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Channel access token'**
   String get channelAccessToken;
-
-  /// No description provided for @channelArg1Arg2UpdateVersionArg3.
-  ///
-  /// In en, this message translates to:
-  /// **'Channel: {arg1}{arg2} | Update Version: {arg3}{arg4}{arg5}'**
-  String channelArg1Arg2UpdateVersionArg3(
-    Object? arg1,
-    Object? arg2,
-    Object? arg3,
-    Object? arg4,
-    Object? arg5,
-  );
 
   /// No description provided for @channelScopedSocialMemory.
   ///
@@ -6619,12 +6601,6 @@ abstract class AppL10n {
   /// **'Install NeoAgent on this computer without a terminal, or connect to one that is already running.'**
   String get installNeoagentOnThisComputerWithout;
 
-  /// No description provided for @installNewReleasesAndChooseWhich.
-  ///
-  /// In en, this message translates to:
-  /// **'Install new releases and choose which channel this server follows.'**
-  String get installNewReleasesAndChooseWhich;
-
   /// No description provided for @installTheBackend.
   ///
   /// In en, this message translates to:
@@ -6642,12 +6618,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Install the secure core, then create your account. Add AI provider keys afterwards.'**
   String get installTheSecureCoreThenCreate;
-
-  /// No description provided for @installedArg1.
-  ///
-  /// In en, this message translates to:
-  /// **' | Installed: {arg1}'**
-  String installedArg1(Object? arg1);
 
   /// No description provided for @installedArg1LastCheckedArg2.
   ///
@@ -8143,12 +8113,6 @@ abstract class AppL10n {
   /// **'NeoAgent Flutter Updater'**
   String get neoagentFlutterUpdater;
 
-  /// No description provided for @neoagentInstallsTheLatestArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'NeoAgent installs the latest {arg1} '**
-  String neoagentInstallsTheLatestArg1(Object? arg1);
-
   /// No description provided for @neoagentIsInstalledAndRunning.
   ///
   /// In en, this message translates to:
@@ -8916,12 +8880,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'No tool matches \"{arg1}\".'**
   String noToolMatchesArg1(Object? arg1);
-
-  /// No description provided for @noUpdateRunning.
-  ///
-  /// In en, this message translates to:
-  /// **'No update running'**
-  String get noUpdateRunning;
 
   /// No description provided for @noUsageYet.
   ///
@@ -10399,12 +10357,6 @@ abstract class AppL10n {
   /// **'Reject invalid TLS certificates'**
   String get rejectInvalidTlsCertificates;
 
-  /// No description provided for @releaseAndRestartsConnectedAppsReconnect.
-  ///
-  /// In en, this message translates to:
-  /// **'release and restarts. Connected apps reconnect once it is back.'**
-  String get releaseAndRestartsConnectedAppsReconnect;
-
   /// No description provided for @releaseChannel.
   ///
   /// In en, this message translates to:
@@ -11029,23 +10981,11 @@ abstract class AppL10n {
   /// **'Runtime {arg1}'**
   String runtimeArg1(Object? arg1);
 
-  /// No description provided for @runtimeArg12.
-  ///
-  /// In en, this message translates to:
-  /// **' | Runtime: {arg1}'**
-  String runtimeArg12(Object? arg1);
-
   /// No description provided for @runtimeSettingsThisServerStartedWith.
   ///
   /// In en, this message translates to:
   /// **'Runtime settings this server started with. Edit them under '**
   String get runtimeSettingsThisServerStartedWith;
-
-  /// No description provided for @runtimeSetupRequired.
-  ///
-  /// In en, this message translates to:
-  /// **'Runtime setup required'**
-  String get runtimeSetupRequired;
 
   /// No description provided for @runtimeSigningPublicKeyMustBe.
   ///
@@ -13156,7 +13096,7 @@ abstract class AppL10n {
   /// No description provided for @thisAccountWillUnlockNeoagentOn.
   ///
   /// In en, this message translates to:
-  /// **'This account will unlock NeoAgent on this machine.'**
+  /// **'This is the first account on this server. It will also manage server settings and access.'**
   String get thisAccountWillUnlockNeoagentOn;
 
   /// No description provided for @thisAgentCanDelegateToAny.
@@ -13242,12 +13182,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'This intro is designed for full-screen landscape playback.'**
   String get thisIntroIsDesignedForFull;
-
-  /// No description provided for @thisIsAManagedDeploymentIts.
-  ///
-  /// In en, this message translates to:
-  /// **'This is a managed deployment. Its operator rolls out '**
-  String get thisIsAManagedDeploymentIts;
 
   /// No description provided for @thisMayTakeAMoment.
   ///
@@ -14059,12 +13993,6 @@ abstract class AppL10n {
   /// **'Update the access list to allow replies.'**
   String get updateTheAccessListToAllow;
 
-  /// No description provided for @updateTheServer.
-  ///
-  /// In en, this message translates to:
-  /// **'Update the server?'**
-  String get updateTheServer;
-
   /// No description provided for @updateTheServer2.
   ///
   /// In en, this message translates to:
@@ -14094,12 +14022,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Updates are not configured for this build.'**
   String get updatesAreNotConfiguredForThis;
-
-  /// No description provided for @updatesSoSelfUpdateAndChannel.
-  ///
-  /// In en, this message translates to:
-  /// **'updates, so self-update and channel changes are off here.'**
-  String get updatesSoSelfUpdateAndChannel;
 
   /// No description provided for @upgradeUpdateNowReleaseChannelStable.
   ///
@@ -15709,12 +15631,6 @@ abstract class AppL10n {
   /// **'In progress'**
   String get inProgress;
 
-  /// No description provided for @waitingForUpdateJobOutput.
-  ///
-  /// In en, this message translates to:
-  /// **'Waiting for update job output…'**
-  String get waitingForUpdateJobOutput;
-
   /// No description provided for @taskTrigger.
   ///
   /// In en, this message translates to:
@@ -16026,12 +15942,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Changes'**
   String get changes;
-
-  /// No description provided for @runtimeReady.
-  ///
-  /// In en, this message translates to:
-  /// **'Runtime ready'**
-  String get runtimeReady;
 
   /// No description provided for @saving.
   ///
@@ -16398,12 +16308,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'{arg1} (default)'**
   String arg1Default2(Object? arg1);
-
-  /// No description provided for @branchArg1.
-  ///
-  /// In en, this message translates to:
-  /// **' | Branch: {arg1}'**
-  String branchArg1(Object? arg1);
 
   /// No description provided for @arg1OnlyJoinsTheGroupsAndChannels.
   ///
@@ -19884,6 +19788,918 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'NeoAgent restarted and loaded everything.'**
   String get agentImportRestarted;
+
+  /// No description provided for @adminTabMessaging.
+  ///
+  /// In en, this message translates to:
+  /// **'Messaging'**
+  String get adminTabMessaging;
+
+  /// No description provided for @auditMessagingConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} changed the shared {platform} account'**
+  String auditMessagingConfigured(Object? actor, Object? platform);
+
+  /// No description provided for @auditMessagingRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} removed the shared {platform} account'**
+  String auditMessagingRemoved(Object? actor, Object? platform);
+
+  /// No description provided for @auditMessagingLinked.
+  ///
+  /// In en, this message translates to:
+  /// **'{subject} linked to the shared {platform} account'**
+  String auditMessagingLinked(Object? subject, Object? platform);
+
+  /// No description provided for @auditMessagingUnlinked.
+  ///
+  /// In en, this message translates to:
+  /// **'{subject} unlinked from the shared {platform} account'**
+  String auditMessagingUnlinked(Object? subject, Object? platform);
+
+  /// No description provided for @auditMessagingConflict.
+  ///
+  /// In en, this message translates to:
+  /// **'{subject} tried to link a {platform} identity already linked to someone else'**
+  String auditMessagingConflict(Object? subject, Object? platform);
+
+  /// No description provided for @sharedAccountsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared accounts'**
+  String get sharedAccountsTitle;
+
+  /// No description provided for @sharedAccountsIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'One bot or number for everyone on this server. People link themselves under Settings › Platforms. Skip this if you\'re the only one using this server.'**
+  String get sharedAccountsIntro;
+
+  /// No description provided for @sharedAccountTelegramPitch.
+  ///
+  /// In en, this message translates to:
+  /// **'One bot that anyone on this server can link to'**
+  String get sharedAccountTelegramPitch;
+
+  /// No description provided for @sharedAccountWhatsappPitch.
+  ///
+  /// In en, this message translates to:
+  /// **'One number that anyone on this server can message'**
+  String get sharedAccountWhatsappPitch;
+
+  /// No description provided for @sharedAccountStatusLive.
+  ///
+  /// In en, this message translates to:
+  /// **'Live'**
+  String get sharedAccountStatusLive;
+
+  /// No description provided for @sharedAccountStatusStarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting'**
+  String get sharedAccountStatusStarting;
+
+  /// No description provided for @sharedAccountStatusFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs attention'**
+  String get sharedAccountStatusFailed;
+
+  /// No description provided for @sharedAccountStatusOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get sharedAccountStatusOff;
+
+  /// No description provided for @sharedAccountStatusNotSetUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Not set up'**
+  String get sharedAccountStatusNotSetUp;
+
+  /// No description provided for @sharedAccountTelegramStepBot.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a bot with @BotFather and copy its token.'**
+  String get sharedAccountTelegramStepBot;
+
+  /// No description provided for @sharedAccountTelegramStepToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste the token here.'**
+  String get sharedAccountTelegramStepToken;
+
+  /// No description provided for @sharedAccountBotToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Bot token'**
+  String get sharedAccountBotToken;
+
+  /// No description provided for @sharedAccountTokenMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste the bot token first.'**
+  String get sharedAccountTokenMissing;
+
+  /// No description provided for @sharedAccountShowToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Show token'**
+  String get sharedAccountShowToken;
+
+  /// No description provided for @sharedAccountHideToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide token'**
+  String get sharedAccountHideToken;
+
+  /// No description provided for @sharedAccountConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect'**
+  String get sharedAccountConnect;
+
+  /// No description provided for @sharedAccountTurnOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on'**
+  String get sharedAccountTurnOn;
+
+  /// No description provided for @sharedAccountTurnOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn off'**
+  String get sharedAccountTurnOff;
+
+  /// No description provided for @sharedAccountReconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnect'**
+  String get sharedAccountReconnect;
+
+  /// No description provided for @sharedAccountReplaceToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace token'**
+  String get sharedAccountReplaceToken;
+
+  /// No description provided for @sharedAccountRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get sharedAccountRemove;
+
+  /// No description provided for @sharedAccountMore.
+  ///
+  /// In en, this message translates to:
+  /// **'More'**
+  String get sharedAccountMore;
+
+  /// No description provided for @sharedAccountRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get sharedAccountRetry;
+
+  /// No description provided for @sharedAccountShowQr.
+  ///
+  /// In en, this message translates to:
+  /// **'Show QR code'**
+  String get sharedAccountShowQr;
+
+  /// No description provided for @sharedAccountWhatsappWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a number you can spare. WhatsApp can ban automated numbers, and everyone on this account would lose access.'**
+  String get sharedAccountWhatsappWarning;
+
+  /// No description provided for @sharedAccountScanStepOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open WhatsApp on the phone with the shared number.'**
+  String get sharedAccountScanStepOpen;
+
+  /// No description provided for @sharedAccountScanStepDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to Linked devices and tap Link a device.'**
+  String get sharedAccountScanStepDevices;
+
+  /// No description provided for @sharedAccountScanStepPoint.
+  ///
+  /// In en, this message translates to:
+  /// **'Point the camera at this code.'**
+  String get sharedAccountScanStepPoint;
+
+  /// No description provided for @sharedAccountTelegramFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram rejected this token. Copy it from @BotFather again and paste it below.'**
+  String get sharedAccountTelegramFailed;
+
+  /// No description provided for @sharedAccountWhatsappFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'WhatsApp ended this session, so linked people can\'t use it. Scan a new code to bring it back.'**
+  String get sharedAccountWhatsappFailed;
+
+  /// No description provided for @sharedAccountAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Offer to users'**
+  String get sharedAccountAvailable;
+
+  /// No description provided for @sharedAccountAvailableHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Off hides this account and stops it answering anyone. Links are kept.'**
+  String get sharedAccountAvailableHint;
+
+  /// No description provided for @sharedAccountAllowPersonal.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow personal accounts'**
+  String get sharedAccountAllowPersonal;
+
+  /// No description provided for @sharedAccountAllowPersonalHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Off stops people connecting their own account here. Existing connections and admins aren\'t affected.'**
+  String get sharedAccountAllowPersonalHint;
+
+  /// No description provided for @adminMessagingSearchKeywords.
+  ///
+  /// In en, this message translates to:
+  /// **'shared instance telegram whatsapp bot number link users'**
+  String get adminMessagingSearchKeywords;
+
+  /// No description provided for @sharedMessagingBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared account'**
+  String get sharedMessagingBadge;
+
+  /// No description provided for @sharedMessagingUseShared.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the shared account'**
+  String get sharedMessagingUseShared;
+
+  /// No description provided for @sharedMessagingUseOwn.
+  ///
+  /// In en, this message translates to:
+  /// **'Use my own account'**
+  String get sharedMessagingUseOwn;
+
+  /// No description provided for @sharedMessagingUseOwnHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect your own bot or number and manage it yourself.'**
+  String get sharedMessagingUseOwnHint;
+
+  /// No description provided for @sharedMessagingNewCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Get a new code'**
+  String get sharedMessagingNewCode;
+
+  /// No description provided for @sharedMessagingCopyCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy code'**
+  String get sharedMessagingCopyCode;
+
+  /// No description provided for @sharedMessagingCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get sharedMessagingCopied;
+
+  /// No description provided for @sharedMessagingScanHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan with your phone to open the chat there'**
+  String get sharedMessagingScanHint;
+
+  /// No description provided for @sharedMessagingCodeNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Treat this code like a password: whoever sends it can use your agent.'**
+  String get sharedMessagingCodeNote;
+
+  /// No description provided for @sharedMessagingCodeExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'This code has expired.'**
+  String get sharedMessagingCodeExpired;
+
+  /// No description provided for @sharedMessagingWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for your message…'**
+  String get sharedMessagingWaiting;
+
+  /// No description provided for @sharedMessagingLinkedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Message that chat any time to reach this agent.'**
+  String get sharedMessagingLinkedHint;
+
+  /// No description provided for @sharedMessagingDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get sharedMessagingDone;
+
+  /// No description provided for @sharedMessagingIdentityTaken.
+  ///
+  /// In en, this message translates to:
+  /// **'That account is already linked to someone else on this server. They need to disconnect it first.'**
+  String get sharedMessagingIdentityTaken;
+
+  /// No description provided for @sharedAccountRemoveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove the shared {label} account?'**
+  String sharedAccountRemoveTitle(Object? label);
+
+  /// No description provided for @sharedAccountRemoveBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} linked people will lose access until they connect again.'**
+  String sharedAccountRemoveBody(Object? count);
+
+  /// No description provided for @sharedAccountRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed the shared {label} account.'**
+  String sharedAccountRemoved(Object? label);
+
+  /// No description provided for @sharedAccountLinkedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} linked'**
+  String sharedAccountLinkedCount(Object? count);
+
+  /// No description provided for @sharedMessagingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect {platform}'**
+  String sharedMessagingTitle(Object? platform);
+
+  /// No description provided for @sharedMessagingMovesLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {platform} is linked to another agent. Linking here moves it to this one.'**
+  String sharedMessagingMovesLink(Object? platform);
+
+  /// No description provided for @sharedMessagingOpenAndSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Open {platform} on the account you want to use and send this code. It fills in by itself.'**
+  String sharedMessagingOpenAndSend(Object? platform);
+
+  /// No description provided for @sharedMessagingSendCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Send this code to {account} from the account you want to use.'**
+  String sharedMessagingSendCode(Object? account);
+
+  /// No description provided for @sharedMessagingOpenApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Open {platform}'**
+  String sharedMessagingOpenApp(Object? platform);
+
+  /// No description provided for @sharedMessagingLinked.
+  ///
+  /// In en, this message translates to:
+  /// **'{platform} linked as {identity}'**
+  String sharedMessagingLinked(Object? platform, Object? identity);
+
+  /// No description provided for @messagingHubSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Link the chat app you already use, then message your agent like anyone else.'**
+  String get messagingHubSubtitle;
+
+  /// No description provided for @messagingHubOfferTagline.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing to set up. Your chats stay yours, and only you reach your agent.'**
+  String get messagingHubOfferTagline;
+
+  /// No description provided for @messagingHubAdvanced.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced'**
+  String get messagingHubAdvanced;
+
+  /// No description provided for @messagingHubYourApps.
+  ///
+  /// In en, this message translates to:
+  /// **'Your apps'**
+  String get messagingHubYourApps;
+
+  /// No description provided for @messagingHubAddApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Add an app'**
+  String get messagingHubAddApp;
+
+  /// No description provided for @messagingHubShowFewer.
+  ///
+  /// In en, this message translates to:
+  /// **'Show fewer'**
+  String get messagingHubShowFewer;
+
+  /// No description provided for @messagingHubConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get messagingHubConnected;
+
+  /// No description provided for @messagingHubConnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting…'**
+  String get messagingHubConnecting;
+
+  /// No description provided for @messagingHubNotRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Not running'**
+  String get messagingHubNotRunning;
+
+  /// No description provided for @messagingHubDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Not available on this server'**
+  String get messagingHubDisabled;
+
+  /// No description provided for @messagingHubReconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnect'**
+  String get messagingHubReconnect;
+
+  /// No description provided for @messagingHubDisconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect'**
+  String get messagingHubDisconnect;
+
+  /// No description provided for @messagingHubMoreSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'More settings'**
+  String get messagingHubMoreSettings;
+
+  /// No description provided for @messagingHubMoreSettingsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Group chats and recent activity'**
+  String get messagingHubMoreSettingsHint;
+
+  /// No description provided for @onboardingMessagingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Message your agent from anywhere.'**
+  String get onboardingMessagingTitle;
+
+  /// No description provided for @onboardingMessagingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect a chat app to reach your agent outside NeoAgent. Setup depends on the app; you can do this later.'**
+  String get onboardingMessagingDescription;
+
+  /// No description provided for @onboardingMessagingOtherApps.
+  ///
+  /// In en, this message translates to:
+  /// **'Other apps'**
+  String get onboardingMessagingOtherApps;
+
+  /// No description provided for @onboardingMessagingAllSet.
+  ///
+  /// In en, this message translates to:
+  /// **'You can now message your agent there.'**
+  String get onboardingMessagingAllSet;
+
+  /// No description provided for @messagingHubTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reach {agent} anywhere'**
+  String messagingHubTitle(Object? agent);
+
+  /// No description provided for @messagingHubLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Link {platform}'**
+  String messagingHubLink(Object? platform);
+
+  /// No description provided for @messagingHubShowAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Show all {count} apps'**
+  String messagingHubShowAll(Object? count);
+
+  /// No description provided for @messagingHubConnectedAs.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected as {identity}'**
+  String messagingHubConnectedAs(Object? identity);
+
+  /// No description provided for @messagingHubManage.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage {platform}'**
+  String messagingHubManage(Object? platform);
+
+  /// No description provided for @onboardingModelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect an AI.'**
+  String get onboardingModelTitle;
+
+  /// No description provided for @onboardingModelNeededDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent needs a model to think with. This is the only thing it can\'t do without.'**
+  String get onboardingModelNeededDescription;
+
+  /// No description provided for @onboardingModelReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected. NeoAgent picks the best model for each task.'**
+  String get onboardingModelReady;
+
+  /// No description provided for @onboardingModelChoose.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a specific model'**
+  String get onboardingModelChoose;
+
+  /// No description provided for @onboardingModelUseKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Use an API key instead'**
+  String get onboardingModelUseKey;
+
+  /// No description provided for @onboardingComputerPermissions.
+  ///
+  /// In en, this message translates to:
+  /// **'What it may do on this computer'**
+  String get onboardingComputerPermissions;
+
+  /// No description provided for @onboardingAlmostTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Almost there.'**
+  String get onboardingAlmostTitle;
+
+  /// No description provided for @onboardingAlmostDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent can\'t answer until it has an AI model. You can add one any time under Settings › Models.'**
+  String get onboardingAlmostDescription;
+
+  /// No description provided for @onboardingRecapModel.
+  ///
+  /// In en, this message translates to:
+  /// **'AI model ready'**
+  String get onboardingRecapModel;
+
+  /// No description provided for @onboardingRecapNoModel.
+  ///
+  /// In en, this message translates to:
+  /// **'No AI model yet'**
+  String get onboardingRecapNoModel;
+
+  /// No description provided for @onboardingRecapNoMessaging.
+  ///
+  /// In en, this message translates to:
+  /// **'No chat app yet. Add one later under Settings › Platforms.'**
+  String get onboardingRecapNoMessaging;
+
+  /// No description provided for @onboardingModelSignInHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in and approve NeoAgent. No key to copy, ready in seconds.'**
+  String onboardingModelSignInHint(Object? provider);
+
+  /// No description provided for @onboardingRecapMessaging.
+  ///
+  /// In en, this message translates to:
+  /// **'Reachable on {apps}'**
+  String onboardingRecapMessaging(Object? apps);
+
+  /// No description provided for @onboardingRecapRoutines.
+  ///
+  /// In en, this message translates to:
+  /// **'Routines running: {count}'**
+  String onboardingRecapRoutines(Object? count);
+
+  /// No description provided for @agentNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a name for this agent.'**
+  String get agentNameRequired;
+
+  /// No description provided for @agentIdentifier.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent identifier'**
+  String get agentIdentifier;
+
+  /// No description provided for @agentIdentifierHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Used to address this agent. Suggested from the name; you can edit it.'**
+  String get agentIdentifierHint;
+
+  /// No description provided for @agentIdentifierInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Use 1–48 lowercase letters, numbers, hyphens or underscores.'**
+  String get agentIdentifierInvalid;
+
+  /// No description provided for @uxAdvancedSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced settings'**
+  String get uxAdvancedSettings;
+
+  /// No description provided for @uxSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected'**
+  String get uxSelected;
+
+  /// No description provided for @uxSelectedDelegationTargets.
+  ///
+  /// In en, this message translates to:
+  /// **'Only selected agents can receive tasks from this agent.'**
+  String get uxSelectedDelegationTargets;
+
+  /// No description provided for @uxFieldRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter {field}.'**
+  String uxFieldRequired(String field);
+
+  /// No description provided for @uxTaskInstructions.
+  ///
+  /// In en, this message translates to:
+  /// **'What should the agent do?'**
+  String get uxTaskInstructions;
+
+  /// No description provided for @uxTaskEnabledHint.
+  ///
+  /// In en, this message translates to:
+  /// **'When enabled, this task runs when its trigger fires. Switch off to save it without running automatically.'**
+  String get uxTaskEnabledHint;
+
+  /// No description provided for @uxSettingsSaveHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Changes save automatically unless a Save button is shown.'**
+  String get uxSettingsSaveHint;
+
+  /// No description provided for @uxSettingsSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'A change could not be saved. Check the error below.'**
+  String get uxSettingsSaveFailed;
+
+  /// No description provided for @uxAdminUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'Users'**
+  String get uxAdminUsers;
+
+  /// No description provided for @uxAdminConfiguration.
+  ///
+  /// In en, this message translates to:
+  /// **'Configuration'**
+  String get uxAdminConfiguration;
+
+  /// No description provided for @uxAdminAnalytics.
+  ///
+  /// In en, this message translates to:
+  /// **'Analytics'**
+  String get uxAdminAnalytics;
+
+  /// No description provided for @uxMemoryEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'No memories yet. Ask this agent to remember something in chat, or add a memory here. Memories belong to the selected agent.'**
+  String get uxMemoryEmptyHint;
+
+  /// No description provided for @uxMemoryFacts.
+  ///
+  /// In en, this message translates to:
+  /// **'Facts'**
+  String get uxMemoryFacts;
+
+  /// No description provided for @uxMemoryEntities.
+  ///
+  /// In en, this message translates to:
+  /// **'Entities'**
+  String get uxMemoryEntities;
+
+  /// No description provided for @uxMemoryReflections.
+  ///
+  /// In en, this message translates to:
+  /// **'Reflections'**
+  String get uxMemoryReflections;
+
+  /// No description provided for @uxMemoryDocuments.
+  ///
+  /// In en, this message translates to:
+  /// **'Documents'**
+  String get uxMemoryDocuments;
+
+  /// No description provided for @uxOpenChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Open chat'**
+  String get uxOpenChat;
+
+  /// No description provided for @uxModelSkipHint.
+  ///
+  /// In en, this message translates to:
+  /// **'You can explore first, but chat and tasks need a model before they can run.'**
+  String get uxModelSkipHint;
+
+  /// No description provided for @taskDeliveryBlockedBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t deliver'**
+  String get taskDeliveryBlockedBadge;
+
+  /// No description provided for @taskDeliveryBlockedDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'This destination can\'t be reached through the shared account, so results won\'t arrive. Choose your own chat or the default channel.'**
+  String get taskDeliveryBlockedDetail;
+
+  /// No description provided for @taskDeliverySharedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared accounts only reach you'**
+  String get taskDeliverySharedTitle;
+
+  /// No description provided for @taskDeliverySharedDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'{platforms} uses this server\'s shared account, so results can only go to your own chat there.'**
+  String taskDeliverySharedDetail(Object? platforms);
+
+  /// No description provided for @adminUpdatesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent updates itself from GitHub. Your chats, settings and accounts are kept.'**
+  String get adminUpdatesHint;
+
+  /// No description provided for @adminUpdateChannelHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Stable follows main. Beta gets new features first.'**
+  String get adminUpdateChannelHint;
+
+  /// No description provided for @adminUpdateCheckNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Check now'**
+  String get adminUpdateCheckNow;
+
+  /// No description provided for @adminUpdateNeverChecked.
+  ///
+  /// In en, this message translates to:
+  /// **'Not checked yet'**
+  String get adminUpdateNeverChecked;
+
+  /// No description provided for @adminUpdateCheckedAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'Checked {time}'**
+  String adminUpdateCheckedAgo(String time);
+
+  /// No description provided for @adminUpdateUpToDate.
+  ///
+  /// In en, this message translates to:
+  /// **'You have the latest version'**
+  String get adminUpdateUpToDate;
+
+  /// No description provided for @adminUpdateCheckFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t reach GitHub. Showing the last result.'**
+  String get adminUpdateCheckFailed;
+
+  /// No description provided for @adminUpdateContainerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent runs from a container image. Update the image instead of the code inside it, from the Docker host in the folder with your Compose file. The data volume is kept.'**
+  String get adminUpdateContainerHint;
+
+  /// No description provided for @adminUpdateManagedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'This is a managed deployment. Updates are handled by whoever runs it.'**
+  String get adminUpdateManagedHint;
+
+  /// No description provided for @adminUpdateNotGitHint.
+  ///
+  /// In en, this message translates to:
+  /// **'This install did not come from Git, so it cannot update itself. Run neoagent update in a terminal.'**
+  String get adminUpdateNotGitHint;
+
+  /// No description provided for @adminUpdateDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Details of the last update'**
+  String get adminUpdateDetails;
+
+  /// No description provided for @adminUpdateReadyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version} is ready'**
+  String adminUpdateReadyTitle(String version);
+
+  /// No description provided for @adminUpdateReadySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You have {current} · {channel} channel'**
+  String adminUpdateReadySubtitle(String current, String channel);
+
+  /// No description provided for @adminUpdateWhatsNew.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s new'**
+  String get adminUpdateWhatsNew;
+
+  /// No description provided for @adminUpdateConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update to {version}?'**
+  String adminUpdateConfirmTitle(String version);
+
+  /// No description provided for @adminUpdateConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent saves a backup, installs the new version and restarts. This takes a few minutes. If anything fails, it goes back to the current version.'**
+  String get adminUpdateConfirmMessage;
+
+  /// No description provided for @adminUpdatingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Updating NeoAgent'**
+  String get adminUpdatingTitle;
+
+  /// No description provided for @adminUpdatingToTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Updating to {version}'**
+  String adminUpdatingToTitle(String version);
+
+  /// No description provided for @adminUpdateReconnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Restarting NeoAgent…'**
+  String get adminUpdateReconnecting;
+
+  /// No description provided for @adminUpdateHandsOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing to do here. This page reconnects by itself when NeoAgent is back.'**
+  String get adminUpdateHandsOff;
+
+  /// No description provided for @adminUpdateDoneTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated to {version}'**
+  String adminUpdateDoneTitle(String version);
+
+  /// No description provided for @adminUpdateDoneReloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Reloading the app to load the new version…'**
+  String get adminUpdateDoneReloading;
+
+  /// No description provided for @adminUpdateReload.
+  ///
+  /// In en, this message translates to:
+  /// **'Reload'**
+  String get adminUpdateReload;
+
+  /// No description provided for @adminUpdateFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The update did not finish'**
+  String get adminUpdateFailedTitle;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {
