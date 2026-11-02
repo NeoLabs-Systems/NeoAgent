@@ -65,17 +65,10 @@ class _AppSplashState extends State<AppSplash> with TickerProviderStateMixin {
       label: appStrings.loadingNeoagent,
       liveRegion: true,
       child: ExcludeSemantics(
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: RadialGradient(
-              center: _glowCenter,
-              radius: 1.2,
-              colors: dark ? _darkGlow : _lightGlow,
-              stops: const <double>[0, 0.7, 1],
-              transform: const _StretchToBox(),
-            ),
-          ),
-          child: Center(
+        child: _SplashBackdrop(
+          dark: dark,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
             child: ListenableBuilder(
               listenable: _seconds,
               builder: (context, _) {
@@ -107,6 +100,37 @@ class _AppSplashState extends State<AppSplash> with TickerProviderStateMixin {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The glow behind the mark. The web can run a frame before the window has a
+/// size, and with no area there is nothing to draw: the gradient's stretch
+/// divides by the shortest side, and the mark has no room to fit.
+class _SplashBackdrop extends StatelessWidget {
+  const _SplashBackdrop({required this.dark, required this.child});
+
+  final bool dark;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.biggest.isEmpty) return const SizedBox.expand();
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: _glowCenter,
+              radius: 1.2,
+              colors: dark ? _darkGlow : _lightGlow,
+              stops: const <double>[0, 0.7, 1],
+              transform: const _StretchToBox(),
+            ),
+          ),
+          child: Center(child: child),
+        );
+      },
     );
   }
 }
