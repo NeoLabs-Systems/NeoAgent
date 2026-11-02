@@ -30,6 +30,9 @@ class BasePlatform extends EventEmitter {
     this.allowedEntries = new Set();
     this.accessCapabilities = getPlatformAccessCapabilities(name);
     this.accessPolicy = createDefaultAccessPolicy(name);
+    // On an instance-wide account the gate decides every sender, in place of
+    // one owner's policy.
+    this.accessGate = typeof config.accessGate === 'function' ? config.accessGate : null;
     if (config.accessPolicy) {
       this.setAccessPolicy(config.accessPolicy);
     }
@@ -60,12 +63,13 @@ class BasePlatform extends EventEmitter {
   }
 
   evaluateAccess(context) {
+    if (this.accessGate) return this.accessGate(context);
     return evaluateAccessPolicy(this.accessPolicy, context, this.name);
   }
 
   _checkInboundAccess(context, options = {}) {
     const result = this.evaluateAccess(context);
-    if (result.allowed) {
+    if (result.allowed || this.accessGate) {
       return result;
     }
     // Without this line a refused message leaves no trace: the socket event

@@ -6,6 +6,7 @@ enum _AdminTab {
   providers,
   models,
   integrations,
+  messaging,
   config,
   analytics,
   sql,
@@ -24,6 +25,8 @@ extension on _AdminTab {
         return appStrings.models;
       case _AdminTab.integrations:
         return appStrings.integrations;
+      case _AdminTab.messaging:
+        return appStrings.adminTabMessaging;
       case _AdminTab.config:
         return 'Configuration';
       case _AdminTab.analytics:
@@ -45,6 +48,8 @@ extension on _AdminTab {
         return Icons.view_list_outlined;
       case _AdminTab.integrations:
         return Icons.extension_outlined;
+      case _AdminTab.messaging:
+        return Icons.forum_outlined;
       case _AdminTab.config:
         return Icons.tune;
       case _AdminTab.analytics:
@@ -281,6 +286,11 @@ List<_AdminSearchEntry> _adminSearchIndex = <_AdminSearchEntry>[
     card: appStrings.sharedUsageTitle,
   ),
   _AdminSearchEntry(
+    appStrings.adminTabMessaging,
+    _AdminTab.messaging,
+    appStrings.adminMessagingSearchKeywords,
+  ),
+  _AdminSearchEntry(
     appStrings.sqlConsole,
     _AdminTab.sql,
     appStrings.databaseQuerySelectCsvTemplates,
@@ -392,6 +402,22 @@ class _AdminPanelState extends State<AdminPanel> {
         return _AdminModelsTab(controller: controller);
       case _AdminTab.integrations:
         return _AdminIntegrationsTab(controller: controller);
+      case _AdminTab.messaging:
+        return SharedAccountsPanel(
+          repository: BackendSharedAccountsRepository(
+            client: controller.backendClient,
+            baseUrl: controller.backendUrl,
+          ),
+          lookFor: (platform) {
+            final look = _messagingPlatformById(platform);
+            return SharedPlatformLook(
+              label: look?.label ?? platform,
+              icon: look?.icon ?? Icons.forum_outlined,
+              color: look?.accent ?? _accent,
+            );
+          },
+          describeError: controller.friendlyErrorMessage,
+        );
       case _AdminTab.config:
         return _AdminConfigTab(controller: controller);
       case _AdminTab.analytics:

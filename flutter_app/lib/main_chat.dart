@@ -2683,6 +2683,9 @@ class _MessagingCard extends StatelessWidget {
     // nobody to allow and no other chat to review.
     final selfChatOnly =
         platform.id == 'whatsapp' && readWhatsAppSelfChatMode(controller);
+    // On a shared account only the linked person gets through, so there is no
+    // policy to edit, and the account itself belongs to the admin.
+    final shared = status?.isShared ?? false;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -2770,7 +2773,12 @@ class _MessagingCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              if (!selfChatOnly)
+              if (shared)
+                _MessagingMiniPill(
+                  icon: Icons.dns_outlined,
+                  label: appStrings.sharedMessagingBadge,
+                ),
+              if (!selfChatOnly && !shared)
                 _MessagingMiniPill(
                   icon: Icons.forum_outlined,
                   label: accessLabel,
@@ -2780,7 +2788,7 @@ class _MessagingCard extends StatelessWidget {
                   icon: Icons.tune_rounded,
                   label: appStrings.readyToConnect,
                 ),
-              if (platform.id == 'whatsapp')
+              if (platform.id == 'whatsapp' && !shared)
                 _MessagingMiniPill(
                   icon: selfChatOnly
                       ? Icons.bookmark_border_rounded
@@ -2839,7 +2847,7 @@ class _MessagingCard extends StatelessWidget {
                       : Icon(Icons.link_off_rounded),
                 ),
               ],
-              if (platform.id == 'whatsapp') ...[
+              if (platform.id == 'whatsapp' && !shared) ...[
                 const SizedBox(width: 8),
                 IconButton.outlined(
                   tooltip: appStrings.chatMode,
@@ -2847,7 +2855,7 @@ class _MessagingCard extends StatelessWidget {
                   icon: Icon(Icons.swap_horiz_rounded),
                 ),
               ],
-              if (!selfChatOnly) ...[
+              if (!selfChatOnly && !shared) ...[
                 const SizedBox(width: 8),
                 IconButton.outlined(
                   tooltip: appStrings.whoCanMessage,
@@ -2855,7 +2863,7 @@ class _MessagingCard extends StatelessWidget {
                   icon: Icon(Icons.forum_outlined),
                 ),
               ],
-              if (connected) ...[
+              if (connected && !shared) ...[
                 const SizedBox(width: 8),
                 IconButton.outlined(
                   tooltip: appStrings.logout,
@@ -4897,6 +4905,43 @@ class _MessagingMiniPill extends StatelessWidget {
 // ──────────────────────────────────────────────────────────────────────────────
 
 Future<void> openMessagingConfig(
+  BuildContext context,
+  NeoAgentController controller,
+  MessagingPlatformDescriptor platform,
+) async {
+  await controller.refreshSharedMessagingOptions();
+  if (!context.mounted) return;
+  // Only here once an admin has set up a shared account; otherwise connecting
+  // works exactly as it would on a single-person install.
+  final shared = controller.sharedMessagingOptions[platform.id];
+  final alreadyShared = controller.messagingStatuses[platform.id]?.isShared;
+  if (shared != null && alreadyShared != true) {
+    final outcome = await showSharedLinkDialog(
+      context,
+      SharedLinkSession(
+        platformLabel: platform.label,
+        platformIcon: platform.icon,
+        platformColor: platform.accent,
+        option: shared,
+        movesExistingLink:
+            shared.linkedAgentId != null &&
+            shared.linkedAgentId != controller._scopedAgentId,
+        updates: controller,
+        startLink: () => controller.startSharedMessagingLink(platform.id),
+        linkedIdentity: () {
+          final status = controller.messagingStatuses[platform.id];
+          return status?.isShared == true ? status!.authLabel : null;
+        },
+        failure: () => controller.sharedMessagingLinkFailure,
+        describeError: controller.friendlyErrorMessage,
+      ),
+    );
+    if (outcome != SharedLinkOutcome.useOwnAccount || !context.mounted) return;
+  }
+  return _openPersonalMessagingConfig(context, controller, platform);
+}
+
+Future<void> _openPersonalMessagingConfig(
   BuildContext context,
   NeoAgentController controller,
   MessagingPlatformDescriptor platform,

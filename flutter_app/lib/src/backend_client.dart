@@ -754,6 +754,25 @@ class BackendClient {
     });
   }
 
+  Future<Map<String, dynamic>> fetchAdminMessaging(String baseUrl) async {
+    return getMap(baseUrl, '/api/admin/messaging');
+  }
+
+  Future<Map<String, dynamic>> saveAdminMessaging(
+    String baseUrl,
+    String platform,
+    Map<String, dynamic> changes,
+  ) async {
+    return putMap(baseUrl, '/api/admin/messaging/$platform', changes);
+  }
+
+  Future<Map<String, dynamic>> removeAdminMessaging(
+    String baseUrl,
+    String platform,
+  ) async {
+    return deleteMap(baseUrl, '/api/admin/messaging/$platform');
+  }
+
   Future<Map<String, dynamic>> fetchAdminAccess(String baseUrl) async {
     return getMap(baseUrl, '/api/admin/access');
   }
@@ -2007,6 +2026,24 @@ class BackendClient {
       'limit=60',
     ];
     return getList(baseUrl, '/api/messaging/messages?${params.join('&')}');
+  }
+
+  Future<Map<String, dynamic>> fetchSharedMessagingOptions(
+    String baseUrl,
+  ) async {
+    return getMap(baseUrl, '/api/messaging/shared');
+  }
+
+  Future<Map<String, dynamic>> startSharedMessagingLink(
+    String baseUrl, {
+    required String platform,
+    String? agentId,
+  }) async {
+    return postMap(
+      baseUrl,
+      '/api/messaging/shared/$platform/link',
+      _withAgentId(<String, dynamic>{}, agentId),
+    );
   }
 
   Future<Map<String, dynamic>> connectMessagingPlatform(

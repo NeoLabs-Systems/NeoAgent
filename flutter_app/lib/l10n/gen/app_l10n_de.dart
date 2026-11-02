@@ -12044,4 +12044,255 @@ class AppL10nDe extends AppL10n {
   @override
   String get agentImportRestarted =>
       'NeoAgent wurde neu gestartet und hat alles geladen.';
+
+  @override
+  String get adminTabMessaging => 'Nachrichten';
+
+  @override
+  String auditMessagingConfigured(Object? actor, Object? platform) {
+    return '$actor hat das geteilte $platform-Konto geändert';
+  }
+
+  @override
+  String auditMessagingRemoved(Object? actor, Object? platform) {
+    return '$actor hat das geteilte $platform-Konto entfernt';
+  }
+
+  @override
+  String auditMessagingLinked(Object? subject, Object? platform) {
+    return '$subject hat sich mit dem geteilten $platform-Konto verknüpft';
+  }
+
+  @override
+  String auditMessagingUnlinked(Object? subject, Object? platform) {
+    return '$subject hat die Verknüpfung mit dem geteilten $platform-Konto getrennt';
+  }
+
+  @override
+  String auditMessagingConflict(Object? subject, Object? platform) {
+    return '$subject wollte eine $platform-Identität verknüpfen, die bereits jemand anderem gehört';
+  }
+
+  @override
+  String get sharedAccountsTitle => 'Geteilte Konten';
+
+  @override
+  String get sharedAccountsIntro =>
+      'Ein Bot oder eine Nummer für alle auf diesem Server. Die Verknüpfung nimmt jede Person selbst unter Einstellungen › Plattformen vor. Wenn nur Sie diesen Server nutzen, brauchen Sie das nicht.';
+
+  @override
+  String get sharedAccountTelegramPitch =>
+      'Ein Bot, mit dem sich alle auf diesem Server verknüpfen können';
+
+  @override
+  String get sharedAccountWhatsappPitch =>
+      'Eine Nummer, die alle auf diesem Server anschreiben können';
+
+  @override
+  String get sharedAccountStatusLive => 'Aktiv';
+
+  @override
+  String get sharedAccountStatusStarting => 'Verbindet';
+
+  @override
+  String get sharedAccountStatusFailed => 'Prüfen';
+
+  @override
+  String get sharedAccountStatusOff => 'Aus';
+
+  @override
+  String get sharedAccountStatusNotSetUp => 'Nicht eingerichtet';
+
+  @override
+  String get sharedAccountTelegramStepBot =>
+      'Erstellen Sie mit @BotFather einen Bot und kopieren Sie sein Token.';
+
+  @override
+  String get sharedAccountTelegramStepToken => 'Fügen Sie das Token hier ein.';
+
+  @override
+  String get sharedAccountBotToken => 'Bot-Token';
+
+  @override
+  String get sharedAccountTokenMissing => 'Fügen Sie zuerst das Bot-Token ein.';
+
+  @override
+  String get sharedAccountShowToken => 'Token anzeigen';
+
+  @override
+  String get sharedAccountHideToken => 'Token verbergen';
+
+  @override
+  String get sharedAccountConnect => 'Verbinden';
+
+  @override
+  String get sharedAccountTurnOn => 'Einschalten';
+
+  @override
+  String get sharedAccountTurnOff => 'Ausschalten';
+
+  @override
+  String get sharedAccountReconnect => 'Neu verbinden';
+
+  @override
+  String get sharedAccountReplaceToken => 'Token ersetzen';
+
+  @override
+  String get sharedAccountRemove => 'Entfernen';
+
+  @override
+  String get sharedAccountMore => 'Mehr';
+
+  @override
+  String get sharedAccountRetry => 'Erneut versuchen';
+
+  @override
+  String get sharedAccountShowQr => 'QR-Code anzeigen';
+
+  @override
+  String get sharedAccountWhatsappWarning =>
+      'Verwenden Sie eine Nummer, auf die Sie verzichten können. WhatsApp kann automatisierte Nummern sperren, und dann verlieren alle auf diesem Konto den Zugang.';
+
+  @override
+  String get sharedAccountScanStepOpen =>
+      'Öffnen Sie WhatsApp auf dem Telefon mit der geteilten Nummer.';
+
+  @override
+  String get sharedAccountScanStepDevices =>
+      'Gehen Sie zu „Verknüpfte Geräte“ und tippen Sie auf „Gerät verknüpfen“.';
+
+  @override
+  String get sharedAccountScanStepPoint =>
+      'Richten Sie die Kamera auf diesen Code.';
+
+  @override
+  String get sharedAccountTelegramFailed =>
+      'Telegram hat dieses Token abgelehnt. Kopieren Sie es erneut von @BotFather und fügen Sie es unten ein.';
+
+  @override
+  String get sharedAccountWhatsappFailed =>
+      'WhatsApp hat diese Sitzung beendet, verknüpfte Personen können es daher nicht nutzen. Scannen Sie einen neuen Code, um es wiederherzustellen.';
+
+  @override
+  String get sharedAccountAvailable => 'Nutzern anbieten';
+
+  @override
+  String get sharedAccountAvailableHint =>
+      'Aus blendet dieses Konto aus und es antwortet niemandem mehr. Verknüpfungen bleiben erhalten.';
+
+  @override
+  String get sharedAccountAllowPersonal => 'Eigene Konten erlauben';
+
+  @override
+  String get sharedAccountAllowPersonalHint =>
+      'Aus verhindert, dass Personen hier ein eigenes Konto verbinden. Bestehende Verbindungen und Admins sind nicht betroffen.';
+
+  @override
+  String get adminMessagingSearchKeywords =>
+      'geteilt instanz telegram whatsapp bot nummer verknüpfen nutzer';
+
+  @override
+  String get sharedMessagingThisServer => 'das Konto dieses Servers';
+
+  @override
+  String get sharedMessagingBadge => 'Geteiltes Konto';
+
+  @override
+  String get sharedMessagingUseShared => 'Geteiltes Konto nutzen';
+
+  @override
+  String get sharedMessagingUseOwn => 'Eigenes Konto nutzen';
+
+  @override
+  String get sharedMessagingUseOwnHint =>
+      'Verbinden Sie Ihren eigenen Bot oder Ihre Nummer und verwalten Sie sie selbst.';
+
+  @override
+  String get sharedMessagingNewCode => 'Neuen Code holen';
+
+  @override
+  String get sharedMessagingCopyCode => 'Code kopieren';
+
+  @override
+  String get sharedMessagingCopied => 'Kopiert';
+
+  @override
+  String get sharedMessagingScanHint =>
+      'Mit dem Telefon scannen, um den Chat dort zu öffnen';
+
+  @override
+  String get sharedMessagingCodeNote =>
+      'Behandeln Sie diesen Code wie ein Passwort: Wer ihn sendet, kann Ihren Agenten nutzen.';
+
+  @override
+  String get sharedMessagingCodeExpired => 'Dieser Code ist abgelaufen.';
+
+  @override
+  String get sharedMessagingWaiting => 'Warte auf Ihre Nachricht…';
+
+  @override
+  String get sharedMessagingLinkedHint =>
+      'Schreiben Sie jederzeit in diesen Chat, um diesen Agenten zu erreichen.';
+
+  @override
+  String get sharedMessagingDone => 'Fertig';
+
+  @override
+  String get sharedMessagingIdentityTaken =>
+      'Dieses Konto ist bereits mit jemand anderem auf diesem Server verknüpft. Die Person muss die Verbindung zuerst trennen.';
+
+  @override
+  String sharedAccountRemoveTitle(Object? label) {
+    return 'Geteiltes $label-Konto entfernen?';
+  }
+
+  @override
+  String sharedAccountRemoveBody(Object? count) {
+    return '$count verknüpfte Personen verlieren den Zugang, bis sie sich erneut verbinden.';
+  }
+
+  @override
+  String sharedAccountRemoved(Object? label) {
+    return 'Das geteilte $label-Konto wurde entfernt.';
+  }
+
+  @override
+  String sharedAccountLinkedCount(Object? count) {
+    return '$count verknüpft';
+  }
+
+  @override
+  String sharedMessagingTitle(Object? platform) {
+    return '$platform verbinden';
+  }
+
+  @override
+  String sharedMessagingUseSharedHint(Object? account) {
+    return 'Empfohlen. Schreiben Sie an $account und erreichen Sie Ihren eigenen Agenten. Keine Einrichtung nötig, und andere hier sehen Ihre Chats nicht.';
+  }
+
+  @override
+  String sharedMessagingMovesLink(Object? platform) {
+    return 'Ihr $platform ist mit einem anderen Agenten verknüpft. Eine Verknüpfung hier verschiebt es zu diesem.';
+  }
+
+  @override
+  String sharedMessagingOpenAndSend(Object? platform) {
+    return 'Senden Sie diesen Code von dem $platform-Konto, das Sie nutzen möchten. Die Schaltfläche trägt ihn für Sie ein.';
+  }
+
+  @override
+  String sharedMessagingSendCode(Object? account) {
+    return 'Senden Sie diesen Code von dem Konto, das Sie nutzen möchten, an $account.';
+  }
+
+  @override
+  String sharedMessagingOpenApp(Object? platform) {
+    return '$platform öffnen';
+  }
+
+  @override
+  String sharedMessagingLinked(Object? platform, Object? identity) {
+    return '$platform verknüpft als $identity';
+  }
 }

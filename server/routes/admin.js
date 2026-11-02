@@ -37,6 +37,8 @@ const {
 } = require('../services/admin/server_config');
 const { createSignupKeys, listSignupKeys, revokeSignupKey } = require('../services/access/signup_keys');
 const { getIntegrationSettings, updateIntegrationSettings } = require('../services/admin/integrations');
+const { adminOverview } = require('../services/messaging/shared_connections');
+const { configureConnection, removeConnection } = require('../services/messaging/shared_store');
 const { httpError } = require('../utils/http_error');
 const { jsonHandler, userIdParam } = require('./_helpers/http');
 
@@ -97,6 +99,28 @@ router.put('/config/rate-limits', jsonHandler((req) => setDefaultRateLimits(req.
 // --- SQL console (read-only) ---
 
 router.post('/sql', sqlLimiter, jsonHandler((req) => runReadOnlyQuery(req.body?.query)));
+
+// --- Shared messaging accounts ---
+
+router.get('/messaging', jsonHandler(() => ({ connections: adminOverview() })));
+
+router.put('/messaging/:platform', settingsLimiter, jsonHandler(async (req) => {
+  configureConnection(req.params.platform, {
+    botToken: req.body?.botToken,
+    enabled: req.body?.enabled,
+    available: req.body?.available,
+    allowPersonal: req.body?.allowPersonal,
+    reconnect: req.body?.reconnect,
+  }, { actorUserId: req.session.userId });
+  await req.app.locals.messagingManager.shared.reconcile();
+  return { connections: adminOverview() };
+}));
+
+router.delete('/messaging/:platform', settingsLimiter, jsonHandler(async (req) => {
+  removeConnection(req.params.platform, { actorUserId: req.session.userId });
+  await req.app.locals.messagingManager.shared.reconcile();
+  return { connections: adminOverview() };
+}));
 
 // --- Access ---
 

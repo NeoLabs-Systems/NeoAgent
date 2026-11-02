@@ -7475,5 +7475,202 @@
     }
   },
   "agentImportRestartNeeded": "Restart NeoAgent to load everything that came over.",
-  "agentImportRestarted": "NeoAgent restarted and loaded everything."
+  "agentImportRestarted": "NeoAgent restarted and loaded everything.",
+  "adminTabMessaging": "Messaging",
+  "auditMessagingConfigured": "{actor} changed the shared {platform} account",
+  "@auditMessagingConfigured": {
+    "placeholders": {
+      "actor": {
+        "type": "Object?"
+      },
+      "platform": {
+        "type": "Object?"
+      }
+    }
+  },
+  "auditMessagingRemoved": "{actor} removed the shared {platform} account",
+  "@auditMessagingRemoved": {
+    "placeholders": {
+      "actor": {
+        "type": "Object?"
+      },
+      "platform": {
+        "type": "Object?"
+      }
+    }
+  },
+  "auditMessagingLinked": "{subject} linked to the shared {platform} account",
+  "@auditMessagingLinked": {
+    "placeholders": {
+      "subject": {
+        "type": "Object?"
+      },
+      "platform": {
+        "type": "Object?"
+      }
+    }
+  },
+  "auditMessagingUnlinked": "{subject} unlinked from the shared {platform} account",
+  "@auditMessagingUnlinked": {
+    "placeholders": {
+      "subject": {
+        "type": "Object?"
+      },
+      "platform": {
+        "type": "Object?"
+      }
+    }
+  },
+  "auditMessagingConflict": "{subject} tried to link a {platform} identity already linked to someone else",
+  "@auditMessagingConflict": {
+    "placeholders": {
+      "subject": {
+        "type": "Object?"
+      },
+      "platform": {
+        "type": "Object?"
+      }
+    }
+  },
+  "sharedAccountsTitle": "Shared accounts",
+  "sharedAccountsIntro": "One bot or number for everyone on this server. People link themselves under Settings › Platforms. Skip this if you're the only one using this server.",
+  "sharedAccountTelegramPitch": "One bot that anyone on this server can link to",
+  "sharedAccountWhatsappPitch": "One number that anyone on this server can message",
+  "sharedAccountStatusLive": "Live",
+  "sharedAccountStatusStarting": "Connecting",
+  "sharedAccountStatusFailed": "Needs attention",
+  "sharedAccountStatusOff": "Off",
+  "sharedAccountStatusNotSetUp": "Not set up",
+  "sharedAccountTelegramStepBot": "Create a bot with @BotFather and copy its token.",
+  "sharedAccountTelegramStepToken": "Paste the token here.",
+  "sharedAccountBotToken": "Bot token",
+  "sharedAccountTokenMissing": "Paste the bot token first.",
+  "sharedAccountShowToken": "Show token",
+  "sharedAccountHideToken": "Hide token",
+  "sharedAccountConnect": "Connect",
+  "sharedAccountTurnOn": "Turn on",
+  "sharedAccountTurnOff": "Turn off",
+  "sharedAccountReconnect": "Reconnect",
+  "sharedAccountReplaceToken": "Replace token",
+  "sharedAccountRemove": "Remove",
+  "sharedAccountMore": "More",
+  "sharedAccountRetry": "Try again",
+  "sharedAccountShowQr": "Show QR code",
+  "sharedAccountWhatsappWarning": "Use a number you can spare. WhatsApp can ban automated numbers, and everyone on this account would lose access.",
+  "sharedAccountScanStepOpen": "Open WhatsApp on the phone with the shared number.",
+  "sharedAccountScanStepDevices": "Go to Linked devices and tap Link a device.",
+  "sharedAccountScanStepPoint": "Point the camera at this code.",
+  "sharedAccountTelegramFailed": "Telegram rejected this token. Copy it from @BotFather again and paste it below.",
+  "sharedAccountWhatsappFailed": "WhatsApp ended this session, so linked people can't use it. Scan a new code to bring it back.",
+  "sharedAccountAvailable": "Offer to users",
+  "sharedAccountAvailableHint": "Off hides this account and stops it answering anyone. Links are kept.",
+  "sharedAccountAllowPersonal": "Allow personal accounts",
+  "sharedAccountAllowPersonalHint": "Off stops people connecting their own account here. Existing connections and admins aren't affected.",
+  "adminMessagingSearchKeywords": "shared instance telegram whatsapp bot number link users",
+  "sharedMessagingThisServer": "this server's account",
+  "sharedMessagingBadge": "Shared account",
+  "sharedMessagingUseShared": "Use the shared account",
+  "sharedMessagingUseOwn": "Use my own account",
+  "sharedMessagingUseOwnHint": "Connect your own bot or number and manage it yourself.",
+  "sharedMessagingNewCode": "Get a new code",
+  "sharedMessagingCopyCode": "Copy code",
+  "sharedMessagingCopied": "Copied",
+  "sharedMessagingScanHint": "Scan with your phone to open the chat there",
+  "sharedMessagingCodeNote": "Treat this code like a password: whoever sends it can use your agent.",
+  "sharedMessagingCodeExpired": "This code has expired.",
+  "sharedMessagingWaiting": "Waiting for your message…",
+  "sharedMessagingLinkedHint": "Message that chat any time to reach this agent.",
+  "sharedMessagingDone": "Done",
+  "sharedMessagingIdentityTaken": "That account is already linked to someone else on this server. They need to disconnect it first.",
+  "sharedAccountRemoveTitle": "Remove the shared {label} account?",
+  "@sharedAccountRemoveTitle": {
+    "placeholders": {
+      "label": {
+        "type": "Object?"
+      }
+    }
+  },
+  "sharedAccountRemoveBody": "{count} linked people will lose access until they connect again.",
+  "@sharedAccountRemoveBody": {
+    "placeholders": {
+      "count": {
+        "type": "Object?"
+      }
+    }
+  },
+  "sharedAccountRemoved": "Removed the shared {label} account.",
+  "@sharedAccountRemoved": {
+    "placeholders": {
+      "label": {
+        "type": "Object?"
+      }
+    }
+  },
+  "sharedAccountLinkedCount": "{count} linked",
+  "@sharedAccountLinkedCount": {
+    "placeholders": {
+      "count": {
+        "type": "Object?"
+      }
+    }
+  },
+  "sharedMessagingTitle": "Connect {platform}",
+  "@sharedMessagingTitle": {
+    "placeholders": {
+      "platform": {
+        "type": "Object?"
+      }
+    }
+  },
+  "sharedMessagingUseSharedHint": "Recommended. Message {account} and reach your own agent. Nothing to set up, and nobody else here can see your chats.",
+  "@sharedMessagingUseSharedHint": {
+    "placeholders": {
+      "account": {
+        "type": "Object?"
+      }
+    }
+  },
+  "sharedMessagingMovesLink": "Your {platform} is linked to another agent. Linking here moves it to this one.",
+  "@sharedMessagingMovesLink": {
+    "placeholders": {
+      "platform": {
+        "type": "Object?"
+      }
+    }
+  },
+  "sharedMessagingOpenAndSend": "Send this code from the {platform} account you want to use. The button fills it in for you.",
+  "@sharedMessagingOpenAndSend": {
+    "placeholders": {
+      "platform": {
+        "type": "Object?"
+      }
+    }
+  },
+  "sharedMessagingSendCode": "Send this code to {account} from the account you want to use.",
+  "@sharedMessagingSendCode": {
+    "placeholders": {
+      "account": {
+        "type": "Object?"
+      }
+    }
+  },
+  "sharedMessagingOpenApp": "Open {platform}",
+  "@sharedMessagingOpenApp": {
+    "placeholders": {
+      "platform": {
+        "type": "Object?"
+      }
+    }
+  },
+  "sharedMessagingLinked": "{platform} linked as {identity}",
+  "@sharedMessagingLinked": {
+    "placeholders": {
+      "platform": {
+        "type": "Object?"
+      },
+      "identity": {
+        "type": "Object?"
+      }
+    }
+  }
 }

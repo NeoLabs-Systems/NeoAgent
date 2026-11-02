@@ -2,6 +2,7 @@
 
 const db = require('../../db/database');
 const { resolveAgentId } = require('../agents/manager');
+const { getPublicProfile } = require('../messaging/public_audience');
 
 const DISCOVERABLE_PLATFORMS = Object.freeze([
   'whatsapp',
@@ -192,6 +193,7 @@ class TaskDeliveryTargetService {
     const platform = normalizeText(values.last_platform).toLowerCase();
     const to = normalizeText(values.last_chat_id);
     if (!platform || !to || (platformFilter && platform !== platformFilter)) return [];
+    if (getPublicProfile(platform)) return [];
     return [normalizeTarget({
       platform,
       to,

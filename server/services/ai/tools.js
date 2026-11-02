@@ -5,7 +5,6 @@ const { validateCloudUrlWithDns } = require('../../utils/cloud-security');
 const { isAbortError } = require('../../utils/abort');
 const { fetchResponseText } = require('../network/http');
 const db = require('../../db/database');
-const { isMainAgent } = require('../agents/manager');
 const {
     buildSendMessageFormattingReference,
     normalizeOutgoingMessageForPlatform,
@@ -236,10 +235,6 @@ function resolveTaskTriggerArgs(args = {}, fallbackTriggerType = null) {
     };
 }
 
-function isProactiveTrigger(triggerSource) {
-    return triggerSource === 'schedule' || triggerSource === 'tasks';
-}
-
 function normalizeSendMessagePurpose(value) {
     const normalized = String(value || '').trim().toLowerCase();
     if (normalized === 'final_result' || normalized === 'blocker' || normalized === 'no_response') {
@@ -293,8 +288,8 @@ function getRunState(engine, runId) {
     return engine.activeRuns.get(runId) || null;
 }
 
-function hasAlreadySentProactiveMessage({ triggerSource, runState, deliveryState, allowMultipleProactiveMessages }) {
-    if (!isProactiveTrigger(triggerSource) || allowMultipleProactiveMessages) return false;
+function hasAlreadySentProactiveMessage({ taskId, runState, deliveryState, allowMultipleProactiveMessages }) {
+    if (!taskId || allowMultipleProactiveMessages) return false;
     return Boolean(
         runState?.messagingSent
         || deliveryState?.messagingSent
@@ -361,13 +356,6 @@ function markProactiveNoResponse({ runState, deliveryState }) {
     if (deliveryState) {
         deliveryState.noResponse = true;
     }
-}
-
-function normalizeMessagingTarget(target = {}) {
-    const platform = normalizeStoredString(target.platform);
-    const to = normalizeStoredString(target.to);
-    if (!platform || !to) return null;
-    return { platform, to };
 }
 
 function canonicalMessagingAddress(platform, value) {
@@ -2532,7 +2520,7 @@ async function executeTool(toolName, args, context, engine) {
                 platform: sendTarget.platform,
                 to: sendTarget.to,
             });
-            if (isProactiveTrigger(triggerSource)) {
+            if (taskId) {
                 const proactiveValidation = validateProactiveSendMessageArgs({
                     purpose: args.purpose,
                     normalizedMessage,
@@ -2555,7 +2543,7 @@ async function executeTool(toolName, args, context, engine) {
                 }
             }
             if (!suppressReply && hasAlreadySentProactiveMessage({
-                triggerSource,
+                taskId,
                 runState,
                 deliveryState,
                 allowMultipleProactiveMessages
@@ -2567,12 +2555,16 @@ async function executeTool(toolName, args, context, engine) {
                 };
             }
 
-            if (isProactiveTrigger(triggerSource) && context.stageProactiveMessages === true && !suppressReply) {
+            if (taskId && context.stageProactiveMessages === true && !suppressReply) {
+                // A task reports to the target the run resolved, whatever the
+                // model named, and the result tells it where the message went.
+                const platform = deliveryState?.notifyTarget?.platform || args.platform;
+                const to = deliveryState?.notifyTarget?.to || args.to;
                 markProactiveMessageStaged({
                     runState,
                     deliveryState,
-                    platform: args.platform,
-                    to: args.to,
+                    platform,
+                    to,
                     content: normalizedMessage,
                     purpose: args.purpose,
                     mediaPath: args.media_path,
@@ -2581,8 +2573,8 @@ async function executeTool(toolName, args, context, engine) {
                     success: true,
                     staged: true,
                     purpose: normalizeSendMessagePurpose(args.purpose),
-                    platform: args.platform,
-                    to: args.to,
+                    platform,
+                    to,
                     content: normalizedMessage,
                 };
             }
@@ -2630,7 +2622,7 @@ async function executeTool(toolName, args, context, engine) {
                     agentId,
                     mediaPath: args.media_path,
                     runId,
-                    persistConversation: triggerSource === 'schedule' || triggerSource === 'tasks',
+                    persistConversation: Boolean(taskId),
                     signal,
                 });
             }
@@ -2959,7 +2951,7 @@ async function executeTool(toolName, args, context, engine) {
             const message = typeof args.message === 'string' ? args.message.trim() : '';
             if (!message) return { error: 'message is required' };
 
-            if (triggerSource === 'schedule' || triggerSource === 'tasks') {
+            if (taskId) {
                 const manager = msg();
                 if (!manager) {
                     throw new Error('Messaging manager not available');
@@ -2967,7 +2959,7 @@ async function executeTool(toolName, args, context, engine) {
 
                 const runState = getRunState(engine, runId);
                 if (hasAlreadySentProactiveMessage({
-                    triggerSource,
+                    taskId,
                     runState,
                     deliveryState,
                     allowMultipleProactiveMessages
@@ -2979,106 +2971,30 @@ async function executeTool(toolName, args, context, engine) {
                     };
                 }
 
-                const loadAgentSetting = (key) => (
-                    db.prepare('SELECT value FROM agent_settings WHERE user_id = ? AND agent_id = ? AND key = ?')
-                        .get(userId, agentId, key)?.value
-                    || (isMainAgent(userId, agentId)
-                        ? db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?')
-                            .get(userId, key)?.value
-                        : null)
-                    || null
-                );
-                const loadDefaultTarget = () => ({
-                    platform: normalizeStoredString(loadAgentSetting('last_platform')),
-                    to: normalizeStoredString(loadAgentSetting('last_chat_id'))
-                });
-
-                let taskConfig = null;
-                let taskTarget = null;
-                if ((triggerSource === 'schedule' || triggerSource === 'tasks') && taskId) {
-                    const task = db.prepare('SELECT task_config FROM scheduled_tasks WHERE id = ? AND user_id = ?')
-                        .get(taskId, userId);
-                    if (task?.task_config) {
-                        try {
-                            taskConfig = JSON.parse(task.task_config || '{}');
-                            taskTarget = {
-                                platform: normalizeStoredString(taskConfig.notifyPlatform),
-                                to: normalizeStoredString(taskConfig.notifyTo)
-                            };
-                        } catch { }
-                    }
-                }
-
-                const fallbackTarget = loadDefaultTarget();
-                const recentTargets = db.prepare(
-                    `SELECT platform, platform_chat_id
-                     FROM messages
-                     WHERE user_id = ?
-                       AND agent_id = ?
-                       AND platform IS NOT NULL
-                       AND platform_chat_id IS NOT NULL
-                     ORDER BY id DESC
-                     LIMIT 20`
-                ).all(userId, agentId);
-                const candidateTargets = [];
-                const seenTargets = new Set();
-                const addCandidate = (target) => {
-                    const normalizedTarget = normalizeMessagingTarget(target);
-                    if (!normalizedTarget) return;
-                    const key = `${normalizedTarget.platform}:${normalizedTarget.to}`;
-                    if (seenTargets.has(key)) return;
-                    seenTargets.add(key);
-                    candidateTargets.push(normalizedTarget);
-                };
-
-                addCandidate(taskTarget);
-                // A task's configured destination is authoritative; only tasks
-                // without one fall back to the default or recent chats.
-                if (candidateTargets.length === 0) {
-                    addCandidate(fallbackTarget);
-                    for (const row of recentTargets) {
-                        addCandidate({
-                            platform: row.platform,
-                            to: row.platform_chat_id
-                        });
-                    }
-                }
-
-                if (candidateTargets.length === 0) {
+                const target = deliveryState?.notifyTarget;
+                if (!target) {
                     throw new Error('No messaging target is configured for this task run. Connect a platform and send at least one message on this server, or recreate the task after reconnecting.');
                 }
-
-                let lastError = null;
-                for (const target of candidateTargets) {
-                    const status = typeof manager.getPlatformStatus === 'function'
-                        ? manager.getPlatformStatus(userId, target.platform, { agentId })
-                        : null;
-                    if (!status || status.status !== 'connected') {
-                        lastError = new Error(`Platform ${target.platform} is not connected on this server.`);
-                        continue;
-                    }
-
-                    try {
-                        const sendResult = await manager.sendMessage(userId, target.platform, target.to, message, {
-                            agentId,
-                            runId,
-                            persistConversation: true,
-                            signal,
-                        });
-                        markProactiveMessageSent({ runState, deliveryState, content: message });
-                        return {
-                            sent: true,
-                            via: 'messaging',
-                            platform: target.platform,
-                            to: target.to,
-                            result: sendResult
-                        };
-                    } catch (err) {
-                        lastError = err;
-                    }
+                const status = typeof manager.getPlatformStatus === 'function'
+                    ? manager.getPlatformStatus(userId, target.platform, { agentId })
+                    : null;
+                if (!status || status.status !== 'connected') {
+                    throw new Error(`Platform ${target.platform} is not connected on this server.`);
                 }
-
-                throw (lastError || new Error('Failed to deliver task notification.'));
+                const sendResult = await manager.sendMessage(userId, target.platform, target.to, message, {
+                    agentId,
+                    runId,
+                    persistConversation: true,
+                    signal,
+                });
+                markProactiveMessageSent({ runState, deliveryState, content: message });
+                return {
+                    sent: true,
+                    via: 'messaging',
+                    platform: target.platform,
+                    to: target.to,
+                    result: sendResult
+                };
             }
 
             engine.emit(userId, 'run:interim', { runId, message });

@@ -268,6 +268,11 @@ class NeoAgentController extends ChangeNotifier {
   Map<String, MessagingAccessCatalog> messagingAccessCatalogs =
       const <String, MessagingAccessCatalog>{};
   MessagingQrState? pendingMessagingQr;
+  Map<String, SharedMessagingOption> sharedMessagingOptions =
+      const <String, SharedMessagingOption>{};
+
+  /// Why the code just sent could not link, for the dialog waiting on it.
+  String? sharedMessagingLinkFailure;
   ToolApprovalRequest? pendingApproval;
   final List<BlockedSenderNotice> _blockedSenderQueue = <BlockedSenderNotice>[];
   final Set<String> _ignoredChats = <String>{};
@@ -2034,6 +2039,8 @@ class NeoAgentController extends ChangeNotifier {
     messagingMessages = const <MessagingMessage>[];
     messagingAccessCatalogs = const <String, MessagingAccessCatalog>{};
     pendingMessagingQr = null;
+    sharedMessagingOptions = const <String, SharedMessagingOption>{};
+    sharedMessagingLinkFailure = null;
     skills = const <SkillItem>[];
     officialIntegrations = const <OfficialIntegrationItem>[];
     setupProfile = 'quick';
@@ -2349,6 +2356,7 @@ class NeoAgentController extends ChangeNotifier {
     messagingStatuses = const <String, MessagingPlatformStatus>{};
     messagingMessages = const <MessagingMessage>[];
     messagingAccessCatalogs = const <String, MessagingAccessCatalog>{};
+    sharedMessagingOptions = const <String, SharedMessagingOption>{};
     officialIntegrations = const <OfficialIntegrationItem>[];
     memoryOverview = const MemoryOverview();
     memories = const <MemoryItem>[];
@@ -2878,6 +2886,11 @@ class NeoAgentController extends ChangeNotifier {
         _backendClient.fetchMessagingStatus(backendUrl, agentId: agentId),
         const <String, dynamic>{},
       );
+      final sharedMessagingFuture = _softRefreshLoad<Map<String, dynamic>>(
+        'shared_messaging',
+        _backendClient.fetchSharedMessagingOptions(backendUrl),
+        const <String, dynamic>{},
+      );
       final messagingMessagesFuture =
           _softRefreshLoad<List<Map<String, dynamic>>>(
             'messaging_messages',
@@ -2973,6 +2986,7 @@ class NeoAgentController extends ChangeNotifier {
       final rateLimitResponse = await rateLimitFuture;
       final updateResponse = await updateFuture;
       final messagingResponse = await messagingFuture;
+      _applySharedMessagingOptions(await sharedMessagingFuture);
       final messagingMessagesResponse = await messagingMessagesFuture;
       final skillsResponse = await skillsFuture;
       final memoryResponse = await memoryFuture;
@@ -3197,11 +3211,37 @@ class NeoAgentController extends ChangeNotifier {
     } catch (_) {}
   }
 
+  void _applySharedMessagingOptions(Map<String, dynamic> data) {
+    final raw = data['options'];
+    sharedMessagingOptions = <String, SharedMessagingOption>{
+      if (raw is List)
+        for (final entry in raw.whereType<Map>())
+          entry['platform'].toString(): SharedMessagingOption.fromJson(
+            Map<String, dynamic>.from(entry),
+          ),
+    };
+  }
+
+  /// An admin can set one up while this app is open, so connecting asks again
+  /// rather than offering only what was known when the page loaded.
+  Future<void> refreshSharedMessagingOptions() async {
+    try {
+      _applySharedMessagingOptions(
+        await _backendClient.fetchSharedMessagingOptions(backendUrl),
+      );
+    } catch (error) {
+      debugPrint('[Messaging] Could not refresh shared accounts: $error');
+    }
+  }
+
   Future<void> refreshMessaging() async {
     try {
       final statuses = await _backendClient.fetchMessagingStatus(
         backendUrl,
         agentId: _scopedAgentId,
+      );
+      _applySharedMessagingOptions(
+        await _backendClient.fetchSharedMessagingOptions(backendUrl),
       );
       messagingStatuses = statuses.map(
         (key, value) => MapEntry(
@@ -6347,6 +6387,17 @@ class NeoAgentController extends ChangeNotifier {
     throw Exception(appStrings.authenticationIsStillPendingFinishThe2);
   }
 
+  Future<SharedMessagingLink> startSharedMessagingLink(String platform) async {
+    sharedMessagingLinkFailure = null;
+    return SharedMessagingLink.fromJson(
+      await _backendClient.startSharedMessagingLink(
+        backendUrl,
+        platform: platform,
+        agentId: _scopedAgentId,
+      ),
+    );
+  }
+
   Future<void> connectMessagingPlatform({
     required String platform,
     Map<String, dynamic>? config,
@@ -7900,6 +7951,14 @@ class NeoAgentController extends ChangeNotifier {
     socket.on('messaging:disconnected', (dynamic _) {
       pendingMessagingQr = null;
       unawaited(refreshMessaging());
+    });
+    socket.on('messaging:linked', (dynamic _) {
+      sharedMessagingLinkFailure = null;
+      unawaited(refreshMessaging());
+    });
+    socket.on('messaging:link_failed', (dynamic _) {
+      sharedMessagingLinkFailure = appStrings.sharedMessagingIdentityTaken;
+      notifyListeners();
     });
     socket.on('messaging:logged_out', (dynamic _) {
       pendingMessagingQr = null;

@@ -30,6 +30,7 @@ const { getFailureDisposition } = require('../ai/model_failure_cache');
 const { isAbortError, throwIfAborted } = require('../../utils/abort');
 const { parseErrorEnvelope } = require('../../utils/retry');
 const { normalizeStoredString } = require('../../utils/text');
+const { getPublicProfile } = require('../messaging/public_audience');
 
 const MAX_AUTONOMOUS_RETRIES = 1;
 
@@ -695,16 +696,25 @@ class TaskRuntime {
       stagedProactiveMessage: null,
       lastSentMessage: '',
       sentMessages: [],
+      notifyTarget: null,
     };
     let completedRunId = null;
     try {
-      normalizedConfig = this._ensureDefaultNotifyTarget(userId, agentId, taskConfig, taskId);
+      normalizedConfig = this._dropLegacyCallConfig(userId, taskConfig, taskId);
+      const notifyTarget = this._resolveNotifyTarget(
+        userId,
+        agentId,
+        task,
+        normalizedConfig,
+        executionMeta.triggerPayload,
+      );
+      deliveryState.notifyTarget = notifyTarget;
       const triggerSummary = this._summarizeTrigger(task.trigger_type, triggerConfig);
       let notifyHint = '';
       const manualRun = executionMeta.manual === true;
 
-      if (normalizedConfig.notifyPlatform && normalizedConfig.notifyTo) {
-        notifyHint = `\n\nIf your task result is worth notifying the user about, send it proactively via send_message to platform="${normalizedConfig.notifyPlatform}" to="${normalizedConfig.notifyTo}" and set purpose="final_result" for a concrete useful outcome or purpose="blocker" for a real issue the user should know about. If nothing important or actionable changed, call send_message with purpose="no_response" and content="[NO RESPONSE]" exactly; never leave content blank for no_response. When a tool result already gives you summary fields or flags that answer the task, decide from that evidence instead of re-running nearby variants of the same lookup.${manualRun ? '' : ' For this automatic scheduled run, plain assistant text is internal only and is NOT delivered. You MUST end the run with exactly one explicit send_message decision (purpose="final_result", "blocker", or "no_response") — if you produce a real result, deliver it with send_message or it is lost.'}`;
+      if (notifyTarget) {
+        notifyHint = `\n\nIf your task result is worth notifying the user about, send it proactively via send_message to platform="${notifyTarget.platform}" to="${notifyTarget.to}" and set purpose="final_result" for a concrete useful outcome or purpose="blocker" for a real issue the user should know about. If nothing important or actionable changed, call send_message with purpose="no_response" and content="[NO RESPONSE]" exactly; never leave content blank for no_response. When a tool result already gives you summary fields or flags that answer the task, decide from that evidence instead of re-running nearby variants of the same lookup.${manualRun ? '' : ' For this automatic run, plain assistant text is internal only and is NOT delivered. You MUST end the run with exactly one explicit send_message decision (purpose="final_result", "blocker", or "no_response") — if you produce a real result, deliver it with send_message or it is lost.'}`;
       }
 
       // The payload is whatever the email, webhook, or chat said: data for
@@ -738,10 +748,7 @@ class TaskRuntime {
         taskRepository: this.taskRepository,
         userId,
         agentId: resolveAgentId(userId, agentId),
-        notifyTarget: normalizeNotifyTarget({
-          platform: normalizedConfig.notifyPlatform,
-          to: normalizedConfig.notifyTo,
-        }),
+        notifyTarget,
       });
       let attempt = 0;
       let recoveryNote = '';
@@ -780,7 +787,6 @@ class TaskRuntime {
             userId,
             agentId,
             taskId,
-            taskConfig: normalizedConfig,
             result,
             deliveryState,
             allowPlainResultFallback: manualRun,
@@ -873,7 +879,6 @@ class TaskRuntime {
             userId,
             agentId,
             taskId,
-            taskConfig: normalizedConfig,
             result: {
               content: failureMessage,
             },
@@ -946,11 +951,11 @@ class TaskRuntime {
 
     const existingTaskConfig = this._normalizeJson(existingTask?.task_config);
     const taskType = String(input.taskType || input.task_type || existingTask?.task_type || 'agent_prompt').trim() || 'agent_prompt';
-    let taskConfig = input.taskConfig !== undefined || input.task_config !== undefined
+    // A sent config replaces the stored one, so a removed key stays removed.
+    const taskConfig = input.taskConfig !== undefined || input.task_config !== undefined
       ? this._normalizeJson(input.taskConfig ?? input.task_config)
       : existingTaskConfig;
 
-    taskConfig = { ...existingTaskConfig, ...taskConfig };
     if (input.prompt !== undefined) taskConfig.prompt = String(input.prompt || '').trim();
     delete taskConfig.callTo;
     delete taskConfig.callGreeting;
@@ -1063,61 +1068,52 @@ class TaskRuntime {
     });
   }
 
-  _buildNotifyTargets(userId, agentId, taskConfig = {}) {
+  // The agent's latest chat. A public thread is about one issue, so it never
+  // becomes the destination for results that have nothing to do with it.
+  _latestChatTarget(userId, agentId) {
     const scopedAgentId = resolveAgentId(userId, agentId);
-    const candidates = [
-      normalizeNotifyTarget({
-        platform: taskConfig.notifyPlatform,
-        to: taskConfig.notifyTo,
-      }),
+    const chats = [
       this._getDefaultNotifyTarget(userId, scopedAgentId),
       ...this.taskRepository.listRecentMessageTargets(userId, scopedAgentId).map((row) => normalizeNotifyTarget({
         platform: row.platform,
         to: row.platform_chat_id,
       })),
     ];
-
-    const unique = [];
-    const seen = new Set();
-    for (const target of candidates) {
-      if (!target) continue;
-      const key = `${target.platform}:${target.to}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      unique.push(target);
-    }
-    return unique;
+    return chats.find((target) => target && !getPublicProfile(target.platform)) || null;
   }
 
-  _ensureDefaultNotifyTarget(userId, agentId, taskConfig, taskId) {
-    const normalized = { ...taskConfig };
-    const removedLegacyCallConfig = Object.prototype.hasOwnProperty.call(normalized, 'callTo')
-      || Object.prototype.hasOwnProperty.call(normalized, 'callGreeting');
-    delete normalized.callTo;
-    delete normalized.callGreeting;
-    const existingTarget = normalizeNotifyTarget({
-      platform: normalized.notifyPlatform,
-      to: normalized.notifyTo,
-    });
-    if (existingTarget) {
-      normalized.notifyPlatform = existingTarget.platform;
-      normalized.notifyTo = existingTarget.to;
+  // The thread the firing event belongs to, when its adapter names one and the
+  // agent's account can post there.
+  _originNotifyTarget(userId, agentId, triggerType, triggerPayload) {
+    const triggerEvent = triggerPayload?.triggerEvent;
+    if (!triggerEvent) return null;
+    const adapter = this.triggerRegistry.get(triggerType);
+    const target = normalizeNotifyTarget(adapter?.replyTarget?.(triggerEvent) || {});
+    if (!target) return null;
+    const manager = this.app?.locals?.messagingManager || this.agentEngine?.messagingManager || null;
+    const status = manager?.getPlatformStatus?.(userId, target.platform, { agentId });
+    return status?.status === 'connected' ? target : null;
+  }
+
+  // Where this run reports: the configured target, then the event's own thread,
+  // then the agent's latest chat. It holds for this run only; storing it would
+  // turn "use default channel" into a fixed target.
+  _resolveNotifyTarget(userId, agentId, task, taskConfig, triggerPayload) {
+    return normalizeNotifyTarget({ platform: taskConfig.notifyPlatform, to: taskConfig.notifyTo })
+      || this._originNotifyTarget(userId, agentId, task.trigger_type, triggerPayload)
+      || this._latestChatTarget(userId, agentId);
+  }
+
+  _dropLegacyCallConfig(userId, taskConfig, taskId) {
+    if (!Object.prototype.hasOwnProperty.call(taskConfig, 'callTo')
+      && !Object.prototype.hasOwnProperty.call(taskConfig, 'callGreeting')) {
+      return taskConfig;
     }
-    if (!existingTarget) {
-      const notifyTarget = this._buildNotifyTargets(userId, agentId, normalized)[0];
-      if (notifyTarget) {
-        normalized.notifyPlatform = notifyTarget.platform;
-        normalized.notifyTo = notifyTarget.to;
-      }
-    }
-    if (
-      normalized.notifyPlatform !== taskConfig.notifyPlatform
-      || normalized.notifyTo !== taskConfig.notifyTo
-      || removedLegacyCallConfig
-    ) {
-      this.taskRepository.updateTaskConfig(taskId, userId, normalized);
-    }
-    return normalized;
+    const cleaned = { ...taskConfig };
+    delete cleaned.callTo;
+    delete cleaned.callGreeting;
+    this.taskRepository.updateTaskConfig(taskId, userId, cleaned);
+    return cleaned;
   }
 
   // Build the user-facing notice for a task that errored out after retries.
@@ -1152,23 +1148,16 @@ class TaskRuntime {
     userId,
     agentId,
     taskId,
-    taskConfig,
     result,
     deliveryState,
     allowPlainResultFallback = true,
   }) {
     throwIfAborted(this.abortController.signal, 'Task runtime is stopping.');
     if (deliveryState?.messagingSent || deliveryState?.noResponse) return null;
-    // A configured destination is authoritative: never redirect to the chat the
-    // model picked or to the default DM, so a broken target fails visibly.
-    const configuredTarget = normalizeNotifyTarget({
-      platform: taskConfig.notifyPlatform,
-      to: taskConfig.notifyTo,
-    });
-    const targets = configuredTarget
-      ? [configuredTarget]
-      : this._buildNotifyTargets(userId, agentId, taskConfig);
-    if (!targets.length) return null;
+    // The run's target is authoritative: never redirect to the chat the model
+    // picked or to another chat, so a broken target fails visibly.
+    const target = deliveryState?.notifyTarget;
+    if (!target) return null;
     const resultText = stringifyTaskResult(result).trim();
     const resultLooksLikeError = Boolean(result?.error);
     const stagedMessage = normalizeOutgoingMessageForPlatform(
@@ -1209,66 +1198,49 @@ class TaskRuntime {
       };
     }
 
-    let lastError = null;
-    const resolvedTargets = explicitStagedDelivery
-      ? [{
-        platform: configuredTarget?.platform || deliveryState.stagedProactiveMessage.platform,
-        to: configuredTarget?.to || deliveryState.stagedProactiveMessage.to,
-        mediaPath: deliveryState.stagedProactiveMessage.mediaPath || null,
-      }]
-      : targets;
-    for (const target of resolvedTargets) {
-      const message = normalizeOutgoingMessageForPlatform(
-        target.platform,
-        resultText || stagedMessage,
-        { stripNoResponseMarker: false },
-      );
-      if (!message || message.toUpperCase() === '[NO RESPONSE]') return null;
+    const message = normalizeOutgoingMessageForPlatform(
+      target.platform,
+      resultText || stagedMessage,
+      { stripNoResponseMarker: false },
+    );
+    if (!message || message.toUpperCase() === '[NO RESPONSE]') return null;
 
+    try {
       const status = typeof manager.getPlatformStatus === 'function'
         ? manager.getPlatformStatus(userId, target.platform, { agentId })
         : null;
       if (!status || status.status !== 'connected') {
-        lastError = new Error(`Platform ${target.platform} is not connected on this server.`);
-        continue;
+        throw new Error(`Platform ${target.platform} is not connected on this server.`);
       }
-
-      try {
-        const sendResult = await manager.sendMessage(userId, target.platform, target.to, message, {
-          agentId,
-          mediaPath: target.mediaPath || null,
-          runId: result?.runId || null,
-          persistConversation: true,
-          signal: this.abortController.signal,
-        });
-        deliveryState.messagingSent = true;
-        deliveryState.proactiveMessageStaged = false;
-        deliveryState.stagedProactiveMessage = null;
-        deliveryState.lastSentMessage = message;
-        if (!Array.isArray(deliveryState.sentMessages)) {
-          deliveryState.sentMessages = [];
-        }
-        deliveryState.sentMessages.push(message);
-
-        return {
-          sent: true,
-          platform: target.platform,
-          to: target.to,
-          result: sendResult,
-        };
-      } catch (error) {
-        lastError = error;
+      const sendResult = await manager.sendMessage(userId, target.platform, target.to, message, {
+        agentId,
+        mediaPath: explicitStagedDelivery ? deliveryState.stagedProactiveMessage.mediaPath || null : null,
+        runId: result?.runId || null,
+        persistConversation: true,
+        signal: this.abortController.signal,
+      });
+      deliveryState.messagingSent = true;
+      deliveryState.proactiveMessageStaged = false;
+      deliveryState.stagedProactiveMessage = null;
+      deliveryState.lastSentMessage = message;
+      if (!Array.isArray(deliveryState.sentMessages)) {
+        deliveryState.sentMessages = [];
       }
-    }
+      deliveryState.sentMessages.push(message);
 
-    if (lastError) {
-      console.error(`[Tasks] Task ${taskId} notification delivery failed:`, lastError.message);
+      return {
+        sent: true,
+        platform: target.platform,
+        to: target.to,
+        result: sendResult,
+      };
+    } catch (error) {
+      console.error(`[Tasks] Task ${taskId} notification delivery failed:`, error.message);
       return {
         sent: false,
-        error: lastError.message,
+        error: error.message,
       };
     }
-    return null;
   }
 
   _getTaskConversation(userId, taskId, taskName, agentId = null) {

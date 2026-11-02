@@ -24,6 +24,9 @@ module.exports = {
       config.query && `contains: ${config.query}`,
     ]);
   },
+  replyTarget(event) {
+    return { platform: 'github', to: `${event.repo}#${event.number}` };
+  },
   poll: {
     intervalMinutes: 2,
     cursor: 'list',

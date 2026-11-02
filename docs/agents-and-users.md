@@ -54,7 +54,7 @@ Use separate agents to keep contexts apart, for example a personal agent and a w
 - **Revoke.** `neoagent admin revoke <username>` takes effect on the next request.
 - **Env list is additive.** Removing a name from `NEOAGENT_ADMIN_USERS` does not revoke it; a CLI revoke stays in force.
 - **Reserved names.** A listed username with no account cannot be registered by anyone.
-- **Admin tab.** Users, Server, Providers, Models, Integrations, Configuration, Analytics and SQL, with a search box.
+- **Admin tab.** Users, Server, Providers, Models, Integrations, Messaging, Configuration, Analytics and SQL, with a search box.
 - **No self-delete.** An admin account cannot delete itself; revoke admin first.
 - **Older installs.** A single-account install promotes its only account. With several, run `neoagent admin grant <username>`.
 
@@ -80,6 +80,7 @@ Admin changes are made by the operator from the CLI or the env list, never from 
 - **Cloud computer.** One per user; QEMU and Docker backends separate users, `TERMINAL_ENV=host` does not.
 - **Integration credentials.** Stored on the server and bound to one user and agent.
 - **Android.** ADB commands run on the NeoAgent host against the attached device.
+- **Shared messaging.** People on one [shared account](shared-messaging.md) are separated by verified sender, and cannot message anyone but themselves through it.
 
 :::caution Not a hostile-tenant boundary
 Accounts are separated at the application level only; read [Security and permissions](security-boundaries.md) before hosting people you do not trust.
@@ -87,6 +88,7 @@ Accounts are separated at the application level only; read [Security and permiss
 
 ## 🔗 Related
 
+- [Shared messaging accounts](shared-messaging.md): one bot or number for everyone on a server
 - [Automation and triggers](automation.md): tasks belong to an agent
 - [Memory](memory.md): recall is scoped per user and agent
 - [Architecture](architecture.md): how agent scope is enforced

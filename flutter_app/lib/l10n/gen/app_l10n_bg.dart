@@ -12008,4 +12008,254 @@ class AppL10nBg extends AppL10n {
   @override
   String get agentImportRestarted =>
       'NeoAgent restarted and loaded everything.';
+
+  @override
+  String get adminTabMessaging => 'Messaging';
+
+  @override
+  String auditMessagingConfigured(Object? actor, Object? platform) {
+    return '$actor changed the shared $platform account';
+  }
+
+  @override
+  String auditMessagingRemoved(Object? actor, Object? platform) {
+    return '$actor removed the shared $platform account';
+  }
+
+  @override
+  String auditMessagingLinked(Object? subject, Object? platform) {
+    return '$subject linked to the shared $platform account';
+  }
+
+  @override
+  String auditMessagingUnlinked(Object? subject, Object? platform) {
+    return '$subject unlinked from the shared $platform account';
+  }
+
+  @override
+  String auditMessagingConflict(Object? subject, Object? platform) {
+    return '$subject tried to link a $platform identity already linked to someone else';
+  }
+
+  @override
+  String get sharedAccountsTitle => 'Shared accounts';
+
+  @override
+  String get sharedAccountsIntro =>
+      'One bot or number for everyone on this server. People link themselves under Settings › Platforms. Skip this if you\'re the only one using this server.';
+
+  @override
+  String get sharedAccountTelegramPitch =>
+      'One bot that anyone on this server can link to';
+
+  @override
+  String get sharedAccountWhatsappPitch =>
+      'One number that anyone on this server can message';
+
+  @override
+  String get sharedAccountStatusLive => 'Live';
+
+  @override
+  String get sharedAccountStatusStarting => 'Connecting';
+
+  @override
+  String get sharedAccountStatusFailed => 'Needs attention';
+
+  @override
+  String get sharedAccountStatusOff => 'Off';
+
+  @override
+  String get sharedAccountStatusNotSetUp => 'Not set up';
+
+  @override
+  String get sharedAccountTelegramStepBot =>
+      'Create a bot with @BotFather and copy its token.';
+
+  @override
+  String get sharedAccountTelegramStepToken => 'Paste the token here.';
+
+  @override
+  String get sharedAccountBotToken => 'Bot token';
+
+  @override
+  String get sharedAccountTokenMissing => 'Paste the bot token first.';
+
+  @override
+  String get sharedAccountShowToken => 'Show token';
+
+  @override
+  String get sharedAccountHideToken => 'Hide token';
+
+  @override
+  String get sharedAccountConnect => 'Connect';
+
+  @override
+  String get sharedAccountTurnOn => 'Turn on';
+
+  @override
+  String get sharedAccountTurnOff => 'Turn off';
+
+  @override
+  String get sharedAccountReconnect => 'Reconnect';
+
+  @override
+  String get sharedAccountReplaceToken => 'Replace token';
+
+  @override
+  String get sharedAccountRemove => 'Remove';
+
+  @override
+  String get sharedAccountMore => 'More';
+
+  @override
+  String get sharedAccountRetry => 'Try again';
+
+  @override
+  String get sharedAccountShowQr => 'Show QR code';
+
+  @override
+  String get sharedAccountWhatsappWarning =>
+      'Use a number you can spare. WhatsApp can ban automated numbers, and everyone on this account would lose access.';
+
+  @override
+  String get sharedAccountScanStepOpen =>
+      'Open WhatsApp on the phone with the shared number.';
+
+  @override
+  String get sharedAccountScanStepDevices =>
+      'Go to Linked devices and tap Link a device.';
+
+  @override
+  String get sharedAccountScanStepPoint => 'Point the camera at this code.';
+
+  @override
+  String get sharedAccountTelegramFailed =>
+      'Telegram rejected this token. Copy it from @BotFather again and paste it below.';
+
+  @override
+  String get sharedAccountWhatsappFailed =>
+      'WhatsApp ended this session, so linked people can\'t use it. Scan a new code to bring it back.';
+
+  @override
+  String get sharedAccountAvailable => 'Offer to users';
+
+  @override
+  String get sharedAccountAvailableHint =>
+      'Off hides this account and stops it answering anyone. Links are kept.';
+
+  @override
+  String get sharedAccountAllowPersonal => 'Allow personal accounts';
+
+  @override
+  String get sharedAccountAllowPersonalHint =>
+      'Off stops people connecting their own account here. Existing connections and admins aren\'t affected.';
+
+  @override
+  String get adminMessagingSearchKeywords =>
+      'shared instance telegram whatsapp bot number link users';
+
+  @override
+  String get sharedMessagingThisServer => 'this server\'s account';
+
+  @override
+  String get sharedMessagingBadge => 'Shared account';
+
+  @override
+  String get sharedMessagingUseShared => 'Use the shared account';
+
+  @override
+  String get sharedMessagingUseOwn => 'Use my own account';
+
+  @override
+  String get sharedMessagingUseOwnHint =>
+      'Connect your own bot or number and manage it yourself.';
+
+  @override
+  String get sharedMessagingNewCode => 'Get a new code';
+
+  @override
+  String get sharedMessagingCopyCode => 'Copy code';
+
+  @override
+  String get sharedMessagingCopied => 'Copied';
+
+  @override
+  String get sharedMessagingScanHint =>
+      'Scan with your phone to open the chat there';
+
+  @override
+  String get sharedMessagingCodeNote =>
+      'Treat this code like a password: whoever sends it can use your agent.';
+
+  @override
+  String get sharedMessagingCodeExpired => 'This code has expired.';
+
+  @override
+  String get sharedMessagingWaiting => 'Waiting for your message…';
+
+  @override
+  String get sharedMessagingLinkedHint =>
+      'Message that chat any time to reach this agent.';
+
+  @override
+  String get sharedMessagingDone => 'Done';
+
+  @override
+  String get sharedMessagingIdentityTaken =>
+      'That account is already linked to someone else on this server. They need to disconnect it first.';
+
+  @override
+  String sharedAccountRemoveTitle(Object? label) {
+    return 'Remove the shared $label account?';
+  }
+
+  @override
+  String sharedAccountRemoveBody(Object? count) {
+    return '$count linked people will lose access until they connect again.';
+  }
+
+  @override
+  String sharedAccountRemoved(Object? label) {
+    return 'Removed the shared $label account.';
+  }
+
+  @override
+  String sharedAccountLinkedCount(Object? count) {
+    return '$count linked';
+  }
+
+  @override
+  String sharedMessagingTitle(Object? platform) {
+    return 'Connect $platform';
+  }
+
+  @override
+  String sharedMessagingUseSharedHint(Object? account) {
+    return 'Recommended. Message $account and reach your own agent. Nothing to set up, and nobody else here can see your chats.';
+  }
+
+  @override
+  String sharedMessagingMovesLink(Object? platform) {
+    return 'Your $platform is linked to another agent. Linking here moves it to this one.';
+  }
+
+  @override
+  String sharedMessagingOpenAndSend(Object? platform) {
+    return 'Send this code from the $platform account you want to use. The button fills it in for you.';
+  }
+
+  @override
+  String sharedMessagingSendCode(Object? account) {
+    return 'Send this code to $account from the account you want to use.';
+  }
+
+  @override
+  String sharedMessagingOpenApp(Object? platform) {
+    return 'Open $platform';
+  }
+
+  @override
+  String sharedMessagingLinked(Object? platform, Object? identity) {
+    return '$platform linked as $identity';
+  }
 }

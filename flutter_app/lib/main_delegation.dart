@@ -1206,6 +1206,16 @@ class _AccessActivityList extends StatelessWidget {
         );
       case 'account.password_reset':
         return appStrings.adminAuditPasswordResetArg1Arg2(actor, subject);
+      case 'messaging.shared_configure':
+        return appStrings.auditMessagingConfigured(actor, detail['platform']);
+      case 'messaging.shared_remove':
+        return appStrings.auditMessagingRemoved(actor, detail['platform']);
+      case 'messaging.identity_link':
+        return appStrings.auditMessagingLinked(subject, detail['platform']);
+      case 'messaging.identity_unlink':
+        return appStrings.auditMessagingUnlinked(subject, detail['platform']);
+      case 'messaging.identity_conflict':
+        return appStrings.auditMessagingConflict(subject, detail['platform']);
       case 'invite.create':
         return appStrings.arg1CreatedAnInviteLink(actor);
       case 'invite.revoke':

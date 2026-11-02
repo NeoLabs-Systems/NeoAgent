@@ -1,14 +1,26 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
+const { sendJsonError } = require('../http/errors');
+const { jsonHandler } = require('./_helpers/http');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 const {
   legacyWhitelistKey,
   normalizeAccessPolicy,
   summarizeAccessPolicy,
 } = require('../services/messaging/access_policy');
+
+const sharedLinkLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => String(req.session?.userId || 'anonymous'),
+  message: { error: 'Too many link requests, slow down' },
+});
 
 const PREFIXED_ENTRY_RE = /[^0-9a-z:_.@#+=\-!$*]/gi;
 
@@ -48,6 +60,21 @@ function logMessagingRouteError(action, err, details = {}) {
   console.error(`[Messaging] ${action} failed${suffix}:`, err);
 }
 
+// Instance-wide accounts this user can link to. Only what they need to see: never
+// credentials, the login QR, or who else is linked.
+router.get('/shared', jsonHandler((req) => ({
+  options: req.app.locals.messagingManager.shared.listOptions(req.session.userId),
+})));
+
+router.post('/shared/:platform/link', sharedLinkLimiter, jsonHandler((req) => {
+  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+  return req.app.locals.messagingManager.shared.startLink(req.session.userId, agentId, req.params.platform);
+}));
+
+router.delete('/shared/:platform/link', jsonHandler((req) => (
+  req.app.locals.messagingManager.shared.unlink(req.session.userId, req.params.platform)
+)));
+
 // Get all platform statuses
 router.get('/status', (req, res) => {
   const manager = req.app.locals.messagingManager;
@@ -63,7 +90,7 @@ router.post('/connect', async (req, res) => {
     if (!platform) return res.status(400).json({ error: 'Platform is required' });
 
     const manager = req.app.locals.messagingManager;
-    const result = await manager.connectPlatform(req.session.userId, platform, config || {}, { agentId });
+    const result = await manager.connectPlatform(req.session.userId, platform, config || {}, { agentId, userInitiated: true });
     res.json(result);
   } catch (err) {
     logMessagingRouteError('connect', err, {
@@ -71,6 +98,7 @@ router.post('/connect', async (req, res) => {
       agentId: resolveAgentId(req.session.userId, getAgentIdFromRequest(req)),
       platform: req.body?.platform,
     });
+    if (err.status) return sendJsonError(res, err);
     res.status(500).json({ error: sanitizeError(err) });
   }
 });

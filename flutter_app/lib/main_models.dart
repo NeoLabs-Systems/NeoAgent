@@ -625,6 +625,10 @@ class MessagingPlatformStatus {
   final Map<String, dynamic> authInfo;
 
   bool get isConnected => status == 'connected';
+
+  /// Reached through this server's instance-wide account, not the user's own.
+  bool get isShared => authInfo['shared'] == true;
+
   bool get isConnecting =>
       status == 'connecting' ||
       status == 'reconnecting' ||

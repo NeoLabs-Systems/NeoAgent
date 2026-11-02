@@ -19884,6 +19884,408 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'NeoAgent restarted and loaded everything.'**
   String get agentImportRestarted;
+
+  /// No description provided for @adminTabMessaging.
+  ///
+  /// In en, this message translates to:
+  /// **'Messaging'**
+  String get adminTabMessaging;
+
+  /// No description provided for @auditMessagingConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} changed the shared {platform} account'**
+  String auditMessagingConfigured(Object? actor, Object? platform);
+
+  /// No description provided for @auditMessagingRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} removed the shared {platform} account'**
+  String auditMessagingRemoved(Object? actor, Object? platform);
+
+  /// No description provided for @auditMessagingLinked.
+  ///
+  /// In en, this message translates to:
+  /// **'{subject} linked to the shared {platform} account'**
+  String auditMessagingLinked(Object? subject, Object? platform);
+
+  /// No description provided for @auditMessagingUnlinked.
+  ///
+  /// In en, this message translates to:
+  /// **'{subject} unlinked from the shared {platform} account'**
+  String auditMessagingUnlinked(Object? subject, Object? platform);
+
+  /// No description provided for @auditMessagingConflict.
+  ///
+  /// In en, this message translates to:
+  /// **'{subject} tried to link a {platform} identity already linked to someone else'**
+  String auditMessagingConflict(Object? subject, Object? platform);
+
+  /// No description provided for @sharedAccountsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared accounts'**
+  String get sharedAccountsTitle;
+
+  /// No description provided for @sharedAccountsIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'One bot or number for everyone on this server. People link themselves under Settings › Platforms. Skip this if you\'re the only one using this server.'**
+  String get sharedAccountsIntro;
+
+  /// No description provided for @sharedAccountTelegramPitch.
+  ///
+  /// In en, this message translates to:
+  /// **'One bot that anyone on this server can link to'**
+  String get sharedAccountTelegramPitch;
+
+  /// No description provided for @sharedAccountWhatsappPitch.
+  ///
+  /// In en, this message translates to:
+  /// **'One number that anyone on this server can message'**
+  String get sharedAccountWhatsappPitch;
+
+  /// No description provided for @sharedAccountStatusLive.
+  ///
+  /// In en, this message translates to:
+  /// **'Live'**
+  String get sharedAccountStatusLive;
+
+  /// No description provided for @sharedAccountStatusStarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting'**
+  String get sharedAccountStatusStarting;
+
+  /// No description provided for @sharedAccountStatusFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs attention'**
+  String get sharedAccountStatusFailed;
+
+  /// No description provided for @sharedAccountStatusOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get sharedAccountStatusOff;
+
+  /// No description provided for @sharedAccountStatusNotSetUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Not set up'**
+  String get sharedAccountStatusNotSetUp;
+
+  /// No description provided for @sharedAccountTelegramStepBot.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a bot with @BotFather and copy its token.'**
+  String get sharedAccountTelegramStepBot;
+
+  /// No description provided for @sharedAccountTelegramStepToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste the token here.'**
+  String get sharedAccountTelegramStepToken;
+
+  /// No description provided for @sharedAccountBotToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Bot token'**
+  String get sharedAccountBotToken;
+
+  /// No description provided for @sharedAccountTokenMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste the bot token first.'**
+  String get sharedAccountTokenMissing;
+
+  /// No description provided for @sharedAccountShowToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Show token'**
+  String get sharedAccountShowToken;
+
+  /// No description provided for @sharedAccountHideToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide token'**
+  String get sharedAccountHideToken;
+
+  /// No description provided for @sharedAccountConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect'**
+  String get sharedAccountConnect;
+
+  /// No description provided for @sharedAccountTurnOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on'**
+  String get sharedAccountTurnOn;
+
+  /// No description provided for @sharedAccountTurnOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn off'**
+  String get sharedAccountTurnOff;
+
+  /// No description provided for @sharedAccountReconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnect'**
+  String get sharedAccountReconnect;
+
+  /// No description provided for @sharedAccountReplaceToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace token'**
+  String get sharedAccountReplaceToken;
+
+  /// No description provided for @sharedAccountRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get sharedAccountRemove;
+
+  /// No description provided for @sharedAccountMore.
+  ///
+  /// In en, this message translates to:
+  /// **'More'**
+  String get sharedAccountMore;
+
+  /// No description provided for @sharedAccountRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get sharedAccountRetry;
+
+  /// No description provided for @sharedAccountShowQr.
+  ///
+  /// In en, this message translates to:
+  /// **'Show QR code'**
+  String get sharedAccountShowQr;
+
+  /// No description provided for @sharedAccountWhatsappWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a number you can spare. WhatsApp can ban automated numbers, and everyone on this account would lose access.'**
+  String get sharedAccountWhatsappWarning;
+
+  /// No description provided for @sharedAccountScanStepOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open WhatsApp on the phone with the shared number.'**
+  String get sharedAccountScanStepOpen;
+
+  /// No description provided for @sharedAccountScanStepDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to Linked devices and tap Link a device.'**
+  String get sharedAccountScanStepDevices;
+
+  /// No description provided for @sharedAccountScanStepPoint.
+  ///
+  /// In en, this message translates to:
+  /// **'Point the camera at this code.'**
+  String get sharedAccountScanStepPoint;
+
+  /// No description provided for @sharedAccountTelegramFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram rejected this token. Copy it from @BotFather again and paste it below.'**
+  String get sharedAccountTelegramFailed;
+
+  /// No description provided for @sharedAccountWhatsappFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'WhatsApp ended this session, so linked people can\'t use it. Scan a new code to bring it back.'**
+  String get sharedAccountWhatsappFailed;
+
+  /// No description provided for @sharedAccountAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Offer to users'**
+  String get sharedAccountAvailable;
+
+  /// No description provided for @sharedAccountAvailableHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Off hides this account and stops it answering anyone. Links are kept.'**
+  String get sharedAccountAvailableHint;
+
+  /// No description provided for @sharedAccountAllowPersonal.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow personal accounts'**
+  String get sharedAccountAllowPersonal;
+
+  /// No description provided for @sharedAccountAllowPersonalHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Off stops people connecting their own account here. Existing connections and admins aren\'t affected.'**
+  String get sharedAccountAllowPersonalHint;
+
+  /// No description provided for @adminMessagingSearchKeywords.
+  ///
+  /// In en, this message translates to:
+  /// **'shared instance telegram whatsapp bot number link users'**
+  String get adminMessagingSearchKeywords;
+
+  /// No description provided for @sharedMessagingThisServer.
+  ///
+  /// In en, this message translates to:
+  /// **'this server\'s account'**
+  String get sharedMessagingThisServer;
+
+  /// No description provided for @sharedMessagingBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared account'**
+  String get sharedMessagingBadge;
+
+  /// No description provided for @sharedMessagingUseShared.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the shared account'**
+  String get sharedMessagingUseShared;
+
+  /// No description provided for @sharedMessagingUseOwn.
+  ///
+  /// In en, this message translates to:
+  /// **'Use my own account'**
+  String get sharedMessagingUseOwn;
+
+  /// No description provided for @sharedMessagingUseOwnHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect your own bot or number and manage it yourself.'**
+  String get sharedMessagingUseOwnHint;
+
+  /// No description provided for @sharedMessagingNewCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Get a new code'**
+  String get sharedMessagingNewCode;
+
+  /// No description provided for @sharedMessagingCopyCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy code'**
+  String get sharedMessagingCopyCode;
+
+  /// No description provided for @sharedMessagingCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get sharedMessagingCopied;
+
+  /// No description provided for @sharedMessagingScanHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan with your phone to open the chat there'**
+  String get sharedMessagingScanHint;
+
+  /// No description provided for @sharedMessagingCodeNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Treat this code like a password: whoever sends it can use your agent.'**
+  String get sharedMessagingCodeNote;
+
+  /// No description provided for @sharedMessagingCodeExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'This code has expired.'**
+  String get sharedMessagingCodeExpired;
+
+  /// No description provided for @sharedMessagingWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for your message…'**
+  String get sharedMessagingWaiting;
+
+  /// No description provided for @sharedMessagingLinkedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Message that chat any time to reach this agent.'**
+  String get sharedMessagingLinkedHint;
+
+  /// No description provided for @sharedMessagingDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get sharedMessagingDone;
+
+  /// No description provided for @sharedMessagingIdentityTaken.
+  ///
+  /// In en, this message translates to:
+  /// **'That account is already linked to someone else on this server. They need to disconnect it first.'**
+  String get sharedMessagingIdentityTaken;
+
+  /// No description provided for @sharedAccountRemoveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove the shared {label} account?'**
+  String sharedAccountRemoveTitle(Object? label);
+
+  /// No description provided for @sharedAccountRemoveBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} linked people will lose access until they connect again.'**
+  String sharedAccountRemoveBody(Object? count);
+
+  /// No description provided for @sharedAccountRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed the shared {label} account.'**
+  String sharedAccountRemoved(Object? label);
+
+  /// No description provided for @sharedAccountLinkedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} linked'**
+  String sharedAccountLinkedCount(Object? count);
+
+  /// No description provided for @sharedMessagingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect {platform}'**
+  String sharedMessagingTitle(Object? platform);
+
+  /// No description provided for @sharedMessagingUseSharedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended. Message {account} and reach your own agent. Nothing to set up, and nobody else here can see your chats.'**
+  String sharedMessagingUseSharedHint(Object? account);
+
+  /// No description provided for @sharedMessagingMovesLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {platform} is linked to another agent. Linking here moves it to this one.'**
+  String sharedMessagingMovesLink(Object? platform);
+
+  /// No description provided for @sharedMessagingOpenAndSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Send this code from the {platform} account you want to use. The button fills it in for you.'**
+  String sharedMessagingOpenAndSend(Object? platform);
+
+  /// No description provided for @sharedMessagingSendCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Send this code to {account} from the account you want to use.'**
+  String sharedMessagingSendCode(Object? account);
+
+  /// No description provided for @sharedMessagingOpenApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Open {platform}'**
+  String sharedMessagingOpenApp(Object? platform);
+
+  /// No description provided for @sharedMessagingLinked.
+  ///
+  /// In en, this message translates to:
+  /// **'{platform} linked as {identity}'**
+  String sharedMessagingLinked(Object? platform, Object? identity);
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {
