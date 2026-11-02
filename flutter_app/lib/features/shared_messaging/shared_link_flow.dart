@@ -43,16 +43,13 @@ class SharedLinkSession {
 
 /// Linking through an instance-wide account: a code the moment this appears,
 /// then who you linked as. Asking for it is the choice, so there is nothing to
-/// pick here; it stays until [onDone], whatever updates arrive in between.
+/// pick here. It never leaves by itself, whatever updates arrive; [onDone] adds a
+/// button for that, for a host with no way forward of its own.
 class SharedLinkFlow extends StatefulWidget {
-  const SharedLinkFlow({
-    super.key,
-    required this.session,
-    required this.onDone,
-  });
+  const SharedLinkFlow({super.key, required this.session, this.onDone});
 
   final SharedLinkSession session;
-  final VoidCallback onDone;
+  final VoidCallback? onDone;
 
   @override
   State<SharedLinkFlow> createState() => _SharedLinkFlowState();
@@ -285,7 +282,7 @@ class _LinkedView extends StatelessWidget {
 
   final SharedLinkSession session;
   final String identity;
-  final VoidCallback onDone;
+  final VoidCallback? onDone;
 
   @override
   Widget build(BuildContext context) {
@@ -311,11 +308,13 @@ class _LinkedView extends StatelessWidget {
           textAlign: TextAlign.center,
           style: TextStyle(color: p.textSecondary, fontSize: 13, height: 1.4),
         ),
-        const SizedBox(height: 18),
-        FilledButton(
-          onPressed: onDone,
-          child: Text(appStrings.sharedMessagingDone),
-        ),
+        if (onDone != null) ...<Widget>[
+          const SizedBox(height: 18),
+          FilledButton(
+            onPressed: onDone,
+            child: Text(appStrings.sharedMessagingDone),
+          ),
+        ],
       ],
     );
   }

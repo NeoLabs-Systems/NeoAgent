@@ -13156,7 +13156,7 @@ abstract class AppL10n {
   /// No description provided for @thisAccountWillUnlockNeoagentOn.
   ///
   /// In en, this message translates to:
-  /// **'This account will unlock NeoAgent on this machine.'**
+  /// **'This is the first account on this server. It will also manage server settings and access.'**
   String get thisAccountWillUnlockNeoagentOn;
 
   /// No description provided for @thisAgentCanDelegateToAny.
@@ -20254,7 +20254,7 @@ abstract class AppL10n {
   /// No description provided for @sharedMessagingOpenAndSend.
   ///
   /// In en, this message translates to:
-  /// **'Send this code from the {platform} account you want to use. The button fills it in for you.'**
+  /// **'Open {platform} on the account you want to use and send this code. It fills in by itself.'**
   String sharedMessagingOpenAndSend(Object? platform);
 
   /// No description provided for @sharedMessagingSendCode.
@@ -20362,13 +20362,13 @@ abstract class AppL10n {
   /// No description provided for @onboardingMessagingTitle.
   ///
   /// In en, this message translates to:
-  /// **'Message your agent\nfrom anywhere.'**
+  /// **'Message your agent from anywhere.'**
   String get onboardingMessagingTitle;
 
   /// No description provided for @onboardingMessagingDescription.
   ///
   /// In en, this message translates to:
-  /// **'Connect the chat app you already use. It takes a moment, and you can add more later.'**
+  /// **'Connect a chat app to reach your agent outside NeoAgent. Setup depends on the app; you can do this later.'**
   String get onboardingMessagingDescription;
 
   /// No description provided for @onboardingMessagingOtherApps.
@@ -20412,6 +20412,222 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Manage {platform}'**
   String messagingHubManage(Object? platform);
+
+  /// No description provided for @onboardingModelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect an AI.'**
+  String get onboardingModelTitle;
+
+  /// No description provided for @onboardingModelNeededDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent needs a model to think with. This is the only thing it can\'t do without.'**
+  String get onboardingModelNeededDescription;
+
+  /// No description provided for @onboardingModelReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected. NeoAgent picks the best model for each task.'**
+  String get onboardingModelReady;
+
+  /// No description provided for @onboardingModelChoose.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a specific model'**
+  String get onboardingModelChoose;
+
+  /// No description provided for @onboardingModelUseKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Use an API key instead'**
+  String get onboardingModelUseKey;
+
+  /// No description provided for @onboardingComputerPermissions.
+  ///
+  /// In en, this message translates to:
+  /// **'What it may do on this computer'**
+  String get onboardingComputerPermissions;
+
+  /// No description provided for @onboardingAlmostTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Almost there.'**
+  String get onboardingAlmostTitle;
+
+  /// No description provided for @onboardingAlmostDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent can\'t answer until it has an AI model. You can add one any time under Settings › Models.'**
+  String get onboardingAlmostDescription;
+
+  /// No description provided for @onboardingRecapModel.
+  ///
+  /// In en, this message translates to:
+  /// **'AI model ready'**
+  String get onboardingRecapModel;
+
+  /// No description provided for @onboardingRecapNoModel.
+  ///
+  /// In en, this message translates to:
+  /// **'No AI model yet'**
+  String get onboardingRecapNoModel;
+
+  /// No description provided for @onboardingRecapNoMessaging.
+  ///
+  /// In en, this message translates to:
+  /// **'No chat app yet. Add one later under Settings › Platforms.'**
+  String get onboardingRecapNoMessaging;
+
+  /// No description provided for @onboardingModelSignInHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in and approve NeoAgent. No key to copy, ready in seconds.'**
+  String onboardingModelSignInHint(Object? provider);
+
+  /// No description provided for @onboardingRecapMessaging.
+  ///
+  /// In en, this message translates to:
+  /// **'Reachable on {apps}'**
+  String onboardingRecapMessaging(Object? apps);
+
+  /// No description provided for @onboardingRecapRoutines.
+  ///
+  /// In en, this message translates to:
+  /// **'Routines running: {count}'**
+  String onboardingRecapRoutines(Object? count);
+
+  /// No description provided for @agentNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a name for this agent.'**
+  String get agentNameRequired;
+
+  /// No description provided for @agentIdentifier.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent identifier'**
+  String get agentIdentifier;
+
+  /// No description provided for @agentIdentifierHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Used to address this agent. Suggested from the name; you can edit it.'**
+  String get agentIdentifierHint;
+
+  /// No description provided for @agentIdentifierInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Use 1–48 lowercase letters, numbers, hyphens or underscores.'**
+  String get agentIdentifierInvalid;
+
+  /// No description provided for @uxAdvancedSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced settings'**
+  String get uxAdvancedSettings;
+
+  /// No description provided for @uxSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected'**
+  String get uxSelected;
+
+  /// No description provided for @uxSelectedDelegationTargets.
+  ///
+  /// In en, this message translates to:
+  /// **'Only selected agents can receive tasks from this agent.'**
+  String get uxSelectedDelegationTargets;
+
+  /// No description provided for @uxFieldRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter {field}.'**
+  String uxFieldRequired(String field);
+
+  /// No description provided for @uxTaskInstructions.
+  ///
+  /// In en, this message translates to:
+  /// **'What should the agent do?'**
+  String get uxTaskInstructions;
+
+  /// No description provided for @uxTaskEnabledHint.
+  ///
+  /// In en, this message translates to:
+  /// **'When enabled, this task runs when its trigger fires. Switch off to save it without running automatically.'**
+  String get uxTaskEnabledHint;
+
+  /// No description provided for @uxSettingsSaveHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Changes save automatically unless a Save button is shown.'**
+  String get uxSettingsSaveHint;
+
+  /// No description provided for @uxSettingsSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'A change could not be saved. Check the error below.'**
+  String get uxSettingsSaveFailed;
+
+  /// No description provided for @uxAdminUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'Users'**
+  String get uxAdminUsers;
+
+  /// No description provided for @uxAdminConfiguration.
+  ///
+  /// In en, this message translates to:
+  /// **'Configuration'**
+  String get uxAdminConfiguration;
+
+  /// No description provided for @uxAdminAnalytics.
+  ///
+  /// In en, this message translates to:
+  /// **'Analytics'**
+  String get uxAdminAnalytics;
+
+  /// No description provided for @uxMemoryEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'No memories yet. Ask this agent to remember something in chat, or add a memory here. Memories belong to the selected agent.'**
+  String get uxMemoryEmptyHint;
+
+  /// No description provided for @uxMemoryFacts.
+  ///
+  /// In en, this message translates to:
+  /// **'Facts'**
+  String get uxMemoryFacts;
+
+  /// No description provided for @uxMemoryEntities.
+  ///
+  /// In en, this message translates to:
+  /// **'Entities'**
+  String get uxMemoryEntities;
+
+  /// No description provided for @uxMemoryReflections.
+  ///
+  /// In en, this message translates to:
+  /// **'Reflections'**
+  String get uxMemoryReflections;
+
+  /// No description provided for @uxMemoryDocuments.
+  ///
+  /// In en, this message translates to:
+  /// **'Documents'**
+  String get uxMemoryDocuments;
+
+  /// No description provided for @uxOpenChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Open chat'**
+  String get uxOpenChat;
+
+  /// No description provided for @uxModelSkipHint.
+  ///
+  /// In en, this message translates to:
+  /// **'You can explore first, but chat and tasks need a model before they can run.'**
+  String get uxModelSkipHint;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

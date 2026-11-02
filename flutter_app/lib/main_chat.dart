@@ -4331,11 +4331,16 @@ Future<void> _openGenericMessagingConfigHelper(
     }
   }
 
-  try {
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
+  final formKey = GlobalKey<FormState>();
+  var connecting = false;
+  String? connectError;
+
+  await showDialog<void>(
+    context: context,
+    builder: (context) {
+      return _DisposesDialogResources(
+        resources: textControllers.values,
+        child: StatefulBuilder(
           builder: (context, setLocalState) {
             return AlertDialog(
               backgroundColor: _bgCard,
@@ -4376,9 +4381,10 @@ Future<void> _openGenericMessagingConfigHelper(
                   ),
                 ],
               ),
-              content: SizedBox(
+              content: _ScrollableDialogBody(
                 width: 620,
-                child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -4395,6 +4401,10 @@ Future<void> _openGenericMessagingConfigHelper(
                         style: TextStyle(color: _textSecondary, height: 1.4),
                       ),
                       const SizedBox(height: 16),
+                      if (platform.setupInstructions != null) ...<Widget>[
+                        Text(platform.setupInstructions!),
+                        const SizedBox(height: AppSpacing.md),
+                      ],
                       if (platform.configFields.isEmpty)
                         const SizedBox.shrink()
                       else
@@ -4423,8 +4433,16 @@ Future<void> _openGenericMessagingConfigHelper(
                           final fieldController = textControllers[field.key]!;
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 12),
-                            child: TextField(
+                            child: TextFormField(
+                              autovalidateMode:
+                                  AutovalidateMode.onUserInteraction,
                               controller: fieldController,
+                              enabled: !connecting,
+                              validator: (value) =>
+                                  field.isRequired &&
+                                      (value == null || value.trim().isEmpty)
+                                  ? appStrings.uxFieldRequired(field.label)
+                                  : null,
                               obscureText:
                                   field.obscure ||
                                   field.kind ==
@@ -4448,23 +4466,29 @@ Future<void> _openGenericMessagingConfigHelper(
                           );
                         }),
                       const SizedBox(height: 8),
-                      _MessagingWebhookCard(
-                        url:
-                            '${controller.backendUrl}/api/messaging/webhook/${platform.id}',
-                        platformLabel: platform.label,
-                        agentName: controller.activeAgentLabel,
-                      ),
+                      if (platform.receivesViaWebhook)
+                        _MessagingWebhookCard(
+                          url:
+                              '${controller.backendUrl}/api/messaging/webhook/${platform.id}',
+                          platformLabel: platform.label,
+                          agentName: controller.activeAgentLabel,
+                        ),
                     ],
                   ),
                 ),
               ),
               actions: <Widget>[
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(appStrings.cancel),
-                ),
-                FilledButton(
-                  onPressed: () async {
+                _DialogFormActions(
+                  busy: connecting,
+                  busyLabel: appStrings.connecting,
+                  error: connectError,
+                  submitLabel: appStrings.connect,
+                  onSubmit: () async {
+                    if (!_validateDialogForm(formKey)) return;
+                    setLocalState(() {
+                      connecting = true;
+                      connectError = null;
+                    });
                     final config = <String, dynamic>{};
                     final snapshot = <String, dynamic>{};
                     for (final field in platform.configFields) {
@@ -4494,31 +4518,29 @@ Future<void> _openGenericMessagingConfigHelper(
                       }
                     }
                     snapshot[platform.settingsKey] = jsonEncode(config);
-                    final connected = await _connectMessagingPlatformHelper(
-                      context,
-                      controller,
-                      platform: platform.id,
-                      platformLabel: platform.label,
-                      config: config,
-                      configSnapshot: snapshot,
-                    );
-                    if (connected && context.mounted) {
-                      Navigator.of(context).pop();
+                    try {
+                      await controller.connectMessagingPlatform(
+                        platform: platform.id,
+                        config: config,
+                        configSnapshot: snapshot,
+                      );
+                      if (context.mounted) Navigator.of(context).pop();
+                    } catch (error) {
+                      if (!context.mounted) return;
+                      setLocalState(() {
+                        connecting = false;
+                        connectError = controller.friendlyErrorMessage(error);
+                      });
                     }
                   },
-                  child: Text(appStrings.connect),
                 ),
               ],
             );
           },
-        );
-      },
-    );
-  } finally {
-    for (final controller in textControllers.values) {
-      controller.dispose();
-    }
-  }
+        ),
+      );
+    },
+  );
 }
 
 /// Tasks the server moved to the background keep working while the chat stays

@@ -173,7 +173,7 @@ test('asking for a new code retires the previous one', async () => {
 test('guessing codes is throttled per sender, even for a valid code', async () => {
   const adapter = await setUpSharedTelegram();
   for (let i = 0; i < 5; i += 1) {
-    adapter.receive({ senderId: '666', text: 'NEO-AAAAAAAAAA' });
+    adapter.receive({ senderId: '666', text: 'NeoAgent-AAAAAAAAAA' });
   }
   const { code } = store.createLinkCode('telegram', alice.userId, agentOf(alice));
   adapter.receive({ senderId: '666', text: code });
@@ -465,7 +465,7 @@ test('real adapters ask the gate before doing anything with a message', async ()
     message: {
       message_id: 7,
       date: 1,
-      text: '/start NEO-ABCDEFGHJK',
+      text: '/start NeoAgent-ABCDEFGHJK',
       from: { id: 55, first_name: 'Sam' },
       chat: { id: 55, type: 'private' },
     },
@@ -473,7 +473,7 @@ test('real adapters ask the gate before doing anything with a message', async ()
 
   assert.equal(seen[0].senderId, '55');
   assert.equal(seen[0].isDirect, true);
-  assert.equal(seen[0].text, '/start NEO-ABCDEFGHJK');
+  assert.equal(seen[0].text, '/start NeoAgent-ABCDEFGHJK');
   assert.equal(emittedMessages.length, 0);
   assert.equal(blocked.length, 0, 'strangers on a shared bot raise no allowlist prompt');
   assert.equal(telegram._seenUsers.size, 0);

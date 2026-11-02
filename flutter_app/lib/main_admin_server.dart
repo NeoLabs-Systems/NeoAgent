@@ -1385,7 +1385,6 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
   Widget build(BuildContext context) {
     return _SectionStack(
       children: <Widget>[
-        _AdminOpsDefaultLimitsCard(controller: _controller),
         _SectionCard(
           title: appStrings.accounts,
           description: _loading && _users.isEmpty
@@ -1434,6 +1433,7 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
             ],
           ),
         ),
+        _AdminOpsDefaultLimitsCard(controller: _controller),
       ],
     );
   }

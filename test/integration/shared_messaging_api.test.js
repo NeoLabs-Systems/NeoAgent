@@ -82,7 +82,7 @@ describe('shared messaging API', () => {
     assert.ok(!JSON.stringify(offered.body).includes(TOKEN));
 
     const started = await client.post('/api/messaging/shared/telegram/link').send({}).expect(200);
-    assert.match(started.body.code, /^NEO-[A-HJ-NP-Z2-9]{10}$/);
+    assert.match(started.body.code, /^NeoAgent-[A-HJ-NP-Z2-9]{10}$/);
     assert.equal(started.body.url, `https://t.me/shared_bot?start=${started.body.code}`);
   });
 

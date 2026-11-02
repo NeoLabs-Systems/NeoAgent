@@ -150,6 +150,7 @@ class NeoAgentController extends ChangeNotifier {
   bool isRefreshingDevices = false;
   bool isSendingMessage = false;
   bool isSavingSettings = false;
+  String? settingsSaveError;
   int _activeSettingsSaves = 0;
   int _pendingSettingsWrites = 0;
   int _settingsMutationId = 0;
@@ -1928,7 +1929,7 @@ class NeoAgentController extends ChangeNotifier {
   int get onboardingResumeStep => _prefs?.getInt(_onboardingStepPrefsKey) ?? 0;
 
   /// Per account, so a second person signing in on this device starts fresh.
-  String get _onboardingStepPrefsKey => 'onboarding.step.${user?['id'] ?? ''}';
+  String get _onboardingStepPrefsKey => 'onboarding.page.${user?['id'] ?? ''}';
 
   void rememberOnboardingStep(int step) {
     unawaited(_prefs?.setInt(_onboardingStepPrefsKey, step));
@@ -5126,6 +5127,7 @@ class NeoAgentController extends ChangeNotifier {
           : Map<String, dynamic>.from(config);
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
+      settingsSaveError = errorMessage;
     } finally {
       _finishSettingsSave();
     }
@@ -5437,6 +5439,7 @@ class NeoAgentController extends ChangeNotifier {
     required String currentPassword,
   }) async {
     isSavingAccountSettings = true;
+    settingsSaveError = null;
     errorMessage = null;
     notifyListeners();
     try {
@@ -5450,6 +5453,7 @@ class NeoAgentController extends ChangeNotifier {
       return true;
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
+      settingsSaveError = errorMessage;
       return false;
     } finally {
       isSavingAccountSettings = false;
@@ -5462,6 +5466,7 @@ class NeoAgentController extends ChangeNotifier {
     required String newPassword,
   }) async {
     isSavingAccountSettings = true;
+    settingsSaveError = null;
     errorMessage = null;
     notifyListeners();
     try {
@@ -5475,6 +5480,7 @@ class NeoAgentController extends ChangeNotifier {
       return true;
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
+      settingsSaveError = errorMessage;
       return false;
     } finally {
       isSavingAccountSettings = false;
@@ -5484,6 +5490,7 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<bool> updateAccountDisplayName({required String displayName}) async {
     isSavingAccountSettings = true;
+    settingsSaveError = null;
     errorMessage = null;
     notifyListeners();
     try {
@@ -5496,6 +5503,7 @@ class NeoAgentController extends ChangeNotifier {
       return true;
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
+      settingsSaveError = errorMessage;
       return false;
     } finally {
       isSavingAccountSettings = false;
@@ -5505,6 +5513,7 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> linkAccountProvider(String provider) async {
     isSavingAccountSettings = true;
+    settingsSaveError = null;
     errorMessage = null;
     notifyListeners();
     try {
@@ -5534,6 +5543,7 @@ class NeoAgentController extends ChangeNotifier {
       await refreshAccountSettings();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
+      settingsSaveError = errorMessage;
     } finally {
       isSavingAccountSettings = false;
       notifyListeners();
@@ -5542,6 +5552,7 @@ class NeoAgentController extends ChangeNotifier {
 
   Future<void> unlinkAccountProvider(int providerLinkId) async {
     isSavingAccountSettings = true;
+    settingsSaveError = null;
     errorMessage = null;
     notifyListeners();
     try {
@@ -5553,6 +5564,7 @@ class NeoAgentController extends ChangeNotifier {
       );
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
+      settingsSaveError = errorMessage;
     } finally {
       isSavingAccountSettings = false;
       notifyListeners();
@@ -6448,6 +6460,7 @@ class NeoAgentController extends ChangeNotifier {
         settings = previousSettings;
       }
       errorMessage = _friendlyErrorMessage(error);
+      settingsSaveError = errorMessage;
       rethrow;
     } finally {
       _finishSettingsSave();
@@ -6483,6 +6496,7 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   void _beginSettingsSave() {
+    if (_activeSettingsSaves == 0) settingsSaveError = null;
     _activeSettingsSaves += 1;
     isSavingSettings = true;
     errorMessage = null;
@@ -6942,6 +6956,7 @@ class NeoAgentController extends ChangeNotifier {
       await refreshMemory();
     } catch (error) {
       errorMessage = _friendlyErrorMessage(error);
+      settingsSaveError = errorMessage;
     } finally {
       _finishSettingsSave();
     }

@@ -4,7 +4,10 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../main.dart';
 import '../../src/mascot/mascot_mood.dart';
 import '../../src/theme/palette.dart';
+import '../messaging_hub/messaging_hub_models.dart';
+import '../tasks/task_recommendations.dart';
 import 'onboarding_chrome.dart';
+import 'onboarding_recap.dart';
 import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
 /// The last step: a first message that opens the normal chat and sends it.
@@ -18,7 +21,7 @@ class OnboardingReadyStep extends StatefulWidget {
 
   /// Completes setup and opens the chat with the message, which may be empty.
   final Future<void> Function(String message) onFinish;
-  final VoidCallback onBack;
+  final VoidCallback? onBack;
   final NeoAgentController controller;
 
   @override
@@ -43,12 +46,51 @@ class _OnboardingReadyStepState extends State<OnboardingReadyStep> {
     _message.selection = TextSelection.collapsed(offset: prompt.length);
   }
 
+  /// What this person actually has now, and what can still wait.
+  List<OnboardingRecapItem> _recap(BuildContext context) {
+    final controller = widget.controller;
+    final connected = messagingHubApps(context, controller)
+        .where((app) => app.state == HubAppState.live)
+        .map((app) => app.label)
+        .toList(growable: false);
+    final routines = taskRecommendations
+        .where(
+          (recommendation) =>
+              controller.taskRecommendationStatus(recommendation) ==
+              TaskRecommendationStatus.added,
+        )
+        .length;
+    return <OnboardingRecapItem>[
+      OnboardingRecapItem(
+        icon: Icons.psychology_outlined,
+        done: controller.hasUsableChatModel,
+        label: controller.hasUsableChatModel
+            ? appStrings.onboardingRecapModel
+            : appStrings.onboardingRecapNoModel,
+      ),
+      OnboardingRecapItem(
+        icon: Icons.forum_outlined,
+        done: connected.isNotEmpty,
+        label: connected.isNotEmpty
+            ? appStrings.onboardingRecapMessaging(connected.join(', '))
+            : appStrings.onboardingRecapNoMessaging,
+      ),
+      if (routines > 0)
+        OnboardingRecapItem(
+          icon: Icons.schedule_rounded,
+          done: true,
+          label: appStrings.onboardingRecapRoutines(routines),
+        ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: widget.controller,
       builder: (context, _) {
         final p = paletteOf(context);
+        final canChat = widget.controller.hasUsableChatModel;
         final finishing = widget.controller.isCompletingOnboarding;
         final finishError = widget.controller.onboardingCompletionError;
         final starters = <String>[
@@ -57,10 +99,14 @@ class _OnboardingReadyStepState extends State<OnboardingReadyStep> {
           appStrings.onboardingStarterLanding,
         ];
         return OnboardingScaffold(
-          mood: MascotMood.done,
+          mood: canChat ? MascotMood.done : MascotMood.waiting,
           eyebrow: appStrings.onboardingEyebrowReady,
-          title: appStrings.onboardingReadyTitle,
-          description: appStrings.onboardingReadyDescription,
+          title: canChat
+              ? appStrings.onboardingReadyTitle
+              : appStrings.onboardingAlmostTitle,
+          description: canChat
+              ? appStrings.onboardingReadyDescription
+              : appStrings.onboardingAlmostDescription,
           footer: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -88,35 +134,42 @@ class _OnboardingReadyStepState extends State<OnboardingReadyStep> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                TextField(
-                  controller: _message,
-                  enabled: !finishing,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => _finish(),
-                  decoration: InputDecoration(
-                    labelText: appStrings.onboardingMessageNeoagent,
-                    hintText: appStrings.onboardingAskAnything,
-                    suffixIcon: IconButton(
-                      tooltip: appStrings.send,
-                      onPressed: finishing ? null : _finish,
-                      icon: Icon(Icons.arrow_upward_rounded, color: p.accent),
-                    ),
-                  ),
-                ).animate().fadeIn(duration: 420.ms, delay: 180.ms),
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: <Widget>[
-                    for (final starter in starters)
-                      ActionChip(
-                        label: Text(starter),
-                        onPressed: finishing
-                            ? null
-                            : () => _useStarter(starter),
+                OnboardingRecap(
+                  items: _recap(context),
+                ).animate().fadeIn(duration: 420.ms, delay: 100.ms),
+                // A first message needs a model to answer it.
+                if (canChat) ...<Widget>[
+                  const SizedBox(height: 18),
+                  TextField(
+                    controller: _message,
+                    enabled: !finishing,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => _finish(),
+                    decoration: InputDecoration(
+                      labelText: appStrings.onboardingMessageNeoagent,
+                      hintText: appStrings.onboardingAskAnything,
+                      suffixIcon: IconButton(
+                        tooltip: appStrings.send,
+                        onPressed: finishing ? null : _finish,
+                        icon: Icon(Icons.arrow_upward_rounded, color: p.accent),
                       ),
-                  ],
-                ).animate().fadeIn(duration: 420.ms, delay: 260.ms),
+                    ),
+                  ).animate().fadeIn(duration: 420.ms, delay: 180.ms),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: <Widget>[
+                      for (final starter in starters)
+                        ActionChip(
+                          label: Text(starter),
+                          onPressed: finishing
+                              ? null
+                              : () => _useStarter(starter),
+                        ),
+                    ],
+                  ).animate().fadeIn(duration: 420.ms, delay: 260.ms),
+                ],
               ],
             ),
           ),

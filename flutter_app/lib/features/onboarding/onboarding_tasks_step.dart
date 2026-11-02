@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../main.dart';
 import '../../src/mascot/mascot_mood.dart';
 import '../../src/theme/palette.dart';
+import '../messaging_hub/messaging_hub_widgets.dart';
+import '../shared_messaging/shared_messaging_widgets.dart';
 import '../tasks/task_recommendations.dart';
 import 'onboarding_chrome.dart';
 import 'package:neoagent_flutter/src/l10n/app_language.dart';
@@ -19,7 +21,7 @@ class OnboardingTasksStep extends StatefulWidget {
   });
 
   final VoidCallback onNext;
-  final VoidCallback onBack;
+  final VoidCallback? onBack;
   final NeoAgentController controller;
 
   @override
@@ -63,7 +65,17 @@ class _OnboardingTasksStepState extends State<OnboardingTasksStep> {
       listenable: _controller,
       builder: (context, _) {
         final p = paletteOf(context);
-        final recommendations = taskRecommendations;
+        // A routine waiting on an account nobody has connected yet is only
+        // noise here; it is offered again on the Tasks page once it can run.
+        final recommendations = taskRecommendations
+            .where(
+              (recommendation) =>
+                  _controller.taskRecommendationBlockedReason(recommendation) ==
+                      null ||
+                  _controller.taskRecommendationStatus(recommendation) ==
+                      TaskRecommendationStatus.added,
+            )
+            .toList(growable: false);
         final anyAdded = recommendations.any(
           (recommendation) =>
               _controller.taskRecommendationStatus(recommendation) ==
@@ -78,18 +90,16 @@ class _OnboardingTasksStepState extends State<OnboardingTasksStep> {
               : appStrings.onboardingRoutinesDescription,
           footer: OnboardingFooter(
             onBack: widget.onBack,
-            secondary: <Widget>[
-              if (!anyAdded)
-                OnboardingGhostButton(
-                  label: appStrings.skipForNow,
-                  onPressed: widget.onNext,
-                ),
-            ],
-            primary: OnboardingPrimaryButton(
-              label: appStrings.continue2,
-              icon: Icons.arrow_forward_rounded,
-              onPressed: widget.onNext,
-            ),
+            primary: anyAdded
+                ? OnboardingPrimaryButton(
+                    label: appStrings.onboardingNext,
+                    icon: Icons.arrow_forward_rounded,
+                    onPressed: widget.onNext,
+                  )
+                : OnboardingGhostButton(
+                    label: appStrings.skipForNow,
+                    onPressed: widget.onNext,
+                  ),
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -130,32 +140,20 @@ class _OnboardingTasksStepState extends State<OnboardingTasksStep> {
                   ),
                   const SizedBox(height: 12),
                 ],
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: p.border),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: <Widget>[
-                      for (var i = 0; i < recommendations.length; i++)
-                        _RoutineRow(
-                          recommendation: recommendations[i],
-                          status: _controller.taskRecommendationStatus(
-                            recommendations[i],
-                          ),
-                          blockedReason: _controller
-                              .taskRecommendationBlockedReason(
-                                recommendations[i],
-                              ),
-                          divider: i > 0,
-                          onChanged: (on) => _toggle(recommendations[i], on),
-                        ).animate().fadeIn(
-                          duration: 380.ms,
-                          delay: (160 + i * 60).ms,
+                HubGroup(
+                  children: <Widget>[
+                    for (var i = 0; i < recommendations.length; i++)
+                      _RoutineRow(
+                        recommendation: recommendations[i],
+                        status: _controller.taskRecommendationStatus(
+                          recommendations[i],
                         ),
-                    ],
-                  ),
+                        onChanged: (on) => _toggle(recommendations[i], on),
+                      ).animate().fadeIn(
+                        duration: 380.ms,
+                        delay: (120 + i * 50).ms,
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -166,36 +164,36 @@ class _OnboardingTasksStepState extends State<OnboardingTasksStep> {
   }
 }
 
-/// One suggested routine with its schedule and an on/off switch. A routine
-/// that cannot run yet shows why instead of the switch.
+/// One suggested routine: what it does, when, and a switch. The whole row is
+/// the target.
 class _RoutineRow extends StatelessWidget {
   const _RoutineRow({
     required this.recommendation,
     required this.status,
-    required this.blockedReason,
-    required this.divider,
     required this.onChanged,
   });
 
   final TaskRecommendation recommendation;
   final TaskRecommendationStatus status;
-  final String? blockedReason;
-  final bool divider;
   final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final p = paletteOf(context);
     final added = status == TaskRecommendationStatus.added;
-    final blocked = blockedReason != null && !added;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        border: divider ? Border(top: BorderSide(color: p.border)) : null,
-      ),
+    final busy = status == TaskRecommendationStatus.adding;
+    return InkWell(
+      onTap: busy ? null : () => onChanged(!added),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 12, 12, 12),
+        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
         child: Row(
           children: <Widget>[
+            PlatformBadge(
+              icon: recommendation.icon,
+              color: recommendation.accent,
+              size: 40,
+            ),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -203,31 +201,30 @@ class _RoutineRow extends StatelessWidget {
                   Text(
                     recommendation.title,
                     style: GoogleFonts.geist(
-                      color: blocked ? p.textMuted : p.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                      color: p.textPrimary,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
-                    (blocked ? blockedReason! : recommendation.scheduleLabel)
-                        .toUpperCase(),
-                    style: GoogleFonts.geistMono(
-                      color: p.textMuted,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.4,
+                    recommendation.description,
+                    style: GoogleFonts.geist(
+                      color: p.textSecondary,
+                      fontSize: 12.5,
+                      height: 1.35,
                     ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    recommendation.scheduleLabel,
+                    style: GoogleFonts.geist(color: p.textMuted, fontSize: 12),
                   ),
                 ],
               ),
             ),
-            Switch(
-              value: added,
-              onChanged: blocked || status == TaskRecommendationStatus.adding
-                  ? null
-                  : onChanged,
-            ),
+            const SizedBox(width: 8),
+            Switch(value: added, onChanged: busy ? null : onChanged),
           ],
         ),
       ),

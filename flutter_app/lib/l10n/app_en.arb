@@ -5209,7 +5209,7 @@
   },
   "thesePeopleInOneGroup": "These people, in one group",
   "theseSwitchesNeverYourChatsMemories": "these switches, never your chats, memories or files.",
-  "thisAccountWillUnlockNeoagentOn": "This account will unlock NeoAgent on this machine.",
+  "thisAccountWillUnlockNeoagentOn": "This is the first account on this server. It will also manage server settings and access.",
   "thisAgentCanDelegateToAny": "This agent can delegate to any eligible receiving agent.",
   "thisAgentIsUsingAServer": "This agent is using a server-managed Trello API key. You only need to authorize an account token below.",
   "thisBuildIsNotAllowedTo": "This build is not allowed to talk to this NeoAgent deployment.",
@@ -7629,7 +7629,7 @@
       }
     }
   },
-  "sharedMessagingOpenAndSend": "Send this code from the {platform} account you want to use. The button fills it in for you.",
+  "sharedMessagingOpenAndSend": "Open {platform} on the account you want to use and send this code. It fills in by itself.",
   "@sharedMessagingOpenAndSend": {
     "placeholders": {
       "platform": {
@@ -7678,8 +7678,8 @@
   "messagingHubDisconnect": "Disconnect",
   "messagingHubMoreSettings": "More settings",
   "messagingHubMoreSettingsHint": "Group chats and recent activity",
-  "onboardingMessagingTitle": "Message your agent\nfrom anywhere.",
-  "onboardingMessagingDescription": "Connect the chat app you already use. It takes a moment, and you can add more later.",
+  "onboardingMessagingTitle": "Message your agent from anywhere.",
+  "onboardingMessagingDescription": "Connect a chat app to reach your agent outside NeoAgent. Setup depends on the app; you can do this later.",
   "onboardingMessagingOtherApps": "Other apps",
   "onboardingMessagingAllSet": "You can now message your agent there.",
   "messagingHubTitle": "Reach {agent} anywhere",
@@ -7721,5 +7721,69 @@
         "type": "Object?"
       }
     }
-  }
+  },
+  "onboardingModelTitle": "Connect an AI.",
+  "onboardingModelNeededDescription": "NeoAgent needs a model to think with. This is the only thing it can't do without.",
+  "onboardingModelReady": "Connected. NeoAgent picks the best model for each task.",
+  "onboardingModelChoose": "Choose a specific model",
+  "onboardingModelUseKey": "Use an API key instead",
+  "onboardingComputerPermissions": "What it may do on this computer",
+  "onboardingAlmostTitle": "Almost there.",
+  "onboardingAlmostDescription": "NeoAgent can't answer until it has an AI model. You can add one any time under Settings › Models.",
+  "onboardingRecapModel": "AI model ready",
+  "onboardingRecapNoModel": "No AI model yet",
+  "onboardingRecapNoMessaging": "No chat app yet. Add one later under Settings › Platforms.",
+  "onboardingModelSignInHint": "Sign in and approve NeoAgent. No key to copy, ready in seconds.",
+  "@onboardingModelSignInHint": {
+    "placeholders": {
+      "provider": {
+        "type": "Object?"
+      }
+    }
+  },
+  "onboardingRecapMessaging": "Reachable on {apps}",
+  "@onboardingRecapMessaging": {
+    "placeholders": {
+      "apps": {
+        "type": "Object?"
+      }
+    }
+  },
+  "onboardingRecapRoutines": "Routines running: {count}",
+  "@onboardingRecapRoutines": {
+    "placeholders": {
+      "count": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentNameRequired": "Enter a name for this agent.",
+  "agentIdentifier": "Agent identifier",
+  "agentIdentifierHint": "Used to address this agent. Suggested from the name; you can edit it.",
+  "agentIdentifierInvalid": "Use 1–48 lowercase letters, numbers, hyphens or underscores.",
+  "uxAdvancedSettings": "Advanced settings",
+  "uxSelected": "Selected",
+  "uxSelectedDelegationTargets": "Only selected agents can receive tasks from this agent.",
+  "uxFieldRequired": "Enter {field}.",
+  "uxTaskInstructions": "What should the agent do?",
+  "uxTaskEnabledHint": "When enabled, this task runs when its trigger fires. Switch off to save it without running automatically.",
+  "uxSettingsSaveHint": "Changes save automatically unless a Save button is shown.",
+  "uxSettingsSaveFailed": "A change could not be saved. Check the error below.",
+  "uxAdminUsers": "Users",
+  "uxAdminConfiguration": "Configuration",
+  "uxAdminAnalytics": "Analytics",
+  "@uxFieldRequired": {
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
+  },
+  "uxMemoryEmptyHint": "No memories yet. Ask this agent to remember something in chat, or add a memory here. Memories belong to the selected agent.",
+  "uxMemoryFacts": "Facts",
+  "uxMemoryEntities": "Entities",
+  "uxMemoryReflections": "Reflections",
+  "uxMemoryDocuments": "Documents",
+  "uxOpenChat": "Open chat",
+  "uxModelSkipHint": "You can explore first, but chat and tasks need a model before they can run."
 }

@@ -7950,7 +7950,7 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get thisAccountWillUnlockNeoagentOn =>
-      'Dieses Konto entsperrt NeoAgent auf diesem Gerät.';
+      'Dies ist das erste Konto auf diesem Server. Es verwaltet auch die Servereinstellungen und den Zugriff.';
 
   @override
   String get thisAgentCanDelegateToAny =>
@@ -12270,7 +12270,7 @@ class AppL10nDe extends AppL10n {
 
   @override
   String sharedMessagingOpenAndSend(Object? platform) {
-    return 'Senden Sie diesen Code von dem $platform-Konto, das Sie nutzen möchten. Die Schaltfläche trägt ihn für Sie ein.';
+    return 'Öffnen Sie $platform mit dem Konto, das Sie nutzen möchten, und senden Sie diesen Code. Er wird automatisch eingetragen.';
   }
 
   @override
@@ -12335,11 +12335,11 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get onboardingMessagingTitle =>
-      'Schreiben Sie Ihrem\nAgenten von überall.';
+      'Schreiben Sie Ihrem Agenten von überall.';
 
   @override
   String get onboardingMessagingDescription =>
-      'Verbinden Sie die Chat-App, die Sie schon nutzen. Das dauert nur einen Moment, und weitere können Sie später hinzufügen.';
+      'Verbinden Sie eine Chat-App, um Ihren Agenten außerhalb von NeoAgent zu erreichen. Die Einrichtung hängt von der App ab; Sie können das auch später tun.';
 
   @override
   String get onboardingMessagingOtherApps => 'Andere Apps';
@@ -12372,4 +12372,132 @@ class AppL10nDe extends AppL10n {
   String messagingHubManage(Object? platform) {
     return '$platform verwalten';
   }
+
+  @override
+  String get onboardingModelTitle => 'KI verbinden.';
+
+  @override
+  String get onboardingModelNeededDescription =>
+      'NeoAgent braucht ein Modell zum Denken. Das ist das Einzige, worauf es nicht verzichten kann.';
+
+  @override
+  String get onboardingModelReady =>
+      'Verbunden. NeoAgent wählt für jede Aufgabe das beste Modell.';
+
+  @override
+  String get onboardingModelChoose => 'Bestimmtes Modell wählen';
+
+  @override
+  String get onboardingModelUseKey => 'Stattdessen API-Schlüssel verwenden';
+
+  @override
+  String get onboardingComputerPermissions => 'Was es auf diesem Computer darf';
+
+  @override
+  String get onboardingAlmostTitle => 'Fast geschafft.';
+
+  @override
+  String get onboardingAlmostDescription =>
+      'NeoAgent kann erst antworten, wenn es ein KI-Modell hat. Sie können jederzeit eines unter Einstellungen › Modelle hinzufügen.';
+
+  @override
+  String get onboardingRecapModel => 'KI-Modell bereit';
+
+  @override
+  String get onboardingRecapNoModel => 'Noch kein KI-Modell';
+
+  @override
+  String get onboardingRecapNoMessaging =>
+      'Noch keine Chat-App. Später unter Einstellungen › Plattformen hinzufügen.';
+
+  @override
+  String onboardingModelSignInHint(Object? provider) {
+    return 'Melden Sie sich an und bestätigen Sie NeoAgent. Kein Schlüssel zum Kopieren, in Sekunden fertig.';
+  }
+
+  @override
+  String onboardingRecapMessaging(Object? apps) {
+    return 'Erreichbar über $apps';
+  }
+
+  @override
+  String onboardingRecapRoutines(Object? count) {
+    return 'Aktive Routinen: $count';
+  }
+
+  @override
+  String get agentNameRequired => 'Geben Sie diesem Agenten einen Namen.';
+
+  @override
+  String get agentIdentifier => 'Agentenkennung';
+
+  @override
+  String get agentIdentifierHint =>
+      'Wird verwendet, um diesen Agenten anzusprechen. Aus dem Namen vorgeschlagen; Sie können die Kennung ändern.';
+
+  @override
+  String get agentIdentifierInvalid =>
+      'Verwenden Sie 1–48 Kleinbuchstaben (a–z), Ziffern, Bindestriche oder Unterstriche.';
+
+  @override
+  String get uxAdvancedSettings => 'Erweiterte Einstellungen';
+
+  @override
+  String get uxSelected => 'Ausgewählt';
+
+  @override
+  String get uxSelectedDelegationTargets =>
+      'Nur ausgewählte Agenten können Aufgaben von diesem Agenten empfangen.';
+
+  @override
+  String uxFieldRequired(String field) {
+    return 'Geben Sie $field ein.';
+  }
+
+  @override
+  String get uxTaskInstructions => 'Was soll der Agent tun?';
+
+  @override
+  String get uxTaskEnabledHint =>
+      'Wenn aktiviert, läuft diese Aufgabe bei ihrem Auslöser. Ausschalten, um sie zu speichern, ohne sie automatisch auszuführen.';
+
+  @override
+  String get uxSettingsSaveHint =>
+      'Änderungen werden automatisch gespeichert, sofern keine Speichern-Schaltfläche angezeigt wird.';
+
+  @override
+  String get uxSettingsSaveFailed =>
+      'Eine Änderung konnte nicht gespeichert werden. Prüfen Sie den Fehler unten.';
+
+  @override
+  String get uxAdminUsers => 'Benutzer';
+
+  @override
+  String get uxAdminConfiguration => 'Konfiguration';
+
+  @override
+  String get uxAdminAnalytics => 'Analysen';
+
+  @override
+  String get uxMemoryEmptyHint =>
+      'Noch keine Erinnerungen. Bitten Sie diesen Agenten im Chat, sich etwas zu merken, oder fügen Sie hier eine Erinnerung hinzu. Erinnerungen gehören zum ausgewählten Agenten.';
+
+  @override
+  String get uxMemoryFacts => 'Fakten';
+
+  @override
+  String get uxMemoryEntities => 'Entitäten';
+
+  @override
+  String get uxMemoryReflections => 'Reflexionen';
+
+  @override
+  String get uxMemoryDocuments => 'Dokumente';
+
+  @override
+  String get uxOpenChat => 'Chat öffnen';
+
+  @override
+  String get uxModelSkipHint =>
+      'Sie können sich zuerst umsehen. Chat und Aufgaben benötigen jedoch ein Modell, bevor sie funktionieren.';
 }

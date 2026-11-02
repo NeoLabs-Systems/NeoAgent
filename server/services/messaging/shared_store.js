@@ -12,7 +12,8 @@ const { httpError } = require('../../utils/http_error');
 
 const LINK_CODE_TTL_MS = 10 * 60 * 1000;
 const LINK_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const LINK_CODE_PATTERN = /\bNEO-[A-HJ-NP-Z2-9]{10}\b/;
+const LINK_CODE_PREFIX = 'NeoAgent-';
+const LINK_CODE_PATTERN = /\bNeoAgent-[A-HJ-NP-Z2-9]{10}\b/;
 const TELEGRAM_TOKEN_PATTERN = /^\d+:[\w-]{20,}$/;
 
 // Discord and Slack are absent on purpose: see docs/shared-messaging.md.
@@ -199,7 +200,7 @@ function createLinkCode(platform, userId, agentId, now = Date.now()) {
   for (let i = 0; i < 10; i += 1) {
     suffix += LINK_CODE_ALPHABET[crypto.randomInt(LINK_CODE_ALPHABET.length)];
   }
-  const code = `NEO-${suffix}`;
+  const code = `${LINK_CODE_PREFIX}${suffix}`;
   const expiresAt = now + LINK_CODE_TTL_MS;
   db.transaction(() => {
     db.prepare('DELETE FROM messaging_link_codes WHERE expires_at <= ? OR (platform = ? AND user_id = ?)')

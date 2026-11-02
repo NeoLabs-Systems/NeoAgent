@@ -25,6 +25,8 @@ Admins can turn OpenRouter account sign-in off under **Admin › Integrations �
 
 ## 🤖 Agents
 
+Create an agent under **Settings › Agents › Add Agent**. Its identifier follows the name until you edit it yourself; use lowercase letters, numbers, hyphens or underscores. Instructions, status and delegation controls are under **Advanced settings**.
+
 - **Main agent.** Created automatically for every account. It cannot be archived.
 - **Default agent.** The one that answers when you do not pick another; set it under **Settings › Agents**.
 - **Separate state.** Each agent has its own conversations, memory, runs, tasks, integration accounts, messaging channels and MCP servers.

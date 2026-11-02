@@ -47,8 +47,8 @@ class MessagingHub extends StatelessWidget {
           appStrings.messagingHubTitle(agentName),
           style: GoogleFonts.geist(
             color: p.textPrimary,
-            fontSize: 26,
-            height: 1.15,
+            fontSize: 21,
+            height: 1.2,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.6,
           ),

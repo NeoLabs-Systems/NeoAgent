@@ -52,9 +52,11 @@ The CLI writes to the database and a running server picks the change up within a
 | **Offer to users** | Off hides the option and stops the account answering anyone, without deleting links |
 | **Allow personal accounts** | Off stops people connecting their own account on that platform. Admins are exempt, connections that already exist keep working |
 
+For a personal Telegram bot, open **Settings › Platforms › Telegram**, create a bot with @BotFather and paste its token. Telegram receives messages through polling, so this connection does not need a public webhook URL.
+
 ## 🔗 Link an account
 
-1. Under **Settings › Platforms**, press **Connect** on the platform and pick **Use the shared account** (if the server does not allow personal accounts, this step is skipped).
+1. Under **Settings › Platforms**, press **Link Telegram** (or WhatsApp). Connecting your own bot or number instead is under **Advanced** on the same card, unless the server has turned personal accounts off.
 2. Press the button to open the chat, or scan the QR code to open it on your phone. Telegram sends the code on its own; on WhatsApp press send. You can also send the code by hand.
 3. The bot reacts with 👍 and the app shows who you linked as.
 
@@ -75,6 +77,7 @@ The CLI writes to the database and a running server picks the change up within a
 | Someone floods the bot | Linked senders are limited to 30 messages a minute. Normal per-account limits still apply to runs |
 | Messages mix in a group | Shared accounts answer direct messages only. Group messages and membership events are dropped |
 | A file lands in the wrong account | Attachments are stored for the verified sender, after the check |
+| Replies get redirected | A chat can only become a link's target if it is the sender's own direct chat. Groups, broadcast lists, status and newsletters are refused on the way in, and checked again before each send |
 | A message queued before an unlink | The link is checked again when it is processed |
 | Credentials leak | Tokens and QR codes are encrypted at rest and returned only to admins' setup screens as needed. People see the bot's public name and nothing else |
 

@@ -1030,7 +1030,7 @@ class _MemoryPanelState extends State<MemoryPanel>
       padding: _pagePadding(context),
       children: <Widget>[
         _PageTitle(
-          title: 'Memory',
+          title: appStrings.memory,
           subtitle: appStrings.longTermRecallStructuredFactsAnd,
           trailing: Wrap(
             spacing: 10,
@@ -1066,27 +1066,27 @@ class _MemoryPanelState extends State<MemoryPanel>
                       children: <Widget>[
                         _MemoryStatChip(
                           label: '${stats.active}',
-                          caption: 'Active',
+                          caption: appStrings.active,
                           icon: Icons.memory_outlined,
                         ),
                         _MemoryStatChip(
                           label: '${stats.facts}',
-                          caption: 'Facts',
+                          caption: appStrings.uxMemoryFacts,
                           icon: Icons.fact_check_outlined,
                         ),
                         _MemoryStatChip(
                           label: '${stats.entities}',
-                          caption: 'Entities',
+                          caption: appStrings.uxMemoryEntities,
                           icon: Icons.hub_outlined,
                         ),
                         _MemoryStatChip(
                           label: '${stats.knowledgeViews}',
-                          caption: 'Reflections',
+                          caption: appStrings.uxMemoryReflections,
                           icon: Icons.auto_stories_outlined,
                         ),
                         _MemoryStatChip(
                           label: '${stats.ingestionDocuments}',
-                          caption: 'Docs',
+                          caption: appStrings.uxMemoryDocuments,
                           icon: Icons.source_outlined,
                         ),
                         _MemoryStatChip(
@@ -1340,6 +1340,8 @@ class _MemoryPanelState extends State<MemoryPanel>
                                       ? appStrings.noMemoriesLinkedToArg1(
                                           _selectedEntity!.name,
                                         )
+                                      : _searchController.text.trim().isEmpty
+                                      ? appStrings.uxMemoryEmptyHint
                                       : appStrings.noMemoryEntriesFound,
                                   style: TextStyle(color: _textSecondary),
                                 )
@@ -2968,7 +2970,6 @@ class _TaskRecommendationsGallery extends StatelessWidget {
                     children: taskRecommendations.map((recommendation) {
                       return SizedBox(
                         width: cardWidth,
-                        height: 178,
                         child: TaskRecommendationCard(
                           recommendation: recommendation,
                           status: controller.taskRecommendationStatus(
@@ -3119,7 +3120,7 @@ class _TasksPanelState extends State<TasksPanel> {
       padding: _pagePadding(context),
       children: <Widget>[
         _PageTitle(
-          title: 'Tasks',
+          title: appStrings.tasks,
           subtitle: appStrings.premiumAutomationWithScheduleAndIntegration,
           trailing: FilledButton.icon(
             onPressed: () => _openTaskEditor(
@@ -3438,6 +3439,10 @@ class _TasksPanelState extends State<TasksPanel> {
       task?.triggerConfig ?? const <String, dynamic>{},
     );
     final promptController = TextEditingController(text: task?.prompt ?? '');
+    final formKey = GlobalKey<FormState>();
+    var saving = false;
+    String? saveError;
+    var editorClosed = false;
     var enabled = task?.enabled ?? true;
     var loopPaused = task?.loopPaused ?? false;
     // No saved model means "follow the Settings default"; 'auto' is a real,
@@ -3477,7 +3482,9 @@ class _TasksPanelState extends State<TasksPanel> {
       } catch (_) {
         items = const <OfficialIntegrationItem>[];
       }
-      if (agentId == selectedAgentId) agentIntegrations.value = items;
+      if (!editorClosed && agentId == selectedAgentId) {
+        agentIntegrations.value = items;
+      }
     }
 
     unawaited(loadAgentIntegrations(selectedAgentId));
@@ -3485,792 +3492,816 @@ class _TasksPanelState extends State<TasksPanel> {
     await showDialog<void>(
       context: context,
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setLocalState) {
-            return AlertDialog(
-              backgroundColor: _bgCard,
-              title: Text(task == null ? 'Add Task' : appStrings.editTask),
-              content: SizedBox(
-                width: 680,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      TextField(
-                        controller: nameController,
-                        decoration: InputDecoration(labelText: appStrings.name),
-                      ),
-                      const SizedBox(height: 12),
-                      ValueListenableBuilder<String>(
-                        valueListenable: triggerType,
-                        builder: (context, selectedTriggerType, _) {
-                          final option = _taskTriggerOptionForType(
-                            selectedTriggerType,
-                          );
-                          return InkWell(
-                            borderRadius: BorderRadius.circular(18),
-                            onTap: () async {
-                              final nextType = await _pickTaskTriggerType(
-                                context,
-                                selectedTriggerType,
-                                isConnected: (option) =>
-                                    _connectedAccountsForTrigger(
-                                      option.type,
-                                      agentIntegrations.value,
-                                    ).isNotEmpty,
-                              );
-                              if (nextType != null) {
-                                triggerType.value = nextType;
+        return _DisposesDialogResources(
+          resources: <ChangeNotifier>[
+            nameController,
+            customCronController,
+            runAtController,
+            connectionIdController,
+            promptController,
+            triggerType,
+            selectedConnectionId,
+            selectedDeliveryTarget,
+            agentIntegrations,
+          ],
+          child: StatefulBuilder(
+            builder: (context, setLocalState) {
+              return AlertDialog(
+                backgroundColor: _bgCard,
+                title: Text(
+                  task == null ? appStrings.addTask : appStrings.editTask,
+                ),
+                content: _ScrollableDialogBody(
+                  width: 680,
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        TextFormField(
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                          controller: nameController,
+                          autofocus: true,
+                          validator: (value) =>
+                              value == null || value.trim().isEmpty
+                              ? appStrings.pleaseEnterATaskName
+                              : null,
+                          decoration: InputDecoration(
+                            labelText: appStrings.name,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        if (task == null) ...<Widget>[
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TaskInspirationButton(
+                              onPicked: (recommendation) => setLocalState(() {
+                                _applyTaskInspiration(
+                                  recommendation,
+                                  scheduleDraft: scheduleDraft,
+                                  customCronController: customCronController,
+                                  runAtController: runAtController,
+                                );
+                                nameController.text = recommendation.title;
+                                promptController.text = recommendation.prompt;
+                                triggerType.value = 'schedule';
                                 selectedConnectionId.value = null;
                                 connectionIdController.clear();
-                              }
-                            },
-                            child: InputDecorator(
-                              decoration: InputDecoration(
-                                labelText: appStrings.triggerType,
-                              ),
-                              child: Row(
-                                children: <Widget>[
-                                  Container(
-                                    width: 40,
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      color: _accent.withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(14),
+                              }),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        TextFormField(
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                          controller: promptController,
+                          validator: (value) =>
+                              value == null || value.trim().isEmpty
+                              ? appStrings.pleaseEnterAPrompt
+                              : null,
+                          minLines: 3,
+                          maxLines: 10,
+                          decoration: InputDecoration(
+                            labelText: appStrings.uxTaskInstructions,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ValueListenableBuilder<String>(
+                          valueListenable: triggerType,
+                          builder: (context, selectedTriggerType, _) {
+                            final option = _taskTriggerOptionForType(
+                              selectedTriggerType,
+                            );
+                            return InkWell(
+                              borderRadius: BorderRadius.circular(18),
+                              onTap: () async {
+                                final nextType = await _pickTaskTriggerType(
+                                  context,
+                                  selectedTriggerType,
+                                  isConnected: (option) =>
+                                      _connectedAccountsForTrigger(
+                                        option.type,
+                                        agentIntegrations.value,
+                                      ).isNotEmpty,
+                                );
+                                if (nextType != null) {
+                                  triggerType.value = nextType;
+                                  selectedConnectionId.value = null;
+                                  connectionIdController.clear();
+                                }
+                              },
+                              child: InputDecorator(
+                                decoration: InputDecoration(
+                                  labelText: appStrings.triggerType,
+                                ),
+                                child: Row(
+                                  children: <Widget>[
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: _accent.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                      child: Icon(option.icon, color: _accent),
                                     ),
-                                    child: Icon(option.icon, color: _accent),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: <Widget>[
+                                          Text(
+                                            option.label,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            option.description,
+                                            style: TextStyle(
+                                              color: _textSecondary,
+                                              fontSize: 12.5,
+                                              height: 1.35,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Column(
                                       crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                          CrossAxisAlignment.end,
                                       mainAxisSize: MainAxisSize.min,
                                       children: <Widget>[
-                                        Text(
-                                          option.label,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 5,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: _bgCard.withValues(
+                                              alpha: 0.72,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              999,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            option.section,
+                                            style: TextStyle(
+                                              color: _textSecondary,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                            ),
                                           ),
                                         ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          option.description,
-                                          style: TextStyle(
-                                            color: _textSecondary,
-                                            fontSize: 12.5,
-                                            height: 1.35,
-                                          ),
+                                        const SizedBox(height: 8),
+                                        Icon(
+                                          Icons.unfold_more_rounded,
+                                          color: _textSecondary,
                                         ),
                                       ],
                                     ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: <Widget>[
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 5,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: _bgCard.withValues(
-                                            alpha: 0.72,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            999,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          option.section,
-                                          style: TextStyle(
-                                            color: _textSecondary,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Icon(
-                                        Icons.unfold_more_rounded,
-                                        color: _textSecondary,
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      ValueListenableBuilder<String>(
-                        valueListenable: triggerType,
-                        builder: (context, selectedTriggerType, _) {
-                          if (selectedTriggerType == 'manual') {
-                            return Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                appStrings.thisTaskWillOnlyRunWhen,
-                                style: TextStyle(color: _textSecondary),
+                                  ],
+                                ),
                               ),
                             );
-                          }
-                          if (selectedTriggerType == 'schedule') {
-                            return Column(
-                              children: <Widget>[
-                                SegmentedButton<String>(
-                                  segments: <ButtonSegment<String>>[
-                                    ButtonSegment<String>(
-                                      value: 'recurring',
-                                      icon: Icon(Icons.repeat_rounded),
-                                      label: Text(appStrings.recurring),
-                                    ),
-                                    ButtonSegment<String>(
-                                      value: 'one_time',
-                                      icon: Icon(Icons.event_rounded),
-                                      label: Text(appStrings.once),
-                                    ),
-                                  ],
-                                  selected: <String>{scheduleDraft.mode},
-                                  onSelectionChanged: (selection) {
-                                    setLocalState(() {
-                                      scheduleDraft.mode = selection.first;
-                                      if (scheduleDraft.mode == 'recurring') {
-                                        runAtController.clear();
-                                      }
-                                    });
-                                  },
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        ValueListenableBuilder<String>(
+                          valueListenable: triggerType,
+                          builder: (context, selectedTriggerType, _) {
+                            if (selectedTriggerType == 'manual') {
+                              return Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  appStrings.thisTaskWillOnlyRunWhen,
+                                  style: TextStyle(color: _textSecondary),
                                 ),
-                                const SizedBox(height: 12),
-                                if (scheduleDraft.mode == 'one_time')
-                                  TextField(
-                                    controller: runAtController,
-                                    decoration: InputDecoration(
-                                      labelText: appStrings.runAt,
-                                      helperText: appStrings.useADateAndTimeFor,
-                                    ),
-                                  )
-                                else ...<Widget>[
-                                  DropdownButtonFormField<String>(
-                                    key: ValueKey<String>(
-                                      scheduleDraft.presetId,
-                                    ),
-                                    initialValue: scheduleDraft.presetId,
-                                    isExpanded: true,
-                                    decoration: InputDecoration(
-                                      labelText: appStrings.repeat,
-                                    ),
-                                    items: <DropdownMenuItem<String>>[
-                                      ..._taskSchedulePresets.map(
-                                        (preset) => DropdownMenuItem<String>(
-                                          value: preset.id,
-                                          child: Text(preset.label),
-                                        ),
+                              );
+                            }
+                            if (selectedTriggerType == 'schedule') {
+                              return Column(
+                                children: <Widget>[
+                                  SegmentedButton<String>(
+                                    segments: <ButtonSegment<String>>[
+                                      ButtonSegment<String>(
+                                        value: 'recurring',
+                                        icon: Icon(Icons.repeat_rounded),
+                                        label: Text(appStrings.recurring),
+                                      ),
+                                      ButtonSegment<String>(
+                                        value: 'one_time',
+                                        icon: Icon(Icons.event_rounded),
+                                        label: Text(appStrings.once),
                                       ),
                                     ],
-                                    onChanged: (value) {
-                                      if (value == null) return;
+                                    selected: <String>{scheduleDraft.mode},
+                                    onSelectionChanged: (selection) {
                                       setLocalState(() {
-                                        final currentCron =
-                                            scheduleDraft.cronExpression;
-                                        scheduleDraft.presetId = value;
-                                        if (value == 'custom' &&
-                                            customCronController.text
-                                                .trim()
-                                                .isEmpty) {
-                                          customCronController.text =
-                                              currentCron;
-                                          scheduleDraft.customCronExpression =
-                                              currentCron;
+                                        scheduleDraft.mode = selection.first;
+                                        if (scheduleDraft.mode == 'recurring') {
+                                          runAtController.clear();
                                         }
                                       });
                                     },
                                   ),
                                   const SizedBox(height: 12),
-                                  if (scheduleDraft.presetId ==
-                                      'custom') ...<Widget>[
+                                  if (scheduleDraft.mode == 'one_time')
                                     TextField(
-                                      controller: customCronController,
-                                      onChanged: (value) =>
-                                          scheduleDraft.customCronExpression =
-                                              value,
+                                      controller: runAtController,
                                       decoration: InputDecoration(
-                                        labelText: appStrings.cronExpression,
-                                        helperText: appStrings
-                                            .advancedMinuteHourDayMonthWeekday,
+                                        labelText: appStrings.runAt,
+                                        helperText:
+                                            appStrings.useADateAndTimeFor,
                                       ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                  ],
-                                  if (scheduleDraft.usesTime) ...<Widget>[
-                                    InkWell(
-                                      borderRadius: BorderRadius.circular(14),
-                                      onTap: () async {
-                                        final picked = await showTimePicker(
-                                          context: context,
-                                          initialTime: scheduleDraft.time,
-                                          builder: (context, child) {
-                                            return MediaQuery(
-                                              data: MediaQuery.of(context)
-                                                  .copyWith(
-                                                    alwaysUse24HourFormat: true,
-                                                  ),
-                                              child: child!,
-                                            );
-                                          },
-                                        );
-                                        if (picked == null) return;
-                                        setLocalState(() {
-                                          scheduleDraft.time = picked;
-                                        });
-                                      },
-                                      child: InputDecorator(
-                                        decoration: InputDecoration(
-                                          labelText: appStrings.time,
-                                        ),
-                                        child: Row(
-                                          children: <Widget>[
-                                            Icon(Icons.access_time_rounded),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Text(
-                                                _formatTaskScheduleTime(
-                                                  scheduleDraft.time,
-                                                ),
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                            ),
-                                            Icon(
-                                              Icons.unfold_more_rounded,
-                                              color: _textSecondary,
-                                            ),
-                                          ],
-                                        ),
+                                    )
+                                  else ...<Widget>[
+                                    DropdownButtonFormField<String>(
+                                      key: ValueKey<String>(
+                                        scheduleDraft.presetId,
                                       ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                  ],
-                                  if (scheduleDraft.presetId ==
-                                      'weekly') ...<Widget>[
-                                    Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Wrap(
-                                        spacing: 8,
-                                        runSpacing: 8,
-                                        children: List<Widget>.generate(7, (
-                                          index,
-                                        ) {
-                                          final day = index + 1;
-                                          return ChoiceChip(
-                                            label: Text(
-                                              _taskWeekdayLabels[index],
-                                            ),
-                                            selected: scheduleDraft.weekdays
-                                                .contains(day),
-                                            onSelected: (selected) {
-                                              setLocalState(() {
-                                                if (selected) {
-                                                  scheduleDraft.weekdays.add(
-                                                    day,
-                                                  );
-                                                } else if (scheduleDraft
-                                                        .weekdays
-                                                        .length >
-                                                    1) {
-                                                  scheduleDraft.weekdays.remove(
-                                                    day,
-                                                  );
-                                                }
-                                              });
-                                            },
-                                          );
-                                        }),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                  ],
-                                  if (scheduleDraft.presetId ==
-                                      'monthly') ...<Widget>[
-                                    DropdownButtonFormField<int>(
-                                      initialValue: scheduleDraft.monthDay,
+                                      initialValue: scheduleDraft.presetId,
+                                      isExpanded: true,
                                       decoration: InputDecoration(
-                                        labelText: appStrings.dayOfMonth,
+                                        labelText: appStrings.repeat,
                                       ),
-                                      items:
-                                          List<DropdownMenuItem<int>>.generate(
-                                            31,
-                                            (index) => DropdownMenuItem<int>(
-                                              value: index + 1,
-                                              child: Text(
-                                                appStrings.dayArg1(index + 1),
-                                              ),
-                                            ),
-                                          ),
-                                      onChanged: (value) {
-                                        if (value == null) return;
-                                        setLocalState(() {
-                                          scheduleDraft.monthDay = value;
-                                        });
-                                      },
-                                    ),
-                                    const SizedBox(height: 12),
-                                  ],
-                                  InputDecorator(
-                                    decoration: InputDecoration(
-                                      labelText: appStrings.schedule,
-                                    ),
-                                    child: Builder(
-                                      builder: (context) {
-                                        final preset = _taskSchedulePresetForId(
-                                          scheduleDraft.presetId,
-                                        );
-                                        return Row(
-                                          children: <Widget>[
-                                            Icon(preset.icon, color: _accent),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: <Widget>[
-                                                  Text(
-                                                    scheduleDraft.summary,
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 3),
-                                                  Text(
-                                                    preset.description,
-                                                    style: TextStyle(
-                                                      color: _textSecondary,
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                  _buildTaskFinishOnTimeSwitch(
-                                    scheduleDraft: scheduleDraft,
-                                    averageRunSeconds: task?.averageRunSeconds,
-                                    setLocalState: setLocalState,
-                                  ),
-                                ],
-                              ],
-                            );
-                          }
-
-                          final option = _taskTriggerOptionForType(
-                            selectedTriggerType,
-                          );
-                          return Column(
-                            children: <Widget>[
-                              if (option.providerKey != null) ...<Widget>[
-                                ValueListenableBuilder<
-                                  List<OfficialIntegrationItem>
-                                >(
-                                  valueListenable: agentIntegrations,
-                                  builder: (context, integrations, _) =>
-                                      _buildConnectionIdSelector(
-                                        triggerType: selectedTriggerType,
-                                        integrations: integrations,
-                                        selectedConnectionId:
-                                            selectedConnectionId,
-                                        fallbackController:
-                                            connectionIdController,
-                                        setLocalState: setLocalState,
-                                      ),
-                                ),
-                                const SizedBox(height: 12),
-                              ],
-                              _buildTaskTriggerFields(
-                                option: option,
-                                draft: triggerDraft,
-                                otherTasks: controller.taskItems
-                                    .where((other) => other.id != task?.id)
-                                    .toList(),
-                                setLocalState: setLocalState,
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      if (task == null) ...<Widget>[
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TaskInspirationButton(
-                            onPicked: (recommendation) => setLocalState(() {
-                              _applyTaskInspiration(
-                                recommendation,
-                                scheduleDraft: scheduleDraft,
-                                customCronController: customCronController,
-                                runAtController: runAtController,
-                              );
-                              nameController.text = recommendation.title;
-                              promptController.text = recommendation.prompt;
-                              triggerType.value = 'schedule';
-                              selectedConnectionId.value = null;
-                              connectionIdController.clear();
-                            }),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      TextField(
-                        controller: promptController,
-                        minLines: 5,
-                        maxLines: 10,
-                        decoration: const InputDecoration(labelText: 'Prompt'),
-                      ),
-                      const SizedBox(height: 12),
-                      ValueListenableBuilder<TaskDeliveryTarget?>(
-                        valueListenable: selectedDeliveryTarget,
-                        builder: (context, deliveryTarget, _) {
-                          final color = deliveryTarget == null
-                              ? _textSecondary
-                              : _taskDeliveryPlatformColor(
-                                  deliveryTarget.platform,
-                                );
-                          return InkWell(
-                            borderRadius: BorderRadius.circular(14),
-                            onTap: () async {
-                              final picked = await _pickTaskDeliveryTarget(
-                                context,
-                                controller: controller,
-                                agentId: selectedAgentId,
-                                selected: deliveryTarget,
-                              );
-                              if (picked == null) return;
-                              selectedDeliveryTarget.value =
-                                  picked.platform.isEmpty ? null : picked;
-                            },
-                            child: InputDecorator(
-                              decoration: InputDecoration(
-                                labelText: appStrings.resultDelivery,
-                              ),
-                              child: Row(
-                                children: <Widget>[
-                                  Container(
-                                    width: 40,
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      color: color.withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Icon(
-                                      deliveryTarget == null
-                                          ? Icons.auto_mode_rounded
-                                          : _taskDeliveryPlatformIcon(
-                                              deliveryTarget.platform,
-                                            ),
-                                      color: color,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: <Widget>[
-                                        Text(
-                                          deliveryTarget == null
-                                              ? appStrings.useDefaultChannel
-                                              : deliveryTarget.label,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          deliveryTarget == null
-                                              ? appStrings
-                                                    .aiCreatedAndUnspecifiedTasksUseThe
-                                              : appStrings.arg1Arg22(
-                                                  deliveryTarget.platformLabel,
-                                                  deliveryTarget.to,
-                                                ),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: _textSecondary,
-                                            fontSize: 12.5,
+                                      items: <DropdownMenuItem<String>>[
+                                        ..._taskSchedulePresets.map(
+                                          (preset) => DropdownMenuItem<String>(
+                                            value: preset.id,
+                                            child: Text(preset.label),
                                           ),
                                         ),
                                       ],
+                                      onChanged: (value) {
+                                        if (value == null) return;
+                                        setLocalState(() {
+                                          final currentCron =
+                                              scheduleDraft.cronExpression;
+                                          scheduleDraft.presetId = value;
+                                          if (value == 'custom' &&
+                                              customCronController.text
+                                                  .trim()
+                                                  .isEmpty) {
+                                            customCronController.text =
+                                                currentCron;
+                                            scheduleDraft.customCronExpression =
+                                                currentCron;
+                                          }
+                                        });
+                                      },
                                     ),
+                                    const SizedBox(height: 12),
+                                    if (scheduleDraft.presetId ==
+                                        'custom') ...<Widget>[
+                                      TextField(
+                                        controller: customCronController,
+                                        onChanged: (value) =>
+                                            scheduleDraft.customCronExpression =
+                                                value,
+                                        decoration: InputDecoration(
+                                          labelText: appStrings.cronExpression,
+                                          helperText: appStrings
+                                              .advancedMinuteHourDayMonthWeekday,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                    ],
+                                    if (scheduleDraft.usesTime) ...<Widget>[
+                                      InkWell(
+                                        borderRadius: BorderRadius.circular(14),
+                                        onTap: () async {
+                                          final picked = await showTimePicker(
+                                            context: context,
+                                            initialTime: scheduleDraft.time,
+                                            builder: (context, child) {
+                                              return MediaQuery(
+                                                data: MediaQuery.of(context)
+                                                    .copyWith(
+                                                      alwaysUse24HourFormat:
+                                                          true,
+                                                    ),
+                                                child: child!,
+                                              );
+                                            },
+                                          );
+                                          if (picked == null) return;
+                                          setLocalState(() {
+                                            scheduleDraft.time = picked;
+                                          });
+                                        },
+                                        child: InputDecorator(
+                                          decoration: InputDecoration(
+                                            labelText: appStrings.time,
+                                          ),
+                                          child: Row(
+                                            children: <Widget>[
+                                              Icon(Icons.access_time_rounded),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Text(
+                                                  _formatTaskScheduleTime(
+                                                    scheduleDraft.time,
+                                                  ),
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                              Icon(
+                                                Icons.unfold_more_rounded,
+                                                color: _textSecondary,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                    ],
+                                    if (scheduleDraft.presetId ==
+                                        'weekly') ...<Widget>[
+                                      Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: List<Widget>.generate(7, (
+                                            index,
+                                          ) {
+                                            final day = index + 1;
+                                            return ChoiceChip(
+                                              label: Text(
+                                                _taskWeekdayLabels[index],
+                                              ),
+                                              selected: scheduleDraft.weekdays
+                                                  .contains(day),
+                                              onSelected: (selected) {
+                                                setLocalState(() {
+                                                  if (selected) {
+                                                    scheduleDraft.weekdays.add(
+                                                      day,
+                                                    );
+                                                  } else if (scheduleDraft
+                                                          .weekdays
+                                                          .length >
+                                                      1) {
+                                                    scheduleDraft.weekdays
+                                                        .remove(day);
+                                                  }
+                                                });
+                                              },
+                                            );
+                                          }),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                    ],
+                                    if (scheduleDraft.presetId ==
+                                        'monthly') ...<Widget>[
+                                      DropdownButtonFormField<int>(
+                                        initialValue: scheduleDraft.monthDay,
+                                        decoration: InputDecoration(
+                                          labelText: appStrings.dayOfMonth,
+                                        ),
+                                        items:
+                                            List<
+                                              DropdownMenuItem<int>
+                                            >.generate(
+                                              31,
+                                              (index) => DropdownMenuItem<int>(
+                                                value: index + 1,
+                                                child: Text(
+                                                  appStrings.dayArg1(index + 1),
+                                                ),
+                                              ),
+                                            ),
+                                        onChanged: (value) {
+                                          if (value == null) return;
+                                          setLocalState(() {
+                                            scheduleDraft.monthDay = value;
+                                          });
+                                        },
+                                      ),
+                                      const SizedBox(height: 12),
+                                    ],
+                                    InputDecorator(
+                                      decoration: InputDecoration(
+                                        labelText: appStrings.schedule,
+                                      ),
+                                      child: Builder(
+                                        builder: (context) {
+                                          final preset =
+                                              _taskSchedulePresetForId(
+                                                scheduleDraft.presetId,
+                                              );
+                                          return Row(
+                                            children: <Widget>[
+                                              Icon(preset.icon, color: _accent),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: <Widget>[
+                                                    Text(
+                                                      scheduleDraft.summary,
+                                                      style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 3),
+                                                    Text(
+                                                      preset.description,
+                                                      style: TextStyle(
+                                                        color: _textSecondary,
+                                                        fontSize: 12,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                    _buildTaskFinishOnTimeSwitch(
+                                      scheduleDraft: scheduleDraft,
+                                      averageRunSeconds:
+                                          task?.averageRunSeconds,
+                                      setLocalState: setLocalState,
+                                    ),
+                                  ],
+                                ],
+                              );
+                            }
+
+                            final option = _taskTriggerOptionForType(
+                              selectedTriggerType,
+                            );
+                            return Column(
+                              children: <Widget>[
+                                if (option.providerKey != null) ...<Widget>[
+                                  ValueListenableBuilder<
+                                    List<OfficialIntegrationItem>
+                                  >(
+                                    valueListenable: agentIntegrations,
+                                    builder: (context, integrations, _) =>
+                                        _buildConnectionIdSelector(
+                                          triggerType: selectedTriggerType,
+                                          integrations: integrations,
+                                          selectedConnectionId:
+                                              selectedConnectionId,
+                                          fallbackController:
+                                              connectionIdController,
+                                          setLocalState: setLocalState,
+                                        ),
                                   ),
-                                  if (deliveryTarget != null)
-                                    IconButton(
-                                      tooltip: appStrings.useDefaultChannel,
-                                      onPressed: () =>
-                                          selectedDeliveryTarget.value = null,
-                                      icon: Icon(Icons.close_rounded, size: 18),
-                                    )
-                                  else
-                                    Icon(
-                                      Icons.unfold_more_rounded,
-                                      color: _textSecondary,
+                                  const SizedBox(height: 12),
+                                ],
+                                _buildTaskTriggerFields(
+                                  option: option,
+                                  draft: triggerDraft,
+                                  otherTasks: controller.taskItems
+                                      .where((other) => other.id != task?.id)
+                                      .toList(),
+                                  setLocalState: setLocalState,
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        ValueListenableBuilder<TaskDeliveryTarget?>(
+                          valueListenable: selectedDeliveryTarget,
+                          builder: (context, deliveryTarget, _) {
+                            final color = deliveryTarget == null
+                                ? _textSecondary
+                                : _taskDeliveryPlatformColor(
+                                    deliveryTarget.platform,
+                                  );
+                            return InkWell(
+                              borderRadius: BorderRadius.circular(14),
+                              onTap: () async {
+                                final picked = await _pickTaskDeliveryTarget(
+                                  context,
+                                  controller: controller,
+                                  agentId: selectedAgentId,
+                                  selected: deliveryTarget,
+                                );
+                                if (picked == null) return;
+                                selectedDeliveryTarget.value =
+                                    picked.platform.isEmpty ? null : picked;
+                              },
+                              child: InputDecorator(
+                                decoration: InputDecoration(
+                                  labelText: appStrings.resultDelivery,
+                                ),
+                                child: Row(
+                                  children: <Widget>[
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: color.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Icon(
+                                        deliveryTarget == null
+                                            ? Icons.auto_mode_rounded
+                                            : _taskDeliveryPlatformIcon(
+                                                deliveryTarget.platform,
+                                              ),
+                                        color: color,
+                                      ),
                                     ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: <Widget>[
+                                          Text(
+                                            deliveryTarget == null
+                                                ? appStrings.useDefaultChannel
+                                                : deliveryTarget.label,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            deliveryTarget == null
+                                                ? appStrings
+                                                      .aiCreatedAndUnspecifiedTasksUseThe
+                                                : appStrings.arg1Arg22(
+                                                    deliveryTarget
+                                                        .platformLabel,
+                                                    deliveryTarget.to,
+                                                  ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: _textSecondary,
+                                              fontSize: 12.5,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (deliveryTarget != null)
+                                      IconButton(
+                                        tooltip: appStrings.useDefaultChannel,
+                                        onPressed: () =>
+                                            selectedDeliveryTarget.value = null,
+                                        icon: Icon(
+                                          Icons.close_rounded,
+                                          size: 18,
+                                        ),
+                                      )
+                                    else
+                                      Icon(
+                                        Icons.unfold_more_rounded,
+                                        color: _textSecondary,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        ExpansionTile(
+                          tilePadding: EdgeInsets.zero,
+                          title: Text(appStrings.uxAdvancedSettings),
+                          children: <Widget>[
+                            _RoutingSelectCard(
+                              label: appStrings.modelOverride,
+                              icon: Icons.memory_rounded,
+                              value: selectedModel,
+                              options: _taskModelOverrideOptions(
+                                selectedModel: selectedModel,
+                                models: controller.supportedModels,
+                              ),
+                              onChanged: (value) => setLocalState(
+                                () => selectedModel = value ?? 'default',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: _border.withValues(alpha: 0.8),
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Row(
+                                    children: <Widget>[
+                                      Icon(
+                                        Icons.pause_circle_outline,
+                                        size: 18,
+                                        color: _textSecondary,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        appStrings.loopExecution,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          color: _textPrimary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  SwitchListTile(
+                                    value: loopPaused,
+                                    contentPadding: EdgeInsets.zero,
+                                    title: Text(appStrings.pauseTaskLoop),
+                                    subtitle: Text(
+                                      appStrings.skipThisTaskBeforeItCalls,
+                                    ),
+                                    onChanged: (value) =>
+                                        setLocalState(() => loopPaused = value),
+                                  ),
                                 ],
                               ),
                             ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      _RoutingSelectCard(
-                        label: appStrings.modelOverride,
-                        icon: Icons.memory_rounded,
-                        value: selectedModel,
-                        options: _taskModelOverrideOptions(
-                          selectedModel: selectedModel,
-                          models: controller.supportedModels,
-                        ),
-                        onChanged: (value) => setLocalState(
-                          () => selectedModel = value ?? 'default',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: _border.withValues(alpha: 0.8),
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Row(
-                              children: <Widget>[
-                                Icon(
-                                  Icons.pause_circle_outline,
-                                  size: 18,
-                                  color: _textSecondary,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  appStrings.loopExecution,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: _textPrimary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            SwitchListTile(
-                              value: loopPaused,
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(appStrings.pauseTaskLoop),
-                              subtitle: Text(
-                                appStrings.skipThisTaskBeforeItCalls,
-                              ),
-                              onChanged: (value) =>
-                                  setLocalState(() => loopPaused = value),
-                            ),
                           ],
                         ),
-                      ),
-                      if (controller.agentProfiles.isNotEmpty) ...<Widget>[
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          initialValue: selectedAgentId,
-                          isExpanded: true,
-                          decoration: InputDecoration(
-                            labelText: appStrings.assignedAgent2,
+                        if (controller.agentProfiles.isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            initialValue: selectedAgentId,
+                            isExpanded: true,
+                            decoration: InputDecoration(
+                              labelText: appStrings.assignedAgent2,
+                            ),
+                            items: controller.agentProfiles
+                                .map(
+                                  (agent) => DropdownMenuItem<String>(
+                                    value: agent.id,
+                                    child: Text(agent.label),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              setLocalState(() {
+                                selectedAgentId = value;
+                                selectedDeliveryTarget.value = null;
+                                selectedConnectionId.value = null;
+                                connectionIdController.clear();
+                              });
+                              unawaited(loadAgentIntegrations(value));
+                            },
                           ),
-                          items: controller.agentProfiles
-                              .map(
-                                (agent) => DropdownMenuItem<String>(
-                                  value: agent.id,
-                                  child: Text(agent.label),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (value) {
-                            setLocalState(() {
-                              selectedAgentId = value;
-                              selectedDeliveryTarget.value = null;
-                              selectedConnectionId.value = null;
-                              connectionIdController.clear();
-                            });
-                            unawaited(loadAgentIntegrations(value));
-                          },
+                        ],
+                        const SizedBox(height: 12),
+                        SwitchListTile(
+                          value: enabled,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(appStrings.enabled),
+                          subtitle: Text(appStrings.uxTaskEnabledHint),
+                          onChanged: (value) =>
+                              setLocalState(() => enabled = value),
                         ),
                       ],
-                      const SizedBox(height: 12),
-                      SwitchListTile(
-                        value: enabled,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(appStrings.enabled),
-                        onChanged: (value) =>
-                            setLocalState(() => enabled = value),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(appStrings.cancel),
-                ),
-                FilledButton(
-                  onPressed: () async {
-                    final name = nameController.text.trim();
-                    final prompt = promptController.text.trim();
-                    if (name.isEmpty) {
-                      _showFormError(context, appStrings.pleaseEnterATaskName);
-                      return;
-                    }
-                    if (prompt.isEmpty) {
-                      _showFormError(context, appStrings.pleaseEnterAPrompt);
-                      return;
-                    }
-                    final selectedTriggerType = triggerType.value;
-                    final triggerConfig = <String, dynamic>{};
-                    if (selectedTriggerType == 'manual') {
-                      // Manual trigger uses no trigger-specific config.
-                    } else if (selectedTriggerType == 'schedule') {
-                      final runAt = runAtController.text.trim();
-                      triggerConfig['mode'] = scheduleDraft.mode;
-                      if (scheduleDraft.mode == 'recurring') {
-                        scheduleDraft.customCronExpression =
-                            customCronController.text.trim();
-                        final cronExpression = scheduleDraft.cronExpression
-                            .trim();
-                        if (cronExpression.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(appStrings.pleaseChooseASchedule),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
+                actions: <Widget>[
+                  _DialogFormActions(
+                    busy: saving,
+                    error: saveError,
+                    submitLabel: appStrings.save,
+                    onSubmit: () async {
+                      if (!_validateDialogForm(formKey)) return;
+                      final name = nameController.text.trim();
+                      final prompt = promptController.text.trim();
+                      void showError(String message) =>
+                          setLocalState(() => saveError = message);
+                      final selectedTriggerType = triggerType.value;
+                      final triggerConfig = <String, dynamic>{};
+                      if (selectedTriggerType == 'manual') {
+                        // Manual trigger uses no trigger-specific config.
+                      } else if (selectedTriggerType == 'schedule') {
+                        final runAt = runAtController.text.trim();
+                        triggerConfig['mode'] = scheduleDraft.mode;
+                        if (scheduleDraft.mode == 'recurring') {
+                          scheduleDraft.customCronExpression =
+                              customCronController.text.trim();
+                          final cronExpression = scheduleDraft.cronExpression
+                              .trim();
+                          if (cronExpression.isEmpty) {
+                            showError(appStrings.pleaseChooseASchedule);
+                            return;
+                          }
+                          if (scheduleDraft.presetId == 'custom' &&
+                              !_looksLikeCronExpression(cronExpression)) {
+                            showError(appStrings.customCronMustHave5Fields);
+                            return;
+                          }
+                          triggerConfig['cronExpression'] = cronExpression;
+                          triggerConfig['finishOnTime'] =
+                              scheduleDraft.finishOnTime;
+                        } else {
+                          if (runAt.isEmpty) {
+                            showError(appStrings.pleaseEnterWhenTheTaskShould);
+                            return;
+                          }
+                          triggerConfig['runAt'] = runAt;
                         }
-                        if (scheduleDraft.presetId == 'custom' &&
-                            !_looksLikeCronExpression(cronExpression)) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                appStrings.customCronMustHave5Fields,
-                              ),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
-                        }
-                        triggerConfig['cronExpression'] = cronExpression;
-                        triggerConfig['finishOnTime'] =
-                            scheduleDraft.finishOnTime;
                       } else {
-                        if (runAt.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                appStrings.pleaseEnterWhenTheTaskShould,
-                              ),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
-                        }
-                        triggerConfig['runAt'] = runAt;
-                      }
-                    } else {
-                      final option = _taskTriggerOptionForType(
-                        selectedTriggerType,
-                      );
-                      if (option.providerKey != null) {
-                        final parsedConnectionId =
-                            selectedConnectionId.value ??
-                            int.tryParse(connectionIdController.text.trim());
-                        if (parsedConnectionId == null ||
-                            parsedConnectionId <= 0) {
-                          _showFormError(
-                            context,
-                            appStrings.pleaseSelectAnAccountOrEnter,
-                          );
-                          return;
-                        }
-                        triggerConfig['connectionId'] = parsedConnectionId;
-                      }
-                      final invalidField = triggerDraft.writeTo(
-                        option.fields,
-                        triggerConfig,
-                      );
-                      if (invalidField != null) {
-                        _showFormError(
-                          context,
-                          appStrings.fieldMissingOrInvalidArg1(invalidField),
+                        final option = _taskTriggerOptionForType(
+                          selectedTriggerType,
                         );
+                        if (option.providerKey != null) {
+                          final parsedConnectionId =
+                              selectedConnectionId.value ??
+                              int.tryParse(connectionIdController.text.trim());
+                          if (parsedConnectionId == null ||
+                              parsedConnectionId <= 0) {
+                            showError(appStrings.pleaseSelectAnAccountOrEnter);
+                            return;
+                          }
+                          triggerConfig['connectionId'] = parsedConnectionId;
+                        }
+                        final invalidField = triggerDraft.writeTo(
+                          option.fields,
+                          triggerConfig,
+                        );
+                        if (invalidField != null) {
+                          showError(
+                            appStrings.fieldMissingOrInvalidArg1(invalidField),
+                          );
+                          return;
+                        }
+                      }
+                      final taskConfig = <String, dynamic>{
+                        ...?task?.taskConfig,
+                        'loopPaused': loopPaused,
+                      };
+                      taskConfig.remove('loopBudget');
+                      taskConfig.remove('loop_paused');
+                      final deliveryTarget = selectedDeliveryTarget.value;
+                      if (deliveryTarget == null) {
+                        taskConfig.remove('notifyPlatform');
+                        taskConfig.remove('notifyTo');
+                      } else {
+                        taskConfig['notifyPlatform'] = deliveryTarget.platform;
+                        taskConfig['notifyTo'] = deliveryTarget.to;
+                      }
+                      setLocalState(() {
+                        saving = true;
+                        saveError = null;
+                      });
+                      try {
+                        await controller.saveTask(
+                          id: task?.id,
+                          name: name,
+                          triggerType: selectedTriggerType,
+                          triggerConfig: triggerConfig,
+                          prompt: prompt,
+                          taskConfig: taskConfig,
+                          model: selectedModel == 'default'
+                              ? null
+                              : selectedModel,
+                          enabled: enabled,
+                          agentId: selectedAgentId,
+                        );
+                      } catch (error) {
+                        if (!context.mounted) return;
+                        setLocalState(() {
+                          saving = false;
+                          saveError = controller.friendlyErrorMessage(error);
+                        });
                         return;
                       }
-                    }
-                    final taskConfig = <String, dynamic>{
-                      ...?task?.taskConfig,
-                      'loopPaused': loopPaused,
-                    };
-                    taskConfig.remove('loopBudget');
-                    taskConfig.remove('loop_paused');
-                    final deliveryTarget = selectedDeliveryTarget.value;
-                    if (deliveryTarget == null) {
-                      taskConfig.remove('notifyPlatform');
-                      taskConfig.remove('notifyTo');
-                    } else {
-                      taskConfig['notifyPlatform'] = deliveryTarget.platform;
-                      taskConfig['notifyTo'] = deliveryTarget.to;
-                    }
-                    try {
-                      await controller.saveTask(
-                        id: task?.id,
-                        name: name,
-                        triggerType: selectedTriggerType,
-                        triggerConfig: triggerConfig,
-                        prompt: prompt,
-                        taskConfig: taskConfig,
-                        model: selectedModel == 'default'
-                            ? null
-                            : selectedModel,
-                        enabled: enabled,
-                        agentId: selectedAgentId,
-                      );
-                    } catch (error) {
-                      if (!context.mounted) return;
-                      _showFormError(
-                        context,
-                        controller.friendlyErrorMessage(error),
-                      );
-                      return;
-                    }
-                    if (context.mounted) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                  child: Text(appStrings.save),
-                ),
-              ],
-            );
-          },
+                      if (context.mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
         );
       },
     );
+    editorClosed = true;
   }
 }

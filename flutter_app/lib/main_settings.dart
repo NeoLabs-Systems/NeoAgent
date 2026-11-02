@@ -825,7 +825,10 @@ class _SettingsPageHeader extends StatelessWidget {
       ],
     );
     final scope = _scopeIndicator();
-    final status = _SettingsSaveStatus(controller: controller);
+    final status = ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 300),
+      child: _SettingsSaveStatus(controller: controller),
+    );
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < 640) {
@@ -938,29 +941,41 @@ class _SettingsSaveStatus extends StatelessWidget {
   Widget build(BuildContext context) {
     final saving =
         controller.isSavingSettings || controller.isSavingAccountSettings;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        if (saving)
-          SizedBox.square(
-            dimension: 12,
-            child: CircularProgressIndicator(
-              strokeWidth: 1.6,
-              color: _textMuted,
+    final failed =
+        controller.settingsSaveError != null &&
+        controller.settingsSaveError == controller.errorMessage;
+    return Semantics(
+      liveRegion: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          if (saving)
+            SizedBox.square(
+              dimension: 12,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.6,
+                color: _textMuted,
+              ),
+            )
+          else
+            Icon(
+              failed ? Icons.error_outline_rounded : Icons.info_outline_rounded,
+              size: 15,
+              color: failed ? _danger : _textSecondary,
             ),
-          )
-        else
-          Icon(Icons.check_rounded, size: 15, color: _success),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            saving
-                ? appStrings.settingsSaving
-                : appStrings.settingsSavedAutomatically,
-            style: TextStyle(color: _textMuted, fontSize: 12.5),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              saving
+                  ? appStrings.settingsSaving
+                  : failed
+                  ? appStrings.uxSettingsSaveFailed
+                  : appStrings.uxSettingsSaveHint,
+              style: TextStyle(color: _textMuted, fontSize: 12.5),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -1029,42 +1044,57 @@ class _SettingsHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: <Widget>[
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: _textPrimary,
-                  ),
-                ),
-                if (description != null) ...<Widget>[
-                  const SizedBox(height: 3),
-                  Text(
-                    description!,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: _textSecondary,
-                      height: 1.45,
-                    ),
-                  ),
-                ],
-              ],
+    final heading = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: _textPrimary,
+          ),
+        ),
+        if (description != null) ...<Widget>[
+          const SizedBox(height: 3),
+          Text(
+            description!,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontSize: 13,
+              color: _textSecondary,
+              height: 1.45,
             ),
           ),
-          if (trailing != null) ...<Widget>[
-            const SizedBox(width: 12),
-            trailing!,
-          ],
         ],
+      ],
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 640) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                heading,
+                if (trailing != null) ...<Widget>[
+                  const SizedBox(height: AppSpacing.sm),
+                  trailing!,
+                ],
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              Expanded(child: heading),
+              if (trailing != null) ...<Widget>[
+                const SizedBox(width: AppSpacing.sm),
+                trailing!,
+              ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -1349,8 +1379,10 @@ class _AutosaveTextField extends StatefulWidget {
     this.minLines = 1,
     this.maxLines = 1,
     this.maxLength,
+    this.label,
   });
 
+  final String? label;
   final String value;
   final ValueChanged<String> onSave;
   final int minLines;
@@ -1434,7 +1466,7 @@ class _AutosaveTextFieldState extends State<_AutosaveTextField> {
         _debounce?.cancel();
         _debounce = Timer(const Duration(milliseconds: 1200), _save);
       },
-      decoration: const InputDecoration(isDense: true),
+      decoration: InputDecoration(isDense: true, labelText: widget.label),
     );
   }
 }

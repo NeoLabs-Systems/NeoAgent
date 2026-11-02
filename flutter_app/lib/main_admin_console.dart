@@ -16,7 +16,7 @@ extension on _AdminTab {
   String get label {
     switch (this) {
       case _AdminTab.users:
-        return 'Users';
+        return appStrings.uxAdminUsers;
       case _AdminTab.server:
         return appStrings.server;
       case _AdminTab.providers:
@@ -28,9 +28,9 @@ extension on _AdminTab {
       case _AdminTab.messaging:
         return appStrings.adminTabMessaging;
       case _AdminTab.config:
-        return 'Configuration';
+        return appStrings.uxAdminConfiguration;
       case _AdminTab.analytics:
-        return 'Analytics';
+        return appStrings.uxAdminAnalytics;
       case _AdminTab.sql:
         return 'SQL';
     }

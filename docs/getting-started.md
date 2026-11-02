@@ -84,20 +84,20 @@ neoagent setup --resume   # continue an interrupted setup
 
 1. Open `http://localhost:3333/app`, or the address the installer printed.
 2. Create the first account. It becomes the server's admin.
-3. Walk through onboarding:
+3. Walk through onboarding. It only asks what your server still needs:
 
-| Step | What happens |
-| --- | --- |
-| **Intro** | A short landscape video; skip it any time. Windows and Linux go straight to **Continue to setup**. |
-| **Welcome** | Lists the steps ahead. |
-| **Model** | Pick a default model or **Auto**. With none available, add a provider key on the spot or use **Sign in with OpenRouter**. NeoAgent can't answer until a model works. |
-| **Computer** | Desktop app only. **Cloud computer** (private sandbox, always on) or **This computer**, with Screen, Mouse & keyboard, Workspace files, and Commands & apps permissions. |
-| **Messaging** | Optional. Connect one messaging platform, for example by scanning the WhatsApp QR code. |
-| **Routines** | Optional. Switch on suggested tasks. Phones ask for notification permission. |
-| **Ready** | Send a first message or open NeoAgent. |
+| Step | When | What happens |
+| --- | --- | --- |
+| **Intro** | Always | A short landscape video; skip it any time. Windows and Linux go straight to **Continue to setup**. |
+| **Model** | No model works yet | **Sign in with OpenRouter**, or add a provider key under **Use an API key instead**. NeoAgent then picks the best model per task; you can choose one here or later under **Settings › Models**. You can skip this, but NeoAgent can't answer until a model works. |
+| **Computer** | Desktop app | **Cloud computer** (private sandbox, always on) or **This computer**, with Screen, Mouse & keyboard, Workspace files, and Commands & apps permissions. |
+| **Messaging** | Always, optional | Tap an app to connect it, for example by scanning the WhatsApp QR code. If your server has a [shared account](shared-messaging.md), link it with one button. |
+| **Routines** | A routine can run, optional | Switch on suggested tasks. Phones ask for notification permission. |
+| **Ready** | Always | Shows what is set up. With a working model, send a first message or open NeoAgent. |
 
 - **Redo it.** **Settings › General › Redo onboarding**.
 - **Check permissions first.** Review **Settings › Permissions** before allowing shell, file-write, desktop or Android actions.
+- **Saving settings.** Most changes save automatically. When a section shows a **Save** button, use it to apply those changes. Failed saves show an error; review it before trying again.
 
 ## 👥 Accounts and sign-up
 

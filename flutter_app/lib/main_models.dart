@@ -18,12 +18,15 @@ List<MessagingPlatformDescriptor> get messagingPlatforms =>
         accent: Color(0xFF2AABEE),
         connectMethod: MessagingConnectMethod.config,
         icon: Icons.send_rounded,
+        receivesViaWebhook: false,
+        setupInstructions: appStrings.sharedAccountTelegramStepBot,
         configFields: <MessagingConfigField>[
           MessagingConfigField(
             key: 'botToken',
             label: appStrings.botToken,
             hint: appStrings.fromBotfatherAfterYouCreateThe,
             obscure: true,
+            isRequired: true,
           ),
         ],
       ),
@@ -34,12 +37,14 @@ List<MessagingPlatformDescriptor> get messagingPlatforms =>
         accent: Color(0xFF5865F2),
         connectMethod: MessagingConnectMethod.config,
         icon: Icons.sports_esports_rounded,
+        receivesViaWebhook: false,
         configFields: <MessagingConfigField>[
           MessagingConfigField(
             key: 'token',
             label: appStrings.botToken,
             hint: appStrings.fromTheDiscordDeveloperPortalUnder,
             obscure: true,
+            isRequired: true,
           ),
         ],
       ),
@@ -56,6 +61,7 @@ List<MessagingPlatformDescriptor> get messagingPlatforms =>
             label: appStrings.botToken,
             hint: appStrings.startsWithXoxbFromYourSlack,
             obscure: true,
+            isRequired: true,
           ),
           MessagingConfigField(
             key: 'signingSecret',
@@ -533,6 +539,7 @@ class MessagingConfigField {
     this.defaultValue,
     this.settingsKey,
     this.includeInConfig = true,
+    this.isRequired = false,
   });
 
   final String key;
@@ -543,6 +550,7 @@ class MessagingConfigField {
   final String? defaultValue;
   final String? settingsKey;
   final bool includeInConfig;
+  final bool isRequired;
 
   String get storageKey => settingsKey ?? key;
 }
@@ -559,6 +567,8 @@ class MessagingPlatformDescriptor {
     this.accessCapabilities,
     this.integrationProvider,
     this.integrationApp,
+    this.receivesViaWebhook = true,
+    this.setupInstructions,
   });
 
   final String id;
@@ -574,6 +584,8 @@ class MessagingPlatformDescriptor {
   /// when [connectMethod] is [MessagingConnectMethod.integration].
   final String? integrationProvider;
   final String? integrationApp;
+  final bool receivesViaWebhook;
+  final String? setupInstructions;
 
   String get settingsKey => '${id}_config';
 }

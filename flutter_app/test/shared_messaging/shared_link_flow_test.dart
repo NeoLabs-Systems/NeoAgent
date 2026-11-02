@@ -31,7 +31,7 @@ class _Harness {
       starts += 1;
       if (startError != null) throw startError!;
       return SharedMessagingLink(
-        code: 'NEO-ABCDEFGH$starts$starts',
+        code: 'NeoAgent-ABCDEFGH$starts$starts',
         expiresAt: DateTime.now().add(validFor),
         url: 'https://t.me/shared_bot?start=NEO',
       );
@@ -87,7 +87,7 @@ void main() {
       final harness = _Harness();
       await harness.open(tester);
       expect(harness.starts, 1);
-      expect(find.text('NEO-ABCDEFGH11'), findsOneWidget);
+      expect(find.text('NeoAgent-ABCDEFGH11'), findsOneWidget);
       expect(find.text('Open Telegram'), findsOneWidget);
       expect(find.text('Use my own account'), findsNothing);
       await closeDialog(tester);
@@ -143,7 +143,7 @@ void main() {
     harness.failure = null;
     await tester.tap(find.text('Get a new code'));
     await settle(tester);
-    expect(find.text('NEO-ABCDEFGH22'), findsOneWidget);
+    expect(find.text('NeoAgent-ABCDEFGH22'), findsOneWidget);
     await closeDialog(tester);
   });
 
@@ -170,7 +170,7 @@ void main() {
     harness.startError = null;
     await tester.tap(find.text('Try again'));
     await settle(tester);
-    expect(find.text('NEO-ABCDEFGH22'), findsOneWidget);
+    expect(find.text('NeoAgent-ABCDEFGH22'), findsOneWidget);
     await closeDialog(tester);
   });
 

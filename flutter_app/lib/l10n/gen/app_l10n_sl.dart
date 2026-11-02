@@ -12194,7 +12194,7 @@ class AppL10nSl extends AppL10n {
 
   @override
   String sharedMessagingOpenAndSend(Object? platform) {
-    return 'Send this code from the $platform account you want to use. The button fills it in for you.';
+    return 'Open $platform on the account you want to use and send this code. It fills in by itself.';
   }
 
   @override
@@ -12257,11 +12257,11 @@ class AppL10nSl extends AppL10n {
   String get messagingHubMoreSettingsHint => 'Group chats and recent activity';
 
   @override
-  String get onboardingMessagingTitle => 'Message your agent\nfrom anywhere.';
+  String get onboardingMessagingTitle => 'Message your agent from anywhere.';
 
   @override
   String get onboardingMessagingDescription =>
-      'Connect the chat app you already use. It takes a moment, and you can add more later.';
+      'Connect a chat app to reach your agent outside NeoAgent. Setup depends on the app; you can do this later.';
 
   @override
   String get onboardingMessagingOtherApps => 'Other apps';
@@ -12294,4 +12294,132 @@ class AppL10nSl extends AppL10n {
   String messagingHubManage(Object? platform) {
     return 'Manage $platform';
   }
+
+  @override
+  String get onboardingModelTitle => 'Connect an AI.';
+
+  @override
+  String get onboardingModelNeededDescription =>
+      'NeoAgent needs a model to think with. This is the only thing it can\'t do without.';
+
+  @override
+  String get onboardingModelReady =>
+      'Connected. NeoAgent picks the best model for each task.';
+
+  @override
+  String get onboardingModelChoose => 'Choose a specific model';
+
+  @override
+  String get onboardingModelUseKey => 'Use an API key instead';
+
+  @override
+  String get onboardingComputerPermissions => 'What it may do on this computer';
+
+  @override
+  String get onboardingAlmostTitle => 'Almost there.';
+
+  @override
+  String get onboardingAlmostDescription =>
+      'NeoAgent can\'t answer until it has an AI model. You can add one any time under Settings › Models.';
+
+  @override
+  String get onboardingRecapModel => 'AI model ready';
+
+  @override
+  String get onboardingRecapNoModel => 'No AI model yet';
+
+  @override
+  String get onboardingRecapNoMessaging =>
+      'No chat app yet. Add one later under Settings › Platforms.';
+
+  @override
+  String onboardingModelSignInHint(Object? provider) {
+    return 'Sign in and approve NeoAgent. No key to copy, ready in seconds.';
+  }
+
+  @override
+  String onboardingRecapMessaging(Object? apps) {
+    return 'Reachable on $apps';
+  }
+
+  @override
+  String onboardingRecapRoutines(Object? count) {
+    return 'Routines running: $count';
+  }
+
+  @override
+  String get agentNameRequired => 'Enter a name for this agent.';
+
+  @override
+  String get agentIdentifier => 'Agent identifier';
+
+  @override
+  String get agentIdentifierHint =>
+      'Used to address this agent. Suggested from the name; you can edit it.';
+
+  @override
+  String get agentIdentifierInvalid =>
+      'Use 1–48 lowercase letters, numbers, hyphens or underscores.';
+
+  @override
+  String get uxAdvancedSettings => 'Advanced settings';
+
+  @override
+  String get uxSelected => 'Selected';
+
+  @override
+  String get uxSelectedDelegationTargets =>
+      'Only selected agents can receive tasks from this agent.';
+
+  @override
+  String uxFieldRequired(String field) {
+    return 'Enter $field.';
+  }
+
+  @override
+  String get uxTaskInstructions => 'What should the agent do?';
+
+  @override
+  String get uxTaskEnabledHint =>
+      'When enabled, this task runs when its trigger fires. Switch off to save it without running automatically.';
+
+  @override
+  String get uxSettingsSaveHint =>
+      'Changes save automatically unless a Save button is shown.';
+
+  @override
+  String get uxSettingsSaveFailed =>
+      'A change could not be saved. Check the error below.';
+
+  @override
+  String get uxAdminUsers => 'Users';
+
+  @override
+  String get uxAdminConfiguration => 'Configuration';
+
+  @override
+  String get uxAdminAnalytics => 'Analytics';
+
+  @override
+  String get uxMemoryEmptyHint =>
+      'No memories yet. Ask this agent to remember something in chat, or add a memory here. Memories belong to the selected agent.';
+
+  @override
+  String get uxMemoryFacts => 'Facts';
+
+  @override
+  String get uxMemoryEntities => 'Entities';
+
+  @override
+  String get uxMemoryReflections => 'Reflections';
+
+  @override
+  String get uxMemoryDocuments => 'Documents';
+
+  @override
+  String get uxOpenChat => 'Open chat';
+
+  @override
+  String get uxModelSkipHint =>
+      'You can explore first, but chat and tasks need a model before they can run.';
 }

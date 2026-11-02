@@ -20,7 +20,7 @@ class OnboardingMessagingStep extends StatefulWidget {
   });
 
   final VoidCallback onNext;
-  final VoidCallback onBack;
+  final VoidCallback? onBack;
   final NeoAgentController controller;
 
   @override
@@ -114,7 +114,6 @@ class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
         if (linking != null && option != null) {
           body = _LinkInPlace(
             session: sharedLinkSessionFor(_controller, linking, option),
-            onDone: widget.onNext,
           );
         } else {
           body = _Choices(
@@ -127,7 +126,6 @@ class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
         final linkingNow = linking != null && option != null;
         return OnboardingScaffold(
           mood: live ? MascotMood.done : MascotMood.listening,
-          fill: true,
           eyebrow: appStrings.onboardingEyebrowCommunication,
           title: appStrings.onboardingMessagingTitle,
           description: appStrings.onboardingMessagingDescription,
@@ -137,7 +135,7 @@ class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
                 : widget.onBack,
             // Connecting is the action on the page; leaving is the footer's,
             // and it only turns gold once there is something to continue with.
-            primary: live && !linkingNow
+            primary: live
                 ? OnboardingPrimaryButton(
                     label: appStrings.onboardingNext,
                     icon: Icons.arrow_forward_rounded,
@@ -157,10 +155,9 @@ class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
 
 /// The link flow on the page itself, so nothing pops over the onboarding.
 class _LinkInPlace extends StatelessWidget {
-  const _LinkInPlace({required this.session, required this.onDone});
+  const _LinkInPlace({required this.session});
 
   final SharedLinkSession session;
-  final VoidCallback onDone;
 
   @override
   Widget build(BuildContext context) {
@@ -175,7 +172,7 @@ class _LinkInPlace extends StatelessWidget {
             color: session.platformColor.withValues(alpha: 0.28),
           ),
         ),
-        child: SharedLinkFlow(session: session, onDone: onDone),
+        child: SharedLinkFlow(session: session),
       ),
     );
   }

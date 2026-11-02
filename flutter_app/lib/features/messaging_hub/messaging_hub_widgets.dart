@@ -20,12 +20,16 @@ class HubOfferCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: app.color.withValues(alpha: 0.28)),
+        border: Border.all(color: app.color.withValues(alpha: 0.24)),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: <Color>[app.color.withValues(alpha: 0.11), p.bgCard],
-          stops: const <double>[0, 0.7],
+          // Blended over the card, so the fade has no seam against the page.
+          colors: <Color>[
+            Color.alphaBlend(app.color.withValues(alpha: 0.09), p.bgCard),
+            p.bgCard,
+          ],
+          stops: const <double>[0, 0.55],
         ),
       ),
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
