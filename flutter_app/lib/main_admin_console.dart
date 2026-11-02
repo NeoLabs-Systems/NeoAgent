@@ -134,7 +134,7 @@ List<_AdminSearchEntry> _adminSearchIndex = <_AdminSearchEntry>[
     appStrings.updateTheServer2,
     _AdminTab.server,
     appStrings.upgradeUpdateNowReleaseChannelStable,
-    card: 'Updates',
+    card: appStrings.updates,
   ),
   _AdminSearchEntry(
     appStrings.healthChecks,
@@ -312,12 +312,23 @@ class AdminPanel extends StatefulWidget {
 class _AdminPanelState extends State<AdminPanel> {
   final TextEditingController _search = TextEditingController();
   _AdminTab _tab = _AdminTab.users;
+  late final _AdminUpdateWatcher _updates = _AdminUpdateWatcher(
+    widget.controller.backendClient,
+    widget.controller.backendUrl,
+  );
 
   /// Card to bring into view after opening a search result.
   String? _targetCard;
 
   @override
+  void initState() {
+    super.initState();
+    _updates.load();
+  }
+
+  @override
   void dispose() {
+    _updates.dispose();
     _search.dispose();
     super.dispose();
   }
@@ -359,6 +370,7 @@ class _AdminPanelState extends State<AdminPanel> {
           },
         ),
         const SizedBox(height: 14),
+        _AdminUpdateBanner(watcher: _updates),
         if (query.isNotEmpty)
           _AdminSearchResults(
             results: results,
@@ -390,7 +402,7 @@ class _AdminPanelState extends State<AdminPanel> {
           ],
         );
       case _AdminTab.server:
-        return _AdminServerTab(controller: controller);
+        return _AdminServerTab(controller: controller, updates: _updates);
       case _AdminTab.providers:
         return _SectionStack(
           children: <Widget>[

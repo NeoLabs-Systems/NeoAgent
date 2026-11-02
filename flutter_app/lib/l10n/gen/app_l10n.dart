@@ -1581,12 +1581,6 @@ abstract class AppL10n {
   /// **'{arg1} {arg2} * * *'**
   String arg1Arg210(Object? arg1, Object? arg2);
 
-  /// No description provided for @arg1Arg211.
-  ///
-  /// In en, this message translates to:
-  /// **'{arg1} -> {arg2}'**
-  String arg1Arg211(Object? arg1, Object? arg2);
-
   /// No description provided for @arg1Arg215.
   ///
   /// In en, this message translates to:
@@ -3054,18 +3048,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Channel access token'**
   String get channelAccessToken;
-
-  /// No description provided for @channelArg1Arg2UpdateVersionArg3.
-  ///
-  /// In en, this message translates to:
-  /// **'Channel: {arg1}{arg2} | Update Version: {arg3}{arg4}{arg5}'**
-  String channelArg1Arg2UpdateVersionArg3(
-    Object? arg1,
-    Object? arg2,
-    Object? arg3,
-    Object? arg4,
-    Object? arg5,
-  );
 
   /// No description provided for @channelScopedSocialMemory.
   ///
@@ -6619,12 +6601,6 @@ abstract class AppL10n {
   /// **'Install NeoAgent on this computer without a terminal, or connect to one that is already running.'**
   String get installNeoagentOnThisComputerWithout;
 
-  /// No description provided for @installNewReleasesAndChooseWhich.
-  ///
-  /// In en, this message translates to:
-  /// **'Install new releases and choose which channel this server follows.'**
-  String get installNewReleasesAndChooseWhich;
-
   /// No description provided for @installTheBackend.
   ///
   /// In en, this message translates to:
@@ -6642,12 +6618,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Install the secure core, then create your account. Add AI provider keys afterwards.'**
   String get installTheSecureCoreThenCreate;
-
-  /// No description provided for @installedArg1.
-  ///
-  /// In en, this message translates to:
-  /// **' | Installed: {arg1}'**
-  String installedArg1(Object? arg1);
 
   /// No description provided for @installedArg1LastCheckedArg2.
   ///
@@ -8143,12 +8113,6 @@ abstract class AppL10n {
   /// **'NeoAgent Flutter Updater'**
   String get neoagentFlutterUpdater;
 
-  /// No description provided for @neoagentInstallsTheLatestArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'NeoAgent installs the latest {arg1} '**
-  String neoagentInstallsTheLatestArg1(Object? arg1);
-
   /// No description provided for @neoagentIsInstalledAndRunning.
   ///
   /// In en, this message translates to:
@@ -8916,12 +8880,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'No tool matches \"{arg1}\".'**
   String noToolMatchesArg1(Object? arg1);
-
-  /// No description provided for @noUpdateRunning.
-  ///
-  /// In en, this message translates to:
-  /// **'No update running'**
-  String get noUpdateRunning;
 
   /// No description provided for @noUsageYet.
   ///
@@ -10399,12 +10357,6 @@ abstract class AppL10n {
   /// **'Reject invalid TLS certificates'**
   String get rejectInvalidTlsCertificates;
 
-  /// No description provided for @releaseAndRestartsConnectedAppsReconnect.
-  ///
-  /// In en, this message translates to:
-  /// **'release and restarts. Connected apps reconnect once it is back.'**
-  String get releaseAndRestartsConnectedAppsReconnect;
-
   /// No description provided for @releaseChannel.
   ///
   /// In en, this message translates to:
@@ -11029,23 +10981,11 @@ abstract class AppL10n {
   /// **'Runtime {arg1}'**
   String runtimeArg1(Object? arg1);
 
-  /// No description provided for @runtimeArg12.
-  ///
-  /// In en, this message translates to:
-  /// **' | Runtime: {arg1}'**
-  String runtimeArg12(Object? arg1);
-
   /// No description provided for @runtimeSettingsThisServerStartedWith.
   ///
   /// In en, this message translates to:
   /// **'Runtime settings this server started with. Edit them under '**
   String get runtimeSettingsThisServerStartedWith;
-
-  /// No description provided for @runtimeSetupRequired.
-  ///
-  /// In en, this message translates to:
-  /// **'Runtime setup required'**
-  String get runtimeSetupRequired;
 
   /// No description provided for @runtimeSigningPublicKeyMustBe.
   ///
@@ -13243,12 +13183,6 @@ abstract class AppL10n {
   /// **'This intro is designed for full-screen landscape playback.'**
   String get thisIntroIsDesignedForFull;
 
-  /// No description provided for @thisIsAManagedDeploymentIts.
-  ///
-  /// In en, this message translates to:
-  /// **'This is a managed deployment. Its operator rolls out '**
-  String get thisIsAManagedDeploymentIts;
-
   /// No description provided for @thisMayTakeAMoment.
   ///
   /// In en, this message translates to:
@@ -14059,12 +13993,6 @@ abstract class AppL10n {
   /// **'Update the access list to allow replies.'**
   String get updateTheAccessListToAllow;
 
-  /// No description provided for @updateTheServer.
-  ///
-  /// In en, this message translates to:
-  /// **'Update the server?'**
-  String get updateTheServer;
-
   /// No description provided for @updateTheServer2.
   ///
   /// In en, this message translates to:
@@ -14094,12 +14022,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Updates are not configured for this build.'**
   String get updatesAreNotConfiguredForThis;
-
-  /// No description provided for @updatesSoSelfUpdateAndChannel.
-  ///
-  /// In en, this message translates to:
-  /// **'updates, so self-update and channel changes are off here.'**
-  String get updatesSoSelfUpdateAndChannel;
 
   /// No description provided for @upgradeUpdateNowReleaseChannelStable.
   ///
@@ -15709,12 +15631,6 @@ abstract class AppL10n {
   /// **'In progress'**
   String get inProgress;
 
-  /// No description provided for @waitingForUpdateJobOutput.
-  ///
-  /// In en, this message translates to:
-  /// **'Waiting for update job output…'**
-  String get waitingForUpdateJobOutput;
-
   /// No description provided for @taskTrigger.
   ///
   /// In en, this message translates to:
@@ -16026,12 +15942,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Changes'**
   String get changes;
-
-  /// No description provided for @runtimeReady.
-  ///
-  /// In en, this message translates to:
-  /// **'Runtime ready'**
-  String get runtimeReady;
 
   /// No description provided for @saving.
   ///
@@ -16398,12 +16308,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'{arg1} (default)'**
   String arg1Default2(Object? arg1);
-
-  /// No description provided for @branchArg1.
-  ///
-  /// In en, this message translates to:
-  /// **' | Branch: {arg1}'**
-  String branchArg1(Object? arg1);
 
   /// No description provided for @arg1OnlyJoinsTheGroupsAndChannels.
   ///
@@ -20652,6 +20556,150 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'{platforms} uses this server\'s shared account, so results can only go to your own chat there.'**
   String taskDeliverySharedDetail(Object? platforms);
+
+  /// No description provided for @adminUpdatesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent updates itself from GitHub. Your chats, settings and accounts are kept.'**
+  String get adminUpdatesHint;
+
+  /// No description provided for @adminUpdateChannelHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Stable follows main. Beta gets new features first.'**
+  String get adminUpdateChannelHint;
+
+  /// No description provided for @adminUpdateCheckNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Check now'**
+  String get adminUpdateCheckNow;
+
+  /// No description provided for @adminUpdateNeverChecked.
+  ///
+  /// In en, this message translates to:
+  /// **'Not checked yet'**
+  String get adminUpdateNeverChecked;
+
+  /// No description provided for @adminUpdateCheckedAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'Checked {time}'**
+  String adminUpdateCheckedAgo(String time);
+
+  /// No description provided for @adminUpdateUpToDate.
+  ///
+  /// In en, this message translates to:
+  /// **'You have the latest version'**
+  String get adminUpdateUpToDate;
+
+  /// No description provided for @adminUpdateCheckFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t reach GitHub. Showing the last result.'**
+  String get adminUpdateCheckFailed;
+
+  /// No description provided for @adminUpdateContainerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent runs from a container image. Update the image instead of the code inside it, from the Docker host in the folder with your Compose file. The data volume is kept.'**
+  String get adminUpdateContainerHint;
+
+  /// No description provided for @adminUpdateManagedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'This is a managed deployment. Updates are handled by whoever runs it.'**
+  String get adminUpdateManagedHint;
+
+  /// No description provided for @adminUpdateNotGitHint.
+  ///
+  /// In en, this message translates to:
+  /// **'This install did not come from Git, so it cannot update itself. Run neoagent update in a terminal.'**
+  String get adminUpdateNotGitHint;
+
+  /// No description provided for @adminUpdateDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Details of the last update'**
+  String get adminUpdateDetails;
+
+  /// No description provided for @adminUpdateReadyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version} is ready'**
+  String adminUpdateReadyTitle(String version);
+
+  /// No description provided for @adminUpdateReadySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You have {current} · {channel} channel'**
+  String adminUpdateReadySubtitle(String current, String channel);
+
+  /// No description provided for @adminUpdateWhatsNew.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s new'**
+  String get adminUpdateWhatsNew;
+
+  /// No description provided for @adminUpdateConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update to {version}?'**
+  String adminUpdateConfirmTitle(String version);
+
+  /// No description provided for @adminUpdateConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent saves a backup, installs the new version and restarts. This takes a few minutes. If anything fails, it goes back to the current version.'**
+  String get adminUpdateConfirmMessage;
+
+  /// No description provided for @adminUpdatingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Updating NeoAgent'**
+  String get adminUpdatingTitle;
+
+  /// No description provided for @adminUpdatingToTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Updating to {version}'**
+  String adminUpdatingToTitle(String version);
+
+  /// No description provided for @adminUpdateReconnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Restarting NeoAgent…'**
+  String get adminUpdateReconnecting;
+
+  /// No description provided for @adminUpdateHandsOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing to do here. This page reconnects by itself when NeoAgent is back.'**
+  String get adminUpdateHandsOff;
+
+  /// No description provided for @adminUpdateDoneTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated to {version}'**
+  String adminUpdateDoneTitle(String version);
+
+  /// No description provided for @adminUpdateDoneReloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Reloading the app to load the new version…'**
+  String get adminUpdateDoneReloading;
+
+  /// No description provided for @adminUpdateReload.
+  ///
+  /// In en, this message translates to:
+  /// **'Reload'**
+  String get adminUpdateReload;
+
+  /// No description provided for @adminUpdateFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The update did not finish'**
+  String get adminUpdateFailedTitle;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

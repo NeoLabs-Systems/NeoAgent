@@ -31,7 +31,7 @@ function getServerVersion() {
     deploymentMode: version.deploymentMode,
     allowSelfUpdate: version.allowSelfUpdate,
     containerImage: version.containerImage,
-    updateStatus: status,
+    updateStatus: { state: status.state, phase: status.phase, message: status.message },
     uptime: process.uptime(),
     nodeVersion: process.version,
     environment: Object.fromEntries(ENVIRONMENT_KEYS.map((key) => [key, process.env[key] || ''])),

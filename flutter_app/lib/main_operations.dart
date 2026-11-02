@@ -176,17 +176,13 @@ class _LogsPanelState extends State<LogsPanel> {
         'gitBranch': versionInfo?['gitBranch'],
         'gitSha': versionInfo?['gitSha'],
         'deploymentMode':
-            versionInfo?['deploymentMode'] ??
-            controller.updateStatus.deploymentMode,
+            versionInfo?['deploymentMode'],
         'allowSelfUpdate':
-            versionInfo?['allowSelfUpdate'] ??
-            controller.updateStatus.allowSelfUpdate,
+            versionInfo?['allowSelfUpdate'],
         'releaseChannel':
-            versionInfo?['releaseChannel'] ??
-            controller.updateStatus.releaseChannel,
+            versionInfo?['releaseChannel'],
         'targetBranch':
-            versionInfo?['targetBranch'] ??
-            controller.updateStatus.targetBranch,
+            versionInfo?['targetBranch'],
       },
       'ai': <String, dynamic>{
         'defaultChatModel': controller.defaultChatModel,
@@ -228,23 +224,6 @@ class _LogsPanelState extends State<LogsPanel> {
                     controller.activeRun!.pendingSteeringCount,
                 'triggerSource': controller.activeRun!.triggerSource,
               },
-      },
-      'updateStatus': <String, dynamic>{
-        'state': controller.updateStatus.state,
-        'progress': controller.updateStatus.progress,
-        'message': controller.updateStatus.message,
-        'versionBefore': controller.updateStatus.versionBefore,
-        'versionAfter': controller.updateStatus.versionAfter,
-        'installedVersion': controller.updateStatus.installedVersion,
-        'backendVersion': controller.updateStatus.backendVersion,
-        'runtimeValidationReady':
-            controller.updateStatus.runtimeValidationReady,
-        'runtimeValidationIssues':
-            controller.updateStatus.runtimeValidationIssues,
-        'releaseChannel': controller.updateStatus.releaseChannel,
-        'targetBranch': controller.updateStatus.targetBranch,
-        'changelog': controller.updateStatus.changelog,
-        'updateLogs': controller.updateStatus.logs,
       },
       'health': <String, dynamic>{
         'status': backendStatus?['status'],

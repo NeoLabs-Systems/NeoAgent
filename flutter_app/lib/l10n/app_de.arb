@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Einrichtungsmodus ändern",
   "channel": "Kanal",
   "channelAccessToken": "Kanal-Zugriffstoken",
-  "channelArg1Arg2UpdateVersionArg3": "Kanal: {arg1}{arg2} | Update-Version: {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Kanalbezogenes soziales Gedächtnis",
   "channels": "Kanäle",
   "chat": "Chat",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "APK installieren — klicken oder .apk-Datei ablegen",
   "installNeoagent": "NeoAgent installieren",
   "installNeoagentOnThisComputerWithout": "Installieren Sie NeoAgent auf diesem Computer ohne Terminal, oder verbinden Sie sich mit einer bereits laufenden Instanz.",
-  "installNewReleasesAndChooseWhich": "Installieren Sie neue Versionen und wählen Sie, welchen Kanal dieser Server folgt.",
   "installTheBackend": "Backend installieren",
   "installTheCoreWithExtraOptional": "Installieren Sie den Kern mit zusätzlicher optionaler Einrichtung. KI-Anbieterschlüssel werden danach hinzugefügt, wie beim Schnellstart.",
   "installTheSecureCoreThenCreate": "Installieren Sie den sicheren Kern und erstellen Sie anschließend Ihr Konto. KI-Anbieterschlüssel fügen Sie danach hinzu.",
-  "installedArg1": " | Installiert: {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Installiert: {arg1} • Zuletzt geprüft: {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "NeoAgent-Debug-Info",
   "neoagentDesktopInstaller": "NeoAgent-Desktop-Installer",
   "neoagentFlutterUpdater": "NeoAgent Flutter Updater",
-  "neoagentInstallsTheLatestArg1": "NeoAgent installiert die neueste {arg1} ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "NeoAgent ist installiert und läuft.",
   "neoagentIsNotInstalledOnThis": "NeoAgent ist auf diesem Computer nicht installiert.",
   "neoagentIsReady": "NeoAgent ist bereit",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "Kein Update läuft",
   "noUsageYet": "Noch keine Nutzung.",
   "noVerifiedNeoagentBackendRuntimeIs": "Es ist noch keine verifizierte NeoAgent-Backend-Laufzeit verfügbar.",
   "nobodyCanUseItAnyMore": "Niemand kann ihn mehr nutzen. Personen, die bereits beigetreten sind, ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "Registrierung ist geschlossen",
   "registrationRegisterNewAccountsAllowSignup": "registrierung registrieren neue konten signup erlauben",
   "rejectInvalidTlsCertificates": "Ungültige TLS-Zertifikate ablehnen",
-  "releaseAndRestartsConnectedAppsReconnect": "Version und startet neu. Verbundene Apps verbinden sich wieder, sobald er zurück ist.",
   "releaseChannel": "Release-Kanal",
   "releaseCommitBranchNode": "release commit branch node",
   "releaseWhenYouAreDone": "Loslassen, wenn Sie fertig sind.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Laufzeit: {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Runtime-Einstellungen, mit denen dieser Server gestartet wurde. Bearbeiten Sie sie unter ",
-  "runtimeSetupRequired": "Laufzeitumgebung muss eingerichtet werden",
   "runtimeSigningPublicKeyMustBe": "Der öffentliche Schlüssel zur Laufzeitsignierung muss 32 Bytes lang sein.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "Speichern",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "Diese Integration unterstützt derzeit ein verbundenes Konto pro Agent. Öffnen Sie die Einrichtung erneut, um es zu ersetzen.",
   "thisIntegrationIsNoLongerAvailable": "Diese Integration ist nicht mehr verfügbar.",
   "thisIntroIsDesignedForFull": "Diese Einführung ist für die Vollbildwiedergabe im Querformat gedacht.",
-  "thisIsAManagedDeploymentIts": "Dies ist ein verwaltetes Deployment. Der Betreiber rollt ",
   "thisMayTakeAMoment": "Das kann einen Moment dauern.",
   "thisMcpServerIsNoLonger": "Dieser MCP-Server ist nicht mehr konfiguriert.",
   "thisMemoryWillBeRemovedPermanently": "Diese Erinnerung wird dauerhaft entfernt.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Update bereit",
   "updateSetup": "Einrichtung aktualisieren",
   "updateTheAccessListToAllow": "Aktualisieren Sie die Zugriffsliste, um Antworten zu erlauben.",
-  "updateTheServer": "Server aktualisieren?",
   "updateTheServer2": "Server aktualisieren",
   "updateTheTimeZoneAutomaticallyFrom": "Zeitzone automatisch vom verwendeten Gerät übernehmen.",
   "updatedArg1": "aktualisiert {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Aktualisierungen",
   "updatesAreNotConfiguredForThis": "Updates sind für diesen Build nicht konfiguriert.",
-  "updatesSoSelfUpdateAndChannel": "Updates aus, daher sind Selbstaktualisierung und Kanalwechsel hier deaktiviert.",
   "upgradeUpdateNowReleaseChannelStable": "upgrade update jetzt release kanal stable beta",
   "usageAnalytics": "Nutzungsanalysen",
   "usageAndHealthSignalsThatHelp": "Nutzungs- und Gesundheitssignale, die das aktuelle Laufzeitverhalten erklären, ohne zuerst die Logs durchsuchen zu müssen.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Nimmt an Gruppengesprächen teil",
   "label1PersonOrGroupAdded": "1 Person oder Gruppe hinzugefügt",
   "inProgress": "In Bearbeitung",
-  "waitingForUpdateJobOutput": "Warten auf die Ausgabe des Update-Auftrags…",
   "taskTrigger": "Aufgabenauslöser",
   "bearerToken": "Bearer-Token",
   "bearerToken2": "Bearer-Token",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "Der Sicherheitsschlüssel konnte nicht verwendet werden.",
   "connecting": "Verbindung wird hergestellt…",
   "changes": "Änderungen",
-  "runtimeReady": "Laufzeit bereit",
   "saving": "Wird gespeichert…",
   "earlier": "Früher",
   "monthJan": "Jan",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (Standard)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Zweig: {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"
@@ -7373,5 +7301,29 @@
   "taskDeliveryBlockedBadge": "Keine Zustellung",
   "taskDeliveryBlockedDetail": "Dieses Ziel ist über das geteilte Konto nicht erreichbar, daher kommen keine Ergebnisse an. Wählen Sie Ihren eigenen Chat oder den Standardkanal.",
   "taskDeliverySharedTitle": "Geteilte Konten erreichen nur Sie",
-  "taskDeliverySharedDetail": "{platforms} nutzt das geteilte Konto dieses Servers, daher können Ergebnisse dort nur an Ihren eigenen Chat gehen."
+  "taskDeliverySharedDetail": "{platforms} nutzt das geteilte Konto dieses Servers, daher können Ergebnisse dort nur an Ihren eigenen Chat gehen.",
+  "adminUpdatesHint": "NeoAgent aktualisiert sich selbst von GitHub. Chats, Einstellungen und Konten bleiben erhalten.",
+  "adminUpdateChannelHint": "Stabil folgt main. Beta bekommt neue Funktionen zuerst.",
+  "adminUpdateCheckNow": "Jetzt prüfen",
+  "adminUpdateNeverChecked": "Noch nicht geprüft",
+  "adminUpdateCheckedAgo": "Geprüft {time}",
+  "adminUpdateUpToDate": "Du hast die neueste Version",
+  "adminUpdateCheckFailed": "GitHub ist nicht erreichbar. Das letzte Ergebnis wird angezeigt.",
+  "adminUpdateContainerHint": "NeoAgent läuft als Container-Image. Aktualisiere das Image statt des Codes darin, auf dem Docker-Host im Ordner mit deiner Compose-Datei. Das Daten-Volume bleibt erhalten.",
+  "adminUpdateManagedHint": "Dies ist ein verwaltetes Deployment. Updates übernimmt der Betreiber.",
+  "adminUpdateNotGitHint": "Diese Installation stammt nicht aus Git und kann sich nicht selbst aktualisieren. Führe neoagent update im Terminal aus.",
+  "adminUpdateDetails": "Details des letzten Updates",
+  "adminUpdateReadyTitle": "Version {version} ist bereit",
+  "adminUpdateReadySubtitle": "Du hast {current} · Kanal {channel}",
+  "adminUpdateWhatsNew": "Neuigkeiten",
+  "adminUpdateConfirmTitle": "Auf {version} aktualisieren?",
+  "adminUpdateConfirmMessage": "NeoAgent sichert deine Daten, installiert die neue Version und startet neu. Das dauert ein paar Minuten. Schlägt etwas fehl, kehrt es zur aktuellen Version zurück.",
+  "adminUpdatingTitle": "NeoAgent wird aktualisiert",
+  "adminUpdatingToTitle": "Aktualisiere auf {version}",
+  "adminUpdateReconnecting": "NeoAgent startet neu …",
+  "adminUpdateHandsOff": "Du musst nichts tun. Diese Seite verbindet sich von selbst wieder, sobald NeoAgent zurück ist.",
+  "adminUpdateDoneTitle": "Auf {version} aktualisiert",
+  "adminUpdateDoneReloading": "Die App wird neu geladen, um die neue Version zu laden …",
+  "adminUpdateReload": "Neu laden",
+  "adminUpdateFailedTitle": "Das Update wurde nicht abgeschlossen"
 }

@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Promjena načina postavljanja",
   "channel": "kanal",
   "channelAccessToken": "Token za pristup kanalu",
-  "channelArg1Arg2UpdateVersionArg3": "Kanal: {arg1}{arg2} | Ažuriranje verzije: {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Društveno pamćenje s opsegom kanala",
   "channels": "Kanali",
   "chat": "Razgovarajte",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "Instalirajte APK — kliknite ili ispustite .apk datoteku",
   "installNeoagent": "Instalirajte NeoAgent",
   "installNeoagentOnThisComputerWithout": "Instalirajte NeoAgent na ovo računalo bez terminala ili se povežite s onim koji je već pokrenut.",
-  "installNewReleasesAndChooseWhich": "Instalirajte nova izdanja i odaberite koji kanal ovaj poslužitelj prati.",
   "installTheBackend": "Instalirajte pozadinu",
   "installTheCoreWithExtraOptional": "Instalirajte jezgru s dodatnim opcijskim postavkama. Ključevi pružatelja AI dodaju se naknadno, isto kao i Quickstart.",
   "installTheSecureCoreThenCreate": "Instalirajte sigurnu jezgru, a zatim kreirajte svoj račun. Nakon toga dodajte ključeve dobavljača umjetne inteligencije.",
-  "installedArg1": " | Instalirano: {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Instalirano: {arg1} • Zadnja provjera: {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "NeoAgent informacije o otklanjanju pogrešaka",
   "neoagentDesktopInstaller": "NeoAgent Desktop Installer",
   "neoagentFlutterUpdater": "NeoAgent Flutter Updater",
-  "neoagentInstallsTheLatestArg1": "NeoAgent instalira najnoviji {arg1} ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "NeoAgent je instaliran i radi.",
   "neoagentIsNotInstalledOnThis": "NeoAgent nije instaliran na ovom računalu.",
   "neoagentIsReady": "NeoAgent je spreman",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "Nema ažuriranja u tijeku",
   "noUsageYet": "Još se ne koristi.",
   "noVerifiedNeoagentBackendRuntimeIs": "Još nije dostupno nijedno potvrđeno NeoAgent pozadinsko vrijeme izvođenja.",
   "nobodyCanUseItAnyMore": "Nitko ga više ne može koristiti. Ljudi koji su se već pridružili ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "registracija je zatvorena",
   "registrationRegisterNewAccountsAllowSignup": "registracija registrirati nove račune omogućiti prijavu",
   "rejectInvalidTlsCertificates": "Odbaci nevažeće TLS certifikate",
-  "releaseAndRestartsConnectedAppsReconnect": "otpustite i ponovno pokrenite. Povezane aplikacije ponovno se povezuju kada se vrati.",
   "releaseChannel": "Oslobodi kanal",
   "releaseCommitBranchNode": "otpuštanje čvora grane predaje",
   "releaseWhenYouAreDone": "Otpustite kad završite.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Vrijeme izvođenja: {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Postavke vremena izvođenja s kojima je ovaj poslužitelj započeo. Uredite ih pod ",
-  "runtimeSetupRequired": "Potrebna je postavka vremena izvođenja",
   "runtimeSigningPublicKeyMustBe": "Javni ključ za potpisivanje vremena izvođenja mora imati 32 bajta.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "spremiti",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "Ova integracija trenutno podržava jedan povezani račun po agentu. Ponovno otvorite postavku da biste je zamijenili.",
   "thisIntegrationIsNoLongerAvailable": "Ova integracija više nije dostupna.",
   "thisIntroIsDesignedForFull": "Ovaj uvod je dizajniran za pejzažnu reprodukciju preko cijelog zaslona.",
-  "thisIsAManagedDeploymentIts": "Ovo je upravljana implementacija. Njegov operater se izbacuje ",
   "thisMayTakeAMoment": "Ovo može potrajati trenutak.",
   "thisMcpServerIsNoLonger": "Ovaj MCP poslužitelj više nije konfiguriran.",
   "thisMemoryWillBeRemovedPermanently": "Ova memorija će biti trajno uklonjena.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Ažuriranje spremno",
   "updateSetup": "Ažuriranje postavki",
   "updateTheAccessListToAllow": "Ažurirajte popis pristupa kako biste omogućili odgovore.",
-  "updateTheServer": "Ažurirati poslužitelj?",
   "updateTheServer2": "Ažurirajte poslužitelj",
   "updateTheTimeZoneAutomaticallyFrom": "Automatski ažurirajte vremensku zonu s uređaja koji koristite.",
   "updatedArg1": "ažurirano {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Ažuriranja",
   "updatesAreNotConfiguredForThis": "Ažuriranja nisu konfigurirana za ovu verziju.",
-  "updatesSoSelfUpdateAndChannel": "ažuriranja, tako da su samoažuriranje i promjene kanala ovdje isključeni.",
   "upgradeUpdateNowReleaseChannelStable": "nadogradite ažuriranje sada objavite stabilnu beta verziju kanala",
   "usageAnalytics": "Analitika korištenja",
   "usageAndHealthSignalsThatHelp": "Signali upotrebe i zdravlja koji pomažu objasniti trenutno ponašanje u vremenu izvođenja bez prethodnog kopanja po zapisnicima.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Pridružuje se grupnim razgovorima",
   "label1PersonOrGroupAdded": "Dodana je 1 osoba ili grupa",
   "inProgress": "U tijeku",
-  "waitingForUpdateJobOutput": "Čeka se izlaz zadatka ažuriranja…",
   "taskTrigger": "Okidač zadatka",
   "bearerToken": "Token na nositelja",
   "bearerToken2": "Token nositelja",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "Sigurnosni ključ nije moguće upotrijebiti.",
   "connecting": "Povezivanje…",
   "changes": "Promjene",
-  "runtimeReady": "Runtime spreman",
   "saving": "Spremanje...",
   "earlier": "Ranije",
   "monthJan": "siječanj",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (default)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Grana: {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"

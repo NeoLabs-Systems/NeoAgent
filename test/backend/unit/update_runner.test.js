@@ -15,10 +15,9 @@ async function run(cmdUpdate) {
     require(name) {
       if (name === '../manager') return { cmdUpdate };
       if (name.endsWith('/release_channel')) return { readConfiguredReleaseChannel: () => 'stable' };
-      if (name.endsWith('/logger')) return { formatLogArgs: (args) => args.join(' ') };
       if (name.endsWith('/update_status')) return {
-        readUpdateStatus: () => status,
-        writeUpdateStatusFile: (patch) => { status = { ...status, ...patch }; },
+        writeUpdateStatus: (patch) => { status = { ...status, ...patch }; },
+        appendUpdateLog: (message) => { status = { ...status, logs: [...status.logs, message] }; },
       };
       throw new Error(`Unexpected module: ${name}`);
     },
@@ -46,11 +45,11 @@ test('admin runner delegates to the CLI updater and persists progress, changes a
 test('a failed update retains rollback diagnostics and never reports completion', async () => {
   const result = await run(async (args, { onProgress }) => {
     onProgress({ progress: 85, phase: 'rollback', message: 'Restoring the previous version' });
-    throw new Error('Health check failed. The previous version is running again.');
+    throw Object.assign(new Error('Health check failed. The previous version is running again.'), { code: 'UPDATE_ROLLED_BACK' });
   });
   assert.equal(result.exitCode, 1);
   assert.equal(result.status.state, 'failed');
-  assert.equal(result.status.progress, 85);
+  assert.equal(result.status.rolledBack, true);
   assert.equal(result.status.runnerPid, null);
   assert.match(result.status.message, /previous version is running again/);
   assert.equal(result.status.logs.length, 1);

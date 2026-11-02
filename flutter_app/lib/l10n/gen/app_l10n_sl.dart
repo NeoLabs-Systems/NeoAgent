@@ -875,11 +875,6 @@ class AppL10nSl extends AppL10n {
   }
 
   @override
-  String arg1Arg211(Object? arg1, Object? arg2) {
-    return '$arg1 -> $arg2';
-  }
-
-  @override
   String arg1Arg215(Object? arg1, Object? arg2) {
     return '$arg1 $arg2 * * 1-5';
   }
@@ -1933,17 +1928,6 @@ class AppL10nSl extends AppL10n {
 
   @override
   String get channelAccessToken => 'Žeton za dostop do kanala';
-
-  @override
-  String channelArg1Arg2UpdateVersionArg3(
-    Object? arg1,
-    Object? arg2,
-    Object? arg3,
-    Object? arg4,
-    Object? arg5,
-  ) {
-    return 'Kanal: $arg1$arg2 | Različica posodobitve: $arg3$arg4$arg5';
-  }
 
   @override
   String get channelScopedSocialMemory => 'Socialni spomin v obsegu kanala';
@@ -4037,10 +4021,6 @@ class AppL10nSl extends AppL10n {
       'Namestite NeoAgent na ta računalnik brez terminala ali se povežite s tistim, ki že deluje.';
 
   @override
-  String get installNewReleasesAndChooseWhich =>
-      'Namestite nove izdaje in izberite, kateremu kanalu sledi ta strežnik.';
-
-  @override
   String get installTheBackend => 'Namestite zaledje';
 
   @override
@@ -4050,11 +4030,6 @@ class AppL10nSl extends AppL10n {
   @override
   String get installTheSecureCoreThenCreate =>
       'Namestite varno jedro in nato ustvarite svoj račun. Nato dodajte ključe ponudnika AI.';
-
-  @override
-  String installedArg1(Object? arg1) {
-    return ' | Nameščeno: $arg1';
-  }
 
   @override
   String installedArg1LastCheckedArg2(Object? arg1, Object? arg2) {
@@ -4940,11 +4915,6 @@ class AppL10nSl extends AppL10n {
   String get neoagentFlutterUpdater => 'NeoAgent Flutter Updater';
 
   @override
-  String neoagentInstallsTheLatestArg1(Object? arg1) {
-    return 'NeoAgent namesti najnovejši $arg1 ';
-  }
-
-  @override
   String get neoagentIsInstalledAndRunning => 'NeoAgent je nameščen in deluje.';
 
   @override
@@ -5397,9 +5367,6 @@ class AppL10nSl extends AppL10n {
   String noToolMatchesArg1(Object? arg1) {
     return 'Nobeno orodje se ne ujema z \"$arg1\".';
   }
-
-  @override
-  String get noUpdateRunning => 'Posodobitev se ne izvaja';
 
   @override
   String get noUsageYet => 'Še brez uporabe.';
@@ -6251,10 +6218,6 @@ class AppL10nSl extends AppL10n {
   String get rejectInvalidTlsCertificates => 'Zavrni neveljavna potrdila TLS';
 
   @override
-  String get releaseAndRestartsConnectedAppsReconnect =>
-      'sprostite in znova zaženite. Povezane aplikacije se znova povežejo, ko se vrne.';
-
-  @override
   String get releaseChannel => 'Izpusti kanal';
 
   @override
@@ -6623,17 +6586,8 @@ class AppL10nSl extends AppL10n {
   }
 
   @override
-  String runtimeArg12(Object? arg1) {
-    return ' | Čas izvajanja: $arg1';
-  }
-
-  @override
   String get runtimeSettingsThisServerStartedWith =>
       'Nastavitve izvajalnega časa, s katerimi se je ta strežnik začel. Uredite jih pod ';
-
-  @override
-  String get runtimeSetupRequired =>
-      'Potrebna je nastavitev izvajalnega okolja';
 
   @override
   String get runtimeSigningPublicKeyMustBe =>
@@ -7956,10 +7910,6 @@ class AppL10nSl extends AppL10n {
       'Ta uvod je zasnovan za celozaslonsko ležeče predvajanje.';
 
   @override
-  String get thisIsAManagedDeploymentIts =>
-      'To je upravljana uvedba. Njegov operater se izvije ';
-
-  @override
   String get thisMayTakeAMoment => 'To lahko traja nekaj trenutkov.';
 
   @override
@@ -8453,9 +8403,6 @@ class AppL10nSl extends AppL10n {
       'Posodobite seznam dostopov, da omogočite odgovore.';
 
   @override
-  String get updateTheServer => 'Posodobiti strežnik?';
-
-  @override
   String get updateTheServer2 => 'Posodobite strežnik';
 
   @override
@@ -8473,10 +8420,6 @@ class AppL10nSl extends AppL10n {
   @override
   String get updatesAreNotConfiguredForThis =>
       'Posodobitve niso konfigurirane za to zgradbo.';
-
-  @override
-  String get updatesSoSelfUpdateAndChannel =>
-      'posodobitve, tako da samoposodabljanje in spreminjanje kanalov tukaj ni.';
 
   @override
   String get upgradeUpdateNowReleaseChannelStable =>
@@ -9422,10 +9365,6 @@ class AppL10nSl extends AppL10n {
   String get inProgress => 'V teku';
 
   @override
-  String get waitingForUpdateJobOutput =>
-      'Čakanje na izpis opravila posodobitve ...';
-
-  @override
   String get taskTrigger => 'Sprožilec opravila';
 
   @override
@@ -9594,9 +9533,6 @@ class AppL10nSl extends AppL10n {
 
   @override
   String get changes => 'Spremembe';
-
-  @override
-  String get runtimeReady => 'Runtime pripravljen';
 
   @override
   String get saving => 'Shranjevanje ...';
@@ -9871,11 +9807,6 @@ class AppL10nSl extends AppL10n {
   @override
   String arg1Default2(Object? arg1) {
     return '$arg1 (privzeto)';
-  }
-
-  @override
-  String branchArg1(Object? arg1) {
-    return ' | Podružnica: $arg1';
   }
 
   @override
@@ -12437,4 +12368,97 @@ class AppL10nSl extends AppL10n {
   String taskDeliverySharedDetail(Object? platforms) {
     return '$platforms uses this server\'s shared account, so results can only go to your own chat there.';
   }
+
+  @override
+  String get adminUpdatesHint =>
+      'NeoAgent updates itself from GitHub. Your chats, settings and accounts are kept.';
+
+  @override
+  String get adminUpdateChannelHint =>
+      'Stable follows main. Beta gets new features first.';
+
+  @override
+  String get adminUpdateCheckNow => 'Check now';
+
+  @override
+  String get adminUpdateNeverChecked => 'Not checked yet';
+
+  @override
+  String adminUpdateCheckedAgo(String time) {
+    return 'Checked $time';
+  }
+
+  @override
+  String get adminUpdateUpToDate => 'You have the latest version';
+
+  @override
+  String get adminUpdateCheckFailed =>
+      'Couldn\'t reach GitHub. Showing the last result.';
+
+  @override
+  String get adminUpdateContainerHint =>
+      'NeoAgent runs from a container image. Update the image instead of the code inside it, from the Docker host in the folder with your Compose file. The data volume is kept.';
+
+  @override
+  String get adminUpdateManagedHint =>
+      'This is a managed deployment. Updates are handled by whoever runs it.';
+
+  @override
+  String get adminUpdateNotGitHint =>
+      'This install did not come from Git, so it cannot update itself. Run neoagent update in a terminal.';
+
+  @override
+  String get adminUpdateDetails => 'Details of the last update';
+
+  @override
+  String adminUpdateReadyTitle(String version) {
+    return 'Version $version is ready';
+  }
+
+  @override
+  String adminUpdateReadySubtitle(String current, String channel) {
+    return 'You have $current · $channel channel';
+  }
+
+  @override
+  String get adminUpdateWhatsNew => 'What\'s new';
+
+  @override
+  String adminUpdateConfirmTitle(String version) {
+    return 'Update to $version?';
+  }
+
+  @override
+  String get adminUpdateConfirmMessage =>
+      'NeoAgent saves a backup, installs the new version and restarts. This takes a few minutes. If anything fails, it goes back to the current version.';
+
+  @override
+  String get adminUpdatingTitle => 'Updating NeoAgent';
+
+  @override
+  String adminUpdatingToTitle(String version) {
+    return 'Updating to $version';
+  }
+
+  @override
+  String get adminUpdateReconnecting => 'Restarting NeoAgent…';
+
+  @override
+  String get adminUpdateHandsOff =>
+      'Nothing to do here. This page reconnects by itself when NeoAgent is back.';
+
+  @override
+  String adminUpdateDoneTitle(String version) {
+    return 'Updated to $version';
+  }
+
+  @override
+  String get adminUpdateDoneReloading =>
+      'Reloading the app to load the new version…';
+
+  @override
+  String get adminUpdateReload => 'Reload';
+
+  @override
+  String get adminUpdateFailedTitle => 'The update did not finish';
 }

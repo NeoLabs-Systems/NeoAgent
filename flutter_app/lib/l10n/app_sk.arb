@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Zmeňte režim nastavenia",
   "channel": "kanál",
   "channelAccessToken": "Token prístupu ku kanálu",
-  "channelArg1Arg2UpdateVersionArg3": "Kanál: {arg1}{arg2} | Aktualizovaná verzia: {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Sociálna pamäť v rámci kanála",
   "channels": "Kanály",
   "chat": "Chat",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "Inštalovať súbor APK – kliknite alebo pustite súbor .apk",
   "installNeoagent": "Nainštalujte NeoAgent",
   "installNeoagentOnThisComputerWithout": "Nainštalujte NeoAgent na tento počítač bez terminálu alebo sa pripojte k už spustenému.",
-  "installNewReleasesAndChooseWhich": "Nainštalujte nové vydania a vyberte kanál, ktorý tento server sleduje.",
   "installTheBackend": "Nainštalujte backend",
   "installTheCoreWithExtraOptional": "Nainštalujte jadro s dodatočným voliteľným nastavením. Kľúče poskytovateľa AI sa pridajú neskôr, rovnako ako Quickstart.",
   "installTheSecureCoreThenCreate": "Nainštalujte zabezpečené jadro a potom si vytvorte účet. Potom pridajte kľúče poskytovateľa AI.",
-  "installedArg1": " | Nainštalované: {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Nainštalované: {arg1} • Posledná kontrola: {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "Informácie o ladení NeoAgent",
   "neoagentDesktopInstaller": "NeoAgent Desktop Installer",
   "neoagentFlutterUpdater": "NeoAgent Flutter Updater",
-  "neoagentInstallsTheLatestArg1": "NeoAgent nainštaluje najnovšiu verziu {arg1} ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "NeoAgent je nainštalovaný a spustený.",
   "neoagentIsNotInstalledOnThis": "NeoAgent nie je nainštalovaný na tomto počítači.",
   "neoagentIsReady": "NeoAgent je pripravený",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "Nie je spustená žiadna aktualizácia",
   "noUsageYet": "Zatiaľ bez použitia.",
   "noVerifiedNeoagentBackendRuntimeIs": "Zatiaľ nie je k dispozícii žiadny overený backendový modul NeoAgent.",
   "nobodyCanUseItAnyMore": "Nikto ho už nemôže používať. Ľudia, ktorí sa už pripojili ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "registrácia je uzavretá",
   "registrationRegisterNewAccountsAllowSignup": "registrácia registrovať nové účty umožňujú registráciu",
   "rejectInvalidTlsCertificates": "Odmietnuť neplatné certifikáty TLS",
-  "releaseAndRestartsConnectedAppsReconnect": "uvoľnite a reštartujte. Pripojené aplikácie sa znova pripoja, keď budú späť.",
   "releaseChannel": "Uvoľnite kanál",
   "releaseCommitBranchNode": "uvoľniť uzol vetvy odovzdania",
   "releaseWhenYouAreDone": "Po dokončení uvoľnite.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Doba chodu: {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Nastavenia runtime s ktorými tento server začal. Upravte ich pod ",
-  "runtimeSetupRequired": "Vyžaduje sa nastavenie runtime",
   "runtimeSigningPublicKeyMustBe": "Verejný kľúč na podpisovanie runtime musí mať 32 bajtov.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "Uložiť",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "Táto integrácia momentálne podporuje jeden pripojený účet na agenta. Znova otvorte nastavenie, aby ste ho nahradili.",
   "thisIntegrationIsNoLongerAvailable": "Táto integrácia už nie je k dispozícii.",
   "thisIntroIsDesignedForFull": "Tento úvod je určený na prehrávanie na šírku na celej obrazovke.",
-  "thisIsAManagedDeploymentIts": "Toto je riadené nasadenie. Jeho operátor sa rozbehne ",
   "thisMayTakeAMoment": "Môže to chvíľu trvať.",
   "thisMcpServerIsNoLonger": "Tento server MCP už nie je nakonfigurovaný.",
   "thisMemoryWillBeRemovedPermanently": "Táto pamäť bude natrvalo odstránená.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Aktualizácia pripravená",
   "updateSetup": "Nastavenie aktualizácie",
   "updateTheAccessListToAllow": "Aktualizujte zoznam prístupových práv, aby ste povolili odpovede.",
-  "updateTheServer": "Aktualizovať server?",
   "updateTheServer2": "Aktualizujte server",
   "updateTheTimeZoneAutomaticallyFrom": "Aktualizujte časové pásmo automaticky zo zariadenia, ktoré používate.",
   "updatedArg1": "aktualizované {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Aktualizácie",
   "updatesAreNotConfiguredForThis": "Aktualizácie nie sú pre túto zostavu nakonfigurované.",
-  "updatesSoSelfUpdateAndChannel": "aktualizácie, takže samoaktualizácia a zmeny kanála sú tu vypnuté.",
   "upgradeUpdateNowReleaseChannelStable": "aktualizácia aktualizácie teraz vydáva stabilnú beta verziu kanála",
   "usageAnalytics": "Analytika používania",
   "usageAndHealthSignalsThatHelp": "Signály používania a stavu, ktoré pomáhajú vysvetliť aktuálne správanie pri spustení bez toho, aby ste sa museli najprv prehrabávať v protokoloch.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Pripojí sa ku skupinovým konverzáciám",
   "label1PersonOrGroupAdded": "Bola pridaná 1 osoba alebo skupina",
   "inProgress": "Prebieha",
-  "waitingForUpdateJobOutput": "Čaká sa na výstup aktualizačnej úlohy…",
   "taskTrigger": "Spúšťač úlohy",
   "bearerToken": "Token na doručiteľa",
   "bearerToken2": "Token na doručiteľa",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "Bezpečnostný kľúč nebolo možné použiť.",
   "connecting": "Pripája sa…",
   "changes": "Zmeny",
-  "runtimeReady": "Runtime pripravený",
   "saving": "Ukladá sa...",
   "earlier": "Skôr",
   "monthJan": "Jan",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (predvolené)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Pobočka: {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"

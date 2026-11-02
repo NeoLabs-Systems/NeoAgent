@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Change setup mode",
   "channel": "Канал",
   "channelAccessToken": "Токен за достъп до канал",
-  "channelArg1Arg2UpdateVersionArg3": "Channel: {arg1}{arg2} | Update Version: {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Channel-scoped social memory",
   "channels": "Канали",
   "chat": "Чат",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "Инсталирайте APK - щракнете или пуснете .apk файл",
   "installNeoagent": "Инсталирайте NeoAgent",
   "installNeoagentOnThisComputerWithout": "Инсталирайте NeoAgent на този компютър без терминал или се свържете с такъв, който вече работи.",
-  "installNewReleasesAndChooseWhich": "Инсталирайте нови версии и изберете кой канал следва този сървър.",
   "installTheBackend": "Инсталирайте бекенда",
   "installTheCoreWithExtraOptional": "Инсталирайте ядрото с допълнителна опционална настройка. Ключовете за доставчик на изкуствен интелект се добавят след това, същото като Quickstart.",
   "installTheSecureCoreThenCreate": "Инсталирайте защитеното ядро, след което създайте своя акаунт. След това добавете ключове за доставчик на AI.",
-  "installedArg1": " | Инсталиран: {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Инсталиран: {arg1} • Последна проверка: {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "Информация за отстраняване на грешки на NeoAgent",
   "neoagentDesktopInstaller": "NeoAgent Desktop Installer",
   "neoagentFlutterUpdater": "NeoAgent Flutter Updater",
-  "neoagentInstallsTheLatestArg1": "NeoAgent инсталира най-новия {arg1} ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "NeoAgent е инсталиран и работи.",
   "neoagentIsNotInstalledOnThis": "NeoAgent не е инсталиран на този компютър.",
   "neoagentIsReady": "NeoAgent е готов",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "Не се изпълнява актуализация",
   "noUsageYet": "Все още не е използвано.",
   "noVerifiedNeoagentBackendRuntimeIs": "Все още не е налично потвърдено време за изпълнение на бекенда на NeoAgent.",
   "nobodyCanUseItAnyMore": "Никой повече не може да го използва. Хора, които вече са се присъединили ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "регистрацията е затворена",
   "registrationRegisterNewAccountsAllowSignup": "регистрация регистрация нови акаунти позволяват регистрация",
   "rejectInvalidTlsCertificates": "Отхвърляне на невалидни TLS сертификати",
-  "releaseAndRestartsConnectedAppsReconnect": "освобождаване и рестартиране. Свързаните приложения се свързват отново, след като се върне.",
   "releaseChannel": "Канал за освобождаване",
   "releaseCommitBranchNode": "освобождаване на ангажимент клон възел",
   "releaseWhenYouAreDone": "Освободете, когато сте готови.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Време на изпълнение: {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Настройки за изпълнение, с които този сървър стартира. Редактирайте ги под ",
-  "runtimeSetupRequired": "Необходима е настройка на времето за изпълнение",
   "runtimeSigningPublicKeyMustBe": "Публичният ключ за подписване по време на изпълнение трябва да бъде 32 байта.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "Запазване",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "Понастоящем тази интеграция поддържа един свързан акаунт на агент. Отворете отново настройката, за да я замените.",
   "thisIntegrationIsNoLongerAvailable": "Тази интеграция вече не е налична.",
   "thisIntroIsDesignedForFull": "Това въведение е предназначено за пейзажно възпроизвеждане на цял екран.",
-  "thisIsAManagedDeploymentIts": "Това е управлявано внедряване. Неговият оператор се разгръща ",
   "thisMayTakeAMoment": "Това може да отнеме малко време.",
   "thisMcpServerIsNoLonger": "Този MCP сървър вече не е конфигуриран.",
   "thisMemoryWillBeRemovedPermanently": "Тази памет ще бъде премахната за постоянно.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Актуализацията е готова",
   "updateSetup": "Актуализиране на настройките",
   "updateTheAccessListToAllow": "Актуализирайте списъка за достъп, за да позволите отговори.",
-  "updateTheServer": "Актуализиране на сървъра?",
   "updateTheServer2": "Актуализирайте сървъра",
   "updateTheTimeZoneAutomaticallyFrom": "Актуализирайте часовата зона автоматично от устройството, което използвате.",
   "updatedArg1": "актуализиран {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Актуализации",
   "updatesAreNotConfiguredForThis": "Актуализациите не са конфигурирани за тази компилация.",
-  "updatesSoSelfUpdateAndChannel": "актуализации, така че самоактуализацията и промените в каналите са изключени тук.",
   "upgradeUpdateNowReleaseChannelStable": "ъпгрейд актуализация сега пуска стабилна бета версия на канала",
   "usageAnalytics": "Анализ на използването",
   "usageAndHealthSignalsThatHelp": "Сигнали за употреба и здраве, които помагат да се обясни текущото поведение по време на изпълнение, без първо да се рови в регистрационни файлове.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Присъединява се към групови разговори",
   "label1PersonOrGroupAdded": "Добавен е 1 човек или група",
   "inProgress": "В ход",
-  "waitingForUpdateJobOutput": "Изчакване на резултат от задачата за актуализация...",
   "taskTrigger": "Задействане на задача",
   "bearerToken": "Токен на носител",
   "bearerToken2": "Токен на носител",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "Ключът за сигурност не може да се използва.",
   "connecting": "Свързване...",
   "changes": "Промени",
-  "runtimeReady": "Времето за изпълнение е готово",
   "saving": "Запазва се...",
   "earlier": "По-рано",
   "monthJan": "януари",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (по подразбиране)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Клон: {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"

@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Ändra inställningsläge",
   "channel": "Kanal",
   "channelAccessToken": "Kanalåtkomsttoken",
-  "channelArg1Arg2UpdateVersionArg3": "Kanal: {arg1}{arg2} | Uppdateringsversion: {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Socialt minne med kanalomfattning",
   "channels": "Kanaler",
   "chat": "Chatta",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "Installera APK — klicka eller släpp en .apk-fil",
   "installNeoagent": "Installera NeoAgent",
   "installNeoagentOnThisComputerWithout": "Installera NeoAgent på den här datorn utan terminal, eller anslut till en som redan körs.",
-  "installNewReleasesAndChooseWhich": "Installera nya versioner och välj vilken kanal den här servern följer.",
   "installTheBackend": "Installera backend",
   "installTheCoreWithExtraOptional": "Installera kärnan med extra valfri inställning. AI-leverantörsnycklar läggs till efteråt, samma som snabbstart.",
   "installTheSecureCoreThenCreate": "Installera den säkra kärnan och skapa sedan ditt konto. Lägg till AI-leverantörsnycklar efteråt.",
-  "installedArg1": " | Installerad: {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Installerad: {arg1} • Senast kontrollerad: {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "NeoAgent felsökningsinformation",
   "neoagentDesktopInstaller": "NeoAgent Desktop Installer",
   "neoagentFlutterUpdater": "NeoAgent Flutter Updater",
-  "neoagentInstallsTheLatestArg1": "NeoAgent installerar den senaste {arg1} ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "NeoAgent är installerat och körs.",
   "neoagentIsNotInstalledOnThis": "NeoAgent är inte installerat på den här datorn.",
   "neoagentIsReady": "NeoAgent är redo",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "Ingen uppdatering körs",
   "noUsageYet": "Ingen användning ännu.",
   "noVerifiedNeoagentBackendRuntimeIs": "Ingen verifierad NeoAgent backend-körtid är tillgänglig ännu.",
   "nobodyCanUseItAnyMore": "Ingen kan använda den längre. Folk som redan gått med ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "registreringen är stängd",
   "registrationRegisterNewAccountsAllowSignup": "registrering registrera nya konton tillåter registrering",
   "rejectInvalidTlsCertificates": "Avvisa ogiltiga TLS-certifikat",
-  "releaseAndRestartsConnectedAppsReconnect": "släpp och startar om. Anslutna appar ansluter igen när de är tillbaka.",
   "releaseChannel": "Släpp kanal",
   "releaseCommitBranchNode": "release commit branch nod",
   "releaseWhenYouAreDone": "Släpp när du är klar.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Körtid: {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Körtidsinställningar som denna server började med. Redigera dem under ",
-  "runtimeSetupRequired": "Körtidsinställning krävs",
   "runtimeSigningPublicKeyMustBe": "Offentlig nyckel för runtime-signering måste vara 32 byte.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "Spara",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "Denna integration stöder för närvarande ett anslutet konto per agent. Öppna inställningen igen för att ersätta den.",
   "thisIntegrationIsNoLongerAvailable": "Denna integration är inte längre tillgänglig.",
   "thisIntroIsDesignedForFull": "Detta intro är designat för liggande uppspelning i helskärm.",
-  "thisIsAManagedDeploymentIts": "Detta är en hanterad distribution. Dess operatör rullar ut ",
   "thisMayTakeAMoment": "Detta kan ta en stund.",
   "thisMcpServerIsNoLonger": "Denna MCP-server är inte längre konfigurerad.",
   "thisMemoryWillBeRemovedPermanently": "Detta minne kommer att tas bort permanent.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Uppdatering klar",
   "updateSetup": "Uppdatera inställningar",
   "updateTheAccessListToAllow": "Uppdatera åtkomstlistan för att tillåta svar.",
-  "updateTheServer": "Uppdatera servern?",
   "updateTheServer2": "Uppdatera servern",
   "updateTheTimeZoneAutomaticallyFrom": "Uppdatera tidszonen automatiskt från enheten du använder.",
   "updatedArg1": "uppdaterad {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Uppdateringar",
   "updatesAreNotConfiguredForThis": "Uppdateringar är inte konfigurerade för denna version.",
-  "updatesSoSelfUpdateAndChannel": "uppdateringar, så självuppdatering och kanaländringar är avstängda här.",
   "upgradeUpdateNowReleaseChannelStable": "uppgraderingsuppdatering släpper nu kanalstabil beta",
   "usageAnalytics": "Användningsanalys",
   "usageAndHealthSignalsThatHelp": "Användnings- och hälsosignaler som hjälper till att förklara aktuellt körtidsbeteende utan att först gräva igenom loggar.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Går med i gruppkonversationer",
   "label1PersonOrGroupAdded": "1 person eller grupp har lagts till",
   "inProgress": "Pågår",
-  "waitingForUpdateJobOutput": "Väntar på uppdateringsjobb...",
   "taskTrigger": "Uppgiftsutlösare",
   "bearerToken": "Bärartoken",
   "bearerToken2": "Bearer Token",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "Säkerhetsnyckeln kunde inte användas.",
   "connecting": "Ansluter...",
   "changes": "Ändringar",
-  "runtimeReady": "Körtid klar",
   "saving": "Sparar...",
   "earlier": "Tidigare",
   "monthJan": "Jan",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (standard)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Filial: {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"

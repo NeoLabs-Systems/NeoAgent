@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Skift opsætningstilstand",
   "channel": "Kanal",
   "channelAccessToken": "Kanaladgangstoken",
-  "channelArg1Arg2UpdateVersionArg3": "Kanal: {arg1}{arg2} | Opdateringsversion: {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Kanalbaseret social hukommelse",
   "channels": "Kanaler",
   "chat": "Chat",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "Installer APK — klik eller slip en .apk-fil",
   "installNeoagent": "Installer NeoAgent",
   "installNeoagentOnThisComputerWithout": "Installer NeoAgent på denne computer uden en terminal, eller opret forbindelse til en, der allerede kører.",
-  "installNewReleasesAndChooseWhich": "Installer nye udgivelser og vælg, hvilken kanal denne server følger.",
   "installTheBackend": "Installer backend",
   "installTheCoreWithExtraOptional": "Installer kernen med ekstra valgfri opsætning. AI-udbydernøgler tilføjes efterfølgende, det samme som Quickstart.",
   "installTheSecureCoreThenCreate": "Installer den sikre kerne, og opret derefter din konto. Tilføj AI-udbydernøgler bagefter.",
-  "installedArg1": " | Installeret: {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Installeret: {arg1} • Sidst kontrolleret: {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "NeoAgent debug info",
   "neoagentDesktopInstaller": "NeoAgent Desktop Installer",
   "neoagentFlutterUpdater": "NeoAgent Flutter Updater",
-  "neoagentInstallsTheLatestArg1": "NeoAgent installerer den nyeste {arg1} ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "NeoAgent er installeret og kører.",
   "neoagentIsNotInstalledOnThis": "NeoAgent er ikke installeret på denne computer.",
   "neoagentIsReady": "NeoAgent er klar",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "Ingen opdatering kører",
   "noUsageYet": "Ingen brug endnu.",
   "noVerifiedNeoagentBackendRuntimeIs": "Der er endnu ingen verificeret NeoAgent-backend-runtime tilgængelig.",
   "nobodyCanUseItAnyMore": "Ingen kan bruge det mere. Folk, der allerede er med ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "tilmeldingen er lukket",
   "registrationRegisterNewAccountsAllowSignup": "registrering registrere nye konti tillader tilmelding",
   "rejectInvalidTlsCertificates": "Afvis ugyldige TLS-certifikater",
-  "releaseAndRestartsConnectedAppsReconnect": "frigive og genstarte. Tilsluttede apps genopretter forbindelsen, når den er tilbage.",
   "releaseChannel": "Slip kanal",
   "releaseCommitBranchNode": "release commit branch node",
   "releaseWhenYouAreDone": "Slip når du er færdig.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Køretid: {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Kørselsindstillinger denne server startede med. Rediger dem under ",
-  "runtimeSetupRequired": "Kørselsopsætning påkrævet",
   "runtimeSigningPublicKeyMustBe": "Offentlig nøgle til runtime-signering skal være på 32 bytes.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "Gem",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "Denne integration understøtter i øjeblikket én tilsluttet konto pr. agent. Genåbn opsætningen for at erstatte den.",
   "thisIntegrationIsNoLongerAvailable": "Denne integration er ikke længere tilgængelig.",
   "thisIntroIsDesignedForFull": "Denne intro er designet til landskabsafspilning i fuld skærm.",
-  "thisIsAManagedDeploymentIts": "Dette er en administreret implementering. Dens operatør ruller ud ",
   "thisMayTakeAMoment": "Dette kan tage et øjeblik.",
   "thisMcpServerIsNoLonger": "Denne MCP-server er ikke længere konfigureret.",
   "thisMemoryWillBeRemovedPermanently": "Denne hukommelse vil blive fjernet permanent.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Opdatering klar",
   "updateSetup": "Opdater opsætning",
   "updateTheAccessListToAllow": "Opdater adgangslisten for at tillade svar.",
-  "updateTheServer": "Opdatere serveren?",
   "updateTheServer2": "Opdater serveren",
   "updateTheTimeZoneAutomaticallyFrom": "Opdater tidszonen automatisk fra den enhed, du bruger.",
   "updatedArg1": "opdateret {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Opdateringer",
   "updatesAreNotConfiguredForThis": "Opdateringer er ikke konfigureret til denne build.",
-  "updatesSoSelfUpdateAndChannel": "opdateringer, så selvopdatering og kanalændringer er slået fra her.",
   "upgradeUpdateNowReleaseChannelStable": "opgrader opdatering frigiver nu kanalstabil beta",
   "usageAnalytics": "Brugsanalyse",
   "usageAndHealthSignalsThatHelp": "Brugs- og sundhedssignaler, der hjælper med at forklare den aktuelle køretidsadfærd uden først at grave gennem logfiler.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Deltager i gruppesamtaler",
   "label1PersonOrGroupAdded": "1 person eller gruppe tilføjet",
   "inProgress": "I gang",
-  "waitingForUpdateJobOutput": "Venter på opdateringsjoboutput...",
   "taskTrigger": "Opgaveudløser",
   "bearerToken": "Bærertegn",
   "bearerToken2": "Bearer Token",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "Sikkerhedsnøglen kunne ikke bruges.",
   "connecting": "Opretter forbindelse...",
   "changes": "Ændringer",
-  "runtimeReady": "Runtime klar",
   "saving": "Gemmer...",
   "earlier": "tidligere",
   "monthJan": "Jan",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (standard)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Afdeling: {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"

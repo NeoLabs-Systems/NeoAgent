@@ -2,12 +2,8 @@ const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const db = require('../db/database');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
 const { isAdminUser } = require('../services/access/admin');
-const { getVersionInfo } = require('../utils/version');
-const { readUpdateStatus } = require('../utils/update_status');
-const { getRuntimeValidation } = require('../services/runtime/validation');
-const { startUpdate, setUpdateChannel } = require('../services/admin/updates');
 const {
   AI_PROVIDER_DEFINITIONS,
   createDefaultAiSettings,
@@ -37,42 +33,6 @@ const { getProviderHealthCatalog, getSupportedModels, PROVIDER_FACTORIES } = req
 const { getSystemOneModels } = require('../services/ai/system_one');
 const { hasSignInMethod } = require('../services/ai/provider_sign_in');
 const { validateCloudUrlWithDns } = require('../utils/cloud-security');
-
-const updateTriggerLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000,
-  max: 3,
-  message: { success: false, error: 'Too many update requests, try again later' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-router.get('/update/status', requireAuth, (req, res) => {
-  try {
-    const status = readUpdateStatus();
-    const version = getVersionInfo();
-    res.json({
-      ...status,
-      backendVersion: version.version,
-      installedVersion: version.installedVersion,
-      packageVersion: version.packageVersion,
-      gitVersion: version.gitVersion,
-      gitSha: version.gitSha,
-      gitBranch: version.gitBranch,
-      releaseChannel: version.releaseChannel,
-      targetBranch: status.state === 'running' ? status.targetBranch || version.targetBranch : version.targetBranch,
-      deploymentMode: version.deploymentMode,
-      managedDeployment: version.managedDeployment,
-      allowSelfUpdate: version.allowSelfUpdate,
-      containerImage: version.containerImage,
-      runtimeDefaults: version.runtimeDefaults,
-      allowHostRuntime: version.allowHostRuntime,
-      runtimeValidation: getRuntimeValidation(req.app?.locals?.runtimeManager),
-    });
-  } catch (error) {
-    console.error('[Settings] Update status failed:', error.message);
-    res.status(503).json({ error: 'Update status is temporarily unavailable.' });
-  }
-});
 
 router.use(requireAuth);
 
@@ -569,24 +529,6 @@ router.delete('/:key', (req, res) => {
   }
   applySettingsSideEffects(userId, agentId, { [req.params.key]: null }, req.app?.locals?.taskRuntime || null);
   res.json({ success: true });
-});
-
-router.post('/update', requireAuth, requireAdmin, updateTriggerLimiter, async (req, res, next) => {
-  try {
-    res.status(202).json(await startUpdate());
-  } catch (error) {
-    if (error.status) return res.status(error.status).json({ success: false, error: error.message });
-    next(error);
-  }
-});
-
-router.put('/update/channel', requireAuth, requireAdmin, (req, res, next) => {
-  try {
-    res.json(setUpdateChannel(req.body?.channel));
-  } catch (error) {
-    if (error.status) return res.status(error.status).json({ success: false, error: error.message });
-    next(error);
-  }
 });
 
 module.exports = router;

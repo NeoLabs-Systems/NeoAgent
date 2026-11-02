@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Wijzig de instelmodus",
   "channel": "Kanaal",
   "channelAccessToken": "Kanaaltoegangstoken",
-  "channelArg1Arg2UpdateVersionArg3": "Kanaal: {arg1}{arg2} | Updateversie: {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Kanaalgericht sociaal geheugen",
   "channels": "Kanalen",
   "chat": "Chat",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "Installeer APK: klik of zet een .apk-bestand neer",
   "installNeoagent": "Installeer NeoAgent",
   "installNeoagentOnThisComputerWithout": "Installeer NeoAgent op deze computer zonder terminal, of maak verbinding met een terminal die al actief is.",
-  "installNewReleasesAndChooseWhich": "Installeer nieuwe releases en kies welk kanaal deze server volgt.",
   "installTheBackend": "Installeer de backend",
   "installTheCoreWithExtraOptional": "Installeer de kern met extra optionele instellingen. AI-providersleutels worden achteraf toegevoegd, hetzelfde als Quickstart.",
   "installTheSecureCoreThenCreate": "Installeer de beveiligde kern en maak vervolgens uw account aan. Voeg achteraf AI-providersleutels toe.",
-  "installedArg1": " | Geïnstalleerd: {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Geïnstalleerd: {arg1} • Laatst gecontroleerd: {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "NeoAgent-foutopsporingsinformatie",
   "neoagentDesktopInstaller": "NeoAgent Desktop-installatieprogramma",
   "neoagentFlutterUpdater": "NeoAgent Flutter-updater",
-  "neoagentInstallsTheLatestArg1": "NeoAgent installeert de nieuwste {arg1} ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "NeoAgent is geïnstalleerd en actief.",
   "neoagentIsNotInstalledOnThis": "NeoAgent is niet op deze computer geïnstalleerd.",
   "neoagentIsReady": "NeoAgent is klaar",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "Er wordt geen update uitgevoerd",
   "noUsageYet": "Nog geen gebruik.",
   "noVerifiedNeoagentBackendRuntimeIs": "Er is nog geen geverifieerde NeoAgent backend-runtime beschikbaar.",
   "nobodyCanUseItAnyMore": "Niemand kan het meer gebruiken. Mensen die al lid zijn ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "inschrijving is gesloten",
   "registrationRegisterNewAccountsAllowSignup": "registratie registreer nieuwe accounts sta aanmelding toe",
   "rejectInvalidTlsCertificates": "Weiger ongeldige TLS-certificaten",
-  "releaseAndRestartsConnectedAppsReconnect": "loslaten en opnieuw opstarten. Verbonden apps maken opnieuw verbinding zodra deze terug is.",
   "releaseChannel": "Kanaal vrijgeven",
   "releaseCommitBranchNode": "geef het commit-takknooppunt vrij",
   "releaseWhenYouAreDone": "Laat los als je klaar bent.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Looptijd: {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Runtime-instellingen waarmee deze server is gestart. Bewerk ze onder ",
-  "runtimeSetupRequired": "Runtime-installatie vereist",
   "runtimeSigningPublicKeyMustBe": "De openbare sleutel voor runtime-ondertekening moet 32 bytes groot zijn.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "Opslaan",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "Deze integratie ondersteunt momenteel één verbonden account per agent. Open de installatie opnieuw om deze te vervangen.",
   "thisIntegrationIsNoLongerAvailable": "Deze integratie is niet langer beschikbaar.",
   "thisIntroIsDesignedForFull": "Deze intro is ontworpen voor landschapsweergave op volledig scherm.",
-  "thisIsAManagedDeploymentIts": "Dit is een beheerde implementatie. De operator rolt uit ",
   "thisMayTakeAMoment": "Dit kan even duren.",
   "thisMcpServerIsNoLonger": "Deze MCP-server is niet langer geconfigureerd.",
   "thisMemoryWillBeRemovedPermanently": "Dit geheugen wordt definitief verwijderd.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Update gereed",
   "updateSetup": "Installatie bijwerken",
   "updateTheAccessListToAllow": "Werk de toegangslijst bij om antwoorden toe te staan.",
-  "updateTheServer": "De server updaten?",
   "updateTheServer2": "Update de server",
   "updateTheTimeZoneAutomaticallyFrom": "Update de tijdzone automatisch vanaf het apparaat dat u gebruikt.",
   "updatedArg1": "bijgewerkte {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Updates",
   "updatesAreNotConfiguredForThis": "Updates zijn niet geconfigureerd voor deze build.",
-  "updatesSoSelfUpdateAndChannel": "updates, dus zelfupdates en kanaalwijzigingen zijn hier uitgeschakeld.",
   "upgradeUpdateNowReleaseChannelStable": "upgrade-update geeft nu kanaalstabiele bèta vrij",
   "usageAnalytics": "Gebruiksanalyse",
   "usageAndHealthSignalsThatHelp": "Gebruiks- en statussignalen die het huidige runtime-gedrag helpen verklaren zonder eerst de logboeken te doorzoeken.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Neemt deel aan groepsgesprekken",
   "label1PersonOrGroupAdded": "1 persoon of groep toegevoegd",
   "inProgress": "In uitvoering",
-  "waitingForUpdateJobOutput": "Wachten op updatetaakuitvoer...",
   "taskTrigger": "Taaktrigger",
   "bearerToken": "Token aan toonder",
   "bearerToken2": "Token aan toonder",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "De beveiligingssleutel kan niet worden gebruikt.",
   "connecting": "Verbinden…",
   "changes": "Veranderingen",
-  "runtimeReady": "Runtime klaar",
   "saving": "Opslaan...",
   "earlier": "Eerder",
   "monthJan": "jan",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (standaard)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Filiaal: {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"

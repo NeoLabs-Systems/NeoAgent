@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Ibdel il-mod tas-setup",
   "channel": "Kanal",
   "channelAccessToken": "Token ta' aċċess għall-kanal",
-  "channelArg1Arg2UpdateVersionArg3": "Kanal: {arg1}{arg2} | Verżjoni tal-Aġġornament: {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Memorja soċjali b'ambitu ta' kanal",
   "channels": "Kanali",
   "chat": "Chat",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "Installa APK — ikklikkja jew qiegħed fajl .apk",
   "installNeoagent": "Installa NeoAgent",
   "installNeoagentOnThisComputerWithout": "Installa NeoAgent fuq dan il-kompjuter mingħajr terminal, jew qabbad ma' wieħed li diġà qed jaħdem.",
-  "installNewReleasesAndChooseWhich": "Installa ħarġiet ġodda u agħżel liema kanal isegwi dan is-server.",
   "installTheBackend": "Installa l-backend",
   "installTheCoreWithExtraOptional": "Installa l-qalba b'setup mhux obbligatorju. Iċ-ċwievet tal-fornitur tal-AI huma miżjuda wara, l-istess bħal Quickstart.",
   "installTheSecureCoreThenCreate": "Installa l-qalba sigura, imbagħad oħloq il-kont tiegħek. Żid iċ-ċwievet tal-fornitur tal-AI wara.",
-  "installedArg1": " | Installat: {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Installat: {arg1} • Iċċekkjat l-aħħar: {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "Informazzjoni dwar id-debug ta' NeoAgent",
   "neoagentDesktopInstaller": "Installatur tad-Desktop NeoAgent",
   "neoagentFlutterUpdater": "NeoAgent Flutter Updater",
-  "neoagentInstallsTheLatestArg1": "NeoAgent jinstalla l-aħħar {arg1} ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "NeoAgent huwa installat u qed jaħdem.",
   "neoagentIsNotInstalledOnThis": "NeoAgent mhuwiex installat fuq dan il-kompjuter.",
   "neoagentIsReady": "NeoAgent huwa lest",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "Ebda aġġornament għaddej",
   "noUsageYet": "Għadu l-ebda użu.",
   "noVerifiedNeoagentBackendRuntimeIs": "L-ebda runtime ta' backend NeoAgent ivverifikat għadu disponibbli.",
   "nobodyCanUseItAnyMore": "Ħadd ma jista' jużaha aktar. Nies li diġà ngħaqdu ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "ir-reġistrazzjoni hija magħluqa",
   "registrationRegisterNewAccountsAllowSignup": "reġistrazzjoni reġistru kontijiet ġodda jippermettu signup",
   "rejectInvalidTlsCertificates": "Irrifjuta ċertifikati TLS invalidi",
-  "releaseAndRestartsConnectedAppsReconnect": "rilaxx u jerġa 'jibda. Apps konnessi jerġgħu jikkonnettjaw ladarba tkun lura.",
   "releaseChannel": "Kanal tar-rilaxx",
   "releaseCommitBranchNode": "rilaxx node tal-fergħa tal-kommit",
   "releaseWhenYouAreDone": "Eħles meta tkun lest.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Runtime: {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Is-settings tar-runtime dan is-server beda bihom. Editjahom taħt ",
-  "runtimeSetupRequired": "Setup ta' runtime meħtieġ",
   "runtimeSigningPublicKeyMustBe": "Iċ-ċavetta pubblika tal-iffirmar tar-runtime għandha tkun 32 bytes.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "Ħlief",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "Din l-integrazzjoni bħalissa tappoġġja kont konness wieħed għal kull aġent. Erġa' tiftaħ is-setup biex tissostitwiha.",
   "thisIntegrationIsNoLongerAvailable": "Din l-integrazzjoni m'għadhiex disponibbli.",
   "thisIntroIsDesignedForFull": "Din l-introduzzjoni hija mfassla għal daqq ta' pajsaġġ fuq skrin sħiħ.",
-  "thisIsAManagedDeploymentIts": "Din hija skjerament ġestit. L-operatur tiegħu joħroġ ",
   "thisMayTakeAMoment": "Dan jista 'jieħu mument.",
   "thisMcpServerIsNoLonger": "Dan is-server MCP m'għadux konfigurat.",
   "thisMemoryWillBeRemovedPermanently": "Din il-memorja se titneħħa b'mod permanenti.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Aġġornament lest",
   "updateSetup": "Aġġorna Setup",
   "updateTheAccessListToAllow": "Aġġorna l-lista ta' aċċess biex tippermetti tweġibiet.",
-  "updateTheServer": "Taġġorna s-server?",
   "updateTheServer2": "Aġġorna s-server",
   "updateTheTimeZoneAutomaticallyFrom": "Aġġorna ż-żona tal-ħin awtomatikament mill-apparat li qed tuża.",
   "updatedArg1": "aġġornata {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Aġġornamenti",
   "updatesAreNotConfiguredForThis": "L-aġġornamenti mhumiex konfigurati għal din il-bini.",
-  "updatesSoSelfUpdateAndChannel": "aġġornamenti, għalhekk l-awto-aġġornament u l-bidliet fil-kanal huma off hawn.",
   "upgradeUpdateNowReleaseChannelStable": "upgrade update issa rilaxx kanal beta stabbli",
   "usageAnalytics": "Analitika tal-użu",
   "usageAndHealthSignalsThatHelp": "Sinjali tal-użu u tas-saħħa li jgħinu jispjegaw l-imġieba attwali tar-runtime mingħajr ma jħaffru zkuk l-ewwel.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Jingħaqad ma' konversazzjonijiet tal-grupp",
   "label1PersonOrGroupAdded": "1 persuna jew grupp miżjud",
   "inProgress": "Fil-progress",
-  "waitingForUpdateJobOutput": "Stennija għall-aġġornament tal-output tax-xogħol...",
   "taskTrigger": "Task trigger",
   "bearerToken": "Token tal-bearer",
   "bearerToken2": "Token tal-Bearer",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "Iċ-ċavetta tas-sigurtà ma setgħetx tintuża.",
   "connecting": "Konnessjoni...",
   "changes": "Bidliet",
-  "runtimeReady": "Runtime lest",
   "saving": "Iffrankar...",
   "earlier": "Aktar kmieni",
   "monthJan": "Jan",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (default)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Fergħa: {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"

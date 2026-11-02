@@ -17,6 +17,7 @@ const {
 } = require('../services/ai/model_visibility');
 const { getAdminEmailSettings, updateAdminEmailSettings } = require('../services/account/service_email_settings');
 const { getServerVersion, runHealthChecks } = require('../services/admin/health');
+const updates = require('../services/admin/updates');
 const { getAnalytics } = require('../services/admin/analytics');
 const { listUsers, deleteUser, revokeUserSessions, resetUserPassword } = require('../services/admin/users');
 const {
@@ -64,6 +65,11 @@ const sqlLimiter = rateLimit({
 // --- Server ---
 
 router.get('/version', jsonHandler(() => getServerVersion()));
+
+router.get('/update', jsonHandler(() => updates.status()));
+router.post('/update/check', settingsLimiter, jsonHandler(() => updates.check()));
+router.post('/update', settingsLimiter, jsonHandler(() => updates.start(), { status: 202 }));
+router.put('/update/channel', settingsLimiter, jsonHandler((req) => updates.setChannel(req.body?.channel)));
 
 router.get('/health', jsonHandler((req) => runHealthChecks(req.app.locals.runtimeManager)));
 

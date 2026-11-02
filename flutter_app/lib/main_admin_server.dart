@@ -22,13 +22,13 @@ class _AdminOpsServerInfo {
     required this.gitSha,
     required this.nodeVersion,
     required this.uptime,
-    required this.updatePhase,
-    required this.update,
+    required this.releaseChannel,
+    required this.deploymentMode,
+    required this.containerImage,
     required this.environment,
   });
 
   factory _AdminOpsServerInfo.fromJson(Map<String, dynamic> json) {
-    final updateJson = _jsonMap(json['updateStatus']);
     return _AdminOpsServerInfo(
       environment: _jsonMap(
         json['environment'],
@@ -38,13 +38,9 @@ class _AdminOpsServerInfo {
       gitSha: _asText(json['gitSha']),
       nodeVersion: _asText(json['nodeVersion']),
       uptime: Duration(seconds: _asDouble(json['uptime']).round()),
-      updatePhase: _asText(updateJson['phase'], fallback: ''),
-      // The channel and deployment flags sit at the top level of the payload,
-      // the live update state under `updateStatus`.
-      update: UpdateStatusSnapshot.fromJson(<String, dynamic>{
-        ...updateJson,
-        ...json,
-      }),
+      releaseChannel: _asText(json['releaseChannel'], fallback: 'beta'),
+      deploymentMode: _asText(json['deploymentMode'], fallback: 'self_hosted'),
+      containerImage: json['containerImage'] == true,
     );
   }
 
@@ -53,19 +49,18 @@ class _AdminOpsServerInfo {
   final String gitSha;
   final String nodeVersion;
   final Duration uptime;
-  final String updatePhase;
-  final UpdateStatusSnapshot update;
+  final String releaseChannel;
+  final String deploymentMode;
+  final bool containerImage;
 
   /// Non-secret runtime settings (PORT, PUBLIC_URL, …), read-only.
   final Map<String, String> environment;
 
-  bool get isUpdating => update.state == 'running';
-
   String get shortSha => gitSha.length > 10 ? gitSha.substring(0, 10) : gitSha;
 
-  String get deploymentLabel => update.containerImage
+  String get deploymentLabel => containerImage
       ? 'Docker'
-      : update.deploymentMode == 'managed'
+      : deploymentMode == 'managed'
       ? 'Managed'
       : 'Self-hosted';
 }
@@ -91,9 +86,10 @@ class _AdminOpsHealthCheck {
 }
 
 class _AdminServerTab extends StatefulWidget {
-  const _AdminServerTab({required this.controller});
+  const _AdminServerTab({required this.controller, required this.updates});
 
   final NeoAgentController controller;
+  final _AdminUpdateWatcher updates;
 
   @override
   State<_AdminServerTab> createState() => _AdminServerTabState();
@@ -104,12 +100,6 @@ class _AdminServerTabState extends State<_AdminServerTab> {
   List<_AdminOpsHealthCheck> _checks = const <_AdminOpsHealthCheck>[];
   bool _loading = true;
   String? _error;
-  bool _updateBusy = false;
-  String? _updateError;
-  bool _waitingForUpdate = false;
-  bool _pollingUpdate = false;
-  bool _updateDisconnected = false;
-  Timer? _updatePoll;
   Timer? _overviewRefresh;
 
   NeoAgentController get _controller => widget.controller;
@@ -120,13 +110,14 @@ class _AdminServerTabState extends State<_AdminServerTab> {
     _loadOverview();
     // Health and uptime stay current while the tab is open.
     _overviewRefresh = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (!_waitingForUpdate && !_updateBusy) _loadOverview();
+      if (!widget.updates.busy && widget.updates.status?.running != true) {
+        _loadOverview();
+      }
     });
   }
 
   @override
   void dispose() {
-    _updatePoll?.cancel();
     _overviewRefresh?.cancel();
     super.dispose();
   }
@@ -148,7 +139,6 @@ class _AdminServerTabState extends State<_AdminServerTab> {
         _loading = false;
         _error = null;
       });
-      _syncUpdatePolling();
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -161,99 +151,6 @@ class _AdminServerTabState extends State<_AdminServerTab> {
   void _reloadOverview() {
     setState(() => _loading = true);
     _loadOverview();
-  }
-
-  /// Polls the version endpoint while an update runs so progress stays live.
-  void _syncUpdatePolling() {
-    if (_info?.isUpdating != true && !_waitingForUpdate) {
-      _updatePoll?.cancel();
-      _updatePoll = null;
-      return;
-    }
-    _updatePoll ??= Timer.periodic(
-      const Duration(seconds: 4),
-      (_) => _pollUpdateStatus(),
-    );
-  }
-
-  Future<void> _pollUpdateStatus() async {
-    if (_pollingUpdate) return;
-    _pollingUpdate = true;
-    try {
-      final json = await _controller.backendClient.fetchAdminVersion(
-        _controller.backendUrl,
-      );
-      if (!mounted) return;
-      setState(() {
-        _info = _AdminOpsServerInfo.fromJson(json);
-        _waitingForUpdate = _info!.isUpdating;
-        if (_info!.isUpdating) _updateError = null;
-        _updateDisconnected = false;
-        _error = null;
-      });
-      _syncUpdatePolling();
-    } catch (_) {
-      if (mounted) setState(() => _updateDisconnected = true);
-    } finally {
-      _pollingUpdate = false;
-    }
-  }
-
-  /// The controller's update methods report failures through its shared
-  /// error slot. Move that message next to the update controls instead.
-  String? _takeControllerError() {
-    final message = _controller.errorMessage;
-    if (message != null) _controller.clearInlineError();
-    return message;
-  }
-
-  Future<void> _setChannel(String channel) async {
-    setState(() {
-      _updateBusy = true;
-      _updateError = null;
-    });
-    await _controller.setReleaseChannel(channel);
-    final error = _takeControllerError();
-    if (!mounted) return;
-    setState(() {
-      _updateBusy = false;
-      _updateError = error;
-    });
-    if (error == null) await _loadOverview();
-  }
-
-  Future<void> _startUpdate() async {
-    final info = _info;
-    if (info == null) return;
-    await _confirmDelete(
-      context,
-      title: appStrings.updateTheServer,
-      message:
-          appStrings.neoagentInstallsTheLatestArg1(
-            info.update.releaseChannelLabel.toLowerCase(),
-          ) +
-          appStrings.releaseAndRestartsConnectedAppsReconnect,
-      confirmLabel: appStrings.updateNow,
-      onConfirm: () async {
-        if (!mounted) return;
-        setState(() {
-          _updateBusy = true;
-          _updateError = null;
-        });
-        // Start polling before the request: a successful update may restart
-        // the server before its response reaches this client.
-        _waitingForUpdate = true;
-        _syncUpdatePolling();
-        await _controller.triggerUpdate();
-        final error = _takeControllerError();
-        if (!mounted) return;
-        setState(() {
-          _updateBusy = false;
-          _updateError = error;
-        });
-        await _pollUpdateStatus();
-      },
-    );
   }
 
   @override
@@ -281,7 +178,7 @@ class _AdminServerTabState extends State<_AdminServerTab> {
                     ('Version', info.version),
                     (
                       appStrings.releaseChannel,
-                      info.update.releaseChannelLabel,
+                      _adminChannelLabel(info.releaseChannel),
                     ),
                     ('Branch', info.gitBranch),
                     ('Commit', info.shortSha),
@@ -296,15 +193,7 @@ class _AdminServerTabState extends State<_AdminServerTab> {
           ),
         ),
         if (info != null) ...<Widget>[
-          _AdminOpsUpdateCard(
-            info: info,
-            busy: _updateBusy || _waitingForUpdate,
-            disconnected: _updateDisconnected,
-            error: _updateError,
-            onDismissError: () => setState(() => _updateError = null),
-            onChannelChanged: _setChannel,
-            onUpdate: _startUpdate,
-          ),
+          _AdminUpdateCard(watcher: widget.updates),
           _AdminOpsHealthCard(checks: _checks),
           if (info.environment.isNotEmpty)
             _SectionCard(
@@ -373,209 +262,6 @@ class _AdminOpsFactGrid extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _AdminOpsUpdateCard extends StatelessWidget {
-  const _AdminOpsUpdateCard({
-    required this.info,
-    required this.busy,
-    required this.error,
-    required this.onDismissError,
-    required this.onChannelChanged,
-    required this.onUpdate,
-    required this.disconnected,
-  });
-
-  final _AdminOpsServerInfo info;
-  final bool busy;
-  final String? error;
-  final VoidCallback onDismissError;
-  final ValueChanged<String> onChannelChanged;
-  final VoidCallback onUpdate;
-  final bool disconnected;
-
-  @override
-  Widget build(BuildContext context) {
-    final update = info.update;
-    final running = info.isUpdating;
-    final canControl = update.allowSelfUpdate && !running && !busy;
-    final channel = update.releaseChannel.toLowerCase() == 'beta'
-        ? 'beta'
-        : 'stable';
-    return _SectionCard(
-      title: appStrings.updates,
-      description: appStrings.installNewReleasesAndChooseWhich,
-      trailing: _StatusPill(label: update.badgeLabel, color: update.badgeColor),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Text(
-            update.message,
-            style: TextStyle(
-              fontSize: 13.5,
-              color: _textSecondary,
-              height: 1.4,
-            ),
-          ),
-          if (disconnected) ...<Widget>[
-            const SizedBox(height: 12),
-            const _InlineNote(
-              icon: Icons.sync_rounded,
-              message:
-                  'Waiting for the server to reconnect. Updates can take several minutes. Progress will resume automatically.',
-            ),
-          ],
-          if (running) ...<Widget>[
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: update.progress / 100,
-                minHeight: 6,
-                backgroundColor: _bgSecondary,
-                valueColor: AlwaysStoppedAnimation<Color>(_info),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              <String>[
-                '${update.progress}%',
-                if (info.updatePhase.isNotEmpty) info.updatePhase,
-              ].join(' · '),
-              style: TextStyle(fontSize: 12, color: _textMuted),
-            ),
-          ],
-          if (!update.allowSelfUpdate) ...<Widget>[
-            const SizedBox(height: 14),
-            _InlineNote(
-              icon: update.containerImage
-                  ? Icons.inventory_2_outlined
-                  : Icons.lock_outline_rounded,
-              message:
-                  update.containerImage && update.deploymentMode != 'managed'
-                  ? 'Update from the Docker host, in the folder containing your Compose configuration. Your data volume is kept. To switch release channels, change the image tag in that configuration before updating.'
-                  : appStrings.thisIsAManagedDeploymentIts +
-                        appStrings.updatesSoSelfUpdateAndChannel,
-            ),
-          ],
-          if (update.containerImage &&
-              update.deploymentMode != 'managed') ...<Widget>[
-            const SizedBox(height: 12),
-            const SelectableText(
-              'docker compose pull\ndocker compose up -d',
-              style: TextStyle(fontFamily: 'monospace', height: 1.6),
-            ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: () async {
-                  await Clipboard.setData(
-                    const ClipboardData(
-                      text: 'docker compose pull\ndocker compose up -d',
-                    ),
-                  );
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Update commands copied')),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.copy_rounded, size: 16),
-                label: const Text('Copy update commands'),
-              ),
-            ),
-          ],
-          if (update.changelog.isNotEmpty) ...<Widget>[
-            const SizedBox(height: 14),
-            Text(
-              'Changes',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: _textPrimary,
-              ),
-            ),
-            const SizedBox(height: 6),
-            for (final change in update.changelog)
-              Text(
-                '• $change',
-                style: TextStyle(color: _textSecondary, height: 1.5),
-              ),
-          ],
-          if (update.logs.isNotEmpty) ...<Widget>[
-            const SizedBox(height: 12),
-            ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              title: const Text('Update details'),
-              children: <Widget>[
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 240),
-                  child: SingleChildScrollView(
-                    child: SelectableText(
-                      update.logs.join('\n'),
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                        color: _textSecondary,
-                        height: 1.5,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-          if (error != null) ...<Widget>[
-            const SizedBox(height: 14),
-            _InlineError(message: error!, onDismiss: onDismissError),
-          ],
-          if (update.allowSelfUpdate) ...<Widget>[
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: <Widget>[
-                SegmentedButton<String>(
-                  segments: <ButtonSegment<String>>[
-                    ButtonSegment<String>(
-                      value: 'stable',
-                      label: Text(appStrings.stable),
-                      icon: Icon(Icons.verified_outlined),
-                    ),
-                    ButtonSegment<String>(
-                      value: 'beta',
-                      label: Text(appStrings.beta),
-                      icon: Icon(Icons.science_outlined),
-                    ),
-                  ],
-                  selected: <String>{channel},
-                  onSelectionChanged: canControl
-                      ? (selection) => onChannelChanged(selection.first)
-                      : null,
-                ),
-                FilledButton.icon(
-                  onPressed: canControl ? onUpdate : null,
-                  icon: busy
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Icon(Icons.system_update_alt_rounded, size: 18),
-                  label: Text(
-                    running
-                        ? 'Updating…'
-                        : busy
-                        ? 'Please wait…'
-                        : appStrings.updateNow,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
     );
   }
 }

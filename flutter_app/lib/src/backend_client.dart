@@ -659,6 +659,27 @@ class BackendClient {
     return getMap(baseUrl, '/api/admin/version');
   }
 
+  Future<Map<String, dynamic>> fetchAdminUpdate(String baseUrl) async {
+    return getMap(baseUrl, '/api/admin/update');
+  }
+
+  Future<Map<String, dynamic>> checkAdminUpdate(String baseUrl) async {
+    return _postEmpty(baseUrl, '/api/admin/update/check');
+  }
+
+  Future<Map<String, dynamic>> startAdminUpdate(String baseUrl) async {
+    return _postEmpty(baseUrl, '/api/admin/update');
+  }
+
+  Future<Map<String, dynamic>> setAdminUpdateChannel(
+    String baseUrl,
+    String channel,
+  ) async {
+    return putMap(baseUrl, '/api/admin/update/channel', <String, dynamic>{
+      'channel': channel,
+    });
+  }
+
   Future<Map<String, dynamic>> fetchAdminHealth(String baseUrl) async {
     return getMap(baseUrl, '/api/admin/health');
   }
@@ -1162,23 +1183,6 @@ class BackendClient {
       baseUrl,
       '/api/social-reach/cookies/${Uri.encodeComponent(platform)}',
     );
-  }
-
-  Future<Map<String, dynamic>> fetchUpdateStatus(String baseUrl) async {
-    return getMap(baseUrl, '/api/settings/update/status');
-  }
-
-  Future<Map<String, dynamic>> triggerUpdate(String baseUrl) async {
-    return _postEmpty(baseUrl, '/api/settings/update');
-  }
-
-  Future<Map<String, dynamic>> setReleaseChannel(
-    String baseUrl,
-    String channel,
-  ) async {
-    return putMap(baseUrl, '/api/settings/update/channel', <String, dynamic>{
-      'channel': channel,
-    });
   }
 
   Future<Map<String, dynamic>> fetchRuns(

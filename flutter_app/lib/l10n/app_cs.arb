@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Změňte režim nastavení",
   "channel": "kanál",
   "channelAccessToken": "Token přístupu ke kanálu",
-  "channelArg1Arg2UpdateVersionArg3": "Kanál: {arg1}{arg2} | Verze aktualizace: {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Sociální paměť v rámci kanálu",
   "channels": "Kanály",
   "chat": "Chat",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "Nainstalujte APK – klikněte nebo přetáhněte soubor .apk",
   "installNeoagent": "Nainstalujte NeoAgent",
   "installNeoagentOnThisComputerWithout": "Nainstalujte NeoAgent na tento počítač bez terminálu nebo se připojte k již spuštěnému.",
-  "installNewReleasesAndChooseWhich": "Nainstalujte nová vydání a vyberte kanál, který tento server sleduje.",
   "installTheBackend": "Nainstalujte backend",
   "installTheCoreWithExtraOptional": "Nainstalujte jádro s extra volitelným nastavením. Klíče poskytovatele AI jsou přidány později, stejně jako Quickstart.",
   "installTheSecureCoreThenCreate": "Nainstalujte zabezpečené jádro a poté si vytvořte účet. Poté přidejte klíče poskytovatele AI.",
-  "installedArg1": " | Instalováno: {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Instalováno: {arg1} • Naposledy zkontrolováno: {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "Informace o ladění NeoAgent",
   "neoagentDesktopInstaller": "NeoAgent Desktop Installer",
   "neoagentFlutterUpdater": "NeoAgent Flutter Updater",
-  "neoagentInstallsTheLatestArg1": "NeoAgent nainstaluje nejnovější {arg1} ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "NeoAgent je nainstalován a spuštěn.",
   "neoagentIsNotInstalledOnThis": "NeoAgent není na tomto počítači nainstalován.",
   "neoagentIsReady": "NeoAgent je připraven",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "Neběží žádná aktualizace",
   "noUsageYet": "Zatím bez použití.",
   "noVerifiedNeoagentBackendRuntimeIs": "Zatím není k dispozici žádný ověřený backendový runtime NeoAgent.",
   "nobodyCanUseItAnyMore": "Nikdo už to nemůže používat. Lidé, kteří se již připojili ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "registrace je uzavřena",
   "registrationRegisterNewAccountsAllowSignup": "registrace registrovat nové účty umožňují registraci",
   "rejectInvalidTlsCertificates": "Odmítněte neplatné certifikáty TLS",
-  "releaseAndRestartsConnectedAppsReconnect": "uvolnit a restartovat. Připojené aplikace se znovu připojí, jakmile budou zpět.",
   "releaseChannel": "Uvolněte kanál",
   "releaseCommitBranchNode": "uvolnit uzel větve potvrzení",
   "releaseWhenYouAreDone": "Po dokončení uvolněte.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Provozní doba: {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Nastavení runtime, se kterým tento server začínal. Upravte je pod ",
-  "runtimeSetupRequired": "Je vyžadováno nastavení runtime",
   "runtimeSigningPublicKeyMustBe": "Veřejný klíč pro podepisování za běhu musí mít 32 bajtů.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "Uložit",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "Tato integrace aktuálně podporuje jeden připojený účet na agenta. Chcete-li jej vyměnit, znovu otevřete nastavení.",
   "thisIntegrationIsNoLongerAvailable": "Tato integrace již není k dispozici.",
   "thisIntroIsDesignedForFull": "Tento úvod je určen pro přehrávání na šířku na celou obrazovku.",
-  "thisIsAManagedDeploymentIts": "Toto je řízené nasazení. Jeho operátor se rozjíždí ",
   "thisMayTakeAMoment": "Může to chvíli trvat.",
   "thisMcpServerIsNoLonger": "Tento MCP server již není nakonfigurován.",
   "thisMemoryWillBeRemovedPermanently": "Tato paměť bude trvale odstraněna.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Aktualizace připravena",
   "updateSetup": "Nastavení aktualizace",
   "updateTheAccessListToAllow": "Aktualizujte přístupový seznam, abyste povolili odpovědi.",
-  "updateTheServer": "Aktualizovat server?",
   "updateTheServer2": "Aktualizujte server",
   "updateTheTimeZoneAutomaticallyFrom": "Aktualizujte časové pásmo automaticky ze zařízení, které používáte.",
   "updatedArg1": "aktualizováno {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Aktualizace",
   "updatesAreNotConfiguredForThis": "Pro toto sestavení nejsou nakonfigurovány aktualizace.",
-  "updatesSoSelfUpdateAndChannel": "aktualizace, takže zde jsou automatické aktualizace a změny kanálu vypnuté.",
   "upgradeUpdateNowReleaseChannelStable": "aktualizace upgradu nyní vydává stabilní beta verzi kanálu",
   "usageAnalytics": "Analytika použití",
   "usageAndHealthSignalsThatHelp": "Signály využití a stavu, které pomáhají vysvětlit aktuální běhové chování, aniž byste se museli nejprve prohrabávat protokoly.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Připojuje se ke skupinovým konverzacím",
   "label1PersonOrGroupAdded": "Byla přidána 1 osoba nebo skupina",
   "inProgress": "Probíhá",
-  "waitingForUpdateJobOutput": "Čekání na výstup úlohy aktualizace…",
   "taskTrigger": "Spouštěč úkolu",
   "bearerToken": "Token na doručitele",
   "bearerToken2": "Token na doručitele",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "Bezpečnostní klíč nelze použít.",
   "connecting": "Připojování…",
   "changes": "Změny",
-  "runtimeReady": "Runtime připraveno",
   "saving": "Ukládání...",
   "earlier": "Dříve",
   "monthJan": "Jan",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (výchozí)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Větev: {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"

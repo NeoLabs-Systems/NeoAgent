@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Change setup mode",
   "channel": "Channel",
   "channelAccessToken": "Channel access token",
-  "channelArg1Arg2UpdateVersionArg3": "Channel: {arg1}{arg2} | Update Version: {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Channel-scoped social memory",
   "channels": "Channels",
   "chat": "Chat",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "Install APK — click or drop a .apk file",
   "installNeoagent": "Install NeoAgent",
   "installNeoagentOnThisComputerWithout": "Install NeoAgent on this computer without a terminal, or connect to one that is already running.",
-  "installNewReleasesAndChooseWhich": "Install new releases and choose which channel this server follows.",
   "installTheBackend": "Install the backend",
   "installTheCoreWithExtraOptional": "Install the core with extra optional setup. AI provider keys are added afterwards, same as Quickstart.",
   "installTheSecureCoreThenCreate": "Install the secure core, then create your account. Add AI provider keys afterwards.",
-  "installedArg1": " | Installed: {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Installed: {arg1} • Last checked: {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "NeoAgent debug info",
   "neoagentDesktopInstaller": "NeoAgent Desktop Installer",
   "neoagentFlutterUpdater": "NeoAgent Flutter Updater",
-  "neoagentInstallsTheLatestArg1": "NeoAgent installs the latest {arg1} ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "NeoAgent is installed and running.",
   "neoagentIsNotInstalledOnThis": "NeoAgent is not installed on this computer.",
   "neoagentIsReady": "NeoAgent is ready",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "No update running",
   "noUsageYet": "No usage yet.",
   "noVerifiedNeoagentBackendRuntimeIs": "No verified NeoAgent backend runtime is available yet.",
   "nobodyCanUseItAnyMore": "Nobody can use it any more. People who already joined ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "registration is closed",
   "registrationRegisterNewAccountsAllowSignup": "registration register new accounts allow signup",
   "rejectInvalidTlsCertificates": "Reject invalid TLS certificates",
-  "releaseAndRestartsConnectedAppsReconnect": "release and restarts. Connected apps reconnect once it is back.",
   "releaseChannel": "Release channel",
   "releaseCommitBranchNode": "release commit branch node",
   "releaseWhenYouAreDone": "Release when you are done.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Runtime: {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Runtime settings this server started with. Edit them under ",
-  "runtimeSetupRequired": "Runtime setup required",
   "runtimeSigningPublicKeyMustBe": "Runtime signing public key must be 32 bytes.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "Save",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "This integration currently supports one connected account per agent. Re-open setup to replace it.",
   "thisIntegrationIsNoLongerAvailable": "This integration is no longer available.",
   "thisIntroIsDesignedForFull": "This intro is designed for full-screen landscape playback.",
-  "thisIsAManagedDeploymentIts": "This is a managed deployment. Its operator rolls out ",
   "thisMayTakeAMoment": "This may take a moment.",
   "thisMcpServerIsNoLonger": "This MCP server is no longer configured.",
   "thisMemoryWillBeRemovedPermanently": "This memory will be removed permanently.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Update ready",
   "updateSetup": "Update Setup",
   "updateTheAccessListToAllow": "Update the access list to allow replies.",
-  "updateTheServer": "Update the server?",
   "updateTheServer2": "Update the server",
   "updateTheTimeZoneAutomaticallyFrom": "Update the time zone automatically from the device you are using.",
   "updatedArg1": "updated {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Updates",
   "updatesAreNotConfiguredForThis": "Updates are not configured for this build.",
-  "updatesSoSelfUpdateAndChannel": "updates, so self-update and channel changes are off here.",
   "upgradeUpdateNowReleaseChannelStable": "upgrade update now release channel stable beta",
   "usageAnalytics": "Usage analytics",
   "usageAndHealthSignalsThatHelp": "Usage and health signals that help explain current runtime behavior without digging through logs first.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Joins group conversations",
   "label1PersonOrGroupAdded": "1 person or group added",
   "inProgress": "In progress",
-  "waitingForUpdateJobOutput": "Waiting for update job output…",
   "taskTrigger": "Task trigger",
   "bearerToken": "Bearer token",
   "bearerToken2": "Bearer Token",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "The security key could not be used.",
   "connecting": "Connecting…",
   "changes": "Changes",
-  "runtimeReady": "Runtime ready",
   "saving": "Saving...",
   "earlier": "Earlier",
   "monthJan": "Jan",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (default)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Branch: {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"
@@ -7796,5 +7724,74 @@
         "type": "Object?"
       }
     }
-  }
+  },
+  "adminUpdatesHint": "NeoAgent updates itself from GitHub. Your chats, settings and accounts are kept.",
+  "adminUpdateChannelHint": "Stable follows main. Beta gets new features first.",
+  "adminUpdateCheckNow": "Check now",
+  "adminUpdateNeverChecked": "Not checked yet",
+  "adminUpdateCheckedAgo": "Checked {time}",
+  "@adminUpdateCheckedAgo": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "adminUpdateUpToDate": "You have the latest version",
+  "adminUpdateCheckFailed": "Couldn't reach GitHub. Showing the last result.",
+  "adminUpdateContainerHint": "NeoAgent runs from a container image. Update the image instead of the code inside it, from the Docker host in the folder with your Compose file. The data volume is kept.",
+  "adminUpdateManagedHint": "This is a managed deployment. Updates are handled by whoever runs it.",
+  "adminUpdateNotGitHint": "This install did not come from Git, so it cannot update itself. Run neoagent update in a terminal.",
+  "adminUpdateDetails": "Details of the last update",
+  "adminUpdateReadyTitle": "Version {version} is ready",
+  "@adminUpdateReadyTitle": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "adminUpdateReadySubtitle": "You have {current} · {channel} channel",
+  "@adminUpdateReadySubtitle": {
+    "placeholders": {
+      "current": {
+        "type": "String"
+      },
+      "channel": {
+        "type": "String"
+      }
+    }
+  },
+  "adminUpdateWhatsNew": "What's new",
+  "adminUpdateConfirmTitle": "Update to {version}?",
+  "@adminUpdateConfirmTitle": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "adminUpdateConfirmMessage": "NeoAgent saves a backup, installs the new version and restarts. This takes a few minutes. If anything fails, it goes back to the current version.",
+  "adminUpdatingTitle": "Updating NeoAgent",
+  "adminUpdatingToTitle": "Updating to {version}",
+  "@adminUpdatingToTitle": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "adminUpdateReconnecting": "Restarting NeoAgent…",
+  "adminUpdateHandsOff": "Nothing to do here. This page reconnects by itself when NeoAgent is back.",
+  "adminUpdateDoneTitle": "Updated to {version}",
+  "@adminUpdateDoneTitle": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "adminUpdateDoneReloading": "Reloading the app to load the new version…",
+  "adminUpdateReload": "Reload",
+  "adminUpdateFailedTitle": "The update did not finish"
 }

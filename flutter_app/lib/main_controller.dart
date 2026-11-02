@@ -76,7 +76,6 @@ class NeoAgentController extends ChangeNotifier {
   SharedPreferences? _prefs;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   io.Socket? _socket;
-  Timer? _updatePollTimer;
   Timer? _qrLoginPollTimer;
   static const Duration _qrLoginPollInterval = Duration(seconds: 5);
   static const Duration _qrLoginHeldPollGap = Duration(milliseconds: 300);
@@ -161,8 +160,6 @@ class NeoAgentController extends ChangeNotifier {
   bool isConfiguringTwoFactor = false;
   bool isUsingSecurityKey = false;
   bool isRevokingSession = false;
-  bool isTriggeringUpdate = false;
-  bool isSavingReleaseChannel = false;
   bool isSyncingHealth = false;
   bool isRunningDeviceAction = false;
   bool isLoadingWorkspaceFiles = false;
@@ -261,7 +258,6 @@ class NeoAgentController extends ChangeNotifier {
   final ValueNotifier<({int seq, String runId})> runActivity =
       ValueNotifier<({int seq, String runId})>((seq: 0, runId: ''));
   TokenUsageSnapshot? tokenUsage;
-  UpdateStatusSnapshot updateStatus = const UpdateStatusSnapshot();
   List<LogEntry> logs = const <LogEntry>[];
   Map<String, MessagingPlatformStatus> messagingStatuses =
       const <String, MessagingPlatformStatus>{};
@@ -521,7 +517,6 @@ class NeoAgentController extends ChangeNotifier {
     _AppNotificationService.onApprovalAction = null;
     _AppNotificationService.stopListeningForActions();
     unawaited(CallBridge.dismiss());
-    _updatePollTimer?.cancel();
     _qrLoginPollTimer?.cancel();
     _backendClient.onSessionExpired = null;
     _manualRunCooldownTimer?.cancel();
@@ -1993,8 +1988,6 @@ class NeoAgentController extends ChangeNotifier {
   void _clearAuthenticatedState() {
     unawaited(BackgroundKeepAlive.stop());
     _disconnectSocket();
-    _updatePollTimer?.cancel();
-    _updatePollTimer = null;
     _clearQrLoginChallenge();
     isAuthenticated = false;
     isRefreshing = false;
@@ -2033,7 +2026,6 @@ class NeoAgentController extends ChangeNotifier {
     aiProviders = const <AiProviderMeta>[];
     recentRuns = const <RunSummary>[];
     tokenUsage = null;
-    updateStatus = const UpdateStatusSnapshot();
     _clientLogs = const <LogEntry>[];
     logs = const <LogEntry>[];
     messagingStatuses = const <String, MessagingPlatformStatus>{};
@@ -2879,9 +2871,6 @@ class NeoAgentController extends ChangeNotifier {
         _backendClient.fetchAccountUsage(backendUrl),
         const <String, dynamic>{},
       );
-      final updateFuture = _backendClient
-          .fetchUpdateStatus(backendUrl)
-          .catchError((_) => const <String, dynamic>{});
       final messagingFuture = _softRefreshLoad<Map<String, dynamic>>(
         'messaging_status',
         _backendClient.fetchMessagingStatus(backendUrl, agentId: agentId),
@@ -2985,7 +2974,6 @@ class NeoAgentController extends ChangeNotifier {
       final setupStatusResponse = await setupStatusFuture;
       final tokenResponse = await tokenFuture;
       final rateLimitResponse = await rateLimitFuture;
-      final updateResponse = await updateFuture;
       final messagingResponse = await messagingFuture;
       _applySharedMessagingOptions(await sharedMessagingFuture);
       final messagingMessagesResponse = await messagingMessagesFuture;
@@ -3045,7 +3033,6 @@ class NeoAgentController extends ChangeNotifier {
       backendHealthStatus = healthResponse;
       tokenUsage = TokenUsageSnapshot.fromJson(tokenResponse);
       usageAndLimits = AccountUsageAndLimits.fromJson(rateLimitResponse);
-      updateStatus = UpdateStatusSnapshot.fromJson(updateResponse);
       messagingStatuses = messagingResponse.map(
         (key, value) => MapEntry(
           key,
@@ -3099,7 +3086,6 @@ class NeoAgentController extends ChangeNotifier {
       unawaited(ensureLocalDeviceConnected());
       unawaited(_syncDeviceTimeZone());
       _ensureSocketConnected();
-      _ensureUpdatePolling();
     } catch (error) {
       if (_isCurrentAuthCycle(authCycle)) {
         errorMessage = _friendlyErrorMessage(error);
@@ -4932,15 +4918,6 @@ class NeoAgentController extends ChangeNotifier {
     ]);
   }
 
-  Future<void> refreshUpdateStatus() async {
-    try {
-      updateStatus = UpdateStatusSnapshot.fromJson(
-        await _backendClient.fetchUpdateStatus(backendUrl),
-      );
-      notifyListeners();
-    } catch (_) {}
-  }
-
   Future<RunDetailSnapshot> fetchRunDetail(
     String runId, {
     bool force = false,
@@ -5833,68 +5810,6 @@ class NeoAgentController extends ChangeNotifier {
       errorMessage = _friendlyErrorMessage(error);
     } finally {
       isRevokingSession = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> triggerUpdate() async {
-    isTriggeringUpdate = true;
-    errorMessage = null;
-    notifyListeners();
-    try {
-      updateStatus = UpdateStatusSnapshot.fromJson(
-        await _backendClient.triggerUpdate(backendUrl),
-      );
-      await refreshUpdateStatus();
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-    } finally {
-      isTriggeringUpdate = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> setReleaseChannel(String channel) async {
-    if (isSavingReleaseChannel) {
-      return;
-    }
-
-    isSavingReleaseChannel = true;
-    errorMessage = null;
-    notifyListeners();
-
-    try {
-      final response = await _backendClient.setReleaseChannel(
-        backendUrl,
-        channel,
-      );
-      final nextChannel = response['releaseChannel']?.toString() ?? channel;
-      updateStatus = UpdateStatusSnapshot.fromJson(<String, dynamic>{
-        ...?versionInfo,
-        'state': updateStatus.state,
-        'progress': updateStatus.progress,
-        'message': updateStatus.message,
-        'releaseChannel': nextChannel,
-        'targetBranch': response['targetBranch'],
-        'versionBefore': updateStatus.versionBefore,
-        'versionAfter': updateStatus.versionAfter,
-        'backendVersion': updateStatus.backendVersion,
-        'installedVersion': updateStatus.installedVersion,
-        'changelog': updateStatus.changelog,
-        'logs': updateStatus.logs,
-      });
-      if (versionInfo != null) {
-        versionInfo = <String, dynamic>{
-          ...versionInfo!,
-          'releaseChannel': nextChannel,
-          'targetBranch': response['targetBranch'],
-        };
-      }
-      await refreshUpdateStatus();
-    } catch (error) {
-      errorMessage = _friendlyErrorMessage(error);
-    } finally {
-      isSavingReleaseChannel = false;
       notifyListeners();
     }
   }
@@ -7823,14 +7738,6 @@ class NeoAgentController extends ChangeNotifier {
 
   ModelMeta? _modelById(String id) {
     return _modelForValue(id, supportedModels);
-  }
-
-  void _ensureUpdatePolling() {
-    _updatePollTimer ??= Timer.periodic(const Duration(seconds: 5), (_) {
-      if (isAuthenticated) {
-        refreshUpdateStatus();
-      }
-    });
   }
 
   void _disconnectSocket() {

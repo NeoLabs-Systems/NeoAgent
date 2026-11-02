@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Pakeiskite sąrankos režimą",
   "channel": "Kanalas",
   "channelAccessToken": "Prieigos prie kanalo prieigos raktas",
-  "channelArg1Arg2UpdateVersionArg3": "Kanalas: {arg1}{arg2} | Atnaujinimo versija: {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Kanalo apimties socialinė atmintis",
   "channels": "Kanalai",
   "chat": "Pokalbis",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "Įdiegti APK – spustelėkite arba numeskite .apk failą",
   "installNeoagent": "Įdiekite „NeoAgent“.",
   "installNeoagentOnThisComputerWithout": "Įdiekite „NeoAgent“ šiame kompiuteryje be terminalo arba prisijunkite prie jau veikiančio.",
-  "installNewReleasesAndChooseWhich": "Įdiekite naujus leidimus ir pasirinkite, kurį kanalą seka šis serveris.",
   "installTheBackend": "Įdiekite backend",
   "installTheCoreWithExtraOptional": "Įdiekite šerdį naudodami papildomą pasirenkamą sąranką. AI teikėjo raktai pridedami vėliau, kaip ir „Quickstart“.",
   "installTheSecureCoreThenCreate": "Įdiekite saugų branduolį, tada susikurkite paskyrą. Vėliau pridėkite AI teikėjo raktus.",
-  "installedArg1": " | Įdiegta: {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Įdiegta: {arg1} • Paskutinį kartą tikrinta: {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "NeoAgent derinimo informacija",
   "neoagentDesktopInstaller": "NeoAgent Desktop Installer",
   "neoagentFlutterUpdater": "„NeoAgent Flutter Updater“.",
-  "neoagentInstallsTheLatestArg1": "NeoAgent įdiegia naujausią {arg1} ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "NeoAgent įdiegta ir veikia.",
   "neoagentIsNotInstalledOnThis": "NeoAgent šiame kompiuteryje neįdiegta.",
   "neoagentIsReady": "NeoAgent yra paruošta",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "Neveikia joks atnaujinimas",
   "noUsageYet": "Dar nenaudota.",
   "noVerifiedNeoagentBackendRuntimeIs": "Patvirtintos „NeoAgent“ užpakalinės programos vykdymo laikas dar nepasiekiamas.",
   "nobodyCanUseItAnyMore": "Niekas daugiau negali juo naudotis. Žmonės, kurie jau prisijungė ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "registracija uždaryta",
   "registrationRegisterNewAccountsAllowSignup": "registracija registracija naujos paskyros leidžia registruotis",
   "rejectInvalidTlsCertificates": "Atmesti netinkamus TLS sertifikatus",
-  "releaseAndRestartsConnectedAppsReconnect": "atleisti ir paleisti iš naujo. Prijungtos programos vėl prisijungia, kai tik ji grįžta.",
   "releaseChannel": "Išleidimo kanalas",
   "releaseCommitBranchNode": "atleiskite įsipareigojimo šakos mazgą",
   "releaseWhenYouAreDone": "Atleiskite, kai baigsite.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Veikimo laikas: {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Vykdymo laiko nustatymai buvo pradėti nuo šio serverio. Redaguokite juos žemiau ",
-  "runtimeSetupRequired": "Būtina nustatyti vykdymo laiką",
   "runtimeSigningPublicKeyMustBe": "Vykdymo laiko pasirašymo viešasis raktas turi būti 32 baitai.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "Išsaugoti",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "Šiuo metu ši integracija palaiko vieną prijungtą paskyrą vienam agentui. Iš naujo atidarykite sąranką, kad ją pakeistumėte.",
   "thisIntegrationIsNoLongerAvailable": "Ši integracija nebepasiekiama.",
   "thisIntroIsDesignedForFull": "Šis įvadas skirtas kraštovaizdžio atkūrimui visame ekrane.",
-  "thisIsAManagedDeploymentIts": "Tai valdomas diegimas. Jo operatorius išrieda ",
   "thisMayTakeAMoment": "Tai gali šiek tiek užtrukti.",
   "thisMcpServerIsNoLonger": "Šis MCP serveris nebėra sukonfigūruotas.",
   "thisMemoryWillBeRemovedPermanently": "Ši atmintis bus pašalinta visam laikui.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Atnaujinimas paruoštas",
   "updateSetup": "Atnaujinkite sąranką",
   "updateTheAccessListToAllow": "Atnaujinkite prieigos sąrašą, kad galėtumėte atsakyti.",
-  "updateTheServer": "Atnaujinti serverį?",
   "updateTheServer2": "Atnaujinkite serverį",
   "updateTheTimeZoneAutomaticallyFrom": "Automatiškai atnaujinkite laiko juostą iš naudojamo įrenginio.",
   "updatedArg1": "atnaujintas {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Atnaujinimai",
   "updatesAreNotConfiguredForThis": "Šios versijos naujiniai nesukonfigūruoti.",
-  "updatesSoSelfUpdateAndChannel": "naujinimai, todėl savarankiškas atnaujinimas ir kanalų keitimai čia išjungti.",
   "upgradeUpdateNowReleaseChannelStable": "atnaujinti naujinimą dabar išleiskite kanalo stabilią beta versiją",
   "usageAnalytics": "Naudojimo analizė",
   "usageAndHealthSignalsThatHelp": "Naudojimo ir būklės signalai, padedantys paaiškinti esamą vykdymo laiką, prieš tai nesigilinus į žurnalus.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Prisijungia prie grupės pokalbių",
   "label1PersonOrGroupAdded": "Pridėtas 1 asmuo arba grupė",
   "inProgress": "Vykdoma",
-  "waitingForUpdateJobOutput": "Laukiama atnaujinimo užduoties išvesties…",
   "taskTrigger": "Užduočių paleidiklis",
   "bearerToken": "Nešėjo žetonas",
   "bearerToken2": "Nešėjo Žetonas",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "Nepavyko naudoti saugos rakto.",
   "connecting": "Jungiamasi…",
   "changes": "Pakeitimai",
-  "runtimeReady": "Veikimo laikas paruoštas",
   "saving": "Išsaugoma...",
   "earlier": "Anksčiau",
   "monthJan": "sausio mėn",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (numatytasis)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Filialas: {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"

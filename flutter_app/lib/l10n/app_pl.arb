@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Zmień tryb konfiguracji",
   "channel": "Kanał",
   "channelAccessToken": "Token dostępu do kanału",
-  "channelArg1Arg2UpdateVersionArg3": "Kanał: {arg1}{arg2} | Wersja aktualizacji: {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Pamięć społeczna ograniczona do kanału",
   "channels": "Kanały",
   "chat": "Czat",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "Zainstaluj APK — kliknij lub upuść plik .apk",
   "installNeoagent": "Zainstaluj NeoAgenta",
   "installNeoagentOnThisComputerWithout": "Zainstaluj NeoAgent na tym komputerze bez terminala lub połącz się z już uruchomionym.",
-  "installNewReleasesAndChooseWhich": "Zainstaluj nowe wersje i wybierz kanał, z którego będzie korzystał ten serwer.",
   "installTheBackend": "Zainstaluj backend",
   "installTheCoreWithExtraOptional": "Zainstaluj rdzeń z dodatkową opcjonalną konfiguracją. Klucze dostawcy AI są dodawane później, tak samo jak w przewodniku Szybki Start.",
   "installTheSecureCoreThenCreate": "Zainstaluj bezpieczny rdzeń, a następnie utwórz konto. Następnie dodaj klucze dostawcy AI.",
-  "installedArg1": " | Zainstalowano: {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Zainstalowano: {arg1} • Ostatnio sprawdzano: {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "Informacje debugowania NeoAgent",
   "neoagentDesktopInstaller": "Instalator NeoAgent na komputer stacjonarny",
   "neoagentFlutterUpdater": "Aktualizacja Flutter NeoAgent",
-  "neoagentInstallsTheLatestArg1": "NeoAgent instaluje najnowszą wersję {arg1} ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "NeoAgent jest zainstalowany i uruchomiony.",
   "neoagentIsNotInstalledOnThis": "NeoAgent nie jest zainstalowany na tym komputerze.",
   "neoagentIsReady": "NeoAgent jest gotowy",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "Żadna aktualizacja nie jest uruchomiona",
   "noUsageYet": "Jeszcze nie używany.",
   "noVerifiedNeoagentBackendRuntimeIs": "Nie jest jeszcze dostępne zweryfikowane środowisko wykonawcze NeoAgent.",
   "nobodyCanUseItAnyMore": "Nikt nie może już z niego korzystać. Osoby, które już dołączyły ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "rejestracja jest zamknięta",
   "registrationRegisterNewAccountsAllowSignup": "rejestracja zarejestruj nowe konta zezwól na rejestrację",
   "rejectInvalidTlsCertificates": "Odrzuć nieprawidłowe certyfikaty TLS",
-  "releaseAndRestartsConnectedAppsReconnect": "zwolnij i uruchom ponownie. Połączone aplikacje łączą się ponownie, gdy połączenie zostanie przywrócone.",
   "releaseChannel": "Zwolnij kanał",
   "releaseCommitBranchNode": "zwolnij węzeł gałęzi zatwierdzenia",
   "releaseWhenYouAreDone": "Zwolnij, kiedy skończysz.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Czas działania: {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Ustawienia środowiska wykonawczego, od których zaczynał ten serwer. Edytuj je pod ",
-  "runtimeSetupRequired": "Wymagana konfiguracja środowiska wykonawczego",
   "runtimeSigningPublicKeyMustBe": "Klucz publiczny podpisywania środowiska wykonawczego musi mieć 32 bajty.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "Zapisz",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "Ta integracja obsługuje obecnie jedno połączone konto na agenta. Otwórz ponownie konfigurację, aby ją zastąpić.",
   "thisIntegrationIsNoLongerAvailable": "Ta integracja nie jest już dostępna.",
   "thisIntroIsDesignedForFull": "To wprowadzenie jest przeznaczone do odtwarzania w orientacji poziomej na pełnym ekranie.",
-  "thisIsAManagedDeploymentIts": "To jest wdrożenie zarządzane. Wychodzi jego operator ",
   "thisMayTakeAMoment": "Może to chwilę potrwać.",
   "thisMcpServerIsNoLonger": "Ten serwer MCP nie jest już skonfigurowany.",
   "thisMemoryWillBeRemovedPermanently": "Ta pamięć zostanie trwale usunięta.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Aktualizacja gotowa",
   "updateSetup": "Aktualizuj konfigurację",
   "updateTheAccessListToAllow": "Zaktualizuj listę dostępu, aby umożliwić odpowiedzi.",
-  "updateTheServer": "Zaktualizować serwer?",
   "updateTheServer2": "Zaktualizuj serwer",
   "updateTheTimeZoneAutomaticallyFrom": "Aktualizuj strefę czasową automatycznie na urządzeniu, z którego korzystasz.",
   "updatedArg1": "zaktualizowano {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Aktualizacje",
   "updatesAreNotConfiguredForThis": "Aktualizacje nie są skonfigurowane dla tej kompilacji.",
-  "updatesSoSelfUpdateAndChannel": "aktualizacje, więc samodzielne aktualizacje i zmiany kanałów są tutaj wyłączone.",
   "upgradeUpdateNowReleaseChannelStable": "aktualizacja zaktualizuj teraz wypuść stabilną wersję beta kanału",
   "usageAnalytics": "Analityka użytkowania",
   "usageAndHealthSignalsThatHelp": "Sygnały użycia i kondycji, które pomagają wyjaśnić bieżące zachowanie środowiska wykonawczego bez konieczności wcześniejszego przeglądania dzienników.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Dołącza do rozmów grupowych",
   "label1PersonOrGroupAdded": "Dodano 1 osobę lub grupę",
   "inProgress": "W toku",
-  "waitingForUpdateJobOutput": "Oczekiwanie na wyniki zadania aktualizacji…",
   "taskTrigger": "Wyzwalacz zadania",
   "bearerToken": "Token okaziciela",
   "bearerToken2": "Token okaziciela",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "Nie można użyć klucza bezpieczeństwa.",
   "connecting": "Łączę…",
   "changes": "Zmiany",
-  "runtimeReady": "Gotowe środowisko wykonawcze",
   "saving": "Zapisywanie...",
   "earlier": "Wcześniej",
   "monthJan": "styczeń",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (domyślnie)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Oddział: {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"

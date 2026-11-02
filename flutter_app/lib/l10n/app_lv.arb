@@ -514,17 +514,6 @@
       }
     }
   },
-  "arg1Arg211": "{arg1} -> {arg2}",
-  "@arg1Arg211": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      }
-    }
-  },
   "arg1Arg215": "{arg1} {arg2} * * 1-5",
   "@arg1Arg215": {
     "placeholders": {
@@ -2046,26 +2035,6 @@
   "changeSetupMode": "Mainiet iestatīšanas režīmu",
   "channel": "Kanāls",
   "channelAccessToken": "Kanāla piekļuves pilnvara",
-  "channelArg1Arg2UpdateVersionArg3": "Kanāls: {arg1}{arg2} | Atjauninātā versija: {arg3}{arg4}{arg5}",
-  "@channelArg1Arg2UpdateVersionArg3": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      },
-      "arg2": {
-        "type": "Object?"
-      },
-      "arg3": {
-        "type": "Object?"
-      },
-      "arg4": {
-        "type": "Object?"
-      },
-      "arg5": {
-        "type": "Object?"
-      }
-    }
-  },
   "channelScopedSocialMemory": "Kanālu aptveroša sociālā atmiņa",
   "channels": "Kanāli",
   "chat": "Tērzēšana",
@@ -3192,18 +3161,9 @@
   "installApkClickOrDropA": "Instalējiet APK — noklikšķiniet uz .apk faila vai nometiet to",
   "installNeoagent": "Instalējiet NeoAgent",
   "installNeoagentOnThisComputerWithout": "Instalējiet NeoAgent šajā datorā bez termināļa vai izveidojiet savienojumu ar tādu, kas jau darbojas.",
-  "installNewReleasesAndChooseWhich": "Instalējiet jaunus izdevumus un izvēlieties kanālu, kuram seko šis serveris.",
   "installTheBackend": "Instalējiet aizmuguri",
   "installTheCoreWithExtraOptional": "Instalējiet kodolu ar papildu izvēles iestatīšanu. AI nodrošinātāja atslēgas tiek pievienotas pēc tam, tāpat kā Quickstart.",
   "installTheSecureCoreThenCreate": "Instalējiet drošo kodolu un pēc tam izveidojiet savu kontu. Pēc tam pievienojiet AI nodrošinātāja atslēgas.",
-  "installedArg1": " | Uzstādīts: {arg1}",
-  "@installedArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "installedArg1LastCheckedArg2": "Uzstādīts: {arg1} • Pēdējā pārbaude: {arg2}",
   "@installedArg1LastCheckedArg2": {
     "placeholders": {
@@ -3717,14 +3677,6 @@
   "neoagentDebugInfo": "NeoAgent atkļūdošanas informācija",
   "neoagentDesktopInstaller": "NeoAgent Desktop Installer",
   "neoagentFlutterUpdater": "NeoAgent Flutter atjauninātājs",
-  "neoagentInstallsTheLatestArg1": "NeoAgent instalē jaunāko {arg1} ",
-  "@neoagentInstallsTheLatestArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "neoagentIsInstalledAndRunning": "NeoAgent ir instalēts un darbojas.",
   "neoagentIsNotInstalledOnThis": "NeoAgent šajā datorā nav instalēts.",
   "neoagentIsReady": "NeoAgent ir gatavs",
@@ -3980,7 +3932,6 @@
       }
     }
   },
-  "noUpdateRunning": "Atjauninājums nedarbojas",
   "noUsageYet": "Vēl nav lietots.",
   "noVerifiedNeoagentBackendRuntimeIs": "Vēl nav pieejams neviens apstiprināts NeoAgent aizmugursistēmas izpildlaiks.",
   "nobodyCanUseItAnyMore": "Neviens to vairs nevar izmantot. Cilvēki, kuri jau ir pievienojušies ",
@@ -4383,7 +4334,6 @@
   "registrationIsClosed": "reģistrācija ir slēgta",
   "registrationRegisterNewAccountsAllowSignup": "reģistrācija reģistrēt jaunus kontus ļauj reģistrēties",
   "rejectInvalidTlsCertificates": "Noraidīt nederīgos TLS sertifikātus",
-  "releaseAndRestartsConnectedAppsReconnect": "atlaist un restartēt. Pievienotās lietotnes tiek atkārtoti savienotas, tiklīdz tās ir atjaunotas.",
   "releaseChannel": "Atbrīvošanas kanāls",
   "releaseCommitBranchNode": "atbrīvot commit filiāles mezglu",
   "releaseWhenYouAreDone": "Atlaidiet, kad esat pabeidzis.",
@@ -4586,16 +4536,7 @@
       }
     }
   },
-  "runtimeArg12": " | Darbības laiks: {arg1}",
-  "@runtimeArg12": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "runtimeSettingsThisServerStartedWith": "Šis serveris sākās ar izpildlaika iestatījumiem. Rediģējiet tos zem ",
-  "runtimeSetupRequired": "Nepieciešama izpildlaika iestatīšana",
   "runtimeSigningPublicKeyMustBe": "Izpildlaika parakstīšanas publiskajai atslēgai jābūt 32 baitiem.",
   "sUserAgentSCreatedAt": "       s.user_agent, s.created_at, s.last_seen_at\n",
   "save": "Saglabāt",
@@ -5245,7 +5186,6 @@
   "thisIntegrationCurrentlySupportsOneConnected": "Šī integrācija pašlaik atbalsta vienu savienotu kontu katram aģentam. Atkārtoti atveriet iestatīšanu, lai to aizstātu.",
   "thisIntegrationIsNoLongerAvailable": "Šī integrācija vairs nav pieejama.",
   "thisIntroIsDesignedForFull": "Šis ievads ir paredzēts pilnekrāna ainavas atskaņošanai.",
-  "thisIsAManagedDeploymentIts": "Šī ir pārvaldīta izvietošana. Tā operators izripo ",
   "thisMayTakeAMoment": "Tas var ilgt kādu brīdi.",
   "thisMcpServerIsNoLonger": "Šis MCP serveris vairs nav konfigurēts.",
   "thisMemoryWillBeRemovedPermanently": "Šī atmiņa tiks neatgriezeniski noņemta.",
@@ -5524,7 +5464,6 @@
   "updateReady": "Atjauninājums gatavs",
   "updateSetup": "Atjauniniet iestatījumus",
   "updateTheAccessListToAllow": "Atjauniniet piekļuves sarakstu, lai atļautu atbildes.",
-  "updateTheServer": "Vai atjaunināt serveri?",
   "updateTheServer2": "Atjauniniet serveri",
   "updateTheTimeZoneAutomaticallyFrom": "Automātiski atjauniniet laika joslu no izmantotās ierīces.",
   "updatedArg1": "atjaunināts {arg1}",
@@ -5537,7 +5476,6 @@
   },
   "updates": "Atjauninājumi",
   "updatesAreNotConfiguredForThis": "Šim būvējumam atjauninājumi nav konfigurēti.",
-  "updatesSoSelfUpdateAndChannel": "atjauninājumus, tāpēc pašjaunināšana un kanālu izmaiņas šeit ir izslēgtas.",
   "upgradeUpdateNowReleaseChannelStable": "jaunināšanas atjauninājums tagad izlaidiet kanāla stabilu beta versiju",
   "usageAnalytics": "Lietojuma analītika",
   "usageAndHealthSignalsThatHelp": "Lietošanas un veselības signāli, kas palīdz izskaidrot pašreizējo izpildlaika uzvedību, vispirms neizpētot žurnālus.",
@@ -5966,7 +5904,6 @@
   "joinsGroupConversations": "Pievienojas grupas sarunām",
   "label1PersonOrGroupAdded": "Pievienota 1 persona vai grupa",
   "inProgress": "Notiek",
-  "waitingForUpdateJobOutput": "Gaida atjaunināšanas darba izvadi…",
   "taskTrigger": "Uzdevuma aktivizētājs",
   "bearerToken": "Uzrādītāja žetons",
   "bearerToken2": "Uzrādītāja žetons",
@@ -6019,7 +5956,6 @@
   "theSecurityKeyCouldNotBeUsed": "Drošības atslēgu nevarēja izmantot.",
   "connecting": "Notiek savienojuma izveide…",
   "changes": "Izmaiņas",
-  "runtimeReady": "Izpildes laiks gatavs",
   "saving": "Notiek saglabāšana...",
   "earlier": "Agrāk",
   "monthJan": "janvāris",
@@ -6409,14 +6345,6 @@
   },
   "arg1Default2": "{arg1} (noklusējums)",
   "@arg1Default2": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "branchArg1": " | Filiāle: {arg1}",
-  "@branchArg1": {
     "placeholders": {
       "arg1": {
         "type": "Object?"
