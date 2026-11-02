@@ -7567,7 +7567,6 @@
   "sharedAccountAllowPersonal": "Allow personal accounts",
   "sharedAccountAllowPersonalHint": "Off stops people connecting their own account here. Existing connections and admins aren't affected.",
   "adminMessagingSearchKeywords": "shared instance telegram whatsapp bot number link users",
-  "sharedMessagingThisServer": "this server's account",
   "sharedMessagingBadge": "Shared account",
   "sharedMessagingUseShared": "Use the shared account",
   "sharedMessagingUseOwn": "Use my own account",
@@ -7622,14 +7621,6 @@
       }
     }
   },
-  "sharedMessagingUseSharedHint": "Recommended. Message {account} and reach your own agent. Nothing to set up, and nobody else here can see your chats.",
-  "@sharedMessagingUseSharedHint": {
-    "placeholders": {
-      "account": {
-        "type": "Object?"
-      }
-    }
-  },
   "sharedMessagingMovesLink": "Your {platform} is linked to another agent. Linking here moves it to this one.",
   "@sharedMessagingMovesLink": {
     "placeholders": {
@@ -7669,6 +7660,64 @@
         "type": "Object?"
       },
       "identity": {
+        "type": "Object?"
+      }
+    }
+  },
+  "messagingHubSubtitle": "Link the chat app you already use, then message your agent like anyone else.",
+  "messagingHubOfferTagline": "Nothing to set up. Your chats stay yours, and only you reach your agent.",
+  "messagingHubAdvanced": "Advanced",
+  "messagingHubYourApps": "Your apps",
+  "messagingHubAddApp": "Add an app",
+  "messagingHubShowFewer": "Show fewer",
+  "messagingHubConnected": "Connected",
+  "messagingHubConnecting": "Connecting…",
+  "messagingHubNotRunning": "Not running",
+  "messagingHubDisabled": "Not available on this server",
+  "messagingHubReconnect": "Reconnect",
+  "messagingHubDisconnect": "Disconnect",
+  "messagingHubMoreSettings": "More settings",
+  "messagingHubMoreSettingsHint": "Group chats and recent activity",
+  "onboardingMessagingTitle": "Message your agent\nfrom anywhere.",
+  "onboardingMessagingDescription": "Connect the chat app you already use. It takes a moment, and you can add more later.",
+  "onboardingMessagingOtherApps": "Other apps",
+  "onboardingMessagingAllSet": "You can now message your agent there.",
+  "messagingHubTitle": "Reach {agent} anywhere",
+  "@messagingHubTitle": {
+    "placeholders": {
+      "agent": {
+        "type": "Object?"
+      }
+    }
+  },
+  "messagingHubLink": "Link {platform}",
+  "@messagingHubLink": {
+    "placeholders": {
+      "platform": {
+        "type": "Object?"
+      }
+    }
+  },
+  "messagingHubShowAll": "Show all {count} apps",
+  "@messagingHubShowAll": {
+    "placeholders": {
+      "count": {
+        "type": "Object?"
+      }
+    }
+  },
+  "messagingHubConnectedAs": "Connected as {identity}",
+  "@messagingHubConnectedAs": {
+    "placeholders": {
+      "identity": {
+        "type": "Object?"
+      }
+    }
+  },
+  "messagingHubManage": "Manage {platform}",
+  "@messagingHubManage": {
+    "placeholders": {
+      "platform": {
         "type": "Object?"
       }
     }

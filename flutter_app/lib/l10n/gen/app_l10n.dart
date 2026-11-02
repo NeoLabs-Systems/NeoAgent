@@ -20131,12 +20131,6 @@ abstract class AppL10n {
   /// **'shared instance telegram whatsapp bot number link users'**
   String get adminMessagingSearchKeywords;
 
-  /// No description provided for @sharedMessagingThisServer.
-  ///
-  /// In en, this message translates to:
-  /// **'this server\'s account'**
-  String get sharedMessagingThisServer;
-
   /// No description provided for @sharedMessagingBadge.
   ///
   /// In en, this message translates to:
@@ -20251,12 +20245,6 @@ abstract class AppL10n {
   /// **'Connect {platform}'**
   String sharedMessagingTitle(Object? platform);
 
-  /// No description provided for @sharedMessagingUseSharedHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Recommended. Message {account} and reach your own agent. Nothing to set up, and nobody else here can see your chats.'**
-  String sharedMessagingUseSharedHint(Object? account);
-
   /// No description provided for @sharedMessagingMovesLink.
   ///
   /// In en, this message translates to:
@@ -20286,6 +20274,144 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'{platform} linked as {identity}'**
   String sharedMessagingLinked(Object? platform, Object? identity);
+
+  /// No description provided for @messagingHubSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Link the chat app you already use, then message your agent like anyone else.'**
+  String get messagingHubSubtitle;
+
+  /// No description provided for @messagingHubOfferTagline.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing to set up. Your chats stay yours, and only you reach your agent.'**
+  String get messagingHubOfferTagline;
+
+  /// No description provided for @messagingHubAdvanced.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced'**
+  String get messagingHubAdvanced;
+
+  /// No description provided for @messagingHubYourApps.
+  ///
+  /// In en, this message translates to:
+  /// **'Your apps'**
+  String get messagingHubYourApps;
+
+  /// No description provided for @messagingHubAddApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Add an app'**
+  String get messagingHubAddApp;
+
+  /// No description provided for @messagingHubShowFewer.
+  ///
+  /// In en, this message translates to:
+  /// **'Show fewer'**
+  String get messagingHubShowFewer;
+
+  /// No description provided for @messagingHubConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get messagingHubConnected;
+
+  /// No description provided for @messagingHubConnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting…'**
+  String get messagingHubConnecting;
+
+  /// No description provided for @messagingHubNotRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Not running'**
+  String get messagingHubNotRunning;
+
+  /// No description provided for @messagingHubDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Not available on this server'**
+  String get messagingHubDisabled;
+
+  /// No description provided for @messagingHubReconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnect'**
+  String get messagingHubReconnect;
+
+  /// No description provided for @messagingHubDisconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect'**
+  String get messagingHubDisconnect;
+
+  /// No description provided for @messagingHubMoreSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'More settings'**
+  String get messagingHubMoreSettings;
+
+  /// No description provided for @messagingHubMoreSettingsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Group chats and recent activity'**
+  String get messagingHubMoreSettingsHint;
+
+  /// No description provided for @onboardingMessagingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Message your agent\nfrom anywhere.'**
+  String get onboardingMessagingTitle;
+
+  /// No description provided for @onboardingMessagingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect the chat app you already use. It takes a moment, and you can add more later.'**
+  String get onboardingMessagingDescription;
+
+  /// No description provided for @onboardingMessagingOtherApps.
+  ///
+  /// In en, this message translates to:
+  /// **'Other apps'**
+  String get onboardingMessagingOtherApps;
+
+  /// No description provided for @onboardingMessagingAllSet.
+  ///
+  /// In en, this message translates to:
+  /// **'You can now message your agent there.'**
+  String get onboardingMessagingAllSet;
+
+  /// No description provided for @messagingHubTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reach {agent} anywhere'**
+  String messagingHubTitle(Object? agent);
+
+  /// No description provided for @messagingHubLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Link {platform}'**
+  String messagingHubLink(Object? platform);
+
+  /// No description provided for @messagingHubShowAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Show all {count} apps'**
+  String messagingHubShowAll(Object? count);
+
+  /// No description provided for @messagingHubConnectedAs.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected as {identity}'**
+  String messagingHubConnectedAs(Object? identity);
+
+  /// No description provided for @messagingHubManage.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage {platform}'**
+  String messagingHubManage(Object? platform);
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

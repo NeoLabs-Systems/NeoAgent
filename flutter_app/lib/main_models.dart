@@ -636,13 +636,20 @@ class MessagingPlatformStatus {
 
   String get statusLabel => status.replaceAll('_', ' ');
 
-  String get authLabel {
+  /// Who this is connected as, when the platform says.
+  String? get identityLabel {
     for (final key in <String>['phoneNumber', 'tag', 'username', 'label']) {
       final value = authInfo[key]?.toString();
       if (value != null && value.trim().isNotEmpty) {
         return key == 'username' ? '@$value' : value;
       }
     }
+    return null;
+  }
+
+  String get authLabel {
+    final identity = identityLabel;
+    if (identity != null) return identity;
     if (lastConnected != null) {
       return appStrings.lastSeenArg1(_formatTimestamp(lastConnected!));
     }

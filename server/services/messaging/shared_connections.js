@@ -13,7 +13,7 @@ const { httpError } = require('../../utils/http_error');
 const { createServiceLogger } = require('../../utils/logger');
 const { isAdminUser } = require('../access/admin');
 const { normalizeWhatsAppId } = require('../../utils/whatsapp');
-const { SharedRoutePlatform, SlidingWindowLimiter } = require('./shared_route');
+const { SharedRoutePlatform, SlidingWindowLimiter, isSendersOwnChat } = require('./shared_route');
 const store = require('./shared_store');
 
 const log = createServiceLogger('SharedMessaging');
@@ -267,6 +267,7 @@ class SharedMessagingConnections {
     if (store.getConnection(platform)?.available !== 1) return refuse('unavailable');
     const externalId = String(context.stableSenderId || context.senderId || '');
     if (!externalId) return refuse('unlinked');
+    if (!isSendersOwnChat(platform, context.chatId, externalId)) return refuse('shared_disabled');
 
     const code = store.extractLinkCode(context.text);
     if (code) {
@@ -282,7 +283,7 @@ class SharedMessagingConnections {
     // A personal connection in this slot would send as a different identity.
     if (route?.isSharedRoute !== true) return refuse('unlinked');
     if (!this.inboundMessages.take(`${platform}:${externalId}`)) return refuse('rate_limited');
-    if (context.chatId && link.chat_id !== context.chatId) store.updateLinkChat(link.id, context.chatId);
+    if (link.chat_id !== context.chatId) store.updateLinkChat(link.id, context.chatId);
     return { allowed: true, ownerUserId: link.user_id };
   }
 

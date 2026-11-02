@@ -71,7 +71,7 @@ The CLI writes to the database and a running server picks the change up within a
 | A stranger uses someone's agent | The sender is resolved from the platform's own sender ID before anything else happens. An unlinked sender creates no message, run, download or reply |
 | Someone claims another person's identity | The identity comes from the platform, never from what was typed |
 | Someone guesses a code | Codes are 50 bits of randomness, single use, valid for 10 minutes and stored only as a hash. Each sender gets 5 tries per 10 minutes |
-| An agent is used to spam | Replies through a shared account can only go to that person's own linked chat, at up to 60 messages a minute. Any other recipient is refused, also for tools and tasks |
+| An agent is used to spam | Replies through a shared account can only go to that person's own direct chat, at up to 60 messages a minute. Any other recipient is refused, also for tools and tasks. A personal account is not limited this way, because it sends as you |
 | Someone floods the bot | Linked senders are limited to 30 messages a minute. Normal per-account limits still apply to runs |
 | Messages mix in a group | Shared accounts answer direct messages only. Group messages and membership events are dropped |
 | A file lands in the wrong account | Attachments are stored for the verified sender, after the check |

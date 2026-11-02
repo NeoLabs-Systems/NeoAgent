@@ -12,6 +12,19 @@ function chatKey(platform, value) {
   return raw;
 }
 
+// Whether this chat is the person's own direct chat with the shared account.
+// Only such a chat may ever receive replies: on WhatsApp a broadcast list or
+// status looks direct too, and its id would resolve to someone else's number.
+function isSendersOwnChat(platform, chatId, externalId) {
+  const chat = String(chatId || '');
+  if (platform === 'telegram') return chat === `dm_${externalId}`;
+  if (platform === 'whatsapp') {
+    if (chat.endsWith('@lid')) return true;
+    return chat.endsWith('@s.whatsapp.net') && normalizeWhatsAppId(chat) === String(externalId);
+  }
+  return false;
+}
+
 class SlidingWindowLimiter {
   constructor(limit, windowMs, maxKeys = 10000) {
     this.limit = limit;
@@ -55,6 +68,11 @@ class SharedRoutePlatform {
   _deliveryTarget(to) {
     const link = this._activeLink();
     if (!link) throw new Error(`This agent is no longer linked to the shared ${this.name} account.`);
+    if (!isSendersOwnChat(this.name, link.chat_id, link.external_id)) {
+      const error = new Error(`The shared ${this.name} account can only message your own linked chat.`);
+      error.code = 'SHARED_RECIPIENT_NOT_ALLOWED';
+      throw error;
+    }
     const requested = chatKey(this.name, to);
     if (requested !== chatKey(this.name, link.chat_id) && requested !== link.external_id) {
       const error = new Error(`The shared ${this.name} account can only message your own linked chat.`);
@@ -109,4 +127,4 @@ class SharedRoutePlatform {
   async disconnect() {}
 }
 
-module.exports = { SharedRoutePlatform, SlidingWindowLimiter, chatKey };
+module.exports = { SharedRoutePlatform, SlidingWindowLimiter, chatKey, isSendersOwnChat };

@@ -12106,9 +12106,6 @@ class AppL10nCs extends AppL10n {
       'shared instance telegram whatsapp bot number link users';
 
   @override
-  String get sharedMessagingThisServer => 'this server\'s account';
-
-  @override
   String get sharedMessagingBadge => 'Shared account';
 
   @override
@@ -12181,11 +12178,6 @@ class AppL10nCs extends AppL10n {
   }
 
   @override
-  String sharedMessagingUseSharedHint(Object? account) {
-    return 'Recommended. Message $account and reach your own agent. Nothing to set up, and nobody else here can see your chats.';
-  }
-
-  @override
   String sharedMessagingMovesLink(Object? platform) {
     return 'Your $platform is linked to another agent. Linking here moves it to this one.';
   }
@@ -12208,5 +12200,88 @@ class AppL10nCs extends AppL10n {
   @override
   String sharedMessagingLinked(Object? platform, Object? identity) {
     return '$platform linked as $identity';
+  }
+
+  @override
+  String get messagingHubSubtitle =>
+      'Link the chat app you already use, then message your agent like anyone else.';
+
+  @override
+  String get messagingHubOfferTagline =>
+      'Nothing to set up. Your chats stay yours, and only you reach your agent.';
+
+  @override
+  String get messagingHubAdvanced => 'Advanced';
+
+  @override
+  String get messagingHubYourApps => 'Your apps';
+
+  @override
+  String get messagingHubAddApp => 'Add an app';
+
+  @override
+  String get messagingHubShowFewer => 'Show fewer';
+
+  @override
+  String get messagingHubConnected => 'Connected';
+
+  @override
+  String get messagingHubConnecting => 'Connecting…';
+
+  @override
+  String get messagingHubNotRunning => 'Not running';
+
+  @override
+  String get messagingHubDisabled => 'Not available on this server';
+
+  @override
+  String get messagingHubReconnect => 'Reconnect';
+
+  @override
+  String get messagingHubDisconnect => 'Disconnect';
+
+  @override
+  String get messagingHubMoreSettings => 'More settings';
+
+  @override
+  String get messagingHubMoreSettingsHint => 'Group chats and recent activity';
+
+  @override
+  String get onboardingMessagingTitle => 'Message your agent\nfrom anywhere.';
+
+  @override
+  String get onboardingMessagingDescription =>
+      'Connect the chat app you already use. It takes a moment, and you can add more later.';
+
+  @override
+  String get onboardingMessagingOtherApps => 'Other apps';
+
+  @override
+  String get onboardingMessagingAllSet =>
+      'You can now message your agent there.';
+
+  @override
+  String messagingHubTitle(Object? agent) {
+    return 'Reach $agent anywhere';
+  }
+
+  @override
+  String messagingHubLink(Object? platform) {
+    return 'Link $platform';
+  }
+
+  @override
+  String messagingHubShowAll(Object? count) {
+    return 'Show all $count apps';
+  }
+
+  @override
+  String messagingHubConnectedAs(Object? identity) {
+    return 'Connected as $identity';
+  }
+
+  @override
+  String messagingHubManage(Object? platform) {
+    return 'Manage $platform';
   }
 }

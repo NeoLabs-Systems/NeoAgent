@@ -3,6 +3,11 @@ import 'package:flutter/material.dart';
 import '../../main.dart';
 import '../../src/mascot/mascot_mood.dart';
 import '../../src/theme/palette.dart';
+import '../messaging_hub/messaging_hub.dart';
+import '../messaging_hub/messaging_hub_models.dart';
+import '../messaging_hub/messaging_hub_widgets.dart';
+import '../shared_messaging/shared_link_flow.dart';
+import '../shared_messaging/shared_messaging_widgets.dart';
 import 'onboarding_chrome.dart';
 import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
@@ -24,34 +29,29 @@ class OnboardingMessagingStep extends StatefulWidget {
 }
 
 class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
-  final TextEditingController _search = TextEditingController();
-  String _query = '';
-  String? _selectedId;
-
-  @override
-  void dispose() {
-    _search.dispose();
-    super.dispose();
-  }
+  /// The platform being linked in place of the choices, once asked for.
+  String? _linkingId;
 
   NeoAgentController get _controller => widget.controller;
 
   @override
   void initState() {
     super.initState();
-    // Coming back to this step (or resuming onboarding) shows the platform
-    // that is already connected instead of asking to connect again.
-    for (final platform in messagingPlatforms) {
-      if (_status(platform.id).isConnected) {
-        _selectedId = platform.id;
-        break;
-      }
-    }
+    // An admin can set one up between this step loading and being reached.
+    _controller.refreshSharedMessagingOptions().then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
-  MessagingPlatformStatus _status(String id) =>
-      _controller.messagingStatuses[id] ?? MessagingPlatformStatus.empty(id);
+  MessagingPlatformDescriptor? _platform(String? id) {
+    for (final platform in messagingPlatforms) {
+      if (platform.id == id) return platform;
+    }
+    return null;
+  }
 
+  // Every path stays on this screen or opens the platform's own setup, and a
+  // failure comes back here rather than leaving the flow.
   Future<void> _connect(MessagingPlatformDescriptor platform) async {
     try {
       await openMessagingConfig(context, _controller, platform);
@@ -67,243 +67,178 @@ class _OnboardingMessagingStepState extends State<OnboardingMessagingStep> {
     }
   }
 
+  /// A shared account links on this page; anything else opens its own setup.
+  List<HubApp> _apps() {
+    return messagingHubApps(context, _controller)
+        .map((app) {
+          final platform = _platform(app.id)!;
+          return HubApp(
+            id: app.id,
+            label: app.label,
+            subtitle: app.subtitle,
+            icon: app.icon,
+            color: app.color,
+            state: app.state,
+            identity: app.identity,
+            isShared: app.isShared,
+            onConnect: () => _connect(platform),
+          );
+        })
+        .toList(growable: false);
+  }
+
+  List<HubLinkOffer> _offers() {
+    return messagingHubOffers(context, _controller)
+        .map(
+          (offer) => HubLinkOffer(
+            app: offer.app,
+            accountLabel: offer.accountLabel,
+            onLink: () => setState(() => _linkingId = offer.app.id),
+            onUseOwnAccount: offer.onUseOwnAccount,
+          ),
+        )
+        .toList(growable: false);
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: _controller,
       builder: (context, _) {
-        MessagingPlatformDescriptor? selected;
-        for (final platform in messagingPlatforms) {
-          if (platform.id == _selectedId) selected = platform;
-        }
-        final query = _query.toLowerCase();
-        // Connected platforms first, so a returning person sees them on top.
-        final platforms =
-            messagingPlatforms
-                .where((p) => p.label.toLowerCase().contains(query))
-                .toList()
-              ..sort((a, b) {
-                final aOn = _status(a.id).isConnected ? 0 : 1;
-                final bOn = _status(b.id).isConnected ? 0 : 1;
-                return aOn - bOn;
-              });
-        final connected = selected != null && _status(selected.id).isConnected;
-
-        final Widget primary;
-        if (selected == null || connected) {
-          primary = OnboardingPrimaryButton(
-            label: connected ? appStrings.onboardingNext : appStrings.continue2,
-            icon: Icons.arrow_forward_rounded,
-            onPressed: widget.onNext,
+        final apps = _apps();
+        final mine = apps.where((app) => app.isMine).toList(growable: false);
+        final live = mine.any((app) => app.state == HubAppState.live);
+        final linking = _platform(_linkingId);
+        final option = _controller.sharedMessagingOptions[_linkingId];
+        final Widget body;
+        if (linking != null && option != null) {
+          body = _LinkInPlace(
+            session: sharedLinkSessionFor(_controller, linking, option),
+            onDone: widget.onNext,
           );
         } else {
-          final platform = selected;
-          primary = OnboardingPrimaryButton(
-            label: appStrings.connect,
-            icon: Icons.link_rounded,
-            onPressed: () => _connect(platform),
+          body = _Choices(
+            apps: apps,
+            offers: _offers(),
+            mine: mine,
+            qr: _controller.pendingMessagingQr,
           );
         }
-
+        final linkingNow = linking != null && option != null;
         return OnboardingScaffold(
-          mood: MascotMood.listening,
+          mood: live ? MascotMood.done : MascotMood.listening,
           fill: true,
           eyebrow: appStrings.onboardingEyebrowCommunication,
-          title: appStrings.connectAMessagingPlatform,
-          description: appStrings.chooseOneToGetStartedNow,
+          title: appStrings.onboardingMessagingTitle,
+          description: appStrings.onboardingMessagingDescription,
           footer: OnboardingFooter(
-            onBack: widget.onBack,
-            secondary: <Widget>[
-              if (!connected)
-                OnboardingGhostButton(
-                  label: appStrings.skipForNow,
-                  onPressed: widget.onNext,
-                ),
-            ],
-            primary: primary,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              TextField(
-                controller: _search,
-                onChanged: (value) => setState(() => _query = value.trim()),
-                decoration: InputDecoration(
-                  hintText: appStrings.onboardingSearchApps,
-                  prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                  isDense: true,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Expanded(
-                child: _PlatformList(
-                  platforms: platforms,
-                  selectedId: _selectedId,
-                  isConnected: (id) => _status(id).isConnected,
-                  onSelect: (id) => setState(
-                    () => _selectedId = _selectedId == id ? null : id,
+            onBack: linkingNow
+                ? () => setState(() => _linkingId = null)
+                : widget.onBack,
+            // Connecting is the action on the page; leaving is the footer's,
+            // and it only turns gold once there is something to continue with.
+            primary: live && !linkingNow
+                ? OnboardingPrimaryButton(
+                    label: appStrings.onboardingNext,
+                    icon: Icons.arrow_forward_rounded,
+                    onPressed: widget.onNext,
+                  )
+                : OnboardingGhostButton(
+                    label: appStrings.skipForNow,
+                    onPressed: widget.onNext,
                   ),
-                ),
-              ),
-              if (selected != null) ...<Widget>[
-                const SizedBox(height: 12),
-                _ConnectionState(
-                  platform: selected,
-                  status: _status(selected.id),
-                  qr: _controller.pendingMessagingQr?.platform == selected.id
-                      ? _controller.pendingMessagingQr
-                      : null,
-                ),
-              ],
-            ],
           ),
+          child: body,
         );
       },
     );
   }
 }
 
-/// Live connection state for the selected platform: the WhatsApp QR code
-/// while it waits for a scan, then a confirmation once connected.
-class _ConnectionState extends StatelessWidget {
-  const _ConnectionState({
-    required this.platform,
-    required this.status,
+/// The link flow on the page itself, so nothing pops over the onboarding.
+class _LinkInPlace extends StatelessWidget {
+  const _LinkInPlace({required this.session, required this.onDone});
+
+  final SharedLinkSession session;
+  final VoidCallback onDone;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = paletteOf(context);
+    return SingleChildScrollView(
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: p.bgCard,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: session.platformColor.withValues(alpha: 0.28),
+          ),
+        ),
+        child: SharedLinkFlow(session: session, onDone: onDone),
+      ),
+    );
+  }
+}
+
+class _Choices extends StatelessWidget {
+  const _Choices({
+    required this.apps,
+    required this.offers,
+    required this.mine,
     required this.qr,
   });
 
-  final MessagingPlatformDescriptor platform;
-  final MessagingPlatformStatus status;
+  final List<HubApp> apps;
+  final List<HubLinkOffer> offers;
+  final List<HubApp> mine;
   final MessagingQrState? qr;
 
   @override
   Widget build(BuildContext context) {
-    final p = paletteOf(context);
-    if (status.isConnected) {
-      return Row(
+    final offered = offers.map((offer) => offer.app.id).toSet();
+    final others = apps
+        .where((app) => !app.isMine && !offered.contains(app.id))
+        .toList(growable: false);
+    final catalog = HubAppCatalog(apps: others);
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Icon(Icons.check_circle_rounded, color: p.success, size: 22),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              appStrings.onboardingMessagingConnected(platform.label),
-              style: TextStyle(
-                color: p.textPrimary,
-                fontWeight: FontWeight.w700,
+          if (qr != null) ...<Widget>[
+            MessagingQrPanel(qrState: qr!),
+            const SizedBox(height: 14),
+          ],
+          if (mine.isNotEmpty) ...<Widget>[
+            HubGroup(
+              children: <Widget>[
+                for (final app in mine)
+                  HubAppRow(key: ValueKey(app.id), app: app),
+              ],
+            ),
+            if (mine.any((app) => app.state == HubAppState.live)) ...<Widget>[
+              const SizedBox(height: 10),
+              InlineNotice(
+                tone: NoticeTone.success,
+                message: appStrings.onboardingMessagingAllSet,
               ),
-            ),
-          ),
+            ],
+            const SizedBox(height: 14),
+          ],
+          for (final offer in offers) ...<Widget>[
+            HubOfferCard(offer: offer),
+            const SizedBox(height: 14),
+          ],
+          // With a one-tap option on screen, the rest is only for those who
+          // came looking; without one, the short list is the page.
+          if (offers.isNotEmpty || mine.isNotEmpty)
+            HubDisclosure(
+              title: appStrings.onboardingMessagingOtherApps,
+              child: catalog,
+            )
+          else
+            catalog,
         ],
-      );
-    }
-    if (qr != null) return MessagingQrPanel(qrState: qr!);
-    if (status.isConnecting) {
-      return Row(
-        children: <Widget>[
-          const SizedBox.square(
-            dimension: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              appStrings.onboardingMessagingWaiting(platform.label),
-              style: TextStyle(color: p.textSecondary),
-            ),
-          ),
-        ],
-      );
-    }
-    return const SizedBox.shrink();
-  }
-}
-
-/// Every messaging app the server supports, searchable, one row each.
-class _PlatformList extends StatelessWidget {
-  const _PlatformList({
-    required this.platforms,
-    required this.selectedId,
-    required this.isConnected,
-    required this.onSelect,
-  });
-
-  final List<MessagingPlatformDescriptor> platforms;
-  final String? selectedId;
-  final bool Function(String id) isConnected;
-  final ValueChanged<String> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = paletteOf(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: p.bgPrimary,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: p.border),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(6),
-        itemCount: platforms.length,
-        itemBuilder: (context, index) {
-          final platform = platforms[index];
-          final selected = platform.id == selectedId;
-          final connected = isConnected(platform.id);
-          return Material(
-            color: selected
-                ? p.accent.withValues(alpha: 0.10)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () => onSelect(platform.id),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                child: Row(
-                  children: <Widget>[
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: platform.accent.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        platform.icon,
-                        size: 18,
-                        color: platform.accent,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        platform.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: selected ? p.accentHover : p.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    if (connected)
-                      Icon(
-                        Icons.check_circle_rounded,
-                        size: 18,
-                        color: p.success,
-                      )
-                    else if (selected)
-                      Icon(Icons.check_rounded, size: 18, color: p.accent),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
       ),
     );
   }
