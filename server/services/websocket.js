@@ -213,7 +213,7 @@ function setupWebSocket(io, services) {
     }
     const allowEvent = createSocketRateLimiter(userRateLimitStates.get(userId));
 
-    console.log(`[WS] User ${userId} connected (${socket.id})`);
+    console.log(`[WS] User ${userId} connected (${socket.id}, ${socket.handshake?.query?.client || 'no client field'}, phone: ${socket.data.mobileApp})`);
     agentCallCoordinator?.offerPendingCall?.(socket, userId);
     approvalGateService?.offerPendingApprovals?.(socket, userId);
 

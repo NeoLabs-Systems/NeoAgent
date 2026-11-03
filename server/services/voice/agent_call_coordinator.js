@@ -8,31 +8,63 @@ const DEFAULT_RING_TIMEOUT_MS = 30_000;
 // How long a call that needs a phone waits for one to come back. Placing the call
 // that triggers it sends the app to the background, where a phone may suspend it.
 const DEFAULT_MOBILE_WAIT_MS = 2 * 60 * 1000;
+// Lets the declined call clear off the phone before this one rings.
+const DEFAULT_CALL_BACK_DELAY_MS = 5000;
 
 const logger = createServiceLogger('AgentCalls');
 
-// Apps say what they run on when they connect. Those installed before that have
-// no such field, but a native client still shows through its user agent; that
-// older desktop apps also match is a harmless extra ring. The web app on a phone
-// says nothing, so its browser's user agent decides.
+const DESKTOP_CLIENTS = new Set(['macos', 'windows', 'linux', 'fuchsia']);
+const MOBILE_USER_AGENT = /\b(iPhone|iPad|Android)\b/;
+const DESKTOP_USER_AGENT = /\b(Macintosh|Windows NT|X11|CrOS|Linux)\b/;
+
+// Clients say what they run on when they connect. An older one is judged by its
+// user agent, where only a recognisable desktop rules it out: a missed call back
+// costs more than a laptop ringing as well.
 function isMobileAppHandshake(handshake) {
   const client = handshake?.query?.client;
-  if (client) return client === 'android' || client === 'ios';
-  return /^Dart\/|\b(iPhone|iPad|Android)\b/.test(String(handshake?.headers?.['user-agent'] || ''));
+  if (client) return !DESKTOP_CLIENTS.has(client);
+  const userAgent = String(handshake?.headers?.['user-agent'] || '');
+  return MOBILE_USER_AGENT.test(userAgent) || !DESKTOP_USER_AGENT.test(userAgent);
+}
+
+function describeClient(socket) {
+  const handshake = socket?.handshake;
+  const kind = handshake?.query?.client || String(handshake?.headers?.['user-agent'] || 'unknown').slice(0, 40);
+  return `${kind}${socket?.data?.mobileApp === true ? ' (phone)' : ''}`;
 }
 
 class AgentCallCoordinator {
   constructor({
-    io, agentEngine, voiceRuntimeManager, ringTimeoutMs = DEFAULT_RING_TIMEOUT_MS, mobileWaitMs = DEFAULT_MOBILE_WAIT_MS,
+    io,
+    agentEngine,
+    voiceRuntimeManager,
+    ringTimeoutMs = DEFAULT_RING_TIMEOUT_MS,
+    mobileWaitMs = DEFAULT_MOBILE_WAIT_MS,
+    callBackDelayMs = DEFAULT_CALL_BACK_DELAY_MS,
   }) {
     this.io = io;
     this.agentEngine = agentEngine;
     this.voiceRuntimeManager = voiceRuntimeManager;
     this.ringTimeoutMs = ringTimeoutMs;
     this.mobileWaitMs = mobileWaitMs;
+    this.callBackDelayMs = callBackDelayMs;
     this.pendingById = new Map();
     this.pendingByUser = new Map();
     this.shuttingDown = false;
+  }
+
+  /** Rings the phone back after a call on a platform that cannot carry voice was declined. */
+  async callBack({ userId, agentId, platform, callerId }) {
+    await new Promise((resolve) => { setTimeout(resolve, this.callBackDelayMs); });
+    const result = await this.callUser({
+      userId,
+      agentId,
+      requireMobileApp: true,
+      openingMessage: `${callerId} just tried to call you on ${platform}, which cannot carry a voice call,`
+        + ' so you are calling back in the app. Greet them and ask what they need.',
+    });
+    logger.info(`Call back after a ${platform} call: ${result.status}${result.reason ? ` (${result.reason})` : ''}.`);
+    return result;
   }
 
   async callUser({ userId, agentId, runId, conversationId = null, openingMessage, signal = null, requireMobileApp = false }) {
@@ -61,7 +93,8 @@ class AgentCallCoordinator {
     const waitMs = waitingForMobile ? this.mobileWaitMs : this.ringTimeoutMs;
     const expiresAt = new Date(Date.now() + waitMs).toISOString();
     if (waitingForMobile) {
-      logger.info(`No phone is connected; waiting up to ${Math.round(waitMs / 1000)}s for one to ring.`);
+      const connected = sockets.map(describeClient).join(', ') || 'nothing';
+      logger.info(`No phone is connected (${connected}); waiting up to ${Math.round(waitMs / 1000)}s for one to ring.`);
     }
 
     return new Promise((resolve) => {

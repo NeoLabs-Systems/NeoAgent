@@ -474,16 +474,9 @@ async function startServices(app, io, { resumeRuns = false } = {}) {
     const messagingManager = createMessagingManager(app, io, agentEngine);
     messagingManager.chatApprovals = new ChatApprovals({ manager: messagingManager, gate: approvalGateService });
     approvalGateService.setChatDelivery(messagingManager.chatApprovals);
-    messagingManager.on('incoming_call', ({ userId, agentId, platform, callerId }) => {
-      void agentCallCoordinator.callUser({
-        userId,
-        agentId,
-        requireMobileApp: true,
-        openingMessage: `${callerId} just tried to call you on ${platform}, which cannot carry a voice call,`
-          + ' so you are calling back in the app. Greet them and ask what they need.',
-      }).then((result) => {
-        console.info(`[Messaging] Call-back after a ${platform} call: ${result.status}${result.reason ? ` (${result.reason})` : ''}.`);
-      }).catch((err) => console.error('[Messaging] Call-back failed:', getErrorMessage(err)));
+    messagingManager.on('incoming_call', (call) => {
+      void agentCallCoordinator.callBack(call)
+        .catch((err) => console.error('[Messaging] Call-back failed:', getErrorMessage(err)));
     });
     createSocialVideoService(app);
     createSocialReachService(app);
