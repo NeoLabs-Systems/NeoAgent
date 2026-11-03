@@ -139,7 +139,7 @@ void main() {
       OnboardingModelStep(onNext: () {}, onBack: () {}, controller: controller),
     );
 
-    expect(find.text('No AI model is set up yet'), findsOneWidget);
+    expect(find.textContaining('needs a model to think with'), findsOneWidget);
     expect(find.byType(ByokSettingsCard), findsOneWidget);
     expect(find.text('OpenAI'), findsOneWidget);
   });
@@ -169,6 +169,10 @@ void main() {
           controller: controller,
         ),
       );
+
+      // The specific models wait behind a heading; automatic is the default.
+      await tester.tap(find.text('Choose a specific model'));
+      await tester.pump(const Duration(seconds: 1));
 
       expect(find.text('Smart Selector'), findsOneWidget);
       expect(find.text('GPT X'), findsOneWidget);
@@ -243,6 +247,16 @@ void main() {
     _setSize(tester, const Size(1280, 800));
     final controller = _controller(_FakeBackendClient());
     addTearDown(controller.dispose);
+    // The message box only appears once a model can answer it.
+    controller.supportedModels = const <ModelMeta>[
+      ModelMeta(
+        id: 'gpt-x',
+        modelId: 'gpt-x',
+        label: 'GPT X',
+        provider: 'openai',
+        purpose: 'General work',
+      ),
+    ];
     final sent = <String>[];
 
     await _pump(

@@ -42,6 +42,11 @@ Future<void> _openTaskModelEditor(
   await tester.tap(find.text('Edit'));
   await tester.pumpAndSettle();
 
+  // The override lives behind the advanced settings.
+  await tester.ensureVisible(find.text('Advanced settings'));
+  await tester.tap(find.text('Advanced settings'));
+  await tester.pumpAndSettle();
+
   expect(find.text('Model Override'), findsOneWidget);
 }
 

@@ -75,5 +75,5 @@ jobs:
             exit 0
           fi
           git commit -m "chore(web-client): rebuild bundled web client [skip ci]"
-          git pull --rebase origin "${{ github.ref_name }}"
+          git pull --rebase --autostash origin "${{ github.ref_name }}"
           git push origin "HEAD:${{ github.ref_name }}"
