@@ -4,6 +4,11 @@ const db = require('../../db/database');
 const { getVersionInfo } = require('../../utils/version');
 const { readUpdateStatus } = require('../../utils/update_status');
 const { getRuntimeValidation } = require('../runtime/validation');
+const { listProviders } = require('./providers');
+
+const RECENT_FAILURE_MS = 24 * 60 * 60 * 1000;
+// Keys in the provider list that are not AI models or only override a URL.
+const NON_AI_PROVIDER_KEYS = new Set(['BRAVE_SEARCH_API_KEY', 'DEEPGRAM_API_KEY', 'OPENAI_BASE_URL', 'ANTHROPIC_BASE_URL', 'XAI_BASE_URL', 'OPENAI_COMPATIBLE_BASE_URL']);
 
 // Non-secret runtime settings, shown read-only on the admin page.
 const ENVIRONMENT_KEYS = [
@@ -48,16 +53,16 @@ function checkDatabase() {
 }
 
 function configuredProviderNames() {
-  const names = [];
-  if (process.env.ANTHROPIC_API_KEY) names.push('Anthropic');
-  if (process.env.OPENAI_API_KEY) names.push('OpenAI');
-  if (process.env.OPENAI_COMPATIBLE_API_KEY && process.env.OPENAI_COMPATIBLE_BASE_URL) {
-    names.push('Custom OpenAI-compatible');
-  }
-  if (process.env.XAI_API_KEY) names.push('xAI');
-  if (process.env.GOOGLE_AI_KEY) names.push('Google');
-  if (process.env.OPENROUTER_API_KEY) names.push('OpenRouter');
-  return names;
+  return listProviders().providers
+    .filter((provider) => provider.configured && !NON_AI_PROVIDER_KEYS.has(provider.key))
+    .map((provider) => provider.label);
+}
+
+// An old failed run is history, not a fault: only a recent one is flagged.
+function updateFailedRecently(status) {
+  if (status.state !== 'failed') return false;
+  const finished = Date.parse(status.completedAt || status.updatedAt || '');
+  return Number.isFinite(finished) && Date.now() - finished < RECENT_FAILURE_MS;
 }
 
 function runHealthChecks(runtimeManager) {
@@ -79,7 +84,7 @@ function runHealthChecks(runtimeManager) {
     {
       id: 'update',
       label: 'Update status',
-      passed: updateStatus.state !== 'failed',
+      passed: !updateFailedRecently(updateStatus),
       detail: updateStatus.state === 'idle'
         ? 'No update running'
         : `${updateStatus.state} — ${updateStatus.message || ''}`.trim(),

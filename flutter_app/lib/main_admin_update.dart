@@ -64,13 +64,15 @@ class _AdminUpdateWatcher extends ChangeNotifier {
   bool _disposed = false;
   Timer? _timer;
 
-  /// A finished update is news for half an hour, or until it is dismissed.
+  /// A failed update is news for half an hour, or until it is dismissed. A
+  /// finished one is only news on the page that watched it run: after the
+  /// reload it has been delivered.
   bool get finishedRecently {
     final done = status?.completedAt;
     if (done == null || done == _dismissedAt) return false;
     final state = status!.state;
-    return (state == 'completed' || state == 'failed') &&
-        DateTime.now().difference(done) < const Duration(minutes: 30);
+    if (state == 'completed') return _followed;
+    return state == 'failed' && DateTime.now().difference(done) < const Duration(minutes: 30);
   }
 
   bool get justUpdated => _followed && status?.state == 'completed';
