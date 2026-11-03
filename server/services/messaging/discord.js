@@ -447,10 +447,19 @@ class DiscordPlatform extends BasePlatform {
     return { success: true, messageId: sent?.id || null };
   }
 
-  async sendApprovalPrompt(chatId, { text, options }) {
+  async sendApprovalPrompt(chatId, { title, action, detail, reason, note, options }) {
     if (!this._client || this.status !== 'connected') throw new Error('Discord not connected');
     const channel = await this._textChannel(chatId);
-    const sent = await channel.send({ content: text, allowedMentions: { parse: [] } });
+    const content = [
+      `🔐 **${title}**`,
+      action,
+      detail ? `\`\`\`\n${detail.replace(/`/g, 'ˋ')}\n\`\`\`` : null,
+      reason ? `> ${reason}` : null,
+      '',
+      options.map((option) => option.label).join('   ·   '),
+      `-# ${note}`,
+    ].filter((line) => line !== null).join('\n');
+    const sent = await channel.send({ content, allowedMentions: { parse: [] } });
     // Known before the reactions exist, so a quick answer is not missed.
     this._approvalPrompts.set(sent.id, options);
     for (const option of options) {

@@ -3,10 +3,20 @@
 const { randomUUID } = require('crypto');
 const db = require('../../db/database');
 const { getCategoryForTool } = require('./tool_categories');
+const { describeApproval } = require('./approval_copy');
 
 const APPROVAL_TIMEOUT_MS = 30_000;
 // Someone answering from a chat may not have it open the moment it arrives.
 const CHAT_APPROVAL_TIMEOUT_MS = 5 * 60 * 1000;
+
+function describeSafely(input) {
+  try {
+    return describeApproval(input);
+  } catch (err) {
+    console.warn('[ApprovalGate] Failed to describe an approval:', err.message);
+    return null;
+  }
+}
 const SESSION_GRANT_TTL_MS = 12 * 60 * 60 * 1000;
 
 class ApprovalGateService {
@@ -134,7 +144,9 @@ class ApprovalGateService {
    * @param {object|null} [options.trust] the run's trust record, which names
    *   the chat it came from
    */
-  requestApproval(userId, runId, toolName, toolArgs, { reason = null, agentId = null, trust = null } = {}) {
+  requestApproval(userId, runId, toolName, toolArgs, {
+    reason = null, reasonKey = null, reasonParams = null, agentId = null, trust = null,
+  } = {}) {
     const approvalId = randomUUID();
     const inChat = this._chatDelivery?.canOffer({ userId, agentId, trust }) === true;
     const timeoutMs = inChat ? CHAT_APPROVAL_TIMEOUT_MS : APPROVAL_TIMEOUT_MS;
@@ -142,7 +154,21 @@ class ApprovalGateService {
     const category = getCategoryForTool(toolName, toolArgs) ?? 'unknown';
     this._persistPendingApproval(approvalId, userId, runId, toolName, toolArgs, category, expiresAt);
 
-    const payload = { approvalId, runId, toolName, toolArgs, category, expiresAt, reason };
+    const copy = describeSafely({
+      userId, agentId, toolName, toolArgs, category, reason, reasonKey, reasonParams: reasonParams || {},
+    });
+    const payload = {
+      approvalId,
+      runId,
+      toolName,
+      toolArgs,
+      category,
+      expiresAt,
+      reason: copy?.reason || reason,
+      title: copy?.title || null,
+      action: copy?.action || null,
+      detail: copy?.detail || null,
+    };
     this._io.to(`user:${userId}`).emit('tool:approval_required', payload);
 
     return new Promise((resolve) => {
@@ -150,7 +176,7 @@ class ApprovalGateService {
         if (this._pending.has(approvalId)) {
           this._pending.delete(approvalId);
           this._updatePendingApprovalStatus(approvalId, 'timeout', 'once');
-          this._chatDelivery?.withdraw(approvalId);
+          this._chatDelivery?.withdraw(approvalId, { timedOut: true });
           this._io.to(`user:${userId}`).emit('tool:approval_resolved', {
             approvalId, decision: 'timeout',
           });
@@ -173,7 +199,7 @@ class ApprovalGateService {
       });
       if (inChat) {
         void this._chatDelivery.offer({
-          approvalId, userId, agentId, trust, toolName, toolArgs: toolArgs ?? {}, reason,
+          approvalId, userId, agentId, trust, category, toolName, toolArgs: toolArgs ?? {}, reason, reasonKey, reasonParams: reasonParams || {}, timeoutMs,
         });
       }
     });

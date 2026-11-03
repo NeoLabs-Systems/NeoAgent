@@ -7182,5 +7182,9 @@
   "neoRouterNoDecisionModels": "Potrebuje modele za odločanje, kot je Jev. Varnostni klasifikatorji na ta vprašanja ne odgovorijo.",
   "voiceLiveNoProvider": "Ponudnik glasu v živo ni nastavljen. Dodajte ključ OpenAI ali Google AI ali povežite NeoRouter v Modeli → Prinesite svoj ključ.",
   "voiceSttAutoNeoRouter": "Samodejno (model izbere NeoRouter)",
-  "voiceNotOffered": "Ni več na voljo, izberite drugo"
+  "voiceNotOffered": "Ni več na voljo, izberite drugo",
+  "approvalReview": "Preglej",
+  "approvalExpired": "Zahteva je potekla, zato se ni nič izvedlo.",
+  "requestTookTooLong": "To je trajalo predolgo in je bilo ustavljeno. Poskusi znova.",
+  "usageLimitReached": "Dosegel sem omejitev uporabe in trenutno ne morem odgovoriti."
 }

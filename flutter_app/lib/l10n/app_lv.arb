@@ -7182,5 +7182,9 @@
   "neoRouterNoDecisionModels": "Vajadzīgi lēmumu modeļi, piemēram, Jev. Drošības klasifikatori uz šiem jautājumiem neatbild.",
   "voiceLiveNoProvider": "Nav iestatīts neviens tiešraides balss nodrošinātājs. Pievienojiet OpenAI vai Google AI atslēgu vai pievienojiet NeoRouter sadaļā Modeļi → Paņemiet līdzi savu atslēgu.",
   "voiceSttAutoNeoRouter": "Automātiski (modeli izvēlas NeoRouter)",
-  "voiceNotOffered": "Vairs netiek piedāvāts, izvēlieties citu"
+  "voiceNotOffered": "Vairs netiek piedāvāts, izvēlieties citu",
+  "approvalReview": "Pārskatīt",
+  "approvalExpired": "Pieprasījuma termiņš beidzās, nekas netika izpildīts.",
+  "requestTookTooLong": "Tas aizņēma pārāk ilgu laiku un tika apturēts. Mēģini vēlreiz.",
+  "usageLimitReached": "Esmu sasniedzis lietošanas limitu un šobrīd nevaru atbildēt."
 }

@@ -7182,5 +7182,9 @@
   "neoRouterNoDecisionModels": "Potřebuje rozhodovací modely, jako je Jev. Bezpečnostní klasifikátory na tyto otázky neodpoví.",
   "voiceLiveNoProvider": "Není nastaven žádný poskytovatel živého hlasu. Přidejte klíč OpenAI nebo Google AI, nebo připojte NeoRouter (Modelky → Přineste si vlastní klíč).",
   "voiceSttAutoNeoRouter": "Auto (model vybírá NeoRouter)",
-  "voiceNotOffered": "Už není k dispozici, vyberte jiné"
+  "voiceNotOffered": "Už není k dispozici, vyberte jiné",
+  "approvalReview": "Zobrazit",
+  "approvalExpired": "Platnost žádosti vypršela, nic se nespustilo.",
+  "requestTookTooLong": "Trvalo to příliš dlouho, a tak se to zastavilo. Zkus to znovu.",
+  "usageLimitReached": "Dosáhl jsem limitu využití a teď nemohu odpovědět."
 }

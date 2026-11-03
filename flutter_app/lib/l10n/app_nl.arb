@@ -7182,5 +7182,9 @@
   "neoRouterNoDecisionModels": "Heeft beslismodellen zoals Jev nodig. Veiligheidsclassificatoren kunnen deze vragen niet beantwoorden.",
   "voiceLiveNoProvider": "Er is geen aanbieder voor live spraak ingesteld. Voeg een OpenAI- of Google AI-sleutel toe, of verbind een NeoRouter, onder Modellen → Neem uw eigen sleutel mee.",
   "voiceSttAutoNeoRouter": "Automatisch (NeoRouter kiest het model)",
-  "voiceNotOffered": "Niet meer beschikbaar, kies een ander"
+  "voiceNotOffered": "Niet meer beschikbaar, kies een ander",
+  "approvalReview": "Bekijken",
+  "approvalExpired": "Dit verzoek is verlopen, er is niets uitgevoerd.",
+  "requestTookTooLong": "Dat duurde te lang en is gestopt. Probeer het opnieuw.",
+  "usageLimitReached": "Ik heb mijn gebruikslimiet bereikt en kan nu niet antwoorden."
 }

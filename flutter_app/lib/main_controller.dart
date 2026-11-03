@@ -556,6 +556,20 @@ class NeoAgentController extends ChangeNotifier {
 
   BackendClient get backendClient => _backendClient;
 
+  /// The approval the user set aside with "Not now". It keeps waiting; only the
+  /// sheet stays closed until they come back to it.
+  String? approvalSheetDismissedId;
+
+  void dismissApprovalSheet(String approvalId) {
+    approvalSheetDismissedId = approvalId;
+    notifyListeners();
+  }
+
+  void reviewPendingApproval() {
+    approvalSheetDismissedId = null;
+    notifyListeners();
+  }
+
   void clearPendingApproval() {
     pendingApproval = null;
     notifyListeners();
@@ -7320,6 +7334,14 @@ class NeoAgentController extends ChangeNotifier {
         : null;
     final backendCode = error is BackendException ? error.code : null;
 
+    if (backendCode == 'RATE_LIMIT_EXCEEDED' ||
+        (backendStatusCode == 429 && lower.startsWith('rate limit exceeded'))) {
+      return appStrings.usageLimitReached;
+    }
+    if (lower.contains('timed out after')) {
+      return appStrings.requestTookTooLong;
+    }
+
     if (backendCode == 'COMPUTER_STORAGE_CAPACITY') {
       return appStrings.theComputerNeedsMoreFreeDisk;
     }
@@ -7779,9 +7801,7 @@ class NeoAgentController extends ChangeNotifier {
       'reconnectionDelay': 800,
       'reconnectionDelayMax': 8000,
       'withCredentials': true,
-      if (!kIsWeb &&
-          (defaultTargetPlatform == TargetPlatform.android ||
-              defaultTargetPlatform == TargetPlatform.iOS))
+      if (!kIsWeb)
         'query': <String, String>{
           'client': defaultTargetPlatform.name.toLowerCase(),
         },

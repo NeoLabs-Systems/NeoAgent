@@ -481,6 +481,8 @@ async function startServices(app, io, { resumeRuns = false } = {}) {
         requireMobileApp: true,
         openingMessage: `${callerId} just tried to call you on ${platform}, which cannot carry a voice call,`
           + ' so you are calling back in the app. Greet them and ask what they need.',
+      }).then((result) => {
+        console.info(`[Messaging] Call-back after a ${platform} call: ${result.status}${result.reason ? ` (${result.reason})` : ''}.`);
       }).catch((err) => console.error('[Messaging] Call-back failed:', getErrorMessage(err)));
     });
     createSocialVideoService(app);

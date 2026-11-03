@@ -12504,4 +12504,19 @@ class AppL10nPl extends AppL10n {
 
   @override
   String get adminUpdateFailedTitle => 'The update did not finish';
+
+  @override
+  String get approvalReview => 'Sprawdź';
+
+  @override
+  String get approvalExpired =>
+      'To żądanie wygasło, nic nie zostało uruchomione.';
+
+  @override
+  String get requestTookTooLong =>
+      'Trwało to zbyt długo i zostało zatrzymane. Spróbuj ponownie.';
+
+  @override
+  String get usageLimitReached =>
+      'Osiągnąłem limit użycia i nie mogę teraz odpowiedzieć.';
 }

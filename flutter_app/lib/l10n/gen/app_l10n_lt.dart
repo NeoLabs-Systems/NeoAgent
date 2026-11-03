@@ -12479,4 +12479,19 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get adminUpdateFailedTitle => 'The update did not finish';
+
+  @override
+  String get approvalReview => 'Peržiūrėti';
+
+  @override
+  String get approvalExpired =>
+      'Užklausos laikas baigėsi, nieko nebuvo vykdoma.';
+
+  @override
+  String get requestTookTooLong =>
+      'Tai užtruko per ilgai ir buvo sustabdyta. Bandyk dar kartą.';
+
+  @override
+  String get usageLimitReached =>
+      'Pasiekiau naudojimo limitą ir šiuo metu negaliu atsakyti.';
 }

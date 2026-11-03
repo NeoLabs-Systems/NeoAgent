@@ -38,9 +38,14 @@ async function setup({ policy = { schemaVersion: 3, directPolicy: 'allowlist', d
     .run(userId, agentId, accessPolicyKey(PLATFORM), JSON.stringify(policy));
   const sent = [];
   const removed = [];
+  const notices = [];
   const platform = {
     getStatus: () => status,
     getAccessPolicy: () => policy,
+    sendMessage: async (chatId, content) => {
+      notices.push({ chatId, content });
+      return { messageId: `note-${notices.length}` };
+    },
     sendApprovalPrompt: async (chatId, prompt) => {
       sent.push({ chatId, ...prompt });
       return { promptId: `prompt-${sent.length}` };
@@ -61,7 +66,7 @@ async function setup({ policy = { schemaVersion: 3, directPolicy: 'allowlist', d
   const approvals = new ChatApprovals({ manager, gate });
   gate.setChatDelivery(approvals);
   gates.push(gate);
-  return { userId, agentId, approvals, gate, platform, manager, sent, removed, policies };
+  return { userId, agentId, approvals, gate, platform, manager, sent, removed, notices, policies };
 }
 
 const ownerDm = { audience: 'owner', origin: { platform: PLATFORM, chatId: 'dm_owner', senderId: 'owner', isGroup: false } };
@@ -205,10 +210,11 @@ test('typing the answer works, and only a real answer from the right person is c
   assert.equal(consume('allow'), false, 'nothing is waiting yet');
   const decision = ask(ctx);
   await new Promise((resolve) => setImmediate(resolve));
-  assert.match(texts[0], /Reply "allow", "always" or "deny"/);
+  assert.match(texts[0], /Allow/);
+  assert.match(texts[0], /Run a command/);
   assert.equal(consume('allow me to explain'), false);
   assert.equal(consume('allow', 'stranger'), false);
-  assert.equal(consume(' Disallow '), true);
+  assert.equal(consume(' Don’t allow '), true);
   assert.equal(await decision, 'denied');
   assert.equal(consume('allow'), false, 'the answer is spent');
 });
@@ -246,13 +252,141 @@ test('a failed prompt leaves the app to answer', async () => {
   assert.equal(ctx.gate._pending.size, 1);
 });
 
-test('prompts hide credentials, and a group sees only the tool', () => {
-  const { OPTIONS, promptText } = require('../../../server/services/messaging/chat_approvals');
+test('a prompt reads as a request, hides credentials, and a group sees only what is asked', async () => {
+  const ctx = await setup();
+  const { describeApproval } = require('../../../server/services/security/approval_copy');
+  const { buildPrompt } = require('../../../server/services/messaging/chat_approvals');
   const token = `ghp_${'a'.repeat(36)}`;
-  const direct = promptText({ toolName: 'execute_command', toolArgs: { command: `curl -H ${token} x` }, reason: null, isGroup: false });
-  assert.ok(!direct.includes(token));
-  assert.match(direct, /\[hidden\]/);
-  const group = promptText({ toolName: 'execute_command', toolArgs: { command: 'cat /etc/secret' }, reason: 'why', isGroup: true });
-  assert.equal(group, 'Allow execute_command?');
-  assert.equal(OPTIONS.length, 3);
+  const copy = describeApproval({
+    userId: ctx.userId,
+    agentId: ctx.agentId,
+    toolName: 'execute_command',
+    toolArgs: { command: `curl -H ${token}\n  https://example.com` },
+    category: 'shell',
+    reason: null,
+  });
+  assert.equal(copy.action, 'Run a command');
+  assert.ok(copy.title.endsWith('needs your OK'));
+  assert.ok(!copy.detail.includes(token));
+  assert.ok(!copy.detail.includes('\n'));
+
+  const direct = buildPrompt({ copy, isGroup: false, timeoutMs: 300_000 });
+  assert.ok(direct.text.startsWith('🔐'));
+  assert.match(direct.text, /Run a command/);
+  assert.match(direct.note, /5 minutes/);
+  assert.deepEqual(direct.options.map((option) => option.id), ['allow', 'always', 'deny']);
+
+  const group = buildPrompt({ copy: { ...copy, reason: 'why' }, isGroup: true, timeoutMs: 300_000 });
+  assert.ok(!group.text.includes('curl'));
+  assert.ok(!group.text.includes('why'));
+});
+
+test('prompts use the owner\'s language, and its words count as answers', async () => {
+  const ctx = await setup();
+  const db = database();
+  db.prepare('INSERT OR REPLACE INTO user_settings (user_id, key, value) VALUES (?, ?, ?)')
+    .run(ctx.userId, 'ui_language', JSON.stringify('de'));
+  db.prepare('INSERT OR REPLACE INTO agent_settings (user_id, agent_id, key, value) VALUES (?, ?, ?, ?)')
+    .run(ctx.userId, ctx.agentId, 'ui_language', JSON.stringify('de'));
+  const decision = ask(ctx);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.match(ctx.sent[0].text, /braucht dein OK/);
+  assert.match(ctx.sent[0].action, /Befehl/);
+  assert.equal(ctx.sent[0].options[0].label, '✅ Erlauben');
+  assert.equal(ctx.approvals.handleInboundText(ctx.userId, ctx.agentId, PLATFORM, {
+    chatId: 'dm_owner', sender: 'owner', isGroup: false, content: 'erlauben',
+  }), true);
+  assert.equal(await decision, 'approved');
+});
+
+test('review reasons reach the person in their language, with the details filled in', async () => {
+  const ctx = await setup();
+  const { describeApproval } = require('../../../server/services/security/approval_copy');
+  const { reviewToolCall } = require('../../../server/services/security/trust_policy');
+  const db = database();
+  db.prepare('INSERT OR REPLACE INTO user_settings (user_id, key, value) VALUES (?, ?, ?)')
+    .run(ctx.userId, 'ui_language', JSON.stringify('de'));
+  db.prepare('INSERT OR REPLACE INTO agent_settings (user_id, agent_id, key, value) VALUES (?, ?, ?, ?)')
+    .run(ctx.userId, ctx.agentId, 'ui_language', JSON.stringify('de'));
+  const review = reviewToolCall({
+    toolName: 'send_message',
+    toolArgs: { to: '+49170' },
+    trust: {
+      audience: 'shared',
+      approvedSpeaker: false,
+      origin: { platform: PLATFORM, chatId: '-100', senderId: 'guest' },
+      mediaPaths: new Set(),
+      taintSources: new Set(),
+      trustedText: '',
+      trustedNumbers: new Set(),
+    },
+  });
+  assert.equal(review.reasonKey, 'messageOther');
+  assert.match(review.reason, /wants to message/);
+  const copy = describeApproval({
+    userId: ctx.userId, agentId: ctx.agentId, toolName: 'send_message', toolArgs: {}, category: null, ...review,
+  });
+  assert.match(copy.reason, /\+49170.*jemand anderes/);
+  assert.match(copy.action, /Nachricht/);
+});
+
+test('every language says the same things', () => {
+  const { COPY, REASONS } = require('../../../server/services/security/approval_copy');
+  const { MESSAGES } = require('../../../server/services/messaging/fixed_messages');
+  const { UI_LANGUAGE_CODES } = require('../../../server/config/ui_languages');
+  for (const language of UI_LANGUAGE_CODES) {
+    assert.deepEqual(Object.keys(REASONS[language]).sort(), Object.keys(REASONS.en).sort(), language);
+    assert.deepEqual(Object.keys(MESSAGES[language]).sort(), Object.keys(MESSAGES.en).sort(), language);
+  }
+  const keys = Object.keys(COPY.en).sort();
+  for (const language of UI_LANGUAGE_CODES) {
+    assert.deepEqual(Object.keys(COPY[language]).sort(), keys, language);
+    for (const placeholder of ['{agent}']) assert.ok(COPY[language].title.includes(placeholder), language);
+    assert.ok(COPY[language].timedOut.includes('{action}'), language);
+    assert.ok(COPY[language].time.includes('{minutes}'), language);
+    assert.ok(COPY[language].other.includes('{tool}'), language);
+    for (const word of ['{allow}', '{always}', '{deny}']) assert.ok(COPY[language].reply.includes(word), language);
+  }
+});
+
+test('a request nobody answered is removed and the chat is told', async () => {
+  const ctx = await setup();
+  const decision = ask(ctx);
+  await new Promise((resolve) => setImmediate(resolve));
+  const [[approvalId, entry]] = ctx.gate._pending;
+  // What the gate's timer does when it fires.
+  ctx.approvals.withdraw(approvalId, { timedOut: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(ctx.removed, [{ chatId: 'dm_owner', promptId: 'prompt-1' }]);
+  assert.equal(ctx.notices.length, 1);
+  assert.equal(ctx.notices[0].chatId, 'dm_owner');
+  assert.match(ctx.notices[0].content, /^⏱️ No answer in time.*Run a command/);
+  assert.ok(entry);
+  ctx.gate.decide(approvalId, ctx.userId, 'denied', 'once');
+  assert.equal(await decision, 'denied');
+  assert.equal(ctx.notices.length, 1, 'answers and shutdowns say nothing');
+});
+
+test('the gate itself times out into a notice, not on other endings', async () => {
+  const ctx = await setup();
+  const original = global.setTimeout;
+  const timers = [];
+  global.setTimeout = (fn, ms) => {
+    const timer = { fn, ms, unref() {} };
+    timers.push(timer);
+    return timer;
+  };
+  let decision;
+  try {
+    decision = ask(ctx);
+  } finally {
+    global.setTimeout = original;
+  }
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(timers[0].ms, 300_000);
+  timers[0].fn();
+  assert.equal(await decision, 'timeout');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(ctx.notices.length, 1);
+  assert.equal(ctx.removed.length, 1);
 });

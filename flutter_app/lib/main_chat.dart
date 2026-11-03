@@ -871,6 +871,7 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: _PendingApprovalBanner(
                         approval: controller.pendingApproval!,
+                        onReview: controller.reviewPendingApproval,
                       ),
                     ),
                   if (_pendingSharedAttachments.isNotEmpty)
@@ -1976,9 +1977,12 @@ class _ConnectionReconnectingBanner extends StatelessWidget {
 // ─── Pending approval banner (#62) ────────────────────────────────────────
 
 class _PendingApprovalBanner extends StatefulWidget {
-  const _PendingApprovalBanner({required this.approval});
+  const _PendingApprovalBanner({required this.approval, required this.onReview});
 
   final ToolApprovalRequest approval;
+
+  /// Brings back the approval sheet after "Not now".
+  final VoidCallback onReview;
 
   @override
   State<_PendingApprovalBanner> createState() => _PendingApprovalBannerState();
@@ -1986,7 +1990,7 @@ class _PendingApprovalBanner extends StatefulWidget {
 
 class _PendingApprovalBannerState extends State<_PendingApprovalBanner> {
   late Timer _timer;
-  int _secondsRemaining = 30;
+  int _secondsRemaining = 0;
 
   @override
   void initState() {
@@ -2011,7 +2015,7 @@ class _PendingApprovalBannerState extends State<_PendingApprovalBanner> {
 
   int _remaining() {
     final expiry = widget.approval.expiresAt;
-    return expiry.difference(DateTime.now()).inSeconds.clamp(0, 300);
+    return expiry.difference(DateTime.now()).inSeconds.clamp(0, 86400);
   }
 
   @override
@@ -2022,52 +2026,71 @@ class _PendingApprovalBannerState extends State<_PendingApprovalBanner> {
 
   @override
   Widget build(BuildContext context) {
-    final toolName = widget.approval.toolName.ifEmpty('tool');
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: _accent.withValues(alpha: 0.10),
+    final action = widget.approval.displayAction;
+    return Material(
+      color: _accent.withValues(alpha: 0.10),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _accent.withValues(alpha: 0.32)),
-      ),
-      child: Row(
-        children: <Widget>[
-          _PulseHalo(
-            color: _accent,
-            animate: true,
-            child: Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                color: _accent.withValues(alpha: 0.16),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.security_outlined, size: 13, color: _accent),
-            ),
+        onTap: widget.onReview,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _accent.withValues(alpha: 0.32)),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: RichText(
-              text: TextSpan(
-                style: TextStyle(color: _textPrimary, fontSize: 13),
-                children: <TextSpan>[
-                  TextSpan(
-                    text: appStrings.waitingForApproval,
-                    style: TextStyle(fontWeight: FontWeight.w600),
+          child: Row(
+            children: <Widget>[
+              _PulseHalo(
+                color: _accent,
+                animate: true,
+                child: Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: _accent.withValues(alpha: 0.16),
+                    shape: BoxShape.circle,
                   ),
-                  TextSpan(
-                    text: toolName,
-                    style: TextStyle(color: _accent),
+                  child: Icon(
+                    Icons.security_outlined,
+                    size: 13,
+                    color: _accent,
                   ),
-                  TextSpan(
-                    text: '  ${_secondsRemaining}s',
-                    style: TextStyle(color: _textSecondary),
-                  ),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: RichText(
+                  text: TextSpan(
+                    style: TextStyle(color: _textPrimary, fontSize: 13),
+                    children: <TextSpan>[
+                      TextSpan(
+                        text: appStrings.waitingForApproval,
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      TextSpan(
+                        text: action,
+                        style: TextStyle(color: _accent),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                _formatCountdown(_secondsRemaining),
+                style: TextStyle(
+                  color: _textSecondary,
+                  fontSize: 12.5,
+                  fontFeatures: const <FontFeature>[
+                    FontFeature.tabularFigures(),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, size: 18, color: _textMuted),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

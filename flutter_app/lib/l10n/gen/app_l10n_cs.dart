@@ -12453,4 +12453,18 @@ class AppL10nCs extends AppL10n {
 
   @override
   String get adminUpdateFailedTitle => 'The update did not finish';
+
+  @override
+  String get approvalReview => 'Zobrazit';
+
+  @override
+  String get approvalExpired => 'Platnost žádosti vypršela, nic se nespustilo.';
+
+  @override
+  String get requestTookTooLong =>
+      'Trvalo to příliš dlouho, a tak se to zastavilo. Zkus to znovu.';
+
+  @override
+  String get usageLimitReached =>
+      'Dosáhl jsem limitu využití a teď nemohu odpovědět.';
 }

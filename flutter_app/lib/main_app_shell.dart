@@ -1914,7 +1914,10 @@ class _HomeViewState extends State<HomeView> {
       });
     }
     final pendingApproval = controller.pendingApproval;
-    if (!_approvalSheetOpen && pendingApproval != null) {
+    if (!_approvalSheetOpen &&
+        pendingApproval != null &&
+        pendingApproval.approvalId != controller.approvalSheetDismissedId &&
+        pendingApproval.expiresAt.isAfter(DateTime.now())) {
       _approvalSheetOpen = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;

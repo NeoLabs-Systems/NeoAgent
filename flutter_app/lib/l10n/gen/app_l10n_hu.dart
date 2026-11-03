@@ -12511,4 +12511,18 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get adminUpdateFailedTitle => 'The update did not finish';
+
+  @override
+  String get approvalReview => 'Megtekintés';
+
+  @override
+  String get approvalExpired => 'A kérés lejárt, így semmi sem futott le.';
+
+  @override
+  String get requestTookTooLong =>
+      'Túl sokáig tartott, ezért leállt. Próbáld újra.';
+
+  @override
+  String get usageLimitReached =>
+      'Elértem a használati korlátomat, ezért most nem tudok válaszolni.';
 }

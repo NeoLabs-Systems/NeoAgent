@@ -12440,4 +12440,18 @@ class AppL10nDa extends AppL10n {
 
   @override
   String get adminUpdateFailedTitle => 'The update did not finish';
+
+  @override
+  String get approvalReview => 'Gennemse';
+
+  @override
+  String get approvalExpired => 'Anmodningen er udløbet, så intet blev kørt.';
+
+  @override
+  String get requestTookTooLong =>
+      'Det tog for lang tid og blev stoppet. Prøv igen.';
+
+  @override
+  String get usageLimitReached =>
+      'Jeg har nået min forbrugsgrænse og kan ikke svare lige nu.';
 }

@@ -114,7 +114,7 @@ class SharedRoutePlatform {
   async sendApprovalPrompt(to, prompt) {
     const { adapter, chatId } = this._deliveryTarget(to);
     if (adapter.sendApprovalPrompt) return adapter.sendApprovalPrompt(chatId, prompt);
-    return adapter.sendMessage(chatId, `${prompt.text}\nReply "allow", "always" or "deny".`);
+    return adapter.sendMessage(chatId, `${prompt.text}\n\n${prompt.replyHint}`);
   }
 
   async deleteApprovalPrompt(to, promptId) {

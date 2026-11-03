@@ -12464,4 +12464,18 @@ class AppL10nFi extends AppL10n {
 
   @override
   String get adminUpdateFailedTitle => 'The update did not finish';
+
+  @override
+  String get approvalReview => 'Tarkista';
+
+  @override
+  String get approvalExpired => 'Pyyntö vanheni, joten mitään ei suoritettu.';
+
+  @override
+  String get requestTookTooLong =>
+      'Se kesti liian kauan ja pysäytettiin. Yritä uudelleen.';
+
+  @override
+  String get usageLimitReached =>
+      'Käyttörajani on täynnä, enkä voi vastata juuri nyt.';
 }

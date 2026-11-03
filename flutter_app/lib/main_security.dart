@@ -11,6 +11,9 @@ class ToolApprovalRequest {
     required this.category,
     required this.expiresAt,
     this.reason,
+    this.title,
+    this.action,
+    this.detail,
   });
 
   factory ToolApprovalRequest.fromJson(Map<String, dynamic> json) {
@@ -27,6 +30,9 @@ class ToolApprovalRequest {
                 DateTime.now().add(const Duration(seconds: 30))
           : DateTime.now().add(const Duration(seconds: 30)),
       reason: json['reason']?.toString(),
+      title: json['title']?.toString(),
+      action: json['action']?.toString(),
+      detail: json['detail']?.toString(),
     );
   }
 
@@ -41,6 +47,23 @@ class ToolApprovalRequest {
   /// would have let it through (a group chat asked, or outside content led
   /// here).
   final String? reason;
+
+  /// The server's wording, in the owner's language: who is asking, what for,
+  /// and the one value that says what the call is about.
+  final String? title;
+  final String? action;
+  final String? detail;
+
+  String get displayTitle => title?.trim().ifEmpty(appStrings.approvalRequired)
+      ?? appStrings.approvalRequired;
+  String get displayAction =>
+      action?.trim().ifEmpty(_categoryInfo(category).label) ??
+      _categoryInfo(category).label;
+}
+
+String _formatCountdown(int seconds) {
+  final minutes = seconds ~/ 60;
+  return '$minutes:${(seconds % 60).toString().padLeft(2, '0')}';
 }
 
 // ── Category metadata ─────────────────────────────────────────────────────────
@@ -345,10 +368,11 @@ class _AppNotificationService {
     final remaining = req.expiresAt.difference(DateTime.now());
     if (remaining <= Duration.zero) return;
     final info = _categoryInfo(req.category);
-    final reason = req.reason?.trim() ?? '';
-    final body = reason.isEmpty
-        ? appStrings.agentWantsToUseArg1Tap(req.toolName)
-        : '${req.toolName} · $reason';
+    final body = <String>[
+      req.displayAction,
+      if (req.detail?.trim().isNotEmpty == true) req.detail!.trim(),
+      if (req.reason?.trim().isNotEmpty == true) req.reason!.trim(),
+    ].join('\n');
 
     // A live notification: it stays put, counts down to the request's
     // expiry, and is answered from the shade without opening the app.
@@ -377,9 +401,9 @@ class _AppNotificationService {
           appStrings.deny,
           cancelNotification: true,
         ),
-        const AndroidNotificationAction(
+        AndroidNotificationAction(
           _reviewActionId,
-          'Review',
+          appStrings.approvalReview,
           showsUserInterface: true,
         ),
         AndroidNotificationAction(
@@ -397,7 +421,7 @@ class _AppNotificationService {
 
     await plugin.show(
       req.approvalId.hashCode.abs() % 100000,
-      appStrings.arg1ApprovalNeeded(info.label),
+      req.displayTitle,
       body,
       NotificationDetails(
         android: androidDetails,
@@ -940,27 +964,25 @@ class ToolApprovalSheet extends StatefulWidget {
   State<ToolApprovalSheet> createState() => _ToolApprovalSheetState();
 }
 
-class _ToolApprovalSheetState extends State<ToolApprovalSheet>
-    with SingleTickerProviderStateMixin {
+class _ToolApprovalSheetState extends State<ToolApprovalSheet> {
   late final Timer _timer;
-  late final AnimationController _ringController;
-  int _remainingSeconds = 30;
+  late final int _totalSeconds;
+  late int _remainingSeconds;
   bool _submitting = false;
+  bool _showAllDetails = false;
+
+  int _secondsLeft() =>
+      widget.request.expiresAt.difference(DateTime.now()).inSeconds;
 
   @override
   void initState() {
     super.initState();
-    final diff = widget.request.expiresAt.difference(DateTime.now());
-    _remainingSeconds = diff.inSeconds.clamp(0, 30);
-
-    _ringController = AnimationController(
-      vsync: this,
-      duration: Duration(seconds: _remainingSeconds),
-    )..forward();
+    _remainingSeconds = _secondsLeft().clamp(0, 86400);
+    _totalSeconds = _remainingSeconds < 1 ? 1 : _remainingSeconds;
 
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      setState(() => _remainingSeconds = (_remainingSeconds - 1).clamp(0, 30));
+      setState(() => _remainingSeconds = _secondsLeft().clamp(0, 86400));
       if (_remainingSeconds <= 0) {
         _timer.cancel();
         if (mounted) Navigator.of(context).pop();
@@ -975,7 +997,7 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
     );
   }
 
-  /// Answered from the notification or another device.
+  /// Answered from the notification, a chat or another device.
   void _closeWhenAnsweredElsewhere() {
     if (_submitting || !mounted) return;
     if (widget.controller.pendingApproval?.approvalId ==
@@ -990,7 +1012,6 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
   void dispose() {
     widget.controller.removeListener(_closeWhenAnsweredElsewhere);
     _timer.cancel();
-    _ringController.dispose();
     super.dispose();
   }
 
@@ -998,7 +1019,6 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
     if (_submitting) return;
     setState(() => _submitting = true);
     _timer.cancel();
-    _ringController.stop();
     try {
       await widget.controller.backendClient.resolveToolApproval(
         widget.controller.backendUrl,
@@ -1015,7 +1035,10 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
         widget.controller.clearPendingApproval();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(error.message), backgroundColor: _warning),
+            SnackBar(
+              content: Text(appStrings.approvalExpired),
+              backgroundColor: _warning,
+            ),
           );
         }
       }
@@ -1023,6 +1046,12 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
       // timeout will fire server-side; safe to dismiss
     }
     if (mounted) Navigator.of(context).pop();
+  }
+
+  /// Still waiting, but out of the way; the chat banner brings it back.
+  void _decideLater() {
+    widget.controller.dismissApprovalSheet(widget.request.approvalId);
+    Navigator.of(context).pop();
   }
 
   String _formatArgs() {
@@ -1050,14 +1079,179 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
     return value?.toString() ?? 'null';
   }
 
+  Widget _buildHeader(ColorScheme colorScheme, _CategoryInfo info, Color riskColor) {
+    final req = widget.request;
+    final urgent = _remainingSeconds <= 10;
+    final timeColor = urgent ? colorScheme.error : colorScheme.onSurfaceVariant;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: riskColor.withValues(alpha: 0.13),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(info.icon, size: 23, color: riskColor),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  req.displayTitle,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  req.displayAction,
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            _formatCountdown(_remainingSeconds),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: timeColor,
+              fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetails(ColorScheme colorScheme) {
+    final req = widget.request;
+    final summary = req.detail?.trim() ?? '';
+    if (summary.isEmpty && req.toolArgs.isEmpty) return const SizedBox.shrink();
+    final text = _showAllDetails || summary.isEmpty ? _formatArgs() : summary;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+      child: Material(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => setState(() => _showAllDetails = !_showAllDetails),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 11, 8, 11),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    text,
+                    style: GoogleFonts.geistMono(
+                      fontSize: 12,
+                      height: 1.5,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                Icon(
+                  _showAllDetails
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
+                  size: 20,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActions(ColorScheme colorScheme) {
+    const height = Size.fromHeight(50);
+    final quiet = TextButton.styleFrom(
+      foregroundColor: colorScheme.onSurfaceVariant,
+      textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+      child: Column(
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: height,
+                    foregroundColor: colorScheme.error,
+                    side: BorderSide(
+                      color: colorScheme.error.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  onPressed: () => _decide('denied', 'once'),
+                  child: Text(appStrings.deny),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton(
+                  style: FilledButton.styleFrom(minimumSize: height),
+                  onPressed: () => _decide('approved', 'once'),
+                  child: Text(appStrings.allowOnce),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Wrap(
+            alignment: WrapAlignment.center,
+            children: <Widget>[
+              TextButton(
+                style: quiet,
+                onPressed: () => _decide('approved', 'session'),
+                child: Text(appStrings.allowSession),
+              ),
+              Tooltip(
+                message: appStrings.alwaysAllowSavesThePolicyPermanently,
+                child: TextButton(
+                  style: quiet,
+                  onPressed: () => _decide('approved', 'always'),
+                  child: Text(appStrings.alwaysAllow),
+                ),
+              ),
+              TextButton(
+                style: quiet,
+                onPressed: _decideLater,
+                child: Text(appStrings.notNow),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final req = widget.request;
     final info = _categoryInfo(req.category);
     final colorScheme = Theme.of(context).colorScheme;
-    final urgent = _remainingSeconds <= 8;
     final riskColor = _riskColor(info.riskLevel);
-    final ringColor = urgent ? colorScheme.error : riskColor;
+    final reason = req.reason?.trim() ?? '';
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
@@ -1072,7 +1266,6 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
-                    // Handle bar
                     Center(
                       child: Container(
                         margin: const EdgeInsets.only(top: 10, bottom: 6),
@@ -1084,88 +1277,24 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                         ),
                       ),
                     ),
-                    // Header
+                    _buildHeader(colorScheme, info, riskColor),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                      child: Row(
-                        children: <Widget>[
-                          // Countdown ring
-                          SizedBox(
-                            width: 52,
-                            height: 52,
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: <Widget>[
-                                AnimatedBuilder(
-                                  animation: _ringController,
-                                  builder: (_, __) => CircularProgressIndicator(
-                                    value: 1 - _ringController.value,
-                                    strokeWidth: 3.5,
-                                    backgroundColor:
-                                        colorScheme.surfaceContainerHighest,
-                                    color: ringColor,
-                                  ),
-                                ),
-                                AnimatedDefaultTextStyle(
-                                  duration: const Duration(milliseconds: 200),
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: ringColor,
-                                  ),
-                                  child: Text('$_remainingSeconds'),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Text(
-                                  appStrings.approvalRequired,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: <Widget>[
-                                    Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: BoxDecoration(
-                                        color: riskColor.withAlpha(22),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Icon(
-                                        info.icon,
-                                        size: 13,
-                                        color: riskColor,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      info.label,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: riskColor,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          value: _remainingSeconds / _totalSeconds,
+                          minHeight: 3,
+                          color: _remainingSeconds <= 10
+                              ? colorScheme.error
+                              : riskColor,
+                          backgroundColor: colorScheme.surfaceContainerHighest,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    if (req.reason != null && req.reason!.isNotEmpty)
+                    if (reason.isNotEmpty)
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                        padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
@@ -1177,9 +1306,9 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                req.reason!,
+                                reason,
                                 style: TextStyle(
-                                  fontSize: 12.5,
+                                  fontSize: 13,
                                   height: 1.4,
                                   color: colorScheme.onSurface,
                                 ),
@@ -1188,135 +1317,18 @@ class _ToolApprovalSheetState extends State<ToolApprovalSheet>
                           ],
                         ),
                       ),
-                    // Tool + args preview
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Container(
-                        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: colorScheme.outlineVariant),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Row(
-                              children: <Widget>[
-                                Container(
-                                  width: 7,
-                                  height: 7,
-                                  decoration: BoxDecoration(
-                                    color: riskColor,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  req.toolName,
-                                  style: const TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (req.toolArgs.isNotEmpty) ...<Widget>[
-                              const SizedBox(height: 8),
-                              Text(
-                                _formatArgs(),
-                                style: TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 11,
-                                  color: colorScheme.onSurfaceVariant,
-                                  height: 1.5,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
+                    _buildDetails(colorScheme),
                   ],
                 ),
               ),
             ),
-            // Action buttons (pinned below the scrollable content)
             if (_submitting)
               const Padding(
-                padding: EdgeInsets.only(bottom: 24),
+                padding: EdgeInsets.symmetric(vertical: 28),
                 child: Center(child: CircularProgressIndicator.adaptive()),
               )
             else
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Column(
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            icon: Icon(Icons.block_rounded, size: 15),
-                            label: Text(appStrings.deny),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: colorScheme.error,
-                              side: BorderSide(
-                                color: colorScheme.error.withAlpha(100),
-                              ),
-                            ),
-                            onPressed: () => _decide('denied', 'once'),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            icon: Icon(Icons.check_circle_outline, size: 15),
-                            label: Text(appStrings.allowOnce),
-                            onPressed: () => _decide('approved', 'once'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            icon: Icon(Icons.history_rounded, size: 15),
-                            label: Text(appStrings.allowSession),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: _info,
-                            ),
-                            onPressed: () => _decide('approved', 'session'),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: FilledButton.icon(
-                            icon: Icon(Icons.verified_rounded, size: 15),
-                            label: Text(appStrings.alwaysAllow),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: riskColor,
-                            ),
-                            onPressed: () => _decide('approved', 'always'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      appStrings.alwaysAllowSavesThePolicyPermanently,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _buildActions(colorScheme),
           ],
         ),
       ),

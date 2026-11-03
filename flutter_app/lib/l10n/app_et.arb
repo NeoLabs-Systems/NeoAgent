@@ -7182,5 +7182,9 @@
   "neoRouterNoDecisionModels": "Vajab otsustusmudeleid, nagu Jev. Turvaklassifikaatorid ei vasta neile küsimustele.",
   "voiceLiveNoProvider": "Ühtegi otsehääle pakkujat pole seadistatud. Lisa OpenAI või Google AI võti või ühenda NeoRouter jaotises Mudelid → Kaasa oma võti.",
   "voiceSttAutoNeoRouter": "Automaatne (mudeli valib NeoRouter)",
-  "voiceNotOffered": "Pole enam saadaval, vali muu"
+  "voiceNotOffered": "Pole enam saadaval, vali muu",
+  "approvalReview": "Vaata üle",
+  "approvalExpired": "Päring aegus, midagi ei käivitatud.",
+  "requestTookTooLong": "See võttis liiga kaua aega ja peatati. Proovi uuesti.",
+  "usageLimitReached": "Olen jõudnud oma kasutuspiiranguni ega saa praegu vastata."
 }

@@ -7182,5 +7182,9 @@
   "neoRouterNoDecisionModels": "Are nevoie de modele de decizie precum Jev. Clasificatoarele de siguranță nu pot răspunde la aceste întrebări.",
   "voiceLiveNoProvider": "Niciun furnizor de voce live nu este configurat. Adaugă o cheie OpenAI sau Google AI ori conectează un NeoRouter din Modele → Adu-ți propria cheie.",
   "voiceSttAutoNeoRouter": "Automat (NeoRouter alege modelul)",
-  "voiceNotOffered": "Nu mai este oferit, alege altul"
+  "voiceNotOffered": "Nu mai este oferit, alege altul",
+  "approvalReview": "Verifică",
+  "approvalExpired": "Această cerere a expirat, așa că nu s-a rulat nimic.",
+  "requestTookTooLong": "A durat prea mult și a fost oprit. Încearcă din nou.",
+  "usageLimitReached": "Am atins limita de utilizare și nu pot răspunde acum."
 }

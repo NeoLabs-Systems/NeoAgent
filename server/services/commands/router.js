@@ -1,5 +1,6 @@
 'use strict';
 
+const { fixedMessage } = require('../messaging/fixed_messages');
 const db = require('../../db/database');
 const { clearWebChatSummary } = require('../ai/history');
 const { getAvailableTools } = require('../ai/tools');
@@ -73,7 +74,7 @@ class CommandRouter {
       if (parsed.source === 'messaging') return { handled: false };
       return {
         handled: true,
-        content: `Unknown command: \`/${parsed.command}\`. Type \`/help\` for available commands.`,
+        content: fixedMessage(context.userId, context.agentId || null, 'unknownCommand', { command: parsed.command }),
       };
     }
 
@@ -129,7 +130,7 @@ class CommandRouter {
       }
       return {
         handled: true,
-        content: 'Context cleared for this chat. Fresh start.',
+        content: fixedMessage(userId, agentId, 'contextCleared'),
         events,
         metadata: {
           source,
@@ -159,7 +160,7 @@ class CommandRouter {
       } catch (err) {
         return {
           handled: true,
-          content: 'Context cleared. Fresh start.',
+          content: fixedMessage(userId, agentId, 'contextCleared'),
           events,
           error: err.message
         };
@@ -168,7 +169,7 @@ class CommandRouter {
 
     return {
       handled: true,
-      content: 'Context cleared. Fresh start.',
+      content: fixedMessage(userId, agentId, 'contextCleared'),
       events,
       metadata: {
         source,
@@ -203,7 +204,7 @@ class CommandRouter {
 
     return {
       handled: true,
-      content: 'Stopped.'
+      content: fixedMessage(userId, agentId, 'stopped')
     };
   }
 

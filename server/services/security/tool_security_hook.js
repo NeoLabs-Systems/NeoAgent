@@ -83,7 +83,13 @@ function registerToolSecurityHooks(toolPolicyService, approvalGateService) {
 
     console.info(`[ToolPolicy] Requesting approval tool=${toolName} run=${runId}${escalation ? ` (${escalation.kind})` : ''}`);
     const decision = await approvalGateService.requestApproval(
-      userId, runId, toolName, args, { reason: escalation?.reason || null, agentId, trust },
+      userId, runId, toolName, args, {
+        reason: escalation?.reason || null,
+        reasonKey: escalation?.reasonKey || null,
+        reasonParams: escalation?.reasonParams || null,
+        agentId,
+        trust,
+      },
     );
     if (decision === 'approved') return;
 

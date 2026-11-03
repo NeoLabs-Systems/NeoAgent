@@ -45,10 +45,21 @@ function reaction(platform, channel, emoji) {
 }
 
 test('Discord adds a reaction per option without pinging anyone, and removes the prompt', async () => {
-  const { platform, reacted, deleted } = discord();
-  const { promptId } = await platform.sendApprovalPrompt('channel-1', { text: 'Allow @everyone?', options: OPTIONS });
+  const { platform, reacted, deleted, channel } = discord();
+  const sends = [];
+  const send = channel.send;
+  channel.send = async (payload) => {
+    sends.push(payload);
+    return send(payload);
+  };
+  const { promptId } = await platform.sendApprovalPrompt('channel-1', {
+    title: 'Neo needs your OK', action: 'Run a command', detail: 'ls `x`', reason: 'Why', note: 'Soon', options: OPTIONS,
+  });
   assert.equal(promptId, 'prompt-1');
   assert.deepEqual(reacted, ['✅', '🔁', '❌']);
+  assert.deepEqual(sends[0].allowedMentions, { parse: [] });
+  assert.match(sends[0].content, /\*\*Neo needs your OK\*\*/);
+  assert.match(sends[0].content, /```\nls ˋxˋ\n```/);
   await platform.deleteApprovalPrompt('channel-1', promptId);
   assert.deepEqual(deleted, ['prompt-1']);
   assert.equal(platform._approvalPrompts.size, 0);
@@ -56,7 +67,7 @@ test('Discord adds a reaction per option without pinging anyone, and removes the
 
 test('a Discord reaction on a prompt is an answer, not feedback', async () => {
   const { platform, channel } = discord();
-  await platform.sendApprovalPrompt('channel-1', { text: 'x', options: OPTIONS });
+  await platform.sendApprovalPrompt('channel-1', { title: 't', action: 'a', note: 'n', options: OPTIONS });
   const answers = [];
   const feedback = [];
   platform.on('approval_response', (item) => answers.push(item));
@@ -77,7 +88,7 @@ test('a Discord reaction on a prompt is an answer, not feedback', async () => {
 
 test('a Discord DM prompt answers under the chat id replies use', async () => {
   const { platform, channel } = discord();
-  await platform.sendApprovalPrompt('dm_user-1', { text: 'x', options: OPTIONS });
+  await platform.sendApprovalPrompt('dm_user-1', { title: 't', action: 'a', note: 'n', options: OPTIONS });
   const answers = [];
   platform.on('approval_response', (item) => answers.push(item));
   const dm = { ...channel, type: ChannelType.DM };
@@ -117,11 +128,16 @@ function button(data, chat, from = { id: 7, first_name: 'Neo' }) {
 
 test('Telegram sends buttons and deletes the prompt from the right chat', async () => {
   const { platform, calls } = telegram();
-  const { promptId } = await platform.sendApprovalPrompt('dm_7', { text: 'Allow x?', options: OPTIONS });
+  const { promptId } = await platform.sendApprovalPrompt('dm_7', {
+    title: 'Neo <needs> your OK', action: 'Run a command', detail: 'a && b', note: 'Soon', options: OPTIONS,
+  });
   assert.equal(promptId, '42');
   assert.equal(calls[0].chatId, '7');
+  assert.equal(calls[0].extra.parse_mode, 'HTML');
+  assert.match(calls[0].text, /<b>Neo &lt;needs&gt; your OK<\/b>/);
+  assert.match(calls[0].text, /<pre>a &amp;&amp; b<\/pre>/);
   assert.deepEqual(
-    calls[0].extra.reply_markup.inline_keyboard[0].map((item) => item.callback_data),
+    calls[0].extra.reply_markup.inline_keyboard.map(([item]) => item.callback_data),
     ['approval:allow', 'approval:always', 'approval:deny'],
   );
   await platform.deleteApprovalPrompt('dm_7', promptId);

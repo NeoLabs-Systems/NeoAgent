@@ -160,7 +160,7 @@ test('pending approvals replay to a socket that connects while they wait', async
   assert.equal(emitted.length, 1);
   assert.equal(emitted[0].event, 'tool:approval_required');
   assert.deepEqual(Object.keys(emitted[0].payload).sort(), [
-    'approvalId', 'category', 'expiresAt', 'reason', 'runId', 'toolArgs', 'toolName',
+    'action', 'approvalId', 'category', 'detail', 'expiresAt', 'reason', 'runId', 'title', 'toolArgs', 'toolName',
   ]);
   assert.equal(emitted[0].payload.toolName, 'execute_command');
   assert.deepEqual(emitted[0].payload.toolArgs, { command: 'ls' });

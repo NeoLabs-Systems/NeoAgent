@@ -7182,5 +7182,9 @@
   "neoRouterNoDecisionModels": "Kräver beslutsmodeller som Jev. Säkerhetsklassificerare kan inte svara på de här frågorna.",
   "voiceLiveNoProvider": "Ingen leverantör för live-röst är konfigurerad. Lägg till en OpenAI- eller Google AI-nyckel, eller anslut en NeoRouter, under Modeller → Ta med egen nyckel.",
   "voiceSttAutoNeoRouter": "Auto (NeoRouter väljer modellen)",
-  "voiceNotOffered": "Erbjuds inte längre, välj en annan"
+  "voiceNotOffered": "Erbjuds inte längre, välj en annan",
+  "approvalReview": "Granska",
+  "approvalExpired": "Begäran har gått ut, så inget kördes.",
+  "requestTookTooLong": "Det tog för lång tid och stoppades. Försök igen.",
+  "usageLimitReached": "Jag har nått min användningsgräns och kan inte svara just nu."
 }

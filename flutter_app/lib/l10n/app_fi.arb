@@ -7182,5 +7182,9 @@
   "neoRouterNoDecisionModels": "Tarvitsee päätösmalleja, kuten Jev. Turvallisuusluokittimet eivät vastaa näihin kysymyksiin.",
   "voiceLiveNoProvider": "Live-äänen palveluntarjoajaa ei ole määritetty. Lisää OpenAI- tai Google AI -avain tai yhdistä NeoRouter kohdassa Mallit → Oma avain mukaan.",
   "voiceSttAutoNeoRouter": "Automaattinen (NeoRouter valitsee mallin)",
-  "voiceNotOffered": "Ei enää tarjolla, valitse toinen"
+  "voiceNotOffered": "Ei enää tarjolla, valitse toinen",
+  "approvalReview": "Tarkista",
+  "approvalExpired": "Pyyntö vanheni, joten mitään ei suoritettu.",
+  "requestTookTooLong": "Se kesti liian kauan ja pysäytettiin. Yritä uudelleen.",
+  "usageLimitReached": "Käyttörajani on täynnä, enkä voi vastata juuri nyt."
 }

@@ -12471,4 +12471,19 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get adminUpdateFailedTitle => 'The update did not finish';
+
+  @override
+  String get approvalReview => 'Zobraziť';
+
+  @override
+  String get approvalExpired =>
+      'Platnosť žiadosti vypršala, nič sa nespustilo.';
+
+  @override
+  String get requestTookTooLong =>
+      'Trvalo to príliš dlho, a tak sa to zastavilo. Skús to znova.';
+
+  @override
+  String get usageLimitReached =>
+      'Dosiahol som limit využitia a teraz nemôžem odpovedať.';
 }

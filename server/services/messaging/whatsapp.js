@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { normalizeWhatsAppId, toWhatsAppJid } = require('../../utils/whatsapp');
 const { DATA_DIR } = require('../../../runtime/paths');
-const { createServiceLogger } = require('../../utils/logger');
+const { createServiceLogger, maskSenderId } = require('../../utils/logger');
 const { fileExtensionForMimeType } = require('../voice/liveAudio');
 
 const log = createServiceLogger('WhatsApp');
@@ -727,9 +727,14 @@ class WhatsAppPlatform extends BasePlatform {
       await this.sock.rejectCall(call.id, call.from);
       log.info(`Rejected an incoming WhatsApp ${call.isVideo ? 'video ' : ''}call.`);
       // Reported while this device was offline, so the call is already over.
-      if (call.offline || call.isGroup) continue;
+      if (call.offline || call.isGroup) {
+        log.info('Not calling back: the call was a group call or is already over.');
+        continue;
+      }
 
-      const phone = [call.from, call.callerPn].find(isPhoneJid) || null;
+      const phone = [call.from, call.callerPn].find(isPhoneJid)
+        || await this.sock.signalRepository?.lidMapping?.getPNForLID?.(call.from).catch(() => null)
+        || null;
       const senderId = normalizeWhatsAppId(phone || call.from);
       const access = this.evaluateAccess({
         platform: 'whatsapp',
@@ -743,8 +748,13 @@ class WhatsAppPlatform extends BasePlatform {
         wasMentioned: false,
         text: '',
       });
-      if (!access.allowed) continue;
-      if (!access.ownerUserId && access.policy?.directPolicy !== 'allowlist') continue;
+      if (!access.allowed || (!access.ownerUserId && access.policy?.directPolicy !== 'allowlist')) {
+        log.info(
+          `Not calling back ${maskSenderId(senderId)}: only someone on the direct-message allowlist gets a call back`
+          + `${phone ? '' : ', and this caller only showed a LID'}.`,
+        );
+        continue;
+      }
       this.emit('incoming_call', {
         platform: 'whatsapp',
         callerId: senderId,

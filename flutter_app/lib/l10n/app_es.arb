@@ -7182,5 +7182,9 @@
   "neoRouterNoDecisionModels": "Necesita modelos de decisión como Jev. Los clasificadores de seguridad no pueden responder estas preguntas.",
   "voiceLiveNoProvider": "No hay ningún proveedor de voz en directo configurado. Añade una clave de OpenAI o Google AI, o conecta un NeoRouter, en Modelos → Trae tu propia llave.",
   "voiceSttAutoNeoRouter": "Automático (NeoRouter elige el modelo)",
-  "voiceNotOffered": "Ya no está disponible, elige otro"
+  "voiceNotOffered": "Ya no está disponible, elige otro",
+  "approvalReview": "Revisar",
+  "approvalExpired": "Esta solicitud caducó, así que no se ejecutó nada.",
+  "requestTookTooLong": "Tardó demasiado y se detuvo. Inténtalo de nuevo.",
+  "usageLimitReached": "He alcanzado mi límite de uso y no puedo responder ahora."
 }

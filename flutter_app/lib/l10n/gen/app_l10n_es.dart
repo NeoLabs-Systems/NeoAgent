@@ -12549,4 +12549,19 @@ class AppL10nEs extends AppL10n {
 
   @override
   String get adminUpdateFailedTitle => 'The update did not finish';
+
+  @override
+  String get approvalReview => 'Revisar';
+
+  @override
+  String get approvalExpired =>
+      'Esta solicitud caducó, así que no se ejecutó nada.';
+
+  @override
+  String get requestTookTooLong =>
+      'Tardó demasiado y se detuvo. Inténtalo de nuevo.';
+
+  @override
+  String get usageLimitReached =>
+      'He alcanzado mi límite de uso y no puedo responder ahora.';
 }

@@ -12483,4 +12483,18 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get adminUpdateFailedTitle => 'The update did not finish';
+
+  @override
+  String get approvalReview => 'Irrevedi';
+
+  @override
+  String get approvalExpired =>
+      'Din it-talba skadiet, għalhekk ma tħaddem xejn.';
+
+  @override
+  String get requestTookTooLong => 'Dan ħa wisq żmien u twaqqaf. Erġa’ pprova.';
+
+  @override
+  String get usageLimitReached =>
+      'Wasalt il-limitu tal-użu tiegħi u ma nistax nwieġeb bħalissa.';
 }

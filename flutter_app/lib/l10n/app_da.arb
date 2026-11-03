@@ -7182,5 +7182,9 @@
   "neoRouterNoDecisionModels": "Kræver beslutningsmodeller som Jev. Sikkerhedsklassifikatorer kan ikke svare på disse spørgsmål.",
   "voiceLiveNoProvider": "Der er ingen udbyder af live-stemme sat op. Tilføj en OpenAI- eller Google AI-nøgle, eller forbind en NeoRouter, under Modeller → Medbring din egen nøgle.",
   "voiceSttAutoNeoRouter": "Auto (NeoRouter vælger modellen)",
-  "voiceNotOffered": "Tilbydes ikke længere, vælg en anden"
+  "voiceNotOffered": "Tilbydes ikke længere, vælg en anden",
+  "approvalReview": "Gennemse",
+  "approvalExpired": "Anmodningen er udløbet, så intet blev kørt.",
+  "requestTookTooLong": "Det tog for lang tid og blev stoppet. Prøv igen.",
+  "usageLimitReached": "Jeg har nået min forbrugsgrænse og kan ikke svare lige nu."
 }

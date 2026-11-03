@@ -12446,4 +12446,18 @@ class AppL10nSv extends AppL10n {
 
   @override
   String get adminUpdateFailedTitle => 'The update did not finish';
+
+  @override
+  String get approvalReview => 'Granska';
+
+  @override
+  String get approvalExpired => 'Begäran har gått ut, så inget kördes.';
+
+  @override
+  String get requestTookTooLong =>
+      'Det tog för lång tid och stoppades. Försök igen.';
+
+  @override
+  String get usageLimitReached =>
+      'Jag har nått min användningsgräns och kan inte svara just nu.';
 }

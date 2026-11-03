@@ -7182,5 +7182,9 @@
   "neoRouterNoDecisionModels": "Döntési modellek kellenek, például a Jev. A biztonsági osztályozók nem válaszolnak ezekre a kérdésekre.",
   "voiceLiveNoProvider": "Nincs beállítva élő hang szolgáltató. Adj meg OpenAI- vagy Google AI-kulcsot, vagy csatlakoztass egy NeoRoutert a Modellek → Hozd a saját kulcsodat.",
   "voiceSttAutoNeoRouter": "Automatikus (a modellt a NeoRouter választja)",
-  "voiceNotOffered": "Már nem érhető el, válassz másikat"
+  "voiceNotOffered": "Már nem érhető el, válassz másikat",
+  "approvalReview": "Megtekintés",
+  "approvalExpired": "A kérés lejárt, így semmi sem futott le.",
+  "requestTookTooLong": "Túl sokáig tartott, ezért leállt. Próbáld újra.",
+  "usageLimitReached": "Elértem a használati korlátomat, ezért most nem tudok válaszolni."
 }

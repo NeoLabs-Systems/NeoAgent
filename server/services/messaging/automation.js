@@ -35,6 +35,7 @@ const { processInboundQueue } = require('./inbound_queue');
 const { isActiveSharedChat } = require('./shared_connections');
 const { annotateInboundJobs, attachRunToInboundJobs } = require('./inbound_store');
 const { startTypingKeepalive } = require('./typing_keepalive');
+const { fixedMessage } = require('./fixed_messages');
 const { isUsageLimitError, sendUsageLimitNotice } = require('./usage_limit_notice');
 const { waitForBoundedResult } = require('../network/http');
 const { createAbortError, throwIfAborted } = require('../../utils/abort');
@@ -128,7 +129,7 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
             userId,
             msg.platform,
             msg.chatId,
-            `Command handling failed: ${err.message}`,
+            fixedMessage(userId, agentId, 'commandFailed', { error: err.message }),
             { runId: null, agentId, signal }
           );
         } catch (sendErr) {
@@ -152,7 +153,7 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
             userId,
             msg.platform,
             msg.chatId,
-            commandResult.content || 'Done.',
+            commandResult.content || fixedMessage(userId, agentId, 'done'),
             { runId: null, agentId, signal }
           );
         } catch (err) {
@@ -197,7 +198,7 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
           errorMessage
         );
         io.to(`user:${userId}`).emit('messaging:error', {
-          error: `NeoAgent could not finish the ${failedMessage.platform} request. Check the run history for details.`,
+          error: fixedMessage(userId, failedMessage.agentId || null, 'runFailed', { platform: failedMessage.platform }),
           platform: failedMessage.platform,
           chatId: failedMessage.chatId,
           runId

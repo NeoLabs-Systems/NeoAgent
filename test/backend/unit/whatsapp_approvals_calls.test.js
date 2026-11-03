@@ -205,6 +205,15 @@ test('a call is rejected, and a listed caller asks for a call back', async () =>
   assert.equal(calls[0].callerId, '4915100000002');
 });
 
+test('a caller who only shows a LID is matched by the mapping', async () => {
+  const { platform } = connected(allowlisted(['4915100000002']));
+  platform.sock.signalRepository = { lidMapping: { getPNForLID: async () => LISTED_PN } };
+  const calls = [];
+  platform.on('incoming_call', (call) => calls.push(call));
+  await platform._handleCalls([{ id: 'c1', from: LISTED_LID, status: 'offer' }]);
+  assert.equal(calls[0].callerId, '4915100000002');
+});
+
 test('a stranger is rejected and rings nobody, even under an open policy', async () => {
   const listed = connected(allowlisted(['4915100000002']));
   const listedCalls = [];
@@ -263,6 +272,17 @@ test('a device suffix does not change what kind of address a jid is', () => {
   assert.equal(toWhatsAppJid('4915:12@s.whatsapp.net'), '4915@s.whatsapp.net');
   assert.equal(toWhatsAppJid('120363000@g.us'), '120363000@g.us');
   assert.equal(toWhatsAppJid('4915'), '4915@s.whatsapp.net');
+});
+
+test('native apps count as mobile unless they say otherwise, and browsers never do', () => {
+  const { isMobileAppHandshake } = require('../../../server/services/voice/agent_call_coordinator');
+  const handshake = (client, agent) => ({ query: client ? { client } : {}, headers: { 'user-agent': agent } });
+  assert.equal(isMobileAppHandshake(handshake('android', 'Dart/3.9 (dart:io)')), true);
+  assert.equal(isMobileAppHandshake(handshake('ios', 'Dart/3.9 (dart:io)')), true);
+  assert.equal(isMobileAppHandshake(handshake('macos', 'Dart/3.9 (dart:io)')), false);
+  assert.equal(isMobileAppHandshake(handshake(null, 'Dart/3.9 (dart:io)')), true, 'an app from before the field');
+  assert.equal(isMobileAppHandshake(handshake(null, 'Mozilla/5.0 (iPhone)')), false);
+  assert.equal(isMobileAppHandshake(null), false);
 });
 
 test('the call back only rings when a mobile app is connected', async () => {

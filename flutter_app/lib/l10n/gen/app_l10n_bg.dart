@@ -12500,4 +12500,19 @@ class AppL10nBg extends AppL10n {
 
   @override
   String get adminUpdateFailedTitle => 'The update did not finish';
+
+  @override
+  String get approvalReview => 'Преглед';
+
+  @override
+  String get approvalExpired =>
+      'Заявката изтече, затова нищо не беше изпълнено.';
+
+  @override
+  String get requestTookTooLong =>
+      'Това отне твърде дълго и беше спряно. Опитай отново.';
+
+  @override
+  String get usageLimitReached =>
+      'Достигнах лимита си за използване и не мога да отговоря в момента.';
 }

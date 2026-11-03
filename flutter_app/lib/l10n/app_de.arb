@@ -7325,5 +7325,9 @@
   "adminUpdateDoneTitle": "Auf {version} aktualisiert",
   "adminUpdateDoneReloading": "Die App wird neu geladen, um die neue Version zu laden …",
   "adminUpdateReload": "Neu laden",
-  "adminUpdateFailedTitle": "Das Update wurde nicht abgeschlossen"
+  "adminUpdateFailedTitle": "Das Update wurde nicht abgeschlossen",
+  "approvalReview": "Ansehen",
+  "approvalExpired": "Diese Anfrage ist abgelaufen, es wurde nichts ausgeführt.",
+  "requestTookTooLong": "Das hat zu lange gedauert und wurde abgebrochen. Bitte versuche es noch einmal.",
+  "usageLimitReached": "Ich habe mein Nutzungslimit erreicht und kann gerade nicht antworten."
 }

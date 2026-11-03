@@ -12528,4 +12528,19 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get adminUpdateFailedTitle => 'The update did not finish';
+
+  @override
+  String get approvalReview => 'Athbhreithnigh';
+
+  @override
+  String get approvalExpired =>
+      'Chuaigh an t-iarratas seo in éag, mar sin níor ritheadh tada.';
+
+  @override
+  String get requestTookTooLong =>
+      'Thóg sé sin rófhada agus stopadh é. Bain triail eile as.';
+
+  @override
+  String get usageLimitReached =>
+      'Tá mo theorainn úsáide bainte amach agam agus ní féidir liom freagra a thabhairt anois.';
 }

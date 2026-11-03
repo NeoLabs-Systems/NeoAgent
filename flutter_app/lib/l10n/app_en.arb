@@ -7793,5 +7793,9 @@
   },
   "adminUpdateDoneReloading": "Reloading the app to load the new version…",
   "adminUpdateReload": "Reload",
-  "adminUpdateFailedTitle": "The update did not finish"
+  "adminUpdateFailedTitle": "The update did not finish",
+  "approvalReview": "Review",
+  "approvalExpired": "This request expired, so nothing was run.",
+  "requestTookTooLong": "That took too long and was stopped. Please try again.",
+  "usageLimitReached": "I have reached my usage limit and can’t reply right now."
 }

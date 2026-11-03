@@ -1,0 +1,45 @@
+'use strict';
+
+const { readSettingValue } = require('../settings/store');
+
+// Fixed replies from the runtime itself: no model call is involved in sending
+// them, so like usage_limit_notice.js the text is set per UI language.
+const MESSAGES = {
+  en: {"stopped": "Stopped.", "contextCleared": "Context cleared. Fresh start.", "done": "Done.", "unknownCommand": "Unknown command: /{command}. Type /help to see what’s available.", "commandFailed": "That command didn’t work: {error}", "runFailed": "NeoAgent could not finish the {platform} request. Check the run history for details."},
+  de: {"stopped": "Gestoppt.", "contextCleared": "Kontext gelöscht. Neuer Anfang.", "done": "Erledigt.", "unknownCommand": "Unbekannter Befehl: /{command}. Mit /help siehst du, was verfügbar ist.", "commandFailed": "Der Befehl hat nicht funktioniert: {error}", "runFailed": "Die {platform}-Anfrage konnte nicht abgeschlossen werden. Details findest du im Ausführungsverlauf."},
+  bg: {"stopped": "Спряно.", "contextCleared": "Контекстът е изчистен. Ново начало.", "done": "Готово.", "unknownCommand": "Непозната команда: /{command}. Напиши /help, за да видиш наличните.", "commandFailed": "Командата не успя: {error}", "runFailed": "Заявката от {platform} не можа да бъде завършена. Виж подробности в историята на изпълненията."},
+  hr: {"stopped": "Zaustavljeno.", "contextCleared": "Kontekst je obrisan. Novi početak.", "done": "Gotovo.", "unknownCommand": "Nepoznata naredba: /{command}. Upiši /help za dostupne naredbe.", "commandFailed": "Naredba nije uspjela: {error}", "runFailed": "Zahtjev s {platform} nije dovršen. Pojedinosti su u povijesti pokretanja."},
+  cs: {"stopped": "Zastaveno.", "contextCleared": "Kontext vymazán. Nový začátek.", "done": "Hotovo.", "unknownCommand": "Neznámý příkaz: /{command}. Zadej /help a uvidíš, co je k dispozici.", "commandFailed": "Příkaz se nezdařil: {error}", "runFailed": "Požadavek z {platform} se nepodařilo dokončit. Podrobnosti najdeš v historii běhů."},
+  da: {"stopped": "Stoppet.", "contextCleared": "Kontekst ryddet. Ny start.", "done": "Færdig.", "unknownCommand": "Ukendt kommando: /{command}. Skriv /help for at se mulighederne.", "commandFailed": "Kommandoen virkede ikke: {error}", "runFailed": "{platform}-anmodningen kunne ikke gøres færdig. Se detaljer i kørselshistorikken."},
+  nl: {"stopped": "Gestopt.", "contextCleared": "Context gewist. Nieuw begin.", "done": "Klaar.", "unknownCommand": "Onbekende opdracht: /{command}. Typ /help om te zien wat er is.", "commandFailed": "Die opdracht is niet gelukt: {error}", "runFailed": "Het {platform}-verzoek kon niet worden afgerond. Bekijk de details in de uitvoergeschiedenis."},
+  et: {"stopped": "Peatatud.", "contextCleared": "Kontekst tühjendatud. Uus algus.", "done": "Valmis.", "unknownCommand": "Tundmatu käsk: /{command}. Sisesta /help, et näha valikuid.", "commandFailed": "Käsk ei õnnestunud: {error}", "runFailed": "Päringut {platform} ei saanud lõpetada. Üksikasjad on käivituste ajaloos."},
+  fi: {"stopped": "Pysäytetty.", "contextCleared": "Konteksti tyhjennetty. Uusi alku.", "done": "Valmis.", "unknownCommand": "Tuntematon komento: /{command}. Kirjoita /help nähdäksesi vaihtoehdot.", "commandFailed": "Komento ei onnistunut: {error}", "runFailed": "Pyyntöä {platform} ei voitu viedä loppuun. Katso tiedot ajohistoriasta."},
+  fr: {"stopped": "Arrêté.", "contextCleared": "Contexte effacé. Nouveau départ.", "done": "C’est fait.", "unknownCommand": "Commande inconnue : /{command}. Tape /help pour voir ce qui est disponible.", "commandFailed": "Cette commande n’a pas fonctionné : {error}", "runFailed": "La demande {platform} n’a pas pu aboutir. Consulte l’historique des exécutions pour les détails."},
+  el: {"stopped": "Διακόπηκε.", "contextCleared": "Το πλαίσιο καθαρίστηκε. Νέα αρχή.", "done": "Έγινε.", "unknownCommand": "Άγνωστη εντολή: /{command}. Γράψε /help για να δεις τι υπάρχει.", "commandFailed": "Η εντολή δεν λειτούργησε: {error}", "runFailed": "Το αίτημα {platform} δεν ολοκληρώθηκε. Δες λεπτομέρειες στο ιστορικό εκτελέσεων."},
+  hu: {"stopped": "Leállítva.", "contextCleared": "Kontextus törölve. Új kezdet.", "done": "Kész.", "unknownCommand": "Ismeretlen parancs: /{command}. A /help megmutatja, mi érhető el.", "commandFailed": "A parancs nem sikerült: {error}", "runFailed": "A(z) {platform}-kérést nem sikerült befejezni. A részleteket a futási előzményekben találod."},
+  ga: {"stopped": "Stoptha.", "contextCleared": "Comhthéacs glanta. Tús nua.", "done": "Déanta.", "unknownCommand": "Ordú anaithnid: /{command}. Clóscríobh /help le feiceáil cad atá ar fáil.", "commandFailed": "Níor oibrigh an t-ordú sin: {error}", "runFailed": "Níorbh fhéidir an iarratas {platform} a chríochnú. Féach ar stair na rití le haghaidh sonraí."},
+  it: {"stopped": "Fermato.", "contextCleared": "Contesto cancellato. Si riparte da zero.", "done": "Fatto.", "unknownCommand": "Comando sconosciuto: /{command}. Scrivi /help per vedere cosa è disponibile.", "commandFailed": "Il comando non ha funzionato: {error}", "runFailed": "Non è stato possibile completare la richiesta {platform}. Controlla i dettagli nella cronologia delle esecuzioni."},
+  lv: {"stopped": "Apturēts.", "contextCleared": "Konteksts notīrīts. Jauns sākums.", "done": "Gatavs.", "unknownCommand": "Nezināma komanda: /{command}. Ieraksti /help, lai redzētu pieejamās.", "commandFailed": "Komanda neizdevās: {error}", "runFailed": "{platform} pieprasījumu neizdevās pabeigt. Sīkāka informācija ir izpildes vēsturē."},
+  lt: {"stopped": "Sustabdyta.", "contextCleared": "Kontekstas išvalytas. Nauja pradžia.", "done": "Atlikta.", "unknownCommand": "Nežinoma komanda: /{command}. Įvesk /help, kad pamatytum galimybes.", "commandFailed": "Komanda nepavyko: {error}", "runFailed": "Nepavyko užbaigti {platform} užklausos. Daugiau informacijos rasi vykdymų istorijoje."},
+  mt: {"stopped": "Twaqqaf.", "contextCleared": "Il-kuntest tneħħa. Bidu ġdid.", "done": "Lest.", "unknownCommand": "Kmand mhux magħruf: /{command}. Ikteb /help biex tara x’hemm disponibbli.", "commandFailed": "Il-kmand ma ħadimx: {error}", "runFailed": "It-talba ta’ {platform} ma setgħetx titlesta. Ara l-istorja tat-tħaddim għad-dettalji."},
+  pl: {"stopped": "Zatrzymano.", "contextCleared": "Kontekst wyczyszczony. Nowy początek.", "done": "Gotowe.", "unknownCommand": "Nieznane polecenie: /{command}. Wpisz /help, aby zobaczyć dostępne.", "commandFailed": "To polecenie nie zadziałało: {error}", "runFailed": "Nie udało się ukończyć żądania {platform}. Szczegóły znajdziesz w historii uruchomień."},
+  pt: {"stopped": "Parado.", "contextCleared": "Contexto limpo. Novo começo.", "done": "Feito.", "unknownCommand": "Comando desconhecido: /{command}. Escreve /help para ver o que está disponível.", "commandFailed": "Esse comando não funcionou: {error}", "runFailed": "Não foi possível concluir o pedido de {platform}. Consulta o histórico de execuções para ver os detalhes."},
+  ro: {"stopped": "Oprit.", "contextCleared": "Context șters. Un nou început.", "done": "Gata.", "unknownCommand": "Comandă necunoscută: /{command}. Scrie /help ca să vezi ce este disponibil.", "commandFailed": "Comanda nu a funcționat: {error}", "runFailed": "Cererea {platform} nu a putut fi finalizată. Vezi detaliile în istoricul rulărilor."},
+  sk: {"stopped": "Zastavené.", "contextCleared": "Kontext vymazaný. Nový začiatok.", "done": "Hotovo.", "unknownCommand": "Neznámy príkaz: /{command}. Zadaj /help a uvidíš, čo je k dispozícii.", "commandFailed": "Príkaz sa nepodaril: {error}", "runFailed": "Požiadavku z {platform} sa nepodarilo dokončiť. Podrobnosti nájdeš v histórii behov."},
+  sl: {"stopped": "Ustavljeno.", "contextCleared": "Kontekst izbrisan. Nov začetek.", "done": "Končano.", "unknownCommand": "Neznan ukaz: /{command}. Vnesi /help za seznam možnosti.", "commandFailed": "Ukaz ni uspel: {error}", "runFailed": "Zahteve {platform} ni bilo mogoče dokončati. Podrobnosti so v zgodovini zagonov."},
+  es: {"stopped": "Detenido.", "contextCleared": "Contexto borrado. Empezamos de nuevo.", "done": "Hecho.", "unknownCommand": "Comando desconocido: /{command}. Escribe /help para ver lo disponible.", "commandFailed": "Ese comando no funcionó: {error}", "runFailed": "No se pudo completar la solicitud de {platform}. Consulta los detalles en el historial de ejecuciones."},
+  sv: {"stopped": "Stoppad.", "contextCleared": "Kontext rensad. Ny start.", "done": "Klart.", "unknownCommand": "Okänt kommando: /{command}. Skriv /help för att se vad som finns.", "commandFailed": "Kommandot fungerade inte: {error}", "runFailed": "{platform}-begäran kunde inte slutföras. Se detaljer i körhistoriken."},
+};
+
+function fixedMessage(userId, agentId, key, values = {}) {
+  let language = 'en';
+  try {
+    language = readSettingValue(userId, agentId, 'ui_language') || 'en';
+  } catch {
+    language = 'en';
+  }
+  const template = (MESSAGES[language] || MESSAGES.en)[key];
+  return template.replace(/\{(\w+)\}/g, (match, name) => values[name] ?? match);
+}
+
+module.exports = { MESSAGES, fixedMessage };

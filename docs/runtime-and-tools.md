@@ -131,15 +131,17 @@ The approval gate also asks when `services/security/trust_policy.js` flags a cal
 | Platform | How it asks | How it is answered |
 |---|---|---|
 | WhatsApp | Poll, deleted for everyone afterwards | Vote |
-| Discord | Message with reactions, deleted afterwards | ✅ allow, 🔁 allow always, ❌ disallow |
+| Discord | Message with reactions, deleted afterwards | ✅ allow, 🔁 always allow, 🚫 don't allow |
 | Telegram | Inline buttons, deleted afterwards | Tap |
-| Slack, Teams, Google Chat, Matrix, Signal, LINE, Mattermost, iMessage, IRC | Text | Reply `allow`, `always` or `deny` |
+| Slack, Teams, Google Chat, Matrix, Signal, LINE, Mattermost, iMessage, IRC | Text | Reply with an option's word, in the app's language or `allow`, `always`, `deny` |
 
 Typed answers also work on WhatsApp, Discord and Telegram. They are consumed only while an approval is open in that chat and only from someone who may decide; otherwise the message reaches the agent as usual.
 
 **Who may decide.** Only someone who speaks for the owner: an allowlisted DM sender, the account's self chat, the linked person on a shared account, or a person listed by name under group senders. Other group members, anyone admitted by an open policy, and per-group member rules can talk to the agent but not approve, so nobody can approve what the audience review held for them. Other people's answers are ignored silently.
 
-**Where it does not ask.** Public threads (GitHub), runs with no chat (app, schedules), a DM from an unvetted sender, and a group with nobody listed by name. Those stay app-only, so a request is not shown to people who could not answer it. A group sees only the tool's name; a DM also sees the reason and a summary of the arguments with credentials hidden.
+**Where it does not ask.** Public threads (GitHub), runs with no chat (app, schedules), a DM from an unvetted sender, and a group with nobody listed by name. Those stay app-only, so a request is not shown to people who could not answer it. A group sees only what is being asked; a DM also sees the reason and a short detail with credentials hidden.
+
+**Wording.** `services/security/approval_copy.js` writes each approval once, in the owner's language, for the app and chats alike. An approval that times out is deleted and a short note says it was skipped.
 
 ## Credential broker
 

@@ -1,17 +1,18 @@
 'use strict';
 
 const { resolveSenderTrust } = require('./automation');
-const { redactSecrets } = require('../security/trust_policy');
+const {
+  approvalOptions,
+  describeApproval,
+  replyHint,
+  timeLimitNote,
+  timedOutNotice,
+} = require('../security/approval_copy');
 const { createServiceLogger } = require('../../utils/logger');
 
 const log = createServiceLogger('ChatApprovals');
 
-const OPTIONS = Object.freeze([
-  Object.freeze({ id: 'allow', label: 'Allow', emoji: '✅', decision: 'approved', scope: 'once' }),
-  Object.freeze({ id: 'always', label: 'Allow always', emoji: '🔁', decision: 'approved', scope: 'always' }),
-  Object.freeze({ id: 'deny', label: 'Disallow', emoji: '❌', decision: 'denied', scope: 'once' }),
-]);
-
+// Always understood, on top of the words the prompt offers in the owner's language.
 const REPLY_WORDS = new Map([
   ['allow', 'allow'],
   ['always', 'always'],
@@ -19,31 +20,28 @@ const REPLY_WORDS = new Map([
   ['deny', 'deny'],
   ['disallow', 'deny'],
 ]);
-const REPLY_HINT = 'Reply "allow", "always" or "deny".';
 
 // Public threads are read by anyone, so a call is never put up for a vote there.
 const NO_PROMPT_PLATFORMS = new Set(['github']);
 
-const SUMMARY_ARGS = ['command', 'url', 'to', 'path', 'file_path', 'query', 'name'];
-const SUMMARY_LENGTH = 160;
-
-function summarizeArgs(toolArgs = {}) {
-  const key = SUMMARY_ARGS.find((name) => typeof toolArgs[name] === 'string' && toolArgs[name].trim());
-  const raw = key ? toolArgs[key] : JSON.stringify(toolArgs);
-  if (!raw || raw === '{}') return '';
-  const text = redactSecrets(raw).replace(/\s+/g, ' ').trim();
-  return text.length > SUMMARY_LENGTH ? `${text.slice(0, SUMMARY_LENGTH - 1)}…` : text;
-}
-
-// What a group sees stops at the tool's name: the details may be the owner's.
-function promptText({ toolName, toolArgs, reason, isGroup }) {
-  const lines = [`Allow ${toolName}?`];
-  if (!isGroup) {
-    if (reason) lines.push(redactSecrets(reason));
-    const summary = summarizeArgs(toolArgs);
-    if (summary) lines.push(summary);
-  }
-  return lines.join('\n');
+// What a group sees stops at what is being asked: the details may be the owner's.
+function buildPrompt({ copy, isGroup, timeoutMs }) {
+  const detail = isGroup ? '' : copy.detail;
+  const reason = isGroup ? '' : copy.reason;
+  const note = timeLimitNote(copy.language, timeoutMs);
+  const lines = [`🔐 ${copy.title}`, '', copy.action];
+  if (detail) lines.push(detail);
+  if (reason) lines.push(reason);
+  return {
+    title: copy.title,
+    action: copy.action,
+    detail,
+    reason,
+    note,
+    text: lines.join('\n'),
+    replyHint: replyHint(copy.language),
+    options: approvalOptions(copy.language),
+  };
 }
 
 // Puts approvals up in the chat a run came from and takes the answer from there.
@@ -75,8 +73,12 @@ class ChatApprovals {
     return rules.some((rule) => rule.scope !== 'role');
   }
 
-  async offer({ approvalId, userId, agentId, trust, toolName, toolArgs, reason }) {
+  async offer({
+    approvalId, userId, agentId, trust, category, toolName, toolArgs, reason, reasonKey, reasonParams, timeoutMs,
+  }) {
     const { platform: platformName, chatId, isGroup } = trust.origin;
+    const copy = describeApproval({ userId, agentId, toolName, toolArgs, category, reason, reasonKey, reasonParams });
+    const prompt = buildPrompt({ copy, isGroup, timeoutMs });
     const entry = {
       approvalId,
       userId,
@@ -84,14 +86,15 @@ class ChatApprovals {
       platformName,
       chatId,
       promptId: null,
+      options: prompt.options,
+      timedOutNotice: timedOutNotice(copy.language, copy.action),
     };
     this.prompts.set(approvalId, entry);
-    const text = promptText({ toolName, toolArgs, reason, isGroup });
     try {
       const platform = this._platform(userId, agentId, platformName);
       const sent = platform.sendApprovalPrompt
-        ? await platform.sendApprovalPrompt(chatId, { text, options: OPTIONS })
-        : await platform.sendMessage(chatId, `${text}\n${REPLY_HINT}`);
+        ? await platform.sendApprovalPrompt(chatId, prompt)
+        : await platform.sendMessage(chatId, `${prompt.text}\n\n${prompt.replyHint}`);
       entry.promptId = sent?.promptId || sent?.messageId || null;
     } catch (error) {
       log.warn(`Could not ask for approval in ${platformName}: ${error?.message || error}`);
@@ -102,11 +105,19 @@ class ChatApprovals {
     if (!this.gate.isPending(approvalId)) this._remove(entry);
   }
 
-  withdraw(approvalId) {
+  withdraw(approvalId, { timedOut = false } = {}) {
     const entry = this.prompts.get(approvalId);
     if (!entry) return;
     this.prompts.delete(approvalId);
     if (entry.promptId) this._remove(entry);
+    if (timedOut) this._sayTimedOut(entry);
+  }
+
+  _sayTimedOut(entry) {
+    const platform = this._platform(entry.userId, entry.agentId, entry.platformName);
+    Promise.resolve(platform?.sendMessage(entry.chatId, entry.timedOutNotice)).catch((error) => {
+      log.warn(`Could not say an approval timed out: ${error?.message || error}`);
+    });
   }
 
   _remove(entry) {
@@ -128,7 +139,7 @@ class ChatApprovals {
   }
 
   _decide(entry, choiceId, actor) {
-    const option = OPTIONS.find((item) => item.id === choiceId);
+    const option = entry.options.find((item) => item.id === choiceId);
     if (!option || !this._mayDecide(entry, actor)) return false;
     return Boolean(this.gate.decide(entry.approvalId, entry.userId, option.decision, option.scope));
   }
@@ -148,14 +159,16 @@ class ChatApprovals {
    * message was that answer, so it does not also start a run.
    */
   handleInboundText(userId, agentId, platformName, msg) {
-    const choiceId = REPLY_WORDS.get(String(msg?.content || '').trim().toLowerCase());
-    if (!choiceId) return false;
     const entry = [...this.prompts.values()].find((item) => item.platformName === platformName
-      && item.chatId === msg.chatId
+      && item.chatId === msg?.chatId
       && item.userId === userId
       && item.agentId === agentId);
-    return entry ? this._decide(entry, choiceId, msg) : false;
+    if (!entry) return false;
+    const typed = String(msg.content || '').trim().toLowerCase();
+    const choiceId = entry.options.find((option) => option.word.toLowerCase() === typed)?.id
+      || REPLY_WORDS.get(typed);
+    return choiceId ? this._decide(entry, choiceId, msg) : false;
   }
 }
 
-module.exports = { ChatApprovals, OPTIONS, promptText };
+module.exports = { ChatApprovals, buildPrompt };

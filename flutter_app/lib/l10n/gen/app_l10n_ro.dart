@@ -12507,4 +12507,19 @@ class AppL10nRo extends AppL10n {
 
   @override
   String get adminUpdateFailedTitle => 'The update did not finish';
+
+  @override
+  String get approvalReview => 'Verifică';
+
+  @override
+  String get approvalExpired =>
+      'Această cerere a expirat, așa că nu s-a rulat nimic.';
+
+  @override
+  String get requestTookTooLong =>
+      'A durat prea mult și a fost oprit. Încearcă din nou.';
+
+  @override
+  String get usageLimitReached =>
+      'Am atins limita de utilizare și nu pot răspunde acum.';
 }

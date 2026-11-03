@@ -8,6 +8,15 @@ const DEFAULT_RING_TIMEOUT_MS = 30_000;
 
 const logger = createServiceLogger('AgentCalls');
 
+// Apps say what they run on when they connect. Those installed before that have
+// no such field, but a native client still shows through its user agent, and
+// browsers never do; that older desktop apps also match is a harmless extra ring.
+function isMobileAppHandshake(handshake) {
+  const client = handshake?.query?.client;
+  if (client) return client === 'android' || client === 'ios';
+  return /^Dart\//.test(String(handshake?.headers?.['user-agent'] || ''));
+}
+
 class AgentCallCoordinator {
   constructor({ io, agentEngine, voiceRuntimeManager, ringTimeoutMs = DEFAULT_RING_TIMEOUT_MS }) {
     this.io = io;
@@ -216,4 +225,5 @@ class AgentCallCoordinator {
 module.exports = {
   AgentCallCoordinator,
   DEFAULT_RING_TIMEOUT_MS,
+  isMobileAppHandshake,
 };

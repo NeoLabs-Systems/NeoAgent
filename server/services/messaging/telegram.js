@@ -3,6 +3,10 @@
 const { BasePlatform, missingConfigError } = require('./base');
 const { Telegraf } = require('telegraf');
 
+function escapeHtml(text) {
+  return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 class TelegramPlatform extends BasePlatform {
   constructor(config = {}) {
     super('telegram', config);
@@ -396,14 +400,25 @@ class TelegramPlatform extends BasePlatform {
     return { success: true, messageId: sent?.message_id ? String(sent.message_id) : null };
   }
 
-  async sendApprovalPrompt(chatId, { text, options }) {
+  async sendApprovalPrompt(chatId, { title, action, detail, reason, note, options }) {
     if (!this._bot || this.status !== 'connected') throw new Error('Telegram not connected');
-    const sent = await this._bot.telegram.sendMessage(chatId.startsWith('dm_') ? chatId.slice(3) : chatId, text, {
+    const html = [
+      `🔐 <b>${escapeHtml(title)}</b>`,
+      '',
+      escapeHtml(action),
+      detail ? `<pre>${escapeHtml(detail)}</pre>` : null,
+      reason ? `<i>${escapeHtml(reason)}</i>` : null,
+      '',
+      `<i>${escapeHtml(note)}</i>`,
+    ].filter((line) => line !== null).join('\n');
+    const sent = await this._bot.telegram.sendMessage(chatId.startsWith('dm_') ? chatId.slice(3) : chatId, html, {
+      parse_mode: 'HTML',
       reply_markup: {
-        inline_keyboard: [options.map((option) => ({
+        // One per row, so longer labels in any language stay whole.
+        inline_keyboard: options.map((option) => [{
           text: option.label,
           callback_data: `approval:${option.id}`,
-        }))],
+        }]),
       },
     });
     return { promptId: String(sent.message_id) };

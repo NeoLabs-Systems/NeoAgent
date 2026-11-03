@@ -12454,4 +12454,18 @@ class AppL10nEt extends AppL10n {
 
   @override
   String get adminUpdateFailedTitle => 'The update did not finish';
+
+  @override
+  String get approvalReview => 'Vaata üle';
+
+  @override
+  String get approvalExpired => 'Päring aegus, midagi ei käivitatud.';
+
+  @override
+  String get requestTookTooLong =>
+      'See võttis liiga kaua aega ja peatati. Proovi uuesti.';
+
+  @override
+  String get usageLimitReached =>
+      'Olen jõudnud oma kasutuspiiranguni ega saa praegu vastata.';
 }

@@ -20700,6 +20700,30 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'The update did not finish'**
   String get adminUpdateFailedTitle;
+
+  /// No description provided for @approvalReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Review'**
+  String get approvalReview;
+
+  /// No description provided for @approvalExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'This request expired, so nothing was run.'**
+  String get approvalExpired;
+
+  /// No description provided for @requestTookTooLong.
+  ///
+  /// In en, this message translates to:
+  /// **'That took too long and was stopped. Please try again.'**
+  String get requestTookTooLong;
+
+  /// No description provided for @usageLimitReached.
+  ///
+  /// In en, this message translates to:
+  /// **'I have reached my usage limit and can’t reply right now.'**
+  String get usageLimitReached;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {
