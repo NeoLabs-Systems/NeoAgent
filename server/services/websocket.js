@@ -203,6 +203,7 @@ function setupWebSocket(io, services) {
 
     const userId = session.userId;
     socket.join(`user:${userId}`);
+    socket.data.mobileApp = ['android', 'ios'].includes(socket.handshake?.query?.client);
 
     // Share rate-limit budget across all sockets from the same authenticated user.
     userSocketCounts.set(userId, (userSocketCounts.get(userId) || 0) + 1);

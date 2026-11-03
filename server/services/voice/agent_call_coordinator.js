@@ -19,7 +19,7 @@ class AgentCallCoordinator {
     this.shuttingDown = false;
   }
 
-  async callUser({ userId, agentId, runId, conversationId = null, openingMessage, signal = null }) {
+  async callUser({ userId, agentId, runId, conversationId = null, openingMessage, signal = null, requireMobileApp = false }) {
     const content = String(openingMessage || '').trim();
     if (!content) return { status: 'unavailable', reason: 'opening_message is required' };
     if (this.shuttingDown || signal?.aborted) return { status: 'cancelled' };
@@ -27,6 +27,9 @@ class AgentCallCoordinator {
     if (this.voiceRuntimeManager.hasActiveSessionForUser(userId)) return { status: 'busy' };
 
     const sockets = await this.io.in(`user:${userId}`).fetchSockets();
+    if (requireMobileApp && !sockets.some((socket) => socket.data?.mobileApp === true)) {
+      return { status: 'unavailable', reason: 'no_mobile_app' };
+    }
     const recipients = new Set(sockets.map((socket) => socket.id));
     if (recipients.size === 0) {
       return {

@@ -110,6 +110,18 @@ class SharedRoutePlatform {
     return adapter.sendMessage(chatId, content, options);
   }
 
+  // Absent on an adapter with nothing to tap, where the prompt is plain text.
+  async sendApprovalPrompt(to, prompt) {
+    const { adapter, chatId } = this._deliveryTarget(to);
+    if (adapter.sendApprovalPrompt) return adapter.sendApprovalPrompt(chatId, prompt);
+    return adapter.sendMessage(chatId, `${prompt.text}\nReply "allow", "always" or "deny".`);
+  }
+
+  async deleteApprovalPrompt(to, promptId) {
+    const { adapter, chatId } = this._deliveryTarget(to);
+    return adapter.deleteApprovalPrompt?.(chatId, promptId);
+  }
+
   async sendTyping(to, isTyping, options = {}) {
     const { adapter, chatId } = this._deliveryTarget(to);
     return adapter.sendTyping?.(chatId, isTyping, options);

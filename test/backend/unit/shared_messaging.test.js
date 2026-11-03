@@ -483,7 +483,7 @@ test('WhatsApp identifies a contact by phone number across LID addressing', () =
   const { WhatsAppPlatform } = require('../../../server/services/messaging/whatsapp');
   const whatsapp = new WhatsAppPlatform({ accessGate: () => ({ allowed: false }) });
   const context = whatsapp._accessContext(
-    { key: { id: 'x', remoteJid: '999@lid', senderPn: '491700000001@s.whatsapp.net' }, message: {} },
+    { key: { id: 'x', remoteJid: '999@lid', remoteJidAlt: '491700000001@s.whatsapp.net' }, message: {} },
     { chatId: '999@lid', isGroup: false, sender: '999@lid', content: 'hi' },
   );
   assert.equal(context.stableSenderId, '491700000001');

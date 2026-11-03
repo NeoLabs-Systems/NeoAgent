@@ -1,4 +1,5 @@
 const { BasePlatform } = require('./base');
+const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const { normalizeWhatsAppId, toWhatsAppJid } = require('../../utils/whatsapp');
@@ -12,6 +13,7 @@ const AUTH_DIR = path.join(DATA_DIR, 'whatsapp-auth');
 const SENT_MESSAGE_MEMORY = 200;
 const BAD_SESSION_RETRY_LIMIT = 5;
 const STABLE_CONNECTION_MS = 2 * 60 * 1000;
+const POLL_NAME_LIMIT = 255;
 
 // Baileys reports this as a number, a numeric string, or a protobuf Long,
 // depending on how the message reached the socket.
@@ -22,6 +24,14 @@ function messageTimestampSeconds(msg) {
   if (typeof raw?.toNumber === 'function') return raw.toNumber();
   if (typeof raw?.low === 'number') return raw.low;
   return 0;
+}
+
+function isPhoneJid(jid) {
+  return /@(s\.whatsapp\.net|hosted)$/.test(String(jid || ''));
+}
+
+function optionHash(label) {
+  return crypto.createHash('sha256').update(label).digest('hex');
 }
 
 class WhatsAppPlatform extends BasePlatform {
@@ -40,6 +50,8 @@ class WhatsAppPlatform extends BasePlatform {
     this._manualDisconnect = false;
     this._reconnectTimer = null;
     this._sentMessageIds = new Set();
+    /** Approval polls still open, by message id. @type {Map<string, object>} */
+    this._approvalPolls = new Map();
     // Until a connection reports open there is no point from which a message
     // counts as new, so replayed history stays out.
     this._connectedAt = Infinity;
@@ -56,6 +68,28 @@ class WhatsAppPlatform extends BasePlatform {
       .flatMap((me) => [me?.id, me?.jid, me?.lid])
       .map(normalizeWhatsAppId)
       .filter(Boolean));
+  }
+
+  // Who sent a message, in the two forms WhatsApp may use. Contacts arrive under
+  // a LID, but people are listed and linked by number, so the number wins
+  // whenever it is known.
+  _senderAddresses(key = {}) {
+    const isGroup = String(key.remoteJid || '').endsWith('@g.us');
+    const primary = isGroup ? key.participant : key.remoteJid;
+    const alternate = isGroup ? key.participantAlt : key.remoteJidAlt;
+    const phone = [primary, alternate].find(isPhoneJid) || null;
+    return { primary, phone, sender: phone || primary };
+  }
+
+  // WhatsApp usually sends the number along; otherwise it may be known from
+  // earlier traffic.
+  async _learnPhoneNumber(key = {}) {
+    const { primary, phone } = this._senderAddresses(key);
+    if (phone || !String(primary || '').endsWith('@lid')) return;
+    const known = await this.sock?.signalRepository?.lidMapping?.getPNForLID?.(primary).catch(() => null);
+    if (!known) return;
+    if (String(key.remoteJid || '').endsWith('@g.us')) key.participantAlt = known;
+    else key.remoteJidAlt = known;
   }
 
   _contextInfo(message = {}) {
@@ -126,7 +160,7 @@ class WhatsAppPlatform extends BasePlatform {
   }
 
   _accessContext(msg, { chatId, isGroup, sender, content = '', pushName = '' }) {
-    const senderId = normalizeWhatsAppId(sender);
+    const senderId = normalizeWhatsAppId(this._senderAddresses(msg.key).phone || sender);
     return {
       platform: 'whatsapp',
       senderId,
@@ -138,7 +172,7 @@ class WhatsAppPlatform extends BasePlatform {
       wasMentioned: isGroup && this._isGroupAddressedToBot(msg.message || {}),
       // A contact can move between a phone-number and a LID address; the phone
       // number is what stays the same person.
-      stableSenderId: normalizeWhatsAppId(msg.key?.senderPn || sender),
+      stableSenderId: senderId,
       text: content,
       messageId: msg.key?.id || null,
       senderName: pushName,
@@ -246,6 +280,7 @@ class WhatsAppPlatform extends BasePlatform {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, logger)
       },
+      getMessage: async (key) => this._approvalPolls.get(key.id)?.message,
       logger,
       browser: Browsers.appropriate('Chrome'),
       connectTimeoutMs: 60000,
@@ -328,8 +363,17 @@ class WhatsAppPlatform extends BasePlatform {
 
     this.sock.ev.on('group-participants.update', (update) => this._emitMembership(update));
 
+    this.sock.ev.on('call', (calls) => {
+      this._handleCalls(calls).catch((err) => log.error('Call handling failed:', err.message));
+    });
+
     this.sock.ev.on('messages.upsert', async ({ messages, type }) => {
       for (const msg of messages) {
+        await this._learnPhoneNumber(msg.key);
+        if (msg.message?.pollUpdateMessage) {
+          this._handlePollVote(msg);
+          continue;
+        }
         if (!this._shouldProcessInbound(msg, type)) continue;
         // The phone's own sync traffic (history notices, app-state keys) is
         // addressed to the self chat as well; it is not a note.
@@ -337,7 +381,7 @@ class WhatsAppPlatform extends BasePlatform {
 
         const chatId = msg.key.remoteJid;
         const isGroup = chatId?.endsWith('@g.us');
-        const sender = isGroup ? msg.key.participant : chatId;
+        const { sender } = this._senderAddresses(msg.key);
         const pushName = msg.pushName || '';
         const wasMentioned = isGroup && this._isGroupAddressedToBot(msg.message || {});
 
@@ -500,6 +544,7 @@ class WhatsAppPlatform extends BasePlatform {
       previous.ev?.removeAllListeners?.('connection.update');
       previous.ev?.removeAllListeners?.('messages.upsert');
       previous.ev?.removeAllListeners?.('creds.update');
+      previous.ev?.removeAllListeners?.('call');
       previous.end();
     } catch {
       // The socket is being thrown away either way.
@@ -575,6 +620,137 @@ class WhatsAppPlatform extends BasePlatform {
     const sent = await this.sock.sendMessage(jid, this._outboundPayload(content, options));
     this._rememberSentMessage(sent?.key?.id);
     return { success: true, messageId: sent?.key?.id || null };
+  }
+
+  async sendApprovalPrompt(chatId, { text, options }) {
+    if (!this.sock || this.status !== 'connected') {
+      throw new Error('WhatsApp not connected');
+    }
+    const jid = toWhatsAppJid(chatId);
+    if (!jid) throw new Error('Invalid WhatsApp chat');
+    const sent = await this.sock.sendMessage(jid, {
+      poll: { name: text.slice(0, POLL_NAME_LIMIT), values: options.map((option) => option.label), selectableCount: 1 },
+    });
+    this._rememberSentMessage(sent?.key?.id);
+    this._approvalPolls.set(sent.key.id, { key: sent.key, message: sent.message, options });
+    return { promptId: sent.key.id };
+  }
+
+  async deleteApprovalPrompt(chatId, promptId) {
+    const poll = this._approvalPolls.get(promptId);
+    this._approvalPolls.delete(promptId);
+    if (!poll || !this.sock) return;
+    const sent = await this.sock.sendMessage(toWhatsAppJid(chatId), { delete: poll.key });
+    this._rememberSentMessage(sent?.key?.id);
+  }
+
+  // Votes are encrypted to the poll's secret, the poll's author and the voter,
+  // under whichever address each side used, and Baileys no longer decrypts them.
+  // Decryption authenticates, so a wrong pairing just fails.
+  _decryptVote(update, poll, key) {
+    const { decryptPollVote } = require('baileys');
+    const own = [...this._ownJids()];
+    const { primary, phone } = this._senderAddresses(key);
+    const voters = key.fromMe ? own : [primary, phone].filter(Boolean).map(toWhatsAppJid);
+    for (const pollCreatorJid of own) {
+      for (const voterJid of voters) {
+        try {
+          return decryptPollVote(update.vote, {
+            pollCreatorJid,
+            pollMsgId: poll.key.id,
+            pollEncKey: poll.message.messageContextInfo.messageSecret,
+            voterJid,
+          });
+        } catch {
+          // The next pairing may be the one it was encrypted under.
+        }
+      }
+    }
+    return null;
+  }
+
+  _ownJids() {
+    const identities = [this.sock?.user, this.sock?.authState?.creds?.me];
+    return new Set(identities
+      .flatMap((me) => [me?.id, me?.lid])
+      .map(toWhatsAppJid)
+      .filter(Boolean));
+  }
+
+  _handlePollVote(msg) {
+    const update = msg.message.pollUpdateMessage;
+    const poll = this._approvalPolls.get(update.pollCreationMessageKey?.id);
+    if (!poll) return;
+    const vote = this._decryptVote(update, poll, msg.key);
+    if (!vote) {
+      log.warn('Could not read a vote on an approval poll.');
+      return;
+    }
+    const selected = (vote.selectedOptions || []).map((hash) => Buffer.from(hash).toString('hex'));
+    const option = poll.options.find((item) => selected.includes(optionHash(item.label)));
+    // An empty selection means the vote was taken back.
+    if (!option) return;
+
+    const chatId = msg.key.remoteJid;
+    const isGroup = chatId?.endsWith('@g.us');
+    const { sender, phone } = this._senderAddresses(msg.key);
+    const fromMe = msg.key.fromMe === true;
+    // An instance-wide account's holder is not whoever linked this chat, and
+    // self-chat mode only answers in the account's own chat.
+    if (fromMe && this.accessGate) return;
+    if (this.selfChatMode && !(fromMe && this._isSelfChat(chatId))) return;
+    this.emit('approval_response', {
+      platform: 'whatsapp',
+      chatId,
+      promptId: poll.key.id,
+      choiceId: option.id,
+      actor: {
+        sender,
+        phoneNumber: normalizeWhatsAppId(phone || sender),
+        senderName: msg.pushName || '',
+        isGroup,
+        groupId: isGroup ? chatId : null,
+        metadata: this.selfChatMode ? { selfChat: true } : null,
+        isAccountHolder: fromMe,
+      },
+    });
+  }
+
+  // An offer on the owner's own number is a call to the owner, so self-chat mode
+  // leaves it ringing. Otherwise the account has no one to answer. Calling back
+  // is for people the owner listed: a stranger must not be able to ring their
+  // phone by dialling this number.
+  async _handleCalls(calls = []) {
+    if (this.selfChatMode) return;
+    for (const call of calls) {
+      if (call.status !== 'offer') continue;
+      await this.sock.rejectCall(call.id, call.from);
+      log.info(`Rejected an incoming WhatsApp ${call.isVideo ? 'video ' : ''}call.`);
+      // Reported while this device was offline, so the call is already over.
+      if (call.offline || call.isGroup) continue;
+
+      const phone = [call.from, call.callerPn].find(isPhoneJid) || null;
+      const senderId = normalizeWhatsAppId(phone || call.from);
+      const access = this.evaluateAccess({
+        platform: 'whatsapp',
+        senderId,
+        stableSenderId: senderId,
+        chatId: phone || call.from,
+        isDirect: true,
+        isShared: false,
+        groupId: '',
+        phoneNumber: senderId,
+        wasMentioned: false,
+        text: '',
+      });
+      if (!access.allowed) continue;
+      if (!access.ownerUserId && access.policy?.directPolicy !== 'allowlist') continue;
+      this.emit('incoming_call', {
+        platform: 'whatsapp',
+        callerId: senderId,
+        chatId: phone || call.from,
+      });
+    }
   }
 
   async sendReaction(chatId, messageId, emoji) {

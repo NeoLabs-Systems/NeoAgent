@@ -256,6 +256,12 @@ class SharedMessagingConnections {
     adapter.on('reaction', (reaction) => {
       if (live()) this._routeReaction(platform, reaction);
     });
+    adapter.on('approval_response', (response) => {
+      if (live()) this._routeApprovalResponse(platform, response);
+    });
+    adapter.on('incoming_call', (call) => {
+      if (live()) this._routeCall(platform, call);
+    });
   }
 
   // Runs before the adapter does anything expensive with a message. Only the
@@ -338,14 +344,38 @@ class SharedMessagingConnections {
   _routeMessage(platform, msg) {
     const link = store.findLinkByChat(platform, msg.chatId);
     if (!link) return;
+    const routed = { ...msg, metadata: { ...(msg.metadata || {}), sharedConnection: true } };
+    if (this.manager.chatApprovals?.handleInboundText(link.user_id, link.agent_id, platform, routed)) return;
     void this.manager.ingestMessage(
       link.user_id,
       platform,
-      { ...msg, metadata: { ...(msg.metadata || {}), sharedConnection: true } },
+      routed,
       { agentId: link.agent_id },
     ).catch((error) => {
       log.error('Failed to persist or dispatch inbound message:', error?.message || error);
     });
+  }
+
+  _routeApprovalResponse(platform, response) {
+    const link = store.findLinkByChat(platform, response.chatId);
+    if (!link) return;
+    this.manager.chatApprovals?.handleResponse({
+      ...response,
+      userId: link.user_id,
+      agentId: link.agent_id,
+      platformName: platform,
+      actor: {
+        ...response.actor,
+        metadata: { ...(response.actor?.metadata || {}), sharedConnection: true },
+      },
+    });
+  }
+
+  _routeCall(platform, call) {
+    // The caller's number, since the linked chat may be under their LID.
+    const link = store.findLinkByExternalId(platform, call.callerId);
+    if (!link) return;
+    this.manager.emit('incoming_call', { ...call, userId: link.user_id, agentId: link.agent_id, platform });
   }
 
   _routeReaction(platform, reaction) {

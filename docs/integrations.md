@@ -137,6 +137,8 @@ Pick the mode before scanning the QR code, and switch later with **Chat mode** o
 | **Separate account** (default) | Links a number that belongs to the agent. Direct chats and groups, gated by **Who can message**. |
 | **Personal self-chat** | Links your own number. Only your "Message yourself" chat reaches the agent; every other chat is ignored. |
 
+**Calls.** On a separate account, every incoming WhatsApp call is rejected, because the agent cannot take one. If the caller is on the allowlist and the NeoAgent mobile app is connected, the agent rings the app instead. Personal self-chat leaves calls alone, since they are calls to you.
+
 ### GitHub mentions
 
 Approved people @mention the agent's GitHub account on an issue or pull request, and the agent replies in that thread.

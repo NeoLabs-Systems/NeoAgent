@@ -65,7 +65,7 @@ function registerToolSecurityHooks(toolPolicyService, approvalGateService) {
     };
   }), { priority: 5, id: 'tool-policy-check' });
 
-  globalHooks.register('before_tool_call', failClosed('approval', async ({ toolName, toolArgs, userId, runId, trust }) => {
+  globalHooks.register('before_tool_call', failClosed('approval', async ({ toolName, toolArgs, userId, agentId, runId, trust }) => {
     const args = toolArgs ?? {};
     const mode = toolPolicyService.getSecurityMode(userId);
     const category = getCategoryForTool(toolName, args);
@@ -83,7 +83,7 @@ function registerToolSecurityHooks(toolPolicyService, approvalGateService) {
 
     console.info(`[ToolPolicy] Requesting approval tool=${toolName} run=${runId}${escalation ? ` (${escalation.kind})` : ''}`);
     const decision = await approvalGateService.requestApproval(
-      userId, runId, toolName, args, { reason: escalation?.reason || null },
+      userId, runId, toolName, args, { reason: escalation?.reason || null, agentId, trust },
     );
     if (decision === 'approved') return;
 
@@ -97,7 +97,7 @@ function registerToolSecurityHooks(toolPolicyService, approvalGateService) {
       reason: isExpired
         ? `Approval for "${toolName}" expired because the server restarted or the run was interrupted. Do not retry unless the user explicitly asks you to try again.`
         : isTimeout
-        ? `Approval for "${toolName}" timed out — the user did not respond within 30 seconds. ` +
+        ? `Approval for "${toolName}" timed out — the user did not respond in time. ` +
           `Do not retry unless the user explicitly asks you to try again.`
         : `The user denied the use of "${toolName}". Do not retry this tool call in this run.`,
     };

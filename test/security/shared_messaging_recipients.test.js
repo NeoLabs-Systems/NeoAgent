@@ -104,14 +104,14 @@ async function linkOnTelegram(user, senderId) {
   return adapter;
 }
 
-function whatsappMessage({ remoteJid, senderPn, text, id = 'wa-1' }) {
-  return { key: { id, remoteJid, senderPn }, message: { conversation: text } };
+function whatsappMessage({ remoteJid, remoteJidAlt, text, id = 'wa-1' }) {
+  return { key: { id, remoteJid, remoteJidAlt }, message: { conversation: text } };
 }
 
-function whatsappGate(adapter, { remoteJid, senderPn, text = 'hello' }) {
+function whatsappGate(adapter, { remoteJid, remoteJidAlt, text = 'hello' }) {
   const isGroup = remoteJid.endsWith('@g.us');
   return adapter.evaluateAccess(adapter._accessContext(
-    whatsappMessage({ remoteJid, senderPn, text }),
+    whatsappMessage({ remoteJid, remoteJidAlt, text }),
     { chatId: remoteJid, isGroup, sender: remoteJid, content: text, pushName: 'Linked' },
   ));
 }
@@ -243,7 +243,7 @@ describe('a shared WhatsApp number', () => {
   for (const remoteJid of ['status@broadcast', `${STRANGER_NUMBER}@broadcast`, '123@newsletter']) {
     test(`a linked person posting via ${remoteJid} cannot redirect replies`, async () => {
       const adapter = await linkOnWhatsApp(alice);
-      const access = whatsappGate(adapter, { remoteJid, senderPn: ownJid });
+      const access = whatsappGate(adapter, { remoteJid, remoteJidAlt: ownJid });
       assert.equal(access.allowed, false);
       assert.equal(store.findLinkForUser('whatsapp', alice.userId).chat_id, ownJid);
       await sendAs(alice, 'whatsapp', OWN_NUMBER);
@@ -254,7 +254,7 @@ describe('a shared WhatsApp number', () => {
   test('a code sent from a broadcast cannot create a link', async () => {
     const adapter = await sharedAdapter('whatsapp');
     const { code } = store.createLinkCode('whatsapp', alice.userId, agentOf(alice));
-    whatsappGate(adapter, { remoteJid: `${STRANGER_NUMBER}@broadcast`, senderPn: ownJid, text: code });
+    whatsappGate(adapter, { remoteJid: `${STRANGER_NUMBER}@broadcast`, remoteJidAlt: ownJid, text: code });
     await settle();
     assert.equal(store.findLinkForUser('whatsapp', alice.userId), null);
   });
@@ -263,7 +263,7 @@ describe('a shared WhatsApp number', () => {
     const adapter = await linkOnWhatsApp(alice);
     const access = whatsappGate(adapter, {
       remoteJid: `${STRANGER_NUMBER}@s.whatsapp.net`,
-      senderPn: ownJid,
+      remoteJidAlt: ownJid,
     });
     assert.equal(access.allowed, false);
     assert.equal(store.findLinkForUser('whatsapp', alice.userId).chat_id, ownJid);
@@ -271,7 +271,7 @@ describe('a shared WhatsApp number', () => {
 
   test('moving to a LID address keeps replies with the same person', async () => {
     const adapter = await linkOnWhatsApp(alice);
-    const access = whatsappGate(adapter, { remoteJid: '888@lid', senderPn: ownJid });
+    const access = whatsappGate(adapter, { remoteJid: '888@lid', remoteJidAlt: ownJid });
     assert.equal(access.allowed, true);
     await sendAs(alice, 'whatsapp', '888@lid');
     assert.deepEqual(wire.map((call) => call.to), ['888@lid']);

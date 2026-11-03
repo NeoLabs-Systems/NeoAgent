@@ -59,7 +59,9 @@ function toWhatsAppJid(value) {
   const raw = String(value || '').trim().toLowerCase();
   if (!raw) return '';
   if (raw.includes('@')) {
-    const jid = raw.split(':')[0];
+    // The device suffix sits on the user part: 123:12@lid.
+    const [user, server] = raw.split('@');
+    const jid = `${user.split(':')[0]}@${server}`;
     if (jid.endsWith('@s.whatsapp.net') || jid.endsWith('@g.us') || jid.endsWith('@lid')) {
       return jid;
     }

@@ -31,6 +31,7 @@ const { SkillLearningService } = require('./skills/learning_service');
 const { CapabilityAuditService } = require('./security/capability_audit');
 const { ToolPolicyService } = require('./security/tool_policy_service');
 const { ApprovalGateService } = require('./security/approval_gate_service');
+const { ChatApprovals } = require('./messaging/chat_approvals');
 const { registerToolSecurityHooks } = require('./security/tool_security_hook');
 const { TimelineService } = require('./timeline/service');
 const { WearableService } = require('./wearable/service');
@@ -456,7 +457,7 @@ async function startServices(app, io, { resumeRuns = false } = {}) {
     const toolPolicyService = registerLocal(app, 'toolPolicyService', new ToolPolicyService({
       securityModeOverride: process.env.NEOAGENT_TOOL_SECURITY_MODE || null,
     }));
-    const approvalGateService = registerLocal(app, 'approvalGateService', new ApprovalGateService({ io }));
+    const approvalGateService = registerLocal(app, 'approvalGateService', new ApprovalGateService({ io, toolPolicyService }));
     registerToolSecurityHooks(toolPolicyService, approvalGateService);
     logServiceReady('Tool security hooks registered');
     createMultiStep(app, agentEngine, io);
@@ -471,6 +472,17 @@ async function startServices(app, io, { resumeRuns = false } = {}) {
     });
 
     const messagingManager = createMessagingManager(app, io, agentEngine);
+    messagingManager.chatApprovals = new ChatApprovals({ manager: messagingManager, gate: approvalGateService });
+    approvalGateService.setChatDelivery(messagingManager.chatApprovals);
+    messagingManager.on('incoming_call', ({ userId, agentId, platform, callerId }) => {
+      void agentCallCoordinator.callUser({
+        userId,
+        agentId,
+        requireMobileApp: true,
+        openingMessage: `${callerId} just tried to call you on ${platform}, which cannot carry a voice call,`
+          + ' so you are calling back in the app. Greet them and ask what they need.',
+      }).catch((err) => console.error('[Messaging] Call-back failed:', getErrorMessage(err)));
+    });
     createSocialVideoService(app);
     createSocialReachService(app);
     createWearableService(app);

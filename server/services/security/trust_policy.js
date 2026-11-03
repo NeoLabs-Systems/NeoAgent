@@ -89,6 +89,13 @@ function getServerSecrets() {
   return serverSecrets;
 }
 
+function redactSecrets(text) {
+  return SECRET_PATTERNS.reduce(
+    (redacted, pattern) => redacted.replace(new RegExp(pattern, 'g'), '[hidden]'),
+    getServerSecrets().reduce((redacted, secret) => redacted.split(secret).join('[hidden]'), String(text)),
+  );
+}
+
 function listValues(value) {
   if (Array.isArray(value)) return value.flatMap(listValues);
   if (typeof value !== 'string') return [];
@@ -173,5 +180,6 @@ function reviewToolCall({ toolName, toolArgs = {}, category = null, trust = null
 }
 
 module.exports = {
+  redactSecrets,
   reviewToolCall,
 };

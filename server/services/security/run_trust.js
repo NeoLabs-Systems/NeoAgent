@@ -104,6 +104,7 @@ function createRunTrust({
         platform: String(origin.platform || ''),
         chatId: String(origin.chatId),
         senderId: String(origin.senderId || ''),
+        isGroup: origin.isGroup === true,
       }
       : null,
     mediaPaths: new Set(mediaPaths.filter(Boolean).map(String)),

@@ -109,7 +109,7 @@ The macOS, Windows and Linux desktop apps can act as the computer.
 |---|---|---|
 | 1 | `tool-delegation-check` | The account's manager removed the tool's category |
 | 5 | `tool-policy-check` | The category policy is `deny` |
-| 10 | `tool-approval-gate` | Approval is needed and the owner denies it or does not answer in 30 seconds |
+| 10 | `tool-approval-gate` | Approval is needed and the owner denies it or does not answer in time: 30 seconds in the app, 5 minutes when it is also asked in a chat |
 
 | Setting | Values | Stored in |
 |---|---|---|
@@ -121,8 +121,25 @@ The approval gate also asks when `services/security/trust_policy.js` flags a cal
 - **Audience review.** Someone other than the owner is steering the run; applies even in `allow_all`.
 - **Taint review.** The run read outside content, and the call would reach a new recipient or host, persist an instruction, or send a credential.
 
-- **Delivery.** Approvals arrive as `tool:approval_required` and resolve as `tool:approval_resolved`.
+- **Delivery.** Approvals arrive as `tool:approval_required` and resolve as `tool:approval_resolved`. A run that came from a chat also asks there; the first answer from either place decides.
 - **Result.** A blocked call returns a structured reason to the model instead of an error.
+
+### Approving from a chat
+
+`services/messaging/chat_approvals.js` puts the approval up in the chat the run came from and removes it once answered or expired, where the platform allows deleting.
+
+| Platform | How it asks | How it is answered |
+|---|---|---|
+| WhatsApp | Poll, deleted for everyone afterwards | Vote |
+| Discord | Message with reactions, deleted afterwards | ✅ allow, 🔁 allow always, ❌ disallow |
+| Telegram | Inline buttons, deleted afterwards | Tap |
+| Slack, Teams, Google Chat, Matrix, Signal, LINE, Mattermost, iMessage, IRC | Text | Reply `allow`, `always` or `deny` |
+
+Typed answers also work on WhatsApp, Discord and Telegram. They are consumed only while an approval is open in that chat and only from someone who may decide; otherwise the message reaches the agent as usual.
+
+**Who may decide.** Only someone who speaks for the owner: an allowlisted DM sender, the account's self chat, the linked person on a shared account, or a person listed by name under group senders. Other group members, anyone admitted by an open policy, and per-group member rules can talk to the agent but not approve, so nobody can approve what the audience review held for them. Other people's answers are ignored silently.
+
+**Where it does not ask.** Public threads (GitHub), runs with no chat (app, schedules), a DM from an unvetted sender, and a group with nobody listed by name. Those stay app-only, so a request is not shown to people who could not answer it. A group sees only the tool's name; a DM also sees the reason and a summary of the arguments with credentials hidden.
 
 ## Credential broker
 

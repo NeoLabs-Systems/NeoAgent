@@ -48,6 +48,8 @@ class DiscordPlatform extends BasePlatform {
     }
 
     this._client = null;
+    /** Open approval prompts: message id → their options. */
+    this._approvalPrompts = new Map();
     this._botUser = null;
     this._manualDisconnect = false;
   }
@@ -79,6 +81,7 @@ class DiscordPlatform extends BasePlatform {
       GatewayIntentBits.MessageContent,  // Privileged — enable in Dev Portal
       GatewayIntentBits.DirectMessages,
       GatewayIntentBits.DirectMessageReactions,
+      GatewayIntentBits.GuildMessageReactions,
     ];
     if (memberEvents) intents.push(GatewayIntentBits.GuildMembers);  // Privileged
     this._client = new Client({
@@ -223,6 +226,10 @@ class DiscordPlatform extends BasePlatform {
   async _handleReaction(reaction, user) {
     if (user.bot) return;
     const full = reaction.partial ? await reaction.fetch() : reaction;
+    if (this._approvalPrompts.has(full.message.id)) {
+      await this._handleApprovalReaction(full, user);
+      return;
+    }
     if (full.message.channel?.type !== ChannelType.DM) return;
     const access = this.evaluateAccess({
       platform: 'discord',
@@ -247,6 +254,31 @@ class DiscordPlatform extends BasePlatform {
       targetMessageId: full.message.id,
       emoji: full.emoji.toString(),
       timestamp: new Date().toISOString(),
+    });
+  }
+
+  async _handleApprovalReaction(reaction, user) {
+    const { message } = reaction;
+    const options = this._approvalPrompts.get(message.id);
+    const option = options.find((item) => item.emoji === reaction.emoji.name);
+    if (!option) return;
+    const isDM = message.channel?.type === ChannelType.DM;
+    const member = isDM ? null : await message.guild?.members.fetch(user.id).catch(() => null);
+    this.emit('approval_response', {
+      platform: 'discord',
+      chatId: isDM ? `dm_${user.id}` : message.channel.id,
+      promptId: message.id,
+      choiceId: option.id,
+      actor: {
+        sender: user.id,
+        senderName: user.globalName || user.username || user.id,
+        isGroup: !isDM,
+        groupId: isDM ? null : message.channel.id,
+        channelId: isDM ? null : message.channel.id,
+        guildId: message.guild?.id || null,
+        serverId: message.guild?.id || null,
+        roleIds: member ? [...member.roles.cache.keys()] : [],
+      },
     });
   }
 
@@ -413,6 +445,25 @@ class DiscordPlatform extends BasePlatform {
     const channel = await this._textChannel(to);
     const sent = await channel.send({ content });
     return { success: true, messageId: sent?.id || null };
+  }
+
+  async sendApprovalPrompt(chatId, { text, options }) {
+    if (!this._client || this.status !== 'connected') throw new Error('Discord not connected');
+    const channel = await this._textChannel(chatId);
+    const sent = await channel.send({ content: text, allowedMentions: { parse: [] } });
+    // Known before the reactions exist, so a quick answer is not missed.
+    this._approvalPrompts.set(sent.id, options);
+    for (const option of options) {
+      await sent.react(option.emoji);
+    }
+    return { promptId: sent.id };
+  }
+
+  async deleteApprovalPrompt(chatId, promptId) {
+    this._approvalPrompts.delete(promptId);
+    if (!this._client) return;
+    const channel = await this._textChannel(chatId);
+    await channel.messages.delete(promptId);
   }
 
   async sendReaction(chatId, messageId, emoji) {

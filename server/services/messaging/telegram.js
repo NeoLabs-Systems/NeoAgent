@@ -41,6 +41,11 @@ class TelegramPlatform extends BasePlatform {
       });
     });
     this._bot.on('message_reaction', (ctx) => this._handleReaction(ctx));
+    this._bot.on('callback_query', (ctx) => {
+      this._handleApprovalButton(ctx).catch((err) => {
+        console.error('[Telegram] Approval button error:', err.message);
+      });
+    });
     this._bot.catch((err) => {
       console.error('[Telegram] Polling error:', err.message);
       if (err.response?.error_code === 401 || err.code === 401) {
@@ -73,7 +78,7 @@ class TelegramPlatform extends BasePlatform {
       console.log(`[Telegram] Logged in as @${me.username} (${me.id})`);
       this.emit('connected');
       // Telegram leaves reactions out of the default update set.
-      this._bot.launch({ dropPendingUpdates: false, allowedUpdates: ['message', 'message_reaction'] }).catch((err) => {
+      this._bot.launch({ dropPendingUpdates: false, allowedUpdates: ['message', 'message_reaction', 'callback_query'] }).catch((err) => {
         this.status = 'error';
         this.emit('error', {
           message: err.message || 'Telegram polling failed',
@@ -307,6 +312,31 @@ class TelegramPlatform extends BasePlatform {
     }
   }
 
+  async _handleApprovalButton(ctx) {
+    const query = ctx.update?.callback_query;
+    // Telegram shows a spinner on the button until this is answered.
+    await ctx.answerCbQuery().catch(() => {});
+    const choiceId = String(query?.data || '').match(/^approval:(\w+)$/)?.[1];
+    const message = query?.message;
+    if (!choiceId || !message || !query.from || query.from.is_bot) return;
+    const userId = String(query.from.id);
+    const isPrivate = message.chat?.type === 'private';
+    const chatId = isPrivate ? `dm_${userId}` : String(message.chat.id);
+    this.emit('approval_response', {
+      platform: 'telegram',
+      chatId,
+      promptId: String(message.message_id),
+      choiceId,
+      actor: {
+        sender: userId,
+        senderName: [query.from.first_name, query.from.last_name].filter(Boolean).join(' '),
+        senderUsername: query.from.username || null,
+        isGroup: !isPrivate,
+        groupId: isPrivate ? null : chatId,
+      },
+    });
+  }
+
   _handleReaction(ctx) {
     const update = ctx.update?.message_reaction;
     if (!update?.user || update.chat?.type !== 'private') return;
@@ -364,6 +394,24 @@ class TelegramPlatform extends BasePlatform {
     }
 
     return { success: true, messageId: sent?.message_id ? String(sent.message_id) : null };
+  }
+
+  async sendApprovalPrompt(chatId, { text, options }) {
+    if (!this._bot || this.status !== 'connected') throw new Error('Telegram not connected');
+    const sent = await this._bot.telegram.sendMessage(chatId.startsWith('dm_') ? chatId.slice(3) : chatId, text, {
+      reply_markup: {
+        inline_keyboard: [options.map((option) => ({
+          text: option.label,
+          callback_data: `approval:${option.id}`,
+        }))],
+      },
+    });
+    return { promptId: String(sent.message_id) };
+  }
+
+  async deleteApprovalPrompt(chatId, promptId) {
+    if (!this._bot) return;
+    await this._bot.telegram.deleteMessage(chatId.startsWith('dm_') ? chatId.slice(3) : chatId, Number(promptId));
   }
 
   async sendTyping(chatId, isTyping) {

@@ -834,11 +834,22 @@ class MessagingManager extends EventEmitter {
 
     platform.on('message', (msg) => {
       if (this.isShuttingDown) return;
+      if (this.chatApprovals?.handleInboundText(userId, agentId, platformName, msg)) return;
       void this.ingestMessage(userId, platformName, msg, { agentId }).catch((error) => {
         if (!this.isShuttingDown) {
           console.error('[Messaging] Failed to persist or dispatch inbound message:', error?.message || error);
         }
       });
+    });
+
+    platform.on('approval_response', (response) => {
+      if (this.isShuttingDown) return;
+      this.chatApprovals?.handleResponse({ ...response, userId, agentId, platformName });
+    });
+
+    platform.on('incoming_call', (call) => {
+      if (this.isShuttingDown) return;
+      this.emit('incoming_call', { ...call, userId, agentId, platform: platformName });
     });
 
     for (const membershipEvent of ['member_joined', 'member_left']) {

@@ -669,6 +669,7 @@ class DurableRunRuntime {
             platform: options.source,
             chatId: options.chatId,
             senderId: options.context?.socialIntelligence?.message?.sender,
+            isGroup: options.context?.socialIntelligence?.isGroup === true,
           }
           : null,
         mediaPaths: (options.mediaAttachments || []).map((attachment) => attachment?.path),

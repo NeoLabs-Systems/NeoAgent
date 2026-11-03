@@ -7779,6 +7779,12 @@ class NeoAgentController extends ChangeNotifier {
       'reconnectionDelay': 800,
       'reconnectionDelayMax': 8000,
       'withCredentials': true,
+      if (!kIsWeb &&
+          (defaultTargetPlatform == TargetPlatform.android ||
+              defaultTargetPlatform == TargetPlatform.iOS))
+        'query': <String, String>{
+          'client': defaultTargetPlatform.name.toLowerCase(),
+        },
     };
 
     final cookie = _backendClient.sessionCookie;

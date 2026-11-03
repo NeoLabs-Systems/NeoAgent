@@ -585,7 +585,9 @@ function buildIncomingPrompt(msg, options = {}) {
   return `You received a ${msg.platform} ${msg.isGroup ? 'group' : 'direct'} message.\n${senderIdentity}\n\nMessage content:\n${fenceUntrusted('external_message', msg.content)}${mediaNote}${audioContextNote}${roomContext}${publicGuide}\n\n${SENDER_IDENTITY_NOTE} In group chats, sender_id/sender_username/sender_tag is the speaker — not the channel or group name.\n\n${formattingGuide}\n\n${responseGuide} Use send_message platform="${msg.platform}" to="${msg.chatId}". ${progressGuide} Never send internal monologue, progress-check bookkeeping, or "nothing changed" observations as user-visible messages.`;
 }
 
-async function isAllowedMessagingSender({ io, userId, msg }) {
+// Whether this sender may speak to the agent, marking on the message whether
+// they speak for the owner. It has no side effects, so approvals ask it too.
+function resolveSenderTrust({ userId, msg }) {
   // A self-chat note is written by the account owner in their own chat, so there
   // is no sender left to approve and no allowlist prompt worth raising.
   if (msg.metadata?.selfChat === true) {
@@ -635,9 +637,14 @@ async function isAllowedMessagingSender({ io, userId, msg }) {
     msg.approvedSpeaker = msg.ownerTrusted || (msg.isGroup && decision.approvedSender === true);
     return true;
   }
+  msg.accessDeniedReason = decision.reason;
+  return false;
+}
 
+async function isAllowedMessagingSender({ io, userId, msg }) {
+  if (resolveSenderTrust({ userId, msg })) return true;
   console.warn(
-    `[Messaging] Blocked ${msg.platform} message from ${maskSenderId(msg.sender)} (${decision.reason}).`
+    `[Messaging] Blocked ${msg.platform} message from ${maskSenderId(msg.sender)} (${msg.accessDeniedReason}).`
     + ' Allow the sender under Messaging access to let it through.'
   );
   emitBlockedSenderSuggestion({ io, userId, msg });
@@ -663,6 +670,7 @@ module.exports = {
   buildIncomingPrompt,
   executeQueuedMessage,
   isAllowedMessagingSender,
+  resolveSenderTrust,
   processQueuedMessage,
   registerMessagingAutomation,
   startTypingKeepalive
