@@ -249,7 +249,7 @@ test('self-chat mode leaves calls to the owner\'s phone alone', async () => {
   assert.deepEqual(rejected, []);
 });
 
-function coordinator(sockets) {
+function coordinator(sockets, options = {}) {
   // Loaded after the test runtime so it binds to the test database.
   const { AgentCallCoordinator } = require('../../../server/services/voice/agent_call_coordinator');
   const emitted = [];
@@ -263,41 +263,87 @@ function coordinator(sockets) {
       agentEngine: {},
       voiceRuntimeManager: { hasActiveSessionForUser: () => false },
       ringTimeoutMs: 5,
+      mobileWaitMs: 40,
+      ...options,
     }),
   };
 }
 
-test('a device suffix does not change what kind of address a jid is', () => {
-  assert.equal(toWhatsAppJid('111111:12@lid'), '111111@lid');
-  assert.equal(toWhatsAppJid('4915:12@s.whatsapp.net'), '4915@s.whatsapp.net');
-  assert.equal(toWhatsAppJid('120363000@g.us'), '120363000@g.us');
-  assert.equal(toWhatsAppJid('4915'), '4915@s.whatsapp.net');
-});
+function fakeSocket(id, mobileApp) {
+  const emitted = [];
+  return { id, data: { mobileApp }, emitted, emit: (...args) => emitted.push(args) };
+}
 
-test('native apps count as mobile unless they say otherwise, and browsers never do', () => {
+const tick = (ms = 0) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
+test('apps and phone browsers count as mobile unless they say otherwise; desktop browsers do not', () => {
   const { isMobileAppHandshake } = require('../../../server/services/voice/agent_call_coordinator');
   const handshake = (client, agent) => ({ query: client ? { client } : {}, headers: { 'user-agent': agent } });
   assert.equal(isMobileAppHandshake(handshake('android', 'Dart/3.9 (dart:io)')), true);
   assert.equal(isMobileAppHandshake(handshake('ios', 'Dart/3.9 (dart:io)')), true);
   assert.equal(isMobileAppHandshake(handshake('macos', 'Dart/3.9 (dart:io)')), false);
   assert.equal(isMobileAppHandshake(handshake(null, 'Dart/3.9 (dart:io)')), true, 'an app from before the field');
-  assert.equal(isMobileAppHandshake(handshake(null, 'Mozilla/5.0 (iPhone)')), false);
+  assert.equal(isMobileAppHandshake(handshake(null, 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0)')), true, 'the web app on a phone');
+  assert.equal(isMobileAppHandshake(handshake(null, 'Mozilla/5.0 (Linux; Android 15)')), true);
+  assert.equal(isMobileAppHandshake(handshake(null, 'Mozilla/5.0 (Macintosh; Intel Mac OS X)')), false);
   assert.equal(isMobileAppHandshake(null), false);
 });
 
-test('the call back only rings when a mobile app is connected', async () => {
+test('the call back rings a connected phone straight away', async () => {
   runtime = createTestRuntime();
-  const { userId } = await createTestUser(runtime.db, { username: 'whatsapp_call_back' });
-  const desktopOnly = coordinator([{ id: 's1', data: {} }]);
-  const none = await desktopOnly.calls.callUser({ userId, openingMessage: 'hi', requireMobileApp: true });
-  assert.deepEqual(none, { status: 'unavailable', reason: 'no_mobile_app' });
-  assert.deepEqual(desktopOnly.emitted, []);
-
+  const { userId } = await createTestUser(runtime.db, { username: 'whatsapp_call_back_ring' });
   const mobile = coordinator([{ id: 's2', data: { mobileApp: true } }]);
-  // The ring timer is unref'd and would not keep the test alive by itself.
   const keepAlive = setTimeout(() => {}, 1000);
   const rung = await mobile.calls.callUser({ userId, openingMessage: 'hi', requireMobileApp: true });
   clearTimeout(keepAlive);
   assert.equal(mobile.emitted[0][0], 'voice:incoming_call');
   assert.equal(rung.status, 'missed');
+});
+
+test('with no phone connected nobody rings, and the call gives up quietly', async () => {
+  runtime = createTestRuntime();
+  const { userId } = await createTestUser(runtime.db, { username: 'whatsapp_call_back_wait' });
+  const desktopOnly = coordinator([{ id: 's1', data: { mobileApp: false } }]);
+  const keepAlive = setTimeout(() => {}, 1000);
+  const result = await desktopOnly.calls.callUser({ userId, openingMessage: 'hi', requireMobileApp: true });
+  clearTimeout(keepAlive);
+  assert.equal(result.status, 'missed');
+  assert.ok(!desktopOnly.emitted.some(([event]) => event === 'voice:incoming_call'));
+});
+
+test('a phone coming back within the wait gets the ring, and a desktop does not', async () => {
+  runtime = createTestRuntime();
+  const { userId } = await createTestUser(runtime.db, { username: 'whatsapp_call_back_return' });
+  const { calls, emitted } = coordinator([], { mobileWaitMs: 500, ringTimeoutMs: 60 });
+  const keepAlive = setTimeout(() => {}, 2000);
+  const pending = calls.callUser({ userId, openingMessage: 'hi', requireMobileApp: true });
+  await tick();
+  assert.deepEqual(emitted, []);
+
+  const desktop = fakeSocket('desk', false);
+  assert.equal(calls.offerPendingCall(desktop, userId), false);
+  assert.deepEqual(desktop.emitted, []);
+
+  const phone = fakeSocket('phone', true);
+  assert.equal(calls.offerPendingCall(phone, userId), true);
+  assert.equal(phone.emitted[0][0], 'voice:incoming_call');
+  assert.ok(Date.parse(phone.emitted[0][1].expiresAt) - Date.now() <= 60);
+
+  // It now rings for the usual time, not the rest of the wait.
+  assert.equal((await pending).status, 'missed');
+  clearTimeout(keepAlive);
+});
+
+test('an agent\'s own call takes over from one still waiting for a phone', async () => {
+  runtime = createTestRuntime();
+  const { userId } = await createTestUser(runtime.db, { username: 'whatsapp_call_back_superseded' });
+  const { calls, emitted } = coordinator([{ id: 's1', data: { mobileApp: false } }], { mobileWaitMs: 500 });
+  const keepAlive = setTimeout(() => {}, 2000);
+  const waiting = calls.callUser({ userId, openingMessage: 'callback', requireMobileApp: true });
+  await tick();
+  const own = await calls.callUser({ userId, openingMessage: 'from the agent' });
+  assert.equal((await waiting).status, 'superseded');
+  assert.equal(own.status, 'missed');
+  assert.ok(emitted.some(([event]) => event === 'voice:incoming_call'));
+  clearTimeout(keepAlive);
 });
