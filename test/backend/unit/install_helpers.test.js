@@ -6,6 +6,7 @@ const os = require('os');
 const path = require('path');
 const test = require('node:test');
 const {
+  REQUIRED_FLUTTER_VERSION,
   buildBundledWebClientIfPossible,
 } = require('../../../lib/install_helpers');
 
@@ -91,17 +92,9 @@ function flutterRunner(versions, upgradeStatus = 0) {
   return { commands, runCommand };
 }
 
-function requireFlutter(flutterAppDir, version) {
-  fs.writeFileSync(
-    path.join(flutterAppDir, 'pubspec.yaml'),
-    `environment:\n  sdk: ^3.9.2\n  flutter: ">=${version}"\ndependencies:\n  flutter:\n    sdk: flutter\n`,
-  );
-}
-
 test('an older Flutter is upgraded before the build', (t) => {
   const { flutterAppDir, webClientDir } = bundledClientSetup(t);
-  requireFlutter(flutterAppDir, '3.47.9');
-  const { commands, runCommand } = flutterRunner(['3.35.5', '3.47.9']);
+  const { commands, runCommand } = flutterRunner(['3.35.5', REQUIRED_FLUTTER_VERSION]);
   const upgrades = [];
   const built = buildBundledWebClientIfPossible({
     flutterAppDir,
@@ -112,15 +105,14 @@ test('an older Flutter is upgraded before the build', (t) => {
     fail: (message) => assert.fail(message),
   });
   assert.equal(built, true);
-  assert.deepEqual(upgrades, ['3.47.9']);
+  assert.deepEqual(upgrades, [REQUIRED_FLUTTER_VERSION]);
   assert.ok(commands.indexOf('upgrade') < commands.indexOf('pub get'));
   assert.ok(commands.some((command) => command.startsWith('build web')));
 });
 
 test('a new enough Flutter is left alone', (t) => {
   const { flutterAppDir, webClientDir } = bundledClientSetup(t);
-  requireFlutter(flutterAppDir, '3.47.9');
-  const { commands, runCommand } = flutterRunner(['3.47.10']);
+  const { commands, runCommand } = flutterRunner([REQUIRED_FLUTTER_VERSION]);
   buildBundledWebClientIfPossible({
     flutterAppDir,
     webClientDir,
@@ -133,7 +125,6 @@ test('a new enough Flutter is left alone', (t) => {
 
 test('a failed upgrade uses the bundled client when it is current', (t) => {
   const { flutterAppDir, webClientDir } = bundledClientSetup(t);
-  requireFlutter(flutterAppDir, '3.47.9');
   const { commands, runCommand } = flutterRunner(['3.35.5', '3.35.5'], 1);
   const built = buildBundledWebClientIfPossible({
     flutterAppDir,
@@ -150,7 +141,6 @@ test('a failed upgrade uses the bundled client when it is current', (t) => {
 
 test('a failed upgrade stops a rebuild when the bundled client is stale', (t) => {
   const { flutterAppDir, webClientDir } = bundledClientSetup(t);
-  requireFlutter(flutterAppDir, '3.47.9');
   const { runCommand } = flutterRunner(['3.35.5', '3.35.5'], 1);
   assert.throws(() => buildBundledWebClientIfPossible({
     flutterAppDir,
@@ -160,5 +150,5 @@ test('a failed upgrade stops a rebuild when the bundled client is stale', (t) =>
     fail: (message) => { throw new Error(message); },
     requireFreshBuild: true,
     bundledIsCurrent: () => false,
-  }), /could not be updated to 3\.47\.9/);
+  }), /could not be updated/);
 });

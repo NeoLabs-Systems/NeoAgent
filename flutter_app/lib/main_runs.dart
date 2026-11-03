@@ -1172,7 +1172,9 @@ class _RunAppearState extends State<_RunAppear>
     }
     return SizeTransition(
       sizeFactor: _curve,
-      alignment: Alignment.topLeft,
+      // `alignment` needs Flutter 3.41; updates from older CLIs still build here.
+      // ignore: deprecated_member_use
+      axisAlignment: -1,
       child: FadeTransition(
         opacity: _curve,
         child: SlideTransition(

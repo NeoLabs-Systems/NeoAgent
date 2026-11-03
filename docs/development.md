@@ -54,7 +54,7 @@ These run `flutter build web` and overwrite `server/public`, which only the rele
 - `npm run dev:build`
 - `neoagent rebuild-web`, and `neoagent install` from a checkout when Flutter is on `PATH`
 
-They also run `flutter upgrade` when Flutter is older than `environment.flutter` in `flutter_app/pubspec.yaml`, as does `neoagent update`.
+They also run `flutter upgrade` when Flutter is older than `REQUIRED_FLUTTER_VERSION` in `lib/install_helpers.js`, as does `neoagent update`.
 :::
 
 ## Tests
