@@ -14,7 +14,7 @@ description: Set up a local checkout, follow the server conventions, and run the
 |---|---|
 | Node.js | `>=20.19.0`; CI tests Node 20 and 22 |
 | npm | Ships with Node.js |
-| Flutter | Stable channel; CI pins 3.35.6 |
+| Flutter | Stable channel; CI pins 3.47.9 |
 | ESP-IDF | Only for wearable firmware |
 
 ## Setup
@@ -53,6 +53,8 @@ These run `flutter build web` and overwrite `server/public`, which only the rele
 - `npm run flutter:build:web`
 - `npm run dev:build`
 - `neoagent rebuild-web`, and `neoagent install` from a checkout when Flutter is on `PATH`
+
+They also run `flutter upgrade` when Flutter is older than `environment.flutter` in `flutter_app/pubspec.yaml`, as does `neoagent update`.
 :::
 
 ## Tests

@@ -1,8 +1,6 @@
-// ignore_for_file: deprecated_member_use, avoid_web_libraries_in_flutter
-
 import 'dart:convert';
-import 'dart:html' as html;
-import 'dart:js_util' as js_util;
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
 
 import 'webauthn_client.dart';
@@ -11,49 +9,38 @@ import 'package:neoagent_flutter/src/l10n/app_language.dart';
 WebAuthnClient createPlatformWebAuthnClient() => _BrowserWebAuthnClient();
 
 class _BrowserWebAuthnClient implements WebAuthnClient {
+  JSObject get _navigator => globalContext['navigator'] as JSObject;
+
   @override
   bool get isSupported {
     // Browsers only expose the authenticator API over HTTPS (or on localhost).
-    if (html.window.isSecureContext != true) {
+    if (globalContext.getProperty<JSBoolean?>('isSecureContext'.toJS)?.toDart !=
+        true) {
       return false;
     }
-    return js_util.hasProperty(html.window, 'PublicKeyCredential') &&
-        js_util.getProperty<Object?>(html.window.navigator, 'credentials') !=
-            null;
+    return globalContext.has('PublicKeyCredential') &&
+        _navigator['credentials'] != null;
   }
 
-  Object get _credentials =>
-      js_util.getProperty<Object>(html.window.navigator, 'credentials');
+  JSObject get _credentials => _navigator['credentials'] as JSObject;
 
   @override
   Future<Map<String, dynamic>> createCredential(
     Map<String, dynamic> options,
   ) async {
-    final Object publicKey = js_util.jsify(options) as Object;
-    js_util.setProperty(
-      publicKey,
-      'challenge',
-      _decodeBase64Url(options['challenge']),
-    );
-    final Object user = js_util.getProperty<Object>(publicKey, 'user');
-    js_util.setProperty(
-      user,
-      'id',
-      _decodeBase64Url(_asMap(options['user'])['id']),
-    );
+    final JSObject publicKey = options.jsify() as JSObject;
+    publicKey['challenge'] = _decodeBase64Url(options['challenge']).toJS;
+    final JSObject user = publicKey['user'] as JSObject;
+    user['id'] = _decodeBase64Url(_asMap(options['user'])['id']).toJS;
     _decodeDescriptorIds(publicKey, options, 'excludeCredentials');
 
-    final Object credential = await _runCeremony('create', publicKey);
-    final Object response = js_util.getProperty<Object>(credential, 'response');
+    final JSObject credential = await _runCeremony('create', publicKey);
+    final JSObject response = credential['response'] as JSObject;
     return <String, dynamic>{
       ..._commonCredentialFields(credential),
       'response': <String, dynamic>{
-        'clientDataJSON': _encodeBuffer(
-          js_util.getProperty<Object?>(response, 'clientDataJSON'),
-        ),
-        'attestationObject': _encodeBuffer(
-          js_util.getProperty<Object?>(response, 'attestationObject'),
-        ),
+        'clientDataJSON': _encodeBuffer(response['clientDataJSON']),
+        'attestationObject': _encodeBuffer(response['attestationObject']),
         'transports': _readTransports(response),
       },
     };
@@ -63,60 +50,45 @@ class _BrowserWebAuthnClient implements WebAuthnClient {
   Future<Map<String, dynamic>> getAssertion(
     Map<String, dynamic> options,
   ) async {
-    final Object publicKey = js_util.jsify(options) as Object;
-    js_util.setProperty(
-      publicKey,
-      'challenge',
-      _decodeBase64Url(options['challenge']),
-    );
+    final JSObject publicKey = options.jsify() as JSObject;
+    publicKey['challenge'] = _decodeBase64Url(options['challenge']).toJS;
     _decodeDescriptorIds(publicKey, options, 'allowCredentials');
 
-    final Object credential = await _runCeremony('get', publicKey);
-    final Object response = js_util.getProperty<Object>(credential, 'response');
-    final Object? userHandle = js_util.getProperty<Object?>(
-      response,
-      'userHandle',
-    );
+    final JSObject credential = await _runCeremony('get', publicKey);
+    final JSObject response = credential['response'] as JSObject;
+    final JSAny? userHandle = response['userHandle'];
     return <String, dynamic>{
       ..._commonCredentialFields(credential),
       'response': <String, dynamic>{
-        'clientDataJSON': _encodeBuffer(
-          js_util.getProperty<Object?>(response, 'clientDataJSON'),
-        ),
-        'authenticatorData': _encodeBuffer(
-          js_util.getProperty<Object?>(response, 'authenticatorData'),
-        ),
-        'signature': _encodeBuffer(
-          js_util.getProperty<Object?>(response, 'signature'),
-        ),
+        'clientDataJSON': _encodeBuffer(response['clientDataJSON']),
+        'authenticatorData': _encodeBuffer(response['authenticatorData']),
+        'signature': _encodeBuffer(response['signature']),
         'userHandle': userHandle == null ? null : _encodeBuffer(userHandle),
       },
     };
   }
 
-  Future<Object> _runCeremony(String method, Object publicKey) async {
-    final Object request = js_util.newObject<Object>();
-    js_util.setProperty(request, 'publicKey', publicKey);
+  Future<JSObject> _runCeremony(String method, JSObject publicKey) async {
+    final JSObject request = JSObject();
+    request['publicKey'] = publicKey;
+    final JSObject? credential;
     try {
-      final Object? credential = await js_util.promiseToFuture<Object?>(
-        js_util.callMethod(_credentials, method, <Object>[request]),
-      );
-      if (credential == null) {
-        throw WebAuthnException(appStrings.noSecurityKeyWasProvided);
-      }
-      return credential;
-    } on WebAuthnException {
-      rethrow;
+      credential = await _credentials
+          .callMethod<JSPromise<JSObject?>>(method.toJS, request)
+          .toDart;
     } catch (error) {
       throw _describeFailure(error);
     }
+    if (credential == null) {
+      throw WebAuthnException(appStrings.noSecurityKeyWasProvided);
+    }
+    return credential;
   }
 
   WebAuthnException _describeFailure(Object error) {
-    final String name =
-        js_util.getProperty<Object?>(error, 'name')?.toString() ?? '';
-    final String message =
-        js_util.getProperty<Object?>(error, 'message')?.toString() ?? '';
+    final JSObject jsError = error as JSObject;
+    final String name = _readString(jsError, 'name') ?? '';
+    final String message = _readString(jsError, 'message') ?? '';
     if (name == 'NotAllowedError' || name == 'AbortError') {
       return WebAuthnException(
         appStrings.securityKeyPromptWasDismissed,
@@ -124,28 +96,27 @@ class _BrowserWebAuthnClient implements WebAuthnClient {
       );
     }
     if (name == 'InvalidStateError') {
-      return WebAuthnException(
-        appStrings.thatSecurityKeyIsAlreadyRegistered,
-      );
+      return WebAuthnException(appStrings.thatSecurityKeyIsAlreadyRegistered);
     }
     return WebAuthnException(
       message.isEmpty ? appStrings.theSecurityKeyCouldNotBeUsed : message,
     );
   }
 
-  Map<String, dynamic> _commonCredentialFields(Object credential) {
+  Map<String, dynamic> _commonCredentialFields(JSObject credential) {
     return <String, dynamic>{
-      'id': js_util.getProperty<Object?>(credential, 'id')?.toString() ?? '',
-      'rawId': _encodeBuffer(js_util.getProperty<Object?>(credential, 'rawId')),
-      'type':
-          js_util.getProperty<Object?>(credential, 'type')?.toString() ??
-          'public-key',
+      'id': _readString(credential, 'id') ?? '',
+      'rawId': _encodeBuffer(credential['rawId']),
+      'type': _readString(credential, 'type') ?? 'public-key',
       'clientExtensionResults': const <String, dynamic>{},
     };
   }
 
+  String? _readString(JSObject object, String property) =>
+      object.getProperty<JSString?>(property.toJS)?.toDart;
+
   void _decodeDescriptorIds(
-    Object publicKey,
+    JSObject publicKey,
     Map<String, dynamic> options,
     String field,
   ) {
@@ -153,27 +124,23 @@ class _BrowserWebAuthnClient implements WebAuthnClient {
     if (descriptors is! List || descriptors.isEmpty) {
       return;
     }
-    final Object jsDescriptors = js_util.getProperty<Object>(publicKey, field);
+    final JSObject jsDescriptors = publicKey[field] as JSObject;
     for (int index = 0; index < descriptors.length; index++) {
-      final Object jsDescriptor = js_util.getProperty<Object>(
-        jsDescriptors,
-        index,
-      );
-      js_util.setProperty(
-        jsDescriptor,
-        'id',
-        _decodeBase64Url(_asMap(descriptors[index])['id']),
-      );
+      final JSObject jsDescriptor =
+          jsDescriptors.getProperty<JSObject>(index.toJS);
+      jsDescriptor['id'] = _decodeBase64Url(
+        _asMap(descriptors[index])['id'],
+      ).toJS;
     }
   }
 
-  List<String> _readTransports(Object response) {
-    if (!js_util.hasProperty(response, 'getTransports')) {
+  List<String> _readTransports(JSObject response) {
+    if (!response.has('getTransports')) {
       return const <String>[];
     }
-    final Object? transports = js_util.dartify(
-      js_util.callMethod(response, 'getTransports', const <Object>[]),
-    );
+    final Object? transports = response
+        .callMethod<JSAny?>('getTransports'.toJS)
+        .dartify();
     if (transports is! List) {
       return const <String>[];
     }
@@ -193,19 +160,9 @@ class _BrowserWebAuthnClient implements WebAuthnClient {
     return base64Url.decode(padded);
   }
 
-  String _encodeBuffer(Object? value) {
-    final Uint8List bytes;
-    if (value is ByteBuffer) {
-      bytes = Uint8List.view(value);
-    } else if (value is TypedData) {
-      bytes = Uint8List.view(
-        value.buffer,
-        value.offsetInBytes,
-        value.lengthInBytes,
-      );
-    } else {
-      return '';
-    }
+  String _encodeBuffer(JSAny? value) {
+    if (value == null) return '';
+    final Uint8List bytes = (value as JSArrayBuffer).toDart.asUint8List();
     return base64Url.encode(bytes).replaceAll('=', '');
   }
 }

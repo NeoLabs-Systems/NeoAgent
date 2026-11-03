@@ -74,6 +74,11 @@
     '#na-notice .na-n-actions{width:100%;}',
     '#na-notice .na-n-ok{flex:1;}}',
 
+    // Over the client's sign-in form the notice would swallow taps on the
+    // fields beneath it, so small screens get it above the form instead.
+    '@media (max-width:560px),(max-height:560px){',
+    '#na-notice.na-n-client{top:max(12px,env(safe-area-inset-top));bottom:auto;}}',
+
     '@media (prefers-reduced-motion:reduce){',
     '#na-notice,#na-notice[data-leaving]{animation-duration:.01ms;animation-delay:0ms;opacity:1;}}',
 
@@ -120,6 +125,9 @@
     el.id = 'na-notice';
     el.setAttribute('role', 'region');
     el.setAttribute('aria-label', 'Storage notice');
+    if (document.querySelector('script[src="flutter_bootstrap.js"]')) {
+      el.classList.add('na-n-client');
+    }
     el.innerHTML = HTML;
     document.body.appendChild(el);
 

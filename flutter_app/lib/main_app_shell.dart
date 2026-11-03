@@ -527,7 +527,10 @@ class _AuthViewState extends State<AuthView> {
     }
   }
 
-  Widget _passwordVisibilityToggle() {
+  Widget? _passwordVisibilityToggle() {
+    // Toggling obscureText on an autofill field leaves iOS Safari unable to
+    // reopen the keyboard (flutter#193267), fixed only from Flutter 3.50.
+    if (kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) return null;
     return IconButton(
       tooltip: _obscurePassword
           ? appStrings.authShowPassword
@@ -996,23 +999,30 @@ class _AuthViewState extends State<AuthView> {
           label: Text(appStrings.securityKey),
         ),
     ];
-    if (buttons.length == 2 && !_registerMode) {
-      return Row(
-        children: <Widget>[
-          Expanded(child: buttons[0]),
-          const SizedBox(width: 10),
-          Expanded(child: buttons[1]),
-        ],
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        for (final (index, button) in buttons.indexed) ...<Widget>[
-          if (index > 0) const SizedBox(height: 10),
-          button,
-        ],
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Half a phone-width card clips labels like "Sicherheitsschlüssel".
+        if (buttons.length == 2 &&
+            !_registerMode &&
+            constraints.maxWidth >= 340) {
+          return Row(
+            children: <Widget>[
+              Expanded(child: buttons[0]),
+              const SizedBox(width: 10),
+              Expanded(child: buttons[1]),
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            for (final (index, button) in buttons.indexed) ...<Widget>[
+              if (index > 0) const SizedBox(height: 10),
+              button,
+            ],
+          ],
+        );
+      },
     );
   }
 

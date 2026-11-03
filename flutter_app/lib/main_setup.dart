@@ -256,51 +256,55 @@ class _BackendSetupViewState extends State<BackendSetupView> {
                             _InlineError(message: message),
                           ],
                           const SizedBox(height: 10),
-                          ExpansionTile(
-                            initiallyExpanded: _showAdvanced,
-                            onExpansionChanged: (value) =>
-                                setState(() => _showAdvanced = value),
-                            tilePadding: EdgeInsets.zero,
-                            childrenPadding: EdgeInsets.zero,
-                            title: Text(appStrings.enterAnAddressManually),
-                            subtitle: Text(
-                              appStrings.forHostedOrAdvancedNetworkSetups,
-                            ),
-                            children: <Widget>[
-                              const SizedBox(height: 8),
-                              TextField(
-                                controller: _backendUrlController,
-                                keyboardType: TextInputType.url,
-                                textInputAction: TextInputAction.done,
-                                onSubmitted: (_) => _submit(),
-                                decoration: InputDecoration(
-                                  labelText: appStrings.neoagentServerAddress,
-                                  prefixIcon: Icon(Icons.dns_outlined),
-                                ),
+                          // ListTile needs its own Material inside the card's colored box.
+                          Material(
+                            type: MaterialType.transparency,
+                            child: ExpansionTile(
+                              initiallyExpanded: _showAdvanced,
+                              onExpansionChanged: (value) =>
+                                  setState(() => _showAdvanced = value),
+                              tilePadding: EdgeInsets.zero,
+                              childrenPadding: EdgeInsets.zero,
+                              title: Text(appStrings.enterAnAddressManually),
+                              subtitle: Text(
+                                appStrings.forHostedOrAdvancedNetworkSetups,
                               ),
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                width: double.infinity,
-                                child: OutlinedButton.icon(
-                                  onPressed: controller.isSavingBackendUrl
-                                      ? null
-                                      : _submit,
-                                  icon: controller.isSavingBackendUrl
-                                      ? const SizedBox.square(
-                                          dimension: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : Icon(Icons.arrow_forward_rounded),
-                                  label: Text(
-                                    controller.isSavingBackendUrl
-                                        ? appStrings.connecting
-                                        : appStrings.connectToThisServer,
+                              children: <Widget>[
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: _backendUrlController,
+                                  keyboardType: TextInputType.url,
+                                  textInputAction: TextInputAction.done,
+                                  onSubmitted: (_) => _submit(),
+                                  decoration: InputDecoration(
+                                    labelText: appStrings.neoagentServerAddress,
+                                    prefixIcon: Icon(Icons.dns_outlined),
                                   ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 12),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton.icon(
+                                    onPressed: controller.isSavingBackendUrl
+                                        ? null
+                                        : _submit,
+                                    icon: controller.isSavingBackendUrl
+                                        ? const SizedBox.square(
+                                            dimension: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Icon(Icons.arrow_forward_rounded),
+                                    label: Text(
+                                      controller.isSavingBackendUrl
+                                          ? appStrings.connecting
+                                          : appStrings.connectToThisServer,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                           if (controller.backendDiscoveryErrorMessage
                               case final discoveryError?) ...<Widget>[

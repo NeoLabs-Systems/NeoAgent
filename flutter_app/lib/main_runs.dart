@@ -1172,7 +1172,7 @@ class _RunAppearState extends State<_RunAppear>
     }
     return SizeTransition(
       sizeFactor: _curve,
-      axisAlignment: -1,
+      alignment: Alignment.topLeft,
       child: FadeTransition(
         opacity: _curve,
         child: SlideTransition(
