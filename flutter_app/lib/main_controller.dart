@@ -7801,10 +7801,6 @@ class NeoAgentController extends ChangeNotifier {
       'reconnectionDelay': 800,
       'reconnectionDelayMax': 8000,
       'withCredentials': true,
-      // Also on web, where a phone's browser can claim to be a desktop.
-      'query': <String, String>{
-        'client': defaultTargetPlatform.name.toLowerCase(),
-      },
     };
 
     final cookie = _backendClient.sessionCookie;

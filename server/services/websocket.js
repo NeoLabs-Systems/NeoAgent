@@ -1,4 +1,3 @@
-const { isMobileAppHandshake } = require('./voice/agent_call_coordinator');
 const { randomUUID } = require('crypto');
 const db = require('../db/database');
 const { sanitizeError } = require('../utils/security');
@@ -204,7 +203,6 @@ function setupWebSocket(io, services) {
 
     const userId = session.userId;
     socket.join(`user:${userId}`);
-    socket.data.mobileApp = isMobileAppHandshake(socket.handshake);
 
     // Share rate-limit budget across all sockets from the same authenticated user.
     userSocketCounts.set(userId, (userSocketCounts.get(userId) || 0) + 1);
@@ -213,7 +211,7 @@ function setupWebSocket(io, services) {
     }
     const allowEvent = createSocketRateLimiter(userRateLimitStates.get(userId));
 
-    console.log(`[WS] User ${userId} connected (${socket.id}, ${socket.handshake?.query?.client || 'no client field'}, phone: ${socket.data.mobileApp})`);
+    console.log(`[WS] User ${userId} connected (${socket.id})`);
     agentCallCoordinator?.offerPendingCall?.(socket, userId);
     approvalGateService?.offerPendingApprovals?.(socket, userId);
 

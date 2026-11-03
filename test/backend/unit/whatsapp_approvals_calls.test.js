@@ -263,41 +263,24 @@ function coordinator(sockets, options = {}) {
       agentEngine: {},
       voiceRuntimeManager: { hasActiveSessionForUser: () => false },
       ringTimeoutMs: 5,
-      mobileWaitMs: 40,
+      appWaitMs: 40,
       ...options,
     }),
   };
 }
 
-function fakeSocket(id, mobileApp) {
+function fakeSocket(id) {
   const emitted = [];
-  return { id, data: { mobileApp }, emitted, emit: (...args) => emitted.push(args) };
+  return { id, data: {}, emitted, emit: (...args) => emitted.push(args) };
 }
 
 const tick = (ms = 0) => new Promise((resolve) => { setTimeout(resolve, ms); });
 
-test('only a recognisable desktop is ruled out as a phone', () => {
-  const { isMobileAppHandshake } = require('../../../server/services/voice/agent_call_coordinator');
-  const handshake = (client, agent) => ({ query: client ? { client } : {}, headers: { 'user-agent': agent } });
-  assert.equal(isMobileAppHandshake(handshake('android', 'Dart/3.9 (dart:io)')), true);
-  assert.equal(isMobileAppHandshake(handshake('ios', 'Mozilla/5.0 (Macintosh)')), true, 'an iPad claiming to be a Mac');
-  assert.equal(isMobileAppHandshake(handshake('macos', 'Dart/3.9 (dart:io)')), false);
-  assert.equal(isMobileAppHandshake(handshake('windows', 'Mozilla/5.0')), false);
-  assert.equal(isMobileAppHandshake(handshake(null, 'Dart/3.9 (dart:io)')), true, 'an app from before the field');
-  assert.equal(isMobileAppHandshake(handshake(null, 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0)')), true);
-  assert.equal(isMobileAppHandshake(handshake(null, 'Mozilla/5.0 (Linux; Android 15)')), true);
-  assert.equal(isMobileAppHandshake(handshake(null, '')), true, 'nothing rules it out');
-  assert.equal(isMobileAppHandshake(handshake(null, 'Mozilla/5.0 (Macintosh; Intel Mac OS X)')), false);
-  assert.equal(isMobileAppHandshake(handshake(null, 'Mozilla/5.0 (Windows NT 10.0)')), false);
-  assert.equal(isMobileAppHandshake(handshake(null, 'Mozilla/5.0 (X11; Linux x86_64)')), false);
-});
-
-// Over a real connection, the way the server does it: flag on connect, offer on
-// connect, and the ring arriving at the client.
+// Over a real connection: the offer on connect, and the ring reaching the client.
 async function realServer(t, options) {
   const http = require('node:http');
   const { Server } = require('socket.io');
-  const { AgentCallCoordinator, isMobileAppHandshake } = require('../../../server/services/voice/agent_call_coordinator');
+  const { AgentCallCoordinator } = require('../../../server/services/voice/agent_call_coordinator');
   const server = http.createServer();
   const io = new Server(server);
   const calls = new AgentCallCoordinator({
@@ -305,7 +288,6 @@ async function realServer(t, options) {
   });
   io.on('connection', (socket) => {
     socket.join(`user:${options.userId}`);
-    socket.data.mobileApp = isMobileAppHandshake(socket.handshake);
     calls.offerPendingCall(socket, options.userId);
   });
   await new Promise((resolve) => { server.listen(0, resolve); });
@@ -313,12 +295,11 @@ async function realServer(t, options) {
   return { calls, port: server.address().port };
 }
 
-function realClient(t, port, { client, userAgent }) {
+function realClient(t, port, userAgent) {
   const { io } = require('socket.io-client');
   const socket = io(`http://localhost:${port}`, {
     transports: ['websocket'],
-    query: client ? { client } : {},
-    extraHeaders: userAgent ? { 'user-agent': userAgent } : {},
+    extraHeaders: { 'user-agent': userAgent },
     forceNew: true,
   });
   t.after(() => socket.close());
@@ -327,19 +308,17 @@ function realClient(t, port, { client, userAgent }) {
   return new Promise((resolve) => { socket.on('connect', () => resolve({ socket, rings })); });
 }
 
-test('a connected phone rings over a real connection, only after the delay', async (t) => {
+const IDENTITIES = ['Dart/3.13 (dart:io)', 'Mozilla/5.0 (iPhone)', 'Mozilla/5.0 (Macintosh)', ''];
+
+test('any connected app rings over a real connection, only after the delay', async (t) => {
   runtime = createTestRuntime();
-  const { userId } = await createTestUser(runtime.db, { username: 'call_back_real_phone' });
+  const { userId } = await createTestUser(runtime.db, { username: 'call_back_real_app' });
   const { calls, port } = await realServer(t, { userId, callBackDelayMs: 120, ringTimeoutMs: 60 });
-  for (const identity of [
-    { client: 'android' },
-    { userAgent: 'Dart/3.9 (dart:io)' },
-    { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0)' },
-  ]) {
+  for (const identity of IDENTITIES) {
     const { rings, socket } = await realClient(t, port, identity);
     const started = Date.now();
     const result = await calls.callBack({ userId, platform: 'whatsapp', callerId: '4915' });
-    assert.equal(rings.length, 1, JSON.stringify(identity));
+    assert.equal(rings.length, 1, identity);
     assert.ok(rings[0].at - started >= 115, 'waits before ringing');
     assert.equal(result.status, 'missed');
     socket.close();
@@ -347,73 +326,50 @@ test('a connected phone rings over a real connection, only after the delay', asy
   }
 });
 
-test('a desktop alone does not ring, and a phone connecting later does', async (t) => {
+test('the call back sends what the agent\'s own call sends', async (t) => {
   runtime = createTestRuntime();
-  const { userId } = await createTestUser(runtime.db, { username: 'call_back_real_desktop' });
-  const { calls, port } = await realServer(t, { userId, callBackDelayMs: 0, ringTimeoutMs: 60, mobileWaitMs: 1000 });
-  const desktop = await realClient(t, port, { client: 'macos' });
-  const pending = calls.callBack({ userId, platform: 'whatsapp', callerId: '4915' });
-  await tick(50);
-  assert.deepEqual(desktop.rings, []);
+  const { userId } = await createTestUser(runtime.db, { username: 'call_back_same_as_tool' });
+  const { calls, port } = await realServer(t, { userId, callBackDelayMs: 0, ringTimeoutMs: 30 });
+  const { rings } = await realClient(t, port, 'Dart/3.13 (dart:io)');
+  await calls.callUser({ userId, openingMessage: 'from the agent', runId: 'r1' });
+  await calls.callBack({ userId, platform: 'whatsapp', callerId: '4915' });
+  await tick(20);
+  assert.equal(rings.length, 2);
+  assert.deepEqual(Object.keys(rings[0].call).sort(), Object.keys(rings[1].call).sort());
+});
 
-  const phone = await realClient(t, port, { client: 'ios' });
+test('an app connecting while the call back waits gets the ring, for the usual time', async (t) => {
+  runtime = createTestRuntime();
+  const { userId } = await createTestUser(runtime.db, { username: 'call_back_real_return' });
+  const { calls, port } = await realServer(t, { userId, callBackDelayMs: 0, ringTimeoutMs: 60, appWaitMs: 1000 });
+  const pending = calls.callBack({ userId, platform: 'whatsapp', callerId: '4915' });
   await tick(30);
-  assert.equal(phone.rings.length, 1);
+  const app = await realClient(t, port, 'Dart/3.13 (dart:io)');
+  await tick(30);
+  assert.equal(app.rings.length, 1);
   assert.equal((await pending).status, 'missed');
 });
 
-test('the call back rings a connected phone straight away', async () => {
+test('with no app at all nobody rings, and the call gives up quietly', async () => {
   runtime = createTestRuntime();
-  const { userId } = await createTestUser(runtime.db, { username: 'whatsapp_call_back_ring' });
-  const mobile = coordinator([{ id: 's2', data: { mobileApp: true } }]);
+  const { userId } = await createTestUser(runtime.db, { username: 'call_back_no_app' });
+  const { calls, emitted } = coordinator([], { callBackDelayMs: 0 });
   const keepAlive = setTimeout(() => {}, 1000);
-  const rung = await mobile.calls.callUser({ userId, openingMessage: 'hi', requireMobileApp: true });
-  clearTimeout(keepAlive);
-  assert.equal(mobile.emitted[0][0], 'voice:incoming_call');
-  assert.equal(rung.status, 'missed');
-});
-
-test('with no phone connected nobody rings, and the call gives up quietly', async () => {
-  runtime = createTestRuntime();
-  const { userId } = await createTestUser(runtime.db, { username: 'whatsapp_call_back_wait' });
-  const desktopOnly = coordinator([{ id: 's1', data: { mobileApp: false } }]);
-  const keepAlive = setTimeout(() => {}, 1000);
-  const result = await desktopOnly.calls.callUser({ userId, openingMessage: 'hi', requireMobileApp: true });
+  const result = await calls.callBack({ userId, platform: 'whatsapp', callerId: '4915' });
   clearTimeout(keepAlive);
   assert.equal(result.status, 'missed');
-  assert.ok(!desktopOnly.emitted.some(([event]) => event === 'voice:incoming_call'));
+  assert.ok(!emitted.some(([event]) => event === 'voice:incoming_call'));
 });
 
-test('a phone coming back within the wait gets the ring, and a desktop does not', async () => {
+test('an agent\'s own call takes over from one still waiting for an app', async () => {
   runtime = createTestRuntime();
-  const { userId } = await createTestUser(runtime.db, { username: 'whatsapp_call_back_return' });
-  const { calls, emitted } = coordinator([], { mobileWaitMs: 500, ringTimeoutMs: 60 });
+  const { userId } = await createTestUser(runtime.db, { username: 'call_back_superseded' });
+  const sockets = [];
+  const { calls, emitted } = coordinator(sockets, { callBackDelayMs: 0, appWaitMs: 500 });
   const keepAlive = setTimeout(() => {}, 2000);
-  const pending = calls.callUser({ userId, openingMessage: 'hi', requireMobileApp: true });
-  await tick();
-  assert.deepEqual(emitted, []);
-
-  const desktop = fakeSocket('desk', false);
-  assert.equal(calls.offerPendingCall(desktop, userId), false);
-  assert.deepEqual(desktop.emitted, []);
-
-  const phone = fakeSocket('phone', true);
-  assert.equal(calls.offerPendingCall(phone, userId), true);
-  assert.equal(phone.emitted[0][0], 'voice:incoming_call');
-  assert.ok(Date.parse(phone.emitted[0][1].expiresAt) - Date.now() <= 60);
-
-  // It now rings for the usual time, not the rest of the wait.
-  assert.equal((await pending).status, 'missed');
-  clearTimeout(keepAlive);
-});
-
-test('an agent\'s own call takes over from one still waiting for a phone', async () => {
-  runtime = createTestRuntime();
-  const { userId } = await createTestUser(runtime.db, { username: 'whatsapp_call_back_superseded' });
-  const { calls, emitted } = coordinator([{ id: 's1', data: { mobileApp: false } }], { mobileWaitMs: 500 });
-  const keepAlive = setTimeout(() => {}, 2000);
-  const waiting = calls.callUser({ userId, openingMessage: 'callback', requireMobileApp: true });
-  await tick();
+  const waiting = calls.callBack({ userId, platform: 'whatsapp', callerId: '4915' });
+  await tick(5);
+  sockets.push(fakeSocket('s1'));
   const own = await calls.callUser({ userId, openingMessage: 'from the agent' });
   assert.equal((await waiting).status, 'superseded');
   assert.equal(own.status, 'missed');
