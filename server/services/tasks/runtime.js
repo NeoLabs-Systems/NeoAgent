@@ -4,7 +4,7 @@ const cron = require('node-cron');
 const crypto = require('crypto');
 const { EventEmitter } = require('events');
 const { isMainAgent, resolveAgentId } = require('../agents/manager');
-const { isRefusedSharedRecipient } = require('../messaging/shared_route');
+const { isRefusedSharedRecipient, reachableSharedTarget } = require('../messaging/shared_route');
 const taskAdapters = require('./adapters');
 const {
   POLLED_TRIGGER_TYPES,
@@ -1040,7 +1040,11 @@ class TaskRuntime {
     delete taskConfig.callTo;
     delete taskConfig.callGreeting;
     const agentId = row.agent_id || resolveAgentId(userId, null);
-    const notifyTarget = normalizeNotifyTarget({ platform: taskConfig.notifyPlatform, to: taskConfig.notifyTo });
+    const notifyTarget = this._configuredNotifyTarget(userId, agentId, taskConfig);
+    if (notifyTarget) {
+      taskConfig.notifyPlatform = notifyTarget.platform;
+      taskConfig.notifyTo = notifyTarget.to;
+    }
     const triggerSummary = this._summarizeTrigger(triggerType, triggerConfig);
     // Reported for every schedule task, not only those already compensating for
     // their duration, so the editor can preview what a head start would do.
@@ -1055,9 +1059,6 @@ class TaskRuntime {
       triggerSummary,
       nextRun: triggerType === 'schedule' ? scheduleAdapter.nextRun(triggerConfig, getUserTimeZone(userId)) : null,
       averageRunSeconds: averageRunSeconds === null ? null : Math.round(averageRunSeconds),
-      // Its saved destination can't be reached any more, so results won't arrive.
-      deliveryBlocked: Boolean(notifyTarget)
-        && isRefusedSharedRecipient(userId, agentId, notifyTarget.platform, notifyTarget.to),
       enabled: !!row.enabled,
       lastRun: row.last_run_started_at || row.last_run || null,
       lastRunId: row.last_run_id || null,
@@ -1129,11 +1130,16 @@ class TaskRuntime {
     return status?.status === 'connected' ? target : null;
   }
 
+  _configuredNotifyTarget(userId, agentId, taskConfig) {
+    const target = normalizeNotifyTarget({ platform: taskConfig.notifyPlatform, to: taskConfig.notifyTo });
+    return target && reachableSharedTarget(userId, agentId, target);
+  }
+
   // Where this run reports: the configured target, then the event's own thread,
   // then the agent's latest chat. It holds for this run only; storing it would
   // turn "use default channel" into a fixed target.
   _resolveNotifyTarget(userId, agentId, task, taskConfig, triggerPayload) {
-    return normalizeNotifyTarget({ platform: taskConfig.notifyPlatform, to: taskConfig.notifyTo })
+    return this._configuredNotifyTarget(userId, agentId, taskConfig)
       || this._originNotifyTarget(userId, agentId, task.trigger_type, triggerPayload)
       || this._latestChatTarget(userId, agentId);
   }

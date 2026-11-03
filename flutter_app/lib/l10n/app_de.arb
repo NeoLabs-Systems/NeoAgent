@@ -7298,8 +7298,6 @@
   "uxMemoryDocuments": "Dokumente",
   "uxOpenChat": "Chat öffnen",
   "uxModelSkipHint": "Sie können sich zuerst umsehen. Chat und Aufgaben benötigen jedoch ein Modell, bevor sie funktionieren.",
-  "taskDeliveryBlockedBadge": "Keine Zustellung",
-  "taskDeliveryBlockedDetail": "Dieses Ziel ist über das geteilte Konto nicht erreichbar, daher kommen keine Ergebnisse an. Wählen Sie Ihren eigenen Chat oder den Standardkanal.",
   "taskDeliverySharedTitle": "Geteilte Konten erreichen nur Sie",
   "taskDeliverySharedDetail": "{platforms} nutzt das geteilte Konto dieses Servers, daher können Ergebnisse dort nur an Ihren eigenen Chat gehen.",
   "adminUpdatesHint": "NeoAgent aktualisiert sich selbst von GitHub. Chats, Einstellungen und Konten bleiben erhalten.",

@@ -12433,13 +12433,6 @@ class AppL10nDe extends AppL10n {
       'Sie können sich zuerst umsehen. Chat und Aufgaben benötigen jedoch ein Modell, bevor sie funktionieren.';
 
   @override
-  String get taskDeliveryBlockedBadge => 'Keine Zustellung';
-
-  @override
-  String get taskDeliveryBlockedDetail =>
-      'Dieses Ziel ist über das geteilte Konto nicht erreichbar, daher kommen keine Ergebnisse an. Wählen Sie Ihren eigenen Chat oder den Standardkanal.';
-
-  @override
   String get taskDeliverySharedTitle => 'Geteilte Konten erreichen nur Sie';
 
   @override

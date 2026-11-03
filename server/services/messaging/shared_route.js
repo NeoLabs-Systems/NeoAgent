@@ -43,6 +43,13 @@ function isRefusedSharedRecipient(userId, agentId, platform, to) {
   return Boolean(link) && !isLinkRecipient(platform, link, to);
 }
 
+// A saved destination the shared account would refuse falls back to the person's
+// own chat, its only reachable one, so results keep arriving after a switch to it.
+function reachableSharedTarget(userId, agentId, target) {
+  if (!isRefusedSharedRecipient(userId, agentId, target.platform, target.to)) return target;
+  return { platform: target.platform, to: sharedLinkFor(userId, agentId, target.platform).chat_id };
+}
+
 class SlidingWindowLimiter {
   constructor(limit, windowMs, maxKeys = 10000) {
     this.limit = limit;
@@ -161,4 +168,5 @@ module.exports = {
   chatKey,
   isRefusedSharedRecipient,
   isSendersOwnChat,
+  reachableSharedTarget,
 };

@@ -3574,7 +3574,6 @@ class TaskItem {
     required this.lastRunStatus,
     required this.lastRunError,
     required this.averageRunSeconds,
-    this.deliveryBlocked = false,
   });
 
   factory TaskItem.fromJson(Map<dynamic, dynamic> json) {
@@ -3600,7 +3599,6 @@ class TaskItem {
         ? Map<String, dynamic>.from(taskConfig['loopBudget'] as Map)
         : const <String, dynamic>{};
     return TaskItem(
-      deliveryBlocked: json['deliveryBlocked'] == true,
       id: _asInt(json['id']),
       agentId: json['agentId']?.toString() ?? json['agent_id']?.toString(),
       name: json['name']?.toString() ?? 'Task',
@@ -3660,7 +3658,6 @@ class TaskItem {
   final int? averageRunSeconds;
 
   /// The saved destination can't be reached any more, so results won't arrive.
-  final bool deliveryBlocked;
 
   String get scheduleLabel =>
       triggerSummary.trim().isEmpty ? appStrings.taskTrigger : triggerSummary;

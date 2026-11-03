@@ -12394,13 +12394,6 @@ class AppL10nBg extends AppL10n {
       'You can explore first, but chat and tasks need a model before they can run.';
 
   @override
-  String get taskDeliveryBlockedBadge => 'Can\'t deliver';
-
-  @override
-  String get taskDeliveryBlockedDetail =>
-      'This destination can\'t be reached through the shared account, so results won\'t arrive. Choose your own chat or the default channel.';
-
-  @override
   String get taskDeliverySharedTitle => 'Shared accounts only reach you';
 
   @override

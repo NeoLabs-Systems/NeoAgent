@@ -20533,18 +20533,6 @@ abstract class AppL10n {
   /// **'You can explore first, but chat and tasks need a model before they can run.'**
   String get uxModelSkipHint;
 
-  /// No description provided for @taskDeliveryBlockedBadge.
-  ///
-  /// In en, this message translates to:
-  /// **'Can\'t deliver'**
-  String get taskDeliveryBlockedBadge;
-
-  /// No description provided for @taskDeliveryBlockedDetail.
-  ///
-  /// In en, this message translates to:
-  /// **'This destination can\'t be reached through the shared account, so results won\'t arrive. Choose your own chat or the default channel.'**
-  String get taskDeliveryBlockedDetail;
-
   /// No description provided for @taskDeliverySharedTitle.
   ///
   /// In en, this message translates to:

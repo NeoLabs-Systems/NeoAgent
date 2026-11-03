@@ -52,7 +52,7 @@ describe('task destinations on a shared account', () => {
         ...manualTask({ notifyPlatform: 'telegram', notifyTo: to }),
         agentId,
       });
-      assert.equal(task.deliveryBlocked, false);
+      assert.equal(task.taskConfig.notifyTo, to);
     }
   });
 
@@ -85,7 +85,6 @@ describe('task destinations on a shared account', () => {
       agentId,
     });
     assert.equal(task.taskConfig.notifyTo, 'dm_777');
-    assert.equal(task.deliveryBlocked, false);
   });
 
   test('a shared account on one platform leaves other platforms free', async () => {
@@ -94,7 +93,7 @@ describe('task destinations on a shared account', () => {
       ...manualTask({ notifyPlatform: 'whatsapp', notifyTo: '491799999999' }),
       agentId,
     });
-    assert.equal(task.deliveryBlocked, false);
+    assert.equal(task.taskConfig.notifyTo, '491799999999');
   });
 
   test('another agent of the same person is not limited by this agent\'s link', async () => {
@@ -105,7 +104,7 @@ describe('task destinations on a shared account', () => {
       ...manualTask({ notifyPlatform: 'telegram', notifyTo: 'dm_777' }),
       agentId: other,
     });
-    assert.equal(task.deliveryBlocked, false);
+    assert.equal(task.taskConfig.notifyTo, 'dm_777');
   });
 
   describe('a task saved before the switch to a shared account', () => {
@@ -119,10 +118,18 @@ describe('task destinations on a shared account', () => {
       linkTelegram();
     });
 
-    test('is marked, keeping its destination rather than moving results', () => {
+    test('shows the owner\'s own chat as its destination', () => {
       const [listed] = runtime.listTasks(user.userId, { agentId });
-      assert.equal(listed.deliveryBlocked, true);
-      assert.equal(listed.taskConfig.notifyTo, 'dm_777');
+      assert.equal(listed.taskConfig.notifyPlatform, 'telegram');
+      assert.equal(listed.taskConfig.notifyTo, 'dm_555');
+    });
+
+    test('reports to the owner\'s own chat when it runs', () => {
+      const row = ctx.db.prepare('SELECT * FROM scheduled_tasks WHERE id = ?').get(task.id);
+      assert.deepEqual(
+        runtime._resolveNotifyTarget(user.userId, agentId, row, JSON.parse(row.task_config), {}),
+        { platform: 'telegram', to: 'dm_555' },
+      );
     });
 
     test('can still be renamed, also when the editor resends its config', async () => {
@@ -134,7 +141,6 @@ describe('task destinations on a shared account', () => {
         taskConfig: { notifyPlatform: 'telegram', notifyTo: 'dm_777' },
       });
       assert.equal(resaved.name, 'Again');
-      assert.equal(resaved.deliveryBlocked, true);
     });
 
     test('cannot swap to a different stranger', async () => {
@@ -146,22 +152,22 @@ describe('task destinations on a shared account', () => {
       );
     });
 
-    test('clears once it points at the default channel or the owner', async () => {
+    test('can be set to the default channel or the owner', async () => {
       const toDefault = await runtime.updateTask(task.id, user.userId, {
         prompt: 'Report back.',
         taskConfig: {},
       });
-      assert.equal(toDefault.deliveryBlocked, false);
+      assert.equal(toDefault.taskConfig.notifyTo, undefined);
       const toOwner = await runtime.updateTask(task.id, user.userId, {
         prompt: 'Report back.',
         taskConfig: { notifyPlatform: 'telegram', notifyTo: 'dm_555' },
       });
-      assert.equal(toOwner.deliveryBlocked, false);
+      assert.equal(toOwner.taskConfig.notifyTo, 'dm_555');
     });
 
     test('recovers if the person goes back to their own account', () => {
       store.unlinkIdentity('telegram', user.userId);
-      assert.equal(runtime.listTasks(user.userId, { agentId })[0].deliveryBlocked, false);
+      assert.equal(runtime.listTasks(user.userId, { agentId })[0].taskConfig.notifyTo, 'dm_777');
     });
   });
 

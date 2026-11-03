@@ -3240,13 +3240,6 @@ class _TasksPanelState extends State<TasksPanel> {
                     const SizedBox(width: 8),
                     _StatusPill(label: appStrings.loopPaused, color: _warning),
                   ],
-                  if (task.deliveryBlocked) ...<Widget>[
-                    const SizedBox(width: 8),
-                    _StatusPill(
-                      label: appStrings.taskDeliveryBlockedBadge,
-                      color: _warning,
-                    ),
-                  ],
                   if (task.hasLastRunStatus) ...<Widget>[
                     const SizedBox(width: 8),
                     _StatusPill(
@@ -4027,17 +4020,6 @@ class _TasksPanelState extends State<TasksPanel> {
                               child: InputDecorator(
                                 decoration: InputDecoration(
                                   labelText: appStrings.resultDelivery,
-                                  // Stays until the destination changes; results
-                                  // are never quietly sent somewhere else.
-                                  errorText:
-                                      task?.deliveryBlocked == true &&
-                                          deliveryTarget?.to ==
-                                              task?.taskConfig['notifyTo']
-                                                  ?.toString()
-                                                  .trim()
-                                      ? appStrings.taskDeliveryBlockedDetail
-                                      : null,
-                                  errorMaxLines: 3,
                                 ),
                                 child: Row(
                                   children: <Widget>[
