@@ -291,6 +291,8 @@ httpServer.on('error', (error) => {
 httpServer.listen(PORT, () => {
   const startupUrl = PUBLIC_URL || `http://localhost:${PORT}`;
   console.log(`NeoAgent running on ${startupUrl}`);
+  const statusHistory = require('./routes/public_status').history;
+  statusHistory.start(() => require('./services/public_status').buildPublicStatus(app), httpServer);
   require('./host_analytics').startHostAnalytics(httpServer);
   require('./services/admin/updates').startUpdateChecks();
   startServices(app, io, { resumeRuns: true }).catch(async (err) => {

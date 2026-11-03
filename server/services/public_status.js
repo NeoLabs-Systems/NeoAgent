@@ -3,21 +3,6 @@
 const db = require('../db/database');
 const { getRuntimeValidation } = require('./runtime/validation');
 
-function hasAnyAiProviderEnv() {
-  const hasStandardProvider = [
-    'OPENAI_API_KEY',
-    'ANTHROPIC_API_KEY',
-    'GOOGLE_API_KEY',
-    'GEMINI_API_KEY',
-    'OPENROUTER_API_KEY',
-  ].some((name) => Boolean(String(process.env[name] || '').trim()));
-  const hasCustomOpenAIProvider = Boolean(
-    String(process.env.OPENAI_COMPATIBLE_API_KEY || '').trim()
-    && String(process.env.OPENAI_COMPATIBLE_BASE_URL || '').trim(),
-  );
-  return hasStandardProvider || hasCustomOpenAIProvider;
-}
-
 function component(group, name, status, description) {
   return { group, name, status, description };
 }
@@ -46,11 +31,11 @@ function buildPublicStatus(app) {
   const hasMcp = Boolean(app?.locals?.mcpClient);
   const hasComputer = Boolean(app?.locals?.runtimeManager?.computerBackend);
   const hasMemory = Boolean(app?.locals?.memoryManager);
-  const hasAi = hasAnyAiProviderEnv();
+  const hasAi = Boolean(app?.locals?.agentEngine);
 
   const components = [
-    component('Core', 'Web App & API', 'operational', 'Requests are being served normally. Tiny victory parade withheld for focus.'),
-    component('Core', 'Accounts & Sessions', 'operational', 'Sign-in and session plumbing are available.'),
+    component('Core', 'Web App & API', 'operational', 'The web server is responding to requests.'),
+    component('Core', 'Accounts & Sessions', 'operational', 'Account routes are available; individual sign-ins are not tested.'),
     component(
       'Automation',
       'Agent Runtime',
@@ -61,7 +46,7 @@ function buildPublicStatus(app) {
       'Automation',
       'AI Gateway',
       hasAi ? 'operational' : 'degraded',
-      hasAi ? 'AI provider routing is configured.' : 'AI routing is available, but no public provider configuration is detected.'
+      hasAi ? 'AI routing is ready. Provider connections are configured per deployment or user.' : 'The AI routing service is starting or unavailable.'
     ),
     component(
       'Devices',
@@ -82,6 +67,16 @@ function buildPublicStatus(app) {
       hasIntegrations && hasMcp ? 'Integration and MCP services are available.' : 'Some integration plumbing is not initialized.'
     ),
     component(
+      'Automation', 'Tasks & Scheduling',
+      app?.locals?.taskRuntime ? 'operational' : 'degraded',
+      app?.locals?.taskRuntime ? 'Task scheduling service is initialized.' : 'Task scheduling service is not initialized.'
+    ),
+    component(
+      'Communication', 'Voice Runtime',
+      app?.locals?.voiceRuntimeManager ? 'operational' : 'degraded',
+      app?.locals?.voiceRuntimeManager ? 'Voice runtime is initialized.' : 'Voice runtime is not initialized.'
+    ),
+    component(
       'Data',
       'Storage & Memory',
       storageReady && hasMemory ? 'operational' : 'unavailable',
@@ -96,8 +91,8 @@ function buildPublicStatus(app) {
     updatedAt: new Date().toISOString(),
     refreshAfterSeconds: 60,
     note: status === 'operational'
-      ? 'All systems are behaving. Suspiciously mature of them.'
-      : 'A few systems want a moment. We are listening politely.',
+      ? 'All monitored services are operational.'
+      : 'One or more monitored services need attention.',
     components,
   };
 }
