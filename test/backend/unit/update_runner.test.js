@@ -9,11 +9,16 @@ const source = fs.readFileSync(path.resolve(__dirname, '../../../lib/cli/update_
 
 async function run(cmdUpdate) {
   let status = { state: 'running', logs: [] };
+  let pathWhenManagerLoaded = null;
   const context = {
-    process: { pid: 1234, exitCode: 0 },
+    process: { pid: 1234, exitCode: 0, env: { PATH: '/usr/bin' } },
     Date,
     require(name) {
-      if (name === '../manager') return { cmdUpdate };
+      if (name === './service_path') return { withToolPath: () => ({ PATH: '/usr/bin:/tools' }) };
+      if (name === '../manager') {
+        pathWhenManagerLoaded = context.process.env.PATH;
+        return { cmdUpdate };
+      }
       if (name.endsWith('/release_channel')) return { readConfiguredReleaseChannel: () => 'stable' };
       if (name.endsWith('/update_status')) return {
         writeUpdateStatus: (patch) => { status = { ...status, ...patch }; },
@@ -24,7 +29,7 @@ async function run(cmdUpdate) {
   };
   vm.runInNewContext(source, context);
   await new Promise((resolve) => setImmediate(resolve));
-  return { status, exitCode: context.process.exitCode };
+  return { status, exitCode: context.process.exitCode, pathWhenManagerLoaded };
 }
 
 test('admin runner delegates to the CLI updater and persists progress, changes and verified completion', async () => {
@@ -34,6 +39,7 @@ test('admin runner delegates to the CLI updater and persists progress, changes a
     onProgress({ progress: 79, phase: 'verifying', message: 'Checking the restarted server' });
     return { message: 'Ready', versionBefore: '1.0.0', versionAfter: '1.1.0' };
   });
+  assert.equal(result.pathWhenManagerLoaded, '/usr/bin:/tools', 'the manager reads the environment once');
   assert.equal(result.status.state, 'completed');
   assert.equal(result.status.progress, 100);
   assert.equal(result.status.runnerPid, null);
