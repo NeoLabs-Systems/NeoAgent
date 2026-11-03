@@ -36,15 +36,23 @@ test('analytics is delivered only when enabled and preserves app assets', async 
 test('browser analytics sends coarse data only and honors privacy preferences', () => {
   const client = fs.readFileSync(path.join(__dirname, '../../../server/analytics-client.js'), 'utf8');
   function run(dnt) {
-    const sent = []; const listeners = {}; let added;
+    const sent = []; const listeners = {}; const timers = []; let added;
     const document = { readyState: 'complete', visibilityState: 'hidden', createElement: () => ({ dataset: {} }), head: { appendChild: script => { added = script; } }, addEventListener: (name, fn) => { listeners[name] = fn; } };
     const window = { addEventListener: (name, fn) => { listeners[name] = fn; }, umami: { track: fn => { sent.push(fn({ website: 'id', language: 'en', screen: '1x1', url: '/secret?token=x', referrer: 'secret', title: 'secret', hostname: 'private' })); return Promise.resolve(); } } };
-    const context = { window, document, navigator: { doNotTrack: dnt }, location: new URL('https://example.org/app/?token=secret'), performance: { getEntriesByType: () => [{ loadEventEnd: 1500 }] }, URL, setInterval: () => {}, setTimeout: fn => fn(), WeakMap, Promise };
+    const context = { window, document, navigator: { doNotTrack: dnt }, location: new URL('https://example.org/app/?token=secret'), performance: { getEntriesByType: () => [{ loadEventEnd: 1500 }] }, URL, setInterval: (fn, ms) => timers.push({ fn, ms }), setTimeout: fn => fn(), WeakMap, Promise };
     vm.runInNewContext(client, context);
     if (added) added.onload();
     if (listeners.click) listeners.click();
     if (listeners.error) listeners.error({ message: 'secret error' });
     if (listeners.visibilitychange) listeners.visibilitychange();
+    const heartbeat = timers.find(timer => timer.ms === 60000);
+    if (heartbeat) {
+      heartbeat.fn();
+      assert.equal(sent.filter(event => event.name === 'active-browser').length, 0);
+      document.visibilityState = 'visible';
+      heartbeat.fn();
+      assert.equal(sent.filter(event => event.name === 'active-browser').length, 1);
+    }
     return { sent, added };
   }
   const enabled = run('0');
@@ -90,4 +98,30 @@ test('feature counts exclude identifiers, bodies, and unrelated requests', () =>
   assert.equal(adminEvent.data.outcome, 'server-error');
   assert.ok(sent.some(item => item.data && item.data.feature === 'admin'));
   assert.doesNotMatch(JSON.stringify(sent), /secret|outside|sensitive-user-id|private settings/);
+});
+
+test('host reports contain only coarse runtime metrics and respect opt-out', async () => {
+  const { reportHost, hostSnapshot } = require('../../../server/host_analytics');
+  const snapshot = hostSnapshot();
+  assert.ok(snapshot.os);
+  assert.ok(snapshot.ram_gib_range);
+  assert.ok(snapshot.cpu_cores_range);
+  assert.ok(!('hostname' in snapshot));
+  assert.ok(!('ip' in snapshot));
+  const requests = [];
+  const fakeFetch = async (...args) => { requests.push(args); return { ok: true }; };
+  try {
+    process.env.ANALYTICS_ENABLED = 'false';
+    await reportHost(fakeFetch);
+    assert.equal(requests.length, 0);
+    delete process.env.ANALYTICS_ENABLED;
+    await reportHost(fakeFetch);
+    assert.equal(requests.length, 1);
+    const payload = JSON.parse(requests[0][1].body);
+    assert.equal(payload.payload.name, 'host-snapshot');
+    assert.equal(payload.payload.url, '/server');
+    assert.ok(!('hostname' in payload.payload));
+    assert.ok(!('id' in payload.payload));
+    await reportHost(async () => { throw new Error('unavailable'); });
+  } finally { delete process.env.ANALYTICS_ENABLED; }
 });

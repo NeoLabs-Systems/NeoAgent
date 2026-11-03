@@ -291,6 +291,7 @@ httpServer.on('error', (error) => {
 httpServer.listen(PORT, () => {
   const startupUrl = PUBLIC_URL || `http://localhost:${PORT}`;
   console.log(`NeoAgent running on ${startupUrl}`);
+  require('./host_analytics').startHostAnalytics(httpServer);
   require('./services/admin/updates').startUpdateChecks();
   startServices(app, io, { resumeRuns: true }).catch(async (err) => {
     console.error('[Startup] Service initialization failed:', err);

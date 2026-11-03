@@ -93,6 +93,9 @@
       errors = 0;
     }
     setInterval(flush, 30000);
+    setInterval(function () {
+      if (document.visibilityState === 'visible') send('active-browser');
+    }, 60000);
     document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flush(); });
     window.addEventListener('popstate', function () { send('navigation'); });
   };

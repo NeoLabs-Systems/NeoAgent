@@ -34,4 +34,4 @@ function registerAnalytics(app, { appWebRoot, landingRoot }) {
   });
 }
 
-module.exports = { analyticsEnabled, registerAnalytics };
+module.exports = { analyticsEnabled, registerAnalytics, WEBSITE_ID };
