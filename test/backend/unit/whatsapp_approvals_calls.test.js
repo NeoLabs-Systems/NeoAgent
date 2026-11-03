@@ -304,22 +304,20 @@ function realClient(t, port, userAgent) {
   });
   t.after(() => socket.close());
   const rings = [];
-  socket.on('voice:incoming_call', (call) => rings.push({ call, at: Date.now() }));
+  socket.on('voice:incoming_call', (call) => rings.push({ call }));
   return new Promise((resolve) => { socket.on('connect', () => resolve({ socket, rings })); });
 }
 
 const IDENTITIES = ['Dart/3.13 (dart:io)', 'Mozilla/5.0 (iPhone)', 'Mozilla/5.0 (Macintosh)', ''];
 
-test('any connected app rings over a real connection, only after the delay', async (t) => {
+test('any connected app rings over a real connection', async (t) => {
   runtime = createTestRuntime();
   const { userId } = await createTestUser(runtime.db, { username: 'call_back_real_app' });
-  const { calls, port } = await realServer(t, { userId, callBackDelayMs: 120, ringTimeoutMs: 60 });
+  const { calls, port } = await realServer(t, { userId, ringTimeoutMs: 60 });
   for (const identity of IDENTITIES) {
     const { rings, socket } = await realClient(t, port, identity);
-    const started = Date.now();
     const result = await calls.callBack({ userId, platform: 'whatsapp', callerId: '4915' });
     assert.equal(rings.length, 1, identity);
-    assert.ok(rings[0].at - started >= 115, 'waits before ringing');
     assert.equal(result.status, 'missed');
     socket.close();
     await tick(20);
@@ -329,7 +327,7 @@ test('any connected app rings over a real connection, only after the delay', asy
 test('the call back sends what the agent\'s own call sends', async (t) => {
   runtime = createTestRuntime();
   const { userId } = await createTestUser(runtime.db, { username: 'call_back_same_as_tool' });
-  const { calls, port } = await realServer(t, { userId, callBackDelayMs: 0, ringTimeoutMs: 30 });
+  const { calls, port } = await realServer(t, { userId, ringTimeoutMs: 30 });
   const { rings } = await realClient(t, port, 'Dart/3.13 (dart:io)');
   await calls.callUser({ userId, openingMessage: 'from the agent', runId: 'r1' });
   await calls.callBack({ userId, platform: 'whatsapp', callerId: '4915' });
@@ -341,7 +339,7 @@ test('the call back sends what the agent\'s own call sends', async (t) => {
 test('an app connecting while the call back waits gets the ring, for the usual time', async (t) => {
   runtime = createTestRuntime();
   const { userId } = await createTestUser(runtime.db, { username: 'call_back_real_return' });
-  const { calls, port } = await realServer(t, { userId, callBackDelayMs: 0, ringTimeoutMs: 60, appWaitMs: 1000 });
+  const { calls, port } = await realServer(t, { userId, ringTimeoutMs: 60, appWaitMs: 1000 });
   const pending = calls.callBack({ userId, platform: 'whatsapp', callerId: '4915' });
   await tick(30);
   const app = await realClient(t, port, 'Dart/3.13 (dart:io)');
@@ -353,7 +351,7 @@ test('an app connecting while the call back waits gets the ring, for the usual t
 test('with no app at all nobody rings, and the call gives up quietly', async () => {
   runtime = createTestRuntime();
   const { userId } = await createTestUser(runtime.db, { username: 'call_back_no_app' });
-  const { calls, emitted } = coordinator([], { callBackDelayMs: 0 });
+  const { calls, emitted } = coordinator([], {});
   const keepAlive = setTimeout(() => {}, 1000);
   const result = await calls.callBack({ userId, platform: 'whatsapp', callerId: '4915' });
   clearTimeout(keepAlive);
@@ -365,7 +363,7 @@ test('an agent\'s own call takes over from one still waiting for an app', async 
   runtime = createTestRuntime();
   const { userId } = await createTestUser(runtime.db, { username: 'call_back_superseded' });
   const sockets = [];
-  const { calls, emitted } = coordinator(sockets, { callBackDelayMs: 0, appWaitMs: 500 });
+  const { calls, emitted } = coordinator(sockets, { appWaitMs: 500 });
   const keepAlive = setTimeout(() => {}, 2000);
   const waiting = calls.callBack({ userId, platform: 'whatsapp', callerId: '4915' });
   await tick(5);

@@ -8,8 +8,6 @@ const DEFAULT_RING_TIMEOUT_MS = 30_000;
 // How long a call back waits for an app to come back. Placing the call that
 // triggers it sends the app to the background, where a phone may suspend it.
 const DEFAULT_APP_WAIT_MS = 2 * 60 * 1000;
-// Lets the declined call clear off the phone before this one rings.
-const DEFAULT_CALL_BACK_DELAY_MS = 5000;
 
 const logger = createServiceLogger('AgentCalls');
 
@@ -24,14 +22,12 @@ class AgentCallCoordinator {
     voiceRuntimeManager,
     ringTimeoutMs = DEFAULT_RING_TIMEOUT_MS,
     appWaitMs = DEFAULT_APP_WAIT_MS,
-    callBackDelayMs = DEFAULT_CALL_BACK_DELAY_MS,
   }) {
     this.io = io;
     this.agentEngine = agentEngine;
     this.voiceRuntimeManager = voiceRuntimeManager;
     this.ringTimeoutMs = ringTimeoutMs;
     this.appWaitMs = appWaitMs;
-    this.callBackDelayMs = callBackDelayMs;
     this.pendingById = new Map();
     this.pendingByUser = new Map();
     this.shuttingDown = false;
@@ -39,7 +35,6 @@ class AgentCallCoordinator {
 
   /** Rings the phone back after a call on a platform that cannot carry voice was declined. */
   async callBack({ userId, agentId, platform, callerId }) {
-    await new Promise((resolve) => { setTimeout(resolve, this.callBackDelayMs); });
     const result = await this.callUser({
       userId,
       agentId,
