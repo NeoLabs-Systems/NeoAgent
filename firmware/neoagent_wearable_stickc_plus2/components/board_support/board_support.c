@@ -22,6 +22,7 @@
 #define PIN_BACKLIGHT 27
 #define PIN_BUTTON_A 37
 #define PIN_BUTTON_B 39
+#define PIN_BUTTON_C 35
 #define PIN_BUZZER 2
 #define PIN_MIC_CLOCK 0
 #define PIN_MIC_DATA 34
@@ -31,7 +32,7 @@ static i2s_chan_handle_t mic;
 static bool mic_active;
 static lv_disp_draw_buf_t draw_buffer;
 static lv_disp_drv_t display_driver;
-static lv_obj_t *body_label;
+static lv_obj_t *body_viewport;
 static esp_timer_handle_t display_timer;
 static bool display_awake = true;
 static const board_audio_format_t audio_format = {16000, 1, 16};
@@ -59,7 +60,7 @@ esp_err_t board_support_init(board_support_t *board) {
     gpio_deep_sleep_hold_dis();
     gpio_set_level(PIN_BACKLIGHT, 0);
     rtc_gpio_deinit(PIN_BUTTON_A);
-    gpio_config_t buttons = { .pin_bit_mask = (1ULL << PIN_BUTTON_A) | (1ULL << PIN_BUTTON_B), .mode = GPIO_MODE_INPUT };
+    gpio_config_t buttons = { .pin_bit_mask = (1ULL << PIN_BUTTON_A) | (1ULL << PIN_BUTTON_B) | (1ULL << PIN_BUTTON_C), .mode = GPIO_MODE_INPUT };
     ESP_ERROR_CHECK(gpio_config(&buttons));
     spi_bus_config_t bus = { .mosi_io_num = 15, .miso_io_num = -1, .sclk_io_num = 13, .quadwp_io_num = -1, .quadhd_io_num = -1, .max_transfer_sz = WIDTH * 20 * 2 };
     ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &bus, SPI_DMA_CH_AUTO));
@@ -127,10 +128,12 @@ esp_err_t board_support_audio_write(board_support_t *board, const void *buffer, 
 static lv_obj_t *new_screen(void) {
     lv_obj_t *screen = lv_scr_act();
     lv_obj_clean(screen);
+    lv_obj_scroll_to(screen, 0, 0, LV_ANIM_OFF);
+    lv_obj_clear_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(screen, lv_color_hex(0x0d151c), 0);
     lv_obj_set_style_text_color(screen, lv_color_hex(0xf2f4ed), 0);
     lv_obj_set_style_text_font(screen, &neoagent_latin_16, 0);
-    body_label = NULL;
+    body_viewport = NULL;
     return screen;
 }
 
@@ -142,13 +145,17 @@ void board_display_message(const char *title, const char *body) {
     lv_label_set_long_mode(heading, LV_LABEL_LONG_WRAP);
     lv_label_set_text(heading, title);
     lv_obj_align(heading, LV_ALIGN_TOP_LEFT, 6, 8);
-    body_label = lv_label_create(screen);
+    body_viewport = lv_obj_create(screen);
+    lv_obj_remove_style_all(body_viewport);
+    lv_obj_set_size(body_viewport, WIDTH - 12, HEIGHT - 34);
+    lv_obj_align(body_viewport, LV_ALIGN_TOP_LEFT, 6, 30);
+    lv_obj_set_scroll_dir(body_viewport, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(body_viewport, LV_SCROLLBAR_MODE_AUTO);
+    lv_obj_t *body_label = lv_label_create(body_viewport);
     lv_obj_set_width(body_label, WIDTH - 12);
     lv_label_set_long_mode(body_label, LV_LABEL_LONG_WRAP);
     lv_label_set_text(body_label, body);
-    lv_obj_align(body_label, LV_ALIGN_TOP_LEFT, 6, 30);
-    lv_obj_set_scroll_dir(screen, LV_DIR_VER);
-    lv_obj_update_layout(screen);
+    lv_obj_update_layout(body_viewport);
 }
 
 void board_display_idle(bool connected) {
@@ -177,7 +184,7 @@ void board_display_idle(bool connected) {
     lv_obj_t *hint = lv_label_create(screen);
     lv_obj_set_width(hint, WIDTH - 16);
     lv_obj_set_style_text_color(hint, lv_color_hex(0x9aaea9), 0);
-    lv_label_set_text(hint, "B scrolls  |  Hold B: setup");
+    lv_label_set_text(hint, "B/C scroll  |  Hold B: setup");
     lv_obj_align(hint, LV_ALIGN_BOTTOM_LEFT, 8, -5);
 }
 
@@ -207,10 +214,10 @@ esp_err_t board_display_qr(const char *title, const char *payload) {
     return ESP_OK;
 }
 
-void board_display_scroll(void) {
-    lv_obj_t *screen = lv_scr_act();
-    if (lv_obj_get_scroll_bottom(screen) <= 0) lv_obj_scroll_to_y(screen, 0, LV_ANIM_ON);
-    else lv_obj_scroll_by_bounded(screen, 0, -80, LV_ANIM_ON);
+void board_display_scroll(int direction) {
+    if (!body_viewport) return;
+    lv_obj_update_layout(body_viewport);
+    lv_obj_scroll_by_bounded(body_viewport, 0, direction > 0 ? -80 : 80, LV_ANIM_OFF);
 }
 void board_display_awake(bool awake) {
     if (awake == display_awake) return;
@@ -229,6 +236,7 @@ void board_beep(void) {
 }
 bool board_button_a(void) { return gpio_get_level(PIN_BUTTON_A) == 0; }
 bool board_button_b(void) { return gpio_get_level(PIN_BUTTON_B) == 0; }
+bool board_button_c(void) { return gpio_get_level(PIN_BUTTON_C) == 0; }
 
 esp_err_t board_prepare_deep_sleep(void) {
     board_display_awake(false);

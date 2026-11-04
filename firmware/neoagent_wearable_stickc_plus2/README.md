@@ -28,8 +28,8 @@ with NeoAgent and approve the login. It remembers the Wi-Fi and session.
 
 Hold the front **A** button while speaking and release to send. The answer
 appears on screen; the built-in buzzer sounds when a reply is complete. The
-PLUS2 has no built-in vibration motor. Press side **B** to scroll a long
-answer. Hold **B** for three seconds to erase the saved network and session and
+PLUS2 has no built-in vibration motor. Press side **B** to scroll up or **C**
+to scroll down through a long answer. Hold **B** for three seconds to erase the saved network and session and
 return to setup. If the saved Wi-Fi is unavailable at boot, the device opens the
 setup hotspot so the network can be changed.
 
@@ -37,8 +37,8 @@ The backlight turns off after 30 seconds of inactivity, the microphone is
 stopped between turns, Wi-Fi power saving is enabled while idle, and an idle
 call closes after one minute. After two idle minutes the device enters deep
 sleep; press A to wake it and wait for it to reconnect before speaking. During
-display standby before deep sleep, A wakes and starts a turn, while B wakes and
-scrolls. Running tasks keep the device awake. The device displays replies
+display standby before deep sleep, A wakes and starts a turn, while B and C wake and
+scroll. Running tasks keep the device awake. The device displays replies
 rather than playing speech audio.
 
 The display font supports Latin characters including German umlauts and ß,

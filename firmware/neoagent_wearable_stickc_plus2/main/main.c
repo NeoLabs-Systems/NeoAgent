@@ -153,14 +153,14 @@ static void assistant(const neoagent_device_config_t *config, const neoagent_ses
     wearable_voice_client_t *voice = NULL;
     ESP_ERROR_CHECK(wearable_voice_client_init(&voice, &board, url, session->session_cookie, config->device_label, PLATFORM));
     provisioning_manager_set_station_power_save(true);
-    bool a_was_down = false, b_was_down = false, display_on = true, pending_reply = false;
-    int64_t last_activity = esp_timer_get_time(), b_held_at = 0, reply_finished_at = 0;
+    bool a_was_down = false, b_was_down = false, c_was_down = false, display_on = true, pending_reply = false;
+    int64_t last_activity = esp_timer_get_time(), b_held_at = 0, c_held_at = 0, reply_finished_at = 0;
     uint32_t final_seq = 0;
     char previous[NEOAGENT_VOICE_TEXT_MAX + 80] = "";
     wearable_voice_snapshot_t snapshot = {0};
     while (true) {
         const int64_t now = esp_timer_get_time();
-        const bool a = board_button_a(), b = board_button_b();
+        const bool a = board_button_a(), b = board_button_b(), c = board_button_c();
         wearable_voice_client_poll(voice);
         wearable_voice_client_snapshot(voice, &snapshot);
         if (snapshot.capturing || snapshot.task_running || snapshot.speaking) last_activity = now;
@@ -181,8 +181,13 @@ static void assistant(const neoagent_device_config_t *config, const neoagent_ses
         }
         if (b && !b_was_down) { b_held_at = now; display_on = true; board_display_awake(true); last_activity = now; }
         if (b && b_held_at && now - b_held_at > 3000000) reset_setup();
-        if (!b && b_was_down && b_held_at) { board_display_scroll(); b_held_at = 0; }
-        a_was_down = a; b_was_down = b;
+        if (!b && b_was_down && b_held_at) { board_display_scroll(-1); b_held_at = 0; }
+        if (c && !c_was_down) { c_held_at = now; display_on = true; board_display_awake(true); last_activity = now; }
+        if (!c && c_was_down && c_held_at) {
+            if (now - c_held_at < 3000000) board_display_scroll(1);
+            c_held_at = 0;
+        }
+        a_was_down = a; b_was_down = b; c_was_down = c;
         if (!a && !snapshot.capturing && now - last_activity > 300000) {
             ESP_ERROR_CHECK(board_microphone_active(false));
             if (snapshot.call == WEARABLE_CALL_IDLE) provisioning_manager_set_station_power_save(true);
@@ -204,13 +209,13 @@ static void assistant(const neoagent_device_config_t *config, const neoagent_ses
         if (display_on && !a && !snapshot.capturing && !snapshot.task_running && now - last_activity > 30000000) {
             board_display_awake(false); display_on = false;
         }
-        if (!a && !b && !snapshot.capturing && !snapshot.task_running && !snapshot.speaking &&
+        if (!a && !b && !c && !snapshot.capturing && !snapshot.task_running && !snapshot.speaking &&
             !pending_reply && snapshot.call == WEARABLE_CALL_IDLE && now - last_activity > 120000000) {
             enter_deep_sleep();
         }
         char content[sizeof(previous)];
         const char *title = !snapshot.server_connected ? "Connecting" : a ? "Listening" : snapshot.reconnecting ? "Connecting" : snapshot.task_running ? "Working" : "NeoAgent";
-        const char *body = snapshot.last_error[0] ? snapshot.last_error : snapshot.caption[0] ? snapshot.caption : "Hold A to talk.\n\nB scrolls. Hold B to reset setup.";
+        const char *body = snapshot.last_error[0] ? snapshot.last_error : snapshot.caption[0] ? snapshot.caption : "Hold A to talk.\n\nB/C scroll. Hold B to reset setup.";
         snprintf(content, sizeof(content), "%s\n%s", title, body);
         if (strcmp(content, previous) != 0) {
             if (!a && !snapshot.task_running && !snapshot.reconnecting &&
@@ -222,7 +227,9 @@ static void assistant(const neoagent_device_config_t *config, const neoagent_ses
             strlcpy(previous, content, sizeof(previous));
         }
         board_display_tick();
-        vTaskDelay(pdMS_TO_TICKS(display_on ? 40 : 200));
+        // Keep sampling the buttons while the backlight is off so short taps
+        // can wake the screen as reliably as they scroll an active reply.
+        vTaskDelay(pdMS_TO_TICKS(40));
     }
 }
 
