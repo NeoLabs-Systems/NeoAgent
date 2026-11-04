@@ -7476,11 +7476,46 @@ class AppL10nBg extends AppL10n {
   String get tagsOnly => 'Само етикети';
 
   @override
+  String get tailscaledSocketPathOptional =>
+      'tailscaled socket path (optional)';
+
+  @override
+  String get tailscaleSetup => 'Tailscale Setup';
+
+  @override
   String get tasks => 'Задачи';
 
   @override
   String get tasksRunOnTheirOwnAnd =>
       'Задачите се изпълняват сами и ви изпращат съобщения с ';
+
+  @override
+  String get couldNotConnectTailscale =>
+      'Could not connect this host to your tailnet.';
+
+  @override
+  String get couldNotDisconnectTailscale => 'Could not disconnect Tailscale.';
+
+  @override
+  String get disconnectTailscale => 'Disconnect Tailscale';
+
+  @override
+  String get joinThisNeoagentHostToYourTailnet =>
+      'Join the machine running NeoAgent to your tailnet with `tailscale up`, then connect it here. The agent can then list peers and call services on them over the private network, without any port open to the internet.';
+
+  @override
+  String get leaveEmptyForTheUsualSocket =>
+      'Leave empty for /var/run/tailscale/tailscaled.sock or /run/tailscale/tailscaled.sock. Set it when tailscaled listens elsewhere, as it usually does inside a container.';
+
+  @override
+  String get localTailscaledSocket => 'Local tailscaled socket';
+
+  @override
+  String get connectedTailnet => 'Connected tailnet';
+
+  @override
+  String get thisOnlyRemovesTheNeoagentConnection =>
+      'This only removes the NeoAgent connection. Your machine stays joined to the tailnet; run `tailscale down` to leave it.';
 
   @override
   String get teach => 'Учете';

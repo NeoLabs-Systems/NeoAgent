@@ -29,6 +29,7 @@ Connect accounts under **Tools › Integrations**; each agent keeps its own conn
 | NeoRecall | Read-only search, memories, daily summaries, conversations | Your NeoRecall URL, then NeoRecall sign-in |
 | Nextcloud | Files, shares, Calendar, Contacts, other apps via OCS | Your Nextcloud URL, then Nextcloud sign-in |
 | Home Assistant | Entity states and service calls | HTTPS URL and a Long-Lived Access Token |
+| Tailscale | Peer list, HTTP calls and TCP checks to other machines on the tailnet | `tailscale up` on the NeoAgent host |
 | Trello | Boards, lists, cards, comments, search | Trello API key and account token |
 | Weather | Location search, current conditions, forecasts | One click (Open-Meteo, no key) |
 | World News | Top headlines by keyword or category | GNews API key |
@@ -102,6 +103,31 @@ The NeoAgent app on Android or iOS shares the calendars and contacts already on 
 
 - **HTTPS only**, on port 443 or 8123.
 - **Private addresses are blocked.** Local, loopback and private-network addresses are refused, also after DNS resolution.
+
+### Tailscale
+
+The regular `http_request` tool refuses private and loopback addresses, so a
+service on your own network is out of reach for the agent. Tailscale closes
+that gap without opening a port to the internet: the NeoAgent host joins your
+tailnet, and the agent talks to peers over their `100.x` addresses.
+
+1. Install Tailscale on the machine that runs NeoAgent and run `tailscale up`.
+2. Open **Tools › Integrations › Tailscale** and choose **Connect**. The server
+   reads `tailscaled` itself; there is no token to paste.
+
+| Tool | What it does |
+| --- | --- |
+| `tailscale_list_peers` | Peers with hostname, MagicDNS name, OS, `100.x` addresses, tags and online state. Offline peers are hidden unless asked for. |
+| `tailscale_request` | An HTTP request to one peer: `host`, `method`, `path`, `scheme`, `headers`, `body`. |
+| `tailscale_ping` | A TCP connect to one peer on one port, with latency, to check whether a service answers. |
+
+- **Peers only.** `tailscale_request` refuses any host that is not a peer of the
+  connected tailnet, and any name that resolves outside `100.64.0.0/10` or
+  `fd7a:115c:a1e0::/48`.
+- **Unusual socket.** Set `NEOAGENT_TAILSCALE_SOCKET` (or the socket path field in
+  the connect dialog) when `tailscaled` does not listen on
+  `/var/run/tailscale/tailscaled.sock` — the default inside a container.
+- **Exit nodes are not used.** Requests go to the peer itself.
 
 ## 💬 Messaging channels {#messaging-channels}
 

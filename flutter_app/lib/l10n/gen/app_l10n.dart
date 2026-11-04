@@ -12481,6 +12481,18 @@ abstract class AppL10n {
   /// **'Tags only'**
   String get tagsOnly;
 
+  /// No description provided for @tailscaledSocketPathOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'tailscaled socket path (optional)'**
+  String get tailscaledSocketPathOptional;
+
+  /// No description provided for @tailscaleSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Tailscale Setup'**
+  String get tailscaleSetup;
+
   /// No description provided for @tasks.
   ///
   /// In en, this message translates to:
@@ -12492,6 +12504,54 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Tasks run on their own and message you with the '**
   String get tasksRunOnTheirOwnAnd;
+
+  /// No description provided for @couldNotConnectTailscale.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not connect this host to your tailnet.'**
+  String get couldNotConnectTailscale;
+
+  /// No description provided for @couldNotDisconnectTailscale.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not disconnect Tailscale.'**
+  String get couldNotDisconnectTailscale;
+
+  /// No description provided for @disconnectTailscale.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect Tailscale'**
+  String get disconnectTailscale;
+
+  /// No description provided for @joinThisNeoagentHostToYourTailnet.
+  ///
+  /// In en, this message translates to:
+  /// **'Join the machine running NeoAgent to your tailnet with `tailscale up`, then connect it here. The agent can then list peers and call services on them over the private network, without any port open to the internet.'**
+  String get joinThisNeoagentHostToYourTailnet;
+
+  /// No description provided for @leaveEmptyForTheUsualSocket.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave empty for /var/run/tailscale/tailscaled.sock or /run/tailscale/tailscaled.sock. Set it when tailscaled listens elsewhere, as it usually does inside a container.'**
+  String get leaveEmptyForTheUsualSocket;
+
+  /// No description provided for @localTailscaledSocket.
+  ///
+  /// In en, this message translates to:
+  /// **'Local tailscaled socket'**
+  String get localTailscaledSocket;
+
+  /// No description provided for @connectedTailnet.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected tailnet'**
+  String get connectedTailnet;
+
+  /// No description provided for @thisOnlyRemovesTheNeoagentConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'This only removes the NeoAgent connection. Your machine stays joined to the tailnet; run `tailscale down` to leave it.'**
+  String get thisOnlyRemovesTheNeoagentConnection;
 
   /// No description provided for @teach.
   ///

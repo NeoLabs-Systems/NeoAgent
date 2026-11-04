@@ -34,6 +34,7 @@ description: The integration registry, tool execution path, memory ingestion, an
 | `bitwarden` | `password_manager` |
 | `whatsapp_personal` | `personal` |
 | `news`, `weather` | `headlines`, `forecast` |
+| `tailscale` | `tailnet` |
 
 ## Connecting an account
 

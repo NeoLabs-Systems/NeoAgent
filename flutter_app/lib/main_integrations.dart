@@ -743,6 +743,9 @@ void _openOfficialIntegrationSetupDialog(
     case 'home_assistant':
       _showHomeAssistantSetupDialog(context, controller);
       return;
+    case 'tailscale':
+      _showTailscaleSetupDialog(context, controller);
+      return;
     case 'neorecall':
       _showOfficialIntegrationUrlSetupDialog(
         context,
@@ -1909,6 +1912,203 @@ Future<void> _showHomeAssistantSetupDialog(
   tokenController.dispose();
 }
 
+Future<void> _showTailscaleSetupDialog(
+  BuildContext context,
+  NeoAgentController controller,
+) async {
+  Map<String, dynamic> existing;
+  try {
+    existing = await controller.getOfficialIntegrationConfig('tailscale');
+  } catch (error) {
+    if (context.mounted) {
+      _showControllerError(context, controller, error);
+    }
+    return;
+  }
+
+  final savedSocketPath = existing['socketPath']?.toString() ?? '';
+  final accountCount = (existing['accountCount'] as num?)?.toInt() ?? 0;
+  final hasConnectedAccount =
+      existing['hasConnectedAccount'] == true || accountCount > 0;
+  var formError = '';
+  var saving = false;
+  final socketPathController = TextEditingController(text: savedSocketPath);
+
+  if (!context.mounted) return;
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (dialogContext, setState) {
+          return AlertDialog(
+            title: Text(appStrings.tailscaleSetup),
+            content: SizedBox(
+              width: 520,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    appStrings.joinThisNeoagentHostToYourTailnet,
+                    style: TextStyle(color: _textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  _IntegrationSetupStatusItem(
+                    label: appStrings.connectionMethod,
+                    status: appStrings.localTailscaledSocket,
+                    isConnected: true,
+                  ),
+                  const SizedBox(height: 12),
+                  _IntegrationSetupStatusItem(
+                    label: appStrings.connectedTailnet,
+                    status: hasConnectedAccount
+                        ? '$accountCount ${accountCount == 1 ? 'tailnet' : 'tailnets'} connected'
+                        : appStrings.notConnected,
+                    isConnected: hasConnectedAccount,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: socketPathController,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      labelText: appStrings.tailscaledSocketPathOptional,
+                      hintText: '/var/run/tailscale/tailscaled.sock',
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    appStrings.leaveEmptyForTheUsualSocket,
+                    style: TextStyle(color: _textSecondary, fontSize: 12),
+                  ),
+                  if (formError.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: _danger.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: _danger.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Text(
+                        formError,
+                        style: TextStyle(color: _danger, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: <Widget>[
+              if (hasConnectedAccount)
+                TextButton(
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          final shouldClear =
+                              await showDialog<bool>(
+                                context: dialogContext,
+                                builder: (context) {
+                                  return AlertDialog(
+                                    title: Text(
+                                      appStrings.disconnectTailscale,
+                                    ),
+                                    content: Text(
+                                      appStrings.thisOnlyRemovesTheNeoagentConnection,
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(false),
+                                        child: Text(appStrings.cancel),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(true),
+                                        child: Text(appStrings.disconnect),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ) ??
+                              false;
+                          if (!shouldClear) return;
+                          setState(() {
+                            formError = '';
+                            saving = true;
+                          });
+                          try {
+                            await controller.clearOfficialIntegrationConfig(
+                              'tailscale',
+                            );
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop();
+                            }
+                          } catch (_) {
+                            setState(() {
+                              formError =
+                                  controller.errorMessage ??
+                                  appStrings.couldNotDisconnectTailscale;
+                              saving = false;
+                            });
+                          }
+                        },
+                  child: Text(appStrings.disconnect),
+                ),
+              TextButton(
+                onPressed: saving
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(),
+                child: Text(appStrings.close),
+              ),
+              FilledButton(
+                onPressed: saving
+                    ? null
+                    : () async {
+                        setState(() {
+                          formError = '';
+                          saving = true;
+                        });
+                        try {
+                          await controller.saveOfficialIntegrationConfig(
+                            'tailscale',
+                            config: <String, dynamic>{
+                              'socketPath': socketPathController.text.trim(),
+                            },
+                          );
+                          if (dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop();
+                          }
+                        } catch (_) {
+                          setState(() {
+                            formError =
+                                controller.errorMessage ??
+                                appStrings.couldNotConnectTailscale;
+                            saving = false;
+                          });
+                        }
+                      },
+                child: Text(
+                  saving
+                      ? appStrings.saving
+                      : hasConnectedAccount
+                      ? appStrings.updateSetup
+                      : appStrings.connect,
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+
+  socketPathController.dispose();
+}
+
 Future<void> _showWorldNewsSetupDialog(
   BuildContext context,
   NeoAgentController controller,
@@ -2682,6 +2882,7 @@ class _OfficialIntegrationIcon extends StatelessWidget {
       'password' => const Color(0xFF175DDC),
       'trello' => const Color(0xFF0C66E4),
       'news' => const Color(0xFFE5484D),
+      'tailscale' => const Color(0xFF5B5B5B),
       _ => _accent,
     };
     final glyph = switch (icon) {
@@ -2699,6 +2900,7 @@ class _OfficialIntegrationIcon extends StatelessWidget {
       'password' => 'B',
       'trello' => 'T',
       'news' => 'W',
+      'tailscale' => 'T',
       _ => label.isNotEmpty ? label[0] : '?',
     };
     return Container(
