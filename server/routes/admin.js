@@ -71,7 +71,7 @@ router.post('/update/check', settingsLimiter, jsonHandler(() => updates.check())
 router.post('/update', settingsLimiter, jsonHandler(() => updates.start(), { status: 202 }));
 router.put('/update/channel', settingsLimiter, jsonHandler((req) => updates.setChannel(req.body?.channel)));
 
-router.get('/health', jsonHandler((req) => runHealthChecks(req.app.locals.runtimeManager)));
+router.get('/health', jsonHandler((req) => runHealthChecks(req.app.locals.runtimeManager, req.session.userId)));
 
 router.get('/logs', jsonHandler((req) => ({ logs: req.app.locals.logHistory || [] })));
 

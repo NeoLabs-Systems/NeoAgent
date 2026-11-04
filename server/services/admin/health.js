@@ -4,11 +4,10 @@ const db = require('../../db/database');
 const { getVersionInfo } = require('../../utils/version');
 const { readUpdateStatus } = require('../../utils/update_status');
 const { getRuntimeValidation } = require('../runtime/validation');
-const { listProviders } = require('./providers');
+const { listAgents } = require('../agents/manager');
+const { getProviderHealthCatalog } = require('../ai/models');
 
 const RECENT_FAILURE_MS = 24 * 60 * 60 * 1000;
-// Keys in the provider list that are not AI models or only override a URL.
-const NON_AI_PROVIDER_KEYS = new Set(['BRAVE_SEARCH_API_KEY', 'DEEPGRAM_API_KEY', 'OPENAI_BASE_URL', 'ANTHROPIC_BASE_URL', 'XAI_BASE_URL', 'OPENAI_COMPATIBLE_BASE_URL']);
 
 // Non-secret runtime settings, shown read-only on the admin page.
 const ENVIRONMENT_KEYS = [
@@ -52,10 +51,17 @@ function checkDatabase() {
   }
 }
 
-function configuredProviderNames() {
-  return listProviders().providers
-    .filter((provider) => provider.configured && !NON_AI_PROVIDER_KEYS.has(provider.key))
-    .map((provider) => provider.label);
+// Providers are set up per account and per agent, so the server's own keys are
+// only part of the answer. The catalog already counts both.
+async function availableProviderNames(userId) {
+  const names = new Set();
+  for (const agent of listAgents(userId)) {
+    const providers = await getProviderHealthCatalog(userId, agent.id);
+    for (const provider of providers) {
+      if (provider.available) names.add(provider.customLabel || provider.label);
+    }
+  }
+  return [...names];
 }
 
 // An old failed run is history, not a fault: only a recent one is flagged.
@@ -65,12 +71,12 @@ function updateFailedRecently(status) {
   return Number.isFinite(finished) && Date.now() - finished < RECENT_FAILURE_MS;
 }
 
-function runHealthChecks(runtimeManager) {
+async function runHealthChecks(runtimeManager, userId) {
   const version = getVersionInfo();
   const updateStatus = readUpdateStatus();
   const runtimeValidation = getRuntimeValidation(runtimeManager);
   const runtimeReady = Boolean(runtimeValidation?.ready);
-  const providers = configuredProviderNames();
+  const providers = await availableProviderNames(userId);
 
   const results = [
     { id: 'backend', label: 'Backend server', passed: true, detail: 'Running' },
@@ -99,7 +105,7 @@ function runHealthChecks(runtimeManager) {
       id: 'ai_providers',
       label: 'AI providers',
       passed: providers.length > 0,
-      detail: providers.length > 0 ? providers.join(', ') : 'No providers configured',
+      detail: providers.length > 0 ? providers.join(', ') : 'No providers available to this account',
     },
   ];
   if (process.env.DEEPGRAM_API_KEY) {
