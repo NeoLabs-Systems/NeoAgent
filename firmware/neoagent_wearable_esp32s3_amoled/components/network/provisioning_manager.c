@@ -1218,14 +1218,6 @@ static esp_err_t connect_with_network_candidate(
         wifi_config.sta.bssid_set
     );
 
-    bool found_target = scan_for_target_ssid(ssid, false);
-    if (!found_target) {
-        found_target = scan_for_target_ssid(ssid, true);
-    }
-    if (!found_target) {
-        enable_extended_2g_channels();
-        found_target = scan_for_target_ssid(ssid, false);
-    }
     if (saved_channel > 0) {
         neoagent_device_config_t temp = {0};
         copy_string_bounded(temp.wifi_ssid, sizeof(temp.wifi_ssid), ssid);
@@ -1236,6 +1228,14 @@ static esp_err_t connect_with_network_candidate(
         if (attempt_channel_connect(manager, &temp, &wifi_config, saved_channel, timeout_ms) == ESP_OK) {
             return ESP_OK;
         }
+    }
+    bool found_target = scan_for_target_ssid(ssid, false);
+    if (!found_target) {
+        found_target = scan_for_target_ssid(ssid, true);
+    }
+    if (!found_target) {
+        enable_extended_2g_channels();
+        found_target = scan_for_target_ssid(ssid, false);
     }
     if (found_target) {
         neoagent_device_config_t temp = {0};

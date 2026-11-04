@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "board_support.h"
 #include "esp_log.h"
@@ -22,6 +23,41 @@ static session_store_t store;
 static provisioning_manager_t network;
 static pairing_manager_t pairing;
 static board_support_t board;
+static void reset_setup(void);
+
+typedef struct {
+    const neoagent_device_config_t *config;
+    TaskHandle_t waiting_task;
+    esp_err_t result;
+} station_connect_t;
+
+static void connect_station_task(void *arg) {
+    station_connect_t *connection = arg;
+    connection->result = provisioning_manager_connect_station(&network, connection->config, 20000);
+    xTaskNotifyGive(connection->waiting_task);
+    vTaskDelete(NULL);
+}
+
+static esp_err_t connect_station(const neoagent_device_config_t *config) {
+    station_connect_t connection = { .config = config, .waiting_task = xTaskGetCurrentTaskHandle() };
+    if (xTaskCreate(connect_station_task, "wifi_connect", 24576, &connection, 5, NULL) != pdPASS) return ESP_ERR_NO_MEM;
+    int64_t held_b = 0;
+    while (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(30)) == 0) {
+        board_display_tick();
+        if (board_button_b()) {
+            if (!held_b) held_b = esp_timer_get_time();
+            if (esp_timer_get_time() - held_b > 3000000) reset_setup();
+        } else held_b = 0;
+    }
+    return connection.result;
+}
+
+static void sync_time_task(void *arg) {
+    const char *server_url = arg;
+    esp_err_t result = provisioning_manager_sync_time(&network, server_url, 10000);
+    if (result != ESP_OK) ESP_LOGW(TAG, "Time sync failed: %s", esp_err_to_name(result));
+    vTaskDelete(NULL);
+}
 
 static void enter_deep_sleep(void) {
     if (board_button_a()) return;
@@ -203,9 +239,15 @@ static void wearable_task(void *arg) {
     neoagent_session_state_t session = {0};
     if (session_store_load_device_config(&store, &config) != ESP_OK) portal();
     show("Connecting", "Joining Wi-Fi...");
-    if (provisioning_manager_connect_station(&network, &config, 20000) != ESP_OK) portal();
-    esp_err_t sync = provisioning_manager_sync_time(&network, config.server_url, 10000);
-    if (sync != ESP_OK) ESP_LOGW(TAG, "Time sync failed: %s", esp_err_to_name(sync));
+    if (connect_station(&config) != ESP_OK) portal();
+    // TLS needs a valid clock for certificate verification. The RTC retains it
+    // over deep sleep; otherwise sync before opening an HTTPS connection.
+    if (strncmp(config.server_url, "https://", 8) == 0 && time(NULL) <= 1700000000) {
+        esp_err_t sync = provisioning_manager_sync_time(&network, config.server_url, 10000);
+        if (sync != ESP_OK) ESP_LOGW(TAG, "Time sync failed: %s", esp_err_to_name(sync));
+    } else if (xTaskCreate(sync_time_task, "time_sync", 12288, config.server_url, 4, NULL) != pdPASS) {
+        ESP_LOGW(TAG, "Could not start time sync");
+    }
     if (session_store_load_session(&store, &session) != ESP_OK || !session.authenticated) pair(&config, &session);
     assistant(&config, &session);
 }
