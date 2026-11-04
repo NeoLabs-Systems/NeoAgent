@@ -36,10 +36,15 @@ function isSupportedClientMessageType(type) {
   return CLIENT_MESSAGE_TYPES.has(String(type || '').trim());
 }
 
+function shouldSendWearableEvent(platform, type) {
+  return platform !== 'm5stickc-plus2' || type !== 'voice:audio';
+}
+
 module.exports = {
   CLIENT_MESSAGE_TYPES,
   WEARABLE_WS_PATH,
   isSupportedClientMessageType,
   isWearableHello,
   parseWearableMessage,
+  shouldSendWearableEvent,
 };

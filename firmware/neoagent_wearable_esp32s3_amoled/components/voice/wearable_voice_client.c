@@ -57,6 +57,7 @@ struct wearable_voice_client {
     size_t prebuffer_capacity;
     char device_id[16];
     char device_label[NEOAGENT_DEVICE_LABEL_MAX];
+    char device_platform[40];
     char firmware_version[32];
 
     // Touched only by the websocket task.
@@ -84,6 +85,7 @@ struct wearable_voice_client {
     uint32_t playback_generation;
     char caption[NEOAGENT_VOICE_TEXT_MAX];
     bool caption_from_assistant;
+    uint32_t assistant_final_seq;
     char task_run_id[NEOAGENT_VOICE_RUN_ID_MAX];
     char task_request[NEOAGENT_VOICE_TEXT_MAX];
     uint32_t task_outcome_seq;
@@ -189,7 +191,7 @@ static esp_err_t send_hello(wearable_voice_client_t *client) {
     }
     cJSON_AddStringToObject(message, "type", "wearable:hello");
     cJSON_AddStringToObject(device, "deviceId", client->device_id);
-    cJSON_AddStringToObject(device, "platform", "esp32-s3-amoled");
+    cJSON_AddStringToObject(device, "platform", client->device_platform);
     cJSON_AddStringToObject(device, "firmwareVersion", client->firmware_version);
     cJSON_AddStringToObject(device, "deviceLabel", client->device_label);
     cJSON_AddItemToObject(message, "device", device);
@@ -389,6 +391,9 @@ static void handle_message(wearable_voice_client_t *client, const char *text) {
             lock(client);
             copy_text(client->caption, sizeof(client->caption), content);
             client->caption_from_assistant = role != NULL && strcmp(role, "assistant") == 0;
+            if (client->caption_from_assistant && json_true(root, "final")) {
+                client->assistant_final_seq += 1;
+            }
             unlock(client);
         }
     } else if (strcmp(type, "voice:state") == 0) {
@@ -649,7 +654,8 @@ esp_err_t wearable_voice_client_init(
     board_support_t *board,
     const char *websocket_url,
     const char *session_cookie,
-    const char *device_label
+    const char *device_label,
+    const char *device_platform
 ) {
     if (out == NULL || board == NULL || websocket_url == NULL || websocket_url[0] == '\0' ||
         session_cookie == NULL || session_cookie[0] == '\0') {
@@ -669,6 +675,7 @@ esp_err_t wearable_voice_client_init(
     client->input_rate = client->codec_rate;
     client->output_rate = client->codec_rate;
     copy_text(client->device_label, sizeof(client->device_label), device_label != NULL && device_label[0] != '\0' ? device_label : "NeoAgent wearable");
+    copy_text(client->device_platform, sizeof(client->device_platform), device_platform);
     const esp_app_desc_t *app = esp_app_get_description();
     copy_text(client->firmware_version, sizeof(client->firmware_version), app != NULL ? app->version : "unknown");
     uint8_t mac[6] = {0};
@@ -820,6 +827,7 @@ void wearable_voice_client_snapshot(wearable_voice_client_t *client, wearable_vo
     const int64_t last_playback_at_us = client->last_playback_at_us;
     copy_text(snapshot->caption, sizeof(snapshot->caption), client->caption);
     snapshot->caption_from_assistant = client->caption_from_assistant;
+    snapshot->assistant_final_seq = client->assistant_final_seq;
     snapshot->task_running = client->task_run_id[0] != '\0';
     copy_text(snapshot->task_request, sizeof(snapshot->task_request), client->task_request);
     snapshot->task_outcome_seq = client->task_outcome_seq;

@@ -14,6 +14,7 @@ const {
   isSupportedClientMessageType,
   isWearableHello,
   parseWearableMessage,
+  shouldSendWearableEvent,
 } = require('./protocol');
 
 const HELLO_TIMEOUT_MS = 5000;
@@ -137,7 +138,10 @@ function bindWearableGateway(httpServer, app, sessionMiddleware) {
                   agentId: payload.agentId || payload.agent_id || null,
                   sessionId: sessionId || null,
                   devicePlatform,
-                  sink: createVoiceSink((event, data) => sendJson(ws, { type: event, ...data })),
+                  sink: createVoiceSink((event, data) => {
+                    if (!shouldSendWearableEvent(devicePlatform, event)) return;
+                    sendJson(ws, { type: event, ...data });
+                  }),
                 });
                 activeSessionIds.add(session.id);
                 break;

@@ -787,7 +787,8 @@ static void run_assistant_shell(const neoagent_device_config_t *device_config, n
             &s_board,
             wearable_ws_url,
             session_state->session_cookie,
-            device_config->device_label
+            device_config->device_label,
+            "esp32-s3-amoled"
         );
         if (voice_err != ESP_OK) {
             ESP_LOGW(TAG, "voice client init failed: %s", esp_err_to_name(voice_err));
@@ -1004,7 +1005,7 @@ static esp_err_t run_pairing_flow(const neoagent_device_config_t *device_config,
     ESP_ERROR_CHECK(ui_renderer_set_screen(&s_ui, screen_router_current(&s_router)));
 
     log_internal_heap("before_pairing_create");
-    if (pairing_manager_create_challenge(&s_pairing, device_config->server_url, device_config->device_label) != ESP_OK) {
+    if (pairing_manager_create_challenge(&s_pairing, device_config->server_url, device_config->device_label, "esp32-s3-amoled") != ESP_OK) {
         ESP_LOGE(TAG, "failed to create pairing challenge");
         return ESP_FAIL;
     }
@@ -1039,7 +1040,7 @@ static esp_err_t run_pairing_flow(const neoagent_device_config_t *device_config,
             pairing_manager_mark_expired(&s_pairing);
         } else if (s_pairing.state == PAIRING_STATE_EXPIRED) {
             ESP_LOGI(TAG, "pairing challenge expired; creating a new one");
-            if (pairing_manager_create_challenge(&s_pairing, device_config->server_url, device_config->device_label) == ESP_OK) {
+            if (pairing_manager_create_challenge(&s_pairing, device_config->server_url, device_config->device_label, "esp32-s3-amoled") == ESP_OK) {
                 ESP_ERROR_CHECK(ui_renderer_show_pairing_qr(&s_ui, s_pairing.qr_state.qr_payload));
                 log_internal_heap("after_pairing_refresh");
             }

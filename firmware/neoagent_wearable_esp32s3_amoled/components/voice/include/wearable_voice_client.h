@@ -33,6 +33,7 @@ typedef struct {
     bool reconnecting;          // The server is re-establishing the live model.
     char caption[NEOAGENT_VOICE_TEXT_MAX];  // Latest turn of either speaker.
     bool caption_from_assistant;
+    uint32_t assistant_final_seq;
     bool task_running;
     char task_request[NEOAGENT_VOICE_TEXT_MAX];
     // The last hand-off that ended; the id tells one outcome from the next.
@@ -49,7 +50,8 @@ esp_err_t wearable_voice_client_init(
     board_support_t *board,
     const char *websocket_url,
     const char *session_cookie,
-    const char *device_label
+    const char *device_label,
+    const char *device_platform
 );
 
 // The wearable is push-to-talk: holding the avatar or BOOT talks, placing the
