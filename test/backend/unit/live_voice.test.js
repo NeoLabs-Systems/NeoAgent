@@ -317,6 +317,13 @@ test('the live model speaks with the shared persona; delegated tasks keep the ag
   assert.match(front.instructions, /^## rules for this call/);
   assert.doesNotMatch(front.instructions, /CRITICAL EXECUTION RULES/);
 
+  const stick = await buildLivePrompt({
+    memoryManager, userId: user.userId, agentId: null, conversationId: null,
+    devicePlatform: 'm5stickc-plus2',
+  });
+  assert.match(stick.instructions, /very small wearable screen/);
+  assert.doesNotMatch(front.instructions, /very small wearable screen/);
+
   // A hand-off run keeps the agent prompt and writes with the same persona,
   // in its spoken form because the live model reads the result out.
   const task = await buildSystemPromptSections(user.userId, { triggerSource: 'voice_live' }, memoryManager);

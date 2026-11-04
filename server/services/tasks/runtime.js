@@ -273,6 +273,8 @@ class TaskRuntime {
     );
     const normalized = await this._normalizeTaskInput(userId, input);
     const taskId = this.taskRepository.createTask(userId, normalized);
+    const initialCheckpoint = this.triggerRegistry.get(normalized.triggerType)?.poll?.initialCheckpoint;
+    if (initialCheckpoint) this.taskRepository.markTaskTriggerCheckpoint(taskId, initialCheckpoint(), userId);
     if (normalized.enabled) {
       await this._registerTask(this.taskRepository.getTaskById(taskId, userId));
     }
@@ -308,6 +310,11 @@ class TaskRuntime {
     });
 
     this.taskRepository.updateTask(taskId, userId, normalized);
+    const updated = this.taskRepository.getTaskById(taskId, userId);
+    const initialCheckpoint = this.triggerRegistry.get(normalized.triggerType)?.poll?.initialCheckpoint;
+    if (initialCheckpoint && (!updated.last_trigger_fingerprint || (!existing.enabled && normalized.enabled))) {
+      this.taskRepository.markTaskTriggerCheckpoint(taskId, initialCheckpoint(), userId);
+    }
     this._unregisterTask(taskId);
     if (normalized.enabled) {
       await this._registerTask(this.taskRepository.getTaskById(taskId, userId));

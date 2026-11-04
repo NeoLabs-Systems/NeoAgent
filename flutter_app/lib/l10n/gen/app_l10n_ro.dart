@@ -11614,6 +11614,13 @@ class AppL10nRo extends AppL10n {
       'Nume, adrese de e-mail și numere de telefon';
 
   @override
+  String get phoneAlarmTrigger => 'Phone alarm';
+
+  @override
+  String get phoneAlarmTriggerHint =>
+      'Run when the next shared Android alarm is due, within about a minute. Changes reach the server when the phone syncs.';
+
+  @override
   String get phoneSyncOtherAgent =>
       'Acest telefon partajează cu alt agent. Partajarea aici îl mută la acest agent.';
 

@@ -11587,6 +11587,13 @@ class AppL10nLt extends AppL10n {
       'Vardai, el. pašto adresai ir telefono numeriai';
 
   @override
+  String get phoneAlarmTrigger => 'Phone alarm';
+
+  @override
+  String get phoneAlarmTriggerHint =>
+      'Run when the next shared Android alarm is due, within about a minute. Changes reach the server when the phone syncs.';
+
+  @override
   String get phoneSyncOtherAgent =>
       'Šis telefonas bendrina su kitu agentu. Bendrinant čia jis perkeliamas šiam agentui.';
 

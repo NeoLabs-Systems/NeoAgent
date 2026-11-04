@@ -66,6 +66,7 @@ function bindWearableGateway(httpServer, app, sessionMiddleware) {
 
         let initialized = false;
         let deviceId = '';
+        let devicePlatform = '';
         const activeSessionIds = new Set();
         const helloTimer = setTimeout(() => {
           if (!initialized) {
@@ -111,6 +112,7 @@ function bindWearableGateway(httpServer, app, sessionMiddleware) {
               });
               initialized = true;
               deviceId = connection.deviceId;
+              devicePlatform = connection.hello.platform;
               sendJson(ws, {
                 type: 'wearable:hello',
                 ok: true,
@@ -134,6 +136,7 @@ function bindWearableGateway(httpServer, app, sessionMiddleware) {
                   userId: req.session.userId,
                   agentId: payload.agentId || payload.agent_id || null,
                   sessionId: sessionId || null,
+                  devicePlatform,
                   sink: createVoiceSink((event, data) => sendJson(ws, { type: event, ...data })),
                 });
                 activeSessionIds.add(session.id);

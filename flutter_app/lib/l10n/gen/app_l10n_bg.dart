@@ -11608,6 +11608,13 @@ class AppL10nBg extends AppL10n {
   String get phoneSyncContactsHint => 'Имена, имейл адреси и телефонни номера';
 
   @override
+  String get phoneAlarmTrigger => 'Phone alarm';
+
+  @override
+  String get phoneAlarmTriggerHint =>
+      'Run when the next shared Android alarm is due, within about a minute. Changes reach the server when the phone syncs.';
+
+  @override
   String get phoneSyncOtherAgent =>
       'Този телефон споделя с друг агент. Споделянето тук го премества към този агент.';
 

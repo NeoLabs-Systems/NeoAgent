@@ -11650,6 +11650,13 @@ class AppL10nIt extends AppL10n {
       'Nomi, indirizzi email e numeri di telefono';
 
   @override
+  String get phoneAlarmTrigger => 'Phone alarm';
+
+  @override
+  String get phoneAlarmTriggerHint =>
+      'Run when the next shared Android alarm is due, within about a minute. Changes reach the server when the phone syncs.';
+
+  @override
   String get phoneSyncOtherAgent =>
       'Questo telefono condivide con un altro agente. Condividere qui lo sposta su questo agente.';
 

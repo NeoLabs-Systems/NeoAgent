@@ -11547,6 +11547,13 @@ class AppL10nDa extends AppL10n {
   String get phoneSyncContactsHint => 'Navne, e-mailadresser og telefonnumre';
 
   @override
+  String get phoneAlarmTrigger => 'Phone alarm';
+
+  @override
+  String get phoneAlarmTriggerHint =>
+      'Run when the next shared Android alarm is due, within about a minute. Changes reach the server when the phone syncs.';
+
+  @override
   String get phoneSyncOtherAgent =>
       'Telefonen deler med en anden agent. Deling her flytter den til denne agent.';
 

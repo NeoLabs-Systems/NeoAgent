@@ -11655,6 +11655,13 @@ class AppL10nEs extends AppL10n {
   String get phoneSyncContactsHint => 'Nombres, correos y números de teléfono';
 
   @override
+  String get phoneAlarmTrigger => 'Phone alarm';
+
+  @override
+  String get phoneAlarmTriggerHint =>
+      'Run when the next shared Android alarm is due, within about a minute. Changes reach the server when the phone syncs.';
+
+  @override
   String get phoneSyncOtherAgent =>
       'Este teléfono comparte con otro agente. Compartir aquí lo pasa a este agente.';
 

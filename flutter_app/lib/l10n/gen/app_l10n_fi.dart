@@ -11570,6 +11570,13 @@ class AppL10nFi extends AppL10n {
       'Nimet, sähköpostiosoitteet ja puhelinnumerot';
 
   @override
+  String get phoneAlarmTrigger => 'Phone alarm';
+
+  @override
+  String get phoneAlarmTriggerHint =>
+      'Run when the next shared Android alarm is due, within about a minute. Changes reach the server when the phone syncs.';
+
+  @override
   String get phoneSyncOtherAgent =>
       'Tämä puhelin jakaa toiselle agentille. Jakaminen tässä siirtää sen tälle agentille.';
 

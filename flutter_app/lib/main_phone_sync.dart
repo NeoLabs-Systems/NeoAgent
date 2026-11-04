@@ -38,13 +38,15 @@ class PhoneSync extends ChangeNotifier {
       status.enabled &&
       _prefs?.getString(_agentKey) == (_controller.selectedAgentId ?? '');
 
+  bool get alarmsEnabled => status.enabled && status.kinds.contains('alarms');
+
   /// Asked once per install, after sign-in, while nothing is shared yet.
   bool get shouldOfferSetup =>
       supported &&
       loaded &&
       _controller.isAuthenticated &&
       !_controller.showOnboarding &&
-      !status.enabled &&
+      (!status.enabled || !status.kinds.any(kinds.contains)) &&
       _prefs?.getBool(_promptedKey) != true;
 
   Future<void> markOffered() async {
@@ -96,12 +98,19 @@ class PhoneSync extends ChangeNotifier {
 
   /// Asks for access to [wanted], then shares whatever was granted. Returns the
   /// kinds now shared; empty when the phone refused access.
-  Future<List<String>> enable(List<String> wanted) => _run(() async {
+  Future<List<String>> enable(
+    List<String> wanted, {
+    String? agentOverride,
+  }) => _run(() async {
     final granted = (await _bridge.requestPermissions(
       wanted,
     )).where(wanted.contains).toList();
     if (granted.isEmpty) return granted;
-    final agentId = _controller.selectedAgentId ?? '';
+    if (defaultTargetPlatform == TargetPlatform.android &&
+        !granted.contains('alarms')) {
+      granted.add('alarms');
+    }
+    final agentId = agentOverride ?? _controller.selectedAgentId ?? '';
     final previousAgent = _prefs?.getString(_agentKey);
     if (status.enabled && previousAgent != null && previousAgent != agentId) {
       await _forget(previousAgent);
@@ -124,6 +133,22 @@ class PhoneSync extends ChangeNotifier {
     await _controller.refreshSkills();
     return granted;
   });
+
+  Future<List<String>> sharePhoneData(List<String> wanted) {
+    final selected = <String>[...wanted];
+    if (isSharingWithCurrentAgent && alarmsEnabled) selected.add('alarms');
+    return enable(selected);
+  }
+
+  Future<void> stopPhoneDataSharing() async {
+    if (alarmsEnabled && isSharingWithCurrentAgent) {
+      await enable(<String>[
+        'alarms',
+      ], agentOverride: _prefs?.getString(_agentKey));
+    } else {
+      await disable();
+    }
+  }
 
   Future<void> disable() => _run(() async {
     await _forget(_prefs?.getString(_agentKey) ?? '');
@@ -165,11 +190,35 @@ class PhoneSync extends ChangeNotifier {
       await _prefs?.remove(_ownerKey);
       await _bridge.configure(enabled: false);
     }
-    final shared = _storedKinds;
+    var shared = _storedKinds;
+    var alarmRegistered = false;
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      final agentId =
+          _prefs?.getString(_agentKey) ?? _controller.selectedAgentId ?? '';
+      shared = <String>{...shared, 'alarms'}.toList();
+      try {
+        await _controller._backendClient.registerDeviceSync(
+          _controller.backendUrl,
+          deviceId: await _deviceId(),
+          deviceName: await _bridge.deviceName(),
+          platform: 'android',
+          kinds: shared,
+          agentId: agentId,
+        );
+        await _prefs?.setString(_ownerKey, _controller.username);
+        await _prefs?.setString(_agentKey, agentId);
+        await _prefs?.setStringList(_kindsKey, shared);
+        alarmRegistered = true;
+      } catch (error) {
+        debugPrint('[PhoneSync] alarm registration failed: $error');
+        shared = _storedKinds;
+      }
+    }
     if (shared.isNotEmpty) {
       await _configureNative(shared);
       status = await _bridge.syncNow();
     }
+    if (alarmRegistered) await _controller.refreshSkills();
     await refresh();
   }
 

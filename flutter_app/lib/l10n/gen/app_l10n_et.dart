@@ -11562,6 +11562,13 @@ class AppL10nEt extends AppL10n {
       'Nimed, e-posti aadressid ja telefoninumbrid';
 
   @override
+  String get phoneAlarmTrigger => 'Phone alarm';
+
+  @override
+  String get phoneAlarmTriggerHint =>
+      'Run when the next shared Android alarm is due, within about a minute. Changes reach the server when the phone syncs.';
+
+  @override
   String get phoneSyncOtherAgent =>
       'See telefon jagab teise agendiga. Siin jagamine viib selle sellele agendile.';
 

@@ -7,7 +7,7 @@ const { upsertAccountApp } = require('../connection_store');
 const { decryptValue, encryptValue } = require('../secrets');
 
 const PROVIDER_KEY = 'phone';
-const KINDS = Object.freeze(['calendar', 'contacts']);
+const KINDS = Object.freeze(['calendar', 'contacts', 'alarms']);
 const PLATFORMS = new Set(['android', 'ios']);
 const DEVICE_ID_PATTERN = /^[A-Za-z0-9-]{8,64}$/;
 const LIMITS = Object.freeze({ calendars: 200, events: 5000, contacts: 10000 });
@@ -92,7 +92,7 @@ function deviceConnections(userId, agentId, deviceId) {
     .filter((row) => parseJsonObject(row.metadata_json).deviceId === deviceId);
 }
 
-function deleteDeviceData(userId, agentId, deviceId, kinds = ['calendar', 'event', 'contact']) {
+function deleteDeviceData(userId, agentId, deviceId, kinds = ['calendar', 'event', 'contact', 'alarm']) {
   const placeholders = kinds.map(() => '?').join(',');
   db.prepare(`DELETE FROM device_sync_items WHERE user_id=? AND agent_id=? AND device_id=? AND kind IN (${placeholders})`)
     .run(userId, agentId, deviceId, ...kinds);
@@ -119,7 +119,8 @@ function accountLabel(userId, agentId, device) {
 function registerDevice({ userId, agentId, device: rawDevice, kinds: rawKinds }) {
   const device = parseDevice(rawDevice);
   const kinds = KINDS.filter((kind) => (Array.isArray(rawKinds) ? rawKinds : []).includes(kind));
-  if (!kinds.length) throw new Error('Choose calendar, contacts or both.');
+  if (!kinds.length) throw new Error('Choose what to share.');
+  if (device.platform !== 'android' && kinds.includes('alarms')) throw new Error('Alarm sharing requires Android.');
   const existing = deviceConnections(userId, agentId, device.id);
   const accountEmail = existing[0]?.account_email || accountLabel(userId, agentId, device);
   for (const kind of kinds) {
@@ -136,7 +137,8 @@ function registerDevice({ userId, agentId, device: rawDevice, kinds: rawKinds })
   }
   for (const row of existing.filter((connection) => !kinds.includes(connection.app_key))) {
     db.prepare('DELETE FROM integration_connections WHERE id=?').run(row.id);
-    deleteDeviceData(userId, agentId, device.id, row.app_key === 'calendar' ? ['calendar', 'event'] : ['contact']);
+    const removedKinds = { calendar: ['calendar', 'event'], contacts: ['contact'], alarms: ['alarm'] };
+    deleteDeviceData(userId, agentId, device.id, removedKinds[row.app_key]);
   }
   return { connected: true, kinds, accountEmail };
 }
@@ -188,6 +190,22 @@ const syncDevice = db.transaction(({ userId, agentId, body = {} }) => {
   if (kinds.includes('contacts') && Array.isArray(body.contacts)) {
     replaceItems(userId, agentId, deviceId, 'contact', body.contacts, LIMITS.contacts);
   }
+  if (kinds.includes('alarms') && Object.hasOwn(body, 'nextAlarm')) {
+    const nextAlarm = body.nextAlarm === null ? null : isoOrNull(body.nextAlarm);
+    if (body.nextAlarm !== null && !nextAlarm) throw new Error('Invalid next alarm time.');
+    const now = new Date().toISOString();
+    // Preserve recently due alarms until polling tasks can consume them. A
+    // change or cancellation removes only alarms that have not yet occurred.
+    db.prepare(`DELETE FROM device_sync_items WHERE user_id=? AND agent_id=? AND device_id=? AND kind='alarm' AND starts_at>?`)
+      .run(userId, agentId, deviceId, now);
+    db.prepare(`DELETE FROM device_sync_items WHERE user_id=? AND agent_id=? AND device_id=? AND kind='alarm' AND starts_at<?`)
+      .run(userId, agentId, deviceId, new Date(Date.now() - 7 * 86400000).toISOString());
+    if (nextAlarm && nextAlarm > now) {
+      db.prepare(`INSERT OR IGNORE INTO device_sync_items
+        (user_id, agent_id, device_id, kind, item_key, starts_at, payload_json) VALUES (?, ?, ?, 'alarm', ?, ?, ?)`)
+        .run(userId, agentId, deviceId, nextAlarm, nextAlarm, encryptValue(JSON.stringify({ time: nextAlarm })));
+    }
+  }
   const complete = db.prepare(`UPDATE device_sync_commands
     SET status=?, result_json=?, error=?, completed_at=datetime('now')
     WHERE id=? AND user_id=? AND agent_id=? AND device_id=? AND status='pending'`);
@@ -221,6 +239,10 @@ function matches(values, query) {
 
 function listCalendars(scope) {
   return itemsOf(scope, 'calendar');
+}
+
+function listAlarms(scope) {
+  return itemsOf(scope, 'alarm', 'ORDER BY starts_at');
 }
 
 function listEvents(scope, { start, end, query, calendarId, limit = 100 }) {
@@ -265,6 +287,7 @@ module.exports = {
   enqueueCommand,
   forgetDevice,
   listCalendars,
+  listAlarms,
   listEvents,
   registerDevice,
   searchContacts,

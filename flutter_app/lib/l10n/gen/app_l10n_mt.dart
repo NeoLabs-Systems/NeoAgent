@@ -11590,6 +11590,13 @@ class AppL10nMt extends AppL10n {
       'Ismijiet, indirizzi tal-email u numri tat-telefon';
 
   @override
+  String get phoneAlarmTrigger => 'Phone alarm';
+
+  @override
+  String get phoneAlarmTriggerHint =>
+      'Run when the next shared Android alarm is due, within about a minute. Changes reach the server when the phone syncs.';
+
+  @override
   String get phoneSyncOtherAgent =>
       'Dan it-telefon qed jaqsam ma’ aġent ieħor. Jekk taqsam hawn jgħaddi għal dan l-aġent.';
 

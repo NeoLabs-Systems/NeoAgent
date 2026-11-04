@@ -42,6 +42,7 @@ class LiveVoiceSession {
     userId,
     agentId,
     platform,
+    devicePlatform,
     sink,
     agentEngine,
     memoryManager,
@@ -56,6 +57,7 @@ class LiveVoiceSession {
     this.userId = userId;
     this.agentId = agentId;
     this.platform = platform;
+    this.devicePlatform = devicePlatform;
     this.sink = sink;
     this.agentEngine = agentEngine;
     this.memoryManager = memoryManager;
@@ -107,6 +109,7 @@ class LiveVoiceSession {
       conversationId: this.conversationId,
       runningTasks: this.tasks.checkTasks().tasks,
       taskTools: this.provider.taskTools,
+      devicePlatform: this.devicePlatform,
     });
     const Adapter = ADAPTERS[this.provider.adapter || this.provider.id];
     const adapter = new Adapter({

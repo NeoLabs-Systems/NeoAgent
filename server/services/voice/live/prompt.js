@@ -63,11 +63,15 @@ async function buildLivePrompt({
   conversationId,
   runningTasks = [],
   taskTools = false,
+  devicePlatform = null,
 }) {
   const persona = await buildVoicePersonaSections({ userId, agentId, memoryManager });
   const history = recentSpokenHistory(conversationId);
   const instructions = [
     `${CALL_RULES}\n${taskTools ? TASK_TOOL_RULES : HANDOFF_RULES}`,
+    devicePlatform === 'm5stickc-plus2'
+      ? 'The answer is displayed on a very small wearable screen. Keep every response extra short, using only the essential words.'
+      : '',
     ...persona,
     `now: ${localNow(userId)}`,
     describeRunningTasks(runningTasks),

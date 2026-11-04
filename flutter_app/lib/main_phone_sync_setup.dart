@@ -62,14 +62,19 @@ class _PhoneSyncSheet extends StatefulWidget {
 
 class _PhoneSyncSheetState extends State<_PhoneSyncSheet> {
   late Set<String> _selected = _sharing
-      ? _phoneSync.status.kinds.toSet()
+      ? _phoneSync.status.kinds.where(PhoneSync.kinds.contains).toSet()
       : PhoneSync.kinds.toSet();
   bool _denied = false;
   String _error = '';
 
   PhoneSync get _phoneSync => widget.controller.phoneSync;
-  bool get _sharing => _phoneSync.isSharingWithCurrentAgent;
-  bool get _changed => !setEquals(_selected, _phoneSync.status.kinds.toSet());
+  bool get _sharing =>
+      _phoneSync.isSharingWithCurrentAgent &&
+      _phoneSync.status.kinds.any(PhoneSync.kinds.contains);
+  bool get _changed => !setEquals(
+    _selected,
+    _phoneSync.status.kinds.where(PhoneSync.kinds.contains).toSet(),
+  );
 
   Future<void> _share() async {
     setState(() {
@@ -77,7 +82,9 @@ class _PhoneSyncSheetState extends State<_PhoneSyncSheet> {
       _denied = false;
     });
     try {
-      final shared = await _phoneSync.enable(_selected.toList());
+      final shared = (await _phoneSync.sharePhoneData(
+        _selected.toList(),
+      )).where(PhoneSync.kinds.contains).toList();
       if (!mounted) return;
       if (shared.isEmpty) {
         setState(() => _denied = true);
@@ -92,7 +99,7 @@ class _PhoneSyncSheetState extends State<_PhoneSyncSheet> {
   }
 
   Future<void> _stop() async {
-    await _phoneSync.disable();
+    await _phoneSync.stopPhoneDataSharing();
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -103,7 +110,8 @@ class _PhoneSyncSheetState extends State<_PhoneSyncSheet> {
       builder: (context, _) {
         final status = _phoneSync.status;
         final busy = _phoneSync.busy;
-        final otherAgent = status.enabled && !_sharing;
+        final otherAgent =
+            status.enabled && !_phoneSync.isSharingWithCurrentAgent;
         return SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
@@ -132,9 +140,9 @@ class _PhoneSyncSheetState extends State<_PhoneSyncSheet> {
                 Text(
                   appStrings.phoneSyncTitle,
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -277,7 +285,10 @@ class _PhoneSyncPoint extends StatelessWidget {
           Icon(icon, size: 20, color: _accent),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(text, style: TextStyle(color: _textPrimary, height: 1.4)),
+            child: Text(
+              text,
+              style: TextStyle(color: _textPrimary, height: 1.4),
+            ),
           ),
         ],
       ),
@@ -308,7 +319,9 @@ class _PhoneSyncKindTile extends StatelessWidget {
       child: SwitchListTile.adaptive(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: value ? _accent.withValues(alpha: 0.4) : _border),
+          side: BorderSide(
+            color: value ? _accent.withValues(alpha: 0.4) : _border,
+          ),
         ),
         secondary: Icon(icon, color: value ? _accent : _textSecondary),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),

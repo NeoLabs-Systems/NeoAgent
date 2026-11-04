@@ -1,6 +1,7 @@
 package com.neoagent.flutter_app.devicesync
 
 import android.content.Context
+import android.app.AlarmManager
 import com.neoagent.flutter_app.net.BackendHttp
 import com.neoagent.flutter_app.net.BackendSession
 import org.json.JSONArray
@@ -39,6 +40,7 @@ internal class DeviceSyncRunner(private val context: Context) {
 
     fun run(): Map<String, Any?> = synchronized(LOCK) {
         if (!prefs.getBoolean(DeviceSyncPrefs.KEY_ENABLED, false)) return status()
+        DeviceSyncScheduler(context).watchAlarms()
         try {
             var results = JSONArray()
             for (round in 0 until MAX_ROUNDS) {
@@ -86,6 +88,10 @@ internal class DeviceSyncRunner(private val context: Context) {
         if ("contacts" in kinds()) {
             val contacts = gateway.contacts()
             changed(DeviceSyncPrefs.KEY_CONTACTS_HASH, contacts.toString(), hashes) { body.put("contacts", contacts) }
+        }
+        if ("alarms" in kinds()) {
+            val next = context.getSystemService(AlarmManager::class.java).nextAlarmClock
+            body.put("nextAlarm", next?.triggerTime?.let { Instant.ofEpochMilli(it).toString() } ?: JSONObject.NULL)
         }
 
         val response = JSONObject(post(body).body)

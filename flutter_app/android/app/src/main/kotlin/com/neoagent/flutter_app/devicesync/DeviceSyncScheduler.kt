@@ -1,6 +1,10 @@
 package com.neoagent.flutter_app.devicesync
 
 import android.content.Context
+import android.app.AlarmManager
+import android.content.BroadcastReceiver
+import android.content.Intent
+import android.content.IntentFilter
 import android.provider.CalendarContract
 import android.provider.ContactsContract
 import androidx.work.Constraints
@@ -12,6 +16,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.Duration
@@ -52,6 +57,7 @@ internal class DeviceSyncScheduler(private val context: Context) {
         if (!config.enabled) {
             prefs.remove(DeviceSyncPrefs.KEY_CALENDAR_HASH).remove(DeviceSyncPrefs.KEY_CONTACTS_HASH).apply()
             listOf(PERIODIC_WORK, CHANGE_WORK, NOW_WORK).forEach(workManager::cancelUniqueWork)
+            stopWatchingAlarms(context)
             return
         }
         prefs
@@ -75,6 +81,29 @@ internal class DeviceSyncScheduler(private val context: Context) {
             OneTimeWorkRequestBuilder<DeviceSyncWorker>().setConstraints(online).build(),
         )
         watchForChanges()
+        if ("alarms" in config.kinds) watchAlarms() else stopWatchingAlarms(context)
+    }
+
+    fun watchAlarms() {
+        val prefs = DeviceSyncPrefs.read(context)
+        if (!prefs.getBoolean(DeviceSyncPrefs.KEY_ENABLED, false) ||
+            "alarms" !in prefs.getString(DeviceSyncPrefs.KEY_KINDS, "").orEmpty().split(",")) return
+        synchronized(ALARM_LOCK) {
+            if (alarmReceiver != null) return
+            val app = context.applicationContext
+            val receiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    if (intent.action != AlarmManager.ACTION_NEXT_ALARM_CLOCK_CHANGED) return
+                    WorkManager.getInstance(context).enqueueUniqueWork(
+                        NOW_WORK,
+                        ExistingWorkPolicy.REPLACE,
+                        OneTimeWorkRequestBuilder<DeviceSyncWorker>().setConstraints(online).build(),
+                    )
+                }
+            }
+            ContextCompat.registerReceiver(app, receiver, IntentFilter(AlarmManager.ACTION_NEXT_ALARM_CLOCK_CHANGED), ContextCompat.RECEIVER_EXPORTED)
+            alarmReceiver = receiver
+        }
     }
 
     fun watchForChanges() {
@@ -93,6 +122,12 @@ internal class DeviceSyncScheduler(private val context: Context) {
     }
 
     companion object {
+        private val ALARM_LOCK = Any()
+        private var alarmReceiver: BroadcastReceiver? = null
+        private fun stopWatchingAlarms(context: Context) = synchronized(ALARM_LOCK) {
+            alarmReceiver?.let { context.applicationContext.unregisterReceiver(it) }
+            alarmReceiver = null
+        }
         const val CHANGE_TAG = "neoagent_device_sync_change"
         private const val PERIODIC_WORK = "neoagent_device_sync_periodic"
         private const val CHANGE_WORK = "neoagent_device_sync_change"

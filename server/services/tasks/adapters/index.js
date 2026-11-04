@@ -51,6 +51,7 @@ module.exports = [
   require('./android_notification_received'),
   require('./geofence_event'),
   require('./health_metric_recorded'),
+  require('./phone_alarm'),
   require('./wearable_connection_changed'),
   require('./task_run_finished'),
 ];

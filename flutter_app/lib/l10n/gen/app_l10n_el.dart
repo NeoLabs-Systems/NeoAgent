@@ -11663,6 +11663,13 @@ class AppL10nEl extends AppL10n {
       'Ονόματα, διευθύνσεις email και αριθμοί τηλεφώνου';
 
   @override
+  String get phoneAlarmTrigger => 'Phone alarm';
+
+  @override
+  String get phoneAlarmTriggerHint =>
+      'Run when the next shared Android alarm is due, within about a minute. Changes reach the server when the phone syncs.';
+
+  @override
   String get phoneSyncOtherAgent =>
       'Αυτό το τηλέφωνο μοιράζεται με άλλον πράκτορα. Η κοινή χρήση εδώ το μεταφέρει σε αυτόν.';
 

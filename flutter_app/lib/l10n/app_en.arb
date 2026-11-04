@@ -7194,6 +7194,8 @@
   "phoneSyncCalendarHint": "Events from 30 days ago to 90 days ahead",
   "phoneSyncContacts": "Contacts",
   "phoneSyncContactsHint": "Names, email addresses and phone numbers",
+  "phoneAlarmTrigger": "Phone alarm",
+  "phoneAlarmTriggerHint": "Run when the next shared Android alarm is due, within about a minute. Changes reach the server when the phone syncs.",
   "phoneSyncOtherAgent": "This phone shares with another agent. Sharing here moves it to this agent.",
   "phoneSyncDenied": "NeoAgent doesn't have access yet. Allow it in Settings, then come back.",
   "openPhoneSettings": "Open Settings",

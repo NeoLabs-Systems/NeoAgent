@@ -19327,6 +19327,18 @@ abstract class AppL10n {
   /// **'Names, email addresses and phone numbers'**
   String get phoneSyncContactsHint;
 
+  /// No description provided for @phoneAlarmTrigger.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone alarm'**
+  String get phoneAlarmTrigger;
+
+  /// No description provided for @phoneAlarmTriggerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when the next shared Android alarm is due, within about a minute. Changes reach the server when the phone syncs.'**
+  String get phoneAlarmTriggerHint;
+
   /// No description provided for @phoneSyncOtherAgent.
   ///
   /// In en, this message translates to:

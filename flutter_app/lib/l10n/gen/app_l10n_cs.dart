@@ -11561,6 +11561,13 @@ class AppL10nCs extends AppL10n {
       'Jména, e-mailové adresy a telefonní čísla';
 
   @override
+  String get phoneAlarmTrigger => 'Phone alarm';
+
+  @override
+  String get phoneAlarmTriggerHint =>
+      'Run when the next shared Android alarm is due, within about a minute. Changes reach the server when the phone syncs.';
+
+  @override
   String get phoneSyncOtherAgent =>
       'Tento telefon sdílí s jiným agentem. Sdílením zde se přesune k tomuto agentovi.';
 

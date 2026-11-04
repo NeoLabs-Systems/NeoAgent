@@ -671,6 +671,15 @@ List<_TaskTriggerOption> get _taskTriggerOptions => <_TaskTriggerOption>[
     ],
   ),
   _TaskTriggerOption(
+    type: 'phone_alarm',
+    section: appStrings.triggerSectionDevices,
+    label: appStrings.phoneAlarmTrigger,
+    description: appStrings.phoneAlarmTriggerHint,
+    icon: Icons.alarm_rounded,
+    providerKey: 'phone',
+    appKey: 'alarms',
+  ),
+  _TaskTriggerOption(
     type: 'geofence_event',
     section: appStrings.triggerSectionDevices,
     label: appStrings.geofenceTrigger,
