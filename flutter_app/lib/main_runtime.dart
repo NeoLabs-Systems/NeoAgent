@@ -418,16 +418,20 @@ class _NeoAgentAppState extends State<NeoAgentApp>
             '|auth:${_controller.isAuthenticated}'
             '|onboarding:${_controller.showOnboarding}'
             '|section:${_controller.selectedSection.name}'
-            '|theme:${_controller.themeMode.name}'
             '|assistantPopupMode:$_desktopAssistantPopupWindowMode'
             '|assistantPttActive:${_controller.isLiveVoiceCaptureActive}'
             '|assistantPttStarting:${_controller.isLiveVoiceCaptureStarting}';
+        // Theme is part of the widget key (so palette getters rebuild the whole
+        // tree) but not of the navigator scope, so a theme switch keeps the
+        // current route instead of resetting to the root screen.
         if (_navigatorScopeSignature != rootStateSignature) {
           _navigatorScopeSignature = rootStateSignature;
           _navigatorKey = GlobalKey<NavigatorState>();
         }
         return MaterialApp(
-          key: ValueKey<String>(rootStateSignature),
+          key: ValueKey<String>(
+            '$rootStateSignature|theme:${_controller.themeMode.name}',
+          ),
           navigatorKey: _navigatorKey,
           title: widget.mode == NeoAgentAppMode.launcher
               ? 'NeoAgent Launcher'
