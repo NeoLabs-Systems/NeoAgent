@@ -347,6 +347,10 @@ class _RunsPanelState extends State<RunsPanel> {
               _showHeldRuns();
               unawaited(_refresh());
             },
+            onShowHealth: () => showDialog<void>(
+              context: context,
+              builder: (_) => _RunHealthDialog(controller: controller),
+            ),
           ),
         ),
         if (controller.errorMessage != null) ...<Widget>[
@@ -615,8 +619,10 @@ class _RunsLiveControls extends StatelessWidget {
     required this.clock,
     required this.onTogglePaused,
     required this.onRefresh,
+    required this.onShowHealth,
   });
 
+  final VoidCallback onShowHealth;
   final bool paused;
   final bool connected;
   final bool refreshing;
@@ -695,6 +701,11 @@ class _RunsLiveControls extends StatelessWidget {
               key: ValueKey<bool>(paused),
             ),
           ),
+        ),
+        IconButton(
+          tooltip: 'Run health',
+          onPressed: onShowHealth,
+          icon: const Icon(Icons.monitor_heart_outlined),
         ),
         IconButton(
           tooltip: appStrings.refreshNow,
@@ -1368,7 +1379,7 @@ class _RunDetailView extends StatefulWidget {
 
 class _RunDetailViewState extends State<_RunDetailView>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 3, vsync: this);
+  late final TabController _tabs = TabController(length: 4, vsync: this);
   final ScrollController _scroll = ScrollController();
   late final Timer _safetyPoll;
   Timer? _fetchTimer;
@@ -1630,6 +1641,7 @@ class _RunDetailViewState extends State<_RunDetailView>
               Tab(text: 'Timeline'),
               Tab(text: 'Response'),
               Tab(text: appStrings.flowGraph),
+              const Tab(text: 'Telemetry'),
             ],
           ),
           const SizedBox(height: 14),
@@ -1692,6 +1704,8 @@ class _RunDetailViewState extends State<_RunDetailView>
             ],
           ],
         );
+      case 3:
+        return RunTelemetryView(detail: detail);
       case 2:
         final step = detail.steps
             .where((item) => item.id == _graphNodeId)
@@ -1950,6 +1964,45 @@ class _RunStatsStrip extends StatelessWidget {
       ('Model', _value(run.modelLabel)),
       ('Trigger', _value(run.triggerLabel)),
       ('Started', _value(_formatTimestamp(run.createdAt))),
+      if (detail?.metrics case final metrics?) ...<(String, Widget)>[
+        (
+          'First action',
+          _value(
+            metrics.firstActionMs == null
+                ? '—'
+                : _formatDuration(metrics.firstActionMs!),
+          ),
+        ),
+        ('Turns', _value('${metrics.turns}')),
+        (
+          'Tools',
+          _value(
+            metrics.toolsSuppressed > 0
+                ? '${metrics.toolCalls} / ${metrics.toolsSuppressed} suppressed'
+                : '${metrics.toolCalls}',
+          ),
+        ),
+        (
+          'In / out',
+          _value(
+            '${_formatCompactCount(metrics.inputTokens)} / ${_formatCompactCount(metrics.outputTokens)}',
+          ),
+        ),
+        (
+          'Memory',
+          _value(
+            '${metrics.memoryRecalls} / ${_formatCompactCount(metrics.memoryTokens)} tokens',
+          ),
+        ),
+        (
+          'Delivery',
+          _value(
+            metrics.deliverySuppressed > 0
+                ? '${metrics.deliverySent} / ${metrics.deliverySuppressed} duplicate stopped'
+                : '${metrics.deliverySent}',
+          ),
+        ),
+      ],
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -2600,6 +2653,7 @@ class _RunPromptDialog extends StatefulWidget {
 }
 
 class _RunPromptDialogState extends State<_RunPromptDialog> {
+  bool _captureRequested = false;
   List<RunPromptTurn> _turns = const <RunPromptTurn>[];
   String? _selectedRequestId;
   RunPromptSnapshot? _snapshot;
@@ -2662,6 +2716,19 @@ class _RunPromptDialogState extends State<_RunPromptDialog> {
         _loading = false;
         _error = widget.controller.friendlyErrorMessage(error);
       });
+    }
+  }
+
+  Future<void> _requestCapture() async {
+    try {
+      await widget.controller.requestCaptureNextRun();
+      if (mounted) {
+        setState(() => _captureRequested = true);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = widget.controller.friendlyErrorMessage(error));
+      }
     }
   }
 
@@ -2728,12 +2795,33 @@ class _RunPromptDialogState extends State<_RunPromptDialog> {
       return Center(child: _InlineError(message: _error!));
     }
     if (_turns.isEmpty) {
+      if (_loading) {
+        return Center(
+          child: Text(
+            appStrings.loadingPrompt,
+            style: TextStyle(color: _textSecondary),
+          ),
+        );
+      }
       return Center(
-        child: Text(
-          _loading
-              ? appStrings.loadingPrompt
-              : appStrings.noModelRequestWasRecordedFor,
-          style: TextStyle(color: _textSecondary),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              'Prompts are kept for failed runs, a sample of the others, and any run you ask for. This one was not kept.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _textSecondary),
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton(
+              onPressed: _captureRequested ? null : _requestCapture,
+              child: Text(
+                _captureRequested
+                    ? "The next run's prompts will be kept"
+                    : "Keep the next run's prompts",
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -3679,6 +3767,747 @@ class _RunSelectedStepCard extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Telemetry ─────────────────────────────────────────────────────────────────
+//
+// Why a run went the way it did, from its ledger. Everything here is metadata:
+// decisions, durations, and counts. No prompt text and no private reasoning.
+
+String _formatCompactCount(int value) {
+  if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
+  if (value >= 1000) return '${(value / 1000).toStringAsFixed(1)}k';
+  return '$value';
+}
+
+class RunTelemetryView extends StatelessWidget {
+  const RunTelemetryView({super.key, required this.detail});
+
+  final RunDetailSnapshot detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final metrics = detail.metrics;
+    final ledger = detail.ledger;
+    final rows = _buildRows();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        if (metrics != null) ...<Widget>[
+          _RunLatencyBar(metrics: metrics),
+          const SizedBox(height: 12),
+        ],
+        if (detail.diagnostics.isNotEmpty) ...<Widget>[
+          _RunDiagnosticsCard(diagnostics: detail.diagnostics),
+          const SizedBox(height: 12),
+        ],
+        if (ledger != null) ...<Widget>[
+          _RunLedgerCard(ledger: ledger),
+          const SizedBox(height: 12),
+        ],
+        if (rows.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Text(
+              'This run has no telemetry yet.',
+              style: TextStyle(color: _textSecondary),
+            ),
+          )
+        else
+          ...rows,
+      ],
+    );
+  }
+
+  // Everything the ledger stored for this step, for working out why it went the
+  // way it did. Events hold metadata only, so this shows no prompt or message text.
+  static Widget? _details(Map<String, dynamic> payload) {
+    const envelope = <String>{'schema_version', 'event_id', 'parent_event_id', 'timestamp', 'actor', 'candidates'};
+    final fields = <String>[];
+    void collect(String prefix, dynamic value) {
+      if (value == null) return;
+      if (value is Map) {
+        value.forEach((key, inner) => collect(prefix.isEmpty ? '$key' : '$prefix.$key', inner));
+      } else {
+        fields.add('$prefix  ${value is List ? value.join(', ') : value}');
+      }
+    }
+
+    payload.forEach((key, value) {
+      if (!envelope.contains(key)) collect(key, value);
+    });
+    if (fields.isEmpty) return null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        for (final field in fields)
+          Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Text(field, style: _runMonoStyle(size: 11.5, color: _textMuted)),
+          ),
+      ],
+    );
+  }
+
+  List<Widget> _buildRows() {
+    final rows = <Widget>[];
+    var modelRequest = 0;
+    final chosen = detail.events
+        .where((event) => event.eventType == 'tool.call')
+        .map((event) => event.toolName)
+        .toSet();
+    for (final event in detail.events) {
+      final payload = event.payload;
+      switch (event.eventType) {
+        case 'context.built':
+          final sections = _jsonMap(payload['sections']);
+          rows.add(
+            _RunTelemetryRow(
+              expanded: _details(payload),
+              title: 'Context build',
+              durationMs: _asInt(payload['startup_ms']),
+              detail:
+                  '${_formatCompactCount(_asInt(sections['total_tokens']))} tokens · system ${_formatCompactCount(_asInt(sections['system_tokens']))} · tools ${_formatCompactCount(_asInt(sections['tool_schema_tokens']) + _asInt(sections['tool_catalog_tokens']))} · history ${_formatCompactCount(_asInt(sections['history_tokens']))} · memory ${_formatCompactCount(_asInt(sections['memory_tokens']))}',
+            ),
+          );
+        case 'tools.selected':
+          rows.add(_selectionRow(payload, chosen));
+        case 'memory.recall':
+          rows.add(
+            _RunTelemetryRow(
+              expanded: _details(payload),
+              title: 'Memory recall',
+              durationMs: event.durationMs,
+              detail: payload['recalled'] == false
+                  ? 'skipped (${payload['trigger']})'
+                  : '${payload['trigger']} · kept ${_asInt(payload['kept'])} of ${_asInt(payload['candidates'])} · ${_asInt(payload['tokens'])} tokens',
+            ),
+          );
+        case 'model.response':
+          final usage = _jsonMap(payload['usage']);
+          final phase = payload['phase']?.toString() ?? 'model_turn';
+          final outcome = _jsonMap(payload['outcome']);
+          final isTurn = phase == 'model_turn';
+          if (isTurn) modelRequest += 1;
+          final failed = outcome['status'] == 'failed';
+          final cached = _asInt(usage['cached_read_tokens']);
+          rows.add(
+            _RunTelemetryRow(
+              expanded: _details(payload),
+              title: isTurn ? 'Model request #$modelRequest' : phase.replaceAll('_', ' '),
+              durationMs: event.durationMs,
+              failed: failed,
+              detail: failed
+                  ? 'failed: ${outcome['error_class']}'
+                  : '${_formatCompactCount(_asInt(usage['input_tokens']))} in${cached > 0 ? ' (${_formatCompactCount(cached)} cached)' : ''} / ${_formatCompactCount(_asInt(usage['output_tokens']))} out${_asInt(payload['retry_count']) > 0 ? ' · ${_asInt(payload['retry_count'])} retries' : ''}',
+            ),
+          );
+        case 'tool.result':
+          final tool = _jsonMap(payload['tool']);
+          final bytes = _asInt(tool['result_bytes']);
+          final compacted = _asInt(tool['result_compacted_bytes']);
+          final sandbox = _asInt(payload['sandbox_ms']);
+          rows.add(
+            _RunTelemetryRow(
+              expanded: _details(payload),
+              title: event.toolName,
+              indent: true,
+              durationMs: event.durationMs,
+              failed: event.outcomeStatus == 'failed',
+              detail: event.outcomeStatus == 'failed'
+                  ? _jsonMap(payload['outcome'])['error']?.toString() ?? 'failed'
+                  : '${compacted < bytes ? '$compacted of $bytes bytes kept' : '$bytes bytes'}${sandbox > 0 ? ' · ${_formatDuration(sandbox)} sandbox' : ''}',
+            ),
+          );
+        case 'tool.suppressed':
+          rows.add(
+            _RunTelemetryRow(
+              expanded: _details(payload),
+              title: '${event.toolName} suppressed',
+              indent: true,
+              muted: true,
+              detail: payload['reason']?.toString().replaceAll('_', ' ') ?? '',
+            ),
+          );
+        case 'permission.decision':
+          if (payload['decision'] == 'deny') {
+            rows.add(
+              _RunTelemetryRow(
+              expanded: _details(payload),
+                title: '${payload['tool']} denied',
+                indent: true,
+                failed: true,
+                detail: 'by ${payload['by']}${payload['tainted'] == true ? ' · run had read outside content' : ''}',
+              ),
+            );
+          }
+        case 'recovery.triggered':
+          rows.add(
+            _RunTelemetryRow(
+              expanded: _details(payload),
+              title: 'Recovery note',
+              detail: payload['reason']?.toString().replaceAll('_', ' ') ?? '',
+            ),
+          );
+        case 'context.compacted':
+          rows.add(
+            _RunTelemetryRow(
+              expanded: _details(payload),
+              title: 'Context compacted',
+              detail:
+                  '${_formatCompactCount(_asInt(payload['before_tokens']))} → ${_formatCompactCount(_asInt(payload['after_tokens']))} tokens',
+            ),
+          );
+        case 'checkpoint.created':
+          if (payload['kind'] == 'workspace') {
+            rows.add(
+              _RunTelemetryRow(
+              expanded: _details(payload),
+                title: 'Workspace checkpoint',
+                durationMs: event.durationMs,
+                detail: 'snapshot before the first change',
+              ),
+            );
+          }
+        case 'checkpoint.restored':
+          rows.add(
+            _RunTelemetryRow(
+              expanded: _details(payload),
+              title: 'Workspace rolled back',
+              detail: 'restored to the checkpoint',
+            ),
+          );
+        case 'delivery.sent':
+          rows.add(
+            _RunTelemetryRow(
+              expanded: _details(payload),
+              title: 'Delivered: ${payload['purpose']}',
+              durationMs: event.durationMs,
+              detail: payload['channel']?.toString() ?? '',
+            ),
+          );
+        case 'delivery.suppressed':
+          rows.add(
+            _RunTelemetryRow(
+              expanded: _details(payload),
+              title: 'Duplicate stopped: ${payload['purpose']}',
+              muted: true,
+              detail: payload['reason']?.toString().replaceAll('_', ' ') ?? '',
+            ),
+          );
+        case 'delivery.failed':
+          rows.add(
+            _RunTelemetryRow(
+              expanded: _details(payload),
+              title: 'Delivery failed: ${payload['purpose']}',
+              failed: true,
+              durationMs: event.durationMs,
+              detail: payload['ambiguous'] == true
+                  ? 'may have arrived, so it will not be sent again'
+                  : 'not delivered',
+            ),
+          );
+      }
+    }
+    return rows;
+  }
+
+  Widget _selectionRow(Map<String, dynamic> payload, Set<String> chosen) {
+    final kind = payload['kind']?.toString() ?? 'initial';
+    if (kind == 'search') {
+      return _RunTelemetryRow(
+        title: 'Tool search',
+        indent: true,
+        detail: _stringList(payload['result_names']).join(', '),
+      );
+    }
+    if (kind == 'activate') {
+      return _RunTelemetryRow(
+        title: 'Tools activated',
+        indent: true,
+        detail: _stringList(payload['activated']).join(', '),
+      );
+    }
+    final selection = _jsonMap(payload['selection']);
+    final candidates = _jsonMapList(payload['candidates']);
+    return _RunTelemetryRow(
+      title: 'Tool selection',
+      durationMs: _asInt(payload['duration_ms']),
+      detail:
+          '${_asInt(selection['catalog_size'])} known · ${_asInt(selection['eligible_count'])} eligible · ${_asInt(selection['active_count'])} active',
+      expanded: candidates.isEmpty
+          ? null
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                for (final candidate in candidates)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Text(
+                      '${_asInt(candidate['rank'])}  ${candidate['name']}  ${candidate['source']}${candidate['similarity'] == null ? '' : ' ${candidate['similarity']}'}${chosen.contains(candidate['name']) ? '  ← used' : ''}',
+                      style: _runMonoStyle(
+                        size: 11.5,
+                        color: chosen.contains(candidate['name'])
+                            ? _textPrimary
+                            : _textMuted,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+    );
+  }
+
+  static List<String> _stringList(dynamic value) => value is List
+      ? value.map((item) => item.toString()).toList()
+      : const <String>[];
+}
+
+class _RunTelemetryRow extends StatelessWidget {
+  const _RunTelemetryRow({
+    required this.title,
+    this.detail = '',
+    this.durationMs,
+    this.indent = false,
+    this.failed = false,
+    this.muted = false,
+    this.warning = false,
+    this.expanded,
+  });
+
+  final String title;
+  final String detail;
+  final int? durationMs;
+  final bool indent;
+  final bool failed;
+  final bool muted;
+  final bool warning;
+  final Widget? expanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = failed
+        ? _danger
+        : warning
+        ? _warning
+        : muted
+        ? _textMuted
+        : _textPrimary;
+    final header = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                title,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (detail.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    detail,
+                    style: TextStyle(color: _textSecondary, fontSize: 12),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (durationMs != null && durationMs! > 0) ...<Widget>[
+          const SizedBox(width: 12),
+          Text(_formatDuration(durationMs!), style: _runMonoStyle(size: 12)),
+        ],
+      ],
+    );
+    return Padding(
+      padding: EdgeInsets.only(left: indent ? 18 : 0, bottom: 6),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+        decoration: BoxDecoration(
+          color: _bgSecondary,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _border),
+        ),
+        child: expanded == null
+            ? header
+            : Theme(
+                data: Theme.of(
+                  context,
+                ).copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: const EdgeInsets.only(bottom: 4),
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  title: header,
+                  expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[expanded!],
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _RunDiagnosticsCard extends StatelessWidget {
+  const _RunDiagnosticsCard({required this.diagnostics});
+
+  final List<RunDiagnostic> diagnostics;
+
+  static (String, String) _explain(RunDiagnostic entry) {
+    final percent = '${(entry.share * 100).round()}%';
+    final times = '${entry.count} ${entry.count == 1 ? 'call' : 'calls'}';
+    switch (entry.code) {
+      case 'outcome_action_failed':
+        return ('The last action failed', 'The run ended right after a change that did not work.');
+      case 'outcome_tests_failing':
+        return ('The last test run failed', 'The run ended with failing tests.');
+      case 'outcome_unverified':
+        return ('Changed, not tested', 'No passing test run was seen after the last change.');
+      case 'outcome_rolled_back':
+        return ('Changes were undone', 'The run ended by rolling back what it had changed.');
+      case 'changes_not_tracked':
+        return ('Changes not tracked', '$times changed things rollback and this report cannot see.');
+      case 'delivery_ambiguous':
+        return (
+          'A message may have arrived',
+          'The send failed in a way that leaves it unclear, so it was not sent again.',
+        );
+      case 'suppression_overruled':
+        return ('A skipped call ran anyway', '$times the repeat guard skipped ran later.');
+      case 'repeated_calls':
+        return ('Same call repeated', '$times ran again with nothing changed.');
+      case 'failed_tools':
+        return ('Tools failed', '$times failed.');
+      case 'tool_not_on_first_turn':
+        return (
+          'Tool not on the first turn',
+          '${entry.tools.join(', ')} had to be found first, which cost a turn.',
+        );
+      case 'slow_model_loop':
+        return ('Mostly model time', '$percent of the run was spent waiting on the model.');
+      case 'tools_fill_context':
+        return (
+          'Tools fill the context',
+          '$percent of the first prompt (${_formatCompactCount(entry.tokens)} tokens) was tool definitions.',
+        );
+      default:
+        return (entry.code.replaceAll('_', ' '), '');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        for (final entry in diagnostics)
+          Builder(
+            builder: (context) {
+              final (title, detail) = _explain(entry);
+              return _RunTelemetryRow(title: title, detail: detail, warning: true);
+            },
+          ),
+      ],
+    );
+  }
+}
+
+class _RunLatencyBar extends StatelessWidget {
+  const _RunLatencyBar({required this.metrics});
+
+  final RunHarnessMetrics metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = <(String, int, Color)>[
+      ('Queue', metrics.queueMs, _textMuted),
+      ('Model', metrics.modelMs, _info),
+      ('Tools', metrics.toolMs, _success),
+      ('Sandbox', metrics.sandboxMs, _warning),
+      ('Delivery', metrics.deliveryMs, _accent),
+    ].where((part) => part.$2 > 0).toList();
+    if (parts.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        ClipRRect(
+          borderRadius: BorderRadius.circular(5),
+          child: SizedBox(
+            height: 8,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                for (final part in parts)
+                  Expanded(
+                    flex: part.$2,
+                    child: ColoredBox(color: part.$3),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 7),
+        Wrap(
+          spacing: 14,
+          runSpacing: 4,
+          children: <Widget>[
+            if (metrics.taskOutcome.isNotEmpty)
+              Text(
+                'Outcome ${metrics.taskOutcome.replaceAll('_', ' ')}',
+                style: _runMonoStyle(size: 11.5, color: _textPrimary),
+              ),
+            if (metrics.filesChanged > 0)
+              Text(
+                '${metrics.filesChanged} file${metrics.filesChanged == 1 ? '' : 's'} changed',
+                style: _runMonoStyle(size: 11.5),
+              ),
+            if (metrics.testsRun > 0)
+              Text(
+                '${metrics.testsRun} test run${metrics.testsRun == 1 ? '' : 's'}',
+                style: _runMonoStyle(size: 11.5),
+              ),
+            for (final part in parts)
+              Text(
+                '${part.$1} ${_formatDuration(part.$2)}',
+                style: _runMonoStyle(size: 11.5, color: part.$3),
+              ),
+            if (metrics.compactions > 0)
+              Text(
+                '${metrics.compactions} compaction${metrics.compactions == 1 ? '' : 's'}',
+                style: _runMonoStyle(size: 11.5),
+              ),
+            if (metrics.recoveries > 0)
+              Text(
+                '${metrics.recoveries} recovery note${metrics.recoveries == 1 ? '' : 's'}',
+                style: _runMonoStyle(size: 11.5),
+              ),
+            if (metrics.cachedTokens > 0)
+              Text(
+                '${_formatCompactCount(metrics.cachedTokens)} tokens from cache',
+                style: _runMonoStyle(size: 11.5),
+              ),
+            if (metrics.promptVersion.isNotEmpty)
+              Text(
+                'Prompt ${metrics.promptVersion.substring(0, metrics.promptVersion.length < 8 ? metrics.promptVersion.length : 8)}',
+                style: _runMonoStyle(size: 11.5),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _RunLedgerCard extends StatelessWidget {
+  const _RunLedgerCard({required this.ledger});
+
+  final RunTaskLedger ledger;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 11),
+      decoration: BoxDecoration(
+        color: _bgSecondary,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'TASK LEDGER',
+            style: TextStyle(
+              fontSize: 10.5,
+              letterSpacing: 0.8,
+              fontWeight: FontWeight.w600,
+              color: _textMuted,
+            ),
+          ),
+          if (ledger.goal.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 6),
+            Text(ledger.goal, style: TextStyle(color: _textPrimary)),
+          ],
+          for (final step in ledger.steps)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '${_stepMark(step.status)}  ${step.id}',
+                style: _runMonoStyle(
+                  size: 12,
+                  color: step.status == 'blocked' ? _danger : null,
+                ),
+              ),
+            ),
+          for (final fact in ledger.verifiedFacts)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '· $fact',
+                style: TextStyle(color: _textSecondary, fontSize: 12),
+              ),
+            ),
+          for (final blocker in ledger.blockers)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '! $blocker',
+                style: TextStyle(color: _danger, fontSize: 12),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  static String _stepMark(String status) => switch (status) {
+    'done' => '●',
+    'active' => '◐',
+    'blocked' => '✕',
+    _ => '○',
+  };
+}
+
+/// Which problem dominates recent runs, before anyone changes the harness.
+class _RunHealthDialog extends StatefulWidget {
+  const _RunHealthDialog({required this.controller});
+
+  final NeoAgentController controller;
+
+  @override
+  State<_RunHealthDialog> createState() => _RunHealthDialogState();
+}
+
+class _RunHealthDialogState extends State<_RunHealthDialog> {
+  Map<String, dynamic>? _report;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    try {
+      final report = await widget.controller.fetchHarnessReport();
+      if (mounted) {
+        setState(() => _report = report);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = widget.controller.friendlyErrorMessage(error));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: _bgCard,
+      title: const Text('Run health, last 7 days'),
+      content: SizedBox(width: 460, child: _buildBody()),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(appStrings.close),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBody() {
+    if (_error != null) {
+      return _InlineError(message: _error!);
+    }
+    final report = _report;
+    if (report == null) {
+      return const SizedBox(
+        height: 120,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return RunHealthReportView(report: report);
+  }
+}
+
+class RunHealthReportView extends StatelessWidget {
+  const RunHealthReportView({super.key, required this.report});
+
+  final Map<String, dynamic> report;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_asInt(report['runs']) == 0) {
+      return Text(
+        'No runs with telemetry in this period yet.',
+        style: TextStyle(color: _textSecondary),
+      );
+    }
+    final latency = _jsonMap(report['latency_ms']);
+    final total = _jsonMap(latency['total']);
+    final first = _jsonMap(latency['first_action']);
+    final perRun = _jsonMap(report['per_run']);
+    final rates = _jsonMap(report['rates']);
+    String percent(dynamic value) =>
+        '${((value is num ? value : 0) * 100).toStringAsFixed(1)}%';
+    String spread(Map<String, dynamic> entry, String Function(int) format) {
+      if (entry['p50'] == null) return '—';
+      return '${format(_asInt(entry['p50']))} / ${format(_asInt(entry['p95']))}';
+    }
+
+    final rows = <(String, String)>[
+      ('Runs', '${_asInt(report['runs'])}'),
+      ('Completed', percent(report['success_rate'])),
+      ('Time p50 / p95', spread(total, _formatDuration)),
+      ('First action p50 / p95', spread(first, _formatDuration)),
+      ('Tool calls p50 / p95', spread(_jsonMap(perRun['tool_calls']), (v) => '$v')),
+      ('Input tokens p50 / p95', spread(_jsonMap(perRun['input_tokens']), _formatCompactCount)),
+      ('Prompt cache hit', percent(rates['prompt_cache_hit'])),
+      ('Runs with no tool', percent(rates['no_tool_runs'])),
+      ('Failed tool calls', percent(rates['tool_failure'])),
+      ('Tools already there on the first turn', rates['tool_selection_recall'] == null ? '—' : percent(rates['tool_selection_recall'])),
+      ('Repeated tool calls', percent(rates['duplicate_tool_calls'])),
+      ('Tool calls suppressed', percent(rates['tool_suppressed'])),
+      ('Suppressed calls that ran later', percent(rates['suppressed_calls_that_ran_later'])),
+      ('Duplicate messages stopped /1000 runs', '${rates['duplicate_deliveries_stopped_per_1000_runs'] ?? 0}'),
+      ('Delivery failures /1000 runs', '${rates['delivery_failures_per_1000_runs'] ?? 0}'),
+      ('Possibly delivered, not resent /1000 runs', '${rates['ambiguous_deliveries_per_1000_runs'] ?? 0}'),
+      ('Recovery notes per run', '${rates['recoveries_per_run'] ?? 0}'),
+      ('Compactions per run', '${rates['compactions_per_run'] ?? 0}'),
+    ];
+    return SingleChildScrollView(
+      child: Column(
+        children: <Widget>[
+          for (final row in rows)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      row.$1,
+                      style: TextStyle(color: _textSecondary, fontSize: 13),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(row.$2, style: _runMonoStyle(size: 13, color: _textPrimary)),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

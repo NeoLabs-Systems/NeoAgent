@@ -89,3 +89,53 @@ test('a failed child settles its record without an unhandled rejection', async (
   assert.equal(record.error, 'child provider failed');
   assert.equal(record.settled, true);
 });
+
+function engineWithParent(meta = {}) {
+  const engine = new AgentEngine(null, { memoryManager: { recallMemory: async () => [] } });
+  engine.emit = () => {};
+  engine.activeRuns.set('parent-run', {
+    userId: 0,
+    agentId: null,
+    subagentDepth: 0,
+    status: 'running',
+    aborted: false,
+    abortController: new AbortController(),
+    ...meta,
+  });
+  return engine;
+}
+
+test('a child stopped by its parent settles as failed, so nobody waits on it forever', async (t) => {
+  const originalRunWithModel = AgentEngine.prototype.runWithModel;
+  let engine = null;
+  AgentEngine.prototype.runWithModel = async () => {
+    engine.activeRuns.get('parent-run').abortController.abort(new Error('stopped by the owner'));
+    return { status: 'completed', content: 'pretends to be done' };
+  };
+  t.after(() => {
+    AgentEngine.prototype.runWithModel = originalRunWithModel;
+  });
+  engine = engineWithParent();
+  const started = await engine.spawnSubagent(0, 'parent-run', 'Work');
+  const record = await engine.subagents.get(started.handle).promise;
+  assert.equal(record.status, 'failed');
+  assert.match(record.error, /stopped by the owner/);
+});
+
+test('a child works where its parent works, and cannot reach unlimited agents', async (t) => {
+  const originalRunWithModel = AgentEngine.prototype.runWithModel;
+  const seen = [];
+  AgentEngine.prototype.runWithModel = async (...args) => {
+    seen.push(args.find((arg) => arg && arg.disallowedToolNames));
+    return { status: 'completed', content: '{}' };
+  };
+  t.after(() => {
+    AgentEngine.prototype.runWithModel = originalRunWithModel;
+  });
+  const engine = engineWithParent({ deviceTarget: 'local', workspaceRoot: '/work/project' });
+  const started = await engine.spawnSubagent(0, 'parent-run', 'Work');
+  await engine.subagents.get(started.handle).promise;
+  assert.equal(seen[0].deviceTarget, 'local');
+  assert.equal(seen[0].workspaceRoot, '/work/project');
+  assert.deepEqual(seen[0].disallowedToolNames, ['spawn_subagent', 'delegate_to_agent']);
+});

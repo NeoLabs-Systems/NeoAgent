@@ -2,7 +2,7 @@
 
 const { randomUUID } = require('crypto');
 const db = require('../../../db/database');
-const { EVENT_TYPES, VISIBILITY } = require('./events/event_types');
+const { EVENT_TYPES } = require('./events/event_types');
 
 function saveCheckpoint(runId, phase, state = {}, {
   eventBus = null,
@@ -44,9 +44,8 @@ function saveCheckpoint(runId, phase, state = {}, {
       runId,
       userId,
       agentId,
-      eventType: EVENT_TYPES.CHECKPOINT_SAVED,
-      payload: { checkpoint_id: id, version, phase },
-      visibility: VISIBILITY.OPERATOR,
+      eventType: EVENT_TYPES.CHECKPOINT_CREATED,
+      payload: { kind: 'run', checkpoint_id: id, version, phase },
     });
   }
 

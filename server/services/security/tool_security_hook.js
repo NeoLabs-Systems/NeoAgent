@@ -2,6 +2,7 @@
 
 const { globalHooks } = require('../ai/hooks');
 const { SAFE_TOOLS, getCategoryForTool } = require('./tool_categories');
+const { getTerminalEnv, TERMINAL_ENV_HOST } = require('../../utils/deployment');
 const { isPermitted } = require('../access/permissions');
 const { reviewToolCall } = require('./trust_policy');
 
@@ -70,7 +71,10 @@ function registerToolSecurityHooks(toolPolicyService, approvalGateService) {
     const mode = toolPolicyService.getSecurityMode(userId);
     const category = getCategoryForTool(toolName, args);
     const review = reviewToolCall({ toolName, toolArgs: args, category, trust });
-    const escalation = review && (review.kind === 'audience' || mode !== 'allow_all') ? review : null;
+    // allow_all waives approvals, not isolation: on the host nothing else stands
+    // between content a run has read and the machine.
+    const noBoundary = getTerminalEnv() === TERMINAL_ENV_HOST;
+    const escalation = review && (review.kind === 'audience' || mode !== 'allow_all' || noBoundary) ? review : null;
 
     if (!escalation) {
       if (SAFE_TOOLS.has(toolName) || mode === 'allow_all') return;
@@ -91,7 +95,7 @@ function registerToolSecurityHooks(toolPolicyService, approvalGateService) {
         trust,
       },
     );
-    if (decision === 'approved') return;
+    if (decision === 'approved') return { approved: true };
 
     const isTimeout = decision === 'timeout';
     const isExpired = decision === 'expired';

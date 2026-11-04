@@ -33,29 +33,22 @@ test('classifyToolExecution maps each tool family to its evidence bucket', () =>
     mcp_call_tool: 'mcp',
     memory_recall: 'memory',
     session_search: 'memory',
-    web_search: 'search',
-    http_request: 'http',
+    web_search: 'web',
+    http_request: 'web',
     read_file: 'files',
     write_file: 'files',
-    execute_command: 'command',
+    execute_command: 'shell',
     create_skill: 'skills',
     create_task: 'tasks',
     send_message: 'messaging',
     read_health_data: 'data',
-    analyze_image: 'vision',
-    spawn_subagent: 'subagent',
-    some_unknown_tool: 'tool',
+    analyze_image: 'media',
+    spawn_subagent: 'agents',
+    some_unknown_tool: 'external',
   };
   for (const [name, expected] of Object.entries(cases)) {
     assert.equal(evidenceSource(name), expected, `${name} -> ${expected}`);
   }
-});
-
-test('evidence buckets respect rule precedence over substring overlap', () => {
-  // 'browser_' prefix wins even though the name also contains 'skill'.
-  assert.equal(evidenceSource('browser_skill_probe'), 'browser');
-  // 'memory_' prefix wins over the later 'subagent' substring rule.
-  assert.equal(evidenceSource('memory_subagent_sync'), 'memory');
 });
 
 test('classifyToolExecution tags evidence source, relevance, and state change', () => {
@@ -172,7 +165,7 @@ test('new MCP and device reads count as evidence without pretending they mutate 
 
   assert.equal(classifyToolExecution('android_tap', {}, { success: true }).stateChanged, true);
   assert.equal(classifyToolExecution('desktop_click', {}, { success: true }).stateChanged, true);
-  assert.equal(classifyToolExecution('think', {}, { thought: 'still thinking' }).evidenceRelevant, false);
+  assert.equal(classifyToolExecution('task_ledger', {}, { recorded: true }).evidenceRelevant, false);
 });
 
 test('classifyToolExecution derives failure from execute_command exit code', () => {
@@ -184,14 +177,15 @@ test('classifyToolExecution derives failure from execute_command exit code', () 
   assert.match(failed.error, /command not found/);
 });
 
-test('a command that exits non-zero without a diagnostic is a result, not a failure', () => {
+test('nonzero exit status is a failure even without stderr', () => {
   const noMatch = classifyToolExecution('execute_command', { command: 'grep -rl needle /srv' }, {
     exitCode: 1,
     stdout: '',
     stderr: '',
   });
-  assert.equal(noMatch.ok, true);
-  assert.equal(inferToolFailureMessage('execute_command', { exitCode: 141, stdout: 'first lines', stderr: '' }), '');
+  assert.equal(noMatch.ok, false);
+  assert.match(noMatch.error, /status 1/);
+  assert.match(inferToolFailureMessage('execute_command', { exitCode: 141, stdout: 'first lines', stderr: '' }), /141/);
   assert.match(
     inferToolFailureMessage('execute_command', { exitCode: 2, stdout: '', stderr: 'No such file or directory' }),
     /No such file/,
@@ -200,12 +194,21 @@ test('a command that exits non-zero without a diagnostic is a result, not a fail
 
 test('classifyToolExecution marks read-only execute_command as non-state-changing', () => {
   const readOnly = classifyToolExecution('execute_command', {
+    command: 'git log --oneline -5 | head -3',
+  }, {
+    stdout: 'abc123 Fix',
+    exitCode: 0,
+  });
+  assert.equal(readOnly.stateChanged, false);
+
+  // It can send anything anywhere, and running Python can do anything at all.
+  const unknown = classifyToolExecution('execute_command', {
     command: 'curl -s https://api.github.com/repos/NeoLabs-Systems/NeoAgent/issues/91 | python3 -m json.tool | head -80',
   }, {
     stdout: '{"title":"Issue"}',
     exitCode: 0,
   });
-  assert.equal(readOnly.stateChanged, false);
+  assert.equal(unknown.stateChanged, true);
 
   const stateChanging = classifyToolExecution('execute_command', {
     command: 'git checkout -b chore/remove-widget && npm test',
@@ -221,7 +224,7 @@ test('classifyToolExecution does not mark failed write attempts as state changes
     owner_repo: 'NeoLabs-Systems/NeoAgent',
   }, {
     content: { path: 'README.md' },
-  });
+  }, '', { access: 'write' });
   assert.equal(successfulGithubWrite.ok, true);
   assert.equal(successfulGithubWrite.stateChanged, true);
 
@@ -229,7 +232,7 @@ test('classifyToolExecution does not mark failed write attempts as state changes
     owner_repo: 'NeoLabs-Systems/NeoAgent',
   }, {
     error: 'content is not valid',
-  });
+  }, '', { access: 'write' });
   assert.equal(failedWrite.ok, false);
   assert.equal(failedWrite.stateChanged, false);
 
@@ -251,16 +254,16 @@ test('classifyToolExecution treats success=false and skipped as errors', () => {
 test('progress evidence excludes communication and meta-only tool activity', () => {
   const sentReply = classifyToolExecution('send_message', { content: 'done' }, { success: true });
   const interim = classifyToolExecution('send_interim_update', { message: 'on it' }, { sent: true });
-  const thought = classifyToolExecution('think', { thought: 'considering' }, { thought: 'considering' });
+  const thought = classifyToolExecution('task_ledger', { goal: 'considering' }, { recorded: true });
   const inspectedFile = classifyToolExecution('read_file', { path: 'server/index.js' }, { content: 'ok' });
   const failedCommand = classifyToolExecution('execute_command', { command: 'make' }, { exitCode: 2, stderr: 'boom' });
 
   const summary = summarizeProgressToolExecutions([sentReply, interim, thought, inspectedFile, failedCommand]);
   assert.doesNotMatch(summary, /send_message/);
   assert.doesNotMatch(summary, /send_interim_update/);
-  assert.doesNotMatch(summary, /think/);
+  assert.doesNotMatch(summary, /task_ledger/);
   assert.match(summary, /1\. read_file \[files\] ok ::/);
-  assert.match(summary, /2\. execute_command \[command\] error=boom/);
+  assert.match(summary, /2\. execute_command \[shell\] error=boom/);
 });
 
 test('inferToolFailureMessage surfaces http and command failures', () => {

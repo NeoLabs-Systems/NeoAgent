@@ -7,6 +7,7 @@ const { randomUUID } = require('crypto');
 
 const { DATA_DIR } = require('../../../runtime/paths');
 const { CLIExecutor } = require('../cli/executor');
+const { buildWorkerEnv } = require('../cli/shell_worker_pool');
 const { executeSafeHttpRequest } = require('../network/safe_request');
 const { getAdapterForPlatform } = require('./adapters');
 const {
@@ -256,7 +257,7 @@ class SocialVideoService {
   constructor(options = {}) {
     this.artifactStore = options.artifactStore || null;
     this.runtimeManager = options.runtimeManager || null;
-    this.cliExecutor = options.cliExecutor || new CLIExecutor();
+    this.cliExecutor = options.cliExecutor || new CLIExecutor({ baseEnvironment: () => buildWorkerEnv(process.env, []) });
     this.publicResourceFetcher = options.publicResourceFetcher || fetchPublicResource;
     this.voiceTranscriber = options.voiceTranscriber || transcribeForUser;
     this.ytDlpBin = String(process.env.YT_DLP_BIN || 'yt-dlp').trim() || 'yt-dlp';

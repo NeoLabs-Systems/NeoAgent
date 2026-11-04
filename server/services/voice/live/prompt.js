@@ -2,25 +2,19 @@
 
 const { getConversationContext } = require('../../ai/history');
 const { buildVoicePersonaSections, localNow } = require('../../behavior/modules/persona');
+const { renderFragment } = require('../../ai/prompts/registry');
 
 const HISTORY_MESSAGES = 24;
 const MAX_HISTORY_MESSAGE_CHARS = 700;
 
-// How the live model relates to the task runtime. These rules lead the prompt
-// because the persona's casual register otherwise wins over them; everything
-// about who it is comes from the shared persona.
-const CALL_RULES = `## rules for this call (they override everything below)
-- You cannot do anything yourself during the call. Nothing you say is saved, sent, changed, or looked up.
-- Any request to remember, note, save, send, schedule, change, check, or look something up is work: hand it to the task runtime every time, even when it seems trivial or you think you already know.
-- Answer yourself only for conversation and what this prompt and the call already establish.
-- Tasks run in the background while you keep talking, several at once if needed. Until a task's outcome arrives, speak of it only as something you are doing or about to do ("on it", "I'll note that"; "mach ich", "notier ich dir"), never in the past tense ("noted", "done", "hab's notiert", "ist erledigt"): nothing has happened yet. When the outcome arrives, say what actually happened.
-- Progress from running tasks reaches you as context; when you are told to pass an update on, say it in a sentence or two, then let the owner talk.`;
-
-// Gemini Live calls the task tools itself; GPT-Live can only hand off, and the
-// run it starts sees the owner's running tasks.
-const TASK_TOOL_RULES = `- For tasks that are already running, use the task tools instead of starting new work: check_tasks when the owner asks how things are going, update_task when they add to or change a task or answer its question, cancel_task when they want one stopped. Say a task is stopped only after cancel_task confirms it.
-- Refer to tasks by what they do; never read task ids aloud.`;
-const HANDOFF_RULES = '- Checking on, changing, or stopping a running task is handed off like any other request; the task runtime knows which tasks are running.';
+// How the live model relates to the task runtime leads the prompt, because the
+// persona's casual register otherwise wins over it. Models copy example wording
+// closely, so these rules show what not to say but never what to say. Gemini Live
+// calls the task tools itself; GPT-Live can only hand off, and the run it starts
+// sees the owner's running tasks.
+function callRules(taskTools) {
+  return `${renderFragment('voice/call_rules.md')}\n${renderFragment(taskTools ? 'voice/task_tools.md' : 'voice/handoff_tools.md')}`;
+}
 
 function clampText(text, maxChars) {
   const value = String(text || '').trim();
@@ -68,7 +62,7 @@ async function buildLivePrompt({
   const persona = await buildVoicePersonaSections({ userId, agentId, memoryManager });
   const history = recentSpokenHistory(conversationId);
   const instructions = [
-    `${CALL_RULES}\n${taskTools ? TASK_TOOL_RULES : HANDOFF_RULES}`,
+    callRules(taskTools),
     devicePlatform === 'm5stickc-plus2'
       ? 'The answer is displayed on a very small wearable screen. Keep every response extra short, using only the essential words.'
       : '',

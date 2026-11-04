@@ -25,7 +25,9 @@ const contextWindows = new Map();
 // abilities, so NeoAgent need not look them up elsewhere.
 class NeoRouterProvider extends CustomOpenAIProvider {
   constructor(config = {}) {
-    super(config);
+    // An address may come with or without the /v1 the API lives under.
+    const baseUrl = config.baseUrl ? `${String(config.baseUrl).replace(/\/+$/, '').replace(/\/v1$/, '')}/v1` : config.baseUrl;
+    super({ ...config, baseUrl });
     this.name = 'neorouter';
   }
 

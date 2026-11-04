@@ -1,12 +1,15 @@
 'use strict';
 
 const { sanitizeConversationMessages } = require('../history');
-const { sanitizeModelOutput } = require('../outputSanitizer');
+const { mayBeRawToolCall, sanitizeModelOutput } = require('../outputSanitizer');
 const { extractJsonObject } = require('../../../utils/text');
 const { withProviderRetry, isTransientError } = require('../providerRetry');
 const { degenerateOutputDetails, isDegenerateOutputError } = require('../providers/stream_guard');
 const { normalizeUsage, recordModelUsage } = require('../usage');
-const { journalAndReconstructModelRequest } = require('../runtime/model_request_journal');
+const { captureRequest } = require('../runtime/run_capture');
+const { estimatePromptMetrics, mergePromptMetrics } = require('../runtime/prompt_metrics');
+const { EVENT_TYPES } = require('../runtime/events/event_types');
+const { recordEventSafe } = require('../runtime/events/run_event_store');
 const {
   isModelCallTimeout,
   resolveModelCallTimeoutMs,
@@ -20,15 +23,46 @@ function isRetryableModelError(err) {
   return !isModelCallTimeout(err) && isTransientError(err);
 }
 
-function isoNow() {
-  return new Date().toISOString();
+function wireMessages(provider, messages) {
+  return typeof provider.prepareMessages === 'function' ? provider.prepareMessages(messages) : messages;
 }
 
-function activeJournalIdentity(engine, runId, userId) {
-  if (!runId || !userId || !engine.getRunMeta?.(runId)) {
-    return { runId: null, userId: null };
-  }
-  return { runId, userId };
+function modelResponsePayload({ phase, providerName, model, startedAt, response, retryCount = 0 }) {
+  const usage = normalizeUsage(response?.usage);
+  const toolCalls = response?.toolCalls || response?.tool_calls || [];
+  return {
+    phase,
+    model: { provider: providerName, model },
+    // A router may answer with something other than what was asked for.
+    ...(response?.model && response.model !== model ? { served_model: response.model } : {}),
+    duration_ms: Date.now() - startedAt,
+    usage: usage
+      ? {
+        input_tokens: usage.inputTokens,
+        output_tokens: usage.outputTokens,
+        reasoning_tokens: usage.reasoningTokens,
+        cached_read_tokens: usage.cachedReadTokens,
+        cache_write_tokens: usage.cacheWriteTokens,
+      }
+      : null,
+    finish_reason: response?.finishReason || null,
+    truncated: response?.truncated === true,
+    tool_call_names: toolCalls
+      .map((call) => call?.function?.name || call?.name)
+      .filter(Boolean),
+    retry_count: retryCount,
+  };
+}
+
+// Why a model call failed, in a word a report can group by.
+function classifyModelError(error) {
+  if (isModelCallTimeout(error)) return 'timeout';
+  const status = Number(error?.status || error?.statusCode || error?.response?.status);
+  if (status === 429) return 'rate_limited';
+  if (status >= 500) return 'provider_unavailable';
+  if (status === 401 || status === 403) return 'auth';
+  if (status === 400) return 'bad_request';
+  return String(error?.code || 'unknown').toLowerCase();
 }
 
 async function requestStructuredJson(engine, {
@@ -45,48 +79,40 @@ async function requestStructuredJson(engine, {
   phase = 'structured',
 }) {
   const startedAt = Date.now();
-  const structuredStep = `model:${phase}`;
   const modelAbortController = new AbortController();
   const parentSignal = telemetry?.signal;
   const abortFromParent = () => modelAbortController.abort(parentSignal?.reason);
   if (parentSignal?.aborted) abortFromParent();
   else parentSignal?.addEventListener('abort', abortFromParent, { once: true });
-  if (telemetry?.runId) {
-    engine.updateRunProgress(telemetry.runId, {
-      currentPhase: 'model',
-      currentStep: structuredStep,
-      currentTool: null,
-      currentStepStartedAt: isoNow(),
-    });
-  }
 
   try {
     const reasoning = reasoningEffort || engine.getReasoningEffort(providerName, {});
-    const journalIdentity = activeJournalIdentity(engine, telemetry?.runId, telemetry?.userId);
-    const durableRequest = journalAndReconstructModelRequest({
-      ...journalIdentity,
-      agentId: telemetry?.agentId || null,
-      phase,
-      iteration: telemetry?.iteration || 0,
-      provider: providerName,
-      model,
-      messages: sanitizeConversationMessages([
-        ...messages,
-        { role: 'system', content: prompt },
-      ]),
-      tools: [],
-      maxTokens,
-      reasoningEffort: reasoning,
-    });
+    const requestMessages = sanitizeConversationMessages([
+      ...messages,
+      { role: 'system', content: prompt },
+    ]);
+    if (telemetry?.runId) {
+      captureRequest(engine.getRunMeta?.(telemetry.runId), {
+        runId: telemetry.runId,
+        userId: telemetry.userId,
+        phase,
+        iteration: telemetry.iteration || 0,
+        provider: providerName,
+        model,
+        maxTokens,
+        reasoningEffort: reasoning,
+        messages: requestMessages,
+      });
+    }
     const response = await withProviderRetry(
       () => withModelCallTimeout(
         provider.chat(
-          durableRequest.messages,
-          durableRequest.tools,
+          wireMessages(provider, requestMessages),
+          [],
           {
-            model: durableRequest.header.model,
-            maxTokens: durableRequest.header.maxTokens,
-            reasoningEffort: durableRequest.header.reasoningEffort,
+            model,
+            maxTokens,
+            reasoningEffort: reasoning,
             structured: true,
             signal: modelAbortController.signal,
           }
@@ -112,6 +138,13 @@ async function requestStructuredJson(engine, {
         usage: response.usage,
         latencyMs: Date.now() - startedAt,
       });
+      recordEventSafe({
+        runId: telemetry.runId,
+        userId: telemetry.userId,
+        agentId: telemetry.agentId || null,
+        eventType: EVENT_TYPES.MODEL_RESPONSE,
+        payload: modelResponsePayload({ phase, providerName, model, startedAt, response }),
+      });
     }
 
     const parsed = extractJsonObject(response.content || '');
@@ -126,15 +159,6 @@ async function requestStructuredJson(engine, {
     };
   } finally {
     parentSignal?.removeEventListener('abort', abortFromParent);
-    const runMeta = telemetry?.runId ? engine.getRunMeta(telemetry.runId) : null;
-    if (runMeta?.progressLedger?.currentStep === structuredStep) {
-      engine.updateRunProgress(telemetry.runId, {
-        currentPhase: 'idle',
-        currentStep: null,
-        currentTool: null,
-        currentStepStartedAt: null,
-      });
-    }
   }
 }
 
@@ -150,21 +174,58 @@ async function requestModelResponse(engine, {
 }) {
   const startedAt = Date.now();
   const parentSignal = options.signal;
-  const journalIdentity = activeJournalIdentity(engine, options.runId || runId, options.userId);
-  const durableRequest = journalAndReconstructModelRequest({
-    ...journalIdentity,
+  const phase = options.phase || 'model_turn';
+  const eventRunId = options.runId || runId;
+  const runMeta = eventRunId && options.userId ? engine.getRunMeta?.(eventRunId) : null;
+  const requestMessages = sanitizeConversationMessages(messages);
+  const requestTools = Array.isArray(tools) ? tools : [];
+  const maxTokens = options.maxTokens;
+  const reasoningEffort = engine.getReasoningEffort(providerName, options);
+  const ledger = {
+    runId: eventRunId,
+    userId: options.userId,
     agentId: options.agentId || null,
-    phase: options.phase || 'model_turn',
-    iteration,
-    provider: providerName,
-    model,
-    messages: sanitizeConversationMessages(messages),
-    tools: Array.isArray(tools) ? tools : [],
-    maxTokens: options.maxTokens,
-    reasoningEffort: engine.getReasoningEffort(providerName, options),
-  });
-  const requestMessages = durableRequest.messages;
-  const requestTools = durableRequest.tools;
+  };
+  if (runMeta) {
+    const promptMetrics = estimatePromptMetrics(requestMessages, requestTools);
+    if (phase === 'model_turn') {
+      runMeta.promptMetrics = mergePromptMetrics(runMeta.promptMetrics, promptMetrics, iteration, requestTools.length);
+    }
+    const requestId = captureRequest(runMeta, {
+      runId: eventRunId,
+      userId: options.userId,
+      phase,
+      iteration,
+      provider: providerName,
+      model,
+      maxTokens,
+      reasoningEffort,
+      messages: requestMessages,
+      tools: requestTools,
+    });
+    recordEventSafe({
+      ...ledger,
+      eventType: EVENT_TYPES.MODEL_REQUEST,
+      requestId,
+      payload: {
+        phase,
+        iteration,
+        model: { provider: providerName, model },
+        context: {
+          estimated_tokens: promptMetrics.totalEstimatedTokens,
+          system_tokens: promptMetrics.systemPromptTokens,
+          tool_schema_tokens: promptMetrics.toolSchemaTokens,
+          tool_catalog_tokens: promptMetrics.toolCatalogTokens,
+          history_tokens: promptMetrics.historyTokens,
+          memory_tokens: promptMetrics.recalledMemoryTokens,
+          runtime_note_tokens: promptMetrics.runtimeNoteTokens,
+          tool_replay_tokens: promptMetrics.toolReplayTokens,
+          active_tool_count: requestTools.length,
+        },
+        privacy: { content_stored: Boolean(requestId), redaction_policy: 'metadata-default' },
+      },
+    });
+  }
   // A tool call whose arguments ran away is handed back to the loop as that
   // same call with its arguments discarded. The tool rejects it with the
   // reason, and the model's next turn is the retry — with the failure in
@@ -194,9 +255,9 @@ async function requestModelResponse(engine, {
     if (parentSignal?.aborted) abortFromParent();
     else parentSignal?.addEventListener('abort', abortFromParent, { once: true });
     const callOptions = {
-      model: durableRequest.header.model,
-      maxTokens: durableRequest.header.maxTokens,
-      reasoningEffort: durableRequest.header.reasoningEffort,
+      model,
+      maxTokens,
+      reasoningEffort,
       // Routing models (typesafe/jev-router) keep their pick per session.
       sessionId: options.conversationId || options.runId || runId || null,
       signal: modelAbortController.signal,
@@ -206,7 +267,7 @@ async function requestModelResponse(engine, {
 
     try {
       if (options.stream !== false) {
-        const stream = provider.stream(requestMessages, requestTools, callOptions);
+        const stream = provider.stream(wireMessages(provider, requestMessages), requestTools, callOptions);
         const iterator = stream[Symbol.asyncIterator]();
         try {
           while (true) {
@@ -221,7 +282,8 @@ async function requestModelResponse(engine, {
               streamContent += chunk.content;
               engine.emit(options.userId, 'run:stream', {
                 runId,
-                content: sanitizeModelOutput(streamContent, { model }),
+                // Text that may yet turn out to be a written-out tool call stays back.
+                content: mayBeRawToolCall(streamContent) ? '' : sanitizeModelOutput(streamContent, { model }),
                 iteration,
               });
             }
@@ -233,6 +295,7 @@ async function requestModelResponse(engine, {
                 content: chunk.content || streamContent,
                 toolCalls: chunk.toolCalls,
                 providerContentBlocks: chunk.providerContentBlocks || null,
+                reasoningState: chunk.reasoningState || null,
                 finishReason: 'tool_calls',
                 usage: chunk.usage || null,
               };
@@ -245,7 +308,7 @@ async function requestModelResponse(engine, {
         }
       } else {
         response = await withModelCallTimeout(
-          provider.chat(requestMessages, requestTools, callOptions),
+          provider.chat(wireMessages(provider, requestMessages), requestTools, callOptions),
           { ...options, modelAbortController },
           `Model iteration ${iteration}`,
         );
@@ -256,13 +319,16 @@ async function requestModelResponse(engine, {
     }
   };
 
+  let retryCount = 0;
   let response;
   let streamContent;
-  ({ response, streamContent } = await withProviderRetry(attemptModelCall, {
+  try {
+    ({ response, streamContent } = await withProviderRetry(attemptModelCall, {
     ...(options.retry || {}),
     label: `Engine ${model}`,
     isRetryable: (err) => !parentSignal?.aborted && isRetryableModelError(err),
     onRetry: ({ attempt, delayMs }) => {
+      retryCount = attempt;
       // Stream payloads are full snapshots for one iteration, so clearing and
       // replaying the same durable request cannot duplicate a visible message.
       if (options.stream !== false) {
@@ -275,7 +341,24 @@ async function requestModelResponse(engine, {
       });
     },
     signal: parentSignal,
-  }));
+    }));
+  } catch (error) {
+    if (runMeta) {
+      recordEventSafe({
+        ...ledger,
+        eventType: EVENT_TYPES.MODEL_RESPONSE,
+        payload: {
+          phase,
+          iteration,
+          model: { provider: providerName, model },
+          duration_ms: Date.now() - startedAt,
+          retry_count: retryCount,
+          outcome: { status: 'failed', error_class: classifyModelError(error) },
+        },
+      });
+    }
+    throw error;
+  }
 
   const resolvedResponse = response || {
     content: streamContent,
@@ -298,10 +381,21 @@ async function requestModelResponse(engine, {
       agentId: options.agentId || null,
       provider: providerName,
       model,
-      phase: options.phase || 'model_turn',
+      phase,
       usage: resolvedResponse.usage,
       latencyMs: Date.now() - startedAt,
       metadata: { iteration },
+    });
+  }
+  if (runMeta) {
+    recordEventSafe({
+      ...ledger,
+      eventType: EVENT_TYPES.MODEL_RESPONSE,
+      payload: {
+        ...modelResponsePayload({ phase, providerName, model, startedAt, response: resolvedResponse, retryCount }),
+        iteration,
+        outcome: { status: 'success', retry_count: retryCount },
+      },
     });
   }
 

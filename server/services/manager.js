@@ -250,6 +250,9 @@ function createAgentEngine(
   try {
     const { recoverOrphanedRuns } = require('./ai/runtime/recovery_startup');
     recoverOrphanedRuns();
+    const { pruneExpiredCaptures } = require('./ai/runtime/run_capture');
+    pruneExpiredCaptures();
+    setInterval(pruneExpiredCaptures, 6 * 60 * 60 * 1000).unref();
   } catch (err) {
     console.error('[Runtime] Orphaned run recovery failed:', getErrorMessage(err));
   }

@@ -106,14 +106,17 @@ test('final delivery CAS allows exactly one commit', () => {
   assert.equal(second.reason, 'already_committed');
   assert.equal(runtime.outbox.countFinalDeliveries('cas-run'), 0);
 
-  runtime.outbox.enqueue({
+  const reservation = {
     runId: 'cas-run',
     channel: 'web',
     messageKind: 'final',
+    purpose: 'final',
+    slot: 'final',
     payload: { content: 'done' },
-    sequence: 1,
-    idempotencyKey: 'cas-run:final:1',
-  });
+  };
+  assert.equal(runtime.outbox.reserve(reservation).fresh, true);
+  // The same slot cannot be reserved twice.
+  assert.equal(runtime.outbox.reserve(reservation).fresh, false);
   // Mark one delivered and ensure property holds via count helper.
   const entries = runtime.outbox.listForRun('cas-run', { messageKind: 'final' });
   assert.equal(entries.length, 1);
@@ -405,13 +408,13 @@ test('event store sequences are monotonic per run', () => {
   const a = bus.publish({
     runId: 'evt-run',
     userId,
-    eventType: runtime.EVENT_TYPES.RUN_ACCEPTED,
+    eventType: runtime.EVENT_TYPES.RUN_STARTED,
     payload: { n: 1 },
   });
   const b = bus.publish({
     runId: 'evt-run',
     userId,
-    eventType: runtime.EVENT_TYPES.RUN_STATE_CHANGED,
+    eventType: runtime.EVENT_TYPES.RUN_STATE,
     payload: { n: 2 },
   });
   assert.equal(a.sequenceIndex + 1, b.sequenceIndex);

@@ -254,30 +254,25 @@ function summarizeForPrompt(memory) {
   return `${content}${entitySuffix}`.slice(0, 900);
 }
 
-function rankFuse(rank, weight = 1) {
-  if (!Number.isFinite(rank) || rank < 0) return 0;
-  return weight / (60 + rank + 1);
-}
-
+// Importance, confidence and use order the memories that matched; they never
+// make a memory match. A row with no evidence for this query scores nothing, so
+// an important but unrelated memory cannot outrank or stand in for a relevant one.
 function scoreMemoryCandidate({
-  semanticRank = -1,
-  lexicalRank = -1,
-  entityRank = -1,
-  baseScore = 0,
+  signal = 0,
+  secondarySignal = 0,
+  routeBoost = 0,
   importance = 5,
   confidence = 0.7,
   accessCount = 0,
-  freshness = 1,
+  retention = 1,
 } = {}) {
-  const fused = (
-    rankFuse(semanticRank, 1.0) +
-    rankFuse(lexicalRank, 0.85) +
-    rankFuse(entityRank, 0.95)
-  ) * 20;
-  const quality = 0.15 + clamp(importance, 1, 10, 5) / 22;
-  const confidenceMultiplier = 0.65 + clamp(confidence, 0, 1, 0.7) * 0.35;
-  const usage = Math.min(0.08, Math.log1p(Math.max(0, Number(accessCount) || 0)) / 50);
-  return Math.max(baseScore, fused + quality + usage) * freshness * confidenceMultiplier;
+  if (!(signal > 0)) return 0;
+  const quality = 0.9 + clamp(importance, 1, 10, 5) / 50;
+  const confidenceMultiplier = 0.7 + clamp(confidence, 0, 1, 0.7) * 0.3;
+  const usage = Math.min(0.03, Math.log1p(Math.max(0, Number(accessCount) || 0)) / 150);
+  // A second kind of evidence beats a stronger single one only by a little.
+  const evidence = signal + 0.15 * secondarySignal;
+  return evidence * (1 + routeBoost) * quality * confidenceMultiplier * retention + usage;
 }
 
 module.exports = {

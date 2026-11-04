@@ -1,5 +1,7 @@
 'use strict';
 
+const { resolveToolMeta, resultBudgetFor } = require('./tools/metadata');
+
 // Limits for the runaway guards and tool-result replay. None of them shapes
 // normal work: the model decides how many steps a task takes and when it is
 // done. The turn ceiling is an emergency stop only.
@@ -76,17 +78,9 @@ function buildLoopPolicy(aiSettings = {}, options = {}) {
   };
 }
 
-function getToolCategory(toolName) {
-  if (!toolName) return 'default';
-  if (/^(read_file|write_file|search_files|list_directory|file_)/.test(toolName)) return 'file';
-  if (/^browser_/.test(toolName)) return 'browser';
-  if (/^(execute_command|android_shell|android_)/.test(toolName)) return 'command';
-  return 'default';
-}
-
-function resolveToolResultLimits(toolName, policy) {
-  const category = getToolCategory(toolName);
-  const soft = policy.toolResultBudget[category] ?? policy.toolResultBudget.default;
+function resolveToolResultLimits(toolName, policy, definition = null) {
+  const budget = resultBudgetFor(resolveToolMeta(toolName, definition));
+  const soft = policy.toolResultBudget[budget] ?? policy.toolResultBudget.default;
   const hard = Math.min(soft * policy.hardLimitMultiplier, policy.absoluteHardLimit);
   return { softLimit: soft, hardLimit: hard };
 }

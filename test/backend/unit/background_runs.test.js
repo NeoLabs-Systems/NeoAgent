@@ -110,13 +110,13 @@ test('a chat reply is recorded as visible but keeps the run and its chat in the 
 
   assert.equal(runMeta.background, null);
   assert.equal(released, 0);
-  assert.equal(runMeta.progressLedger.lastUserVisibleUpdateAt, '2026-10-18T14:28:01.000Z');
+  assert.equal(runMeta.lastUserVisibleAt, '2026-10-18T14:28:01.000Z');
   assert.deepEqual(engine.events, []);
 });
 
 test('a run that already delivered its final answer stays in the foreground', () => {
   const engine = createEngine();
-  addRun(engine, 'done-run', { finalDeliverySent: true });
+  addRun(engine, 'done-run', { delivery: { finalDelivered: true, sent: [] } });
 
   assert.equal(moveRunToBackground(engine, 'done-run'), false);
   assert.deepEqual(engine.events, []);
@@ -185,8 +185,7 @@ test('an ended background run is announced to the running foreground runs', () =
   const engine = createEngine();
   const ended = addRun(engine, 'research', {
     background: { since: 'now' },
-    finalDeliverySent: true,
-    lastSentMessage: 'Here is the comparison.',
+    delivery: { finalDelivered: true, sent: ['Here is the comparison.'] },
   });
   addRun(engine, 'foreground');
   addRun(engine, 'other-background', { background: { since: 'now' } });

@@ -220,7 +220,39 @@ async function getNeoRouterEmbedding(text, options = {}) {
   }
 }
 
+// Memory recall and tool retrieval embed the same request at the same moment. One
+// call serves both. A caller giving up stops waiting, without cancelling it for the other.
+const QUERY_REUSE_MS = 30_000;
+const MAX_REUSED_QUERIES = 64;
+const reusedQueries = new Map();
+
+function shareQueryEmbedding(key, start, signal = null) {
+  let entry = reusedQueries.get(key);
+  if (!entry || Date.now() - entry.at > QUERY_REUSE_MS) {
+    entry = { at: Date.now(), promise: start() };
+    entry.promise.then((value) => { if (!value) reusedQueries.delete(key); }, () => reusedQueries.delete(key));
+    reusedQueries.set(key, entry);
+    if (reusedQueries.size > MAX_REUSED_QUERIES) reusedQueries.delete(reusedQueries.keys().next().value);
+  }
+  if (!signal) return entry.promise;
+  throwIfAborted(signal, 'Embedding request aborted.');
+  return new Promise((resolve, reject) => {
+    const onAbort = () => reject(createAbortError(signal, 'Embedding request aborted.'));
+    signal.addEventListener('abort', onAbort, { once: true });
+    entry.promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
+  });
+}
+
 async function getEmbeddingWithMetadata(text, provider, options = {}) {
+  if (options.inputType === 'query' && text && text.trim()) {
+    const key = `${options.userId ?? ''}:${options.agentId ?? ''}:${provider ?? ''}:${text}`;
+    const { signal, ...unsignalled } = options;
+    return shareQueryEmbedding(key, () => embedWithMetadata(text, provider, unsignalled), signal);
+  }
+  return embedWithMetadata(text, provider, options);
+}
+
+async function embedWithMetadata(text, provider, options = {}) {
   if (!text || !text.trim()) return null;
   throwIfAborted(options.signal, 'Embedding request aborted.');
   const routed = await getNeoRouterEmbedding(text, options);
@@ -289,7 +321,8 @@ function deserializeEmbedding(str) {
  */
 function keywordSimilarity(query, text) {
   if (!query || !text) return 0;
-  const tokens = (s) => s.toLowerCase().split(/\W+/).filter(t => t.length > 2);
+  // Split on non-letters, not \W: \W cuts "läuft" into "l" and "uft".
+  const tokens = (s) => s.toLowerCase().split(/[^\p{L}\p{N}_]+/u).filter(t => t.length > 2);
   const qTokens = new Set(tokens(query));
   const tTokens = tokens(text);
   if (!qTokens.size || !tTokens.length) return 0;
@@ -299,6 +332,7 @@ function keywordSimilarity(query, text) {
 }
 
 module.exports = {
+  shareQueryEmbedding,
   getEmbedding,
   getEmbeddingWithMetadata,
   cosineSimilarity,

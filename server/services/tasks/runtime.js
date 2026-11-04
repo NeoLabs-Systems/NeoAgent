@@ -26,6 +26,9 @@ const { normalizeJsonObject } = require('./utils');
 const { fenceUntrusted } = require('../../utils/untrusted_text');
 const { getUserTimeZone } = require('../account/timezone');
 const { normalizeOutgoingMessageForPlatform } = require('../messaging/formatting_guides');
+const { commitDelivery } = require('../ai/runtime/delivery/delivery_worker');
+const { createRunDelivery, markSent } = require('../ai/runtime/delivery/run_delivery');
+const { loadRun } = require('../ai/runtime/run_state_machine');
 const { isTransientError } = require('../ai/providerRetry');
 const { getFailureDisposition } = require('../ai/model_failure_cache');
 const { isAbortError, throwIfAborted } = require('../../utils/abort');
@@ -726,15 +729,7 @@ class TaskRuntime {
 
     let normalizedConfig = taskConfig;
     const taskName = task.name || `Task ${taskId}`;
-    const deliveryState = {
-      messagingSent: false,
-      noResponse: false,
-      proactiveMessageStaged: false,
-      stagedProactiveMessage: null,
-      lastSentMessage: '',
-      sentMessages: [],
-      notifyTarget: null,
-    };
+    const delivery = createRunDelivery();
     let completedRunId = null;
     try {
       normalizedConfig = this._dropLegacyCallConfig(userId, taskConfig, taskId);
@@ -745,7 +740,7 @@ class TaskRuntime {
         normalizedConfig,
         executionMeta.triggerPayload,
       );
-      deliveryState.notifyTarget = notifyTarget;
+      delivery.notifyTarget = notifyTarget;
       const triggerSummary = this._summarizeTrigger(task.trigger_type, triggerConfig);
       let notifyHint = '';
       const manualRun = executionMeta.manual === true;
@@ -801,7 +796,7 @@ class TaskRuntime {
           taskId,
           scheduledAt: executionInstant,
           bypassUserRateLimits: true,
-          deliveryState,
+          delivery,
           allowMultipleProactiveMessages: normalizedConfig.allowMultipleMessages === true || normalizedConfig.allow_multiple_messages === true,
           stageProactiveMessages: true,
           skipGlobalRecall: true,
@@ -825,7 +820,7 @@ class TaskRuntime {
             agentId,
             taskId,
             result,
-            deliveryState,
+            delivery,
             allowPlainResultFallback: manualRun,
           });
           if (fallbackDelivery && result && typeof result === 'object') {
@@ -837,8 +832,8 @@ class TaskRuntime {
             throw deliveryError;
           }
           if (
-            !deliveryState.messagingSent
-            && !deliveryState.noResponse
+            !delivery.sent.length
+            && !delivery.noResponse
             && !stringifyTaskResult(result).trim()
           ) {
             throw new Error(
@@ -919,7 +914,7 @@ class TaskRuntime {
             result: {
               content: failureMessage,
             },
-            deliveryState,
+            delivery,
             allowPlainResultFallback: true,
           });
         }
@@ -1196,29 +1191,30 @@ class TaskRuntime {
     agentId,
     taskId,
     result,
-    deliveryState,
+    delivery,
     allowPlainResultFallback = true,
   }) {
     throwIfAborted(this.abortController.signal, 'Task runtime is stopping.');
-    if (deliveryState?.messagingSent || deliveryState?.noResponse) return null;
+    if (delivery?.sent?.length || delivery?.noResponse) return null;
     // The run's target is authoritative: never redirect to the chat the model
     // picked or to another chat, so a broken target fails visibly.
-    const target = deliveryState?.notifyTarget;
+    const target = delivery?.notifyTarget;
     if (!target) return null;
     const resultText = stringifyTaskResult(result).trim();
     const resultLooksLikeError = Boolean(result?.error);
+    const staged = delivery?.staged || null;
     const stagedMessage = normalizeOutgoingMessageForPlatform(
-      deliveryState?.stagedProactiveMessage?.platform,
-      deliveryState?.stagedProactiveMessage?.content || '',
+      staged?.platform,
+      staged?.content || '',
       { stripNoResponseMarker: false },
     );
-    const explicitStagedDelivery = deliveryState?.proactiveMessageStaged === true && Boolean(stagedMessage);
-    // A forced terminal wrap-up (read-only/blocked hard-stop) is the model's final
-    // answer produced WITHOUT the ability to call send_message itself. Gating it
-    // would silently drop a stuck scheduled task's result, so deliver it even on an
-    // automatic run. Ordinary mid-run plain text (model had send_message available
-    // and chose not to use it) is still gated below.
-    const forcedTerminal = deliveryState?.terminalWrapup === true && Boolean(resultText);
+    const explicitStagedDelivery = Boolean(stagedMessage);
+    // A wrap-up after a guard stopped the run is the model's final answer,
+    // written without the ability to call send_message. Gating it would silently
+    // drop a stuck scheduled task's result, so it goes out even on an automatic
+    // run. Ordinary plain text (the model had send_message and chose not to use
+    // it) is still gated below.
+    const forcedTerminal = delivery?.wrappedUp === true && Boolean(resultText);
     if (!allowPlainResultFallback && !resultLooksLikeError && !forcedTerminal && !explicitStagedDelivery) {
       // Automatic run produced substantive text but never made an explicit
       // send_message decision (a deliberate no_response would have short-circuited
@@ -1259,21 +1255,37 @@ class TaskRuntime {
       if (!status || status.status !== 'connected') {
         throw new Error(`Platform ${target.platform} is not connected on this server.`);
       }
-      const sendResult = await manager.sendMessage(userId, target.platform, target.to, message, {
+      const send = () => manager.sendMessage(userId, target.platform, target.to, message, {
         agentId,
-        mediaPath: explicitStagedDelivery ? deliveryState.stagedProactiveMessage.mediaPath || null : null,
+        mediaPath: explicitStagedDelivery ? staged.mediaPath || null : null,
         runId: result?.runId || null,
         persistConversation: true,
         signal: this.abortController.signal,
       });
-      deliveryState.messagingSent = true;
-      deliveryState.proactiveMessageStaged = false;
-      deliveryState.stagedProactiveMessage = null;
-      deliveryState.lastSentMessage = message;
-      if (!Array.isArray(deliveryState.sentMessages)) {
-        deliveryState.sentMessages = [];
+      let sendResult = null;
+      // The task's result is one more message on the run's ledger, so a retry of
+      // this step can never send it twice.
+      const run = result?.runId ? loadRun(result.runId) : null;
+      if (run) {
+        const commit = await commitDelivery({
+          run,
+          channel: 'messaging',
+          recipient: `${target.platform}:${target.to}`,
+          purpose: 'final',
+          slot: 'task_result',
+          content: message,
+          metadata: { platform: target.platform, taskId },
+          transmit: async () => {
+            sendResult = await send();
+            return { ok: true, platformMessageId: sendResult?.result?.messageId || null };
+          },
+        });
+        if (!commit.ok) throw commit.thrown || new Error(commit.error || commit.reason);
+      } else {
+        sendResult = await send();
       }
-      deliveryState.sentMessages.push(message);
+      delivery.staged = null;
+      markSent(delivery, message);
 
       return {
         sent: true,

@@ -332,6 +332,15 @@ test('the live model speaks with the shared persona; delegated tasks keep the ag
   assert.match(task.stable, /you're on a live voice call with/);
 });
 
+test('the live prompt shows no wording to copy, only what must not be claimed', () => {
+  const { renderFragment } = require('../../../server/services/ai/prompts/registry');
+  const rules = renderFragment('voice/call_rules.md').toLowerCase();
+  for (const stock of ['on it', "i'll note", 'mach ich', 'notier ich']) {
+    assert.ok(!rules.includes(stock), `"${stock}" would be parroted`);
+  }
+  assert.ok(!renderFragment('voice/task_started.md').toLowerCase().includes('on it'));
+});
+
 test('appendFragment joins provider transcript fragments without merging words', () => {
   const { appendFragment } = require('../../../server/services/voice/live/session');
   assert.equal(appendFragment('', ' Hello'), 'Hello');
@@ -407,7 +416,7 @@ test('GPT-Live session: shared prompt, transcripts, hand-off as a normal run, re
   // the hand-off that asked for it.
   const result = await fake.next((event) => event.type === 'session.commentary.append');
   assert.equal(result.delegation_id, 'item_1');
-  assert.match(result.content, /^task 1 \("Schreib Max dass ich später komme"\) finished\. Its outcome:\nDie Mail an Max ist raus\.$/);
+  assert.match(result.content, /^The task "Schreib Max dass ich später komme" is finished\. What came of it:\nDie Mail an Max ist raus\.$/);
 
   assert.equal(engine.runs.length, 1);
   const run = engine.runs[0];
@@ -426,11 +435,59 @@ test('GPT-Live session: shared prompt, transcripts, hand-off as a normal run, re
   assert.deepEqual(rows.map((row) => [row.role, row.content]), [
     ['user', 'Schreib Max dass ich später komme'],
     ['assistant', 'Mach ich.'],
+    // Hung up before it was spoken, so it goes where they will see it.
+    ['assistant', 'Die Mail an Max ist raus.'],
   ]);
   const threadRoles = ctx.db.prepare(
     'SELECT role, content FROM conversation_messages WHERE conversation_id = ? ORDER BY id',
   ).all(conversationId).map((row) => row.content);
   assert.deepEqual(threadRoles, ['Earlier typed question', 'Schreib Max dass ich später komme', 'Mach ich.']);
+});
+
+test('an outcome the owner already heard is not stored a second time', async (t) => {
+  const ctx = createTestRuntime();
+  const fake = await startFakeLiveServer();
+  t.after(async () => {
+    await fake.close();
+    teardownTestRuntime(ctx);
+  });
+  process.env.OPENAI_API_KEY = 'test-openai-key';
+  process.env.OPENAI_BASE_URL = `${fake.url}/v1`;
+  let manager = null;
+  const engine = createFakeEngine({
+    async run(userId, request, options) {
+      this.track(userId, request, options);
+      manager.presentDelivery({
+        recipient: options.voiceSessionId,
+        runId: options.runId,
+        messageKind: 'final',
+        payload: { content: 'Stored only if unheard.' },
+      });
+      this.finish(options.runId);
+      return { runId: options.runId, status: 'completed', content: 'Stored only if unheard.' };
+    },
+  });
+  const setup = await setupManager(ctx, engine);
+  manager = setup.manager;
+  const sink = createSink();
+  const opening = manager.openSession({ userId: setup.user.userId, sink });
+  await fake.next((event) => event.type === 'session.start');
+  fake.send({ type: 'session.started', session: { id: 'sess_1' } });
+  const session = await opening;
+  fake.send({ type: 'session.input_transcript.delta', delta: 'Mach das', start_ms: 0, end_ms: 400 });
+  fake.send({ type: 'session.delegation.created', delegation: { id: 'item_1', type: 'delegation', target: 'client' } });
+  fake.send({ type: 'session.output_audio.delta', delta: Buffer.from([9, 9]).toString('base64') });
+  await fake.next((event) => event.type === 'session.commentary.append');
+  fake.send({ type: 'session.output_transcript.delta', delta: 'Ist erledigt.' });
+  fake.send({ type: 'session.output_audio.delta', delta: Buffer.from([7, 7]).toString('base64') });
+  const played = Buffer.from([7, 7]).toString('base64');
+  while (!sink.of('audio').some((event) => event.audioBase64 === played)) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  await manager.closeSession(session.id, 'client_closed', setup.user.userId);
+  const stored = historyRows(ctx.db, setup.user.userId).map((row) => row.content);
+  assert.ok(!stored.includes('Stored only if unheard.'), stored.join(' | '));
+  assert.ok(stored.includes('Ist erledigt.'));
 });
 
 test('each GPT-Live hand-off is a task of its own, and running tasks outlive the call', async (t) => {
@@ -573,7 +630,7 @@ test('Gemini Live session: run_task returns at once, outcome as a message, inter
   fake.send({ serverContent: { modelTurn: { parts: [{ inlineData: { data: 'AAE=' } }] } } });
   fake.send({ serverContent: { turnComplete: true } });
   const outcome = await fake.next((event) => event.clientContent?.turnComplete === true);
-  assert.match(outcome.clientContent.turns[0].parts[0].text, /task 1 \("Aktuelle Temperatur in Berlin"\) finished\. Its outcome:\nEs sind 21 Grad\./);
+  assert.match(outcome.clientContent.turns[0].parts[0].text, /The task "Aktuelle Temperatur in Berlin" is finished\. What came of it:\nEs sind 21 Grad\./);
   assert.equal(engine.runs[0].request, 'Aktuelle Temperatur in Berlin');
 
   fake.send({ serverContent: { modelTurn: { parts: [{ inlineData: { mimeType: 'audio/pcm;rate=24000', data: 'AAE=' } }] } } });
@@ -744,7 +801,7 @@ test('progress is spoken into a quiet line and kept as context while people talk
   await modelSpeaks();
   const note = await delivered(/Zwei Testberichte gefunden/);
   assert.equal(note.clientContent.turnComplete, false);
-  assert.match(note.clientContent.turns[0].parts[0].text, /Progress on task 1 \("Recherchiere Laptops"\):\nZwei Testberichte gefunden\./);
+  assert.match(note.clientContent.turns[0].parts[0].text, /Progress on the task "Recherchiere Laptops":\nZwei Testberichte gefunden\./);
 
   // After a silence the next update is spoken.
   mock.timers.tick(7000);
@@ -763,6 +820,231 @@ test('progress is spoken into a quiet line and kept as context while people talk
   // A question from the task is put to the owner at once.
   present('interim', 'Welche Marke bevorzugst du?', { kind: 'question', expectsReply: true });
   assert.equal((await delivered(/Welche Marke bevorzugst du\?/)).clientContent.turnComplete, true);
+  await session.close('test_done');
+});
+
+// A running task on a connected call, with the helpers these tests share.
+async function callWithRunningTask(t, fake, ctx, request = 'Recherchiere Laptops') {
+  t.after(async () => {
+    mock.timers.reset();
+    await fake.close();
+    teardownTestRuntime(ctx);
+  });
+  process.env.GOOGLE_AI_KEY = 'test-google-key';
+  const engine = createFakeEngine({
+    run(userId, text, options) {
+      this.runs.push({ request: text, options });
+      this.track(userId, text, options);
+      return new Promise(() => {});
+    },
+  });
+  const setup = await setupManager(ctx, engine, { voice_live_provider: 'google' });
+  const { session, sink } = await connectGemini(fake, engine, setup);
+  mock.timers.enable({ apis: ['Date'], now: Date.now() });
+  fake.send({ toolCall: { functionCalls: [{ id: 'call-1', name: 'run_task', args: { request } }] } });
+  await fake.next((event) => event.toolResponse);
+  const modelSpeaks = async () => {
+    fake.send({ serverContent: { modelTurn: { parts: [{ inlineData: { data: 'AAE=' } }] } } });
+    fake.send({ serverContent: { turnComplete: true } });
+    await pause(750);
+  };
+  const told = () => fake.received
+    .map((event) => event.clientContent)
+    .filter((content) => content?.turnComplete === true)
+    .map((content) => content.turns[0].parts[0].text);
+  return { engine, session, sink, setup, modelSpeaks, told };
+}
+
+test('a long task is not left in silence: statuses come from its steps, further apart each time', async (t) => {
+  const ctx = createTestRuntime();
+  const fake = await startFakeLiveServer();
+  const { engine, session, modelSpeaks, told } = await callWithRunningTask(t, fake, ctx);
+  const runId = engine.runs[0].options.runId;
+  ctx.db.prepare(
+    `INSERT INTO agent_runs (id, user_id, agent_id, title, status, trigger_type, trigger_source)
+     VALUES (?, ?, ?, 't', 'running', 'user', 'voice_live')`,
+  ).run(runId, session.userId, engine.activeRuns.get(runId).agentId);
+  ctx.db.prepare(
+    `INSERT INTO agent_steps (id, run_id, step_index, type, description, status, started_at)
+     VALUES ('step-1', ?, 0, 'tool', 'web_search: Laptop Testberichte', 'running', datetime('now'))`,
+  ).run(runId);
+  await modelSpeaks();
+
+  // Below the first gap nothing is said.
+  mock.timers.tick(9000);
+  await pause(1100);
+  assert.deepEqual(told(), []);
+
+  mock.timers.tick(1500);
+  await pause(1100);
+  assert.equal(told().length, 1);
+  assert.match(told()[0], /^Tell the owner now/);
+  assert.match(told()[0], /Recherchiere Laptops/);
+  assert.match(told()[0], /web_search: Laptop Testberichte/);
+  assert.doesNotMatch(told()[0], /task 1/);
+
+  // With nothing new to say the wait is much longer, so it does not repeat itself.
+  await modelSpeaks();
+  mock.timers.tick(21000);
+  await pause(1100);
+  assert.equal(told().length, 1, 'same step, not worth saying again yet');
+
+  // A new step is news, and a model that ignores it is not nagged.
+  ctx.db.prepare(
+    `INSERT INTO agent_steps (id, run_id, step_index, type, description, status, started_at)
+     VALUES ('step-2', ?, 1, 'tool', 'read_file: review.md', 'running', datetime('now'))`,
+  ).run(runId);
+  await pause(1100);
+  assert.equal(told().length, 2);
+  assert.match(told()[1], /read_file: review\.md/);
+  session.floor.onReplyMissed();
+  await pause(20);
+  assert.equal(told().length, 2);
+  await session.close('test_done');
+});
+
+test('an update that waited for the line is dropped once the task has answered', async (t) => {
+  const ctx = createTestRuntime();
+  const fake = await startFakeLiveServer();
+  const { engine, session, setup, told } = await callWithRunningTask(t, fake, ctx);
+  const runId = engine.runs[0].options.runId;
+  mock.timers.tick(7000);
+  // The model is still owed its reply to run_task, so both of these have to wait.
+  setup.manager.presentDelivery({ recipient: session.id, runId, messageKind: 'progress', payload: { content: 'Halfway there.', metadata: { liveness: { status: 'working' } } } });
+  setup.manager.presentDelivery({ recipient: session.id, runId, messageKind: 'final', payload: { content: 'It is finished.', metadata: {} } });
+  fake.send({ serverContent: { modelTurn: { parts: [{ inlineData: { data: 'AAE=' } }] } } });
+  fake.send({ serverContent: { turnComplete: true } });
+  await pause(800);
+  assert.equal(told().length, 1);
+  assert.match(told()[0], /It is finished\./);
+  assert.ok(!fake.received.some((event) => /Halfway there/.test(event.clientContent?.turns?.[0]?.parts?.[0]?.text || '')));
+  await session.close('test_done');
+});
+
+test('an outcome replaces a status the model has not started saying', async (t) => {
+  const ctx = createTestRuntime();
+  const fake = await startFakeLiveServer();
+  const { session, modelSpeaks, told } = await callWithRunningTask(t, fake, ctx);
+  await modelSpeaks();
+  mock.timers.tick(11000);
+  await pause(1100);
+  assert.equal(told().length, 1, 'a status went out and the model has not answered yet');
+  session.tellOutcome(null, 'The real result.');
+  await pause(20);
+  assert.equal(told().length, 2);
+  assert.match(told()[1], /The real result\./);
+  await session.close('test_done');
+});
+
+test('no status is spoken over an owner who stopped the speech or a task waiting for them', async (t) => {
+  const ctx = createTestRuntime();
+  const fake = await startFakeLiveServer();
+  const { engine, session, modelSpeaks, told } = await callWithRunningTask(t, fake, ctx);
+  await modelSpeaks();
+
+  session.interruptOutput();
+  session.floor.turnEnded();
+  session.floor.ownerWaiting = false;
+  mock.timers.tick(30000);
+  await pause(1100);
+  assert.deepEqual(told(), []);
+
+  session.outputSuppressed = false;
+  engine.activeRuns.get(engine.runs[0].options.runId).delivery = { awaitingReply: true };
+  await pause(1100);
+  assert.deepEqual(told(), []);
+  await session.close('test_done');
+});
+
+test('a reply the model never gave is asked for once, and a told outcome is told again', async (t) => {
+  const ctx = createTestRuntime();
+  const fake = await startFakeLiveServer();
+  const { session, told } = await callWithRunningTask(t, fake, ctx);
+
+  // run_task answered, and the model said nothing at all.
+  session.floor.onReplyMissed();
+  await fake.next((event) => event.clientContent?.turnComplete === true);
+  assert.match(told()[0], /heard nothing from you/);
+  // Only once.
+  session.floor.onReplyMissed();
+  await pause(20);
+  assert.equal(told().length, 1);
+
+  session.floor.modelSpeaking(Date.now());
+  session.floor.modelSilent();
+  session.floor.turnEnded();
+  session.floor.repliesDue = 0;
+  session.tell(null, 'Das Ergebnis ist 42.');
+  await pause(20);
+  assert.match(told().at(-1), /Das Ergebnis ist 42\./);
+  session.floor.repliesDue = 0;
+  session.floor.onReplyMissed();
+  await pause(20);
+  assert.equal(told().filter((text) => /Das Ergebnis ist 42/.test(text)).length, 2);
+  await session.close('test_done');
+});
+
+test('a dropped line picks up what the owner was still waiting for', async (t) => {
+  const ctx = createTestRuntime();
+  const fake = await startFakeLiveServer();
+  t.after(async () => {
+    await fake.close();
+    teardownTestRuntime(ctx);
+  });
+  process.env.GOOGLE_AI_KEY = 'test-google-key';
+  const engine = createFakeEngine();
+  const setup = await setupManager(ctx, engine, { voice_live_provider: 'google' });
+  const { session } = await connectGemini(fake, engine, setup);
+
+  fake.send({ serverContent: { inputTranscription: { text: 'Wie spät ist es?' } } });
+  await pause(20);
+  fake.received.length = 0;
+  fake.socket.close();
+  const setupAgain = await fake.next((event) => event.setup);
+  assert.ok(setupAgain);
+  fake.send({ setupComplete: {} });
+  const picked = await fake.next((event) => event.clientContent?.turnComplete === true);
+  assert.match(picked.clientContent.turns[0].parts[0].text, /Their last words: "Wie spät ist es\?"/);
+  await session.close('test_done');
+});
+
+test('a task that fails is put in plain words, and news from a task is said right away', async (t) => {
+  const ctx = createTestRuntime();
+  const fake = await startFakeLiveServer();
+  t.after(async () => {
+    await fake.close();
+    teardownTestRuntime(ctx);
+  });
+  process.env.GOOGLE_AI_KEY = 'test-google-key';
+  let fail;
+  const engine = createFakeEngine({
+    run(userId, request, options) {
+      this.runs.push({ request, options });
+      this.track(userId, request, options);
+      return new Promise((_, reject) => { fail = reject; });
+    },
+  });
+  const setup = await setupManager(ctx, engine, { voice_live_provider: 'google', voice_input_mode: 'ptt' });
+  const { session } = await connectGemini(fake, engine, setup);
+  fake.send({ toolCall: { functionCalls: [{ id: 'call-1', name: 'run_task', args: { request: 'Buch den Tisch' } }] } });
+  await fake.next((event) => event.toolResponse);
+  session.floor.repliesDue = 0;
+
+  setup.manager.presentDelivery({
+    recipient: session.id,
+    runId: engine.runs[0].options.runId,
+    messageKind: 'interim',
+    payload: { content: 'Der Tisch ist frei, ich buche ihn.', metadata: { kind: 'milestone' } },
+  });
+  const news = await fake.next((event) => event.clientContent?.turnComplete === true);
+  assert.match(news.clientContent.turns[0].parts[0].text, /News from the task "Buch den Tisch":\nDer Tisch ist frei/);
+  session.floor.repliesDue = 0;
+
+  fail(new Error('Reservierung abgelehnt'));
+  const failed = await fake.next((event) => /without a result/.test(event.clientContent?.turns?.[0]?.parts?.[0]?.text || ''));
+  const text = failed.clientContent.turns[0].parts[0].text;
+  assert.match(text, /Say so plainly in everyday words/);
+  assert.match(text, /Reservierung abgelehnt/);
   await session.close('test_done');
 });
 
@@ -799,7 +1081,7 @@ test('a thinking Gemini model gets a thinking level and keeps the line while it 
   assert.ok(!fake.received.some((event) => event.clientContent));
   fake.send({ serverContent: { turnComplete: true, interactionStatus: 'IDLE' } });
   const outcome = await fake.next((event) => event.clientContent?.turnComplete === true);
-  assert.match(outcome.clientContent.turns[0].parts[0].text, /task 1 \("Merk dir den Termin"\) finished\. Its outcome:\nNotiert\./);
+  assert.match(outcome.clientContent.turns[0].parts[0].text, /The task "Merk dir den Termin" is finished\. What came of it:\nNotiert\./);
   await session.close('test_done');
 });
 

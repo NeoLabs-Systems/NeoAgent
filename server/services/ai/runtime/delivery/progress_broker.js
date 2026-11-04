@@ -1,7 +1,6 @@
 'use strict';
 
 const { createHash } = require('crypto');
-const { EVENT_TYPES, VISIBILITY } = require('../events/event_types');
 const { requestProgressDelivery } = require('./delivery_worker');
 const { MESSAGE_KINDS } = require('../constants');
 
@@ -22,9 +21,7 @@ function hashProgress(delta) {
 function createProgressBroker({
   engine,
   runId,
-  userId,
-  agentId = null,
-  eventBus = null,
+  scopeId = null,
   narrator = null,
   collectDelta = null,
   isSuppressed = null,
@@ -49,31 +46,21 @@ function createProgressBroker({
   let timer = null;
   let tickInFlight = false;
 
-  function noteActivity(kind = 'activity', details = {}) {
+  function noteActivity(kind = 'activity') {
     lastActivityAt = Date.now();
     currentPhase = kind;
-    if (eventBus) {
-      eventBus.publish({
-        runId,
-        userId,
-        agentId,
-        eventType: EVENT_TYPES.NODE_PROGRESS,
-        payload: { kind, ...details },
-        visibility: VISIBILITY.INTERNAL,
-      });
-    }
   }
 
   // A tool that is still executing is real work, however long it takes. Without
   // this the stall threshold would misreport a 20-minute build as a dead run.
-  function noteToolStarted(toolName) {
+  function noteToolStarted() {
     runningTools += 1;
-    noteActivity('tool_started', { tool: toolName });
+    noteActivity('tool_started');
   }
 
-  function noteToolFinished(toolName) {
+  function noteToolFinished() {
     runningTools = Math.max(0, runningTools - 1);
-    noteActivity('tool_completed', { tool: toolName });
+    noteActivity('tool_completed');
   }
 
   function evaluateLiveness({ waiting = false, blocked = false } = {}) {
@@ -185,31 +172,21 @@ function createProgressBroker({
       return { sent: false, reason: 'suppressed', liveness };
     }
 
-    if (eventBus) {
-      eventBus.publish({
-        runId,
-        userId,
-        agentId,
-        eventType: EVENT_TYPES.PROGRESS_USER_UPDATE,
-        payload: { text, delta, liveness },
-        visibility: VISIBILITY.USER,
-      });
-    }
-
     const result = await requestProgressDelivery({
       engine,
       runId,
+      scopeId,
       content: text,
       channel: overrideChannel || channel,
       recipient: overrideRecipient || recipient,
       messageKind: MESSAGE_KINDS.PROGRESS,
+      slot: groundedToolHeartbeat
+        ? `${hash}:heartbeat:${Math.floor(now / (Math.max(1, repeatUpdateSeconds) * 1000))}`
+        : hash,
       metadata: {
         ...(deliveryMetadata && typeof deliveryMetadata === 'object'
           ? deliveryMetadata
           : {}),
-        idempotencyKey: groundedToolHeartbeat
-          ? `${runId}:progress:${hash}:heartbeat:${Math.floor(now / (Math.max(1, repeatUpdateSeconds) * 1000))}`
-          : `${runId}:progress:${hash}`,
         progressHash: hash,
         liveness,
       },

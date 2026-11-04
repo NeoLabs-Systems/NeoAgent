@@ -67,11 +67,13 @@ They also run `flutter upgrade` when Flutter is older than `REQUIRED_FLUTTER_VER
 | `npm run test:contract` | `test/contract/*.test.js` |
 | `npm run test:e2e` | `test/e2e/*.test.js` |
 | `npm run test:ws` | `test/websocket/*.test.js` |
-| `npm run test:backend` (`npm test`) | The six suites above, chained with `&&` |
+| `npm run test:harness` | `test/harness_eval/*.test.js`: the scripted harness evals and the regression gate |
+| `npm run test:backend` (`npm test`) | The seven suites above, chained with `&&` |
 | `npm run flutter:test` | `test/flutter/unit` and `test/flutter/widget` |
 | `npm run flutter:test:unit`, `flutter:test:widget` | One Flutter folder |
 | `bash test/install/install_smoke_test.sh` | Repository install in temporary directories |
 
+- **Harness evals.** `npm run eval:harness` runs fixed cases through the real run path with a scripted model: duplicate delivery, repeated tools, recovery, memory, coding, injection, and telemetry. Duplicate messages and security failures have no tolerance. `-- --live --model provider::id --repeat 3` gives a real model the tool-choice cases and requires every repeat to pass; compare harness versions on the same model and settings, or the result measures the model. `-- --update-baseline` stores a new baseline.
 - **Chained suites.** `test:backend` stops at the first failing suite; run the remaining suites one by one to see their results.
 - **App-local Flutter tests.** `flutter_app/test/` (call, launcher, loading, mascot) is outside `flutter:test`; run `flutter test` inside `flutter_app`.
 - **Analyzer.** `cd flutter_app && flutter analyze --no-pub` uses `analysis_options.yaml`.
@@ -106,7 +108,7 @@ They also run `flutter upgrade` when Flutter is older than `REQUIRED_FLUTTER_VER
 - **Layers.** Routes parse, call a service and respond; business logic lives in `server/services/`.
 - **Database.** Only through `server/db/database.js`, synchronous and parameterized; schema changes go through the [migration layer](persistence.md#schema-changes).
 - **Models.** LLM calls go through `server/services/ai/engine.js`; provider SDKs are imported only in `server/services/ai/providers/`.
-- **Tools.** Defined in `server/services/ai/tools.js`; large results pass through `compactToolResult()`.
+- **Tools.** Schemas and metadata in `server/services/ai/tools/definitions/`, code in `tools/handlers/`; large results pass through `compactToolResult()`.
 - **Paths and env.** Use `runtime/paths.js` constants and `runtime/env.js` helpers.
 - **Logging.** `server/utils/logger.js` with a `[ServiceName]` prefix; log secrets only as boolean presence.
 - **New env keys.** Add them to `.env.example` and to `logStartupConfig()` in `server/index.js`.

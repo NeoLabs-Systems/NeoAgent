@@ -140,7 +140,10 @@ function wrapCommandForShell(command, shellPath) {
 }
 
 class CLIExecutor {
-  constructor() {
+  constructor(options = {}) {
+    // In the guest its environment is its own. On the server it must be told what to
+    // pass on, because the server's environment holds the server's secrets.
+    this.baseEnvironment = options.baseEnvironment || (() => process.env);
     this.activeProcesses = new Map();
     this.defaultShell = resolveDefaultShell();
     if (!this.defaultShell) {
@@ -177,7 +180,7 @@ class CLIExecutor {
     const current = (process.env.PATH || '').split(delimiter);
     const login = loginPath.split(delimiter);
     const merged = [...new Set([...login, ...current].filter(Boolean))].join(delimiter);
-    return { ...process.env, PATH: merged, ...extra };
+    return { ...this.baseEnvironment(), PATH: merged, ...extra };
   }
 
   async execute(command, options = {}) {
@@ -220,10 +223,10 @@ class CLIExecutor {
         output.append('stderr', data);
       });
 
-      if (stdinInput) {
-        proc.stdin.write(stdinInput);
-        proc.stdin.end();
-      }
+      // Nobody is typing: a command that reads stdin gets end of input, not a wait
+      // that lasts until the timeout.
+      proc.stdin.on('error', () => {});
+      proc.stdin.end(stdinInput == null || stdinInput === '' ? undefined : String(stdinInput));
 
       const timer = setTimeout(() => {
         killed = true;
@@ -234,7 +237,13 @@ class CLIExecutor {
       }, timeout);
       timer.unref?.();
 
+      // A process that could not start (a missing working directory, say) emits
+      // 'error' and then 'close'. The output is gone by then, and finishing it again
+      // here would throw outside any promise and take the whole server down.
+      let settled = false;
       proc.on('close', (code, signal) => {
+        if (settled) return;
+        settled = true;
         clearTimeout(timer);
         clearForceKill(proc);
         options.signal?.removeEventListener('abort', onAbort);
@@ -257,6 +266,8 @@ class CLIExecutor {
       });
 
       proc.on('error', (err) => {
+        if (settled) return;
+        settled = true;
         clearTimeout(timer);
         clearForceKill(proc);
         options.signal?.removeEventListener('abort', onAbort);

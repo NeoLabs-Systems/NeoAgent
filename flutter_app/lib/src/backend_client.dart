@@ -1199,6 +1199,24 @@ class BackendClient {
     return getMap(baseUrl, '/api/agents/$runId/steps');
   }
 
+  Future<Map<String, dynamic>> fetchHarnessReport(
+    String baseUrl, {
+    String? agentId,
+  }) {
+    return getMap(baseUrl, _withAgentQuery('/api/agents/harness/report', agentId));
+  }
+
+  Future<Map<String, dynamic>> requestCaptureNextRun(
+    String baseUrl, {
+    String? agentId,
+  }) {
+    return postMap(
+      baseUrl,
+      _withAgentQuery('/api/agents/capture-next', agentId),
+      const <String, dynamic>{},
+    );
+  }
+
   Future<Map<String, dynamic>> fetchRunPromptTurns(
     String baseUrl,
     String runId,

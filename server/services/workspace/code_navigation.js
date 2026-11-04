@@ -3,7 +3,6 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { spawnSync } = require('child_process');
 const { parseSync } = require('oxc-parser');
 const db = require('../../db/database');
 const {
@@ -38,36 +37,6 @@ function declarationInfo(node) {
 class CodeNavigationService {
   constructor(options = {}) {
     this.workspaceManager = options.workspaceManager;
-  }
-
-  lexical(userId, options = {}) {
-    const root = this.workspaceManager.resolvePath(userId, options.path || '.', 'path');
-    const query = String(options.query || '').trim();
-    if (!query) throw new Error('query is required.');
-    const args = ['--json', '--line-number', '--max-count', '100'];
-    if (options.fixed !== false) args.push('--fixed-strings');
-    if (options.include) args.push('--glob', String(options.include));
-    args.push(query, root);
-    const result = spawnSync('rg', args, { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
-    if (result.error?.code === 'ENOENT') {
-      return this.workspaceManager.searchFiles(userId, options);
-    }
-    const matches = String(result.stdout || '').split('\n').filter(Boolean).flatMap((line) => {
-      try {
-        const event = JSON.parse(line);
-        if (event.type !== 'match') return [];
-        const data = event.data;
-        return [{
-          path: path.relative(root, data.path.text).split(path.sep).join('/'),
-          line: data.line_number,
-          excerpt: String(data.lines.text || '').trim().slice(0, 1000),
-          submatches: data.submatches.map((item) => ({ start: item.start, end: item.end })),
-        }];
-      } catch {
-        return [];
-      }
-    });
-    return { mode: 'lexical', count: matches.length, results: matches };
   }
 
   extractStructure(userId, options = {}) {
@@ -182,10 +151,10 @@ class CodeNavigationService {
   }
 
   navigate(userId, options = {}) {
-    const mode = String(options.mode || 'lexical');
+    const mode = String(options.mode || '');
     if (mode === 'structure') return this.extractStructure(userId, options);
     if (mode === 'semantic') return this.semantic(userId, options);
-    return this.lexical(userId, options);
+    throw new Error('mode must be structure or semantic. To search for text, use search_files.');
   }
 }
 

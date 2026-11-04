@@ -90,7 +90,6 @@ test('an active run pauses at a boundary and resumes the same execution', async 
     abortController: new AbortController(),
     toolPids: new Set(),
     activeTools: [],
-    progressLedger: { currentPhase: 'model' },
   });
 
   assert.equal(engine.pauseRun('pause-run', { userId, reason: 'test pause' }), true);
@@ -119,7 +118,6 @@ test('stopping a paused run releases its suspended execution', async () => {
     abortController: new AbortController(),
     toolPids: new Set(),
     activeTools: [],
-    progressLedger: { currentPhase: 'model' },
   });
 
   assert.equal(engine.pauseRun('pause-stop-run', { userId }), true);

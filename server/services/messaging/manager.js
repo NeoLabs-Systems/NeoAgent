@@ -923,7 +923,12 @@ class MessagingManager extends EventEmitter {
     const agentId = this._agentId(userId, mediaPathOrOptions || {});
     const key = this._key(userId, agentId, platformName);
     const platform = this.platforms.get(key);
-    if (!platform) throw new Error(`Platform ${platformName} not connected`);
+    if (!platform) {
+      const error = new Error(`Platform ${platformName} not connected`);
+      // Nothing was sent, so sending again later cannot duplicate anything.
+      error.safeToRetry = true;
+      throw error;
+    }
 
     const sendOptions =
       mediaPathOrOptions && typeof mediaPathOrOptions === 'object' && !Array.isArray(mediaPathOrOptions)
@@ -968,7 +973,12 @@ class MessagingManager extends EventEmitter {
         sendOptions,
         `${platformName} message delivery`,
         (signal) => platform.sendMessage(to, part, { ...partOptions, signal }),
-      );
+      ).catch((error) => {
+        // Earlier parts already reached the chat, so this message cannot be
+        // sent again from the start.
+        if (index > 0) error.deliveryAmbiguous = true;
+        throw error;
+      });
       this._assertRunning();
       throwIfAborted(sendOptions.signal, 'Message delivery aborted.');
       if (partResult?.success === false) {
@@ -976,6 +986,7 @@ class MessagingManager extends EventEmitter {
         const error = new Error(`Platform ${platformName} delivery failed: ${reason}`);
         error.code = 'MESSAGING_DELIVERY_FAILED';
         error.deliveryResult = partResult;
+        error.deliveryAmbiguous = index > 0;
         throw error;
       }
       result ??= partResult;

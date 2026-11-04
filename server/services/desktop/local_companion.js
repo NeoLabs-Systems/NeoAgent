@@ -4,6 +4,7 @@ const { EventEmitter } = require('node:events');
 const os = require('node:os');
 const { DESKTOP_COMMANDS } = require('./protocol');
 const { CLIExecutor } = require('../cli/executor');
+const { buildWorkerEnv } = require('../cli/shell_worker_pool');
 const { WorkspaceManager } = require('../workspace/manager');
 
 const WS_OPEN = 1;
@@ -84,7 +85,8 @@ function unsupported(command) {
  * protocol onto services that already exist.
  */
 function startLocalCompanion({ registry, userId, workspaceRoot }) {
-  const executor = new CLIExecutor();
+  // A model can read anything a command can: commands get a fixed environment.
+  const executor = new CLIExecutor({ baseEnvironment: () => buildWorkerEnv(process.env, []) });
   const workspace = new WorkspaceManager({ rootDir: workspaceRoot, pinned: true });
 
   const handlers = {
@@ -93,6 +95,7 @@ function startLocalCompanion({ registry, userId, workspaceRoot }) {
     [DESKTOP_COMMANDS.EXECUTE_COMMAND]: (payload) => executor.execute(payload.command, {
       cwd: payload.cwd && payload.cwd !== '__neoagent_workspace__' ? payload.cwd : workspaceRoot,
       timeout: payload.timeout,
+      stdinInput: payload.stdin_input ?? payload.stdinInput,
       inputs: payload.inputs,
       pty: payload.pty,
     }),

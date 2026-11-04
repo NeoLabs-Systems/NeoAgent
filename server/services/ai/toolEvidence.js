@@ -9,67 +9,7 @@ const { commandFailureMessage } = require('./commandOutcome');
 const { compactToolResult } = require('./toolResult');
 const { summarizeForLog } = require('./logFormat');
 const { normalizeOutgoingMessage, clampRunContext } = require('./messagingFallback');
-const {
-  isClearlyReadOnlyShellCommand,
-  isProgressToolCall,
-} = require('./loop/progress_classification');
-
-// Ordered classification rules mapping a tool name to its evidence "source"
-// bucket. First matching rule wins, so order is significant. Declared as data
-// rather than a nested ternary so new tool families can be slotted in by adding
-// a row instead of editing control flow.
-const EVIDENCE_SOURCE_RULES = [
-  { source: 'browser', match: (name) => name.startsWith('browser_') },
-  { source: 'android', match: (name) => name.startsWith('android_') },
-  { source: 'mcp', match: (name) => name.startsWith('mcp_') },
-  { source: 'memory', match: (name) => name.startsWith('memory_') || name === 'session_search' },
-  { source: 'search', match: (name) => name === 'web_search' },
-  { source: 'http', match: (name) => name === 'http_request' },
-  { source: 'files', match: (name) => ['read_file', 'read_files', 'read_artifact', 'search_files', 'list_directory', 'write_file', 'edit_file', 'replace_file_range', 'code_navigate', 'query_structured_data'].includes(name) },
-  { source: 'command', match: (name) => name === 'execute_command' },
-  { source: 'skills', match: (name) => name.includes('skill') },
-  { source: 'tasks', match: (name) => name === 'create_task' || name === 'update_task' || name === 'delete_task' || name === 'list_tasks' },
-  { source: 'messaging', match: (name) => name === 'send_message' },
-  { source: 'data', match: (name) => name === 'read_health_data' },
-  { source: 'vision', match: (name) => name === 'analyze_image' },
-  { source: 'subagent', match: (name) => name.includes('subagent') },
-];
-
-const STATE_CHANGING_DEVICE_TOOLS = new Set([
-  'android_install_apk',
-  'android_long_press',
-  'android_open_app',
-  'android_open_intent',
-  'android_press_key',
-  'android_start_emulator',
-  'android_stop_emulator',
-  'android_swipe',
-  'android_tap',
-  'android_type',
-  'desktop_click',
-  'desktop_drag',
-  'desktop_launch_app',
-  'desktop_press_key',
-  'desktop_scroll',
-  'desktop_select_device',
-  'desktop_type',
-]);
-
-function deriveEvidenceSource(name) {
-  const rule = EVIDENCE_SOURCE_RULES.find((entry) => entry.match(name));
-  return rule ? rule.source : 'tool';
-}
-
-function resolveDeclaredToolAccess(toolDefinition, toolArgs = {}) {
-  const access = String(toolDefinition?.access || '').trim().toLowerCase();
-  if (access === 'read' || access === 'write') return access;
-  if (access !== 'dynamic_http_method') return null;
-
-  const method = String(toolArgs?.method || toolArgs?.http_method || 'GET')
-    .trim()
-    .toUpperCase();
-  return ['GET', 'HEAD', 'OPTIONS'].includes(method) ? 'read' : 'write';
-}
+const { changesState, resolveToolMeta } = require('./tools/metadata');
 
 function classifyToolExecution(
   toolName,
@@ -79,81 +19,21 @@ function classifyToolExecution(
   toolDefinition = null,
 ) {
   const name = String(toolName || '');
-  const stateChangingExact = new Set([
-    'execute_command',
-    'write_file',
-    'edit_file',
-    'replace_file_range',
-    'send_interim_update',
-    'send_message',
-    'create_skill',
-    'update_skill',
-    'delete_skill',
-    'create_task',
-    'update_task',
-    'delete_task',
-    'mcp_add_server',
-    'mcp_remove_server',
-    'spawn_subagent',
-    'delegate_to_agent',
-    'cancel_subagent',
-  ]);
+  const meta = resolveToolMeta(name, toolDefinition);
 
-  const declaredAccess = resolveDeclaredToolAccess(toolDefinition, toolArgs);
-  const evidenceSource = declaredAccess ? 'integration' : deriveEvidenceSource(name);
-
-  // Any successful, substantive tool result can advance the run. This default
-  // is deliberate: MCP, skills, and newly added integrations must not become
-  // invisible to the churn guard just because their names were not added to a
-  // central allow-list. Repetition detection still rejects unchanged retries.
-  const evidenceRelevant = isSubstantiveProgressToolName(name);
-  let directStateChange;
-  if (name === 'execute_command' || name === 'android_shell') {
-    directStateChange = !isClearlyReadOnlyShellCommand(toolArgs?.command || '');
-  } else {
-    directStateChange = declaredAccess === 'write'
-      || STATE_CHANGING_DEVICE_TOOLS.has(name)
-      || stateChangingExact.has(name);
-  }
-  const stateChanged = directStateChange
-    || (name.startsWith('github_') && isProgressToolCall(name, toolArgs))
-    || (name === 'http_request' && isProgressToolCall(name, toolArgs))
-    || ['browser_act', 'browser_click', 'browser_evaluate', 'browser_navigate', 'browser_type'].includes(name);
-
-  let normalizedError = String(errorMessage || result?.error || '').trim();
-  if (!normalizedError && name === 'execute_command') {
-    normalizedError = commandFailureMessage(result);
-  }
-
-  if (!normalizedError && result && typeof result === 'object') {
-    const nestedResult = result.result && typeof result.result === 'object' && !Array.isArray(result.result)
-      ? result.result
-      : null;
-    const detail = normalizeOutgoingMessage(
-      result.reason
-      || result.message
-      || nestedResult?.reason
-      || nestedResult?.message
-      || ''
-    );
-
-    if (result.skipped === true || nestedResult?.skipped === true) {
-      normalizedError = detail || 'Tool reported skipped outcome.';
-    } else if (result.success === false || nestedResult?.success === false) {
-      normalizedError = detail || 'Tool reported success=false.';
-    } else if (result.sent === false || nestedResult?.sent === false) {
-      normalizedError = detail || 'Tool reported sent=false.';
-    }
-  }
+  const normalizedError = String(errorMessage || inferToolFailureMessage(name, result)).trim();
 
   return {
     toolName: name,
     ok: !normalizedError,
     error: normalizedError,
-    evidenceSource,
-    evidenceRelevant,
-    stateChanged: stateChanged && !normalizedError,
-    dependsOnOutput: true,
+    evidenceSource: meta.group,
+    // Any successful, substantive tool result can advance the run. This default
+    // is deliberate: MCP, skills, and newly added integrations must not become
+    // invisible to the churn guard. Repetition detection still rejects
+    // unchanged retries.
+    evidenceRelevant: isSubstantiveProgressToolName(name),
+    stateChanged: changesState(meta, toolArgs) && !normalizedError,
     summary: compactToolResult(name, toolArgs, result || { error: errorMessage || 'Tool failed' }, {
       softLimit: 500,
       hardLimit: 900,
@@ -182,12 +62,13 @@ function gatheredNewEvidence(execution, repetitionObservation = null) {
   return true;
 }
 
+// Talking to the user and managing the run's own tools report progress or set
+// it up; neither is progress on the task.
 function isSubstantiveProgressToolName(toolName = '') {
   const name = String(toolName || '').trim();
   if (!name) return false;
-  if (name === 'send_message' || name === 'send_interim_update' || name === 'notify_user') return false;
-  if (name === 'think' || name === 'search_tools' || name === 'activate_tools') return false;
-  return true;
+  const { group, sideEffect } = resolveToolMeta(name);
+  return group !== 'control' && sideEffect !== 'message';
 }
 
 function isSubstantiveProgressEvidence(item = {}) {
@@ -209,7 +90,13 @@ function inferToolFailureMessage(toolName, result) {
 
   if (!result || typeof result !== 'object') return '';
 
-  if (toolName === 'execute_command') return commandFailureMessage(result);
+  const nested = result.result && typeof result.result === 'object' ? result.result : {};
+  const failedReport = Array.isArray(result.report) ? result.report.find((entry) => entry?.success === false) : null;
+  if (result.success === false || nested.success === false || result.sent === false || nested.sent === false || failedReport) {
+    return summarizeForLog(String(result.reason || result.message || nested.error || nested.reason || failedReport?.error || failedReport?.note || 'Tool reported an unsuccessful outcome.'), 240);
+  }
+  if (result.skipped === true || nested.skipped === true) return String(result.reason || result.message || 'Tool reported skipped outcome.');
+  if (resolveToolMeta(toolName).group === 'shell') return commandFailureMessage(result);
 
   if (toolName === 'http_request' && typeof result.status === 'number' && result.status >= 400) {
     const bodySnippet = normalizeOutgoingMessage(result.body || '');
@@ -229,5 +116,4 @@ module.exports = {
   gatheredNewEvidence,
   summarizeProgressToolExecutions,
   inferToolFailureMessage,
-  resolveDeclaredToolAccess,
 };

@@ -1,3 +1,4 @@
+const { DEFAULT_NEOAGENT_PORT } = require('../../../lib/setup/contract');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -169,6 +170,8 @@ function createCloudInitScript({
       'dbus-x11',
       'git',
       'jq',
+      'ripgrep',
+      'nftables',
       'lightdm',
       'lightdm-gtk-greeter',
       'lxterminal',
@@ -574,6 +577,32 @@ function templateModeUserData({ includeBrowser, guestPayloadBase64, bootstrapScr
   };
 }
 
+// QEMU's user network maps 10.0.2.2 to the host's loopback, and private ranges lead to
+// the host's own network and a cloud's metadata service. The guest only needs this
+// server, for the Git proxy, plus DNS and the internet. The guest's root user could
+// remove this, so it keeps ordinary commands out and is not a boundary against root.
+function guestFirewallWriteFile() {
+  const serverPort = Number(process.env.PORT) || DEFAULT_NEOAGENT_PORT;
+  return [
+    '  - path: /etc/neoagent-firewall.nft',
+    "    permissions: '0644'",
+    '    owner: root:root',
+    '    content: |',
+    '      flush ruleset',
+    '      table inet neoagent {',
+    '        chain output {',
+    '          type filter hook output priority 0; policy accept;',
+    '          ct state established,related accept',
+    `          ip daddr 10.0.2.2 tcp dport ${serverPort} accept`,
+    '          ip daddr 10.0.2.3 accept',
+    '          ip6 daddr fec0::3 accept',
+    '          ip daddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16 } drop',
+    '          ip6 daddr { fc00::/7, fec0::/10 } drop',
+    '        }',
+    '      }',
+  ];
+}
+
 function createCloudInitUserData({
   guestToken,
   guestPayloadBase64 = '',
@@ -611,8 +640,11 @@ function createCloudInitUserData({
       browserEnvironment: mode.browserEnvironment,
     }),
     ...mode.extraWriteFiles,
+    ...guestFirewallWriteFile(),
     'runcmd:',
     ...mode.runcmd,
+    // After the steps above: the package they install must not find its config file taken.
+    '  - [bash, -lc, "cp /etc/neoagent-firewall.nft /etc/nftables.conf && systemctl enable --now nftables"]',
     '',
   ].join('\n');
 }

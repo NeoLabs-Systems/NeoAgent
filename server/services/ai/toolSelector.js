@@ -8,45 +8,15 @@
  * remaining registry without injecting the complete catalog into every prompt.
  */
 
+const { resolveToolMeta, toolNamesWithSelection } = require('./tools/metadata');
+
 const MAX_TOOLS = 20;
-const ALWAYS_INCLUDE_BUILT_INS = [
-  'search_tools',
-  'activate_tools',
-  'think',
-  'send_message',
-  'react_to_message',
-  'send_interim_update',
-  'call_user',
-  // Reads the retained full copy of any tool result that had to be cut.
-  'read_artifact',
-];
-const CORE_FILE_TOOLS = [
-  'read_file',
-  'read_files',
-  'list_directory',
-  'search_files',
-  'edit_file',
-  'replace_file_range',
-  'write_file',
-  'code_navigate',
-  'execute_command',
-];
-
-// What a personal agent needs most turns, whatever language the request is
-// in: search, fetching a page, the shell, memory, and scheduling.
-const DEFAULT_ACTIVE_TOOLS = [
-  'web_search',
-  'http_request',
-  'execute_command',
-  'memory_recall',
-  'memory_save',
-  'create_task',
-];
-
+const RETRIEVED_TOOLS = 3;
 function requiredToolNames(options = {}) {
-  const requiredNames = [...ALWAYS_INCLUDE_BUILT_INS];
-  if (options.includeCoreFileTools) requiredNames.push(...CORE_FILE_TOOLS);
-  return requiredNames;
+  return [
+    ...toolNamesWithSelection('always'),
+    ...(options.includeCoreFileTools ? [...toolNamesWithSelection('coding'), 'execute_command'] : []),
+  ];
 }
 
 function toolFamily(tool) {
@@ -89,8 +59,9 @@ function toolSearchTerms(value) {
   return [...new Set(
     String(value || '')
       .toLowerCase()
+      .normalize('NFC')
       .replace(/[_-]+/g, ' ')
-      .split(/[^a-z0-9]+/)
+      .split(/[^\p{L}\p{N}]+/u)
       .map((term) => term.trim())
       .filter((term) => term.length > 1),
   )];
@@ -100,9 +71,11 @@ function searchTools(tools = [], query = '', {
   limit = 8,
   activeNames = [],
   excludeNames = [],
+  alsoNames = [],
+  minScore = 1,
 } = {}) {
   const terms = toolSearchTerms(query);
-  if (terms.length === 0) return [];
+  if (terms.length === 0 && alsoNames.length === 0) return [];
   const active = new Set(activeNames.map(String));
   const excluded = new Set(excludeNames.map(String));
   const boundedLimit = Math.max(1, Math.min(Number(limit) || 8, 12));
@@ -114,14 +87,19 @@ function searchTools(tools = [], query = '', {
       const nameTerms = toolSearchTerms(name);
       const description = compactDescription(tool.description, 260);
       const descriptionTerms = new Set(toolSearchTerms(description));
+      const capabilityTerms = new Set(resolveToolMeta(name, tool).capabilities);
       let score = 0;
       for (const term of terms) {
         if (name.toLowerCase() === term) score += 12;
         if (nameTerms.includes(term)) score += 7;
         else if (nameTerms.some((candidate) => candidate.startsWith(term) || term.startsWith(candidate))) score += 4;
+        if (capabilityTerms.has(term)) score += 5;
         if (descriptionTerms.has(term)) score += 2;
       }
-      if (score === 0) return null;
+      // Words find what they name; meaning finds the rest, in any language.
+      const meaningRank = alsoNames.indexOf(name);
+      if (meaningRank !== -1) score += Math.max(1, 6 - meaningRank);
+      if (score < minScore) return null;
       return {
         name,
         description,
@@ -136,15 +114,30 @@ function searchTools(tools = [], query = '', {
     .map(({ score, ...result }) => result);
 }
 
+// Which group a tool is listed under: its kind of work, or for third-party tools
+// the product or server it belongs to. Names alone tell tools apart well enough
+// for built-ins and named integrations; an MCP server's names can be anything, so
+// those keep a short description.
+function catalogGroup(tool) {
+  const name = String(tool?.name || '');
+  const meta = resolveToolMeta(name, tool);
+  if (tool?.serverId) return `mcp:${tool.serverId}`;
+  if (meta.group === 'integration' || meta.group === 'external') return name.split('_')[0] || 'other';
+  return meta.group;
+}
+
 function summarizeToolCatalog(tools = []) {
-  return tools
-    .map((tool) => {
-      const name = String(tool?.name || '').trim();
-      if (!name) return '';
-      const description = compactDescription(tool?.description, 72);
-      return description ? `${name}: ${description}` : name;
-    })
-    .filter(Boolean)
+  const groups = new Map();
+  for (const tool of tools) {
+    const name = String(tool?.name || '').trim();
+    if (!name) continue;
+    const group = catalogGroup(tool);
+    if (!groups.has(group)) groups.set(group, []);
+    const description = tool?.serverId ? compactDescription(tool?.description, 72) : '';
+    groups.get(group).push(description ? `${name} (${description})` : name);
+  }
+  return [...groups.entries()]
+    .map(([group, names]) => `${group}: ${names.join(', ')}`)
     .join('\n');
 }
 
@@ -152,23 +145,9 @@ function summarizeToolCatalog(tools = []) {
 // needs directly. Without it, every capability costs a search_tools turn
 // before the activate_tools turn before the real call.
 function buildToolDiscoverySummary(tools = [], activeTools = []) {
-  const sourceCounts = new Map();
-  for (const tool of tools) {
-    const source = tool?.serverId ? `mcp:${tool.serverId}` : 'built-in';
-    sourceCounts.set(source, (sourceCounts.get(source) || 0) + 1);
-  }
-  const sources = [...sourceCounts.entries()]
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([source, count]) => `${source}:${count}`)
-    .join(', ');
   const activeNames = new Set(activeTools.map((tool) => tool?.name));
   const inactiveCatalog = summarizeToolCatalog(tools.filter((tool) => !activeNames.has(tool?.name)));
-  return [
-    `Active tools: ${activeTools.map((tool) => tool.name).join(', ') || 'none'}.`,
-    `Discoverable tools: ${tools.length}${sources ? ` (${sources})` : ''}.`,
-    inactiveCatalog ? `Inactive tools (name: description):\n${inactiveCatalog}` : '',
-    'To use an inactive tool, call activate_tools with its exact name from this list. Use search_tools only when nothing listed fits.',
-  ].filter(Boolean).join('\n');
+  return inactiveCatalog ? `Inactive tools by group:\n${inactiveCatalog}` : '';
 }
 
 function ensureRequiredTools(selectedTools = [], builtInTools = [], options = {}) {
@@ -206,21 +185,105 @@ function ensureRequiredTools(selectedTools = [], builtInTools = [], options = {}
   return selected;
 }
 
-// A catalog within the schema cap is simply all active. A larger one starts
-// with the control tools, the defaults, and whatever the run's setup names
-// (in that order of priority); the model activates the rest from the listed
-// catalog itself.
-function selectInitialTools(allTools = [], preferredNames = [], options = {}) {
-  if (allTools.length <= MAX_TOOLS) return allTools.slice();
+// Signals strong enough to spend a schema slot on before the model asks. None of
+// them reads the request's meaning, so none depends on its language: a tool or
+// product named outright, a request that is visibly about files or a repo, and
+// the tools this conversation was just using. Everything else stays one
+// activate_tools call away. The model still chooses among what is active; there
+// is no router and no extra model call.
+const CANDIDATE_SCORES = Object.freeze({
+  control: 1,
+  named: 0.9,
+  conversation: 0.85,
+  run_setup: 0.8,
+  default: 0.7,
+  retrieved: 0.65,
+});
+
+function namedToolNames(request, allTools) {
+  const text = String(request || '').toLowerCase();
+  if (!text) return [];
+  const words = new Set(text.split(/[^\p{L}\p{N}_]+/u).filter((word) => word.length >= 4));
+  const named = [];
+  for (const tool of allTools) {
+    const name = String(tool?.name || '');
+    if (words.has(name.toLowerCase())) {
+      named.push(name);
+      continue;
+    }
+    const meta = resolveToolMeta(name, tool);
+    if (meta.known || meta.group === 'mcp') continue;
+    if (words.has(name.split('_')[0].toLowerCase())) named.push(name);
+  }
+  return named.slice(0, 8);
+}
+
+/**
+ * Picks the tools a run starts with, and says why. A catalog within the schema
+ * cap is simply all active. A larger one starts with the control tools and the
+ * defaults plus whatever the signals above name, best score first; the model
+ * activates the rest from the listed catalog itself.
+ */
+function selectToolCandidates(allTools = [], {
+  request = '',
+  conversationTools = [],
+  preferredNames = [],
+  retrieved = [],
+  options = {},
+} = {}) {
+  if (allTools.length <= MAX_TOOLS) {
+    return {
+      tools: allTools.slice(),
+      candidates: allTools.map((tool) => ({ name: tool?.name, source: 'all', score: 1 })),
+    };
+  }
   const byName = new Map(allTools.map((tool) => [tool?.name, tool]));
-  return expandNamesByFamily([
-    ...requiredToolNames(options),
-    ...DEFAULT_ACTIVE_TOOLS,
-    ...preferredNames,
-  ], allTools)
-    .map((name) => byName.get(name))
-    .filter(Boolean)
-    .slice(0, MAX_TOOLS);
+  const ranked = new Map();
+  const add = (names, source) => {
+    for (const name of expandNamesByFamily(names, allTools)) {
+      if (byName.has(name) && !ranked.has(name)) ranked.set(name, { name, source, score: CANDIDATE_SCORES[source] });
+    }
+  };
+  add(requiredToolNames(options), 'control');
+  add(toolNamesWithSelection('default'), 'default');
+  add(preferredNames, 'run_setup');
+  add(namedToolNames(request, allTools), 'named');
+  add(conversationTools, 'conversation');
+  const codingTools = toolNamesWithSelection('coding');
+  // After everything above, so these only ever add what is still missing.
+  const similarity = new Map(retrieved.map((entry) => [entry.name, entry.similarity]));
+  const missing = retrieved.map((entry) => entry.name).filter((name) => byName.has(name) && !ranked.has(name));
+  add(missing.slice(0, RETRIEVED_TOOLS), 'retrieved');
+  // One file tool without the others only gets the model halfway.
+  if (missing.slice(0, RETRIEVED_TOOLS).some((name) => codingTools.includes(name))) add(codingTools, 'retrieved');
+  for (const candidate of ranked.values()) {
+    if (candidate.source === 'retrieved') candidate.similarity = similarity.get(candidate.name) ?? null;
+  }
+
+  // The score decides who makes the cut. Order stays as added, so the schema
+  // list the provider caches does not shuffle between runs.
+  const kept = new Set(
+    [...ranked.values()].sort((left, right) => right.score - left.score).slice(0, MAX_TOOLS).map((candidate) => candidate.name),
+  );
+  const candidates = [...ranked.values()].filter((candidate) => kept.has(candidate.name));
+  return {
+    tools: candidates.map((candidate) => byName.get(candidate.name)),
+    candidates,
+  };
+}
+
+function selectInitialTools(allTools = [], preferredNames = [], options = {}) {
+  return selectToolCandidates(allTools, { preferredNames, options }).tools;
+}
+
+// A catalog group's name stands for every tool listed under it.
+function expandGroupNames(names = [], allTools = []) {
+  const known = new Set(allTools.map((tool) => tool?.name));
+  return (Array.isArray(names) ? names : []).flatMap((name) => {
+    if (known.has(name)) return [name];
+    const members = allTools.filter((tool) => catalogGroup(tool) === name).map((tool) => tool.name);
+    return members.length ? members : [name];
+  });
 }
 
 function activateTools(currentTools = [], allTools = [], requestedNames = [], options = {}) {
@@ -231,7 +294,7 @@ function activateTools(currentTools = [], allTools = [], requestedNames = [], op
   const evicted = [];
   const unknown = [];
   const notActivated = [];
-  const requested = expandNamesByFamily(requestedNames, allTools);
+  const requested = expandNamesByFamily(expandGroupNames(requestedNames, allTools), allTools);
   for (const name of requested) {
     const tool = knownByName.get(name);
     if (!tool) {
@@ -266,11 +329,10 @@ function activateTools(currentTools = [], allTools = [], requestedNames = [], op
 
 module.exports = {
   expandNamesByFamily,
-  ALWAYS_INCLUDE_BUILT_INS,
-  CORE_FILE_TOOLS,
   MAX_TOOLS,
   activateTools,
   buildToolDiscoverySummary,
   searchTools,
   selectInitialTools,
+  selectToolCandidates,
 };

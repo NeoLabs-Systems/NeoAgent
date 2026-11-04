@@ -4961,6 +4961,20 @@ class NeoAgentController extends ChangeNotifier {
         .toList();
   }
 
+  Future<Map<String, dynamic>> fetchHarnessReport() {
+    return _backendClient.fetchHarnessReport(
+      backendUrl,
+      agentId: _scopedAgentId,
+    );
+  }
+
+  Future<void> requestCaptureNextRun() async {
+    await _backendClient.requestCaptureNextRun(
+      backendUrl,
+      agentId: _scopedAgentId,
+    );
+  }
+
   Future<RunPromptSnapshot> fetchRunPrompt(
     String runId,
     String requestId,

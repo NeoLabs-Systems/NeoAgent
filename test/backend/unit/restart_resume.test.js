@@ -116,7 +116,7 @@ test('only top-level web and messaging runs record a resume envelope, with plain
     context: { rawUserMessage: 'fix the build', socialIntelligence: { message: { chatId: '42' } } },
     signal: new AbortController().signal,
     onBackground: () => {},
-    deliveryState: { messagingSent: false },
+    delivery: { sent: [] },
     priorMessages: [{ role: 'user', content: 'earlier' }],
     app: { locals: {} },
     runId: 'old-run',
@@ -234,7 +234,7 @@ test('a resumable run is claimed once, with what it already did in the continuat
   const metadata = metadataOf('cut-run');
   assert.equal(metadata.resume, undefined);
   assert.equal(metadata.resumedAs, options.runId);
-  assert.deepEqual(engine.events, [{ runId: 'cut-run', type: 'run_resumed', payload: { resumedAs: options.runId } }]);
+  assert.deepEqual(engine.events, [{ runId: 'cut-run', type: 'run.state', payload: { to_state: 'resumed', resumed_as: options.runId } }]);
 
   assert.equal(resume.countResumableRuns(), 0);
   assert.equal(resume.resumeInterruptedRuns(engine), 0);

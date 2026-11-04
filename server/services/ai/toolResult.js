@@ -1,4 +1,6 @@
+const { resolveToolMeta } = require('./tools/metadata');
 const { commandFailureMessage } = require('./commandOutcome');
+const { parseTestOutput } = require('./test_output');
 
 function clampText(text, maxChars) {
   const str = String(text || '');
@@ -74,11 +76,21 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
 
   let envelope;
 
-  switch (toolName) {
-    case 'execute_command':
+  switch (resolveToolMeta(toolName).resultShape || toolName) {
+    case 'command': {
+      // A readable test report replaces the log: the failures are what the next
+      // step needs, and the whole log stays in its artifact.
+      const testResult = parseTestOutput({
+        command: toolArgs.command,
+        stdout: toolResult?.stdout,
+        stderr: toolResult?.stderr,
+      });
+      const outputShare = testResult ? 0.15 : 1;
       envelope = trimObject({
         tool: toolName,
         status: toolResult?.timedOut ? 'timed_out' : (commandFailureMessage(toolResult) ? 'error' : 'ok'),
+        // Why it did not run: a refusal or a failed start has no output to read.
+        error: toolResult?.error ? clampText(String(toolResult.error), 800) : undefined,
         command: clampText(toolArgs.command || '', Math.floor(softLimit * 0.28)),
         exitCode: toolResult?.exitCode,
         cwd: toolResult?.cwd || toolArgs.cwd,
@@ -98,12 +110,13 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
             : (toolResult?.exitCode !== undefined && toolResult?.exitCode !== 0)
               ? 'Command exited non-zero. Output may be partial; later segments of a chained shell command may not have run.'
               : '',
-        stdout: clampText(String(toolResult?.stdout || '').trim(), Math.floor(softLimit * 0.6)),
-        stderr: clampText(String(toolResult?.stderr || '').trim(), Math.floor(softLimit * 0.25))
+        test_result: testResult || undefined,
+        stdout: clampText(String(toolResult?.stdout || '').trim(), Math.floor(softLimit * 0.6 * outputShare)),
+        stderr: clampText(String(toolResult?.stderr || '').trim(), Math.floor(softLimit * 0.25 * outputShare))
       });
       break;
-
-    case 'read_artifact':
+    }
+    case 'artifact':
       {
         const content = String(toolResult?.content || '').trim();
         const contentLimit = Math.floor(softLimit * 0.8);
@@ -124,16 +137,16 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         });
         break;
       }
-
-    case 'read_file':
+    case 'file':
       {
-        const content = String(toolResult?.content || toolResult || '');
+        const content = String(typeof toolResult === 'string' ? toolResult : toolResult?.content ?? '');
         const contentLimit = Math.floor(softLimit * 0.85);
         const truncated = toolResult?.truncated === true
           || content.includes('...[truncated')
           || content.trim().length > contentLimit;
         envelope = trimObject({
           tool: toolName,
+          error: toolResult?.error,
           path: toolArgs.path,
           startLine: toolArgs.start_line,
           endLine: toolArgs.end_line,
@@ -147,8 +160,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         });
         break;
       }
-
-    case 'read_files':
+    case 'files':
       {
         const sourceResults = toolResult?.results || [];
         const contentLimit = Math.floor((softLimit * 0.85) / Math.max(1, sourceResults.length));
@@ -174,8 +186,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         });
         break;
       }
-
-    case 'replace_file_range':
+    case 'file_range':
       envelope = trimObject({
         tool: toolName,
         status: toolResult?.success === false || toolResult?.error ? 'error' : 'ok',
@@ -188,8 +199,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         error: toolResult?.error
       });
       break;
-
-    case 'search_files':
+    case 'file_search':
       {
         const matches = toolResult?.matches || [];
         const count = toolResult?.count || matches.length;
@@ -197,10 +207,11 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         const truncated = toolResult?.truncated === true || count > maxMatches || matches.length > maxMatches;
         envelope = trimObject({
           tool: toolName,
+          error: toolResult?.error,
           count,
           truncated,
-          note: truncated
-            ? 'Only the first matches are shown. Narrow the path or search pattern, or read the matched files around the relevant lines.'
+          note: toolResult?.note || truncated
+            ? toolResult?.note || 'Only the first matches are shown. Narrow the path or search pattern, or read the matched files around the relevant lines.'
             : undefined,
           matches: matches.slice(0, maxMatches).map((match) => trimObject({
             file: match.file,
@@ -210,8 +221,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         });
         break;
       }
-
-    case 'browser_extract':
+    case 'page_extract':
       envelope = trimObject({
         tool: toolName,
         task_relevance: toolResult?.task_relevance,
@@ -220,8 +230,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         excerpt: excerpt(toolResult?.result || toolResult?.content || toolResult, Math.floor(softLimit * 0.85))
       });
       break;
-
-    case 'social_video_extract': {
+    case 'video_extract': {
       const transcript = String(toolResult?.transcript || '').trim();
       const transcriptPreview = lineExcerpt(transcript, 6, Math.floor(softLimit * 0.35));
       if (transcriptPreview !== transcript) cutPayload = transcript;
@@ -244,9 +253,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       });
       break;
     }
-
-    case 'android_dump_ui':
-    case 'android_observe':
+    case 'device_ui':
       envelope = trimObject({
         tool: toolName,
         serial: toolResult?.serial,
@@ -256,8 +263,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         preview: clampText(JSON.stringify(toolResult?.preview || []).slice(0, Math.floor(softLimit * 0.55)), Math.floor(softLimit * 0.55))
       });
       break;
-
-    case 'android_list_apps':
+    case 'device_apps':
       if (toolResult?.packages?.length > 20) cutPayload = toolResult.packages;
       envelope = trimObject({
         tool: toolName,
@@ -266,8 +272,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         preview: lineExcerpt((toolResult?.packages || []).slice(0, 20).join('\n'), 20, Math.floor(softLimit * 0.6))
       });
       break;
-
-    case 'android_shell':
+    case 'device_shell':
       envelope = trimObject({
         tool: toolName,
         serial: toolResult?.serial,
@@ -276,8 +281,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         excerpt: excerpt(toolResult?.stdout || toolResult?.result || toolResult, Math.floor(softLimit * 0.85))
       });
       break;
-
-    case 'http_request':
+    case 'http':
       envelope = trimObject({
         tool: toolName,
         task_relevance: toolResult?.task_relevance,
@@ -289,8 +293,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         excerpt: excerpt(toolResult?.body || toolResult, Math.floor(softLimit * 0.85))
       });
       break;
-
-    case 'list_tasks':
+    case 'task_list':
       if (toolResult?.tasks?.length > 8) cutPayload = toolResult.tasks;
       envelope = trimObject({
         tool: toolName,
@@ -311,8 +314,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
           : undefined
       });
       break;
-
-    case 'send_message':
+    case 'sent_message':
       envelope = trimObject({
         tool: toolName,
         status: toolResult?.skipped
@@ -333,8 +335,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         })), Math.floor(softLimit * 0.3))
       });
       break;
-
-    case 'send_interim_update':
+    case 'interim':
       envelope = trimObject({
         tool: toolName,
         status: toolResult?.skipped
@@ -345,19 +346,10 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         message: clampText(toolResult?.content || toolArgs.content || toolResult?.reason || '', Math.floor(softLimit * 0.55))
       });
       break;
-
-    case 'memory_save':
-    case 'memory_forget':
-    case 'memory_update_core':
-    case 'memory_read':
-    case 'memory_write':
-    case 'create_task':
-    case 'delete_task':
-    case 'update_task':
+    case 'status':
       envelope = buildSimpleStatusEnvelope(toolName, toolResult, softLimit);
       break;
-
-    case 'spawn_subagent':
+    case 'subagent_started':
       envelope = trimObject({
         tool: toolName,
         handle: toolResult?.handle,
@@ -366,10 +358,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         summary: clampText(toolResult?.task || toolResult?.error || '', Math.floor(softLimit * 0.55))
       });
       break;
-
-    case 'list_subagents':
-    case 'wait_subagent':
-    case 'cancel_subagent':
+    case 'subagents':
       envelope = trimObject({
         tool: toolName,
         status: toolResult?.status || (Array.isArray(toolResult?.subagents) ? 'ok' : ''),
@@ -456,6 +445,11 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       });
       break;
     }
+
+    // A tool that already keeps its result small says so, and it goes through as it is.
+    case 'bounded':
+      envelope = trimObject({ tool: toolName, ...toolResult });
+      break;
 
     default:
       envelope = trimObject({

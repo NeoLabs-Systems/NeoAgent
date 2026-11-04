@@ -76,7 +76,7 @@ test('owner runs start clean; event-triggered and shared runs start tainted', ()
 
 test('tool output taints the run unless the harness wrote it', () => {
   const trust = ownerRun('hi');
-  recordToolOutput(trust, 'think');
+  recordToolOutput(trust, 'task_ledger');
   assert.equal(isTainted(trust), false);
   recordToolOutput(trust, 'web_search');
   assert.equal(isTainted(trust), true);

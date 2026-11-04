@@ -1,6 +1,7 @@
 'use strict';
 
 const { stripFencedSpans } = require('../../utils/untrusted_text');
+const { resolveToolMeta } = require('../ai/tools/metadata');
 
 // Per-run record of who the run acts for and whether content the owner did not
 // write has reached its context. trust_policy.js decides from it; tool_turn
@@ -24,38 +25,6 @@ const OWNER_TRIGGER_SOURCES = new Set([
   'voice_live',
   'wearable',
   'messaging',
-]);
-
-// Tools whose results the harness writes itself, so reading them adds no
-// outside content. Every other tool result counts as untrusted.
-const HARNESS_OUTPUT_TOOLS = new Set([
-  'think',
-  'search_tools',
-  'activate_tools',
-  'send_interim_update',
-  'send_message',
-  'react_to_message',
-  'notify_user',
-  'call_user',
-  'get_date_time',
-  'create_task',
-  'update_task',
-  'delete_task',
-  'list_tasks',
-  'get_task',
-  'memory_save',
-  'memory_update_core',
-  'write_file',
-  'edit_file',
-  'replace_file_range',
-  'generate_table',
-  'generate_graph',
-  'spawn_subagent',
-  'list_subagents',
-  'cancel_subagent',
-  'settings_read',
-  'settings_update',
-  'settings_link',
 ]);
 
 const PHONE_LIKE_RE = /\+?\d[\d\s().-]{4,}\d/g;
@@ -110,6 +79,7 @@ function createRunTrust({
     mediaPaths: new Set(mediaPaths.filter(Boolean).map(String)),
     taintSources: new Set(),
     trustedText: '',
+    ownerStatements: [],
     trustedNumbers: new Set(),
   };
   if (audience !== 'owner') trust.taintSources.add(`${audience} conversation`);
@@ -121,13 +91,16 @@ function createRunTrust({
   for (const message of messages) {
     if (message?.role !== 'system' && message?.role !== 'user') continue;
     const text = messageText(message);
+    if (!startsTainted && message.role === 'user') trust.ownerStatements.push(text);
     addTrustedText(trust, startsTainted ? stripFencedSpans(text) : text);
   }
   return trust;
 }
 
+// Every tool result counts as untrusted unless the tool's metadata says the
+// harness wrote it itself, so reading it adds no outside content.
 function recordToolOutput(trust, toolName) {
-  if (trust && !HARNESS_OUTPUT_TOOLS.has(toolName)) trust.taintSources.add(toolName);
+  if (trust && resolveToolMeta(toolName).untrusted) trust.taintSources.add(toolName);
 }
 
 function isTainted(trust) {

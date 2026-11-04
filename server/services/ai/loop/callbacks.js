@@ -8,7 +8,8 @@ const {
 } = require('../interim');
 const { normalizeInterimText } = require('../messagingFallback');
 const { requireSuccessfulMessagingDelivery } = require('./messaging_delivery');
-const { requestProgressDelivery } = require('../runtime/delivery/delivery_worker');
+const { commitDelivery, requestProgressDelivery, slotForContent } = require('../runtime/delivery/delivery_worker');
+const { loadRun } = require('../runtime/run_state_machine');
 const { MESSAGE_KINDS } = require('../runtime/constants');
 
 async function publishInterimUpdate(engine, {
@@ -44,9 +45,7 @@ async function publishInterimUpdate(engine, {
     expectsReply,
     platform: triggerSource === 'messaging' ? platform : 'web',
   });
-  if (runMeta.interimSignatures?.has(signature)) {
-    return { sent: false, skipped: true, duplicate: true };
-  }
+  const slot = slotForContent(signature);
 
   const metadata = buildInterimMetadata({
     kind: normalizedKind,
@@ -57,20 +56,7 @@ async function publishInterimUpdate(engine, {
   }
   const createdAt = new Date().toISOString();
 
-  if (triggerSource === 'messaging') {
-    if (!platform || !chatId || !engine.messagingManager) {
-      return { sent: false, skipped: true, reason: 'Messaging context is not available.' };
-    }
-    const deliveryResult = await engine.messagingManager.sendMessage(userId, platform, chatId, normalizedContent, {
-      agentId,
-      runId,
-      persistConversation: true,
-      metadata,
-      deliveryKind: 'interim',
-      signal: runMeta.abortController?.signal || null,
-    });
-    requireSuccessfulMessagingDelivery(deliveryResult, 'Interim messaging delivery');
-  } else if (triggerSource === 'voice_live') {
+  if (triggerSource === 'voice_live') {
     const voiceSessionId = runMeta.voiceSessionId || null;
     if (!voiceSessionId) {
       return { sent: false, skipped: true, reason: 'Voice session context is not available.' };
@@ -78,58 +64,78 @@ async function publishInterimUpdate(engine, {
     const delivery = await requestProgressDelivery({
       engine,
       runId,
+      scopeId: runMeta.deliveryScopeId,
       content: normalizedContent,
       channel: 'voice_live',
       recipient: voiceSessionId,
       messageKind: MESSAGE_KINDS.INTERIM,
+      slot,
       metadata: {
         kind: normalizedKind,
         expectsReply: expectsReply === true,
         ...(runMeta.sessionBinding || {}),
-        idempotencyKey: `${runId}:interim:${buildInterimSignature({
-          content: normalizedContent,
-          kind: normalizedKind,
-          expectsReply,
-          platform: 'voice_live',
-        })}`,
       },
     });
+    if (delivery.duplicate) return { sent: false, skipped: true, duplicate: true };
     if (!delivery.ok) return { sent: false, skipped: true, reason: delivery.reason };
   } else {
-    db.prepare(
-      `INSERT INTO conversation_history (
-        user_id, agent_id, agent_run_id, conversation_id, role, content, metadata
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      userId,
-      agentId,
-      runId,
-      conversationId || null,
-      'assistant',
-      normalizedContent,
-      JSON.stringify(metadata),
-    );
-
-    if (conversationId) {
-      db.prepare(
-        `INSERT INTO conversation_messages (
-          conversation_id, run_id, agent_id, role, content, metadata_json
-        ) VALUES (?, ?, ?, 'assistant', ?, ?)`,
-      ).run(conversationId, runId, agentId, normalizedContent, JSON.stringify(metadata));
+    if (triggerSource === 'messaging' && (!platform || !chatId || !engine.messagingManager)) {
+      return { sent: false, skipped: true, reason: 'Messaging context is not available.' };
+    }
+    const run = loadRun(runId);
+    const delivery = await commitDelivery({
+      run,
+      scopeId: runMeta.deliveryScopeId,
+      channel: triggerSource === 'messaging' ? 'messaging' : 'web',
+      recipient: triggerSource === 'messaging' ? chatId : null,
+      purpose: 'interim',
+      slot,
+      content: normalizedContent,
+      metadata: { kind: normalizedKind, expectsReply: expectsReply === true },
+      dedupeContent: false,
+      transmit: async () => {
+        if (triggerSource === 'messaging') {
+          const deliveryResult = await engine.messagingManager.sendMessage(userId, platform, chatId, normalizedContent, {
+            agentId,
+            runId,
+            persistConversation: true,
+            metadata,
+            deliveryKind: 'interim',
+            signal: runMeta.abortController?.signal || null,
+          });
+          requireSuccessfulMessagingDelivery(deliveryResult, 'Interim messaging delivery');
+          return { ok: true };
+        }
+        db.prepare(
+          `INSERT INTO conversation_history (
+            user_id, agent_id, agent_run_id, conversation_id, role, content, metadata
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)`
+        ).run(
+          userId,
+          agentId,
+          runId,
+          conversationId || null,
+          'assistant',
+          normalizedContent,
+          JSON.stringify(metadata),
+        );
+        if (conversationId) {
+          db.prepare(
+            `INSERT INTO conversation_messages (
+              conversation_id, run_id, agent_id, role, content, metadata_json
+            ) VALUES (?, ?, ?, 'assistant', ?, ?)`,
+          ).run(conversationId, runId, agentId, normalizedContent, JSON.stringify(metadata));
+        }
+        return { ok: true };
+      },
+    });
+    if (delivery.duplicate) return { sent: false, skipped: true, duplicate: true };
+    if (!delivery.ok) {
+      if (delivery.thrown) throw delivery.thrown;
+      return { sent: false, skipped: true, reason: delivery.reason };
     }
   }
 
-  if (!runMeta.interimSignatures) runMeta.interimSignatures = new Set();
-  if (!Array.isArray(runMeta.interimMessages)) runMeta.interimMessages = [];
-  runMeta.interimSignatures.add(signature);
-  runMeta.interimMessages.push({
-    content: normalizedContent,
-    kind: normalizedKind,
-    expectsReply: expectsReply === true,
-    deferFollowUp: deferFollowUp === true,
-    createdAt,
-  });
-  runMeta.lastInterimMessage = normalizedContent;
   engine.markRunVisibleProgress(runId, createdAt);
 
   if (triggerSource !== 'voice_live') {
@@ -146,8 +152,8 @@ async function publishInterimUpdate(engine, {
   }
 
   const terminalInterim = expectsReply === true;
-  if (terminalInterim) {
-    runMeta.terminalInterim = {
+  if (terminalInterim && runMeta.delivery) {
+    runMeta.delivery.awaitingReply = {
       kind: normalizedKind,
       content: normalizedContent,
       createdAt,
@@ -161,7 +167,6 @@ async function publishInterimUpdate(engine, {
       content: normalizedContent,
       createdAt,
     },
-    progressLedger: engine.buildProgressLedgerSnapshot(runMeta),
     terminalInterim: terminalInterim
       ? { kind: normalizedKind, content: normalizedContent, createdAt }
       : null,

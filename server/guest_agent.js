@@ -125,7 +125,7 @@ function resolveWorkspacePath(value = '.', options = {}) {
   if (requested.includes('\0')) throw new Error('Workspace path contains invalid characters.');
   const candidate = path.resolve(WORKSPACE_ROOT, requested);
   const relative = path.relative(WORKSPACE_ROOT, candidate);
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
     throw new Error('Workspace path is outside the computer workspace.');
   }
   if (options.mustExist !== false && !fs.existsSync(candidate)) {
@@ -133,12 +133,39 @@ function resolveWorkspacePath(value = '.', options = {}) {
     error.code = 'ENOENT';
     throw error;
   }
+  assertRealPathInWorkspace(candidate);
   return candidate;
 }
 
 function relativeWorkspacePath(value) {
   const relative = path.relative(WORKSPACE_ROOT, value);
   return relative && relative !== '.' ? relative.split(path.sep).join('/') : '';
+}
+
+// A path can look inside and still lead out through a link in a cloned repository.
+function assertRealPathInWorkspace(target) {
+  let existing = target;
+  while (!fs.existsSync(existing) && path.dirname(existing) !== existing) existing = path.dirname(existing);
+  const relative = path.relative(fs.realpathSync(WORKSPACE_ROOT), fs.realpathSync(existing));
+  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error('Workspace path is outside the computer workspace.');
+  }
+}
+
+function readWorkspaceBytes(filePath) {
+  const target = fs.realpathSync(filePath);
+  assertRealPathInWorkspace(target);
+  const fd = fs.openSync(target, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+  try {
+    // Linux guests can check the opened object, not only the pre-open pathname.
+    if (process.platform === 'linux') assertRealPathInWorkspace(fs.realpathSync(`/proc/self/fd/${fd}`));
+    const stats = fs.fstatSync(fd);
+    if (!stats.isFile()) throw new Error('Workspace path is not a file.');
+    if (stats.size > MAX_WORKSPACE_FILE_BYTES) throw new Error('Workspace file is too large.');
+    return { stats, content: fs.readFileSync(fd) };
+  } finally {
+    fs.closeSync(fd);
+  }
 }
 
 function availableDiskBytes(target = WORKSPACE_ROOT) {
@@ -474,12 +501,10 @@ app.get('/workspace/files', async (req, res) => {
 app.get('/workspace/files/content', async (req, res) => {
   await handle(res, async () => {
     const filePath = resolveWorkspacePath(req.query?.path || '');
-    const stats = fs.statSync(filePath);
-    if (!stats.isFile()) throw new Error('Workspace path is not a file.');
-    if (stats.size > MAX_WORKSPACE_FILE_BYTES) throw new Error('Workspace file is too large to edit.');
+    const { stats, content } = readWorkspaceBytes(filePath);
     return {
       path: relativeWorkspacePath(filePath),
-      content: fs.readFileSync(filePath, 'utf8'),
+      content: content.toString('utf8'),
       size: stats.size,
       modifiedAt: stats.mtime.toISOString(),
     };
@@ -498,13 +523,31 @@ app.put('/workspace/files/content', async (req, res) => {
     }
     assertDiskSafety(contentBytes);
     const filePath = resolveWorkspacePath(req.body?.path || '', { mustExist: false });
+    assertRealPathInWorkspace(filePath);
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    // Writing must not change what kind of file it is: a script stays executable, and
+    // a link stays a link, with its target getting the new content.
+    let target = filePath;
+    let mode = 0o644;
+    if (fs.existsSync(filePath)) {
+      target = fs.realpathSync(filePath);
+      mode = fs.statSync(target).mode & 0o777;
+    }
+    assertRealPathInWorkspace(target);
     const temporary = path.join(
-      path.dirname(filePath),
-      `.${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`,
+      path.dirname(target),
+      `.${path.basename(target)}.${process.pid}.${crypto.randomBytes(8).toString('hex')}.tmp`,
     );
-    fs.writeFileSync(temporary, content, binary ? { mode: 0o600 } : { encoding: 'utf8', mode: 0o600 });
-    fs.renameSync(temporary, filePath);
+    const fd = fs.openSync(temporary, 'wx', mode);
+    try {
+      fs.writeFileSync(fd, content);
+      fs.fchmodSync(fd, mode);
+      fs.fsyncSync(fd);
+    } finally {
+      fs.closeSync(fd);
+    }
+    try { fs.renameSync(temporary, target); }
+    finally { fs.rmSync(temporary, { force: true }); }
     return { success: true, path: relativeWorkspacePath(filePath) };
   });
 });
@@ -512,15 +555,13 @@ app.put('/workspace/files/content', async (req, res) => {
 app.get('/workspace/files/download', async (req, res) => {
   try {
     const filePath = resolveWorkspacePath(req.query?.path || '');
-    const stats = fs.statSync(filePath);
-    if (!stats.isFile()) throw new Error('Workspace path is not a file.');
-    if (stats.size > MAX_WORKSPACE_FILE_BYTES) throw new Error('Workspace file exceeds the download limit.');
+    const { stats, content } = readWorkspaceBytes(filePath);
     res.json({
       path: relativeWorkspacePath(filePath),
       filename: path.basename(filePath),
       contentType: 'application/octet-stream',
       encoding: 'base64',
-      content: fs.readFileSync(filePath).toString('base64'),
+      content: content.toString('base64'),
       size: stats.size,
     });
   } catch (err) {

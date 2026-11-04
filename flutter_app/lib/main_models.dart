@@ -1796,12 +1796,183 @@ class VoiceAssistantLiveState {
   }
 }
 
+/// A run's summary from its ledger: how long each part took and what happened.
+class RunDiagnostic {
+  const RunDiagnostic({
+    required this.code,
+    required this.count,
+    required this.share,
+    required this.tokens,
+    required this.tools,
+  });
+
+  factory RunDiagnostic.fromJson(Map<dynamic, dynamic> json) {
+    final tools = json['tools'];
+    return RunDiagnostic(
+      code: json['code']?.toString() ?? '',
+      count: _asInt(json['count']),
+      share: (json['share'] as num?)?.toDouble() ?? 0,
+      tokens: _asInt(json['tokens']),
+      tools: tools is List
+          ? tools.map((tool) => tool.toString()).toList()
+          : const <String>[],
+    );
+  }
+
+  final String code;
+  final int count;
+  final double share;
+  final int tokens;
+  final List<String> tools;
+}
+
+class RunHarnessMetrics {
+  const RunHarnessMetrics({
+    this.taskOutcome = '',
+    this.filesChanged = 0,
+    this.testsRun = 0,
+    required this.promptVersion,
+    required this.taskClass,
+    required this.durationMs,
+    required this.firstActionMs,
+    required this.queueMs,
+    required this.modelMs,
+    required this.toolMs,
+    required this.sandboxMs,
+    required this.deliveryMs,
+    required this.turns,
+    required this.retries,
+    required this.toolCalls,
+    required this.toolsFailed,
+    required this.toolsSuppressed,
+    required this.inputTokens,
+    required this.outputTokens,
+    required this.cachedTokens,
+    required this.memoryRecalls,
+    required this.memoryTokens,
+    required this.compactions,
+    required this.recoveries,
+    required this.checkpoints,
+    required this.deliverySent,
+    required this.deliveryFailed,
+    required this.deliverySuppressed,
+  });
+
+  factory RunHarnessMetrics.fromJson(Map<dynamic, dynamic> json) {
+    final latency = _jsonMap(json['latency']);
+    final tools = _jsonMap(json['tools']);
+    final tokens = _jsonMap(json['tokens']);
+    final memory = _jsonMap(json['memory']);
+    final delivery = _jsonMap(json['delivery']);
+    final outcome = _jsonMap(json['outcome']);
+    final evidence = _jsonMap(outcome['evidence']);
+    return RunHarnessMetrics(
+      taskOutcome: outcome['task_outcome']?.toString() ?? '',
+      filesChanged: _asInt(evidence['files_changed']),
+      testsRun: _asInt(evidence['tests_run']),
+      promptVersion: json['prompt_version']?.toString() ?? '',
+      taskClass: json['task_class']?.toString() ?? '',
+      durationMs: _asInt(json['duration_ms']),
+      firstActionMs: json['first_action_ms'] == null
+          ? null
+          : _asInt(json['first_action_ms']),
+      queueMs: _asInt(latency['queue_ms']),
+      modelMs: _asInt(latency['model_ms']),
+      toolMs: _asInt(latency['tool_ms']),
+      sandboxMs: _asInt(latency['sandbox_ms']),
+      deliveryMs: _asInt(latency['delivery_ms']),
+      turns: _asInt(json['turns']),
+      retries: _asInt(json['retries']),
+      toolCalls: _asInt(tools['calls']),
+      toolsFailed: _asInt(tools['failed']),
+      toolsSuppressed: _asInt(tools['suppressed']),
+      inputTokens: _asInt(tokens['input']),
+      outputTokens: _asInt(tokens['output']),
+      cachedTokens: _asInt(tokens['cachedRead']),
+      memoryRecalls: _asInt(memory['recalls']),
+      memoryTokens: _asInt(memory['tokens']),
+      compactions: _asInt(json['compactions']),
+      recoveries: _asInt(json['recoveries']),
+      checkpoints: _asInt(json['checkpoints']),
+      deliverySent: _asInt(delivery['sent']),
+      deliveryFailed: _asInt(delivery['failed']),
+      deliverySuppressed: _asInt(delivery['suppressed']),
+    );
+  }
+
+  final String taskOutcome;
+  final int filesChanged;
+  final int testsRun;
+  final String promptVersion;
+  final String taskClass;
+  final int durationMs;
+  final int? firstActionMs;
+  final int queueMs;
+  final int modelMs;
+  final int toolMs;
+  final int sandboxMs;
+  final int deliveryMs;
+  final int turns;
+  final int retries;
+  final int toolCalls;
+  final int toolsFailed;
+  final int toolsSuppressed;
+  final int inputTokens;
+  final int outputTokens;
+  final int cachedTokens;
+  final int memoryRecalls;
+  final int memoryTokens;
+  final int compactions;
+  final int recoveries;
+  final int checkpoints;
+  final int deliverySent;
+  final int deliveryFailed;
+  final int deliverySuppressed;
+}
+
+/// The record a multi-step run keeps of its own task.
+class RunTaskLedger {
+  const RunTaskLedger({
+    required this.goal,
+    required this.steps,
+    required this.verifiedFacts,
+    required this.blockers,
+  });
+
+  factory RunTaskLedger.fromJson(Map<dynamic, dynamic> json) {
+    List<String> texts(dynamic value) => value is List
+        ? value.map((item) => item.toString()).toList()
+        : const <String>[];
+    return RunTaskLedger(
+      goal: json['goal']?.toString() ?? '',
+      steps: _jsonMapList(json['steps'])
+          .map(
+            (step) => (
+              id: step['id']?.toString() ?? '',
+              status: step['status']?.toString() ?? 'pending',
+            ),
+          )
+          .toList(),
+      verifiedFacts: texts(json['observations'] ?? json['verified_facts']),
+      blockers: texts(json['blockers']),
+    );
+  }
+
+  final String goal;
+  final List<({String id, String status})> steps;
+  final List<String> verifiedFacts;
+  final List<String> blockers;
+}
+
 class RunDetailSnapshot {
   const RunDetailSnapshot({
     required this.run,
     required this.steps,
     required this.events,
     required this.response,
+    this.metrics,
+    this.diagnostics = const <RunDiagnostic>[],
+    this.ledger,
   });
 
   factory RunDetailSnapshot.fromJson(Map<dynamic, dynamic> json) {
@@ -1816,6 +1987,18 @@ class RunDetailSnapshot {
         fallbackToMapValues: true,
       ).map(RunEventItem.fromJson).toList(),
       response: json['response']?.toString() ?? '',
+      metrics: json['metrics'] is Map
+          ? RunHarnessMetrics.fromJson(json['metrics'] as Map<dynamic, dynamic>)
+          : null,
+      diagnostics: json['diagnostics'] is List
+          ? (json['diagnostics'] as List<dynamic>)
+                .whereType<Map<dynamic, dynamic>>()
+                .map(RunDiagnostic.fromJson)
+                .toList()
+          : const <RunDiagnostic>[],
+      ledger: json['ledger'] is Map
+          ? RunTaskLedger.fromJson(json['ledger'] as Map<dynamic, dynamic>)
+          : null,
     );
   }
 
@@ -1823,6 +2006,9 @@ class RunDetailSnapshot {
   final List<RunStepItem> steps;
   final List<RunEventItem> events;
   final String response;
+  final List<RunDiagnostic> diagnostics;
+  final RunHarnessMetrics? metrics;
+  final RunTaskLedger? ledger;
 
   int get completedTools => steps
       .where((step) => step.toolName.isNotEmpty && step.status == 'completed')
@@ -2017,68 +2203,48 @@ class RunEventItem {
 
   String get title {
     switch (eventType) {
-      case 'deliverable_workflow_selected':
-        return appStrings.deliverableSelected;
-      case 'deliverable_execution_started':
-        return appStrings.deliverableExecutionStarted;
-      case 'deliverable_artifact_produced':
-        return appStrings.deliverableArtifactProduced;
-      case 'deliverable_validation_started':
-        return appStrings.deliverableValidationStarted;
-      case 'deliverable_validation_failed':
-        return appStrings.deliverableValidationFailed;
-      case 'deliverable_completed':
-        return appStrings.deliverableCompleted;
-      case 'run_started':
+      case 'run.started':
         return appStrings.runStarted;
-      case 'memory_injected':
-        return appStrings.memoryInjected;
-      case 'model_turn_started':
-        return appStrings.modelTurnStarted;
-      case 'model_turn_completed':
-        return appStrings.modelTurnCompleted;
-      case 'tool_started':
-        return appStrings.toolStarted;
-      case 'tool_completed':
-        return appStrings.toolCompleted;
-      case 'tool_failed':
-        return appStrings.toolFailed;
-      case 'run_completed':
+      case 'run.completed':
         return appStrings.runCompleted;
-      case 'run_failed':
+      case 'run.failed':
         return appStrings.runFailed;
-      case 'run_stopped':
+      case 'run.cancelled':
         return appStrings.runStopped;
+      case 'tool.call':
+        return appStrings.toolStarted;
+      case 'tool.result':
+        return outcomeStatus == 'failed'
+            ? appStrings.toolFailed
+            : appStrings.toolCompleted;
       default:
-        return _titleCase(eventType.replaceAll('_', ' '));
+        return _titleCase(eventType.replaceAll('.', ' ').replaceAll('_', ' '));
     }
   }
 
+  String get toolName =>
+      payload['tool'] is Map ? (payload['tool'] as Map)['name']?.toString() ?? '' : '';
+
+  String get outcomeStatus => payload['outcome'] is Map
+      ? (payload['outcome'] as Map)['status']?.toString() ?? ''
+      : '';
+
+  int get durationMs => _asInt(payload['duration_ms']);
+
   String get detail {
-    final toolName = payload['toolName']?.toString() ?? '';
     if (toolName.trim().isNotEmpty) return toolName;
-    final preview =
-        payload['contentPreview']?.toString() ??
-        payload['recallPreview']?.toString() ??
-        '';
-    if (preview.trim().isNotEmpty) return preview;
     final error = payload['error']?.toString() ?? '';
     if (error.trim().isNotEmpty) return error;
-    final artifactLabel = payload['artifact'] is Map
-        ? (payload['artifact']['label']?.toString() ??
-              payload['artifact']['path']?.toString() ??
-              payload['artifact']['uri']?.toString() ??
-              '')
-        : '';
-    if (artifactLabel.trim().isNotEmpty) return artifactLabel;
-    final titleValue = payload['title']?.toString() ?? '';
-    return titleValue;
+    return payload['reason']?.toString() ?? '';
   }
 
   String get createdAtLabel =>
       createdAt == null ? '' : _formatTimestamp(createdAt!);
 
-  bool get isFailure => eventType == 'tool_failed' || eventType == 'run_failed';
+  bool get isFailure =>
+      outcomeStatus == 'failed' ||
+      eventType == 'run.failed' ||
+      eventType == 'delivery.failed';
 }
 
 class RunStepItem {

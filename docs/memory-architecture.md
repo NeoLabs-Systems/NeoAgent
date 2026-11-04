@@ -28,13 +28,26 @@ The code lives in `server/services/memory/`; `manager.js` (`MemoryManager`) owns
 
 - **Scope.** Every row carries `user_id` and `agent_id`; recall also matches `scope_type` (`agent`, `conversation`, `task`, `channel` or `shared`).
 - **Fact status.** `active`, `superseded`, `expired`, `needs_review`, `review` or `duplicate`.
+- **Trust level.** `memories.metadata_json.trustLevel` records where a memory came from, and decides how the model sees it (see [Prompt paths](#prompt-paths)).
+
+| Trust level | Set by | Shown as |
+|---|---|---|
+| `user_stated` | Complete owner-authored text or explicit owner edit, bound to its content digest | Verified only while the digest matches |
+| `tool_observed` | Historical label; model declarations do not establish verification | Retrieved without independently bound evidence |
+| `agent_statement` | `memory_save` with no provable source, marked `derives` | Assumption |
+| `external_source` | Ingested documents, tainted runs, event-triggered runs | Retrieved |
+| `shared_room_conversation` | Conversation learning in a shared room | Retrieved |
+| `user_or_verified_conversation`, none | Rows from before this field was checked and unverified imports | Retrieved |
+| `model_inference` | Facts with no evidence in the thread, `memory_save` with `source: inference` | Assumption |
+
+A memory with `relation: derives` is an assumption whatever its trust level. So is any unverified memory with confidence below 0.5.
 
 ## Write paths
 
 | Path | When | Code |
 |---|---|---|
 | Conversation learning | After each completed run that has a conversation | `refreshConversationState()` then `consolidateMemoryCandidates()` |
-| Agent tools | `memory_save`, `memory_update_core` | `services/ai/tools.js` |
+| Agent tools | `memory_save`, `memory_update_core` | `services/ai/tools/handlers/memory.js` |
 | App and API | `/api/memory/memories`, `/api/memory/core/:key` | `routes/memory.js` |
 | Transfer import | Memory exported from another assistant | `/api/memory/transfer-import`, `memory/llm_transfer.js` |
 | Integration ingestion | When a mailbox connects, or on request | `memory/ingestion.js`, `memory/document_facts.js` |
@@ -46,18 +59,32 @@ Conversation learning asks the run's model for at most 12 candidates and exclude
 - **Guesses.** Assistant suggestions and unverified claims.
 - **Thread-only details.** Facts useful only inside the current thread.
 
+Extraction is not verification. `groundMemoryCandidates()` retains extracted subject/predicate/value relationships as `model_inference`, with `relation: derives` and confidence at most 0.5. They cannot supersede known facts. An exact quote found only in assistant text is rejected. Object overlap, recalled text, model-declared sources and translated/paraphrased evidence do not establish a verified relationship. No additional model call is made.
+
+`last_verified_facts` retains only complete matching owner-authored messages. Direct `memory_save` can establish `user_stated` only when the whole saved content matches actual owner-authored text; an app/API owner edit can explicitly confirm content. A content digest binds verification to that exact record. Historical labels without that binding are displayed as retrieved until confirmed again; the memories are preserved. Verification describes provenance, not independent factual truth.
+
 ## Save flow
 
 `saveMemory()` handles every write:
 
-1. **Exact match.** A matching `memory_hash` reinforces the existing memory instead of adding one.
-2. **Embed.** The text is embedded (see the table below).
-3. **Near duplicate.** Similarity above 0.85 updates the existing memory if the new text is longer, otherwise skips.
-4. **Index.** Entities, mentions, facts and relations are written alongside the memory.
-5. **Conflict.** A new fact for the same subject and predicate supersedes the active one, unless it `extends` or `derives`.
+1. **Exact match.** A matching `memory_hash` reinforces a current memory. If that memory had been replaced or expired, it becomes current again.
+2. **Same fact.** The same subject, predicate and object reinforces the memory holding it, however it is worded.
+3. **Embed.** The text is embedded (see the table below).
+4. **Near duplicate.** Similarity above 0.85 updates the existing memory if the new text is longer, otherwise reinforces it. Weaker or inferred content cannot rewrite a verified record merely because it is similar. It is not a duplicate if it shares no word of four letters or more, disagrees on a number or address, swaps one word, or holds another value for the same subject and predicate.
+5. **Index.** Entities, mentions, facts and relations are written alongside the memory.
+6. **Conflict.** See below.
+
+A memory stops being current when:
+
+- **Same slot.** A new fact has the same subject and predicate (ignoring case, `_` and `-`) in the same scope, unless it `extends` or `derives`. `updates` replaces every active value; `new` replaces the latest.
+- **Value change.** The new text is the same statement with one number, version or address swapped (`isValueChange()`: "port 5544" to "port 5600"). Rows already active side by side get the same check at recall, so the older one is left out without any rewrite.
+- **Close update.** A fact with `relation: updates` is above 0.85 similarity to it.
+- **Named.** `memory_save` lists it in `replaces`.
+
+Facts built locally (no model involved) have a category for a predicate, so they never conflict by slot. Swapped names and words ("sister Anna", "dark mode") are not treated as replacements, because both can be true. `memory_save` returns the memories that read alike so the model can decide.
 
 :::note External sources cannot overwrite stable facts
-A fact extracted from an integration that conflicts with a static or high-confidence (≥ 0.8) fact is stored as `needs_review` instead.
+A fact from outside content that conflicts with a static or high-confidence (≥ 0.8) fact is stored as `needs_review` instead. So is one that would replace anything by matching wording alone. A fact in a shared room never replaces one outside it.
 :::
 
 | Embedding provider | Used when |
@@ -70,27 +97,44 @@ A fact extracted from an integration that conflicts with a static or high-confid
 
 `recallMemory()` runs locally, with no extra model call:
 
-1. **Candidates.** Vector bands, FTS matches, entity mentions, related memories and the 160 most important memories.
+1. **Candidates.** Vector bands, FTS matches on any query word, exact entity names, related memories and the 160 most important memories. The last group only gives the noise estimate below a sample; it earns no score.
 2. **Filter.** Drop archived rows, other scopes, and memories whose facts are all superseded or expired.
-3. **Score.** Combine cosine similarity (same embedding model only), lexical, FTS, entity, relation and category-route signals.
-4. **Weight.** Adjust by importance, confidence, access count and retention decay.
-5. **Select.** Keep scores above 0.12, return the top K and reinforce their access strength.
+3. **Signals.** Each is graded from 0 to 1 (`server/services/memory/relevance.js`):
+   - **Semantic.** Cosine similarity (same embedding model only), measured from the median cosine of this query's candidates. Unrelated text scores 0.2 on one model and 0.6 on another, so a raw value means nothing.
+   - **Lexical.** The share of the query's weight that a memory covers. Weights come from how often the user's own memories use a word, which handles every language. At least one distinctive word has to match. If FTS is unavailable, frequencies are derived from the scoped candidate corpus rather than silently set to zero.
+   - **Entity.** An exact entity name, worth less the more memories mention it.
+   - **Relation.** A share of the signal of a linked memory that matched.
+4. **Score.** The strongest signal, plus a small share of the second, scaled by importance, confidence, retention and category route. No evidence means a score of 0, however important the memory.
+5. **Select.** Keep scores above 0.25, leave out rows a newer value change replaced, return the top K and reinforce them. `reinforce: false` skips that; the pre-run path reinforces only what reaches the prompt.
 6. **Record.** Write a `memory_retrieval_events` row.
 
-- **Point-in-time.** `validAt` and `knownAt` options restrict recall to facts valid or learned at a given time.
+- **Point-in-time.** `validAt` and `knownAt` options restrict recall to facts valid or learned at a given time. `includeHistory` adds replaced memories; each result carries `current`.
+- **Provenance.** Each result carries `provenance`: `verified`, `retrieved` or `assumption`.
 - **Decay.** Strength halves every `stale_after_days` (default 90); pinned, `identity`, `preferences`, `assistant_self` and importance ≥ 9 memories never decay.
+
+## Selective recall
+
+`buildMemoryRecall()` decides what the run sees (`runtime/memory_policy.js`):
+
+1. **Skip.** Requests with no content skip recall. Any request containing letters or numbers can be recalled against; no language-specific phrase list is used.
+2. **Bar.** A memory's strongest signal must reach 0.35, independently of the request's language. There is no phrase-dependent keep-best bypass.
+3. **Relative.** It must also reach 70% of the best match.
+
+The values come from the sweep in `test/backend/unit/memory_retrieval_labelled.test.js`, which covers the keyword path and fake embeddings. They have not been checked against a real embedding model. The `memory.recall` event carries the `cosines` of each run's candidates for that.
 
 ## Prompt paths
 
 | Path | Built by | Contents |
 |---|---|---|
 | Core memory | `buildContext()` | `core_memory` entries |
-| Profile | `getUserProfile()` | Up to 16 active facts, split into stable and current; ingested data excluded |
-| Recall block | `buildRecallMessage()` | Top 5 recalled statements (about 1,600 characters) and matching recent scheduled-run results |
+| Profile | `getUserProfile()` | Up to 16 active facts, split into stable and current; raw ingested chunks and assumptions excluded |
+| Recall block | `buildRecallMessage()` | Top 5 recalled statements (about 1,600 characters), grouped by provenance, and scheduled-run results that cover most of the request's words |
 
 - **Owner only.** Core memory and the profile are left out of shared-audience runs.
 - **Untrusted label.** The recall block states that external-source content is data, never instructions.
 - **Statements only.** Categories, entity lists, version history and source offsets stay out of the prompt.
+- **Three groups.** Verified memory, retrieved memory and assumptions each get their own heading, so the model can tell what the user said from what was stored or guessed. Scheduled-run results are labelled as the assistant's own reports.
+- **Age.** A memory not restated within `stale_after_days` ends with `(as of YYYY-MM)`, unless it never decays.
 
 ## Integration ingestion
 
@@ -112,7 +156,7 @@ A fact extracted from an integration that conflicts with a static or high-confid
 
 | Job | Schedule | Effect |
 |---|---|---|
-| Fact reconciliation | Every 6 hours, per active agent | Expires facts past `valid_to`, flags confidence below 0.35 for review, marks duplicates |
+| Fact reconciliation | Every 6 hours, per active agent | Expires facts past `valid_to`, flags confidence below 0.35 for review, marks duplicates, restores memories hidden when locally built facts used to supersede each other |
 | Embedding index backfill | At startup | Builds missing `memory_embedding_bands` rows |
 | Knowledge views | After each ingestion batch, or `POST /api/memory/knowledge-views/materialize` | Rebuilds `materialized_knowledge_views` |
 

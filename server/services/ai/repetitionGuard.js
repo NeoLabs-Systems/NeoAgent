@@ -58,43 +58,108 @@ function normalizeReadOnlyShellIntent(command = '') {
 }
 
 function canonicalToolArgs(toolName, args) {
-  if (toolName === 'execute_command' && isClearlyReadOnlyShellCommand(args?.command || '')) {
+  if (toolName === 'execute_command' && isClearlyReadOnlyShellCommand(args?.command || '', { fetches: true })) {
     return normalizeReadOnlyShellIntent(args.command);
   }
   return args || {};
 }
 
+// How long an earlier answer can stand in for a repeated read. Nothing the
+// harness saw changed, but a person or a background process could have.
+const DUPLICATE_READ_WINDOW_MS = 2 * 60 * 1000;
+
+/**
+ * Tells a useful repeat from a useless one. A call's fingerprint includes the
+ * version of the state it depends on, so re-reading a file after an edit is new
+ * work and re-reading it before any edit is not. Two rules follow:
+ *
+ * - A deterministic read repeated against unchanged state is suppressed once; the
+ *   model already has that answer. If it asks again it has a reason, such as a
+ *   background process writing the file, so the next one runs.
+ * - Anything else is stopped only once it has failed the same way repeatedly: a
+ *   search or a poll can legitimately change, and a failed call changed nothing, so
+ *   repeating it cannot turn out differently.
+ */
 class ToolRepetitionGuard {
-  constructor({ unchangedLimit = 2 } = {}) {
+  constructor({ unchangedLimit = 2, now = Date.now } = {}) {
     this.unchangedLimit = Math.max(1, Number(unchangedLimit) || 2);
+    this.now = now;
     this.entries = new Map();
+    this.answeredReads = new Map();
+    this.stateVersions = new Map();
+    // A compaction may have removed the earlier answer from the model's view.
+    this.contextEpoch = 0;
   }
 
-  key(toolName, args) {
-    return `${String(toolName || '')}:${stableHash(canonicalToolArgs(toolName, args))}`;
+  stateVersion(scope) {
+    return this.stateVersions.get(scope) || 0;
   }
 
-  // Unchanged reads are blocked outright. Any other call is blocked only once
-  // it has failed the same way repeatedly: a failed call changed nothing, so
-  // repeating it cannot turn out differently.
-  shouldBlock(toolName, args, { readOnly = true } = {}) {
-    const entry = this.entries.get(this.key(toolName, args));
+  fingerprint(toolName, args, stateScope = 'none') {
+    return stableHash({
+      tool: String(toolName || ''),
+      args: canonicalToolArgs(toolName, args),
+      state: `${stateScope}:${this.stateVersion(stateScope)}`,
+      epoch: this.contextEpoch,
+    });
+  }
+
+  key(toolName, args, stateScope = null) {
+    const state = stateScope ? `:${stateScope}:${this.stateVersion(stateScope)}` : '';
+    return `${String(toolName || '')}${state}:${stableHash(canonicalToolArgs(toolName, args))}`;
+  }
+
+  noteStateChanged(scope) {
+    if (scope && scope !== 'none') this.stateVersions.set(scope, this.stateVersion(scope) + 1);
+  }
+
+  noteCompaction() {
+    this.contextEpoch += 1;
+    this.answeredReads.clear();
+    for (const [key, entry] of this.entries) {
+      if (!entry.failure) this.entries.delete(key);
+    }
+  }
+
+  // Claims the read before it runs, so identical reads in one parallel batch run
+  // once. The claim is dropped again if the read fails, and by the suppression it
+  // causes, so one repeat is stopped and the one after it is not.
+  claimRead(fingerprint, stepIndex) {
+    const prior = this.answeredReads.get(fingerprint);
+    if (prior && this.now() - prior.at < DUPLICATE_READ_WINDOW_MS) {
+      this.answeredReads.delete(fingerprint);
+      return prior;
+    }
+    this.answeredReads.set(fingerprint, { stepIndex, at: this.now() });
+    return null;
+  }
+
+  releaseRead(fingerprint) {
+    this.answeredReads.delete(fingerprint);
+  }
+
+  // Successful reads use the timed claim cache. Repeated failures are blocked,
+  // but reads may retry after expiry because external state can change.
+  shouldBlock(toolName, args, { readOnly = true, stateScope = null } = {}) {
+    const entry = this.entries.get(this.key(toolName, args, stateScope));
     if (!entry || entry.unchangedCount < this.unchangedLimit) return false;
-    return readOnly || Boolean(entry.failure);
+    if (readOnly && this.now() - entry.at >= DUPLICATE_READ_WINDOW_MS) return false;
+    return Boolean(entry.failure);
   }
 
-  lastFailure(toolName, args) {
-    return this.entries.get(this.key(toolName, args))?.failure || '';
+  lastFailure(toolName, args, stateScope = null) {
+    return this.entries.get(this.key(toolName, args, stateScope))?.failure || '';
   }
 
-  observe(toolName, args, result, failure = '') {
-    const key = this.key(toolName, args);
+  observe(toolName, args, result, failure = '', { stateScope = null } = {}) {
+    const key = this.key(toolName, args, stateScope);
     const resultHash = stableHash(failure ? { failure } : result);
     const previous = this.entries.get(key);
     const unchangedCount = previous?.resultHash === resultHash
       ? previous.unchangedCount + 1
       : 1;
     const next = {
+      at: this.now(),
       toolName,
       argsHash: stableHash(canonicalToolArgs(toolName, args)),
       resultHash,

@@ -1,172 +1,8 @@
 'use strict';
 
-const TOOL_CATEGORIES = {
-  shell: ['execute_command'],
-  file_write: ['write_file', 'edit_file', 'replace_file_range'],
-  android_privileged: [
-    'android_shell',
-    'android_install_apk',
-    'android_open_intent',
-    'android_open_app',
-  ],
-  desktop_control: [
-    'desktop_click',
-    'desktop_type',
-    'desktop_press_key',
-    'desktop_drag',
-    'desktop_launch_app',
-    'desktop_observe',
-  ],
-  browser_privileged: ['browser_evaluate'],
-  credential_use: ['credential_fill_browser', 'credential_http_request'],
-  network_write: ['http_request'],
-  user_contact: ['call_user'],
-  skill_mutation: [
-    'create_skill',
-    'update_skill',
-    'delete_skill',
-  ],
-  external: [],
-};
+const { BUILT_IN_DEFINITIONS, INTEGRATED_TOOL_TRAITS } = require('../ai/tools/definitions');
 
-// Tools that bypass all policy checks — read-only or always safe
-const SAFE_TOOLS = new Set([
-  'think',
-  'send_interim_update',
-  'search_tools',
-  'activate_tools',
-  'notify_user',
-  'memory_recall',
-  'memory_list',
-  'memory_read',
-  'memory_save',
-  'memory_update_core',
-  'session_search',
-  'search_memory',
-  'read_core_memory',
-  'write_core_memory',
-  'memory_create',
-  'browser_navigate',
-  'browser_screenshot',
-  'browser_get_text',
-  'browser_get_html',
-  'browser_find_element',
-  'browser_scroll',
-  'browser_wait',
-  'read_file',
-  'list_directory',
-  'web_search',
-  'web_fetch',
-  'search_web',
-  'get_weather',
-  'get_date_time',
-  'send_message',
-  'react_to_message',
-  'create_task',
-  'update_task',
-  'get_task',
-  'list_tasks',
-  'spawn_subagent',
-  'delegate_to_agent',
-]);
-
-const BUILT_IN_TOOLS = new Set([
-  'execute_command',
-  'browser_navigate',
-  'browser_click',
-  'browser_type',
-  'browser_act',
-  'browser_extract',
-  'browser_screenshot',
-  'browser_evaluate',
-  'credential_fill_browser',
-  'credential_submit_browser',
-  'credential_cancel_browser',
-  'credential_http_request',
-  'desktop_list_devices',
-  'desktop_select_device',
-  'desktop_observe',
-  'desktop_click',
-  'desktop_drag',
-  'desktop_scroll',
-  'desktop_type',
-  'desktop_press_key',
-  'desktop_launch_app',
-  'desktop_get_tree',
-  'android_start_emulator',
-  'android_stop_emulator',
-  'android_list_devices',
-  'android_open_app',
-  'android_open_intent',
-  'android_tap',
-  'android_long_press',
-  'android_type',
-  'android_swipe',
-  'android_press_key',
-  'android_wait_for',
-  'android_observe',
-  'android_dump_ui',
-  'android_screenshot',
-  'android_list_apps',
-  'android_install_apk',
-  'android_shell',
-  'web_search',
-  'memory_save',
-  'memory_recall',
-  'memory_list',
-  'memory_forget',
-  'session_search',
-  'memory_update_core',
-  'memory_write',
-  'memory_read',
-  'send_message',
-  'react_to_message',
-  'call_user',
-  'read_file',
-  'read_files',
-  'write_file',
-  'edit_file',
-  'replace_file_range',
-  'list_directory',
-  'search_files',
-  'code_navigate',
-  'query_structured_data',
-  'http_request',
-  'create_skill',
-  'list_skills',
-  'update_skill',
-  'delete_skill',
-  'think',
-  'activate_tools',
-  'spawn_subagent',
-  'delegate_to_agent',
-  'list_subagents',
-  'wait_subagent',
-  'cancel_subagent',
-  'background_task',
-  'notify_user',
-  'create_task',
-  'list_tasks',
-  'delete_task',
-  'update_task',
-  'mcp_add_server',
-  'mcp_list_servers',
-  'mcp_remove_server',
-  'settings_read',
-  'settings_update',
-  'settings_link',
-  'generate_image',
-  'generate_table',
-  'generate_graph',
-  'analyze_image',
-  'transcribe_audio',
-  'ocr_extract',
-  'read_health_data',
-  'social_video_extract',
-  'send_interim_update',
-]);
-
-// category → policy for users with no DB row yet
+// What each category of tool needs from the owner when no policy row exists.
 const DEFAULT_POLICY = {
   shell: 'require_approval',
   file_write: 'require_approval',
@@ -180,11 +16,24 @@ const DEFAULT_POLICY = {
   external: 'require_approval',
 };
 
-// Reverse map: tool → category, built once
-const _toolToCategory = {};
-for (const [category, tools] of Object.entries(TOOL_CATEGORIES)) {
-  for (const tool of tools) {
-    _toolToCategory[tool] = category;
+// Categories, safe tools, and the built-in list all come from the tool
+// definitions. A name that is in none of them is third-party and lands in
+// 'external', so a new capability can never silently bypass policy.
+const TOOL_CATEGORIES = Object.fromEntries(Object.keys(DEFAULT_POLICY).map((category) => [category, []]));
+const SAFE_TOOLS = new Set();
+const BUILT_IN_TOOLS = new Set();
+const toolToCategory = {};
+
+for (const [name, policy] of [
+  ...BUILT_IN_DEFINITIONS.map((tool) => [tool.name, tool.policy || {}]),
+  ...Object.entries(INTEGRATED_TOOL_TRAITS).map(([toolName, traits]) => [toolName, traits.policy || {}]),
+]) {
+  if (policy.external) continue;
+  BUILT_IN_TOOLS.add(name);
+  if (policy.safe) SAFE_TOOLS.add(name);
+  if (policy.category) {
+    TOOL_CATEGORIES[policy.category].push(name);
+    toolToCategory[name] = policy.category;
   }
 }
 
@@ -202,12 +51,8 @@ function getCategoryForTool(toolName, toolArgs = {}) {
     const method = String(toolArgs?.method ?? 'GET').trim().toUpperCase() || 'GET';
     return ['GET', 'HEAD', 'OPTIONS'].includes(method) ? null : 'network_write';
   }
-  if (_toolToCategory[toolName]) {
-    return _toolToCategory[toolName];
-  }
-  if (BUILT_IN_TOOLS.has(toolName) || SAFE_TOOLS.has(toolName)) {
-    return null;
-  }
+  if (toolToCategory[toolName]) return toolToCategory[toolName];
+  if (BUILT_IN_TOOLS.has(toolName) || SAFE_TOOLS.has(toolName)) return null;
   return 'external';
 }
 

@@ -84,10 +84,28 @@ The macOS, Windows and Linux desktop apps can act as the computer.
 
 | Source | Defined in |
 |---|---|
-| Built-in tools | `services/ai/tools.js`, larger handlers in `services/ai/integrated_tools/` |
+| Built-in tools | `services/ai/tools/definitions/` for schemas and metadata, `tools/handlers/` for code, larger handlers in `services/ai/integrated_tools/` |
 | Integration tools | Providers in `services/integrations/`, exposed only for connected apps |
 | Skills | `SkillRunner` (`services/ai/toolRunner.js`), loaded from `agent-data/skills` |
 | MCP tools | `services/mcp/client.js`; remote `http(s)` servers only |
+
+## Coding tools
+
+The tools a run codes with work through the workspace service and `executeCliCommand`, so they behave the same in a guest VM, on a desktop companion, and in host mode. Their output is bounded, and the shell stays the escape hatch.
+
+| Tool | Does | Notes |
+|---|---|---|
+| `repo_overview` | Root, branch, dirty files, layout, languages, manifests, docs, test command | `services/workspace/repo_inspect.js` |
+| `search_files` | Text or regex search, grouped by file, with context lines and globs | `rg` when installed, otherwise `grep`; `services/workspace/code_search.js` |
+| `read_file`, `read_files` | Lines or ranges of files | A whole-file read stops after 400 lines and says where |
+| `edit_file` | Exact-text edits to one file | All or nothing; a failed match reports the nearby lines; `services/workspace/text_edits.js` |
+| `repo_diff` | Changed files and a bounded diff | By default the run's own changes, read from its checkpoints; `services/workspace/repo_diff.js` |
+| `run_tests` | Runs the tests, returns counts and only the failures | The full log is an artifact; asks for approval as `shell` does; `services/workspace/run_tests.js` |
+
+- **Containment.** The read tools run without approval, so their scripts check the physical path and refuse anything outside the workspace. `run_tests` is approved as `shell` is, and `repo_diff` follows the repositories the run itself changed, so those two may leave it.
+- **No state change.** `repo_overview` and `repo_diff` leave the tree, index, and branch alone. `repo_diff` reads the working tree through a throwaway index, which writes only unreachable objects, as a checkpoint does.
+- **Test results.** `parseTestOutput` (`services/ai/test_output.js`) returns null when a run counts nothing, so "no tests found" never reads as a clean pass. Cancelled tests count as failed, and chained runs add up.
+- **Writes.** `WorkspaceManager` writes through a temporary file and a rename, keeping the file's mode and following symlinks.
 
 ## Dispatch path
 
@@ -95,9 +113,10 @@ The macOS, Windows and Linux desktop apps can act as the computer.
 
 1. **Scrub.** Invisible characters are removed from the arguments, so approvals show what will run.
 2. **Record.** An `agent_steps` row and `run:tool_start` event are written.
-3. **Hook.** `before_tool_call` runs the security hooks.
-4. **Repeat check.** The repetition guard blocks an exact call that already failed twice.
-5. **Execute.** The tool runs with the run's user, agent, computer target and abort signal.
+3. **Policy gate.** `before_tool_call` runs the security hooks, and the decision goes on the run ledger. Nothing a tool returned can raise what a later call may do.
+4. **Repeat check.** A deterministic read repeated with nothing changed is suppressed, because the model already has the answer. An exact call that already failed twice is blocked. A call's fingerprint includes the version of the state it depends on, so a re-read after an edit runs normally.
+5. **Tracking.** Raw-byte Git snapshots record advisory before/after differences without running repository filters. They do not prove ownership against external editors. `workspace_rollback` refuses automatic restoration in shared workspaces; use `repo_diff` and correct specific edits forward. Slow snapshot directories are skipped before subsequent snapshots. Python 3 and Git are required on the selected computer; unavailable tracking is reported without blocking the edit.
+6. **Execute.** The tool runs with the run's user, agent, computer target and abort signal.
 6. **Compact.** `compactToolResult()` trims large results before they reach the model.
 7. **Finish.** The step, `run:tool_end` and the run's trust record are updated.
 

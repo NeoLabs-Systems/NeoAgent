@@ -58,6 +58,7 @@ function isArchiveEligible(memory, options = {}) {
 }
 
 module.exports = {
+  ageDaysSince,
   getDecayedStrength,
   getReinforcedStrength,
   getRetentionScoreMultiplier,

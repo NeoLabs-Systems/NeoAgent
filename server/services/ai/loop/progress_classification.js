@@ -1,28 +1,23 @@
 'use strict';
 
 const READ_ONLY_COMMANDS = new Set([
-  'awk',
   'base64',
   'cat',
-  'curl',
   'diff',
   'du',
   'egrep',
-  'env',
   'fgrep',
   'find',
   'git',
   'grep',
   'head',
   'jq',
-  'less',
   'ls',
   'pwd',
   'rg',
   'sed',
   'sort',
   'tail',
-  'tee',
   'test',
   'tr',
   'tree',
@@ -41,6 +36,22 @@ const GIT_READ_ONLY_SUBCOMMANDS = new Set([
   'show',
   'status',
 ]);
+
+// Things that run or write something inside a command that otherwise only reads. This
+// decides what a read-only run may do, so anything doubtful counts as a change.
+const WRITING_FLAGS = Object.freeze({
+  // sed can write and run commands from inside its script, so only printing lines counts.
+  sed: /^(?!sed\s+-n\s+["']?[\d,$;p\s]+["']?(?:\s+[^-\s]\S*)*\s*$)/,
+  find: /\s-(?:delete|exec|execdir|ok|okdir|fprint|fprint0|fprintf|fls)\b/,
+  sort: /\s(?:-[a-zA-Z]*o|--output|--compress-program)\b/,
+  rg: /\s--(?:pre|hostname-bin)\b/,
+  base64: /\s(?:-o|--output)\b/,
+  tree: /\s-o\b/,
+});
+const LISTING_GIT_BRANCH = /^git\s+branch(?:\s+(?:-a|-r|-v+|-vv|--list|--all|--remotes|--show-current|--no-color))*\s*$/;
+const SENDING_CURL = /\s(?:-[a-zA-Z]*[XdFTOo]|--(?:request|data\S*|form\S*|upload-file|output|remote-name\S*|json))\b/;
+const FD_DUPLICATION = /\d*>&\d/g;
+const HIDDEN_EXECUTION = /\$\(|`|<\(|>\(|(?:^|[^&])&(?:[^&]|$)/;
 
 const STATE_CHANGING_COMMANDS = new Set([
   'apply_patch',
@@ -67,8 +78,10 @@ const STATE_CHANGING_COMMANDS = new Set([
 
 function stripShellNoise(command = '') {
   return String(command || '')
+    .replace(/\\\n/g, ' ')
     .replace(/(^|\n)\s*#.*(?=\n|$)/g, '\n')
-    .replace(/\s+/g, ' ')
+    // A line break ends a command, so it must survive for the split below.
+    .replace(/[^\S\n]+/g, ' ')
     .trim();
 }
 
@@ -104,26 +117,17 @@ function gitSubcommand(segment = '') {
 
 function isReadOnlyGitCommand(segment = '') {
   const subcommand = gitSubcommand(segment);
-  if (!subcommand) return false;
-  return GIT_READ_ONLY_SUBCOMMANDS.has(subcommand);
-}
-
-function isReadOnlyInterpreterCommand(segment = '') {
-  const normalized = stripEnvAssignments(segment);
-  const commandName = normalizeCommandName(firstToken(normalized));
-  if (!['node', 'perl', 'python', 'python3'].includes(commandName)) return false;
-  if (/\b(open|write|writefile|appendfile|unlink|rename|mkdir|rmdir|remove|rm|spawn|exec)\b/i.test(normalized)) {
-    return false;
-  }
-  return /\b(print|json\.|json_tool|json\.load|json\.loads|sys\.stdin|process\.exit|console\.log)\b|-m\s+json\.tool/i.test(normalized);
+  if (!subcommand || !GIT_READ_ONLY_SUBCOMMANDS.has(subcommand)) return false;
+  if (/\s(?:--output|--ext-diff|--open-files-in-pager|-O)/.test(segment)) return false;
+  return subcommand !== 'branch' || LISTING_GIT_BRANCH.test(stripEnvAssignments(segment));
 }
 
 function hasStateChangingRedirect(segment = '') {
   const matches = String(segment || '').matchAll(/(?:^|[^&|;])(?:>>?|1>)\s*(?:"([^"]+)"|'([^']+)'|(\S+))/g);
   for (const match of matches) {
     const target = String(match[1] || match[2] || match[3] || '').trim();
-    if (!target || target === '/dev/null') continue;
-    if (target.startsWith('/tmp/') || target.startsWith('/var/tmp/')) continue;
+    if (!target || target === '/dev/null' || /^&\d$/.test(target)) continue;
+    if ((target.startsWith('/tmp/') || target.startsWith('/var/tmp/')) && !target.includes('..')) continue;
     return true;
   }
   return false;
@@ -141,38 +145,26 @@ function isStateChangingShellSegment(segment = '') {
   return STATE_CHANGING_COMMANDS.has(command);
 }
 
-function isClearlyReadOnlyShellCommand(command = '') {
+// `fetches` is for telling repeats apart: a plain download counts as the same evidence
+// however it is piped, but it reaches the network, so it is not read-only for permissions.
+function isClearlyReadOnlyShellCommand(command = '', { fetches = false } = {}) {
+  if (HIDDEN_EXECUTION.test(stripShellNoise(command).replace(/&&/g, '').replace(FD_DUPLICATION, ''))) return false;
   const segments = splitCommandSegments(command);
   if (segments.length === 0) return false;
   return segments.every((segment) => {
     const normalized = stripEnvAssignments(segment);
+    // A variable can change what a command runs (PAGER, LD_PRELOAD, GIT_EXTERNAL_DIFF).
+    if (normalized !== segment) return false;
     if (isStateChangingShellSegment(normalized)) return false;
-    if (isReadOnlyGitCommand(normalized)) return true;
-    if (isReadOnlyInterpreterCommand(normalized)) return true;
+    if (normalizeCommandName(firstToken(normalized)) === 'git') return isReadOnlyGitCommand(normalized);
     const commandName = normalizeCommandName(firstToken(normalized));
     if (!commandName) return false;
+    if (fetches && commandName === 'curl' && !SENDING_CURL.test(normalized)) return true;
+    if (WRITING_FLAGS[commandName]?.test(normalized)) return false;
     return READ_ONLY_COMMANDS.has(commandName);
   });
 }
 
-function isProgressToolCall(toolName, toolArgs = {}) {
-  const name = String(toolName || '');
-  if (!name) return false;
-  if (name === 'search_tools' || name === 'activate_tools') return false;
-  if (name === 'send_interim_update') return false;
-  if (/^(list_|search_|read_file|get_file|find_files?|github_list|github_get|github_search|browser_get|browser_read)/.test(name)) {
-    return false;
-  }
-  if (name === 'http_request' || name === 'github_api_request') {
-    return String(toolArgs?.method || 'GET').toUpperCase() !== 'GET';
-  }
-  if (name === 'execute_command') {
-    return !isClearlyReadOnlyShellCommand(toolArgs?.command || '');
-  }
-  return true;
-}
-
 module.exports = {
   isClearlyReadOnlyShellCommand,
-  isProgressToolCall,
 };

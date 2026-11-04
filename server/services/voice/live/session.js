@@ -6,6 +6,7 @@ const { GeminiLiveAdapter } = require('./gemini_live');
 const { OpenAiLiveAdapter } = require('./openai_live');
 const { LiveFloor } = require('./floor');
 const { buildLivePrompt } = require('./prompt');
+const { renderFragment } = require('../../ai/prompts/registry');
 const { LiveTaskBridge } = require('./task_bridge');
 const { recordTaskReply, recordVoiceTurn } = require('./transcript_store');
 
@@ -26,6 +27,11 @@ const HANGUP_GRACE_MS = 600;
 // Spoken progress stays occasional on a long task; the updates in between
 // still reach the model as context.
 const SPOKEN_PROGRESS_GAP_MS = 60 * 1000;
+// While work runs, this much silence asks the live model for a status. The gaps
+// grow so a long task does not chatter, and start over when the owner speaks. The
+// client's typing sounds fill the time in between.
+const STATUS_SILENCE_GAPS_MS = Object.freeze([10, 20, 40, 60].map((seconds) => seconds * 1000));
+const STATUS_TICK_MS = 1000;
 
 // Transcript fragments arrive with or without their leading space depending on
 // the provider; join them so words neither merge nor double-space.
@@ -69,8 +75,17 @@ class LiveVoiceSession {
     this.onHangUp = onHangUp;
     this.provider = LIVE_VOICE_PROVIDERS[settings.liveProvider];
     this.tasks = new LiveTaskBridge({ agentEngine, session: this });
-    this.floor = new LiveFloor();
+    this.floor = new LiveFloor({ onReplyMissed: () => this.#recoverSilence() });
     this.lastSpokenProgressAt = 0;
+    // What the model was last asked to answer, until it makes a sound.
+    this.owedReply = null;
+    this.owedAfterReconnect = null;
+    this.unheardOutcomes = new Set();
+    this.statusTimer = null;
+    this.statusOwed = false;
+    this.lastStatusStep = null;
+    this.statusStep = 0;
+    this.statusSilenceFrom = 0;
     this.adapter = null;
     this.ready = false;
     this.closed = false;
@@ -147,6 +162,7 @@ class LiveVoiceSession {
     this.#setState('listening');
     // What arrived while the line was down goes out now.
     this.floor.setConnected(true);
+    this.#syncStatusUpdates();
   }
 
   appendAudio(pcm) {
@@ -194,29 +210,44 @@ class LiveVoiceSession {
 
   // Something the owner must hear: the model says it once the line is free.
   // It is news, so speech the owner stopped earlier does not silence it.
-  tell(handle, text) {
+  tell(handle, text, { retry = true, stillTrue = null, outcome = null } = {}) {
+    // Until it has been heard, an outcome also has to survive the call ending.
+    if (outcome) this.unheardOutcomes.add(outcome);
     this.floor.whenFree(() => {
+      // It may have waited for the line, and what it says may no longer hold.
+      if (stillTrue && !stillTrue()) return;
       this.outputSuppressed = false;
       this.adapter.say(text, handle);
-      this.floor.expectReply();
+      this.owedReply = { handle, text, retry, outcome };
+      this.floor.expectReply({ told: true });
     });
   }
 
   // Context the model uses when it matters, without saying it now.
-  inform(handle, text) {
-    this.floor.whenFree(() => this.adapter.note(text, handle));
+  inform(handle, text, { stillTrue = null } = {}) {
+    this.floor.whenFree(() => {
+      if (stillTrue && !stillTrue()) return;
+      this.adapter.note(text, handle);
+    });
+  }
+
+  // An outcome replaces a status the model has not started saying.
+  tellOutcome(handle, text, { runId = null, reply = text } = {}) {
+    if (this.statusOwed) this.floor.dropUnstartedReply();
+    this.statusOwed = false;
+    this.tell(handle, text, { outcome: { runId, reply } });
   }
 
   // A progress update fills a silence; while the owner and the assistant are
   // talking, or shortly after the last one, it only joins the context.
-  offerProgress(handle, text) {
+  offerProgress(handle, text, stillTrue = null) {
     const now = Date.now();
     if (this.floor.quiet && now - this.lastSpokenProgressAt >= SPOKEN_PROGRESS_GAP_MS) {
       this.lastSpokenProgressAt = now;
-      this.tell(handle, text);
+      this.tell(handle, text, { stillTrue, retry: false });
       return;
     }
-    this.inform(handle, text);
+    this.inform(handle, text, { stillTrue });
   }
 
   presentDelivery(entry) {
@@ -227,7 +258,7 @@ class LiveVoiceSession {
 
   deliverTaskOutcome({ handle, runId, outcome, reply }) {
     if (this.attached) {
-      this.tell(handle, outcome);
+      this.tellOutcome(handle, outcome, { runId, reply: reply || outcome });
       return;
     }
     if (reply) {
@@ -244,19 +275,36 @@ class LiveVoiceSession {
 
   publishTask({ runId, status, request }) {
     this.#noteActivity();
+    this.#syncStatusUpdates(status);
     this.#emit('task', { runId, status, ...(request ? { request } : {}) });
   }
 
   async attach(sink) {
     this.sink = sink;
     await this.connect({ reconnected: true });
+    this.#resumeOwedReply();
   }
 
   async detach() {
+    this.owedAfterReconnect ||= this.owedReply;
+    this.owedReply = null;
     this.sink = null;
     await this.#closeAdapter();
     this.#flushTurns();
+    this.#keepUnheardOutcomes();
     this.releaseIfIdle();
+  }
+
+  // The owner never heard these, so they go where they will see them.
+  #keepUnheardOutcomes() {
+    for (const { runId, reply } of this.unheardOutcomes) {
+      try {
+        recordTaskReply({ userId: this.userId, agentId: this.agentId, conversationId: this.conversationId, runId, content: reply });
+      } catch (error) {
+        logger.warn('Failed to store a task outcome', error?.message || error);
+      }
+    }
+    this.unheardOutcomes.clear();
   }
 
   releaseIfIdle() {
@@ -266,6 +314,7 @@ class LiveVoiceSession {
   async close(reason, { cancelTasks = false } = {}) {
     if (cancelTasks) this.tasks.abortAll('voice_session_closed');
     this.#flushTurns();
+    this.#keepUnheardOutcomes();
     this.#emit('state', { state: 'closed', reason });
     this.closed = true;
     this.sink = null;
@@ -290,6 +339,7 @@ class LiveVoiceSession {
   async #closeAdapter() {
     this.ready = false;
     this.floor.setConnected(false);
+    this.#stopStatusUpdates();
     clearTimeout(this.speakingTimer);
     clearTimeout(this.idleTimer);
     clearTimeout(this.hangUpTimer);
@@ -329,11 +379,11 @@ class LiveVoiceSession {
       // Gemini's tool calls are answered at once, and the model speaks next.
       // A GPT-Live hand-off is answered when its task reports.
       onDelegation: guard((delegation) => {
-        if (delegation.request) this.floor.expectReply();
+        if (delegation.request) this.#expectToolReply(delegation.handle);
         return this.#handleDelegation(delegation);
       }),
       onTaskTool: guard((name, args) => {
-        this.floor.expectReply();
+        this.#expectToolReply(null);
         return this.tasks.runTool(name, args);
       }),
       onHangUp: guard(() => {
@@ -351,7 +401,72 @@ class LiveVoiceSession {
     };
   }
 
+  // A live model sometimes takes a tool result or a message and says nothing.
+  #expectToolReply(handle) {
+    this.owedReply = { handle, text: renderFragment('voice/unanswered.md'), retry: true };
+    this.floor.expectReply();
+  }
+
+  // One more try, in the model's own words. Whatever it still owes after that is
+  // in the chat, so the owner can find it.
+  #recoverSilence() {
+    const owed = this.owedReply;
+    this.owedReply = null;
+    this.statusOwed = false;
+    if (!owed?.retry) return;
+    logger.info('Live model stayed silent; asking again', { sessionId: this.id });
+    this.tell(owed.handle, owed.text, { retry: false, outcome: owed.outcome || null });
+  }
+
+  #syncStatusUpdates(taskStatus) {
+    if (taskStatus === 'running') {
+      this.statusStep = 0;
+      this.statusSilenceFrom = Date.now();
+    }
+    if (!this.tasks.runs.size) {
+      this.#stopStatusUpdates();
+      return;
+    }
+    if (this.statusTimer) return;
+    this.lastStatusStep = null;
+    this.statusTimer = setInterval(() => this.#speakStatusIfDue(), STATUS_TICK_MS);
+    this.statusTimer.unref?.();
+  }
+
+  #stopStatusUpdates() {
+    clearInterval(this.statusTimer);
+    this.statusTimer = null;
+  }
+
+  // Asks the model that is already on the line, so a status costs no extra run
+  // and works while the task sits inside one long tool. An owner who stopped the
+  // speech is not talked back into until they speak.
+  #speakStatusIfDue() {
+    if (this.closed || !this.attached || !this.ready || this.hangingUp || this.outputSuppressed) return;
+    if (!this.floor.free) return;
+    const silentForMs = Math.min(this.floor.silentForMs, Date.now() - this.statusSilenceFrom);
+    if (silentForMs < STATUS_SILENCE_GAPS_MS[0]) return;
+    const report = this.tasks.statusReport();
+    if (!report) return;
+    // News can be said early. With nothing new to say, the wait is longer each time.
+    const gap = report.latestStep !== this.lastStatusStep
+      ? STATUS_SILENCE_GAPS_MS[Math.min(this.statusStep, 1)]
+      : STATUS_SILENCE_GAPS_MS[Math.min(this.statusStep + 1, STATUS_SILENCE_GAPS_MS.length - 1)];
+    if (silentForMs < gap) return;
+    this.statusStep += 1;
+    this.lastStatusStep = report.latestStep;
+    this.lastSpokenProgressAt = Date.now();
+    this.statusOwed = true;
+    this.tell(report.handle, renderFragment('voice/status_update.md', {
+      seconds: Math.round(silentForMs / 1000),
+      facts: report.facts,
+    }), { retry: false });
+  }
+
   #handleAudio(pcm) {
+    if (this.owedReply?.outcome) this.unheardOutcomes.delete(this.owedReply.outcome);
+    this.owedReply = null;
+    this.statusOwed = false;
     this.#noteActivity();
     clearTimeout(this.speakingTimer);
     this.speakingTimer = setTimeout(() => {
@@ -377,6 +492,7 @@ class LiveVoiceSession {
     if (!text) return;
     this.#noteActivity();
     this.floor.ownerSpoke();
+    this.statusStep = 0;
     this.outputSuppressed = false;
     this.#flushAssistantTurn();
     this.userTurn = appendFragment(this.userTurn, text);
@@ -421,6 +537,11 @@ class LiveVoiceSession {
   }
 
   async #reconnect(reason, resumeHandle) {
+    // A drop loses what the model was about to say, so what the owner was
+    // waiting for is asked again on the new connection.
+    this.owedAfterReconnect ||= this.owedReply
+      || (this.floor.ownerWaiting ? { handle: null, lastWords: true, retry: true } : null);
+    this.owedReply = null;
     this.ready = false;
     this.floor.setConnected(false);
     this.#flushTurns();
@@ -435,8 +556,20 @@ class LiveVoiceSession {
     logger.info('Reconnecting live voice', { sessionId: this.id, reason, attempt: this.reconnectAttempts });
     try {
       await this.connect({ reconnected: true, resumeHandle });
+      this.#resumeOwedReply();
     } catch (error) {
       await this.#reconnect(error.message, null);
+    }
+  }
+
+  #resumeOwedReply() {
+    const owed = this.owedAfterReconnect;
+    this.owedAfterReconnect = null;
+    if (!owed) return;
+    if (!owed.lastWords) {
+      this.tell(owed.handle, owed.text, { retry: owed.retry, outcome: owed.outcome || null });
+    } else if (this.lastUserTurn) {
+      this.tell(owed.handle, renderFragment('voice/line_dropped.md', { last: this.lastUserTurn }));
     }
   }
 

@@ -6,6 +6,7 @@ const { storeWebRunReply } = require('../history');
 const { fenceUntrusted } = require('../../../utils/untrusted_text');
 const { createServiceLogger } = require('../../../utils/logger');
 const { shortenRunId } = require('../logFormat');
+const { EVENT_TYPES } = require('./events/event_types');
 
 const logger = createServiceLogger('Runtime');
 
@@ -126,7 +127,7 @@ function buildContinuationNote(runId, message) {
   ).all(runId, STEP_LIMIT).reverse();
   const sent = db.prepare(
     `SELECT payload_json FROM agent_outbox
-     WHERE run_id = ? AND message_kind != 'final' AND status = 'delivered'
+     WHERE run_id = ? AND message_kind != 'final' AND status IN ('delivered', 'ambiguous')
      ORDER BY created_at DESC LIMIT ?`,
   ).all(runId, SENT_MESSAGE_LIMIT).reverse()
     .map((row) => String(JSON.parse(row.payload_json || '{}').content || '').slice(0, 400))
@@ -187,7 +188,7 @@ function resumeInterruptedRuns(agentEngine) {
     const runId = randomUUID();
     const envelope = claimRun.immediate(run.id, runId);
     if (!envelope) continue;
-    agentEngine.recordRunEvent(run.user_id, run.id, 'run_resumed', { resumedAs: runId }, { agentId: run.agent_id });
+    agentEngine.recordRunEvent(run.user_id, run.id, EVENT_TYPES.RUN_STATE, { to_state: 'resumed', resumed_as: runId }, { agentId: run.agent_id });
     startResumedRun(agentEngine, run, runId, envelope);
     resumed.push(`${shortenRunId(run.id)}->${shortenRunId(runId)}`);
   }

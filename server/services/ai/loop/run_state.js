@@ -1,22 +1,25 @@
 'use strict';
 
+const { createHash } = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../../../db/database');
 const { activateTools, searchTools } = require('../toolSelector');
-const { recordRunEvent } = require('../runEvents');
 const { parseMaybeJson } = require('../logFormat');
-const { buildInitialProgressLedger } = require('./progress_monitor');
+const { recordEventSafe } = require('../runtime/events/run_event_store');
+const { EVENT_TYPES } = require('../runtime/events/event_types');
+const { createRunDelivery } = require('../runtime/delivery/run_delivery');
 const { moveRunToBackground } = require('./background_runs');
+const { renderFragment } = require('../prompts/registry');
 const { getPublicRunScope } = require('../../messaging/public_audience');
+const { runToolRefusal } = require('../tools/metadata');
 const { addTrustedText } = require('../../security/run_trust');
-const {
-  createDeliveryState,
-  markInterimDelivered,
-  markFinalDelivered,
-} = require('./delivery_state');
 
 function isoNow() {
   return new Date().toISOString();
+}
+
+function digestText(text) {
+  return `sha256:${createHash('sha256').update(String(text || '')).digest('hex').slice(0, 24)}`;
 }
 
 function persistRunMetadata(_engine, runId, patch = {}) {
@@ -28,123 +31,46 @@ function persistRunMetadata(_engine, runId, patch = {}) {
     .run(JSON.stringify(next), runId);
 }
 
-function buildProgressLedgerSnapshot(_engine, runMeta) {
-  if (!runMeta?.progressLedger) return null;
-  return {
-    currentStep: runMeta.progressLedger.currentStep || null,
-    currentTool: runMeta.progressLedger.currentTool || null,
-    currentStepStartedAt: runMeta.progressLedger.currentStepStartedAt || null,
-    lastVerifiedProgressAt: runMeta.progressLedger.lastVerifiedProgressAt || null,
-    lastUserVisibleUpdateAt: runMeta.progressLedger.lastUserVisibleUpdateAt || null,
-    lastFinalDeliveryAt: runMeta.progressLedger.lastFinalDeliveryAt || null,
-    heartbeatCount: Number(runMeta.progressLedger.heartbeatCount || 0),
-    stallNotifiedAt: runMeta.progressLedger.stallNotifiedAt || null,
-    progressState: runMeta.progressLedger.progressState || 'active',
-    currentPhase: runMeta.progressLedger.currentPhase || 'idle',
-  };
-}
-
-function persistProgressLedger(engine, runId) {
-  const runMeta = engine.getRunMeta(runId);
-  if (!runMeta?.progressLedger) return;
-  persistRunMetadata(engine, runId, {
-    progressLedger: buildProgressLedgerSnapshot(engine, runMeta),
-  });
-}
-
-function updateRunProgress(engine, runId, patch = {}, options = {}) {
-  const runMeta = engine.getRunMeta(runId);
-  if (!runMeta) return null;
-  if (!runMeta.progressLedger) {
-    runMeta.progressLedger = buildInitialProgressLedger({
-      startedAt: runMeta.startedAtIso || isoNow(),
-    });
-  }
-
-  const previousState = runMeta.progressLedger.progressState || 'active';
-  runMeta.progressLedger = {
-    ...runMeta.progressLedger,
-    ...patch,
-  };
-
-  if (options.verified === true) {
-    runMeta.progressLedger.lastVerifiedProgressAt = options.timestamp || isoNow();
-    runMeta.progressLedger.progressState = 'active';
-    runMeta.progressLedger.stallNotifiedAt = null;
-    recordRunEventSafe(engine, runMeta.userId, runId, 'progress_verified', {
-      phase: runMeta.progressLedger.currentPhase || 'idle',
-      currentStep: runMeta.progressLedger.currentStep || null,
-      currentTool: runMeta.progressLedger.currentTool || null,
-    }, { agentId: runMeta.agentId, stepId: options.stepId || null });
-    if (previousState === 'stalled') {
-      recordRunEventSafe(engine, runMeta.userId, runId, 'progress_resumed', {
-        phase: runMeta.progressLedger.currentPhase || 'idle',
-        currentStep: runMeta.progressLedger.currentStep || null,
-        currentTool: runMeta.progressLedger.currentTool || null,
-      }, { agentId: runMeta.agentId, stepId: options.stepId || null });
-    }
-  }
-
-  if (options.persist !== false) {
-    persistProgressLedger(engine, runId);
-  }
-  return runMeta.progressLedger;
-}
-
 // A reply in the chat the run answers reached the user, but it says nothing
 // about work still to come, so the run stays in the foreground and its chat
 // waits for it.
 function markRunVisibleReply(engine, runId, timestamp = isoNow()) {
   const runMeta = engine.getRunMeta(runId);
   if (!runMeta) return null;
-  if (!runMeta.deliveryState) runMeta.deliveryState = createDeliveryState();
-  markInterimDelivered(runMeta.deliveryState);
-  return updateRunProgress(engine, runId, {
-    lastUserVisibleUpdateAt: timestamp,
-  });
+  runMeta.lastUserVisibleAt = timestamp;
+  return timestamp;
 }
 
 // A progress update tells the user the run is still working on something,
 // which is what moves an owner's chat run to the background.
 function markRunVisibleProgress(engine, runId, timestamp = isoNow()) {
-  const ledger = markRunVisibleReply(engine, runId, timestamp);
-  if (ledger) moveRunToBackground(engine, runId);
-  return ledger;
+  const visibleAt = markRunVisibleReply(engine, runId, timestamp);
+  if (visibleAt) moveRunToBackground(engine, runId);
+  return visibleAt;
 }
 
 function markRunFinalDelivery(engine, runId, content = '', timestamp = isoNow()) {
   const runMeta = engine.getRunMeta(runId);
   if (!runMeta) return null;
-  if (!runMeta.deliveryState) runMeta.deliveryState = createDeliveryState();
-  markFinalDelivered(runMeta.deliveryState);
-  runMeta.messagingSent = true;
-  runMeta.finalDeliverySent = true;
-  runMeta.lastSentMessage = String(content || '').trim() || runMeta.lastSentMessage || '';
-  const ledger = updateRunProgress(engine, runId, {
-    lastUserVisibleUpdateAt: timestamp,
-    lastFinalDeliveryAt: timestamp,
-    progressState: 'complete',
-  }, {
-    persist: false,
-  });
-  persistProgressLedger(engine, runId);
-  return ledger;
+  if (!runMeta.delivery) runMeta.delivery = createRunDelivery();
+  runMeta.delivery.finalDelivered = true;
+  // Kept apart from `sent`: a task run's answer closes the run on its own surface,
+  // and its result still has to reach the task's target.
+  runMeta.delivery.finalContent = String(content || '').trim();
+  runMeta.lastUserVisibleAt = timestamp;
+  return timestamp;
 }
 
 function recordRunEventSafe(_engine, userId, runId, eventType, payload = {}, options = {}) {
-  try {
-    return recordRunEvent({
-      runId,
-      userId,
-      agentId: options.agentId || null,
-      eventType,
-      requestId: options.requestId || null,
-      stepId: options.stepId || null,
-      payload,
-    });
-  } catch {
-    return null;
-  }
+  return recordEventSafe({
+    runId,
+    userId,
+    agentId: options.agentId || null,
+    eventType,
+    requestId: options.requestId || null,
+    stepId: options.stepId || null,
+    payload,
+  });
 }
 
 function initializeToolRuntime(engine, runId, allTools, initialTools, options = {}) {
@@ -177,16 +103,33 @@ function describeIntegrationsForRun(engine, runId, tools = []) {
   return integrationManager.summarizeConnectedProviders(runMeta.userId, runMeta.agentId, keys);
 }
 
-function searchToolsForRun(engine, runId, query, limit = 8) {
+// Refresh from registered services, never from a model-proposed tool name.
+// New MCP servers/skills become discoverable without widening child limits.
+function refreshToolCatalog(engine, runId, runMeta) {
+  const app = runMeta.session?.app || engine.app;
+  const publicScope = getPublicRunScope(runId);
+  const options = runMeta.session?.options || {};
+  const builtIn = engine.getAvailableTools(app, { userId: runMeta.userId, agentId: runMeta.agentId,
+    triggerSource: runMeta.triggerSource, triggerType: runMeta.triggerType, publicScope });
+  const mcp = app?.locals?.mcpManager || app?.locals?.mcpClient || engine.mcpManager;
+  const external = !publicScope && mcp ? mcp.getAllTools(runMeta.userId, { agentId: runMeta.agentId }) : [];
+  runMeta.toolCatalog = [...builtIn, ...external].filter((tool) =>
+    !runToolRefusal([tool], options, tool.name));
+}
+
+function searchToolsForRun(engine, runId, query, limit = 8, alsoNames = []) {
   const runMeta = engine.getRunMeta(runId);
   if (!runMeta) throw new Error('Run is not active.');
+  refreshToolCatalog(engine, runId, runMeta);
   const results = searchTools(runMeta.toolCatalog, query, {
     limit,
     activeNames: runMeta.activeTools.map((tool) => tool.name),
+    alsoNames,
   });
-  recordRunEventSafe(engine, runMeta.userId, runId, 'tools_searched', {
-    query: String(query || '').slice(0, 300),
-    resultNames: results.map((tool) => tool.name),
+  recordRunEventSafe(engine, runMeta.userId, runId, EVENT_TYPES.TOOLS_SELECTED, {
+    kind: 'search',
+    query_digest: digestText(query),
+    result_names: results.map((tool) => tool.name),
   }, { agentId: runMeta.agentId });
   const resultNames = new Set(results.map((tool) => tool.name));
   const integrationNotes = describeIntegrationsForRun(
@@ -208,6 +151,7 @@ function searchToolsForRun(engine, runId, query, limit = 8) {
 function activateToolsForRun(engine, runId, names = []) {
   const runMeta = engine.getRunMeta(runId);
   if (!runMeta) throw new Error('Run is not active.');
+  refreshToolCatalog(engine, runId, runMeta);
   const result = activateTools(
     runMeta.activeTools,
     runMeta.toolCatalog,
@@ -215,12 +159,13 @@ function activateToolsForRun(engine, runId, names = []) {
     runMeta.toolSelectionOptions,
   );
   runMeta.activeTools = result.tools;
-  recordRunEventSafe(engine, runMeta.userId, runId, 'tools_activated', {
+  recordRunEventSafe(engine, runMeta.userId, runId, EVENT_TYPES.TOOLS_SELECTED, {
+    kind: 'activate',
     activated: result.activated,
     evicted: result.evicted,
     unknown: result.unknown,
-    notActivated: result.notActivated,
-    activeToolNames: result.tools.map((tool) => tool.name),
+    not_activated: result.notActivated,
+    active_tool_names: result.tools.map((tool) => tool.name),
   }, { agentId: runMeta.agentId });
   return {
     success: result.unknown.length === 0 && result.notActivated.length === 0,
@@ -329,19 +274,12 @@ function applyQueuedSteering(engine, runId, messages, { userId, conversationId }
   }
 
   const queued = runMeta.steeringQueue.splice(0, runMeta.steeringQueue.length);
-  messages.push({
-    role: 'system',
-    content: [
-      'The user sent follow-up messages while you were already working.',
-      'Treat them as steering or next-up context for the same conversation.',
-      'If a message materially changes the active task, incorporate it now.',
-      'If it is unrelated or better handled after the current task, finish the current work first and then address it.',
-    ].join(' '),
-  });
+  messages.push({ role: 'system', content: renderFragment('runtime/steering.md') });
 
   for (const entry of queued) {
     messages.push({ role: 'user', content: entry.content });
     addTrustedText(runMeta.trust, entry.content);
+    runMeta.trust?.ownerStatements?.push(entry.content);
     if (conversationId) {
       db.prepare(
         `INSERT INTO conversation_messages (
@@ -368,36 +306,10 @@ function applyQueuedSteering(engine, runId, messages, { userId, conversationId }
   return { messages, appliedCount: queued.length };
 }
 
-function isRunStopped(engine, runId) {
-  return engine.getRunMeta(runId)?.aborted === true;
-}
-
-function attachProcessToRun(engine, runId, pid) {
-  const runMeta = engine.getRunMeta(runId);
-  if (!runMeta || !pid) return;
-  runMeta.toolPids.add(pid);
-  if (runMeta.aborted) {
-    if (engine.runtimeManager && typeof engine.runtimeManager.killCommand === 'function') {
-      void engine.runtimeManager.killCommand(runMeta.userId, pid, 'aborted', {
-        deviceTarget: runMeta.deviceTarget,
-      });
-    }
-  }
-}
-
-function detachProcessFromRun(engine, runId, pid) {
-  const runMeta = engine.getRunMeta(runId);
-  if (!runMeta || !pid) return;
-  runMeta.toolPids.delete(pid);
-}
-
 module.exports = {
   activateToolsForRun,
   applyQueuedSteering,
   applyQueuedSystemSteering,
-  attachProcessToRun,
-  buildProgressLedgerSnapshot,
-  detachProcessFromRun,
   enqueueSteering,
   enqueueSystemSteering,
   findActiveRunForUser,
@@ -406,12 +318,9 @@ module.exports = {
   initializeToolRuntime,
   describeIntegrationsForRun,
   searchToolsForRun,
-  isRunStopped,
   markRunFinalDelivery,
   markRunVisibleProgress,
   markRunVisibleReply,
-  persistProgressLedger,
   persistRunMetadata,
   recordRunEventSafe,
-  updateRunProgress,
 };

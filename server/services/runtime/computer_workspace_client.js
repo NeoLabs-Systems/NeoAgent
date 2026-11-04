@@ -107,7 +107,13 @@ class ComputerWorkspaceClient {
     if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start) {
       return { success: false, error: 'Invalid line range.', path: current.path };
     }
-    lines.splice(start - 1, end - start + 1, ...String(options.content ?? '').split('\n'));
+    if (start > lines.length) {
+      return { success: false, error: `Line ${start} is past the end of the file (${lines.length} lines).`, path: current.path };
+    }
+    // The lines between the two ends are replaced: a trailing newline in the new text
+    // is not one more line, and empty text removes them.
+    const replacement = String(options.content ?? '').replace(/\r?\n$/, '');
+    lines.splice(start - 1, end - start + 1, ...(String(options.content ?? '') === '' ? [] : replacement.split('\n')));
     return this.writeFile(userId, {
       path: options.path,
       content: lines.join('\n'),

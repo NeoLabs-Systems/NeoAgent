@@ -2,6 +2,8 @@
 
 const db = require('../../../db/database');
 const { clampRunContext } = require('../messagingFallback');
+const { lastSent } = require('../runtime/delivery/run_delivery');
+const { EVENT_TYPES } = require('../runtime/events/event_types');
 
 const RECENT_STEP_LIMIT = 5;
 
@@ -27,13 +29,13 @@ function moveRunToBackground(engine, runId) {
     !runMeta?.backgroundEligible
     || runMeta.background
     || runMeta.aborted
-    || runMeta.finalDeliverySent
+    || runMeta.delivery?.finalDelivered
   ) {
     return false;
   }
   runMeta.background = { since: new Date().toISOString() };
   engine.persistRunMetadata(runId, { background: runMeta.background });
-  engine.recordRunEvent(runMeta.userId, runId, 'run_backgrounded', {}, { agentId: runMeta.agentId });
+  engine.recordRunEvent(runMeta.userId, runId, EVENT_TYPES.RUN_STATE, { to_state: 'background' }, { agentId: runMeta.agentId });
   engine.emit(runMeta.userId, 'run:background', {
     runId,
     conversationId: runMeta.conversationId || null,
@@ -59,14 +61,14 @@ function recentSteps(runId) {
 
 function describeRun(runId, runMeta) {
   let status = runMeta.status === 'paused' ? 'paused' : 'running';
-  if (runMeta.terminalInterim) status = 'waiting_for_user';
+  if (runMeta.delivery?.awaitingReply) status = 'waiting_for_user';
   return {
     run_id: runId,
     request: runMeta.request,
     channel: runMeta.messagingContext?.platform || runMeta.triggerSource,
     started_at: runMeta.startedAtIso || null,
     status,
-    last_update_to_user_at: runMeta.progressLedger?.lastUserVisibleUpdateAt || null,
+    last_update_to_user_at: runMeta.lastUserVisibleAt || null,
     recent_steps: recentSteps(runId),
   };
 }
@@ -143,9 +145,9 @@ function applyBackgroundAction(engine, { userId, agentId, runs, origin }, args =
       'Apply it from your next step on:',
       instruction,
     ].join('\n'), { reason: 'background_instruction' });
-    engine.recordRunEvent(userId, targetId, 'background_instruction', {
+    engine.recordRunEvent(userId, targetId, EVENT_TYPES.RUN_STATE, {
+      to_state: 'instructed',
       ...origin,
-      instruction: clampRunContext(instruction, 500),
     }, { agentId });
     return {
       instructed: Boolean(queued),
@@ -173,8 +175,10 @@ function announceBackgroundRunEnded(engine, runId, runMeta) {
   if (!runMeta?.background) return;
   let outcome = 'ended without delivering a result';
   if (runMeta.aborted) outcome = 'was cancelled';
-  else if (runMeta.finalDeliverySent) outcome = 'finished and its result was delivered to the user';
-  const result = runMeta.finalDeliverySent ? clampRunContext(runMeta.lastSentMessage, 1500) : '';
+  else if (runMeta.delivery?.finalDelivered) outcome = 'finished and its result was delivered to the user';
+  const result = runMeta.delivery?.finalDelivered
+    ? clampRunContext(runMeta.delivery.finalContent || lastSent(runMeta.delivery), 1500)
+    : '';
   const note = [
     `Background task ${runId} (${clampRunContext(runMeta.request, 200)}) ${outcome}.`,
     result ? `Its result:\n${result}` : '',

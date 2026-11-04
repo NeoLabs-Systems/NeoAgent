@@ -4,7 +4,12 @@ const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
-const { listRunEvents } = require('../services/ai/runEvents');
+const { listEvents } = require('../services/ai/runtime/events/run_event_store');
+const { readRunMetrics } = require('../services/ai/runtime/events/run_metrics');
+const { buildHarnessReport } = require('../services/ai/runtime/events/harness_report');
+const { diagnoseRun } = require('../services/ai/runtime/events/run_diagnostics');
+const { isCaptureNextRunRequested, requestCaptureNextRun } = require('../services/ai/runtime/run_capture');
+const { parseJsonObject } = require('../utils/text');
 const { storeWebRunReply } = require('../services/ai/history');
 const { listRunPromptTurns, getRunPromptTurn } = require('../services/ai/runtime/prompt_inspector');
 const { isInterimAssistantMetadata } = require('../services/ai/interim');
@@ -170,6 +175,24 @@ router.get('/', (req, res) => {
     .all(req.session.userId, agentId, limit, offset);
   const total = db.prepare('SELECT COUNT(*) as count FROM agent_runs WHERE user_id = ? AND agent_id = ?').get(req.session.userId, agentId).count;
   res.json({ runs, total, limit, offset, agentId });
+});
+
+// Failure classes, latency percentiles, and rates over recent runs
+router.get('/harness/report', (req, res) => {
+  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+  res.json(buildHarnessReport(req.session.userId, agentId, { days: parseInt(req.query.days, 10) || 7 }));
+});
+
+// Keep the full prompts of this agent's next run
+router.get('/capture-next', (req, res) => {
+  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+  res.json({ requested: isCaptureNextRunRequested(req.session.userId, agentId) });
+});
+
+router.post('/capture-next', (req, res) => {
+  const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+  requestCaptureNextRun(req.session.userId, agentId);
+  res.json({ requested: true });
 });
 
 // Chat history (web + social messages merged)
@@ -366,7 +389,18 @@ router.get('/:id/steps', (req, res) => {
      WHERE r.id = ?`,
   ).get(run.id) || null;
 
-  res.json({ run, steps, events: listRunEvents(run.id), response, usage, lifecycle });
+  const metrics = readRunMetrics(run);
+  res.json({
+    run,
+    steps,
+    events: listEvents(run.id),
+    metrics,
+    diagnostics: diagnoseRun(metrics),
+    ledger: parseJsonObject(run.metadata_json, {}).ledger || null,
+    response,
+    usage,
+    lifecycle,
+  });
 });
 
 // List the journaled model requests for a run (prompt inspector)
@@ -383,7 +417,7 @@ router.get('/:id/prompt/:requestId', (req, res) => {
   try {
     res.json(getRunPromptTurn(run.id, req.params.requestId));
   } catch (err) {
-    if (err?.code === 'MODEL_REQUEST_NOT_RECONSTRUCTABLE') {
+    if (err?.code === 'MODEL_REQUEST_NOT_CAPTURED') {
       return res.status(404).json({ error: 'Prompt not found for this run' });
     }
     res.status(500).json({ error: sanitizeError(err) });

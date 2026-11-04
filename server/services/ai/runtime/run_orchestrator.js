@@ -2,51 +2,39 @@
 
 const { randomUUID } = require('crypto');
 const db = require('../../../db/database');
-const {
-  getConversationContext,
-  buildStoredUserContent,
-  buildSummaryCarrier,
-  sanitizeConversationMessages,
-} = require('../history');
+const { buildStoredUserContent } = require('../history');
 const { ensureDefaultAiSettings, getAiSettings } = require('../settings');
-const { buildToolDiscoverySummary, selectInitialTools } = require('../toolSelector');
-const { sanitizeModelOutput } = require('../outputSanitizer');
-const { getCapabilityHealth, summarizeCapabilityHealth } = require('../capabilityHealth');
+const { getCapabilityHealth } = require('../capabilityHealth');
 const { summarizeProgressToolExecutions } = require('../toolEvidence');
 const { enforceRateLimits } = require('../rate_limits');
-const { getPublicRunScope } = require('../../messaging/public_audience');
-const { createRunTrust } = require('../../security/run_trust');
 const { parseModelSelectionId } = require('../model_identity');
 const { getProviderRuntimeConfig } = require('../models');
 const { ToolRepetitionGuard } = require('../repetitionGuard');
 const {
   announceBackgroundRunEnded,
-  buildBackgroundRunsNote,
   isBackgroundEligible,
-  listBackgroundRuns,
   moveRunToBackground,
 } = require('../loop/background_runs');
 const { shortenRunId } = require('../logFormat');
 const { getProviderForUser } = require('../provider_selector');
-const {
-  buildProgressUpdatePrompt,
-  buildWrapUpPrompt,
-  normalizeOutgoingMessage,
-} = require('../messagingFallback');
 const { globalHooks } = require('../hooks');
 const { isAbortError, throwIfAborted } = require('../../../utils/abort');
 const { createServiceLogger } = require('../../../utils/logger');
 const { publicErrorCode } = require('../../../utils/http_error');
 
-const { NARRATION_MAX_TOKENS, RUNTIME_STATES } = require('./constants');
+const { RUNTIME_STATES } = require('./constants');
 const { RunEventBus } = require('./events/run_event_bus');
-const { EVENT_TYPES, VISIBILITY } = require('./events/event_types');
+const { EVENT_TYPES } = require('./events/event_types');
+const { persistRunMetrics } = require('./events/run_metrics');
 const stateMachine = require('./run_state_machine');
 const leases = require('./leases');
 const { saveCheckpoint } = require('./checkpoint_service');
 const { createProgressBroker } = require('./delivery/progress_broker');
 const { requestFinalDelivery } = require('./delivery/delivery_worker');
+const { createRunDelivery } = require('./delivery/run_delivery');
 const {
+  allowsProgressUpdates,
+  progressDeliveryMetadata,
   resolveDeliveryChannel,
   resolveDeliveryRecipient,
 } = require('./delivery/delivery_channel');
@@ -54,7 +42,9 @@ const { createContextPressureController } = require('./context/context_pressure'
 const { createRunGuards } = require('./run_guards');
 const { runAgentLoop, setSteeringIntake } = require('./agent_loop');
 const { buildResumeEnvelope, clearResumeEnvelope } = require('./restart_resume');
-const { selectWrapUpHistory } = require('./wrap_up_history');
+const { assembleRunContext } = require('./context_builder');
+const { narrateProgress, writeWrapUp } = require('./side_turns');
+const { captureFailure, decideCapture } = require('./run_capture');
 
 const logger = createServiceLogger('Runtime');
 
@@ -194,7 +184,6 @@ class DurableRunRuntime {
           agentId,
           eventType: EVENT_TYPES.RUN_CANCELLED,
           payload: { reason, source: 'on_loop_iteration' },
-          visibility: VISIBILITY.USER,
         });
         return {
           runId,
@@ -283,18 +272,11 @@ class DurableRunRuntime {
       session.getActiveSignal = () => (
         this.engine.getRunMeta(runId)?.abortController?.signal || abortController.signal
       );
-      // Prefer the caller-owned deliveryState (background tasks share it with the
-      // task runtime for staged send_message + final delivery bookkeeping).
-      const deliveryState = options.deliveryState && typeof options.deliveryState === 'object'
-        ? options.deliveryState
-        : {
-          messagingSent: false,
-          noResponse: false,
-          proactiveMessageStaged: false,
-          stagedProactiveMessage: null,
-          lastSentMessage: '',
-          sentMessages: [],
-        };
+      // A caller that owns the delivery view (a background task resolves the
+      // target and sends what the run staged) shares it with the run.
+      const delivery = options.delivery && typeof options.delivery === 'object'
+        ? options.delivery
+        : createRunDelivery();
 
       this.engine.activeRuns.set(runId, {
         userId,
@@ -303,11 +285,12 @@ class DurableRunRuntime {
         status: 'running',
         runtimeState: RUNTIME_STATES.ACCEPTED,
         aborted: false,
-        messagingSent: false,
-        finalDeliverySent: false,
-        lastSentMessage: '',
-        sentMessages: [],
-        deliveryState,
+        delivery,
+        // A resumed run continues the cut-off run's conversation with the user,
+        // so what that run already sent still counts.
+        deliveryScopeId: options.resumedFromRunId || runId,
+        capture: decideCapture({ userId, agentId, options }),
+        session,
         triggerType,
         triggerSource,
         request: String(options.context?.rawUserMessage || userMessage || '').trim().slice(0, 600),
@@ -360,12 +343,10 @@ class DurableRunRuntime {
       session.progressBroker = createProgressBroker({
         engine: this.engine,
         runId,
-        userId,
-        agentId,
-        eventBus: this.eventBus,
+        scopeId: options.resumedFromRunId || runId,
         channel: resolveDeliveryChannel(triggerSource),
         recipient: resolveDeliveryRecipient(triggerSource, options),
-        deliveryMetadata: options.sessionBinding || null,
+        deliveryMetadata: progressDeliveryMetadata(triggerSource, options),
         maxSilenceSeconds: Number(options.maxSilenceSeconds)
           || (options.latencyPriority === 'interactive' ? 45 : 90),
         firstUpdateSeconds: options.latencyPriority === 'interactive' ? 15 : 25,
@@ -376,27 +357,20 @@ class DurableRunRuntime {
         isSuppressed: () => {
           const meta = this.engine.getRunMeta(runId);
           if (!meta || meta.aborted || meta.status === 'paused') return true;
-          // terminalInterim means the agent asked the user something and is
+          if (!allowsProgressUpdates(triggerSource, options)) return true;
+          // awaitingReply means the agent asked the user something and is
           // waiting; anything after that would talk over the question. A chat
           // reply that is still the run's last word is its answer, not a pause.
-          if (
-            meta.finalDeliverySent
-            || meta.noResponse
-            || meta.terminalInterim
-            || meta.explicitMessageSent
-          ) return true;
-          return meta.deliveryState?.finalContentDelivered === true
-            || meta.deliveryState?.noResponse === true;
+          const state = meta.delivery;
+          return Boolean(state?.finalDelivered || state?.noResponse || state?.awaitingReply || state?.lastWordSent);
         },
-        getLastVisibleAt: () => Date.parse(
-          this.engine.getRunMeta(runId)?.progressLedger?.lastUserVisibleUpdateAt || '',
-        ) || 0,
+        getLastVisibleAt: () => Date.parse(this.engine.getRunMeta(runId)?.lastUserVisibleAt || '') || 0,
         // A model turn that is still streaming has produced nothing to report;
         // narrating it can only tell the user that nothing has happened.
         narrator: async ({ delta, liveness }) => (
           liveness?.phase === 'model_started' && !Number(liveness?.runningTools) && !delta?.evidence
             ? ''
-            : this.#narrateProgress(session, { delta, liveness, signal: abortController.signal })
+            : narrateProgress(this.engine, session, { delta, liveness, signal: abortController.signal })
         ),
       });
       session.progressBroker.markAccepted();
@@ -405,15 +379,14 @@ class DurableRunRuntime {
         runId,
         userId,
         agentId,
-        eventType: EVENT_TYPES.RUN_ACCEPTED,
+        eventType: EVENT_TYPES.RUN_STARTED,
         actor: workerId,
         payload: {
-          acceptedAt: isoNow(),
-          title: runTitle,
-          triggerType,
-          triggerSource,
+          trigger_type: triggerType,
+          trigger_source: triggerSource,
+          resumed_from: options.resumedFromRunId || null,
+          capture: this.engine.getRunMeta(runId)?.capture?.reason || null,
         },
-        visibility: VISIBILITY.USER,
       });
 
       this.engine.emit(userId, 'run:start', {
@@ -519,161 +492,33 @@ class DurableRunRuntime {
             saveCheckpoint(runId, 'pre_compaction', {
               iterations: session.iterations,
             }, { eventBus: this.eventBus, userId, agentId });
+            return;
           }
           this.eventBus.publish({
             runId,
             userId,
             agentId,
-            eventType: kind === 'compacted' ? EVENT_TYPES.CONTEXT_COMPACTED : EVENT_TYPES.CONTEXT_PRESSURE,
+            eventType: EVENT_TYPES.CONTEXT_COMPACTED,
             payload,
-            visibility: VISIBILITY.OPERATOR,
           });
         },
       });
 
       // ── Context assembly ───────────────────────────────────────────────
-      session.emitPhase('context', 'Gathering context');
-      const historyWindow = Math.max(
-        1,
-        Number(options.historyWindow || aiSettings.chat_history_window) || aiSettings.chat_history_window,
-      );
       const { MemoryManager } = require('../../memory/manager');
       const memoryManager = this.engine.memoryManager || new MemoryManager();
-      const recallPromise = options.skipGlobalRecall === true
-        ? null
-        : startConcurrently(this.engine.buildMemoryRecall({
-          memoryManager,
-          userId,
-          agentId,
-          query: options.context?.rawUserMessage || userMessage,
-          runId,
-          options,
-        }));
-      session.systemPrompt = await systemPromptPromise;
-
-      const publicScope = getPublicRunScope(runId);
-      const builtInTools = this.engine.getAvailableTools(app, {
-        includeDescriptions: true,
-        userId,
-        agentId,
-        triggerType,
-        triggerSource,
-        publicScope,
+      const { historyWindow } = await assembleRunContext(session, {
+        engine: this.engine,
+        aiSettings,
+        memoryManager,
+        systemPromptPromise,
+        capabilityHealthPromise,
+        startConcurrently,
+        startedAtMs,
+        providerMs,
       });
-      const mcpManager = app?.locals?.mcpManager || app?.locals?.mcpClient || this.engine.mcpManager;
-      const mcpTools = mcpManager && !publicScope ? mcpManager.getAllTools(userId, { agentId }) : [];
-      const disallowedToolNames = new Set(
-        (Array.isArray(options.disallowedToolNames) ? options.disallowedToolNames : [])
-          .map((name) => String(name || '').trim())
-          .filter(Boolean),
-      );
-      const allTools = [...builtInTools, ...mcpTools]
-        .filter((tool) => !disallowedToolNames.has(tool?.name));
-
-      const recallMsg = recallPromise ? await recallPromise : null;
-
-      let summaryMessage = null;
-      let historyMessages = [];
-      if (conversationId && options.skipConversationHistory !== true) {
-        const conversationContext = getConversationContext(conversationId, historyWindow);
-        summaryMessage = buildSummaryCarrier(conversationContext.summary || options.priorSummary || '');
-        historyMessages = conversationContext.recentMessages.length > 0
-          ? conversationContext.recentMessages
-          : (options.priorMessages || []).slice(-historyWindow).filter((pm) => pm.role && pm.content);
-      } else {
-        summaryMessage = buildSummaryCarrier(options.priorSummary || '');
-        historyMessages = (options.priorMessages || []).slice(-historyWindow).filter((pm) => pm.role && pm.content);
-      }
-
-      const messages = this.engine.buildContextMessages(
-        session.systemPrompt,
-        summaryMessage,
-        historyMessages,
-        recallMsg,
-      );
-      const capabilityHealth = await capabilityHealthPromise;
-      // A public run must not learn what the owner has connected.
-      const capabilitySummary = publicScope ? '' : summarizeCapabilityHealth(capabilityHealth);
-      const connectedIntegrations = publicScope
-        ? null
-        : app?.locals?.integrationManager?.listConnectedProviderLabels?.(userId, agentId);
-      if (capabilitySummary || connectedIntegrations) {
-        messages.push({
-          role: 'system',
-          content: [
-            '[Runtime status]',
-            connectedIntegrations
-              ? `Connected integrations: ${connectedIntegrations}. search_tools returns their tools with usage notes.`
-              : '',
-            capabilitySummary ? `Needs attention:\n${capabilitySummary}` : '',
-          ].filter(Boolean).join('\n'),
-        });
-      }
-      const backgroundRuns = this.engine.getRunMeta(runId)?.backgroundEligible
-        ? listBackgroundRuns(this.engine, { userId, agentId, excludeRunId: runId })
-        : [];
-      if (backgroundRuns.length > 0) {
-        messages.push({ role: 'system', content: buildBackgroundRunsNote(backgroundRuns) });
-      }
-
-      // A fixed core starts active; the rest of the catalog is listed for the
-      // model to activate itself. Guessing tools from the request's words picks
-      // noise, especially outside English.
-      const toolSelectionOptions = {
-        triggerSource,
-        triggerType,
-      };
-      // When NeoRecall is connected, keep day/search tools active so personal
-      // recall questions do not wait on an activation turn.
-      const preferredNeoRecallTools = [
-        'neorecall_list_daily_summaries',
-        'neorecall_search',
-        'neorecall_list_conversations',
-      ].filter((name) => allTools.some((tool) => tool?.name === name));
-      session.tools = selectInitialTools(allTools, [
-        ...preferredNeoRecallTools,
-        ...(backgroundRuns.length > 0 ? ['background_task'] : []),
-      ], toolSelectionOptions);
-      this.engine.initializeToolRuntime?.(runId, allTools, session.tools, toolSelectionOptions);
-      // The tool catalog carries third-party descriptions (MCP, skills), so
-      // it is not part of what the owner wrote.
-      const openingMessages = [...messages];
-      messages.push({
-        role: 'system',
-        content: [
-          '[Tool discovery]',
-          buildToolDiscoverySummary(allTools, session.tools),
-          'Your shell (execute_command) starts in your workspace, and the file tools operate on that same workspace. Keep checkouts and generated files there; clone a repo once and reuse it.',
-          'For workspace file inspection/editing, prefer read_files, read_file, search_files, list_directory, edit_file, replace_file_range, and write_file over shell cat/sed/python snippets. Use execute_command for git, tests, package managers, builds, and other shell-native actions.',
-          this.engine.describeIntegrationsForRun?.(runId, session.tools) || '',
-        ].filter(Boolean).join('\n'),
-      });
-      this.engine.recordRunEvent?.(userId, runId, 'tool_selection_applied', {
-        activeToolNames: session.tools.map((tool) => tool.name),
-        catalogSize: allTools.length,
-      }, { agentId });
-
-      const userTurn = this.engine.buildUserMessage(userMessage, options);
-      messages.push(userTurn);
-      session.requestTurn = userTurn;
-      session.messages = sanitizeConversationMessages(messages);
       // A resumed run's request is the turn the interrupted run already stored.
       if (conversationId && !options.resumedFromRunId) this.#storeUserMessage(session);
-      this.engine.getRunMeta(runId).trust = options.parentTrust || createRunTrust({
-        audience: publicScope ? 'public' : (options.audience || 'owner'),
-        approvedSpeaker: !publicScope && options.approvedSpeaker === true,
-        triggerSource,
-        messages: [...openingMessages, userTurn],
-        origin: triggerSource === 'messaging'
-          ? {
-            platform: options.source,
-            chatId: options.chatId,
-            senderId: options.context?.socialIntelligence?.message?.sender,
-            isGroup: options.context?.socialIntelligence?.isGroup === true,
-          }
-          : null,
-        mediaPaths: (options.mediaAttachments || []).map((attachment) => attachment?.path),
-      });
 
       applyTransition({
         runId,
@@ -682,10 +527,6 @@ class DurableRunRuntime {
         workerId,
         eventBus: this.eventBus,
       });
-      this.engine.recordRunEvent?.(userId, runId, 'startup_timing', {
-        providerMs,
-        totalMs: Date.now() - startedAtMs,
-      }, { agentId });
 
       // ── Agent loop ─────────────────────────────────────────────────────
       // The heartbeat keeps a run that sits inside a long tool or model call
@@ -708,8 +549,12 @@ class DurableRunRuntime {
           status: outcome.status,
         };
       }
+      if (outcome.type === 'wrap_up') {
+        const state = this.engine.getRunMeta(runId)?.delivery;
+        if (state) state.wrappedUp = true;
+      }
       const answer = outcome.type === 'wrap_up'
-        ? await this.#wrapUp(session, outcome.reason)
+        ? await writeWrapUp(this.engine, session, outcome.reason)
         : outcome.content;
       applyTransition({
         runId,
@@ -718,8 +563,17 @@ class DurableRunRuntime {
         workerId,
         eventBus: this.eventBus,
       });
-      const delivery = await this.#deliverFinal(session, answer);
-      const content = delivery.content || answer;
+      const finalDelivery = await this.#deliverFinal(session, answer);
+      const content = finalDelivery.content || answer;
+      if (!finalDelivery.ok) {
+        const reason = finalDelivery.reason === 'ambiguous' ? 'delivery_ambiguous' : 'delivery_failed';
+        const error = finalDelivery.error || reason;
+        this.eventBus.publish({ runId, userId, agentId, eventType: EVENT_TYPES.RUN_FAILED,
+          payload: { error_code: reason, execution_completed: true } });
+        this.engine.emit(userId, 'run:error', { runId, error, content, deliveryStatus: reason, executionCompleted: true });
+        return { runId, content, totalTokens: session.totalTokens, iterations: session.iterations,
+          status: 'failed', error, deliveryStatus: reason, executionCompleted: true };
+      }
       await this.#finalizeSuccess(session, { content, historyWindow, memoryManager });
       return {
         runId,
@@ -754,9 +608,11 @@ class DurableRunRuntime {
           userId,
           agentId,
           eventType: interrupted ? EVENT_TYPES.RUN_CANCELLED : EVENT_TYPES.RUN_FAILED,
-          payload: { error: error?.message || String(error) },
-          visibility: VISIBILITY.USER,
+          payload: { error: String(error?.message || error).slice(0, 500), error_code: publicErrorCode(error) || null },
         });
+        if (!interrupted) {
+          captureFailure({ runId, userId, capture: runMeta?.capture, session });
+        }
         this.engine.emit(userId, interrupted
           ? (interruptedByCaller ? 'run:interrupted' : 'run:stopped')
           : 'run:error', {
@@ -777,6 +633,13 @@ class DurableRunRuntime {
       // Only a run the shutdown cut off is resumed; one that ended while the
       // process keeps going is finished, however it ended.
       if (runRecordCreated && !this.engine.shuttingDown) clearResumeEnvelope(runId);
+      if (runRecordCreated) {
+        const promptMetrics = this.engine.getRunMeta(runId)?.promptMetrics;
+        if (promptMetrics) {
+          db.prepare('UPDATE agent_runs SET prompt_metrics = ? WHERE id = ?').run(JSON.stringify(promptMetrics), runId);
+        }
+        persistRunMetrics(runId);
+      }
       try {
         leases.release(runId, workerId);
       } catch {
@@ -825,6 +688,7 @@ class DurableRunRuntime {
     const result = await requestFinalDelivery({
       engine: this.engine,
       runId,
+      scopeId: options.resumedFromRunId || runId,
       content,
       channel,
       recipient: resolveDeliveryRecipient(triggerSource, options),
@@ -852,6 +716,7 @@ class DurableRunRuntime {
         eventBus: this.eventBus,
         patch: {
           error: result.error || 'Final delivery state is ambiguous',
+          metadata: { executionCompleted: true, deliveryStatus: 'ambiguous' },
           finalResponse: content,
           totalTokens: session.totalTokens,
         },
@@ -882,6 +747,7 @@ class DurableRunRuntime {
         eventBus: this.eventBus,
         patch: {
           error: result.error || result.reason || 'delivery failed',
+          metadata: { executionCompleted: true, deliveryStatus: 'failed' },
           finalResponse: content,
           totalTokens: session.totalTokens,
         },
@@ -923,11 +789,10 @@ class DurableRunRuntime {
       agentId,
       eventType: EVENT_TYPES.RUN_COMPLETED,
       payload: {
-        totalTokens: session.totalTokens,
+        total_tokens: session.totalTokens,
         iterations: session.iterations,
-        contentPreview: String(content || '').slice(0, 240),
+        answer_chars: String(content || '').length,
       },
-      visibility: VISIBILITY.USER,
     });
 
     // No run:complete here: the delivery worker already emitted it as part of
@@ -971,118 +836,6 @@ class DurableRunRuntime {
       iterations: session.iterations,
       messages: session.messages,
     });
-  }
-
-  /**
-   * The last turn of a run a runaway guard ended. The model writes it from
-   * the conversation, in its own voice: what it got done, what is missing,
-   * and why. Only when it returns nothing does the run fall back to its last
-   * written text, then to a description of the observed tool executions.
-   */
-  async #wrapUp(session, reason) {
-    const { runId, userId, agentId, options } = session;
-    // The wrap-up is the run's last model turn, so it must see any follow-up
-    // still waiting; nothing sent after this point can reach this run.
-    setSteeringIntake(this.engine, runId, false);
-    this.engine.applyQueuedSteering?.(runId, session.messages, {
-      userId,
-      conversationId: session.conversationId,
-    });
-    const history = selectWrapUpHistory(session.messages, session.requestTurn);
-    try {
-      const wrapUp = await this.engine.requestModelResponse({
-        provider: session.model.provider,
-        providerName: session.model.providerName,
-        model: session.model.model,
-        messages: sanitizeConversationMessages([
-          ...history,
-          { role: 'system', content: buildWrapUpPrompt(reason, options.source || null) },
-        ]),
-        tools: [],
-        options: {
-          ...options,
-          stream: false,
-          phase: 'wrap_up',
-          signal: session.getActiveSignal(),
-          runId,
-          userId,
-          agentId,
-        },
-        runId,
-        iteration: session.iterations,
-      });
-      const text = sanitizeModelOutput(
-        String(wrapUp?.response?.content || wrapUp?.streamContent || '').trim(),
-        { model: session.model.model },
-      );
-      if (normalizeOutgoingMessage(text, options.source || null)) return text;
-    } catch (error) {
-      if (isAbortError(error, session.getActiveSignal())) throw error;
-      console.warn('[Runtime] Wrap-up generation failed:', error?.message || error);
-    }
-
-    // No reply the model wrote: the run fails visibly rather than sending the
-    // user text nobody wrote.
-    throw new Error(`Run stopped (${reason}) and the model could not write a reply`);
-  }
-
-  /**
-   * Phrase an observed progress delta. The run's own system prompt supplies the
-   * voice and formatting rules, so an update reads like every other message; the
-   * delta is the only permitted source of facts, and an empty answer means "no
-   * useful update", not "send something generic".
-   */
-  async #narrateProgress(session, { delta, liveness, signal }) {
-    const { runId, userId, agentId, options } = session;
-    if (!session.model) return '';
-    const systemPrompt = [session.systemPrompt?.stable, session.systemPrompt?.dynamic]
-      .filter(Boolean)
-      .join('\n\n');
-    const response = await this.engine.requestModelResponse({
-      provider: session.model.provider,
-      providerName: session.model.providerName,
-      model: session.model.model,
-      messages: [
-        ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
-        {
-          role: 'system',
-          content: [
-            buildProgressUpdatePrompt(),
-            liveness?.status === 'stalled'
-              ? 'No verified activity has been recorded for the stall threshold. State that plainly if it matters; do not reassure or imply activity beyond the evidence.'
-              : '',
-          ].filter(Boolean).join(' '),
-        },
-        {
-          role: 'user',
-          content: [
-            `Original request: ${String(session.userMessage || '').slice(0, 320)}`,
-            delta?.evidence
-              ? `Actual recent tool activity (newest last) — describe ONLY this:\n${delta.evidence}`
-              : '',
-          ].filter(Boolean).join('\n\n'),
-        },
-      ],
-      tools: [],
-      options: {
-        ...options,
-        maxTokens: NARRATION_MAX_TOKENS,
-        stream: false,
-        phase: 'progress_narration',
-        signal,
-        runId,
-        userId,
-        agentId,
-      },
-      runId,
-      iteration: 0,
-    });
-    const text = sanitizeModelOutput(
-      String(response?.response?.content || response?.streamContent || '').trim(),
-      { model: session.model.model },
-    );
-    if (!normalizeOutgoingMessage(text, options.source || null)) return '';
-    return text.split(/\n+/).map((line) => line.trim()).filter(Boolean).join(' ').slice(0, 400);
   }
 
   // A stop noticed between steps ends here instead of in the abort handler,

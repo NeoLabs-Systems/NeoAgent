@@ -1,5 +1,6 @@
 'use strict';
 
+const { resolveToolMeta } = require('../ai/tools/metadata');
 const { describeTaint, isOriginTarget, isOwnerNamed, isTainted } = require('./run_trust');
 
 // Deterministic checks on a tool call against the run's trust record. They
@@ -38,29 +39,8 @@ const MEDIA_PATH_ARGS = ['image_path', 'audio_path'];
 
 // Calls whose effect outlives the run: a task or core-memory entry written
 // from injected text runs again later with the owner's authority.
-const PERSISTENCE_TOOLS = new Set([
-  'create_task',
-  'update_task',
-  'memory_update_core',
-  'create_skill',
-  'update_skill',
-  'mcp_add_server',
-  'settings_update',
-]);
-
 const RECIPIENT_ARGS = ['to', 'cc', 'bcc', 'recipient', 'recipients'];
 const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-
-// Tools that can carry an argument off the machine.
-const EGRESS_TOOLS = new Set([
-  'send_message',
-  'http_request',
-  'web_search',
-  'browser_navigate',
-  'browser_type',
-  'browser_act',
-  'social_video_extract',
-]);
 
 // High-precision credential shapes. A match in an outbound argument of a
 // tainted run is almost always exfiltration, not a user request.
@@ -136,11 +116,12 @@ function reviewSharedAudienceCall(toolName, toolArgs, trust) {
 function reviewTaintedCall(toolName, toolArgs, category, trust) {
   const read = `this run has read content from ${describeTaint(trust)}`;
 
-  if (PERSISTENCE_TOOLS.has(toolName)) {
+  const meta = resolveToolMeta(toolName);
+  if (meta.persistent) {
     return { reason: `${toolName} would outlast this run, and ${read}.`, reasonKey: 'outlast' };
   }
 
-  const recipientKeys = toolName === 'send_message' ? ['to'] : RECIPIENT_ARGS;
+  const recipientKeys = meta.recipientArgs || RECIPIENT_ARGS;
   for (const key of recipientKeys) {
     for (const recipient of listValues(toolArgs[key])) {
       if (!isOwnerNamed(trust, recipient)) {
@@ -165,7 +146,7 @@ function reviewTaintedCall(toolName, toolArgs, category, trust) {
     }
   }
 
-  const outbound = EGRESS_TOOLS.has(toolName)
+  const outbound = meta.egress
     || category === 'external'
     || RECIPIENT_ARGS.some((key) => toolArgs[key] != null);
   if (outbound) {

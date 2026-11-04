@@ -19,7 +19,30 @@ function resolveDeliveryRecipient(triggerSource, options = {}) {
   return options.chatId || null;
 }
 
+// What a progress line needs to find its way. A messaging run names its platform
+// here, because the channel alone only says "messaging".
+function progressDeliveryMetadata(triggerSource, options = {}) {
+  return {
+    ...(resolveDeliveryChannel(triggerSource) === 'messaging'
+      ? { platform: options.source || null, chatId: options.chatId || null }
+      : {}),
+    ...(options.sessionBinding || {}),
+  };
+}
+
+// Progress lines describe what the run's tools are doing, so on messaging they
+// are for the owner's own chat: a group does not need the commentary, and someone
+// else's chat has no business seeing the owner's tool activity.
+function allowsProgressUpdates(triggerSource, options = {}) {
+  if (resolveDeliveryChannel(triggerSource) !== 'messaging') return true;
+  return (options.audience || 'owner') === 'owner'
+    && options.memoryAudience !== 'shared'
+    && options.context?.socialIntelligence?.isGroup !== true;
+}
+
 module.exports = {
+  allowsProgressUpdates,
+  progressDeliveryMetadata,
   resolveDeliveryChannel,
   resolveDeliveryRecipient,
 };

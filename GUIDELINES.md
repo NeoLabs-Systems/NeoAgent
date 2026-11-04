@@ -62,8 +62,12 @@ scripts/         Build and release utility scripts
 
 - All LLM calls go through `server/services/ai/engine.js`. Do not call provider SDKs directly from routes or other services.
 - Provider-specific code belongs in `server/services/ai/providers/<name>.js`. Each provider extends `base.js`.
-- Tool definitions are registered in `server/services/ai/tools.js`. Do not define ad-hoc tool schemas elsewhere.
+- Tool schemas and metadata live in `server/services/ai/tools/definitions/<family>.js`, their code in `tools/handlers/<family>.js`. Do not define ad-hoc tool schemas elsewhere, and do not keep lists of tool names outside the definitions: scheduling, repeat detection, trust, budgets, and the security policy all read `tools/metadata.js`.
 - Large tool results must pass through `compactToolResult()` before being appended to conversation history.
+- Everything a run shows a user goes through `commitDelivery()` in `runtime/delivery/delivery_worker.js`. A new path that sends a message must reserve a slot there; do not add delivered-yet flags.
+- Prompt text lives in `server/services/ai/prompts/` as versioned fragments. Changing a fragment's text means bumping its version.
+- Run telemetry goes through `runtime/events/` with the types in `event_types.js`. Events carry metadata only: no prompt text, tool results, memory content, or private reasoning.
+- A harness change has to earn its place: it either raises task success or lowers latency, tokens, unnecessary tool calls, or errors. Do not add pre-passes, planner or critic model calls, or LLM routers. `npm run eval:harness` is the gate; add a case when you fix a harness bug.
 
 ### Error handling
 
@@ -144,8 +148,8 @@ scripts/         Build and release utility scripts
 
 ### New AI tool
 
-1. Define the tool schema and handler in `server/services/ai/tools.js`.
-2. Extract non-trivial logic into `server/services/ai/integrated_tools/` and import from there.
+1. Add the schema and metadata to `server/services/ai/tools/definitions/<family>.js`: at least `group`, `access`, and `capabilities`, plus `policy`, `stateScope`, `sideEffect`, `repeatable`, and `untrusted` where the defaults do not hold. Give it `whenToUse` / `whenNotToUse` if a neighbouring tool is easy to confuse it with.
+2. Add its handler to `tools/handlers/<family>.js`. Extract non-trivial logic into `server/services/ai/integrated_tools/` and import from there.
 3. Ensure the tool result is passed through `compactToolResult()` if it can produce large payloads.
 
 ---

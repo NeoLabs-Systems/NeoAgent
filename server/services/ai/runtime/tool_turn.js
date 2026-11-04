@@ -10,12 +10,25 @@ const {
   gatheredNewEvidence,
   inferToolFailureMessage,
 } = require('../toolEvidence');
-const { globalHooks } = require('../hooks');
 const { recordToolOutput } = require('../../security/run_trust');
+const { getCategoryForTool } = require('../../security/tool_categories');
 const { scrubInvisible, scrubInvisibleDeep } = require('../../../utils/untrusted_text');
 const { scheduleToolCalls } = require('../loop/tool_scheduler');
 const { createServiceLogger } = require('../../../utils/logger');
-const { EVENT_TYPES, VISIBILITY } = require('./events/event_types');
+const { globalHooks } = require('../hooks');
+const { renderFragment } = require('../prompts/registry');
+const { parseTestOutput } = require('../test_output');
+const {
+  isParallelSafeCall,
+  isReadOnlyCall,
+  resolveToolMeta,
+  runToolRefusal,
+} = require('../tools/metadata');
+const { EVENT_TYPES } = require('./events/event_types');
+const { argsDigest, redactArgs } = require('./events/redact');
+const { noteChangedPath } = require('./task_state');
+const { reviewOperation } = require('./operations');
+const { ensureCheckpoint, recordMutation } = require('./workspace_checkpoint');
 
 const logger = createServiceLogger('Runtime');
 
@@ -53,11 +66,8 @@ function wireToolCall(call) {
     };
 }
 
-// Bookkeeping the delivery paths and the task runtime read after a
-// send_message: what reached the chat, and whether the model chose silence.
-function recordSentMessage(session, call, result) {
-  const runMeta = session.engine.getRunMeta(session.runId);
-  if (!runMeta) return '';
+// What a send_message put in front of the user, for the run's terminal answer.
+function sentMessageText(session, call, result) {
   const sent = String(
     call.arguments?.content
     || call.arguments?.message
@@ -69,38 +79,195 @@ function recordSentMessage(session, call, result) {
     || result?.reason === 'no_response'
     || call.arguments?.purpose === 'no_response';
   if (noResponse) {
-    runMeta.noResponse = true;
-    if (runMeta.deliveryState) runMeta.deliveryState.noResponse = true;
+    const delivery = session.engine.getRunMeta(session.runId)?.delivery;
+    if (delivery) delivery.noResponse = true;
     return '';
-  }
-  if (!sent) return '';
-  runMeta.lastSentMessage = sent;
-  runMeta.messagingSent = true;
-  if (!Array.isArray(runMeta.sentMessages)) runMeta.sentMessages = [];
-  runMeta.sentMessages.push(sent);
-  if (result?.staged === true) {
-    runMeta.proactiveMessageStaged = true;
-    runMeta.stagedProactiveMessage = runMeta.deliveryState?.stagedProactiveMessage || {
-      platform: call.arguments?.platform,
-      to: call.arguments?.to,
-      content: sent,
-      purpose: call.arguments?.purpose,
-    };
   }
   return sent;
 }
 
-async function runToolCall(session, { call, definition, isReadOnly }) {
-  const { engine, eventBus, runId, userId, agentId, options } = session;
+function publish(session, eventType, payload, extra = {}) {
+  return session.eventBus.publish({
+    runId: session.runId,
+    userId: session.userId,
+    agentId: session.agentId,
+    eventType,
+    payload,
+    ...extra,
+  });
+}
+
+/**
+ * The policy gate. Permission lives here and not in the model: the model may
+ * propose a call, but nothing it read can raise what the call is allowed to do.
+ * Repeats are stopped here too, so neither ever reaches a tool.
+ */
+// What this run may do at all, checked for every call. Hiding a tool from the model
+// is not a limit: a model can name any tool.
+function dispatchRefusal(session, planned) {
+  const { call, meta, isReadOnly } = planned;
+  const { engine, runId, options } = session;
+  const runMeta = engine.getRunMeta(runId);
+  const refusal = runToolRefusal(runMeta?.toolCatalog, options, call.name, call.arguments);
+  if (refusal) return refusal;
+  const touchesWorkspace = meta.stateScope === 'workspace' || meta.group === 'shell' || call.name === 'delegate_to_agent';
+  if (!isReadOnly && touchesWorkspace && engine.hasWritingSubagent?.(runId)) {
+    return 'A sub-agent of this run is changing the workspace. Wait for it before changing anything.';
+  }
+  // Named without being turned on: there is no reason to spend a turn on that.
+  if (!runMeta?.activeTools?.some((tool) => tool?.name === call.name)) engine.activateToolsForRun?.(runId, [call.name]);
+  return null;
+}
+
+async function reviewCall(session, planned, stepIndex, stepId) {
+  const { call, meta, isReadOnly, fingerprint } = planned;
+  const { engine, runId, userId, agentId } = session;
+  const refusal = dispatchRefusal(session, planned);
+  if (refusal) {
+    publish(session, EVENT_TYPES.PERMISSION_DECISION, { tool: call.name, decision: 'deny', by: 'run_limits' }, { stepId });
+    return { allowed: false, errorMessage: refusal, result: { error: refusal, blocked: true } };
+  }
+  const repeat = reviewOperation(session, planned);
+  if (repeat) {
+    publish(session, EVENT_TYPES.TOOL_SUPPRESSED, {
+      tool: { name: call.name, call_fingerprint: fingerprint },
+      reason: repeat.reason,
+    }, { stepId });
+    return { allowed: false, suppressed: repeat.completed, errorMessage: repeat.completed ? null : repeat.message, result: { status: repeat.reason, reason: repeat.message } };
+  }
+  const trust = engine.getRunMeta(runId)?.trust || null;
+  const category = getCategoryForTool(call.name, call.arguments);
+
+  const hookResult = await globalHooks.run('before_tool_call', {
+    runId,
+    toolName: call.name,
+    toolArgs: call.arguments,
+    userId,
+    agentId,
+    trust,
+  });
+  if (category || hookResult?.block === true) {
+    publish(session, EVENT_TYPES.PERMISSION_DECISION, {
+      tool: call.name,
+      category,
+      decision: hookResult?.block === true ? 'deny' : 'allow',
+      by: hookResult?.blocked_by || (hookResult?.approved ? 'owner_approval' : 'policy'),
+      tainted: Boolean(trust?.taintSources?.size),
+    }, { stepId });
+  }
+  if (hookResult?.block === true) {
+    const reason = hookResult.reason || 'Blocked by policy hook';
+    return { allowed: false, errorMessage: reason, result: { error: reason, blocked: true } };
+  }
+
+  const guard = engine.getRunMeta(runId)?.repetitionGuard;
+  if (!guard) return { allowed: true };
+
+  const readScope = isReadOnly ? meta.stateScope : null;
+  // A repeatable read is what polling looks like: what it reads can change without
+  // this run doing anything, so it is only stopped when it fails.
+  const blockedAsRead = isReadOnly && !meta.repeatable;
+  if (guard.shouldBlock(call.name, call.arguments, { readOnly: blockedAsRead, stateScope: readScope })) {
+    const priorFailure = guard.lastFailure(call.name, call.arguments, readScope);
+    const reason = priorFailure
+      ? `This exact call already failed twice with: ${priorFailure}`
+      : 'The same read-only call already returned an unchanged result twice.';
+    publish(session, EVENT_TYPES.TOOL_SUPPRESSED, {
+      tool: { name: call.name, call_fingerprint: fingerprint },
+      reason: priorFailure ? 'repeated_failure' : 'unchanged_result',
+    }, { stepId });
+    return { allowed: false, errorMessage: reason, result: { status: 'blocked', reason } };
+  }
+
+  if (isReadOnly && meta.known && !meta.repeatable) {
+    const prior = guard.claimRead(fingerprint, stepIndex);
+    if (prior) {
+      publish(session, EVENT_TYPES.TOOL_SUPPRESSED, {
+        tool: { name: call.name, call_fingerprint: fingerprint },
+        reason: 'duplicate_without_state_change',
+        previous_step: prior.stepIndex,
+      }, { stepId });
+      return {
+        allowed: false,
+        suppressed: true,
+        result: {
+          status: 'suppressed',
+          reason: `This exact call already ran as step ${prior.stepIndex} and nothing it depends on has changed, so that result stands. If it can change on its own, such as a file a running process writes, call it again.`,
+        },
+      };
+    }
+    planned.claimedRead = true;
+  }
+  return { allowed: true };
+}
+
+function executeCall(session, call, stepId) {
+  const { engine, runId, userId, agentId, options } = session;
+  return engine.executeTool(call.name, call.arguments, {
+    userId,
+    agentId,
+    runId,
+    stepId,
+    app: session.app,
+    triggerType: session.triggerType,
+    triggerSource: session.triggerSource,
+    conversationId: session.conversationId,
+    deviceTarget: session.deviceTarget,
+    workspaceRoot: session.workspaceRoot,
+    source: options.source || null,
+    chatId: options.chatId || null,
+    isGroup: options.context?.socialIntelligence?.isGroup === true,
+    senderId: options.context?.socialIntelligence?.message?.sender || null,
+    inboundMessage: options.context?.socialIntelligence?.message || null,
+    taskId: options.taskId || null,
+    scheduledAt: options.scheduledAt || null,
+    delivery: engine.getRunMeta(runId)?.delivery || null,
+    stageProactiveMessages: options.stageProactiveMessages === true,
+    allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true
+      || options.allow_multiple_messages === true,
+    allowExternalSideEffects: options.allowExternalSideEffects === true,
+    signal: session.getActiveSignal(),
+  });
+}
+
+function observeOutcome(session, planned, result, reportedFailure, blocked) {
+  const { call, meta, isReadOnly, fingerprint } = planned;
+  const guard = session.engine.getRunMeta(session.runId)?.repetitionGuard;
+  if (!guard || blocked) return null;
+  if (planned.claimedRead && reportedFailure) guard.releaseRead(fingerprint);
+  const observed = guard.observe(call.name, call.arguments, result, reportedFailure, {
+    stateScope: isReadOnly ? meta.stateScope : null,
+  });
+  // A write that came out exactly like the last one changed nothing, so the
+  // reads that depend on it still stand.
+  const repeated = !isReadOnly && Number(observed?.unchangedCount) >= 2;
+  if (!isReadOnly && !repeated) {
+    guard.noteStateChanged(meta.stateScope);
+    // Sub-agents work in the same workspace.
+    if (meta.group === 'agents') guard.noteStateChanged('workspace');
+  } else if (meta.sideEffect === 'navigation' && !repeated) {
+    guard.noteStateChanged(meta.stateScope);
+  }
+  return observed;
+}
+
+async function runToolCall(session, planned) {
+  const { engine, runId, userId } = session;
+  const { call, definition, meta } = planned;
   const stepId = randomUUID();
   const started = Date.now();
   session.stepIndex += 1;
-  const stepIndex = session.stepIndex;
+  const { stepIndex } = session;
   const stepType = engine.getStepType?.(call.name) || 'tool';
   // What is approved, logged, and run must be what a person can read.
   call.arguments = scrubInvisibleDeep(call.arguments || {});
   const toolArgs = call.arguments;
   const trust = engine.getRunMeta(runId)?.trust || null;
+  const guard = engine.getRunMeta(runId)?.repetitionGuard;
+  planned.isReadOnly = isReadOnlyCall(meta, toolArgs);
+  planned.fingerprint = guard
+    ? guard.fingerprint(call.name, toolArgs, meta.stateScope)
+    : argsDigest({ name: call.name, args: toolArgs });
 
   db.prepare(
     `INSERT INTO agent_steps (
@@ -115,21 +282,21 @@ async function runToolCall(session, { call, definition, isReadOnly }) {
     call.name,
     JSON.stringify(toolArgs),
   );
-  eventBus.publish({
-    runId,
-    userId,
-    agentId,
-    eventType: EVENT_TYPES.TOOL_STARTED,
-    stepId,
-    payload: { tool: call.name },
-    visibility: VISIBILITY.OPERATOR,
-  });
-  engine.recordRunEvent?.(userId, runId, 'tool_started', {
-    stepIndex,
-    toolName: call.name,
-    toolArgs,
-    type: stepType,
-  }, { agentId, stepId });
+  const toolIdentity = {
+    name: call.name,
+    family: definition?.family || meta.group,
+    group: meta.group,
+    read_only: planned.isReadOnly,
+    call_fingerprint: planned.fingerprint,
+    args_digest: argsDigest(toolArgs),
+  };
+  const selection = session.selection?.get(call.name) || null;
+  const callEvent = publish(session, EVENT_TYPES.TOOL_CALL, {
+    tool: { ...toolIdentity, args_redacted: redactArgs(toolArgs) },
+    selection: selection ? { rank: selection.rank, source: selection.source, score: selection.score } : null,
+    step_index: stepIndex,
+    iteration: session.iterations,
+  }, { stepId, parentEventId: session.lastModelEventId || null });
   engine.emit(userId, 'run:tool_start', {
     runId,
     stepId,
@@ -143,53 +310,24 @@ async function runToolCall(session, { call, definition, isReadOnly }) {
   let result;
   let errorMessage = null;
   let blocked = false;
-  const repetitionGuard = engine.getRunMeta(runId)?.repetitionGuard;
+  let suppressed = false;
   try {
-    const hookResult = await globalHooks.run('before_tool_call', {
-      runId,
-      toolName: call.name,
-      toolArgs: call.arguments,
-      userId,
-      agentId,
-      trust,
-    });
-    if (hookResult?.block === true) {
-      errorMessage = hookResult.reason || 'Blocked by policy hook';
-      result = { error: errorMessage, blocked: true };
-      blocked = true;
-    } else if (repetitionGuard?.shouldBlock(call.name, call.arguments, { readOnly: isReadOnly })) {
-      const priorFailure = repetitionGuard.lastFailure(call.name, call.arguments);
-      errorMessage = priorFailure
-        ? `This exact call already failed twice with: ${priorFailure}`
-        : 'The same read-only call already returned an unchanged result twice.';
-      result = { status: 'blocked', reason: errorMessage };
-      blocked = true;
+    const review = await reviewCall(session, planned, stepIndex, stepId);
+    if (review.allowed) {
+      // Rollback undoing itself would only confuse what the run owns.
+      const tracked = !planned.isReadOnly && (meta.group === 'files' || meta.group === 'shell')
+        && call.name !== 'workspace_rollback';
+      const started = tracked ? await ensureCheckpoint(session, call) : null;
+      try {
+        result = await executeCall(session, call, stepId);
+      } finally {
+        if (started) await recordMutation(session, started);
+      }
     } else {
-      result = await engine.executeTool(call.name, call.arguments, {
-        userId,
-        agentId,
-        runId,
-        stepId,
-        app: session.app,
-        triggerType: session.triggerType,
-        triggerSource: session.triggerSource,
-        conversationId: session.conversationId,
-        deviceTarget: session.deviceTarget,
-        workspaceRoot: session.workspaceRoot,
-        source: options.source || null,
-        chatId: options.chatId || null,
-        isGroup: options.context?.socialIntelligence?.isGroup === true,
-        senderId: options.context?.socialIntelligence?.message?.sender || null,
-        inboundMessage: options.context?.socialIntelligence?.message || null,
-        taskId: options.taskId || null,
-        scheduledAt: options.scheduledAt || null,
-        deliveryState: options.deliveryState || engine.getRunMeta(runId)?.deliveryState || null,
-        stageProactiveMessages: options.stageProactiveMessages === true,
-        allowMultipleProactiveMessages: options.allowMultipleProactiveMessages === true
-          || options.allow_multiple_messages === true,
-        allowExternalSideEffects: options.allowExternalSideEffects === true,
-        signal: session.getActiveSignal(),
-      });
+      ({ result } = review);
+      errorMessage = review.errorMessage || null;
+      suppressed = review.suppressed === true;
+      blocked = true;
     }
   } catch (error) {
     errorMessage = error?.message || String(error);
@@ -197,24 +335,39 @@ async function runToolCall(session, { call, definition, isReadOnly }) {
   }
 
   // Tools report most failures in the result rather than by throwing.
-  const reportedFailure = errorMessage ? '' : inferToolFailureMessage(call.name, result);
+  const reportedFailure = errorMessage || suppressed ? '' : inferToolFailureMessage(call.name, result);
   if (reportedFailure) errorMessage = reportedFailure;
   const success = !errorMessage;
   const elapsed = Date.now() - started;
 
   if (!blocked) recordToolOutput(trust, call.name);
+  if (success && !blocked && !planned.isReadOnly && meta.group === 'files') noteChangedPath(session, toolArgs);
 
   const execution = classifyToolExecution(call.name, toolArgs, result, errorMessage, definition);
+  if (!blocked && !planned.isReadOnly) {
+    session.evidence = { ...session.evidence, lastActionFailed: success ? null : `${call.name}: ${String(errorMessage).slice(0, 200)}` };
+  }
   // A blocked call never ran; observing it would reset the streak and let the
   // next identical call through.
-  const observed = blocked
-    ? null
-    : repetitionGuard?.observe(call.name, call.arguments, result, reportedFailure);
+  const observed = observeOutcome(session, planned, result, reportedFailure || (errorMessage && !blocked ? errorMessage : ''), blocked);
   // A mutation repeated with identical arguments and an identical result
   // changed nothing: the first call already made that change.
   const repeatedMutation = execution.stateChanged && Number(observed?.unchangedCount) >= 2;
-  const progressed = !repeatedMutation
+  const progressed = !blocked && !repeatedMutation
     && (execution.stateChanged || gatheredNewEvidence(execution, observed));
+
+  let testResult = result?.test_result || null;
+  if (!testResult && meta.group === 'shell') {
+    testResult = parseTestOutput({
+      command: toolArgs.command,
+      stdout: result?.stdout,
+      stderr: result?.stderr,
+    });
+  }
+  if (testResult) {
+    session.evidence = { ...session.evidence, lastTestFailed: testResult.failed > 0 ? testResult.summary : null };
+    session.lastCheck = `${String(toolArgs.command || result?.command || call.name).slice(0, 120)}: ${testResult.summary}`;
+  }
 
   const compacted = compactToolResult(
     call.name,
@@ -223,54 +376,57 @@ async function runToolCall(session, { call, definition, isReadOnly }) {
       ? { ...result, repeated_call: 'Identical to your previous call: same arguments, same result, nothing changed.' }
       : result,
     {
-      ...resolveToolResultLimits(call.name, session.guards.policy),
+      ...resolveToolResultLimits(call.name, session.guards.policy, definition),
       retainFullResult: (payload) => retainFullResult(session, call, stepId, payload),
     },
   );
   const commandArtifact = result?.outputArtifact;
-  if (commandArtifact?.artifactId) {
-    eventBus.publish({
-      runId,
-      userId,
-      agentId,
-      eventType: EVENT_TYPES.ARTIFACT_CREATED,
-      stepId,
-      payload: {
-        artifact_id: commandArtifact.artifactId,
-        kind: 'command-output',
-        byte_size: commandArtifact.byteSize,
-        complete: commandArtifact.complete !== false,
-      },
-      visibility: VISIBILITY.OPERATOR,
-    });
-  }
 
   db.prepare(
     `UPDATE agent_steps
      SET status = ?, result = ?, error = ?, screenshot_path = ?, completed_at = datetime('now')
      WHERE id = ?`,
   ).run(
-    success ? 'completed' : 'failed',
+    // Cut off by a restart or a stop, it may or may not have taken effect.
+    success ? 'completed' : (session.getActiveSignal?.()?.aborted ? 'interrupted' : 'failed'),
     JSON.stringify(call.name === 'execute_command' ? compacted : (result ?? null)).slice(0, 20000),
     errorMessage,
     result?.screenshotPath || null,
     stepId,
   );
-  eventBus.publish({
-    runId,
-    userId,
-    agentId,
-    eventType: success ? EVENT_TYPES.TOOL_COMPLETED : EVENT_TYPES.TOOL_FAILED,
-    stepId,
-    payload: { tool: call.name, success, error: errorMessage, elapsed_ms: elapsed },
-    visibility: VISIBILITY.OPERATOR,
-  });
-  engine.recordRunEvent?.(userId, runId, success ? 'tool_completed' : 'tool_failed', {
-    toolName: call.name,
-    status: success ? 'completed' : 'failed',
-    durationMs: elapsed,
-    error: errorMessage,
-  }, { agentId, stepId });
+
+  const commandMs = Number(result?.durationMs);
+  publish(session, EVENT_TYPES.TOOL_RESULT, {
+    tool: {
+      ...toolIdentity,
+      result_bytes: Buffer.byteLength(JSON.stringify(result ?? null) || ''),
+      result_compacted_bytes: Buffer.byteLength(typeof compacted === 'string' ? compacted : JSON.stringify(compacted) || ''),
+    },
+    duration_ms: elapsed,
+    // The receipt: what this call actually did, for the run's task outcome.
+    receipt: {
+      mutating: !blocked && !planned.isReadOnly,
+      ok: !blocked && success,
+      ...(testResult ? {
+        test: {
+          runner: testResult.runner,
+          passed: testResult.passed,
+          failed: testResult.failed,
+          // A report of passes means little from a command that itself failed.
+          exit_ok: success && (result?.exitCode === undefined || result.exitCode === 0),
+        },
+      } : {}),
+    },
+    // What the command itself took is the tool's time; the rest is the sandbox.
+    ...(meta.group === 'shell' && Number.isFinite(commandMs) ? { sandbox_ms: Math.max(0, elapsed - commandMs) } : {}),
+    ...(commandArtifact?.artifactId ? { artifact: { id: commandArtifact.artifactId, bytes: commandArtifact.byteSize } } : {}),
+    progressed,
+    outcome: {
+      status: suppressed ? 'suppressed' : (success ? 'success' : 'failed'),
+      error: errorMessage ? String(errorMessage).slice(0, 300) : null,
+    },
+    privacy: { content_stored: false, redaction_policy: 'metadata-default' },
+  }, { stepId, parentEventId: callEvent?.eventId || null });
   engine.emit(userId, 'run:tool_end', {
     runId,
     stepId,
@@ -281,13 +437,16 @@ async function runToolCall(session, { call, definition, isReadOnly }) {
   });
   session.progressBroker.noteToolFinished(call.name);
 
-  const sentMessage = call.name === 'send_message' && success ? recordSentMessage(session, call, result) : '';
+  const sentMessage = call.name === 'send_message' && success ? sentMessageText(session, call, result) : '';
   return {
     call,
+    meta,
     success,
+    suppressed,
     progressed,
     execution,
     sentMessage,
+    fingerprint: planned.fingerprint,
     toolMessage: {
       role: 'tool',
       name: call.name,
@@ -309,20 +468,21 @@ async function executeToolTurn(session, decision) {
     role: 'assistant',
     content: decision.content ? sanitizeModelOutput(decision.content, { model: session.model.model }) : '',
     tool_calls: decision.toolCalls.map(wireToolCall),
+    // Private reasoning goes back to the model that wrote it, so it keeps its
+    // train of thought across tool calls. It never reaches a log.
+    ...(decision.reasoningState ? { reasoningState: decision.reasoningState } : {}),
+    ...(decision.providerContentBlocks ? { providerContentBlocks: decision.providerContentBlocks } : {}),
   });
 
   const plannedCalls = decision.toolCalls.map((call) => {
-    const definition = session.tools.find((tool) => tool?.name === call.name) || null;
-    return {
-      call,
-      definition,
-      isReadOnly: Boolean(engine.isReadOnlyToolCall?.(wireToolCall(call), definition)),
-    };
+    const catalog = engine.getRunMeta(runId)?.toolCatalog || session.tools;
+    const definition = catalog.find((tool) => tool?.name === call.name) || null;
+    return { call, definition, meta: resolveToolMeta(call.name, definition) };
   });
 
   const outcomes = [];
   await scheduleToolCalls(plannedCalls, {
-    isParallelSafe: (planned) => planned.isReadOnly,
+    isParallelSafe: (planned) => isParallelSafeCall(planned.meta, planned.call.arguments),
     execute: (planned) => runToolCall(session, planned),
     maxParallel: session.options.maxParallelToolCalls,
     commit: async (outcome) => {
@@ -333,9 +493,13 @@ async function executeToolTurn(session, decision) {
   });
 
   // Newly activated schemas only reach the model if the active set is re-read.
-  if (outcomes.some((outcome) => outcome.call.name === 'activate_tools' && outcome.success)) {
-    const activeTools = engine.getActiveTools?.(runId);
-    if (Array.isArray(activeTools) && activeTools.length) session.tools = activeTools;
+  const activeTools = engine.getActiveTools?.(runId);
+  if (Array.isArray(activeTools) && activeTools.length) session.tools = activeTools;
+
+  // Coding guidance costs nothing until a run actually touches the workspace.
+  if (!session.codingGuidanceSent && outcomes.some((outcome) => ['files', 'shell'].includes(outcome.meta.group))) {
+    session.codingGuidanceSent = true;
+    session.messages.push({ role: 'system', content: renderFragment('capabilities/coding.md') });
   }
 
   // A turn that only delivers a message the model marked as the end of its
@@ -348,15 +512,16 @@ async function executeToolTurn(session, decision) {
 
   // A reply sent in the run's own chat stays the run's last word only while
   // the model does nothing else; once it works on, the final answer is new.
-  const runMeta = engine.getRunMeta(runId);
-  if (runMeta && terminalSend) runMeta.explicitMessageSent = true;
-  else if (runMeta?.explicitMessageSent && !outcomes.some((outcome) => outcome.call.name === 'send_message')) {
-    runMeta.explicitMessageSent = false;
+  const delivery = engine.getRunMeta(runId)?.delivery;
+  if (delivery && terminalSend) delivery.lastWordSent = true;
+  else if (delivery?.lastWordSent && !outcomes.some((outcome) => outcome.call.name === 'send_message')) {
+    delivery.lastWordSent = false;
   }
 
   return {
     progressed: outcomes.some((outcome) => outcome.progressed),
-    allFailed: outcomes.length > 0 && outcomes.every((outcome) => !outcome.success),
+    allFailed: outcomes.length > 0 && outcomes.every((outcome) => !outcome.success && !outcome.suppressed),
+    actionKey: outcomes.map((outcome) => outcome.fingerprint).sort().join(','),
     // A no_response send is the model choosing silence, which the delivery
     // paths already know as the [NO RESPONSE] answer.
     terminalAnswer: terminalSend

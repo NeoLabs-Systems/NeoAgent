@@ -35,6 +35,8 @@ function parseCommand(input, source) {
   const args = tokens.slice(1);
 
   if (!command) return null;
+  // A path pasted at the start of a message is not a command.
+  if (command.includes('/')) return null;
   return {
     command,
     args,

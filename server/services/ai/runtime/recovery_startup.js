@@ -6,7 +6,8 @@ const { RUNTIME_STATES, PRODUCT_STATUS_BY_RUNTIME } = require('./constants');
 const { expireDeadLeases, listRecoverableRuns } = require('./leases');
 const { loadLatestCheckpoint } = require('./checkpoint_service');
 const { appendEvent } = require('./events/run_event_store');
-const { EVENT_TYPES, VISIBILITY } = require('./events/event_types');
+const { EVENT_TYPES } = require('./events/event_types');
+const { settleOrphanedReservations } = require('./delivery/outbox_repository');
 const { shortenRunId } = require('../logFormat');
 const { hasResumeEnvelope } = require('./restart_resume');
 
@@ -56,6 +57,8 @@ function recoverOrphanedRuns({ reason = 'process_restart' } = {}) {
        WHERE run_id = ? AND status = 'running'`,
     ).run(resumable ? 'interrupted' : 'failed', orphan.id);
 
+    settleOrphanedReservations(orphan.id);
+
     appendEvent({
       runId: orphan.id,
       userId: orphan.user_id,
@@ -67,7 +70,6 @@ function recoverOrphanedRuns({ reason = 'process_restart' } = {}) {
         checkpoint_version: checkpoint?.version || null,
         resumable,
       },
-      visibility: VISIBILITY.USER,
     });
     recovered.push(orphan.id);
   }

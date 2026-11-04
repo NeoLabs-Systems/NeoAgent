@@ -176,6 +176,15 @@ function extractResponseText(response) {
   return parts.join('');
 }
 
+// With store:false the encrypted reasoning is all that lets the next request
+// continue this one's thinking. The server-side id would point at nothing.
+function extractReasoningState(response) {
+  const reasoningItems = (response?.output || [])
+    .filter((item) => item?.type === 'reasoning' && item.encrypted_content)
+    .map(({ id, status, ...item }) => item);
+  return reasoningItems.length ? { reasoningItems } : null;
+}
+
 function extractToolCalls(response) {
   const toolCalls = [];
   for (const item of response?.output || []) {
@@ -265,7 +274,23 @@ function formatOpenAIError(err) {
   return parts.length > 0 ? `${message} (${parts.join(', ')})` : message;
 }
 
+function responsesUsage(usage) {
+  if (!usage) return null;
+  return {
+    promptTokens: usage.input_tokens,
+    completionTokens: usage.output_tokens,
+    totalTokens: usage.total_tokens,
+    reasoningTokens: usage.output_tokens_details?.reasoning_tokens || 0,
+    cachedReadTokens: usage.input_tokens_details?.cached_tokens || 0,
+  };
+}
+
 class OpenAICodexProvider extends BaseProvider {
+  // convertMessages selects native fields, including encrypted reasoning items.
+  prepareMessages(messages) {
+    return messages;
+  }
+
   constructor(config = {}) {
     super(config);
 
@@ -404,6 +429,7 @@ class OpenAICodexProvider extends BaseProvider {
       }
 
       if (msg.role === 'assistant' && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
+        input.push(...(msg.reasoningState?.reasoningItems || []));
         for (const toolCall of msg.tool_calls) {
           const name = String(toolCall?.function?.name || '').trim();
           const argumentsText = String(toolCall?.function?.arguments || '');
@@ -530,6 +556,7 @@ class OpenAICodexProvider extends BaseProvider {
         toolCalls: final?.toolCalls || [],
         finishReason: final?.finishReason || (final?.toolCalls?.length > 0 ? 'tool_calls' : 'stop'),
         usage: final?.usage || null,
+        reasoningState: final?.reasoningState || null,
         model: final?.model || this.requireModel(options),
       };
     }
@@ -553,13 +580,10 @@ class OpenAICodexProvider extends BaseProvider {
 
     return {
       content: extractResponseText(response),
+      reasoningState: extractReasoningState(response),
       toolCalls,
       finishReason: toolCalls.length > 0 ? 'tool_calls' : 'stop',
-      usage: response.usage ? {
-        promptTokens: response.usage.input_tokens,
-        completionTokens: response.usage.output_tokens,
-        totalTokens: response.usage.total_tokens,
-      } : null,
+      usage: responsesUsage(response.usage),
       model: response.model,
     };
   }
@@ -615,11 +639,8 @@ class OpenAICodexProvider extends BaseProvider {
         type: 'tool_calls',
         content: finalContent,
         toolCalls,
-        usage: response.usage ? {
-          promptTokens: response.usage.input_tokens,
-          completionTokens: response.usage.output_tokens,
-          totalTokens: response.usage.total_tokens,
-        } : null,
+        reasoningState: extractReasoningState(response),
+        usage: responsesUsage(response.usage),
       };
       return;
     }
@@ -629,11 +650,7 @@ class OpenAICodexProvider extends BaseProvider {
       content: finalContent,
       toolCalls: [],
       finishReason: 'stop',
-      usage: response.usage ? {
-        promptTokens: response.usage.input_tokens,
-        completionTokens: response.usage.output_tokens,
-        totalTokens: response.usage.total_tokens,
-      } : null,
+      usage: responsesUsage(response.usage),
     };
   }
 }

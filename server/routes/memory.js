@@ -5,6 +5,7 @@ const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
+const { ownerVerification } = require('../services/memory/provenance');
 const { MAX_MEMORY_CHARS } = require('../services/memory/policy');
 const {
   buildLlmTransferPrompt,
@@ -335,7 +336,8 @@ router.post('/memories', async (req, res) => {
       sourceRef: normalizeSourceRef(sourceRef),
       scope: normalizeScope(scope),
       staleAfterDays: normalizedStaleAfterDays,
-      metadata: normalizeMetadata(metadata),
+      // The owner typed or explicitly imported this complete content.
+      metadata: { ...normalizeMetadata(metadata), trustLevel: 'user_stated', verification: ownerVerification(content) },
     });
     res.json({ success: true, id });
   } catch (err) {
