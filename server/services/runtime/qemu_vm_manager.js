@@ -314,14 +314,15 @@ function readVirtualDiskInfo(qemuImgBinary, diskPath) {
   }
 }
 
-// Only disks a running guest can still grow into are a liability. Retired system disks are
-// frozen copies, and a disk that is about to be retired stops growing the moment it is
-// replaced, so neither may be charged against the host storage reserve.
-function getSparseDiskLiabilityBytes(qemuImgBinary, directory, retiringDisk = null) {
+// Reserve potential growth only for admitted computers, not every persisted computer.
+// Stopped computers consume actual host space already reflected by statfs; their unused
+// virtual capacity is admitted when they next start. Retired system disks cannot grow.
+function getSparseDiskLiabilityBytes(qemuImgBinary, directories, retiringDisk = null) {
   const isFrozen = (diskPath) => (
     path.basename(diskPath) === 'system.previous.qcow2' || diskPath === retiringDisk
   );
-  return walkVirtualDisks(directory).filter((diskPath) => !isFrozen(diskPath)).reduce((total, diskPath) => {
+  const disks = new Set([].concat(directories).flatMap(walkVirtualDisks));
+  return Array.from(disks).filter((diskPath) => !isFrozen(diskPath)).reduce((total, diskPath) => {
     const info = readVirtualDiskInfo(qemuImgBinary, diskPath);
     if (!info) return total;
     const virtualSize = Math.max(0, Number(info['virtual-size'] || 0));
@@ -675,6 +676,7 @@ async function requestQmpPowerdown(qmpSocket) {
 class QemuVMManager {
   instances = new Map();
   #starts = new VmStartTracker();
+  #startingDirectories = new Set();
 
   constructor(options = {}) {
     this.architecture = normalizeArchitecture(options.architecture);
@@ -932,7 +934,15 @@ class QemuVMManager {
     const existing = this.instances.get(key);
     if (existing && isProcessAlive(existing.process)) return existing;
     if (existing) this.instances.delete(key);
-    return this.#starts.begin(key, () => this.#startVm(key));
+    return this.#starts.begin(key, async () => {
+      const directory = path.join(INSTANCE_ROOT, userDirectoryKey(key));
+      this.#startingDirectories.add(directory);
+      try {
+        return await this.#startVm(key);
+      } finally {
+        this.#startingDirectories.delete(directory);
+      }
+    });
   }
 
   async #startVm(key) {
@@ -966,9 +976,13 @@ class QemuVMManager {
     const replaceSystemDisk = fs.existsSync(systemDisk) && previousBuild !== GUEST_IMAGE_REVISION;
     const createsSystemDisk = !fs.existsSync(systemDisk) || replaceSystemDisk;
     const diskCapacity = getDiskCapacity(INSTANCE_ROOT);
+    const admittedDirectories = new Set(this.#startingDirectories);
+    for (const session of this.instances.values()) {
+      if (isProcessAlive(session.process)) admittedDirectories.add(session.instanceDir);
+    }
     const sparseLiabilityBytes = getSparseDiskLiabilityBytes(
       this.qemuImgBinary,
-      INSTANCE_ROOT,
+      Array.from(admittedDirectories),
       replaceSystemDisk ? systemDisk : null,
     );
     const newSystemLiabilityBytes = createsSystemDisk ? 8 * 1024 ** 3 : 0;
@@ -976,13 +990,13 @@ class QemuVMManager {
       ...diskCapacity,
       sparseLiabilityBytes: sparseLiabilityBytes + newSystemLiabilityBytes,
     };
-    if (getStorageHeadroomBytes(this.resourceProfile, storage) < 0) {
+    if (diskCapacity.availableBytes <= 0 || getStorageHeadroomBytes(this.resourceProfile, storage) < 0) {
       const gibibytes = (bytes) => (bytes / 1024 ** 3).toFixed(1);
       const error = new Error(
         'Starting this cloud computer needs more free storage: '
         + `${gibibytes(diskCapacity.availableBytes)} GiB free, `
         + `${this.resourceProfile.storageReservePercent}% held back for the host, and `
-        + `${gibibytes(storage.sparseLiabilityBytes)} GiB still unwritten in existing computer disks.`,
+        + `${gibibytes(storage.sparseLiabilityBytes)} GiB reserved for disk growth in running and starting computers.`,
       );
       error.code = 'COMPUTER_STORAGE_CAPACITY';
       error.status = 507;

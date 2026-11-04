@@ -10,6 +10,7 @@ const { test } = require('node:test');
 
 const {
   PINNED_IMAGES,
+  INSTANCE_ROOT,
   QemuVMManager,
   buildQemuArgs,
   findOrphanedVmPids,
@@ -19,6 +20,7 @@ const {
   normalizeArchitecture,
   resolveQemuImgBinary,
   waitForSocket,
+  userDirectoryKey,
 } = require('../../../server/services/runtime/qemu_vm_manager');
 const { isProcessAlive } = require('../../../server/services/runtime/vm_session');
 
@@ -133,6 +135,72 @@ test('retired system disks are not charged against the host storage reserve', (t
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('VM restart reserves running disks without charging unrelated stopped computers', async (t) => {
+  const qemuImg = resolveQemuImgBinary();
+  if (!qemuImg) return t.skip('qemu-img is required');
+  const { getComputerResourceProfile } = require('../../../server/services/runtime/resource_profile');
+  const target = crypto.randomUUID();
+  const other = crypto.randomUUID();
+  const targetDir = path.join(INSTANCE_ROOT, userDirectoryKey(target));
+  const otherDir = path.join(INSTANCE_ROOT, userDirectoryKey(other));
+  const baseImage = path.join(targetDir, 'base.img');
+  const manager = new QemuVMManager({
+    qemuBinary: null,
+    qemuImgBinary: qemuImg,
+    baseImagePath: baseImage,
+    resourceProfile: getComputerResourceProfile({
+      totalMemoryBytes: 16 * 1024 ** 3,
+      logicalCpuCount: 8,
+      storageReservePercent: 20,
+    }),
+  });
+  t.after(() => {
+    fs.rmSync(targetDir, { recursive: true, force: true });
+    fs.rmSync(otherDir, { recursive: true, force: true });
+  });
+  for (const directory of [targetDir, otherDir]) {
+    fs.mkdirSync(directory, { recursive: true });
+    for (const [name, size] of [['system.qcow2', '8G'], ['data.qcow2', '12G']]) {
+      const result = spawnSync(qemuImg, ['create', '-f', 'qcow2', path.join(directory, name), size]);
+      assert.equal(result.status, 0, String(result.stderr));
+    }
+  }
+  fs.writeFileSync(baseImage, 'unused fixture image');
+  t.mock.method(manager, 'getReadiness', () => ({ ready: true }));
+  let availableGiB = 47.3;
+  const statfs = fs.statfsSync;
+  t.mock.method(fs, 'statfsSync', (directory, ...args) => directory === INSTANCE_ROOT
+    ? { bavail: Math.floor(availableGiB * 1024 ** 3), bsize: 1, blocks: 100 * 1024 ** 3 }
+    : statfs(directory, ...args));
+  const admitted = new Error('storage admission passed; stop before provisioning');
+  const writeFile = fs.writeFileSync;
+  t.mock.method(fs, 'writeFileSync', (file, ...args) => {
+    if (file === path.join(targetDir, 'base-build')) throw admitted;
+    return writeFile(file, ...args);
+  });
+
+  // Both persisted computers together have ~40 GiB of unwritten capacity. Only
+  // the one being started needs a growth reservation, so this restart can proceed.
+  await assert.rejects(manager.ensureVm(target), (error) => error === admitted);
+
+  // Starting the same computer alongside another live 20 GiB computer must fail.
+  manager.instances.set(other, {
+    instanceDir: otherDir,
+    process: { pid: process.pid, killed: false, exitCode: null },
+    resources: { memoryMb: 1536, cpus: 1 },
+  });
+  await assert.rejects(manager.ensureVm(target), { code: 'COMPUTER_STORAGE_CAPACITY' });
+  manager.instances.clear();
+
+  // The existing computer also cannot start when its own growth exceeds headroom,
+  // or when filesystem capacity is unavailable. Nothing is deleted to make room.
+  for (availableGiB of [10, 0]) {
+    await assert.rejects(manager.ensureVm(target), { code: 'COMPUTER_STORAGE_CAPACITY' });
+  }
+  assert.ok(fs.existsSync(path.join(targetDir, 'data.qcow2')));
+  assert.ok(fs.existsSync(path.join(otherDir, 'data.qcow2')));
 });
 
 test('QMP falls back to loopback when a UNIX socket path would be too long', () => {
