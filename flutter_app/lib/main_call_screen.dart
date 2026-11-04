@@ -248,7 +248,10 @@ class _AgentCallScreenState extends State<AgentCallScreen> {
       return appStrings.reconnectingCall;
     }
     if (live.isSpeaking) return appStrings.speaking;
-    if (_controller.isLiveVoiceCaptureActive) return appStrings.listening;
+    if (_controller.isLiveVoiceCaptureActive &&
+        !_controller.isLiveVoiceMicMuted) {
+      return appStrings.listening;
+    }
     if (live.hasActiveTask) return appStrings.agentWorking;
     return live.isHandsFree ? appStrings.micMuted : appStrings.holdToTalk2;
   }
@@ -347,7 +350,9 @@ class _AgentCallScreenState extends State<AgentCallScreen> {
   Widget _talkButton() {
     final controller = _controller;
     if (controller.voiceAssistantLiveState.isHandsFree) {
-      final muted = !controller.isLiveVoiceCaptureActive;
+      final muted =
+          !controller.isLiveVoiceCaptureActive ||
+          controller.isLiveVoiceMicMuted;
       return _CallButton(
         icon: muted ? Icons.mic_off_rounded : Icons.mic_none_rounded,
         label: muted ? appStrings.unmuteMic : appStrings.muteMic,

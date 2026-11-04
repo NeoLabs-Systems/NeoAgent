@@ -330,6 +330,9 @@ class NeoAgentController extends ChangeNotifier {
   int _streamingIteration = 0;
   bool _isStartingLiveVoice = false;
   bool _liveVoiceCaptureActive = false;
+  // Hands-free mute only stops sending microphone audio; the recorder and the
+  // call's audio session stay up so the speaker and progress sounds go on.
+  bool _liveVoiceMicMuted = false;
   bool _pendingLiveVoiceStop = false;
   bool _liveVoiceTelecomRouting = false;
   DateTime? _liveVoiceSessionStartedAt;
@@ -4562,6 +4565,7 @@ class NeoAgentController extends ChangeNotifier {
       return;
     }
     _isStartingLiveVoice = true;
+    _liveVoiceMicMuted = false;
     _pendingLiveVoiceStop = false;
     errorMessage = null;
     AppDiagnostics.log(
@@ -4632,6 +4636,7 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   void _sendLiveVoiceAudio(Uint8List chunk) {
+    if (_liveVoiceMicMuted) return;
     final socket = _socket;
     final sessionId = voiceAssistantLiveState.sessionId.trim();
     if (socket == null || !socketConnected || sessionId.isEmpty) {
@@ -4658,11 +4663,16 @@ class NeoAgentController extends ChangeNotifier {
     await TelecomBridge.instance.stopTelecomCallRouting();
   }
 
+  /// Mutes or unmutes the microphone of a hands-free call. Only the outgoing
+  /// microphone audio is affected, never playback or work sounds.
   Future<void> toggleLiveVoiceCapture() async {
-    if (isLiveVoiceCaptureEngaged) {
-      await stopLiveVoiceCapture();
+    if (_liveVoiceCaptureActive) {
+      _liveVoiceMicMuted = !_liveVoiceMicMuted;
+      notifyListeners();
       return;
     }
+    if (_isStartingLiveVoice) return;
+    _liveVoiceMicMuted = false;
     await startLiveVoiceCapture();
   }
 
@@ -4826,6 +4836,7 @@ class NeoAgentController extends ChangeNotifier {
     _liveVoiceHearingSpeech = false;
     _haltVoiceWorkClicks();
     _liveVoiceCaptureActive = false;
+    _liveVoiceMicMuted = false;
     _pendingLiveVoiceStop = false;
     _returnHomeAfterCall = false;
     _liveVoiceSessionStartedAt = null;
@@ -7698,6 +7709,8 @@ class NeoAgentController extends ChangeNotifier {
   bool get isLiveVoiceCaptureStarting => _isStartingLiveVoice;
 
   bool get isLiveVoiceCaptureActive => _liveVoiceCaptureActive;
+
+  bool get isLiveVoiceMicMuted => _liveVoiceMicMuted;
 
   DateTime? get liveVoiceSessionStartedAt => _liveVoiceSessionStartedAt;
 
