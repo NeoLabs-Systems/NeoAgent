@@ -80,12 +80,15 @@ function grepCommand(options) {
     options.ignoreCase ? '-i' : '',
     options.context ? `-C ${options.context}` : '',
   ].filter(Boolean);
+  // --include must come before any --exclude/--exclude-dir: GNU grep silently
+  // drops the include restriction when an exclude option precedes it, so
+  // `--exclude='.env' --include='*.ts'` searches every file.
+  const includes = options.include.flatMap(basenameGlobs).map((name) => `--include=${shellQuote(name)}`);
   const excludes = [
     ...SKIPPED_DIRS.map((name) => `--exclude-dir=${shellQuote(name)}`),
     ...SECRET_FILES.map((name) => `--exclude=${shellQuote(name)}`),
-    ...options.include.flatMap(basenameGlobs).map((name) => `--include=${shellQuote(name)}`),
   ];
-  return `grep ${flags.join(' ')} ${excludes.join(' ')} -e ${shellQuote(options.query)} -- "$neo_name"`;
+  return `grep ${flags.join(' ')} ${includes.join(' ')} ${excludes.join(' ')} -e ${shellQuote(options.query)} -- "$neo_name"`;
 }
 
 // Everything is written to a file first: rg's exit code has to survive, and sh has
