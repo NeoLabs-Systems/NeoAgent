@@ -120,25 +120,12 @@ class _OAuthAppSetupDialogState extends State<_OAuthAppSetupDialog> {
   );
 
   Future<void> _remove() async {
-    final confirmed =
-        await showDialog<bool>(
-          context: context,
-          builder: (confirmContext) => AlertDialog(
-            title: Text(appStrings.removeOAuthAppTitle(_providerLabel)),
-            content: Text(appStrings.removeOAuthAppBody),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(confirmContext).pop(false),
-                child: Text(appStrings.cancel),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(confirmContext).pop(true),
-                child: Text(appStrings.remove),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+    final confirmed = await _confirmIntegrationAction(
+      context,
+      title: appStrings.removeOAuthAppTitle(_providerLabel),
+      body: appStrings.removeOAuthAppBody,
+      confirmLabel: appStrings.remove,
+    );
     if (!confirmed) return;
     await _run(
       () => widget.controller.clearOfficialIntegrationConfig(widget.providerId),
@@ -151,147 +138,196 @@ class _OAuthAppSetupDialogState extends State<_OAuthAppSetupDialog> {
     final consoleUrl = widget.config['consoleUrl']?.toString() ?? '';
     final redirectUri = widget.config['redirectUri']?.toString() ?? '';
     final scopes = _jsonStringList(widget.config['scopes']);
-    return AlertDialog(
-      title: Text(appStrings.oauthAppSetupTitle(_providerLabel)),
-      content: SizedBox(
-        width: 560,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
+    return _IntegrationDialog(
+      icon: _integrationIconFor(widget.controller, widget.providerId),
+      title: appStrings.oauthAppSetupTitle(_providerLabel),
+      subtitle: appStrings.oauthAppSetupIntro(_providerLabel),
+      status: <_IntegrationSetupStatusItem>[
+        _IntegrationSetupStatusItem(
+          label: appStrings.clientSecret,
+          status: _stored ? 'Configured' : appStrings.notConfigured,
+          isConnected: _stored,
+        ),
+      ],
+      error: _error,
+      onClose: _busy ? null : () => Navigator.of(context).pop(),
+      children: <Widget>[
+        if (_alternatives.isNotEmpty && !_stored) ...<Widget>[
+          _IntegrationAlternatives(
+            controller: widget.controller,
+            providerIds: _alternatives,
+            onOpen: (providerId) => Navigator.of(context).pop(providerId),
+          ),
+          const SizedBox(height: 4),
+        ],
+        _OAuthAppStep(
+          number: 1,
+          first: _alternatives.isEmpty || _stored,
+          title: appStrings.oauthAppStepCreate,
+          children: <Widget>[
+            if (notes.isNotEmpty)
               Text(
-                appStrings.oauthAppSetupIntro(_providerLabel),
+                notes,
                 style: TextStyle(color: _textSecondary, height: 1.45),
               ),
-              if (_alternatives.isNotEmpty && !_stored) ...<Widget>[
-                const SizedBox(height: 14),
-                _IntegrationAlternatives(
-                  controller: widget.controller,
-                  providerIds: _alternatives,
-                  onOpen: (providerId) =>
-                      Navigator.of(context).pop(providerId),
+            if (consoleUrl.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 8),
+              FilledButton.tonalIcon(
+                onPressed: () => url_launcher.launchUrl(
+                  Uri.parse(consoleUrl),
+                  mode: url_launcher.LaunchMode.externalApplication,
                 ),
-              ],
-              _OAuthAppStep(
-                title: appStrings.oauthAppStepCreate,
-                children: <Widget>[
-                  if (notes.isNotEmpty)
-                    Text(
-                      notes,
-                      style: TextStyle(color: _textSecondary, height: 1.45),
-                    ),
-                  if (consoleUrl.isNotEmpty)
-                    TextButton.icon(
-                      onPressed: () => url_launcher.launchUrl(
-                        Uri.parse(consoleUrl),
-                        mode: url_launcher.LaunchMode.externalApplication,
-                      ),
-                      icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                      label: Text(appStrings.openDeveloperConsole),
-                    ),
-                ],
+                icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                label: Text(appStrings.openDeveloperConsole),
               ),
-              _OAuthAppStep(
-                title: appStrings.oauthAppStepCallback,
-                children: <Widget>[
-                  _OAuthAppCopyableValue(
-                    value: redirectUri,
-                    copiedMessage: appStrings.callbackUrlCopied,
-                  ),
-                  if (scopes.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 12),
-                    Text(
-                      appStrings.oauthAppScopes,
-                      style: TextStyle(color: _textSecondary, fontSize: 12),
-                    ),
-                    const SizedBox(height: 6),
-                    _OAuthAppCopyableValue(
-                      value: scopes.join('\n'),
-                      copiedMessage: appStrings.scopesCopied,
-                    ),
-                  ],
-                ],
-              ),
-              _OAuthAppStep(
-                title: appStrings.oauthAppStepCredentials,
-                children: <Widget>[
-                  TextField(
-                    controller: _clientId,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    decoration: InputDecoration(
-                      labelText: appStrings.clientId,
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _AdminCfgSecretField(
-                    controller: _clientSecret,
-                    label: appStrings.clientSecret,
-                    stored: _stored,
-                  ),
-                  for (final field in _extraFields) ...<Widget>[
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _fieldInputs[field['name'].toString()],
-                      autocorrect: false,
-                      decoration: InputDecoration(
-                        labelText: field['label']?.toString(),
-                        hintText: field['defaultValue']?.toString(),
-                        helperText: field['hint']?.toString(),
-                        helperMaxLines: 3,
-                        border: const OutlineInputBorder(),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              if (_error.isNotEmpty) ...<Widget>[
-                const SizedBox(height: 12),
-                Text(_error, style: TextStyle(color: _danger, fontSize: 12)),
-              ],
             ],
-          ),
+          ],
         ),
-      ),
+        _OAuthAppStep(
+          number: 2,
+          title: appStrings.oauthAppStepCallback,
+          children: <Widget>[
+            _OAuthAppCopyableValue(
+              value: redirectUri,
+              copiedMessage: appStrings.callbackUrlCopied,
+            ),
+            if (scopes.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 12),
+              Text(
+                appStrings.oauthAppScopes,
+                style: TextStyle(color: _textSecondary, fontSize: 12),
+              ),
+              const SizedBox(height: 6),
+              _OAuthAppCopyableValue(
+                value: scopes.join('\n'),
+                copiedMessage: appStrings.scopesCopied,
+              ),
+            ],
+          ],
+        ),
+        _OAuthAppStep(
+          number: 3,
+          title: appStrings.oauthAppStepCredentials,
+          children: <Widget>[
+            TextField(
+              controller: _clientId,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: InputDecoration(
+                labelText: appStrings.clientId,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _AdminCfgSecretField(
+              controller: _clientSecret,
+              label: appStrings.clientSecret,
+              stored: _stored,
+            ),
+            for (final field in _extraFields) ...<Widget>[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _fieldInputs[field['name'].toString()],
+                autocorrect: false,
+                decoration: InputDecoration(
+                  labelText: field['label']?.toString(),
+                  hintText: field['defaultValue']?.toString(),
+                  helperText: field['hint']?.toString(),
+                  helperMaxLines: 3,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+      leading: _stored
+          ? _IntegrationDangerButton(
+              label: appStrings.remove,
+              onPressed: _busy ? null : _remove,
+            )
+          : null,
       actions: <Widget>[
-        if (_stored)
-          TextButton(
-            onPressed: _busy ? null : _remove,
-            child: Text(appStrings.remove),
-          ),
-        TextButton(
-          onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: Text(appStrings.close),
-        ),
         FilledButton(
           onPressed: _busy ? null : _save,
-          child: Text(_busy ? appStrings.saving : appStrings.save),
+          child: _IntegrationBusyLabel(busy: _busy, label: appStrings.save),
         ),
       ],
     );
   }
 }
 
+/// One numbered step of a setup flow, drawn as a timeline entry.
 class _OAuthAppStep extends StatelessWidget {
-  const _OAuthAppStep({required this.title, required this.children});
+  const _OAuthAppStep({
+    required this.title,
+    required this.children,
+    this.number,
+    this.first = false,
+  });
 
   final String title;
   final List<Widget> children;
+  final int? number;
+
+  /// The first block of a dialog body needs no gap above it.
+  final bool first;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          ...children,
-        ],
+    final number = this.number;
+    final heading = Text(
+      title,
+      style: TextStyle(
+        color: _textPrimary,
+        fontWeight: FontWeight.w600,
+        fontSize: 14.5,
       ),
+    );
+    return Padding(
+      padding: EdgeInsets.only(top: first ? 0 : 20),
+      child: number == null
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[heading, const SizedBox(height: 10), ...children],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Container(
+                  width: 24,
+                  height: 24,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: _accent.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: _accent.withValues(alpha: 0.4)),
+                  ),
+                  child: Text(
+                    '$number',
+                    style: TextStyle(
+                      color: _accent,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: heading,
+                      ),
+                      const SizedBox(height: 10),
+                      ...children,
+                    ],
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }

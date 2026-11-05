@@ -5419,6 +5419,9 @@ class AppL10nLt extends AppL10n {
   String get notNow => 'Ne dabar';
 
   @override
+  String get dontAskAgain => 'Don\'t ask again';
+
+  @override
   String get notNow2 => 'Ne dabar';
 
   @override
@@ -12523,7 +12526,7 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get tailscaleSignInBrowser =>
-      'Sign in to Tailscale in your browser, then return here. Your account connects automatically after you approve it.';
+      'Sign in to Tailscale in your browser, then return here. Your account connects automatically after you approve it. If the sign-in page didn’t open, your browser may have blocked the popup. Click “Open Tailscale sign-in” below to continue.';
 
   @override
   String get tailscaleOpenSignIn => 'Open Tailscale sign-in';

@@ -12,6 +12,19 @@ const MAX_IDLE_TIMEOUT_MINUTES = 120;
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
 const PERSISTED_SESSION_FILE = 'neoagent-session.enc';
 const TWO_STEP_METHODS = new Set(['0', '1', '3']);
+const MAX_CLI_MESSAGE_LENGTH = 300;
+
+// The CLI prints its own error text (never the master password) on stdout or
+// stderr; keep the last line so failures are actionable instead of generic.
+function cliMessage(...buffers) {
+  const lines = Buffer.concat(buffers)
+    .toString('utf8')
+    .replace(/\u001b\[[0-9;]*[A-Za-z]/g, '')
+    .split(/[\r\n]+/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('?'));
+  return (lines.pop() || '').slice(0, MAX_CLI_MESSAGE_LENGTH);
+}
 
 function resolveCliScript() {
   try {
@@ -118,9 +131,13 @@ function runProcess(command, args, options = {}) {
       cwd: options.cwd,
       env: options.env,
       shell: false,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: [options.input == null ? 'ignore' : 'pipe', 'pipe', 'pipe'],
       windowsHide: true,
     });
+    if (options.input != null) {
+      child.stdin.on('error', () => {});
+      child.stdin.end(String(options.input));
+    }
     const stdout = [];
     const stderr = [];
     let stdoutBytes = 0;
@@ -165,8 +182,12 @@ function runProcess(command, args, options = {}) {
     child.on('error', (error) => finish(reject, error));
     child.on('close', (code) => {
       if (code !== 0) {
-        const error = new Error('Bitwarden rejected the operation.');
+        const message = cliMessage(...stdout, ...stderr);
+        const error = new Error(message
+          ? `Bitwarden: ${message}`
+          : 'Bitwarden rejected the operation.');
         error.code = 'BITWARDEN_CLI_FAILED';
+        error.cliMessage = message;
         error.exitCode = code;
         error.stderrPresent = stderrBytes > 0;
         finish(reject, error);
@@ -321,11 +342,6 @@ class BitwardenCli {
     }
     const method = normalizeTwoStepMethod(options.twoStepMethod);
     const code = normalizeTwoStepCode(options.twoStepCode);
-    if (method && !code) {
-      const error = new Error('Enter the current Bitwarden two-step login code.');
-      error.code = 'BITWARDEN_TWO_STEP_CODE_REQUIRED';
-      throw error;
-    }
     const args = [
       'login',
       email,
@@ -333,11 +349,28 @@ class BitwardenCli {
       'NEOAGENT_BITWARDEN_MASTER_PASSWORD',
       '--raw',
     ];
-    if (method) args.push('--method', method, '--code', code);
-    return this.#run(userId, agentId, args, {
-      ...options,
-      env: { NEOAGENT_BITWARDEN_MASTER_PASSWORD: masterPassword },
-    });
+    if (method) args.push('--method', method);
+    if (method && code) args.push('--code', code);
+    // The CLI only accepts the new-device verification code (and a two-step
+    // code when no method is given) through its interactive prompt, so the
+    // code is answered on stdin. An empty answer makes it fail fast with
+    // "Code is required." instead of aborting on a closed stdin.
+    try {
+      return await this.#run(userId, agentId, args, {
+        ...options,
+        input: `${code}\n`,
+        env: { NEOAGENT_BITWARDEN_MASTER_PASSWORD: masterPassword },
+      });
+    } catch (error) {
+      if (!code && /code is required/i.test(error.cliMessage || '')) {
+        const prompt = new Error(
+          'Bitwarden needs a verification code to finish signing in. Check your email (or authenticator app if two-step login is on), enter the code, and connect again.',
+        );
+        prompt.code = 'BITWARDEN_VERIFICATION_CODE_REQUIRED';
+        throw prompt;
+      }
+      throw error;
+    }
   }
 
   getStatus(userId, agentId) {

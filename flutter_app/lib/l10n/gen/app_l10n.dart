@@ -8977,6 +8977,12 @@ abstract class AppL10n {
   /// **'Not now'**
   String get notNow;
 
+  /// No description provided for @dontAskAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t ask again'**
+  String get dontAskAgain;
+
   /// No description provided for @notNow2.
   ///
   /// In en, this message translates to:
@@ -20776,7 +20782,7 @@ abstract class AppL10n {
   /// No description provided for @tailscaleSignInBrowser.
   ///
   /// In en, this message translates to:
-  /// **'Sign in to Tailscale in your browser, then return here. Your account connects automatically after you approve it.'**
+  /// **'Sign in to Tailscale in your browser, then return here. Your account connects automatically after you approve it. If the sign-in page didn’t open, your browser may have blocked the popup. Click “Open Tailscale sign-in” below to continue.'**
   String get tailscaleSignInBrowser;
 
   /// No description provided for @tailscaleOpenSignIn.

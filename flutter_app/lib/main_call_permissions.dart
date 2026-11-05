@@ -1,9 +1,20 @@
 part of 'main.dart';
 
+const _callPermissionsDismissedKey = 'call_permissions_dont_ask_again';
+
+/// Set once the sheet has been offered in this process, so rebuilt or
+/// remounted shells never bring it back during the same launch.
+bool _callPermissionsPromptedThisLaunch = false;
+
 /// Asks, once per launch, for what lets an agent's call reach the user while
 /// the app is in the background or the phone is locked. Does nothing when
-/// everything is already granted or the platform needs none of it.
+/// everything is already granted, the platform needs none of it, or the user
+/// chose "Don't ask again".
 Future<void> promptForCallPermissionsIfNeeded(BuildContext context) async {
+  if (_callPermissionsPromptedThisLaunch) return;
+  _callPermissionsPromptedThisLaunch = true;
+  final prefs = await SharedPreferences.getInstance();
+  if (prefs.getBool(_callPermissionsDismissedKey) ?? false) return;
   final status = await CallBridge.permissionStatus();
   if (status.allGranted || !context.mounted) return;
   await showModalBottomSheet<void>(
@@ -129,6 +140,18 @@ class _CallPermissionSheetState extends State<_CallPermissionSheet>
                 minimumSize: const Size.fromHeight(48),
               ),
               child: Text(appStrings.notNow),
+            ),
+            TextButton(
+              onPressed: () async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setBool(_callPermissionsDismissedKey, true);
+                if (context.mounted) Navigator.of(context).pop();
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: _CallColors.textMuted,
+                minimumSize: const Size.fromHeight(40),
+              ),
+              child: Text(appStrings.dontAskAgain),
             ),
           ],
         ),

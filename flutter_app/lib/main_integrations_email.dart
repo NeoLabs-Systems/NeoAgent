@@ -161,72 +161,51 @@ class _EmailAccountSetupDialogState extends State<_EmailAccountSetupDialog> {
   @override
   Widget build(BuildContext context) {
     final preset = _preset;
-    return AlertDialog(
-      title: Row(
-        children: <Widget>[
-          if (preset != null) ...<Widget>[
-            IconButton(
-              tooltip: appStrings.back,
-              onPressed: _busy ? null : () => setState(() => _preset = null),
-              icon: const Icon(Icons.arrow_back_rounded),
-            ),
-            const SizedBox(width: 4),
-          ],
-          Expanded(
-            child: Text(
-              preset == null ? appStrings.emailSetupTitle : _presetLabel,
-            ),
-          ),
-        ],
-      ),
-      content: SizedBox(
-        width: 560,
-        child: SingleChildScrollView(
-          child: preset == null ? _providerPicker() : _accountForm(preset),
-        ),
-      ),
+    return _IntegrationDialog(
+      icon: preset == null ? 'email' : (preset['icon']?.toString() ?? 'mail'),
+      title: preset == null ? appStrings.emailSetupTitle : _presetLabel,
+      subtitle: preset == null ? appStrings.emailSetupIntro : null,
+      status: preset == null
+          ? <_IntegrationSetupStatusItem>[
+              for (final account in _accounts)
+                _IntegrationSetupStatusItem(
+                  label: account['email']?.toString() ?? '',
+                  status: _jsonStringList(account['apps']).join(' · '),
+                  isConnected: true,
+                ),
+            ]
+          : const <_IntegrationSetupStatusItem>[],
+      error: _error,
+      onBack: preset == null ? null : () => setState(() => _preset = null),
+      onClose: _busy ? null : () => Navigator.of(context).pop(),
+      children: <Widget>[
+        preset == null ? _providerPicker() : _accountForm(preset),
+      ],
       actions: <Widget>[
-        TextButton(
-          onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: Text(preset == null ? appStrings.close : appStrings.cancel),
-        ),
         if (preset != null && preset['unsupported'] != true)
           FilledButton(
             onPressed: _busy ? null : _connect,
-            child: Text(_busy ? appStrings.emailChecking : appStrings.connect),
+            child: _IntegrationBusyLabel(
+              busy: _busy,
+              label: _busy ? appStrings.emailChecking : appStrings.connect,
+            ),
           ),
       ],
     );
   }
 
   Widget _providerPicker() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          appStrings.emailSetupIntro,
-          style: TextStyle(color: _textSecondary, height: 1.45),
-        ),
-        if (_accounts.isNotEmpty) ...<Widget>[
-          const SizedBox(height: 16),
-          for (final account in _accounts)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: _IntegrationSetupStatusItem(
-                label: account['email']?.toString() ?? '',
-                status: _jsonStringList(account['apps']).join(' · '),
-                isConnected: true,
-              ),
-            ),
-        ],
-        const SizedBox(height: 16),
-        Wrap(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 440 ? 3 : 2;
+        final tileWidth = (constraints.maxWidth - (columns - 1) * 10) / columns;
+        return Wrap(
           spacing: 10,
           runSpacing: 10,
           children: <Widget>[
             for (final preset in _presets)
               _EmailPresetTile(
+                width: tileWidth,
                 preset: preset,
                 onTap: () => setState(() {
                   _preset = preset;
@@ -236,8 +215,8 @@ class _EmailAccountSetupDialogState extends State<_EmailAccountSetupDialog> {
                 }),
               ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -276,22 +255,27 @@ class _EmailAccountSetupDialogState extends State<_EmailAccountSetupDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         _OAuthAppStep(
+          number: 1,
+          first: true,
           title: _custom ? appStrings.emailStepServers : appStrings.emailStepPassword,
           children: <Widget>[
             Text(help, style: TextStyle(color: _textSecondary, height: 1.45)),
-            if (passwordUrl.isNotEmpty)
-              TextButton.icon(
+            if (passwordUrl.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 8),
+              FilledButton.tonalIcon(
                 onPressed: () => url_launcher.launchUrl(
                   Uri.parse(passwordUrl),
                   mode: url_launcher.LaunchMode.externalApplication,
                 ),
-                icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                icon: const Icon(Icons.open_in_new_rounded, size: 18),
                 label: Text(appStrings.emailOpenPasswordPageArg1(_presetLabel)),
               ),
+            ],
             if (_custom) ..._serverFields(),
           ],
         ),
         _OAuthAppStep(
+          number: 2,
           title: appStrings.emailStepSignIn,
           children: <Widget>[
             TextField(
@@ -355,10 +339,6 @@ class _EmailAccountSetupDialogState extends State<_EmailAccountSetupDialog> {
             ],
           ],
         ),
-        if (_error.isNotEmpty) ...<Widget>[
-          const SizedBox(height: 12),
-          Text(_error, style: TextStyle(color: _danger, fontSize: 12)),
-        ],
       ],
     );
   }
@@ -372,6 +352,7 @@ class _EmailAccountSetupDialogState extends State<_EmailAccountSetupDialog> {
         const SizedBox(height: 16),
         TextField(
           controller: _feedUrl,
+          autofocus: true,
           keyboardType: TextInputType.url,
           autocorrect: false,
           decoration: InputDecoration(
@@ -390,10 +371,6 @@ class _EmailAccountSetupDialogState extends State<_EmailAccountSetupDialog> {
             border: const OutlineInputBorder(),
           ),
         ),
-        if (_error.isNotEmpty) ...<Widget>[
-          const SizedBox(height: 12),
-          Text(_error, style: TextStyle(color: _danger, fontSize: 12)),
-        ],
       ],
     );
   }
@@ -459,9 +436,14 @@ class _EmailAccountSetupDialogState extends State<_EmailAccountSetupDialog> {
 }
 
 class _EmailPresetTile extends StatelessWidget {
-  const _EmailPresetTile({required this.preset, required this.onTap});
+  const _EmailPresetTile({
+    required this.preset,
+    required this.onTap,
+    this.width = 168,
+  });
 
   final Map<String, dynamic> preset;
+  final double width;
   final VoidCallback onTap;
 
   @override
@@ -473,7 +455,7 @@ class _EmailPresetTile extends StatelessWidget {
         appStrings.triggerSectionCalendar,
     ];
     return SizedBox(
-      width: 168,
+      width: width,
       child: Material(
         color: _bgSecondary,
         borderRadius: BorderRadius.circular(16),

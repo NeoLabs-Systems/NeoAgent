@@ -469,29 +469,14 @@ class _IntegrationAccountRow extends StatelessWidget {
 
   Future<void> _disconnect(BuildContext context) async {
     final apps = group.links.map((link) => link.$1.label).toList();
-    final confirmed =
-        await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(appStrings.disconnectAccountTitle(group.label)),
-            content: Text(
-              appStrings.disconnectAccountBody(
-                provider.apps.length > 1 ? apps.join(', ') : provider.label,
-              ),
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text(appStrings.cancel),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: Text(appStrings.disconnect),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+    final confirmed = await _confirmIntegrationAction(
+      context,
+      title: appStrings.disconnectAccountTitle(group.label),
+      body: appStrings.disconnectAccountBody(
+        provider.apps.length > 1 ? apps.join(', ') : provider.label,
+      ),
+      confirmLabel: appStrings.disconnect,
+    );
     if (!confirmed) return;
     for (final account in group.accounts.toList()) {
       await controller.disconnectOfficialIntegration(
@@ -887,166 +872,151 @@ Future<void> _showBitwardenBindingDialog(
         if (!secretOptions.any((entry) => entry.$1 == secretField)) {
           secretField = secretOptions.first.$1;
         }
-        return AlertDialog(
-          title: Text(appStrings.addCredentialBinding),
-          content: SizedBox(
-            width: 520,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  DropdownButtonFormField<String>(
-                    initialValue: itemId,
-                    decoration: InputDecoration(
-                      labelText: appStrings.bitwardenItem,
-                      border: OutlineInputBorder(),
+        return _IntegrationDialog(
+          icon: 'password',
+          title: appStrings.addCredentialBinding,
+          error: errorText,
+          onClose: saving ? null : () => Navigator.of(dialogContext).pop(),
+          children: <Widget>[
+            DropdownButtonFormField<String>(
+              initialValue: itemId,
+              decoration: InputDecoration(
+                labelText: appStrings.bitwardenItem,
+                border: OutlineInputBorder(),
+              ),
+              items: items
+                  .map(
+                    (item) => DropdownMenuItem(
+                      value: item['id']?.toString(),
+                      child: Text(item['name']?.toString() ?? 'Untitled'),
                     ),
-                    items: items
-                        .map(
-                          (item) => DropdownMenuItem(
-                            value: item['id']?.toString(),
-                            child: Text(item['name']?.toString() ?? 'Untitled'),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: saving
-                        ? null
-                        : (value) => setState(() {
-                            itemId = value ?? itemId;
-                            final item = items.firstWhere(
-                              (candidate) =>
-                                  candidate['id']?.toString() == itemId,
-                            );
-                            final origins = item['origins'] as List?;
-                            if (origins?.isNotEmpty == true) {
-                              originController.text = origins!.first.toString();
-                            }
-                          }),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: aliasController,
-                    decoration: InputDecoration(
-                      labelText: appStrings.agentVisibleName,
-                      hintText: appStrings.workAccount,
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: usageType,
-                    decoration: InputDecoration(
-                      labelText: appStrings.useFor,
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      DropdownMenuItem(
-                        value: 'browser',
-                        child: Text(appStrings.browserLogin),
-                      ),
-                      DropdownMenuItem(
-                        value: 'http',
-                        child: Text(appStrings.apiRequest),
-                      ),
-                    ],
-                    onChanged: saving
-                        ? null
-                        : (value) =>
-                              setState(() => usageType = value ?? usageType),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: originController,
-                    keyboardType: TextInputType.url,
-                    decoration: InputDecoration(
-                      labelText: usageType == 'browser'
-                          ? 'Allowed HTTPS origin'
-                          : appStrings.apiHttpsOrigin,
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                  if (usageType == 'http') ...[
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: pathController,
-                      decoration: InputDecoration(
-                        labelText: appStrings.allowedPathPrefix,
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: authType,
-                      decoration: InputDecoration(
-                        labelText: appStrings.authentication,
-                        border: OutlineInputBorder(),
-                      ),
-                      items: [
-                        DropdownMenuItem(
-                          value: 'bearer',
-                          child: Text(appStrings.bearerToken),
-                        ),
-                        DropdownMenuItem(
-                          value: 'basic',
-                          child: Text(appStrings.basicAuthentication),
-                        ),
-                        DropdownMenuItem(
-                          value: 'header',
-                          child: Text(appStrings.customHeader),
-                        ),
-                      ],
-                      onChanged: saving
-                          ? null
-                          : (value) =>
-                                setState(() => authType = value ?? authType),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: secretField,
-                      decoration: InputDecoration(
-                        labelText: appStrings.secretField,
-                        border: OutlineInputBorder(),
-                      ),
-                      items: secretOptions
-                          .map(
-                            (entry) => DropdownMenuItem(
-                              value: entry.$1,
-                              child: Text(entry.$2),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: saving
-                          ? null
-                          : (value) => setState(
-                              () => secretField = value ?? secretField,
-                            ),
-                    ),
-                    if (authType == 'header') ...[
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: headerController,
-                        decoration: InputDecoration(
-                          labelText: appStrings.headerName,
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ],
-                  ],
-                  if (errorText.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Text(errorText, style: TextStyle(color: _danger)),
-                  ],
-                ],
+                  )
+                  .toList(),
+              onChanged: saving
+                  ? null
+                  : (value) => setState(() {
+                      itemId = value ?? itemId;
+                      final item = items.firstWhere(
+                        (candidate) =>
+                            candidate['id']?.toString() == itemId,
+                      );
+                      final origins = item['origins'] as List?;
+                      if (origins?.isNotEmpty == true) {
+                        originController.text = origins!.first.toString();
+                      }
+                    }),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: aliasController,
+              decoration: InputDecoration(
+                labelText: appStrings.agentVisibleName,
+                hintText: appStrings.workAccount,
+                border: OutlineInputBorder(),
               ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: saving
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: usageType,
+              decoration: InputDecoration(
+                labelText: appStrings.useFor,
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                DropdownMenuItem(
+                  value: 'browser',
+                  child: Text(appStrings.browserLogin),
+                ),
+                DropdownMenuItem(
+                  value: 'http',
+                  child: Text(appStrings.apiRequest),
+                ),
+              ],
+              onChanged: saving
                   ? null
-                  : () => Navigator.of(dialogContext).pop(),
-              child: Text(appStrings.cancel),
+                  : (value) =>
+                        setState(() => usageType = value ?? usageType),
             ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: originController,
+              keyboardType: TextInputType.url,
+              decoration: InputDecoration(
+                labelText: usageType == 'browser'
+                    ? 'Allowed HTTPS origin'
+                    : appStrings.apiHttpsOrigin,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            if (usageType == 'http') ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: pathController,
+                decoration: InputDecoration(
+                  labelText: appStrings.allowedPathPrefix,
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: authType,
+                decoration: InputDecoration(
+                  labelText: appStrings.authentication,
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: 'bearer',
+                    child: Text(appStrings.bearerToken),
+                  ),
+                  DropdownMenuItem(
+                    value: 'basic',
+                    child: Text(appStrings.basicAuthentication),
+                  ),
+                  DropdownMenuItem(
+                    value: 'header',
+                    child: Text(appStrings.customHeader),
+                  ),
+                ],
+                onChanged: saving
+                    ? null
+                    : (value) =>
+                          setState(() => authType = value ?? authType),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: secretField,
+                decoration: InputDecoration(
+                  labelText: appStrings.secretField,
+                  border: OutlineInputBorder(),
+                ),
+                items: secretOptions
+                    .map(
+                      (entry) => DropdownMenuItem(
+                        value: entry.$1,
+                        child: Text(entry.$2),
+                      ),
+                    )
+                    .toList(),
+                onChanged: saving
+                    ? null
+                    : (value) => setState(
+                        () => secretField = value ?? secretField,
+                      ),
+              ),
+              if (authType == 'header') ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: headerController,
+                  decoration: InputDecoration(
+                    labelText: appStrings.headerName,
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ],
+          ],
+          actions: <Widget>[
             FilledButton(
               onPressed: saving
                   ? null
@@ -1095,7 +1065,10 @@ Future<void> _showBitwardenBindingDialog(
                         });
                       }
                     },
-              child: Text(saving ? 'Adding...' : appStrings.addBinding),
+              child: _IntegrationBusyLabel(
+                busy: saving,
+                label: appStrings.addBinding,
+              ),
             ),
           ],
         );
@@ -1126,6 +1099,7 @@ Future<void> _showBitwardenSetupDialog(
   var unlocked = config['unlocked'] == true;
   var persistSession = true;
   var twoStepMethod = '';
+  var verificationCodeRequested = false;
   var busy = false;
   var errorText = '';
   final serverController = TextEditingController(
@@ -1136,309 +1110,418 @@ Future<void> _showBitwardenSetupDialog(
   );
   final masterPasswordController = TextEditingController();
   final twoStepCodeController = TextEditingController();
+  final twoStepCodeFocus = FocusNode();
+  const defaultBitwardenServer = 'https://vault.bitwarden.com';
+  // Most people use the hosted vault; only show the server field when it is
+  // already customised or the user asks for it.
+  var showServerField =
+      serverController.text.trim().isNotEmpty &&
+      serverController.text.trim() != defaultBitwardenServer;
+  var showMasterPassword = false;
   if (!context.mounted) return;
   await showDialog<void>(
     context: context,
     barrierDismissible: false,
     builder: (dialogContext) => StatefulBuilder(
-      builder: (dialogContext, setState) => AlertDialog(
-        title: Text(appStrings.bitwardenCredentialBroker),
-        content: SizedBox(
+      builder: (dialogContext, setState) {
+        Future<void> toggleVault() async {
+          setState(() {
+            busy = true;
+            errorText = '';
+          });
+          try {
+            if (unlocked) {
+              await controller.lockBitwarden();
+              unlocked = false;
+              config = <String, dynamic>{
+                ...config,
+                'unlocked': false,
+                'persistent': false,
+              };
+            } else {
+              await controller.saveOfficialIntegrationConfig(
+                'bitwarden',
+                config: <String, dynamic>{
+                  'serverUrl': serverController.text.trim(),
+                  'email': emailController.text.trim(),
+                },
+              );
+              config = await controller.unlockBitwarden(
+                masterPasswordController.text,
+                persistSession: persistSession,
+                twoStepMethod: twoStepMethod,
+                twoStepCode: twoStepCodeController.text,
+              );
+              masterPasswordController.clear();
+              twoStepCodeController.clear();
+              unlocked = true;
+              verificationCodeRequested = false;
+            }
+          } catch (error) {
+            errorText =
+                controller.errorMessage ?? appStrings.vaultOperationFailed;
+            if (error is BackendException &&
+                error.code == 'BITWARDEN_VERIFICATION_CODE_REQUIRED') {
+              verificationCodeRequested = true;
+              twoStepCodeController.clear();
+            }
+          } finally {
+            setState(() => busy = false);
+          }
+          if (verificationCodeRequested && !unlocked) {
+            twoStepCodeFocus.requestFocus();
+          }
+        }
+
+        final canConnect =
+            !busy &&
+            emailController.text.trim().isNotEmpty &&
+            masterPasswordController.text.isNotEmpty;
+        void submitIfReady() {
+          if (canConnect) toggleVault();
+        }
+
+        Future<void> saveAccount() async {
+          setState(() {
+            busy = true;
+            errorText = '';
+          });
+          try {
+            await controller.saveOfficialIntegrationConfig(
+              'bitwarden',
+              config: <String, dynamic>{
+                'serverUrl': serverController.text.trim(),
+                'email': emailController.text.trim(),
+              },
+            );
+            config = await controller.getOfficialIntegrationConfig('bitwarden');
+          } catch (_) {
+            errorText =
+                controller.errorMessage ?? appStrings.couldNotSaveBitwardenSetup;
+          } finally {
+            setState(() => busy = false);
+          }
+        }
+
+        final vaultStatus = unlocked
+            ? config['persistent'] == true
+                  ? appStrings.vaultConnectedAndAvailableAfterRestart
+                  : appStrings.vaultConnectedForThisSession
+            : appStrings.vaultLocked;
+
+        return _IntegrationDialog(
+          icon: 'password',
+          title: appStrings.bitwardenCredentialBroker,
+          subtitle: appStrings.signInWithTheSameEmail,
           width: 600,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  appStrings.signInWithTheSameEmail,
-                  style: TextStyle(color: _textSecondary),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: serverController,
-                  decoration: InputDecoration(
-                    labelText: appStrings.bitwardenServer,
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
+          status: <_IntegrationSetupStatusItem>[
+            _IntegrationSetupStatusItem(
+              label: 'Vault',
+              status: vaultStatus,
+              isConnected: unlocked,
+            ),
+          ],
+          error: errorText,
+          onClose: busy ? null : () => Navigator.of(dialogContext).pop(),
+          children: <Widget>[
+            _OAuthAppStep(
+              number: 1,
+              first: true,
+              title: appStrings.accountEmail,
+              children: <Widget>[
                 TextField(
                   controller: emailController,
+                  enabled: !busy && !unlocked,
                   keyboardType: TextInputType.emailAddress,
+                  autocorrect: false,
+                  autofocus: emailController.text.trim().isEmpty,
+                  autofillHints: const <String>[AutofillHints.email],
+                  onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
                     labelText: appStrings.accountEmail,
-                    border: OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.alternate_email_rounded),
+                    border: const OutlineInputBorder(),
                   ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  unlocked
-                      ? config['persistent'] == true
-                            ? appStrings.vaultConnectedAndAvailableAfterRestart
-                            : appStrings.vaultConnectedForThisSession
-                      : appStrings.vaultLocked,
-                  style: TextStyle(color: unlocked ? _success : _textSecondary),
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: masterPasswordController,
-                        obscureText: true,
-                        enabled: !busy && !unlocked,
-                        decoration: InputDecoration(
-                          labelText: appStrings.masterPassword,
-                          border: OutlineInputBorder(),
+                if (showServerField)
+                  TextField(
+                    controller: serverController,
+                    enabled: !busy && !unlocked,
+                    keyboardType: TextInputType.url,
+                    autocorrect: false,
+                    decoration: InputDecoration(
+                      labelText: appStrings.bitwardenServer,
+                      hintText: defaultBitwardenServer,
+                      prefixIcon: const Icon(Icons.dns_outlined),
+                      border: const OutlineInputBorder(),
+                    ),
+                  )
+                else
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: busy || unlocked
+                          ? null
+                          : () => setState(() => showServerField = true),
+                      icon: const Icon(Icons.dns_outlined, size: 18),
+                      label: Text(appStrings.bitwardenServer),
+                    ),
+                  ),
+              ],
+            ),
+            _OAuthAppStep(
+              number: 2,
+              title: unlocked ? 'Vault' : appStrings.masterPassword,
+              children: <Widget>[
+                if (unlocked)
+                  _RowSurface(
+                    child: Row(
+                      children: <Widget>[
+                        Icon(Icons.lock_open_rounded, color: _success),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            vaultStatus,
+                            style: TextStyle(color: _success),
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: busy ? null : toggleVault,
+                          icon: const Icon(Icons.lock_outline_rounded, size: 18),
+                          label: const Text('Lock'),
+                        ),
+                      ],
+                    ),
+                  )
+                else ...<Widget>[
+                  TextField(
+                    controller: masterPasswordController,
+                    obscureText: !showMasterPassword,
+                    enabled: !busy,
+                    autofocus: emailController.text.trim().isNotEmpty,
+                    autofillHints: const <String>[AutofillHints.password],
+                    onChanged: (_) => setState(() {}),
+                    onSubmitted: (_) => submitIfReady(),
+                    decoration: InputDecoration(
+                      labelText: appStrings.masterPassword,
+                      prefixIcon: const Icon(Icons.key_rounded),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          showMasterPassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                        ),
+                        onPressed: () => setState(
+                          () => showMasterPassword = !showMasterPassword,
                         ),
                       ),
+                      border: const OutlineInputBorder(),
                     ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      onPressed: busy
-                          ? null
-                          : () async {
-                              setState(() => busy = true);
-                              try {
-                                if (unlocked) {
-                                  await controller.lockBitwarden();
-                                  unlocked = false;
-                                  config = <String, dynamic>{
-                                    ...config,
-                                    'unlocked': false,
-                                    'persistent': false,
-                                  };
-                                } else {
-                                  await controller
-                                      .saveOfficialIntegrationConfig(
-                                        'bitwarden',
-                                        config: <String, dynamic>{
-                                          'serverUrl': serverController.text
-                                              .trim(),
-                                          'email': emailController.text.trim(),
-                                        },
-                                      );
-                                  config = await controller.unlockBitwarden(
-                                    masterPasswordController.text,
-                                    persistSession: persistSession,
-                                    twoStepMethod: twoStepMethod,
-                                    twoStepCode: twoStepCodeController.text,
-                                  );
-                                  masterPasswordController.clear();
-                                  twoStepCodeController.clear();
-                                  unlocked = true;
-                                }
-                                setState(() {});
-                              } catch (_) {
-                                setState(
-                                  () => errorText =
-                                      controller.errorMessage ??
-                                      appStrings.vaultOperationFailed,
-                                );
-                              } finally {
-                                setState(() => busy = false);
-                              }
-                            },
-                      child: Text(unlocked ? 'Lock' : 'Connect'),
-                    ),
-                  ],
-                ),
-                if (!unlocked) ...<Widget>[
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: twoStepMethod,
-                    decoration: InputDecoration(
-                      labelText: appStrings.twoStepLoginOnlyIfEnabled,
-                      border: OutlineInputBorder(),
-                    ),
-                    items: <DropdownMenuItem<String>>[
-                      DropdownMenuItem<String>(
-                        value: '',
-                        child: Text(appStrings.notNeeded),
-                      ),
-                      DropdownMenuItem<String>(
-                        value: '0',
-                        child: Text(appStrings.authenticatorApp),
-                      ),
-                      DropdownMenuItem<String>(
-                        value: '1',
-                        child: Text(appStrings.emailCode),
-                      ),
-                      DropdownMenuItem<String>(
-                        value: '3',
-                        child: Text(appStrings.yubikeyOtp),
-                      ),
-                    ],
-                    onChanged: busy
-                        ? null
-                        : (value) =>
-                              setState(() => twoStepMethod = value ?? ''),
                   ),
-                  if (twoStepMethod.isNotEmpty) ...<Widget>[
+                  if (verificationCodeRequested ||
+                      twoStepMethod.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: twoStepMethod,
+                      decoration: InputDecoration(
+                        labelText: appStrings.twoStepLoginOnlyIfEnabled,
+                        border: const OutlineInputBorder(),
+                      ),
+                      items: <DropdownMenuItem<String>>[
+                        DropdownMenuItem<String>(
+                          value: '',
+                          child: Text(appStrings.notNeeded),
+                        ),
+                        DropdownMenuItem<String>(
+                          value: '0',
+                          child: Text(appStrings.authenticatorApp),
+                        ),
+                        DropdownMenuItem<String>(
+                          value: '1',
+                          child: Text(appStrings.emailCode),
+                        ),
+                        DropdownMenuItem<String>(
+                          value: '3',
+                          child: Text(appStrings.yubikeyOtp),
+                        ),
+                      ],
+                      onChanged: busy
+                          ? null
+                          : (value) =>
+                                setState(() => twoStepMethod = value ?? ''),
+                    ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: twoStepCodeController,
+                      focusNode: twoStepCodeFocus,
                       enabled: !busy,
-                      obscureText: true,
+                      autocorrect: false,
+                      keyboardType: TextInputType.visiblePassword,
+                      autofillHints: const <String>[AutofillHints.oneTimeCode],
+                      onChanged: (_) => setState(() {}),
+                      onSubmitted: (_) => submitIfReady(),
                       decoration: InputDecoration(
                         labelText: appStrings.currentTwoStepLoginCode,
-                        border: OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.pin_outlined),
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                   ],
-                  const SizedBox(height: 8),
-                  CheckboxListTile(
+                  const SizedBox(height: 4),
+                  SwitchListTile.adaptive(
                     contentPadding: EdgeInsets.zero,
                     value: persistSession,
                     onChanged: busy
                         ? null
-                        : (value) =>
-                              setState(() => persistSession = value ?? true),
+                        : (value) => setState(() => persistSession = value),
                     title: Text(appStrings.keepTheVaultAvailable),
                     subtitle: Text(
                       appStrings.storesOnlyTheBitwardenSessionKey,
+                      style: TextStyle(color: _textSecondary, fontSize: 12.5),
                     ),
-                    controlAffinity: ListTileControlAffinity.leading,
+                  ),
+                  const SizedBox(height: 4),
+                  FilledButton.icon(
+                    onPressed: canConnect ? toggleVault : null,
+                    icon: const Icon(Icons.lock_open_rounded, size: 18),
+                    label: _IntegrationBusyLabel(busy: busy, label: 'Connect'),
                   ),
                 ],
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        appStrings.credentialBindings,
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    FilledButton.tonalIcon(
-                      onPressed:
-                          !unlocked || config['connectionId'] == null || busy
-                          ? null
-                          : () async {
-                              await _showBitwardenBindingDialog(
-                                dialogContext,
-                                controller,
-                                connectionId: (config['connectionId'] as num)
-                                    .toInt(),
-                              );
-                              bindings = await controller
-                                  .fetchCredentialBindings();
-                              setState(() {});
-                            },
-                      icon: Icon(Icons.add_rounded),
-                      label: Text(appStrings.add),
-                    ),
-                  ],
-                ),
+              ],
+            ),
+            _OAuthAppStep(
+              number: 3,
+              title: appStrings.credentialBindings,
+              children: <Widget>[
                 if (bindings.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                  _RowSurface(
                     child: Text(
                       appStrings.noBindingsYet,
                       style: TextStyle(color: _textSecondary),
                     ),
                   )
                 else
-                  ...bindings.map(
-                    (binding) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(binding['alias']?.toString() ?? 'Credential'),
-                      subtitle: Text(binding['usageType']?.toString() ?? ''),
-                      trailing: IconButton(
-                        tooltip: appStrings.deleteBinding,
-                        icon: Icon(Icons.delete_outline_rounded),
-                        onPressed: busy
-                            ? null
-                            : () async {
-                                await controller.deleteCredentialBinding(
-                                  binding['id'].toString(),
-                                );
-                                bindings = await controller
-                                    .fetchCredentialBindings();
-                                setState(() {});
-                              },
+                  for (final binding in bindings)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _RowSurface(
+                        child: Row(
+                          children: <Widget>[
+                            Icon(
+                              binding['usageType'] == 'http'
+                                  ? Icons.api_rounded
+                                  : Icons.language_rounded,
+                              size: 20,
+                              color: _textSecondary,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    binding['alias']?.toString() ??
+                                        'Credential',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    binding['usageType'] == 'http'
+                                        ? appStrings.apiRequest
+                                        : appStrings.browserLogin,
+                                    style: TextStyle(
+                                      color: _textSecondary,
+                                      fontSize: 12.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: appStrings.deleteBinding,
+                              icon: Icon(
+                                Icons.delete_outline_rounded,
+                                color: _danger,
+                              ),
+                              onPressed: busy
+                                  ? null
+                                  : () async {
+                                      await controller.deleteCredentialBinding(
+                                        binding['id'].toString(),
+                                      );
+                                      bindings = await controller
+                                          .fetchCredentialBindings();
+                                      setState(() {});
+                                    },
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                if (errorText.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(errorText, style: TextStyle(color: _danger)),
-                  ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed:
+                      !unlocked || config['connectionId'] == null || busy
+                      ? null
+                      : () async {
+                          await _showBitwardenBindingDialog(
+                            dialogContext,
+                            controller,
+                            connectionId: (config['connectionId'] as num)
+                                .toInt(),
+                          );
+                          bindings = await controller.fetchCredentialBindings();
+                          setState(() {});
+                        },
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: Text(appStrings.addBinding),
+                ),
               ],
             ),
-          ),
-        ),
-        actions: [
-          if (config['configured'] == true)
-            TextButton(
-              onPressed: busy
-                  ? null
-                  : () async {
-                      setState(() => busy = true);
-                      try {
-                        await controller.clearOfficialIntegrationConfig(
-                          'bitwarden',
-                        );
-                        if (dialogContext.mounted) {
-                          Navigator.of(dialogContext).pop();
-                        }
-                      } catch (_) {
-                        setState(() {
-                          errorText =
-                              controller.errorMessage ??
-                              appStrings.couldNotDisconnectBitwarden;
-                          busy = false;
-                        });
-                      }
-                    },
-              child: Text(appStrings.disconnect),
-            ),
-          TextButton(
-            onPressed: busy ? null : () => Navigator.of(dialogContext).pop(),
-            child: Text(appStrings.close),
-          ),
-          FilledButton(
-            onPressed: busy
-                ? null
-                : () async {
-                    setState(() {
-                      busy = true;
-                      errorText = '';
-                    });
-                    try {
-                      await controller.saveOfficialIntegrationConfig(
-                        'bitwarden',
-                        config: <String, dynamic>{
-                          'serverUrl': serverController.text.trim(),
-                          'email': emailController.text.trim(),
+          ],
+          leading: config['configured'] == true
+              ? _IntegrationDangerButton(
+                  label: appStrings.disconnect,
+                  onPressed: busy
+                      ? null
+                      : () async {
+                          setState(() => busy = true);
+                          try {
+                            await controller.clearOfficialIntegrationConfig(
+                              'bitwarden',
+                            );
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop();
+                            }
+                          } catch (_) {
+                            setState(() {
+                              errorText =
+                                  controller.errorMessage ??
+                                  appStrings.couldNotDisconnectBitwarden;
+                              busy = false;
+                            });
+                          }
                         },
-                      );
-                      config = await controller.getOfficialIntegrationConfig(
-                        'bitwarden',
-                      );
-                      setState(() {});
-                    } catch (_) {
-                      setState(
-                        () => errorText =
-                            controller.errorMessage ??
-                            appStrings.couldNotSaveBitwardenSetup,
-                      );
-                    } finally {
-                      setState(() => busy = false);
-                    }
-                  },
-            child: Text(busy ? appStrings.saving : appStrings.saveAccount),
-          ),
-        ],
-      ),
+                )
+              : null,
+          actions: <Widget>[
+            if (!unlocked)
+              FilledButton.tonal(
+                onPressed: busy ? null : saveAccount,
+                child: Text(appStrings.saveAccount),
+              ),
+          ],
+        );
+      },
     ),
   );
   serverController.dispose();
   emailController.dispose();
   masterPasswordController.dispose();
   twoStepCodeController.dispose();
+  twoStepCodeFocus.dispose();
 }
 
 class _OfficialIntegrationUrlSetupConfig {
@@ -1549,112 +1632,83 @@ Future<void> _showOfficialIntegrationUrlSetupDialog(
     context: context,
     barrierDismissible: false,
     builder: (dialogContext) => StatefulBuilder(
-      builder: (dialogContext, setState) => AlertDialog(
-        title: Text(config.title),
-        content: SizedBox(
-          width: 540,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(config.description, style: TextStyle(color: _textSecondary)),
-              if (config.extraDescription != null) ...<Widget>[
-                const SizedBox(height: 8),
-                Text(
-                  config.extraDescription!,
-                  style: TextStyle(color: _textSecondary, fontSize: 12),
-                ),
-              ],
-              const SizedBox(height: 16),
-              _IntegrationSetupStatusItem(
-                label: appStrings.connectionMethod,
-                status: config.connectionMethodLabel,
-                isConnected: true,
-              ),
-              const SizedBox(height: 12),
-              _IntegrationSetupStatusItem(
-                label: config.accountLabel,
-                status: connected
-                    ? '$accountCount ${accountCount == 1 ? 'connected user' : 'connected users'}'
-                    : appStrings.notConnected,
-                isConnected: connected,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: baseUrlController,
-                keyboardType: TextInputType.url,
-                decoration: InputDecoration(
-                  labelText: config.urlLabel,
-                  hintText: config.urlHint,
-                  border: const OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                config.urlHelperText,
-                style: TextStyle(color: _textSecondary, fontSize: 12),
-              ),
-              if (errorText.isNotEmpty) ...<Widget>[
-                const SizedBox(height: 12),
-                Text(errorText, style: TextStyle(color: _danger, fontSize: 12)),
-              ],
-            ],
+      builder: (dialogContext, setState) => _IntegrationDialog(
+        icon: _integrationIconFor(controller, config.providerId),
+        title: config.title,
+        subtitle: config.description,
+        status: <_IntegrationSetupStatusItem>[
+          _IntegrationSetupStatusItem(
+            label: appStrings.connectionMethod,
+            status: config.connectionMethodLabel,
+            isConnected: true,
           ),
-        ),
-        actions: <Widget>[
-          if (savedBaseUrl.isNotEmpty)
-            TextButton(
-              onPressed: busy
-                  ? null
-                  : () async {
-                      final confirm =
-                          await showDialog<bool>(
-                            context: dialogContext,
-                            builder: (context) => AlertDialog(
-                              title: Text(config.disconnectTitle),
-                              content: Text(config.disconnectBody),
-                              actions: <Widget>[
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(context).pop(false),
-                                  child: Text(appStrings.cancel),
-                                ),
-                                FilledButton(
-                                  onPressed: () =>
-                                      Navigator.of(context).pop(true),
-                                  child: Text(appStrings.disconnect),
-                                ),
-                              ],
-                            ),
-                          ) ??
-                          false;
-                      if (!confirm) return;
-                      setState(() {
-                        busy = true;
-                        errorText = '';
-                      });
-                      try {
-                        await controller.clearOfficialIntegrationConfig(
-                          config.providerId,
-                        );
-                        if (dialogContext.mounted) {
-                          Navigator.of(dialogContext).pop();
-                        }
-                      } catch (_) {
-                        setState(() {
-                          errorText =
-                              controller.errorMessage ??
-                              config.disconnectErrorFallback;
-                          busy = false;
-                        });
-                      }
-                    },
-              child: Text(appStrings.disconnect),
+          _IntegrationSetupStatusItem(
+            label: config.accountLabel,
+            status: connected
+                ? '$accountCount ${accountCount == 1 ? 'connected user' : 'connected users'}'
+                : appStrings.notConnected,
+            isConnected: connected,
+          ),
+        ],
+        error: errorText,
+        onClose: busy ? null : () => Navigator.of(dialogContext).pop(),
+        children: <Widget>[
+          TextField(
+            controller: baseUrlController,
+            enabled: !busy,
+            autofocus: savedBaseUrl.isEmpty,
+            keyboardType: TextInputType.url,
+            autocorrect: false,
+            decoration: InputDecoration(
+              labelText: config.urlLabel,
+              hintText: config.urlHint,
+              prefixIcon: const Icon(Icons.link_rounded),
+              border: const OutlineInputBorder(),
             ),
-          TextButton(
-            onPressed: busy ? null : () => Navigator.of(dialogContext).pop(),
-            child: Text(appStrings.close),
           ),
+          _IntegrationHint(config.urlHelperText),
+          if (config.extraDescription != null)
+            _IntegrationHint(
+              config.extraDescription!,
+              icon: Icons.lightbulb_outline_rounded,
+            ),
+        ],
+        leading: savedBaseUrl.isEmpty
+            ? null
+            : _IntegrationDangerButton(
+                label: appStrings.disconnect,
+                onPressed: busy
+                    ? null
+                    : () async {
+                        final confirm = await _confirmIntegrationAction(
+                          dialogContext,
+                          title: config.disconnectTitle,
+                          body: config.disconnectBody,
+                          confirmLabel: appStrings.disconnect,
+                        );
+                        if (!confirm) return;
+                        setState(() {
+                          busy = true;
+                          errorText = '';
+                        });
+                        try {
+                          await controller.clearOfficialIntegrationConfig(
+                            config.providerId,
+                          );
+                          if (dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop();
+                          }
+                        } catch (_) {
+                          setState(() {
+                            errorText =
+                                controller.errorMessage ??
+                                config.disconnectErrorFallback;
+                            busy = false;
+                          });
+                        }
+                      },
+              ),
+        actions: <Widget>[
           if (config.supportsMultipleAccounts || !connected)
             TextButton(
               onPressed: busy
@@ -1670,10 +1724,9 @@ Future<void> _showOfficialIntegrationUrlSetupDialog(
                     dialogContext,
                     connect: config.supportsMultipleAccounts || !connected,
                   ),
-            child: Text(
-              busy
-                  ? 'Working...'
-                  : connected
+            child: _IntegrationBusyLabel(
+              busy: busy,
+              label: connected
                   ? (config.supportsMultipleAccounts
                         ? appStrings.connectAnotherAccount
                         : appStrings.updateSetup)
@@ -1719,197 +1772,128 @@ Future<void> _showHomeAssistantSetupDialog(
     builder: (dialogContext) {
       return StatefulBuilder(
         builder: (dialogContext, setState) {
-          return AlertDialog(
-            title: Text(appStrings.homeAssistantSetup),
-            content: SizedBox(
-              width: 520,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    appStrings.connectAPublicHttpsHomeAssistant,
-                    style: TextStyle(color: _textSecondary),
-                  ),
-                  const SizedBox(height: 16),
-                  _IntegrationSetupStatusItem(
-                    label: appStrings.endpoint,
-                    status: savedBaseUrl.trim().isNotEmpty
-                        ? 'Configured'
-                        : appStrings.notConfigured,
-                    isConnected: savedBaseUrl.trim().isNotEmpty,
-                  ),
-                  const SizedBox(height: 12),
-                  _IntegrationSetupStatusItem(
-                    label: appStrings.connectedInstance,
-                    status: hasConnectedAccount
-                        ? '$accountCount ${accountCount == 1 ? 'instance' : 'instances'} connected'
-                        : appStrings.notConnected,
-                    isConnected: hasConnectedAccount,
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: baseUrlController,
-                    onChanged: (_) => setState(() {}),
-                    keyboardType: TextInputType.url,
-                    decoration: InputDecoration(
-                      labelText: appStrings.homeAssistantUrl,
-                      hintText: 'https://your-instance.example.com',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: tokenController,
-                    onChanged: (_) => setState(() {}),
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      labelText: hasToken
-                          ? appStrings.pasteReplacementLongLivedAccessToken
-                          : appStrings.longLivedAccessToken,
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                  if (hasToken) ...<Widget>[
-                    const SizedBox(height: 8),
-                    Text(
-                      appStrings.leaveTheTokenEmptyToKeep,
-                      style: TextStyle(color: _textSecondary, fontSize: 12),
-                    ),
-                  ],
-                  if (formError.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: _danger.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: _danger.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Text(
-                        formError,
-                        style: TextStyle(color: _danger, fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ],
+          Future<void> disconnect() async {
+            final shouldClear = await _confirmIntegrationAction(
+              dialogContext,
+              title: appStrings.disconnectHomeAssistant,
+              body: appStrings.thisRemovesTheHomeAssistantSetup,
+              confirmLabel: appStrings.disconnect,
+            );
+            if (!shouldClear) return;
+            setState(() {
+              formError = '';
+              saving = true;
+            });
+            try {
+              await controller.clearOfficialIntegrationConfig('home_assistant');
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+            } catch (_) {
+              setState(() {
+                formError =
+                    controller.errorMessage ??
+                    appStrings.couldNotDisconnectHomeAssistant;
+                saving = false;
+              });
+            }
+          }
+
+          Future<void> submit() async {
+            setState(() {
+              formError = '';
+              saving = true;
+            });
+            try {
+              final baseUrl = baseUrlController.text.trim();
+              final token = tokenController.text.trim();
+              if (baseUrl.isEmpty) {
+                setState(() {
+                  formError = appStrings.homeAssistantUrlIsRequired;
+                  saving = false;
+                });
+                return;
+              }
+              if (token.isEmpty && !hasToken) {
+                setState(() {
+                  formError = appStrings.homeAssistantLongLivedAccessToken;
+                  saving = false;
+                });
+                return;
+              }
+              await controller.saveOfficialIntegrationConfig(
+                'home_assistant',
+                config: <String, dynamic>{
+                  'baseUrl': baseUrl,
+                  if (token.isNotEmpty) 'token': token,
+                },
+              );
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+            } catch (_) {
+              setState(() {
+                formError =
+                    controller.errorMessage ??
+                    appStrings.couldNotSaveHomeAssistantSetup;
+                saving = false;
+              });
+            }
+          }
+
+          return _IntegrationDialog(
+            icon: 'home_assistant',
+            title: appStrings.homeAssistantSetup,
+            subtitle: appStrings.connectAPublicHttpsHomeAssistant,
+            status: <_IntegrationSetupStatusItem>[
+              _IntegrationSetupStatusItem(
+                label: appStrings.endpoint,
+                status: savedBaseUrl.trim().isNotEmpty
+                    ? 'Configured'
+                    : appStrings.notConfigured,
+                isConnected: savedBaseUrl.trim().isNotEmpty,
               ),
-            ),
-            actions: <Widget>[
-              if (savedBaseUrl.trim().isNotEmpty || hasToken)
-                TextButton(
-                  onPressed: saving
-                      ? null
-                      : () async {
-                          final shouldClear =
-                              await showDialog<bool>(
-                                context: dialogContext,
-                                builder: (context) {
-                                  return AlertDialog(
-                                    title: Text(
-                                      appStrings.disconnectHomeAssistant,
-                                    ),
-                                    content: Text(
-                                      appStrings.thisRemovesTheHomeAssistantSetup,
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.of(context).pop(false),
-                                        child: Text(appStrings.cancel),
-                                      ),
-                                      FilledButton(
-                                        onPressed: () =>
-                                            Navigator.of(context).pop(true),
-                                        child: Text(appStrings.disconnect),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ) ??
-                              false;
-                          if (!shouldClear) {
-                            return;
-                          }
-                          setState(() {
-                            formError = '';
-                            saving = true;
-                          });
-                          try {
-                            await controller.clearOfficialIntegrationConfig(
-                              'home_assistant',
-                            );
-                            if (dialogContext.mounted) {
-                              Navigator.of(dialogContext).pop();
-                            }
-                          } catch (_) {
-                            setState(() {
-                              formError =
-                                  controller.errorMessage ??
-                                  appStrings.couldNotDisconnectHomeAssistant;
-                              saving = false;
-                            });
-                          }
-                        },
-                  child: Text(appStrings.disconnect),
+              _IntegrationSetupStatusItem(
+                label: appStrings.connectedInstance,
+                status: hasConnectedAccount
+                    ? '$accountCount ${accountCount == 1 ? 'instance' : 'instances'} connected'
+                    : appStrings.notConnected,
+                isConnected: hasConnectedAccount,
+              ),
+            ],
+            error: formError,
+            onClose: saving ? null : () => Navigator.of(dialogContext).pop(),
+            children: <Widget>[
+              TextField(
+                controller: baseUrlController,
+                enabled: !saving,
+                autofocus: savedBaseUrl.isEmpty,
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+                decoration: InputDecoration(
+                  labelText: appStrings.homeAssistantUrl,
+                  hintText: 'https://your-instance.example.com',
+                  prefixIcon: const Icon(Icons.link_rounded),
+                  border: const OutlineInputBorder(),
                 ),
-              TextButton(
-                onPressed: saving
-                    ? null
-                    : () => Navigator.of(dialogContext).pop(),
-                child: Text(appStrings.close),
               ),
+              const SizedBox(height: 14),
+              _AdminCfgSecretField(
+                controller: tokenController,
+                label: hasToken
+                    ? appStrings.pasteReplacementLongLivedAccessToken
+                    : appStrings.longLivedAccessToken,
+                stored: hasToken,
+              ),
+            ],
+            leading: savedBaseUrl.trim().isNotEmpty || hasToken
+                ? _IntegrationDangerButton(
+                    label: appStrings.disconnect,
+                    onPressed: saving ? null : disconnect,
+                  )
+                : null,
+            actions: <Widget>[
               FilledButton(
-                onPressed: saving
-                    ? null
-                    : () async {
-                        setState(() {
-                          formError = '';
-                          saving = true;
-                        });
-                        try {
-                          final baseUrl = baseUrlController.text.trim();
-                          final token = tokenController.text.trim();
-                          if (baseUrl.isEmpty) {
-                            setState(() {
-                              formError = appStrings.homeAssistantUrlIsRequired;
-                              saving = false;
-                            });
-                            return;
-                          }
-                          if (token.isEmpty && !hasToken) {
-                            setState(() {
-                              formError =
-                                  appStrings.homeAssistantLongLivedAccessToken;
-                              saving = false;
-                            });
-                            return;
-                          }
-                          await controller.saveOfficialIntegrationConfig(
-                            'home_assistant',
-                            config: <String, dynamic>{
-                              'baseUrl': baseUrl,
-                              if (token.isNotEmpty) 'token': token,
-                            },
-                          );
-                          if (dialogContext.mounted) {
-                            Navigator.of(dialogContext).pop();
-                          }
-                        } catch (_) {
-                          setState(() {
-                            formError =
-                                controller.errorMessage ??
-                                appStrings.couldNotSaveHomeAssistantSetup;
-                            saving = false;
-                          });
-                        }
-                      },
-                child: Text(
-                  saving
-                      ? appStrings.saving
-                      : hasConnectedAccount
+                onPressed: saving ? null : submit,
+                child: _IntegrationBusyLabel(
+                  busy: saving,
+                  label: hasConnectedAccount
                       ? appStrings.updateInstance
                       : appStrings.connectInstance,
                 ),
@@ -1951,140 +1935,93 @@ Future<void> _showWorldNewsSetupDialog(
     builder: (dialogContext) {
       return StatefulBuilder(
         builder: (dialogContext, setState) {
-          return AlertDialog(
-            title: Text(appStrings.worldNewsSetup),
-            content: SizedBox(
-              width: 520,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    appStrings.connectWorldNewsWithGnews,
-                    style: TextStyle(color: _textSecondary),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: apiKeyController,
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      labelText: hasApiKey
-                          ? appStrings.pasteReplacementGnewsApiKey
-                          : appStrings.gnewsApiKey,
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                  if (hasApiKey) ...<Widget>[
-                    const SizedBox(height: 8),
-                    Text(
-                      appStrings.leaveTheApiKeyEmptyToKeep,
-                      style: TextStyle(color: _textSecondary, fontSize: 12),
-                    ),
-                  ],
-                  if (formError.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 12),
-                    Text(
-                      formError,
-                      style: TextStyle(color: _danger, fontSize: 12),
-                    ),
-                  ],
-                ],
+          Future<void> disconnect() async {
+            final shouldClear = await _confirmIntegrationAction(
+              dialogContext,
+              title: appStrings.disconnectWorldNews,
+              body: appStrings.thisRemovesTheGnewsApiKey,
+              confirmLabel: appStrings.disconnect,
+            );
+            if (!shouldClear) return;
+            setState(() {
+              formError = '';
+              saving = true;
+            });
+            try {
+              await controller.clearOfficialIntegrationConfig('news');
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+            } catch (_) {
+              setState(() {
+                formError =
+                    controller.errorMessage ??
+                    appStrings.couldNotDisconnectWorldNews;
+                saving = false;
+              });
+            }
+          }
+
+          Future<void> submit() async {
+            final apiKey = apiKeyController.text.trim();
+            if (apiKey.isEmpty && !hasApiKey) {
+              setState(() => formError = appStrings.gnewsApiKeyIsRequired);
+              return;
+            }
+            setState(() {
+              formError = '';
+              saving = true;
+            });
+            try {
+              await controller.saveOfficialIntegrationConfig(
+                'news',
+                config: <String, dynamic>{
+                  if (apiKey.isNotEmpty) 'apiKey': apiKey,
+                },
+              );
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+            } catch (_) {
+              setState(() {
+                formError =
+                    controller.errorMessage ??
+                    appStrings.couldNotSaveWorldNewsSetup;
+                saving = false;
+              });
+            }
+          }
+
+          return _IntegrationDialog(
+            icon: 'news',
+            title: appStrings.worldNewsSetup,
+            subtitle: appStrings.connectWorldNewsWithGnews,
+            status: <_IntegrationSetupStatusItem>[
+              _IntegrationSetupStatusItem(
+                label: appStrings.gnewsApiKey,
+                status: hasApiKey ? 'Configured' : appStrings.notConfigured,
+                isConnected: hasApiKey,
               ),
-            ),
+            ],
+            error: formError,
+            onClose: saving ? null : () => Navigator.of(dialogContext).pop(),
+            children: <Widget>[
+              _AdminCfgSecretField(
+                controller: apiKeyController,
+                label: hasApiKey
+                    ? appStrings.pasteReplacementGnewsApiKey
+                    : appStrings.gnewsApiKey,
+                stored: hasApiKey,
+              ),
+            ],
+            leading: hasApiKey
+                ? _IntegrationDangerButton(
+                    label: appStrings.disconnect,
+                    onPressed: saving ? null : disconnect,
+                  )
+                : null,
             actions: <Widget>[
-              if (hasApiKey)
-                TextButton(
-                  onPressed: saving
-                      ? null
-                      : () async {
-                          final shouldClear =
-                              await showDialog<bool>(
-                                context: dialogContext,
-                                builder: (context) => AlertDialog(
-                                  title: Text(appStrings.disconnectWorldNews),
-                                  content: Text(
-                                    appStrings.thisRemovesTheGnewsApiKey,
-                                  ),
-                                  actions: <Widget>[
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.of(context).pop(false),
-                                      child: Text(appStrings.cancel),
-                                    ),
-                                    FilledButton(
-                                      onPressed: () =>
-                                          Navigator.of(context).pop(true),
-                                      child: Text(appStrings.disconnect),
-                                    ),
-                                  ],
-                                ),
-                              ) ??
-                              false;
-                          if (!shouldClear) return;
-                          setState(() {
-                            formError = '';
-                            saving = true;
-                          });
-                          try {
-                            await controller.clearOfficialIntegrationConfig(
-                              'news',
-                            );
-                            if (dialogContext.mounted) {
-                              Navigator.of(dialogContext).pop();
-                            }
-                          } catch (_) {
-                            setState(() {
-                              formError =
-                                  controller.errorMessage ??
-                                  appStrings.couldNotDisconnectWorldNews;
-                              saving = false;
-                            });
-                          }
-                        },
-                  child: Text(appStrings.disconnect),
-                ),
-              TextButton(
-                onPressed: saving
-                    ? null
-                    : () => Navigator.of(dialogContext).pop(),
-                child: Text(appStrings.close),
-              ),
               FilledButton(
-                onPressed: saving
-                    ? null
-                    : () async {
-                        final apiKey = apiKeyController.text.trim();
-                        if (apiKey.isEmpty && !hasApiKey) {
-                          setState(
-                            () => formError = appStrings.gnewsApiKeyIsRequired,
-                          );
-                          return;
-                        }
-                        setState(() {
-                          formError = '';
-                          saving = true;
-                        });
-                        try {
-                          await controller.saveOfficialIntegrationConfig(
-                            'news',
-                            config: <String, dynamic>{
-                              if (apiKey.isNotEmpty) 'apiKey': apiKey,
-                            },
-                          );
-                          if (dialogContext.mounted) {
-                            Navigator.of(dialogContext).pop();
-                          }
-                        } catch (_) {
-                          setState(() {
-                            formError =
-                                controller.errorMessage ??
-                                appStrings.couldNotSaveWorldNewsSetup;
-                            saving = false;
-                          });
-                        }
-                      },
-                child: Text(
-                  saving ? appStrings.saving : appStrings.saveConnect,
+                onPressed: saving ? null : submit,
+                child: _IntegrationBusyLabel(
+                  busy: saving,
+                  label: appStrings.saveConnect,
                 ),
               ),
             ],
@@ -2131,255 +2068,199 @@ Future<void> _showTrelloSetupDialog(
     builder: (dialogContext) {
       return StatefulBuilder(
         builder: (dialogContext, setState) {
-          return AlertDialog(
-            title: Text(appStrings.trelloSetup),
-            content: SizedBox(
-              width: 520,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    appStrings.saveATrelloApiKeyFor,
-                    style: TextStyle(color: _textSecondary),
-                  ),
-                  const SizedBox(height: 16),
-                  _IntegrationSetupStatusItem(
-                    label: appStrings.apiKey3,
-                    status: apiKeyConfigured ? 'Configured' : appStrings.notConfigured,
-                    isConnected: apiKeyConfigured,
-                  ),
-                  const SizedBox(height: 12),
-                  _IntegrationSetupStatusItem(
-                    label: appStrings.connectedAccount,
-                    status: hasConnectedAccount
-                        ? '$accountCount ${accountCount == 1 ? 'connected account' : 'connected accounts'}'
-                        : appStrings.notConnected,
-                    isConnected: hasConnectedAccount,
-                  ),
-                  if (apiKeyManagedByServer) ...<Widget>[
-                    const SizedBox(height: 12),
-                    Text(
-                      appStrings.thisAgentIsUsingAServer,
-                      style: TextStyle(color: _textSecondary),
-                    ),
-                  ] else ...<Widget>[
-                    const SizedBox(height: 12),
-                    TextField(
+          Future<void> disconnect() async {
+            final shouldClear = await _confirmIntegrationAction(
+              dialogContext,
+              title: appStrings.disconnectTrello,
+              body: appStrings.thisRemovesTheTrelloSetupAnd,
+              confirmLabel: appStrings.disconnect,
+            );
+            if (!shouldClear) return;
+            setState(() {
+              formError = '';
+              connecting = true;
+            });
+            try {
+              await controller.clearOfficialIntegrationConfig('trello');
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+            } catch (_) {
+              setState(() {
+                formError =
+                    controller.errorMessage ?? appStrings.couldNotDisconnectTrello;
+                connecting = false;
+              });
+            }
+          }
+
+          Future<void> openTrello() async {
+            setState(() {
+              formError = '';
+              connecting = true;
+            });
+            try {
+              final effectiveApiKey = apiKeyManagedByServer
+                  ? ''
+                  : apiKeyController.text.trim();
+              if (!apiKeyManagedByServer && effectiveApiKey.isEmpty) {
+                setState(() {
+                  formError = appStrings.trelloApiKeyIsRequired;
+                  connecting = false;
+                });
+                return;
+              }
+              final url = authorizeUrl.isNotEmpty
+                  ? authorizeUrl
+                  : 'https://trello.com/1/authorize?expiration=never&scope=read,write,account&response_type=token&key=${Uri.encodeComponent(effectiveApiKey)}';
+              final result = await controller._oauthLauncher.openExternal(
+                url: url,
+                label: 'Trello',
+              );
+              setState(() {
+                if (!result.launched) {
+                  formError =
+                      result.error ?? appStrings.couldNotOpenTrelloInYour;
+                }
+                connecting = false;
+              });
+            } catch (error) {
+              setState(() {
+                formError = controller.friendlyErrorMessage(error);
+                connecting = false;
+              });
+            }
+          }
+
+          Future<void> submit() async {
+            setState(() {
+              formError = '';
+              connecting = true;
+            });
+            try {
+              final apiKey = apiKeyController.text.trim();
+              final token = tokenInputController.text.trim();
+              if (!apiKeyManagedByServer && apiKey.isEmpty) {
+                setState(() {
+                  formError = appStrings.trelloApiKeyIsRequired;
+                  connecting = false;
+                });
+                return;
+              }
+              await controller.saveOfficialIntegrationConfig(
+                'trello',
+                config: <String, dynamic>{
+                  if (!apiKeyManagedByServer) 'apiKey': apiKey,
+                  if (token.isNotEmpty || apiKeyManagedByServer) 'token': token,
+                },
+              );
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+            } catch (_) {
+              setState(() {
+                formError =
+                    controller.errorMessage ?? appStrings.couldNotSaveTrelloSetup;
+                connecting = false;
+              });
+            }
+          }
+
+          final keyReady =
+              apiKeyConfigured ||
+              apiKeyManagedByServer ||
+              apiKeyController.text.trim().isNotEmpty;
+          final canAuthorize =
+              authorizeUrl.isNotEmpty ||
+              apiKeyManagedByServer ||
+              apiKeyController.text.trim().isNotEmpty;
+          var step = 0;
+          return _IntegrationDialog(
+            icon: 'trello',
+            title: appStrings.trelloSetup,
+            subtitle: appStrings.saveATrelloApiKeyFor,
+            status: <_IntegrationSetupStatusItem>[
+              _IntegrationSetupStatusItem(
+                label: appStrings.apiKey3,
+                status: apiKeyConfigured
+                    ? 'Configured'
+                    : appStrings.notConfigured,
+                isConnected: apiKeyConfigured,
+              ),
+              _IntegrationSetupStatusItem(
+                label: appStrings.connectedAccount,
+                status: hasConnectedAccount
+                    ? '$accountCount ${accountCount == 1 ? 'connected account' : 'connected accounts'}'
+                    : appStrings.notConnected,
+                isConnected: hasConnectedAccount,
+              ),
+            ],
+            error: formError,
+            onClose: connecting
+                ? null
+                : () => Navigator.of(dialogContext).pop(),
+            children: <Widget>[
+              if (apiKeyManagedByServer)
+                _IntegrationHint(
+                  appStrings.thisAgentIsUsingAServer,
+                  icon: Icons.verified_outlined,
+                )
+              else
+                _OAuthAppStep(
+                  number: ++step,
+                  first: true,
+                  title: appStrings.trelloApiKey,
+                  children: <Widget>[
+                    _AdminCfgSecretField(
                       controller: apiKeyController,
+                      label: appStrings.trelloApiKey,
+                      stored: apiKeyConfigured,
                       onChanged: (_) => setState(() {}),
-                      obscureText: true,
-                      decoration: InputDecoration(
-                        labelText: appStrings.trelloApiKey,
-                        border: OutlineInputBorder(),
-                      ),
                     ),
                   ],
-                  if (apiKeyConfigured ||
-                      apiKeyController.text.trim().isNotEmpty ||
-                      apiKeyManagedByServer) ...<Widget>[
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: tokenInputController,
-                      onChanged: (_) => setState(() {}),
-                      obscureText: true,
-                      decoration: InputDecoration(
-                        labelText: hasConnectedAccount
-                            ? appStrings.pasteAReplacementToken
-                            : appStrings.pasteYourAccountToken,
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ],
-                  if (formError.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: _danger.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: _danger.withValues(alpha: 0.3),
+                ),
+              if (keyReady) ...<Widget>[
+                if (canAuthorize)
+                  _OAuthAppStep(
+                    number: ++step,
+                    title: appStrings.openTrello,
+                    children: <Widget>[
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: FilledButton.tonalIcon(
+                          onPressed: connecting ? null : openTrello,
+                          icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                          label: Text(appStrings.openTrello),
                         ),
                       ),
-                      child: Text(
-                        formError,
-                        style: TextStyle(color: _danger, fontSize: 12),
-                      ),
+                    ],
+                  ),
+                _OAuthAppStep(
+                  number: ++step,
+                  title: hasConnectedAccount
+                      ? appStrings.pasteAReplacementToken
+                      : appStrings.pasteYourAccountToken,
+                  children: <Widget>[
+                    _AdminCfgSecretField(
+                      controller: tokenInputController,
+                      label: hasConnectedAccount
+                          ? appStrings.pasteAReplacementToken
+                          : appStrings.pasteYourAccountToken,
+                      stored: false,
+                      onChanged: (_) => setState(() {}),
                     ),
                   ],
-                ],
-              ),
-            ),
+                ),
+              ],
+            ],
+            leading: apiKeyConfigured || savedApiKey.trim().isNotEmpty
+                ? _IntegrationDangerButton(
+                    label: appStrings.disconnect,
+                    onPressed: connecting ? null : disconnect,
+                  )
+                : null,
             actions: <Widget>[
-              if (apiKeyConfigured || savedApiKey.trim().isNotEmpty)
-                TextButton(
-                  onPressed: connecting
-                      ? null
-                      : () async {
-                          final shouldClear =
-                              await showDialog<bool>(
-                                context: dialogContext,
-                                builder: (context) {
-                                  return AlertDialog(
-                                    title: Text(appStrings.disconnectTrello),
-                                    content: Text(
-                                      appStrings.thisRemovesTheTrelloSetupAnd,
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.of(context).pop(false),
-                                        child: Text(appStrings.cancel),
-                                      ),
-                                      FilledButton(
-                                        onPressed: () =>
-                                            Navigator.of(context).pop(true),
-                                        child: Text(appStrings.disconnect),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ) ??
-                              false;
-                          if (!shouldClear) {
-                            return;
-                          }
-                          setState(() {
-                            formError = '';
-                            connecting = true;
-                          });
-                          try {
-                            await controller.clearOfficialIntegrationConfig(
-                              'trello',
-                            );
-                            if (dialogContext.mounted) {
-                              Navigator.of(dialogContext).pop();
-                            }
-                          } catch (_) {
-                            setState(() {
-                              formError =
-                                  controller.errorMessage ??
-                                  appStrings.couldNotDisconnectTrello;
-                              connecting = false;
-                            });
-                          }
-                        },
-                  child: Text(appStrings.disconnect),
-                ),
-              TextButton(
-                onPressed: connecting
-                    ? null
-                    : () => Navigator.of(dialogContext).pop(),
-                child: Text(appStrings.close),
-              ),
-              if (authorizeUrl.isNotEmpty ||
-                  apiKeyManagedByServer ||
-                  apiKeyController.text.trim().isNotEmpty)
-                FilledButton.icon(
-                  onPressed: connecting
-                      ? null
-                      : () async {
-                          setState(() {
-                            formError = '';
-                            connecting = true;
-                          });
-                          try {
-                            final effectiveApiKey = apiKeyManagedByServer
-                                ? ''
-                                : apiKeyController.text.trim();
-                            if (!apiKeyManagedByServer &&
-                                effectiveApiKey.isEmpty) {
-                              setState(() {
-                                formError = appStrings.trelloApiKeyIsRequired;
-                                connecting = false;
-                              });
-                              return;
-                            }
-                            final url = authorizeUrl.isNotEmpty
-                                ? authorizeUrl
-                                : 'https://trello.com/1/authorize?expiration=never&scope=read,write,account&response_type=token&key=${Uri.encodeComponent(effectiveApiKey)}';
-                            final result = await controller._oauthLauncher
-                                .openExternal(url: url, label: 'Trello');
-                            if (!result.launched) {
-                              setState(() {
-                                formError =
-                                    result.error ??
-                                    appStrings.couldNotOpenTrelloInYour;
-                                connecting = false;
-                              });
-                            } else {
-                              setState(() {
-                                connecting = false;
-                              });
-                            }
-                          } catch (error) {
-                            setState(() {
-                              formError = controller.friendlyErrorMessage(
-                                error,
-                              );
-                              connecting = false;
-                            });
-                          }
-                        },
-                  icon: Icon(Icons.open_in_browser_rounded),
-                  label: Text(connecting ? 'Opening...' : appStrings.openTrello),
-                ),
               FilledButton(
-                onPressed: connecting
-                    ? null
-                    : () async {
-                        setState(() {
-                          formError = '';
-                          connecting = true;
-                        });
-                        try {
-                          final apiKey = apiKeyController.text.trim();
-                          final token = tokenInputController.text.trim();
-                          if (!apiKeyManagedByServer && apiKey.isEmpty) {
-                            setState(() {
-                              formError = appStrings.trelloApiKeyIsRequired;
-                              connecting = false;
-                            });
-                            return;
-                          }
-                          if (token.isEmpty &&
-                              apiKeyConfigured &&
-                              !apiKeyManagedByServer) {
-                            await controller.saveOfficialIntegrationConfig(
-                              'trello',
-                              config: <String, dynamic>{'apiKey': apiKey},
-                            );
-                          } else if (token.isEmpty && !apiKeyManagedByServer) {
-                            await controller.saveOfficialIntegrationConfig(
-                              'trello',
-                              config: <String, dynamic>{'apiKey': apiKey},
-                            );
-                          } else {
-                            await controller.saveOfficialIntegrationConfig(
-                              'trello',
-                              config: <String, dynamic>{
-                                if (!apiKeyManagedByServer) 'apiKey': apiKey,
-                                'token': token,
-                              },
-                            );
-                          }
-                          if (dialogContext.mounted) {
-                            Navigator.of(dialogContext).pop();
-                          }
-                        } catch (_) {
-                          setState(() {
-                            formError =
-                                controller.errorMessage ??
-                                appStrings.couldNotSaveTrelloSetup;
-                            connecting = false;
-                          });
-                        }
-                      },
-                child: Text(
-                  connecting
-                      ? appStrings.saving
-                      : tokenInputController.text.trim().isNotEmpty
+                onPressed: connecting ? null : submit,
+                child: _IntegrationBusyLabel(
+                  busy: connecting,
+                  label: tokenInputController.text.trim().isNotEmpty
                       ? hasConnectedAccount
                             ? appStrings.replaceAccount
                             : appStrings.connectAccount
@@ -2410,40 +2291,47 @@ class _IntegrationSetupStatusItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tone = isConnected ? _success : _textMuted;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.fromLTRB(10, 6, 12, 6),
       decoration: BoxDecoration(
-        color: _bgSecondary,
-        borderRadius: BorderRadius.circular(8),
+        color: isConnected
+            ? _success.withValues(alpha: 0.1)
+            : _bgSecondary.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
         border: Border.all(
           color: isConnected ? _success.withValues(alpha: 0.3) : _border,
         ),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(
-            isConnected ? Icons.check_circle_outlined : Icons.circle_outlined,
-            size: 18,
-            color: isConnected ? _success : _textSecondary,
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: tone, shape: BoxShape.circle),
           ),
           const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  label,
-                  style: TextStyle(fontSize: 12, color: _textSecondary),
-                ),
-                Text(
-                  status,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: isConnected ? _success : _textPrimary,
+          Flexible(
+            child: Text.rich(
+              TextSpan(
+                children: <InlineSpan>[
+                  TextSpan(
+                    text: '$label  ',
+                    style: TextStyle(color: _textSecondary),
                   ),
-                ),
-              ],
+                  TextSpan(
+                    text: status,
+                    style: TextStyle(
+                      color: isConnected ? _success : _textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12.5),
             ),
           ),
         ],

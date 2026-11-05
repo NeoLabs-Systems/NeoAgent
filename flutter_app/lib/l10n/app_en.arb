@@ -3948,6 +3948,7 @@
   "notNeeded": "Not needed",
   "notNeededEnough": "Not needed enough",
   "notNow": "Not now",
+  "dontAskAgain": "Don't ask again",
   "notNow2": "Not Now",
   "notSet": "Not set",
   "notSetUp": "Not set up",
@@ -7806,6 +7807,6 @@
   "tailscaleServiceValidation": "Select a peer, a port from 1 to 65535, an exact path starting with /, and at least one method.",
   "tailscalePeer": "Peer",
   "tailscaleExactPath": "Exact path and query string",
-  "tailscaleSignInBrowser": "Sign in to Tailscale in your browser, then return here. Your account connects automatically after you approve it.",
+  "tailscaleSignInBrowser": "Sign in to Tailscale in your browser, then return here. Your account connects automatically after you approve it. If the sign-in page didn’t open, your browser may have blocked the popup. Click “Open Tailscale sign-in” below to continue.",
   "tailscaleOpenSignIn": "Open Tailscale sign-in"
 }

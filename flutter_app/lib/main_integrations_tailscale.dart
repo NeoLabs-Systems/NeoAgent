@@ -143,37 +143,66 @@ class _TailscaleServiceDialogState extends State<_TailscaleServiceDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(appStrings.tailscaleServiceAccess),
-    content: SizedBox(
-      width: 600,
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(appStrings.tailscaleServiceAccessHelp),
-            const SizedBox(height: 12),
-            for (final (index, grant) in _grants.indexed)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  '${grant.scheme}://${widget.access.peers.where((peer) => peer.id == grant.peerId).firstOrNull?.name ?? grant.peerId}:${grant.port}${grant.path}',
+  Widget build(BuildContext context) => _IntegrationDialog(
+    title: appStrings.tailscaleServiceAccess,
+    subtitle: appStrings.tailscaleServiceAccessHelp,
+    width: 600,
+    error: _error,
+    onClose: _busy ? null : () => Navigator.of(context).pop(),
+    children: <Widget>[
+      for (final (index, grant) in _grants.indexed)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: _RowSurface(
+            child: Row(
+              children: <Widget>[
+                Icon(Icons.lan_outlined, size: 20, color: _textSecondary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        '${grant.scheme}://${widget.access.peers.where((peer) => peer.id == grant.peerId).firstOrNull?.name ?? grant.peerId}:${grant.port}${grant.path}',
+                        style: _monoStyle(size: 12.5),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        grant.methods.join(' · '),
+                        style: TextStyle(color: _textSecondary, fontSize: 12),
+                      ),
+                    ],
+                  ),
                 ),
-                subtitle: Text(grant.methods.join(', ')),
-                trailing: IconButton(
+                IconButton(
                   tooltip: appStrings.remove,
                   onPressed: _busy
                       ? null
                       : () => setState(() => _grants.removeAt(index)),
-                  icon: const Icon(Icons.delete_outline),
+                  icon: Icon(Icons.delete_outline_rounded, color: _danger),
                 ),
-              ),
-            const SizedBox(height: 12),
+              ],
+            ),
+          ),
+        ),
+      const SizedBox(height: 8),
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _bgSecondary.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(AppRadius.card),
+          border: Border.all(color: _border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
             DropdownButtonFormField<String>(
               initialValue: _peerId,
               isExpanded: true,
-              decoration: InputDecoration(labelText: appStrings.tailscalePeer),
+              decoration: InputDecoration(
+                labelText: appStrings.tailscalePeer,
+                border: const OutlineInputBorder(),
+              ),
               items: widget.access.peers
                   .map(
                     (peer) => DropdownMenuItem<String>(
@@ -186,11 +215,16 @@ class _TailscaleServiceDialogState extends State<_TailscaleServiceDialog> {
                   ? null
                   : (value) => setState(() => _peerId = value),
             ),
+            const SizedBox(height: 12),
             Row(
               children: <Widget>[
-                Expanded(
+                SizedBox(
+                  width: 120,
                   child: DropdownButtonFormField<String>(
                     initialValue: _scheme,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                    ),
                     items: const <DropdownMenuItem<String>>[
                       DropdownMenuItem(value: 'https', child: Text('HTTPS')),
                       DropdownMenuItem(value: 'http', child: Text('HTTP')),
@@ -206,21 +240,27 @@ class _TailscaleServiceDialogState extends State<_TailscaleServiceDialog> {
                     controller: _port,
                     enabled: !_busy,
                     keyboardType: TextInputType.number,
-                    decoration: InputDecoration(labelText: appStrings.port),
+                    decoration: InputDecoration(
+                      labelText: appStrings.port,
+                      border: const OutlineInputBorder(),
+                    ),
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 12),
             TextField(
               controller: _path,
               enabled: !_busy,
               decoration: InputDecoration(
                 labelText: appStrings.tailscaleExactPath,
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 12),
             Wrap(
               spacing: 6,
+              runSpacing: 6,
               children: <Widget>[
                 for (final method in const <String>[
                   'GET',
@@ -246,25 +286,20 @@ class _TailscaleServiceDialogState extends State<_TailscaleServiceDialog> {
                   ),
               ],
             ),
-            TextButton.icon(
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
               onPressed: _busy ? null : _add,
-              icon: const Icon(Icons.add),
+              icon: const Icon(Icons.add_rounded, size: 18),
               label: Text(appStrings.add),
             ),
-            if (_error.isNotEmpty)
-              Text(_error, style: TextStyle(color: _danger)),
           ],
         ),
       ),
-    ),
+    ],
     actions: <Widget>[
-      TextButton(
-        onPressed: _busy ? null : () => Navigator.of(context).pop(),
-        child: Text(appStrings.close),
-      ),
       FilledButton(
         onPressed: _busy ? null : _save,
-        child: Text(appStrings.save),
+        child: _IntegrationBusyLabel(busy: _busy, label: appStrings.save),
       ),
     ],
   );

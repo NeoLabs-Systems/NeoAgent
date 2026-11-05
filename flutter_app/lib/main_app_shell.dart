@@ -1736,7 +1736,6 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   bool _blockedDialogOpen = false;
   bool _approvalSheetOpen = false;
-  bool _callPermissionsAsked = false;
   SidebarGroup? _expandedSidebarGroup;
   AppSection? _lastSelectedSection;
   final GlobalKey _devicesPanelKey = GlobalKey();
@@ -1907,8 +1906,9 @@ class _HomeViewState extends State<HomeView> {
     final inCall =
         controller.incomingAgentCall != null ||
         controller.voiceAssistantLiveState.sessionId.isNotEmpty;
-    if (!_callPermissionsAsked && controller.isAuthenticated && !inCall) {
-      _callPermissionsAsked = true;
+    if (!_callPermissionsPromptedThisLaunch &&
+        controller.isAuthenticated &&
+        !inCall) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(promptForCallPermissionsIfNeeded(context));
       });

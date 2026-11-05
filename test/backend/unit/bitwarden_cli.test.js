@@ -9,6 +9,7 @@ const { test } = require('node:test');
 const {
   BitwardenCli,
   persistedSessionPath,
+  runProcess,
 } = require('../../../server/services/credentials/bitwarden_cli');
 
 test('Bitwarden master password and session remain process inputs and never appear in status', async (t) => {
@@ -146,4 +147,57 @@ test('existing Bitwarden API-key setups remain usable as a login fallback', asyn
       .env.NEOAGENT_BITWARDEN_MASTER_PASSWORD,
     'master-password',
   );
+});
+
+test('Bitwarden CLI failures carry the CLI message and prompts read stdin', async () => {
+  const answered = await runProcess(process.execPath, [
+    '-e',
+    "process.stdin.once('data', (d) => process.stdout.write('got:' + String(d).trim()))",
+  ], { input: '123456\n' });
+  assert.equal(answered, 'got:123456');
+
+  await assert.rejects(
+    runProcess(process.execPath, [
+      '-e',
+      "process.stdout.write('Code is required.'); process.exit(1)",
+    ]),
+    (error) => error.cliMessage === 'Code is required.' &&
+      error.message === 'Bitwarden: Code is required.',
+  );
+});
+
+test('Bitwarden login asks for the new-device code and answers the CLI prompt with it', async (t) => {
+  const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'neoagent-bitwarden-'));
+  const logins = [];
+  const cli = new BitwardenCli({
+    cliScript: '/fake/bw.js',
+    dataDirectory,
+    async runner(command, args, options) {
+      if (args.includes('status')) return JSON.stringify({ status: 'unauthenticated' });
+      if (!args.includes('login')) return '';
+      logins.push(options.input);
+      if (options.input.trim() !== '424242') {
+        const error = new Error('Bitwarden: Code is required.');
+        error.cliMessage = 'Code is required.';
+        throw error;
+      }
+      return 'device-verified-session';
+    },
+  });
+  t.after(async () => {
+    await cli.shutdown();
+    fs.rmSync(dataDirectory, { recursive: true, force: true });
+  });
+  const config = { serverUrl: 'https://vault.bitwarden.com', email: 'person@example.test' };
+
+  await assert.rejects(
+    cli.unlock(1, 'agent-1', 'master-password', 30, { config }),
+    { code: 'BITWARDEN_VERIFICATION_CODE_REQUIRED' },
+  );
+  const status = await cli.unlock(1, 'agent-1', 'master-password', 30, {
+    config,
+    twoStepCode: '424242',
+  });
+  assert.equal(status.unlocked, true);
+  assert.deepEqual(logins, ['\n', '424242\n']);
 });
