@@ -12621,4 +12621,158 @@ class AppL10nSl extends AppL10n {
   @override
   String get agentsDescriptionHint =>
       'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Nameščeno';
+
+  @override
+  String get skillsDiscover => 'Odkrijte';
+
+  @override
+  String get skillsOnSkillsSh => 'Na skills.sh';
+
+  @override
+  String get skillsSearchHint => 'Iskanje spretnosti ali po skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Nameščenih spretnosti še ni. Pridobite eno s skills.sh spodaj, naložite zip s spretnostmi ali napišite svojo.';
+
+  @override
+  String get skillsShelfPopular => 'Priljubljeno';
+
+  @override
+  String get skillsShelfTrending => 'V trendu';
+
+  @override
+  String get skillsTopicDocuments => 'Dokumenti';
+
+  @override
+  String get skillsTopicBrowser => 'Brskalnik';
+
+  @override
+  String get skillsTopicResearch => 'Raziskovanje';
+
+  @override
+  String get skillsTopicWriting => 'Pisanje';
+
+  @override
+  String get skillsTopicDesign => 'Oblikovanje';
+
+  @override
+  String get skillsTopicCoding => 'Programiranje';
+
+  @override
+  String get skillsTopicData => 'Podatki';
+
+  @override
+  String get skillsTopicMarketing => 'Trženje';
+
+  @override
+  String get skillsGet => 'Pridobi';
+
+  @override
+  String get skillsOfficial => 'Uradno';
+
+  @override
+  String get skillOriginBuiltIn => 'Vgrajeno';
+
+  @override
+  String get skillOriginLearned => 'Naučeno';
+
+  @override
+  String get skillOriginYours => 'Vaše';
+
+  @override
+  String get skillDiscardTitle => 'Zavrzi spremembe?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Vaše spremembe spretnosti $name niso shranjene.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Vgrajena spretnost. Ko shranite spremembo, dobite svojo kopijo; drugi obdržijo izvirnik.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return '$name bo odstranjena iz vaših spretnosti. Drugi na tej instanci jo obdržijo.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Naloži knjižnico spretnosti';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Zip z mapami spretnosti, vsaka z datoteko SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Stisnite mapo s spretnostmi, na primer mapo .claude/skills ali celoten repozitorij. Vsaka mapa z datoteko SKILL.md postane spretnost, datoteke ob njej pa so dodane zraven. Ponovno nalaganje knjižnico zamenja.';
+
+  @override
+  String get skillLibraryChooseZip => 'Izberite datoteko .zip';
+
+  @override
+  String get skillLibraryChangeFile => 'Spremeni';
+
+  @override
+  String get skillLibraryName => 'Ime knjižnice';
+
+  @override
+  String get skillLibraryNameHelp => 'Pustite prazno za ime datoteke.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Datoteke ni bilo mogoče prebrati. Poskusite jo izbrati znova.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    return 'Nameščene spretnosti: $count';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    return 'Nameščeno v $library: $count';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Odstranjeno, ni več v zipu';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Preskočeno';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    return 'Spretnosti: $count';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return 'Izklopljeno: $count';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Izbriši knjižnico';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Vse spretnosti iz $library ($count) bodo odstranjene.';
+  }
+
+  @override
+  String get bitwardenVault => 'Trezor';
+
+  @override
+  String get bitwardenLock => 'Zakleni';
+
+  @override
+  String get integrationConfigured => 'Nastavljeno';
+
+  @override
+  String get showMore => 'Pokaži več';
+
+  @override
+  String get showLess => 'Pokaži manj';
 }

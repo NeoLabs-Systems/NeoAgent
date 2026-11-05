@@ -12606,4 +12606,179 @@ class AppL10nSv extends AppL10n {
   @override
   String get agentsDescriptionHint =>
       'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Installerade';
+
+  @override
+  String get skillsDiscover => 'Upptäck';
+
+  @override
+  String get skillsOnSkillsSh => 'På skills.sh';
+
+  @override
+  String get skillsSearchHint => 'Sök färdigheter eller på skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Inga färdigheter installerade än. Hämta en från skills.sh nedan, ladda upp en zip med färdigheter eller skriv en egen.';
+
+  @override
+  String get skillsShelfPopular => 'Populära';
+
+  @override
+  String get skillsShelfTrending => 'Trendar';
+
+  @override
+  String get skillsTopicDocuments => 'Dokument';
+
+  @override
+  String get skillsTopicBrowser => 'Webbläsare';
+
+  @override
+  String get skillsTopicResearch => 'Research';
+
+  @override
+  String get skillsTopicWriting => 'Skrivande';
+
+  @override
+  String get skillsTopicDesign => 'Design';
+
+  @override
+  String get skillsTopicCoding => 'Kodning';
+
+  @override
+  String get skillsTopicData => 'Data';
+
+  @override
+  String get skillsTopicMarketing => 'Marknadsföring';
+
+  @override
+  String get skillsGet => 'Hämta';
+
+  @override
+  String get skillsOfficial => 'Officiell';
+
+  @override
+  String get skillOriginBuiltIn => 'Inbyggd';
+
+  @override
+  String get skillOriginLearned => 'Inlärd';
+
+  @override
+  String get skillOriginYours => 'Din';
+
+  @override
+  String get skillDiscardTitle => 'Ignorera ändringarna?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Dina ändringar i $name är inte sparade.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Inbyggd färdighet. När du sparar en ändring får du en egen kopia; andra behåller originalet.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return '$name tas bort från dina färdigheter. Andra på den här instansen behåller den.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Ladda upp färdighetsbibliotek';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'En zip med färdighetsmappar, var och en med en SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Zippa en mapp med färdigheter, till exempel en .claude/skills-mapp eller ett helt repository. Varje mapp med en SKILL.md blir en färdighet, och filerna bredvid följer med. Att ladda upp ett bibliotek igen ersätter det.';
+
+  @override
+  String get skillLibraryChooseZip => 'Välj en .zip-fil';
+
+  @override
+  String get skillLibraryChangeFile => 'Byt';
+
+  @override
+  String get skillLibraryName => 'Bibliotekets namn';
+
+  @override
+  String get skillLibraryNameHelp => 'Lämna tomt för att använda filnamnet.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Filen kunde inte läsas. Försök välja den igen.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count färdigheter installerade',
+      one: '1 färdighet installerad',
+      zero: 'Inga färdigheter installerade',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count färdigheter installerade i $library',
+      one: '1 färdighet installerad i $library',
+      zero: 'Inga färdigheter installerade i $library',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle =>
+      'Borttagna, finns inte längre i zip-filen';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Överhoppade';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count färdigheter',
+      one: '1 färdighet',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return '$count av';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Ta bort bibliotek';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Alla färdigheter från $library ($count) tas bort.';
+  }
+
+  @override
+  String get bitwardenVault => 'Valv';
+
+  @override
+  String get bitwardenLock => 'Lås';
+
+  @override
+  String get integrationConfigured => 'Konfigurerad';
+
+  @override
+  String get showMore => 'Visa mer';
+
+  @override
+  String get showLess => 'Visa mindre';
 }

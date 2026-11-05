@@ -129,6 +129,7 @@ test('post-run learning creates, repeats, exposes, versions, and protects skills
       autoCreated: true,
       filePath: created.filePath,
       skillsShId: '',
+      library: '',
       readOnly: false,
       ownerType: 'user',
     });

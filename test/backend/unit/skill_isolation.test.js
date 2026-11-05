@@ -124,7 +124,7 @@ test('skill runner isolates user-owned skills and allows same names per user', a
   assert.deepEqual(rows.map((item) => item.user_id), [userA.userId, userB.userId]);
 });
 
-test('global and foreign-user skills are not editable through the runner', async () => {
+test('built-in skills change per user and foreign-user skills stay out of reach', async () => {
   ctx = createTestRuntime();
   const userA = await createTestUser(ctx.db, { username: 'skill_editor_a' });
   const userB = await createTestUser(ctx.db, { username: 'skill_editor_b' });
@@ -161,12 +161,25 @@ test('global and foreign-user skills are not editable through the runner', async
   assert.ok(runner.getSkill('global-doc', userA.userId));
   assert.equal(runner.getSkill('user-a-only', userB.userId), null);
 
+  // Switching a built-in skill off is one user's choice.
+  assert.equal(runner.setSkillEnabled(userA.userId, 'global-doc', false).success, true);
+  assert.equal(runner.getSkill('global-doc', userA.userId).metadata.enabled, false);
+  assert.notEqual(runner.getSkill('global-doc', userB.userId).metadata.enabled, false);
+
+  // Editing gives the user their own copy; the shared file stays as it was.
   const globalUpdate = runner.updateSkill(userA.userId, 'global-doc', {
-    instructions: 'Nope',
+    instructions: 'My version',
   });
-  const globalDelete = runner.deleteSkill(userA.userId, 'global-doc');
-  assert.equal(globalUpdate.code, 'forbidden');
-  assert.equal(globalDelete.code, 'forbidden');
+  assert.equal(globalUpdate.success, true);
+  assert.ok(runner.getSkill('global-doc', userA.userId).filePath.includes(`/users/${userA.userId}/`));
+  assert.equal(runner.getSkill('global-doc', userB.userId).instructions, 'Global instructions');
+
+  // Deleting removes it from that user's list only, and survives a reload.
+  assert.equal(runner.deleteSkill(userA.userId, 'global-doc').success, true);
+  await runner.loadSkills();
+  assert.equal(runner.getSkill('global-doc', userA.userId), null);
+  assert.ok(runner.getSkill('global-doc', userB.userId));
+  assert.ok(fs.existsSync(path.join(globalSkillDir, 'global-doc.md')));
 
   const foreignDelete = runner.deleteSkill(userB.userId, 'user-a-only');
   const foreignUpdate = runner.updateSkill(userB.userId, 'user-a-only', {

@@ -823,6 +823,18 @@ db.exec(`
     FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
   );
 
+  -- A user's choices about skills they don't own (built-in and legacy ones):
+  -- switched off, or removed from their list.
+  CREATE TABLE IF NOT EXISTS user_skill_overrides (
+    user_id INTEGER NOT NULL,
+    skill_name TEXT NOT NULL,
+    enabled INTEGER,
+    hidden INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, skill_name),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
   CREATE TABLE IF NOT EXISTS agent_settings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,

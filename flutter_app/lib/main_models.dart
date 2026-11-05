@@ -3123,6 +3123,9 @@ class SkillItem {
     required this.draft,
     required this.category,
     required this.source,
+    this.builtIn = false,
+    this.skillsShId = '',
+    this.library = '',
   });
 
   factory SkillItem.fromJson(Map<dynamic, dynamic> json) {
@@ -3133,6 +3136,9 @@ class SkillItem {
       draft: json['draft'] == true,
       category: json['category']?.toString().ifEmpty('general') ?? 'general',
       source: json['source']?.toString().ifEmpty('local') ?? 'local',
+      builtIn: json['readOnly'] == true,
+      skillsShId: json['skillsShId']?.toString() ?? '',
+      library: json['library']?.toString() ?? '',
     );
   }
 
@@ -3142,6 +3148,68 @@ class SkillItem {
   final bool draft;
   final String category;
   final String source;
+
+  /// Shipped with the instance rather than written or installed by this user.
+  /// Switching it off or deleting it only affects this user; editing it saves
+  /// the user's own copy.
+  final bool builtIn;
+
+  /// The skills.sh id (`owner/repo/skill`) this skill was installed from.
+  final String skillsShId;
+
+  /// The uploaded skill library this skill came in, or empty.
+  final String library;
+
+  SkillItem withEnabled(bool value) => SkillItem(
+    name: name,
+    description: description,
+    enabled: value,
+    draft: draft,
+    category: category,
+    source: source,
+    builtIn: builtIn,
+    skillsShId: skillsShId,
+    library: library,
+  );
+}
+
+/// What uploading a skill library zip did.
+class SkillLibraryUploadResult {
+  const SkillLibraryUploadResult({
+    required this.library,
+    required this.installed,
+    required this.skipped,
+    required this.removed,
+  });
+
+  factory SkillLibraryUploadResult.fromJson(Map<dynamic, dynamic> json) {
+    List<String> names(Object? value) => value is List
+        ? value.map((item) => item.toString()).toList()
+        : const <String>[];
+    final skipped = json['skipped'];
+    return SkillLibraryUploadResult(
+      library: json['library']?.toString() ?? '',
+      installed: names(json['installed']),
+      removed: names(json['removed']),
+      skipped: skipped is List
+          ? skipped
+                .whereType<Map>()
+                .map(
+                  (item) => (
+                    name: item['name']?.toString() ?? '',
+                    reason: item['reason']?.toString() ?? '',
+                  ),
+                )
+                .toList()
+          : const <({String name, String reason})>[],
+    );
+  }
+
+  /// Empty when the zip held a single skill, which installs on its own.
+  final String library;
+  final List<String> installed;
+  final List<({String name, String reason})> skipped;
+  final List<String> removed;
 }
 
 /// A search hit from skills.sh. [installedName] is the local skill name when
@@ -3154,6 +3222,7 @@ class SkillsShItem {
     required this.name,
     required this.installs,
     required this.installedName,
+    this.official = false,
   });
 
   factory SkillsShItem.fromJson(Map<dynamic, dynamic> json) {
@@ -3164,6 +3233,7 @@ class SkillsShItem {
       name: json['name']?.toString() ?? '',
       installs: (json['installs'] as num?)?.toInt(),
       installedName: json['installedName']?.toString() ?? '',
+      official: json['official'] == true,
     );
   }
 
@@ -3173,6 +3243,9 @@ class SkillsShItem {
   final String name;
   final int? installs;
   final String installedName;
+
+  /// Published by the maker of the tool the skill is for.
+  final bool official;
 }
 
 class OfficialIntegrationAppItem {

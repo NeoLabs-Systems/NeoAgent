@@ -5979,13 +5979,21 @@ class NeoAgentController extends ChangeNotifier {
     await refreshSkills();
   }
 
+  /// Flips the switch right away; the server's answer settles it.
   Future<void> setSkillEnabled(String name, bool enabled) async {
-    await _backendClient.setSkillEnabled(
-      backendUrl,
-      name: name,
-      enabled: enabled,
-    );
-    await refreshSkills();
+    skills = skills
+        .map((skill) => skill.name == name ? skill.withEnabled(enabled) : skill)
+        .toList();
+    notifyListeners();
+    try {
+      await _backendClient.setSkillEnabled(
+        backendUrl,
+        name: name,
+        enabled: enabled,
+      );
+    } finally {
+      await refreshSkills();
+    }
   }
 
   Future<void> deleteSkill(String name) async {
@@ -5996,6 +6004,50 @@ class NeoAgentController extends ChangeNotifier {
   Future<List<SkillsShItem>> searchSkillsSh(String query) async {
     final rows = await _backendClient.searchSkillsSh(backendUrl, query);
     return rows.map(SkillsShItem.fromJson).toList();
+  }
+
+  Future<List<SkillsShItem>> featuredSkillsSh(String list) async {
+    final rows = await _backendClient.featuredSkillsSh(backendUrl, list);
+    return rows.map(SkillsShItem.fromJson).toList();
+  }
+
+  Future<SkillLibraryUploadResult> uploadSkillLibrary({
+    required String filename,
+    required Uint8List bytes,
+    String? name,
+  }) async {
+    final result = await _backendClient.uploadSkillLibrary(
+      backendUrl,
+      filename: filename,
+      bytes: bytes,
+      name: name,
+    );
+    await refreshSkills();
+    return SkillLibraryUploadResult.fromJson(result);
+  }
+
+  /// Flips every skill of the library right away; the server settles it.
+  Future<void> setSkillLibraryEnabled(String library, bool enabled) async {
+    skills = skills
+        .map(
+          (skill) => skill.library == library ? skill.withEnabled(enabled) : skill,
+        )
+        .toList();
+    notifyListeners();
+    try {
+      await _backendClient.setSkillLibraryEnabled(
+        backendUrl,
+        library: library,
+        enabled: enabled,
+      );
+    } finally {
+      await refreshSkills();
+    }
+  }
+
+  Future<void> deleteSkillLibrary(String library) async {
+    await _backendClient.deleteSkillLibrary(backendUrl, library);
+    await refreshSkills();
   }
 
   /// Installs a skills.sh skill as a user skill and returns its local name.

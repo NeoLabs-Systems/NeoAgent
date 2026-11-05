@@ -12640,4 +12640,159 @@ class AppL10nLt extends AppL10n {
   @override
   String get agentsDescriptionHint =>
       'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Įdiegta';
+
+  @override
+  String get skillsDiscover => 'Atrasti';
+
+  @override
+  String get skillsOnSkillsSh => 'Svetainėje skills.sh';
+
+  @override
+  String get skillsSearchHint => 'Ieškoti įgūdžių arba skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Dar neįdiegta jokių įgūdžių. Gaukite vieną iš skills.sh žemiau, įkelkite įgūdžių zip arba parašykite savo.';
+
+  @override
+  String get skillsShelfPopular => 'Populiarūs';
+
+  @override
+  String get skillsShelfTrending => 'Populiarėjantys';
+
+  @override
+  String get skillsTopicDocuments => 'Dokumentai';
+
+  @override
+  String get skillsTopicBrowser => 'Naršyklė';
+
+  @override
+  String get skillsTopicResearch => 'Tyrimai';
+
+  @override
+  String get skillsTopicWriting => 'Rašymas';
+
+  @override
+  String get skillsTopicDesign => 'Dizainas';
+
+  @override
+  String get skillsTopicCoding => 'Programavimas';
+
+  @override
+  String get skillsTopicData => 'Duomenys';
+
+  @override
+  String get skillsTopicMarketing => 'Rinkodara';
+
+  @override
+  String get skillsGet => 'Gauti';
+
+  @override
+  String get skillsOfficial => 'Oficialus';
+
+  @override
+  String get skillOriginBuiltIn => 'Integruotas';
+
+  @override
+  String get skillOriginLearned => 'Išmoktas';
+
+  @override
+  String get skillOriginYours => 'Jūsų';
+
+  @override
+  String get skillDiscardTitle => 'Atmesti pakeitimus?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Jūsų $name pakeitimai neišsaugoti.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Integruotas įgūdis. Išsaugoję pakeitimą gausite savo kopiją; kiti pasilieka originalą.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return '$name pašalinamas iš jūsų įgūdžių. Kiti šio egzemplioriaus naudotojai jį pasilieka.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Įkelti įgūdžių biblioteką';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Įgūdžių aplankų zip, kiekviename yra SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Suarchyvuokite įgūdžių aplanką, pvz., .claude/skills aplanką arba visą saugyklą. Kiekvienas aplankas su SKILL.md tampa įgūdžiu, o šalia esantys failai keliauja kartu. Pakartotinai įkėlus biblioteką, ji pakeičiama.';
+
+  @override
+  String get skillLibraryChooseZip => 'Pasirinkite .zip failą';
+
+  @override
+  String get skillLibraryChangeFile => 'Keisti';
+
+  @override
+  String get skillLibraryName => 'Bibliotekos pavadinimas';
+
+  @override
+  String get skillLibraryNameHelp =>
+      'Palikite tuščią, kad būtų naudojamas failo pavadinimas.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Nepavyko perskaityti failo. Pabandykite jį pasirinkti dar kartą.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    return 'Įdiegta įgūdžių: $count';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    return 'Įdiegta į $library: $count';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Pašalinta, nebėra zip faile';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Praleista';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    return 'Įgūdžiai: $count';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return 'Išjungta: $count';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Ištrinti biblioteką';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Pašalinami visi $library įgūdžiai ($count).';
+  }
+
+  @override
+  String get bitwardenVault => 'Saugykla';
+
+  @override
+  String get bitwardenLock => 'Užrakinti';
+
+  @override
+  String get integrationConfigured => 'Sukonfigūruota';
+
+  @override
+  String get showMore => 'Rodyti daugiau';
+
+  @override
+  String get showLess => 'Rodyti mažiau';
 }

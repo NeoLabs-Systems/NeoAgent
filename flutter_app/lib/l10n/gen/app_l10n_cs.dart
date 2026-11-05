@@ -12614,4 +12614,159 @@ class AppL10nCs extends AppL10n {
   @override
   String get agentsDescriptionHint =>
       'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Nainstalováno';
+
+  @override
+  String get skillsDiscover => 'Objevit';
+
+  @override
+  String get skillsOnSkillsSh => 'Na skills.sh';
+
+  @override
+  String get skillsSearchHint => 'Hledat dovednosti nebo skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Zatím nemáte nainstalované žádné dovednosti. Získejte nějakou ze skills.sh níže, nahrajte zip s dovednostmi nebo napište vlastní.';
+
+  @override
+  String get skillsShelfPopular => 'Oblíbené';
+
+  @override
+  String get skillsShelfTrending => 'Populární teď';
+
+  @override
+  String get skillsTopicDocuments => 'Dokumenty';
+
+  @override
+  String get skillsTopicBrowser => 'Prohlížeč';
+
+  @override
+  String get skillsTopicResearch => 'Výzkum';
+
+  @override
+  String get skillsTopicWriting => 'Psaní';
+
+  @override
+  String get skillsTopicDesign => 'Design';
+
+  @override
+  String get skillsTopicCoding => 'Programování';
+
+  @override
+  String get skillsTopicData => 'Data';
+
+  @override
+  String get skillsTopicMarketing => 'Marketing';
+
+  @override
+  String get skillsGet => 'Získat';
+
+  @override
+  String get skillsOfficial => 'Oficiální';
+
+  @override
+  String get skillOriginBuiltIn => 'Vestavěné';
+
+  @override
+  String get skillOriginLearned => 'Naučené';
+
+  @override
+  String get skillOriginYours => 'Vaše';
+
+  @override
+  String get skillDiscardTitle => 'Zahodit změny?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Vaše úpravy dovednosti $name nejsou uložené.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Vestavěná dovednost. Uložením úpravy získáte vlastní kopii; ostatní si ponechají originál.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return '$name se odebere z vašich dovedností. Ostatní na této instanci si ji ponechají.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Nahrát knihovnu dovedností';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Zip se složkami dovedností, každá se souborem SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Zabalte složku s dovednostmi, například .claude/skills nebo celý repozitář. Každá složka se SKILL.md se stane dovedností a soubory vedle ní se přidají s ní. Opětovné nahrání knihovnu nahradí.';
+
+  @override
+  String get skillLibraryChooseZip => 'Vyberte soubor .zip';
+
+  @override
+  String get skillLibraryChangeFile => 'Změnit';
+
+  @override
+  String get skillLibraryName => 'Název knihovny';
+
+  @override
+  String get skillLibraryNameHelp =>
+      'Nechte prázdné pro použití názvu souboru.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Soubor se nepodařilo přečíst. Zkuste ho vybrat znovu.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    return 'Nainstalované dovednosti: $count';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    return 'Nainstalováno do $library: $count';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Odebráno, už není v zipu';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Přeskočeno';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    return 'Dovednosti: $count';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return 'Vypnuto: $count';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Smazat knihovnu';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Všechny dovednosti z $library ($count) budou odebrány.';
+  }
+
+  @override
+  String get bitwardenVault => 'Trezor';
+
+  @override
+  String get bitwardenLock => 'Zamknout';
+
+  @override
+  String get integrationConfigured => 'Nastaveno';
+
+  @override
+  String get showMore => 'Zobrazit více';
+
+  @override
+  String get showLess => 'Zobrazit méně';
 }

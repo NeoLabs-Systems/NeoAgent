@@ -12611,4 +12611,158 @@ class AppL10nEt extends AppL10n {
   @override
   String get agentsDescriptionHint =>
       'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Paigaldatud';
+
+  @override
+  String get skillsDiscover => 'Avasta';
+
+  @override
+  String get skillsOnSkillsSh => 'skills.sh-is';
+
+  @override
+  String get skillsSearchHint => 'Otsi oskusi või skills.sh-st';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Ühtegi oskust pole veel paigaldatud. Hangi üks allpool skills.sh-st, laadi üles oskuste zip või kirjuta oma.';
+
+  @override
+  String get skillsShelfPopular => 'Populaarsed';
+
+  @override
+  String get skillsShelfTrending => 'Trendis';
+
+  @override
+  String get skillsTopicDocuments => 'Dokumendid';
+
+  @override
+  String get skillsTopicBrowser => 'Brauser';
+
+  @override
+  String get skillsTopicResearch => 'Uurimine';
+
+  @override
+  String get skillsTopicWriting => 'Kirjutamine';
+
+  @override
+  String get skillsTopicDesign => 'Disain';
+
+  @override
+  String get skillsTopicCoding => 'Programmeerimine';
+
+  @override
+  String get skillsTopicData => 'Andmed';
+
+  @override
+  String get skillsTopicMarketing => 'Turundus';
+
+  @override
+  String get skillsGet => 'Hangi';
+
+  @override
+  String get skillsOfficial => 'Ametlik';
+
+  @override
+  String get skillOriginBuiltIn => 'Sisseehitatud';
+
+  @override
+  String get skillOriginLearned => 'Õpitud';
+
+  @override
+  String get skillOriginYours => 'Sinu oma';
+
+  @override
+  String get skillDiscardTitle => 'Kas loobuda muudatustest?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Sinu muudatused oskuses $name pole salvestatud.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Sisseehitatud oskus. Muudatuse salvestamisel saad oma koopia; teised jäävad originaali juurde.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return '$name eemaldatakse sinu oskuste hulgast. Teised selle eksemplari kasutajad jäävad seda kasutama.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Laadi üles oskuste kogu';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Oskuste kaustade zip, igas kaustas SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Paki oskuste kaust zip-faili, näiteks .claude/skills kaust või terve hoidla. Iga SKILL.md-ga kaust muutub oskuseks ja selle kõrval olevad failid tulevad kaasa. Kogu uuesti üleslaadimine asendab selle.';
+
+  @override
+  String get skillLibraryChooseZip => 'Vali .zip-fail';
+
+  @override
+  String get skillLibraryChangeFile => 'Muuda';
+
+  @override
+  String get skillLibraryName => 'Kogu nimi';
+
+  @override
+  String get skillLibraryNameHelp => 'Jäta tühjaks, et kasutada faili nime.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Faili ei õnnestunud lugeda. Proovi see uuesti valida.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    return 'Paigaldatud oskusi: $count';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    return 'Paigaldatud kogusse $library: $count';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Eemaldatud, enam pole zip-is';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Vahele jäetud';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    return 'Oskusi: $count';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return 'Väljas: $count';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Kustuta kogu';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Kõik kogu $library oskused ($count) eemaldatakse.';
+  }
+
+  @override
+  String get bitwardenVault => 'Hoidla';
+
+  @override
+  String get bitwardenLock => 'Lukusta';
+
+  @override
+  String get integrationConfigured => 'Seadistatud';
+
+  @override
+  String get showMore => 'Näita rohkem';
+
+  @override
+  String get showLess => 'Näita vähem';
 }

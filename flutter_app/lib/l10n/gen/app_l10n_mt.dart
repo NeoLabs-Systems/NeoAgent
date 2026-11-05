@@ -12643,4 +12643,159 @@ class AppL10nMt extends AppL10n {
   @override
   String get agentsDescriptionHint =>
       'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Installati';
+
+  @override
+  String get skillsDiscover => 'Skopri';
+
+  @override
+  String get skillsOnSkillsSh => 'Fuq skills.sh';
+
+  @override
+  String get skillsSearchHint => 'Fittex ħiliet jew skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Għad m’hemmx ħiliet installati. Ġib waħda minn skills.sh hawn taħt, tella’ zip ta’ ħiliet, jew ikteb tiegħek.';
+
+  @override
+  String get skillsShelfPopular => 'Popolari';
+
+  @override
+  String get skillsShelfTrending => 'Fix-xejra';
+
+  @override
+  String get skillsTopicDocuments => 'Dokumenti';
+
+  @override
+  String get skillsTopicBrowser => 'Browser';
+
+  @override
+  String get skillsTopicResearch => 'Riċerka';
+
+  @override
+  String get skillsTopicWriting => 'Kitba';
+
+  @override
+  String get skillsTopicDesign => 'Disinn';
+
+  @override
+  String get skillsTopicCoding => 'Programmar';
+
+  @override
+  String get skillsTopicData => 'Data';
+
+  @override
+  String get skillsTopicMarketing => 'Marketing';
+
+  @override
+  String get skillsGet => 'Ġib';
+
+  @override
+  String get skillsOfficial => 'Uffiċjali';
+
+  @override
+  String get skillOriginBuiltIn => 'Inkorporata';
+
+  @override
+  String get skillOriginLearned => 'Mitgħallma';
+
+  @override
+  String get skillOriginYours => 'Tiegħek';
+
+  @override
+  String get skillDiscardTitle => 'Twarrab il-bidliet?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Il-bidliet tiegħek f’$name mhumiex salvati.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Ħila inkorporata. Meta tissejvja bidla jkollok kopja tiegħek; ħaddieħor iżomm l-oriġinal.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return '$name titneħħa mill-ħiliet tiegħek. Nies oħra fuq din l-istanza jżommuha.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Tella’ librerija ta’ ħiliet';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Zip ta’ folders tal-ħiliet, kull wieħed b’SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Agħmel zip ta’ folder tal-ħiliet, bħal folder .claude/skills jew repożitorju sħiħ. Kull folder b’SKILL.md isir ħila, u l-fajls ħdejh jiġu miegħu. Jekk ittella’ librerija mill-ġdid, tieħu postha.';
+
+  @override
+  String get skillLibraryChooseZip => 'Agħżel fajl .zip';
+
+  @override
+  String get skillLibraryChangeFile => 'Biddel';
+
+  @override
+  String get skillLibraryName => 'Isem il-librerija';
+
+  @override
+  String get skillLibraryNameHelp =>
+      'Ħallih vojt biex jintuża l-isem tal-fajl.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Il-fajl ma setax jinqara. Ipprova agħżlu mill-ġdid.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    return 'Ħiliet installati: $count';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    return 'Installati f’$library: $count';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Imneħħija, m’għadhomx fiz-zip';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Maqbuża';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    return 'Ħiliet: $count';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return 'Mitfija: $count';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Ħassar il-librerija';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Il-ħiliet kollha minn $library ($count) jitneħħew.';
+  }
+
+  @override
+  String get bitwardenVault => 'Kaxxa forti';
+
+  @override
+  String get bitwardenLock => 'Sakkar';
+
+  @override
+  String get integrationConfigured => 'Konfigurat';
+
+  @override
+  String get showMore => 'Uri aktar';
+
+  @override
+  String get showLess => 'Uri inqas';
 }

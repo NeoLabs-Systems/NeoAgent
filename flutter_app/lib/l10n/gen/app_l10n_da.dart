@@ -12600,4 +12600,178 @@ class AppL10nDa extends AppL10n {
   @override
   String get agentsDescriptionHint =>
       'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Installeret';
+
+  @override
+  String get skillsDiscover => 'Opdag';
+
+  @override
+  String get skillsOnSkillsSh => 'På skills.sh';
+
+  @override
+  String get skillsSearchHint => 'Søg i færdigheder eller skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Ingen færdigheder installeret endnu. Hent en fra skills.sh nedenfor, upload en zip med færdigheder, eller skriv din egen.';
+
+  @override
+  String get skillsShelfPopular => 'Populære';
+
+  @override
+  String get skillsShelfTrending => 'Trender';
+
+  @override
+  String get skillsTopicDocuments => 'Dokumenter';
+
+  @override
+  String get skillsTopicBrowser => 'Browser';
+
+  @override
+  String get skillsTopicResearch => 'Research';
+
+  @override
+  String get skillsTopicWriting => 'Skrivning';
+
+  @override
+  String get skillsTopicDesign => 'Design';
+
+  @override
+  String get skillsTopicCoding => 'Kodning';
+
+  @override
+  String get skillsTopicData => 'Data';
+
+  @override
+  String get skillsTopicMarketing => 'Marketing';
+
+  @override
+  String get skillsGet => 'Hent';
+
+  @override
+  String get skillsOfficial => 'Officiel';
+
+  @override
+  String get skillOriginBuiltIn => 'Indbygget';
+
+  @override
+  String get skillOriginLearned => 'Lært';
+
+  @override
+  String get skillOriginYours => 'Dine';
+
+  @override
+  String get skillDiscardTitle => 'Kassér ændringer?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Dine ændringer af $name er ikke gemt.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Indbygget færdighed. Når du gemmer en ændring, får du din egen kopi; andre beholder originalen.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return '$name fjernes fra dine færdigheder. Andre på denne instans beholder den.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Upload færdighedsbibliotek';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'En zip med færdighedsmapper, hver med en SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Zip en mappe med færdigheder, fx en .claude/skills-mappe eller et helt repository. Hver mappe med en SKILL.md bliver en færdighed, og filerne ved siden af kommer med. Upload af et bibliotek igen erstatter det.';
+
+  @override
+  String get skillLibraryChooseZip => 'Vælg en .zip-fil';
+
+  @override
+  String get skillLibraryChangeFile => 'Skift';
+
+  @override
+  String get skillLibraryName => 'Bibliotekets navn';
+
+  @override
+  String get skillLibraryNameHelp => 'Lad stå tomt for at bruge filnavnet.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Filen kunne ikke læses. Prøv at vælge den igen.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count færdigheder installeret',
+      one: '1 færdighed installeret',
+      zero: 'Ingen færdigheder installeret',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count færdigheder installeret i $library',
+      one: '1 færdighed installeret i $library',
+      zero: 'Ingen færdigheder installeret i $library',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Fjernet, ikke længere i zip-filen';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Sprunget over';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count færdigheder',
+      one: '1 færdighed',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return '$count slået fra';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Slet bibliotek';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Alle færdigheder fra $library ($count) fjernes.';
+  }
+
+  @override
+  String get bitwardenVault => 'Boks';
+
+  @override
+  String get bitwardenLock => 'Lås';
+
+  @override
+  String get integrationConfigured => 'Konfigureret';
+
+  @override
+  String get showMore => 'Vis mere';
+
+  @override
+  String get showLess => 'Vis mindre';
 }

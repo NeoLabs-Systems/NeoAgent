@@ -12633,4 +12633,159 @@ class AppL10nLv extends AppL10n {
   @override
   String get agentsDescriptionHint =>
       'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Instalētas';
+
+  @override
+  String get skillsDiscover => 'Atklāt';
+
+  @override
+  String get skillsOnSkillsSh => 'Vietnē skills.sh';
+
+  @override
+  String get skillsSearchHint => 'Meklēt prasmes vai skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Vēl nav instalēta neviena prasme. Iegūstiet kādu no skills.sh zemāk, augšupielādējiet prasmju zip vai uzrakstiet savu.';
+
+  @override
+  String get skillsShelfPopular => 'Populāras';
+
+  @override
+  String get skillsShelfTrending => 'Pieaugošas';
+
+  @override
+  String get skillsTopicDocuments => 'Dokumenti';
+
+  @override
+  String get skillsTopicBrowser => 'Pārlūks';
+
+  @override
+  String get skillsTopicResearch => 'Izpēte';
+
+  @override
+  String get skillsTopicWriting => 'Rakstīšana';
+
+  @override
+  String get skillsTopicDesign => 'Dizains';
+
+  @override
+  String get skillsTopicCoding => 'Programmēšana';
+
+  @override
+  String get skillsTopicData => 'Dati';
+
+  @override
+  String get skillsTopicMarketing => 'Mārketings';
+
+  @override
+  String get skillsGet => 'Iegūt';
+
+  @override
+  String get skillsOfficial => 'Oficiāla';
+
+  @override
+  String get skillOriginBuiltIn => 'Iebūvēta';
+
+  @override
+  String get skillOriginLearned => 'Apgūta';
+
+  @override
+  String get skillOriginYours => 'Jūsu';
+
+  @override
+  String get skillDiscardTitle => 'Atmest izmaiņas?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Jūsu izmaiņas prasmē $name nav saglabātas.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Iebūvēta prasme. Saglabājot izmaiņu, jūs iegūstat savu kopiju; citi patur oriģinālu.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return '$name tiek noņemta no jūsu prasmēm. Citi šīs instances lietotāji to patur.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Augšupielādēt prasmju bibliotēku';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Prasmju mapju zip, katrā mapē ir SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Saarhivējiet prasmju mapi, piemēram, .claude/skills mapi vai visu repozitoriju. Katra mape ar SKILL.md kļūst par prasmi, un blakus esošie faili tiek pievienoti. Atkārtota bibliotēkas augšupielāde to aizstāj.';
+
+  @override
+  String get skillLibraryChooseZip => 'Izvēlieties .zip failu';
+
+  @override
+  String get skillLibraryChangeFile => 'Mainīt';
+
+  @override
+  String get skillLibraryName => 'Bibliotēkas nosaukums';
+
+  @override
+  String get skillLibraryNameHelp =>
+      'Atstājiet tukšu, lai izmantotu faila nosaukumu.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Failu nevarēja nolasīt. Mēģiniet to izvēlēties vēlreiz.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    return 'Instalētās prasmes: $count';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    return 'Instalēts bibliotēkā $library: $count';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Noņemtas, vairs nav zip failā';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Izlaistas';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    return 'Prasmes: $count';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return 'Izslēgtas: $count';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Dzēst bibliotēku';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Tiek noņemtas visas $library prasmes ($count).';
+  }
+
+  @override
+  String get bitwardenVault => 'Seifs';
+
+  @override
+  String get bitwardenLock => 'Bloķēt';
+
+  @override
+  String get integrationConfigured => 'Konfigurēts';
+
+  @override
+  String get showMore => 'Rādīt vairāk';
+
+  @override
+  String get showLess => 'Rādīt mazāk';
 }

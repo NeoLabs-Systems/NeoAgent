@@ -12686,4 +12686,159 @@ class AppL10nGa extends AppL10n {
   @override
   String get agentsDescriptionHint =>
       'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Suiteáilte';
+
+  @override
+  String get skillsDiscover => 'Faigh amach';
+
+  @override
+  String get skillsOnSkillsSh => 'Ar skills.sh';
+
+  @override
+  String get skillsSearchHint => 'Cuardaigh scileanna nó skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Níl aon scileanna suiteáilte fós. Faigh ceann ó skills.sh thíos, uaslódáil zip scileanna, nó scríobh do cheann féin.';
+
+  @override
+  String get skillsShelfPopular => 'Coitianta';
+
+  @override
+  String get skillsShelfTrending => 'Ag treochtáil';
+
+  @override
+  String get skillsTopicDocuments => 'Doiciméid';
+
+  @override
+  String get skillsTopicBrowser => 'Brabhsálaí';
+
+  @override
+  String get skillsTopicResearch => 'Taighde';
+
+  @override
+  String get skillsTopicWriting => 'Scríbhneoireacht';
+
+  @override
+  String get skillsTopicDesign => 'Dearadh';
+
+  @override
+  String get skillsTopicCoding => 'Códú';
+
+  @override
+  String get skillsTopicData => 'Sonraí';
+
+  @override
+  String get skillsTopicMarketing => 'Margaíocht';
+
+  @override
+  String get skillsGet => 'Faigh';
+
+  @override
+  String get skillsOfficial => 'Oifigiúil';
+
+  @override
+  String get skillOriginBuiltIn => 'Ionsuite';
+
+  @override
+  String get skillOriginLearned => 'Foghlamtha';
+
+  @override
+  String get skillOriginYours => 'Do chuid féin';
+
+  @override
+  String get skillDiscardTitle => 'Athruithe a chaitheamh i leataobh?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Níl d’athruithe ar $name sábháilte.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Scil ionsuite. Nuair a shábhálann tú athrú gheobhaidh tú do chóip féin; coinníonn daoine eile an bunleagan.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return 'Baintear $name as do scileanna. Coinníonn daoine eile ar an gcás seo é.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Uaslódáil leabharlann scileanna';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Zip d’fhillteáin scileanna, gach ceann le SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Cuir fillteán scileanna i zip, mar shampla fillteán .claude/skills nó stór iomlán. Déantar scil de gach fillteán a bhfuil SKILL.md ann, agus tagann na comhaid in aice leis leis. Má uaslódáiltear leabharlann arís, cuirtear í in ionad an tseanleagain.';
+
+  @override
+  String get skillLibraryChooseZip => 'Roghnaigh comhad .zip';
+
+  @override
+  String get skillLibraryChangeFile => 'Athraigh';
+
+  @override
+  String get skillLibraryName => 'Ainm na leabharlainne';
+
+  @override
+  String get skillLibraryNameHelp =>
+      'Fág folamh chun ainm an chomhaid a úsáid.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Níorbh fhéidir an comhad a léamh. Bain triail as é a roghnú arís.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    return 'Scileanna suiteáilte: $count';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    return 'Suiteáilte i $library: $count';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Bainte, níl siad sa zip a thuilleadh';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Scipeáilte';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    return 'Scileanna: $count';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return 'As: $count';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Scrios an leabharlann';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Baintear gach scil ó $library ($count).';
+  }
+
+  @override
+  String get bitwardenVault => 'Taisce';
+
+  @override
+  String get bitwardenLock => 'Glasáil';
+
+  @override
+  String get integrationConfigured => 'Cumraithe';
+
+  @override
+  String get showMore => 'Taispeáin níos mó';
+
+  @override
+  String get showLess => 'Taispeáin níos lú';
 }

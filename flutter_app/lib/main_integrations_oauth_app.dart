@@ -151,7 +151,7 @@ class _OAuthAppSetupDialogState extends State<_OAuthAppSetupDialog> {
       ],
       error: _error,
       onClose: _busy ? null : () => Navigator.of(context).pop(),
-      children: <Widget>[
+      body: <Widget>[
         if (_alternatives.isNotEmpty && !_stored) ...<Widget>[
           _IntegrationAlternatives(
             controller: widget.controller,

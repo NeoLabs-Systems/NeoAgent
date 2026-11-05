@@ -12661,4 +12661,159 @@ class AppL10nBg extends AppL10n {
   @override
   String get agentsDescriptionHint =>
       'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Инсталирани';
+
+  @override
+  String get skillsDiscover => 'Открийте';
+
+  @override
+  String get skillsOnSkillsSh => 'В skills.sh';
+
+  @override
+  String get skillsSearchHint => 'Търсене на умения или skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Все още няма инсталирани умения. Вземете от skills.sh по-долу, качете zip с умения или напишете свое.';
+
+  @override
+  String get skillsShelfPopular => 'Популярни';
+
+  @override
+  String get skillsShelfTrending => 'Набиращи популярност';
+
+  @override
+  String get skillsTopicDocuments => 'Документи';
+
+  @override
+  String get skillsTopicBrowser => 'Браузър';
+
+  @override
+  String get skillsTopicResearch => 'Проучване';
+
+  @override
+  String get skillsTopicWriting => 'Писане';
+
+  @override
+  String get skillsTopicDesign => 'Дизайн';
+
+  @override
+  String get skillsTopicCoding => 'Програмиране';
+
+  @override
+  String get skillsTopicData => 'Данни';
+
+  @override
+  String get skillsTopicMarketing => 'Маркетинг';
+
+  @override
+  String get skillsGet => 'Вземи';
+
+  @override
+  String get skillsOfficial => 'Официално';
+
+  @override
+  String get skillOriginBuiltIn => 'Вградено';
+
+  @override
+  String get skillOriginLearned => 'Научено';
+
+  @override
+  String get skillOriginYours => 'Ваше';
+
+  @override
+  String get skillDiscardTitle => 'Отхвърляне на промените?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Промените ви в $name не са запазени.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Вградено умение. При запазване на промяна получавате собствено копие; другите запазват оригинала.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return '$name се премахва от вашите умения. Другите хора в тази инстанция го запазват.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Качване на библиотека с умения';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Zip с папки с умения, всяка със SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Архивирайте папка с умения, например .claude/skills или цяло хранилище. Всяка папка със SKILL.md става умение, а файловете до него се добавят заедно с него. Повторното качване заменя библиотеката.';
+
+  @override
+  String get skillLibraryChooseZip => 'Изберете .zip файл';
+
+  @override
+  String get skillLibraryChangeFile => 'Промяна';
+
+  @override
+  String get skillLibraryName => 'Име на библиотеката';
+
+  @override
+  String get skillLibraryNameHelp =>
+      'Оставете празно, за да се използва името на файла.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Файлът не можа да бъде прочетен. Опитайте да го изберете отново.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    return 'Инсталирани умения: $count';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    return 'Инсталирани в $library: $count';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Премахнати, вече не са в zip файла';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Пропуснати';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    return 'Умения: $count';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return 'Изключени: $count';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Изтриване на библиотеката';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Всички умения от $library ($count) се премахват.';
+  }
+
+  @override
+  String get bitwardenVault => 'Трезор';
+
+  @override
+  String get bitwardenLock => 'Заключване';
+
+  @override
+  String get integrationConfigured => 'Настроено';
+
+  @override
+  String get showMore => 'Покажи повече';
+
+  @override
+  String get showLess => 'Покажи по-малко';
 }

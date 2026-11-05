@@ -7,9 +7,10 @@ part of 'main.dart';
 class _IntegrationDialog extends StatelessWidget {
   const _IntegrationDialog({
     required this.title,
-    required this.children,
+    required this.body,
     this.subtitle,
     this.icon,
+    this.badge,
     this.status = const <_IntegrationSetupStatusItem>[],
     this.error = '',
     this.leading,
@@ -24,8 +25,11 @@ class _IntegrationDialog extends StatelessWidget {
 
   /// Icon key understood by [_OfficialIntegrationIcon], such as `trello`.
   final String? icon;
+
+  /// A custom header badge, used when there is no integration [icon].
+  final Widget? badge;
   final List<_IntegrationSetupStatusItem> status;
-  final List<Widget> children;
+  final List<Widget> body;
   final String error;
 
   /// A destructive action, shown at the far left of the footer.
@@ -82,6 +86,9 @@ class _IntegrationDialog extends StatelessWidget {
                       size: 42,
                     ),
                     const SizedBox(width: 14),
+                  ] else if (badge != null) ...<Widget>[
+                    badge!,
+                    const SizedBox(width: 14),
                   ],
                   Expanded(
                     child: Column(
@@ -137,7 +144,7 @@ class _IntegrationDialog extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: children,
+                  children: body,
                 ),
               ),
             ),

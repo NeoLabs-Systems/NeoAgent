@@ -20982,6 +20982,276 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Optional. One line on what it is good at.'**
   String get agentsDescriptionHint;
+
+  /// No description provided for @skillsInstalled.
+  ///
+  /// In en, this message translates to:
+  /// **'Installed'**
+  String get skillsInstalled;
+
+  /// No description provided for @skillsDiscover.
+  ///
+  /// In en, this message translates to:
+  /// **'Discover'**
+  String get skillsDiscover;
+
+  /// No description provided for @skillsOnSkillsSh.
+  ///
+  /// In en, this message translates to:
+  /// **'On skills.sh'**
+  String get skillsOnSkillsSh;
+
+  /// No description provided for @skillsSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search skills or skills.sh'**
+  String get skillsSearchHint;
+
+  /// No description provided for @skillsNoneInstalled.
+  ///
+  /// In en, this message translates to:
+  /// **'No skills installed yet. Get one from skills.sh below, upload a zip of skills, or write your own.'**
+  String get skillsNoneInstalled;
+
+  /// No description provided for @skillsShelfPopular.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular'**
+  String get skillsShelfPopular;
+
+  /// No description provided for @skillsShelfTrending.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending'**
+  String get skillsShelfTrending;
+
+  /// No description provided for @skillsTopicDocuments.
+  ///
+  /// In en, this message translates to:
+  /// **'Documents'**
+  String get skillsTopicDocuments;
+
+  /// No description provided for @skillsTopicBrowser.
+  ///
+  /// In en, this message translates to:
+  /// **'Browser'**
+  String get skillsTopicBrowser;
+
+  /// No description provided for @skillsTopicResearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Research'**
+  String get skillsTopicResearch;
+
+  /// No description provided for @skillsTopicWriting.
+  ///
+  /// In en, this message translates to:
+  /// **'Writing'**
+  String get skillsTopicWriting;
+
+  /// No description provided for @skillsTopicDesign.
+  ///
+  /// In en, this message translates to:
+  /// **'Design'**
+  String get skillsTopicDesign;
+
+  /// No description provided for @skillsTopicCoding.
+  ///
+  /// In en, this message translates to:
+  /// **'Coding'**
+  String get skillsTopicCoding;
+
+  /// No description provided for @skillsTopicData.
+  ///
+  /// In en, this message translates to:
+  /// **'Data'**
+  String get skillsTopicData;
+
+  /// No description provided for @skillsTopicMarketing.
+  ///
+  /// In en, this message translates to:
+  /// **'Marketing'**
+  String get skillsTopicMarketing;
+
+  /// No description provided for @skillsGet.
+  ///
+  /// In en, this message translates to:
+  /// **'Get'**
+  String get skillsGet;
+
+  /// No description provided for @skillsOfficial.
+  ///
+  /// In en, this message translates to:
+  /// **'Official'**
+  String get skillsOfficial;
+
+  /// No description provided for @skillOriginBuiltIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Built-in'**
+  String get skillOriginBuiltIn;
+
+  /// No description provided for @skillOriginLearned.
+  ///
+  /// In en, this message translates to:
+  /// **'Learned'**
+  String get skillOriginLearned;
+
+  /// No description provided for @skillOriginYours.
+  ///
+  /// In en, this message translates to:
+  /// **'Yours'**
+  String get skillOriginYours;
+
+  /// No description provided for @skillDiscardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard changes?'**
+  String get skillDiscardTitle;
+
+  /// No description provided for @skillDiscardBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your edits to {name} are not saved.'**
+  String skillDiscardBody(String name);
+
+  /// No description provided for @skillBuiltInEditHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Built-in skill. Saving an edit gives you your own copy; other people keep the original.'**
+  String get skillBuiltInEditHint;
+
+  /// No description provided for @skillBuiltInDeleteBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is removed from your skills. Other people on this instance keep it.'**
+  String skillBuiltInDeleteBody(String name);
+
+  /// No description provided for @skillLibraryUpload.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload skill library'**
+  String get skillLibraryUpload;
+
+  /// No description provided for @skillLibraryUploadSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'A zip of skill folders, each with a SKILL.md'**
+  String get skillLibraryUploadSubtitle;
+
+  /// No description provided for @skillLibraryUploadHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Zip a folder of skills, such as a .claude/skills folder or a whole repository. Every folder with a SKILL.md becomes a skill, and the files next to it come along. Uploading a library again replaces it.'**
+  String get skillLibraryUploadHint;
+
+  /// No description provided for @skillLibraryChooseZip.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a .zip file'**
+  String get skillLibraryChooseZip;
+
+  /// No description provided for @skillLibraryChangeFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get skillLibraryChangeFile;
+
+  /// No description provided for @skillLibraryName.
+  ///
+  /// In en, this message translates to:
+  /// **'Library name'**
+  String get skillLibraryName;
+
+  /// No description provided for @skillLibraryNameHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave empty to use the file name.'**
+  String get skillLibraryNameHelp;
+
+  /// No description provided for @skillLibraryUnreadable.
+  ///
+  /// In en, this message translates to:
+  /// **'This file could not be read. Try choosing it again.'**
+  String get skillLibraryUnreadable;
+
+  /// No description provided for @skillLibraryInstalledCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No skills installed} =1{1 skill installed} other{{count} skills installed}}'**
+  String skillLibraryInstalledCount(int count);
+
+  /// No description provided for @skillLibraryInstalledInto.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No skills installed into {library}} =1{1 skill installed into {library}} other{{count} skills installed into {library}}}'**
+  String skillLibraryInstalledInto(int count, String library);
+
+  /// No description provided for @skillLibraryRemovedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed, no longer in the zip'**
+  String get skillLibraryRemovedTitle;
+
+  /// No description provided for @skillLibrarySkippedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Skipped'**
+  String get skillLibrarySkippedTitle;
+
+  /// No description provided for @skillLibrarySkillCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 skill} other{{count} skills}}'**
+  String skillLibrarySkillCount(int count);
+
+  /// No description provided for @skillLibraryOffCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} off'**
+  String skillLibraryOffCount(int count);
+
+  /// No description provided for @skillLibraryDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete library'**
+  String get skillLibraryDelete;
+
+  /// No description provided for @skillLibraryDeleteBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{The 1 skill from {library} is removed.} other{All {count} skills from {library} are removed.}}'**
+  String skillLibraryDeleteBody(int count, String library);
+
+  /// No description provided for @bitwardenVault.
+  ///
+  /// In en, this message translates to:
+  /// **'Vault'**
+  String get bitwardenVault;
+
+  /// No description provided for @bitwardenLock.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock'**
+  String get bitwardenLock;
+
+  /// No description provided for @integrationConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'Configured'**
+  String get integrationConfigured;
+
+  /// No description provided for @showMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Show more'**
+  String get showMore;
+
+  /// No description provided for @showLess.
+  ///
+  /// In en, this message translates to:
+  /// **'Show less'**
+  String get showLess;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

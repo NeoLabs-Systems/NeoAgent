@@ -12568,4 +12568,184 @@ class AppL10nEn extends AppL10n {
   @override
   String get agentsDescriptionHint =>
       'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Installed';
+
+  @override
+  String get skillsDiscover => 'Discover';
+
+  @override
+  String get skillsOnSkillsSh => 'On skills.sh';
+
+  @override
+  String get skillsSearchHint => 'Search skills or skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'No skills installed yet. Get one from skills.sh below, upload a zip of skills, or write your own.';
+
+  @override
+  String get skillsShelfPopular => 'Popular';
+
+  @override
+  String get skillsShelfTrending => 'Trending';
+
+  @override
+  String get skillsTopicDocuments => 'Documents';
+
+  @override
+  String get skillsTopicBrowser => 'Browser';
+
+  @override
+  String get skillsTopicResearch => 'Research';
+
+  @override
+  String get skillsTopicWriting => 'Writing';
+
+  @override
+  String get skillsTopicDesign => 'Design';
+
+  @override
+  String get skillsTopicCoding => 'Coding';
+
+  @override
+  String get skillsTopicData => 'Data';
+
+  @override
+  String get skillsTopicMarketing => 'Marketing';
+
+  @override
+  String get skillsGet => 'Get';
+
+  @override
+  String get skillsOfficial => 'Official';
+
+  @override
+  String get skillOriginBuiltIn => 'Built-in';
+
+  @override
+  String get skillOriginLearned => 'Learned';
+
+  @override
+  String get skillOriginYours => 'Yours';
+
+  @override
+  String get skillDiscardTitle => 'Discard changes?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Your edits to $name are not saved.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Built-in skill. Saving an edit gives you your own copy; other people keep the original.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return '$name is removed from your skills. Other people on this instance keep it.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Upload skill library';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'A zip of skill folders, each with a SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Zip a folder of skills, such as a .claude/skills folder or a whole repository. Every folder with a SKILL.md becomes a skill, and the files next to it come along. Uploading a library again replaces it.';
+
+  @override
+  String get skillLibraryChooseZip => 'Choose a .zip file';
+
+  @override
+  String get skillLibraryChangeFile => 'Change';
+
+  @override
+  String get skillLibraryName => 'Library name';
+
+  @override
+  String get skillLibraryNameHelp => 'Leave empty to use the file name.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'This file could not be read. Try choosing it again.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count skills installed',
+      one: '1 skill installed',
+      zero: 'No skills installed',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count skills installed into $library',
+      one: '1 skill installed into $library',
+      zero: 'No skills installed into $library',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Removed, no longer in the zip';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Skipped';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count skills',
+      one: '1 skill',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return '$count off';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Delete library';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'All $count skills from $library are removed.',
+      one: 'The 1 skill from $library is removed.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get bitwardenVault => 'Vault';
+
+  @override
+  String get bitwardenLock => 'Lock';
+
+  @override
+  String get integrationConfigured => 'Configured';
+
+  @override
+  String get showMore => 'Show more';
+
+  @override
+  String get showLess => 'Show less';
 }

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const express = require('express');
+const multer = require('multer');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
@@ -10,8 +11,18 @@ const {
   sortInstalledSkills,
 } = require('../services/skills/runtime');
 const { markLearningUserEdited } = require('../services/skills/learning_documents');
-const { installSkillsShSkill, searchSkillsSh } = require('../services/skills/skills_sh');
+const { featuredSkillsSh, installSkillsShSkill, searchSkillsSh } = require('../services/skills/skills_sh');
 const { sendJsonError } = require('../http/errors');
+const {
+  deleteSkillLibrary,
+  installSkillLibrary,
+  setSkillLibraryEnabled,
+} = require('../services/skills/skill_library');
+
+const libraryUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 32 * 1024 * 1024, files: 1 },
+});
 
 router.use(requireAuth);
 
@@ -108,19 +119,31 @@ router.get('/audit/summary', (req, res) => {
   }
 });
 
+async function withInstalledNames(req, results) {
+  const runner = await getSkillRunner(req.app);
+  const installed = new Map(
+    runner.getAll(req.session.userId)
+      .filter((skill) => skill.ownerType === 'user' && skill.metadata?.skills_sh_id)
+      .map((skill) => [skill.metadata.skills_sh_id, skill.name]),
+  );
+  return results.map((result) => ({
+    ...result,
+    installedName: installed.get(result.id) || '',
+  }));
+}
+
 router.get('/skills-sh/search', async (req, res) => {
   try {
-    const runner = await getSkillRunner(req.app);
-    const installed = new Map(
-      runner.getAll(req.session.userId)
-        .filter((skill) => skill.ownerType === 'user' && skill.metadata?.skills_sh_id)
-        .map((skill) => [skill.metadata.skills_sh_id, skill.name]),
-    );
-    const results = await searchSkillsSh(String(req.query.q || ''));
-    res.json(results.map((result) => ({
-      ...result,
-      installedName: installed.get(result.id) || '',
-    })));
+    res.json(await withInstalledNames(req, await searchSkillsSh(String(req.query.q || ''))));
+  } catch (err) {
+    sendJsonError(res, err);
+  }
+});
+
+router.get('/skills-sh/featured', async (req, res) => {
+  try {
+    const list = String(req.query.list || 'popular');
+    res.json(await withInstalledNames(req, await featuredSkillsSh(list)));
   } catch (err) {
     sendJsonError(res, err);
   }
@@ -135,6 +158,52 @@ router.post('/skills-sh/install', async (req, res) => {
       name: String(req.body?.name || req.body?.skillId || ''),
     });
     res.status(201).json({ success: true, ...result });
+  } catch (err) {
+    sendJsonError(res, err);
+  }
+});
+
+// A zip of skill folders (a `.claude/skills` folder, say), installed as one
+// library of ordinary user skills.
+router.post('/library', (req, res) => {
+  libraryUpload.single('archive')(req, res, async (uploadError) => {
+    if (uploadError) {
+      const tooLarge = uploadError instanceof multer.MulterError && uploadError.code === 'LIMIT_FILE_SIZE';
+      return res.status(tooLarge ? 413 : 400).json({
+        error: tooLarge ? 'The zip is larger than 32 MB' : sanitizeError(uploadError),
+      });
+    }
+    if (!req.file?.buffer) return res.status(400).json({ error: 'No zip file was uploaded' });
+    try {
+      const runner = await getSkillRunner(req.app);
+      const result = installSkillLibrary(runner, req.session.userId, {
+        buffer: req.file.buffer,
+        filename: req.file.originalname,
+        name: req.body?.name || req.query?.name,
+      });
+      res.status(result.installed.length > 0 ? 201 : 200).json(result);
+    } catch (err) {
+      sendJsonError(res, err);
+    }
+  });
+});
+
+router.put('/library/:library', async (req, res) => {
+  try {
+    if (typeof req.body?.enabled !== 'boolean') {
+      return res.status(400).json({ error: 'enabled must be true or false' });
+    }
+    const runner = await getSkillRunner(req.app);
+    res.json(setSkillLibraryEnabled(runner, req.session.userId, req.params.library, req.body.enabled));
+  } catch (err) {
+    sendJsonError(res, err);
+  }
+});
+
+router.delete('/library/:library', async (req, res) => {
+  try {
+    const runner = await getSkillRunner(req.app);
+    res.json(deleteSkillLibrary(runner, req.session.userId, req.params.library));
   } catch (err) {
     sendJsonError(res, err);
   }

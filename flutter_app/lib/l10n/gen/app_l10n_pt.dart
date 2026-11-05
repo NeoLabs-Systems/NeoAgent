@@ -12662,4 +12662,178 @@ class AppL10nPt extends AppL10n {
   @override
   String get agentsDescriptionHint =>
       'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Instaladas';
+
+  @override
+  String get skillsDiscover => 'Descobrir';
+
+  @override
+  String get skillsOnSkillsSh => 'No skills.sh';
+
+  @override
+  String get skillsSearchHint => 'Pesquisar habilidades ou no skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Ainda não há habilidades instaladas. Obtenha uma do skills.sh abaixo, envie um zip de habilidades ou escreva a sua.';
+
+  @override
+  String get skillsShelfPopular => 'Populares';
+
+  @override
+  String get skillsShelfTrending => 'Em alta';
+
+  @override
+  String get skillsTopicDocuments => 'Documentos';
+
+  @override
+  String get skillsTopicBrowser => 'Navegador';
+
+  @override
+  String get skillsTopicResearch => 'Pesquisa';
+
+  @override
+  String get skillsTopicWriting => 'Escrita';
+
+  @override
+  String get skillsTopicDesign => 'Design';
+
+  @override
+  String get skillsTopicCoding => 'Programação';
+
+  @override
+  String get skillsTopicData => 'Dados';
+
+  @override
+  String get skillsTopicMarketing => 'Marketing';
+
+  @override
+  String get skillsGet => 'Obter';
+
+  @override
+  String get skillsOfficial => 'Oficial';
+
+  @override
+  String get skillOriginBuiltIn => 'Integrada';
+
+  @override
+  String get skillOriginLearned => 'Aprendida';
+
+  @override
+  String get skillOriginYours => 'Sua';
+
+  @override
+  String get skillDiscardTitle => 'Descartar alterações?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Suas alterações em $name não foram salvas.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Habilidade integrada. Ao salvar uma alteração você recebe sua própria cópia; os outros mantêm a original.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return '$name será removida das suas habilidades. As outras pessoas nesta instância a mantêm.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Enviar biblioteca de habilidades';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Um zip de pastas de habilidades, cada uma com um SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Compacte uma pasta de habilidades, como uma pasta .claude/skills ou um repositório inteiro. Cada pasta com um SKILL.md vira uma habilidade, e os arquivos ao lado vêm junto. Enviar uma biblioteca novamente a substitui.';
+
+  @override
+  String get skillLibraryChooseZip => 'Escolher um arquivo .zip';
+
+  @override
+  String get skillLibraryChangeFile => 'Alterar';
+
+  @override
+  String get skillLibraryName => 'Nome da biblioteca';
+
+  @override
+  String get skillLibraryNameHelp => 'Deixe vazio para usar o nome do arquivo.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Não foi possível ler o arquivo. Tente escolhê-lo novamente.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count habilidades instaladas',
+      one: '1 habilidade instalada',
+      zero: 'Nenhuma habilidade instalada',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count habilidades instaladas em $library',
+      one: '1 habilidade instalada em $library',
+      zero: 'Nenhuma habilidade instalada em $library',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Removidas, não estão mais no zip';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Ignoradas';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count habilidades',
+      one: '1 habilidade',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return '$count desativadas';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Excluir biblioteca';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Todas as habilidades de $library ($count) serão removidas.';
+  }
+
+  @override
+  String get bitwardenVault => 'Cofre';
+
+  @override
+  String get bitwardenLock => 'Bloquear';
+
+  @override
+  String get integrationConfigured => 'Configurado';
+
+  @override
+  String get showMore => 'Mostrar mais';
+
+  @override
+  String get showLess => 'Mostrar menos';
 }

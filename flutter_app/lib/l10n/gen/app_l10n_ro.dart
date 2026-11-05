@@ -12668,4 +12668,159 @@ class AppL10nRo extends AppL10n {
   @override
   String get agentsDescriptionHint =>
       'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Instalate';
+
+  @override
+  String get skillsDiscover => 'Descoperă';
+
+  @override
+  String get skillsOnSkillsSh => 'Pe skills.sh';
+
+  @override
+  String get skillsSearchHint => 'Caută abilități sau pe skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Nu ai încă nicio abilitate instalată. Ia una de pe skills.sh mai jos, încarcă un zip cu abilități sau scrie-ți propria abilitate.';
+
+  @override
+  String get skillsShelfPopular => 'Populare';
+
+  @override
+  String get skillsShelfTrending => 'În tendințe';
+
+  @override
+  String get skillsTopicDocuments => 'Documente';
+
+  @override
+  String get skillsTopicBrowser => 'Browser';
+
+  @override
+  String get skillsTopicResearch => 'Cercetare';
+
+  @override
+  String get skillsTopicWriting => 'Scriere';
+
+  @override
+  String get skillsTopicDesign => 'Design';
+
+  @override
+  String get skillsTopicCoding => 'Programare';
+
+  @override
+  String get skillsTopicData => 'Date';
+
+  @override
+  String get skillsTopicMarketing => 'Marketing';
+
+  @override
+  String get skillsGet => 'Obține';
+
+  @override
+  String get skillsOfficial => 'Oficială';
+
+  @override
+  String get skillOriginBuiltIn => 'Integrată';
+
+  @override
+  String get skillOriginLearned => 'Învățată';
+
+  @override
+  String get skillOriginYours => 'A ta';
+
+  @override
+  String get skillDiscardTitle => 'Renunți la modificări?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Modificările tale la $name nu sunt salvate.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Abilitate integrată. Salvarea unei modificări îți oferă propria copie; ceilalți păstrează originalul.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return '$name este eliminată din abilitățile tale. Ceilalți de pe această instanță o păstrează.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Încarcă o bibliotecă de abilități';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Un zip cu foldere de abilități, fiecare cu un SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Arhivează un folder de abilități, de exemplu un folder .claude/skills sau un întreg depozit. Fiecare folder cu un SKILL.md devine o abilitate, iar fișierele de lângă el sunt incluse. Reîncărcarea unei biblioteci o înlocuiește.';
+
+  @override
+  String get skillLibraryChooseZip => 'Alege un fișier .zip';
+
+  @override
+  String get skillLibraryChangeFile => 'Schimbă';
+
+  @override
+  String get skillLibraryName => 'Numele bibliotecii';
+
+  @override
+  String get skillLibraryNameHelp =>
+      'Lasă gol pentru a folosi numele fișierului.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Fișierul nu a putut fi citit. Încearcă să-l alegi din nou.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    return 'Abilități instalate: $count';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    return 'Instalate în $library: $count';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Eliminate, nu mai sunt în zip';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Omise';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    return 'Abilități: $count';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return 'Dezactivate: $count';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Șterge biblioteca';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Toate abilitățile din $library ($count) sunt eliminate.';
+  }
+
+  @override
+  String get bitwardenVault => 'Seif';
+
+  @override
+  String get bitwardenLock => 'Blochează';
+
+  @override
+  String get integrationConfigured => 'Configurat';
+
+  @override
+  String get showMore => 'Arată mai mult';
+
+  @override
+  String get showLess => 'Arată mai puțin';
 }

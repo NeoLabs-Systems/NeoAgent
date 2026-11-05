@@ -12672,4 +12672,158 @@ class AppL10nHu extends AppL10n {
   @override
   String get agentsDescriptionHint =>
       'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Telepítve';
+
+  @override
+  String get skillsDiscover => 'Felfedezés';
+
+  @override
+  String get skillsOnSkillsSh => 'A skills.sh-n';
+
+  @override
+  String get skillsSearchHint => 'Készségek keresése vagy skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Még nincs telepített készség. Szerezz egyet lent a skills.sh-ról, tölts fel egy zipet készségekkel, vagy írd meg a sajátodat.';
+
+  @override
+  String get skillsShelfPopular => 'Népszerű';
+
+  @override
+  String get skillsShelfTrending => 'Felkapott';
+
+  @override
+  String get skillsTopicDocuments => 'Dokumentumok';
+
+  @override
+  String get skillsTopicBrowser => 'Böngésző';
+
+  @override
+  String get skillsTopicResearch => 'Kutatás';
+
+  @override
+  String get skillsTopicWriting => 'Írás';
+
+  @override
+  String get skillsTopicDesign => 'Dizájn';
+
+  @override
+  String get skillsTopicCoding => 'Programozás';
+
+  @override
+  String get skillsTopicData => 'Adatok';
+
+  @override
+  String get skillsTopicMarketing => 'Marketing';
+
+  @override
+  String get skillsGet => 'Beszerzés';
+
+  @override
+  String get skillsOfficial => 'Hivatalos';
+
+  @override
+  String get skillOriginBuiltIn => 'Beépített';
+
+  @override
+  String get skillOriginLearned => 'Tanult';
+
+  @override
+  String get skillOriginYours => 'Saját';
+
+  @override
+  String get skillDiscardTitle => 'Elveted a módosításokat?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'A(z) $name módosításai nincsenek mentve.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Beépített készség. Egy módosítás mentésével saját másolatot kapsz; mások megtartják az eredetit.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return 'A(z) $name kikerül a készségeid közül. A példány többi felhasználója megtartja.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Készségkönyvtár feltöltése';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Készségmappák zipje, mindegyikben egy SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Csomagolj zipbe egy készségmappát, például egy .claude/skills mappát vagy egy teljes tárolót. Minden SKILL.md-t tartalmazó mappából készség lesz, a mellette lévő fájlok is jönnek vele. A könyvtár újbóli feltöltése lecseréli azt.';
+
+  @override
+  String get skillLibraryChooseZip => 'Válassz egy .zip fájlt';
+
+  @override
+  String get skillLibraryChangeFile => 'Módosítás';
+
+  @override
+  String get skillLibraryName => 'Könyvtár neve';
+
+  @override
+  String get skillLibraryNameHelp => 'Hagyd üresen a fájlnév használatához.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'A fájl nem olvasható. Próbáld meg újra kiválasztani.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    return 'Telepített készségek: $count';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    return 'Telepítve ide: $library: $count';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Eltávolítva, már nincs a zipben';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Kihagyva';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    return 'Készségek: $count';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return 'Kikapcsolva: $count';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Könyvtár törlése';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'A(z) $library összes készsége ($count) eltávolításra kerül.';
+  }
+
+  @override
+  String get bitwardenVault => 'Széf';
+
+  @override
+  String get bitwardenLock => 'Zárolás';
+
+  @override
+  String get integrationConfigured => 'Beállítva';
+
+  @override
+  String get showMore => 'Több megjelenítése';
+
+  @override
+  String get showLess => 'Kevesebb megjelenítése';
 }

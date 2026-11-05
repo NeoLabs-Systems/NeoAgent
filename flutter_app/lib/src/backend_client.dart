@@ -1820,6 +1820,60 @@ class BackendClient {
     );
   }
 
+  /// Installs a zip of skill folders as one skill library. [name] defaults to
+  /// the zip's file name on the server.
+  Future<Map<String, dynamic>> uploadSkillLibrary(
+    String baseUrl, {
+    required String filename,
+    required Uint8List bytes,
+    String? name,
+  }) async {
+    final query = name == null || name.trim().isEmpty
+        ? ''
+        : '?name=${Uri.encodeQueryComponent(name.trim())}';
+    final response = await _httpClient.postMultipart(
+      _resolveUri(baseUrl, '/api/skills/library$query'),
+      fieldName: 'archive',
+      filename: filename,
+      bytes: bytes,
+    );
+    _throwIfError(response);
+    return _asMap(_decodeJson(response.body));
+  }
+
+  Future<Map<String, dynamic>> setSkillLibraryEnabled(
+    String baseUrl, {
+    required String library,
+    required bool enabled,
+  }) {
+    return putMap(
+      baseUrl,
+      '/api/skills/library/${Uri.encodeComponent(library)}',
+      <String, dynamic>{'enabled': enabled},
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteSkillLibrary(
+    String baseUrl,
+    String library,
+  ) {
+    return deleteMap(
+      baseUrl,
+      '/api/skills/library/${Uri.encodeComponent(library)}',
+    );
+  }
+
+  /// A skills.sh leaderboard: `popular` (all time) or `trending`.
+  Future<List<Map<String, dynamic>>> featuredSkillsSh(
+    String baseUrl,
+    String list,
+  ) {
+    return getList(
+      baseUrl,
+      '/api/skills/skills-sh/featured?list=${Uri.encodeQueryComponent(list)}',
+    );
+  }
+
   Future<Map<String, dynamic>> installSkillsShSkill(
     String baseUrl, {
     required String source,

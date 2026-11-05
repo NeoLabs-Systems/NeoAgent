@@ -12622,4 +12622,159 @@ class AppL10nFi extends AppL10n {
   @override
   String get agentsDescriptionHint =>
       'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Asennetut';
+
+  @override
+  String get skillsDiscover => 'Löydä';
+
+  @override
+  String get skillsOnSkillsSh => 'skills.sh-palvelussa';
+
+  @override
+  String get skillsSearchHint => 'Hae taitoja tai skills.sh-palvelusta';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Taitoja ei ole vielä asennettu. Hae yksi alta skills.sh-palvelusta, lataa taitojen zip tai kirjoita oma.';
+
+  @override
+  String get skillsShelfPopular => 'Suositut';
+
+  @override
+  String get skillsShelfTrending => 'Nousussa';
+
+  @override
+  String get skillsTopicDocuments => 'Asiakirjat';
+
+  @override
+  String get skillsTopicBrowser => 'Selain';
+
+  @override
+  String get skillsTopicResearch => 'Tutkimus';
+
+  @override
+  String get skillsTopicWriting => 'Kirjoittaminen';
+
+  @override
+  String get skillsTopicDesign => 'Suunnittelu';
+
+  @override
+  String get skillsTopicCoding => 'Ohjelmointi';
+
+  @override
+  String get skillsTopicData => 'Data';
+
+  @override
+  String get skillsTopicMarketing => 'Markkinointi';
+
+  @override
+  String get skillsGet => 'Hae';
+
+  @override
+  String get skillsOfficial => 'Virallinen';
+
+  @override
+  String get skillOriginBuiltIn => 'Sisäänrakennettu';
+
+  @override
+  String get skillOriginLearned => 'Opittu';
+
+  @override
+  String get skillOriginYours => 'Oma';
+
+  @override
+  String get skillDiscardTitle => 'Hylätäänkö muutokset?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Muutoksiasi taitoon $name ei ole tallennettu.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Sisäänrakennettu taito. Kun tallennat muutoksen, saat oman kopion; muut pitävät alkuperäisen.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return '$name poistetaan taidoistasi. Muut tämän instanssin käyttäjät pitävät sen.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Lataa taitokirjasto';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Zip-tiedosto taitokansioista, joissa kussakin on SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Pakkaa taitokansio zip-tiedostoksi, esimerkiksi .claude/skills-kansio tai koko repositorio. Jokaisesta SKILL.md-tiedoston sisältävästä kansiosta tulee taito, ja sen vieressä olevat tiedostot tulevat mukana. Kirjaston lataaminen uudelleen korvaa sen.';
+
+  @override
+  String get skillLibraryChooseZip => 'Valitse .zip-tiedosto';
+
+  @override
+  String get skillLibraryChangeFile => 'Vaihda';
+
+  @override
+  String get skillLibraryName => 'Kirjaston nimi';
+
+  @override
+  String get skillLibraryNameHelp =>
+      'Jätä tyhjäksi, niin käytetään tiedoston nimeä.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Tiedostoa ei voitu lukea. Yritä valita se uudelleen.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    return 'Asennettuja taitoja: $count';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    return 'Asennettu kirjastoon $library: $count';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Poistettu, ei enää zip-tiedostossa';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Ohitettu';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    return 'Taitoja: $count';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return 'Pois päältä: $count';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Poista kirjasto';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Kaikki kirjaston $library taidot ($count) poistetaan.';
+  }
+
+  @override
+  String get bitwardenVault => 'Holvi';
+
+  @override
+  String get bitwardenLock => 'Lukitse';
+
+  @override
+  String get integrationConfigured => 'Määritetty';
+
+  @override
+  String get showMore => 'Näytä lisää';
+
+  @override
+  String get showLess => 'Näytä vähemmän';
 }

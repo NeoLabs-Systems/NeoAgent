@@ -40,3 +40,19 @@ test('skill frontmatter keeps block-scalar descriptions and skips nested keys', 
   assert.equal(parsed.data.author, undefined);
   assert.equal(parsed.body, '# Body');
 });
+
+test('parseFeaturedPage reads the leaderboard a skills.sh page embeds', () => {
+  const { parseFeaturedPage } = require('../../../server/services/skills/skills_sh');
+  const html = [
+    '<script>self.__next_f.push([1,"53:{\\"initialSkills\\":[',
+    '{\\"source\\":\\"vercel-labs/skills\\",\\"skillId\\":\\"find-skills\\",\\"name\\":\\"find-skills\\",\\"installs\\":42,\\"weeklyInstalls\\":[1,2],\\"isOfficial\\":true},',
+    '{\\"source\\":\\"bad source\\",\\"skillId\\":\\"x\\",\\"name\\":\\"x\\",\\"installs\\":1},',
+    '{\\"source\\":\\"mattpocock/skills\\",\\"skillId\\":\\"grill-me\\",\\"name\\":\\"grill-me\\",\\"installs\\":7}',
+    ']}"])</script>',
+  ].join('');
+  assert.deepEqual(parseFeaturedPage(html), [
+    { id: 'vercel-labs/skills/find-skills', source: 'vercel-labs/skills', skillId: 'find-skills', name: 'find-skills', installs: 42, official: true },
+    { id: 'mattpocock/skills/grill-me', source: 'mattpocock/skills', skillId: 'grill-me', name: 'grill-me', installs: 7, official: false },
+  ]);
+  assert.deepEqual(parseFeaturedPage('<html>nothing here</html>'), []);
+});

@@ -178,7 +178,7 @@ class _EmailAccountSetupDialogState extends State<_EmailAccountSetupDialog> {
       error: _error,
       onBack: preset == null ? null : () => setState(() => _preset = null),
       onClose: _busy ? null : () => Navigator.of(context).pop(),
-      children: <Widget>[
+      body: <Widget>[
         preset == null ? _providerPicker() : _accountForm(preset),
       ],
       actions: <Widget>[

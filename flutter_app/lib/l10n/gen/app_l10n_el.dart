@@ -12715,4 +12715,160 @@ class AppL10nEl extends AppL10n {
   @override
   String get agentsDescriptionHint =>
       'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Εγκατεστημένες';
+
+  @override
+  String get skillsDiscover => 'Ανακάλυψη';
+
+  @override
+  String get skillsOnSkillsSh => 'Στο skills.sh';
+
+  @override
+  String get skillsSearchHint => 'Αναζήτηση δεξιοτήτων ή skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Δεν έχουν εγκατασταθεί δεξιότητες ακόμα. Πάρτε μία από το skills.sh παρακάτω, ανεβάστε ένα zip με δεξιότητες ή γράψτε τη δική σας.';
+
+  @override
+  String get skillsShelfPopular => 'Δημοφιλείς';
+
+  @override
+  String get skillsShelfTrending => 'Σε άνοδο';
+
+  @override
+  String get skillsTopicDocuments => 'Έγγραφα';
+
+  @override
+  String get skillsTopicBrowser => 'Πρόγραμμα περιήγησης';
+
+  @override
+  String get skillsTopicResearch => 'Έρευνα';
+
+  @override
+  String get skillsTopicWriting => 'Γραφή';
+
+  @override
+  String get skillsTopicDesign => 'Σχεδίαση';
+
+  @override
+  String get skillsTopicCoding => 'Προγραμματισμός';
+
+  @override
+  String get skillsTopicData => 'Δεδομένα';
+
+  @override
+  String get skillsTopicMarketing => 'Μάρκετινγκ';
+
+  @override
+  String get skillsGet => 'Λήψη';
+
+  @override
+  String get skillsOfficial => 'Επίσημη';
+
+  @override
+  String get skillOriginBuiltIn => 'Ενσωματωμένη';
+
+  @override
+  String get skillOriginLearned => 'Μαθημένη';
+
+  @override
+  String get skillOriginYours => 'Δική σας';
+
+  @override
+  String get skillDiscardTitle => 'Απόρριψη αλλαγών;';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Οι αλλαγές σας στο $name δεν έχουν αποθηκευτεί.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Ενσωματωμένη δεξιότητα. Με την αποθήκευση μιας αλλαγής παίρνετε δικό σας αντίγραφο· οι άλλοι κρατούν το πρωτότυπο.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return 'Το $name αφαιρείται από τις δεξιότητές σας. Οι άλλοι σε αυτή την εγκατάσταση το διατηρούν.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Μεταφόρτωση βιβλιοθήκης δεξιοτήτων';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Ένα zip με φακέλους δεξιοτήτων, ο καθένας με ένα SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Συμπιέστε έναν φάκελο δεξιοτήτων, π.χ. έναν φάκελο .claude/skills ή ένα ολόκληρο αποθετήριο. Κάθε φάκελος με SKILL.md γίνεται δεξιότητα και τα αρχεία δίπλα του έρχονται μαζί. Η εκ νέου μεταφόρτωση αντικαθιστά τη βιβλιοθήκη.';
+
+  @override
+  String get skillLibraryChooseZip => 'Επιλέξτε αρχείο .zip';
+
+  @override
+  String get skillLibraryChangeFile => 'Αλλαγή';
+
+  @override
+  String get skillLibraryName => 'Όνομα βιβλιοθήκης';
+
+  @override
+  String get skillLibraryNameHelp =>
+      'Αφήστε κενό για να χρησιμοποιηθεί το όνομα του αρχείου.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Δεν ήταν δυνατή η ανάγνωση του αρχείου. Δοκιμάστε να το επιλέξετε ξανά.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    return 'Εγκατεστημένες δεξιότητες: $count';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    return 'Εγκαταστάθηκαν στο $library: $count';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle =>
+      'Αφαιρέθηκαν, δεν υπάρχουν πια στο zip';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Παραλείφθηκαν';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    return 'Δεξιότητες: $count';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return 'Ανενεργές: $count';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Διαγραφή βιβλιοθήκης';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Όλες οι δεξιότητες του $library ($count) αφαιρούνται.';
+  }
+
+  @override
+  String get bitwardenVault => 'Θησαυροφυλάκιο';
+
+  @override
+  String get bitwardenLock => 'Κλείδωμα';
+
+  @override
+  String get integrationConfigured => 'Ρυθμισμένο';
+
+  @override
+  String get showMore => 'Εμφάνιση περισσότερων';
+
+  @override
+  String get showLess => 'Εμφάνιση λιγότερων';
 }

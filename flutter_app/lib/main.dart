@@ -98,6 +98,7 @@ part 'main_integrations_tailscale.dart';
 part 'main_integrations_oauth_app.dart';
 part 'main_integrations_email.dart';
 part 'main_integrations_dialog.dart';
+part 'main_skills.dart';
 part 'main_phone_sync.dart';
 part 'main_phone_sync_setup.dart';
 part 'main_models.dart';

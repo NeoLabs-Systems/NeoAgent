@@ -12633,4 +12633,159 @@ class AppL10nSk extends AppL10n {
   @override
   String get agentsDescriptionHint =>
       'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Nainštalované';
+
+  @override
+  String get skillsDiscover => 'Objaviť';
+
+  @override
+  String get skillsOnSkillsSh => 'Na skills.sh';
+
+  @override
+  String get skillsSearchHint => 'Hľadať zručnosti alebo na skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Zatiaľ nemáte nainštalované žiadne zručnosti. Získajte nejakú zo skills.sh nižšie, nahrajte zip so zručnosťami alebo napíšte vlastnú.';
+
+  @override
+  String get skillsShelfPopular => 'Obľúbené';
+
+  @override
+  String get skillsShelfTrending => 'Populárne teraz';
+
+  @override
+  String get skillsTopicDocuments => 'Dokumenty';
+
+  @override
+  String get skillsTopicBrowser => 'Prehliadač';
+
+  @override
+  String get skillsTopicResearch => 'Výskum';
+
+  @override
+  String get skillsTopicWriting => 'Písanie';
+
+  @override
+  String get skillsTopicDesign => 'Dizajn';
+
+  @override
+  String get skillsTopicCoding => 'Programovanie';
+
+  @override
+  String get skillsTopicData => 'Dáta';
+
+  @override
+  String get skillsTopicMarketing => 'Marketing';
+
+  @override
+  String get skillsGet => 'Získať';
+
+  @override
+  String get skillsOfficial => 'Oficiálne';
+
+  @override
+  String get skillOriginBuiltIn => 'Vstavané';
+
+  @override
+  String get skillOriginLearned => 'Naučené';
+
+  @override
+  String get skillOriginYours => 'Vaše';
+
+  @override
+  String get skillDiscardTitle => 'Zahodiť zmeny?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Vaše úpravy zručnosti $name nie sú uložené.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Vstavaná zručnosť. Uložením úpravy získate vlastnú kópiu; ostatní si ponechajú originál.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return '$name sa odstráni z vašich zručností. Ostatní na tejto inštancii si ju ponechajú.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Nahrať knižnicu zručností';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Zip s priečinkami zručností, každý so súborom SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Zabaľte priečinok so zručnosťami, napríklad .claude/skills alebo celý repozitár. Každý priečinok so SKILL.md sa stane zručnosťou a súbory vedľa neho sa pridajú s ňou. Opätovné nahranie knižnicu nahradí.';
+
+  @override
+  String get skillLibraryChooseZip => 'Vyberte súbor .zip';
+
+  @override
+  String get skillLibraryChangeFile => 'Zmeniť';
+
+  @override
+  String get skillLibraryName => 'Názov knižnice';
+
+  @override
+  String get skillLibraryNameHelp =>
+      'Nechajte prázdne pre použitie názvu súboru.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Súbor sa nepodarilo prečítať. Skúste ho vybrať znova.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    return 'Nainštalované zručnosti: $count';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    return 'Nainštalované do $library: $count';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Odstránené, už nie sú v zipe';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Preskočené';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    return 'Zručnosti: $count';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return 'Vypnuté: $count';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Odstrániť knižnicu';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Všetky zručnosti z $library ($count) sa odstránia.';
+  }
+
+  @override
+  String get bitwardenVault => 'Trezor';
+
+  @override
+  String get bitwardenLock => 'Zamknúť';
+
+  @override
+  String get integrationConfigured => 'Nastavené';
+
+  @override
+  String get showMore => 'Zobraziť viac';
+
+  @override
+  String get showLess => 'Zobraziť menej';
 }

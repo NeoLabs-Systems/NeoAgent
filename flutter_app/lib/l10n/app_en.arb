@@ -7891,5 +7891,105 @@
   "agentsCanTakeWork": "Other agents can give it work",
   "agentsCanTakeWorkHint": "Turn off to keep this agent to itself.",
   "agentsResponsibilityHint": "What this agent takes care of. Other agents use it to decide what to give it.",
-  "agentsDescriptionHint": "Optional. One line on what it is good at."
+  "agentsDescriptionHint": "Optional. One line on what it is good at.",
+  "skillsInstalled": "Installed",
+  "skillsDiscover": "Discover",
+  "skillsOnSkillsSh": "On skills.sh",
+  "skillsSearchHint": "Search skills or skills.sh",
+  "skillsNoneInstalled": "No skills installed yet. Get one from skills.sh below, upload a zip of skills, or write your own.",
+  "skillsShelfPopular": "Popular",
+  "skillsShelfTrending": "Trending",
+  "skillsTopicDocuments": "Documents",
+  "skillsTopicBrowser": "Browser",
+  "skillsTopicResearch": "Research",
+  "skillsTopicWriting": "Writing",
+  "skillsTopicDesign": "Design",
+  "skillsTopicCoding": "Coding",
+  "skillsTopicData": "Data",
+  "skillsTopicMarketing": "Marketing",
+  "skillsGet": "Get",
+  "skillsOfficial": "Official",
+  "skillOriginBuiltIn": "Built-in",
+  "skillOriginLearned": "Learned",
+  "skillOriginYours": "Yours",
+  "skillDiscardTitle": "Discard changes?",
+  "skillDiscardBody": "Your edits to {name} are not saved.",
+  "@skillDiscardBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "skillBuiltInEditHint": "Built-in skill. Saving an edit gives you your own copy; other people keep the original.",
+  "skillBuiltInDeleteBody": "{name} is removed from your skills. Other people on this instance keep it.",
+  "@skillBuiltInDeleteBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "skillLibraryUpload": "Upload skill library",
+  "skillLibraryUploadSubtitle": "A zip of skill folders, each with a SKILL.md",
+  "skillLibraryUploadHint": "Zip a folder of skills, such as a .claude/skills folder or a whole repository. Every folder with a SKILL.md becomes a skill, and the files next to it come along. Uploading a library again replaces it.",
+  "skillLibraryChooseZip": "Choose a .zip file",
+  "skillLibraryChangeFile": "Change",
+  "skillLibraryName": "Library name",
+  "skillLibraryNameHelp": "Leave empty to use the file name.",
+  "skillLibraryUnreadable": "This file could not be read. Try choosing it again.",
+  "skillLibraryInstalledCount": "{count, plural, =0{No skills installed} =1{1 skill installed} other{{count} skills installed}}",
+  "@skillLibraryInstalledCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillLibraryInstalledInto": "{count, plural, =0{No skills installed into {library}} =1{1 skill installed into {library}} other{{count} skills installed into {library}}}",
+  "@skillLibraryInstalledInto": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "library": {
+        "type": "String"
+      }
+    }
+  },
+  "skillLibraryRemovedTitle": "Removed, no longer in the zip",
+  "skillLibrarySkippedTitle": "Skipped",
+  "skillLibrarySkillCount": "{count, plural, =1{1 skill} other{{count} skills}}",
+  "@skillLibrarySkillCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillLibraryOffCount": "{count} off",
+  "@skillLibraryOffCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillLibraryDelete": "Delete library",
+  "skillLibraryDeleteBody": "{count, plural, =1{The 1 skill from {library} is removed.} other{All {count} skills from {library} are removed.}}",
+  "@skillLibraryDeleteBody": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "library": {
+        "type": "String"
+      }
+    }
+  },
+  "bitwardenVault": "Vault",
+  "bitwardenLock": "Lock",
+  "integrationConfigured": "Configured",
+  "showMore": "Show more",
+  "showLess": "Show less"
 }

@@ -461,279 +461,6 @@ class _LogsPanelState extends State<LogsPanel> {
   }
 }
 
-/// Full controls for one installed skill, shown from the Tools page.
-class SkillDetailView extends StatelessWidget {
-  const SkillDetailView({
-    super.key,
-    required this.controller,
-    required this.skillName,
-  });
-
-  final NeoAgentController controller;
-  final String skillName;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) {
-        final skill = controller.skills
-            .where((item) => item.name == skillName)
-            .firstOrNull;
-        if (skill == null) {
-          return Text(
-            appStrings.thisSkillIsNoLongerInstalled,
-            style: TextStyle(color: _textSecondary),
-          );
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              skill.description.ifEmpty(appStrings.noDescription),
-              style: TextStyle(color: _textSecondary, height: 1.45),
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: <Widget>[
-                _MetaPill(label: skill.category, icon: Icons.folder_outlined),
-                _MetaPill(label: skill.source, icon: Icons.source_outlined),
-                if (skill.draft)
-                  _MetaPill(
-                    label: appStrings.draft,
-                    icon: Icons.edit_note_outlined,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            SwitchListTile(
-              value: skill.enabled,
-              contentPadding: EdgeInsets.zero,
-              title: Text(appStrings.availableToTheAgent),
-              subtitle: Text(
-                skill.enabled
-                    ? appStrings.theAgentCanUseThisSkill
-                    : appStrings.theAgentWillIgnoreThisSkill,
-                style: TextStyle(color: _textSecondary),
-              ),
-              onChanged: (value) =>
-                  controller.setSkillEnabled(skill.name, value),
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: <Widget>[
-                FilledButton.icon(
-                  onPressed: () =>
-                      _openSkillEditor(context, controller, skill.name),
-                  icon: Icon(Icons.description_outlined),
-                  label: Text(appStrings.editInstructions),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    await _confirmDeleteSkill(context, controller, skill.name);
-                    if (context.mounted &&
-                        !controller.skills.any(
-                          (item) => item.name == skill.name,
-                        )) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                  icon: Icon(Icons.delete_outline, color: _danger),
-                  label: Text(
-                    appStrings.delete,
-                    style: TextStyle(color: _danger),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-Future<void> _openSkillEditor(
-  BuildContext context,
-  NeoAgentController controller,
-  String name,
-) async {
-  final document = await controller.fetchSkillDocument(name);
-  final contentController = TextEditingController(text: document.content);
-  if (!context.mounted) {
-    return;
-  }
-  await showDialog<void>(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        backgroundColor: _bgCard,
-        title: Text(name),
-        content: SizedBox(
-          width: 720,
-          child: TextField(
-            controller: contentController,
-            minLines: 16,
-            maxLines: 24,
-            decoration: InputDecoration(labelText: appStrings.skillContent),
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(appStrings.cancel),
-          ),
-          FilledButton(
-            onPressed: () async {
-              try {
-                await controller.saveSkillContent(
-                  name: name,
-                  content: contentController.text,
-                );
-              } catch (error) {
-                if (!context.mounted) return;
-                _showFormError(context, controller.friendlyErrorMessage(error));
-                return;
-              }
-              if (context.mounted) {
-                Navigator.of(context).pop();
-              }
-            },
-            child: Text(appStrings.save),
-          ),
-        ],
-      );
-    },
-  );
-}
-
-Future<void> _openCreateSkill(
-  BuildContext context,
-  NeoAgentController controller,
-) async {
-  final nameController = TextEditingController();
-  final contentController = TextEditingController(
-    text: appStrings.nameNewSkillDescriptionDescribeWhat,
-  );
-
-  await showDialog<void>(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        backgroundColor: _bgCard,
-        title: Text(appStrings.newSkill2),
-        content: SizedBox(
-          width: 720,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                TextField(
-                  controller: nameController,
-                  decoration: InputDecoration(labelText: appStrings.filename),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: contentController,
-                  minLines: 16,
-                  maxLines: 24,
-                  decoration: InputDecoration(labelText: appStrings.content),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(appStrings.cancel),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final filename = nameController.text.trim();
-              if (filename.isEmpty) {
-                _showFormError(context, appStrings.pleaseEnterAFilename);
-                return;
-              }
-              try {
-                await controller.createSkill(
-                  filename: filename,
-                  content: contentController.text,
-                );
-              } catch (error) {
-                if (!context.mounted) return;
-                _showFormError(context, controller.friendlyErrorMessage(error));
-                return;
-              }
-              if (context.mounted) {
-                Navigator.of(context).pop();
-              }
-            },
-            child: Text(appStrings.create),
-          ),
-        ],
-      );
-    },
-  );
-}
-
-Future<void> _confirmDeleteSkill(
-  BuildContext context,
-  NeoAgentController controller,
-  String name,
-) async {
-  final shouldDelete = await showDialog<bool>(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        backgroundColor: _bgCard,
-        title: Text(appStrings.deleteSkill),
-        content: Text(appStrings.arg1WillBeRemovedPermanently(name)),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(appStrings.cancel),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: _danger),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(appStrings.delete),
-          ),
-        ],
-      );
-    },
-  );
-
-  if (shouldDelete != true) {
-    return;
-  }
-
-  try {
-    await controller.deleteSkill(name);
-    if (!context.mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(appStrings.deletedArg1(name))));
-  } catch (error) {
-    if (!context.mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          appStrings.failedToDeleteArg1Arg2(name, _formatCaughtError(error)),
-        ),
-      ),
-    );
-  }
-}
-
 class MemoryPanel extends StatefulWidget {
   const MemoryPanel({super.key, required this.controller});
 
@@ -3346,7 +3073,7 @@ class _TasksPanelState extends State<TasksPanel> {
                 width: 640,
                 error: saveError ?? '',
                 onClose: saving ? null : () => Navigator.of(context).pop(),
-                children: <Widget>[
+                body: <Widget>[
                   Form(
                     key: formKey,
                     child: Column(
@@ -4169,7 +3896,7 @@ class _TaskCardState extends State<_TaskCard> {
                             ),
                             if (!task.enabled) ...<Widget>[
                               const SizedBox(width: 8),
-                              _StatusPill(label: 'Paused', color: _textMuted),
+                              _StatusPill(label: appStrings.paused, color: _textMuted),
                             ],
                             if (task.loopPaused) ...<Widget>[
                               const SizedBox(width: 8),
@@ -4233,8 +3960,8 @@ class _TaskCardState extends State<_TaskCard> {
                                           children: <Widget>[
                                             Text(
                                               _expanded
-                                                  ? 'Show less'
-                                                  : 'Show more',
+                                                  ? appStrings.showLess
+                                                  : appStrings.showMore,
                                               style: TextStyle(
                                                 color: _accent,
                                                 fontSize: 12.5,

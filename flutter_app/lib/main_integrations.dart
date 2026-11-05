@@ -877,7 +877,7 @@ Future<void> _showBitwardenBindingDialog(
           title: appStrings.addCredentialBinding,
           error: errorText,
           onClose: saving ? null : () => Navigator.of(dialogContext).pop(),
-          children: <Widget>[
+          body: <Widget>[
             DropdownButtonFormField<String>(
               initialValue: itemId,
               decoration: InputDecoration(
@@ -1216,14 +1216,14 @@ Future<void> _showBitwardenSetupDialog(
           width: 600,
           status: <_IntegrationSetupStatusItem>[
             _IntegrationSetupStatusItem(
-              label: 'Vault',
+              label: appStrings.bitwardenVault,
               status: vaultStatus,
               isConnected: unlocked,
             ),
           ],
           error: errorText,
           onClose: busy ? null : () => Navigator.of(dialogContext).pop(),
-          children: <Widget>[
+          body: <Widget>[
             _OAuthAppStep(
               number: 1,
               first: true,
@@ -1272,7 +1272,7 @@ Future<void> _showBitwardenSetupDialog(
             ),
             _OAuthAppStep(
               number: 2,
-              title: unlocked ? 'Vault' : appStrings.masterPassword,
+              title: unlocked ? appStrings.bitwardenVault : appStrings.masterPassword,
               children: <Widget>[
                 if (unlocked)
                   _RowSurface(
@@ -1289,7 +1289,7 @@ Future<void> _showBitwardenSetupDialog(
                         OutlinedButton.icon(
                           onPressed: busy ? null : toggleVault,
                           icon: const Icon(Icons.lock_outline_rounded, size: 18),
-                          label: const Text('Lock'),
+                          label: Text(appStrings.bitwardenLock),
                         ),
                       ],
                     ),
@@ -1385,7 +1385,7 @@ Future<void> _showBitwardenSetupDialog(
                   FilledButton.icon(
                     onPressed: canConnect ? toggleVault : null,
                     icon: const Icon(Icons.lock_open_rounded, size: 18),
-                    label: _IntegrationBusyLabel(busy: busy, label: 'Connect'),
+                    label: _IntegrationBusyLabel(busy: busy, label: appStrings.connect),
                   ),
                 ],
               ],
@@ -1652,7 +1652,7 @@ Future<void> _showOfficialIntegrationUrlSetupDialog(
         ],
         error: errorText,
         onClose: busy ? null : () => Navigator.of(dialogContext).pop(),
-        children: <Widget>[
+        body: <Widget>[
           TextField(
             controller: baseUrlController,
             enabled: !busy,
@@ -1845,7 +1845,7 @@ Future<void> _showHomeAssistantSetupDialog(
               _IntegrationSetupStatusItem(
                 label: appStrings.endpoint,
                 status: savedBaseUrl.trim().isNotEmpty
-                    ? 'Configured'
+                    ? appStrings.integrationConfigured
                     : appStrings.notConfigured,
                 isConnected: savedBaseUrl.trim().isNotEmpty,
               ),
@@ -1859,7 +1859,7 @@ Future<void> _showHomeAssistantSetupDialog(
             ],
             error: formError,
             onClose: saving ? null : () => Navigator.of(dialogContext).pop(),
-            children: <Widget>[
+            body: <Widget>[
               TextField(
                 controller: baseUrlController,
                 enabled: !saving,
@@ -1995,13 +1995,13 @@ Future<void> _showWorldNewsSetupDialog(
             status: <_IntegrationSetupStatusItem>[
               _IntegrationSetupStatusItem(
                 label: appStrings.gnewsApiKey,
-                status: hasApiKey ? 'Configured' : appStrings.notConfigured,
+                status: hasApiKey ? appStrings.integrationConfigured : appStrings.notConfigured,
                 isConnected: hasApiKey,
               ),
             ],
             error: formError,
             onClose: saving ? null : () => Navigator.of(dialogContext).pop(),
-            children: <Widget>[
+            body: <Widget>[
               _AdminCfgSecretField(
                 controller: apiKeyController,
                 label: hasApiKey
@@ -2179,7 +2179,7 @@ Future<void> _showTrelloSetupDialog(
               _IntegrationSetupStatusItem(
                 label: appStrings.apiKey3,
                 status: apiKeyConfigured
-                    ? 'Configured'
+                    ? appStrings.integrationConfigured
                     : appStrings.notConfigured,
                 isConnected: apiKeyConfigured,
               ),
@@ -2195,7 +2195,7 @@ Future<void> _showTrelloSetupDialog(
             onClose: connecting
                 ? null
                 : () => Navigator.of(dialogContext).pop(),
-            children: <Widget>[
+            body: <Widget>[
               if (apiKeyManagedByServer)
                 _IntegrationHint(
                   appStrings.thisAgentIsUsingAServer,

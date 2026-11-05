@@ -12663,4 +12663,158 @@ class AppL10nPl extends AppL10n {
   @override
   String get agentsDescriptionHint =>
       'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Zainstalowane';
+
+  @override
+  String get skillsDiscover => 'Odkrywaj';
+
+  @override
+  String get skillsOnSkillsSh => 'W skills.sh';
+
+  @override
+  String get skillsSearchHint => 'Szukaj umiejętności lub w skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Nie masz jeszcze żadnych umiejętności. Pobierz jedną ze skills.sh poniżej, prześlij zip z umiejętnościami lub napisz własną.';
+
+  @override
+  String get skillsShelfPopular => 'Popularne';
+
+  @override
+  String get skillsShelfTrending => 'Zyskujące popularność';
+
+  @override
+  String get skillsTopicDocuments => 'Dokumenty';
+
+  @override
+  String get skillsTopicBrowser => 'Przeglądarka';
+
+  @override
+  String get skillsTopicResearch => 'Badania';
+
+  @override
+  String get skillsTopicWriting => 'Pisanie';
+
+  @override
+  String get skillsTopicDesign => 'Projektowanie';
+
+  @override
+  String get skillsTopicCoding => 'Programowanie';
+
+  @override
+  String get skillsTopicData => 'Dane';
+
+  @override
+  String get skillsTopicMarketing => 'Marketing';
+
+  @override
+  String get skillsGet => 'Pobierz';
+
+  @override
+  String get skillsOfficial => 'Oficjalna';
+
+  @override
+  String get skillOriginBuiltIn => 'Wbudowana';
+
+  @override
+  String get skillOriginLearned => 'Wyuczona';
+
+  @override
+  String get skillOriginYours => 'Twoja';
+
+  @override
+  String get skillDiscardTitle => 'Odrzucić zmiany?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Twoje zmiany w $name nie są zapisane.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Wbudowana umiejętność. Zapisanie zmiany tworzy Twoją własną kopię; inni zachowują oryginał.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return '$name zostanie usunięta z Twoich umiejętności. Inne osoby w tej instancji ją zachowują.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Prześlij bibliotekę umiejętności';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Zip z folderami umiejętności, każdy z plikiem SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Spakuj folder umiejętności do zip, np. folder .claude/skills lub całe repozytorium. Każdy folder z plikiem SKILL.md staje się umiejętnością, a pliki obok niego są dołączane. Ponowne przesłanie biblioteki ją zastępuje.';
+
+  @override
+  String get skillLibraryChooseZip => 'Wybierz plik .zip';
+
+  @override
+  String get skillLibraryChangeFile => 'Zmień';
+
+  @override
+  String get skillLibraryName => 'Nazwa biblioteki';
+
+  @override
+  String get skillLibraryNameHelp => 'Zostaw puste, aby użyć nazwy pliku.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Nie udało się odczytać pliku. Spróbuj wybrać go ponownie.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    return 'Zainstalowane umiejętności: $count';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    return 'Zainstalowano w $library: $count';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Usunięte, nie ma ich już w zipie';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Pominięte';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    return 'Umiejętności: $count';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return 'Wyłączone: $count';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Usuń bibliotekę';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Wszystkie umiejętności z $library ($count) zostaną usunięte.';
+  }
+
+  @override
+  String get bitwardenVault => 'Sejf';
+
+  @override
+  String get bitwardenLock => 'Zablokuj';
+
+  @override
+  String get integrationConfigured => 'Skonfigurowano';
+
+  @override
+  String get showMore => 'Pokaż więcej';
+
+  @override
+  String get showLess => 'Pokaż mniej';
 }

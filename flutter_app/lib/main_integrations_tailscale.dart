@@ -149,7 +149,7 @@ class _TailscaleServiceDialogState extends State<_TailscaleServiceDialog> {
     width: 600,
     error: _error,
     onClose: _busy ? null : () => Navigator.of(context).pop(),
-    children: <Widget>[
+    body: <Widget>[
       for (final (index, grant) in _grants.indexed)
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
