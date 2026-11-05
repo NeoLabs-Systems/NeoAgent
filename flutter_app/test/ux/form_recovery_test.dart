@@ -28,7 +28,7 @@ class _FormController extends NeoAgentController {
     Map<String, dynamic>? configSnapshot,
   }) async {
     connections += 1;
-    throw const BackendException('Connection unavailable', statusCode: 503);
+    throw const BackendException('Connection unavailable', statusCode: 409);
   }
 
   @override
@@ -186,7 +186,7 @@ void main() {
         isNull,
       );
       controller.taskWrite!.completeError(
-        const BackendException('Unable to save this task', statusCode: 503),
+        const BackendException('Unable to save this task', statusCode: 409),
       );
       await tester.pumpAndSettle();
       expect(

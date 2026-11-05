@@ -12541,6 +12541,9 @@ class AppL10nDe extends AppL10n {
   String get adminUpdateFailedTitle => 'Das Update wurde nicht abgeschlossen';
 
   @override
+  String get technicalDetails => 'Technical details';
+
+  @override
   String get approvalReview => 'Ansehen';
 
   @override

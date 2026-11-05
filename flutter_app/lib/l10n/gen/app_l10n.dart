@@ -20701,6 +20701,12 @@ abstract class AppL10n {
   /// **'The update did not finish'**
   String get adminUpdateFailedTitle;
 
+  /// No description provided for @technicalDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Technical details'**
+  String get technicalDetails;
+
   /// No description provided for @approvalReview.
   ///
   /// In en, this message translates to:

@@ -79,7 +79,7 @@ class _LogsPanelState extends State<LogsPanel> {
     } catch (error) {
       final payload = <String, dynamic>{
         'runId': runId,
-        'error': error.toString(),
+        'error': formatCaughtError(error),
       };
       cache[runId] = payload;
       return payload;

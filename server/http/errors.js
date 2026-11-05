@@ -3,6 +3,24 @@
 const { sanitizeError } = require('../utils/security');
 const { logRequestSummary } = require('../utils/logger');
 const { publicErrorCode } = require('../utils/http_error');
+const { redactResponseBody } = require('../utils/public_error');
+const { isAdminUser } = require('../services/access/admin');
+
+// Every API response passes here, so no route can show a non-admin the
+// technical cause of a failure. The server log keeps it for admins.
+function redactErrorsForNonAdmins(req, res, next) {
+  if (!req.path.startsWith('/api/')) return next();
+  const sendJson = res.json.bind(res);
+  res.json = (body) => {
+    const userId = req.session?.userId;
+    if (userId && isAdminUser(userId)) return sendJson(body);
+    if (res.statusCode >= 500) {
+      console.error('[API failure hidden from non-admin]', req.method, req.path, res.statusCode, body?.error);
+    }
+    return sendJson(redactResponseBody(body, res.statusCode));
+  };
+  next();
+}
 
 function sendJsonError(res, err, fallbackStatus = 500) {
   const status = Number(err?.status || err?.statusCode || fallbackStatus) || fallbackStatus;
@@ -44,4 +62,4 @@ function registerErrorHandler(app) {
   });
 }
 
-module.exports = { registerErrorHandler, sendJsonError };
+module.exports = { redactErrorsForNonAdmins, registerErrorHandler, sendJsonError };

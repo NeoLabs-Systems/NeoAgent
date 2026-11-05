@@ -1,6 +1,6 @@
 const { randomUUID } = require('crypto');
 const db = require('../db/database');
-const { sanitizeError } = require('../utils/security');
+const { errorMessageForUser, runRecordsForUser } = require('./access/admin');
 const { publicErrorCode } = require('../utils/http_error');
 const { asObject, toOptionalString } = require('../utils/text');
 const { clientRunOptions } = require('../utils/client_run_options');
@@ -345,7 +345,7 @@ function setupWebSocket(io, services) {
         console.error(`[WS] agent:run failed for user ${userId}:`, err);
         socket.emit('run:error', {
           runId,
-          error: sanitizeError(err),
+          error: errorMessageForUser(userId, err),
           code: publicErrorCode(err),
           rateLimit: err?.rateLimit,
           conversationId: requestedConversationId || null,
@@ -369,7 +369,7 @@ function setupWebSocket(io, services) {
         socket.emit('agent:aborted', { runId: runId || null });
       } catch (err) {
         console.error(`[WS] agent:abort failed for user ${userId}:`, err);
-        socket.emit('error', { message: sanitizeError(err) });
+        socket.emit('error', { message: errorMessageForUser(userId, err) });
       }
     });
 
@@ -391,10 +391,10 @@ function setupWebSocket(io, services) {
         const runs = db.prepare(
           'SELECT * FROM agent_runs WHERE user_id = ? AND agent_id = ? ORDER BY created_at DESC LIMIT ?'
         ).all(userId, agentId, queryLimit);
-        socket.emit('agent:history', { agentId, runs });
+        socket.emit('agent:history', { agentId, runs: runRecordsForUser(userId, { runs }).runs });
       } catch (err) {
         console.error(`[WS] agent:history failed for user ${userId}:`, err);
-        socket.emit('error', { message: sanitizeError(err) });
+        socket.emit('error', { message: errorMessageForUser(userId, err) });
       }
     });
 
@@ -423,10 +423,10 @@ function setupWebSocket(io, services) {
         const steps = db.prepare('SELECT * FROM agent_steps WHERE run_id = ? ORDER BY step_index ASC').all(runId);
         const history = db.prepare('SELECT * FROM conversation_history WHERE agent_run_id = ? AND user_id = ? ORDER BY created_at ASC').all(runId, userId);
         const events = listEvents(runId);
-        socket.emit('agent:run_detail', { run, steps, history, events });
+        socket.emit('agent:run_detail', { ...runRecordsForUser(userId, { run, steps, events }), history });
       } catch (err) {
         console.error(`[WS] agent:run_detail failed for user ${userId}:`, err);
-        socket.emit('error', { message: sanitizeError(err) });
+        socket.emit('error', { message: errorMessageForUser(userId, err) });
       }
     });
 
@@ -452,7 +452,7 @@ function setupWebSocket(io, services) {
         socket.emit('messaging:connect_result', result);
       } catch (err) {
         console.error(`[WS] messaging:connect failed for user ${userId}:`, err);
-        socket.emit('messaging:error', { error: sanitizeError(err) });
+        socket.emit('messaging:error', { error: errorMessageForUser(userId, err) });
       }
     });
 
@@ -476,7 +476,7 @@ function setupWebSocket(io, services) {
         socket.emit('messaging:disconnect_result', result);
       } catch (err) {
         console.error(`[WS] messaging:disconnect failed for user ${userId}:`, err);
-        socket.emit('messaging:error', { error: sanitizeError(err) });
+        socket.emit('messaging:error', { error: errorMessageForUser(userId, err) });
       }
     });
 
@@ -518,7 +518,7 @@ function setupWebSocket(io, services) {
         socket.emit('messaging:sent', result);
       } catch (err) {
         console.error(`[WS] messaging:send failed for user ${userId}:`, err);
-        socket.emit('messaging:error', { error: sanitizeError(err) });
+        socket.emit('messaging:error', { error: errorMessageForUser(userId, err) });
       }
     });
 
@@ -538,7 +538,7 @@ function setupWebSocket(io, services) {
         socket.emit('messaging:status', statuses);
       } catch (err) {
         console.error(`[WS] messaging:status failed for user ${userId}:`, err);
-        socket.emit('messaging:error', { error: sanitizeError(err) });
+        socket.emit('messaging:error', { error: errorMessageForUser(userId, err) });
       }
     });
 
@@ -560,7 +560,7 @@ function setupWebSocket(io, services) {
           socket.emit('voice:call_ended', { callId, reason: result.status });
         }
       } catch (err) {
-        socket.emit('voice:error', { error: sanitizeError(err) });
+        socket.emit('voice:error', { error: errorMessageForUser(userId, err) });
       }
     });
 
@@ -579,7 +579,7 @@ function setupWebSocket(io, services) {
           later: asObject(raw)?.later === true,
         });
       } catch (err) {
-        socket.emit('voice:error', { error: sanitizeError(err) });
+        socket.emit('voice:error', { error: errorMessageForUser(userId, err) });
       }
     });
 
@@ -606,7 +606,7 @@ function setupWebSocket(io, services) {
         }
         socket.data.voiceSessionIds.add(session.id);
       } catch (err) {
-        socket.emit('voice:error', { error: sanitizeError(err), recoverable: false });
+        socket.emit('voice:error', { error: errorMessageForUser(userId, err), recoverable: false });
       }
     });
 
@@ -630,7 +630,7 @@ function setupWebSocket(io, services) {
         try {
           await handler(sessionId, data);
         } catch (err) {
-          socket.emit('voice:error', { sessionId, error: sanitizeError(err), recoverable: true });
+          socket.emit('voice:error', { sessionId, error: errorMessageForUser(userId, err), recoverable: true });
         }
       });
     };
@@ -684,7 +684,7 @@ function setupWebSocket(io, services) {
         console.error(`[WS] mcp:status failed for user ${userId}:`, err);
         socket.emit('mcp:error', {
           message: 'Unable to fetch MCP status.',
-          error: sanitizeError(err)
+          error: errorMessageForUser(userId, err)
         });
       }
     });
@@ -708,7 +708,7 @@ function setupWebSocket(io, services) {
         socket.emit('mcp:tools', tools);
       } catch (err) {
         console.error(`[WS] mcp:tools failed for user ${userId}:`, err);
-        socket.emit('mcp:error', { error: sanitizeError(err) });
+        socket.emit('mcp:error', { error: errorMessageForUser(userId, err) });
       }
     });
 
@@ -730,7 +730,7 @@ function setupWebSocket(io, services) {
         socket.emit('integrations:status', integrationManager.listProviders(userId, agentId));
       } catch (err) {
         console.error(`[WS] integrations:status failed for user ${userId}:`, err);
-        socket.emit('error', { message: sanitizeError(err) });
+        socket.emit('error', { message: errorMessageForUser(userId, err) });
       }
     });
 
@@ -757,7 +757,7 @@ function setupWebSocket(io, services) {
         });
       } catch (err) {
         console.error(`[WS] memory:read failed for user ${userId}:`, err);
-        socket.emit('error', { message: sanitizeError(err) });
+        socket.emit('error', { message: errorMessageForUser(userId, err) });
       }
     });
 
@@ -785,7 +785,7 @@ function setupWebSocket(io, services) {
         socket.emit('memory:search_results', results);
       } catch (err) {
         console.error(`[WS] memory:search failed for user ${userId}:`, err);
-        socket.emit('error', { message: sanitizeError(err) });
+        socket.emit('error', { message: errorMessageForUser(userId, err) });
       }
     });
 
@@ -812,7 +812,7 @@ function setupWebSocket(io, services) {
         });
       } catch (err) {
         console.error(`[WS] stream:subscribe failed for user ${userId}:`, err);
-        socket.emit('stream:error', { error: sanitizeError(err) });
+        socket.emit('stream:error', { error: errorMessageForUser(userId, err) });
       }
     });
 
@@ -837,7 +837,7 @@ function setupWebSocket(io, services) {
         });
       } catch (err) {
         console.error(`[WS] stream:unsubscribe failed for user ${userId}:`, err);
-        socket.emit('stream:error', { error: sanitizeError(err) });
+        socket.emit('stream:error', { error: errorMessageForUser(userId, err) });
       }
     });
 

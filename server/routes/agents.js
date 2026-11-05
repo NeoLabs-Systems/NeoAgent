@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { sanitizeError } = require('../utils/security');
+const { runRecordsForUser } = require('../services/access/admin');
 const { getAgentIdFromRequest, resolveAgentId } = require('../services/agents/manager');
 const { listEvents } = require('../services/ai/runtime/events/run_event_store');
 const { readRunMetrics } = require('../services/ai/runtime/events/run_metrics');
@@ -174,7 +175,7 @@ router.get('/', (req, res) => {
   const runs = db.prepare('SELECT * FROM agent_runs WHERE user_id = ? AND agent_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?')
     .all(req.session.userId, agentId, limit, offset);
   const total = db.prepare('SELECT COUNT(*) as count FROM agent_runs WHERE user_id = ? AND agent_id = ?').get(req.session.userId, agentId).count;
-  res.json({ runs, total, limit, offset, agentId });
+  res.json({ runs: runRecordsForUser(req.session.userId, { runs }).runs, total, limit, offset, agentId });
 });
 
 // Failure classes, latency percentiles, and rates over recent runs
@@ -345,7 +346,7 @@ router.get('/:id', (req, res) => {
   const history = db.prepare('SELECT * FROM conversation_history WHERE agent_run_id = ? ORDER BY created_at ASC').all(run.id);
   const usage = buildRunUsageSummary(run.id);
 
-  res.json({ run, steps, history, usage });
+  res.json({ ...runRecordsForUser(req.session.userId, { run, steps }), history, usage });
 });
 
 // Get detailed steps for a run (for activity history replay)
@@ -391,9 +392,7 @@ router.get('/:id/steps', (req, res) => {
 
   const metrics = readRunMetrics(run);
   res.json({
-    run,
-    steps,
-    events: listEvents(run.id),
+    ...runRecordsForUser(req.session.userId, { run, steps, events: listEvents(run.id) }),
     metrics,
     diagnostics: diagnoseRun(metrics),
     ledger: parseJsonObject(run.metadata_json, {}).ledger || null,

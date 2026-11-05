@@ -605,7 +605,7 @@ class _MainSecurityState extends State<MainSecurity> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(appStrings.failedToSaveArg1(e)),
+            content: Text(appStrings.failedToSaveArg1(_formatCaughtError(e))),
             backgroundColor: _danger,
           ),
         );
@@ -629,7 +629,7 @@ class _MainSecurityState extends State<MainSecurity> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(appStrings.failedToSaveArg1(e)),
+            content: Text(appStrings.failedToSaveArg1(_formatCaughtError(e))),
             backgroundColor: _danger,
           ),
         );

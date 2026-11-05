@@ -1,5 +1,7 @@
 'use strict';
 
+const { isAdminUser } = require('../../access/admin');
+const { GENERIC_ERROR_MESSAGE, nonAdminErrorMessage } = require('../../../utils/public_error');
 const fs = require('fs');
 const db = require('../../../db/database');
 const { getProviderForUser } = require('../provider_selector');
@@ -726,9 +728,17 @@ class AgentEngine {
       }
     }
     if (this.io) {
-      this.io.to(`user:${userId}`).emit(event, payload);
+      this.io.to(`user:${userId}`).emit(event, redactRunEventForUser(userId, event, payload));
     }
   }
+}
+
+// A run event carrying a failure, as this account may read it.
+function redactRunEventForUser(userId, event, payload) {
+  if (typeof payload?.error !== 'string' || !payload.error || isAdminUser(userId)) return payload;
+  if (event !== 'run:tool_end') return { ...payload, error: nonAdminErrorMessage(payload.error) };
+  // A failed tool's own output is the same raw text as its error.
+  return { ...payload, error: GENERIC_ERROR_MESSAGE, result: null };
 }
 
 module.exports = { AgentEngine, buildInitialRunMetadata, getProviderForUser };

@@ -7794,6 +7794,7 @@
   "adminUpdateDoneReloading": "Reloading the app to load the new version…",
   "adminUpdateReload": "Reload",
   "adminUpdateFailedTitle": "The update did not finish",
+  "technicalDetails": "Technical details",
   "approvalReview": "Review",
   "approvalExpired": "This request expired, so nothing was run.",
   "requestTookTooLong": "That took too long and was stopped. Please try again.",

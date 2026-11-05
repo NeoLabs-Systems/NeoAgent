@@ -1,5 +1,6 @@
 'use strict';
 
+const { redactErrorsForNonAdmins } = require('./errors');
 const session = require('express-session');
 const SQLiteStore = require('better-sqlite3-session-store')(session);
 const helmet = require('helmet');
@@ -269,6 +270,7 @@ function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware
   app.use(jsonBody);
   app.use(urlencodedBody);
   app.use(sessionMiddleware);
+  app.use(redactErrorsForNonAdmins);
 }
 
 module.exports = {

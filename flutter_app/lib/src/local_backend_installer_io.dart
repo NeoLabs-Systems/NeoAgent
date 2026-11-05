@@ -208,7 +208,7 @@ class LocalBackendInstaller {
     } on Object catch (error) {
       final wrapped = LocalBackendInstallerException(
         'SETUP_INSTALL_FAILED',
-        formatCaughtError(error),
+        rawErrorText(error),
       );
       _emit(
         LocalBackendInstallStage.install,

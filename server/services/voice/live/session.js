@@ -1,5 +1,6 @@
 'use strict';
 
+const { errorMessageForUser } = require('../../access/admin');
 const { createServiceLogger } = require('../../../utils/logger');
 const { LIVE_VOICE_PROVIDERS } = require('./catalog');
 const { GeminiLiveAdapter } = require('./gemini_live');
@@ -393,7 +394,7 @@ class LiveVoiceSession {
       }),
       onError: guard((error) => {
         logger.warn('Live provider error', { sessionId: this.id, error: error.message });
-        this.#emit('error', { error: error.message, recoverable: true });
+        this.#emit('error', { error: errorMessageForUser(this.userId, error), recoverable: true });
       }),
       onClosed: guard(({ reason, resumeHandle }) => {
         void this.#reconnect(reason, resumeHandle);
@@ -548,7 +549,10 @@ class LiveVoiceSession {
     if (!this.attached || this.closed) return;
     this.reconnectAttempts += 1;
     if (this.reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
-      this.#emit('error', { error: `The live voice connection ended (${reason}).`, recoverable: false });
+      this.#emit('error', {
+        error: errorMessageForUser(this.userId, new Error(`The live voice connection ended (${reason}).`)),
+        recoverable: false,
+      });
       this.#emit('state', { state: 'closed', reason });
       await this.detach();
       return;

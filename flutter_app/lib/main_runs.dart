@@ -1031,7 +1031,7 @@ class _RunListRow extends StatelessWidget {
   Widget _buildSubtitle() {
     if (run.isFailure && run.error.trim().isNotEmpty) {
       return Text(
-        run.error.trim(),
+        formatCaughtError(run.error.trim()),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(fontSize: 12, color: _danger),
@@ -1628,7 +1628,7 @@ class _RunDetailViewState extends State<_RunDetailView>
           _RunStatsStrip(run: run, detail: detail, clock: widget.clock),
           if (run.isFailure && run.error.trim().isNotEmpty) ...<Widget>[
             const SizedBox(height: 12),
-            _InlineError(message: run.error.trim()),
+            _InlineError(message: formatCaughtError(run.error.trim())),
           ],
           const SizedBox(height: 14),
           TabBar(
@@ -2598,8 +2598,8 @@ class _RunStepDetails extends StatelessWidget {
     final output = step.error.trim().isNotEmpty
         ? _RunDetailBlock(
             label: appStrings.error,
-            value: step.error,
-            monospace: true,
+            value: formatCaughtError(step.error),
+            monospace: ErrorAudience.isAdmin(),
           )
         : step.result.trim().isNotEmpty
         ? _RunDetailBlock(
@@ -3754,8 +3754,8 @@ class _RunSelectedStepCard extends StatelessWidget {
               const SizedBox(height: 8),
               _RunDetailBlock(
                 label: appStrings.error,
-                value: step.error,
-                monospace: true,
+                value: formatCaughtError(step.error),
+                monospace: ErrorAudience.isAdmin(),
               ),
             ] else if (step.result.trim().isNotEmpty) ...<Widget>[
               const SizedBox(height: 8),

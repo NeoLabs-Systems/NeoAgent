@@ -167,7 +167,9 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
       _dictationCapture = null;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(appStrings.microphoneErrorArg1(e))),
+          SnackBar(content: Text(appStrings.microphoneErrorArg1(
+                widget.controller.friendlyErrorMessage(e),
+              ))),
         );
       }
     }
@@ -205,7 +207,9 @@ class _ChatPanelState extends State<ChatPanel> with WidgetsBindingObserver {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(appStrings.transcriptionFailedArg1(e))),
+          SnackBar(content: Text(appStrings.transcriptionFailedArg1(
+                widget.controller.friendlyErrorMessage(e),
+              ))),
         );
       }
     } finally {

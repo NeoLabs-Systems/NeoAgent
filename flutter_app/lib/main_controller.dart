@@ -31,6 +31,7 @@ class NeoAgentController extends ChangeNotifier {
        _oauthLauncher = oauthLauncher ?? createOAuthLauncher(),
        _webAuthnClient = webAuthnClient ?? createWebAuthnClient() {
     _backendClient.onSessionExpired = handleSessionExpired;
+    ErrorAudience.isAdmin = () => isAdmin;
     _desktopCompanion.addListener(_onDesktopCompanionChanged);
     _AppNotificationService.onCallAction = _handleCallNotificationAction;
     _AppNotificationService.onApprovalAction = _resolveApprovalFromNotification;
@@ -1922,6 +1923,7 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    TechnicalErrorDetails.clear();
     final logoutFuture = _backendClient.logout(backendUrl);
     _authCycle += 1;
     _clearAuthenticatedState();
@@ -7352,6 +7354,15 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   String _friendlyErrorMessage(Object error) {
+    final message = _describeError(error);
+    TechnicalErrorDetails.remember(message, error);
+    return message;
+  }
+
+  /// Known failures read the same for everyone, except that only admins get
+  /// server setup advice and raw causes.
+  String _describeError(Object error) {
+    final admin = isAdmin;
     final text = _normalizeErrorText(error);
     final lower = text.toLowerCase();
     final backendStatusCode = error is BackendException
@@ -7383,6 +7394,7 @@ class NeoAgentController extends ChangeNotifier {
     }
 
     if (backendStatusCode == 402) {
+      if (!admin) return appStrings.somethingWentWrongPleaseTryAgain;
       final details = _extractMeaningfulErrorDetails(text);
       if (lower.contains('invalid credentials')) {
         return appStrings.theNeoagentDeploymentRespondedWithHttp;
@@ -7447,6 +7459,7 @@ class NeoAgentController extends ChangeNotifier {
       return appStrings.theTwoFactorChallengeExpiredSign;
     }
     if (lower.contains('session_secret')) {
+      if (!admin) return appStrings.somethingWentWrongPleaseTryAgain;
       return appStrings.n2faRequiresSessionSecretToBe;
     }
     if (lower.contains('cors') ||
@@ -7475,7 +7488,7 @@ class NeoAgentController extends ChangeNotifier {
     if (lower.contains('unable to locate a java runtime') ||
         lower.contains('java runtime')) {
       final details = _extractMeaningfulErrorDetails(text);
-      if (details.isNotEmpty) {
+      if (admin && details.isNotEmpty) {
         return appStrings.mobileSetupFailedBecauseJavaIs(details);
       }
       return appStrings.mobileSetupFailedBecauseJavaIs2;
@@ -7486,7 +7499,7 @@ class NeoAgentController extends ChangeNotifier {
         lower.contains('emulator') ||
         lower.contains('gradle')) {
       final details = _extractMeaningfulErrorDetails(text);
-      if (details.isNotEmpty) {
+      if (admin && details.isNotEmpty) {
         return appStrings.mobileSetupFailedArg1(details);
       }
       return appStrings.mobileSetupFailedCheckThatAndroid;
@@ -7499,25 +7512,34 @@ class NeoAgentController extends ChangeNotifier {
         lower.contains('networkerror') ||
         lower.contains('load failed')) {
       final details = _extractMeaningfulErrorDetails(text);
-      return details.isNotEmpty
+      return admin && details.isNotEmpty
           ? appStrings.theWebAppCouldNotReachThe(details)
           : appStrings.theWebAppCouldNotReach;
     }
     if (lower.contains('content security policy') ||
         lower.contains('connect-src')) {
       final details = _extractMeaningfulErrorDetails(text);
-      return details.isNotEmpty
+      return admin && details.isNotEmpty
           ? appStrings.theBrowserBlockedARequiredRequestBecause(details)
           : appStrings.theBrowserBlockedARequiredRequest;
     }
+    if (!admin) {
+      return plainErrorText(error) ?? appStrings.somethingWentWrongPleaseTryAgain;
+    }
     if (_shouldExposeErrorText(text)) {
-      return _extractMeaningfulErrorDetails(text);
+      return redactSecrets(_extractMeaningfulErrorDetails(text));
     }
 
     return appStrings.somethingWentWrongPleaseTryAgain;
   }
 
   String friendlyErrorMessage(Object error) => _friendlyErrorMessage(error);
+
+  /// A streamed event's error field as this reader may see it.
+  String? _eventErrorText(Object? error) {
+    final text = error?.toString().trim() ?? '';
+    return text.isEmpty ? null : formatCaughtError(text);
+  }
 
   /// Localized text for the sign-in, registration and account error codes
   /// the server sends as `{error, code}`.
@@ -7562,7 +7584,7 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   String _normalizeErrorText(Object error) {
-    var text = _formatCaughtError(error);
+    var text = rawErrorText(error);
     if (text.startsWith('PlatformException(') && text.endsWith(')')) {
       final inner = text.substring(
         'PlatformException('.length,
@@ -8020,9 +8042,10 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('messaging:error', (dynamic data) {
       final payload = _jsonMap(data);
-      errorMessage =
-          payload['error']?.toString() ??
-          appStrings.messagingErrorPleaseTryAgain;
+      final messagingError = payload['error']?.toString();
+      errorMessage = messagingError == null
+          ? appStrings.messagingErrorPleaseTryAgain
+          : _friendlyErrorMessage(BackendException(messagingError));
       notifyListeners();
     });
     socket.on('voice:incoming_call', (dynamic data) {
@@ -8201,8 +8224,10 @@ class NeoAgentController extends ChangeNotifier {
           voiceAssistantLiveState.sessionId.trim().isEmpty) {
         return;
       }
-      final message =
-          payload['error']?.toString() ?? appStrings.liveVoiceFailed;
+      final voiceError = payload['error']?.toString();
+      final message = voiceError == null
+          ? appStrings.liveVoiceFailed
+          : _friendlyErrorMessage(BackendException(voiceError));
       final opening = _liveVoiceSessionOpenCompleter;
       if (payload['recoverable'] != true &&
           opening != null &&
@@ -8471,7 +8496,7 @@ class NeoAgentController extends ChangeNotifier {
                     : 'completed'),
           summary:
               payload['task']?.toString().ifEmpty(
-                payload['error']?.toString() ??
+                _eventErrorText(payload['error']) ??
                     payload['result']?.toString() ??
                     appStrings.subagentUpdate2,
               ) ??
@@ -8497,7 +8522,7 @@ class NeoAgentController extends ChangeNotifier {
         type: payload['type']?.toString() ?? '',
         status: payload['status']?.toString() ?? 'completed',
         summary:
-            payload['error']?.toString() ??
+            _eventErrorText(payload['error']) ??
             _summarizeToolResult(payload['result']),
       );
       var replaced = false;

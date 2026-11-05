@@ -1004,7 +1004,7 @@ class _ComputerSettingsPageState extends State<_ComputerSettingsPage> {
         setState(() {
           _shellTestResult = <String, dynamic>{
             'passed': false,
-            'detail': error.toString(),
+            'detail': formatCaughtError(error),
           };
         });
       }
@@ -1024,7 +1024,7 @@ class _ComputerSettingsPageState extends State<_ComputerSettingsPage> {
       if (mounted) {
         setState(
           () => _socialReachActionResult = <String, dynamic>{
-            'error': error.toString(),
+            'error': formatCaughtError(error),
           },
         );
       }
@@ -1048,7 +1048,7 @@ class _ComputerSettingsPageState extends State<_ComputerSettingsPage> {
       if (mounted) {
         setState(
           () => _socialReachActionResult = <String, dynamic>{
-            'error': error.toString(),
+            'error': formatCaughtError(error),
           },
         );
       }

@@ -12409,6 +12409,9 @@ class AppL10nEn extends AppL10n {
   String get adminUpdateFailedTitle => 'The update did not finish';
 
   @override
+  String get technicalDetails => 'Technical details';
+
+  @override
   String get approvalReview => 'Review';
 
   @override

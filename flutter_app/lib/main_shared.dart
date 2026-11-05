@@ -2156,14 +2156,28 @@ class _InfoChip extends StatelessWidget {
   }
 }
 
-class _InlineError extends StatelessWidget {
+class _InlineError extends StatefulWidget {
   const _InlineError({required this.message, this.onDismiss});
 
   final String message;
   final VoidCallback? onDismiss;
 
   @override
+  State<_InlineError> createState() => _InlineErrorState();
+}
+
+class _InlineErrorState extends State<_InlineError> {
+  bool _showDetails = false;
+
+  @override
+  void didUpdateWidget(_InlineError oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.message != widget.message) _showDetails = false;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final details = TechnicalErrorDetails.forMessage(widget.message);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -2172,19 +2186,89 @@ class _InlineError extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.tag),
         border: Border.all(color: _danger.withValues(alpha: 0.30)),
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: Text(widget.message, style: TextStyle(color: _danger)),
+              ),
+              if (widget.onDismiss != null)
+                IconButton(
+                  tooltip: appStrings.dismiss,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: widget.onDismiss,
+                  icon: Icon(Icons.close_rounded, color: _danger, size: 18),
+                ),
+            ],
+          ),
+          if (details != null) ...<Widget>[
+            const SizedBox(height: 4),
+            _detailsToggle(),
+            if (_showDetails) _detailsPanel(details),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _detailsToggle() {
+    return Semantics(
+      expanded: _showDetails,
+      child: TextButton.icon(
+        style: TextButton.styleFrom(
+          foregroundColor: _textSecondary,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          minimumSize: const Size(0, 32),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          textStyle: const TextStyle(fontSize: 12.5),
+        ),
+        onPressed: () => setState(() => _showDetails = !_showDetails),
+        icon: AnimatedRotation(
+          turns: _showDetails ? 0.25 : 0,
+          duration: const Duration(milliseconds: 150),
+          child: const Icon(Icons.chevron_right_rounded, size: 18),
+        ),
+        label: Text(appStrings.technicalDetails),
+      ),
+    );
+  }
+
+  Widget _detailsPanel(String details) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+      decoration: BoxDecoration(
+        color: _danger.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(AppRadius.tag),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Expanded(
-            child: Text(message, style: TextStyle(color: _danger)),
-          ),
-          if (onDismiss != null)
-            IconButton(
-              tooltip: appStrings.dismiss,
-              visualDensity: VisualDensity.compact,
-              onPressed: onDismiss,
-              icon: Icon(Icons.close_rounded, color: _danger, size: 18),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 180),
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  details,
+                  style: GoogleFonts.geistMono(
+                    fontSize: 12,
+                    height: 1.4,
+                    color: _textSecondary,
+                  ),
+                ),
+              ),
             ),
+          ),
+          IconButton(
+            tooltip: appStrings.copy,
+            visualDensity: VisualDensity.compact,
+            onPressed: () => Clipboard.setData(ClipboardData(text: details)),
+            icon: Icon(Icons.copy_rounded, color: _textSecondary, size: 16),
+          ),
         ],
       ),
     );
