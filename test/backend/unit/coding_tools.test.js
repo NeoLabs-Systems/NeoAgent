@@ -629,6 +629,23 @@ test('repo_diff sees a same-size edit made right after a commit', async () => {
   }
 });
 
+test('repo_diff never hands a line of a repository path to git as an option', async () => {
+  const workspace = tempDir();
+  const outside = tempDir();
+  const marker = path.join(outside, 'marker');
+  const relative = `r\n--output=${marker}`;
+  const root = path.join(workspace, relative);
+  fs.mkdirSync(root, { recursive: true });
+  initRepo(root);
+  write(root, 'f.txt', 'one\n');
+  commitAll(root);
+  write(root, 'f.txt', 'two\n');
+
+  const diff = await repoDiff(shellFor(workspace).shell, { path: relative });
+  assert.ok(diff.error, 'the snapshot is refused');
+  assert.equal(fs.existsSync(marker), false, 'nothing is written outside the workspace');
+});
+
 test('repo_diff reports a clean tree, a missing repository, and a repository with no commits', async () => {
   const root = diffFixture();
   const { shell } = shellFor(root);

@@ -37,11 +37,17 @@ function enterRepositoryLines(target, enterOptions) {
   ];
 }
 
+// The base is either the shell's own $neo_base or a tree id the run recorded; anything
+// else is refused rather than placed in the script.
 function listingLines(baseExpression, paths = []) {
+  const base = baseExpression === '$neo_base' ? '"$neo_base"' : shellQuote(baseExpression);
+  if (base !== '"$neo_base"' && !/^[0-9a-f]{40,64}$/.test(baseExpression)) {
+    throw new Error('A recorded snapshot is not a tree id.');
+  }
   const pathspec = paths.length ? ` -- ${paths.map(shellQuote).join(' ')}` : '';
   return [
-    `printf '%s\\n' "@@neoagent:listing ${baseExpression}"`,
-    `${GIT_DIFF} --raw --numstat "${baseExpression}" "$neo_now"${pathspec} | head -n ${MAX_LISTED_FILES * 2}`,
+    `printf '%s\\n' "@@neoagent:listing "${base}`,
+    `${GIT_DIFF} --raw --numstat ${base} "$neo_now"${pathspec} | head -n ${MAX_LISTED_FILES * 2}`,
   ];
 }
 

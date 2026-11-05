@@ -4182,6 +4182,12 @@ class AppL10nDe extends AppL10n {
   String get keepTaskRunning => 'Aufgabe weiterlaufen lassen';
 
   @override
+  String get saveForNextTime => 'Save for next time';
+
+  @override
+  String get resumeTask => 'Resume task';
+
+  @override
   String get keepTheVaultAvailable => 'Tresor verfügbar halten';
 
   @override

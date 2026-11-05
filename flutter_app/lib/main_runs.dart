@@ -1576,6 +1576,11 @@ class _RunDetailViewState extends State<_RunDetailView>
     );
   }
 
+  Future<void> _resume() async {
+    await _controller.resumeRun(widget.runId);
+    _scheduleFetch();
+  }
+
   Future<void> _stop() async {
     await _controller.stopRun(widget.runId);
     _scheduleFetch();
@@ -1617,6 +1622,7 @@ class _RunDetailViewState extends State<_RunDetailView>
           _RunDetailHeader(
             run: run,
             onStop: run.isActive ? _stop : null,
+            onResume: run.status == 'paused' ? _resume : null,
             onCopyResponse: response.isEmpty
                 ? null
                 : () => _copy(response, appStrings.copiedFinalResponse),
@@ -1744,6 +1750,7 @@ class _RunDetailHeader extends StatelessWidget {
   const _RunDetailHeader({
     required this.run,
     required this.onStop,
+    required this.onResume,
     required this.onCopyResponse,
     required this.onShowPrompt,
     required this.onCopyId,
@@ -1752,6 +1759,7 @@ class _RunDetailHeader extends StatelessWidget {
 
   final RunSummary run;
   final Future<void> Function()? onStop;
+  final Future<void> Function()? onResume;
   final VoidCallback? onCopyResponse;
   final Future<void> Function() onShowPrompt;
   final VoidCallback onCopyId;
@@ -1797,6 +1805,12 @@ class _RunDetailHeader extends StatelessWidget {
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: <Widget>[
+        if (onResume != null)
+          FilledButton.icon(
+            onPressed: onResume,
+            icon: const Icon(Icons.play_arrow_rounded, size: 18),
+            label: Text(appStrings.resumeTask),
+          ),
         if (onStop != null)
           FilledButton.tonalIcon(
             onPressed: onStop,

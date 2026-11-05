@@ -119,6 +119,19 @@ test('a 500 reaches admins with its cause and everyone else without', async () =
   assert.equal(seenByAdmin.body.error, RAW);
 });
 
+test('another spelling of the API prefix cannot skip the API protections', async () => {
+  const memberAgent = agent(app);
+  await loginAs(memberAgent, member);
+  for (const url of ['/API/__test/boom', '/Api/__test/boom', '/aPI/__test/thrown']) {
+    const response = await memberAgent.get(url);
+    assert.equal(response.statusCode, 404, url);
+    assert.doesNotMatch(JSON.stringify(response.body), /SqliteError/, url);
+  }
+
+  const crossSite = await memberAgent.post('/API/__test/boom').set('Origin', 'https://evil.example');
+  assert.equal(crossSite.statusCode, 404);
+});
+
 test('stored run failures are hidden from non-admins and kept for admins', async () => {
   const { resolveAgentId } = require('../../server/services/agents/manager');
   const insertRun = (user, id) => {

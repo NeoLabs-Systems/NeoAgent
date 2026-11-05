@@ -4153,6 +4153,12 @@ class AppL10nBg extends AppL10n {
   String get keepTaskRunning => 'Продължете да изпълнявате задачата';
 
   @override
+  String get saveForNextTime => 'Save for next time';
+
+  @override
+  String get resumeTask => 'Resume task';
+
+  @override
   String get keepTheVaultAvailable => 'Дръжте трезора на разположение';
 
   @override

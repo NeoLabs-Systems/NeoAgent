@@ -4148,6 +4148,12 @@ class AppL10nCs extends AppL10n {
   String get keepTaskRunning => 'Udržujte úlohu spuštěnou';
 
   @override
+  String get saveForNextTime => 'Save for next time';
+
+  @override
+  String get resumeTask => 'Resume task';
+
+  @override
   String get keepTheVaultAvailable => 'Nechte k dispozici trezor';
 
   @override

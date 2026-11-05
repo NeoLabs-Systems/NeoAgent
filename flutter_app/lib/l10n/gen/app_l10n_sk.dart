@@ -4154,6 +4154,12 @@ class AppL10nSk extends AppL10n {
   String get keepTaskRunning => 'Udržujte úlohu spustenú';
 
   @override
+  String get saveForNextTime => 'Save for next time';
+
+  @override
+  String get resumeTask => 'Resume task';
+
+  @override
   String get keepTheVaultAvailable => 'Nechajte k dispozícii trezor';
 
   @override

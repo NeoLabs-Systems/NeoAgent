@@ -2295,6 +2295,16 @@ class NeoAgentController extends ChangeNotifier {
     }
   }
 
+  Future<void> resumeRun(String runId) async {
+    try {
+      await _backendClient.resumeAgentRun(backendUrl, runId);
+      await refreshRunsOnly();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
   Future<void> stopRun(String runId) async {
     try {
       await _backendClient.abortAgentRun(backendUrl, runId);
@@ -4818,6 +4828,7 @@ class NeoAgentController extends ChangeNotifier {
   /// [error] keeps the reason a server-ended call stopped on screen.
   Future<void> closeLiveVoiceSession({
     bool cancelTask = false,
+    bool tasksSaved = false,
     String? error,
   }) async {
     final sessionId = voiceAssistantLiveState.sessionId.trim();
@@ -4827,7 +4838,9 @@ class NeoAgentController extends ChangeNotifier {
       lastEndedCall = EndedAgentCall(
         agentName: callAgentName,
         duration: DateTime.now().difference(startedAt),
-        backgroundTask: voiceAssistantLiveState.hasActiveTask && !cancelTask
+        backgroundTask: voiceAssistantLiveState.hasActiveTask &&
+                !cancelTask &&
+                !tasksSaved
             ? request
             : null,
       );
@@ -7288,9 +7301,27 @@ class NeoAgentController extends ChangeNotifier {
   }
 
   /// The user hanging up.
-  Future<void> hangUpVoiceCall({bool cancelTask = false}) async {
+  Future<void> hangUpVoiceCall({
+    bool cancelTask = false,
+    bool saveForNextTime = false,
+  }) async {
+    if (saveForNextTime) {
+      final tasks = voiceAssistantLiveState.tasks.toList();
+      try {
+        for (final task in tasks) {
+          await _backendClient.pauseAgentRun(backendUrl, task.runId);
+        }
+      } catch (error) {
+        errorMessage = _friendlyErrorMessage(error);
+        notifyListeners();
+        return;
+      }
+    }
     final returnHome = _returnHomeAfterCall;
-    await closeLiveVoiceSession(cancelTask: cancelTask);
+    await closeLiveVoiceSession(
+      cancelTask: cancelTask,
+      tasksSaved: saveForNextTime,
+    );
     if (returnHome) {
       await _homeWidgetBridge.returnToHomeScreen();
     }

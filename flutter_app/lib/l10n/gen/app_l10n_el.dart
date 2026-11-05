@@ -4186,6 +4186,12 @@ class AppL10nEl extends AppL10n {
   String get keepTaskRunning => 'Συνεχίστε την εκτέλεση της εργασίας';
 
   @override
+  String get saveForNextTime => 'Save for next time';
+
+  @override
+  String get resumeTask => 'Resume task';
+
+  @override
   String get keepTheVaultAvailable => 'Κρατήστε το θησαυροφυλάκιο διαθέσιμο';
 
   @override

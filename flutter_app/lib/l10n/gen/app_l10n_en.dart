@@ -4129,6 +4129,12 @@ class AppL10nEn extends AppL10n {
   String get keepTaskRunning => 'Keep task running';
 
   @override
+  String get saveForNextTime => 'Save for next time';
+
+  @override
+  String get resumeTask => 'Resume task';
+
+  @override
   String get keepTheVaultAvailable => 'Keep the vault available';
 
   @override
@@ -4895,7 +4901,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get neoagentIsStillWorkingOnA =>
-      'NeoAgent is still working on a task. End the call and get the result in chat, or cancel the task too.';
+      'NeoAgent is still working on tasks. Keep them running and get the results in chat, save them to resume later from Runs, or cancel them.';
 
   @override
   String get neoagentIsTurningYourDemonstrationInto =>

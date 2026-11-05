@@ -4171,6 +4171,12 @@ class AppL10nHu extends AppL10n {
   String get keepTaskRunning => 'Folytassa a feladat futását';
 
   @override
+  String get saveForNextTime => 'Save for next time';
+
+  @override
+  String get resumeTask => 'Resume task';
+
+  @override
   String get keepTheVaultAvailable => 'Tartsa elérhetővé a trezort';
 
   @override

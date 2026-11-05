@@ -4179,6 +4179,12 @@ class AppL10nGa extends AppL10n {
   String get keepTaskRunning => 'Coinnigh an tasc ar siúl';
 
   @override
+  String get saveForNextTime => 'Save for next time';
+
+  @override
+  String get resumeTask => 'Resume task';
+
+  @override
   String get keepTheVaultAvailable => 'Coinnigh an cruinneachán ar fáil';
 
   @override

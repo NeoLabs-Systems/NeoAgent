@@ -1,10 +1,116 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neoagent_flutter/main.dart';
 import 'package:neoagent_flutter/src/backend_client.dart';
 import 'package:neoagent_flutter/src/health_bridge.dart';
 
+class _PauseClient extends BackendClient {
+  final paused = <String>[];
+  bool fail = false;
+
+  @override
+  Future<Map<String, dynamic>> pauseAgentRun(
+    String baseUrl,
+    String runId,
+  ) async {
+    if (fail) throw Exception('Pause failed');
+    paused.add(runId);
+    return <String, dynamic>{'success': true};
+  }
+}
+
+class _CallController extends NeoAgentController {
+  _CallController(_PauseClient client)
+    : super(backendClient: client, healthBridge: HealthBridge());
+
+  bool closed = false;
+  bool saved = false;
+
+  @override
+  Future<void> closeLiveVoiceSession({
+    bool cancelTask = false,
+    bool tasksSaved = false,
+    String? error,
+  }) async {
+    closed = true;
+    saved = tasksSaved;
+  }
+}
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('com.llfbandit.record/messages'),
+          (call) async => null,
+        );
+  });
+
+  test('saving a call pauses every task before closing', () async {
+    final client = _PauseClient();
+    final controller = _CallController(client);
+    addTearDown(controller.dispose);
+    controller.voiceAssistantLiveState = VoiceAssistantLiveState(
+      sessionId: 'call',
+      tasks: const [
+        VoiceCallTask(runId: 'first'),
+        VoiceCallTask(runId: 'second'),
+      ],
+    );
+
+    await controller.hangUpVoiceCall(saveForNextTime: true);
+
+    expect(client.paused, ['first', 'second']);
+    expect(controller.closed, isTrue);
+    expect(controller.saved, isTrue);
+  });
+
+  test('a failed save keeps the call open and exposes the error', () async {
+    final client = _PauseClient()..fail = true;
+    final controller = _CallController(client);
+    addTearDown(controller.dispose);
+    controller.voiceAssistantLiveState = VoiceAssistantLiveState(
+      sessionId: 'call',
+      tasks: const [VoiceCallTask(runId: 'first')],
+    );
+
+    await controller.hangUpVoiceCall(saveForNextTime: true);
+
+    expect(controller.closed, isFalse);
+    expect(controller.voiceAssistantLiveState.sessionId, 'call');
+    expect(controller.errorMessage, isNotEmpty);
+  });
+
+  testWidgets('hang up offers saving running work for later', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final client = _PauseClient();
+    final controller = _CallController(client);
+    addTearDown(controller.dispose);
+    controller.voiceAssistantLiveState = VoiceAssistantLiveState(
+      sessionId: 'call',
+      tasks: const [VoiceCallTask(runId: 'first', request: 'Check deployment')],
+    );
+    await tester.pumpWidget(
+      MaterialApp(home: AgentCallScreen(controller: controller)),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byIcon(Icons.call_end_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Keep task running'), findsOneWidget);
+    expect(find.text('Cancel task'), findsOneWidget);
+    await tester.tap(find.text('Save for next time'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(client.paused, ['first']);
+    expect(controller.saved, isTrue);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   NeoAgentController controllerFor(WidgetTester tester) {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;

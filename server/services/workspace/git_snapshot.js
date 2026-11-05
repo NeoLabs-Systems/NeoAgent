@@ -14,6 +14,8 @@ base = ['git', '--no-optional-locks', '-c', 'core.fsmonitor=false', '-c', 'core.
 def git(*args, data=None, env=None):
     return subprocess.check_output(base + list(args), input=data, env=env)
 root = git('rev-parse', '--show-toplevel').decode().strip()
+# Callers read the root and the tree as separate lines.
+if any(c in root for c in '\n\r'): raise RuntimeError('The repository path contains a line break.')
 os.chdir(root)
 root_fd = os.open('.', os.O_RDONLY | os.O_DIRECTORY)
 tracked = {}
@@ -93,6 +95,8 @@ function snapshotLines({ status = true } = {}) {
     'trap \'rm -rf "$neo_tmp"\' EXIT',
     `${snapshotCommand({ status })} >"$neo_tmp/snapshot" 2>"$neo_tmp/err" || { printf '%s\\n' '@@neoagent:failed'; head -c 300 "$neo_tmp/err"; echo; exit 0; }`,
     "neo_now=$(sed -n '2p' \"$neo_tmp/snapshot\")",
+    // The tree goes to git as a revision, so it must be an object id and nothing else.
+    "case \"$neo_now\" in ''|*[!0-9a-f]*) printf '%s\\n' '@@neoagent:failed' 'The snapshot did not return a tree id.'; exit 0 ;; esac",
     'printf "%s\\n%s\\n" "@@neoagent:now" "$neo_now"',
     ...(status ? ["printf '%s\\n' '@@neoagent:porcelain'; tail -n +3 \"$neo_tmp/snapshot\""] : []),
   ];

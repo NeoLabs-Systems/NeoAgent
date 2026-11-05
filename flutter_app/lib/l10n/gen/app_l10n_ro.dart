@@ -4160,6 +4160,12 @@ class AppL10nRo extends AppL10n {
   String get keepTaskRunning => 'Continuați să ruleze sarcina';
 
   @override
+  String get saveForNextTime => 'Save for next time';
+
+  @override
+  String get resumeTask => 'Resume task';
+
+  @override
   String get keepTheVaultAvailable => 'Păstrați seiful disponibil';
 
   @override

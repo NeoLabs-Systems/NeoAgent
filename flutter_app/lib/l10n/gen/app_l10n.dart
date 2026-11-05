@@ -6847,6 +6847,18 @@ abstract class AppL10n {
   /// **'Keep task running'**
   String get keepTaskRunning;
 
+  /// No description provided for @saveForNextTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Save for next time'**
+  String get saveForNextTime;
+
+  /// No description provided for @resumeTask.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume task'**
+  String get resumeTask;
+
   /// No description provided for @keepTheVaultAvailable.
   ///
   /// In en, this message translates to:
@@ -8134,7 +8146,7 @@ abstract class AppL10n {
   /// No description provided for @neoagentIsStillWorkingOnA.
   ///
   /// In en, this message translates to:
-  /// **'NeoAgent is still working on a task. End the call and get the result in chat, or cancel the task too.'**
+  /// **'NeoAgent is still working on tasks. Keep them running and get the results in chat, save them to resume later from Runs, or cancel them.'**
   String get neoagentIsStillWorkingOnA;
 
   /// No description provided for @neoagentIsTurningYourDemonstrationInto.

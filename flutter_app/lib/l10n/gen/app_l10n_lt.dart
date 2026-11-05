@@ -4156,6 +4156,12 @@ class AppL10nLt extends AppL10n {
   String get keepTaskRunning => 'Vykdykite užduotį';
 
   @override
+  String get saveForNextTime => 'Save for next time';
+
+  @override
+  String get resumeTask => 'Resume task';
+
+  @override
   String get keepTheVaultAvailable => 'Laikykite saugyklą prieinamą';
 
   @override

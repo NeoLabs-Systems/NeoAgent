@@ -78,7 +78,8 @@ async function readTree(session, manager, directory) {
     return { notRepository: /not a git repository/i.test(String(result?.stderr || '')) };
   }
   const [root, tree] = String(result.stdout || '').trim().split('\n');
-  return root && tree ? { root, tree } : {};
+  // The tree is later handed to git as a revision.
+  return root && /^[0-9a-f]{40,64}$/.test(tree || '') ? { root, tree } : {};
 }
 
 // ":100644 100644 <old> <new> M\tpath". Unusual names come back quoted, and those

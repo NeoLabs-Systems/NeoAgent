@@ -4144,6 +4144,12 @@ class AppL10nHr extends AppL10n {
   String get keepTaskRunning => 'Neka zadatak radi';
 
   @override
+  String get saveForNextTime => 'Save for next time';
+
+  @override
+  String get resumeTask => 'Resume task';
+
+  @override
   String get keepTheVaultAvailable => 'Neka trezor bude dostupan';
 
   @override

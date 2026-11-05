@@ -185,13 +185,39 @@ async function findVncPort() {
   throw new Error('No loopback VNC display is available.');
 }
 
-// The guest reaches host loopback through 10.0.2.2, so QEMU's control and display sockets
-// live in the instance directory where no guest can connect. sockaddr_un caps a UNIX socket
-// path at 104 bytes, and QEMU refuses to start when the instance directory pushes it past
-// that, so a deep runtime home falls back to a loopback port.
-async function instanceSocketAddress(instanceDir, name, findFallbackPort) {
-  const socketPath = path.join(instanceDir, name);
-  if (process.platform === 'win32' || Buffer.byteLength(socketPath) >= 104) return findFallbackPort();
+const MAX_SOCKET_PATH_BYTES = 104;
+
+// A fixed path in a shared directory, so it is only used once it is shown to be this
+// process's own private directory and not something another account created first.
+function privateShortSocketDirectory(instanceDir, shortRoot) {
+  const root = path.join(shortRoot, `neoagent-${process.getuid()}`);
+  try {
+    fs.mkdirSync(root, { mode: 0o700 });
+  } catch (err) {
+    if (err.code !== 'EEXIST') throw err;
+  }
+  const stat = fs.lstatSync(root);
+  if (!stat.isDirectory() || stat.uid !== process.getuid() || (stat.mode & 0o077) !== 0) {
+    throw new Error(`${root} is not a private directory owned by this account; remove it and start the computer again.`);
+  }
+  const directory = path.join(root, path.basename(instanceDir));
+  fs.mkdirSync(directory, { mode: 0o700, recursive: true });
+  return directory;
+}
+
+// The guest reaches host loopback through 10.0.2.2, and QEMU's VNC and QMP sockets have no
+// authentication, so on POSIX hosts they are always UNIX sockets no guest can connect to.
+// sockaddr_un caps a socket path at 104 bytes, so a deep runtime home moves them to a short
+// private directory instead of a loopback port.
+async function instanceSocketAddress(instanceDir, name, findFallbackPort, shortRoot = '/tmp') {
+  if (process.platform === 'win32') return findFallbackPort();
+  let socketPath = path.join(instanceDir, name);
+  if (Buffer.byteLength(socketPath) >= MAX_SOCKET_PATH_BYTES) {
+    socketPath = path.join(privateShortSocketDirectory(instanceDir, shortRoot), name);
+  }
+  if (Buffer.byteLength(socketPath) >= MAX_SOCKET_PATH_BYTES) {
+    throw new Error(`The computer's socket path ${socketPath} is too long.`);
+  }
   fs.rmSync(socketPath, { force: true });
   return socketPath;
 }
@@ -1220,6 +1246,7 @@ module.exports = {
   buildQemuArgs,
   findOrphanedVmPids,
   getSparseDiskLiabilityBytes,
+  instanceSocketAddress,
   normalizeArchitecture,
   parseAccelerators,
   resolveQemuImgBinary,

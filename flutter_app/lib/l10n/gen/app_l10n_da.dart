@@ -4142,6 +4142,12 @@ class AppL10nDa extends AppL10n {
   String get keepTaskRunning => 'Hold opgaven kørende';
 
   @override
+  String get saveForNextTime => 'Save for next time';
+
+  @override
+  String get resumeTask => 'Resume task';
+
+  @override
   String get keepTheVaultAvailable => 'Hold boksen tilgængelig';
 
   @override

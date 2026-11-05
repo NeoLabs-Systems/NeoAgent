@@ -4155,6 +4155,12 @@ class AppL10nFi extends AppL10n {
   String get keepTaskRunning => 'Pidä tehtävä käynnissä';
 
   @override
+  String get saveForNextTime => 'Save for next time';
+
+  @override
+  String get resumeTask => 'Resume task';
+
+  @override
   String get keepTheVaultAvailable => 'Pidä holvi saatavilla';
 
   @override

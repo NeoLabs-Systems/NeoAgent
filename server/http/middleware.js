@@ -203,6 +203,15 @@ function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware
   }
 
   app.use(helmet(buildHelmetOptions({ secureCookies })));
+  // Routes match any letter case, but the origin check, auth responses and error
+  // redaction look for a lowercase /api/, so /API/ must not reach the handlers.
+  app.use((req, res, next) => {
+    const path = `${req.originalUrl || req.url || req.path || ''}`.split('?')[0];
+    if (/^\/api(\/|$)/i.test(path) && !/^\/api(\/|$)/.test(path)) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    return next();
+  });
   app.use(attachRequestSignal);
   app.use(
     cors((req, callback) => {
