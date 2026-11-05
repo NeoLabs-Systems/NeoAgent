@@ -408,15 +408,24 @@ class LiveVoiceSession {
     this.floor.expectReply();
   }
 
-  // One more try, in the model's own words. Whatever it still owes after that is
-  // in the chat, so the owner can find it.
+  // One more try, in the model's own words. Silent again on an open line, the
+  // connection is stuck rather than the model choosing quiet: a fresh one gets what
+  // it owes, once until the model speaks again. Whatever is still owed after that
+  // is in the chat, so the owner can find it.
   #recoverSilence() {
     const owed = this.owedReply;
     this.owedReply = null;
     this.statusOwed = false;
-    if (!owed?.retry) return;
-    logger.info('Live model stayed silent; asking again', { sessionId: this.id });
-    this.tell(owed.handle, owed.text, { retry: false, outcome: owed.outcome || null });
+    if (!owed) return;
+    if (owed.retry) {
+      logger.info('Live model stayed silent; asking again', { sessionId: this.id });
+      this.tell(owed.handle, owed.text, { retry: false, outcome: owed.outcome || null });
+      return;
+    }
+    if (this.reconnectedForSilence) return;
+    this.reconnectedForSilence = true;
+    this.owedReply = { ...owed, retry: true };
+    void this.#reconnect('model_unresponsive', null);
   }
 
   #syncStatusUpdates(taskStatus) {
@@ -465,6 +474,7 @@ class LiveVoiceSession {
   }
 
   #handleAudio(pcm) {
+    this.reconnectedForSilence = false;
     if (this.owedReply?.outcome) this.unheardOutcomes.delete(this.owedReply.outcome);
     this.owedReply = null;
     this.statusOwed = false;

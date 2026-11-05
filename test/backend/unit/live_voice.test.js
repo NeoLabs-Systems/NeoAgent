@@ -956,7 +956,7 @@ test('no status is spoken over an owner who stopped the speech or a task waiting
   await session.close('test_done');
 });
 
-test('a reply the model never gave is asked for once, and a told outcome is told again', async (t) => {
+test('a reply the model never gave is asked for again, on a fresh line once, and a told outcome is told again', async (t) => {
   const ctx = createTestRuntime();
   const fake = await startFakeLiveServer();
   const { session, told } = await callWithRunningTask(t, fake, ctx);
@@ -965,10 +965,23 @@ test('a reply the model never gave is asked for once, and a told outcome is told
   session.floor.onReplyMissed();
   await fake.next((event) => event.clientContent?.turnComplete === true);
   assert.match(told()[0], /heard nothing from you/);
-  // Only once.
+  // Silent again while the line is open: the connection is stuck, so a fresh one
+  // is asked what the model still owes.
+  fake.received.length = 0;
+  session.floor.onReplyMissed();
+  assert.ok(await fake.next((event) => event.setup));
+  fake.send({ setupComplete: {} });
+  const again = await fake.next((event) => event.clientContent?.turnComplete === true);
+  assert.match(again.clientContent.turns[0].parts[0].text, /heard nothing from you/);
+  // Asked once more there, then left alone until the model speaks again.
+  session.floor.repliesDue = 0;
   session.floor.onReplyMissed();
   await pause(20);
-  assert.equal(told().length, 1);
+  session.floor.repliesDue = 0;
+  session.floor.onReplyMissed();
+  await pause(20);
+  assert.equal(told().length, 2);
+  assert.equal(fake.received.filter((event) => event.setup).length, 1);
 
   session.floor.modelSpeaking(Date.now());
   session.floor.modelSilent();
