@@ -45,6 +45,7 @@ const {
 } = require('./bootstrap_helpers');
 const { startSetupDiscovery } = require('./setup/discovery');
 const { resumeInterruptedRuns } = require('./ai/runtime/restart_resume');
+const { resumeAgentTasks } = require('./ai/loop/agent_tasks');
 const { DEFAULT_NEOAGENT_PORT } = require('../../lib/setup/contract');
 
 function registerLocal(app, key, value) {
@@ -521,7 +522,10 @@ async function startServices(app, io, { resumeRuns = false } = {}) {
     // A resumed messaging run delivers through its platform, so it waits for
     // the connections to come back.
     if (resumeRuns) {
-      void messagingRestored.then(() => resumeInterruptedRuns(agentEngine)).catch((err) => {
+      void messagingRestored.then(() => {
+        resumeInterruptedRuns(agentEngine);
+        resumeAgentTasks(agentEngine);
+      }).catch((err) => {
         console.error('[Runtime] Resuming interrupted runs failed:', getErrorMessage(err));
       });
     }

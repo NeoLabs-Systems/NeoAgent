@@ -1514,6 +1514,8 @@ class _ChatBubble extends StatelessWidget {
                       ? CrossAxisAlignment.end
                       : CrossAxisAlignment.start,
                   children: <Widget>[
+                    if (!isUser && entry.agentTask != null)
+                      _AgentTaskHeader(task: entry.agentTask!),
                     if (!isUser && entry.platformTag != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
@@ -2027,6 +2029,51 @@ class _MessageAvatar extends StatelessWidget {
         border: Border.all(color: _borderLight),
       ),
       child: Icon(Icons.person, size: 16, color: _textSecondary),
+    );
+  }
+}
+
+/// Above a message an agent wrote for a task another agent handed it.
+class _AgentTaskHeader extends StatelessWidget {
+  const _AgentTaskHeader({required this.task});
+
+  final ({String requester, String goal, bool handoff}) task;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(
+            task.handoff
+                ? Icons.swap_horiz_rounded
+                : Icons.subdirectory_arrow_right_rounded,
+            size: 16,
+            color: _textMuted,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: <InlineSpan>[
+                  TextSpan(
+                    text: task.handoff
+                        ? appStrings.agentTaskTakenOverFrom(task.requester)
+                        : appStrings.agentTaskFrom(task.requester),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  if (task.goal.isNotEmpty) TextSpan(text: ' · ${task.goal}'),
+                ],
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12.5, color: _textSecondary),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

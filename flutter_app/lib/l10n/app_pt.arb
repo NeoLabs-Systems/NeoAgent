@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Chamadas de agente",
-  "agentCommunication": "Comunicação do agente",
-  "agentCommunicationArg1": "Comunicação do agente: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "O modo agente edita o espaço de trabalho · ⌘↵ enviar · ⌘N nova sessão",
   "agentPausesAndAsksYouBefore": "O agente faz uma pausa e pede a sua autorização antes de iniciar a execução.",
   "agentProfile": "Perfil do agente",
@@ -2007,20 +1998,9 @@
   "callAgent": "Chamar agente",
   "callUser": "Chamar usuário",
   "calledByName": "Chamado pelo nome",
-  "canDelegateTasksToOtherAgents": "Pode delegar tarefas a outros agentes",
-  "canDelegateToArg1": "Pode delegar para {arg1}",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Pode receber tarefas delegadas",
   "cancel": "Cancelar",
   "cancelTask": "Cancelar tarefa",
   "cannotPreview": "Não é possível visualizar",
-  "cannotReceiveDelegatedTasks": "não pode receber tarefas delegadas",
   "cannotRunYet": "ainda não pode ser executado.",
   "capturedThePage": "Capturou a página",
   "category": "Categoria",
@@ -2378,7 +2358,6 @@
   "createLink": "Criar link",
   "createOrModifyFilesInYour": "Crie ou modifique arquivos em seu espaço de trabalho.",
   "createPassword": "Criar senha",
-  "createSpecialistBotsWithSeparateMemory": "Crie bots especializados com memória, configurações, ferramentas e atribuições de contas separadas.",
   "createTheFirstAccount": "Crie a primeira conta",
   "createUpdateOrDeleteSkills": "Crie, atualize ou exclua habilidades.",
   "creatingYourSkill": "Criando sua habilidade…",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Lida sozinho com tarefas diretas",
   "handsFreeTalkFreelyInterruptAnytime": "Viva-voz (fale livremente, interrompa a qualquer momento)",
   "headerName": "Nome do cabeçalho",
   "headlinesOnTheTopicsYouCare": "Manchetes sobre os tópicos de seu interesse, filtradas para sinalização.",
@@ -4430,7 +4408,6 @@
   "restart": "Reiniciar",
   "restartToFinishTheUpdate": " Reinicie para finalizar a atualização.",
   "restoringThePreviousNeoagentRuntime": "Restaurando o tempo de execução anterior do NeoAgent",
-  "restrictDelegationTargets": "Restringir metas de delegação",
   "result": "Resultado",
   "resultDelivery": "Entrega de resultados",
   "resultOneClickAddsOneYou": "resultado. Um clique adiciona um; você pode editá-lo mais tarde.",
@@ -5151,7 +5128,6 @@
   "thesePeopleInOneGroup": "Essas pessoas, em um grupo",
   "theseSwitchesNeverYourChatsMemories": "essas opções, nunca seus bate-papos, memórias ou arquivos.",
   "thisAccountWillUnlockNeoagentOn": "Esta conta irá desbloquear o NeoAgent nesta máquina.",
-  "thisAgentCanDelegateToAny": "Este agente pode delegar a qualquer agente receptor elegível.",
   "thisAgentIsUsingAServer": "Este agente está usando uma chave de API do Trello gerenciada pelo servidor. Você só precisa autorizar um token de conta abaixo.",
   "thisBuildIsNotAllowedTo": "Esta compilação não tem permissão para se comunicar com esta implantação do NeoAgent.",
   "thisCodeBelongsToADifferent": "Este código pertence a um servidor NeoAgent diferente: {arg1}",
@@ -5371,7 +5347,6 @@
   "turnTaking": "turno tomando",
   "turnTakingModel": "Modelo de turno",
   "turnTakingOff": "Decolagem",
-  "turnThisOffToKeepThis": "Desative esta opção para manter este agente totalmente separado de outros agentes.",
   "turnedOffByArg1": "Desativado por {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5511,6 @@
   },
   "useTheServerOnThisComputer": "Use o servidor neste computador",
   "useTheseForContextIfA": "Use-os para contextualizar. Se um URI local não estiver acessível diretamente no servidor, peça para fornecer o arquivo por meio de um espaço de trabalho acessível.",
-  "useThisForOrchestratorAgentsLeave": "Use isso para agentes orquestradores. Deixe para os bots de trabalho isolados que devem finalizar as mensagens diretas sozinhos.",
   "useTlsFromTheStartOf": "Use TLS desde o início da conexão, geralmente na porta 465.",
   "useYourOwnApiKeyFor": "Use sua própria chave de API para um provedor ou conecte uma chave personalizada ",
   "usedByEveryAccountOnThis": "Usado por todas as contas neste servidor que não possuem chave ",
@@ -5921,8 +5895,6 @@
   "pasteAReplacementToken": "Cole um token substituto",
   "replaceAccount": "Substituir conta",
   "addAccount": "Adicionar conta",
-  "canDelegateToAnyReceivingAgent": "Pode delegar a qualquer agente receptor",
-  "canReceiveDelegatedTasks2": "pode receber tarefas delegadas",
   "noSyncYet": "Ainda não há sincronização",
   "noNewData": "Nenhum dado novo",
   "syncOnceToSeedYourBackend": "Sincronize uma vez para propagar seu back-end.",

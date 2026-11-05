@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Agent volá",
-  "agentCommunication": "Komunikace agentů",
-  "agentCommunicationArg1": "Komunikace agenta: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "Režim agenta upravuje pracovní prostor · ⌘↵ odeslat · ⌘N nová relace",
   "agentPausesAndAsksYouBefore": "Agent se pozastaví a před spuštěním vás požádá o svolení.",
   "agentProfile": "Profil agenta",
@@ -2007,20 +1998,9 @@
   "callAgent": "Zavolejte agentovi",
   "callUser": "Zavolejte uživateli",
   "calledByName": "Volaný jménem",
-  "canDelegateTasksToOtherAgents": "Může delegovat úkoly na jiné agenty",
-  "canDelegateToArg1": "Může delegovat na {arg1}",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Může přijímat delegované úkoly",
   "cancel": "Zrušit",
   "cancelTask": "Zrušit úkol",
   "cannotPreview": "Nelze zobrazit náhled",
-  "cannotReceiveDelegatedTasks": "nemůže přijímat delegované úkoly",
   "cannotRunYet": "ještě nemůže běžet.",
   "capturedThePage": "Stránka byla zachycena",
   "category": "Kategorie",
@@ -2378,7 +2358,6 @@
   "createLink": "Vytvořit odkaz",
   "createOrModifyFilesInYour": "Vytvářejte nebo upravujte soubory ve svém pracovním prostoru.",
   "createPassword": "Vytvořte heslo",
-  "createSpecialistBotsWithSeparateMemory": "Vytvářejte speciální roboty s oddělenou pamětí, nastaveními, nástroji a přiřazením účtů.",
   "createTheFirstAccount": "Vytvořte první účet",
   "createUpdateOrDeleteSkills": "Vytvořte, aktualizujte nebo odstraňte dovednosti.",
   "creatingYourSkill": "Vytváření vaší dovednosti…",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Přímé úkoly zvládá sám",
   "handsFreeTalkFreelyInterruptAnytime": "Hands-free (volně mluvte, kdykoli přerušte)",
   "headerName": "Název záhlaví",
   "headlinesOnTheTopicsYouCare": "Titulky na témata, která vás zajímají, filtrované podle signálu.",
@@ -4430,7 +4408,6 @@
   "restart": "Restartujte",
   "restartToFinishTheUpdate": " Restartujte pro dokončení aktualizace.",
   "restoringThePreviousNeoagentRuntime": "Obnovení předchozího běhového prostředí NeoAgent",
-  "restrictDelegationTargets": "Omezit cíle delegování",
   "result": "Výsledek",
   "resultDelivery": "Doručení výsledku",
   "resultOneClickAddsOneYou": "výsledek. Jedno kliknutí přidá jedno; můžete upravit později.",
@@ -5151,7 +5128,6 @@
   "thesePeopleInOneGroup": "Tito lidé v jedné skupině",
   "theseSwitchesNeverYourChatsMemories": "tyto přepínače, nikdy vaše chaty, vzpomínky nebo soubory.",
   "thisAccountWillUnlockNeoagentOn": "Tento účet odemkne NeoAgent na tomto počítači.",
-  "thisAgentCanDelegateToAny": "Tento agent může delegovat libovolného způsobilého přijímajícího agenta.",
   "thisAgentIsUsingAServer": "Tento agent používá klíč rozhraní API Trello spravovaný serverem. Musíte pouze autorizovat token účtu níže.",
   "thisBuildIsNotAllowedTo": "Toto sestavení nemá povoleno komunikovat s tímto nasazením NeoAgent.",
   "thisCodeBelongsToADifferent": "Tento kód patří jinému serveru NeoAgent: {arg1}",
@@ -5371,7 +5347,6 @@
   "turnTaking": "odbočit brát",
   "turnTakingModel": "Otočný model",
   "turnTakingOff": "Vypnutí-vypnutí",
-  "turnThisOffToKeepThis": "Vypněte toto, aby byl tento agent zcela oddělený od ostatních agentů.",
   "turnedOffByArg1": "Vypnuto {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5511,6 @@
   },
   "useTheServerOnThisComputer": "Použijte server na tomto počítači",
   "useTheseForContextIfA": "Použijte je pro kontext. Pokud místní identifikátor URI není přímo přístupný ze serveru, požádejte mě o poskytnutí souboru prostřednictvím přístupného pracovního prostoru.",
-  "useThisForOrchestratorAgentsLeave": "Použijte to pro agenty orchestrátoru. Ponechte vypnutou pro izolované pracovní roboty, kteří by měli dokončit přímé zprávy sami.",
   "useTlsFromTheStartOf": "Používejte TLS od začátku připojení, obvykle na portu 465.",
   "useYourOwnApiKeyFor": "Použijte svůj vlastní klíč API pro poskytovatele nebo připojte vlastní ",
   "usedByEveryAccountOnThis": "Používá každý účet na tomto serveru, který nemá žádný klíč ",
@@ -5921,8 +5895,6 @@
   "pasteAReplacementToken": "Vložte náhradní token",
   "replaceAccount": "Nahradit účet",
   "addAccount": "Přidat účet",
-  "canDelegateToAnyReceivingAgent": "Může delegovat na jakéhokoli přijímajícího agenta",
-  "canReceiveDelegatedTasks2": "může přijímat delegované úkoly",
   "noSyncYet": "Zatím žádná synchronizace",
   "noNewData": "Žádná nová data",
   "syncOnceToSeedYourBackend": "Jednou synchronizujte, abyste vytvořili backend.",

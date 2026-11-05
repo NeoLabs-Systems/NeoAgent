@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Agento skambučiai",
-  "agentCommunication": "Agento bendravimas",
-  "agentCommunicationArg1": "Agento bendravimas: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "Agento režimas redaguoja darbo sritį · ⌘↵ siųsti · ⌘N naujas seansas",
   "agentPausesAndAsksYouBefore": "Agentas sustoja ir prieš vykdydamas prašo tavo leidimo.",
   "agentProfile": "Agento profilis",
@@ -2007,20 +1998,9 @@
   "callAgent": "Skambinkite agentui",
   "callUser": "Skambinti vartotojui",
   "calledByName": "Pašauktas vardu",
-  "canDelegateTasksToOtherAgents": "Gali deleguoti užduotis kitiems agentams",
-  "canDelegateToArg1": "Galima deleguoti {arg1}",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Gali priimti deleguotas užduotis",
   "cancel": "Atšaukti",
   "cancelTask": "Atšaukti užduotį",
   "cannotPreview": "Negalima peržiūrėti",
-  "cannotReceiveDelegatedTasks": "negali gauti deleguotų užduočių",
   "cannotRunYet": "dar negali bėgti.",
   "capturedThePage": "Užfiksavo puslapį",
   "category": "Kategorija",
@@ -2378,7 +2358,6 @@
   "createLink": "Sukurti nuorodą",
   "createOrModifyFilesInYour": "Kurkite arba keiskite failus savo darbo srityje.",
   "createPassword": "Sukurti slaptažodį",
-  "createSpecialistBotsWithSeparateMemory": "Kurkite specializuotus robotus su atskira atmintimi, nustatymais, įrankiais ir paskyros priskyrimais.",
   "createTheFirstAccount": "Sukurkite pirmąją paskyrą",
   "createUpdateOrDeleteSkills": "Kurkite, atnaujinkite arba ištrinkite įgūdžius.",
   "creatingYourSkill": "Kuriame savo įgūdžius…",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Pats susitvarko su tiesioginėmis užduotimis",
   "handsFreeTalkFreelyInterruptAnytime": "Laisvų rankų įranga (kalbėkite laisvai, pertraukite bet kada)",
   "headerName": "Antraštės pavadinimas",
   "headlinesOnTheTopicsYouCare": "Antraštės jums svarbiomis temomis, filtruojamos pagal signalą.",
@@ -4430,7 +4408,6 @@
   "restart": "Paleisti iš naujo",
   "restartToFinishTheUpdate": " Paleiskite iš naujo, kad baigtumėte naujinimą.",
   "restoringThePreviousNeoagentRuntime": "Atkuriamas ankstesnis „NeoAgent“ vykdymo laikas",
-  "restrictDelegationTargets": "Apriboti delegavimo tikslus",
   "result": "Rezultatas",
   "resultDelivery": "Rezultatų pristatymas",
   "resultOneClickAddsOneYou": "rezultatas. Vienas paspaudimas prideda vieną; vėliau galėsite redaguoti.",
@@ -5151,7 +5128,6 @@
   "thesePeopleInOneGroup": "Šie žmonės vienoje grupėje",
   "theseSwitchesNeverYourChatsMemories": "šie jungikliai, niekada jūsų pokalbiai, prisiminimai ar failai.",
   "thisAccountWillUnlockNeoagentOn": "Ši paskyra atrakins „NeoAgent“ šiame įrenginyje.",
-  "thisAgentCanDelegateToAny": "Šis agentas gali deleguoti bet kuriam tinkamam gaunančiam agentui.",
   "thisAgentIsUsingAServer": "Šis agentas naudoja serverio valdomą Trello API raktą. Toliau reikia tik įgalioti paskyros prieigos raktą.",
   "thisBuildIsNotAllowedTo": "Šiai versijai neleidžiama bendrauti su šiuo „NeoAgent“ diegimu.",
   "thisCodeBelongsToADifferent": "Šis kodas priklauso kitam NeoAgent serveriui: {arg1}",
@@ -5371,7 +5347,6 @@
   "turnTaking": "posūkis imdamas",
   "turnTakingModel": "Posūkio modelis",
   "turnTakingOff": "Nusileidimas",
-  "turnThisOffToKeepThis": "Išjunkite, kad šis agentas būtų visiškai atskirtas nuo kitų agentų.",
   "turnedOffByArg1": "Išjungė {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5511,6 @@
   },
   "useTheServerOnThisComputer": "Naudokite serverį šiame kompiuteryje",
   "useTheseForContextIfA": "Naudokite juos kontekstui. Jei vietinis URI nėra tiesiogiai pasiekiamas iš serverio, paprašykite manęs pateikti failą per prieinamą darbo sritį.",
-  "useThisForOrchestratorAgentsLeave": "Naudokite tai orkestrantams. Išjunkite pavienius darbo robotus, kurie patys turėtų baigti tiesioginius pranešimus.",
   "useTlsFromTheStartOf": "Naudokite TLS nuo ryšio pradžios, paprastai 465 prievade.",
   "useYourOwnApiKeyFor": "Teikėjui naudokite savo API raktą arba prijunkite pasirinktinį ",
   "usedByEveryAccountOnThis": "Naudojama kiekvienoje šio serverio paskyroje, kuri neturi rakto ",
@@ -5921,8 +5895,6 @@
   "pasteAReplacementToken": "Įklijuokite pakaitinį prieigos raktą",
   "replaceAccount": "Pakeiskite paskyrą",
   "addAccount": "Pridėti paskyrą",
-  "canDelegateToAnyReceivingAgent": "Gali deleguoti bet kuriam priimančiam agentui",
-  "canReceiveDelegatedTasks2": "gali gauti deleguotas užduotis",
   "noSyncYet": "Dar nėra sinchronizavimo",
   "noNewData": "Naujų duomenų nėra",
   "syncOnceToSeedYourBackend": "Sinchronizuokite vieną kartą, kad pradėtumėte savo užpakalinę programą.",

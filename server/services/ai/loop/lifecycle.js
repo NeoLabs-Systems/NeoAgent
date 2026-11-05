@@ -85,11 +85,6 @@ function closeRun(runId, status, fields = {}, allowed = ['running']) {
        WHERE run_id = ? AND status = 'running'`,
     ).run(status, fields.error || null, runId);
     db.prepare(
-      `UPDATE agent_delegations
-       SET status = ?, error = COALESCE(NULLIF(error, ''), ?), updated_at = datetime('now'), completed_at = COALESCE(completed_at, datetime('now'))
-       WHERE parent_run_id = ? AND status = 'running'`,
-    ).run(status, fields.error || null, runId);
-    db.prepare(
       `UPDATE agent_run_controls SET consumed_at = datetime('now')
        WHERE run_id = ? AND consumed_at IS NULL`,
     ).run(runId);

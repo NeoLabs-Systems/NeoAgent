@@ -1,5 +1,8 @@
 'use strict';
 
+const { createAgentForRun } = require('../../../agents/creation');
+const { EVENT_TYPES } = require('../../runtime/events/event_types');
+
 const handlers = {
   async spawn_subagent(args, ctx) {
     const { agentId, app, engine, runId, userId } = ctx;
@@ -23,26 +26,42 @@ const handlers = {
   },
 
   async delegate_to_agent(args, ctx) {
-    const { agentId, app, engine, runId, triggerSource, userId } = ctx;
     try {
-    if (triggerSource === 'agent_delegation') {
-      return { error: 'Nested agent delegation is disabled in v1.' };
-    }
-    if (!engine || typeof engine.delegateToAgent !== 'function') {
-      return { error: 'Agent delegation is not available.' };
-    }
-    return await engine.delegateToAgent({
-      userId,
-      parentAgentId: agentId,
-      parentRunId: runId,
-      target: args.agent,
-      task: args.task,
-      context: args.context || '',
-      app,
-      allowExternalSideEffects: args.allow_external_side_effects === true,
-    });
+      return ctx.engine.delegateTask(ctx, args);
     } catch (err) {
-    return { error: `delegate_to_agent failed: ${err.message}` };
+      return { error: `delegate_to_agent failed: ${err.message}` };
+    }
+  },
+
+  async agent_task(args, ctx) {
+    try {
+      return await ctx.engine.agentTaskAction(ctx, args);
+    } catch (err) {
+      return { error: `agent_task failed: ${err.message}` };
+    }
+  },
+
+  async create_agent(args, ctx) {
+    const { agentId, engine, runId, userId } = ctx;
+    const runMeta = engine.getRunMeta(runId);
+    try {
+      const result = createAgentForRun({
+        userId,
+        agentId,
+        runId,
+        alreadyCreatedInRun: Boolean(runMeta?.createdAgentId),
+      }, args);
+      if (result.error) return result;
+      if (runMeta) runMeta.createdAgentId = result.id;
+      engine.recordRunEvent(userId, runId, EVENT_TYPES.AGENT_CREATED, { agent_id: result.id }, { agentId });
+      engine.emit(userId, 'agents:changed', { agentId: result.id });
+      return {
+        created: true,
+        agent: { id: result.id, slug: result.slug, name: result.displayName },
+        note: 'The user can see, change or archive it in their agent list. Hand it work with delegate_to_agent.',
+      };
+    } catch (err) {
+      return { error: `create_agent failed: ${err.message}` };
     }
   },
 

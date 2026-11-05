@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Агент се обажда",
-  "agentCommunication": "Комуникация с агент",
-  "agentCommunicationArg1": "Комуникация с агент: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "Режимът на агент редактира работното пространство · ⌘↵ изпращане · ⌘N нова сесия",
   "agentPausesAndAsksYouBefore": "Агентът спира и иска разрешение, преди да започне изпълнението.",
   "agentProfile": "Профил на агент",
@@ -2007,20 +1998,9 @@
   "callAgent": "Обадете се на агент",
   "callUser": "Повикване на потребител",
   "calledByName": "Наречен по име",
-  "canDelegateTasksToOtherAgents": "Може да делегира задачи на други агенти",
-  "canDelegateToArg1": "Може да делегира на {arg1}",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Can receive delegated tasks",
   "cancel": "Отказ",
   "cancelTask": "Отмени задачата",
   "cannotPreview": "Не може да се визуализира",
-  "cannotReceiveDelegatedTasks": "cannot receive delegated tasks",
   "cannotRunYet": "cannot run yet.",
   "capturedThePage": "Заснехте страницата",
   "category": "Категория",
@@ -2378,7 +2358,6 @@
   "createLink": "Създаване на връзка",
   "createOrModifyFilesInYour": "Create or modify files in your workspace.",
   "createPassword": "Създайте парола",
-  "createSpecialistBotsWithSeparateMemory": "Създавайте специализирани ботове с отделна памет, настройки, инструменти и присвояване на акаунти.",
   "createTheFirstAccount": "Създайте първия акаунт",
   "createUpdateOrDeleteSkills": "Create, update, or delete skills.",
   "creatingYourSkill": "Създаване на вашето умение...",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Сам се справя с преките задачи",
   "handsFreeTalkFreelyInterruptAnytime": "Без ръце (говорете свободно, прекъсвайте по всяко време)",
   "headerName": "Име на заглавката",
   "headlinesOnTheTopicsYouCare": "Заглавия по темите, които ви интересуват, филтрирани за сигнал.",
@@ -4430,7 +4408,6 @@
   "restart": "Рестартирайте",
   "restartToFinishTheUpdate": " Рестартирайте, за да завършите актуализацията.",
   "restoringThePreviousNeoagentRuntime": "Възстановяване на предишната среда за изпълнение на NeoAgent",
-  "restrictDelegationTargets": "Ограничаване на целите за делегиране",
   "result": "Резултат",
   "resultDelivery": "Доставка на резултат",
   "resultOneClickAddsOneYou": "резултат. Едно кликване добавя едно; можете да го редактирате по-късно.",
@@ -5151,7 +5128,6 @@
   "thesePeopleInOneGroup": "Тези хора, в една група",
   "theseSwitchesNeverYourChatsMemories": "тези превключватели, никога вашите чатове, спомени или файлове.",
   "thisAccountWillUnlockNeoagentOn": "Този акаунт ще отключи NeoAgent на тази машина.",
-  "thisAgentCanDelegateToAny": "Този агент може да делегира на всеки отговарящ на условията получаващ агент.",
   "thisAgentIsUsingAServer": "Този агент използва управляван от сървъра Trello API ключ. Трябва само да упълномощите токен за акаунт по-долу.",
   "thisBuildIsNotAllowedTo": "На тази компилация не е разрешено да общува с това внедряване на NeoAgent.",
   "thisCodeBelongsToADifferent": "Този код принадлежи на различен сървър на NeoAgent: {arg1}",
@@ -5371,7 +5347,6 @@
   "turnTaking": "вземане на ред",
   "turnTakingModel": "Поредният модел",
   "turnTakingOff": "Завъртане-излитане",
-  "turnThisOffToKeepThis": "Изключете това, за да запазите този агент напълно отделен от другите агенти.",
   "turnedOffByArg1": "Изключено от {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5511,6 @@
   },
   "useTheServerOnThisComputer": "Използвайте сървъра на този компютър",
   "useTheseForContextIfA": "Използвайте ги за контекст. Ако локален URI адрес не е директно достъпен от сървъра, помолете ме да предоставя файла чрез достъпно работно пространство.",
-  "useThisForOrchestratorAgentsLeave": "Използвайте това за оркестроващи агенти. Оставете за изолирани работни ботове, които трябва сами да завършат директните съобщения.",
   "useTlsFromTheStartOf": "Използвайте TLS от началото на връзката, обикновено на порт 465.",
   "useYourOwnApiKeyFor": "Използвайте свой собствен API ключ за доставчик или свържете персонализиран ",
   "usedByEveryAccountOnThis": "Използва се от всеки акаунт на този сървър, който няма ключ ",
@@ -5921,8 +5895,6 @@
   "pasteAReplacementToken": "Поставете заместващ токен",
   "replaceAccount": "Замяна на акаунт",
   "addAccount": "Добавяне на акаунт",
-  "canDelegateToAnyReceivingAgent": "Може да делегира на всеки получаващ агент",
-  "canReceiveDelegatedTasks2": "може да получава делегирани задачи",
   "noSyncYet": "Все още няма синхронизация",
   "noNewData": "Няма нови данни",
   "syncOnceToSeedYourBackend": "Синхронизирайте веднъж, за да заредите своя бекенд.",

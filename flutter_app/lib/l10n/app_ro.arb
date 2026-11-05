@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Apeluri de agent",
-  "agentCommunication": "Comunicarea agentului",
-  "agentCommunicationArg1": "Comunicare agent: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "Modul agent editează spațiul de lucru · ⌘↵ trimite · ⌘N sesiune nouă",
   "agentPausesAndAsksYouBefore": "Agentul se oprește și îți cere permisiunea înainte de a începe execuția.",
   "agentProfile": "Profilul agentului",
@@ -2007,20 +1998,9 @@
   "callAgent": "Apelați agentul",
   "callUser": "Apelați utilizatorul",
   "calledByName": "Chemat pe nume",
-  "canDelegateTasksToOtherAgents": "Poate delega sarcini altor agenți",
-  "canDelegateToArg1": "Se poate delega la {arg1}",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Poate primi sarcini delegate",
   "cancel": "Anulează",
   "cancelTask": "Anulați sarcina",
   "cannotPreview": "Nu se poate previzualiza",
-  "cannotReceiveDelegatedTasks": "nu pot primi sarcini delegate",
   "cannotRunYet": "nu pot rula încă.",
   "capturedThePage": "A capturat pagina",
   "category": "categorie",
@@ -2378,7 +2358,6 @@
   "createLink": "Creați link",
   "createOrModifyFilesInYour": "Creați sau modificați fișiere în spațiul dvs. de lucru.",
   "createPassword": "Creați parola",
-  "createSpecialistBotsWithSeparateMemory": "Creați roboți specialiști cu memorie, setări, instrumente și atribuiri de cont separate.",
   "createTheFirstAccount": "Creați primul cont",
   "createUpdateOrDeleteSkills": "Creați, actualizați sau ștergeți competențe.",
   "creatingYourSkill": "Creându-ți abilitățile…",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Se ocupă singur de sarcinile directe",
   "handsFreeTalkFreelyInterruptAnytime": "Mâini libere (vorbește liber, întrerupe oricând)",
   "headerName": "Nume antet",
   "headlinesOnTheTopicsYouCare": "Titluri despre subiectele care vă interesează, filtrate pentru semnal.",
@@ -4430,7 +4408,6 @@
   "restart": "Reporniți",
   "restartToFinishTheUpdate": " Reporniți pentru a finaliza actualizarea.",
   "restoringThePreviousNeoagentRuntime": "Restaurarea timpului de rulare anterior al NeoAgent",
-  "restrictDelegationTargets": "Restricționați obiectivele de delegare",
   "result": "Rezultat",
   "resultDelivery": "Livrarea rezultatelor",
   "resultOneClickAddsOneYou": "rezultat. Un clic adaugă unul; îl poți edita mai târziu.",
@@ -5151,7 +5128,6 @@
   "thesePeopleInOneGroup": "Acești oameni, într-un singur grup",
   "theseSwitchesNeverYourChatsMemories": "aceste comutatoare, niciodată chat-urile, amintirile sau fișierele dvs.",
   "thisAccountWillUnlockNeoagentOn": "Acest cont va debloca NeoAgent pe această mașină.",
-  "thisAgentCanDelegateToAny": "Acest agent poate delega oricărui agent de primire eligibil.",
   "thisAgentIsUsingAServer": "Acest agent folosește o cheie API Trello gestionată de server. Trebuie doar să autorizați un simbol de cont mai jos.",
   "thisBuildIsNotAllowedTo": "Această versiune nu are voie să vorbească cu această implementare NeoAgent.",
   "thisCodeBelongsToADifferent": "Acest cod aparține unui alt server NeoAgent: {arg1}",
@@ -5371,7 +5347,6 @@
   "turnTaking": "luarea pe rând",
   "turnTakingModel": "Model pe rând",
   "turnTakingOff": "Viraj-decolare",
-  "turnThisOffToKeepThis": "Dezactivați această opțiune pentru a păstra acest agent complet separat de alți agenți.",
   "turnedOffByArg1": "Dezactivat de {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5511,6 @@
   },
   "useTheServerOnThisComputer": "Utilizați serverul de pe acest computer",
   "useTheseForContextIfA": "Folosiți-le pentru context. Dacă un URI local nu este accesibil direct de pe server, cereți-mi să furnizez fișierul printr-un spațiu de lucru accesibil.",
-  "useThisForOrchestratorAgentsLeave": "Utilizați acest lucru pentru agenții orchestratori. Lăsați-l pe roboții de lucru izolați care ar trebui să termine singuri mesajele directe.",
   "useTlsFromTheStartOf": "Utilizați TLS de la începutul conexiunii, de obicei pe portul 465.",
   "useYourOwnApiKeyFor": "Utilizați propria cheie API pentru un furnizor sau conectați o cheie personalizată ",
   "usedByEveryAccountOnThis": "Folosit de fiecare cont de pe acest server care nu are cheie ",
@@ -5921,8 +5895,6 @@
   "pasteAReplacementToken": "Lipiți un jeton de înlocuire",
   "replaceAccount": "Înlocuiește contul",
   "addAccount": "Adăugați un cont",
-  "canDelegateToAnyReceivingAgent": "Poate delega oricărui agent primitor",
-  "canReceiveDelegatedTasks2": "pot primi sarcini delegate",
   "noSyncYet": "Nicio sincronizare încă",
   "noNewData": "Nu există date noi",
   "syncOnceToSeedYourBackend": "Sincronizați o dată pentru a vă genera backend-ul.",

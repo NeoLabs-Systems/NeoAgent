@@ -13,6 +13,10 @@ const {
 } = require('../integrated_tools');
 const { isSystemOneEnabled } = require('../system_one');
 const { checkPublicToolCall, getPublicRunScope } = require('../../messaging/public_audience');
+const { isPermitted } = require('../../access/permissions');
+const { createServiceLogger } = require('../../../utils/logger');
+
+const logger = createServiceLogger('Tools');
 
 function getAvailableTools(app, options = {}) {
   const tools = [
@@ -38,18 +42,8 @@ function getAvailableTools(app, options = {}) {
     ? tools
     : tools.filter((tool) => tool.name !== 'browser_act');
   if (options.userId != null) {
-    try {
-      const { getDelegationTargets, resolveAgentId } = require('../../agents/manager');
-      const agentId = resolveAgentId(options.userId, options.agentId || null);
-      if (
-        options.triggerSource === 'agent_delegation'
-        || getDelegationTargets(options.userId, agentId).length === 0
-      ) {
-        visibleTools = visibleTools.filter((tool) => tool.name !== 'delegate_to_agent');
-      }
-    } catch {
-      // If agent policy cannot be resolved, keep tool discovery resilient.
-    }
+    const agentTools = visibleAgentTools(app, options);
+    visibleTools = visibleTools.filter((tool) => !AGENT_TOOLS.has(tool.name) || agentTools.has(tool.name));
   }
 
   const compacted = visibleTools
@@ -63,6 +57,31 @@ function getAvailableTools(app, options = {}) {
     return compacted.filter((tool) => allow.has(tool.name));
   }
   return compacted;
+}
+
+// Agent tools are offered only where they can do something: handing work on
+// needs an agent to hand it to, and creating agents is off in task runs and
+// where the account's policy says never. When the agent cannot be resolved,
+// none of them is offered.
+const AGENT_TOOLS = new Set(['delegate_to_agent', 'agent_task', 'create_agent']);
+
+function visibleAgentTools(app, options) {
+  try {
+    const { getDelegationTargets, resolveAgentId } = require('../../agents/manager');
+    const { openTasksForAgent } = require('../../agents/tasks');
+    const agentId = resolveAgentId(options.userId, options.agentId || null);
+    const inTask = options.triggerSource === 'agent_delegation';
+    const canDelegate = getDelegationTargets(options.userId, agentId).length > 0;
+    const visible = new Set();
+    if (canDelegate) visible.add('delegate_to_agent');
+    if (canDelegate || inTask || openTasksForAgent(options.userId, agentId).length > 0) visible.add('agent_task');
+    const creationPolicy = app?.locals?.toolPolicyService?.getPolicy(options.userId, 'create_agent');
+    if (!inTask && creationPolicy !== 'deny' && isPermitted(options.userId, 'agent_creation')) visible.add('create_agent');
+    return visible;
+  } catch (err) {
+    logger.warn(`Agent tools unavailable for user ${options.userId}: ${err.message}`);
+    return new Set();
+  }
 }
 
 function acquireComputerControl(ctx, toolName) {

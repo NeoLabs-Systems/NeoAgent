@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Agentoproepen",
-  "agentCommunication": "Communicatie tussen agenten",
-  "agentCommunicationArg1": "Agentcommunicatie: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "Agentmodus bewerkt de werkruimte · ⌘↵ verzenden · ⌘N nieuwe sessie",
   "agentPausesAndAsksYouBefore": "De agent pauzeert en vraagt je toestemming voordat hij iets uitvoert.",
   "agentProfile": "Agentprofiel",
@@ -2007,20 +1998,9 @@
   "callAgent": "Bel agent",
   "callUser": "Gebruiker bellen",
   "calledByName": "Bij naam genoemd",
-  "canDelegateTasksToOtherAgents": "Kan taken delegeren aan andere agenten",
-  "canDelegateToArg1": "Kan delegeren aan {arg1}",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Kan gedelegeerde taken ontvangen",
   "cancel": "Annuleren",
   "cancelTask": "Taak annuleren",
   "cannotPreview": "Kan geen voorbeeld bekijken",
-  "cannotReceiveDelegatedTasks": "kan geen gedelegeerde taken ontvangen",
   "cannotRunYet": "kan nog niet draaien.",
   "capturedThePage": "De pagina vastgelegd",
   "category": "Categorie",
@@ -2378,7 +2358,6 @@
   "createLink": "Maak een koppeling",
   "createOrModifyFilesInYour": "Maak of wijzig bestanden in uw werkruimte.",
   "createPassword": "Wachtwoord aanmaken",
-  "createSpecialistBotsWithSeparateMemory": "Creëer gespecialiseerde bots met afzonderlijk geheugen, instellingen, tools en accounttoewijzingen.",
   "createTheFirstAccount": "Maak het eerste account aan",
   "createUpdateOrDeleteSkills": "Vaardigheden maken, bijwerken of verwijderen.",
   "creatingYourSkill": "Je vaardigheden creëren...",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Voert directe taken zelf uit",
   "handsFreeTalkFreelyInterruptAnytime": "Handsfree (vrijuit praten, op elk moment onderbreken)",
   "headerName": "Kopnaam",
   "headlinesOnTheTopicsYouCare": "Koppen over de onderwerpen die u interesseren, gefilterd op signaal.",
@@ -4430,7 +4408,6 @@
   "restart": "Opnieuw opstarten",
   "restartToFinishTheUpdate": " Start opnieuw op om de update te voltooien.",
   "restoringThePreviousNeoagentRuntime": "De vorige NeoAgent-runtime herstellen",
-  "restrictDelegationTargets": "Beperk delegatiedoelen",
   "result": "Resultaat",
   "resultDelivery": "Resultaat levering",
   "resultOneClickAddsOneYou": "resultaat. Met één klik wordt er één toegevoegd; je kunt het later bewerken.",
@@ -5151,7 +5128,6 @@
   "thesePeopleInOneGroup": "Deze mensen, in één groep",
   "theseSwitchesNeverYourChatsMemories": "deze schakelaars, nooit uw chats, herinneringen of bestanden.",
   "thisAccountWillUnlockNeoagentOn": "Dit account ontgrendelt NeoAgent op deze machine.",
-  "thisAgentCanDelegateToAny": "Deze agent kan delegeren aan elke in aanmerking komende ontvangende agent.",
   "thisAgentIsUsingAServer": "Deze agent gebruikt een door de server beheerde Trello API-sleutel. U hoeft hieronder alleen een accounttoken te autoriseren.",
   "thisBuildIsNotAllowedTo": "Deze build mag niet praten met deze NeoAgent-implementatie.",
   "thisCodeBelongsToADifferent": "Deze code hoort bij een andere NeoAgent-server: {arg1}",
@@ -5371,7 +5347,6 @@
   "turnTaking": "beurt nemen",
   "turnTakingModel": "Beurtnemend model",
   "turnTakingOff": "Schakel uit",
-  "turnThisOffToKeepThis": "Schakel dit uit om deze agent volledig gescheiden te houden van andere agenten.",
   "turnedOffByArg1": "Uitgeschakeld door {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5511,6 @@
   },
   "useTheServerOnThisComputer": "Gebruik de server op deze computer",
   "useTheseForContextIfA": "Gebruik deze voor context. Als een lokale URI niet rechtstreeks toegankelijk is vanaf de server, vraag mij dan om het bestand aan te leveren via een toegankelijke werkruimte.",
-  "useThisForOrchestratorAgentsLeave": "Gebruik dit voor Orchestrator-agents. Laat het los voor geïsoleerde werkbots die directe berichten zelf moeten afhandelen.",
   "useTlsFromTheStartOf": "Gebruik TLS vanaf het begin van de verbinding, meestal op poort 465.",
   "useYourOwnApiKeyFor": "Gebruik uw eigen API-sleutel voor een provider, of koppel een aangepaste ",
   "usedByEveryAccountOnThis": "Wordt gebruikt door elk account op deze server dat geen sleutel heeft ",
@@ -5921,8 +5895,6 @@
   "pasteAReplacementToken": "Plak een vervangend token",
   "replaceAccount": "Vervang account",
   "addAccount": "Account toevoegen",
-  "canDelegateToAnyReceivingAgent": "Kan delegeren aan elke ontvangende agent",
-  "canReceiveDelegatedTasks2": "gedelegeerde taken kunnen ontvangen",
   "noSyncYet": "Nog geen synchronisatie",
   "noNewData": "Geen nieuwe gegevens",
   "syncOnceToSeedYourBackend": "Synchroniseer één keer om uw backend te seeden.",

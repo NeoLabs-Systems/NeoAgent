@@ -468,14 +468,6 @@ class AppL10nLt extends AppL10n {
   String get agentCalls => 'Agento skambučiai';
 
   @override
-  String get agentCommunication => 'Agento bendravimas';
-
-  @override
-  String agentCommunicationArg1(Object? arg1) {
-    return 'Agento bendravimas: $arg1.';
-  }
-
-  @override
   String get agentModeEditsTheWorkspaceSend =>
       'Agento režimas redaguoja darbo sritį · ⌘↵ siųsti · ⌘N naujas seansas';
 
@@ -1886,18 +1878,6 @@ class AppL10nLt extends AppL10n {
   String get calledByName => 'Pašauktas vardu';
 
   @override
-  String get canDelegateTasksToOtherAgents =>
-      'Gali deleguoti užduotis kitiems agentams';
-
-  @override
-  String canDelegateToArg1(Object? arg1) {
-    return 'Galima deleguoti $arg1';
-  }
-
-  @override
-  String get canReceiveDelegatedTasks => 'Gali priimti deleguotas užduotis';
-
-  @override
   String get cancel => 'Atšaukti';
 
   @override
@@ -1905,9 +1885,6 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get cannotPreview => 'Negalima peržiūrėti';
-
-  @override
-  String get cannotReceiveDelegatedTasks => 'negali gauti deleguotų užduočių';
 
   @override
   String get cannotRunYet => 'dar negali bėgti.';
@@ -2616,10 +2593,6 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get createPassword => 'Sukurti slaptažodį';
-
-  @override
-  String get createSpecialistBotsWithSeparateMemory =>
-      'Kurkite specializuotus robotus su atskira atmintimi, nustatymais, įrankiais ir paskyros priskyrimais.';
 
   @override
   String get createTheFirstAccount => 'Sukurkite pirmąją paskyrą';
@@ -3739,10 +3712,6 @@ class AppL10nLt extends AppL10n {
   String groupsArg1HasNotSeenYet(Object? arg1) {
     return 'Grupės $arg1 dar nematė, tai seks.';
   }
-
-  @override
-  String get handlesDirectTasksItself =>
-      'Pats susitvarko su tiesioginėmis užduotimis';
 
   @override
   String get handsFreeTalkFreelyInterruptAnytime =>
@@ -6373,9 +6342,6 @@ class AppL10nLt extends AppL10n {
       'Atkuriamas ankstesnis „NeoAgent“ vykdymo laikas';
 
   @override
-  String get restrictDelegationTargets => 'Apriboti delegavimo tikslus';
-
-  @override
   String get result => 'Rezultatas';
 
   @override
@@ -7877,10 +7843,6 @@ class AppL10nLt extends AppL10n {
       'Ši paskyra atrakins „NeoAgent“ šiame įrenginyje.';
 
   @override
-  String get thisAgentCanDelegateToAny =>
-      'Šis agentas gali deleguoti bet kuriam tinkamam gaunančiam agentui.';
-
-  @override
   String get thisAgentIsUsingAServer =>
       'Šis agentas naudoja serverio valdomą Trello API raktą. Toliau reikia tik įgalioti paskyros prieigos raktą.';
 
@@ -8268,10 +8230,6 @@ class AppL10nLt extends AppL10n {
   String get turnTakingOff => 'Nusileidimas';
 
   @override
-  String get turnThisOffToKeepThis =>
-      'Išjunkite, kad šis agentas būtų visiškai atskirtas nuo kitų agentų.';
-
-  @override
   String turnedOffByArg1(Object? arg1) {
     return 'Išjungė $arg1';
   }
@@ -8563,10 +8521,6 @@ class AppL10nLt extends AppL10n {
   @override
   String get useTheseForContextIfA =>
       'Naudokite juos kontekstui. Jei vietinis URI nėra tiesiogiai pasiekiamas iš serverio, paprašykite manęs pateikti failą per prieinamą darbo sritį.';
-
-  @override
-  String get useThisForOrchestratorAgentsLeave =>
-      'Naudokite tai orkestrantams. Išjunkite pavienius darbo robotus, kurie patys turėtų baigti tiesioginius pranešimus.';
 
   @override
   String get useTlsFromTheStartOf =>
@@ -9445,13 +9399,6 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get addAccount => 'Pridėti paskyrą';
-
-  @override
-  String get canDelegateToAnyReceivingAgent =>
-      'Gali deleguoti bet kuriam priimančiam agentui';
-
-  @override
-  String get canReceiveDelegatedTasks2 => 'gali gauti deleguotas užduotis';
 
   @override
   String get noSyncYet => 'Dar nėra sinchronizavimo';
@@ -12323,18 +12270,10 @@ class AppL10nLt extends AppL10n {
       'Used to address this agent. Suggested from the name; you can edit it.';
 
   @override
-  String get agentIdentifierInvalid =>
-      'Use 1–48 lowercase letters, numbers, hyphens or underscores.';
-
-  @override
   String get uxAdvancedSettings => 'Advanced settings';
 
   @override
   String get uxSelected => 'Selected';
-
-  @override
-  String get uxSelectedDelegationTargets =>
-      'Only selected agents can receive tasks from this agent.';
 
   @override
   String uxFieldRequired(String field) {
@@ -12530,4 +12469,175 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get tailscaleOpenSignIn => 'Open Tailscale sign-in';
+
+  @override
+  String get agentsPageIntro =>
+      'Each agent is a lasting specialist with its own chat and memory. They pass work to each other in the background, and you stay in charge.';
+
+  @override
+  String get agentsResponsibleFor => 'Responsible for';
+
+  @override
+  String agentsSetUpBy(Object? name) {
+    return 'Set up by $name';
+  }
+
+  @override
+  String agentsSetUpByWithReason(Object? name, Object? reason) {
+    return 'Set up by $name: $reason';
+  }
+
+  @override
+  String get agentsChat => 'Chat';
+
+  @override
+  String get agentsCreationTitle => 'New agents';
+
+  @override
+  String get agentsCreationLabel =>
+      'When an agent wants to set up another agent';
+
+  @override
+  String get agentsCreationNever => 'Never';
+
+  @override
+  String get agentsCreationAsk => 'Ask me';
+
+  @override
+  String get agentsCreationAllow => 'Allow';
+
+  @override
+  String get agentsCreationNeverHint => 'Only you add agents.';
+
+  @override
+  String get agentsCreationAskHint =>
+      'You approve each new agent first. Recommended.';
+
+  @override
+  String get agentsCreationAllowHint =>
+      'Agents may set up a specialist when a lasting job needs one. You can change or archive it any time.';
+
+  @override
+  String get agentsCreationCategory => 'Set up new agents';
+
+  @override
+  String get agentsCreationCategoryHint =>
+      'An agent creates another lasting agent on your account.';
+
+  @override
+  String get agentTasksTitle => 'Work between agents';
+
+  @override
+  String get agentTasksDescription =>
+      'What your agents handed to each other, open work first.';
+
+  @override
+  String get agentTasksEmpty => 'Nothing handed over yet';
+
+  @override
+  String get agentTasksEmptyHint =>
+      'When an agent passes work to a specialist, it shows up here.';
+
+  @override
+  String agentTaskAsked(Object? requester, Object? owner) {
+    return '$requester asked $owner';
+  }
+
+  @override
+  String agentTaskHandedOver(Object? requester, Object? owner) {
+    return '$requester handed over to $owner';
+  }
+
+  @override
+  String get agentTaskQueued => 'Queued';
+
+  @override
+  String get agentTaskWorking => 'Working';
+
+  @override
+  String get agentTaskWaiting => 'Waiting';
+
+  @override
+  String get agentTaskNeedsAnswer => 'Needs an answer';
+
+  @override
+  String get agentTaskDone => 'Done';
+
+  @override
+  String get agentTaskFailed => 'Failed';
+
+  @override
+  String get agentTaskCancelled => 'Stopped';
+
+  @override
+  String get agentTaskStop => 'Stop';
+
+  @override
+  String get agentTaskShowResult => 'Show result';
+
+  @override
+  String get agentTaskHideResult => 'Hide result';
+
+  @override
+  String agentTaskFrom(Object? name) {
+    return 'Task from $name';
+  }
+
+  @override
+  String agentTaskTakenOverFrom(Object? name) {
+    return 'Taken over from $name';
+  }
+
+  @override
+  String get agentsPermissionsTitle => 'What this agent may do';
+
+  @override
+  String get agentsPermissionsHint =>
+      'Only ever stricter than your account\'s tool permissions.';
+
+  @override
+  String get agentsPermissionAsAccount => 'As account';
+
+  @override
+  String get agentsPermissionAskFirst => 'Ask first';
+
+  @override
+  String get agentsPermissionNotAllowed => 'Not allowed';
+
+  @override
+  String agentsNotAllowedList(Object? list) {
+    return 'Not allowed: $list';
+  }
+
+  @override
+  String agentsAsksFirstList(Object? list) {
+    return 'Asks first: $list';
+  }
+
+  @override
+  String get agentsWorkingWithOthers => 'Working with other agents';
+
+  @override
+  String get agentsCanHandOff => 'Can pass work to other agents';
+
+  @override
+  String get agentsCanHandOffHint =>
+      'It decides for itself when another agent is the better fit.';
+
+  @override
+  String get agentsOnlyTheseAgents => 'Only to the agents I pick';
+
+  @override
+  String get agentsCanTakeWork => 'Other agents can give it work';
+
+  @override
+  String get agentsCanTakeWorkHint => 'Turn off to keep this agent to itself.';
+
+  @override
+  String get agentsResponsibilityHint =>
+      'What this agent takes care of. Other agents use it to decide what to give it.';
+
+  @override
+  String get agentsDescriptionHint =>
+      'Optional. One line on what it is good at.';
 }

@@ -3142,7 +3142,7 @@ class _TasksPanelState extends State<TasksPanel> {
   }
 
   Widget _buildTaskCard(TaskItem task) => _TaskCard(
-    key: ValueKey<String>(task.id),
+    key: ValueKey<int>(task.id),
     task: task,
     controller: controller,
     statusColor: _taskRunStatusColor(task.lastRunStatus),

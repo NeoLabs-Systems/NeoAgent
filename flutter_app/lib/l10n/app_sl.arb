@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Klici agentov",
-  "agentCommunication": "Agentska komunikacija",
-  "agentCommunicationArg1": "Komunikacija agenta: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "Agentski način ureja delovni prostor · ⌘↵ pošlji · ⌘N nova seja",
   "agentPausesAndAsksYouBefore": "Agent se ustavi in vas pred izvajanjem prosi za dovoljenje.",
   "agentProfile": "Profil agenta",
@@ -2007,20 +1998,9 @@
   "callAgent": "Pokličite agenta",
   "callUser": "Pokličite uporabnika",
   "calledByName": "Poklican po imenu",
-  "canDelegateTasksToOtherAgents": "Naloge lahko prenese na druge agente",
-  "canDelegateToArg1": "Lahko prenese na {arg1}",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Lahko prejema delegirane naloge",
   "cancel": "Prekliči",
   "cancelTask": "Prekliči nalogo",
   "cannotPreview": "Predogleda ni mogoče",
-  "cannotReceiveDelegatedTasks": "ne more prejemati prenesenih nalog",
   "cannotRunYet": "še ne more teči.",
   "capturedThePage": "Zajel stran",
   "category": "Kategorija",
@@ -2378,7 +2358,6 @@
   "createLink": "Ustvari povezavo",
   "createOrModifyFilesInYour": "Ustvarite ali spremenite datoteke v svojem delovnem prostoru.",
   "createPassword": "Ustvari geslo",
-  "createSpecialistBotsWithSeparateMemory": "Ustvarite specializirane bote z ločenim pomnilnikom, nastavitvami, orodji in dodelitvami računov.",
   "createTheFirstAccount": "Ustvarite prvi račun",
   "createUpdateOrDeleteSkills": "Ustvarite, posodobite ali izbrišite veščine.",
   "creatingYourSkill": "Ustvarjanje vaše spretnosti ...",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Sam opravlja neposredne naloge",
   "handsFreeTalkFreelyInterruptAnytime": "Prostoročno (prosto govorite, prekinite kadar koli)",
   "headerName": "Ime glave",
   "headlinesOnTheTopicsYouCare": "Naslovi o temah, ki vas zanimajo, filtrirani glede na signal.",
@@ -4430,7 +4408,6 @@
   "restart": "Znova zaženite",
   "restartToFinishTheUpdate": " Znova zaženite, da dokončate posodobitev.",
   "restoringThePreviousNeoagentRuntime": "Obnovitev prejšnjega izvajalnega okolja NeoAgent",
-  "restrictDelegationTargets": "Omejite cilje delegiranja",
   "result": "Rezultat",
   "resultDelivery": "Dostava rezultatov",
   "resultOneClickAddsOneYou": "rezultat. En klik doda eno; lahko uredite pozneje.",
@@ -5151,7 +5128,6 @@
   "thesePeopleInOneGroup": "Ti ljudje, v eni skupini",
   "theseSwitchesNeverYourChatsMemories": "ta stikala, nikoli vaši klepeti, spomini ali datoteke.",
   "thisAccountWillUnlockNeoagentOn": "Ta račun bo odklenil NeoAgent na tej napravi.",
-  "thisAgentCanDelegateToAny": "Ta agent lahko prenese na katerega koli upravičenega sprejemnega agenta.",
   "thisAgentIsUsingAServer": "Ta agent uporablja ključ API-ja Trello, ki ga upravlja strežnik. Spodaj morate samo avtorizirati žeton računa.",
   "thisBuildIsNotAllowedTo": "Tej gradnji ni dovoljeno komunicirati s to uvedbo NeoAgent.",
   "thisCodeBelongsToADifferent": "Ta koda pripada drugemu strežniku NeoAgent: {arg1}",
@@ -5371,7 +5347,6 @@
   "turnTaking": "obračanje",
   "turnTakingModel": "Model na vrsti",
   "turnTakingOff": "Obrat-vzlet",
-  "turnThisOffToKeepThis": "Izklopite to, da bo ta agent popolnoma ločen od drugih agentov.",
   "turnedOffByArg1": "Izklopil {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5511,6 @@
   },
   "useTheServerOnThisComputer": "Uporabite strežnik na tem računalniku",
   "useTheseForContextIfA": "Uporabite jih za kontekst. Če lokalni URI ni neposredno dostopen s strežnika, me prosite, naj zagotovim datoteko prek dostopnega delovnega prostora.",
-  "useThisForOrchestratorAgentsLeave": "Uporabite to za orkestrske agente. Opustite izolirane delovne bote, ki bi morali sami dokončati neposredna sporočila.",
   "useTlsFromTheStartOf": "Uporabite TLS od začetka povezave, običajno na vratih 465.",
   "useYourOwnApiKeyFor": "Uporabite svoj ključ API za ponudnika ali povežite prilagojenega ",
   "usedByEveryAccountOnThis": "Uporablja ga vsak račun na tem strežniku, ki nima ključa ",
@@ -5921,8 +5895,6 @@
   "pasteAReplacementToken": "Prilepite nadomestni žeton",
   "replaceAccount": "Zamenjaj račun",
   "addAccount": "Dodaj račun",
-  "canDelegateToAnyReceivingAgent": "Lahko prenese na katerega koli sprejemnega agenta",
-  "canReceiveDelegatedTasks2": "lahko prejemajo dodeljene naloge",
   "noSyncYet": "Še ni sinhronizacije",
   "noNewData": "Ni novih podatkov",
   "syncOnceToSeedYourBackend": "Sinhronizirajte enkrat, da zaženete svoje zaledje.",

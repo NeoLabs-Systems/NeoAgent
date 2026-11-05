@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Κλήσεις πράκτορα",
-  "agentCommunication": "Επικοινωνία αντιπροσώπου",
-  "agentCommunicationArg1": "Επικοινωνία αντιπροσώπου: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "Η λειτουργία Agent επεξεργάζεται τον χώρο εργασίας · ⌘↵ αποστολή · ⌘N νέα περίοδος λειτουργίας",
   "agentPausesAndAsksYouBefore": "Ο πράκτορας σταματά και ζητά την άδειά σας πριν από την εκτέλεση.",
   "agentProfile": "Προφίλ πράκτορα",
@@ -2007,20 +1998,9 @@
   "callAgent": "Κλήση πράκτορα",
   "callUser": "Κλήση χρήστη",
   "calledByName": "Καλούμενος με το όνομα",
-  "canDelegateTasksToOtherAgents": "Μπορεί να αναθέσει εργασίες σε άλλους πράκτορες",
-  "canDelegateToArg1": "Μπορεί να αναθέσει σε {arg1}",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Μπορεί να λαμβάνει εργασίες που έχουν ανατεθεί",
   "cancel": "Ακύρωση",
   "cancelTask": "Ακύρωση εργασίας",
   "cannotPreview": "Δεν είναι δυνατή η προεπισκόπηση",
-  "cannotReceiveDelegatedTasks": "δεν μπορεί να λάβει ανατεθείσες εργασίες",
   "cannotRunYet": "δεν μπορεί να τρέξει ακόμα.",
   "capturedThePage": "Κατέλαβε τη σελίδα",
   "category": "Κατηγορία",
@@ -2378,7 +2358,6 @@
   "createLink": "Δημιουργία συνδέσμου",
   "createOrModifyFilesInYour": "Δημιουργήστε ή τροποποιήστε αρχεία στον χώρο εργασίας σας.",
   "createPassword": "Δημιουργία κωδικού πρόσβασης",
-  "createSpecialistBotsWithSeparateMemory": "Δημιουργήστε εξειδικευμένα bots με ξεχωριστή μνήμη, ρυθμίσεις, εργαλεία και αναθέσεις λογαριασμού.",
   "createTheFirstAccount": "Δημιουργήστε τον πρώτο λογαριασμό",
   "createUpdateOrDeleteSkills": "Δημιουργία, ενημέρωση ή διαγραφή δεξιοτήτων.",
   "creatingYourSkill": "Δημιουργώντας τις δεξιότητές σας…",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Χειρίζεται άμεσες εργασίες",
   "handsFreeTalkFreelyInterruptAnytime": "Hands-free (μιλήστε ελεύθερα, διακόψτε οποιαδήποτε στιγμή)",
   "headerName": "Όνομα κεφαλίδας",
   "headlinesOnTheTopicsYouCare": "Επικεφαλίδες για τα θέματα που σας ενδιαφέρουν, φιλτραρισμένα για σήμα.",
@@ -4430,7 +4408,6 @@
   "restart": "Επανεκκίνηση",
   "restartToFinishTheUpdate": " Κάντε επανεκκίνηση για να ολοκληρώσετε την ενημέρωση.",
   "restoringThePreviousNeoagentRuntime": "Επαναφορά του προηγούμενου χρόνου εκτέλεσης NeoAgent",
-  "restrictDelegationTargets": "Περιορίστε τους στόχους ανάθεσης",
   "result": "Αποτέλεσμα",
   "resultDelivery": "Παράδοση αποτελεσμάτων",
   "resultOneClickAddsOneYou": "αποτέλεσμα. Ένα κλικ προσθέτει ένα? μπορείτε να το επεξεργαστείτε αργότερα.",
@@ -5151,7 +5128,6 @@
   "thesePeopleInOneGroup": "Αυτοί οι άνθρωποι, σε μια ομάδα",
   "theseSwitchesNeverYourChatsMemories": "αυτοί οι διακόπτες, ποτέ οι συνομιλίες, οι αναμνήσεις ή τα αρχεία σας.",
   "thisAccountWillUnlockNeoagentOn": "Αυτός ο λογαριασμός θα ξεκλειδώσει το NeoAgent σε αυτό το μηχάνημα.",
-  "thisAgentCanDelegateToAny": "Αυτός ο αντιπρόσωπος μπορεί να αναθέσει σε οποιονδήποτε κατάλληλο πράκτορα παραλήπτη.",
   "thisAgentIsUsingAServer": "Αυτός ο πράκτορας χρησιμοποιεί ένα κλειδί API Trello που διαχειρίζεται διακομιστής. Χρειάζεται μόνο να εξουσιοδοτήσετε ένα διακριτικό λογαριασμού παρακάτω.",
   "thisBuildIsNotAllowedTo": "Αυτή η έκδοση δεν επιτρέπεται να συνομιλεί με αυτήν την ανάπτυξη του NeoAgent.",
   "thisCodeBelongsToADifferent": "Αυτός ο κωδικός ανήκει σε διαφορετικό διακομιστή NeoAgent: {arg1}",
@@ -5371,7 +5347,6 @@
   "turnTaking": "στροφή παίρνοντας",
   "turnTakingModel": "Μοντέλο στροφής",
   "turnTakingOff": "Απενεργοποίηση",
-  "turnThisOffToKeepThis": "Απενεργοποιήστε αυτήν την επιλογή για να διατηρήσετε αυτόν τον παράγοντα εντελώς ξεχωριστό από άλλους πράκτορες.",
   "turnedOffByArg1": "Απενεργοποιήθηκε από το {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5511,6 @@
   },
   "useTheServerOnThisComputer": "Χρησιμοποιήστε το διακομιστή σε αυτόν τον υπολογιστή",
   "useTheseForContextIfA": "Χρησιμοποιήστε αυτά για το πλαίσιο. Εάν ένα τοπικό URI δεν είναι άμεσα προσβάσιμο από τον διακομιστή, ζητήστε μου να παράσχω το αρχείο μέσω ενός προσβάσιμου χώρου εργασίας.",
-  "useThisForOrchestratorAgentsLeave": "Χρησιμοποιήστε το για πράκτορες ενορχηστρωτών. Αφήστε μακριά για μεμονωμένα ρομπότ εργασίας που θα πρέπει να ολοκληρώσουν τα ίδια τα άμεσα μηνύματα.",
   "useTlsFromTheStartOf": "Χρησιμοποιήστε το TLS από την αρχή της σύνδεσης, συνήθως στη θύρα 465.",
   "useYourOwnApiKeyFor": "Χρησιμοποιήστε το δικό σας κλειδί API για έναν πάροχο ή συνδέστε ένα προσαρμοσμένο ",
   "usedByEveryAccountOnThis": "Χρησιμοποιείται από κάθε λογαριασμό σε αυτόν τον διακομιστή που δεν έχει κλειδί ",
@@ -5921,8 +5895,6 @@
   "pasteAReplacementToken": "Επικολλήστε ένα διακριτικό αντικατάστασης",
   "replaceAccount": "Αντικατάσταση λογαριασμού",
   "addAccount": "Προσθήκη λογαριασμού",
-  "canDelegateToAnyReceivingAgent": "Μπορεί να αναθέσει σε οποιονδήποτε πράκτορα παραλήπτη",
-  "canReceiveDelegatedTasks2": "μπορεί να λαμβάνει εργασίες που έχουν ανατεθεί",
   "noSyncYet": "Δεν υπάρχει συγχρονισμός ακόμα",
   "noNewData": "Δεν υπάρχουν νέα δεδομένα",
   "syncOnceToSeedYourBackend": "Συγχρονίστε μία φορά για να εμφανίσετε το backend σας.",

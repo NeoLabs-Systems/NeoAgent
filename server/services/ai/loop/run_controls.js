@@ -70,9 +70,6 @@ function interruptRun(engine, runId, reason = 'Server shutting down while run wa
   if (persistedRun?.userId != null) {
     requestRunControl(runId, persistedRun.userId, 'interrupt', reason);
   }
-  const delegatedChildren = db.prepare(
-    "SELECT child_run_id FROM agent_delegations WHERE parent_run_id = ? AND status = 'running'"
-  ).all(runId);
   if (runMeta) {
     runMeta.status = 'interrupted';
     runMeta.stopReason = reason;
@@ -89,19 +86,6 @@ function interruptRun(engine, runId, reason = 'Server shutting down while run wa
     }
     runMeta.toolPids.clear();
   }
-  for (const child of delegatedChildren) {
-    if (child.child_run_id && child.child_run_id !== runId) {
-      engine.interruptRun(child.child_run_id, reason);
-    }
-  }
-  db.prepare(
-    `UPDATE agent_delegations
-     SET status = 'interrupted',
-         error = COALESCE(NULLIF(error, ''), ?),
-         updated_at = datetime('now'),
-         completed_at = datetime('now')
-     WHERE parent_run_id = ? AND status = 'running'`
-  ).run(reason, runId);
   closeRun(runId, 'interrupted', { error: reason }, ['running', 'pausing', 'paused', 'resuming']);
   if (persistedRun?.userId != null) engine.runtimeManager?.releaseControl?.(persistedRun.userId, runId);
 }
@@ -122,9 +106,6 @@ function stopRun(engine, runId, reason = 'Stopped by request.') {
   if (persistedRun?.userId != null) {
     requestRunControl(runId, persistedRun.userId, 'stop', stopReason);
   }
-  const delegatedChildren = db.prepare(
-    "SELECT child_run_id FROM agent_delegations WHERE parent_run_id = ? AND status = 'running'"
-  ).all(runId);
   if (runMeta) {
     runMeta.status = 'stopped';
     runMeta.stopReason = stopReason;
@@ -141,17 +122,6 @@ function stopRun(engine, runId, reason = 'Stopped by request.') {
     }
     runMeta.toolPids.clear();
   }
-  for (const child of delegatedChildren) {
-    if (child.child_run_id && child.child_run_id !== runId) {
-      engine.stopRun(child.child_run_id, stopReason);
-    }
-  }
-  db.prepare(
-    `UPDATE agent_delegations
-     SET status = 'stopped', error = COALESCE(NULLIF(error, ''), ?),
-         updated_at = datetime('now'), completed_at = datetime('now')
-     WHERE parent_run_id = ? AND status = 'running'`
-  ).run(stopReason, runId);
   closeRun(
     runId,
     'stopped',

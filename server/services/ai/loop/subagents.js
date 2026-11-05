@@ -1,7 +1,6 @@
 'use strict';
 
 const { v4: uuidv4 } = require('uuid');
-const db = require('../../../db/database');
 const { getAiSettings } = require('../settings');
 const { clampRunContext } = require('../messagingFallback');
 const { EVENT_TYPES } = require('../runtime/events/event_types');
@@ -213,7 +212,7 @@ async function spawnSubagent(engine, userId, parentRunId, task, options = {}) {
           agentId: options.agentId || null,
           subagentDepth: parentDepth + 1,
           // A specialist it called would have none of these limits.
-          disallowedToolNames: ['spawn_subagent', 'delegate_to_agent'],
+          disallowedToolNames: ['spawn_subagent', 'delegate_to_agent', 'agent_task', 'create_agent'],
           // It works where the parent works.
           deviceTarget: parentRunMeta?.deviceTarget,
           workspaceRoot: parentRunMeta?.workspaceRoot,
@@ -302,117 +301,6 @@ async function spawnSubagent(engine, userId, parentRunId, task, options = {}) {
     childRunId,
     task: clampRunContext(task, 180),
   };
-}
-
-async function delegateToAgent(engine, {
-    userId,
-    parentAgentId,
-    parentRunId,
-    target,
-    task,
-    context = '',
-    app = null,
-    allowExternalSideEffects = false,
-  } = {}) {
-  const { agentCanDelegateTo, getAgentById, getAgentBySlug, resolveAgentId } = require('../../agents/manager');
-  const targetText = String(target || '').trim();
-  const taskText = String(task || '').trim();
-  if (!targetText || !taskText) {
-    throw new Error('Target agent and task are required.');
-  }
-
-  let targetAgent = getAgentById(userId, targetText) || getAgentBySlug(userId, targetText);
-  if (!targetAgent) {
-    targetAgent = db.prepare(
-      "SELECT * FROM agents WHERE user_id = ? AND status = 'active' AND lower(display_name) = lower(?)"
-    ).get(userId, targetText);
-  }
-  if (!targetAgent || targetAgent.status !== 'active') {
-    throw new Error(`No active specialist agent matches "${targetText}".`);
-  }
-
-  const scopedParentAgentId = resolveAgentId(userId, parentAgentId);
-  const parentAgent = getAgentById(userId, scopedParentAgentId);
-  if (targetAgent.id === scopedParentAgentId) {
-    throw new Error('An agent cannot delegate to itself.');
-  }
-  if (!agentCanDelegateTo(parentAgent, targetAgent)) {
-    throw new Error(`${parentAgent?.display_name || 'This agent'} is not allowed to delegate tasks to ${targetAgent.display_name}.`);
-  }
-
-  const delegationId = uuidv4();
-  const childRunId = uuidv4();
-  db.prepare(
-    `INSERT INTO agent_delegations (
-      id, user_id, parent_agent_id, target_agent_id, parent_run_id, child_run_id, task, context, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'running')`
-  ).run(
-    delegationId,
-    userId,
-    scopedParentAgentId,
-    targetAgent.id,
-    parentRunId || null,
-    childRunId,
-    taskText,
-    context || null,
-  );
-
-  const delegatedPrompt = [
-    '[SYSTEM: Delegated specialist-agent task]',
-    `You are running as ${targetAgent.display_name} (${targetAgent.slug}).`,
-    'Complete engine delegated task using only your own agent memory, settings, credentials, and available tools.',
-    allowExternalSideEffects
-      ? 'External side effects are allowed only when they directly satisfy the delegated task.'
-      : 'Do not send external messages, make calls, or change external shared systems. Return findings and recommendations to the parent agent instead.',
-    '',
-    `Task:\n${taskText}`,
-    context ? `\nContext from parent agent:\n${context}` : '',
-  ].filter(Boolean).join('\n');
-
-  try {
-    const result = await engine.runWithModel(
-      userId,
-      delegatedPrompt,
-      {
-        app: app || engine.app,
-        runId: childRunId,
-        agentId: targetAgent.id,
-        title: taskText,
-        triggerType: 'agent_delegation',
-        triggerSource: 'agent_delegation',
-        skipConversationHistory: true,
-        context: { additionalContext: `Parent run: ${parentRunId || 'unknown'}` },
-        allowExternalSideEffects,
-        parentTrust: engine.getRunMeta(parentRunId)?.trust || null,
-      },
-      null,
-    );
-    const summary = String(result?.content || '').trim();
-    db.prepare(
-      `UPDATE agent_delegations
-       SET status = ?, result_summary = ?, updated_at = datetime('now'), completed_at = datetime('now')
-       WHERE id = ?`
-    ).run(result?.status || 'completed', summary.slice(0, 20000), delegationId);
-    return {
-      delegationId,
-      targetAgent: {
-        id: targetAgent.id,
-        slug: targetAgent.slug,
-        name: targetAgent.display_name,
-      },
-      childRunId: result?.runId || childRunId,
-      status: result?.status || 'completed',
-      summary,
-      totalTokens: result?.totalTokens || 0,
-    };
-  } catch (err) {
-    db.prepare(
-      `UPDATE agent_delegations
-       SET status = 'failed', error = ?, updated_at = datetime('now'), completed_at = datetime('now')
-       WHERE id = ?`
-    ).run(String(err?.message || err).slice(0, 20000), delegationId);
-    throw err;
-  }
 }
 
 function listSubagents(engine, parentRunId = null) {
@@ -551,7 +439,6 @@ async function cancelSubagent(engine, handle, options = {}) {
 module.exports = {
   hasWritingSubagent,
   spawnSubagent,
-  delegateToAgent,
   listSubagents,
   cleanupSubagentsForRun,
   waitForSubagent,

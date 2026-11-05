@@ -1,3 +1,5 @@
+'use strict';
+
 const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
@@ -11,6 +13,8 @@ const {
   setDefaultAgent,
   updateAgent,
 } = require('../services/agents/manager');
+const { agentNames, listTasks, serializeTask } = require('../services/agents/tasks');
+const { cancelTaskForUser } = require('../services/ai/loop/agent_tasks');
 
 router.use(requireAuth);
 
@@ -23,6 +27,27 @@ router.get('/', (req, res) => {
       }),
       defaultAgentId: getDefaultAgent(req.session.userId)?.id || null,
     });
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+// Work agents handed to each other, open first.
+router.get('/tasks', (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const names = agentNames(userId);
+    res.json({ tasks: listTasks(userId).map((row) => serializeTask(row, names)) });
+  } catch (err) {
+    res.status(500).json({ error: sanitizeError(err) });
+  }
+});
+
+router.post('/tasks/:taskId/cancel', (req, res) => {
+  try {
+    const task = cancelTaskForUser(req.app.locals.agentEngine, req.session.userId, req.params.taskId);
+    if (!task) return res.status(404).json({ error: 'Task not found.' });
+    res.json(task);
   } catch (err) {
     res.status(500).json({ error: sanitizeError(err) });
   }

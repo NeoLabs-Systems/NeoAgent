@@ -904,6 +904,14 @@ class BackendClient {
     await deleteMap(baseUrl, '/api/agent-profiles/$id');
   }
 
+  Future<Map<String, dynamic>> fetchAgentTasks(String baseUrl) async {
+    return getMap(baseUrl, '/api/agent-profiles/tasks');
+  }
+
+  Future<Map<String, dynamic>> cancelAgentTask(String baseUrl, String id) async {
+    return postMap(baseUrl, '/api/agent-profiles/tasks/$id/cancel', const {});
+  }
+
   Future<Map<String, dynamic>> fetchChatHistory(
     String baseUrl, {
     String? agentId,

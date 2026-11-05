@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Agent ringer",
-  "agentCommunication": "Agent kommunikation",
-  "agentCommunicationArg1": "Agentkommunikation: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "Agenttilstand redigerer arbejdsområdet · ⌘↵ send · ⌘N ny session",
   "agentPausesAndAsksYouBefore": "Agenten holder pause og beder om din tilladelse før kørsel.",
   "agentProfile": "Agent profil",
@@ -2007,20 +1998,9 @@
   "callAgent": "Ring til agent",
   "callUser": "Ring til bruger",
   "calledByName": "Kaldet ved navn",
-  "canDelegateTasksToOtherAgents": "Kan uddelegere opgaver til andre agenter",
-  "canDelegateToArg1": "Kan uddelegere til {arg1}",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Kan modtage delegerede opgaver",
   "cancel": "Annuller",
   "cancelTask": "Annuller opgave",
   "cannotPreview": "Kan ikke forhåndsvise",
-  "cannotReceiveDelegatedTasks": "kan ikke modtage delegerede opgaver",
   "cannotRunYet": "kan ikke køre endnu.",
   "capturedThePage": "Fangede siden",
   "category": "Kategori",
@@ -2378,7 +2358,6 @@
   "createLink": "Opret link",
   "createOrModifyFilesInYour": "Opret eller rediger filer i dit arbejdsområde.",
   "createPassword": "Opret adgangskode",
-  "createSpecialistBotsWithSeparateMemory": "Opret specialist-bots med separate hukommelse, indstillinger, værktøjer og kontotildelinger.",
   "createTheFirstAccount": "Opret den første konto",
   "createUpdateOrDeleteSkills": "Opret, opdater eller slet færdigheder.",
   "creatingYourSkill": "Skaber dine færdigheder...",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Varetager selv direkte opgaver",
   "handsFreeTalkFreelyInterruptAnytime": "Håndfri (snak frit, afbryd når som helst)",
   "headerName": "Overskriftsnavn",
   "headlinesOnTheTopicsYouCare": "Overskrifter om de emner, du holder af, filtreret efter signal.",
@@ -4430,7 +4408,6 @@
   "restart": "Genstart",
   "restartToFinishTheUpdate": " Genstart for at afslutte opdateringen.",
   "restoringThePreviousNeoagentRuntime": "Gendannelse af den tidligere NeoAgent-runtime",
-  "restrictDelegationTargets": "Begræns delegationsmål",
   "result": "Resultat",
   "resultDelivery": "Resultat levering",
   "resultOneClickAddsOneYou": "resultat. Et klik tilføjer en; du kan redigere det senere.",
@@ -5151,7 +5128,6 @@
   "thesePeopleInOneGroup": "Disse mennesker i én gruppe",
   "theseSwitchesNeverYourChatsMemories": "disse kontakter, aldrig dine chats, minder eller filer.",
   "thisAccountWillUnlockNeoagentOn": "Denne konto låser NeoAgent op på denne maskine.",
-  "thisAgentCanDelegateToAny": "Denne agent kan uddelegere til enhver kvalificeret modtagende agent.",
   "thisAgentIsUsingAServer": "Denne agent bruger en serverstyret Trello API-nøgle. Du behøver kun at godkende et kontotoken nedenfor.",
   "thisBuildIsNotAllowedTo": "Denne build har ikke tilladelse til at tale med denne NeoAgent-installation.",
   "thisCodeBelongsToADifferent": "Denne kode tilhører en anden NeoAgent-server: {arg1}",
@@ -5371,7 +5347,6 @@
   "turnTaking": "tur tage",
   "turnTakingModel": "Turn-tag model",
   "turnTakingOff": "Drej-start",
-  "turnThisOffToKeepThis": "Slå denne fra for at holde denne agent helt adskilt fra andre agenter.",
   "turnedOffByArg1": "Slukket af {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5511,6 @@
   },
   "useTheServerOnThisComputer": "Brug serveren på denne computer",
   "useTheseForContextIfA": "Brug disse til kontekst. Hvis en lokal URI ikke er direkte tilgængelig fra serveren, bede mig om at levere filen via et tilgængeligt arbejdsområde.",
-  "useThisForOrchestratorAgentsLeave": "Brug dette til orkestratoragenter. Lad være med isolerede arbejdsbots, der selv skal afslutte direkte beskeder.",
   "useTlsFromTheStartOf": "Brug TLS fra starten af forbindelsen, normalt på port 465.",
   "useYourOwnApiKeyFor": "Brug din egen API-nøgle til en udbyder, eller tilslut en brugerdefineret ",
   "usedByEveryAccountOnThis": "Bruges af hver konto på denne server, der ikke har nogen nøgle ",
@@ -5921,8 +5895,6 @@
   "pasteAReplacementToken": "Indsæt et erstatningstoken",
   "replaceAccount": "Erstat konto",
   "addAccount": "Tilføj konto",
-  "canDelegateToAnyReceivingAgent": "Kan uddelegere til enhver modtagende agent",
-  "canReceiveDelegatedTasks2": "kan modtage delegerede opgaver",
   "noSyncYet": "Ingen synkronisering endnu",
   "noNewData": "Ingen nye data",
   "syncOnceToSeedYourBackend": "Synkroniser én gang for at se din backend.",

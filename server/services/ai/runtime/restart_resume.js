@@ -151,25 +151,42 @@ function buildContinuationNote(runId, message) {
   ].join('\n\n');
 }
 
+/**
+ * Starts a run on the surface a resume envelope recorded, with no caller
+ * waiting for it. On the web that caller would write the chat transcript, so
+ * this does.
+ */
+async function startRunOnRoute(agentEngine, userId, message, options) {
+  const result = await agentEngine.run(userId, message, options);
+  if ((options.triggerSource || 'web') === 'web') {
+    storeWebRunReply({
+      userId,
+      agentId: options.agentId || null,
+      conversationId: options.conversationId || null,
+      result,
+      platform: 'web',
+    });
+  }
+  return result;
+}
+
+// Where a run that is still going answers its user, or null when it is not on
+// a surface a later run could reach.
+function routeOfRun(runId) {
+  const row = db.prepare(
+    "SELECT json_extract(metadata_json, '$.resume.options') AS route FROM agent_runs WHERE id = ?",
+  ).get(runId);
+  return row?.route ? JSON.parse(row.route) : null;
+}
+
 function startResumedRun(agentEngine, run, runId, { message, options }) {
-  agentEngine.run(run.user_id, buildContinuationNote(run.id, message), {
+  startRunOnRoute(agentEngine, run.user_id, buildContinuationNote(run.id, message), {
     ...options,
+    agentId: options.agentId || run.agent_id,
     title: options.title || message,
     context: { ...(options.context || {}), rawUserMessage: options.context?.rawUserMessage || message },
     runId,
     resumedFromRunId: run.id,
-  }).then((result) => {
-    // On the web the caller that awaited the run writes the chat transcript;
-    // that caller is gone, so this one does it.
-    if ((options.triggerSource || 'web') === 'web') {
-      storeWebRunReply({
-        userId: run.user_id,
-        agentId: run.agent_id,
-        conversationId: options.conversationId || null,
-        result,
-        platform: 'web',
-      });
-    }
   }).catch((error) => {
     logger.error(`Resumed run ${shortenRunId(runId)} (from ${shortenRunId(run.id)}) failed:`, error?.message || error);
   });
@@ -210,4 +227,6 @@ module.exports = {
   countResumableRuns,
   hasResumeEnvelope,
   resumeInterruptedRuns,
+  routeOfRun,
+  startRunOnRoute,
 };

@@ -246,6 +246,13 @@ class NeoAgentController extends ChangeNotifier {
   bool chatHistoryHasMore = false;
   bool isLoadingOlderChatHistory = false;
   List<AgentProfile> agentProfiles = const <AgentProfile>[];
+
+  /// Work agents handed to each other, open first.
+  List<AgentTask> agentTasks = const <AgentTask>[];
+
+  /// The account's "agent_creation" tool policy: whether agents may set up new
+  /// agents ('deny', 'require_approval' or 'allow').
+  String agentCreationPolicy = 'require_approval';
   String? selectedAgentId;
   List<ModelMeta> supportedModels = const <ModelMeta>[];
 
@@ -2041,6 +2048,8 @@ class NeoAgentController extends ChangeNotifier {
     chatMessages = const <ChatEntry>[];
     _resetChatHistoryPagination();
     agentProfiles = const <AgentProfile>[];
+    agentTasks = const <AgentTask>[];
+    agentCreationPolicy = 'require_approval';
     selectedAgentId = null;
     unawaited(_persistSelectedAgentId(null));
     supportedModels = const <ModelMeta>[];
@@ -2408,6 +2417,7 @@ class NeoAgentController extends ChangeNotifier {
     bool canDelegate = false,
     bool canBeDelegatedTo = true,
     List<String> delegateTargets = const <String>[],
+    Map<String, String> toolRestrictions = const <String, String>{},
   }) async {
     final payload = <String, dynamic>{
       'displayName': displayName,
@@ -2419,6 +2429,7 @@ class NeoAgentController extends ChangeNotifier {
       'canDelegate': canDelegate,
       'canBeDelegatedTo': canBeDelegatedTo,
       'delegateTargets': delegateTargets,
+      'toolRestrictions': toolRestrictions,
     };
     try {
       if (id == null) {
@@ -2438,6 +2449,73 @@ class NeoAgentController extends ChangeNotifier {
       errorMessage = _friendlyErrorMessage(error);
       notifyListeners();
       return false;
+    }
+  }
+
+  Future<void> refreshAgentProfiles() async {
+    try {
+      final response = await _backendClient.fetchAgentProfiles(backendUrl);
+      agentProfiles = _decodeModelList(
+        'agent_profiles',
+        response['agents'],
+        AgentProfile.fromJson,
+        fallbackToMapValues: true,
+      ).where((agent) => agent.id.isNotEmpty).toList();
+      _ensureSelectedAgent();
+      notifyListeners();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  /// Loads agent tasks and the agent creation policy for the Agents page.
+  Future<void> refreshAgentTasks() async {
+    try {
+      final responses = await Future.wait(<Future<Map<String, dynamic>>>[
+        _backendClient.fetchAgentTasks(backendUrl),
+        _backendClient.fetchSecurityPolicies(backendUrl),
+      ]);
+      agentTasks = _decodeModelList(
+        'agent_tasks',
+        responses[0]['tasks'],
+        AgentTask.fromJson,
+      ).where((task) => task.id.isNotEmpty).toList();
+      final policies = responses[1]['policies'];
+      if (policies is Map && policies['agent_creation'] != null) {
+        agentCreationPolicy = policies['agent_creation'].toString();
+      }
+      notifyListeners();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> cancelAgentTask(String id) async {
+    try {
+      await _backendClient.cancelAgentTask(backendUrl, id);
+      await refreshAgentTasks();
+    } catch (error) {
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> setAgentCreationPolicy(String policy) async {
+    final previous = agentCreationPolicy;
+    agentCreationPolicy = policy;
+    notifyListeners();
+    try {
+      await _backendClient.saveSecurityPolicy(
+        backendUrl,
+        category: 'agent_creation',
+        policy: policy,
+      );
+    } catch (error) {
+      agentCreationPolicy = previous;
+      errorMessage = _friendlyErrorMessage(error);
+      notifyListeners();
     }
   }
 
@@ -8980,6 +9058,12 @@ class NeoAgentController extends ChangeNotifier {
     });
     socket.on('skill:learned', (dynamic _) {
       unawaited(refreshSkills());
+    });
+    socket.on('agent_task:update', (dynamic _) {
+      unawaited(refreshAgentTasks());
+    });
+    socket.on('agents:changed', (dynamic _) {
+      unawaited(refreshAgentProfiles());
     });
     socket.connect();
     _socket = socket;

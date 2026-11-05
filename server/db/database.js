@@ -994,15 +994,6 @@ function interruptStaleAgentRuns(reason = STALE_RUN_INTERRUPTED_ERROR) {
      WHERE status = 'running'`
   ).run(normalizedReason);
 
-  db.prepare(
-    `UPDATE agent_delegations
-     SET status = 'interrupted',
-         error = COALESCE(NULLIF(error, ''), ?),
-         updated_at = datetime('now'),
-         completed_at = COALESCE(completed_at, datetime('now'))
-     WHERE status = 'running'`
-  ).run(normalizedReason);
-
   if (staleRunIds.length) {
     const placeholders = staleRunIds.map(() => '?').join(', ');
     db.prepare(

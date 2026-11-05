@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Aģenta zvani",
-  "agentCommunication": "Aģentu komunikācija",
-  "agentCommunicationArg1": "Aģenta komunikācija: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "Aģenta režīms rediģē darbvietu · ⌘↵ nosūtīt · ⌘N jauna sesija",
   "agentPausesAndAsksYouBefore": "Aģents apstājas un pirms izpildes lūdz tavu atļauju.",
   "agentProfile": "Aģenta profils",
@@ -2007,20 +1998,9 @@
   "callAgent": "Zvanīt aģentam",
   "callUser": "Zvanīt lietotājam",
   "calledByName": "Sauc vārdā",
-  "canDelegateTasksToOtherAgents": "Var deleģēt uzdevumus citiem aģentiem",
-  "canDelegateToArg1": "Var deleģēt {arg1}",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Var saņemt deleģētos uzdevumus",
   "cancel": "Atcelt",
   "cancelTask": "Atcelt uzdevumu",
   "cannotPreview": "Nevar priekšskatīt",
-  "cannotReceiveDelegatedTasks": "nevar saņemt deleģētos uzdevumus",
   "cannotRunYet": "vēl nevar skriet.",
   "capturedThePage": "Uztvēra lapu",
   "category": "Kategorija",
@@ -2378,7 +2358,6 @@
   "createLink": "Izveidot saiti",
   "createOrModifyFilesInYour": "Izveidojiet vai modificējiet failus savā darbvietā.",
   "createPassword": "Izveidojiet paroli",
-  "createSpecialistBotsWithSeparateMemory": "Izveidojiet speciālistus ar atsevišķu atmiņu, iestatījumiem, rīkiem un konta uzdevumiem.",
   "createTheFirstAccount": "Izveidojiet pirmo kontu",
   "createUpdateOrDeleteSkills": "Izveidojiet, atjauniniet vai dzēsiet prasmes.",
   "creatingYourSkill": "Jūsu prasmes veidošana…",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Pats tiek galā ar tiešajiem uzdevumiem",
   "handsFreeTalkFreelyInterruptAnytime": "Brīvroku režīms (runājiet brīvi, pārtrauciet jebkurā laikā)",
   "headerName": "Virsraksta nosaukums",
   "headlinesOnTheTopicsYouCare": "Virsraksti par jums svarīgām tēmām, filtrēti pēc signāla.",
@@ -4430,7 +4408,6 @@
   "restart": "Restartēt",
   "restartToFinishTheUpdate": " Restartējiet, lai pabeigtu atjaunināšanu.",
   "restoringThePreviousNeoagentRuntime": "Iepriekšējā NeoAgent izpildlaika atjaunošana",
-  "restrictDelegationTargets": "Ierobežot deleģēšanas mērķus",
   "result": "Rezultāts",
   "resultDelivery": "Rezultātu piegāde",
   "resultOneClickAddsOneYou": "rezultāts. Viens klikšķis pievieno vienu; jūs varat to rediģēt vēlāk.",
@@ -5151,7 +5128,6 @@
   "thesePeopleInOneGroup": "Šie cilvēki vienā grupā",
   "theseSwitchesNeverYourChatsMemories": "šie slēdži, nekad jūsu tērzēšanas sarunas, atmiņas vai faili.",
   "thisAccountWillUnlockNeoagentOn": "Šis konts atbloķēs NeoAgent šajā ierīcē.",
-  "thisAgentCanDelegateToAny": "Šis aģents var deleģēt jebkuram piemērotam saņēmējam aģentam.",
   "thisAgentIsUsingAServer": "Šis aģents izmanto servera pārvaldītu Trello API atslēgu. Tālāk ir jāautorizē tikai konta pilnvara.",
   "thisBuildIsNotAllowedTo": "Šai būvei nav atļauts sazināties ar šo NeoAgent izvietošanu.",
   "thisCodeBelongsToADifferent": "Šis kods pieder citam NeoAgent serverim: {arg1}",
@@ -5371,7 +5347,6 @@
   "turnTaking": "savukārt ņemot",
   "turnTakingModel": "Pagriezienu modelis",
   "turnTakingOff": "Pagrieziena pacelšanās",
-  "turnThisOffToKeepThis": "Izslēdziet to, lai šis aģents būtu pilnībā nošķirts no citiem aģentiem.",
   "turnedOffByArg1": "Izslēdza {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5511,6 @@
   },
   "useTheServerOnThisComputer": "Izmantojiet serveri šajā datorā",
   "useTheseForContextIfA": "Izmantojiet tos kontekstam. Ja vietējais URI nav tieši pieejams no servera, lūdziet man nodrošināt failu, izmantojot pieejamu darbvietu.",
-  "useThisForOrchestratorAgentsLeave": "Izmantojiet to orķestra aģentiem. Atstājiet to atsevišķiem darba robotiem, kuriem pašiem jāpabeidz tiešās ziņas.",
   "useTlsFromTheStartOf": "Izmantojiet TLS no savienojuma sākuma, parasti portā 465.",
   "useYourOwnApiKeyFor": "Izmantojiet savu API atslēgu pakalpojumu sniedzējam vai pievienojiet pielāgotu ",
   "usedByEveryAccountOnThis": "To izmanto katrs šī servera konts, kuram nav atslēgas ",
@@ -5921,8 +5895,6 @@
   "pasteAReplacementToken": "Ielīmējiet aizstājēju marķieri",
   "replaceAccount": "Aizstāt kontu",
   "addAccount": "Pievienot kontu",
-  "canDelegateToAnyReceivingAgent": "Var deleģēt jebkuram saņēmējam aģentam",
-  "canReceiveDelegatedTasks2": "var saņemt deleģētos uzdevumus",
   "noSyncYet": "Vēl nav sinhronizācijas",
   "noNewData": "Nav jaunu datu",
   "syncOnceToSeedYourBackend": "Sinhronizējiet vienreiz, lai sāktu savu aizmugursistēmu.",

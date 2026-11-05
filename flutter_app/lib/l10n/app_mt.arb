@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Sejħiet ta' Aġent",
-  "agentCommunication": "Komunikazzjoni tal-aġent",
-  "agentCommunicationArg1": "Komunikazzjoni tal-aġent: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "Il-mod aġent teditja l-ispazju tax-xogħol · ⌘↵ ibgħat · ⌘N sessjoni ġdida",
   "agentPausesAndAsksYouBefore": "L-aġent jieqaf u jitlob il-permess tiegħek qabel ma jwettaq il-kompitu.",
   "agentProfile": "Profil tal-aġent",
@@ -2007,20 +1998,9 @@
   "callAgent": "Sejħa aġent",
   "callUser": "Sejħa lill-Utent",
   "calledByName": "Imsejjaħ bl-isem",
-  "canDelegateTasksToOtherAgents": "Jista' jiddelega kompiti lil aġenti oħra",
-  "canDelegateToArg1": "Jista' jiddelega lil {arg1}",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Jista' jirċievi kompiti delegati",
   "cancel": "Ikkanċella",
   "cancelTask": "Ikkanċella kompitu",
   "cannotPreview": "Ma tistax tipprevedi",
-  "cannotReceiveDelegatedTasks": "ma jistax jirċievi kompiti delegati",
   "cannotRunYet": "għadha ma tistax taħdem.",
   "capturedThePage": "Inqabad il-paġna",
   "category": "Kategorija",
@@ -2378,7 +2358,6 @@
   "createLink": "Oħloq link",
   "createOrModifyFilesInYour": "Oħloq jew immodifika fajls fl-ispazju tax-xogħol tiegħek.",
   "createPassword": "Oħloq password",
-  "createSpecialistBotsWithSeparateMemory": "Oħloq bots speċjalizzati b'memorja, settings, għodod, u assenjazzjonijiet tal-kontijiet separati.",
   "createTheFirstAccount": "Oħloq l-ewwel kont",
   "createUpdateOrDeleteSkills": "Oħloq, aġġorna jew ħassar il-ħiliet.",
   "creatingYourSkill": "Il-ħolqien tal-ħila tiegħek...",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Mankijiet kompiti diretti innifsu",
   "handsFreeTalkFreelyInterruptAnytime": "Idejn ħielsa (tkellem liberament, interrompi ghaċ)",
   "headerName": "Isem tal-header",
   "headlinesOnTheTopicsYouCare": "Titoli ewlenin dwar is-suġġetti li jimpurtak minnhom, iffiltrati għal sinjal.",
@@ -4430,7 +4408,6 @@
   "restart": "Ibda mill-ġdid",
   "restartToFinishTheUpdate": " Ibda mill-ġdid biex jintemm l-aġġornament.",
   "restoringThePreviousNeoagentRuntime": "Ir-restawr tal-runtime NeoAgent preċedenti",
-  "restrictDelegationTargets": "Irrestrinġi l-miri tad-delega",
   "result": "Riżultat",
   "resultDelivery": "Kunsinna tar-Riżultati",
   "resultOneClickAddsOneYou": "riżultat. Klikk waħda żżid waħda; tista teditjaha aktar tard.",
@@ -5151,7 +5128,6 @@
   "thesePeopleInOneGroup": "Dawn in-nies, fi grupp wieħed",
   "theseSwitchesNeverYourChatsMemories": "dawn swiċċijiet, qatt chats tiegħek, memorji jew fajls.",
   "thisAccountWillUnlockNeoagentOn": "Dan il-kont se jiftaħ NeoAgent fuq din il-magna.",
-  "thisAgentCanDelegateToAny": "Dan l-aġent jista’ jiddelega lil kwalunkwe aġent eliġibbli li jirċievi.",
   "thisAgentIsUsingAServer": "Dan l-aġent qed juża ċavetta API Trello ġestita minn server. Għandek bżonn biss tawtorizza token tal-kont hawn taħt.",
   "thisBuildIsNotAllowedTo": "Din il-bini mhux permess li titkellem ma 'dan l-iskjerament ta' NeoAgent.",
   "thisCodeBelongsToADifferent": "Dan il-kodiċi jappartjeni għal server NeoAgent differenti: {arg1}",
@@ -5371,7 +5347,6 @@
   "turnTaking": "tieħu dawra",
   "turnTakingModel": "Mudell li jieħu d-dawran",
   "turnTakingOff": "Dawwar it-tluq",
-  "turnThisOffToKeepThis": "Itfih biex iżżomm dan l-aġent kompletament separat minn aġenti oħra.",
   "turnedOffByArg1": "Mitfi minn {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5511,6 @@
   },
   "useTheServerOnThisComputer": "Uża s-server fuq dan il-kompjuter",
   "useTheseForContextIfA": "Uża dawn għall-kuntest. Jekk URI lokali ma jkunx aċċessibbli direttament mis-server, staqsini biex nipprovdi l-fajl permezz ta' spazju tax-xogħol aċċessibbli.",
-  "useThisForOrchestratorAgentsLeave": "Uża dan għall-aġenti tal-orkestratur. Ħalli barra għal bots tax-xogħol iżolati li għandhom jispiċċaw messaġġi diretti huma stess.",
   "useTlsFromTheStartOf": "Uża TLS mill-bidu tal-konnessjoni, ġeneralment fuq il-port 465.",
   "useYourOwnApiKeyFor": "Uża ċ-ċavetta API tiegħek stess għal fornitur, jew qabbad custom ",
   "usedByEveryAccountOnThis": "Użat minn kull kont fuq dan is-server li m'għandux ċavetta ",
@@ -5921,8 +5895,6 @@
   "pasteAReplacementToken": "Paste token ta' sostituzzjoni",
   "replaceAccount": "Ibdel il-Kont",
   "addAccount": "Żid Kont",
-  "canDelegateToAnyReceivingAgent": "Jista' jiddelega lil kwalunkwe aġent li jirċievi",
-  "canReceiveDelegatedTasks2": "jistgħu jirċievu kompiti delegati",
   "noSyncYet": "S'issa m'hemmx sinkronizzazzjoni",
   "noNewData": "Ebda data ġdida",
   "syncOnceToSeedYourBackend": "Issinkronizza darba biex żerriegħa backend tiegħek.",

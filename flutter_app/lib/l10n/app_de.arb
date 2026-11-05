@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Agentenanrufe",
-  "agentCommunication": "Agentenkommunikation",
-  "agentCommunicationArg1": "Agentenkommunikation: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "Agentenmodus bearbeitet den Workspace · ⌘↵ senden · ⌘N neue Sitzung",
   "agentPausesAndAsksYouBefore": "Der Agent pausiert und fragt Sie vor der Ausführung.",
   "agentProfile": "Agentenprofil",
@@ -2007,20 +1998,9 @@
   "callAgent": "Agent anrufen",
   "callUser": "Benutzer anrufen",
   "calledByName": "Beim Namen genannt",
-  "canDelegateTasksToOtherAgents": "Kann Aufgaben an andere Agenten delegieren",
-  "canDelegateToArg1": "Kann an {arg1} delegieren",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Kann delegierte Aufgaben empfangen",
   "cancel": "Abbrechen",
   "cancelTask": "Aufgabe abbrechen",
   "cannotPreview": "Vorschau nicht möglich",
-  "cannotReceiveDelegatedTasks": "kann keine delegierten Aufgaben empfangen",
   "cannotRunYet": "noch nicht laufen.",
   "capturedThePage": "Seite erfasst",
   "category": "Kategorie",
@@ -2378,7 +2358,6 @@
   "createLink": "Link erstellen",
   "createOrModifyFilesInYour": "Dateien in Ihrem Workspace erstellen oder ändern.",
   "createPassword": "Passwort erstellen",
-  "createSpecialistBotsWithSeparateMemory": "Erstellen Sie Spezialisten-Bots mit eigenem Gedächtnis, eigenen Einstellungen, Werkzeugen und Kontenzuweisungen.",
   "createTheFirstAccount": "Erstes Konto erstellen",
   "createUpdateOrDeleteSkills": "Skills erstellen, aktualisieren oder löschen.",
   "creatingYourSkill": "Ihr Skill wird erstellt…",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Erledigt direkte Aufgaben selbst",
   "handsFreeTalkFreelyInterruptAnytime": "Freihändig (frei sprechen, jederzeit unterbrechen)",
   "headerName": "Header-Name",
   "headlinesOnTheTopicsYouCare": "Schlagzeilen zu Ihren Themen, gefiltert auf das Wesentliche.",
@@ -4430,7 +4408,6 @@
   "restart": "Neu starten",
   "restartToFinishTheUpdate": " Neu starten, um die Aktualisierung abzuschließen.",
   "restoringThePreviousNeoagentRuntime": "Vorherige NeoAgent-Laufzeit wird wiederhergestellt",
-  "restrictDelegationTargets": "Delegierungsziele einschränken",
   "result": "Ergebnis",
   "resultDelivery": "Ergebniszustellung",
   "resultOneClickAddsOneYou": "Ergebnis. Ein Klick fügt eine hinzu; Sie können sie später bearbeiten.",
@@ -5151,7 +5128,6 @@
   "thesePeopleInOneGroup": "Diese Personen, in einer Gruppe",
   "theseSwitchesNeverYourChatsMemories": "diese Schalter, nie Ihre Chats, Erinnerungen oder Dateien.",
   "thisAccountWillUnlockNeoagentOn": "Dies ist das erste Konto auf diesem Server. Es verwaltet auch die Servereinstellungen und den Zugriff.",
-  "thisAgentCanDelegateToAny": "Dieser Agent kann an jeden geeigneten empfangenden Agenten delegieren.",
   "thisAgentIsUsingAServer": "Dieser Agent verwendet einen serverseitig verwalteten Trello-API-Schlüssel. Sie müssen unten nur ein Kontotoken autorisieren.",
   "thisBuildIsNotAllowedTo": "Dieser Build darf nicht mit diesem NeoAgent-Deployment kommunizieren.",
   "thisCodeBelongsToADifferent": "Dieser Code gehört zu einem anderen NeoAgent-Server: {arg1}",
@@ -5371,7 +5347,6 @@
   "turnTaking": "Rederecht",
   "turnTakingModel": "Rederecht-Modell",
   "turnTakingOff": "Gesprächswechsel aus",
-  "turnThisOffToKeepThis": "Ausschalten, um diesen Agenten vollständig von anderen Agenten zu trennen.",
   "turnedOffByArg1": "Ausgeschaltet von {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5511,6 @@
   },
   "useTheServerOnThisComputer": "Server auf diesem Computer verwenden",
   "useTheseForContextIfA": "Nutzen Sie diese als Kontext. Wenn eine lokale URI vom Server aus nicht direkt erreichbar ist, bitten Sie mich, die Datei über einen zugänglichen Workspace bereitzustellen.",
-  "useThisForOrchestratorAgentsLeave": "Für Orchestrierungs-Agenten verwenden. Für isolierte Arbeitsbots, die Direktnachrichten selbst erledigen sollen, ausgeschaltet lassen.",
   "useTlsFromTheStartOf": "TLS vom Verbindungsbeginn an nutzen, meist auf Port 465.",
   "useYourOwnApiKeyFor": "Verwenden Sie Ihren eigenen API-Schlüssel für einen Anbieter oder verbinden Sie einen eigenen ",
   "usedByEveryAccountOnThis": "Wird von jedem Konto auf diesem Server genutzt, das keinen eigenen Schlüssel ",
@@ -5921,8 +5895,6 @@
   "pasteAReplacementToken": "Ersatz-Token einfügen",
   "replaceAccount": "Konto ersetzen",
   "addAccount": "Konto hinzufügen",
-  "canDelegateToAnyReceivingAgent": "Kann an jeden empfangenden Agenten delegieren",
-  "canReceiveDelegatedTasks2": "kann delegierte Aufgaben empfangen",
   "noSyncYet": "Noch keine Synchronisierung",
   "noNewData": "Keine neuen Daten",
   "syncOnceToSeedYourBackend": "Synchronisieren Sie einmal, um Ihr Backend zu befüllen.",
@@ -7272,10 +7244,8 @@
   "agentNameRequired": "Geben Sie diesem Agenten einen Namen.",
   "agentIdentifier": "Agentenkennung",
   "agentIdentifierHint": "Wird verwendet, um diesen Agenten anzusprechen. Aus dem Namen vorgeschlagen; Sie können die Kennung ändern.",
-  "agentIdentifierInvalid": "Verwenden Sie 1–48 Kleinbuchstaben (a–z), Ziffern, Bindestriche oder Unterstriche.",
   "uxAdvancedSettings": "Erweiterte Einstellungen",
   "uxSelected": "Ausgewählt",
-  "uxSelectedDelegationTargets": "Nur ausgewählte Agenten können Aufgaben von diesem Agenten empfangen.",
   "uxFieldRequired": "Geben Sie {field} ein.",
   "uxTaskInstructions": "Was soll der Agent tun?",
   "uxTaskEnabledHint": "Wenn aktiviert, läuft diese Aufgabe bei ihrem Auslöser. Ausschalten, um sie zu speichern, ohne sie automatisch auszuführen.",
@@ -7327,5 +7297,118 @@
   "approvalReview": "Ansehen",
   "approvalExpired": "Diese Anfrage ist abgelaufen, es wurde nichts ausgeführt.",
   "requestTookTooLong": "Das hat zu lange gedauert und wurde abgebrochen. Bitte versuche es noch einmal.",
-  "usageLimitReached": "Ich habe mein Nutzungslimit erreicht und kann gerade nicht antworten."
+  "usageLimitReached": "Ich habe mein Nutzungslimit erreicht und kann gerade nicht antworten.",
+  "agentsPageIntro": "Jeder Agent ist ein dauerhafter Spezialist mit eigenem Chat und Gedächtnis. Agenten geben sich im Hintergrund Arbeit weiter, die Kontrolle behältst du.",
+  "agentsResponsibleFor": "Zuständig für",
+  "agentsSetUpBy": "Eingerichtet von {name}",
+  "@agentsSetUpBy": {
+    "placeholders": {
+      "name": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentsSetUpByWithReason": "Eingerichtet von {name}: {reason}",
+  "@agentsSetUpByWithReason": {
+    "placeholders": {
+      "name": {
+        "type": "Object?"
+      },
+      "reason": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentsChat": "Chatten",
+  "agentsCreationTitle": "Neue Agenten",
+  "agentsCreationLabel": "Wenn ein Agent einen weiteren Agenten einrichten möchte",
+  "agentsCreationNever": "Nie",
+  "agentsCreationAsk": "Mich fragen",
+  "agentsCreationAllow": "Erlauben",
+  "agentsCreationNeverHint": "Nur du fügst Agenten hinzu.",
+  "agentsCreationAskHint": "Du gibst jeden neuen Agenten vorher frei. Empfohlen.",
+  "agentsCreationAllowHint": "Agenten dürfen einen Spezialisten einrichten, wenn eine dauerhafte Aufgabe einen braucht. Du kannst ihn jederzeit ändern oder archivieren.",
+  "agentsCreationCategory": "Neue Agenten einrichten",
+  "agentsCreationCategoryHint": "Ein Agent legt einen weiteren dauerhaften Agenten in deinem Konto an.",
+  "agentTasksTitle": "Arbeit zwischen Agenten",
+  "agentTasksDescription": "Was deine Agenten einander übergeben haben, Offenes zuerst.",
+  "agentTasksEmpty": "Noch nichts übergeben",
+  "agentTasksEmptyHint": "Wenn ein Agent Arbeit an einen Spezialisten weitergibt, erscheint sie hier.",
+  "agentTaskAsked": "{requester} hat {owner} beauftragt",
+  "@agentTaskAsked": {
+    "placeholders": {
+      "requester": {
+        "type": "Object?"
+      },
+      "owner": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentTaskHandedOver": "{requester} hat an {owner} übergeben",
+  "@agentTaskHandedOver": {
+    "placeholders": {
+      "requester": {
+        "type": "Object?"
+      },
+      "owner": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentTaskQueued": "Wartet auf Start",
+  "agentTaskWorking": "In Arbeit",
+  "agentTaskWaiting": "Wartet",
+  "agentTaskNeedsAnswer": "Braucht eine Antwort",
+  "agentTaskDone": "Erledigt",
+  "agentTaskFailed": "Fehlgeschlagen",
+  "agentTaskCancelled": "Gestoppt",
+  "agentTaskStop": "Stoppen",
+  "agentTaskShowResult": "Ergebnis anzeigen",
+  "agentTaskHideResult": "Ergebnis ausblenden",
+  "agentTaskFrom": "Aufgabe von {name}",
+  "@agentTaskFrom": {
+    "placeholders": {
+      "name": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentTaskTakenOverFrom": "Übernommen von {name}",
+  "@agentTaskTakenOverFrom": {
+    "placeholders": {
+      "name": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentsPermissionsTitle": "Was dieser Agent darf",
+  "agentsPermissionsHint": "Immer nur strenger als die Werkzeugrechte deines Kontos.",
+  "agentsPermissionAsAccount": "Wie Konto",
+  "agentsPermissionAskFirst": "Erst fragen",
+  "agentsPermissionNotAllowed": "Nicht erlaubt",
+  "agentsNotAllowedList": "Nicht erlaubt: {list}",
+  "@agentsNotAllowedList": {
+    "placeholders": {
+      "list": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentsAsksFirstList": "Fragt vorher: {list}",
+  "@agentsAsksFirstList": {
+    "placeholders": {
+      "list": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentsWorkingWithOthers": "Zusammenarbeit mit anderen Agenten",
+  "agentsCanHandOff": "Kann Arbeit an andere Agenten abgeben",
+  "agentsCanHandOffHint": "Er entscheidet selbst, wann ein anderer Agent besser passt.",
+  "agentsOnlyTheseAgents": "Nur an Agenten, die ich auswähle",
+  "agentsCanTakeWork": "Andere Agenten können ihm Arbeit geben",
+  "agentsCanTakeWorkHint": "Ausschalten, damit dieser Agent nur für sich arbeitet.",
+  "agentsResponsibilityHint": "Worum sich dieser Agent kümmert. Andere Agenten entscheiden danach, was sie ihm geben.",
+  "agentsDescriptionHint": "Optional. Eine Zeile dazu, was er gut kann."
 }

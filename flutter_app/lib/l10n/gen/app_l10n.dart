@@ -927,18 +927,6 @@ abstract class AppL10n {
   /// **'Agent Calls'**
   String get agentCalls;
 
-  /// No description provided for @agentCommunication.
-  ///
-  /// In en, this message translates to:
-  /// **'Agent communication'**
-  String get agentCommunication;
-
-  /// No description provided for @agentCommunicationArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Agent communication: {arg1}.'**
-  String agentCommunicationArg1(Object? arg1);
-
   /// No description provided for @agentModeEditsTheWorkspaceSend.
   ///
   /// In en, this message translates to:
@@ -2965,24 +2953,6 @@ abstract class AppL10n {
   /// **'Called by name'**
   String get calledByName;
 
-  /// No description provided for @canDelegateTasksToOtherAgents.
-  ///
-  /// In en, this message translates to:
-  /// **'Can delegate tasks to other agents'**
-  String get canDelegateTasksToOtherAgents;
-
-  /// No description provided for @canDelegateToArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Can delegate to {arg1}'**
-  String canDelegateToArg1(Object? arg1);
-
-  /// No description provided for @canReceiveDelegatedTasks.
-  ///
-  /// In en, this message translates to:
-  /// **'Can receive delegated tasks'**
-  String get canReceiveDelegatedTasks;
-
   /// No description provided for @cancel.
   ///
   /// In en, this message translates to:
@@ -3000,12 +2970,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Cannot preview'**
   String get cannotPreview;
-
-  /// No description provided for @cannotReceiveDelegatedTasks.
-  ///
-  /// In en, this message translates to:
-  /// **'cannot receive delegated tasks'**
-  String get cannotReceiveDelegatedTasks;
 
   /// No description provided for @cannotRunYet.
   ///
@@ -4212,12 +4176,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Create password'**
   String get createPassword;
-
-  /// No description provided for @createSpecialistBotsWithSeparateMemory.
-  ///
-  /// In en, this message translates to:
-  /// **'Create specialist bots with separate memory, settings, tools, and account assignments.'**
-  String get createSpecialistBotsWithSeparateMemory;
 
   /// No description provided for @createTheFirstAccount.
   ///
@@ -6132,12 +6090,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Groups {arg1} has not seen yet will follow this.'**
   String groupsArg1HasNotSeenYet(Object? arg1);
-
-  /// No description provided for @handlesDirectTasksItself.
-  ///
-  /// In en, this message translates to:
-  /// **'Handles direct tasks itself'**
-  String get handlesDirectTasksItself;
 
   /// No description provided for @handsFreeTalkFreelyInterruptAnytime.
   ///
@@ -10615,12 +10567,6 @@ abstract class AppL10n {
   /// **'Restoring the previous NeoAgent runtime'**
   String get restoringThePreviousNeoagentRuntime;
 
-  /// No description provided for @restrictDelegationTargets.
-  ///
-  /// In en, this message translates to:
-  /// **'Restrict delegation targets'**
-  String get restrictDelegationTargets;
-
   /// No description provided for @result.
   ///
   /// In en, this message translates to:
@@ -13117,12 +13063,6 @@ abstract class AppL10n {
   /// **'This is the first account on this server. It will also manage server settings and access.'**
   String get thisAccountWillUnlockNeoagentOn;
 
-  /// No description provided for @thisAgentCanDelegateToAny.
-  ///
-  /// In en, this message translates to:
-  /// **'This agent can delegate to any eligible receiving agent.'**
-  String get thisAgentCanDelegateToAny;
-
   /// No description provided for @thisAgentIsUsingAServer.
   ///
   /// In en, this message translates to:
@@ -13747,12 +13687,6 @@ abstract class AppL10n {
   /// **'Turn-taking off'**
   String get turnTakingOff;
 
-  /// No description provided for @turnThisOffToKeepThis.
-  ///
-  /// In en, this message translates to:
-  /// **'Turn this off to keep this agent fully separate from other agents.'**
-  String get turnThisOffToKeepThis;
-
   /// No description provided for @turnedOffByArg1.
   ///
   /// In en, this message translates to:
@@ -14232,12 +14166,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Use these for context. If a local URI is not directly accessible from the server, ask me to provide the file through an accessible workspace.'**
   String get useTheseForContextIfA;
-
-  /// No description provided for @useThisForOrchestratorAgentsLeave.
-  ///
-  /// In en, this message translates to:
-  /// **'Use this for orchestrator agents. Leave off for isolated work bots that should finish direct messages themselves.'**
-  String get useThisForOrchestratorAgentsLeave;
 
   /// No description provided for @useTlsFromTheStartOf.
   ///
@@ -15750,18 +15678,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Add Account'**
   String get addAccount;
-
-  /// No description provided for @canDelegateToAnyReceivingAgent.
-  ///
-  /// In en, this message translates to:
-  /// **'Can delegate to any receiving agent'**
-  String get canDelegateToAnyReceivingAgent;
-
-  /// No description provided for @canReceiveDelegatedTasks2.
-  ///
-  /// In en, this message translates to:
-  /// **'can receive delegated tasks'**
-  String get canReceiveDelegatedTasks2;
 
   /// No description provided for @noSyncYet.
   ///
@@ -20449,12 +20365,6 @@ abstract class AppL10n {
   /// **'Used to address this agent. Suggested from the name; you can edit it.'**
   String get agentIdentifierHint;
 
-  /// No description provided for @agentIdentifierInvalid.
-  ///
-  /// In en, this message translates to:
-  /// **'Use 1–48 lowercase letters, numbers, hyphens or underscores.'**
-  String get agentIdentifierInvalid;
-
   /// No description provided for @uxAdvancedSettings.
   ///
   /// In en, this message translates to:
@@ -20466,12 +20376,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Selected'**
   String get uxSelected;
-
-  /// No description provided for @uxSelectedDelegationTargets.
-  ///
-  /// In en, this message translates to:
-  /// **'Only selected agents can receive tasks from this agent.'**
-  String get uxSelectedDelegationTargets;
 
   /// No description provided for @uxFieldRequired.
   ///
@@ -20790,6 +20694,294 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Open Tailscale sign-in'**
   String get tailscaleOpenSignIn;
+
+  /// No description provided for @agentsPageIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Each agent is a lasting specialist with its own chat and memory. They pass work to each other in the background, and you stay in charge.'**
+  String get agentsPageIntro;
+
+  /// No description provided for @agentsResponsibleFor.
+  ///
+  /// In en, this message translates to:
+  /// **'Responsible for'**
+  String get agentsResponsibleFor;
+
+  /// No description provided for @agentsSetUpBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up by {name}'**
+  String agentsSetUpBy(Object? name);
+
+  /// No description provided for @agentsSetUpByWithReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up by {name}: {reason}'**
+  String agentsSetUpByWithReason(Object? name, Object? reason);
+
+  /// No description provided for @agentsChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat'**
+  String get agentsChat;
+
+  /// No description provided for @agentsCreationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New agents'**
+  String get agentsCreationTitle;
+
+  /// No description provided for @agentsCreationLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'When an agent wants to set up another agent'**
+  String get agentsCreationLabel;
+
+  /// No description provided for @agentsCreationNever.
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get agentsCreationNever;
+
+  /// No description provided for @agentsCreationAsk.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask me'**
+  String get agentsCreationAsk;
+
+  /// No description provided for @agentsCreationAllow.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow'**
+  String get agentsCreationAllow;
+
+  /// No description provided for @agentsCreationNeverHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Only you add agents.'**
+  String get agentsCreationNeverHint;
+
+  /// No description provided for @agentsCreationAskHint.
+  ///
+  /// In en, this message translates to:
+  /// **'You approve each new agent first. Recommended.'**
+  String get agentsCreationAskHint;
+
+  /// No description provided for @agentsCreationAllowHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Agents may set up a specialist when a lasting job needs one. You can change or archive it any time.'**
+  String get agentsCreationAllowHint;
+
+  /// No description provided for @agentsCreationCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up new agents'**
+  String get agentsCreationCategory;
+
+  /// No description provided for @agentsCreationCategoryHint.
+  ///
+  /// In en, this message translates to:
+  /// **'An agent creates another lasting agent on your account.'**
+  String get agentsCreationCategoryHint;
+
+  /// No description provided for @agentTasksTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Work between agents'**
+  String get agentTasksTitle;
+
+  /// No description provided for @agentTasksDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'What your agents handed to each other, open work first.'**
+  String get agentTasksDescription;
+
+  /// No description provided for @agentTasksEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing handed over yet'**
+  String get agentTasksEmpty;
+
+  /// No description provided for @agentTasksEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'When an agent passes work to a specialist, it shows up here.'**
+  String get agentTasksEmptyHint;
+
+  /// No description provided for @agentTaskAsked.
+  ///
+  /// In en, this message translates to:
+  /// **'{requester} asked {owner}'**
+  String agentTaskAsked(Object? requester, Object? owner);
+
+  /// No description provided for @agentTaskHandedOver.
+  ///
+  /// In en, this message translates to:
+  /// **'{requester} handed over to {owner}'**
+  String agentTaskHandedOver(Object? requester, Object? owner);
+
+  /// No description provided for @agentTaskQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Queued'**
+  String get agentTaskQueued;
+
+  /// No description provided for @agentTaskWorking.
+  ///
+  /// In en, this message translates to:
+  /// **'Working'**
+  String get agentTaskWorking;
+
+  /// No description provided for @agentTaskWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting'**
+  String get agentTaskWaiting;
+
+  /// No description provided for @agentTaskNeedsAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs an answer'**
+  String get agentTaskNeedsAnswer;
+
+  /// No description provided for @agentTaskDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get agentTaskDone;
+
+  /// No description provided for @agentTaskFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get agentTaskFailed;
+
+  /// No description provided for @agentTaskCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped'**
+  String get agentTaskCancelled;
+
+  /// No description provided for @agentTaskStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop'**
+  String get agentTaskStop;
+
+  /// No description provided for @agentTaskShowResult.
+  ///
+  /// In en, this message translates to:
+  /// **'Show result'**
+  String get agentTaskShowResult;
+
+  /// No description provided for @agentTaskHideResult.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide result'**
+  String get agentTaskHideResult;
+
+  /// No description provided for @agentTaskFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'Task from {name}'**
+  String agentTaskFrom(Object? name);
+
+  /// No description provided for @agentTaskTakenOverFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'Taken over from {name}'**
+  String agentTaskTakenOverFrom(Object? name);
+
+  /// No description provided for @agentsPermissionsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What this agent may do'**
+  String get agentsPermissionsTitle;
+
+  /// No description provided for @agentsPermissionsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Only ever stricter than your account\'s tool permissions.'**
+  String get agentsPermissionsHint;
+
+  /// No description provided for @agentsPermissionAsAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'As account'**
+  String get agentsPermissionAsAccount;
+
+  /// No description provided for @agentsPermissionAskFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask first'**
+  String get agentsPermissionAskFirst;
+
+  /// No description provided for @agentsPermissionNotAllowed.
+  ///
+  /// In en, this message translates to:
+  /// **'Not allowed'**
+  String get agentsPermissionNotAllowed;
+
+  /// No description provided for @agentsNotAllowedList.
+  ///
+  /// In en, this message translates to:
+  /// **'Not allowed: {list}'**
+  String agentsNotAllowedList(Object? list);
+
+  /// No description provided for @agentsAsksFirstList.
+  ///
+  /// In en, this message translates to:
+  /// **'Asks first: {list}'**
+  String agentsAsksFirstList(Object? list);
+
+  /// No description provided for @agentsWorkingWithOthers.
+  ///
+  /// In en, this message translates to:
+  /// **'Working with other agents'**
+  String get agentsWorkingWithOthers;
+
+  /// No description provided for @agentsCanHandOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Can pass work to other agents'**
+  String get agentsCanHandOff;
+
+  /// No description provided for @agentsCanHandOffHint.
+  ///
+  /// In en, this message translates to:
+  /// **'It decides for itself when another agent is the better fit.'**
+  String get agentsCanHandOffHint;
+
+  /// No description provided for @agentsOnlyTheseAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'Only to the agents I pick'**
+  String get agentsOnlyTheseAgents;
+
+  /// No description provided for @agentsCanTakeWork.
+  ///
+  /// In en, this message translates to:
+  /// **'Other agents can give it work'**
+  String get agentsCanTakeWork;
+
+  /// No description provided for @agentsCanTakeWorkHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn off to keep this agent to itself.'**
+  String get agentsCanTakeWorkHint;
+
+  /// No description provided for @agentsResponsibilityHint.
+  ///
+  /// In en, this message translates to:
+  /// **'What this agent takes care of. Other agents use it to decide what to give it.'**
+  String get agentsResponsibilityHint;
+
+  /// No description provided for @agentsDescriptionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional. One line on what it is good at.'**
+  String get agentsDescriptionHint;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

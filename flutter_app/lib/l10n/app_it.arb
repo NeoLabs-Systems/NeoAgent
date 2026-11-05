@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "L'agente chiama",
-  "agentCommunication": "Comunicazione dell'agente",
-  "agentCommunicationArg1": "Comunicazione dell'agente: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "La modalità agente modifica lo spazio di lavoro · ⌘↵ invia · ⌘N nuova sessione",
   "agentPausesAndAsksYouBefore": "L’agente si ferma e ti chiede il permesso prima di avviare l’esecuzione.",
   "agentProfile": "Profilo dell'agente",
@@ -2007,20 +1998,9 @@
   "callAgent": "Chiama l'agente",
   "callUser": "Chiama utente",
   "calledByName": "Chiamato per nome",
-  "canDelegateTasksToOtherAgents": "Può delegare compiti ad altri agenti",
-  "canDelegateToArg1": "Può delegare a {arg1}",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Può ricevere compiti delegati",
   "cancel": "Annulla",
   "cancelTask": "Annulla attività",
   "cannotPreview": "Impossibile visualizzare l'anteprima",
-  "cannotReceiveDelegatedTasks": "non può ricevere compiti delegati",
   "cannotRunYet": "non è ancora possibile eseguire.",
   "capturedThePage": "Catturato la pagina",
   "category": "Categoria",
@@ -2378,7 +2358,6 @@
   "createLink": "Crea collegamento",
   "createOrModifyFilesInYour": "Crea o modifica file nel tuo spazio di lavoro.",
   "createPassword": "Crea password",
-  "createSpecialistBotsWithSeparateMemory": "Crea bot specializzati con memoria, impostazioni, strumenti e assegnazioni di account separati.",
   "createTheFirstAccount": "Crea il primo account",
   "createUpdateOrDeleteSkills": "Creare, aggiornare o eliminare competenze.",
   "creatingYourSkill": "Creare la tua abilità...",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Gestisce autonomamente le attività dirette",
   "handsFreeTalkFreelyInterruptAnytime": "Vivavoce (parla liberamente, interrompi in qualsiasi momento)",
   "headerName": "Nome dell'intestazione",
   "headlinesOnTheTopicsYouCare": "Titoli sugli argomenti che ti interessano, filtrati in base al segnale.",
@@ -4430,7 +4408,6 @@
   "restart": "Ricominciare",
   "restartToFinishTheUpdate": " Riavviare per completare l'aggiornamento.",
   "restoringThePreviousNeoagentRuntime": "Ripristino del runtime NeoAgent precedente",
-  "restrictDelegationTargets": "Limitare gli obiettivi della delega",
   "result": "Risultato",
   "resultDelivery": "Consegna dei risultati",
   "resultOneClickAddsOneYou": "risultato. Un clic ne aggiunge uno; puoi modificarlo in seguito.",
@@ -5151,7 +5128,6 @@
   "thesePeopleInOneGroup": "Queste persone, in un gruppo",
   "theseSwitchesNeverYourChatsMemories": "questi interruttori, mai le tue chat, i tuoi ricordi o i tuoi file.",
   "thisAccountWillUnlockNeoagentOn": "Questo account sbloccherà NeoAgent su questa macchina.",
-  "thisAgentCanDelegateToAny": "Questo agente può delegare qualsiasi agente ricevente idoneo.",
   "thisAgentIsUsingAServer": "Questo agente utilizza una chiave API Trello gestita dal server. Devi solo autorizzare un token dell'account di seguito.",
   "thisBuildIsNotAllowedTo": "A questa build non è consentito comunicare con questa distribuzione NeoAgent.",
   "thisCodeBelongsToADifferent": "Questo codice appartiene a un diverso server NeoAgent: {arg1}",
@@ -5371,7 +5347,6 @@
   "turnTaking": "prendere il turno",
   "turnTakingModel": "Modello a turni",
   "turnTakingOff": "Svolta in decollo",
-  "turnThisOffToKeepThis": "Disattiva questa opzione per mantenere questo agente completamente separato dagli altri agenti.",
   "turnedOffByArg1": "Spento da {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5511,6 @@
   },
   "useTheServerOnThisComputer": "Utilizza il server su questo computer",
   "useTheseForContextIfA": "Usali per il contesto. Se un URI locale non è direttamente accessibile dal server, chiedimi di fornire il file tramite uno spazio di lavoro accessibile.",
-  "useThisForOrchestratorAgentsLeave": "Utilizzarlo per gli agenti dell'orchestratore. Lascia perdere i bot di lavoro isolati che dovrebbero completare da soli i messaggi diretti.",
   "useTlsFromTheStartOf": "Utilizza TLS dall'inizio della connessione, solitamente sulla porta 465.",
   "useYourOwnApiKeyFor": "Utilizza la tua chiave API per un provider o connetti una chiave API personalizzata ",
   "usedByEveryAccountOnThis": "Utilizzato da ogni account su questo server che non dispone di chiave ",
@@ -5921,8 +5895,6 @@
   "pasteAReplacementToken": "Incolla un token sostitutivo",
   "replaceAccount": "Sostituisci conto",
   "addAccount": "Aggiungi account",
-  "canDelegateToAnyReceivingAgent": "Può delegare a qualsiasi agente ricevente",
-  "canReceiveDelegatedTasks2": "possono ricevere compiti delegati",
   "noSyncYet": "Nessuna sincronizzazione ancora",
   "noNewData": "Nessun nuovo dato",
   "syncOnceToSeedYourBackend": "Sincronizza una volta per eseguire il seeding del tuo backend.",

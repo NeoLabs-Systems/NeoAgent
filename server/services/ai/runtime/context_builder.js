@@ -13,6 +13,7 @@ const { summarizeCapabilityHealth } = require('../capabilityHealth');
 const { getPublicRunScope } = require('../../messaging/public_audience');
 const { createRunTrust } = require('../../security/run_trust');
 const { buildBackgroundRunsNote, listBackgroundRuns } = require('../loop/background_runs');
+const { buildOpenTasksNote } = require('../loop/agent_tasks');
 const { renderFragment } = require('../prompts/registry');
 const { isReadOnlyCall, resolveToolMeta, staticToolNames } = require('../tools/metadata');
 const { contextBudgetFor } = require('./context/context_pressure');
@@ -265,7 +266,9 @@ async function assembleRunContext(session, {
   // Right behind the system prompt, ahead of anything that grows from run to run.
   let notesAt = 0;
   while (notesAt < messages.length && notesAt < systemPromptLength(session.systemPrompt)) notesAt += 1;
-  messages.splice(notesAt, 0, ...[discoveryNote, runtimeStatus, backgroundNote].filter(Boolean));
+  const agentTasksText = buildOpenTasksNote(userId, agentId, runId);
+  const agentTasksNote = agentTasksText ? { role: 'system', content: agentTasksText } : null;
+  messages.splice(notesAt, 0, ...[discoveryNote, runtimeStatus, backgroundNote, agentTasksNote].filter(Boolean));
   const userTurn = engine.buildUserMessage(userMessage, options);
   messages.push(userTurn);
   session.requestTurn = userTurn;
@@ -275,7 +278,8 @@ async function assembleRunContext(session, {
     audience: publicScope ? 'public' : (options.audience || 'owner'),
     approvedSpeaker: !publicScope && options.approvedSpeaker === true,
     triggerSource,
-    messages: messages.filter((message) => message !== discoveryNote),
+    // Notes the harness wrote from other agents' words are not the owner speaking.
+    messages: messages.filter((message) => message !== discoveryNote && message !== agentTasksNote),
     origin: triggerSource === 'messaging'
       ? {
         platform: options.source,

@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Agent kutsub",
-  "agentCommunication": "Agendi suhtlus",
-  "agentCommunicationArg1": "Agendi suhtlus: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "Agendirežiim muudab tööruumi · ⌘↵ saada · ⌘N uut seanssi",
   "agentPausesAndAsksYouBefore": "Agent peatub ja küsib enne käivitamist sinu luba.",
   "agentProfile": "Agendi profiil",
@@ -2007,20 +1998,9 @@
   "callAgent": "Helista agentuurile",
   "callUser": "Helista kasutajale",
   "calledByName": "Nimepidi kutsutud",
-  "canDelegateTasksToOtherAgents": "Saab delegeerida ülesandeid teistele agentidele",
-  "canDelegateToArg1": "Saab delegeerida {arg1}-le",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Saab vastu võtta delegeeritud ülesandeid",
   "cancel": "Tühista",
   "cancelTask": "Tühista ülesanne",
   "cannotPreview": "Eelvaadet ei saa vaadata",
-  "cannotReceiveDelegatedTasks": "ei saa delegeeritud ülesandeid vastu võtta",
   "cannotRunYet": "ei saa veel joosta.",
   "capturedThePage": "Jäädvustas lehe",
   "category": "Kategooria",
@@ -2378,7 +2358,6 @@
   "createLink": "Loo link",
   "createOrModifyFilesInYour": "Looge või muutke oma tööruumis faile.",
   "createPassword": "Loo parool",
-  "createSpecialistBotsWithSeparateMemory": "Looge spetsiaalseid roboteid eraldi mälu, seadete, tööriistade ja kontoülesannetega.",
   "createTheFirstAccount": "Looge esimene konto",
   "createUpdateOrDeleteSkills": "Oskuste loomine, värskendamine või kustutamine.",
   "creatingYourSkill": "Oma oskuste loomine…",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Otseste ülesannetega saab ise hakkama",
   "handsFreeTalkFreelyInterruptAnytime": "Käed-vabad (rääkige vabalt, katkestage igal ajal)",
   "headerName": "Päise nimi",
   "headlinesOnTheTopicsYouCare": "Pealkirjad teile olulistel teemadel, filtreeritud signaali saamiseks.",
@@ -4430,7 +4408,6 @@
   "restart": "Taaskäivitage",
   "restartToFinishTheUpdate": " Värskenduse lõpetamiseks taaskäivitage.",
   "restoringThePreviousNeoagentRuntime": "Eelmise NeoAgenti käitusaja taastamine",
-  "restrictDelegationTargets": "Piirake delegeerimise eesmärke",
   "result": "Tulemus",
   "resultDelivery": "Tulemuse kohaletoimetamine",
   "resultOneClickAddsOneYou": "tulemus. Üks klõps lisab ühe; saate seda hiljem redigeerida.",
@@ -5151,7 +5128,6 @@
   "thesePeopleInOneGroup": "Need inimesed ühes grupis",
   "theseSwitchesNeverYourChatsMemories": "need lülitid, mitte kunagi teie vestlused, mälestused ega failid.",
   "thisAccountWillUnlockNeoagentOn": "See konto avab NeoAgenti selles masinas.",
-  "thisAgentCanDelegateToAny": "See agent saab delegeerida mis tahes sobivale vastuvõtvale agendile.",
   "thisAgentIsUsingAServer": "See agent kasutab serveri hallatavat Trello API võtit. Teil on vaja ainult allolevat kontoluba autoriseerida.",
   "thisBuildIsNotAllowedTo": "Sellel järgul ei ole lubatud selle NeoAgenti juurutusega suhelda.",
   "thisCodeBelongsToADifferent": "See kood kuulub teisele NeoAgenti serverile: {arg1}",
@@ -5371,7 +5347,6 @@
   "turnTaking": "pöörde võtmine",
   "turnTakingModel": "Pööratud mudel",
   "turnTakingOff": "Väljalülitamine",
-  "turnThisOffToKeepThis": "Lülitage see välja, et hoida seda agenti teistest agentidest täielikult lahus.",
   "turnedOffByArg1": "Lülitas välja {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5511,6 @@
   },
   "useTheServerOnThisComputer": "Kasutage selles arvutis serverit",
   "useTheseForContextIfA": "Kasutage neid konteksti jaoks. Kui kohalikule URI-le pole serverist otse juurdepääs, paluge mul esitada fail juurdepääsetava tööruumi kaudu.",
-  "useThisForOrchestratorAgentsLeave": "Kasutage seda orkestrantide jaoks. Jätke välja isoleeritud töörobotite jaoks, mis peaksid otsesõnumid ise lõpetama.",
   "useTlsFromTheStartOf": "Kasutage TLS-i ühenduse algusest peale, tavaliselt pordis 465.",
   "useYourOwnApiKeyFor": "Kasutage teenusepakkuja jaoks oma API-võtit või ühendage kohandatud võti ",
   "usedByEveryAccountOnThis": "Seda kasutavad kõik selle serveri kontod, millel pole võtit ",
@@ -5921,8 +5895,6 @@
   "pasteAReplacementToken": "Kleepige asendusmärk",
   "replaceAccount": "Asenda konto",
   "addAccount": "Lisa konto",
-  "canDelegateToAnyReceivingAgent": "Saab delegeerida mis tahes vastuvõtvale agendile",
-  "canReceiveDelegatedTasks2": "saab vastu võtta delegeeritud ülesandeid",
   "noSyncYet": "Sünkroonimist veel pole",
   "noNewData": "Uusi andmeid pole",
   "syncOnceToSeedYourBackend": "Taustaprogrammi külvamiseks sünkroonige üks kord.",

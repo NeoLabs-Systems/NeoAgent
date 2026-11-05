@@ -42,6 +42,7 @@ const { createContextPressureController } = require('./context/context_pressure'
 const { createRunGuards } = require('./run_guards');
 const { runAgentLoop, setSteeringIntake } = require('./agent_loop');
 const { buildResumeEnvelope, clearResumeEnvelope } = require('./restart_resume');
+const { onRunEnded: onAgentTaskRunEnded } = require('../loop/agent_tasks');
 const { assembleRunContext } = require('./context_builder');
 const { narrateProgress, writeWrapUp } = require('./side_turns');
 const { captureFailure, decideCapture } = require('./run_capture');
@@ -648,6 +649,11 @@ class DurableRunRuntime {
       const endedRunMeta = this.engine.getRunMeta(runId);
       this.engine.activeRuns.delete(runId);
       announceBackgroundRunEnded(this.engine, runId, endedRunMeta);
+      try {
+        onAgentTaskRunEnded(this.engine, runId, endedRunMeta);
+      } catch (error) {
+        logger.error(`Agent task follow-up for run ${runId} failed:`, error?.message || error);
+      }
       // Sub-agents report only to their parent; once it ends nothing reads them.
       this.engine.cleanupSubagentsForRun(runId).catch((error) => {
         console.warn('[Runtime] Sub-agent cleanup failed:', error?.message || error);

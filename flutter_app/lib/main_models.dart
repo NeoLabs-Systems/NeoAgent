@@ -2485,7 +2485,20 @@ class ChatEntry {
 
   String get createdAtLabel => _formatTimestamp(createdAt);
 
+  /// Set on a message an agent wrote as the result of a task another agent
+  /// handed it.
+  ({String requester, String goal, bool handoff})? get agentTask {
+    final task = metadata['agentTask'];
+    if (task is! Map) return null;
+    return (
+      requester: task['requester']?.toString() ?? '',
+      goal: task['goal']?.toString() ?? '',
+      handoff: task['mode'] == 'handoff',
+    );
+  }
+
   String? get platformTag {
+    if (platform == 'agent_task') return null;
     if (platform == 'live') {
       return 'LIVE';
     }
@@ -2573,6 +2586,9 @@ class AgentProfile {
     required this.canDelegate,
     required this.canBeDelegatedTo,
     required this.delegateTargets,
+    this.toolRestrictions = const <String, String>{},
+    this.createdByAgentId,
+    this.creationReason = '',
   });
 
   factory AgentProfile.fromJson(Map<dynamic, dynamic> json) {
@@ -2611,6 +2627,11 @@ class AgentProfile {
         json['delegateTargets'] ?? json['delegate_targets'],
         fallbackToMapValues: true,
       ),
+      toolRestrictions: _jsonMap(json['toolRestrictions']).map(
+        (category, level) => MapEntry(category, level.toString()),
+      ),
+      createdByAgentId: _optionalId(json['createdByAgentId']),
+      creationReason: json['creationReason']?.toString() ?? '',
     );
   }
 
@@ -2626,11 +2647,76 @@ class AgentProfile {
   final bool canBeDelegatedTo;
   final List<String> delegateTargets;
 
+  /// Tool categories this agent is held tighter on than the account:
+  /// 'require_approval' (asks first) or 'deny' (not allowed).
+  final Map<String, String> toolRestrictions;
+
+  /// The agent that set this one up, when an agent did.
+  final String? createdByAgentId;
+  final String creationReason;
+
   bool get isMain => slug == 'main';
   bool get isArchived => status == 'archived';
   String get label => isDefault ? appStrings.arg1Default2(displayName) : displayName;
-  bool get delegatesToAnyEligibleAgent =>
-      canDelegate && delegateTargets.isEmpty;
+}
+
+String? _optionalId(dynamic value) {
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? null : text;
+}
+
+/// Work one agent handed to another.
+class AgentTask {
+  const AgentTask({
+    required this.id,
+    required this.mode,
+    required this.goal,
+    required this.status,
+    required this.result,
+    required this.error,
+    required this.awaitingReply,
+    required this.requesterId,
+    required this.requesterName,
+    required this.ownerId,
+    required this.ownerName,
+    required this.updatedAt,
+  });
+
+  factory AgentTask.fromJson(Map<dynamic, dynamic> json) {
+    final requester = _jsonMap(json['requester']);
+    final owner = _jsonMap(json['owner']);
+    return AgentTask(
+      id: json['id']?.toString() ?? '',
+      mode: json['mode']?.toString() ?? 'delegate',
+      goal: json['goal']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'pending',
+      result: json['result']?.toString() ?? '',
+      error: json['error']?.toString() ?? '',
+      awaitingReply: json['awaitingReply'] == true,
+      requesterId: requester['id']?.toString() ?? '',
+      requesterName: requester['name']?.toString() ?? '',
+      ownerId: owner['id']?.toString() ?? '',
+      ownerName: owner['name']?.toString() ?? '',
+      updatedAt: _parseTimestamp(json['updatedAt']?.toString()),
+    );
+  }
+
+  final String id;
+  final String mode;
+  final String goal;
+  final String status;
+  final String result;
+  final String error;
+  final bool awaitingReply;
+  final String requesterId;
+  final String requesterName;
+  final String ownerId;
+  final String ownerName;
+  final DateTime updatedAt;
+
+  bool get isOpen =>
+      status == 'pending' || status == 'working' || status == 'waiting';
+  bool get isHandoff => mode == 'handoff';
 }
 
 class ModelMeta {

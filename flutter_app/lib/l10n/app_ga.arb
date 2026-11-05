@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Glaonna Gníomhaire",
-  "agentCommunication": "Cumarsáid gníomhaire",
-  "agentCommunicationArg1": "Cumarsáid gníomhaire: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "Déanann mód an ghníomhaire eagarthóireacht ar an spás oibre · ⌘↵ seol · ⌘N seisiún nua",
   "agentPausesAndAsksYouBefore": "Stadann an gníomhaire agus iarrann sé do chead sula ritheann sé an tasc.",
   "agentProfile": "Próifíl gníomhaire",
@@ -2007,20 +1998,9 @@
   "callAgent": "Gníomhaire glaonna",
   "callUser": "Úsáideoir Glaoigh",
   "calledByName": "Glaoite de réir ainm",
-  "canDelegateTasksToOtherAgents": "Is féidir leis tascanna a tharmligean chuig gníomhairí eile",
-  "canDelegateToArg1": "Is féidir é a tharmligean chuig {arg1}",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Is féidir tascanna tarmligthe a fháil",
   "cancel": "Cealaigh",
   "cancelTask": "Cealaigh tasc",
   "cannotPreview": "Ní féidir réamhamharc a dhéanamh",
-  "cannotReceiveDelegatedTasks": "ní féidir tascanna tarmligthe a fháil",
   "cannotRunYet": "ní féidir rith go fóill.",
   "capturedThePage": "Ghlac an leathanach",
   "category": "Catagóir",
@@ -2378,7 +2358,6 @@
   "createLink": "Cruthaigh nasc",
   "createOrModifyFilesInYour": "Cruthaigh nó modhnaigh comhaid i do spás oibre.",
   "createPassword": "Cruthaigh pasfhocal",
-  "createSpecialistBotsWithSeparateMemory": "Cruthaigh róbónna speisialta le cuimhne ar leith, socruithe, uirlisí agus tascanna cuntais.",
   "createTheFirstAccount": "Cruthaigh an chéad chuntas",
   "createUpdateOrDeleteSkills": "Cruthaigh, nuashonraigh, nó scrios scileanna.",
   "creatingYourSkill": "Do scil á cruthú…",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Láimhseálann sé tascanna díreacha féin",
   "handsFreeTalkFreelyInterruptAnytime": "Saor ó lámha (labhairt faoi shaoirse, cuir isteach am ar bith)",
   "headerName": "Ainm ceanntásca",
   "headlinesOnTheTopicsYouCare": "Ceannlínte ar na hábhair is cúram duit, scagtha le haghaidh comhartha.",
@@ -4430,7 +4408,6 @@
   "restart": "Atosaigh",
   "restartToFinishTheUpdate": " Atosaigh chun an nuashonrú a chríochnú.",
   "restoringThePreviousNeoagentRuntime": "An t-am rite NeoAgent roimhe seo a athchóiriú",
-  "restrictDelegationTargets": "Srian a chur ar spriocanna tarmligin",
   "result": "Toradh",
   "resultDelivery": "Seachadadh Torthaí",
   "resultOneClickAddsOneYou": "toradh. Cuireann cliceáil amháin leis; is féidir leat é a chur in eagar níos déanaí.",
@@ -5151,7 +5128,6 @@
   "thesePeopleInOneGroup": "Na daoine seo, in aon ghrúpa",
   "theseSwitchesNeverYourChatsMemories": "na lasca seo, ná do chuid comhráite, cuimhní cinn nó comhaid riamh.",
   "thisAccountWillUnlockNeoagentOn": "Díghlasálfaidh an cuntas seo NeoAgent ar an meaisín seo.",
-  "thisAgentCanDelegateToAny": "Is féidir leis an ngníomhaire seo a tharmligean chuig aon ghníomhaire fála incháilithe.",
   "thisAgentIsUsingAServer": "Tá eochair Trello API atá á bainistiú ag an bhfreastalaí seo á úsáid ag an ngníomhaire seo. Ní gá duit ach chomhartha cuntais a údarú thíos.",
   "thisBuildIsNotAllowedTo": "Níl cead ag an tógáil seo labhairt leis an imscaradh NeoAgent seo.",
   "thisCodeBelongsToADifferent": "Baineann an cód seo le freastalaí eile NeoAgent: {arg1}",
@@ -5371,7 +5347,6 @@
   "turnTaking": "seal a ghlacadh",
   "turnTakingModel": "Múnla sealaíochta",
   "turnTakingOff": "Múchadh",
-  "turnThisOffToKeepThis": "Múch é seo chun an gníomhaire seo a choinneáil go hiomlán scartha ó ghníomhairí eile.",
   "turnedOffByArg1": "Múchta ag {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5511,6 @@
   },
   "useTheServerOnThisComputer": "Úsáid an freastalaí ar an ríomhaire seo",
   "useTheseForContextIfA": "Úsáid iad seo mar chomhthéacs. Mura bhfuil rochtain dhíreach ar URI áitiúil ón bhfreastalaí, iarr orm an comhad a sholáthar trí spás oibre inrochtana.",
-  "useThisForOrchestratorAgentsLeave": "Bain úsáid as seo le haghaidh gníomhairí ceolfhoirneora. Fág as do róbónna oibre scoite ar cheart dóibh teachtaireachtaí díreacha a chríochnú iad féin.",
   "useTlsFromTheStartOf": "Úsáid TLS ó thús an naisc, de ghnáth ar phort 465.",
   "useYourOwnApiKeyFor": "Bain úsáid as d'eochair API féin le haghaidh soláthraí, nó ceangail saincheaptha ",
   "usedByEveryAccountOnThis": "In úsáid ag gach cuntas ar an bhfreastalaí seo nach bhfuil eochair aige ",
@@ -5921,8 +5895,6 @@
   "pasteAReplacementToken": "Greamaigh comhartha athsholáthair",
   "replaceAccount": "Ionadaigh Cuntas",
   "addAccount": "Cuir Cuntas leis",
-  "canDelegateToAnyReceivingAgent": "Is féidir leis a tharmligean chuig aon ghníomhaire fála",
-  "canReceiveDelegatedTasks2": "in ann tascanna tarmligthe a fháil",
   "noSyncYet": "Níl sioncronú ann fós",
   "noNewData": "Gan sonraí nua",
   "syncOnceToSeedYourBackend": "Sioncronaigh uair amháin chun do inneall a shíolrú.",

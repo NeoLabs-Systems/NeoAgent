@@ -137,5 +137,5 @@ test('a child works where its parent works, and cannot reach unlimited agents', 
   await engine.subagents.get(started.handle).promise;
   assert.equal(seen[0].deviceTarget, 'local');
   assert.equal(seen[0].workspaceRoot, '/work/project');
-  assert.deepEqual(seen[0].disallowedToolNames, ['spawn_subagent', 'delegate_to_agent']);
+  assert.deepEqual(seen[0].disallowedToolNames, ['spawn_subagent', 'delegate_to_agent', 'agent_task', 'create_agent']);
 });

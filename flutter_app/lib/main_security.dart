@@ -136,6 +136,12 @@ final _kCategoryInfo = <String, _CategoryInfo>{
     icon: Icons.extension_rounded,
     riskLevel: 'medium',
   ),
+  'agent_creation': _CategoryInfo(
+    label: appStrings.agentsCreationCategory,
+    subtitle: appStrings.agentsCreationCategoryHint,
+    icon: Icons.group_add_rounded,
+    riskLevel: 'medium',
+  ),
   'external': _CategoryInfo(
     label: appStrings.externalMcpTools,
     subtitle: appStrings.toolsNotBuiltIntoNeoagentIncluding,

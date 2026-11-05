@@ -5,6 +5,7 @@ const { SAFE_TOOLS, getCategoryForTool } = require('./tool_categories');
 const { getTerminalEnv, TERMINAL_ENV_HOST } = require('../../utils/deployment');
 const { isPermitted } = require('../access/permissions');
 const { reviewToolCall } = require('./trust_policy');
+const { restrictionForRun } = require('../agents/tool_restrictions');
 
 // The hook runner skips a handler that throws. A security check that cannot
 // decide must block instead, or every error becomes a bypass.
@@ -24,14 +25,18 @@ function failClosed(id, handler) {
 }
 
 /**
- * Registers three before_tool_call hooks:
+ * Registers four before_tool_call hooks:
  *   Priority 1  — delegation check: block categories a manager has taken away
  *                 from this account. Ignores the user's own security mode, so
  *                 'allow_all' cannot bypass it.
+ *   Priority 2  — agent restriction: block categories the run's agent (or the
+ *                 agents whose task it works on) may not use. Also ignores the
+ *                 security mode: an agent is only ever held tighter.
  *   Priority 5  — policy check: block tools whose category is set to 'deny'.
  *   Priority 10 — approval gate: suspend the run until the owner decides. Asks
- *                 when the category policy says so, and when trust_policy
- *                 flags the call from the run's audience or taint.
+ *                 when the category policy or the agent's restriction says so,
+ *                 and when trust_policy flags the call from the run's audience
+ *                 or taint.
  *
  * Reasons returned in { block: true, reason, blocked_by } are surfaced to the
  * model by engine.js so the AI can communicate them to the user naturally.
@@ -50,6 +55,20 @@ function registerToolSecurityHooks(toolPolicyService, approvalGateService) {
         'The user cannot change this in their own settings; only their manager can.',
     };
   }), { priority: 1, id: 'tool-delegation-check' });
+
+  globalHooks.register('before_tool_call', failClosed('agent_restriction', async ({ toolName, toolArgs, userId, agentId, runId }) => {
+    if (SAFE_TOOLS.has(toolName)) return;
+    const category = getCategoryForTool(toolName, toolArgs ?? {});
+    if (restrictionForRun({ userId, agentId, runId, category }) !== 'deny') return;
+    console.info(`[ToolPolicy] Blocked tool=${toolName} user=${userId} category=${category} by agent restriction`);
+    return {
+      block: true,
+      blocked_by: 'agent_restriction',
+      reason:
+        `This agent may not use "${toolName}". The user set that in the agent's settings, ` +
+        'so do not try to get around it; say what you would have done instead.',
+    };
+  }), { priority: 2, id: 'tool-agent-restriction-check' });
 
   globalHooks.register('before_tool_call', failClosed('policy', async ({ toolName, toolArgs, userId }) => {
     if (SAFE_TOOLS.has(toolName)) return;
@@ -76,7 +95,9 @@ function registerToolSecurityHooks(toolPolicyService, approvalGateService) {
     const noBoundary = getTerminalEnv() === TERMINAL_ENV_HOST;
     const escalation = review && (review.kind === 'audience' || mode !== 'allow_all' || noBoundary) ? review : null;
 
-    if (!escalation) {
+    const agentAsks = !SAFE_TOOLS.has(toolName)
+      && restrictionForRun({ userId, agentId, runId, category }) === 'require_approval';
+    if (!escalation && !agentAsks) {
       if (SAFE_TOOLS.has(toolName) || mode === 'allow_all') return;
       const policy = toolPolicyService.getPolicy(userId, toolName, args);
       const askAnyway = mode === 'always_ask' && Boolean(category);

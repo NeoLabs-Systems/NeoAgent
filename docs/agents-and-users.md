@@ -25,23 +25,42 @@ Admins can turn OpenRouter account sign-in off under **Admin › Integrations �
 
 ## 🤖 Agents
 
-Create an agent under **Settings › Agents › Add Agent**. Its identifier follows the name until you edit it yourself; use lowercase letters, numbers, hyphens or underscores. Instructions, status and delegation controls are under **Advanced settings**.
+Create an agent under **Settings › Agents › Add Agent** with a name and what it is responsible for. Instructions, its identifier, status, how it works with other agents and what it may do are under **Advanced settings**.
 
 - **Main agent.** Created automatically for every account. It cannot be archived.
 - **Default agent.** The one that answers when you do not pick another; set it under **Settings › Agents**.
 - **Separate state.** Each agent has its own conversations, memory, runs, tasks, integration accounts, messaging channels and MCP servers.
-- **Profile.** Name, description, responsibilities, instructions, and a status of active or paused.
+- **Profile.** Name, responsibility, description, instructions, and a status of active or paused.
 - **Per-agent settings.** **Models**, **Behavior**, **Voice** and **Messaging** apply to the selected agent.
 - **Shared settings.** **Permissions** and **Computer & web** apply to all of your agents.
 
 Use separate agents to keep contexts apart, for example a personal agent and a work agent.
 
-### Delegation
+### Working together
 
-- **Can delegate tasks to other agents.** On for the main agent by default. Use it for orchestrator agents.
-- **Can receive delegated tasks.** On for every other agent by default. Turn it off to keep an agent fully separate.
-- **Restrict delegation targets.** Limits which agents a delegating agent may hand work to.
-- **Shared trust.** A delegated run keeps the caller's run trust; see [Security and permissions](security-boundaries.md).
+Agents pass work to each other in the background. You keep talking to one agent; it decides when another one is the better fit.
+
+- **Sub-agents** are short-lived helpers for one part of a run. They have no name, chat or memory of their own and end with the run.
+- **Agent tasks** go to one of your lasting agents. The asking agent is not blocked: the other agent works in its own run and the answer comes back when it is done, also after a restart.
+- **Delegate or hand over.** When an agent *delegates*, it stays responsible and builds on the result. When it *hands over*, the other agent owns the request from then on and its result is passed on to you.
+- **Questions.** The working agent can ask the one that asked; the task waits for the answer.
+- **Own chat.** The result also lands in the working agent's chat, so you can carry on with it there.
+- **Overview.** **Settings › Agents › Work between agents** lists open and finished work, who asked whom, and the result. **Stop** cancels open work.
+- **Who may pass work.** **Can pass work to other agents** is on for the main agent by default; **Other agents can give it work** is on for every other agent. **Only to the agents I pick** limits the targets.
+- **Limits.** One run starts at most 3 agent tasks, work goes at most three agents deep and never back to an agent already on it, and at most 2 agent tasks run at once per account.
+- **No full history.** The other agent gets the task, the context the asking agent chose, and the expected result, never the whole conversation or memory. What one agent reports is not taken as verified fact by another.
+
+### Agents that set up agents
+
+An agent can set up a new lasting specialist when a job needs its own memory and ownership, or when you ask for one. One-off work and plain schedules do not get their own agent.
+
+- **Your choice.** **Settings › Agents › New agents**: *Never*, *Ask me* (default) or *Allow*. It is the **Set up new agents** category under **Settings › Permissions**.
+- **Visible.** The new agent appears in your list with **Set up by …** and the reason; change, pause or archive it like any other.
+- **Never more rights.** It gets at most the permissions of the agent that created it, and an agent working on a task for another agent cannot create agents. One run creates at most one agent; an account has at most 12.
+
+### What an agent may do
+
+Under **Advanced settings › What this agent may do**, set any tool category to **Ask first** or **Not allowed** for that agent. This only ever tightens your account's [permissions](security-boundaries.md), also under *Allow all*. Work an agent hands on keeps its limits.
 
 ## 👤 User accounts
 

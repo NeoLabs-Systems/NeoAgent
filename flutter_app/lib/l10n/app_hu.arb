@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Ügynökhívások",
-  "agentCommunication": "Ügynöki kommunikáció",
-  "agentCommunicationArg1": "Ügynöki kommunikáció: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "Az Ügynök mód szerkeszti a munkaterületet · ⌘↵ küldés · ⌘N új munkamenet",
   "agentPausesAndAsksYouBefore": "Az ügynök megáll, és engedélyt kér tőled a futtatás előtt.",
   "agentProfile": "Ügynökprofil",
@@ -2007,20 +1998,9 @@
   "callAgent": "Hívja az ügynököt",
   "callUser": "Felhasználó hívása",
   "calledByName": "Nevén szólítva",
-  "canDelegateTasksToOtherAgents": "Feladatokat delegálhat más ügynökökre",
-  "canDelegateToArg1": "Delegálható a {arg1}-re",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Képes átruházott feladatokat fogadni",
   "cancel": "Mégsem",
   "cancelTask": "Feladat megszakítása",
   "cannotPreview": "Az előnézet nem tekinthető meg",
-  "cannotReceiveDelegatedTasks": "nem kaphat átruházott feladatokat",
   "cannotRunYet": "még nem futhat.",
   "capturedThePage": "Lefoglalta az oldalt",
   "category": "Kategória",
@@ -2378,7 +2358,6 @@
   "createLink": "Link létrehozása",
   "createOrModifyFilesInYour": "Fájlokat hozhat létre vagy módosíthat a munkaterületén.",
   "createPassword": "Jelszó létrehozása",
-  "createSpecialistBotsWithSeparateMemory": "Hozzon létre speciális robotokat külön memóriával, beállításokkal, eszközökkel és fiók-hozzárendelésekkel.",
   "createTheFirstAccount": "Hozd létre az első fiókot",
   "createUpdateOrDeleteSkills": "Készségek létrehozása, frissítése vagy törlése.",
   "creatingYourSkill": "Képességed kialakítása…",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "A közvetlen feladatokat maga kezeli",
   "handsFreeTalkFreelyInterruptAnytime": "Kihangosított (szabadon beszélhet, bármikor megszakíthatja)",
   "headerName": "Fejléc neve",
   "headlinesOnTheTopicsYouCare": "Hírek az Önt érdeklő témákról, jelzésre szűrve.",
@@ -4430,7 +4408,6 @@
   "restart": "Indítsa újra",
   "restartToFinishTheUpdate": " Indítsa újra a frissítés befejezéséhez.",
   "restoringThePreviousNeoagentRuntime": "A korábbi NeoAgent futási környezet visszaállítása",
-  "restrictDelegationTargets": "A delegálási célok korlátozása",
   "result": "Eredmény",
   "resultDelivery": "Eredmény kézbesítés",
   "resultOneClickAddsOneYou": "eredményt. Egy kattintás hozzáad egyet; később szerkesztheti.",
@@ -5151,7 +5128,6 @@
   "thesePeopleInOneGroup": "Ezek az emberek egy csoportban",
   "theseSwitchesNeverYourChatsMemories": "ezek a kapcsolók, soha nem a chatjei, az emlékei vagy a fájljai.",
   "thisAccountWillUnlockNeoagentOn": "Ez a fiók feloldja a NeoAgent zárolását ezen a gépen.",
-  "thisAgentCanDelegateToAny": "Ez az ügynök bármely jogosult fogadó ügynökre delegálhat.",
   "thisAgentIsUsingAServer": "Ez az ügynök egy szerver által felügyelt Trello API-kulcsot használ. Csak alább kell engedélyeznie egy fióktokkent.",
   "thisBuildIsNotAllowedTo": "Ez a build nem kommunikálhat ezzel a NeoAgent-telepítéssel.",
   "thisCodeBelongsToADifferent": "Ez a kód egy másik NeoAgent szerverhez tartozik: {arg1}",
@@ -5371,7 +5347,6 @@
   "turnTaking": "fordulat vétel",
   "turnTakingModel": "Körbevevő modell",
   "turnTakingOff": "Felszállás",
-  "turnThisOffToKeepThis": "Kapcsolja ki, hogy ez az ügynök teljesen elkülönüljön a többi ügynöktől.",
   "turnedOffByArg1": "{arg1} kikapcsolta",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5511,6 @@
   },
   "useTheServerOnThisComputer": "Használja a szervert ezen a számítógépen",
   "useTheseForContextIfA": "Használja ezeket a kontextushoz. Ha egy helyi URI nem érhető el közvetlenül a szerverről, kérjen meg, hogy biztosítsam a fájlt egy elérhető munkaterületen keresztül.",
-  "useThisForOrchestratorAgentsLeave": "Használja ezt a hangszerelő ügynökökhöz. Hagyja ki az elszigetelt munkarobotoknál, amelyeknek maguknak kell befejezniük a közvetlen üzeneteket.",
   "useTlsFromTheStartOf": "Használja a TLS-t a kapcsolat kezdetétől, általában a 465-ös porton.",
   "useYourOwnApiKeyFor": "Használja saját API-kulcsát egy szolgáltatóhoz, vagy csatlakoztasson egy egyéni kulcsot ",
   "usedByEveryAccountOnThis": "Ezen a kiszolgálón minden olyan fiók használja, amelyhez nincs kulcs ",
@@ -5921,8 +5895,6 @@
   "pasteAReplacementToken": "Illesszen be egy helyettesítő tokent",
   "replaceAccount": "Cserélje ki a fiókot",
   "addAccount": "Fiók hozzáadása lehetőségre",
-  "canDelegateToAnyReceivingAgent": "Bármely fogadó ügynökhöz delegálható",
-  "canReceiveDelegatedTasks2": "delegált feladatokat kaphat",
   "noSyncYet": "Még nincs szinkronizálás",
   "noNewData": "Nincsenek új adatok",
   "syncOnceToSeedYourBackend": "Szinkronizáljon egyszer a háttérrendszer indításához.",

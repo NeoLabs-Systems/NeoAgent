@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Agenten ringer",
-  "agentCommunication": "Agentkommunikation",
-  "agentCommunicationArg1": "Agentkommunikation: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "Agentläge redigerar arbetsytan · ⌘↵ skicka · ⌘N ny session",
   "agentPausesAndAsksYouBefore": "Agenten pausar och ber om ditt tillstånd innan den kör uppgiften.",
   "agentProfile": "Agent profil",
@@ -2007,20 +1998,9 @@
   "callAgent": "Ring agenten",
   "callUser": "Ring användare",
   "calledByName": "Kallas vid namn",
-  "canDelegateTasksToOtherAgents": "Kan delegera uppgifter till andra agenter",
-  "canDelegateToArg1": "Kan delegera till {arg1}",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Kan ta emot delegerade uppgifter",
   "cancel": "Avbryt",
   "cancelTask": "Avbryt uppgift",
   "cannotPreview": "Kan inte förhandsgranska",
-  "cannotReceiveDelegatedTasks": "kan inte ta emot delegerade uppgifter",
   "cannotRunYet": "kan inte köra ännu.",
   "capturedThePage": "Fångade sidan",
   "category": "Kategori",
@@ -2378,7 +2358,6 @@
   "createLink": "Skapa länk",
   "createOrModifyFilesInYour": "Skapa eller ändra filer i din arbetsyta.",
   "createPassword": "Skapa lösenord",
-  "createSpecialistBotsWithSeparateMemory": "Skapa specialistrobotar med separata minne, inställningar, verktyg och kontotilldelningar.",
   "createTheFirstAccount": "Skapa det första kontot",
   "createUpdateOrDeleteSkills": "Skapa, uppdatera eller ta bort färdigheter.",
   "creatingYourSkill": "Skapar din färdighet...",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Hanterar direkta uppgifter själv",
   "handsFreeTalkFreelyInterruptAnytime": "Handsfree (prata fritt, avbryt när som helst)",
   "headerName": "Rubrikens namn",
   "headlinesOnTheTopicsYouCare": "Rubriker om de ämnen du bryr dig om, filtrerade efter signal.",
@@ -4430,7 +4408,6 @@
   "restart": "Starta om",
   "restartToFinishTheUpdate": " Starta om för att slutföra uppdateringen.",
   "restoringThePreviousNeoagentRuntime": "Återställer den tidigare NeoAgent-körtiden",
-  "restrictDelegationTargets": "Begränsa delegeringsmål",
   "result": "Resultat",
   "resultDelivery": "Resultat leverans",
   "resultOneClickAddsOneYou": "resultat. Ett klick lägger till en; du kan redigera den senare.",
@@ -5151,7 +5128,6 @@
   "thesePeopleInOneGroup": "Dessa människor, i en grupp",
   "theseSwitchesNeverYourChatsMemories": "dessa switchar, aldrig dina chattar, minnen eller filer.",
   "thisAccountWillUnlockNeoagentOn": "Detta konto kommer att låsa upp NeoAgent på den här maskinen.",
-  "thisAgentCanDelegateToAny": "Denna agent kan delegera till alla berättigade mottagande agenter.",
   "thisAgentIsUsingAServer": "Den här agenten använder en serverhanterad Trello API-nyckel. Du behöver bara auktorisera ett kontotoken nedan.",
   "thisBuildIsNotAllowedTo": "Den här versionen får inte prata med den här NeoAgent-distributionen.",
   "thisCodeBelongsToADifferent": "Den här koden tillhör en annan NeoAgent-server: {arg1}",
@@ -5371,7 +5347,6 @@
   "turnTaking": "turtagning",
   "turnTakingModel": "Turneringsmodell",
   "turnTakingOff": "Sväng-start",
-  "turnThisOffToKeepThis": "Stäng av detta för att hålla denna agent helt åtskild från andra agenter.",
   "turnedOffByArg1": "Avstängd av {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5511,6 @@
   },
   "useTheServerOnThisComputer": "Använd servern på den här datorn",
   "useTheseForContextIfA": "Använd dessa för sammanhang. Om en lokal URI inte är direkt tillgänglig från servern, be mig att tillhandahålla filen via en tillgänglig arbetsyta.",
-  "useThisForOrchestratorAgentsLeave": "Använd detta för orkestratoragenter. Sluta för isolerade arbetsrobotar som borde avsluta direktmeddelanden själva.",
   "useTlsFromTheStartOf": "Använd TLS från början av anslutningen, vanligtvis på port 465.",
   "useYourOwnApiKeyFor": "Använd din egen API-nyckel för en leverantör, eller anslut en anpassad ",
   "usedByEveryAccountOnThis": "Används av alla konton på denna server som inte har någon nyckel ",
@@ -5921,8 +5895,6 @@
   "pasteAReplacementToken": "Klistra in en ersättningstoken",
   "replaceAccount": "Byt konto",
   "addAccount": "Lägg till konto",
-  "canDelegateToAnyReceivingAgent": "Kan delegera till alla mottagande ombud",
-  "canReceiveDelegatedTasks2": "kan ta emot delegerade uppgifter",
   "noSyncYet": "Ingen synkronisering ännu",
   "noNewData": "Inga nya uppgifter",
   "syncOnceToSeedYourBackend": "Synkronisera en gång för att se din backend.",

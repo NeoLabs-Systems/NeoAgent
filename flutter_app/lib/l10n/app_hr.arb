@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Pozivi agenta",
-  "agentCommunication": "Komunikacija agenta",
-  "agentCommunicationArg1": "Komunikacija agenta: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "Način rada agenta uređuje radni prostor · ⌘↵ pošalji · ⌘N nova sesija",
   "agentPausesAndAsksYouBefore": "Agent zastaje i traži vaše dopuštenje prije izvršavanja.",
   "agentProfile": "Profil agenta",
@@ -2007,20 +1998,9 @@
   "callAgent": "Nazovi agenta",
   "callUser": "Nazovi korisnika",
   "calledByName": "Pozvan imenom",
-  "canDelegateTasksToOtherAgents": "Može delegirati zadatke drugim agentima",
-  "canDelegateToArg1": "Može delegirati {arg1}",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Može primati delegirane zadatke",
   "cancel": "Odustani",
   "cancelTask": "Otkaži zadatak",
   "cannotPreview": "Nije moguće pregledati",
-  "cannotReceiveDelegatedTasks": "ne može primati delegirane zadatke",
   "cannotRunYet": "još ne može trčati.",
   "capturedThePage": "Snimio stranicu",
   "category": "Kategorija",
@@ -2378,7 +2358,6 @@
   "createLink": "Create link",
   "createOrModifyFilesInYour": "Create or modify files in your workspace.",
   "createPassword": "Izradi lozinku",
-  "createSpecialistBotsWithSeparateMemory": "Create specialist bots with separate memory, settings, tools, and account assignments.",
   "createTheFirstAccount": "Napravite prvi račun",
   "createUpdateOrDeleteSkills": "Create, update, or delete skills.",
   "creatingYourSkill": "Stvaranje vaše vještine…",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Sam rješava izravne zadatke",
   "handsFreeTalkFreelyInterruptAnytime": "Bez ruku (slobodno razgovarajte, prekidajte bilo kada)",
   "headerName": "Naziv zaglavlja",
   "headlinesOnTheTopicsYouCare": "Naslovi o temama koje vas zanimaju, filtrirani prema signalu.",
@@ -4430,7 +4408,6 @@
   "restart": "Ponovno pokretanje",
   "restartToFinishTheUpdate": " Ponovno pokrenite da biste dovršili ažuriranje.",
   "restoringThePreviousNeoagentRuntime": "Vraćanje prethodnog vremena izvođenja NeoAgenta",
-  "restrictDelegationTargets": "Ograničite ciljeve delegiranja",
   "result": "Rezultat",
   "resultDelivery": "Isporuka rezultata",
   "resultOneClickAddsOneYou": "rezultat. Jedan klik dodaje jedno; možete ga urediti kasnije.",
@@ -5151,7 +5128,6 @@
   "thesePeopleInOneGroup": "Ovi ljudi, u jednoj skupini",
   "theseSwitchesNeverYourChatsMemories": "ove sklopke, nikada vaše razgovore, uspomene ili datoteke.",
   "thisAccountWillUnlockNeoagentOn": "Ovaj račun će otključati NeoAgent na ovom računalu.",
-  "thisAgentCanDelegateToAny": "Ovaj agent može delegirati bilo kojem prihvatljivom agentu za primanje.",
   "thisAgentIsUsingAServer": "Ovaj agent koristi Trello API ključ kojim upravlja poslužitelj. Samo trebate autorizirati token računa u nastavku.",
   "thisBuildIsNotAllowedTo": "Ovoj verziji nije dopušteno komunicirati s ovom implementacijom NeoAgenta.",
   "thisCodeBelongsToADifferent": "Ovaj kod pripada drugom NeoAgent poslužitelju: {arg1}",
@@ -5371,7 +5347,6 @@
   "turnTaking": "red uzimajući",
   "turnTakingModel": "Model koji se mijenja",
   "turnTakingOff": "Skretanje-polijetanje",
-  "turnThisOffToKeepThis": "Isključite ovo kako bi ovaj agent bio potpuno odvojen od ostalih agenata.",
   "turnedOffByArg1": "Isključio {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5511,6 @@
   },
   "useTheServerOnThisComputer": "Koristite poslužitelj na ovom računalu",
   "useTheseForContextIfA": "Koristite ih za kontekst. Ako lokalni URI nije izravno dostupan s poslužitelja, zamolite me da dam datoteku putem pristupačnog radnog prostora.",
-  "useThisForOrchestratorAgentsLeave": "Koristite ovo za agente orkestratora. Ostavite izolirane radne botove koji bi sami trebali završiti izravne poruke.",
   "useTlsFromTheStartOf": "Koristite TLS od početka veze, obično na portu 465.",
   "useYourOwnApiKeyFor": "Upotrijebite vlastiti API ključ za pružatelja ili povežite prilagođeni ",
   "usedByEveryAccountOnThis": "Koristi ga svaki račun na ovom poslužitelju koji nema ključ ",
@@ -5921,8 +5895,6 @@
   "pasteAReplacementToken": "Zalijepite zamjenski token",
   "replaceAccount": "Zamijeni račun",
   "addAccount": "Dodaj račun",
-  "canDelegateToAnyReceivingAgent": "Može delegirati bilo kojem agentu za prijem",
-  "canReceiveDelegatedTasks2": "mogu primati delegirane zadatke",
   "noSyncYet": "Još nema sinkronizacije",
   "noNewData": "Nema novih podataka",
   "syncOnceToSeedYourBackend": "Sinkronizirajte jednom da biste postavili svoju pozadinu.",

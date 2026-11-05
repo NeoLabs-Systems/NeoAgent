@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Agentti soittaa",
-  "agentCommunication": "Agenttiviestintä",
-  "agentCommunicationArg1": "Agenttiviestintä: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "Agenttitila muokkaa työtilaa · ⌘↵ lähetä · ⌘N uutta istuntoa",
   "agentPausesAndAsksYouBefore": "Agentti pysähtyy ja pyytää lupaasi ennen suoritusta.",
   "agentProfile": "Agentin profiili",
@@ -2007,20 +1998,9 @@
   "callAgent": "Soita agentille",
   "callUser": "Soita käyttäjälle",
   "calledByName": "Kutsuttiin nimellä",
-  "canDelegateTasksToOtherAgents": "Voi delegoida tehtäviä muille edustajille",
-  "canDelegateToArg1": "Voidaan delegoida {arg1}:lle",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Voi vastaanottaa delegoituja tehtäviä",
   "cancel": "Peruuta",
   "cancelTask": "Peruuta tehtävä",
   "cannotPreview": "Ei voi esikatsella",
-  "cannotReceiveDelegatedTasks": "ei voi vastaanottaa delegoituja tehtäviä",
   "cannotRunYet": "ei voi juosta vielä.",
   "capturedThePage": "Otettiin sivu kiinni",
   "category": "Luokka",
@@ -2378,7 +2358,6 @@
   "createLink": "Luo linkki",
   "createOrModifyFilesInYour": "Luo tai muokkaa tiedostoja työtilassasi.",
   "createPassword": "Luo salasana",
-  "createSpecialistBotsWithSeparateMemory": "Luo erikoisbotteja erillisellä muistilla, asetuksilla, työkaluilla ja tilitehtävillä.",
   "createTheFirstAccount": "Luo ensimmäinen tili",
   "createUpdateOrDeleteSkills": "Luo, päivitä tai poista taitoja.",
   "creatingYourSkill": "Luodaan taitojasi…",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Hoitaa suoria tehtäviä itse",
   "handsFreeTalkFreelyInterruptAnytime": "Handsfree (puhu vapaasti, keskeytä milloin tahansa)",
   "headerName": "Otsikon nimi",
   "headlinesOnTheTopicsYouCare": "Sinua kiinnostavien aiheiden otsikot, suodatettu signaalin mukaan.",
@@ -4430,7 +4408,6 @@
   "restart": "Käynnistä uudelleen",
   "restartToFinishTheUpdate": " Viimeistele päivitys käynnistämällä se uudelleen.",
   "restoringThePreviousNeoagentRuntime": "Palautetaan edellinen NeoAgent-ajoaika",
-  "restrictDelegationTargets": "Rajoita delegointitavoitteita",
   "result": "Tulos",
   "resultDelivery": "Tulos Toimitus",
   "resultOneClickAddsOneYou": "tuloksena. Yksi napsautus lisää yhden; voit muokata sitä myöhemmin.",
@@ -5151,7 +5128,6 @@
   "thesePeopleInOneGroup": "Nämä ihmiset yhdessä ryhmässä",
   "theseSwitchesNeverYourChatsMemories": "nämä kytkimet, ei koskaan keskustelujasi, muistojasi tai tiedostojasi.",
   "thisAccountWillUnlockNeoagentOn": "Tämä tili avaa NeoAgentin lukituksen tälle koneelle.",
-  "thisAgentCanDelegateToAny": "Tämä edustaja voi delegoida kenelle tahansa kelvolliselle vastaanottavalle edustajalle.",
   "thisAgentIsUsingAServer": "Tämä agentti käyttää palvelimen hallinnoimaa Trello API-avainta. Sinun tarvitsee vain valtuuttaa alla oleva tilitunnus.",
   "thisBuildIsNotAllowedTo": "Tämä koontiversio ei saa keskustella tämän NeoAgent-asennuksen kanssa.",
   "thisCodeBelongsToADifferent": "Tämä koodi kuuluu toiselle NeoAgent-palvelimelle: {arg1}",
@@ -5371,7 +5347,6 @@
   "turnTaking": "käännös ottaa",
   "turnTakingModel": "Vuorottelumalli",
   "turnTakingOff": "Käännetty pois päältä",
-  "turnThisOffToKeepThis": "Kytke tämä pois päältä, jotta tämä agentti pysyy täysin erillään muista agenteista.",
   "turnedOffByArg1": "Sammutti {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5511,6 @@
   },
   "useTheServerOnThisComputer": "Käytä palvelinta tässä tietokoneessa",
   "useTheseForContextIfA": "Käytä näitä kontekstiin. Jos paikallinen URI ei ole suoraan käytettävissä palvelimelta, pyydä minua toimittamaan tiedosto esteettömän työtilan kautta.",
-  "useThisForOrchestratorAgentsLeave": "Käytä tätä orkesteriagenteille. Jätä pois yksittäisille työboteille, joiden pitäisi lopettaa suorat viestit itse.",
   "useTlsFromTheStartOf": "Käytä TLS:ää yhteyden alusta lähtien, yleensä portissa 465.",
   "useYourOwnApiKeyFor": "Käytä omaa API-avainta palveluntarjoajalle tai yhdistä mukautettu ",
   "usedByEveryAccountOnThis": "Käyttää jokainen tämän palvelimen tili, jolla ei ole avainta ",
@@ -5921,8 +5895,6 @@
   "pasteAReplacementToken": "Liitä korvaava tunnus",
   "replaceAccount": "Vaihda tili",
   "addAccount": "Lisää tili",
-  "canDelegateToAnyReceivingAgent": "Voidaan delegoida mille tahansa vastaanottavalle edustajalle",
-  "canReceiveDelegatedTasks2": "voi vastaanottaa delegoituja tehtäviä",
   "noSyncYet": "Ei synkronointia vielä",
   "noNewData": "Ei uusia tietoja",
   "syncOnceToSeedYourBackend": "Synkronoi kerran käynnistääksesi taustasi.",

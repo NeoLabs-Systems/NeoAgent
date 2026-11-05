@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Telefony agenta",
-  "agentCommunication": "Komunikacja agenta",
-  "agentCommunicationArg1": "Komunikacja agenta: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "Tryb agenta edytuje obszar roboczy · ⌘↵ wyślij · ⌘N nowa sesja",
   "agentPausesAndAsksYouBefore": "Agent wstrzymuje działanie i prosi o zgodę przed wykonaniem zadania.",
   "agentProfile": "Profil agenta",
@@ -2007,20 +1998,9 @@
   "callAgent": "Zadzwoń do agenta",
   "callUser": "Zadzwoń do użytkownika",
   "calledByName": "Nazywany po imieniu",
-  "canDelegateTasksToOtherAgents": "Potrafi delegować zadania innym agentom",
-  "canDelegateToArg1": "Można delegować do {arg1}",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Potrafi przyjmować delegowane zadania",
   "cancel": "Anuluj",
   "cancelTask": "Anuluj zadanie",
   "cannotPreview": "Nie można wyświetlić podglądu",
-  "cannotReceiveDelegatedTasks": "nie może przyjmować delegowanych zadań",
   "cannotRunYet": "nie można jeszcze biegać.",
   "capturedThePage": "Przechwycono stronę",
   "category": "Kategoria",
@@ -2378,7 +2358,6 @@
   "createLink": "Utwórz łącze",
   "createOrModifyFilesInYour": "Twórz lub modyfikuj pliki w swoim obszarze roboczym.",
   "createPassword": "Utwórz hasło",
-  "createSpecialistBotsWithSeparateMemory": "Twórz specjalistyczne boty z oddzielną pamięcią, ustawieniami, narzędziami i przypisaniami kont.",
   "createTheFirstAccount": "Utwórz pierwsze konto",
   "createUpdateOrDeleteSkills": "Twórz, aktualizuj lub usuwaj umiejętności.",
   "creatingYourSkill": "Tworzenie umiejętności…",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Samodzielnie wykonuje zadania bezpośrednie",
   "handsFreeTalkFreelyInterruptAnytime": "Zestaw głośnomówiący (rozmawiaj swobodnie, przerywaj w dowolnym momencie)",
   "headerName": "Nazwa nagłówka",
   "headlinesOnTheTopicsYouCare": "Nagłówki na tematy, które Cię interesują, przefiltrowane pod kątem sygnału.",
@@ -4430,7 +4408,6 @@
   "restart": "Uruchom ponownie",
   "restartToFinishTheUpdate": " Uruchom ponownie, aby zakończyć aktualizację.",
   "restoringThePreviousNeoagentRuntime": "Przywracanie poprzedniego środowiska wykonawczego NeoAgent",
-  "restrictDelegationTargets": "Ogranicz cele delegowania",
   "result": "Wynik",
   "resultDelivery": "Dostawa wyników",
   "resultOneClickAddsOneYou": "wynik. Jedno kliknięcie dodaje jedno; możesz go później edytować.",
@@ -5151,7 +5128,6 @@
   "thesePeopleInOneGroup": "Ci ludzie w jednej grupie",
   "theseSwitchesNeverYourChatsMemories": "te przełączniki, a nie czaty, wspomnienia i pliki.",
   "thisAccountWillUnlockNeoagentOn": "To konto odblokuje NeoAgent na tym komputerze.",
-  "thisAgentCanDelegateToAny": "Agent ten może delegować uprawnienia dowolnemu uprawnionemu agentowi odbierającemu.",
   "thisAgentIsUsingAServer": "Ten agent używa klucza API Trello zarządzanego przez serwer. Wystarczy autoryzować token konta poniżej.",
   "thisBuildIsNotAllowedTo": "Ta kompilacja nie może komunikować się z tym wdrożeniem NeoAgent.",
   "thisCodeBelongsToADifferent": "Ten kod należy do innego serwera NeoAgent: {arg1}",
@@ -5371,7 +5347,6 @@
   "turnTaking": "zawracanie",
   "turnTakingModel": "Model rotacyjny",
   "turnTakingOff": "Zakręt i start",
-  "turnThisOffToKeepThis": "Wyłącz tę opcję, aby ten agent był całkowicie oddzielony od innych agentów.",
   "turnedOffByArg1": "Wyłączone przez {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5511,6 @@
   },
   "useTheServerOnThisComputer": "Użyj serwera na tym komputerze",
   "useTheseForContextIfA": "Użyj ich dla kontekstu. Jeśli lokalny identyfikator URI nie jest bezpośrednio dostępny z serwera, poproś mnie o udostępnienie pliku za pośrednictwem dostępnego obszaru roboczego.",
-  "useThisForOrchestratorAgentsLeave": "Użyj tego dla agentów programu Orchestrator. Zostaw to dla odizolowanych botów roboczych, które powinny same kończyć wiadomości bezpośrednie.",
   "useTlsFromTheStartOf": "Używaj protokołu TLS od początku połączenia, zwykle na porcie 465.",
   "useYourOwnApiKeyFor": "Użyj własnego klucza API dla dostawcy lub podłącz niestandardowy ",
   "usedByEveryAccountOnThis": "Używane przez każde konto na tym serwerze, które nie ma klucza ",
@@ -5921,8 +5895,6 @@
   "pasteAReplacementToken": "Wklej token zastępczy",
   "replaceAccount": "Zamień konto",
   "addAccount": "Dodaj konto",
-  "canDelegateToAnyReceivingAgent": "Może delegować dowolnemu agentowi odbierającemu",
-  "canReceiveDelegatedTasks2": "może otrzymywać delegowane zadania",
   "noSyncYet": "Jeszcze nie ma synchronizacji",
   "noNewData": "Brak nowych danych",
   "syncOnceToSeedYourBackend": "Zsynchronizuj raz, aby zapełnić swój backend.",

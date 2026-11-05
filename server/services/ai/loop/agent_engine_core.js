@@ -28,6 +28,10 @@ const {
   searchToolsForRun: searchToolsForRunImpl,
 } = require('./run_state');
 const { EVENT_TYPES } = require('../runtime/events/event_types');
+const {
+  delegateTask: delegateTaskImpl,
+  taskAction: agentTaskActionImpl,
+} = require('./agent_tasks');
 const { recordEventSafe } = require('../runtime/events/run_event_store');
 const { decideMemoryRecall, filterRecalled, memoryTokens } = require('../runtime/memory_policy');
 const {
@@ -37,7 +41,6 @@ const {
 const {
   hasWritingSubagent: hasWritingSubagentImpl,
   spawnSubagent: spawnSubagentImpl,
-  delegateToAgent: delegateToAgentImpl,
   listSubagents: listSubagentsImpl,
   cleanupSubagentsForRun: cleanupSubagentsForRunImpl,
   waitForSubagent: waitForSubagentImpl,
@@ -654,8 +657,12 @@ class AgentEngine {
     return spawnSubagentImpl(this, userId, parentRunId, task, options);
   }
 
-    async delegateToAgent(...args) {
-    return delegateToAgentImpl(this, ...args);
+  delegateTask(ctx, args) {
+    return delegateTaskImpl(this, ctx, args);
+  }
+
+  agentTaskAction(ctx, args) {
+    return agentTaskActionImpl(this, ctx, args);
   }
 
     listSubagents(parentRunId = null) {

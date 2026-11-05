@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Agent Calls",
-  "agentCommunication": "Agent communication",
-  "agentCommunicationArg1": "Agent communication: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "Agent mode edits the workspace · ⌘↵ send · ⌘N new session",
   "agentPausesAndAsksYouBefore": "Agent pauses and asks you before running.",
   "agentProfile": "Agent profile",
@@ -2007,20 +1998,9 @@
   "callAgent": "Call agent",
   "callUser": "Call User",
   "calledByName": "Called by name",
-  "canDelegateTasksToOtherAgents": "Can delegate tasks to other agents",
-  "canDelegateToArg1": "Can delegate to {arg1}",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Can receive delegated tasks",
   "cancel": "Cancel",
   "cancelTask": "Cancel task",
   "cannotPreview": "Cannot preview",
-  "cannotReceiveDelegatedTasks": "cannot receive delegated tasks",
   "cannotRunYet": "cannot run yet.",
   "capturedThePage": "Captured the page",
   "category": "Category",
@@ -2378,7 +2358,6 @@
   "createLink": "Create link",
   "createOrModifyFilesInYour": "Create or modify files in your workspace.",
   "createPassword": "Create password",
-  "createSpecialistBotsWithSeparateMemory": "Create specialist bots with separate memory, settings, tools, and account assignments.",
   "createTheFirstAccount": "Create the first account",
   "createUpdateOrDeleteSkills": "Create, update, or delete skills.",
   "creatingYourSkill": "Creating your skill…",
@@ -3017,7 +2996,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Handles direct tasks itself",
   "handsFreeTalkFreelyInterruptAnytime": "Hands-free (talk freely, interrupt anytime)",
   "headerName": "Header name",
   "headlinesOnTheTopicsYouCare": "Headlines on the topics you care about, filtered for signal.",
@@ -4433,7 +4411,6 @@
   "restart": "Restart",
   "restartToFinishTheUpdate": " Restart to finish the update.",
   "restoringThePreviousNeoagentRuntime": "Restoring the previous NeoAgent runtime",
-  "restrictDelegationTargets": "Restrict delegation targets",
   "result": "Result",
   "resultDelivery": "Result Delivery",
   "resultOneClickAddsOneYou": "result. One click adds one; you can edit it later.",
@@ -5154,7 +5131,6 @@
   "thesePeopleInOneGroup": "These people, in one group",
   "theseSwitchesNeverYourChatsMemories": "these switches, never your chats, memories or files.",
   "thisAccountWillUnlockNeoagentOn": "This is the first account on this server. It will also manage server settings and access.",
-  "thisAgentCanDelegateToAny": "This agent can delegate to any eligible receiving agent.",
   "thisAgentIsUsingAServer": "This agent is using a server-managed Trello API key. You only need to authorize an account token below.",
   "thisBuildIsNotAllowedTo": "This build is not allowed to talk to this NeoAgent deployment.",
   "thisCodeBelongsToADifferent": "This code belongs to a different NeoAgent server: {arg1}",
@@ -5374,7 +5350,6 @@
   "turnTaking": "turn taking",
   "turnTakingModel": "Turn-taking model",
   "turnTakingOff": "Turn-taking off",
-  "turnThisOffToKeepThis": "Turn this off to keep this agent fully separate from other agents.",
   "turnedOffByArg1": "Turned off by {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5539,7 +5514,6 @@
   },
   "useTheServerOnThisComputer": "Use the server on this computer",
   "useTheseForContextIfA": "Use these for context. If a local URI is not directly accessible from the server, ask me to provide the file through an accessible workspace.",
-  "useThisForOrchestratorAgentsLeave": "Use this for orchestrator agents. Leave off for isolated work bots that should finish direct messages themselves.",
   "useTlsFromTheStartOf": "Use TLS from the start of the connection, usually on port 465.",
   "useYourOwnApiKeyFor": "Use your own API key for a provider, or connect a custom ",
   "usedByEveryAccountOnThis": "Used by every account on this server that has no key ",
@@ -5924,8 +5898,6 @@
   "pasteAReplacementToken": "Paste a replacement token",
   "replaceAccount": "Replace Account",
   "addAccount": "Add Account",
-  "canDelegateToAnyReceivingAgent": "Can delegate to any receiving agent",
-  "canReceiveDelegatedTasks2": "can receive delegated tasks",
   "noSyncYet": "No sync yet",
   "noNewData": "No new data",
   "syncOnceToSeedYourBackend": "Sync once to seed your backend.",
@@ -7693,10 +7665,8 @@
   "agentNameRequired": "Enter a name for this agent.",
   "agentIdentifier": "Agent identifier",
   "agentIdentifierHint": "Used to address this agent. Suggested from the name; you can edit it.",
-  "agentIdentifierInvalid": "Use 1–48 lowercase letters, numbers, hyphens or underscores.",
   "uxAdvancedSettings": "Advanced settings",
   "uxSelected": "Selected",
-  "uxSelectedDelegationTargets": "Only selected agents can receive tasks from this agent.",
   "uxFieldRequired": "Enter {field}.",
   "uxTaskInstructions": "What should the agent do?",
   "uxTaskEnabledHint": "When enabled, this task runs when its trigger fires. Switch off to save it without running automatically.",
@@ -7808,5 +7778,118 @@
   "tailscalePeer": "Peer",
   "tailscaleExactPath": "Exact path and query string",
   "tailscaleSignInBrowser": "Sign in to Tailscale in your browser, then return here. Your account connects automatically after you approve it. If the sign-in page didn’t open, your browser may have blocked the popup. Click “Open Tailscale sign-in” below to continue.",
-  "tailscaleOpenSignIn": "Open Tailscale sign-in"
+  "tailscaleOpenSignIn": "Open Tailscale sign-in",
+  "agentsPageIntro": "Each agent is a lasting specialist with its own chat and memory. They pass work to each other in the background, and you stay in charge.",
+  "agentsResponsibleFor": "Responsible for",
+  "agentsSetUpBy": "Set up by {name}",
+  "@agentsSetUpBy": {
+    "placeholders": {
+      "name": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentsSetUpByWithReason": "Set up by {name}: {reason}",
+  "@agentsSetUpByWithReason": {
+    "placeholders": {
+      "name": {
+        "type": "Object?"
+      },
+      "reason": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentsChat": "Chat",
+  "agentsCreationTitle": "New agents",
+  "agentsCreationLabel": "When an agent wants to set up another agent",
+  "agentsCreationNever": "Never",
+  "agentsCreationAsk": "Ask me",
+  "agentsCreationAllow": "Allow",
+  "agentsCreationNeverHint": "Only you add agents.",
+  "agentsCreationAskHint": "You approve each new agent first. Recommended.",
+  "agentsCreationAllowHint": "Agents may set up a specialist when a lasting job needs one. You can change or archive it any time.",
+  "agentsCreationCategory": "Set up new agents",
+  "agentsCreationCategoryHint": "An agent creates another lasting agent on your account.",
+  "agentTasksTitle": "Work between agents",
+  "agentTasksDescription": "What your agents handed to each other, open work first.",
+  "agentTasksEmpty": "Nothing handed over yet",
+  "agentTasksEmptyHint": "When an agent passes work to a specialist, it shows up here.",
+  "agentTaskAsked": "{requester} asked {owner}",
+  "@agentTaskAsked": {
+    "placeholders": {
+      "requester": {
+        "type": "Object?"
+      },
+      "owner": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentTaskHandedOver": "{requester} handed over to {owner}",
+  "@agentTaskHandedOver": {
+    "placeholders": {
+      "requester": {
+        "type": "Object?"
+      },
+      "owner": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentTaskQueued": "Queued",
+  "agentTaskWorking": "Working",
+  "agentTaskWaiting": "Waiting",
+  "agentTaskNeedsAnswer": "Needs an answer",
+  "agentTaskDone": "Done",
+  "agentTaskFailed": "Failed",
+  "agentTaskCancelled": "Stopped",
+  "agentTaskStop": "Stop",
+  "agentTaskShowResult": "Show result",
+  "agentTaskHideResult": "Hide result",
+  "agentTaskFrom": "Task from {name}",
+  "@agentTaskFrom": {
+    "placeholders": {
+      "name": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentTaskTakenOverFrom": "Taken over from {name}",
+  "@agentTaskTakenOverFrom": {
+    "placeholders": {
+      "name": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentsPermissionsTitle": "What this agent may do",
+  "agentsPermissionsHint": "Only ever stricter than your account's tool permissions.",
+  "agentsPermissionAsAccount": "As account",
+  "agentsPermissionAskFirst": "Ask first",
+  "agentsPermissionNotAllowed": "Not allowed",
+  "agentsNotAllowedList": "Not allowed: {list}",
+  "@agentsNotAllowedList": {
+    "placeholders": {
+      "list": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentsAsksFirstList": "Asks first: {list}",
+  "@agentsAsksFirstList": {
+    "placeholders": {
+      "list": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentsWorkingWithOthers": "Working with other agents",
+  "agentsCanHandOff": "Can pass work to other agents",
+  "agentsCanHandOffHint": "It decides for itself when another agent is the better fit.",
+  "agentsOnlyTheseAgents": "Only to the agents I pick",
+  "agentsCanTakeWork": "Other agents can give it work",
+  "agentsCanTakeWorkHint": "Turn off to keep this agent to itself.",
+  "agentsResponsibilityHint": "What this agent takes care of. Other agents use it to decide what to give it.",
+  "agentsDescriptionHint": "Optional. One line on what it is good at."
 }

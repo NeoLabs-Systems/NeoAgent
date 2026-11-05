@@ -27,6 +27,8 @@ const EVENT_TYPES = Object.freeze({
   DELIVERY_FAILED: 'delivery.failed',
   DELIVERY_SUPPRESSED: 'delivery.suppressed',
   RECOVERY_TRIGGERED: 'recovery.triggered',
+  AGENT_TASK: 'agent.task',
+  AGENT_CREATED: 'agent.created',
 });
 
 const EVENT_SCHEMA_VERSION = 1;

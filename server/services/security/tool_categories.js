@@ -1,20 +1,7 @@
 'use strict';
 
 const { BUILT_IN_DEFINITIONS, INTEGRATED_TOOL_TRAITS } = require('../ai/tools/definitions');
-
-// What each category of tool needs from the owner when no policy row exists.
-const DEFAULT_POLICY = {
-  shell: 'require_approval',
-  file_write: 'require_approval',
-  android_privileged: 'require_approval',
-  desktop_control: 'require_approval',
-  browser_privileged: 'require_approval',
-  credential_use: 'require_approval',
-  network_write: 'require_approval',
-  user_contact: 'require_approval',
-  skill_mutation: 'deny',
-  external: 'require_approval',
-};
+const { DEFAULT_POLICY } = require('./default_policy');
 
 // Categories, safe tools, and the built-in list all come from the tool
 // definitions. A name that is in none of them is third-party and lands in
