@@ -3025,8 +3025,6 @@ class TasksPanel extends StatefulWidget {
 }
 
 class _TasksPanelState extends State<TasksPanel> {
-  String? _agentFilterId;
-
   NeoAgentController get controller => widget.controller;
 
   Color _taskRunStatusColor(String status) {
@@ -3113,25 +3111,7 @@ class _TasksPanelState extends State<TasksPanel> {
   }
 
   @override
-  void didUpdateWidget(covariant TasksPanel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (_agentFilterId == null) return;
-    final stillExists = controller.agentProfiles.any(
-      (agent) => agent.id == _agentFilterId,
-    );
-    if (!stillExists) {
-      _agentFilterId = null;
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final filteredTasks = _agentFilterId == null
-        ? controller.taskItems
-        : controller.taskItems
-              .where((task) => task.agentId == _agentFilterId)
-              .toList();
-    final selectedAgentLabel = controller.agentLabelFor(_agentFilterId);
     return ListView(
       padding: _pagePadding(context),
       children: <Widget>[
@@ -3141,195 +3121,34 @@ class _TasksPanelState extends State<TasksPanel> {
           trailing: FilledButton.icon(
             onPressed: () => _openTaskEditor(
               context,
-              defaultAgentId: _agentFilterId ?? controller.selectedAgentId,
+              defaultAgentId: controller.selectedAgentId,
             ),
             icon: Icon(Icons.add),
             label: Text(appStrings.addTask),
           ),
         ),
-        if (controller.agentProfiles.isNotEmpty) ...<Widget>[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    appStrings.assignedAgent,
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: <Widget>[
-                      ChoiceChip(
-                        label: Text(
-                          appStrings.allAgentsArg1(controller.taskItems.length),
-                        ),
-                        selected: _agentFilterId == null,
-                        onSelected: (_) =>
-                            setState(() => _agentFilterId = null),
-                      ),
-                      ...controller.agentProfiles.map((agent) {
-                        final count = controller.taskItems
-                            .where((task) => task.agentId == agent.id)
-                            .length;
-                        return ChoiceChip(
-                          label: Text(
-                            appStrings.arg1Arg2(agent.displayName, count),
-                          ),
-                          selected: _agentFilterId == agent.id,
-                          onSelected: (_) =>
-                              setState(() => _agentFilterId = agent.id),
-                        );
-                      }),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-        ],
         if (controller.taskItems.isEmpty)
           _TaskRecommendationsGallery(
             controller: controller,
             onCreateCustom: () => _openTaskEditor(
               context,
-              defaultAgentId: _agentFilterId ?? controller.selectedAgentId,
+              defaultAgentId: controller.selectedAgentId,
             ),
           )
-        else if (filteredTasks.isEmpty)
-          _EmptyCard(
-            title: appStrings.noTasksForArg1(selectedAgentLabel),
-            subtitle: appStrings.createATaskWhileThisAgent,
-          )
         else
-          ...filteredTasks.map(_buildTaskCard),
+          ...controller.taskItems.map(_buildTaskCard),
       ],
     );
   }
 
-  Widget _buildTaskCard(TaskItem task) {
-    final remaining = controller.taskRunCooldownSeconds(task.id);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      task.name,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  _StatusPill(
-                    label: task.enabled ? 'Active' : 'Paused',
-                    color: task.enabled ? _success : _textSecondary,
-                  ),
-                  if (task.loopPaused) ...<Widget>[
-                    const SizedBox(width: 8),
-                    _StatusPill(label: appStrings.loopPaused, color: _warning),
-                  ],
-                  if (task.hasLastRunStatus) ...<Widget>[
-                    const SizedBox(width: 8),
-                    _StatusPill(
-                      label: appStrings.lastArg12(task.lastRunStatusLabel),
-                      color: _taskRunStatusColor(task.lastRunStatus),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                task.scheduleLabel,
-                style: TextStyle(
-                  color: _textSecondary,
-                  fontFamily: GoogleFonts.geistMono().fontFamily,
-                ),
-              ),
-              if (task.hasModelOverride) ...<Widget>[
-                const SizedBox(height: 8),
-                Text(
-                  appStrings.modelArg1(
-                    _modelLabelForValue(task.model, controller.supportedModels),
-                  ),
-                  style: TextStyle(color: _textSecondary),
-                ),
-              ],
-              const SizedBox(height: 8),
-              Text(
-                appStrings.assignedAgentArg1(
-                  controller.agentLabelFor(task.agentId),
-                ),
-                style: TextStyle(color: _textSecondary),
-              ),
-              const SizedBox(height: 8),
-              Text(task.prompt, style: TextStyle(color: _textPrimary)),
-              if (task.lastRunLabel.isNotEmpty) ...<Widget>[
-                const SizedBox(height: 8),
-                Text(
-                  appStrings.lastRunArg1(task.lastRunLabel),
-                  style: TextStyle(color: _textSecondary),
-                ),
-              ],
-              if (task.lastRunFailed &&
-                  task.lastRunError.trim().isNotEmpty) ...<Widget>[
-                const SizedBox(height: 8),
-                Text(task.lastRunError, style: TextStyle(color: _danger)),
-              ],
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: <Widget>[
-                  OutlinedButton(
-                    onPressed: () => _openTaskEditor(context, task: task),
-                    child: Text(appStrings.edit),
-                  ),
-                  OutlinedButton(
-                    onPressed: () => controller.toggleTask(task),
-                    child: Text(task.enabled ? 'Pause' : 'Enable'),
-                  ),
-                  FilledButton(
-                    onPressed: remaining > 0
-                        ? null
-                        : () => controller.runTaskNow(task.id),
-                    child: Text(
-                      _manualRunButtonLabel(appStrings.runNow, remaining),
-                    ),
-                  ),
-                  if (task.lastRunId.trim().isNotEmpty)
-                    OutlinedButton(
-                      onPressed: () => _showLastRun(task),
-                      child: Text(appStrings.viewLastRun),
-                    ),
-                  OutlinedButton(
-                    onPressed: () => _confirmDelete(
-                      context,
-                      title: appStrings.deleteTask,
-                      message: appStrings.thisWillRemoveArg1(task.name),
-                      onConfirm: () => controller.deleteTask(task.id),
-                    ),
-                    child: Text(appStrings.delete),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _buildTaskCard(TaskItem task) => _TaskCard(
+    key: ValueKey<String>(task.id),
+    task: task,
+    controller: controller,
+    statusColor: _taskRunStatusColor(task.lastRunStatus),
+    onEdit: () => _openTaskEditor(context, task: task),
+    onShowLastRun: () => _showLastRun(task),
+  );
 
   List<OfficialIntegrationAccountItem> _connectedAccountsForTrigger(
     String triggerType,
@@ -3522,17 +3341,17 @@ class _TasksPanelState extends State<TasksPanel> {
           ],
           child: StatefulBuilder(
             builder: (context, setLocalState) {
-              return AlertDialog(
-                backgroundColor: _bgCard,
-                title: Text(
-                  task == null ? appStrings.addTask : appStrings.editTask,
-                ),
-                content: _ScrollableDialogBody(
-                  width: 680,
-                  child: Form(
+              return _IntegrationDialog(
+                title: task == null ? appStrings.addTask : appStrings.editTask,
+                width: 640,
+                error: saveError ?? '',
+                onClose: saving ? null : () => Navigator.of(context).pop(),
+                children: <Widget>[
+                  Form(
                     key: formKey,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
                         TextFormField(
                           autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -3544,9 +3363,9 @@ class _TasksPanelState extends State<TasksPanel> {
                               : null,
                           decoration: InputDecoration(
                             labelText: appStrings.name,
+                            isDense: true,
                           ),
                         ),
-                        const SizedBox(height: 12),
                         if (task == null) ...<Widget>[
                           Align(
                             alignment: Alignment.centerRight,
@@ -3566,8 +3385,8 @@ class _TasksPanelState extends State<TasksPanel> {
                               }),
                             ),
                           ),
-                          const SizedBox(height: 8),
-                        ],
+                        ] else
+                          const SizedBox(height: 12),
                         TextFormField(
                           autovalidateMode: AutovalidateMode.onUserInteraction,
                           controller: promptController,
@@ -3576,12 +3395,14 @@ class _TasksPanelState extends State<TasksPanel> {
                               ? appStrings.pleaseEnterAPrompt
                               : null,
                           minLines: 3,
-                          maxLines: 10,
+                          maxLines: 8,
+                          style: const TextStyle(fontSize: 14, height: 1.45),
                           decoration: InputDecoration(
                             labelText: appStrings.uxTaskInstructions,
+                            alignLabelWithHint: true,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        _TaskEditorSectionLabel(appStrings.triggerType),
                         ValueListenableBuilder<String>(
                           valueListenable: triggerType,
                           builder: (context, selectedTriggerType, _) {
@@ -3606,18 +3427,15 @@ class _TasksPanelState extends State<TasksPanel> {
                                   connectionIdController.clear();
                                 }
                               },
-                              child: InputDecorator(
-                                decoration: InputDecoration(
-                                  labelText: appStrings.triggerType,
-                                ),
+                              child: _TaskEditorTile(
                                 child: Row(
                                   children: <Widget>[
                                     Container(
-                                      width: 40,
-                                      height: 40,
+                                      width: 34,
+                                      height: 34,
                                       decoration: BoxDecoration(
                                         color: _accent.withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(14),
+                                        borderRadius: BorderRadius.circular(10),
                                       ),
                                       child: Icon(option.icon, color: _accent),
                                     ),
@@ -3637,49 +3455,19 @@ class _TasksPanelState extends State<TasksPanel> {
                                           const SizedBox(height: 4),
                                           Text(
                                             option.description,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
                                               color: _textSecondary,
-                                              fontSize: 12.5,
-                                              height: 1.35,
+                                              fontSize: 12,
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: <Widget>[
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 5,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: _bgCard.withValues(
-                                              alpha: 0.72,
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              999,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            option.section,
-                                            style: TextStyle(
-                                              color: _textSecondary,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Icon(
-                                          Icons.unfold_more_rounded,
-                                          color: _textSecondary,
-                                        ),
-                                      ],
+                                    Icon(
+                                      Icons.unfold_more_rounded,
+                                      color: _textSecondary,
                                     ),
                                   ],
                                 ),
@@ -3811,15 +3599,23 @@ class _TasksPanelState extends State<TasksPanel> {
                                             scheduleDraft.time = picked;
                                           });
                                         },
-                                        child: InputDecorator(
-                                          decoration: InputDecoration(
-                                            labelText: appStrings.time,
-                                          ),
+                                        child: _TaskEditorTile(
                                           child: Row(
                                             children: <Widget>[
-                                              Icon(Icons.access_time_rounded),
+                                              Icon(
+                                                Icons.access_time_rounded,
+                                                size: 20,
+                                                color: _textSecondary,
+                                              ),
                                               const SizedBox(width: 12),
-                                              Expanded(
+                                              Text(
+                                                appStrings.time,
+                                                style: TextStyle(
+                                                  color: _textSecondary,
+                                                ),
+                                              ),
+                                              const Spacer(),
+                                              Flexible(
                                                 child: Text(
                                                   _formatTaskScheduleTime(
                                                     scheduleDraft.time,
@@ -3905,49 +3701,9 @@ class _TasksPanelState extends State<TasksPanel> {
                                       ),
                                       const SizedBox(height: 12),
                                     ],
-                                    InputDecorator(
-                                      decoration: InputDecoration(
-                                        labelText: appStrings.schedule,
-                                      ),
-                                      child: Builder(
-                                        builder: (context) {
-                                          final preset =
-                                              _taskSchedulePresetForId(
-                                                scheduleDraft.presetId,
-                                              );
-                                          return Row(
-                                            children: <Widget>[
-                                              Icon(preset.icon, color: _accent),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: <Widget>[
-                                                    Text(
-                                                      scheduleDraft.summary,
-                                                      style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 3),
-                                                    Text(
-                                                      preset.description,
-                                                      style: TextStyle(
-                                                        color: _textSecondary,
-                                                        fontSize: 12,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      ),
+                                    _IntegrationHint(
+                                      scheduleDraft.summary,
+                                      icon: Icons.event_repeat_rounded,
                                     ),
                                     _buildTaskFinishOnTimeSwitch(
                                       scheduleDraft: scheduleDraft,
@@ -3995,7 +3751,7 @@ class _TasksPanelState extends State<TasksPanel> {
                             );
                           },
                         ),
-                        const SizedBox(height: 12),
+                        _TaskEditorSectionLabel(appStrings.resultDelivery),
                         ValueListenableBuilder<TaskDeliveryTarget?>(
                           valueListenable: selectedDeliveryTarget,
                           builder: (context, deliveryTarget, _) {
@@ -4017,15 +3773,12 @@ class _TasksPanelState extends State<TasksPanel> {
                                 selectedDeliveryTarget.value =
                                     picked.platform.isEmpty ? null : picked;
                               },
-                              child: InputDecorator(
-                                decoration: InputDecoration(
-                                  labelText: appStrings.resultDelivery,
-                                ),
+                              child: _TaskEditorTile(
                                 child: Row(
                                   children: <Widget>[
                                     Container(
-                                      width: 40,
-                                      height: 40,
+                                      width: 34,
+                                      height: 34,
                                       decoration: BoxDecoration(
                                         color: color.withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(12),
@@ -4064,11 +3817,11 @@ class _TasksPanelState extends State<TasksPanel> {
                                                         .platformLabel,
                                                     deliveryTarget.to,
                                                   ),
-                                            maxLines: 2,
+                                            maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
                                               color: _textSecondary,
-                                              fontSize: 12.5,
+                                              fontSize: 12,
                                             ),
                                           ),
                                         ],
@@ -4095,10 +3848,19 @@ class _TasksPanelState extends State<TasksPanel> {
                             );
                           },
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
                         ExpansionTile(
                           tilePadding: EdgeInsets.zero,
-                          title: Text(appStrings.uxAdvancedSettings),
+                          shape: const Border(),
+                          collapsedShape: const Border(),
+                          title: Text(
+                            appStrings.uxAdvancedSettings,
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                              color: _textSecondary,
+                            ),
+                          ),
                           children: <Widget>[
                             _RoutingSelectCard(
                               label: appStrings.modelOverride,
@@ -4112,98 +3874,47 @@ class _TasksPanelState extends State<TasksPanel> {
                                 () => selectedModel = value ?? 'default',
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: _border.withValues(alpha: 0.8),
+                            SwitchListTile.adaptive(
+                              value: loopPaused,
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(appStrings.pauseTaskLoop),
+                              subtitle: Text(
+                                appStrings.skipThisTaskBeforeItCalls,
+                                style: TextStyle(
+                                  color: _textSecondary,
+                                  fontSize: 12.5,
                                 ),
-                                borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Row(
-                                    children: <Widget>[
-                                      Icon(
-                                        Icons.pause_circle_outline,
-                                        size: 18,
-                                        color: _textSecondary,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        appStrings.loopExecution,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          color: _textPrimary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  SwitchListTile(
-                                    value: loopPaused,
-                                    contentPadding: EdgeInsets.zero,
-                                    title: Text(appStrings.pauseTaskLoop),
-                                    subtitle: Text(
-                                      appStrings.skipThisTaskBeforeItCalls,
-                                    ),
-                                    onChanged: (value) =>
-                                        setLocalState(() => loopPaused = value),
-                                  ),
-                                ],
-                              ),
+                              onChanged: (value) =>
+                                  setLocalState(() => loopPaused = value),
                             ),
                           ],
-                        ),
-                        if (controller.agentProfiles.isNotEmpty) ...<Widget>[
-                          const SizedBox(height: 12),
-                          DropdownButtonFormField<String>(
-                            initialValue: selectedAgentId,
-                            isExpanded: true,
-                            decoration: InputDecoration(
-                              labelText: appStrings.assignedAgent2,
-                            ),
-                            items: controller.agentProfiles
-                                .map(
-                                  (agent) => DropdownMenuItem<String>(
-                                    value: agent.id,
-                                    child: Text(agent.label),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (value) {
-                              setLocalState(() {
-                                selectedAgentId = value;
-                                selectedDeliveryTarget.value = null;
-                                selectedConnectionId.value = null;
-                                connectionIdController.clear();
-                              });
-                              unawaited(loadAgentIntegrations(value));
-                            },
-                          ),
-                        ],
-                        const SizedBox(height: 12),
-                        SwitchListTile(
-                          value: enabled,
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(appStrings.enabled),
-                          subtitle: Text(appStrings.uxTaskEnabledHint),
-                          onChanged: (value) =>
-                              setLocalState(() => enabled = value),
                         ),
                       ],
                     ),
                   ),
+                ],
+                leading: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Switch.adaptive(
+                      value: enabled,
+                      onChanged: saving
+                          ? null
+                          : (value) => setLocalState(() => enabled = value),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      appStrings.enabled,
+                      style: TextStyle(color: _textSecondary, fontSize: 13),
+                    ),
+                  ],
                 ),
                 actions: <Widget>[
-                  _DialogFormActions(
-                    busy: saving,
-                    error: saveError,
-                    submitLabel: appStrings.save,
-                    onSubmit: () async {
+                  FilledButton(
+                    onPressed: saving
+                        ? null
+                        : () async {
                       if (!_validateDialogForm(formKey)) return;
                       final name = nameController.text.trim();
                       final prompt = promptController.text.trim();
@@ -4310,6 +4021,10 @@ class _TasksPanelState extends State<TasksPanel> {
                         Navigator.of(context).pop();
                       }
                     },
+                    child: _IntegrationBusyLabel(
+                      busy: saving,
+                      label: appStrings.save,
+                    ),
                   ),
                 ],
               );
@@ -4319,5 +4034,375 @@ class _TasksPanelState extends State<TasksPanel> {
       },
     );
     editorClosed = true;
+  }
+}
+
+enum _TaskMenuAction { edit, toggle, lastRun, delete }
+
+/// One task as a compact row: status, schedule, a clipped prompt that
+/// expands, a run button, and the rest of the actions in a menu.
+class _TaskCard extends StatefulWidget {
+  const _TaskCard({
+    super.key,
+    required this.task,
+    required this.controller,
+    required this.statusColor,
+    required this.onEdit,
+    required this.onShowLastRun,
+  });
+
+  final TaskItem task;
+  final NeoAgentController controller;
+  final Color statusColor;
+  final VoidCallback onEdit;
+  final VoidCallback onShowLastRun;
+
+  @override
+  State<_TaskCard> createState() => _TaskCardState();
+}
+
+class _TaskCardState extends State<_TaskCard> {
+  bool _expanded = false;
+
+  static const int _collapsedLines = 2;
+
+  bool _promptOverflows(String text, TextStyle style, double maxWidth) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      maxLines: _collapsedLines,
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: maxWidth);
+    return painter.didExceedMaxLines;
+  }
+
+  void _onMenu(_TaskMenuAction action) {
+    final task = widget.task;
+    switch (action) {
+      case _TaskMenuAction.edit:
+        widget.onEdit();
+      case _TaskMenuAction.toggle:
+        widget.controller.toggleTask(task);
+      case _TaskMenuAction.lastRun:
+        widget.onShowLastRun();
+      case _TaskMenuAction.delete:
+        _confirmDelete(
+          context,
+          title: appStrings.deleteTask,
+          message: appStrings.thisWillRemoveArg1(task.name),
+          onConfirm: () => widget.controller.deleteTask(task.id),
+        );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final task = widget.task;
+    final remaining = widget.controller.taskRunCooldownSeconds(task.id);
+    final tone = !task.enabled
+        ? _textMuted
+        : task.loopPaused
+        ? _warning
+        : task.lastRunFailed
+        ? _danger
+        : _success;
+    final promptStyle = TextStyle(
+      color: _textSecondary,
+      fontSize: 13.5,
+      height: 1.45,
+    );
+    final meta = <String>[
+      task.scheduleLabel,
+      if (task.lastRunLabel.isNotEmpty) appStrings.lastRunArg1(task.lastRunLabel),
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: _bgCard,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadius.card),
+          onTap: widget.onEdit,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadius.card),
+              border: Border.all(color: _border),
+            ),
+            child: Opacity(
+              opacity: task.enabled ? 1 : 0.65,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: tone.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: tone.withValues(alpha: 0.32)),
+                    ),
+                    child: Icon(
+                      task.enabled
+                          ? Icons.schedule_rounded
+                          : Icons.pause_rounded,
+                      size: 20,
+                      color: tone,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Row(
+                          children: <Widget>[
+                            Flexible(
+                              child: Text(
+                                task.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            if (!task.enabled) ...<Widget>[
+                              const SizedBox(width: 8),
+                              _StatusPill(label: 'Paused', color: _textMuted),
+                            ],
+                            if (task.loopPaused) ...<Widget>[
+                              const SizedBox(width: 8),
+                              _StatusPill(
+                                label: appStrings.loopPaused,
+                                color: _warning,
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          meta.join('  ·  '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: _textMuted,
+                            fontSize: 12,
+                            fontFamily: GoogleFonts.geistMono().fontFamily,
+                          ),
+                        ),
+                        if (task.prompt.trim().isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 8),
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final overflows = _promptOverflows(
+                                task.prompt,
+                                promptStyle,
+                                constraints.maxWidth,
+                              );
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  AnimatedSize(
+                                    duration: const Duration(milliseconds: 180),
+                                    curve: Curves.easeOut,
+                                    alignment: Alignment.topLeft,
+                                    child: Text(
+                                      task.prompt,
+                                      maxLines: _expanded
+                                          ? null
+                                          : _collapsedLines,
+                                      overflow: _expanded
+                                          ? TextOverflow.visible
+                                          : TextOverflow.ellipsis,
+                                      style: promptStyle,
+                                    ),
+                                  ),
+                                  if (overflows || _expanded)
+                                    InkWell(
+                                      borderRadius: BorderRadius.circular(6),
+                                      onTap: () => setState(
+                                        () => _expanded = !_expanded,
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 4,
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: <Widget>[
+                                            Text(
+                                              _expanded
+                                                  ? 'Show less'
+                                                  : 'Show more',
+                                              style: TextStyle(
+                                                color: _accent,
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            Icon(
+                                              _expanded
+                                                  ? Icons.expand_less_rounded
+                                                  : Icons.expand_more_rounded,
+                                              size: 16,
+                                              color: _accent,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                        if (task.lastRunFailed &&
+                            task.lastRunError.trim().isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 8),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Icon(
+                                Icons.error_outline_rounded,
+                                size: 15,
+                                color: _danger,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  task.lastRunError,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: _danger,
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: _manualRunButtonLabel(appStrings.runNow, remaining),
+                    child: IconButton.filledTonal(
+                      onPressed: remaining > 0
+                          ? null
+                          : () => widget.controller.runTaskNow(task.id),
+                      icon: const Icon(Icons.play_arrow_rounded),
+                    ),
+                  ),
+                  PopupMenuButton<_TaskMenuAction>(
+                    tooltip: '',
+                    icon: Icon(Icons.more_vert_rounded, color: _textSecondary),
+                    onSelected: _onMenu,
+                    itemBuilder: (context) => <PopupMenuEntry<_TaskMenuAction>>[
+                      PopupMenuItem(
+                        value: _TaskMenuAction.edit,
+                        child: ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.edit_outlined),
+                          title: Text(appStrings.edit),
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: _TaskMenuAction.toggle,
+                        child: ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            task.enabled
+                                ? Icons.pause_circle_outline_rounded
+                                : Icons.play_circle_outline_rounded,
+                          ),
+                          title: Text(task.enabled ? 'Pause' : 'Enable'),
+                        ),
+                      ),
+                      if (task.lastRunId.trim().isNotEmpty)
+                        PopupMenuItem(
+                          value: _TaskMenuAction.lastRun,
+                          child: ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(
+                              Icons.history_rounded,
+                              color: widget.statusColor,
+                            ),
+                            title: Text(appStrings.viewLastRun),
+                          ),
+                        ),
+                      const PopupMenuDivider(),
+                      PopupMenuItem(
+                        value: _TaskMenuAction.delete,
+                        child: ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            Icons.delete_outline_rounded,
+                            color: _danger,
+                          ),
+                          title: Text(
+                            appStrings.delete,
+                            style: TextStyle(color: _danger),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Small heading that splits the task editor into its parts.
+class _TaskEditorSectionLabel extends StatelessWidget {
+  const _TaskEditorSectionLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 20, bottom: 8),
+      child: Text(
+        text.toUpperCase(),
+        style: TextStyle(
+          color: _textMuted,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+}
+
+/// A slim tappable row in the task editor, in place of a tall input box.
+class _TaskEditorTile extends StatelessWidget {
+  const _TaskEditorTile({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: _bgSecondary.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(AppRadius.tag + 2),
+        border: Border.all(color: _border),
+      ),
+      child: child,
+    );
   }
 }
