@@ -36,6 +36,7 @@ import 'src/background_keepalive.dart';
 import 'src/call/call_bridge.dart';
 import 'src/client_snapshot.dart';
 import 'src/backend_client.dart';
+import 'src/tailscale_service.dart';
 import 'src/backend_url.dart';
 import 'src/backend_discovery_service.dart';
 import 'src/computer_display.dart';
@@ -93,6 +94,7 @@ part 'main_provider_auth.dart';
 
 part 'main_launcher.dart';
 part 'main_integrations.dart';
+part 'main_integrations_tailscale.dart';
 part 'main_integrations_oauth_app.dart';
 part 'main_integrations_email.dart';
 part 'main_phone_sync.dart';

@@ -531,6 +531,14 @@ class IntegrationManager {
       throw new Error(`That ${provider.label} account is not connected to this agent.`);
     }
 
+    // Network integrations must fence new/queued calls and terminate local
+    // activity before remote revocation, which can fail independently.
+    if (typeof provider.beforeDisconnect === 'function') {
+      db.prepare("UPDATE integration_connections SET status = 'disconnecting' WHERE id = ? AND user_id = ? AND agent_id = ?")
+        .run(connection.id, userId, agentId);
+      await provider.beforeDisconnect(connection);
+    }
+
     // Apps connected with the same account share one stored token (see
     // persistSharedCredentials); revoking it would silently break the others.
     const accountEmail = String(connection.account_email || '').trim().toLowerCase();
@@ -558,9 +566,11 @@ class IntegrationManager {
   }
 
   updateConnectionTestMetadata(connection, status) {
+    const current = this.getConnectionById(connection.user_id, connection.id, connection.agent_id);
+    if (!current) return null;
     let metadata = {};
     try {
-      metadata = JSON.parse(connection.metadata_json || '{}') || {};
+      metadata = JSON.parse(current.metadata_json || '{}') || {};
     } catch {
       metadata = {};
     }
@@ -967,6 +977,7 @@ class IntegrationManager {
         selection.connection.credentials_json,
       );
       const needsCredentialLock =
+        provider.requiresExclusiveExecution === true ||
         provider.requiresRefreshToken === true ||
         Boolean(storedCredentials.refresh_token);
       const releaseExecution = needsCredentialLock

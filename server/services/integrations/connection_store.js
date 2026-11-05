@@ -69,7 +69,7 @@ function upsertAccountApp({ credentials, metadata = {}, ...key }) {
     metadata: {
       ...parseJsonObject(existing?.metadata_json),
       ...metadata,
-      access_mode: getConnectionAccessMode(existing || null),
+      access_mode: getConnectionAccessMode(existing || { metadata_json: metadata }),
     },
   });
   return findAppConnection(key);

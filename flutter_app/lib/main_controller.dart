@@ -96,6 +96,9 @@ class NeoAgentController extends ChangeNotifier {
   final Set<String> _detachedChatRunIds = <String>{};
   final Set<String> _voiceRunIds = <String>{};
   final Set<String> _busyOfficialIntegrationKeys = <String>{};
+  (String, String?)? _tailscaleSignIn;
+  String? _tailscaleLoginUrl;
+  bool get canCancelTailscaleSignIn => _tailscaleSignIn != null;
   final Set<String> _memorySweepOptOutKeys = <String>{};
   final Map<int, MemorySweepProgress> _liveMemorySweeps =
       <int, MemorySweepProgress>{};
@@ -5942,6 +5945,7 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final connectingAgentId = _scopedAgentId;
       final response = await _backendClient.connectOfficialIntegration(
         backendUrl,
         providerId,
@@ -5949,8 +5953,45 @@ class NeoAgentController extends ChangeNotifier {
         memorySweep:
             before?.memorySweep == true &&
             isMemorySweepEnabled(providerId, appId),
-        agentId: _scopedAgentId,
+        agentId: connectingAgentId,
       );
+      if (providerId == 'tailscale' &&
+          response['status'] == 'interactive_connect') {
+        final sessionId = response['sessionId']?.toString() ?? '';
+        final loginUrl = response['loginUrl']?.toString() ?? '';
+        if (sessionId.isEmpty || loginUrl.isEmpty) {
+          throw StateError(appStrings.officialIntegrationDidNotReturnA);
+        }
+        final signIn = (sessionId, connectingAgentId);
+        _tailscaleSignIn = signIn;
+        _tailscaleLoginUrl = loginUrl;
+        notifyListeners();
+        var connected = false;
+        try {
+          await openTailscaleSignIn();
+          connected = await TailscaleService(_backendClient).waitForSignIn(
+            backendUrl,
+            sessionId,
+            connectingAgentId,
+            () => _tailscaleSignIn == signIn,
+          );
+          if (connected) await refreshSkills();
+        } finally {
+          try {
+            if (!connected) {
+              await TailscaleService(
+                _backendClient,
+              ).cancelSignIn(backendUrl, sessionId, connectingAgentId);
+            }
+          } finally {
+            if (_tailscaleSignIn == signIn) {
+              _tailscaleSignIn = null;
+              _tailscaleLoginUrl = null;
+            }
+          }
+        }
+        return;
+      }
       final url = response['url']?.toString();
       final status = response['status']?.toString() ?? '';
       if ((status != 'oauth_redirect' && status != 'interactive_connect') ||
@@ -5996,6 +6037,31 @@ class NeoAgentController extends ChangeNotifier {
   /// the state the last integration snapshot carried.
   MemorySweepProgress? memorySweepFor(OfficialIntegrationAccountItem account) =>
       _liveMemorySweeps[account.id] ?? account.memoryCoverage.sweep;
+
+  Future<void> cancelTailscaleSignIn() async {
+    final signIn = _tailscaleSignIn;
+    if (signIn == null) return;
+    await TailscaleService(
+      _backendClient,
+    ).cancelSignIn(backendUrl, signIn.$1, signIn.$2);
+    if (_tailscaleSignIn == signIn) {
+      _tailscaleSignIn = null;
+      _tailscaleLoginUrl = null;
+    }
+    notifyListeners();
+  }
+
+  Future<void> openTailscaleSignIn() async {
+    final url = _tailscaleLoginUrl;
+    if (url == null) return;
+    final result = await _oauthLauncher.openExternal(
+      url: url,
+      label: 'Tailscale',
+    );
+    if (!result.launched) {
+      throw StateError(result.error ?? appStrings.failedToLaunchOauthFlow);
+    }
+  }
 
   /// Whether connecting this app imports its important past mail into
   /// memory. On unless the user unticked it.
@@ -6059,6 +6125,21 @@ class NeoAgentController extends ChangeNotifier {
       );
     }
     return const <String, dynamic>{};
+  }
+
+  Future<TailscaleAccess> getTailscaleServiceAccess(int connectionId) =>
+      TailscaleService(
+        _backendClient,
+      ).load(backendUrl, connectionId, _scopedAgentId);
+
+  Future<void> saveTailscaleServiceAccess(
+    int connectionId,
+    List<TailscaleGrant> grants,
+  ) async {
+    await TailscaleService(
+      _backendClient,
+    ).save(backendUrl, connectionId, _scopedAgentId, grants);
+    await refreshSkills();
   }
 
   Future<void> saveOfficialIntegrationConfig(

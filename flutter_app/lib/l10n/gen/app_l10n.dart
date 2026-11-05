@@ -20730,6 +20730,48 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'I have reached my usage limit and can’t reply right now.'**
   String get usageLimitReached;
+
+  /// No description provided for @tailscaleServiceAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Service access'**
+  String get tailscaleServiceAccess;
+
+  /// No description provided for @tailscaleServiceAccessHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Only listed service operations are allowed. Paths include the exact query string. All HTTP calls require Read/Write access, including GET. Your cloud computer rejects incoming Tailscale connections.'**
+  String get tailscaleServiceAccessHelp;
+
+  /// No description provided for @tailscaleServiceValidation.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a peer, a port from 1 to 65535, an exact path starting with /, and at least one method.'**
+  String get tailscaleServiceValidation;
+
+  /// No description provided for @tailscalePeer.
+  ///
+  /// In en, this message translates to:
+  /// **'Peer'**
+  String get tailscalePeer;
+
+  /// No description provided for @tailscaleExactPath.
+  ///
+  /// In en, this message translates to:
+  /// **'Exact path and query string'**
+  String get tailscaleExactPath;
+
+  /// No description provided for @tailscaleSignInBrowser.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to Tailscale in your browser, then return here. Your account connects automatically after you approve it.'**
+  String get tailscaleSignInBrowser;
+
+  /// No description provided for @tailscaleOpenSignIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Tailscale sign-in'**
+  String get tailscaleOpenSignIn;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

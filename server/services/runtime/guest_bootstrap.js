@@ -18,6 +18,7 @@ const REPO_ROOT = path.resolve(__dirname, '../../..');
 // The guest's Node is also the agent's toolchain for user projects, so it tracks
 // the current LTS instead of the host's runtime; older guests upgrade on boot.
 const GUEST_NODE_MAJOR = 24;
+const { tailscaleInstallScript } = require('./tailscale_release');
 const GUEST_PAYLOAD_PROFILES = Object.freeze({
   browser: [
     { source: 'server/guest-agent.browser.package.json', target: 'package.json' },
@@ -68,6 +69,18 @@ const GUEST_PAYLOAD_PROFILES = Object.freeze({
   ],
 });
 
+// The outbound transport is available in every per-user guest profile.
+for (const entries of Object.values(GUEST_PAYLOAD_PROFILES)) {
+  for (const source of [
+    'server/services/integrations/tailscale/guest.js',
+    'server/services/integrations/tailscale/guest_api.js',
+    'server/services/integrations/tailscale/guest_network.js',
+    'server/services/integrations/tailscale/policy.js',
+    'server/services/runtime/guest_paths.js',
+    'server/utils/text.js',
+  ]) entries.push({ source, target: source });
+}
+
 fs.mkdirSync(GUEST_BOOTSTRAP_ROOT, { recursive: true });
 
 function encodeGuestToken(value) {
@@ -104,6 +117,7 @@ function stageGuestPayload(stagingRoot, runtimeProfile = 'browser_cli') {
 
 function guestPayloadDigest(runtimeProfile = 'browser_cli') {
   const hash = crypto.createHash('sha256');
+  hash.update(tailscaleInstallScript());
   const entries = GUEST_PAYLOAD_PROFILES[normalizeRuntimeProfile(runtimeProfile)]
     .slice()
     .sort((left, right) => left.target.localeCompare(right.target));
@@ -280,6 +294,7 @@ function createCloudInitScript({
     'echo "Ensuring guest runtime utilities..."',
     'retry_cmd apt-get update || echo "Warning: apt-get update failed, proceeding with cached lists."',
     `retry_cmd apt-get install -y --no-install-recommends ${guestUtilityPackages} || { echo "Error: Failed to install required guest runtime utilities." >&2; exit 1; }`,
+    tailscaleInstallScript(),
     'apt-get clean',
     'rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb',
     'if [ -s /tmp/neoagent-package-manifest.previous ]; then',

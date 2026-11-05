@@ -7798,5 +7798,12 @@
   "approvalReview": "Review",
   "approvalExpired": "This request expired, so nothing was run.",
   "requestTookTooLong": "That took too long and was stopped. Please try again.",
-  "usageLimitReached": "I have reached my usage limit and can’t reply right now."
+  "usageLimitReached": "I have reached my usage limit and can’t reply right now.",
+  "tailscaleServiceAccess": "Service access",
+  "tailscaleServiceAccessHelp": "Only listed service operations are allowed. Paths include the exact query string. All HTTP calls require Read/Write access, including GET. Your cloud computer rejects incoming Tailscale connections.",
+  "tailscaleServiceValidation": "Select a peer, a port from 1 to 65535, an exact path starting with /, and at least one method.",
+  "tailscalePeer": "Peer",
+  "tailscaleExactPath": "Exact path and query string",
+  "tailscaleSignInBrowser": "Sign in to Tailscale in your browser, then return here. Your account connects automatically after you approve it.",
+  "tailscaleOpenSignIn": "Open Tailscale sign-in"
 }

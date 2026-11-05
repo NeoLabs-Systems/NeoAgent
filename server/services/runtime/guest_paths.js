@@ -6,6 +6,9 @@
 // that talk to it, and the tools that report paths back to the model.
 const GUEST_HOME = '/home/neo';
 const GUEST_WORKSPACE_DIR = `${GUEST_HOME}/workspace`;
+const GUEST_TAILSCALED = '/usr/local/bin/tailscaled';
+const GUEST_TIMEOUT = '/usr/bin/timeout';
+const GUEST_VOLATILE_DIR = '/dev/shm';
 
 // Guest tools speak workspace-relative paths; the model and the UI see absolute
 // ones, so every boundary crossing goes through these two helpers.
@@ -24,6 +27,9 @@ function fromGuestWorkspacePath(value, fallback = '') {
 
 module.exports = {
   GUEST_HOME,
+  GUEST_TAILSCALED,
+  GUEST_TIMEOUT,
+  GUEST_VOLATILE_DIR,
   GUEST_WORKSPACE_DIR,
   fromGuestWorkspacePath,
   toGuestWorkspacePath,

@@ -403,14 +403,14 @@ router.get('/qr-image', async (req, res) => {
   }
 });
 
-router.get('/:provider/connect/:sessionId', (req, res) => {
+router.get('/:provider/connect/:sessionId', async (req, res) => {
   try {
     const manager = getIntegrationManager(req);
     if (!manager) {
       throw new Error('Official integration manager is not available on app.locals.integrationManager.');
     }
     const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
-    const session = manager.getConnectionSession(
+    const session = await manager.getConnectionSession(
       req.session.userId,
       req.params.provider,
       req.params.sessionId,
@@ -548,14 +548,23 @@ router.get('/:provider/connect/:sessionId', (req, res) => {
   }
 });
 
-router.get('/:provider/connect/:sessionId/status', (req, res) => {
+router.delete('/:provider/connect/:sessionId', async (req, res) => {
+  try {
+    const provider = getIntegrationManager(req)?.getProvider(req.params.provider);
+    if (typeof provider?.cancelConnectionSession !== 'function') return res.status(404).json({ error: 'Connection cancellation is not supported.' });
+    await provider.cancelConnectionSession(req.session.userId, resolveAgentId(req.session.userId, getAgentIdFromRequest(req)), req.params.sessionId);
+    res.json({ canceled: true });
+  } catch (error) { res.status(400).json({ error: sanitizeError(error) }); }
+});
+
+router.get('/:provider/connect/:sessionId/status', async (req, res) => {
   try {
     const manager = getIntegrationManager(req);
     if (!manager) {
       throw new Error('Official integration manager is not available on app.locals.integrationManager.');
     }
     const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
-    const session = manager.getConnectionSession(
+    const session = await manager.getConnectionSession(
       req.session.userId,
       req.params.provider,
       req.params.sessionId,
@@ -667,6 +676,28 @@ router.post('/:provider/access-mode', async (req, res) => {
   } catch (err) {
     res.status(400).json({ error: sanitizeError(err) });
   }
+});
+
+router.get('/:provider/connections/:connectionId/services', async (req, res) => {
+  try {
+    const manager = getIntegrationManager(req);
+    const provider = manager?.getProvider(req.params.provider);
+    if (typeof provider?.getServiceAccess !== 'function') return res.status(404).json({ error: 'Service access is not supported.' });
+    const agentId = resolveAgentId(req.session.userId, getAgentIdFromRequest(req));
+    res.json(await provider.getServiceAccess({ userId: req.session.userId, agentId, connectionId: req.params.connectionId, signal: req.signal }));
+  } catch (error) { res.status(400).json({ error: sanitizeError(error) }); }
+});
+
+router.put('/:provider/connections/:connectionId/services', async (req, res) => {
+  try {
+    const provider = getIntegrationManager(req)?.getProvider(req.params.provider);
+    if (typeof provider?.setServiceAccess !== 'function') return res.status(404).json({ error: 'Service access is not supported.' });
+    const config = await provider.setServiceAccess({
+      userId: req.session.userId, agentId: resolveAgentId(req.session.userId, getAgentIdFromRequest(req)),
+      connectionId: req.params.connectionId, services: req.body?.services,
+    });
+    res.json(config);
+  } catch (error) { res.status(400).json({ error: sanitizeError(error) }); }
 });
 
 router.get('/:provider/tools/status', (req, res) => {

@@ -34,6 +34,7 @@ description: The integration registry, tool execution path, memory ingestion, an
 | `bitwarden` | `password_manager` |
 | `whatsapp_personal` | `personal` |
 | `news`, `weather` | `headlines`, `forecast` |
+| `tailscale` | `tailnet` |
 
 ## Connecting an account
 
@@ -66,6 +67,29 @@ The shared callback also serves two other flows, told apart by the `state` prefi
 
 - **Usage notes.** `summarizeConnectedProviders()` sends each integration's notes once per run, alongside its tools.
 - **Access mode.** `read_write` or `read_only` per connection, set with `accessMode`; enforced in code, never by prompt wording.
+
+## Outbound Tailscale transport
+
+Tailscale uses the existing interactive connection-session contract. A session is
+bound to its initiating user and agent. The client opens the Tailscale-hosted node
+authorization URL and polls the scoped session endpoint; no server-wide OAuth app
+or tailnet identity is shared. The session response never includes node keys.
+
+The provider owns snapshots and tool definitions; `sessions.js` owns authorization;
+`policy.js` validates service grants; `runtime.js` dispatches only to the user's
+isolated cloud VM. Guest client lifecycle, private LocalAPI transport and peer HTTP
+transport live in `guest.js`, `guest_api.js` and `guest_network.js`. The guest
+validates grants again and resolves exact peer IDs from its own node's status.
+The LocalAPI dial stream is consumed directly; Dial-Self is refused.
+
+Operations on a connection are serialized to preserve rotated node state. The
+guest also serializes clients across connections to bound resource use to one
+client per VM. Normal clients have a 45-second operation deadline and an independent
+50-second OS lifetime limit. Interactive authorization has a five-minute deadline.
+Disconnect fences the database row before canceling guest work, so queued calls
+cannot restart the connection. State snapshots are encrypted in
+`integration_connections`; temporary files reside in the guest's private shared
+memory directory and are removed after the client exits.
 
 ## Memory ingestion
 

@@ -228,6 +228,9 @@ Widget? _integrationPrimaryAction(
     '${item.id}:${app.id}:connect',
   );
   final button = linked ? OutlinedButton.icon : FilledButton.icon;
+  if (item.id == 'tailscale' && busy && controller.canCancelTailscaleSignIn) {
+    return _TailscaleSignInActions(controller: controller);
+  }
   return button(
     onPressed: busy
         ? null
@@ -593,6 +596,12 @@ class _IntegrationAccountRow extends StatelessWidget {
             position: PopupMenuPosition.under,
             onSelected: (action) {
               switch (action) {
+                case 'services':
+                  _showTailscaleServiceAccess(
+                    context,
+                    controller,
+                    group.accounts.first.id,
+                  );
                 case 'test':
                   _test(context);
                 case 'reconnect':
@@ -618,7 +627,14 @@ class _IntegrationAccountRow extends StatelessWidget {
                 child: Text(appStrings.readOnly),
               ),
               const PopupMenuDivider(),
-              if (expiredApps.isNotEmpty && provider.connectionMethod == 'oauth')
+              if (provider.id == 'tailscale' &&
+                  group.accounts.any((account) => account.connected))
+                PopupMenuItem<String>(
+                  value: 'services',
+                  child: Text(appStrings.tailscaleServiceAccess),
+                ),
+              if (expiredApps.isNotEmpty &&
+                  provider.connectionMethod == 'oauth')
                 PopupMenuItem<String>(
                   value: 'reconnect',
                   child: Text(appStrings.reconnect),

@@ -29,6 +29,7 @@ Connect accounts under **Tools › Integrations**; each agent keeps its own conn
 | NeoRecall | Read-only search, memories, daily summaries, conversations | Your NeoRecall URL, then NeoRecall sign-in |
 | Nextcloud | Files, shares, Calendar, Contacts, other apps via OCS | Your Nextcloud URL, then Nextcloud sign-in |
 | Home Assistant | Entity states and service calls | HTTPS URL and a Long-Lived Access Token |
+| Tailscale | Peer inventory, granted HTTP operations and TCP checks | Choose Connect and sign in to Tailscale |
 | Trello | Boards, lists, cards, comments, search | Trello API key and account token |
 | Weather | Location search, current conditions, forecasts | One click (Open-Meteo, no key) |
 | World News | Top headlines by keyword or category | GNews API key |
@@ -102,6 +103,43 @@ The NeoAgent app on Android or iOS shares the calendars and contacts already on 
 
 - **HTTPS only**, on port 443 or 8123.
 - **Private addresses are blocked.** Local, loopback and private-network addresses are refused, also after DNS resolution.
+
+### Tailscale
+
+Open **Tools › Integrations › Tailscale**, choose **Connect account**, and sign in
+on Tailscale's own page. Return to NeoAgent after approving the new node; the
+account appears automatically. No OAuth app registration, API key, server socket
+path, or Tailscale installation on the NeoAgent server is needed. Use **Cancel**
+to end an unfinished sign-in. Sign-in sessions expire after five minutes.
+
+Open the connected account's menu and choose **Service access**. Add a peer,
+port, HTTP/HTTPS scheme, exact path (including its query string), and permitted
+methods. Save the list, then enable **Read/Write** for HTTP operations. Every
+HTTP call, including GET, requires Read/Write because arbitrary services can
+change state on GET. New connections start read-only with no service grants.
+`tailscale_list_peers` reports available peers and grants; `tailscale_ping` only
+checks granted ports. Services can still require their own application credentials.
+
+This integration requires the existing per-user QEMU or Docker computer runtime;
+host and local-companion execution are refused. It always uses the user's
+isolated cloud computer, even when their interactive computer selection is Local.
+Each agent connection owns its node state. Incoming Tailscale connections, SSH,
+subnet routes, exit nodes and host DNS changes are disabled. Peer calls use an
+exact node ID and an address from that node's current peer map; they do not use
+host DNS, redirects, a shared host daemon, or a listening proxy.
+
+There is at most one Tailscale client process per user VM. It runs while signing
+in or executing an operation and stops afterwards, trading connection startup
+latency for no idle client. The pinned daemon binary is installed once when the
+guest runtime is built; no separate worker image or tool dependency is installed
+per user or per call. Persistent keys are encrypted in NeoAgent's existing
+database; temporary client state uses private files in the guest's memory-backed
+filesystem. Existing guest runtimes must be updated to include the daemon and
+guest endpoints before connecting.
+
+Disconnect disables new calls and cancels active calls before removing stored
+credentials. Remote logout is attempted; if the tailnet is unreachable, an unused
+device entry may remain in Tailscale's admin console and can be removed there.
 
 ## 💬 Messaging channels {#messaging-channels}
 

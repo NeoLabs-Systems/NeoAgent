@@ -9,6 +9,7 @@ const { spawnSync } = require('child_process');
 const { RUNTIME_HOME, DATA_DIR } = require('../runtime/paths');
 const { coerceWritableText } = require('./services/workspace/text_edits');
 const { safeEqual } = require('./utils/security');
+const { GuestTailscale } = require('./services/integrations/tailscale/guest');
 
 const PORT = Number(process.env.NEOAGENT_GUEST_AGENT_PORT || 8421);
 function resolveGuestToken() {
@@ -55,6 +56,7 @@ ensureAgentDirectory(FILE_ROOT);
 ensureAgentDirectory(WORKSPACE_ROOT);
 
 const app = express();
+const tailscale = new GuestTailscale();
 app.use(express.json({ limit: '100mb' }));
 
 const cliExecutor = ['cli', 'browser_cli', 'android'].includes(GUEST_PROFILE)
@@ -257,6 +259,7 @@ async function handleRequest(req, res, work) {
     if (!res.writableEnded) controller.abort('Guest runtime request disconnected.');
   };
   req.once('aborted', abort);
+  res.once('close', abort);
   try {
     const result = await work(controller.signal);
     if (!res.headersSent && !res.writableEnded) res.json(result);
@@ -266,6 +269,7 @@ async function handleRequest(req, res, work) {
     }
   } finally {
     req.removeListener('aborted', abort);
+    res.removeListener('close', abort);
   }
 }
 
@@ -282,6 +286,19 @@ app.get('/health', (_req, res) => {
 });
 
 app.use(requireToken);
+
+app.post('/integrations/tailscale', (req, res) => handleRequest(req, res,
+  (signal) => req.body?.action === 'login' ? tailscale.beginLogin(req.body, { signal }) : tailscale.run(req.body, { signal })));
+
+app.get('/integrations/tailscale/:operationId/login-status', (req, res) => {
+  res.json(tailscale.loginStatus(req.params.operationId));
+});
+
+app.post('/integrations/tailscale/:operationId/cancel', (req, res) => handleRequest(req, res,
+  async () => {
+    await tailscale.cancel(req.params.operationId);
+    return { canceled: true };
+  }));
 
 app.get('/system/boot-assets', async (_req, res) => {
   await handle(res, async () => {
@@ -1132,6 +1149,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 });
 
 async function shutdown() {
+  await tailscale.shutdown();
   try {
     await browserController?.closeBrowser?.();
   } catch (err) {
