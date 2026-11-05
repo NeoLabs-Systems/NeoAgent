@@ -852,12 +852,17 @@ class IntegrationManager {
       };
     }
 
+    const accountChoices = connections
+      .map((connection) =>
+        `${connection.account_email || 'account'} (connection_id ${connection.id})`)
+      .join(', ');
+
     const requestedConnectionId = Number(args?.connection_id);
     if (Number.isInteger(requestedConnectionId) && requestedConnectionId > 0) {
       const byId = connections.find((connection) => connection.id === requestedConnectionId);
       if (!byId) {
         return {
-          error: `No connected ${provider.label} ${appLabel} account matches connection_id ${requestedConnectionId}.`,
+          error: `No connected ${provider.label} ${appLabel} account matches connection_id ${requestedConnectionId}. Connected: ${accountChoices}.`,
         };
       }
       return { connection: byId };
@@ -872,7 +877,7 @@ class IntegrationManager {
       );
       if (!byEmail) {
         return {
-          error: `No connected ${provider.label} ${appLabel} account matches ${requestedEmail}.`,
+          error: `No connected ${provider.label} ${appLabel} account matches ${requestedEmail}. Connected: ${accountChoices}.`,
         };
       }
       return { connection: byEmail };
@@ -882,11 +887,8 @@ class IntegrationManager {
       return { connection: connections[0] };
     }
 
-    const accountEmails = connections
-      .map((connection) => connection.account_email || `connection ${connection.id}`)
-      .join(', ');
     return {
-      error: `Multiple ${provider.label} ${appLabel} accounts are connected (${accountEmails}). Re-run the tool with connection_id or account_email.`,
+      error: `Multiple ${provider.label} ${appLabel} accounts are connected: ${accountChoices}. Re-run the tool with connection_id or account_email.`,
     };
   }
 
