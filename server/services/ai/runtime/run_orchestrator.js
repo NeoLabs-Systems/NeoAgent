@@ -765,8 +765,9 @@ class DurableRunRuntime {
             conversation_id, run_id, agent_id, role, content, metadata_json
           ) VALUES (?, ?, ?, 'assistant', ?, ?)`,
         ).run(conversationId, runId, agentId, content, JSON.stringify({ final: true }));
-      } catch {
-        // ignore
+      } catch (error) {
+        // The run still succeeded; a later run only loses this turn from its history.
+        logger.warn(`Could not store run ${runId} in its conversation: ${error?.message || error}`);
       }
     }
 

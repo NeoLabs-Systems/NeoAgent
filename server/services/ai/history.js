@@ -4,6 +4,7 @@ const db = require('../../db/database');
 const { resolveAgentId } = require('../agents/manager');
 const { throwIfAborted } = require('../../utils/abort');
 const { fenceUntrusted } = require('../../utils/untrusted_text');
+const { withRunActions } = require('./run_actions');
 
 const WEB_SUMMARY_KEY = 'web_chat_summary';
 const WEB_SUMMARY_COUNT_KEY = 'web_chat_summary_count';
@@ -229,13 +230,13 @@ function getConversationContext(conversationId, recentLimit) {
   ).get(conversationId);
 
   const recent = db.prepare(
-    'SELECT role, content, tool_calls, tool_call_id, name FROM conversation_messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?'
+    'SELECT role, content, tool_calls, tool_call_id, name, run_id FROM conversation_messages WHERE conversation_id = ? ORDER BY created_at DESC, id DESC LIMIT ?'
   ).all(conversationId, recentLimit).reverse();
 
   return {
     summary: convo?.summary || '',
     summaryCount: Number(convo?.summary_message_count || 0),
-    recentMessages: sanitizeConversationMessages(normalizeHistoryRows(recent)),
+    recentMessages: sanitizeConversationMessages(normalizeHistoryRows(withRunActions(recent))),
     totalMessages: db.prepare('SELECT COUNT(*) AS count FROM conversation_messages WHERE conversation_id = ?').get(conversationId).count
   };
 }

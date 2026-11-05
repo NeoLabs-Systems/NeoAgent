@@ -9,7 +9,7 @@ const { createEvalEngine, fakeMessaging, ledgerOf, visibleFinals } = require('./
 // `live` cases give the same situation to a real model and check what it did with
 // the tools it was offered. Bump EVAL_SET_VERSION whenever a case changes meaning,
 // because results are only comparable within one version.
-const EVAL_SET_VERSION = 7;
+const EVAL_SET_VERSION = 8;
 
 const base = {
   stream: false,
@@ -93,6 +93,39 @@ const SCRIPTED_CASES = [
       const engine = createEvalEngine({ messaging });
       const result = await engine.run(user.userId, 'Do it', messagingRun());
       return { result, duplicates: messaging.sent.length - 1, ok: messaging.sent.length === 1 && result.content === 'All done.' };
+    },
+  },
+  {
+    id: 'completion.a_later_run_sees_what_an_earlier_one_did',
+    category: 'COMPLETION',
+    async run({ runtime, user }) {
+      // A voice or web run that sends its answer on another platform: the next run reads
+      // this chat's history and must see the send, not a reply that left the request open.
+      const conversationId = `conv-sent-${user.userId}`;
+      runtime.ctx.db.prepare('INSERT INTO conversations (id, user_id) VALUES (?, ?)').run(conversationId, user.userId);
+      runtime.useScript([
+        { tools: [send('Starship flew today.', { purpose: 'final_result' })] },
+        { text: 'never reached' },
+      ]);
+      const messaging = fakeMessaging();
+      const engine = createEvalEngine({ messaging });
+      const result = await engine.run(user.userId, 'Research the Starship launch and send it to me on Telegram', {
+        ...base,
+        triggerSource: 'web',
+        conversationId,
+      });
+      const { getConversationContext } = require('../../server/services/ai/history');
+      const history = getConversationContext(conversationId, 10).recentMessages;
+      const call = history.find((message) => message.role === 'assistant' && message.tool_calls?.length)?.tool_calls[0];
+      const sent = JSON.parse(call?.function?.arguments || '{}');
+      const reply = history.find((message) => message.role === 'tool' && message.tool_call_id === call?.id);
+      const stored = runtime.ctx.db.prepare('SELECT role FROM conversation_messages WHERE conversation_id = ? ORDER BY id').all(conversationId).map((row) => row.role);
+      const ok = sent.platform === 'telegram' && sent.content === 'Starship flew today.'
+        && JSON.parse(reply?.content || '{}').status === 'completed'
+        && history.at(-1)?.content === 'Starship flew today.'
+        // The ledger stays the record; the conversation keeps only what was said.
+        && stored.join(',') === 'user,assistant';
+      return { result, ok, detail: `history ${JSON.stringify(history).slice(0, 600)}; stored ${stored}` };
     },
   },
   {

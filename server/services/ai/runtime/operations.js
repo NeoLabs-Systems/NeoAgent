@@ -83,6 +83,7 @@ function reviewOperation(session, planned) {
 }
 
 module.exports = {
+  canRepeat,
   operationKey,
   reviewOperation,
 };
