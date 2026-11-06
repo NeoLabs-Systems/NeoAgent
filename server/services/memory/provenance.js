@@ -60,15 +60,19 @@ function keepSupportedStatements(statements, { messages = [] }) {
 // Extraction creates a new subject/predicate/value assertion. Without a trusted
 // structured receipt we cannot prove that relation, even if its object appears
 // in the thread. Keep useful candidates as assumptions, never verified updates.
-function groundMemoryCandidates(candidates, { messages = [], finalReply = '' } = {}) {
-  const user = messages.filter((message) => message?.role === 'user').map(textOfMessage);
-  const assistant = [...messages.filter((message) => message?.role === 'assistant').map(textOfMessage), finalReply];
+function groundMemoryCandidates(candidates, { messages = [], finalReply = '', toolResults = [] } = {}) {
+  const normalize = (value) => String(value || '').normalize('NFC').replace(/\s+/gu, ' ').trim().toLowerCase();
+  const user = messages.filter((message) => message?.role === 'user').map((message) => normalize(textOfMessage(message)));
+  const observed = toolResults.map((result) => normalize(typeof result === 'string' ? result : JSON.stringify(result)));
   const grounded = [];
   let dropped = 0;
   for (const candidate of candidates) {
-    const quote = String(candidate.evidence || '').trim();
-    // An exact model-authored quote is not a new memory about the owner.
-    if (quote && assistant.some((text) => text.includes(quote)) && !user.some((text) => text.includes(quote))) {
+    const quote = normalize(candidate.evidence);
+    // A quote must be words the thread holds, said by the owner or returned by a
+    // tool. A quote of the assistant, or one found nowhere (an example the model
+    // copied from its instructions, a sentence nobody said), is not evidence of
+    // anything. Without a quote the candidate stays an assumption, as below.
+    if (quote && ![...user, ...observed].some((text) => text.includes(quote))) {
       dropped += 1;
       continue;
     }

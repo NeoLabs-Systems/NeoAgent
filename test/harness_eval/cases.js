@@ -567,6 +567,88 @@ const SCRIPTED_CASES = [
     },
   },
 
+  // ---- LOOP COST: findings from the live server, 2026-11-06
+  {
+    id: 'cost.a_reply_in_the_chat_ends_the_run',
+    category: 'COST',
+    async run({ runtime, user }) {
+      const requests = runtime.useScript([
+        { tools: [send('Hey, alles gut hier.')] },
+        { text: 'Hey, alles gut hier.' },
+      ]);
+      const messaging = fakeMessaging();
+      const engine = createEvalEngine({ messaging });
+      const result = await engine.run(user.userId, 'Hey', { ...messagingRun(), audience: 'owner', memoryAudience: 'owner' });
+      return {
+        result,
+        ok: requests.length === 1 && deliveriesTo(messaging, 'Hey, alles gut hier.') === 1,
+        detail: `model calls ${requests.length}, sent ${messaging.sent.length}`,
+      };
+    },
+  },
+  {
+    id: 'routing.owner_means_a_verified_chat_and_nothing_is_guessed',
+    category: 'ROUTING',
+    async run({ runtime, user }) {
+      runtime.useScript([
+        { tools: [
+          { name: 'send_message', args: { platform: 'telegram', to: 'owner', content: 'Your summary.' } },
+          { name: 'send_message', args: { platform: 'telegram', content: 'No recipient given.' } },
+        ] },
+        { text: 'Sent it to you.' },
+      ]);
+      const messaging = fakeMessaging();
+      messaging.ownerDestination = (_userId, _agentId, platform) => (platform === 'telegram' ? 'owner-dm' : null);
+      const engine = createEvalEngine({ messaging });
+      const result = await engine.run(user.userId, 'Send me the summary on Telegram', { ...base, triggerSource: 'web' });
+      const sent = messaging.sent.map((entry) => `${entry.to}:${entry.content}`);
+      return { result, ok: sent.length === 1 && sent[0] === 'owner-dm:Your summary.', detail: sent.join(' | ') };
+    },
+  },
+  {
+    id: 'cost.a_tool_failing_the_same_way_rests',
+    category: 'COST',
+    async run({ runtime, user }) {
+      runtime.useScript([
+        { tools: [{ name: 'web_search', args: { query: 'a' } }] },
+        { tools: [{ name: 'web_search', args: { query: 'b' } }] },
+        { tools: [{ name: 'web_search', args: { query: 'c' } }] },
+        { tools: [{ name: 'web_search', args: { query: 'd' } }] },
+        { text: 'Search is unavailable right now.' },
+      ]);
+      let calls = 0;
+      const engine = createEvalEngine({
+        toolResults: {
+          web_search: () => {
+            calls += 1;
+            return { error: 'No search model can take this request right now.' };
+          },
+        },
+      });
+      const result = await engine.run(user.userId, 'Search the news for x', { ...base, triggerSource: 'web' });
+      return { result, ok: calls === 3, detail: `ran ${calls}` };
+    },
+  },
+  {
+    id: 'cost.near_miss_argument_types_are_fixed',
+    category: 'COST',
+    async run({ runtime, user }) {
+      runtime.useScript([
+        { tools: [{ name: 'list_tasks', args: { limit: '5.0' } }] },
+        { text: 'done' },
+      ]);
+      let seen = null;
+      const engine = createEvalEngine({ toolResults: { list_tasks: (args) => { seen = args; return { tasks: [] }; } } });
+      // The catalog decides the type: give list_tasks an integer limit for this case.
+      const realTools = engine.getAvailableTools.bind(engine);
+      engine.getAvailableTools = (...args) => realTools(...args).map((tool) => (tool.name === 'list_tasks'
+        ? { ...tool, parameters: { type: 'object', properties: { limit: { type: 'integer' } } } }
+        : tool));
+      const result = await engine.run(user.userId, 'x', { ...base, triggerSource: 'web' });
+      return { result, ok: seen?.limit === 5, detail: JSON.stringify(seen) };
+    },
+  },
+
   // ---- RECOVERY: a resumed run does not repeat what may already have happened
   {
     id: 'operations.resume_does_not_repeat_a_side_effect',

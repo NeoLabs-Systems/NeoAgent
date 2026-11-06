@@ -9,7 +9,9 @@ const handlers = {
     if (!runtimeManager) {
     return { error: 'Command execution is unavailable. No runtime manager found.' };
     }
-    const timeout = args.timeout || (args.pty ? 20 * 60 * 1000 : 15 * 60 * 1000);
+    // Short by default, so a command that hangs (a search of the whole disk, a
+    // prompt nobody answers) costs minutes, not a quarter hour; a long job says so.
+    const timeout = args.timeout || (args.pty ? 20 * 60 * 1000 : 3 * 60 * 1000);
     const guestHost = runtimeManager.getGuestHostAddress(userId, { deviceTarget });
     const integrationManager = integrations();
     const execOptions = {

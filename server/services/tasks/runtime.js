@@ -979,7 +979,10 @@ class TaskRuntime {
     if (!name) throw new Error('Task name is required.');
     const triggerType = String(input.triggerType || input.trigger_type || existingTask?.trigger_type || '').trim() || 'schedule';
     const adapter = this.triggerRegistry.get(triggerType);
-    if (!adapter) throw new Error(`Unsupported trigger type: ${triggerType}`);
+    if (!adapter) {
+      const known = this.triggerRegistry.list().map((entry) => entry.type).join(', ');
+      throw new Error(`Unsupported trigger type: ${triggerType}. Use one of: ${known}. A time, once or repeating, is "schedule" with config.mode "one_time" or "recurring".`);
+    }
 
     const existingTaskConfig = this._normalizeJson(existingTask?.task_config);
     const taskType = String(input.taskType || input.task_type || existingTask?.task_type || 'agent_prompt').trim() || 'agent_prompt';

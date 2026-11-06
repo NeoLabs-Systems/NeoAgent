@@ -643,3 +643,31 @@ test('new-evidence reads count as progress but churn does not', () => {
   const ledger = classifyToolExecution('task_ledger', { goal: 'hmm' }, { recorded: true });
   assert.equal(gatheredNewEvidence(ledger, { unchangedCount: 1 }), false);
 });
+
+test('a tool that fails the same way whatever it is asked rests, and a success ends the streak', () => {
+  let now = 0;
+  const guard = new ToolRepetitionGuard({ now: () => now });
+  const quota = 'No search model can take this request right now.';
+  guard.observe('web_search', { query: 'a' }, {}, quota);
+  guard.observe('web_search', { query: 'b' }, {}, quota);
+  assert.equal(guard.toolResting('web_search'), null, 'two may be bad luck');
+  guard.observe('web_search', { query: 'c' }, {}, quota);
+  const resting = guard.toolResting('web_search');
+  assert.equal(resting.count, 3);
+  assert.equal(resting.retryInMs, 60_000);
+  now = 61_000;
+  assert.equal(guard.toolResting('web_search'), null, 'it may be asked again after the rest');
+  guard.observe('web_search', { query: 'd' }, { results: [] }, '');
+  guard.observe('web_search', { query: 'e' }, {}, quota);
+  assert.equal(guard.toolResting('web_search'), null, 'a success started the count over');
+
+  guard.observe('github_api_request', { path: 'a' }, { retryAfterSeconds: 300 }, 'Forbidden');
+  guard.observe('github_api_request', { path: 'b' }, { retryAfterSeconds: 300 }, 'Forbidden');
+  guard.observe('github_api_request', { path: 'c' }, { retryAfterSeconds: 300 }, 'Forbidden');
+  assert.equal(guard.toolResting('github_api_request').retryInMs, 300_000, 'for as long as the service asked');
+
+  guard.observe('read_file', { path: 'a' }, {}, 'Not found: a');
+  guard.observe('read_file', { path: 'b' }, {}, 'Not found: b');
+  guard.observe('read_file', { path: 'c' }, {}, 'Not found: c');
+  assert.equal(guard.toolResting('read_file'), null, 'errors that differ by argument are the arguments');
+});

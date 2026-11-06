@@ -104,7 +104,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
         outputArtifact: toolResult?.outputArtifact,
         artifactError: toolResult?.artifactError,
         note: toolResult?.timedOut
-          ? 'Command timed out. Treat the output as partial.'
+          ? 'Command timed out. Treat the output as partial; if it needs longer, run it again with a larger timeout, otherwise narrow it.'
           : toolResult?.killed
             ? 'Command was killed. Treat the output as partial.'
             : (toolResult?.exitCode !== undefined && toolResult?.exitCode !== 0)
@@ -127,6 +127,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
           byteSize: toolResult?.byteSize,
           binary: toolResult?.binary === true,
           rangeShown: toolResult?.rangeShown,
+          matches: toolResult?.matches,
           totalLines: toolResult?.totalLines,
           truncated: toolResult?.truncated === true || content.length > contentLimit,
           note: content.length > contentLimit
@@ -469,7 +470,7 @@ function compactToolResult(toolName, toolArgs = {}, toolResult, options = {}) {
       full_result: {
         artifact_id: retained.artifactId,
         total_lines: retained.totalLines,
-        note: 'Only part of this result is shown. The complete result is saved: read the rest with read_artifact by line range before treating anything as missing.',
+        note: 'Only part of this result is shown. The complete result is saved: search it with read_artifact query, or read it by line range, before treating anything as missing. Do not run the call again for it.',
       },
       ...envelope,
     };

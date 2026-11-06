@@ -95,7 +95,7 @@ async function writeWrapUp(engine, session, reason) {
  * delta is the only permitted source of facts, and an empty answer means "no
  * useful update", not "send something generic".
  */
-async function narrateProgress(engine, session, { delta, liveness, signal }) {
+async function narrateProgress(engine, session, { delta, liveness, previous = '', signal }) {
   const { runId, userId, agentId, options } = session;
   if (!session.model) return '';
   const systemPrompt = [session.systemPrompt?.stable, session.systemPrompt?.dynamic]
@@ -120,8 +120,9 @@ async function narrateProgress(engine, session, { delta, liveness, signal }) {
         role: 'user',
         content: [
           `Original request: ${String(session.userMessage || '').slice(0, 320)}`,
+          previous ? `Your previous update, which the user already has:\n${String(previous).slice(0, 400)}` : '',
           delta?.evidence
-            ? `Actual recent tool activity (newest last) — describe ONLY this:\n${delta.evidence}`
+            ? `Tool activity since then (newest last) — describe ONLY this:\n${delta.evidence}`
             : '',
         ].filter(Boolean).join('\n\n'),
       },

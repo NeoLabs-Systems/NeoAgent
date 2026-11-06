@@ -111,13 +111,13 @@ The tools a run codes with work through the workspace service and `executeCliCom
 
 `runToolCall()` in `services/ai/runtime/tool_turn.js`:
 
-1. **Scrub.** Invisible characters are removed from the arguments, so approvals show what will run.
+1. **Scrub and type.** Invisible characters are removed from the arguments, so approvals show what will run, and near misses of the tool's declared types are fixed (`"5.0"` for an integer, `"true"`, a JSON string for an array, an enum value in the wrong case) in `tools/coerce_args.js`. Anything else is left for the tool to reject.
 2. **Record.** An `agent_steps` row and `run:tool_start` event are written.
 3. **Policy gate.** `before_tool_call` runs the security hooks, and the decision goes on the run ledger. Nothing a tool returned can raise what a later call may do.
-4. **Repeat check.** A deterministic read repeated with nothing changed is suppressed, because the model already has the answer. An exact call that already failed twice is blocked. A call's fingerprint includes the version of the state it depends on, so a re-read after an edit runs normally.
+4. **Repeat check.** A deterministic read repeated with nothing changed is suppressed, because the model already has the answer. An exact call that already failed twice is blocked. A tool other than the shell that failed three times in a row with the same error, whatever it was asked, rests for a minute or for the `retryAfterSeconds` the service gave (integration errors keep their HTTP `status` and `retry-after`). A call's fingerprint includes the version of the state it depends on, so a re-read after an edit runs normally.
 5. **Tracking.** Raw-byte Git snapshots record advisory before/after differences without running repository filters. They do not prove ownership against external editors. `workspace_rollback` refuses automatic restoration in shared workspaces; use `repo_diff` and correct specific edits forward. Slow snapshot directories are skipped before subsequent snapshots. Python 3 and Git are required on the selected computer; unavailable tracking is reported without blocking the edit.
 6. **Execute.** The tool runs with the run's user, agent, computer target and abort signal.
-6. **Compact.** `compactToolResult()` trims large results before they reach the model.
+6. **Compact.** `compactToolResult()` trims large results before they reach the model: 12,000 characters by default, 24,000 for files and 16,000 for commands and the browser. A stored setting below that is ignored, since a smaller budget is paid back in turns. What is cut is saved; `read_artifact` reads it by line range or finds lines with `query`.
 7. **Finish.** The step, `run:tool_end` and the run's trust record are updated.
 
 ## Security hooks

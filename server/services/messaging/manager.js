@@ -480,6 +480,22 @@ class MessagingManager extends EventEmitter {
     return `${userId}:${agentId}:${platformName}`;
   }
 
+  // A chat known to be the owner's own on this platform, or null. Two things prove
+  // it: a shared-bot link, made with a code the owner sent from their own direct
+  // chat, and a connection that knows its account is the owner's (the platform's
+  // ownerChatId). The last chat someone wrote from proves nothing: it may be a
+  // group, or another person the owner allowed.
+  ownerDestination(userId, agentId, platformName) {
+    const resolvedAgentId = this._agentId(userId, { agentId });
+    const route = this.platforms.get(this._key(userId, resolvedAgentId, platformName));
+    if (!route) return null;
+    if (route.isSharedRoute) {
+      const link = require('./shared_store').findLinkForUser(platformName, userId);
+      return link?.chat_id ? String(link.chat_id) : null;
+    }
+    return typeof route.ownerChatId === 'function' ? route.ownerChatId() || null : null;
+  }
+
   _clearReconnect(key, { resetAttempts = true } = {}) {
     const timer = this.reconnectTimers.get(key);
     if (timer) clearTimeout(timer);

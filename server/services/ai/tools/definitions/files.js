@@ -84,14 +84,15 @@ module.exports = [
     group: 'files', access: 'read', latencyClass: 'local',
     capabilities: ['artifact', 'read'],
     policy: { external: true },
-    whenToUse: ['read the rest of a tool result that was cut, by line range'],
+    whenToUse: ['read the rest of a tool result that was cut, by line range', 'find text in a long saved result without paging through it'],
     description: 'Read an owned text artifact by stable artifact ID. Use this for ranged inspection of command-output logs and of tool results that were cut short (full_result.artifact_id), without rerunning the call. Binary artifacts return metadata only.',
     parameters: {
       type: 'object',
       properties: {
         artifact_id: { type: 'string', description: 'Owned artifact ID returned by a previous tool result' },
         start_line: { type: 'number', description: 'Starting line number (1-indexed, inclusive)' },
-        end_line: { type: 'number', description: 'Ending line number (1-indexed, inclusive; at most 500 lines)' }
+        end_line: { type: 'number', description: 'Ending line number (1-indexed, inclusive; at most 500 lines)' },
+        query: { type: 'string', description: 'Text to find: returns every line containing it, with its line number, instead of a range' }
       },
       required: ['artifact_id']
     }

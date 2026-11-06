@@ -17,7 +17,7 @@ module.exports = [
       properties: {
         command: { type: 'string', description: 'The shell command to execute' },
         cwd: { type: 'string', description: 'Working directory (optional, default $HOME)' },
-        timeout: { type: 'number', description: 'Maximum runtime in ms. Default 900000 (15 minutes); use longer values for installs, builds, or package managers.' },
+        timeout: { type: 'number', description: 'Maximum runtime in ms. Default 180000 (3 minutes); pass a longer value for installs, builds, test suites, or package managers.' },
         stdin_input: { type: 'string', description: 'Input to pipe to stdin' },
         pty: { type: 'boolean', description: 'Use PTY for interactive programs, progress UIs, or commands that need a real terminal (default false)' },
         inputs: { type: 'array', items: { type: 'string' }, description: 'Sequence of inputs for interactive PTY prompts' }

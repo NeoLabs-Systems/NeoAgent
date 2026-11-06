@@ -5,6 +5,9 @@ const { requestProgressDelivery } = require('./delivery_worker');
 const { MESSAGE_KINDS } = require('../constants');
 
 const DEFAULT_TICK_MS = 15_000;
+// Each update waits twice as long as the one before, up to this many doublings:
+// a long task reports early and then less often, as people do.
+const MAX_GAP_DOUBLINGS = 4;
 
 function hashProgress(delta) {
   return createHash('sha256').update(JSON.stringify(delta || {})).digest('hex');
@@ -39,6 +42,10 @@ function createProgressBroker({
   // after the first threshold would ask again.
   let lastNarrationAt = 0;
   let lastProgressHash = null;
+  let lastText = '';
+  let updatesSent = 0;
+  // Tool executions already described; only what came after them is news.
+  let reportedThrough = 0;
   let lastActivityAt = Date.now();
   let acceptedAt = Date.now();
   let currentPhase = 'idle';
@@ -84,8 +91,10 @@ function createProgressBroker({
     planChanges = [],
     nextMilestone = null,
     evidence = [],
+    through = reportedThrough,
   } = {}) {
     return {
+      through,
       completed_since_last_update: completed,
       currently_running: running,
       new_artifacts: artifacts,
@@ -108,10 +117,15 @@ function createProgressBroker({
     );
   }
 
+  // What finished since the last update, in the shape the checks below read.
+  function collect() {
+    return typeof collectDelta === 'function' ? buildDelta(collectDelta(reportedThrough) || {}) : null;
+  }
+
   async function narrate(delta, liveness) {
     if (typeof narrator !== 'function' || !hasRealDelta(delta)) return null;
     try {
-      const text = await narrator({ delta, liveness });
+      const text = await narrator({ delta, liveness, previous: lastText });
       return String(text || '').trim() || null;
     } catch {
       return null;
@@ -119,7 +133,7 @@ function createProgressBroker({
   }
 
   async function maybePublish({
-    delta,
+    delta = collect(),
     channel: overrideChannel = null,
     recipient: overrideRecipient = null,
     force = false,
@@ -151,7 +165,8 @@ function createProgressBroker({
       : 0;
     const lastCheckpointAt = Math.max(lastUserUpdateAt, externalVisibleAt, lastNarrationAt);
     const firstDue = lastCheckpointAt === 0 && (now - acceptedAt) >= firstUpdateSeconds * 1000;
-    const repeatDue = lastCheckpointAt > 0 && (now - lastCheckpointAt) >= repeatUpdateSeconds * 1000;
+    const gapMs = repeatUpdateSeconds * 1000 * 2 ** Math.min(Math.max(updatesSent - 1, 0), MAX_GAP_DOUBLINGS);
+    const repeatDue = lastCheckpointAt > 0 && (now - lastCheckpointAt) >= gapMs;
 
     if (!force && !firstDue && !repeatDue) {
       return { sent: false, reason: 'not_due', liveness };
@@ -161,7 +176,12 @@ function createProgressBroker({
       return { sent: false, reason: 'unchanged', liveness };
     }
 
+    // Nothing finished since the last update: no model call, and the clock keeps
+    // running from the last time there was something to say.
+    if (!force && !hasRealDelta(delta)) return { sent: false, reason: 'unchanged', liveness };
     lastNarrationAt = now;
+    // Asked about once, so a declined narration does not come back as news.
+    if (Number.isFinite(delta?.through)) reportedThrough = Math.max(reportedThrough, delta.through);
     const text = await narrate(delta || buildDelta(), liveness);
     if (!text) {
       lastProgressHash = hash;
@@ -180,9 +200,7 @@ function createProgressBroker({
       channel: overrideChannel || channel,
       recipient: overrideRecipient || recipient,
       messageKind: MESSAGE_KINDS.PROGRESS,
-      slot: groundedToolHeartbeat
-        ? `${hash}:heartbeat:${Math.floor(now / (Math.max(1, repeatUpdateSeconds) * 1000))}`
-        : hash,
+      slot: `${hash}:${updatesSent}`,
       metadata: {
         ...(deliveryMetadata && typeof deliveryMetadata === 'object'
           ? deliveryMetadata
@@ -195,6 +213,8 @@ function createProgressBroker({
     if (result.ok) {
       lastUserUpdateAt = now;
       lastProgressHash = hash;
+      lastText = text;
+      updatesSent += 1;
     }
     return { sent: result.ok === true, result, text, liveness };
   }
@@ -203,7 +223,7 @@ function createProgressBroker({
     if (tickInFlight) return { sent: false, reason: 'tick_in_flight' };
     tickInFlight = true;
     try {
-      const delta = typeof collectDelta === 'function' ? collectDelta() : null;
+      const delta = collect();
       if (!delta) return { sent: false, reason: 'no_delta_source' };
       return await maybePublish({ delta });
     } catch (error) {

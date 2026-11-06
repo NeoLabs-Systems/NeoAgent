@@ -67,6 +67,12 @@ function canonicalToolArgs(toolName, args) {
 // How long an earlier answer can stand in for a repeated read. Nothing the
 // harness saw changed, but a person or a background process could have.
 const DUPLICATE_READ_WINDOW_MS = 2 * 60 * 1000;
+// A tool that fails the same way for different arguments is down, not misused:
+// a used-up search quota, an organization that blocks the app, a service that is
+// unreachable. Asking it again with other arguments only burns turns, so after
+// this many such failures in a row it rests, for as long as it said or a minute.
+const TOOL_FAILURE_LIMIT = 3;
+const TOOL_REST_MS = 60 * 1000;
 
 /**
  * Tells a useful repeat from a useless one. A call's fingerprint includes the
@@ -87,6 +93,7 @@ class ToolRepetitionGuard {
     this.entries = new Map();
     this.answeredReads = new Map();
     this.stateVersions = new Map();
+    this.toolFailures = new Map();
     // A compaction may have removed the earlier answer from the model's view.
     this.contextEpoch = 0;
   }
@@ -151,7 +158,27 @@ class ToolRepetitionGuard {
     return this.entries.get(this.key(toolName, args, stateScope))?.failure || '';
   }
 
+  // Why a tool cannot be used right now, or null.
+  toolResting(toolName) {
+    const streak = this.toolFailures.get(String(toolName || ''));
+    if (!streak || streak.count < TOOL_FAILURE_LIMIT || this.now() >= streak.until) return null;
+    return { failure: streak.failure, count: streak.count, retryInMs: streak.until - this.now() };
+  }
+
+  #noteToolOutcome(toolName, failure, result) {
+    const name = String(toolName || '');
+    if (!failure) {
+      this.toolFailures.delete(name);
+      return;
+    }
+    const previous = this.toolFailures.get(name);
+    const count = previous?.failure === failure ? previous.count + 1 : 1;
+    const retryAfterMs = Number(result?.retryAfterSeconds) > 0 ? Number(result.retryAfterSeconds) * 1000 : TOOL_REST_MS;
+    this.toolFailures.set(name, { failure, count, until: this.now() + retryAfterMs });
+  }
+
   observe(toolName, args, result, failure = '', { stateScope = null } = {}) {
+    this.#noteToolOutcome(toolName, failure, result);
     const key = this.key(toolName, args, stateScope);
     const resultHash = stableHash(failure ? { failure } : result);
     const previous = this.entries.get(key);

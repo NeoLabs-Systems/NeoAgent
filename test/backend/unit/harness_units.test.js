@@ -593,9 +593,13 @@ test('the task outcome comes from receipts, never from what the model said', () 
   // Passing tests prove nothing about a change made after them.
   const stale = outcome([edit, result(3, { mutating: true, ok: true, test: { runner: 'jest', passed: 4, failed: 0, exit_ok: true } }), changed(4, ['a.js'])]);
   assert.equal(stale.task_outcome, 'unverified');
-  const untracked = outcome([edit, { sequenceIndex: 2, eventType: 'workspace.changed', payload: { timestamp: ts, untracked: true, reason: 'not_a_repository' } }]);
+  const untracked = outcome([edit, { sequenceIndex: 2, eventType: 'workspace.changed', payload: { timestamp: ts, untracked: true, reason: 'read_failed' } }]);
   assert.equal(untracked.task_outcome, 'unverified');
   assert.equal(untracked.evidence.changes_untracked, 1);
+  // Outside a repository nothing is tracked, so nothing counts as changed.
+  const outside = outcome([edit, { sequenceIndex: 2, eventType: 'workspace.changed', payload: { timestamp: ts, untracked: true, reason: 'not_a_repository' } }]);
+  assert.equal(outside.task_outcome, 'actions_done');
+  assert.deepEqual([outside.evidence.changes_untracked, outside.evidence.outside_repositories], [0, 1]);
 });
 
 test('passes from a command that failed are not verification, and a rollback is said', () => {

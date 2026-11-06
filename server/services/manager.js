@@ -84,6 +84,7 @@ function createTimelineService(app) {
 function createMemoryManager(app) {
   const memoryManager = registerLocal(app, 'memoryManager', new MemoryManager());
   memoryManager.startEmbeddingIndexBackfill();
+  memoryManager.startEmbeddingRefresh();
   const reconcile = () => {
     const users = db.prepare('SELECT id FROM users').all();
     for (const user of users) {
@@ -606,6 +607,7 @@ async function stopServices(app) {
   }
   if (app.locals.memoryManager) {
     app.locals.memoryManager.stopEmbeddingIndexBackfill();
+    app.locals.memoryManager.stopEmbeddingRefresh();
   }
   if (app.locals.memoryReconciliationTimer) {
     clearInterval(app.locals.memoryReconciliationTimer);

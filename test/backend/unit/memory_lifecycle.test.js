@@ -384,10 +384,9 @@ test('conversation learning stores what the user said and refuses what only the 
   assert.equal(stored.has('User team runs Valkey for caching.'), false, 'only the assistant said this');
   assert.equal(stored.get('User staging DB is on port 5600.').trustLevel, 'model_inference');
   assert.deepEqual(statusOf(db, known), ['active'], 'an extracted assumption cannot supersede a known fact');
-  const inferred = stored.get('Benutzer plant wohl einen Umzug.');
-  assert.equal(inferred.trustLevel, 'model_inference');
-  assert.ok(inferred.confidence <= 0.5);
-  assert.equal(stored.get('Deploy target is Hetzner.').trustLevel, 'model_inference', 'a memory tool result proves nothing new');
+  // Its quote is found nowhere in the thread: an invention, like a copied example.
+  assert.equal(stored.has('Benutzer plant wohl einen Umzug.'), false);
+  assert.equal(stored.has('Deploy target is Hetzner.'), false, 'a memory tool result proves nothing new');
 });
 
 test('conversation learning trusts neither outside tools nor an outside opener as the user', async () => {

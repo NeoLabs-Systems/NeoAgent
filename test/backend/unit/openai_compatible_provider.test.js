@@ -53,7 +53,7 @@ test('normalizeUsage maps snake_case and camelCase token fields and handles null
   );
 });
 
-test('normalizeResponse uses reasoning_content when content is empty', () => {
+test('a turn with only a thought has no reply: the thought never becomes one', () => {
   const p = new OpenAICompatibleProvider();
   const result = p.normalizeResponse({
     choices: [{
@@ -61,7 +61,7 @@ test('normalizeResponse uses reasoning_content when content is empty', () => {
       finish_reason: 'stop',
     }],
   });
-  assert.equal(result.content, 'The answer is 42.');
+  assert.equal(result.content, '');
 });
 
 test('normalizeResponse extracts content, tool calls, finish reason, and usage', () => {
@@ -209,20 +209,20 @@ test('custom provider assembles streamed tool calls', async () => {
   }]);
 });
 
-test('readStream keeps a reasoning-only reply when the endpoint sent no content', async () => {
+test('readStream never streams a reasoning-only turn as a reply', async () => {
   const provider = new OpenAICompatibleProvider();
   provider.name = 'test';
   async function* chunks() {
-    yield { choices: [{ delta: { reasoning_content: 'Think.' }, finish_reason: null }] };
+    yield { choices: [{ delta: { reasoning_content: 's, and confirm the final statements.' }, finish_reason: null }] };
     yield { choices: [{ delta: {}, finish_reason: 'stop' }] };
   }
 
   const events = [];
   for await (const event of provider.readStream(chunks())) events.push(event);
 
-  assert.deepEqual(events[0], { type: 'content', content: 'Think.' });
-  assert.equal(events[1].type, 'done');
-  assert.equal(events[1].content, 'Think.');
+  // An empty turn: the loop recovers from it, and the thought stays private.
+  assert.deepEqual(events.map((event) => event.type), ['done']);
+  assert.equal(events[0].content, '');
 });
 
 test('readStream does not send the thought into the chat when a real reply follows', async () => {
@@ -417,4 +417,11 @@ test('Grok retries without reasoning_effort when a model rejects it, and stops s
   await grok.chat([{ role: 'user', content: 'x' }], [], options);
 
   assert.deepEqual(sent.map((params) => 'reasoning_effort' in params), [true, false, false]);
+});
+
+test('the model that served a reply is kept', () => {
+  const p = new OpenAICompatibleProvider();
+  const reply = p.normalizeResponse({ model: 'google-2/some-model', choices: [{ message: { content: 'Done.', reasoning_content: 'thinking' }, finish_reason: 'stop' }] });
+  assert.equal(reply.content, 'Done.');
+  assert.equal(reply.model, 'google-2/some-model');
 });

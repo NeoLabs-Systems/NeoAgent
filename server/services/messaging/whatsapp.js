@@ -669,6 +669,13 @@ class WhatsAppPlatform extends BasePlatform {
     return null;
   }
 
+  // In self-chat mode the connected account is the owner's, and their own chat is
+  // where they talk to the agent. Otherwise the number may be the agent's own.
+  ownerChatId() {
+    if (!this.selfChatMode) return null;
+    return [...this._ownJids()].find((jid) => jid.endsWith('@s.whatsapp.net')) || [...this._ownJids()][0] || null;
+  }
+
   _ownJids() {
     const identities = [this.sock?.user, this.sock?.authState?.creds?.me];
     return new Set(identities

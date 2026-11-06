@@ -3,6 +3,7 @@
 const { randomUUID } = require('crypto');
 const db = require('../../../db/database');
 const { compactToolResult, toRetainedText } = require('../toolResult');
+const { coerceToolArgs } = require('../tools/coerce_args');
 const { resolveToolResultLimits } = require('../loopPolicy');
 const { sanitizeModelOutput } = require('../outputSanitizer');
 const {
@@ -21,6 +22,7 @@ const { parseTestOutput } = require('../test_output');
 const {
   isParallelSafeCall,
   isReadOnlyCall,
+  isShellCall,
   resolveToolMeta,
   runToolRefusal,
 } = require('../tools/metadata');
@@ -163,6 +165,18 @@ async function reviewCall(session, planned, stepIndex, stepId) {
   const guard = engine.getRunMeta(runId)?.repetitionGuard;
   if (!guard) return { allowed: true };
 
+  // A command's failure says how that command ended, not that the shell is down.
+  const resting = isShellCall(meta) ? null : guard.toolResting(call.name);
+  if (resting) {
+    const reason = `${call.name} failed ${resting.count} times in a row with the same error, whatever it was asked: ${resting.failure} `
+      + `It is unavailable for about ${Math.ceil(resting.retryInMs / 1000)} more seconds. Do not call it again until then; use another way or tell the owner what is blocked.`;
+    publish(session, EVENT_TYPES.TOOL_SUPPRESSED, {
+      tool: { name: call.name, call_fingerprint: fingerprint },
+      reason: 'tool_resting',
+    }, { stepId });
+    return { allowed: false, errorMessage: reason, result: { status: 'blocked', reason } };
+  }
+
   const readScope = isReadOnly ? meta.stateScope : null;
   // A repeatable read is what polling looks like: what it reads can change without
   // this run doing anything, so it is only stopped when it fails.
@@ -259,8 +273,9 @@ async function runToolCall(session, planned) {
   session.stepIndex += 1;
   const { stepIndex } = session;
   const stepType = engine.getStepType?.(call.name) || 'tool';
-  // What is approved, logged, and run must be what a person can read.
-  call.arguments = scrubInvisibleDeep(call.arguments || {});
+  // What is approved, logged, and run must be what a person can read, in the
+  // types the tool declared.
+  call.arguments = coerceToolArgs(scrubInvisibleDeep(call.arguments || {}), definition?.parameters);
   const toolArgs = call.arguments;
   const trust = engine.getRunMeta(runId)?.trust || null;
   const guard = engine.getRunMeta(runId)?.repetitionGuard;
@@ -446,6 +461,15 @@ async function runToolCall(session, planned) {
     progressed,
     execution,
     sentMessage,
+    // A text reply in the very chat a messaging run answers. Files can come as a
+    // series of sends, so a reply that carries one does not end the run.
+    answeredOrigin: Boolean(
+      success
+      && result?.originDelivery === true
+      && session.triggerSource === 'messaging'
+      && !call.arguments?.media_path
+      && !call.arguments?.media_url,
+    ),
     fingerprint: planned.fingerprint,
     toolMessage: {
       role: 'tool',
@@ -503,11 +527,15 @@ async function executeToolTurn(session, decision) {
   }
 
   // A turn that only delivers a message the model marked as the end of its
-  // work is that run's answer; the message already reached the user.
+  // work, or that only replies in the chat the run answers, is that run's
+  // answer: the message already reached the user, and a status that is not the
+  // end goes through send_interim_update. Without this every chat reply cost a
+  // second model call that could only repeat it.
   const terminalSend = outcomes.length > 0 && outcomes.every((outcome) => (
     outcome.call.name === 'send_message'
     && outcome.success
-    && TERMINAL_SEND_PURPOSES.has(String(outcome.call.arguments?.purpose || '').trim().toLowerCase())
+    && (outcome.answeredOrigin
+      || TERMINAL_SEND_PURPOSES.has(String(outcome.call.arguments?.purpose || '').trim().toLowerCase()))
   ));
 
   // A reply sent in the run's own chat stays the run's last word only while

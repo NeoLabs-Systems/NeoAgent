@@ -14,6 +14,7 @@ const {
   isModelCallTimeout,
   resolveModelCallTimeoutMs,
   runAbortableModelCall,
+  resolveStreamIdleTimeoutMs,
   withModelCallTimeout,
 } = require('./model_call_guard');
 
@@ -178,7 +179,11 @@ async function requestModelResponse(engine, {
   const eventRunId = options.runId || runId;
   const runMeta = eventRunId && options.userId ? engine.getRunMeta?.(eventRunId) : null;
   const requestMessages = sanitizeConversationMessages(messages);
-  const requestTools = Array.isArray(tools) ? tools : [];
+  // Tool definitions open the cached prompt prefix, so the same set must be sent in
+  // the same order every time; selection order changes from run to run.
+  const requestTools = Array.isArray(tools)
+    ? [...tools].sort((left, right) => String(left?.name || '').localeCompare(String(right?.name || '')))
+    : [];
   const maxTokens = options.maxTokens;
   const reasoningEffort = engine.getReasoningEffort(providerName, options);
   const ledger = {
@@ -273,7 +278,7 @@ async function requestModelResponse(engine, {
           while (true) {
             const next = await withModelCallTimeout(
               iterator.next(),
-              { ...options, modelAbortController },
+              { ...options, modelAbortController, modelCallTimeoutMs: resolveStreamIdleTimeoutMs(options) },
               `Model stream iteration ${iteration}`,
             );
             if (next.done) break;

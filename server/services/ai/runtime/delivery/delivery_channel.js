@@ -34,7 +34,11 @@ function progressDeliveryMetadata(triggerSource, options = {}) {
 // are for the owner's own chat: a group does not need the commentary, and someone
 // else's chat has no business seeing the owner's tool activity.
 function allowsProgressUpdates(triggerSource, options = {}) {
-  if (resolveDeliveryChannel(triggerSource) !== 'messaging') return true;
+  const channel = resolveDeliveryChannel(triggerSource);
+  // A call reports on the line itself (voice/live/session.js); a second narrator
+  // would talk over it.
+  if (channel === 'voice_live') return false;
+  if (channel !== 'messaging') return true;
   return (options.audience || 'owner') === 'owner'
     && options.memoryAudience !== 'shared'
     && options.context?.socialIntelligence?.isGroup !== true;

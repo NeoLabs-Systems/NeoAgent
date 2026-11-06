@@ -313,12 +313,23 @@ const handlers = {
     const manager = msg();
     if (!manager) return { error: 'Messaging not available' };
     const runState = getRunState(engine, runId);
+    // "owner" asks for the owner's own chat, which only a verified link or the
+    // connection itself can name; finding it by reading other chats exposed them.
+    // A missing recipient is a mistake, not a request to pick one.
+    let to = String(args.to || '').trim();
+    if (!to) return { error: 'send_message needs "to": a chat ID, or "owner" for the owner\'s own chat on that platform.' };
+    if (to.toLowerCase() === 'owner') {
+      to = manager.ownerDestination?.(userId, agentId, args.platform) || '';
+      if (!to) {
+        return { error: `There is no verified chat with the owner on ${args.platform || 'that platform'}. Name the chat, or ask the owner where to send it.` };
+      }
+    }
     const sendTarget = resolveInboundMessagingSendTarget({
       triggerSource,
       source: context.source,
       chatId: context.chatId,
       platform: args.platform,
-      to: args.to,
+      to,
       isGroup: inboundMessagingIsGroup(context, runState),
       senderId: inboundMessagingSenderId(context, runState),
     });

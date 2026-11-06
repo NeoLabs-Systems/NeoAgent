@@ -24,6 +24,8 @@ const VECTOR_FILE = path.join(DATA_DIR, 'tool_vectors.json');
 const warming = new Set();
 const warmFailedAt = new Map();
 let vectors = null;
+// One embedding space, as its provider declares it: "provider:model:dimensions:digest".
+const VECTOR_KEY = /^[^:]+:[^:]+:\d+:[0-9a-f]{64}$/;
 
 // Tool descriptions change rarely and cost a call each, so they outlive a restart.
 function loadVectors() {
@@ -31,6 +33,8 @@ function loadVectors() {
   vectors = new Map();
   try {
     for (const [key, encoded] of Object.entries(JSON.parse(fs.readFileSync(VECTOR_FILE, 'utf8')))) {
+      // Older files keyed vectors without their size, and by the host that served them.
+      if (!VECTOR_KEY.test(key)) continue;
       const bytes = Buffer.from(encoded, 'base64');
       vectors.set(key, new Float32Array(bytes.buffer, bytes.byteOffset, bytes.length / 4));
     }
@@ -40,17 +44,18 @@ function loadVectors() {
   return vectors;
 }
 
-function saveVectors() {
+// Written off the event loop: the file holds every tool's vector and is large.
+async function saveVectors() {
   const stored = {};
   for (const [key, vector] of vectors) {
     stored[key] = Buffer.from(vector.buffer, vector.byteOffset, vector.byteLength).toString('base64');
   }
   const temporary = `${VECTOR_FILE}.${process.pid}.tmp`;
   try {
-    fs.writeFileSync(temporary, JSON.stringify(stored));
-    fs.renameSync(temporary, VECTOR_FILE);
+    await fs.promises.writeFile(temporary, JSON.stringify(stored));
+    await fs.promises.rename(temporary, VECTOR_FILE);
   } catch {
-    fs.rmSync(temporary, { force: true });
+    await fs.promises.rm(temporary, { force: true });
   }
 }
 
@@ -66,7 +71,8 @@ function toolDocument(tool) {
 
 function vectorKey(embedding, document) {
   const digest = createHash('sha256').update(document).digest('hex');
-  return `${embedding.provider}:${embedding.model}:${digest}`;
+  const dimensions = embedding.dimensions || embedding.vector?.length || 0;
+  return `${embedding.provider}:${embedding.model}:${dimensions}:${digest}`;
 }
 
 function cosine(left, right) {
@@ -106,7 +112,7 @@ function warmToolVectors(allTools, provider, embedding, context = {}) {
     .then(() => {
       if (failed) warmFailedAt.set(warmKey, Date.now());
       else warmFailedAt.delete(warmKey);
-      saveVectors();
+      return saveVectors();
     })
     .finally(() => warming.delete(warmKey));
 }

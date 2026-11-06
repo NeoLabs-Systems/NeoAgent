@@ -39,7 +39,9 @@ function fakeNeoRouter() {
     // Paid image models the free-only key may not use.
     neorouter: { not_allowed_for_key: req.query.type === 'image' ? { free: 0, plan: 0, paid: 30 } : { free: 0, plan: 0, paid: 0 } },
   }));
-  app.post('/v1/embeddings', auth, (req, res) => res.json({ model: 'nvidia/embed', data: [{ index: 0, embedding: [0.1, 0.2, 0.3] }] }));
+  // Like the real router: the body names the host, the pin header the space.
+  app.post('/v1/embeddings', auth, (req, res) => res.set('X-NeoRouter-Embedding-Pin', 'embed-model-v1')
+    .json({ model: 'nvidia-2/embed', data: [{ index: 0, embedding: [0.1, 0.2, 0.3] }] }));
   app.post('/v1/search', auth, (req, res) => res.json({ results: [{ title: 'NeoRouter', url: 'https://example.com', content: `about ${req.body.query}` }] }));
   app.post('/v1/systemone', auth, (req, res) => res.json({ model: req.body.model, answers: { ok: true } }));
   return new Promise((resolve) => {
@@ -95,6 +97,7 @@ test('every kind of work goes through the connected router', async () => {
   const embedded = await getEmbeddingWithMetadata('hello', 'openai', { userId: user.userId });
   assert.equal(embedded.provider, 'neorouter');
   assert.equal(embedded.dimensions, 3);
+  assert.equal(embedded.model, 'embed-model-v1', 'the space the router pinned, not the host that served it');
 
   const { createProviderInstance } = require('../../../server/services/ai/models');
   const provider = createProviderInstance('neorouter', user.userId);

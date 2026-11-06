@@ -46,7 +46,7 @@ A memory with `relation: derives` is an assumption whatever its trust level. So 
 
 | Path | When | Code |
 |---|---|---|
-| Conversation learning | After each completed run that has a conversation | `refreshConversationState()` then `consolidateMemoryCandidates()` |
+| Conversation learning | After each completed run that has a conversation, except runs a saved task started (they open on the task's instructions, not on anything the owner said) | `refreshConversationState()` then `consolidateMemoryCandidates()` |
 | Agent tools | `memory_save`, `memory_update_core` | `services/ai/tools/handlers/memory.js` |
 | App and API | `/api/memory/memories`, `/api/memory/core/:key` | `routes/memory.js` |
 | Transfer import | Memory exported from another assistant | `/api/memory/transfer-import`, `memory/llm_transfer.js` |
@@ -59,7 +59,7 @@ Conversation learning asks the run's model for at most 12 candidates and exclude
 - **Guesses.** Assistant suggestions and unverified claims.
 - **Thread-only details.** Facts useful only inside the current thread.
 
-Extraction is not verification. `groundMemoryCandidates()` retains extracted subject/predicate/value relationships as `model_inference`, with `relation: derives` and confidence at most 0.5. They cannot supersede known facts. An exact quote found only in assistant text is rejected. Object overlap, recalled text, model-declared sources and translated/paraphrased evidence do not establish a verified relationship. No additional model call is made.
+A candidate whose `evidence` quote is found neither in the owner's messages nor in a tool result is dropped: a quote of the assistant, an invented sentence, or an example copied from the extraction prompt is no evidence. Extraction is not verification. `groundMemoryCandidates()` retains extracted subject/predicate/value relationships as `model_inference`, with `relation: derives` and confidence at most 0.5. They cannot supersede known facts. An exact quote found only in assistant text is rejected. Object overlap, recalled text, model-declared sources and translated/paraphrased evidence do not establish a verified relationship. No additional model call is made.
 
 `last_verified_facts` retains only complete matching owner-authored messages. Direct `memory_save` can establish `user_stated` only when the whole saved content matches actual owner-authored text; an app/API owner edit can explicitly confirm content. A content digest binds verification to that exact record. Historical labels without that binding are displayed as retrieved until confirmed again; the memories are preserved. Verification describes provenance, not independent factual truth.
 
@@ -100,7 +100,7 @@ A fact from outside content that conflicts with a static or high-confidence (≥
 1. **Candidates.** Vector bands, FTS matches on any query word, exact entity names, related memories and the 160 most important memories. The last group only gives the noise estimate below a sample; it earns no score.
 2. **Filter.** Drop archived rows, other scopes, and memories whose facts are all superseded or expired.
 3. **Signals.** Each is graded from 0 to 1 (`server/services/memory/relevance.js`):
-   - **Semantic.** Cosine similarity (same embedding model only), measured from the median cosine of this query's candidates. Unrelated text scores 0.2 on one model and 0.6 on another, so a raw value means nothing.
+   - **Semantic.** Cosine similarity, only between vectors from the same embedding space as its provider declares it (provider, model and size; NeoRouter names the space in its `X-NeoRouter-Embedding-Pin` header, the host that served the request is not the space), measured from the median cosine of this query's candidates. Unrelated text scores 0.2 on one model and 0.6 on another, so a raw value means nothing.
    - **Lexical.** The share of the query's weight that a memory covers. Weights come from how often the user's own memories use a word, which handles every language. At least one distinctive word has to match. If FTS is unavailable, frequencies are derived from the scoped candidate corpus rather than silently set to zero.
    - **Entity.** An exact entity name, worth less the more memories mention it.
    - **Relation.** A share of the signal of a linked memory that matched.
@@ -158,6 +158,7 @@ The values come from the sweep in `test/backend/unit/memory_retrieval_labelled.t
 |---|---|---|
 | Fact reconciliation | Every 6 hours, per active agent | Expires facts past `valid_to`, flags confidence below 0.35 for review, marks duplicates, restores memories hidden when locally built facts used to supersede each other |
 | Embedding index backfill | At startup | Builds missing `memory_embedding_bands` rows |
+| Embedding refresh | 20 memories a minute from startup, until none are left | Embeds memories with no vector, then those from another embedding space than the user's newest, once each per process |
 | Knowledge views | After each ingestion batch, or `POST /api/memory/knowledge-views/materialize` | Rebuilds `materialized_knowledge_views` |
 
 ## Privacy

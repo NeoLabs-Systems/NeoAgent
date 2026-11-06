@@ -51,13 +51,18 @@ function buildLoopPolicy(aiSettings = {}, options = {}) {
 
   // Results cut below what the model needs are re-fetched in slices, and each
   // slice is a full model turn, so the budget errs on the side of complete.
+  // A stored value below these is never cheaper: older settings kept 1200, and one run
+  // read its results back in 2 KB slices for 346 turns and 48M tokens.
   const requestedDefaultBudget = optionalNumber(aiSettings.tool_replay_budget_chars);
-  const defaultBudget = Number.isFinite(requestedDefaultBudget) && requestedDefaultBudget > 0
-    ? clampFinite(Math.floor(requestedDefaultBudget), 500, MAX_ALLOWED_BUDGET_CHARS, DEFAULT_TOOL_RESULT_BUDGET_CHARS)
-    : DEFAULT_TOOL_RESULT_BUDGET_CHARS;
+  const defaultBudget = clampFinite(
+    Math.floor(requestedDefaultBudget),
+    DEFAULT_TOOL_RESULT_BUDGET_CHARS,
+    MAX_ALLOWED_BUDGET_CHARS,
+    DEFAULT_TOOL_RESULT_BUDGET_CHARS,
+  );
   const categoryBudget = (setting, floor) => clampFinite(
     Math.floor(optionalNumber(aiSettings[setting])),
-    500,
+    Math.max(defaultBudget, floor),
     MAX_ALLOWED_BUDGET_CHARS,
     Math.max(defaultBudget, floor),
   );

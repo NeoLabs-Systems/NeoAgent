@@ -89,6 +89,8 @@ function inferToolFailureMessage(toolName, result) {
   if (explicitError) return explicitError;
 
   if (!result || typeof result !== 'object') return '';
+  // Choosing to say nothing is an answer, not a failed send.
+  if (result.reason === 'no_response') return '';
 
   const nested = result.result && typeof result.result === 'object' ? result.result : {};
   const failedReport = Array.isArray(result.report) ? result.report.find((entry) => entry?.success === false) : null;
@@ -114,6 +116,7 @@ function inferToolFailureMessage(toolName, result) {
 module.exports = {
   classifyToolExecution,
   gatheredNewEvidence,
+  isSubstantiveProgressEvidence,
   summarizeProgressToolExecutions,
   inferToolFailureMessage,
 };

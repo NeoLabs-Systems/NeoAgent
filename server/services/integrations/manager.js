@@ -1029,7 +1029,14 @@ class IntegrationManager {
               connectionId: connection.id,
             };
           }
-          return { error: err?.message || 'execution_error' };
+          // The status and any wait the service asked for stay with the error,
+          // so the loop can tell a refusal from an outage.
+          const retryAfterSeconds = Number(err?.headers?.get?.('retry-after'));
+          return {
+            error: err?.message || 'execution_error',
+            ...(Number.isInteger(err?.status) ? { status: err.status } : {}),
+            ...(retryAfterSeconds > 0 ? { retryAfterSeconds } : {}),
+          };
         }
         if (!execution) {
           return { error: 'execution_failed' };

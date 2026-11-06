@@ -61,7 +61,10 @@ These steps run concurrently where possible:
 8. **Task model.** After a tool turn, move to a pinned model for that kind of work (`coding`, `computer_use`, `android_use`, `research`) unless the run had an explicit model.
 
 - **Ordering.** Contiguous read-only calls run in parallel; a state-changing call is a barrier.
-- **Progress.** Interactive runs post a model-written progress line after a silence; schedules and subagents stay quiet.
+- **Progress.** Interactive chat runs post a model-written progress line when tool work finished since the last one, never on a timer alone. The narrator sees only that new work and its own previous line, and an empty answer means nothing to say. Each line waits twice as long as the one before (up to 16 times the first gap). Calls report on the line themselves, with gaps that also keep growing; schedules and subagents stay quiet.
+- **Ending.** A turn whose only calls send a text reply to the chat a messaging run answers ends the run: that reply is the answer, and a status that is not the end goes through `send_interim_update`.
+- **Recipients.** `send_message` always names its chat. `to: "owner"` means the owner's own chat on that platform, and only a verified one: the chat a shared-bot link was made from, or the connection's own account where the platform can tell it is the owner's (WhatsApp in self-chat mode). Otherwise the call fails; the last chat someone wrote from is never used, since it may be a group or another person.
+- **Waiting.** A shell command gets 3 minutes unless it asks for more. A model stream that sends nothing for 2 minutes, first chunk included, counts as failed, so the next model can take over.
 
 | Runaway guard | Default | Setting |
 |---|---|---|

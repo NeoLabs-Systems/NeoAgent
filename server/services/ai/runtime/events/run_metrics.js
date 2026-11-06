@@ -145,7 +145,10 @@ function taskOutcome({ status, events, toolResults }) {
   const actions = toolResults.filter((event) => event.payload?.receipt?.mutating);
   const tests = toolResults.filter((event) => event.payload?.receipt?.test);
   const lastTest = tests.at(-1) || null;
-  const changes = ofType(events, T.WORKSPACE_CHANGED);
+  // A call outside any repository is not a change anyone saw; counted as one, it
+  // marked every shell run "unverified" whatever it did.
+  const located = ofType(events, T.WORKSPACE_CHANGED);
+  const changes = located.filter((event) => event.payload?.reason !== 'not_a_repository');
   const tracked = changes.filter((event) => !event.payload?.untracked);
   const lastChange = changes.at(-1) || null;
   const restores = ofType(events, T.CHECKPOINT_RESTORED);
@@ -155,6 +158,7 @@ function taskOutcome({ status, events, toolResults }) {
     actions_failed: actions.filter((event) => !event.payload.receipt.ok).length,
     files_changed: new Set(tracked.flatMap((event) => event.payload?.paths || [])).size,
     changes_untracked: changes.length - tracked.length,
+    outside_repositories: located.length - changes.length,
     tests_run: tests.length,
     last_test: test,
     messages_sent: ofType(events, T.DELIVERY_SENT).filter((event) => event.payload?.purpose !== 'final').length,

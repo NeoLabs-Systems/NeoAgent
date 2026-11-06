@@ -319,7 +319,7 @@ async function runAgentLoop(session) {
       setSteeringIntake(engine, runId, false);
       return { type: 'answer', content: toolTurn.terminalAnswer };
     }
-    await session.progressBroker.maybePublish({ delta: session.collectProgressDelta() });
+    await session.progressBroker.maybePublish();
   }
 }
 

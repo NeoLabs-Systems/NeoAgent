@@ -7,9 +7,11 @@ const {
   cosineSimilarity,
   serializeEmbedding,
   deserializeEmbedding,
-  keywordSimilarity
+  keywordSimilarity,
+  sameEmbeddingSpace,
 } = require('./embeddings');
 const { getMemoryStorageDecision } = require('./policy');
+const { refreshMemoryEmbeddings } = require('./embedding_refresh');
 const {
   buildFacts,
   canonicalEntityKey,
@@ -281,6 +283,7 @@ class MemoryManager {
     this._ensureDirs();
     this._backfillMemoryIntelligence();
     this.embeddingBackfillTimer = null;
+    this.embeddingRefreshTimer = null;
     this._lowercaseWordsCache = null;
   }
 
@@ -300,6 +303,39 @@ class MemoryManager {
       this.embeddingBackfillTimer.unref?.();
     }
     return this.embeddingBackfillTimer;
+  }
+
+  // Embeds memories that have no comparable vector, a batch a minute. Done when a
+  // batch finds nothing; a provider that gives nothing is asked again later.
+  startEmbeddingRefresh({ intervalMs = 60_000, retryAfterMs = 10 * 60_000 } = {}) {
+    if (this.embeddingRefreshTimer) return this.embeddingRefreshTimer;
+    let pausedUntil = 0;
+    let running = false;
+    const tick = async () => {
+      if (running || Date.now() < pausedUntil) return;
+      running = true;
+      try {
+        const embedded = await refreshMemoryEmbeddings({
+          resolveProvider: (userId, agentId) => getActiveProvider(userId, agentId),
+        });
+        if (embedded === 0) this.stopEmbeddingRefresh();
+        else if (embedded === null) pausedUntil = Date.now() + retryAfterMs;
+      } catch (error) {
+        console.error('[Memory] Embedding refresh failed:', error.message);
+        pausedUntil = Date.now() + retryAfterMs;
+      } finally {
+        running = false;
+      }
+    };
+    this.embeddingRefreshTimer = setInterval(tick, intervalMs);
+    this.embeddingRefreshTimer.unref?.();
+    return this.embeddingRefreshTimer;
+  }
+
+  stopEmbeddingRefresh() {
+    if (!this.embeddingRefreshTimer) return;
+    clearInterval(this.embeddingRefreshTimer);
+    this.embeddingRefreshTimer = null;
   }
 
   stopEmbeddingIndexBackfill() {
@@ -1932,14 +1968,12 @@ class MemoryManager {
 
     const replaced = new Set([...namedReplacements, ...valueChanges(existing)]);
     const similarity = (mem) => {
-      if (
-        embedding
-        && mem.embedding
-        && mem.embedding_provider === embeddingResult?.provider
-        && mem.embedding_model === embeddingResult?.model
-      ) {
-        const memVec = deserializeEmbedding(mem.embedding);
-        return memVec ? cosineSimilarity(embedding, memVec) : 0;
+      const memVec = embedding && mem.embedding ? deserializeEmbedding(mem.embedding) : null;
+      if (memVec && sameEmbeddingSpace(
+        { provider: mem.embedding_provider, model: mem.embedding_model, dimensions: memVec.length },
+        { provider: embeddingResult?.provider, model: embeddingResult?.model, dimensions: embedding.length },
+      )) {
+        return cosineSimilarity(embedding, memVec);
       }
       return keywordSimilarity(content, mem.content);
     };
@@ -2315,15 +2349,12 @@ class MemoryManager {
 
     const withCosines = all.map((mem) => {
       let cosine = 0;
-      const sameEmbeddingSpace = !queryEmbeddingResult?.provider
-        || !queryEmbeddingResult?.model
-        || (
-          mem.embedding_provider === queryEmbeddingResult.provider
-          && mem.embedding_model === queryEmbeddingResult.model
-        );
-      if (queryVec && mem.embedding && sameEmbeddingSpace) {
-        const memVec = deserializeEmbedding(mem.embedding);
-        if (memVec) cosine = cosineSimilarity(queryVec, memVec);
+      const memVec = queryVec && mem.embedding ? deserializeEmbedding(mem.embedding) : null;
+      if (memVec && sameEmbeddingSpace(
+        { provider: mem.embedding_provider, model: mem.embedding_model, dimensions: memVec.length },
+        { provider: queryEmbeddingResult?.provider, model: queryEmbeddingResult?.model, dimensions: queryVec.length },
+      )) {
+        cosine = cosineSimilarity(queryVec, memVec);
       }
       return { mem, cosine };
     });

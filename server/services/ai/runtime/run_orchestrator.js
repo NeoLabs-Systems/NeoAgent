@@ -5,7 +5,7 @@ const db = require('../../../db/database');
 const { buildStoredUserContent } = require('../history');
 const { ensureDefaultAiSettings, getAiSettings } = require('../settings');
 const { getCapabilityHealth } = require('../capabilityHealth');
-const { summarizeProgressToolExecutions } = require('../toolEvidence');
+const { isSubstantiveProgressEvidence, summarizeProgressToolExecutions } = require('../toolEvidence');
 const { enforceRateLimits } = require('../rate_limits');
 const { parseModelSelectionId } = require('../model_identity');
 const { getProviderRuntimeConfig } = require('../models');
@@ -74,8 +74,14 @@ function applyTransition(args) {
   return result;
 }
 
-function collectProgressDelta(toolExecutions = []) {
-  return { evidence: summarizeProgressToolExecutions(toolExecutions, 5) };
+// Only what finished since the last update is news; the cursor is the broker's.
+function collectProgressDelta(toolExecutions = [], since = 0) {
+  const fresh = toolExecutions.slice(since).filter(isSubstantiveProgressEvidence);
+  return {
+    completed: fresh.map((item) => `${item.toolName}:${item.ok ? 'ok' : 'failed'}`),
+    evidence: summarizeProgressToolExecutions(fresh, 5),
+    through: toolExecutions.length,
+  };
 }
 
 /**
@@ -145,7 +151,7 @@ class DurableRunRuntime {
       progressBroker: null,
       contextPressure: null,
       providerStatusConfig: null,
-      collectProgressDelta: () => collectProgressDelta(session.toolExecutions),
+      collectProgressDelta: (since) => collectProgressDelta(session.toolExecutions, since),
       getActiveSignal: null,
       emitPhase: (phase, label) => {
         this.engine.emit(userId, 'run:phase', {
@@ -368,10 +374,10 @@ class DurableRunRuntime {
         getLastVisibleAt: () => Date.parse(this.engine.getRunMeta(runId)?.lastUserVisibleAt || '') || 0,
         // A model turn that is still streaming has produced nothing to report;
         // narrating it can only tell the user that nothing has happened.
-        narrator: async ({ delta, liveness }) => (
+        narrator: async ({ delta, liveness, previous }) => (
           liveness?.phase === 'model_started' && !Number(liveness?.runningTools) && !delta?.evidence
             ? ''
-            : narrateProgress(this.engine, session, { delta, liveness, signal: abortController.signal })
+            : narrateProgress(this.engine, session, { delta, liveness, previous, signal: abortController.signal })
         ),
       });
       session.progressBroker.markAccepted();
@@ -806,8 +812,10 @@ class DurableRunRuntime {
     // committing the final message. Emitting again made clients see the same
     // answer arrive twice.
 
-    // Conversation learning is serialized per thread and runs after delivery.
-    if (conversationId && memoryManager) {
+    // Conversation learning is serialized per thread and runs after delivery. A run
+    // a saved task started opens on that task's own instructions, not on anything
+    // the owner said; learning from it stored the instructions as preferences.
+    if (conversationId && memoryManager && !options.taskId) {
       this.engine.trackBackgroundTask(
         (signal) => this.engine.refreshConversationState({
           conversationId,

@@ -21,7 +21,7 @@ module.exports = [
       type: 'object',
       properties: {
         platform: { type: 'string', description: 'Platform name, for example whatsapp, discord, telegram, slack, google_chat, teams, matrix, signal, imessage, bluebubbles, irc, line, mattermost, or webchat' },
-        to: { type: 'string', description: 'Recipient/chat ID for the connected platform, such as a WhatsApp chat ID, Slack channel ID, Matrix room ID, Discord channel snowflake / "dm_<userId>", Telegram "dm_<userId>" / raw group chat ID, IRC channel, or webhook target' },
+        to: { type: 'string', description: 'Recipient/chat ID for the connected platform, such as a WhatsApp chat ID, Slack channel ID, Matrix room ID, Discord channel snowflake / "dm_<userId>", Telegram "dm_<userId>" / raw group chat ID, IRC channel, or webhook target. "owner" sends to the owner\'s own chat on that platform, when one is verified.' },
         content: { type: 'string', description: 'Message text. Write one compact natural chat reply; the runtime adapts final formatting for the destination platform.' },
         media_path: { type: 'string', description: 'WhatsApp only: a path inside the user workspace or an owned artifact URL. Leave empty for text-only.' },
         purpose: { type: 'string', enum: ['final_result', 'blocker', 'no_response'], description: 'For background task or schedule runs, required intent for this outbound message. Use final_result for a concrete useful outcome, blocker for a real issue the user should know about, or no_response to intentionally send nothing.' }

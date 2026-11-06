@@ -274,3 +274,10 @@ test('inferToolFailureMessage surfaces http and command failures', () => {
   );
   assert.equal(inferToolFailureMessage('read_file', { content: 'fine' }), '');
 });
+
+test('choosing to say nothing is not a failed send', () => {
+  // Scheduled tasks answer "nothing to report" this way; counting it as a failure
+  // marked 23 of them action_failed on the live server.
+  assert.equal(inferToolFailureMessage('send_message', { sent: false, suppressed: true, skipped: true, reason: 'no_response' }), '');
+  assert.notEqual(inferToolFailureMessage('send_message', { sent: false, reason: 'not connected' }), '');
+});

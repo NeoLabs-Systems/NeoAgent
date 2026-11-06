@@ -167,8 +167,13 @@ function activateToolsForRun(engine, runId, names = []) {
     not_activated: result.notActivated,
     active_tool_names: result.tools.map((tool) => tool.name),
   }, { agentId: runMeta.agentId });
+  const problems = [
+    result.unknown.length ? `There is no tool called ${result.unknown.join(', ')}; search_tools finds tools by what they do.` : '',
+    result.notActivated.length ? `${result.notActivated.join(', ')} could not be turned on in this run.` : '',
+  ].filter(Boolean);
   return {
-    success: result.unknown.length === 0 && result.notActivated.length === 0,
+    success: problems.length === 0,
+    ...(problems.length ? { reason: problems.join(' ') } : {}),
     activated: result.activated,
     evicted: result.evicted,
     unknown: result.unknown,

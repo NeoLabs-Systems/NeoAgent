@@ -31,7 +31,7 @@ const SPOKEN_PROGRESS_GAP_MS = 60 * 1000;
 // While work runs, this much silence asks the live model for a status. The gaps
 // grow so a long task does not chatter, and start over when the owner speaks. The
 // client's typing sounds fill the time in between.
-const STATUS_SILENCE_GAPS_MS = Object.freeze([10, 20, 40, 60].map((seconds) => seconds * 1000));
+const STATUS_SILENCE_GAPS_MS = Object.freeze([10, 20, 40, 80, 160, 320].map((seconds) => seconds * 1000));
 const STATUS_TICK_MS = 1000;
 
 // Transcript fragments arrive with or without their leading space depending on
@@ -458,10 +458,13 @@ class LiveVoiceSession {
     if (silentForMs < STATUS_SILENCE_GAPS_MS[0]) return;
     const report = this.tasks.statusReport();
     if (!report) return;
-    // News can be said early. With nothing new to say, the wait is longer each time.
+    // Every status waits longer than the last, so a long task is not narrated step by
+    // step; with nothing new to say it waits one step longer still. The owner
+    // speaking starts the sequence over.
+    const last = STATUS_SILENCE_GAPS_MS.length - 1;
     const gap = report.latestStep !== this.lastStatusStep
-      ? STATUS_SILENCE_GAPS_MS[Math.min(this.statusStep, 1)]
-      : STATUS_SILENCE_GAPS_MS[Math.min(this.statusStep + 1, STATUS_SILENCE_GAPS_MS.length - 1)];
+      ? STATUS_SILENCE_GAPS_MS[Math.min(this.statusStep, last)]
+      : STATUS_SILENCE_GAPS_MS[Math.min(this.statusStep + 1, last)];
     if (silentForMs < gap) return;
     this.statusStep += 1;
     this.lastStatusStep = report.latestStep;

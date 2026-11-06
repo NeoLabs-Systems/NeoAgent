@@ -28,6 +28,8 @@ function normalizeMetadata(metadata) {
   return metadata;
 }
 
+const MAX_QUERY_MATCHES = 200;
+
 class ArtifactStore {
   constructor(options = {}) {
     this.rootDir = path.resolve(options.rootDir || ARTIFACTS_ROOT);
@@ -181,6 +183,24 @@ class ArtifactStore {
       'utf8',
     );
     const lines = content.split(/\r?\n/);
+    // Finding something in a long result should not take reading it page by page.
+    const query = String(options.query || '').trim().toLowerCase();
+    if (query) {
+      const matching = [];
+      lines.forEach((line, index) => {
+        if (line.toLowerCase().includes(query)) matching.push(`${index + 1}: ${line}`);
+      });
+      return {
+        artifactId: artifact.id,
+        contentType: artifact.content_type,
+        byteSize: Number(artifact.byte_size || 0),
+        content: matching.slice(0, MAX_QUERY_MATCHES).join('\n'),
+        matches: matching.length,
+        totalLines: lines.length,
+        truncated: matching.length > MAX_QUERY_MATCHES,
+        url: artifact.url,
+      };
+    }
     const startLine = Math.min(
       lines.length,
       Math.max(1, Math.floor(Number(options.startLine) || 1)),

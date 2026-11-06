@@ -66,11 +66,16 @@ function sanitizeMarkdownAware(text) {
     .join('');
 }
 
+// Reasoning written into the reply as tags. A stream cut short leaves a block
+// unclosed, and some chat templates drop the opening tag; either way everything
+// on the thought side of the tag stays out of the reply.
 function stripThoughtBlocks(text) {
   if (!/<\/?think(?:ing)?>/i.test(text)) return text;
   return text
     .replace(/[ \t]*<think>[\s\S]*?<\/think>[ \t]*/gi, '')
     .replace(/[ \t]*<thinking>[\s\S]*?<\/thinking>[ \t]*/gi, '')
+    .replace(/^[\s\S]*<\/think(?:ing)?>[ \t]*/i, '')
+    .replace(/[ \t]*<think(?:ing)?>[\s\S]*$/i, '')
     .replace(/\n{3,}/g, '\n\n')
     .replace(/^\n+/, '')
     .replace(/\n+$/, '');

@@ -278,6 +278,18 @@ async function embedWithMetadata(text, provider, options = {}) {
   };
 }
 
+// Two vectors can be compared only when the same model made them at the same
+// size. The identity is what the provider declares for the space (for NeoRouter,
+// its embedding pin), never inferred from a name: two models can share a size,
+// and a guessed match returns wrong memories while recall looks healthy.
+function sameEmbeddingSpace(left, right) {
+  return Boolean(left?.provider && left?.model)
+    && left.provider === right?.provider
+    && left.model === right?.model
+    && Number(left.dimensions) > 0
+    && Number(left.dimensions) === Number(right?.dimensions);
+}
+
 /**
  * Cosine similarity between two Float32Arrays.
  * Returns a value in [-1, 1]; higher = more similar.
@@ -332,6 +344,7 @@ function keywordSimilarity(query, text) {
 }
 
 module.exports = {
+  sameEmbeddingSpace,
   shareQueryEmbedding,
   getEmbedding,
   getEmbeddingWithMetadata,

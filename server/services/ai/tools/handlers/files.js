@@ -162,6 +162,7 @@ const handlers = {
     return artifactStore.readTextArtifact(userId, args.artifact_id, {
       startLine: args.start_line,
       endLine: args.end_line,
+      query: args.query,
     });
     } catch (err) {
     return { error: err.message };
