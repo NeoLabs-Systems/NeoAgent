@@ -7203,5 +7203,14 @@
   "bitwardenLock": "Glasáil",
   "integrationConfigured": "Cumraithe",
   "showMore": "Taispeáin níos mó",
-  "showLess": "Taispeáin níos lú"
+  "showLess": "Taispeáin níos lú",
+  "adminExtraModels": "Samhlacha breise",
+  "adminExtraModelsIntro": "Tá na samhlacha seo múchta do chách. Cuir tic leo siúd ar féidir le {username} iad a úsáid mar sin féin. Áirítear ritheanna leo fós i dteorainneacha an chuntais seo.",
+  "adminExtraModelsEmpty": "Níl aon samhail múchta do chách, mar sin níl aon rud breise le deonú.",
+  "adminExtraModelsSearch": "Cuardaigh samhlacha",
+  "adminExtraModelsCount": "Samhlacha breise: {count}",
+  "adminExtraModelsSaved": "Sábháladh samhlacha breise do {username}",
+  "auditModelsChanged": "D’athraigh {actor} na samhlacha breise is féidir le {subject} a úsáid",
+  "modelAdminGranted": "Deonaithe",
+  "modelAdminGrantedHint": "Dheonaigh riarthóir an tsamhail seo duit. Tá sí múchta do gach duine eile."
 }

@@ -12774,4 +12774,41 @@ class AppL10nDa extends AppL10n {
 
   @override
   String get showLess => 'Vis mindre';
+
+  @override
+  String get adminExtraModels => 'Ekstra modeller';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Disse modeller er slået fra for alle. Sæt hak ved dem, $username alligevel må bruge. Kørsler med dem tæller stadig med i kontoens grænser.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Ingen modeller er slået fra for alle, så der er intet ekstra at give adgang til.';
+
+  @override
+  String get adminExtraModelsSearch => 'Søg i modeller';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    return 'Ekstra modeller: $count';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Ekstra modeller gemt for $username';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor ændrede hvilke ekstra modeller $subject kan bruge';
+  }
+
+  @override
+  String get modelAdminGranted => 'Tildelt';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'En administrator har givet dig adgang til denne model. Den er slået fra for alle andre.';
 }

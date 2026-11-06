@@ -12767,4 +12767,41 @@ class AppL10nHr extends AppL10n {
 
   @override
   String get showLess => 'Prikaži manje';
+
+  @override
+  String get adminExtraModels => 'Dodatni modeli';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Ovi modeli isključeni su za sve. Označite one koje $username ipak smije koristiti. Pokretanja s njima i dalje se računaju u ograničenja ovog računa.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Nijedan model nije isključen za sve, pa nema ničega dodatnog za dodijeliti.';
+
+  @override
+  String get adminExtraModelsSearch => 'Pretraži modele';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    return 'Dodatni modeli: $count';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Dodatni modeli za $username spremljeni';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor je promijenio koje dodatne modele $subject može koristiti';
+  }
+
+  @override
+  String get modelAdminGranted => 'Dodijeljeno';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Administrator vam je dodijelio ovaj model. Za sve ostale je isključen.';
 }

@@ -12781,4 +12781,47 @@ class AppL10nSv extends AppL10n {
 
   @override
   String get showLess => 'Visa mindre';
+
+  @override
+  String get adminExtraModels => 'Extra modeller';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'De här modellerna är avstängda för alla. Markera de som $username ändå får använda. Körningar med dem räknas fortfarande mot kontots gränser.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Ingen modell är avstängd för alla, så det finns inget extra att ge tillgång till.';
+
+  @override
+  String get adminExtraModelsSearch => 'Sök modeller';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count extra modeller',
+      one: '1 extra modell',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Extra modeller sparade för $username';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor ändrade vilka extra modeller $subject kan använda';
+  }
+
+  @override
+  String get modelAdminGranted => 'Tilldelad';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'En administratör har gett dig den här modellen. Den är avstängd för alla andra.';
 }

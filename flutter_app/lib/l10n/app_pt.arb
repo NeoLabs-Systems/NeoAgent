@@ -7203,5 +7203,14 @@
   "bitwardenLock": "Bloquear",
   "integrationConfigured": "Configurado",
   "showMore": "Mostrar mais",
-  "showLess": "Mostrar menos"
+  "showLess": "Mostrar menos",
+  "adminExtraModels": "Modelos extras",
+  "adminExtraModelsIntro": "Estes modelos estão desativados para todos. Marque os que {username} pode usar mesmo assim. As execuções com eles continuam contando para os limites desta conta.",
+  "adminExtraModelsEmpty": "Nenhum modelo está desativado para todos, então não há nada extra para conceder.",
+  "adminExtraModelsSearch": "Pesquisar modelos",
+  "adminExtraModelsCount": "{count, plural, =1{1 modelo extra} other{{count} modelos extras}}",
+  "adminExtraModelsSaved": "Modelos extras salvos para {username}",
+  "auditModelsChanged": "{actor} alterou quais modelos extras {subject} pode usar",
+  "modelAdminGranted": "Concedido",
+  "modelAdminGrantedHint": "Um administrador concedeu este modelo a você. Ele está desativado para todos os outros."
 }

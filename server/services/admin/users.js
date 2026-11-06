@@ -19,6 +19,7 @@ function listUsers(search) {
   const users = db.prepare(`
     SELECT u.id, u.username, u.display_name, u.email, u.email_verified_at,
            u.created_at, u.last_login, u.rate_limit_4h, u.rate_limit_weekly,
+           CASE WHEN json_valid(u.allowed_models) THEN json_array_length(u.allowed_models) ELSE 0 END AS granted_models,
            COALESCE(r.run_count,    0) AS run_count,
            COALESCE(a.storage_bytes,0) AS storage_bytes,
            u.is_admin,

@@ -7203,5 +7203,14 @@
   "bitwardenLock": "Sakkar",
   "integrationConfigured": "Konfigurat",
   "showMore": "Uri aktar",
-  "showLess": "Uri inqas"
+  "showLess": "Uri inqas",
+  "adminExtraModels": "Mudelli addizzjonali",
+  "adminExtraModelsIntro": "Dawn il-mudelli huma mitfija għal kulħadd. Immarka dawk li {username} jista’ juża xorta waħda. Il-ħidmiet bihom xorta jgħoddu għal-limiti ta’ dan il-kont.",
+  "adminExtraModelsEmpty": "L-ebda mudell mhu mitfi għal kulħadd, għalhekk m’hemm xejn żejjed x’tagħti.",
+  "adminExtraModelsSearch": "Fittex mudelli",
+  "adminExtraModelsCount": "Mudelli addizzjonali: {count}",
+  "adminExtraModelsSaved": "Il-mudelli addizzjonali għal {username} ġew salvati",
+  "auditModelsChanged": "{actor} biddel liema mudelli addizzjonali jista’ juża {subject}",
+  "modelAdminGranted": "Mogħti",
+  "modelAdminGrantedHint": "Amministratur tak dan il-mudell. Huwa mitfi għal kulħadd ieħor."
 }

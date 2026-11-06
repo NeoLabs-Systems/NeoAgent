@@ -7203,5 +7203,14 @@
   "bitwardenLock": "Lukitse",
   "integrationConfigured": "Määritetty",
   "showMore": "Näytä lisää",
-  "showLess": "Näytä vähemmän"
+  "showLess": "Näytä vähemmän",
+  "adminExtraModels": "Lisämallit",
+  "adminExtraModelsIntro": "Nämä mallit on poistettu käytöstä kaikilta. Valitse ne, joita {username} saa silti käyttää. Niillä tehdyt ajot lasketaan edelleen tämän tilin rajoihin.",
+  "adminExtraModelsEmpty": "Yhtään mallia ei ole poistettu käytöstä kaikilta, joten lisättävää ei ole.",
+  "adminExtraModelsSearch": "Hae malleja",
+  "adminExtraModelsCount": "Lisämalleja: {count}",
+  "adminExtraModelsSaved": "Käyttäjän {username} lisämallit tallennettu",
+  "auditModelsChanged": "{actor} muutti, mitä lisämalleja {subject} voi käyttää",
+  "modelAdminGranted": "Myönnetty",
+  "modelAdminGrantedHint": "Ylläpitäjä myönsi sinulle tämän mallin. Muilta se on poistettu käytöstä."
 }

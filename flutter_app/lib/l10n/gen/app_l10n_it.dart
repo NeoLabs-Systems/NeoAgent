@@ -12879,4 +12879,47 @@ class AppL10nIt extends AppL10n {
 
   @override
   String get showLess => 'Mostra di meno';
+
+  @override
+  String get adminExtraModels => 'Modelli aggiuntivi';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Questi modelli sono disattivati per tutti. Seleziona quelli che $username può usare comunque. Le esecuzioni con essi contano ancora nei limiti di questo account.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Nessun modello è disattivato per tutti, quindi non c’è nulla in più da concedere.';
+
+  @override
+  String get adminExtraModelsSearch => 'Cerca modelli';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count modelli aggiuntivi',
+      one: '1 modello aggiuntivo',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Modelli aggiuntivi salvati per $username';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor ha cambiato i modelli aggiuntivi che $subject può usare';
+  }
+
+  @override
+  String get modelAdminGranted => 'Concesso';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Un amministratore ti ha concesso questo modello. È disattivato per tutti gli altri.';
 }

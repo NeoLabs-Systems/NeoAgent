@@ -7203,5 +7203,14 @@
   "bitwardenLock": "Lås",
   "integrationConfigured": "Konfigureret",
   "showMore": "Vis mere",
-  "showLess": "Vis mindre"
+  "showLess": "Vis mindre",
+  "adminExtraModels": "Ekstra modeller",
+  "adminExtraModelsIntro": "Disse modeller er slået fra for alle. Sæt hak ved dem, {username} alligevel må bruge. Kørsler med dem tæller stadig med i kontoens grænser.",
+  "adminExtraModelsEmpty": "Ingen modeller er slået fra for alle, så der er intet ekstra at give adgang til.",
+  "adminExtraModelsSearch": "Søg i modeller",
+  "adminExtraModelsCount": "Ekstra modeller: {count}",
+  "adminExtraModelsSaved": "Ekstra modeller gemt for {username}",
+  "auditModelsChanged": "{actor} ændrede hvilke ekstra modeller {subject} kan bruge",
+  "modelAdminGranted": "Tildelt",
+  "modelAdminGrantedHint": "En administrator har givet dig adgang til denne model. Den er slået fra for alle andre."
 }

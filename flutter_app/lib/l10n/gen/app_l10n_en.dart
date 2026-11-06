@@ -12748,4 +12748,47 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get showLess => 'Show less';
+
+  @override
+  String get adminExtraModels => 'Extra models';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'These models are switched off for everyone. Tick the ones $username may use anyway. Runs on them still count toward this account\'s rate limits.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'No models are switched off for everyone, so there is nothing extra to grant.';
+
+  @override
+  String get adminExtraModelsSearch => 'Search models';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count extra models',
+      one: '1 extra model',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Saved extra models for $username';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor changed which extra models $subject can use';
+  }
+
+  @override
+  String get modelAdminGranted => 'Granted';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'An admin granted you this model. It is switched off for everyone else.';
 }

@@ -133,6 +133,25 @@ describe('admin API', () => {
     assert.deepEqual(defaults.body, { rate_limit_4h: 7000, rate_limit_weekly: 90000 });
   });
 
+  test('per-account model grants reject unknown models and clear back to none', async () => {
+    const client = await signedIn(owner);
+    const empty = await client.get(`/api/admin/users/${member.userId}/allowed-models`).expect(200);
+    assert.deepEqual(empty.body, { modelIds: [] });
+    // This test server has no providers, so any model id is unknown.
+    await client
+      .put(`/api/admin/users/${member.userId}/allowed-models`)
+      .send({ modelIds: ['anthropic::not-a-real-model'] })
+      .expect(400);
+    await client.put(`/api/admin/users/${member.userId}/allowed-models`).send({ modelIds: null }).expect(200);
+    await client.get('/api/admin/users/999999/allowed-models').expect(404);
+
+    const listed = await client.get('/api/admin/users').expect(200);
+    assert.equal(listed.body.users.find((user) => user.id === member.userId).granted_models, 0);
+
+    const memberClient = await signedIn(member);
+    await memberClient.get(`/api/admin/users/${member.userId}/allowed-models`).expect(403);
+  });
+
   test('the SQL console runs read-only queries and rejects everything else', async () => {
     const client = await signedIn(owner);
     const usersBefore = ctx.db.prepare('SELECT COUNT(*) AS n FROM users').get().n;

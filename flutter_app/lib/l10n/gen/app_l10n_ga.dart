@@ -12841,4 +12841,41 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get showLess => 'Taispeáin níos lú';
+
+  @override
+  String get adminExtraModels => 'Samhlacha breise';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Tá na samhlacha seo múchta do chách. Cuir tic leo siúd ar féidir le $username iad a úsáid mar sin féin. Áirítear ritheanna leo fós i dteorainneacha an chuntais seo.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Níl aon samhail múchta do chách, mar sin níl aon rud breise le deonú.';
+
+  @override
+  String get adminExtraModelsSearch => 'Cuardaigh samhlacha';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    return 'Samhlacha breise: $count';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Sábháladh samhlacha breise do $username';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return 'D’athraigh $actor na samhlacha breise is féidir le $subject a úsáid';
+  }
+
+  @override
+  String get modelAdminGranted => 'Deonaithe';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Dheonaigh riarthóir an tsamhail seo duit. Tá sí múchta do gach duine eile.';
 }

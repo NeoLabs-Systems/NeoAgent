@@ -7203,5 +7203,14 @@
   "bitwardenLock": "Zárolás",
   "integrationConfigured": "Beállítva",
   "showMore": "Több megjelenítése",
-  "showLess": "Kevesebb megjelenítése"
+  "showLess": "Kevesebb megjelenítése",
+  "adminExtraModels": "További modellek",
+  "adminExtraModelsIntro": "Ezek a modellek mindenkinek ki vannak kapcsolva. Jelöld be azokat, amelyeket {username} mégis használhat. A velük futtatott feladatok továbbra is beleszámítanak a fiók korlátaiba.",
+  "adminExtraModelsEmpty": "Egyetlen modell sincs mindenkinek kikapcsolva, így nincs mit külön engedélyezni.",
+  "adminExtraModelsSearch": "Modellek keresése",
+  "adminExtraModelsCount": "További modellek: {count}",
+  "adminExtraModelsSaved": "{username} további modelljei mentve",
+  "auditModelsChanged": "{actor} módosította, mely további modelleket használhatja {subject}",
+  "modelAdminGranted": "Engedélyezve",
+  "modelAdminGrantedHint": "Egy adminisztrátor engedélyezte neked ezt a modellt. Mindenki más számára ki van kapcsolva."
 }

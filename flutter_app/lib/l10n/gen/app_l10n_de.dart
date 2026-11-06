@@ -12882,4 +12882,47 @@ class AppL10nDe extends AppL10n {
 
   @override
   String get showLess => 'Weniger anzeigen';
+
+  @override
+  String get adminExtraModels => 'Zusätzliche Modelle';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Diese Modelle sind für alle ausgeschaltet. Hake die an, die $username trotzdem nutzen darf. Läufe damit zählen weiter zu den Limits dieses Kontos.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Kein Modell ist für alle ausgeschaltet, es gibt also nichts zusätzlich freizugeben.';
+
+  @override
+  String get adminExtraModelsSearch => 'Modelle suchen';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count zusätzliche Modelle',
+      one: '1 zusätzliches Modell',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Zusätzliche Modelle für $username gespeichert';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor hat geändert, welche zusätzlichen Modelle $subject nutzen kann';
+  }
+
+  @override
+  String get modelAdminGranted => 'Freigegeben';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Ein Admin hat dir dieses Modell freigegeben. Für alle anderen ist es ausgeschaltet.';
 }

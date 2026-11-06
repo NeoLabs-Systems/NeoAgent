@@ -1880,6 +1880,19 @@ function migrateUsersDisplayName() {
 }
 migrateUsersDisplayName();
 
+// Models an admin granted to this account on top of the server-wide list, as a
+// JSON array of model ids. NULL means none.
+function migrateUserAllowedModels() {
+  try {
+    const columns = db.pragma('table_info(users)');
+    if (!columns.some((c) => c.name === 'allowed_models')) {
+      db.exec('ALTER TABLE users ADD COLUMN allowed_models TEXT');
+    }
+  } catch (err) {
+    console.warn('Could not add allowed_models column:', err.message);
+  }
+}
+
 function migrateUserRateLimits() {
   try {
     const columns = db.pragma('table_info(users)');
@@ -1896,6 +1909,7 @@ function migrateUserRateLimits() {
   }
 }
 migrateUserRateLimits();
+migrateUserAllowedModels();
 
 function migrateIngestionDocumentsConnectionId() {
   // connection_id was initially nullable; NULL breaks the UNIQUE dedup constraint.

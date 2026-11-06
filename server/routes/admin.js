@@ -28,6 +28,7 @@ const {
 } = require('../services/admin/rate_limits');
 const { runReadOnlyQuery } = require('../services/admin/sql_console');
 const { listProviders, updateProvider } = require('../services/admin/providers');
+const { getUserModelGrants, setUserModelGrants } = require('../services/admin/model_grants');
 const {
   getGeneralSettings,
   updateGeneralSettings,
@@ -97,6 +98,18 @@ router.post('/users/:id/password', settingsLimiter, jsonHandler((req) => resetUs
 router.get('/users/:id/rate-limits', jsonHandler((req) => getUserRateLimits(userIdParam(req.params.id))));
 
 router.put('/users/:id/rate-limits', jsonHandler((req) => setUserRateLimits(userIdParam(req.params.id), req.body)));
+
+// Models granted to one account beyond the server-wide list.
+router.get('/users/:id/allowed-models', jsonHandler((req) => getUserModelGrants(userIdParam(req.params.id))));
+
+router.put('/users/:id/allowed-models', jsonHandler(async (req) => {
+  const userId = userIdParam(req.params.id);
+  const catalog = await getSupportedModels(null, null, { signal: req.signal });
+  return setUserModelGrants(userId, req.body?.modelIds ?? null, {
+    actorUserId: req.session.userId,
+    catalogIds: catalog.map((model) => model.id),
+  });
+}));
 
 router.get('/config/rate-limits', jsonHandler(() => getDefaultRateLimits()));
 

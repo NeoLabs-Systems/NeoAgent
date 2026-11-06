@@ -12819,4 +12819,47 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get showLess => 'Minder tonen';
+
+  @override
+  String get adminExtraModels => 'Extra modellen';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Deze modellen staan voor iedereen uit. Vink de modellen aan die $username toch mag gebruiken. Runs ermee tellen nog steeds mee voor de limieten van dit account.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Er staat geen model voor iedereen uit, dus er valt niets extra toe te kennen.';
+
+  @override
+  String get adminExtraModelsSearch => 'Modellen zoeken';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count extra modellen',
+      one: '1 extra model',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Extra modellen opgeslagen voor $username';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor heeft gewijzigd welke extra modellen $subject kan gebruiken';
+  }
+
+  @override
+  String get modelAdminGranted => 'Toegekend';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Een beheerder heeft je dit model toegekend. Voor iedereen anders staat het uit.';
 }

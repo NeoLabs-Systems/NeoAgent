@@ -12795,4 +12795,41 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get showLess => 'Rodyti mažiau';
+
+  @override
+  String get adminExtraModels => 'Papildomi modeliai';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Šie modeliai išjungti visiems. Pažymėkite tuos, kuriuos $username vis tiek gali naudoti. Vykdymai su jais vis tiek įskaičiuojami į šios paskyros limitus.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Nė vienas modelis nėra išjungtas visiems, todėl papildomai suteikti nėra ko.';
+
+  @override
+  String get adminExtraModelsSearch => 'Ieškoti modelių';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    return 'Papildomi modeliai: $count';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Papildomi $username modeliai išsaugoti';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor pakeitė, kuriuos papildomus modelius gali naudoti $subject';
+  }
+
+  @override
+  String get modelAdminGranted => 'Suteikta';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Administratorius suteikė jums šį modelį. Visiems kitiems jis išjungtas.';
 }

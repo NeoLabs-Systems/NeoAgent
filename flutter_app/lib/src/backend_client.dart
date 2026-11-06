@@ -752,6 +752,26 @@ class BackendClient {
     );
   }
 
+  Future<Map<String, dynamic>> fetchAdminUserModelGrants(
+    String baseUrl,
+    int userId,
+  ) async {
+    return getMap(baseUrl, '/api/admin/users/$userId/allowed-models');
+  }
+
+  /// Replaces the models granted to one account; an empty list clears them.
+  Future<Map<String, dynamic>> saveAdminUserModelGrants(
+    String baseUrl, {
+    required int userId,
+    required List<String> modelIds,
+  }) async {
+    return putMap(
+      baseUrl,
+      '/api/admin/users/$userId/allowed-models',
+      <String, dynamic>{'modelIds': modelIds},
+    );
+  }
+
   Future<Map<String, dynamic>> fetchAdminDefaultRateLimits(
     String baseUrl,
   ) async {

@@ -7991,5 +7991,45 @@
   "bitwardenLock": "Lock",
   "integrationConfigured": "Configured",
   "showMore": "Show more",
-  "showLess": "Show less"
+  "showLess": "Show less",
+  "adminExtraModels": "Extra models",
+  "adminExtraModelsIntro": "These models are switched off for everyone. Tick the ones {username} may use anyway. Runs on them still count toward this account's rate limits.",
+  "@adminExtraModelsIntro": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "adminExtraModelsEmpty": "No models are switched off for everyone, so there is nothing extra to grant.",
+  "adminExtraModelsSearch": "Search models",
+  "adminExtraModelsCount": "{count, plural, =1{1 extra model} other{{count} extra models}}",
+  "@adminExtraModelsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "adminExtraModelsSaved": "Saved extra models for {username}",
+  "@adminExtraModelsSaved": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "auditModelsChanged": "{actor} changed which extra models {subject} can use",
+  "@auditModelsChanged": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "subject": {
+        "type": "String"
+      }
+    }
+  },
+  "modelAdminGranted": "Granted",
+  "modelAdminGrantedHint": "An admin granted you this model. It is switched off for everyone else."
 }

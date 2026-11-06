@@ -7203,5 +7203,14 @@
   "bitwardenLock": "Vergrendelen",
   "integrationConfigured": "Ingesteld",
   "showMore": "Meer tonen",
-  "showLess": "Minder tonen"
+  "showLess": "Minder tonen",
+  "adminExtraModels": "Extra modellen",
+  "adminExtraModelsIntro": "Deze modellen staan voor iedereen uit. Vink de modellen aan die {username} toch mag gebruiken. Runs ermee tellen nog steeds mee voor de limieten van dit account.",
+  "adminExtraModelsEmpty": "Er staat geen model voor iedereen uit, dus er valt niets extra toe te kennen.",
+  "adminExtraModelsSearch": "Modellen zoeken",
+  "adminExtraModelsCount": "{count, plural, =1{1 extra model} other{{count} extra modellen}}",
+  "adminExtraModelsSaved": "Extra modellen opgeslagen voor {username}",
+  "auditModelsChanged": "{actor} heeft gewijzigd welke extra modellen {subject} kan gebruiken",
+  "modelAdminGranted": "Toegekend",
+  "modelAdminGrantedHint": "Een beheerder heeft je dit model toegekend. Voor iedereen anders staat het uit."
 }

@@ -21252,6 +21252,60 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Show less'**
   String get showLess;
+
+  /// No description provided for @adminExtraModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra models'**
+  String get adminExtraModels;
+
+  /// No description provided for @adminExtraModelsIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'These models are switched off for everyone. Tick the ones {username} may use anyway. Runs on them still count toward this account\'s rate limits.'**
+  String adminExtraModelsIntro(String username);
+
+  /// No description provided for @adminExtraModelsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No models are switched off for everyone, so there is nothing extra to grant.'**
+  String get adminExtraModelsEmpty;
+
+  /// No description provided for @adminExtraModelsSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search models'**
+  String get adminExtraModelsSearch;
+
+  /// No description provided for @adminExtraModelsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 extra model} other{{count} extra models}}'**
+  String adminExtraModelsCount(int count);
+
+  /// No description provided for @adminExtraModelsSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved extra models for {username}'**
+  String adminExtraModelsSaved(String username);
+
+  /// No description provided for @auditModelsChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} changed which extra models {subject} can use'**
+  String auditModelsChanged(String actor, String subject);
+
+  /// No description provided for @modelAdminGranted.
+  ///
+  /// In en, this message translates to:
+  /// **'Granted'**
+  String get modelAdminGranted;
+
+  /// No description provided for @modelAdminGrantedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'An admin granted you this model. It is switched off for everyone else.'**
+  String get modelAdminGrantedHint;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

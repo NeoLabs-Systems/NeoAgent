@@ -2732,6 +2732,7 @@ class ModelMeta {
     this.priceTier,
     this.isByok = false,
     this.byokLabel = '',
+    this.adminGranted = false,
   });
 
   factory ModelMeta.fromJson(Map<dynamic, dynamic> json) {
@@ -2747,6 +2748,7 @@ class ModelMeta {
       priceTier: json['priceTier']?.toString(),
       isByok: json['isByok'] == true,
       byokLabel: json['byokLabel']?.toString() ?? '',
+      adminGranted: json['adminGranted'] == true,
     );
   }
 
@@ -2766,6 +2768,9 @@ class ModelMeta {
   /// provider credentials rather than the server's shared ones.
   final bool isByok;
   final String byokLabel;
+
+  /// Switched off for everyone else; an admin granted it to this account.
+  final bool adminGranted;
 }
 
 class AiProviderMeta {

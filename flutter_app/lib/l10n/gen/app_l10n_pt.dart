@@ -12836,4 +12836,47 @@ class AppL10nPt extends AppL10n {
 
   @override
   String get showLess => 'Mostrar menos';
+
+  @override
+  String get adminExtraModels => 'Modelos extras';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Estes modelos estão desativados para todos. Marque os que $username pode usar mesmo assim. As execuções com eles continuam contando para os limites desta conta.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Nenhum modelo está desativado para todos, então não há nada extra para conceder.';
+
+  @override
+  String get adminExtraModelsSearch => 'Pesquisar modelos';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count modelos extras',
+      one: '1 modelo extra',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Modelos extras salvos para $username';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor alterou quais modelos extras $subject pode usar';
+  }
+
+  @override
+  String get modelAdminGranted => 'Concedido';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Um administrador concedeu este modelo a você. Ele está desativado para todos os outros.';
 }

@@ -7203,5 +7203,14 @@
   "bitwardenLock": "Bloķēt",
   "integrationConfigured": "Konfigurēts",
   "showMore": "Rādīt vairāk",
-  "showLess": "Rādīt mazāk"
+  "showLess": "Rādīt mazāk",
+  "adminExtraModels": "Papildu modeļi",
+  "adminExtraModelsIntro": "Šie modeļi ir izslēgti visiem. Atzīmējiet tos, kurus {username} tomēr drīkst izmantot. Palaidieni ar tiem joprojām tiek ieskaitīti šī konta limitos.",
+  "adminExtraModelsEmpty": "Neviens modelis nav izslēgts visiem, tāpēc nav ko papildus piešķirt.",
+  "adminExtraModelsSearch": "Meklēt modeļus",
+  "adminExtraModelsCount": "Papildu modeļi: {count}",
+  "adminExtraModelsSaved": "Lietotāja {username} papildu modeļi saglabāti",
+  "auditModelsChanged": "{actor} mainīja, kurus papildu modeļus var izmantot {subject}",
+  "modelAdminGranted": "Piešķirts",
+  "modelAdminGrantedHint": "Administrators jums piešķīra šo modeli. Visiem pārējiem tas ir izslēgts."
 }

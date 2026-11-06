@@ -7203,5 +7203,14 @@
   "bitwardenLock": "Zablokuj",
   "integrationConfigured": "Skonfigurowano",
   "showMore": "Pokaż więcej",
-  "showLess": "Pokaż mniej"
+  "showLess": "Pokaż mniej",
+  "adminExtraModels": "Dodatkowe modele",
+  "adminExtraModelsIntro": "Te modele są wyłączone dla wszystkich. Zaznacz te, których {username} może mimo to używać. Uruchomienia z nimi nadal liczą się do limitów tego konta.",
+  "adminExtraModelsEmpty": "Żaden model nie jest wyłączony dla wszystkich, więc nie ma czego dodatkowo przyznać.",
+  "adminExtraModelsSearch": "Szukaj modeli",
+  "adminExtraModelsCount": "Dodatkowe modele: {count}",
+  "adminExtraModelsSaved": "Zapisano dodatkowe modele dla {username}",
+  "auditModelsChanged": "{actor} zmienił, których dodatkowych modeli może używać {subject}",
+  "modelAdminGranted": "Przyznany",
+  "modelAdminGrantedHint": "Administrator przyznał ci ten model. Dla wszystkich innych jest wyłączony."
 }

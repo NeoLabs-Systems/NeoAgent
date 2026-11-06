@@ -1206,6 +1206,8 @@ class _AccessActivityList extends StatelessWidget {
         );
       case 'account.password_reset':
         return appStrings.adminAuditPasswordResetArg1Arg2(actor, subject);
+      case 'account.models_changed':
+        return appStrings.auditModelsChanged(actor, subject);
       case 'messaging.shared_configure':
         return appStrings.auditMessagingConfigured(actor, detail['platform']);
       case 'messaging.shared_remove':

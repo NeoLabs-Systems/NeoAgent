@@ -7203,5 +7203,14 @@
   "bitwardenLock": "Lås",
   "integrationConfigured": "Konfigurerad",
   "showMore": "Visa mer",
-  "showLess": "Visa mindre"
+  "showLess": "Visa mindre",
+  "adminExtraModels": "Extra modeller",
+  "adminExtraModelsIntro": "De här modellerna är avstängda för alla. Markera de som {username} ändå får använda. Körningar med dem räknas fortfarande mot kontots gränser.",
+  "adminExtraModelsEmpty": "Ingen modell är avstängd för alla, så det finns inget extra att ge tillgång till.",
+  "adminExtraModelsSearch": "Sök modeller",
+  "adminExtraModelsCount": "{count, plural, =1{1 extra modell} other{{count} extra modeller}}",
+  "adminExtraModelsSaved": "Extra modeller sparade för {username}",
+  "auditModelsChanged": "{actor} ändrade vilka extra modeller {subject} kan använda",
+  "modelAdminGranted": "Tilldelad",
+  "modelAdminGrantedHint": "En administratör har gett dig den här modellen. Den är avstängd för alla andra."
 }

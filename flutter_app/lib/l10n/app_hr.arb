@@ -7203,5 +7203,14 @@
   "bitwardenLock": "Zaključaj",
   "integrationConfigured": "Konfigurirano",
   "showMore": "Prikaži više",
-  "showLess": "Prikaži manje"
+  "showLess": "Prikaži manje",
+  "adminExtraModels": "Dodatni modeli",
+  "adminExtraModelsIntro": "Ovi modeli isključeni su za sve. Označite one koje {username} ipak smije koristiti. Pokretanja s njima i dalje se računaju u ograničenja ovog računa.",
+  "adminExtraModelsEmpty": "Nijedan model nije isključen za sve, pa nema ničega dodatnog za dodijeliti.",
+  "adminExtraModelsSearch": "Pretraži modele",
+  "adminExtraModelsCount": "Dodatni modeli: {count}",
+  "adminExtraModelsSaved": "Dodatni modeli za {username} spremljeni",
+  "auditModelsChanged": "{actor} je promijenio koje dodatne modele {subject} može koristiti",
+  "modelAdminGranted": "Dodijeljeno",
+  "modelAdminGrantedHint": "Administrator vam je dodijelio ovaj model. Za sve ostale je isključen."
 }

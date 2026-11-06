@@ -12765,4 +12765,41 @@ class AppL10nEt extends AppL10n {
 
   @override
   String get showLess => 'Näita vähem';
+
+  @override
+  String get adminExtraModels => 'Lisamudelid';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Need mudelid on kõigile välja lülitatud. Märgi need, mida $username võib siiski kasutada. Nendega tehtud käivitused lähevad endiselt selle konto limiitide hulka.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Ükski mudel pole kõigile välja lülitatud, seega pole midagi lisaks anda.';
+
+  @override
+  String get adminExtraModelsSearch => 'Otsi mudeleid';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    return 'Lisamudeleid: $count';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Kasutaja $username lisamudelid salvestati';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor muutis, milliseid lisamudeleid $subject kasutada saab';
+  }
+
+  @override
+  String get modelAdminGranted => 'Antud';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Administraator andis sulle selle mudeli. Kõigile teistele on see välja lülitatud.';
 }

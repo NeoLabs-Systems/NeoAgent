@@ -7203,5 +7203,14 @@
   "bitwardenLock": "Užrakinti",
   "integrationConfigured": "Sukonfigūruota",
   "showMore": "Rodyti daugiau",
-  "showLess": "Rodyti mažiau"
+  "showLess": "Rodyti mažiau",
+  "adminExtraModels": "Papildomi modeliai",
+  "adminExtraModelsIntro": "Šie modeliai išjungti visiems. Pažymėkite tuos, kuriuos {username} vis tiek gali naudoti. Vykdymai su jais vis tiek įskaičiuojami į šios paskyros limitus.",
+  "adminExtraModelsEmpty": "Nė vienas modelis nėra išjungtas visiems, todėl papildomai suteikti nėra ko.",
+  "adminExtraModelsSearch": "Ieškoti modelių",
+  "adminExtraModelsCount": "Papildomi modeliai: {count}",
+  "adminExtraModelsSaved": "Papildomi {username} modeliai išsaugoti",
+  "auditModelsChanged": "{actor} pakeitė, kuriuos papildomus modelius gali naudoti {subject}",
+  "modelAdminGranted": "Suteikta",
+  "modelAdminGrantedHint": "Administratorius suteikė jums šį modelį. Visiems kitiems jis išjungtas."
 }

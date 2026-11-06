@@ -12798,4 +12798,41 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get showLess => 'Uri inqas';
+
+  @override
+  String get adminExtraModels => 'Mudelli addizzjonali';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Dawn il-mudelli huma mitfija għal kulħadd. Immarka dawk li $username jista’ juża xorta waħda. Il-ħidmiet bihom xorta jgħoddu għal-limiti ta’ dan il-kont.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'L-ebda mudell mhu mitfi għal kulħadd, għalhekk m’hemm xejn żejjed x’tagħti.';
+
+  @override
+  String get adminExtraModelsSearch => 'Fittex mudelli';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    return 'Mudelli addizzjonali: $count';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Il-mudelli addizzjonali għal $username ġew salvati';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor biddel liema mudelli addizzjonali jista’ juża $subject';
+  }
+
+  @override
+  String get modelAdminGranted => 'Mogħti';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Amministratur tak dan il-mudell. Huwa mitfi għal kulħadd ieħor.';
 }

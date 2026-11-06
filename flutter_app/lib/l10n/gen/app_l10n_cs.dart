@@ -12769,4 +12769,41 @@ class AppL10nCs extends AppL10n {
 
   @override
   String get showLess => 'Zobrazit méně';
+
+  @override
+  String get adminExtraModels => 'Další modely';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Tyto modely jsou vypnuté pro všechny. Zaškrtněte ty, které $username přesto smí používat. Běhy s nimi se dál počítají do limitů tohoto účtu.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Žádný model není vypnutý pro všechny, takže není co navíc povolit.';
+
+  @override
+  String get adminExtraModelsSearch => 'Hledat modely';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    return 'Další modely: $count';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Další modely pro $username uloženy';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor změnil, které další modely může $subject používat';
+  }
+
+  @override
+  String get modelAdminGranted => 'Povoleno';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Správce vám povolil tento model. Pro všechny ostatní je vypnutý.';
 }

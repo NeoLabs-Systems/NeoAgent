@@ -12788,4 +12788,41 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get showLess => 'Rādīt mazāk';
+
+  @override
+  String get adminExtraModels => 'Papildu modeļi';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Šie modeļi ir izslēgti visiem. Atzīmējiet tos, kurus $username tomēr drīkst izmantot. Palaidieni ar tiem joprojām tiek ieskaitīti šī konta limitos.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Neviens modelis nav izslēgts visiem, tāpēc nav ko papildus piešķirt.';
+
+  @override
+  String get adminExtraModelsSearch => 'Meklēt modeļus';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    return 'Papildu modeļi: $count';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Lietotāja $username papildu modeļi saglabāti';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor mainīja, kurus papildu modeļus var izmantot $subject';
+  }
+
+  @override
+  String get modelAdminGranted => 'Piešķirts';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Administrators jums piešķīra šo modeli. Visiem pārējiem tas ir izslēgts.';
 }

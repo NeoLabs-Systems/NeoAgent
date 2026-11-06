@@ -12823,4 +12823,41 @@ class AppL10nRo extends AppL10n {
 
   @override
   String get showLess => 'Arată mai puțin';
+
+  @override
+  String get adminExtraModels => 'Modele suplimentare';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Aceste modele sunt dezactivate pentru toată lumea. Bifează-le pe cele pe care $username le poate folosi totuși. Rulările cu ele contează în continuare la limitele acestui cont.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Niciun model nu este dezactivat pentru toată lumea, deci nu este nimic suplimentar de acordat.';
+
+  @override
+  String get adminExtraModelsSearch => 'Caută modele';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    return 'Modele suplimentare: $count';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Modelele suplimentare pentru $username au fost salvate';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor a schimbat ce modele suplimentare poate folosi $subject';
+  }
+
+  @override
+  String get modelAdminGranted => 'Acordat';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Un administrator ți-a acordat acest model. Pentru toți ceilalți este dezactivat.';
 }

@@ -12777,4 +12777,41 @@ class AppL10nFi extends AppL10n {
 
   @override
   String get showLess => 'Näytä vähemmän';
+
+  @override
+  String get adminExtraModels => 'Lisämallit';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Nämä mallit on poistettu käytöstä kaikilta. Valitse ne, joita $username saa silti käyttää. Niillä tehdyt ajot lasketaan edelleen tämän tilin rajoihin.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Yhtään mallia ei ole poistettu käytöstä kaikilta, joten lisättävää ei ole.';
+
+  @override
+  String get adminExtraModelsSearch => 'Hae malleja';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    return 'Lisämalleja: $count';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Käyttäjän $username lisämallit tallennettu';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor muutti, mitä lisämalleja $subject voi käyttää';
+  }
+
+  @override
+  String get modelAdminGranted => 'Myönnetty';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Ylläpitäjä myönsi sinulle tämän mallin. Muilta se on poistettu käytöstä.';
 }

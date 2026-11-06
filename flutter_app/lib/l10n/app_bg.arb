@@ -7203,5 +7203,14 @@
   "bitwardenLock": "Заключване",
   "integrationConfigured": "Настроено",
   "showMore": "Покажи повече",
-  "showLess": "Покажи по-малко"
+  "showLess": "Покажи по-малко",
+  "adminExtraModels": "Допълнителни модели",
+  "adminExtraModelsIntro": "Тези модели са изключени за всички. Отметнете тези, които {username} може да използва въпреки това. Изпълненията с тях пак се отчитат към лимитите на този акаунт.",
+  "adminExtraModelsEmpty": "Няма модели, изключени за всички, така че няма какво да се разреши допълнително.",
+  "adminExtraModelsSearch": "Търсене на модели",
+  "adminExtraModelsCount": "Допълнителни модели: {count}",
+  "adminExtraModelsSaved": "Допълнителните модели за {username} са запазени",
+  "auditModelsChanged": "{actor} промени кои допълнителни модели може да използва {subject}",
+  "modelAdminGranted": "Разрешен",
+  "modelAdminGrantedHint": "Администратор ви е разрешил този модел. За всички останали той е изключен."
 }

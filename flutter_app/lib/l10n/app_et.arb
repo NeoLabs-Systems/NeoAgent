@@ -7203,5 +7203,14 @@
   "bitwardenLock": "Lukusta",
   "integrationConfigured": "Seadistatud",
   "showMore": "Näita rohkem",
-  "showLess": "Näita vähem"
+  "showLess": "Näita vähem",
+  "adminExtraModels": "Lisamudelid",
+  "adminExtraModelsIntro": "Need mudelid on kõigile välja lülitatud. Märgi need, mida {username} võib siiski kasutada. Nendega tehtud käivitused lähevad endiselt selle konto limiitide hulka.",
+  "adminExtraModelsEmpty": "Ükski mudel pole kõigile välja lülitatud, seega pole midagi lisaks anda.",
+  "adminExtraModelsSearch": "Otsi mudeleid",
+  "adminExtraModelsCount": "Lisamudeleid: {count}",
+  "adminExtraModelsSaved": "Kasutaja {username} lisamudelid salvestati",
+  "auditModelsChanged": "{actor} muutis, milliseid lisamudeleid {subject} kasutada saab",
+  "modelAdminGranted": "Antud",
+  "modelAdminGrantedHint": "Administraator andis sulle selle mudeli. Kõigile teistele on see välja lülitatud."
 }

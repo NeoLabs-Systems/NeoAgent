@@ -12871,4 +12871,41 @@ class AppL10nEl extends AppL10n {
 
   @override
   String get showLess => 'Εμφάνιση λιγότερων';
+
+  @override
+  String get adminExtraModels => 'Επιπλέον μοντέλα';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Αυτά τα μοντέλα είναι απενεργοποιημένα για όλους. Επιλέξτε όσα μπορεί να χρησιμοποιεί ο/η $username παρ\' όλα αυτά. Οι εκτελέσεις τους μετρούν ακόμη στα όρια αυτού του λογαριασμού.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Κανένα μοντέλο δεν είναι απενεργοποιημένο για όλους, άρα δεν υπάρχει κάτι επιπλέον να παραχωρηθεί.';
+
+  @override
+  String get adminExtraModelsSearch => 'Αναζήτηση μοντέλων';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    return 'Επιπλέον μοντέλα: $count';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Τα επιπλέον μοντέλα για $username αποθηκεύτηκαν';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return 'Ο/Η $actor άλλαξε ποια επιπλέον μοντέλα μπορεί να χρησιμοποιεί ο/η $subject';
+  }
+
+  @override
+  String get modelAdminGranted => 'Παραχωρημένο';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Ένας διαχειριστής σάς παραχώρησε αυτό το μοντέλο. Για όλους τους άλλους είναι απενεργοποιημένο.';
 }

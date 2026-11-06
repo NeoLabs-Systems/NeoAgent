@@ -835,6 +835,7 @@ class _AdminOpsUser {
     required this.lastLogin,
     required this.fourHourLimit,
     required this.weeklyLimit,
+    this.grantedModels = 0,
     required this.runCount,
     required this.storageBytes,
     required this.isAdmin,
@@ -856,6 +857,7 @@ class _AdminOpsUser {
       lastLogin: _parseOptionalTimestamp(json['last_login']?.toString()),
       fourHourLimit: _asOptionalInt(json['rate_limit_4h']),
       weeklyLimit: _asOptionalInt(json['rate_limit_weekly']),
+      grantedModels: _asOptionalInt(json['granted_models']) ?? 0,
       runCount: _asInt(json['run_count']),
       storageBytes: _asInt(json['storage_bytes']),
       isAdmin: json['is_admin'] == 1 || json['is_admin'] == true,
@@ -872,6 +874,9 @@ class _AdminOpsUser {
   final DateTime? lastLogin;
   final int? fourHourLimit;
   final int? weeklyLimit;
+
+  /// Models an admin granted beyond the ones on for everyone.
+  final int grantedModels;
   final int runCount;
   final int storageBytes;
   final bool isAdmin;
@@ -1036,6 +1041,20 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
     await _loadUsers();
   }
 
+  Future<void> _editModelGrants(_AdminOpsUser user) async {
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) =>
+          _AdminOpsUserModelsDialog(controller: _controller, user: user),
+    );
+    if (saved != true || !mounted) return;
+    setState(() {
+      _error = null;
+      _notice = appStrings.adminExtraModelsSaved(user.username);
+    });
+    await _loadUsers();
+  }
+
   Future<void> _deleteUser(_AdminOpsUser user) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -1106,6 +1125,7 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
                       onSignOut: () => _signOutEverywhere(user),
                       onResetPassword: () => _resetPassword(user),
                       onRateLimits: () => _editRateLimits(user),
+                      onModels: () => _editModelGrants(user),
                       onDelete: () => _deleteUser(user),
                     ),
                   ),
@@ -1132,6 +1152,7 @@ class _AdminOpsUserRow extends StatelessWidget {
     required this.onSignOut,
     required this.onResetPassword,
     required this.onRateLimits,
+    required this.onModels,
     required this.onDelete,
   });
 
@@ -1140,6 +1161,7 @@ class _AdminOpsUserRow extends StatelessWidget {
   final VoidCallback onSignOut;
   final VoidCallback onResetPassword;
   final VoidCallback onRateLimits;
+  final VoidCallback onModels;
   final VoidCallback onDelete;
 
   @override
@@ -1176,6 +1198,11 @@ class _AdminOpsUserRow extends StatelessWidget {
         (
           Icons.date_range_outlined,
           appStrings.weeklyLimitArg1(_formatTokenCount(user.weeklyLimit!)),
+        ),
+      if (user.grantedModels > 0)
+        (
+          Icons.workspace_premium_outlined,
+          appStrings.adminExtraModelsCount(user.grantedModels),
         ),
     ];
     final subtitle = user.email.isEmpty
@@ -1282,6 +1309,12 @@ class _AdminOpsUserRow extends StatelessWidget {
                 onPressed: busy ? null : onRateLimits,
                 icon: Icon(Icons.speed_rounded, size: 16),
                 label: Text(appStrings.rateLimits),
+              ),
+              TextButton.icon(
+                style: _adminOpsActionStyle(),
+                onPressed: busy ? null : onModels,
+                icon: Icon(Icons.workspace_premium_outlined, size: 16),
+                label: Text(appStrings.adminExtraModels),
               ),
               if (user.isAdmin)
                 Tooltip(
@@ -1549,6 +1582,209 @@ class _AdminOpsUserLimitsDialogState extends State<_AdminOpsUserLimitsDialog> {
                 fourHourHelper: _inheritHelper(_defaultFourHour),
                 weeklyHelper: _inheritHelper(_defaultWeekly),
               ),
+            if (_error != null) ...<Widget>[
+              const SizedBox(height: 12),
+              _InlineError(message: _error!),
+            ],
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(appStrings.cancel),
+        ),
+        _SaveButton(saving: _saving, onPressed: _loading ? null : _save),
+      ],
+    );
+  }
+}
+
+/// Grants one account models that are switched off for everyone else. Only
+/// those models are listed: a model already on for everyone needs no grant.
+class _AdminOpsUserModelsDialog extends StatefulWidget {
+  const _AdminOpsUserModelsDialog({
+    required this.controller,
+    required this.user,
+  });
+
+  final NeoAgentController controller;
+  final _AdminOpsUser user;
+
+  @override
+  State<_AdminOpsUserModelsDialog> createState() =>
+      _AdminOpsUserModelsDialogState();
+}
+
+class _AdminOpsUserModelsDialogState extends State<_AdminOpsUserModelsDialog> {
+  final TextEditingController _search = TextEditingController();
+  List<ModelMeta> _models = const <ModelMeta>[];
+  Set<String> _granted = <String>{};
+  bool _loading = true;
+  bool _saving = false;
+  String? _error;
+
+  NeoAgentController get _controller => widget.controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _search.addListener(() => setState(() {}));
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final client = _controller.backendClient;
+      final url = _controller.backendUrl;
+      final results = await Future.wait(<Future<Map<String, dynamic>>>[
+        client.fetchAdminModels(url),
+        client.fetchAdminUserModelGrants(url, widget.user.id),
+      ]);
+      if (!mounted) return;
+      final disabled = _jsonList(results[0]['disabledModels'])
+          .map((id) => id.toString())
+          .toSet();
+      final granted = _jsonList(results[1]['modelIds'])
+          .map((id) => id.toString())
+          .toSet();
+      final models =
+          _jsonList(results[0]['models'])
+              .whereType<Map>()
+              .map(ModelMeta.fromJson)
+              .where(
+                (model) =>
+                    disabled.contains(model.id) ||
+                    disabled.contains(model.modelId) ||
+                    granted.contains(model.id),
+              )
+              .toList()
+            ..sort((a, b) {
+              final byGrant =
+                  (granted.contains(a.id) ? 0 : 1) -
+                  (granted.contains(b.id) ? 0 : 1);
+              return byGrant != 0
+                  ? byGrant
+                  : a.label.toLowerCase().compareTo(b.label.toLowerCase());
+            });
+      setState(() {
+        _models = models;
+        _granted = granted;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = _controller._friendlyErrorMessage(error);
+      });
+    }
+  }
+
+  Future<void> _save() async {
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await _controller.backendClient.saveAdminUserModelGrants(
+        _controller.backendUrl,
+        userId: widget.user.id,
+        modelIds: _granted.toList()..sort(),
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = _controller._friendlyErrorMessage(error);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final query = _search.text.trim().toLowerCase();
+    final visible = query.isEmpty
+        ? _models
+        : _models
+              .where(
+                (model) =>
+                    model.label.toLowerCase().contains(query) ||
+                    model.id.toLowerCase().contains(query),
+              )
+              .toList();
+    return AlertDialog(
+      backgroundColor: _bgCard,
+      title: Text(appStrings.adminExtraModels),
+      content: SizedBox(
+        width: 480,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Text(
+              appStrings.adminExtraModelsIntro(widget.user.username),
+              style: TextStyle(color: _textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 14),
+            if (_loading)
+              const _LoadingPlaceholder()
+            else if (_models.isEmpty)
+              _EmptyText(appStrings.adminExtraModelsEmpty)
+            else ...<Widget>[
+              if (_models.length > 8) ...<Widget>[
+                TextField(
+                  controller: _search,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: appStrings.adminExtraModelsSearch,
+                    prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 360),
+                child: ListView(
+                  shrinkWrap: true,
+                  children: <Widget>[
+                    for (final model in visible)
+                      CheckboxListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        value: _granted.contains(model.id),
+                        onChanged: _saving
+                            ? null
+                            : (value) => setState(() {
+                                if (value == true) {
+                                  _granted.add(model.id);
+                                } else {
+                                  _granted.remove(model.id);
+                                }
+                              }),
+                        title: Text(
+                          model.label.isEmpty ? model.modelId : model.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          _providerPickerLabel(model.provider),
+                          style: TextStyle(color: _textMuted, fontSize: 12),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
             if (_error != null) ...<Widget>[
               const SizedBox(height: 12),
               _InlineError(message: _error!),

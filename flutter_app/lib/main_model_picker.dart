@@ -11,6 +11,7 @@ class _ModelPickerOption {
     this.isAuto = false,
     this.priceTier,
     this.isByok = false,
+    this.adminGranted = false,
   });
 
   final String value;
@@ -24,6 +25,9 @@ class _ModelPickerOption {
   final String? priceTier;
   /// True when this model runs on the current user's own (BYOK) credentials.
   final bool isByok;
+
+  /// True when an admin granted this account a model that is off for others.
+  final bool adminGranted;
 }
 
 // ─── Provider helpers ─────────────────────────────────────────────────────────
@@ -135,6 +139,7 @@ List<_ModelPickerOption> _modelPickerOptions(
         icon: _providerPickerIcon(m.provider),
         priceTier: m.priceTier,
         isByok: m.isByok,
+        adminGranted: m.adminGranted,
       );
     }),
   ];
@@ -725,6 +730,36 @@ class _ByokChip extends StatelessWidget {
   }
 }
 
+/// Marks a model an admin granted to this account, so it is clear why it is
+/// there when others don't have it.
+class _AdminGrantedChip extends StatelessWidget {
+  const _AdminGrantedChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: appStrings.modelAdminGrantedHint,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        decoration: BoxDecoration(
+          color: _accent.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(color: _accent.withValues(alpha: 0.35), width: 0.8),
+        ),
+        child: Text(
+          appStrings.modelAdminGranted,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: _accent,
+            letterSpacing: 0.2,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PickerGroupHeader extends StatelessWidget {
   const _PickerGroupHeader({required this.label, required this.color});
 
@@ -839,6 +874,10 @@ class _PickerRow extends StatelessWidget {
               const SizedBox(width: 8),
               if (option.isByok) ...<Widget>[
                 const _ByokChip(),
+                const SizedBox(width: 6),
+              ],
+              if (option.adminGranted) ...<Widget>[
+                const _AdminGrantedChip(),
                 const SizedBox(width: 6),
               ],
               if (option.priceTier != null) ...<Widget>[

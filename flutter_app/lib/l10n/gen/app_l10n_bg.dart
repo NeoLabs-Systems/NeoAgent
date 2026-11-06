@@ -12816,4 +12816,41 @@ class AppL10nBg extends AppL10n {
 
   @override
   String get showLess => 'Покажи по-малко';
+
+  @override
+  String get adminExtraModels => 'Допълнителни модели';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Тези модели са изключени за всички. Отметнете тези, които $username може да използва въпреки това. Изпълненията с тях пак се отчитат към лимитите на този акаунт.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Няма модели, изключени за всички, така че няма какво да се разреши допълнително.';
+
+  @override
+  String get adminExtraModelsSearch => 'Търсене на модели';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    return 'Допълнителни модели: $count';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Допълнителните модели за $username са запазени';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor промени кои допълнителни модели може да използва $subject';
+  }
+
+  @override
+  String get modelAdminGranted => 'Разрешен';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Администратор ви е разрешил този модел. За всички останали той е изключен.';
 }

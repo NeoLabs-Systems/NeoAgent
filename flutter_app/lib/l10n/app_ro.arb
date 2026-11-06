@@ -7203,5 +7203,14 @@
   "bitwardenLock": "Blochează",
   "integrationConfigured": "Configurat",
   "showMore": "Arată mai mult",
-  "showLess": "Arată mai puțin"
+  "showLess": "Arată mai puțin",
+  "adminExtraModels": "Modele suplimentare",
+  "adminExtraModelsIntro": "Aceste modele sunt dezactivate pentru toată lumea. Bifează-le pe cele pe care {username} le poate folosi totuși. Rulările cu ele contează în continuare la limitele acestui cont.",
+  "adminExtraModelsEmpty": "Niciun model nu este dezactivat pentru toată lumea, deci nu este nimic suplimentar de acordat.",
+  "adminExtraModelsSearch": "Caută modele",
+  "adminExtraModelsCount": "Modele suplimentare: {count}",
+  "adminExtraModelsSaved": "Modelele suplimentare pentru {username} au fost salvate",
+  "auditModelsChanged": "{actor} a schimbat ce modele suplimentare poate folosi {subject}",
+  "modelAdminGranted": "Acordat",
+  "modelAdminGrantedHint": "Un administrator ți-a acordat acest model. Pentru toți ceilalți este dezactivat."
 }

@@ -12826,4 +12826,41 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get showLess => 'Kevesebb megjelenítése';
+
+  @override
+  String get adminExtraModels => 'További modellek';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Ezek a modellek mindenkinek ki vannak kapcsolva. Jelöld be azokat, amelyeket $username mégis használhat. A velük futtatott feladatok továbbra is beleszámítanak a fiók korlátaiba.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Egyetlen modell sincs mindenkinek kikapcsolva, így nincs mit külön engedélyezni.';
+
+  @override
+  String get adminExtraModelsSearch => 'Modellek keresése';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    return 'További modellek: $count';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return '$username további modelljei mentve';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor módosította, mely további modelleket használhatja $subject';
+  }
+
+  @override
+  String get modelAdminGranted => 'Engedélyezve';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Egy adminisztrátor engedélyezte neked ezt a modellt. Mindenki más számára ki van kapcsolva.';
 }

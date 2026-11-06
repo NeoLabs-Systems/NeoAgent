@@ -7203,5 +7203,14 @@
   "bitwardenLock": "Zamknúť",
   "integrationConfigured": "Nastavené",
   "showMore": "Zobraziť viac",
-  "showLess": "Zobraziť menej"
+  "showLess": "Zobraziť menej",
+  "adminExtraModels": "Ďalšie modely",
+  "adminExtraModelsIntro": "Tieto modely sú vypnuté pre všetkých. Označte tie, ktoré {username} môže napriek tomu používať. Behy s nimi sa naďalej započítavajú do limitov tohto účtu.",
+  "adminExtraModelsEmpty": "Žiadny model nie je vypnutý pre všetkých, takže nie je čo navyše povoliť.",
+  "adminExtraModelsSearch": "Hľadať modely",
+  "adminExtraModelsCount": "Ďalšie modely: {count}",
+  "adminExtraModelsSaved": "Ďalšie modely pre {username} uložené",
+  "auditModelsChanged": "{actor} zmenil, ktoré ďalšie modely môže {subject} používať",
+  "modelAdminGranted": "Povolené",
+  "modelAdminGrantedHint": "Správca vám povolil tento model. Pre všetkých ostatných je vypnutý."
 }

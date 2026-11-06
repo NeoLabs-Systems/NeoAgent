@@ -12817,4 +12817,41 @@ class AppL10nPl extends AppL10n {
 
   @override
   String get showLess => 'Pokaż mniej';
+
+  @override
+  String get adminExtraModels => 'Dodatkowe modele';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Te modele są wyłączone dla wszystkich. Zaznacz te, których $username może mimo to używać. Uruchomienia z nimi nadal liczą się do limitów tego konta.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Żaden model nie jest wyłączony dla wszystkich, więc nie ma czego dodatkowo przyznać.';
+
+  @override
+  String get adminExtraModelsSearch => 'Szukaj modeli';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    return 'Dodatkowe modele: $count';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Zapisano dodatkowe modele dla $username';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor zmienił, których dodatkowych modeli może używać $subject';
+  }
+
+  @override
+  String get modelAdminGranted => 'Przyznany';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Administrator przyznał ci ten model. Dla wszystkich innych jest wyłączony.';
 }

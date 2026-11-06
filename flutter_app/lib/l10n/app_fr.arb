@@ -7203,5 +7203,14 @@
   "bitwardenLock": "Verrouiller",
   "integrationConfigured": "Configuré",
   "showMore": "Afficher plus",
-  "showLess": "Afficher moins"
+  "showLess": "Afficher moins",
+  "adminExtraModels": "Modèles supplémentaires",
+  "adminExtraModelsIntro": "Ces modèles sont désactivés pour tout le monde. Cochez ceux que {username} peut quand même utiliser. Les exécutions avec eux comptent toujours dans les limites de ce compte.",
+  "adminExtraModelsEmpty": "Aucun modèle n’est désactivé pour tout le monde, il n’y a donc rien de plus à accorder.",
+  "adminExtraModelsSearch": "Rechercher des modèles",
+  "adminExtraModelsCount": "{count, plural, =1{1 modèle supplémentaire} other{{count} modèles supplémentaires}}",
+  "adminExtraModelsSaved": "Modèles supplémentaires enregistrés pour {username}",
+  "auditModelsChanged": "{actor} a modifié les modèles supplémentaires que {subject} peut utiliser",
+  "modelAdminGranted": "Accordé",
+  "modelAdminGrantedHint": "Un administrateur vous a accordé ce modèle. Il est désactivé pour tous les autres."
 }
