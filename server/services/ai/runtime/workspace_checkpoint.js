@@ -44,7 +44,7 @@ function runner(session) {
 // The file a file tool names, as the tool itself resolves it.
 function targetFile(call) {
   if (resolveToolMeta(call.name).group === 'shell') return null;
-  const target = call.arguments?.path || call.arguments?.file_path;
+  const target = call.arguments?.path;
   return target ? fromGuestWorkspacePath(String(target)) : null;
 }
 

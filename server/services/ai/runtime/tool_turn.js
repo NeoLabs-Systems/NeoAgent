@@ -3,7 +3,7 @@
 const { randomUUID } = require('crypto');
 const db = require('../../../db/database');
 const { compactToolResult, toRetainedText } = require('../toolResult');
-const { coerceToolArgs } = require('../tools/coerce_args');
+const { coerceToolArgs, missingRequiredArgs } = require('../tools/coerce_args');
 const { resolveToolResultLimits } = require('../loopPolicy');
 const { sanitizeModelOutput } = require('../outputSanitizer');
 const {
@@ -22,7 +22,6 @@ const { parseTestOutput } = require('../test_output');
 const {
   isParallelSafeCall,
   isReadOnlyCall,
-  isShellCall,
   resolveToolMeta,
   runToolRefusal,
 } = require('../tools/metadata');
@@ -130,6 +129,22 @@ async function reviewCall(session, planned, stepIndex, stepId) {
     publish(session, EVENT_TYPES.PERMISSION_DECISION, { tool: call.name, decision: 'deny', by: 'run_limits' }, { stepId });
     return { allowed: false, errorMessage: refusal, result: { error: refusal, blocked: true } };
   }
+  // A call without an argument its tool requires is a mistake in that call
+  // alone: it is answered here, before anything runs, so it never counts
+  // against the tool. A discarded call carries its own reason to the tool.
+  const missing = typeof call.arguments?._discarded === 'string'
+    ? []
+    : missingRequiredArgs(call.arguments, planned.definition?.parameters);
+  if (missing.length) {
+    const sent = Object.keys(call.arguments || {});
+    const reason = `${call.name} needs ${missing.join(' and ')}, which this call left out`
+      + `${sent.length ? ` (it sent ${sent.join(', ')})` : ''}. Nothing ran; send the call again with ${missing.length > 1 ? 'them' : 'it'}.`;
+    publish(session, EVENT_TYPES.TOOL_SUPPRESSED, {
+      tool: { name: call.name, call_fingerprint: fingerprint },
+      reason: 'missing_arguments',
+    }, { stepId });
+    return { allowed: false, errorMessage: reason, result: { error: reason } };
+  }
   const repeat = reviewOperation(session, planned);
   if (repeat) {
     publish(session, EVENT_TYPES.TOOL_SUPPRESSED, {
@@ -166,8 +181,10 @@ async function reviewCall(session, planned, stepIndex, stepId) {
   const guard = engine.getRunMeta(runId)?.repetitionGuard;
   if (!guard) return { allowed: true };
 
-  // A command's failure says how that command ended, not that the shell is down.
-  const resting = isShellCall(meta) ? null : guard.toolResting(call.name);
+  // Only a remote service fails the same way whatever it is asked: a quota, an
+  // outage, a refused account. A tool on the agent's own computer fails because
+  // of what it was asked, so its calls are judged one at a time.
+  const resting = meta.latencyClass === 'remote' ? guard.toolResting(call.name) : null;
   if (resting) {
     // A wait is worth naming only when the service named it: otherwise the model
     // sleeps it out and repeats a call that cannot work.

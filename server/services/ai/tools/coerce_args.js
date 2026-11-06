@@ -58,4 +58,11 @@ function coerceToolArgs(args, schema) {
   return coerced;
 }
 
-module.exports = { coerceToolArgs };
+// The arguments the tool's schema requires that this call left out. No
+// coercion can supply those.
+function missingRequiredArgs(args, schema) {
+  const required = Array.isArray(schema?.required) ? schema.required : [];
+  return required.filter((key) => args?.[key] === undefined || args?.[key] === null);
+}
+
+module.exports = { coerceToolArgs, missingRequiredArgs };

@@ -29,8 +29,8 @@ Desktop app installs have no `neoagent` command; use **Settings › System** to 
 
 ### ♻️ Restarts keep work in progress
 
-- **Chats resume.** Web and messaging runs cut off by a restart or update start again, told what they had already done.
-- **Not resumed.** Runs interrupted more than an hour ago, sub-agents, scheduled tasks and live voice calls.
+- **Chats and scheduled tasks resume.** Web and messaging runs, and scheduled task runs, cut off by a restart or update start again, told what they had already done. A task resumes for the occurrence that was cut off.
+- **Not resumed.** Runs interrupted more than an hour ago, event-triggered task runs, sub-agents and live voice calls.
 
 ## 🔄 Release channels and updates
 

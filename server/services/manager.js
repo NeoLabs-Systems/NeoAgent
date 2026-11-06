@@ -524,7 +524,7 @@ async function startServices(app, io, { resumeRuns = false } = {}) {
     // the connections to come back.
     if (resumeRuns) {
       void messagingRestored.then(() => {
-        resumeInterruptedRuns(agentEngine);
+        resumeInterruptedRuns(agentEngine, { taskRuntime });
         resumeAgentTasks(agentEngine);
       }).catch((err) => {
         console.error('[Runtime] Resuming interrupted runs failed:', getErrorMessage(err));

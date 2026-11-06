@@ -59,9 +59,9 @@ Conversation learning asks the run's model for at most 12 candidates and exclude
 - **Guesses.** Assistant suggestions and unverified claims.
 - **Thread-only details.** Facts useful only inside the current thread.
 
-A candidate whose `evidence` quote is found neither in the owner's messages nor in a tool result is dropped: a quote of the assistant, an invented sentence, or an example copied from the extraction prompt is no evidence. Extraction is not verification. `groundMemoryCandidates()` retains extracted subject/predicate/value relationships as `model_inference`, with `relation: derives` and confidence at most 0.5. They cannot supersede known facts. An exact quote found only in assistant text is rejected. Object overlap, recalled text, model-declared sources and translated/paraphrased evidence do not establish a verified relationship. No additional model call is made.
+A candidate whose `evidence` quote is found neither in the owner's messages nor in a tool result is dropped, so a quote of the assistant, an invented sentence or an example from the extraction prompt never becomes a memory. Extracted relationships (`groundMemoryCandidates()`) are kept as `model_inference` with confidence at most 0.5, and never replace a known fact.
 
-`last_verified_facts` retains only complete matching owner-authored messages. Direct `memory_save` can establish `user_stated` only when the whole saved content matches actual owner-authored text; an app/API owner edit can explicitly confirm content. A content digest binds verification to that exact record. Historical labels without that binding are displayed as retrieved until confirmed again; the memories are preserved. Verification describes provenance, not independent factual truth.
+Only the owner's own words verify a memory: `memory_save` marks it `user_stated` when the whole text matches something the owner wrote, and the owner can confirm a memory in the app. Verification is tied to that exact text and says where it came from, not that it is true.
 
 ## Save flow
 

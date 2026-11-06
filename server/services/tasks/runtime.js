@@ -367,6 +367,21 @@ class TaskRuntime {
     return { running: true };
   }
 
+  // A run of this task that a restart cut off, started again for the same
+  // occurrence (restart_resume). It started on time, so it is not a late start.
+  resumeInterruptedTask({ taskId, userId, scheduledAt, triggerSource, runId, resumedFromRunId, note }) {
+    return this._executeTask(taskId, userId, {
+      scheduledAt,
+      manual: triggerSource === 'manual',
+      oneTime: false,
+      triggerType: 'schedule',
+      triggerSource,
+      runId,
+      resumedFromRunId,
+      resumeNote: note,
+    });
+  }
+
   async fireTaskFromTrigger(taskId, userId, triggerPayload = {}) {
     const task = this.taskRepository.getTaskById(taskId, userId);
     if (!task || !task.enabled) return { skipped: true, reason: 'missing_or_disabled' };
@@ -669,6 +684,7 @@ class TaskRuntime {
     const isLateRecurringRun = (
       executionMeta.manual !== true
       && executionMeta.oneTime !== true
+      && !executionMeta.resumedFromRunId
       && executionMeta.triggerType === 'schedule'
       && Number.isFinite(scheduledAtMs)
       && (Date.now() - scheduledAtMs) > MAX_RECURRING_TASK_START_DELAY_MS
@@ -745,8 +761,8 @@ class TaskRuntime {
       let notifyHint = '';
 
       if (notifyTarget) {
-        // The final answer is the delivery, as in Hermes' scheduled jobs: one path,
-        // and silence is a control token rather than a second tool call to remember.
+        // The final answer is the delivery: one path, and silence is a control
+        // token rather than a second tool call to remember.
         notifyHint = `\n\nYour final answer is delivered to the user on platform="${notifyTarget.platform}" to="${notifyTarget.to}" when this run ends; do not send it yourself with send_message. If nothing is worth telling them, answer exactly [NO RESPONSE] and nothing else: it is a control token, never translated or combined with other text. When a tool result already gives you summary fields or flags that answer the task, decide from that evidence instead of re-running nearby variants of the same lookup.`;
       }
 
@@ -769,7 +785,9 @@ class TaskRuntime {
         task.task_type === 'agent_prompt'
           ? (normalizedConfig.prompt || `You have been triggered to run the background task "${taskName}".`)
           : '',
-        buildLastRunNote(this.taskRepository.getLastTaskRun(userId, taskId)),
+        // A resumed run's own occurrence is in its resume note, not here.
+        buildLastRunNote(this.taskRepository.getLastTaskRun(userId, taskId, executionMeta.resumedFromRunId)),
+        executionMeta.resumeNote || '',
         triggerPayloadText.trim(),
         notifyHint,
       ].filter(Boolean).join('\n\n');
@@ -783,6 +801,7 @@ class TaskRuntime {
         agentId: resolveAgentId(userId, agentId),
         notifyTarget,
       });
+      const triggerSource = executionMeta.triggerSource || task.trigger_type || 'schedule';
       let attempt = 0;
       let recoveryNote = '';
       while (attempt <= MAX_AUTONOMOUS_RETRIES) {
@@ -790,7 +809,7 @@ class TaskRuntime {
         const runOptions = {
           title: taskName,
           triggerType: task.trigger_type || 'schedule',
-          triggerSource: executionMeta.triggerSource || task.trigger_type || 'schedule',
+          triggerSource,
           agentId,
           app: this.app,
           conversationId,
@@ -807,6 +826,14 @@ class TaskRuntime {
           stream: false,
           context: executionMeta.triggerPayload || {},
           signal,
+          ...(attempt === 0 && executionMeta.runId ? { runId: executionMeta.runId } : {}),
+          ...(executionMeta.resumedFromRunId ? { resumedFromRunId: executionMeta.resumedFromRunId } : {}),
+          // A restart that cuts this run off starts it again once. A one-time task
+          // stays until it runs, and an event's payload is not kept, so neither is named.
+          ...(executionMeta.oneTime !== true && !executionMeta.triggerPayload
+            && (executionMeta.triggerType === 'schedule' || executionMeta.manual === true)
+            ? { resumableTask: { taskId, scheduledAt: executionInstant, triggerSource } }
+            : {}),
         };
         try {
           const result = typeof this.agentEngine.runWithModel === 'function'

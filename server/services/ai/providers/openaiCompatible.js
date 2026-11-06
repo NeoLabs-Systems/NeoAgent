@@ -111,7 +111,11 @@ class OpenAICompatibleProvider extends BaseProvider {
           toolCalls[index].function.arguments += tc.function.arguments;
           const name = toolCalls[index].function.name;
           if (!argumentJson[index].feed(tc.function.arguments)) {
-            check({ reason: argumentJson[index].reason, bytes: toolCalls[index].function.arguments.length }, name);
+            check({
+              reason: argumentJson[index].reason,
+              key: argumentJson[index].key,
+              bytes: toolCalls[index].function.arguments.length,
+            }, name);
           }
           check(argumentGuards[index].feed(tc.function.arguments), name);
         }

@@ -37,6 +37,7 @@ test('json prefix tracker rejects an undeclared top-level key as soon as it clos
   assert.equal(tracker.feed('{"content='), true);
   assert.equal(tracker.feed('"'), false);
   assert.equal(tracker.reason, 'unknown_argument_key');
+  assert.equal(tracker.key, 'content=', 'the key that stopped it is kept, to name it back');
 
   const nested = createJsonPrefixTracker({ isKnownKey: (key) => key === 'edits' });
   assert.equal(nested.feed('{"edits":[{"oldText":"a","newText":"b"}]}'), true, 'nested keys are not checked');

@@ -69,6 +69,7 @@ function createJsonPrefixTracker({ isKnownKey = () => true } = {}) {
   let literal = '';
   let valid = true;
   let reason = null;
+  let rejectedKey = '';
 
   const afterValue = () => {
     expect = stack.length ? 'sep' : 'done';
@@ -79,6 +80,7 @@ function createJsonPrefixTracker({ isKnownKey = () => true } = {}) {
     expect = 'colon';
     if (stack.length === 1 && !isKnownKey(keyText)) {
       reason = 'unknown_argument_key';
+      rejectedKey = keyText;
       return false;
     }
     return true;
@@ -165,6 +167,10 @@ function createJsonPrefixTracker({ isKnownKey = () => true } = {}) {
     get reason() {
       return reason;
     },
+    // The undeclared key that ended the stream, if one did.
+    get key() {
+      return rejectedKey;
+    },
   };
 }
 
@@ -176,6 +182,7 @@ function degenerateOutputError(providerName, verdict, toolName = '') {
   error.reason = verdict.reason;
   error.outputBytes = verdict.bytes;
   error.toolName = toolName;
+  error.argumentKey = verdict.key || '';
   return error;
 }
 
@@ -191,6 +198,7 @@ function degenerateOutputDetails(error) {
     reason: String(source?.reason || 'degenerate_output'),
     outputBytes: Number(source?.outputBytes) || 0,
     toolName: String(source?.toolName || ''),
+    argumentKey: String(source?.argumentKey || ''),
   };
 }
 

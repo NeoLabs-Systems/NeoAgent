@@ -135,8 +135,10 @@ After delivery, these run in the background and never change the run's outcome:
 | User takes the computer | Pauses the agent that holds the control lease |
 | Server restart | Marks open runs `interrupted`, then resumes eligible ones |
 
-- **Resume window.** Only `web` and `messaging` runs with a heartbeat in the last 60 minutes are resumed, as a new run.
-- **Not resumed.** Subagents, delegations, scheduled tasks, live voice calls and `neoagent exec`.
+- **Resume window.** Only runs with a heartbeat in the last 60 minutes are resumed, each once, as a new run told what the cut-off run already did.
+- **Chats.** `web` and `messaging` runs start again on the same surface.
+- **Scheduled tasks.** A recurring or run-now task run goes back to the task runtime for the same occurrence: same execution instant, same delivery, and not skipped as a late start. A one-time task needs none of this, because it stays until a run of it finishes.
+- **Not resumed.** Event-triggered task runs (their payload is not kept), subagents, delegations, live voice calls and `neoagent exec`.
 
 ## Hooks
 
@@ -177,22 +179,15 @@ Every run writes a ledger of metadata events to `agent_run_events` and a summary
 | Did a message go out twice? | `delivery.reserved`, `delivery.sent`, `delivery.suppressed` |
 | What happened when it got stuck? | `recovery.triggered`, `context.compacted`, `checkpoint.created` |
 
-The Runs tab also spells out what looks wrong in a run, computed from the summary with no model involved (`runtime/events/run_diagnostics.js`): a message that may have arrived, a skipped call that ran anyway, a tool that was not on the first turn, repeated or failed calls, a run that is mostly model time, and tools filling the context. Its limits are starting points, not measured values.
+The Runs tab also spells out what looks wrong in a run, computed from the summary with no model involved (`runtime/events/run_diagnostics.js`): a message that may have arrived, a skipped call that ran anyway, a tool that was not on the first turn, repeated or failed calls, a run that is mostly model time, and tools filling the context.
 
-Full prompts are kept apart in `agent_run_captures`, only for failed runs and any run someone asked for. They expire after a week. New captures omit provider replay reasoning state; historical migrated records may predate this restriction.
+Full prompts are kept apart in `agent_run_captures`, only for failed runs and runs someone asked to capture, without private reasoning.
+
+| Kept | For how long |
+|---|---|
+| Ledger events | Metadata only: argument digests and counts, never argument or error text |
+| Step inputs and results | While the run can resume, then seven days |
+| Prompt captures | Seven days |
+| Conversations, task notes, artifacts, final answers, outbox | Their own retention, untouched by the above |
 
 All of this stays on the server.
-
-### Harness safety contracts
-
-Child limits are enforced against the eligible catalog at dispatch, independently of activation. Registered skill tools participate in that catalog. Arbitrary shell operations, including apparently read-only commands, are not automatically replayed after restart. Automatic workspace restoration is disabled because shared-workspace ownership cannot be proven.
-
-Metadata events retain argument digests/counts and error presence, not argument/error text. Detailed step inputs/results are operational content, retained for active/recoverable runs and expired seven days after terminal completion by the capture maintenance job. Captures expire after seven days. Conversation history, task notes, artifacts, run errors/final answers and delivery outbox content have their own retention; capture expiry does not erase them. Historical pre-fix event content is not retroactively rewritten by this change.
-
-A completed execution whose external delivery fails or is ambiguous returns a failed run with executionCompleted and deliveryStatus fields; it does not emit a successful completion event or start success learning. The generated answer remains on the failed run.
-
-Extracted memory relationships and model-declared tool observations are assumptions. Automatic extraction cannot verify a semantic relationship from word overlap. Direct user-authored complete text and explicit owner edits can establish user-stated provenance; paraphrases remain unverified.
-
-Verification is bound to the exact owner-confirmed content digest. Historical trust labels without that binding are shown as retrieved until confirmed again; memories are preserved. Verification denotes provenance of the statement, not an independent guarantee that the statement is true.
-
-A resume referring to expired operation inputs fails closed for those tool names instead of treating missing arguments as proof that no action ran. A fresh owner-requested run remains available for intentional new executions.

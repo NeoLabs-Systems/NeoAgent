@@ -332,10 +332,11 @@ test('readStream aborts a tool call the moment it streams a key the tool does no
     yield { choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: ',  ": 0.5' } }] }, finish_reason: null }] };
     produced += 1;
   }
-  const tools = [{ name: 'write_file', parameters: { type: 'object', properties: { path: {}, file_path: {}, content: {}, mode: {} } } }];
+  const tools = [{ name: 'write_file', parameters: { type: 'object', properties: { path: {}, content: {}, mode: {} } } }];
   await assert.rejects(
     (async () => { for await (const event of provider.readStream(chunks(), tools)) void event; })(),
-    (error) => error.code === 'MODEL_DEGENERATE_OUTPUT' && error.reason === 'unknown_argument_key' && error.toolName === 'write_file',
+    (error) => error.code === 'MODEL_DEGENERATE_OUTPUT' && error.reason === 'unknown_argument_key' && error.toolName === 'write_file'
+      && error.argumentKey === 'content=',
   );
   assert.equal(produced, 1);
 });

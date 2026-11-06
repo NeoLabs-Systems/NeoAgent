@@ -8,12 +8,11 @@ const {
   stampSelector,
 } = require('./browser_act_page');
 
-// A SystemOne model drives the page one step at a time, modelled on
-// browser-use's jev-ultrafast: every observation numbers the visible controls,
-// one SystemOne request picks the operation and a target for each operation,
-// and the chat model only writes the text for fields. Progress ends the loop:
-// a run of steps that leave the page unchanged stops it. The action cap is a
-// safety net.
+// A SystemOne model drives the page one step at a time: every observation
+// numbers the visible controls, one SystemOne request picks the operation and
+// a target for each operation, and the chat model only writes the text for
+// fields. Progress ends the loop: a run of steps that leave the page unchanged
+// stops it. The action cap is a safety net.
 const MAX_ACTIONS = 60;
 const STALL_LIMIT = 3;
 const STALE_LIMIT = 4;

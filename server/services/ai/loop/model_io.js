@@ -236,8 +236,12 @@ async function requestModelResponse(engine, {
   // reason, and the model's next turn is the retry — with the failure in
   // context, which recovers far more reliably than replaying the request blind.
   const discardedToolCall = (error) => {
-    const { reason, outputBytes, toolName } = degenerateOutputDetails(error);
+    const { reason, outputBytes, toolName, argumentKey } = degenerateOutputDetails(error);
     if (!toolName) return null;
+    const declared = Object.keys(requestTools.find((tool) => tool?.name === toolName)?.parameters?.properties || {});
+    const why = argumentKey && declared.length
+      ? `${toolName} has no argument "${argumentKey}"; its arguments are ${declared.join(', ')}. The call was discarded; send it again with those names.`
+      : `The arguments streamed for this call degenerated into ${reason.replace(/_/g, ' ')} after ${outputBytes} bytes and were discarded. Resend the call with complete, well-formed arguments.`;
     return {
       content: '',
       toolCalls: [{
@@ -245,9 +249,7 @@ async function requestModelResponse(engine, {
         type: 'function',
         function: {
           name: toolName,
-          arguments: JSON.stringify({
-            _discarded: `The arguments streamed for this call degenerated into ${reason.replace(/_/g, ' ')} after ${outputBytes} bytes and were discarded. Resend the call with complete, well-formed arguments.`,
-          }),
+          arguments: JSON.stringify({ _discarded: why }),
         },
       }],
       finishReason: 'tool_calls',

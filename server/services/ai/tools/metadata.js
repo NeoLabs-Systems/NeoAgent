@@ -12,6 +12,8 @@ const DEFAULT_TRAITS = Object.freeze({
   access: null,
   sideEffect: 'none',
   stateScope: 'none',
+  // How long a call takes. 'remote' means it calls a remote service, which the
+  // repeat check reads: only a service fails the same way whatever it is asked.
   latencyClass: 'remote',
   repeatable: false,
   // Whether the result can carry content the owner did not write.

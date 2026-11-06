@@ -85,7 +85,7 @@ const handlers = {
     const normalizedArgs = normalizeReadFileArgs(args);
     if (!normalizedArgs.path) {
       return {
-        error: 'read_file requires path or file_path. Keep source files in the workspace; for repository work clone or move the checkout into the workspace before using file tools.',
+        error: 'read_file requires path. Keep source files in the workspace; for repository work clone or move the checkout into the workspace before using file tools.',
       };
     }
     const result = await workspace.readFile(userId, {
@@ -174,8 +174,8 @@ const handlers = {
     try {
     const workspace = computerWorkspace();
     if (!workspace) return { error: 'Workspace service is unavailable.' };
-    const targetPath = args.path || args.file_path;
-    if (!targetPath) return { success: false, error: 'write_file requires path or file_path.' };
+    const targetPath = args.path;
+    if (!targetPath) return { success: false, error: 'write_file requires path.' };
     if (args.content == null) {
       return { success: false, error: 'write_file requires a content argument; nothing was written.' };
     }
@@ -196,8 +196,8 @@ const handlers = {
     try {
     const workspace = computerWorkspace();
     if (!workspace) return { error: 'Workspace service is unavailable.' };
-    const targetPath = args.path || args.file_path;
-    if (!targetPath) return { success: false, error: 'edit_file requires path or file_path.' };
+    const targetPath = args.path;
+    if (!targetPath) return { success: false, error: 'edit_file requires path.' };
     const edits = Array.isArray(args.edits)
       ? args.edits.map((edit) => ({
         ...edit,
@@ -225,8 +225,8 @@ const handlers = {
     if (typeof workspace.replaceFileRange !== 'function') {
       return { error: 'Workspace service does not support replace_file_range.' };
     }
-    const targetPath = args.path || args.file_path;
-    if (!targetPath) return { success: false, error: 'replace_file_range requires path or file_path.' };
+    const targetPath = args.path;
+    if (!targetPath) return { success: false, error: 'replace_file_range requires path.' };
     return await withFileDiagnostics(await workspace.replaceFileRange(userId, {
       path: targetPath,
       start_line: args.start_line ?? args.startLine,

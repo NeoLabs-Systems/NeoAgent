@@ -9,7 +9,7 @@ const { createEvalEngine, fakeMessaging, ledgerOf, visibleFinals } = require('./
 // `live` cases give the same situation to a real model and check what it did with
 // the tools it was offered. Bump EVAL_SET_VERSION whenever a case changes meaning,
 // because results are only comparable within one version.
-const EVAL_SET_VERSION = 9;
+const EVAL_SET_VERSION = 10;
 
 const base = {
   stream: false,
@@ -660,6 +660,61 @@ const SCRIPTED_CASES = [
       });
       const result = await engine.run(user.userId, 'Search the news for x', { ...base, triggerSource: 'web' });
       return { result, ok: calls === 3, detail: `ran ${calls}` };
+    },
+  },
+  {
+    // From a live run: long writes sent without their path, then the fixed call
+    // refused because the tool had been put to rest.
+    id: 'coding.a_call_missing_a_required_argument_is_answered_and_the_fixed_one_runs',
+    category: 'CODING',
+    async run({ runtime, user }) {
+      const script = 'import pcbnew\n'.repeat(200);
+      runtime.useScript([
+        { tools: [{ name: 'write_file', args: { content: script } }] },
+        { tools: [{ name: 'write_file', args: { content: `${script}# v2\n` } }] },
+        { tools: [{ name: 'write_file', args: { content: `${script}# v2\n` } }] },
+        { tools: [{ name: 'write_file', args: { path: 'pcbtest/gen_pcb.py', content: `${script}# v2\n` } }] },
+        { text: 'Wrote pcbtest/gen_pcb.py.' },
+      ]);
+      const written = [];
+      const engine = createEvalEngine({
+        toolResults: {
+          write_file: (args) => {
+            written.push(args.path);
+            return args.path ? { success: true, path: args.path } : { success: false, error: 'write_file requires path.' };
+          },
+        },
+      });
+      const result = await engine.run(user.userId, 'Write the board generator.', { ...base, triggerSource: 'web' });
+      const told = runtime.ctx.db.prepare(
+        "SELECT error FROM agent_steps WHERE run_id = ? AND tool_name = 'write_file' ORDER BY step_index LIMIT 1",
+      ).get(result.runId)?.error || '';
+      const ok = written.length === 1 && written[0] === 'pcbtest/gen_pcb.py' && /needs path/.test(told) && /sent content/.test(told);
+      return { result, ok, detail: `tool ran for ${JSON.stringify(written)}; first answer: ${told.slice(0, 80)}` };
+    },
+  },
+  {
+    id: 'coding.a_local_tool_failing_the_same_way_is_not_put_to_rest',
+    category: 'CODING',
+    async run({ runtime, user }) {
+      runtime.useScript([
+        { tools: [{ name: 'read_file', args: { path: 'a.py' } }] },
+        { tools: [{ name: 'read_file', args: { path: 'b.py' } }] },
+        { tools: [{ name: 'read_file', args: { path: 'c.py' } }] },
+        { tools: [{ name: 'read_file', args: { path: 'src/main.py' } }] },
+        { text: 'Found it in src/main.py.' },
+      ]);
+      const asked = [];
+      const engine = createEvalEngine({
+        toolResults: {
+          read_file: (args) => {
+            asked.push(args.path);
+            return args.path === 'src/main.py' ? { path: args.path, content: 'main()' } : { error: 'Workspace path does not exist.' };
+          },
+        },
+      });
+      const result = await engine.run(user.userId, 'Find the entry point.', { ...base, triggerSource: 'web' });
+      return { result, ok: asked.length === 4, detail: `read ${asked.join(', ')}` };
     },
   },
   {

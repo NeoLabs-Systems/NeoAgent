@@ -100,7 +100,7 @@ The server registers 42 trigger types in `server/services/tasks/adapters/index.j
 
 ## 📬 Delivery
 
-A run's final answer is what it delivers, as in Hermes' scheduled jobs. When there is nothing worth sending, the agent answers exactly `[NO RESPONSE]` and nothing goes out.
+A run's final answer is what it delivers. When there is nothing worth sending, the agent answers exactly `[NO RESPONSE]` and nothing goes out.
 
 - **One path.** The agent does not send the result itself; a `send_message` it does send counts as the delivery, and nothing is sent twice.
 - **Destination.** **Result Delivery** sets the channel; **Use default channel** picks the chat you last used with this agent.

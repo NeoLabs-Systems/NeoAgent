@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
-const { coerceToolArgs } = require('../../../server/services/ai/tools/coerce_args');
+const { coerceToolArgs, missingRequiredArgs } = require('../../../server/services/ai/tools/coerce_args');
 
 const schema = {
   type: 'object',
@@ -40,4 +40,13 @@ test('anything that is not an unambiguous near miss is left for the tool to reje
   const args = { max_results: '5.5', include_all_day: 'yes', names: 'a, b', trigger: { mode: 'once' }, connection_id: '3', extra: '1' };
   assert.deepEqual(coerceToolArgs(args, schema), args);
   assert.equal(coerceToolArgs(args, null), args, 'no schema, no change');
+});
+
+test('the required arguments a call left out are named; an empty value is the tool\'s to judge', () => {
+  const schema = { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' } }, required: ['path', 'content'] };
+  assert.deepEqual(missingRequiredArgs({ content: 'x' }, schema), ['path']);
+  assert.deepEqual(missingRequiredArgs({ path: null }, schema), ['path', 'content']);
+  assert.deepEqual(missingRequiredArgs({ path: 'a.txt', content: '' }, schema), [], 'an empty file is a file');
+  assert.deepEqual(missingRequiredArgs({}, { type: 'object', properties: {} }), [], 'nothing required');
+  assert.deepEqual(missingRequiredArgs({}, null), [], 'no schema');
 });

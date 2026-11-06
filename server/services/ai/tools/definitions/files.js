@@ -24,14 +24,13 @@ module.exports = [
       type: 'object',
       properties: {
         path: { type: 'string', description: 'Absolute or relative path inside the per-user workspace' },
-        file_path: { type: 'string', description: 'Alias for path; accepted for compatibility with model tool calls' },
         start_line: { type: 'number', description: 'Starting line number (1-indexed, inclusive)' },
         end_line: { type: 'number', description: 'Ending line number (1-indexed, inclusive)' },
         line_start: { type: 'number', description: 'Alias for start_line; accepted for compatibility with model tool calls' },
         line_count: { type: 'number', description: 'Number of lines to read starting at start_line/line_start' },
         encoding: { type: 'string', description: 'File encoding (default utf-8)' }
       },
-      required: []
+      required: ['path']
     }
   },
   {
@@ -111,11 +110,10 @@ module.exports = [
       type: 'object',
       properties: {
         path: { type: 'string', description: 'File path' },
-        file_path: { type: 'string', description: 'Alias for path; accepted for compatibility with model tool calls' },
         content: { type: 'string', description: 'Content to write' },
         mode: { type: 'string', enum: ['write', 'append'], description: 'Write mode (default write)' }
       },
-      required: ['content']
+      required: ['path', 'content']
     }
   },
   {
@@ -131,7 +129,6 @@ module.exports = [
       type: 'object',
       properties: {
         path: { type: 'string', description: 'File path' },
-        file_path: { type: 'string', description: 'Alias for path; accepted for compatibility with model tool calls' },
         edits: {
           type: 'array',
           items: {
@@ -148,7 +145,7 @@ module.exports = [
           description: 'Replacements to apply, all or none.'
         }
       },
-      required: ['edits']
+      required: ['path', 'edits']
     }
   },
   {
@@ -163,14 +160,13 @@ module.exports = [
       type: 'object',
       properties: {
         path: { type: 'string', description: 'File path inside the per-user workspace' },
-        file_path: { type: 'string', description: 'Alias for path; accepted for compatibility with model tool calls' },
         start_line: { type: 'number', description: 'Starting line number (1-indexed, inclusive)' },
         end_line: { type: 'number', description: 'Ending line number (1-indexed, inclusive)' },
         startLine: { type: 'number', description: 'Alias for start_line' },
         endLine: { type: 'number', description: 'Alias for end_line' },
         content: { type: 'string', description: 'Replacement content for the range. Empty string deletes the range.' }
       },
-      required: ['content']
+      required: ['path', 'content']
     }
   },
   {

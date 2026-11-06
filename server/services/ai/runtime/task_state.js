@@ -55,7 +55,7 @@ function taskGoal(session) {
 }
 
 function noteChangedPath(session, toolArgs = {}) {
-  const changed = toolArgs.path || toolArgs.file_path;
+  const changed = toolArgs.path;
   if (!changed) return;
   session.changedPaths ||= new Set();
   session.changedPaths.add(String(changed));

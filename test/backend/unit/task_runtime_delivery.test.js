@@ -137,7 +137,7 @@ describe('scheduled task result delivery', () => {
     assert.equal(messagingManager.sent[0].content, 'The daily summary is ready.');
   });
 
-  test('an automatic run\'s final answer is delivered, as a Hermes scheduled job\'s is', async () => {
+  test('an automatic run\'s final answer is delivered', async () => {
     const messagingManager = createMessagingManager();
     const prompts = [];
     const optionsSeen = [];
@@ -165,6 +165,71 @@ describe('scheduled task result delivery', () => {
     assert.equal(optionsSeen[0].bypassUserRateLimits, true);
     assert.equal(optionsSeen[0].triggerSource, 'schedule');
     assert.equal(optionsSeen[0].stageProactiveMessages, true);
+  });
+
+  test('a run a restart cut off goes again for the same occurrence, once, told what it did', async () => {
+    const calls = [];
+    const task = await createScheduledTask({
+      async runWithModel(_userId, prompt, options) {
+        calls.push({ prompt, options });
+        return { content: 'Summary sent.' };
+      },
+    }, createMessagingManager());
+    const insertRun = ctx.db.prepare(
+      `INSERT INTO agent_runs (id, user_id, title, status, final_response, metadata_json, created_at)
+       VALUES (?, ?, 'Daily summary', ?, ?, ?, ?)`,
+    );
+    insertRun.run('yesterday', user.userId, 'completed', 'Yesterday: 3 meetings.', JSON.stringify({ taskId: task.id }), '2026-11-05 06:00:00');
+    insertRun.run('cut-off', user.userId, 'interrupted', null, JSON.stringify({ taskId: task.id }), '2026-11-06 06:00:00');
+
+    // Hours after its time, which a fresh start would skip as late.
+    const scheduledAt = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+    await runtime.resumeInterruptedTask({
+      taskId: task.id,
+      userId: user.userId,
+      scheduledAt,
+      triggerSource: 'schedule',
+      runId: 'resumed-run',
+      resumedFromRunId: 'cut-off',
+      note: '[Resumed after a restart]\nWhat the interrupted run already did: read the calendar.',
+    });
+
+    assert.equal(calls.length, 1, 'not skipped as a late start');
+    const [{ prompt, options }] = calls;
+    assert.match(prompt, /Execution instant: /);
+    assert.ok(prompt.includes(scheduledAt), 'the occurrence it was cut off from');
+    assert.match(prompt, /What the interrupted run already did: read the calendar\./);
+    assert.match(prompt, /Yesterday: 3 meetings\./, 'the previous occurrence is the one before the cut-off run');
+    assert.equal(options.runId, 'resumed-run');
+    assert.equal(options.resumedFromRunId, 'cut-off');
+
+    const { buildResumeEnvelope } = require('../../../server/services/ai/runtime/restart_resume');
+    assert.equal(buildResumeEnvelope(prompt, options), null, 'a resumed run is never resumed again');
+  });
+
+  test('a scheduled or run-now task run names itself for a restart; a one-time or event run does not', async () => {
+    const calls = [];
+    const task = await createScheduledTask({
+      async runWithModel(_userId, prompt, options) {
+        calls.push(options);
+        return { content: 'ok' };
+      },
+    }, createMessagingManager());
+    const scheduledAt = new Date().toISOString();
+    const runs = [
+      { manual: false, triggerType: 'schedule', triggerSource: 'schedule', scheduledAt },
+      { manual: true, triggerType: 'schedule', triggerSource: 'manual', scheduledAt },
+      { oneTime: true, triggerType: 'schedule', triggerSource: 'schedule', scheduledAt },
+      { triggerType: 'email', triggerSource: 'email', scheduledAt, triggerPayload: { subject: 'x' } },
+    ];
+    for (const meta of runs) await runtime._executeTaskSerial(task.id, user.userId, meta);
+
+    const { buildResumeEnvelope } = require('../../../server/services/ai/runtime/restart_resume');
+    const envelopes = calls.map((options) => buildResumeEnvelope('prompt', options));
+    assert.deepEqual(envelopes[0], { task: { taskId: task.id, scheduledAt, triggerSource: 'schedule' } });
+    assert.deepEqual(envelopes[1], { task: { taskId: task.id, scheduledAt, triggerSource: 'manual' } });
+    assert.equal(envelopes[2], null, 'a one-time task stays until it runs');
+    assert.equal(envelopes[3], null, 'an event payload is not kept');
   });
 
   test('task runs see the target chat and what the previous run sent', async () => {
