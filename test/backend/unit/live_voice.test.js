@@ -12,6 +12,16 @@ const {
   teardownTestRuntime,
 } = require('../../helpers/db');
 
+// Waits for something the session does after its own timers, instead of
+// sleeping a fixed time that a slow CI machine can overrun.
+async function waitFor(condition, what, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() > deadline) throw new Error(`Timed out waiting for ${what}`);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
 // What OpenAI's model list returns: the live model among models the call
 // cannot use.
 const OPENAI_MODELS = [
@@ -522,11 +532,11 @@ test('each GPT-Live hand-off is a task of its own, and running tasks outlive the
 
   fake.send({ type: 'session.input_transcript.delta', delta: 'Leg einen Termin an' });
   fake.send({ type: 'session.delegation.created', delegation: { id: 'item_a', target: 'client' } });
-  await new Promise((resolve) => setTimeout(resolve, 650));
+  await waitFor(() => engine.runs.length === 1, 'the first hand-off');
   fake.send({ type: 'session.output_transcript.delta', delta: 'Mach ich.' });
   fake.send({ type: 'session.input_transcript.delta', delta: 'Und schreib Lisa, dass ich später komme' });
   fake.send({ type: 'session.delegation.created', delegation: { id: 'item_b', target: 'client' } });
-  await new Promise((resolve) => setTimeout(resolve, 650));
+  await waitFor(() => engine.runs.length === 2 && sink.of('task').length === 2, 'the second hand-off');
 
   // The second request does not land in the first task: both run side by side.
   assert.deepEqual(engine.runs.map((run) => run.request), [
@@ -678,8 +688,7 @@ test('Gemini Live can hang up, after its goodbye has played out', async (t) => {
   assert.equal(manager.getSession(session.id), session);
   assert.ok(!sink.of('state').some((event) => event.state === 'closed'));
 
-  await new Promise((resolve) => setTimeout(resolve, 700));
-  assert.equal(manager.getSession(session.id), null);
+  await waitFor(() => manager.getSession(session.id) === null, 'the hang-up');
   const closed = sink.of('state').filter((event) => event.state === 'closed');
   assert.deepEqual(closed.map((event) => event.reason), ['agent_hung_up']);
   // The hang-up is not answered: nothing more is said on the line.
