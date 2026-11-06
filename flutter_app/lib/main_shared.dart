@@ -3559,15 +3559,6 @@ ModelMeta? _modelForValue(String value, List<ModelMeta> models) {
   return null;
 }
 
-String _modelLabelForValue(String value, List<ModelMeta> models) {
-  if (value == 'auto' || value.trim().isEmpty) {
-    return 'Auto';
-  }
-  final model = _modelForValue(value, models);
-  if (model != null) return model.label;
-  return value;
-}
-
 Map<String, dynamic> _jsonMap(dynamic value) {
   if (value is Map<String, dynamic>) {
     return value;

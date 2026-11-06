@@ -4024,7 +4024,7 @@ class _TaskCardState extends State<_TaskCard> {
                     ),
                   ),
                   PopupMenuButton<_TaskMenuAction>(
-                    tooltip: '',
+                    tooltip: appStrings.moreActions,
                     icon: Icon(Icons.more_vert_rounded, color: _textSecondary),
                     onSelected: _onMenu,
                     itemBuilder: (context) => <PopupMenuEntry<_TaskMenuAction>>[

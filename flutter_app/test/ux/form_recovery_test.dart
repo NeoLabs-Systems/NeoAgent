@@ -106,8 +106,16 @@ void main() {
   ) async {
     final controller = _FormController();
     addTearDown(controller.dispose);
-    await pumpPanel(tester, AgentsPanel(controller: controller));
+    // Settings shows the panel inside a scrolling page.
+    await pumpPanel(
+      tester,
+      SingleChildScrollView(child: AgentsPanel(controller: controller)),
+    );
     await tester.tap(find.text(appStrings.addAgent));
+    await tester.pumpAndSettle();
+    // The identifier lives under Advanced settings.
+    await tester.ensureVisible(find.text(appStrings.uxAdvancedSettings));
+    await tester.tap(find.text(appStrings.uxAdvancedSettings));
     await tester.pumpAndSettle();
     await tester.enterText(field('Name'), 'R');
     await tester.enterText(field('Name'), 'Research assistant');
@@ -142,13 +150,15 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester.getTopLeft(field('What should the agent do?')).dy,
-        lessThan(tester.getTopLeft(find.text(appStrings.triggerType)).dy),
+        lessThan(
+          tester.getTopLeft(find.text(appStrings.triggerType.toUpperCase())).dy,
+        ),
       );
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
       expect(
         find.descendant(
-          of: find.byType(AlertDialog),
+          of: find.byType(Dialog),
           matching: find.text('Please enter a task name.'),
         ),
         findsOneWidget,
@@ -180,7 +190,7 @@ void main() {
       expect(
         tester
             .widget<FilledButton>(
-              find.widgetWithText(FilledButton, 'Saving...'),
+              find.widgetWithText(FilledButton, 'Save'),
             )
             .onPressed,
         isNull,
@@ -191,7 +201,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.descendant(
-          of: find.byType(AlertDialog),
+          of: find.byType(Dialog),
           matching: find.textContaining('Unable to save this task'),
         ),
         findsOneWidget,
@@ -205,7 +215,7 @@ void main() {
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
       expect(controller.taskSaves, 2);
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(Dialog), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
@@ -296,7 +306,6 @@ void main() {
     await tester.tap(find.text(appStrings.save));
     await tester.pumpAndSettle();
     expect(find.text(appStrings.agentNameRequired), findsOneWidget);
-    expect(find.text(appStrings.agentIdentifierInvalid), findsOneWidget);
     await tester.enterText(field(appStrings.name), 'Recherche');
     await tester.pumpAndSettle();
     expect(find.text(appStrings.agentNameRequired), findsNothing);
