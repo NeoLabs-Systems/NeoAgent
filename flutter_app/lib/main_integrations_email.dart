@@ -178,9 +178,6 @@ class _EmailAccountSetupDialogState extends State<_EmailAccountSetupDialog> {
       error: _error,
       onBack: preset == null ? null : () => setState(() => _preset = null),
       onClose: _busy ? null : () => Navigator.of(context).pop(),
-      children: <Widget>[
-        preset == null ? _providerPicker() : _accountForm(preset),
-      ],
       actions: <Widget>[
         if (preset != null && preset['unsupported'] != true)
           FilledButton(
@@ -190,6 +187,9 @@ class _EmailAccountSetupDialogState extends State<_EmailAccountSetupDialog> {
               label: _busy ? appStrings.emailChecking : appStrings.connect,
             ),
           ),
+      ],
+      children: <Widget>[
+        preset == null ? _providerPicker() : _accountForm(preset),
       ],
     );
   }

@@ -877,6 +877,61 @@ Future<void> _showBitwardenBindingDialog(
           title: appStrings.addCredentialBinding,
           error: errorText,
           onClose: saving ? null : () => Navigator.of(dialogContext).pop(),
+          actions: <Widget>[
+            FilledButton(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      setState(() {
+                        saving = true;
+                        errorText = '';
+                      });
+                      try {
+                        await controller.createCredentialBinding(
+                          <String, dynamic>{
+                            'connectionId': connectionId,
+                            'alias': aliasController.text.trim(),
+                            'usageType': usageType,
+                            'itemId': itemId,
+                            if (usageType == 'browser')
+                              'origins': <String>[originController.text.trim()],
+                            if (usageType == 'http') ...<String, dynamic>{
+                              'origin': originController.text.trim(),
+                              'pathPrefix': pathController.text.trim(),
+                              'methods': const [
+                                'GET',
+                                'POST',
+                                'PUT',
+                                'PATCH',
+                                'DELETE',
+                              ],
+                              'authType': authType,
+                              'secretField': secretField,
+                              if (authType == 'basic')
+                                'usernameField': 'login.username',
+                              if (authType == 'header')
+                                'headerName': headerController.text.trim(),
+                            },
+                          },
+                        );
+                        if (dialogContext.mounted) {
+                          Navigator.of(dialogContext).pop();
+                        }
+                      } catch (_) {
+                        setState(() {
+                          errorText =
+                              controller.errorMessage ??
+                              appStrings.couldNotCreateBinding;
+                          saving = false;
+                        });
+                      }
+                    },
+              child: _IntegrationBusyLabel(
+                busy: saving,
+                label: appStrings.addBinding,
+              ),
+            ),
+          ],
           children: <Widget>[
             DropdownButtonFormField<String>(
               initialValue: itemId,
@@ -1015,61 +1070,6 @@ Future<void> _showBitwardenBindingDialog(
                 ),
               ],
             ],
-          ],
-          actions: <Widget>[
-            FilledButton(
-              onPressed: saving
-                  ? null
-                  : () async {
-                      setState(() {
-                        saving = true;
-                        errorText = '';
-                      });
-                      try {
-                        await controller.createCredentialBinding(
-                          <String, dynamic>{
-                            'connectionId': connectionId,
-                            'alias': aliasController.text.trim(),
-                            'usageType': usageType,
-                            'itemId': itemId,
-                            if (usageType == 'browser')
-                              'origins': <String>[originController.text.trim()],
-                            if (usageType == 'http') ...<String, dynamic>{
-                              'origin': originController.text.trim(),
-                              'pathPrefix': pathController.text.trim(),
-                              'methods': const [
-                                'GET',
-                                'POST',
-                                'PUT',
-                                'PATCH',
-                                'DELETE',
-                              ],
-                              'authType': authType,
-                              'secretField': secretField,
-                              if (authType == 'basic')
-                                'usernameField': 'login.username',
-                              if (authType == 'header')
-                                'headerName': headerController.text.trim(),
-                            },
-                          },
-                        );
-                        if (dialogContext.mounted) {
-                          Navigator.of(dialogContext).pop();
-                        }
-                      } catch (_) {
-                        setState(() {
-                          errorText =
-                              controller.errorMessage ??
-                              appStrings.couldNotCreateBinding;
-                          saving = false;
-                        });
-                      }
-                    },
-              child: _IntegrationBusyLabel(
-                busy: saving,
-                label: appStrings.addBinding,
-              ),
-            ),
           ],
         );
       },
@@ -1223,6 +1223,38 @@ Future<void> _showBitwardenSetupDialog(
           ],
           error: errorText,
           onClose: busy ? null : () => Navigator.of(dialogContext).pop(),
+          leading: config['configured'] == true
+              ? _IntegrationDangerButton(
+                  label: appStrings.disconnect,
+                  onPressed: busy
+                      ? null
+                      : () async {
+                          setState(() => busy = true);
+                          try {
+                            await controller.clearOfficialIntegrationConfig(
+                              'bitwarden',
+                            );
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop();
+                            }
+                          } catch (_) {
+                            setState(() {
+                              errorText =
+                                  controller.errorMessage ??
+                                  appStrings.couldNotDisconnectBitwarden;
+                              busy = false;
+                            });
+                          }
+                        },
+                )
+              : null,
+          actions: <Widget>[
+            if (!unlocked)
+              FilledButton.tonal(
+                onPressed: busy ? null : saveAccount,
+                child: Text(appStrings.saveAccount),
+              ),
+          ],
           children: <Widget>[
             _OAuthAppStep(
               number: 1,
@@ -1481,38 +1513,6 @@ Future<void> _showBitwardenSetupDialog(
               ],
             ),
           ],
-          leading: config['configured'] == true
-              ? _IntegrationDangerButton(
-                  label: appStrings.disconnect,
-                  onPressed: busy
-                      ? null
-                      : () async {
-                          setState(() => busy = true);
-                          try {
-                            await controller.clearOfficialIntegrationConfig(
-                              'bitwarden',
-                            );
-                            if (dialogContext.mounted) {
-                              Navigator.of(dialogContext).pop();
-                            }
-                          } catch (_) {
-                            setState(() {
-                              errorText =
-                                  controller.errorMessage ??
-                                  appStrings.couldNotDisconnectBitwarden;
-                              busy = false;
-                            });
-                          }
-                        },
-                )
-              : null,
-          actions: <Widget>[
-            if (!unlocked)
-              FilledButton.tonal(
-                onPressed: busy ? null : saveAccount,
-                child: Text(appStrings.saveAccount),
-              ),
-          ],
         );
       },
     ),
@@ -1652,27 +1652,6 @@ Future<void> _showOfficialIntegrationUrlSetupDialog(
         ],
         error: errorText,
         onClose: busy ? null : () => Navigator.of(dialogContext).pop(),
-        children: <Widget>[
-          TextField(
-            controller: baseUrlController,
-            enabled: !busy,
-            autofocus: savedBaseUrl.isEmpty,
-            keyboardType: TextInputType.url,
-            autocorrect: false,
-            decoration: InputDecoration(
-              labelText: config.urlLabel,
-              hintText: config.urlHint,
-              prefixIcon: const Icon(Icons.link_rounded),
-              border: const OutlineInputBorder(),
-            ),
-          ),
-          _IntegrationHint(config.urlHelperText),
-          if (config.extraDescription != null)
-            _IntegrationHint(
-              config.extraDescription!,
-              icon: Icons.lightbulb_outline_rounded,
-            ),
-        ],
         leading: savedBaseUrl.isEmpty
             ? null
             : _IntegrationDangerButton(
@@ -1733,6 +1712,27 @@ Future<void> _showOfficialIntegrationUrlSetupDialog(
                   : appStrings.saveConnect,
             ),
           ),
+        ],
+        children: <Widget>[
+          TextField(
+            controller: baseUrlController,
+            enabled: !busy,
+            autofocus: savedBaseUrl.isEmpty,
+            keyboardType: TextInputType.url,
+            autocorrect: false,
+            decoration: InputDecoration(
+              labelText: config.urlLabel,
+              hintText: config.urlHint,
+              prefixIcon: const Icon(Icons.link_rounded),
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          _IntegrationHint(config.urlHelperText),
+          if (config.extraDescription != null)
+            _IntegrationHint(
+              config.extraDescription!,
+              icon: Icons.lightbulb_outline_rounded,
+            ),
         ],
       ),
     ),
@@ -1859,6 +1859,23 @@ Future<void> _showHomeAssistantSetupDialog(
             ],
             error: formError,
             onClose: saving ? null : () => Navigator.of(dialogContext).pop(),
+            leading: savedBaseUrl.trim().isNotEmpty || hasToken
+                ? _IntegrationDangerButton(
+                    label: appStrings.disconnect,
+                    onPressed: saving ? null : disconnect,
+                  )
+                : null,
+            actions: <Widget>[
+              FilledButton(
+                onPressed: saving ? null : submit,
+                child: _IntegrationBusyLabel(
+                  busy: saving,
+                  label: hasConnectedAccount
+                      ? appStrings.updateInstance
+                      : appStrings.connectInstance,
+                ),
+              ),
+            ],
             children: <Widget>[
               TextField(
                 controller: baseUrlController,
@@ -1880,23 +1897,6 @@ Future<void> _showHomeAssistantSetupDialog(
                     ? appStrings.pasteReplacementLongLivedAccessToken
                     : appStrings.longLivedAccessToken,
                 stored: hasToken,
-              ),
-            ],
-            leading: savedBaseUrl.trim().isNotEmpty || hasToken
-                ? _IntegrationDangerButton(
-                    label: appStrings.disconnect,
-                    onPressed: saving ? null : disconnect,
-                  )
-                : null,
-            actions: <Widget>[
-              FilledButton(
-                onPressed: saving ? null : submit,
-                child: _IntegrationBusyLabel(
-                  busy: saving,
-                  label: hasConnectedAccount
-                      ? appStrings.updateInstance
-                      : appStrings.connectInstance,
-                ),
               ),
             ],
           );
@@ -2001,15 +2001,6 @@ Future<void> _showWorldNewsSetupDialog(
             ],
             error: formError,
             onClose: saving ? null : () => Navigator.of(dialogContext).pop(),
-            children: <Widget>[
-              _AdminCfgSecretField(
-                controller: apiKeyController,
-                label: hasApiKey
-                    ? appStrings.pasteReplacementGnewsApiKey
-                    : appStrings.gnewsApiKey,
-                stored: hasApiKey,
-              ),
-            ],
             leading: hasApiKey
                 ? _IntegrationDangerButton(
                     label: appStrings.disconnect,
@@ -2023,6 +2014,15 @@ Future<void> _showWorldNewsSetupDialog(
                   busy: saving,
                   label: appStrings.saveConnect,
                 ),
+              ),
+            ],
+            children: <Widget>[
+              _AdminCfgSecretField(
+                controller: apiKeyController,
+                label: hasApiKey
+                    ? appStrings.pasteReplacementGnewsApiKey
+                    : appStrings.gnewsApiKey,
+                stored: hasApiKey,
               ),
             ],
           );
@@ -2195,6 +2195,25 @@ Future<void> _showTrelloSetupDialog(
             onClose: connecting
                 ? null
                 : () => Navigator.of(dialogContext).pop(),
+            leading: apiKeyConfigured || savedApiKey.trim().isNotEmpty
+                ? _IntegrationDangerButton(
+                    label: appStrings.disconnect,
+                    onPressed: connecting ? null : disconnect,
+                  )
+                : null,
+            actions: <Widget>[
+              FilledButton(
+                onPressed: connecting ? null : submit,
+                child: _IntegrationBusyLabel(
+                  busy: connecting,
+                  label: tokenInputController.text.trim().isNotEmpty
+                      ? hasConnectedAccount
+                            ? appStrings.replaceAccount
+                            : appStrings.connectAccount
+                      : appStrings.saveSetup,
+                ),
+              ),
+            ],
             children: <Widget>[
               if (apiKeyManagedByServer)
                 _IntegrationHint(
@@ -2248,25 +2267,6 @@ Future<void> _showTrelloSetupDialog(
                   ],
                 ),
               ],
-            ],
-            leading: apiKeyConfigured || savedApiKey.trim().isNotEmpty
-                ? _IntegrationDangerButton(
-                    label: appStrings.disconnect,
-                    onPressed: connecting ? null : disconnect,
-                  )
-                : null,
-            actions: <Widget>[
-              FilledButton(
-                onPressed: connecting ? null : submit,
-                child: _IntegrationBusyLabel(
-                  busy: connecting,
-                  label: tokenInputController.text.trim().isNotEmpty
-                      ? hasConnectedAccount
-                            ? appStrings.replaceAccount
-                            : appStrings.connectAccount
-                      : appStrings.saveSetup,
-                ),
-              ),
             ],
           );
         },

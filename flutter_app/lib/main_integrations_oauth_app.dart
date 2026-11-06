@@ -151,6 +151,18 @@ class _OAuthAppSetupDialogState extends State<_OAuthAppSetupDialog> {
       ],
       error: _error,
       onClose: _busy ? null : () => Navigator.of(context).pop(),
+      actions: <Widget>[
+        FilledButton(
+          onPressed: _busy ? null : _save,
+          child: _IntegrationBusyLabel(busy: _busy, label: appStrings.save),
+        ),
+      ],
+      leading: _stored
+          ? _IntegrationDangerButton(
+              label: appStrings.remove,
+              onPressed: _busy ? null : _remove,
+            )
+          : null,
       children: <Widget>[
         if (_alternatives.isNotEmpty && !_stored) ...<Widget>[
           _IntegrationAlternatives(
@@ -239,18 +251,6 @@ class _OAuthAppSetupDialogState extends State<_OAuthAppSetupDialog> {
               ),
             ],
           ],
-        ),
-      ],
-      leading: _stored
-          ? _IntegrationDangerButton(
-              label: appStrings.remove,
-              onPressed: _busy ? null : _remove,
-            )
-          : null,
-      actions: <Widget>[
-        FilledButton(
-          onPressed: _busy ? null : _save,
-          child: _IntegrationBusyLabel(busy: _busy, label: appStrings.save),
         ),
       ],
     );

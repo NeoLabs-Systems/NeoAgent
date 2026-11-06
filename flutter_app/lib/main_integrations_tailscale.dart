@@ -149,6 +149,12 @@ class _TailscaleServiceDialogState extends State<_TailscaleServiceDialog> {
     width: 600,
     error: _error,
     onClose: _busy ? null : () => Navigator.of(context).pop(),
+    actions: <Widget>[
+      FilledButton(
+        onPressed: _busy ? null : _save,
+        child: _IntegrationBusyLabel(busy: _busy, label: appStrings.save),
+      ),
+    ],
     children: <Widget>[
       for (final (index, grant) in _grants.indexed)
         Padding(
@@ -294,12 +300,6 @@ class _TailscaleServiceDialogState extends State<_TailscaleServiceDialog> {
             ),
           ],
         ),
-      ),
-    ],
-    actions: <Widget>[
-      FilledButton(
-        onPressed: _busy ? null : _save,
-        child: _IntegrationBusyLabel(busy: _busy, label: appStrings.save),
       ),
     ],
   );

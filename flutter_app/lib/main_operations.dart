@@ -3346,6 +3346,139 @@ class _TasksPanelState extends State<TasksPanel> {
                 width: 640,
                 error: saveError ?? '',
                 onClose: saving ? null : () => Navigator.of(context).pop(),
+                actions: <Widget>[
+                  FilledButton(
+                    onPressed: saving
+                        ? null
+                        : () async {
+                      if (!_validateDialogForm(formKey)) return;
+                      final name = nameController.text.trim();
+                      final prompt = promptController.text.trim();
+                      void showError(String message) =>
+                          setLocalState(() => saveError = message);
+                      final selectedTriggerType = triggerType.value;
+                      final triggerConfig = <String, dynamic>{};
+                      if (selectedTriggerType == 'manual') {
+                        // Manual trigger uses no trigger-specific config.
+                      } else if (selectedTriggerType == 'schedule') {
+                        final runAt = runAtController.text.trim();
+                        triggerConfig['mode'] = scheduleDraft.mode;
+                        if (scheduleDraft.mode == 'recurring') {
+                          scheduleDraft.customCronExpression =
+                              customCronController.text.trim();
+                          final cronExpression = scheduleDraft.cronExpression
+                              .trim();
+                          if (cronExpression.isEmpty) {
+                            showError(appStrings.pleaseChooseASchedule);
+                            return;
+                          }
+                          if (scheduleDraft.presetId == 'custom' &&
+                              !_looksLikeCronExpression(cronExpression)) {
+                            showError(appStrings.customCronMustHave5Fields);
+                            return;
+                          }
+                          triggerConfig['cronExpression'] = cronExpression;
+                          triggerConfig['finishOnTime'] =
+                              scheduleDraft.finishOnTime;
+                        } else {
+                          if (runAt.isEmpty) {
+                            showError(appStrings.pleaseEnterWhenTheTaskShould);
+                            return;
+                          }
+                          triggerConfig['runAt'] = runAt;
+                        }
+                      } else {
+                        final option = _taskTriggerOptionForType(
+                          selectedTriggerType,
+                        );
+                        if (option.providerKey != null) {
+                          final parsedConnectionId =
+                              selectedConnectionId.value ??
+                              int.tryParse(connectionIdController.text.trim());
+                          if (parsedConnectionId == null ||
+                              parsedConnectionId <= 0) {
+                            showError(appStrings.pleaseSelectAnAccountOrEnter);
+                            return;
+                          }
+                          triggerConfig['connectionId'] = parsedConnectionId;
+                        }
+                        final invalidField = triggerDraft.writeTo(
+                          option.fields,
+                          triggerConfig,
+                        );
+                        if (invalidField != null) {
+                          showError(
+                            appStrings.fieldMissingOrInvalidArg1(invalidField),
+                          );
+                          return;
+                        }
+                      }
+                      final taskConfig = <String, dynamic>{
+                        ...?task?.taskConfig,
+                        'loopPaused': loopPaused,
+                      };
+                      taskConfig.remove('loopBudget');
+                      taskConfig.remove('loop_paused');
+                      final deliveryTarget = selectedDeliveryTarget.value;
+                      if (deliveryTarget == null) {
+                        taskConfig.remove('notifyPlatform');
+                        taskConfig.remove('notifyTo');
+                      } else {
+                        taskConfig['notifyPlatform'] = deliveryTarget.platform;
+                        taskConfig['notifyTo'] = deliveryTarget.to;
+                      }
+                      setLocalState(() {
+                        saving = true;
+                        saveError = null;
+                      });
+                      try {
+                        await controller.saveTask(
+                          id: task?.id,
+                          name: name,
+                          triggerType: selectedTriggerType,
+                          triggerConfig: triggerConfig,
+                          prompt: prompt,
+                          taskConfig: taskConfig,
+                          model: selectedModel == 'default'
+                              ? null
+                              : selectedModel,
+                          enabled: enabled,
+                          agentId: selectedAgentId,
+                        );
+                      } catch (error) {
+                        if (!context.mounted) return;
+                        setLocalState(() {
+                          saving = false;
+                          saveError = controller.friendlyErrorMessage(error);
+                        });
+                        return;
+                      }
+                      if (context.mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                    child: _IntegrationBusyLabel(
+                      busy: saving,
+                      label: appStrings.save,
+                    ),
+                  ),
+                ],
+                leading: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Switch.adaptive(
+                      value: enabled,
+                      onChanged: saving
+                          ? null
+                          : (value) => setLocalState(() => enabled = value),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      appStrings.enabled,
+                      style: TextStyle(color: _textSecondary, fontSize: 13),
+                    ),
+                  ],
+                ),
                 children: <Widget>[
                   Form(
                     key: formKey,
@@ -3891,139 +4024,6 @@ class _TasksPanelState extends State<TasksPanel> {
                           ],
                         ),
                       ],
-                    ),
-                  ),
-                ],
-                leading: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Switch.adaptive(
-                      value: enabled,
-                      onChanged: saving
-                          ? null
-                          : (value) => setLocalState(() => enabled = value),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      appStrings.enabled,
-                      style: TextStyle(color: _textSecondary, fontSize: 13),
-                    ),
-                  ],
-                ),
-                actions: <Widget>[
-                  FilledButton(
-                    onPressed: saving
-                        ? null
-                        : () async {
-                      if (!_validateDialogForm(formKey)) return;
-                      final name = nameController.text.trim();
-                      final prompt = promptController.text.trim();
-                      void showError(String message) =>
-                          setLocalState(() => saveError = message);
-                      final selectedTriggerType = triggerType.value;
-                      final triggerConfig = <String, dynamic>{};
-                      if (selectedTriggerType == 'manual') {
-                        // Manual trigger uses no trigger-specific config.
-                      } else if (selectedTriggerType == 'schedule') {
-                        final runAt = runAtController.text.trim();
-                        triggerConfig['mode'] = scheduleDraft.mode;
-                        if (scheduleDraft.mode == 'recurring') {
-                          scheduleDraft.customCronExpression =
-                              customCronController.text.trim();
-                          final cronExpression = scheduleDraft.cronExpression
-                              .trim();
-                          if (cronExpression.isEmpty) {
-                            showError(appStrings.pleaseChooseASchedule);
-                            return;
-                          }
-                          if (scheduleDraft.presetId == 'custom' &&
-                              !_looksLikeCronExpression(cronExpression)) {
-                            showError(appStrings.customCronMustHave5Fields);
-                            return;
-                          }
-                          triggerConfig['cronExpression'] = cronExpression;
-                          triggerConfig['finishOnTime'] =
-                              scheduleDraft.finishOnTime;
-                        } else {
-                          if (runAt.isEmpty) {
-                            showError(appStrings.pleaseEnterWhenTheTaskShould);
-                            return;
-                          }
-                          triggerConfig['runAt'] = runAt;
-                        }
-                      } else {
-                        final option = _taskTriggerOptionForType(
-                          selectedTriggerType,
-                        );
-                        if (option.providerKey != null) {
-                          final parsedConnectionId =
-                              selectedConnectionId.value ??
-                              int.tryParse(connectionIdController.text.trim());
-                          if (parsedConnectionId == null ||
-                              parsedConnectionId <= 0) {
-                            showError(appStrings.pleaseSelectAnAccountOrEnter);
-                            return;
-                          }
-                          triggerConfig['connectionId'] = parsedConnectionId;
-                        }
-                        final invalidField = triggerDraft.writeTo(
-                          option.fields,
-                          triggerConfig,
-                        );
-                        if (invalidField != null) {
-                          showError(
-                            appStrings.fieldMissingOrInvalidArg1(invalidField),
-                          );
-                          return;
-                        }
-                      }
-                      final taskConfig = <String, dynamic>{
-                        ...?task?.taskConfig,
-                        'loopPaused': loopPaused,
-                      };
-                      taskConfig.remove('loopBudget');
-                      taskConfig.remove('loop_paused');
-                      final deliveryTarget = selectedDeliveryTarget.value;
-                      if (deliveryTarget == null) {
-                        taskConfig.remove('notifyPlatform');
-                        taskConfig.remove('notifyTo');
-                      } else {
-                        taskConfig['notifyPlatform'] = deliveryTarget.platform;
-                        taskConfig['notifyTo'] = deliveryTarget.to;
-                      }
-                      setLocalState(() {
-                        saving = true;
-                        saveError = null;
-                      });
-                      try {
-                        await controller.saveTask(
-                          id: task?.id,
-                          name: name,
-                          triggerType: selectedTriggerType,
-                          triggerConfig: triggerConfig,
-                          prompt: prompt,
-                          taskConfig: taskConfig,
-                          model: selectedModel == 'default'
-                              ? null
-                              : selectedModel,
-                          enabled: enabled,
-                          agentId: selectedAgentId,
-                        );
-                      } catch (error) {
-                        if (!context.mounted) return;
-                        setLocalState(() {
-                          saving = false;
-                          saveError = controller.friendlyErrorMessage(error);
-                        });
-                        return;
-                      }
-                      if (context.mounted) {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                    child: _IntegrationBusyLabel(
-                      busy: saving,
-                      label: appStrings.save,
                     ),
                   ),
                 ],

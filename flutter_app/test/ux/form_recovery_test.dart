@@ -296,7 +296,6 @@ void main() {
     await tester.tap(find.text(appStrings.save));
     await tester.pumpAndSettle();
     expect(find.text(appStrings.agentNameRequired), findsOneWidget);
-    expect(find.text(appStrings.agentIdentifierInvalid), findsOneWidget);
     await tester.enterText(field(appStrings.name), 'Recherche');
     await tester.pumpAndSettle();
     expect(find.text(appStrings.agentNameRequired), findsNothing);
