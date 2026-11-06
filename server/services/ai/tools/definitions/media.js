@@ -48,10 +48,11 @@ module.exports = [
     group: 'media', access: 'read', stateScope: 'workspace', latencyClass: 'remote',
     capabilities: ['image', 'vision', 'analyze'],
     description: 'Analyze an image file using the best available vision-capable model. Use this to describe photos, read QR codes, extract text from screenshots, or answer visual questions.',
+    fileArgs: ['image_path'],
     parameters: {
       type: 'object',
       properties: {
-        image_path: { type: 'string', description: 'Absolute path to the image file' },
+        image_path: { type: 'string', description: 'The image: a file in your workspace or an owned artifact' },
         question: { type: 'string', description: 'What to answer or describe about the image (default: describe the image in detail)' }
       },
       required: ['image_path']
@@ -62,10 +63,11 @@ module.exports = [
     group: 'media', access: 'read', stateScope: 'workspace', latencyClass: 'slow',
     capabilities: ['audio', 'transcribe', 'speech'],
     description: 'Transcribe speech in an audio file (for example a voice note or recording the user shared) with the configured speech-to-text provider.',
+    fileArgs: ['audio_path'],
     parameters: {
       type: 'object',
       properties: {
-        audio_path: { type: 'string', description: 'Absolute path to the audio file' }
+        audio_path: { type: 'string', description: 'The audio: a file in your workspace or an owned artifact' }
       },
       required: ['audio_path']
     }
@@ -75,10 +77,11 @@ module.exports = [
     group: 'media', access: 'read', stateScope: 'workspace', latencyClass: 'remote',
     capabilities: ['image', 'ocr', 'text'],
     description: 'Extract raw text from an image locally using Tesseract OCR. This is faster and completely offline compared to analyze_image.',
+    fileArgs: ['image_path'],
     parameters: {
       type: 'object',
       properties: {
-        image_path: { type: 'string', description: 'Absolute path to the image file' }
+        image_path: { type: 'string', description: 'The image: a file in your workspace or an owned artifact' }
       },
       required: ['image_path']
     }

@@ -1,15 +1,15 @@
 {
   "tolerance": {},
-  "eval_set_version": 8,
-  "cases": 53,
-  "passed": 53,
+  "eval_set_version": 9,
+  "cases": 54,
+  "passed": 54,
   "success_rate": 1,
   "duplicate_messages": 0,
   "security_failures": 0,
   "delivery_violations": 0,
   "repeated_tool_calls": 0,
   "unnecessary_tool_calls": 0,
-  "turns_per_task": 2.46,
-  "tokens_per_task": 279,
+  "turns_per_task": 2.45,
+  "tokens_per_task": 278,
   "mode": "scripted"
 }

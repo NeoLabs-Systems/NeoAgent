@@ -47,7 +47,7 @@ const TASK_OUTPUT_DEFAULTS = [
   '- Say each thing once. No repetition, no restating the task, no summary of a summary.',
   '- Be brief and token-efficient: do the minimum tool calls needed and keep the message as short as the content allows.',
   '- Format user-facing messages for easy reading on the target platform (short lines, lists or bold for key items where it helps).',
-  '- If nothing is relevant, do not message the user.',
+  '- If nothing is relevant, answer exactly [NO RESPONSE] and nothing else.',
   '- Treat the task instructions as intent, not a rigid script. If context shows something else would serve the user better, do that instead.',
 ].join('\n');
 const MAX_RECURRING_TASK_START_DELAY_MS = 90 * 1000;
@@ -743,10 +743,11 @@ class TaskRuntime {
       delivery.notifyTarget = notifyTarget;
       const triggerSummary = this._summarizeTrigger(task.trigger_type, triggerConfig);
       let notifyHint = '';
-      const manualRun = executionMeta.manual === true;
 
       if (notifyTarget) {
-        notifyHint = `\n\nIf your task result is worth notifying the user about, send it proactively via send_message to platform="${notifyTarget.platform}" to="${notifyTarget.to}" and set purpose="final_result" for a concrete useful outcome or purpose="blocker" for a real issue the user should know about. If nothing important or actionable changed, call send_message with purpose="no_response" and content="[NO RESPONSE]" exactly; never leave content blank for no_response. When a tool result already gives you summary fields or flags that answer the task, decide from that evidence instead of re-running nearby variants of the same lookup.${manualRun ? '' : ' For this automatic run, plain assistant text is internal only and is NOT delivered. You MUST end the run with exactly one explicit send_message decision (purpose="final_result", "blocker", or "no_response") — if you produce a real result, deliver it with send_message or it is lost.'}`;
+        // The final answer is the delivery, as in Hermes' scheduled jobs: one path,
+        // and silence is a control token rather than a second tool call to remember.
+        notifyHint = `\n\nYour final answer is delivered to the user on platform="${notifyTarget.platform}" to="${notifyTarget.to}" when this run ends; do not send it yourself with send_message. If nothing is worth telling them, answer exactly [NO RESPONSE] and nothing else: it is a control token, never translated or combined with other text. When a tool result already gives you summary fields or flags that answer the task, decide from that evidence instead of re-running nearby variants of the same lookup.`;
       }
 
       // The payload is whatever the email, webhook, or chat said: data for
@@ -821,7 +822,6 @@ class TaskRuntime {
             taskId,
             result,
             delivery,
-            allowPlainResultFallback: manualRun,
           });
           if (fallbackDelivery && result && typeof result === 'object') {
             result.taskDelivery = fallbackDelivery;
@@ -915,7 +915,6 @@ class TaskRuntime {
               content: failureMessage,
             },
             delivery,
-            allowPlainResultFallback: true,
           });
         }
       }
@@ -1195,7 +1194,6 @@ class TaskRuntime {
     taskId,
     result,
     delivery,
-    allowPlainResultFallback = true,
   }) {
     throwIfAborted(this.abortController.signal, 'Task runtime is stopping.');
     if (delivery?.sent?.length || delivery?.noResponse) return null;
@@ -1204,7 +1202,6 @@ class TaskRuntime {
     const target = delivery?.notifyTarget;
     if (!target) return null;
     const resultText = stringifyTaskResult(result).trim();
-    const resultLooksLikeError = Boolean(result?.error);
     const staged = delivery?.staged || null;
     const stagedMessage = normalizeOutgoingMessageForPlatform(
       staged?.platform,
@@ -1212,30 +1209,6 @@ class TaskRuntime {
       { stripNoResponseMarker: false },
     );
     const explicitStagedDelivery = Boolean(stagedMessage);
-    // A wrap-up after a guard stopped the run is the model's final answer,
-    // written without the ability to call send_message. Gating it would silently
-    // drop a stuck scheduled task's result, so it goes out even on an automatic
-    // run. Ordinary plain text (the model had send_message and chose not to use
-    // it) is still gated below.
-    const forcedTerminal = delivery?.wrappedUp === true && Boolean(resultText);
-    if (!allowPlainResultFallback && !resultLooksLikeError && !forcedTerminal && !explicitStagedDelivery) {
-      // Automatic run produced substantive text but never made an explicit
-      // send_message decision (a deliberate no_response would have short-circuited
-      // above). We suppress to avoid recurring-check spam, but surface it so a
-      // genuinely dropped notification is visible rather than silently lost.
-      if (resultText) {
-        console.warn(
-          `[Tasks] Task ${taskId} produced an undelivered result on an automatic run `
-          + `(no explicit send_message decision): ${resultText.slice(0, 140)}`
-        );
-      }
-      return {
-        sent: false,
-        skipped: true,
-        reason: 'explicit_delivery_required',
-      };
-    }
-
     const manager = this.app?.locals?.messagingManager || this.agentEngine?.messagingManager || null;
     if (!manager) {
       return {

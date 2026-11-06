@@ -100,18 +100,11 @@ The server registers 42 trigger types in `server/services/tasks/adapters/index.j
 
 ## 📬 Delivery
 
-An automatic run must end with exactly one `send_message` call, with one of these `purpose` values:
+A run's final answer is what it delivers, as in Hermes' scheduled jobs. When there is nothing worth sending, the agent answers exactly `[NO RESPONSE]` and nothing goes out.
 
-| `purpose` | Meaning |
-| --- | --- |
-| `final_result` | A concrete result worth sending |
-| `blocker` | A real problem you should know about |
-| `no_response` | Nothing worth reporting; nothing is sent |
-
-- **Plain text is internal.** On automatic runs, a reply without `send_message` is not delivered.
+- **One path.** The agent does not send the result itself; a `send_message` it does send counts as the delivery, and nothing is sent twice.
 - **Destination.** **Result Delivery** sets the channel; **Use default channel** picks the chat you last used with this agent.
 - **Quiet by default.** Built-in rules report only what changed and skip empty results. Your instructions override them.
-- **Run Now is lenient.** A manual run delivers its plain reply when the agent sends nothing.
 - **Failures reach you.** After one automatic retry, a failed run sends its reason. Provider outages and rate limits stay quiet.
 - **Delivery needs a channel.** Connect a [messaging channel](integrations.md#messaging-channels); a run can succeed while its delivery fails.
 

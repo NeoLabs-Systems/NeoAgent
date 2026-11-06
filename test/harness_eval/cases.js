@@ -9,7 +9,7 @@ const { createEvalEngine, fakeMessaging, ledgerOf, visibleFinals } = require('./
 // `live` cases give the same situation to a real model and check what it did with
 // the tools it was offered. Bump EVAL_SET_VERSION whenever a case changes meaning,
 // because results are only comparable within one version.
-const EVAL_SET_VERSION = 8;
+const EVAL_SET_VERSION = 9;
 
 const base = {
   stream: false,
@@ -603,6 +603,39 @@ const SCRIPTED_CASES = [
       const result = await engine.run(user.userId, 'Send me the summary on Telegram', { ...base, triggerSource: 'web' });
       const sent = messaging.sent.map((entry) => `${entry.to}:${entry.content}`);
       return { result, ok: sent.length === 1 && sent[0] === 'owner-dm:Your summary.', detail: sent.join(' | ') };
+    },
+  },
+  {
+    id: 'media.a_file_the_agent_made_is_sent_from_its_computer',
+    category: 'MEDIA',
+    async run({ runtime, user }) {
+      runtime.useScript([
+        { tools: [send('Here is the schematic.', { media_path: 'pcbtest/schematic.png' })] },
+        { text: 'Sent.' },
+      ]);
+      const fs = require('node:fs');
+      const { ArtifactStore } = require('../../server/services/artifacts/store');
+      const asked = [];
+      const app = {
+        locals: {
+          artifactStore: new ArtifactStore(),
+          // The agent's computer: only it has the file.
+          computerWorkspaceManager: {
+            async downloadFile(_userId, filePath) {
+              asked.push(filePath);
+              return { path: filePath, filename: 'schematic.png', content: Buffer.from('png-bytes') };
+            },
+          },
+        },
+      };
+      const messaging = fakeMessaging();
+      const engine = createEvalEngine({ messaging, app });
+      const result = await engine.run(user.userId, 'Schick mir das Bild', { ...base, triggerSource: 'web' });
+      const attached = messaging.sent[0]?.options?.mediaPath || '';
+      const ok = asked.join() === 'pcbtest/schematic.png'
+        && attached !== 'pcbtest/schematic.png'
+        && fs.existsSync(attached) && fs.readFileSync(attached, 'utf8') === 'png-bytes';
+      return { result, ok, detail: `asked ${asked}; attached ${attached}` };
     },
   },
   {

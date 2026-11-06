@@ -654,6 +654,7 @@ test('a tool that fails the same way whatever it is asked rests, and a success e
   guard.observe('web_search', { query: 'c' }, {}, quota);
   const resting = guard.toolResting('web_search');
   assert.equal(resting.count, 3);
+  assert.equal(resting.serviceWait, false, 'no wait was named, so none is offered');
   assert.equal(resting.retryInMs, 60_000);
   now = 61_000;
   assert.equal(guard.toolResting('web_search'), null, 'it may be asked again after the rest');
@@ -665,6 +666,7 @@ test('a tool that fails the same way whatever it is asked rests, and a success e
   guard.observe('github_api_request', { path: 'b' }, { retryAfterSeconds: 300 }, 'Forbidden');
   guard.observe('github_api_request', { path: 'c' }, { retryAfterSeconds: 300 }, 'Forbidden');
   assert.equal(guard.toolResting('github_api_request').retryInMs, 300_000, 'for as long as the service asked');
+  assert.equal(guard.toolResting('github_api_request').serviceWait, true);
 
   guard.observe('read_file', { path: 'a' }, {}, 'Not found: a');
   guard.observe('read_file', { path: 'b' }, {}, 'Not found: b');

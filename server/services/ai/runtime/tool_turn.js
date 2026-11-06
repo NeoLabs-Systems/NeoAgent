@@ -31,6 +31,7 @@ const { argsDigest, redactArgs } = require('./events/redact');
 const { noteChangedPath } = require('./task_state');
 const { reviewOperation } = require('./operations');
 const { ensureCheckpoint, recordMutation } = require('./workspace_checkpoint');
+const { fetchWorkspaceFileArgs } = require('../../files/workspace_file_args');
 
 const logger = createServiceLogger('Runtime');
 
@@ -168,8 +169,13 @@ async function reviewCall(session, planned, stepIndex, stepId) {
   // A command's failure says how that command ended, not that the shell is down.
   const resting = isShellCall(meta) ? null : guard.toolResting(call.name);
   if (resting) {
+    // A wait is worth naming only when the service named it: otherwise the model
+    // sleeps it out and repeats a call that cannot work.
+    const when = resting.serviceWait
+      ? `The service asked to wait about ${Math.ceil(resting.retryInMs / 1000)} seconds.`
+      : 'Waiting will not change that.';
     const reason = `${call.name} failed ${resting.count} times in a row with the same error, whatever it was asked: ${resting.failure} `
-      + `It is unavailable for about ${Math.ceil(resting.retryInMs / 1000)} more seconds. Do not call it again until then; use another way or tell the owner what is blocked.`;
+      + `${when} Do not call it again for this; use another way or tell the owner what is blocked.`;
     publish(session, EVENT_TYPES.TOOL_SUPPRESSED, {
       tool: { name: call.name, call_fingerprint: fingerprint },
       reason: 'tool_resting',
@@ -334,7 +340,21 @@ async function runToolCall(session, planned) {
         && call.name !== 'workspace_rollback';
       const started = tracked ? await ensureCheckpoint(session, call) : null;
       try {
-        result = await executeCall(session, call, stepId);
+        const files = await fetchWorkspaceFileArgs({
+          userId,
+          args: call.arguments,
+          fileArgs: meta.fileArgs,
+          workspace: session.app?.locals?.computerWorkspaceManager,
+          artifactStore: session.app?.locals?.artifactStore,
+          deviceTarget: session.deviceTarget,
+          signal: session.getActiveSignal(),
+        });
+        if (files.error) {
+          errorMessage = files.error;
+          result = { error: files.error };
+        } else {
+          result = await executeCall(session, { ...call, arguments: files.args }, stepId);
+        }
       } finally {
         if (started) await recordMutation(session, started);
       }

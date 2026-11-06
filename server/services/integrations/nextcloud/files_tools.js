@@ -55,11 +55,12 @@ const FILE_TOOLS = Object.freeze([
   {
     name: 'nextcloud_upload_file',
     access: 'write',
-    description: 'Upload a local file into Nextcloud.',
+    fileArgs: ['file_path'],
+    description: 'Upload a file from your workspace into Nextcloud.',
     parameters: {
       type: 'object',
       properties: {
-        file_path: { type: 'string', description: 'Absolute local file path to upload.' },
+        file_path: { type: 'string', description: 'The file to upload: a path in your workspace or an owned artifact.' },
         path: { type: 'string', description: 'Destination Nextcloud path, including file name.' },
       },
       required: ['file_path', 'path'],

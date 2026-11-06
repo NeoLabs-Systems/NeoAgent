@@ -951,15 +951,23 @@ class MessagingManager extends EventEmitter {
         ? mediaPathOrOptions
         : { mediaPath: mediaPathOrOptions };
     const mediaReference = sendOptions.mediaPath || null;
-    const mediaPath = mediaReference
-      ? resolveUserFileReference({
-          userId,
-          reference: mediaReference,
-          artifactStore: this.artifactStore,
-          workspaceManager: this.workspaceManager,
-          label: 'Message attachment',
-        })
-      : null;
+    let mediaPath = null;
+    try {
+      mediaPath = mediaReference
+        ? resolveUserFileReference({
+            userId,
+            reference: mediaReference,
+            artifactStore: this.artifactStore,
+            workspaceManager: this.workspaceManager,
+            label: 'Message attachment',
+          })
+        : null;
+    } catch (error) {
+      // Nothing left for the platform: a fixed attachment can be sent without a
+      // duplicate, so this is a failure, not a maybe-sent.
+      error.safeToRetry = true;
+      throw error;
+    }
     const platformSendOptions = {
       ...sendOptions,
       mediaPath,

@@ -1,6 +1,7 @@
 'use strict';
 
 const { buildGuestGitEnv } = require('../../../integrations/github/git_proxy');
+const { GUEST_WORKSPACE_DIR } = require('../../../runtime/guest_paths');
 
 const handlers = {
   async execute_command(args, ctx) {
@@ -15,7 +16,8 @@ const handlers = {
     const guestHost = runtimeManager.getGuestHostAddress(userId, { deviceTarget });
     const integrationManager = integrations();
     const execOptions = {
-    cwd: args.cwd,
+    // The workspace, as the tool says; every computer maps this path to its own.
+    cwd: args.cwd || GUEST_WORKSPACE_DIR,
     timeout,
     env: guestHost && integrationManager
       ? buildGuestGitEnv({ integrationManager, userId, agentId, runId, guestHost, ttlMs: timeout })

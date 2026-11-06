@@ -1160,6 +1160,59 @@ test('the guest agent refuses a write that leads out of the workspace through a 
   assert.equal(fs.readFileSync(path.join(workspace, 'fine/new.txt'), 'utf8'), 'x');
 });
 
+test('a file the agent made in its computer can be sent, uploaded or read by any file-taking tool', async () => {
+  runtime = createTestRuntime();
+  const user = await createTestUser(runtime.db, { username: 'workspace_files' });
+  const { ArtifactStore } = require('../../../server/services/artifacts/store');
+  const { ComputerWorkspaceClient } = require('../../../server/services/runtime/computer_workspace_client');
+  const { fetchWorkspaceFileArgs } = require('../../../server/services/files/workspace_file_args');
+  const { resolveUserFileReference } = require('../../../server/services/files/user_file_access');
+  const workspaceDir = tempDir('neoagent-guest-files-');
+  fs.mkdirSync(path.join(workspaceDir, 'pcbtest'));
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+  fs.writeFileSync(path.join(workspaceDir, 'pcbtest', 'schematic.png'), png);
+
+  const guest = startGuestAgent(workspaceDir);
+  try {
+    await guest.ready;
+    const workspace = new ComputerWorkspaceClient({
+      runtimeManager: { requestComputer: (_userId, method, pathname, body) => guest.request(method, pathname, body) },
+    });
+    const artifactStore = new ArtifactStore();
+    const fetchFile = (reference) => fetchWorkspaceFileArgs({
+      userId: user.userId,
+      args: { media_path: reference, platform: 'whatsapp' },
+      fileArgs: ['media_path'],
+      workspace,
+      artifactStore,
+    });
+
+    // The paths the model used on the live server, which all failed before.
+    for (const reference of ['pcbtest/schematic.png', `${GUEST_WORKSPACE_DIR}/pcbtest/schematic.png`]) {
+      const { args, error } = await fetchFile(reference);
+      assert.equal(error, undefined, reference);
+      assert.equal(args.platform, 'whatsapp');
+      assert.deepEqual(fs.readFileSync(args.media_path), png, `${reference} arrives as the same bytes`);
+      // What messaging and the media tools then do with it.
+      const resolved = resolveUserFileReference({ userId: user.userId, reference: args.media_path, artifactStore, label: 'Message attachment' });
+      assert.equal(fs.realpathSync(resolved), fs.realpathSync(args.media_path));
+    }
+
+    const missing = await fetchFile('pcbtest/nope.png');
+    assert.match(missing.error, /media_path "pcbtest\/nope\.png" could not be read from your workspace/);
+    const outside = await fetchFile('/etc/passwd');
+    assert.match(outside.error, /could not be read from your workspace/, 'nothing outside the workspace');
+
+    const { args: sent } = await fetchFile('pcbtest/schematic.png');
+    const again = await fetchFile(sent.media_path);
+    assert.equal(again.args.media_path, sent.media_path, 'an artifact is not fetched twice');
+    const url = await fetchFile('https://example.com/a.png');
+    assert.equal(url.args.media_path, 'https://example.com/a.png');
+  } finally {
+    guest.child.kill('SIGKILL');
+  }
+});
+
 test('every coding tool works over the real guest agent, as in a VM', async () => {
   runtime = createTestRuntime();
   const user = await createTestUser(runtime.db, { username: 'coding_guest' });

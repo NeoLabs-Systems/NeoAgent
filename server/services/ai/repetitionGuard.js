@@ -162,7 +162,12 @@ class ToolRepetitionGuard {
   toolResting(toolName) {
     const streak = this.toolFailures.get(String(toolName || ''));
     if (!streak || streak.count < TOOL_FAILURE_LIMIT || this.now() >= streak.until) return null;
-    return { failure: streak.failure, count: streak.count, retryInMs: streak.until - this.now() };
+    return {
+      failure: streak.failure,
+      count: streak.count,
+      retryInMs: streak.until - this.now(),
+      serviceWait: streak.serviceWait,
+    };
   }
 
   #noteToolOutcome(toolName, failure, result) {
@@ -173,8 +178,9 @@ class ToolRepetitionGuard {
     }
     const previous = this.toolFailures.get(name);
     const count = previous?.failure === failure ? previous.count + 1 : 1;
-    const retryAfterMs = Number(result?.retryAfterSeconds) > 0 ? Number(result.retryAfterSeconds) * 1000 : TOOL_REST_MS;
-    this.toolFailures.set(name, { failure, count, until: this.now() + retryAfterMs });
+    const serviceWait = Number(result?.retryAfterSeconds) > 0;
+    const retryAfterMs = serviceWait ? Number(result.retryAfterSeconds) * 1000 : TOOL_REST_MS;
+    this.toolFailures.set(name, { failure, count, until: this.now() + retryAfterMs, serviceWait });
   }
 
   observe(toolName, args, result, failure = '', { stateScope = null } = {}) {

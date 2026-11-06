@@ -48,3 +48,18 @@ test('a WhatsApp number is the owner\'s only in self-chat mode', () => {
   connection.selfChatMode = true;
   assert.match(connection.ownerChatId(), /^491700000000@s\.whatsapp\.net$/);
 });
+
+test('an attachment that cannot be found fails the send outright, it was never maybe-sent', async () => {
+  const user = await createTestUser(runtime.db, { username: 'attachment_missing' });
+  const { resolveAgentId } = require('../../../server/services/agents/manager');
+  const agentId = resolveAgentId(user.userId, null);
+  const { ArtifactStore } = require('../../../server/services/artifacts/store');
+  const manager = managerWith([[`${user.userId}:${agentId}:telegram`, { sendMessage: async () => ({ success: true }) }]]);
+  manager._assertRunning = () => {};
+  manager.artifactStore = new ArtifactStore();
+  manager.workspaceManager = { resolvePath: () => { throw new Error('Message attachment does not exist.'); } };
+  await assert.rejects(
+    manager.sendMessage(user.userId, 'telegram', 'chat-1', 'the plan', { mediaPath: 'pcbtest/plan.pdf' }),
+    (error) => error.safeToRetry === true && /does not exist/.test(error.message),
+  );
+});

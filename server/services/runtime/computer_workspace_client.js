@@ -1,7 +1,7 @@
 'use strict';
 
 const { applyTextEdits, coerceWritableText } = require('../workspace/text_edits');
-const { toGuestWorkspacePath } = require('./guest_paths');
+const { fromGuestWorkspacePath, toGuestWorkspacePath } = require('./guest_paths');
 
 class ComputerWorkspaceClient {
   constructor(options = {}) {
@@ -23,6 +23,24 @@ class ComputerWorkspaceClient {
     return {
       ...result,
       content: coerceWritableText(result.content),
+    };
+  }
+
+  // The bytes of one workspace file, for a tool that sends or uploads it.
+  async downloadFile(userId, filePath, options = {}) {
+    const result = await this.#request(
+      userId,
+      'GET',
+      // Relative to the workspace, which every computer maps to its own.
+      `/workspace/files/download?path=${encodeURIComponent(fromGuestWorkspacePath(filePath))}`,
+      undefined,
+      options,
+    );
+    return {
+      path: toGuestWorkspacePath(result.path),
+      filename: result.filename,
+      content: Buffer.from(String(result.content || ''), 'base64'),
+      size: Number(result.size || 0),
     };
   }
 

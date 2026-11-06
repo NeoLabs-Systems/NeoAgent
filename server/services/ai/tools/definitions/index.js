@@ -35,6 +35,7 @@ const INTEGRATED_TOOL_TRAITS = {
     policy: { external: true },
   },
   detect_synthid_watermark: {
+    fileArgs: ['image_path'],
     group: 'media', access: 'read', latencyClass: 'remote',
     capabilities: ['image', 'watermark', 'synthid'],
     policy: { external: true },

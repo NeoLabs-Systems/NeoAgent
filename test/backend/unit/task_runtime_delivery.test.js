@@ -137,7 +137,7 @@ describe('scheduled task result delivery', () => {
     assert.equal(messagingManager.sent[0].content, 'The daily summary is ready.');
   });
 
-  test('automatic scheduled runs do not fallback-send plain assistant text', async () => {
+  test('an automatic run\'s final answer is delivered, as a Hermes scheduled job\'s is', async () => {
     const messagingManager = createMessagingManager();
     const prompts = [];
     const optionsSeen = [];
@@ -157,10 +157,10 @@ describe('scheduled task result delivery', () => {
     });
 
     assert.equal(result.content, 'No relevant calendar changes.');
-    assert.equal(result.taskDelivery.sent, false);
-    assert.equal(result.taskDelivery.reason, 'explicit_delivery_required');
-    assert.equal(messagingManager.sent.length, 0);
-    assert.match(prompts[0].prompt, /content="\[NO RESPONSE\]" exactly; never leave content blank/);
+    assert.equal(result.taskDelivery.sent, true);
+    assert.equal(messagingManager.sent.length, 1);
+    assert.match(prompts[0].prompt, /Your final answer is delivered to the user/);
+    assert.match(prompts[0].prompt, /answer exactly \[NO RESPONSE\] and nothing else/);
     assert.match(prompts[0].prompt, /decide from that evidence instead of re-running nearby variants/);
     assert.equal(optionsSeen[0].bypassUserRateLimits, true);
     assert.equal(optionsSeen[0].triggerSource, 'schedule');

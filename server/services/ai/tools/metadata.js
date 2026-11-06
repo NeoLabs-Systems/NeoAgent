@@ -31,6 +31,9 @@ const DEFAULT_TRAITS = Object.freeze({
   recipientArgs: null,
   // How toolResult.js cuts the result down; without one it gets a plain summary.
   resultShape: null,
+  // Arguments naming a file in the agent's workspace for the tool to read: it is
+  // fetched from the agent's computer before the tool runs.
+  fileArgs: [],
 });
 
 function normalizeTraits(name, traits) {
@@ -60,6 +63,7 @@ function metaFromDefinition(name, definition) {
     repeatable: true,
     stepType: group === 'mcp' ? 'mcp' : null,
     resultShape: definition?.resultShape || null,
+    fileArgs: Array.isArray(definition?.fileArgs) ? definition.fileArgs : [],
   });
 }
 

@@ -89,8 +89,8 @@ Tasks live in `scheduled_tasks` and are managed by `TaskRuntime` (`services/task
 1. **Gate.** A task already running is skipped (`already_running_or_queued`); a recurring run starting over 90 seconds late is skipped (`stale_start_delay`).
 2. **Prompt.** The task prompt is combined with the trigger payload, fenced as untrusted data.
 3. **Run.** The agent runs in the task's own conversation with `triggerSource` set to the trigger type.
-4. **Decide.** Automatic runs must end with one `send_message` whose `purpose` is `final_result`, `blocker` or `no_response`.
-5. **Deliver.** The runtime sends the staged message to the notify target; plain text is delivered only for manual runs.
+4. **Decide.** The final answer is the result. Exactly `[NO RESPONSE]` means nothing is sent; a `send_message` the run made already counts as the delivery.
+5. **Deliver.** The runtime sends the final answer, or a staged message, to the notify target.
 6. **Retry.** A failed run retries once with the error attached; rate-limit errors skip the run instead.
 7. **Publish.** A `task_run_finished` event lets other tasks react.
 

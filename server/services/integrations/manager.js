@@ -62,6 +62,19 @@ function assertDurableOAuthCredentials(provider, credentials) {
   }
 }
 
+// What can be done about a failed call, from the status the service gave. Without
+// it a refused call reads like a puzzle: the agent tried to do the same thing in the
+// shell, which sent it looking for credentials it never has.
+function failureGuidance(status) {
+  if (status === 401 || status === 403) {
+    return 'The service refused this account. Only the owner can change that, in the account or its organization; '
+      + 'connected accounts\' credentials are never available to you, so tell the owner what was refused.';
+  }
+  if (status === 404) return 'Nothing by those names or IDs: check them before trying again.';
+  if (status === 429 || status >= 500) return 'The service is busy or failing; it may work later.';
+  return '';
+}
+
 class IntegrationManager {
   constructor(options = {}) {
     this.app = options.app || null;
@@ -1032,10 +1045,12 @@ class IntegrationManager {
           // The status and any wait the service asked for stay with the error,
           // so the loop can tell a refusal from an outage.
           const retryAfterSeconds = Number(err?.headers?.get?.('retry-after'));
+          const next = failureGuidance(err?.status);
           return {
             error: err?.message || 'execution_error',
             ...(Number.isInteger(err?.status) ? { status: err.status } : {}),
             ...(retryAfterSeconds > 0 ? { retryAfterSeconds } : {}),
+            ...(next ? { next } : {}),
           };
         }
         if (!execution) {

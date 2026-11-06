@@ -17,13 +17,14 @@ module.exports = [
     policy: { safe: true },
     whenNotToUse: ['replying in the current chat: your final reply already reaches the user'],
     description: `Send a final message on a connected messaging platform. Use send_interim_update, not this tool, for an ongoing status reply to the originating chat. When the inbound message is a group or shared-space chat, reply in that same chat — do not switch the reply to the sender's DM. Supports WhatsApp (text/media), Discord, Telegram, Slack, Google Chat, Microsoft Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Feishu, LINE, Mattermost, Nextcloud Talk, Nostr, Synology Chat, Tlon, Twitch, Zalo, WeChat, WebChat, and configurable webhook bridges. ${buildSendMessageFormattingReference()} For WhatsApp: use media_path to attach files. Use content "[NO RESPONSE]" only when the user explicitly asked for silence/no reply, or when a background task intentionally decides no user-visible update is needed with purpose="no_response". For background task or schedule runs, set purpose to final_result, blocker, or no_response.`,
+    fileArgs: ['media_path'],
     parameters: {
       type: 'object',
       properties: {
         platform: { type: 'string', description: 'Platform name, for example whatsapp, discord, telegram, slack, google_chat, teams, matrix, signal, imessage, bluebubbles, irc, line, mattermost, or webchat' },
         to: { type: 'string', description: 'Recipient/chat ID for the connected platform, such as a WhatsApp chat ID, Slack channel ID, Matrix room ID, Discord channel snowflake / "dm_<userId>", Telegram "dm_<userId>" / raw group chat ID, IRC channel, or webhook target. "owner" sends to the owner\'s own chat on that platform, when one is verified.' },
         content: { type: 'string', description: 'Message text. Write one compact natural chat reply; the runtime adapts final formatting for the destination platform.' },
-        media_path: { type: 'string', description: 'WhatsApp only: a path inside the user workspace or an owned artifact URL. Leave empty for text-only.' },
+        media_path: { type: 'string', description: 'WhatsApp only: a file in your workspace (as you would give it to read_file) or an owned artifact URL. Leave empty for text-only.' },
         purpose: { type: 'string', enum: ['final_result', 'blocker', 'no_response'], description: 'For background task or schedule runs, required intent for this outbound message. Use final_result for a concrete useful outcome, blocker for a real issue the user should know about, or no_response to intentionally send nothing.' }
       },
       required: ['platform', 'to', 'content']
