@@ -249,14 +249,18 @@ class TelegramPlatform extends BasePlatform {
       : `${senderName} in ${msg.chat.title || rawChatId}`;
 
     const channelContext = !isPrivate ? this._getContext(rawChatId) : null;
-    const repliedToAgent = !isPrivate
-      && msg.reply_to_message?.from?.id
-      && String(msg.reply_to_message.from.id) === String(this._botUser?.id || '');
-    const replied = msg.reply_to_message;
-    const replyTo = !isPrivate && replied?.from && !repliedToAgent
+    // In a forum topic every message points at the topic's opening notice,
+    // which is not a reply to anything the sender chose.
+    const replied = msg.reply_to_message?.forum_topic_created ? null : msg.reply_to_message;
+    const repliedToBot = Boolean(replied?.from?.id)
+      && String(replied.from.id) === String(this._botUser?.id || '');
+    const repliedToAgent = !isPrivate && repliedToBot;
+    const replyTo = replied
       ? {
-        sender: [replied.from.first_name, replied.from.last_name].filter(Boolean).join(' ')
-          || (replied.from.username ? `@${replied.from.username}` : String(replied.from.id)),
+        fromAgent: repliedToBot,
+        sender: repliedToBot || !replied.from ? null
+          : [replied.from.first_name, replied.from.last_name].filter(Boolean).join(' ')
+            || (replied.from.username ? `@${replied.from.username}` : String(replied.from.id)),
         content: replied.text || replied.caption || (replied.photo ? '[photo]' : '[message]'),
       }
       : null;

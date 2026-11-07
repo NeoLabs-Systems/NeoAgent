@@ -26,6 +26,23 @@ function messageTimestampSeconds(msg) {
   return 0;
 }
 
+// What a quoted message says, as far as the quote carries it: text and
+// captions come along, media only as its kind.
+function quotedText(quoted = {}) {
+  const text = quoted.conversation
+    || quoted.extendedTextMessage?.text
+    || quoted.imageMessage?.caption
+    || quoted.videoMessage?.caption
+    || quoted.documentMessage?.caption;
+  if (text) return text;
+  if (quoted.imageMessage) return '[Image]';
+  if (quoted.videoMessage) return '[Video]';
+  if (quoted.audioMessage) return quoted.audioMessage.ptt ? '[Voice message]' : '[Audio]';
+  if (quoted.documentMessage) return `[Document${quoted.documentMessage.fileName ? `: ${quoted.documentMessage.fileName}` : ''}]`;
+  if (quoted.stickerMessage) return '[Sticker]';
+  return '';
+}
+
 function isPhoneJid(jid) {
   return /@(s\.whatsapp\.net|hosted)$/.test(String(jid || ''));
 }
@@ -100,6 +117,26 @@ class WhatsAppPlatform extends BasePlatform {
       || message.audioMessage?.contextInfo
       || message.conversation?.contextInfo
       || null;
+  }
+
+  // The message a quote-reply answers. WhatsApp sends the quoted message along,
+  // so it is there however old it is.
+  _replyTarget(message = {}, { sender = '', pushName = '' } = {}) {
+    const contextInfo = this._contextInfo(message);
+    if (!contextInfo?.stanzaId) return null;
+    const { normalizeMessageContent } = require('baileys');
+    const content = quotedText(normalizeMessageContent(contextInfo.quotedMessage) || {});
+    const author = normalizeWhatsAppId(contextInfo.participant);
+    // In the self chat both sides are the same account; the agent's label on
+    // its replies tells them apart.
+    const agentName = String(this.resolveAgentName?.() || '').trim();
+    const fromAgent = Boolean(author) && this._ownIds().has(author)
+      && (!this.selfChatMode || !agentName || content.startsWith(`(${agentName}):`));
+    return {
+      fromAgent,
+      sender: fromAgent ? null : (author && author === normalizeWhatsAppId(sender) ? pushName || null : null),
+      content: content || null,
+    };
   }
 
   _isGroupAddressedToBot(message = {}) {
@@ -501,6 +538,7 @@ class WhatsAppPlatform extends BasePlatform {
           `Accepted ${isGroup ? 'group' : 'direct'} message`
           + `${mediaType ? ` (${mediaType})` : ''} for processing.`,
         );
+        const replyTo = this._replyTarget(msg.message || {}, { sender, pushName });
         this.emit('message', {
           platform: 'whatsapp',
           chatId,
@@ -509,14 +547,9 @@ class WhatsAppPlatform extends BasePlatform {
           senderDisplayName: pushName || null,
           senderTag: normalizeWhatsAppId(sender) || sender,
           wasMentioned,
-          repliedToAgent: Boolean(
-            msg.message?.extendedTextMessage?.contextInfo?.stanzaId
-            && msg.message?.extendedTextMessage?.contextInfo?.participant
-            && this._ownIds().has(normalizeWhatsAppId(
-              msg.message.extendedTextMessage.contextInfo.participant
-            ))
-          ),
-          replyToMessageId: msg.message?.extendedTextMessage?.contextInfo?.stanzaId || null,
+          repliedToAgent: replyTo?.fromAgent === true,
+          replyToMessageId: this._contextInfo(msg.message || {})?.stanzaId || null,
+          replyTo,
           groupId: isGroup ? chatId : null,
           content,
           mediaType,

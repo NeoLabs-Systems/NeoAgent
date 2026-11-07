@@ -10,6 +10,7 @@ const { randomUUID } = require('crypto');
 const { isMainAgent } = require('../agents/manager');
 const { buildPlatformFormattingGuide } = require('./formatting_guides');
 const { SENDER_IDENTITY_NOTE, buildSenderIdentityBlock } = require('./sender_identity');
+const { buildReplyContextBlock } = require('./reply_context');
 const { buildPublicRunScope, getPublicProfile, registerPublicRun } = require('./public_audience');
 const {
   accessPolicyKey,
@@ -573,6 +574,9 @@ function buildIncomingPrompt(msg, options = {}) {
     )
     : '';
 
+  const replyBlock = buildReplyContextBlock(msg);
+  const replyContext = replyBlock ? `\n\n${replyBlock}` : '';
+
   const publicPromptGuide = getPublicProfile(msg.platform)?.promptGuide;
   const publicGuide = publicPromptGuide ? `\n\n${publicPromptGuide}` : '';
   const socialMode = options.socialMode === true || Boolean(msg.isGroup);
@@ -583,7 +587,7 @@ function buildIncomingPrompt(msg, options = {}) {
     ? 'Do not send interim progress or presence updates into the shared room.'
     : 'Use send_interim_update sparingly — only for a real progress update or a blocking question (set expects_reply=true for the latter).';
 
-  return `You received a ${msg.platform} ${msg.isGroup ? 'group' : 'direct'} message.\n${senderIdentity}\n\nMessage content:\n${fenceUntrusted('external_message', msg.content)}${mediaNote}${audioContextNote}${roomContext}${publicGuide}\n\n${SENDER_IDENTITY_NOTE} In group chats, sender_id/sender_username/sender_tag is the speaker — not the channel or group name.\n\n${formattingGuide}\n\n${responseGuide} Use send_message platform="${msg.platform}" to="${msg.chatId}". ${progressGuide} Never send internal monologue, progress-check bookkeeping, or "nothing changed" observations as user-visible messages.`;
+  return `You received a ${msg.platform} ${msg.isGroup ? 'group' : 'direct'} message.\n${senderIdentity}\n\nMessage content:\n${fenceUntrusted('external_message', msg.content)}${replyContext}${mediaNote}${audioContextNote}${roomContext}${publicGuide}\n\n${SENDER_IDENTITY_NOTE} In group chats, sender_id/sender_username/sender_tag is the speaker — not the channel or group name.\n\n${formattingGuide}\n\n${responseGuide} Use send_message platform="${msg.platform}" to="${msg.chatId}". ${progressGuide} Never send internal monologue, progress-check bookkeeping, or "nothing changed" observations as user-visible messages.`;
 }
 
 // Whether this sender may speak to the agent, marking on the message whether

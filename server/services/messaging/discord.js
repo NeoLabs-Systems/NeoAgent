@@ -209,12 +209,15 @@ class DiscordPlatform extends BasePlatform {
   // and from Discord otherwise.
   async _replyTarget(message, channelContext) {
     const referencedId = message.reference?.messageId;
+    const target = (entry) => ({
+      fromAgent: entry.mine,
+      sender: entry.mine ? null : entry.author,
+      content: entry.content,
+    });
     const known = (channelContext || []).find((item) => item.id === referencedId);
-    if (known) return { sender: known.author, content: known.content };
+    if (known) return target(known);
     try {
-      const referenced = await message.fetchReference();
-      const entry = this._contextEntry(referenced);
-      return { sender: entry.author, content: entry.content };
+      return target(this._contextEntry(await message.fetchReference()));
     } catch { return null; }
   }
 
@@ -361,7 +364,7 @@ class DiscordPlatform extends BasePlatform {
     const repliedToAgent = !isDM
       && message.reference?.messageId
       && message.mentions?.repliedUser?.id === this._botUser?.id;
-    const replyTo = !isDM && message.reference?.messageId && !repliedToAgent
+    const replyTo = message.reference?.messageId
       ? await this._replyTarget(message, channelContext)
       : null;
 
