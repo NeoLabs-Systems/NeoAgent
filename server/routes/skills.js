@@ -18,6 +18,10 @@ const {
   installSkillLibrary,
   setSkillLibraryEnabled,
 } = require('../services/skills/skill_library');
+const {
+  builtinSkillLibraries,
+  installBuiltinSkillLibrary,
+} = require('../services/skills/builtin_libraries');
 
 const libraryUpload = multer({
   storage: multer.memoryStorage(),
@@ -158,6 +162,26 @@ router.post('/skills-sh/install', async (req, res) => {
       name: String(req.body?.name || req.body?.skillId || ''),
     });
     res.status(201).json({ success: true, ...result });
+  } catch (err) {
+    sendJsonError(res, err);
+  }
+});
+
+// Skill libraries shipped with NeoAgent. Installed ones are managed through
+// the /library/:library routes like any other library.
+router.get('/builtin-libraries', (req, res) => {
+  try {
+    res.json(builtinSkillLibraries());
+  } catch (err) {
+    sendJsonError(res, err);
+  }
+});
+
+router.post('/builtin-libraries/:id', async (req, res) => {
+  try {
+    const runner = await getSkillRunner(req.app);
+    const result = installBuiltinSkillLibrary(runner, req.session.userId, req.params.id);
+    res.status(result.installed.length > 0 ? 201 : 200).json(result);
   } catch (err) {
     sendJsonError(res, err);
   }

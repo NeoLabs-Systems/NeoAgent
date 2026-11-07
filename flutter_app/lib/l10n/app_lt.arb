@@ -7162,6 +7162,8 @@
   "skillsInstalled": "Įdiegta",
   "skillsDiscover": "Atrasti",
   "skillsOnSkillsSh": "Svetainėje skills.sh",
+  "skillsBuiltinLibraries": "Įtaisytosios bibliotekos",
+  "skillsBuiltinReinstall": "Atnaujinti",
   "skillsSearchHint": "Ieškoti įgūdžių arba skills.sh",
   "skillsNoneInstalled": "Dar neįdiegta jokių įgūdžių. Gaukite vieną iš skills.sh žemiau, įkelkite įgūdžių zip arba parašykite savo.",
   "skillsShelfPopular": "Populiarūs",

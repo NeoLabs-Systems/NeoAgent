@@ -12726,6 +12726,12 @@ class AppL10nEl extends AppL10n {
   String get skillsOnSkillsSh => 'Στο skills.sh';
 
   @override
+  String get skillsBuiltinLibraries => 'Ενσωματωμένες βιβλιοθήκες';
+
+  @override
+  String get skillsBuiltinReinstall => 'Ενημέρωση';
+
+  @override
   String get skillsSearchHint => 'Αναζήτηση δεξιοτήτων ή skills.sh';
 
   @override

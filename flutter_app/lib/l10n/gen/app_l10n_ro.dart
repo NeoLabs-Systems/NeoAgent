@@ -12679,6 +12679,12 @@ class AppL10nRo extends AppL10n {
   String get skillsOnSkillsSh => 'Pe skills.sh';
 
   @override
+  String get skillsBuiltinLibraries => 'Biblioteci integrate';
+
+  @override
+  String get skillsBuiltinReinstall => 'Actualizează';
+
+  @override
   String get skillsSearchHint => 'Caută abilități sau pe skills.sh';
 
   @override

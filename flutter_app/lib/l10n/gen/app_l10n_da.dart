@@ -12611,6 +12611,12 @@ class AppL10nDa extends AppL10n {
   String get skillsOnSkillsSh => 'På skills.sh';
 
   @override
+  String get skillsBuiltinLibraries => 'Indbyggede biblioteker';
+
+  @override
+  String get skillsBuiltinReinstall => 'Opdater';
+
+  @override
   String get skillsSearchHint => 'Søg i færdigheder eller skills.sh';
 
   @override

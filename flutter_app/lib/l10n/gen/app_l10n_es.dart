@@ -12722,6 +12722,12 @@ class AppL10nEs extends AppL10n {
   String get skillsOnSkillsSh => 'En skills.sh';
 
   @override
+  String get skillsBuiltinLibraries => 'Bibliotecas integradas';
+
+  @override
+  String get skillsBuiltinReinstall => 'Actualizar';
+
+  @override
   String get skillsSearchHint => 'Buscar habilidades o en skills.sh';
 
   @override

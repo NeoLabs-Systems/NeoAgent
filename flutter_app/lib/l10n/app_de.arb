@@ -7414,6 +7414,8 @@
   "skillsInstalled": "Installiert",
   "skillsDiscover": "Entdecken",
   "skillsOnSkillsSh": "Auf skills.sh",
+  "skillsBuiltinLibraries": "Mitgelieferte Bibliotheken",
+  "skillsBuiltinReinstall": "Aktualisieren",
   "skillsSearchHint": "Fähigkeiten oder skills.sh durchsuchen",
   "skillsNoneInstalled": "Noch keine Fähigkeiten installiert. Hol dir eine von skills.sh unten, lade ein Zip mit Fähigkeiten hoch oder schreib deine eigene.",
   "skillsShelfPopular": "Beliebt",

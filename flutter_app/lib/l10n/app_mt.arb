@@ -7162,6 +7162,8 @@
   "skillsInstalled": "Installati",
   "skillsDiscover": "Skopri",
   "skillsOnSkillsSh": "Fuq skills.sh",
+  "skillsBuiltinLibraries": "Libreriji integrati",
+  "skillsBuiltinReinstall": "Aġġorna",
   "skillsSearchHint": "Fittex ħiliet jew skills.sh",
   "skillsNoneInstalled": "Għad m’hemmx ħiliet installati. Ġib waħda minn skills.sh hawn taħt, tella’ zip ta’ ħiliet, jew ikteb tiegħek.",
   "skillsShelfPopular": "Popolari",

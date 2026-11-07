@@ -52,3 +52,30 @@ test('a zipped skill folder uploads as a library that switches off and deletes a
     teardownTestRuntime(ctx);
   }
 });
+
+test('a built-in library is listed and installs over HTTP as one library', async () => {
+  const ctx = createTestRuntime();
+  try {
+    const user = await createTestUser(ctx.db);
+    const { SkillRunner } = require('../../server/services/ai/toolRunner');
+    const skillRunner = new SkillRunner();
+    await skillRunner.loadSkills();
+    const { app } = createTestApp({ locals: { skillRunner } });
+    const client = agent(app);
+    await loginAs(client, user);
+
+    const catalog = await client.get('/api/skills/builtin-libraries').expect(200);
+    const via = catalog.body.find((library) => library.id === 'via');
+    assert.ok(via);
+    assert.equal(via.skills.length, 9);
+
+    const installed = await client.post('/api/skills/builtin-libraries/via').expect(201);
+    assert.equal(installed.body.library, 'via');
+    const listed = await client.get('/api/skills').expect(200);
+    assert.equal(listed.body.filter((skill) => skill.library === 'via').length, 9);
+
+    await client.post('/api/skills/builtin-libraries/nope').expect(404);
+  } finally {
+    teardownTestRuntime(ctx);
+  }
+});

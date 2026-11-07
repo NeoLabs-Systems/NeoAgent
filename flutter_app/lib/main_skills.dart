@@ -60,6 +60,8 @@ class _SkillsTabState extends State<_SkillsTab> {
   // Shelves already fetched this session, so switching tabs doesn't refetch.
   static final Map<String, List<SkillsShItem>> _shelfCache =
       <String, List<SkillsShItem>>{};
+  // The built-in catalog ships with the server, so one fetch is enough.
+  static List<BuiltinSkillLibrary>? _builtinCache;
 
   String _status = 'all';
   String _source = 'all';
@@ -76,6 +78,30 @@ class _SkillsTabState extends State<_SkillsTab> {
   void initState() {
     super.initState();
     _reload();
+    if (_builtinCache == null) _loadBuiltinLibraries();
+  }
+
+  Future<void> _loadBuiltinLibraries() async {
+    try {
+      final libraries = await widget.controller.builtinSkillLibraries();
+      if (!mounted) return;
+      setState(() => _builtinCache = libraries);
+    } catch (_) {
+      // The section stays hidden; installed skills and skills.sh still work.
+    }
+  }
+
+  List<BuiltinSkillLibrary> _visibleBuiltinLibraries() {
+    final query = widget.query.toLowerCase();
+    return (_builtinCache ?? const <BuiltinSkillLibrary>[]).where((library) {
+      if (query.isEmpty) return true;
+      return <String>[
+        library.id,
+        library.title,
+        library.description,
+        ...library.skillNames,
+      ].any((field) => field.toLowerCase().contains(query));
+    }).toList();
   }
 
   @override
@@ -199,6 +225,7 @@ class _SkillsTabState extends State<_SkillsTab> {
       }
     }
     final narrowed = widget.query.isNotEmpty || filtered;
+    final builtinLibraries = _visibleBuiltinLibraries();
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
@@ -264,6 +291,26 @@ class _SkillsTabState extends State<_SkillsTab> {
                 ),
             ],
           ),
+        if (builtinLibraries.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 32),
+          _SkillsSectionBar(
+            title: appStrings.skillsBuiltinLibraries,
+            count: builtinLibraries.length,
+          ),
+          _ToolCardGrid(
+            children: <Widget>[
+              for (final library in builtinLibraries)
+                _BuiltinLibraryCard(
+                  key: ValueKey<String>('builtin:${library.id}'),
+                  controller: controller,
+                  library: library,
+                  installed: controller.skills.any(
+                    (skill) => skill.library == library.id,
+                  ),
+                ),
+            ],
+          ),
+        ],
         const SizedBox(height: 32),
         _SkillsSectionBar(
           title: _searching
@@ -878,6 +925,121 @@ class _SkillsShCardState extends State<_SkillsShCard> {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// A library shipped with NeoAgent. Installing it adds all its skills as one
+/// library card under Installed; installing again replaces them.
+class _BuiltinLibraryCard extends StatefulWidget {
+  const _BuiltinLibraryCard({
+    super.key,
+    required this.controller,
+    required this.library,
+    required this.installed,
+  });
+
+  final NeoAgentController controller;
+  final BuiltinSkillLibrary library;
+  final bool installed;
+
+  @override
+  State<_BuiltinLibraryCard> createState() => _BuiltinLibraryCardState();
+}
+
+class _BuiltinLibraryCardState extends State<_BuiltinLibraryCard> {
+  bool _installing = false;
+
+  Future<void> _install() async {
+    setState(() => _installing = true);
+    try {
+      final result = await widget.controller.installBuiltinSkillLibrary(
+        widget.library.id,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            appStrings.skillLibraryInstalledInto(
+              result.installed.length,
+              result.library,
+            ),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) _showFormError(context, formatCaughtError(error));
+    } finally {
+      if (mounted) setState(() => _installing = false);
+    }
+  }
+
+  void _open() {
+    if (widget.library.homepage.isEmpty) return;
+    url_launcher.launchUrl(
+      Uri.parse(widget.library.homepage),
+      mode: url_launcher.LaunchMode.externalApplication,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final library = widget.library;
+    final buttonStyle = ButtonStyle(
+      visualDensity: VisualDensity.compact,
+      padding: const WidgetStatePropertyAll<EdgeInsets>(
+        EdgeInsets.symmetric(horizontal: 14),
+      ),
+      textStyle: const WidgetStatePropertyAll<TextStyle>(
+        TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+      ),
+    );
+    final label = _IntegrationBusyLabel(
+      busy: _installing,
+      label: widget.installed
+          ? appStrings.skillsBuiltinReinstall
+          : appStrings.skillsGet,
+    );
+    return _SkillCardFrame(
+      name: library.title,
+      onTap: _open,
+      meta: Row(
+        children: <Widget>[
+          Flexible(
+            child: Text(
+              '${library.id} · ${appStrings.skillLibrarySkillCount(library.skillNames.length)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _monoStyle(size: 11, color: _textMuted),
+            ),
+          ),
+          if (widget.installed) ...<Widget>[
+            const SizedBox(width: 6),
+            _SkillTag(
+              label: appStrings.skillsInstalled,
+              color: _success,
+              icon: Icons.check_rounded,
+            ),
+          ],
+        ],
+      ),
+      trailing: widget.installed
+          ? OutlinedButton(
+              style: buttonStyle,
+              onPressed: _installing ? null : _install,
+              child: label,
+            )
+          : FilledButton.tonal(
+              style: buttonStyle,
+              onPressed: _installing ? null : _install,
+              child: label,
+            ),
+      body: Text(
+        library.description.ifEmpty(appStrings.noDescription),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(color: _textSecondary, fontSize: 12.5, height: 1.35),
       ),
     );
   }

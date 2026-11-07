@@ -12624,6 +12624,12 @@ class AppL10nHr extends AppL10n {
   String get skillsOnSkillsSh => 'Na skills.sh';
 
   @override
+  String get skillsBuiltinLibraries => 'Ugrađene biblioteke';
+
+  @override
+  String get skillsBuiltinReinstall => 'Ažuriraj';
+
+  @override
   String get skillsSearchHint => 'Pretraži vještine ili skills.sh';
 
   @override

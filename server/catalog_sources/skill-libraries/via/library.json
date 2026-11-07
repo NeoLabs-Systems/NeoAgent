@@ -1,0 +1,7 @@
+{
+  "title": "EE Workcenter",
+  "description": "Electronics design with KiCad 10, ngspice and FreeRouting: board design as code, routing, ERC/DRC/simulation gates, procurement and verification. The skills drive the via workcenter's tools, so they need that repository on the machine.",
+  "homepage": "https://github.com/ThyFriendlyFox/via/tree/main/.claude/skills",
+  "license": "MIT",
+  "revision": "7c77fc61eeafb558706568598add90e234b231da"
+}

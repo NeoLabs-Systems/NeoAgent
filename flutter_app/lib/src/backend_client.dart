@@ -1883,6 +1883,23 @@ class BackendClient {
     );
   }
 
+  /// Skill libraries shipped with the server.
+  Future<List<Map<String, dynamic>>> builtinSkillLibraries(String baseUrl) {
+    return getList(baseUrl, '/api/skills/builtin-libraries');
+  }
+
+  /// Installs or reinstalls every skill of a built-in library.
+  Future<Map<String, dynamic>> installBuiltinSkillLibrary(
+    String baseUrl,
+    String id,
+  ) {
+    return postMap(
+      baseUrl,
+      '/api/skills/builtin-libraries/${Uri.encodeComponent(id)}',
+      const <String, dynamic>{},
+    );
+  }
+
   /// A skills.sh leaderboard: `popular` (all time) or `trending`.
   Future<List<Map<String, dynamic>>> featuredSkillsSh(
     String baseUrl,

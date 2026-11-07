@@ -7162,6 +7162,8 @@
   "skillsInstalled": "Instalirano",
   "skillsDiscover": "Otkrij",
   "skillsOnSkillsSh": "Na skills.sh",
+  "skillsBuiltinLibraries": "Ugrađene biblioteke",
+  "skillsBuiltinReinstall": "Ažuriraj",
   "skillsSearchHint": "Pretraži vještine ili skills.sh",
   "skillsNoneInstalled": "Još nema instaliranih vještina. Nabavite jednu sa skills.sh ispod, prenesite zip s vještinama ili napišite svoju.",
   "skillsShelfPopular": "Popularno",

@@ -7162,6 +7162,8 @@
   "skillsInstalled": "Nameščeno",
   "skillsDiscover": "Odkrijte",
   "skillsOnSkillsSh": "Na skills.sh",
+  "skillsBuiltinLibraries": "Vgrajene knjižnice",
+  "skillsBuiltinReinstall": "Posodobi",
   "skillsSearchHint": "Iskanje spretnosti ali po skills.sh",
   "skillsNoneInstalled": "Nameščenih spretnosti še ni. Pridobite eno s skills.sh spodaj, naložite zip s spretnostmi ali napišite svojo.",
   "skillsShelfPopular": "Priljubljeno",

@@ -7162,6 +7162,8 @@
   "skillsInstalled": "Paigaldatud",
   "skillsDiscover": "Avasta",
   "skillsOnSkillsSh": "skills.sh-is",
+  "skillsBuiltinLibraries": "Sisseehitatud teegid",
+  "skillsBuiltinReinstall": "Uuenda",
   "skillsSearchHint": "Otsi oskusi või skills.sh-st",
   "skillsNoneInstalled": "Ühtegi oskust pole veel paigaldatud. Hangi üks allpool skills.sh-st, laadi üles oskuste zip või kirjuta oma.",
   "skillsShelfPopular": "Populaarsed",

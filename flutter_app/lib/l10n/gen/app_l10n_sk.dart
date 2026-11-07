@@ -12644,6 +12644,12 @@ class AppL10nSk extends AppL10n {
   String get skillsOnSkillsSh => 'Na skills.sh';
 
   @override
+  String get skillsBuiltinLibraries => 'Vstavané knižnice';
+
+  @override
+  String get skillsBuiltinReinstall => 'Aktualizovať';
+
+  @override
   String get skillsSearchHint => 'Hľadať zručnosti alebo na skills.sh';
 
   @override

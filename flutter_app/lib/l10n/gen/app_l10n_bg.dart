@@ -12672,6 +12672,12 @@ class AppL10nBg extends AppL10n {
   String get skillsOnSkillsSh => 'В skills.sh';
 
   @override
+  String get skillsBuiltinLibraries => 'Вградени библиотеки';
+
+  @override
+  String get skillsBuiltinReinstall => 'Обнови';
+
+  @override
   String get skillsSearchHint => 'Търсене на умения или skills.sh';
 
   @override

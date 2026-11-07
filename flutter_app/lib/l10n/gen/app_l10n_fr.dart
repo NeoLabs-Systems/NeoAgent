@@ -12734,6 +12734,12 @@ class AppL10nFr extends AppL10n {
   String get skillsOnSkillsSh => 'Sur skills.sh';
 
   @override
+  String get skillsBuiltinLibraries => 'Bibliothèques intégrées';
+
+  @override
+  String get skillsBuiltinReinstall => 'Mettre à jour';
+
+  @override
   String get skillsSearchHint => 'Rechercher des compétences ou sur skills.sh';
 
   @override

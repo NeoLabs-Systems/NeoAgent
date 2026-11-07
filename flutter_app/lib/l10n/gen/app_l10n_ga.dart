@@ -12697,6 +12697,12 @@ class AppL10nGa extends AppL10n {
   String get skillsOnSkillsSh => 'Ar skills.sh';
 
   @override
+  String get skillsBuiltinLibraries => 'Leabharlanna ionsuite';
+
+  @override
+  String get skillsBuiltinReinstall => 'Nuashonraigh';
+
+  @override
   String get skillsSearchHint => 'Cuardaigh scileanna nó skills.sh';
 
   @override

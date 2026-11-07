@@ -21001,6 +21001,18 @@ abstract class AppL10n {
   /// **'On skills.sh'**
   String get skillsOnSkillsSh;
 
+  /// No description provided for @skillsBuiltinLibraries.
+  ///
+  /// In en, this message translates to:
+  /// **'Built-in libraries'**
+  String get skillsBuiltinLibraries;
+
+  /// No description provided for @skillsBuiltinReinstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get skillsBuiltinReinstall;
+
   /// No description provided for @skillsSearchHint.
   ///
   /// In en, this message translates to:

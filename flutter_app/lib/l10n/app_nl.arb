@@ -7162,6 +7162,8 @@
   "skillsInstalled": "Geïnstalleerd",
   "skillsDiscover": "Ontdekken",
   "skillsOnSkillsSh": "Op skills.sh",
+  "skillsBuiltinLibraries": "Ingebouwde bibliotheken",
+  "skillsBuiltinReinstall": "Bijwerken",
   "skillsSearchHint": "Zoek vaardigheden of op skills.sh",
   "skillsNoneInstalled": "Nog geen vaardigheden geïnstalleerd. Haal er een van skills.sh hieronder, upload een zip met vaardigheden of schrijf je eigen.",
   "skillsShelfPopular": "Populair",

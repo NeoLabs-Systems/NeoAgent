@@ -12654,6 +12654,12 @@ class AppL10nMt extends AppL10n {
   String get skillsOnSkillsSh => 'Fuq skills.sh';
 
   @override
+  String get skillsBuiltinLibraries => 'Libreriji integrati';
+
+  @override
+  String get skillsBuiltinReinstall => 'Aġġorna';
+
+  @override
   String get skillsSearchHint => 'Fittex ħiliet jew skills.sh';
 
   @override

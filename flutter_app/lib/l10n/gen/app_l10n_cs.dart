@@ -12625,6 +12625,12 @@ class AppL10nCs extends AppL10n {
   String get skillsOnSkillsSh => 'Na skills.sh';
 
   @override
+  String get skillsBuiltinLibraries => 'Vestavěné knihovny';
+
+  @override
+  String get skillsBuiltinReinstall => 'Aktualizovat';
+
+  @override
   String get skillsSearchHint => 'Hledat dovednosti nebo skills.sh';
 
   @override

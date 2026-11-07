@@ -12617,6 +12617,12 @@ class AppL10nSv extends AppL10n {
   String get skillsOnSkillsSh => 'På skills.sh';
 
   @override
+  String get skillsBuiltinLibraries => 'Inbyggda bibliotek';
+
+  @override
+  String get skillsBuiltinReinstall => 'Uppdatera';
+
+  @override
   String get skillsSearchHint => 'Sök färdigheter eller på skills.sh';
 
   @override

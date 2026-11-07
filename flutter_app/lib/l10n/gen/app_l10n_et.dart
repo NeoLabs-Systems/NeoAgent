@@ -12622,6 +12622,12 @@ class AppL10nEt extends AppL10n {
   String get skillsOnSkillsSh => 'skills.sh-is';
 
   @override
+  String get skillsBuiltinLibraries => 'Sisseehitatud teegid';
+
+  @override
+  String get skillsBuiltinReinstall => 'Uuenda';
+
+  @override
   String get skillsSearchHint => 'Otsi oskusi või skills.sh-st';
 
   @override

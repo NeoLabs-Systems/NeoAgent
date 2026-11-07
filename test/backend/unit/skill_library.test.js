@@ -123,3 +123,33 @@ test('a zip with one skill installs a plain skill and an empty one is refused', 
     /No skills found/,
   );
 });
+
+test('a built-in library installs all its skills as one library and refuses unknown ids', async () => {
+  ctx = createTestRuntime();
+  const user = await createTestUser(ctx.db, { username: 'library_builtin' });
+  const { SkillRunner } = require('../../../server/services/ai/toolRunner');
+  const { builtinSkillLibraries, installBuiltinSkillLibrary } = require('../../../server/services/skills/builtin_libraries');
+  const { deleteSkillLibrary } = require('../../../server/services/skills/skill_library');
+  const runner = new SkillRunner();
+  await runner.loadSkills();
+
+  const via = builtinSkillLibraries().find((library) => library.id === 'via');
+  assert.ok(via, 'the via library ships with NeoAgent');
+  assert.equal(via.skills.length, 9);
+  assert.ok(via.skills.every((skill) => skill.name && skill.description));
+
+  const result = installBuiltinSkillLibrary(runner, user.userId, 'via');
+  assert.equal(result.library, 'via');
+  assert.deepEqual(result.installed.sort(), via.skills.map((skill) => skill.name).sort());
+  assert.deepEqual(result.skipped, []);
+  const gates = runner.getSkill('board-gates', user.userId);
+  assert.equal(gates.metadata.library, 'via');
+  assert.equal(gates.metadata.source, 'library');
+
+  // Installing again replaces the library in place.
+  assert.deepEqual(installBuiltinSkillLibrary(runner, user.userId, 'via').installed.length, 9);
+
+  assert.throws(() => installBuiltinSkillLibrary(runner, user.userId, '../via'), (error) => error.status === 404);
+  deleteSkillLibrary(runner, user.userId, 'via');
+  assert.equal(runner.getSkill('board-gates', user.userId), null);
+});

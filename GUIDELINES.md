@@ -15,7 +15,7 @@ server/          Express HTTP server, all backend logic
   services/      Business logic, grouped by domain
     ai/          LLM engine, providers, tool runner, history, compaction
     agents/      Agent profile manager
-    skills/      Skill runtime, learning, and skills.sh installs
+    skills/      Skill runtime, learning, skills.sh and library installs
     tasks/       Task scheduling, execution, security
     integrations/ OAuth flows and integration runtimes
   utils/         Shared server-side helpers

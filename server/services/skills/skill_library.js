@@ -70,7 +70,19 @@ function decodeExtra(entry) {
 }
 
 function installSkillLibrary(runner, userId, { buffer, filename, name } = {}) {
-  const entries = safeEntries(readZipEntries(buffer));
+  return installLibraryEntries(runner, userId, readZipEntries(buffer), {
+    library: libraryNameFrom(name || filename),
+    rootName: libraryNameFrom(filename),
+  });
+}
+
+/**
+ * Installs skill folders given as `{ path, data }` entries, whatever they were
+ * read from. One skill is just a skill unless `keepLibrary` is set; several
+ * always make a library.
+ */
+function installLibraryEntries(runner, userId, rawEntries, { library: libraryName, rootName, keepLibrary = false }) {
+  const entries = safeEntries(rawEntries);
   const found = findSkills(entries);
   if (found.length === 0) {
     throw libraryError('No skills found. The zip needs folders that each contain a SKILL.md.', 422);
@@ -79,15 +91,14 @@ function installSkillLibrary(runner, userId, { buffer, filename, name } = {}) {
     throw libraryError(`The archive has ${found.length} skills; the limit is ${MAX_SKILLS}`, 413);
   }
 
-  // One skill is just a skill; several make a library.
-  const library = found.length > 1 ? libraryNameFrom(name || filename) : '';
+  const library = found.length > 1 || keepLibrary ? libraryName : '';
   const installed = [];
   const skipped = [];
   const seen = new Set();
   for (const skill of found) {
     const content = scrubInvisible(skill.file.data.toString('utf8'));
     const parsed = parseFrontmatter(content);
-    const folderName = skill.dir === '.' ? libraryNameFrom(filename) : path.posix.basename(skill.dir);
+    const folderName = skill.dir === '.' ? rootName || libraryName : path.posix.basename(skill.dir);
     const skillName = normalizeSkillName(parsed?.data.name || folderName);
     if (!skillName) {
       skipped.push({ name: folderName, reason: 'No usable skill name' });
@@ -170,6 +181,7 @@ function deleteSkillLibrary(runner, userId, library) {
 module.exports = {
   deleteSkillLibrary,
   findSkills,
+  installLibraryEntries,
   installSkillLibrary,
   libraryNameFrom,
   setSkillLibraryEnabled,

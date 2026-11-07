@@ -6026,6 +6026,20 @@ class NeoAgentController extends ChangeNotifier {
     return SkillLibraryUploadResult.fromJson(result);
   }
 
+  Future<List<BuiltinSkillLibrary>> builtinSkillLibraries() async {
+    final rows = await _backendClient.builtinSkillLibraries(backendUrl);
+    return rows.map(BuiltinSkillLibrary.fromJson).toList();
+  }
+
+  Future<SkillLibraryUploadResult> installBuiltinSkillLibrary(String id) async {
+    final result = await _backendClient.installBuiltinSkillLibrary(
+      backendUrl,
+      id,
+    );
+    await refreshSkills();
+    return SkillLibraryUploadResult.fromJson(result);
+  }
+
   /// Flips every skill of the library right away; the server settles it.
   Future<void> setSkillLibraryEnabled(String library, bool enabled) async {
     skills = skills

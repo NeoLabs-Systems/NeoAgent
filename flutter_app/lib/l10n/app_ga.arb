@@ -7162,6 +7162,8 @@
   "skillsInstalled": "Suiteáilte",
   "skillsDiscover": "Faigh amach",
   "skillsOnSkillsSh": "Ar skills.sh",
+  "skillsBuiltinLibraries": "Leabharlanna ionsuite",
+  "skillsBuiltinReinstall": "Nuashonraigh",
   "skillsSearchHint": "Cuardaigh scileanna nó skills.sh",
   "skillsNoneInstalled": "Níl aon scileanna suiteáilte fós. Faigh ceann ó skills.sh thíos, uaslódáil zip scileanna, nó scríobh do cheann féin.",
   "skillsShelfPopular": "Coitianta",

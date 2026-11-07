@@ -7162,6 +7162,8 @@
   "skillsInstalled": "Installerade",
   "skillsDiscover": "Upptäck",
   "skillsOnSkillsSh": "På skills.sh",
+  "skillsBuiltinLibraries": "Inbyggda bibliotek",
+  "skillsBuiltinReinstall": "Uppdatera",
   "skillsSearchHint": "Sök färdigheter eller på skills.sh",
   "skillsNoneInstalled": "Inga färdigheter installerade än. Hämta en från skills.sh nedan, ladda upp en zip med färdigheter eller skriv en egen.",
   "skillsShelfPopular": "Populära",

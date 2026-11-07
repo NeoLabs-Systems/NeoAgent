@@ -12651,6 +12651,12 @@ class AppL10nLt extends AppL10n {
   String get skillsOnSkillsSh => 'Svetainėje skills.sh';
 
   @override
+  String get skillsBuiltinLibraries => 'Įtaisytosios bibliotekos';
+
+  @override
+  String get skillsBuiltinReinstall => 'Atnaujinti';
+
+  @override
   String get skillsSearchHint => 'Ieškoti įgūdžių arba skills.sh';
 
   @override

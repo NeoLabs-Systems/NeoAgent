@@ -7162,6 +7162,8 @@
   "skillsInstalled": "Asennetut",
   "skillsDiscover": "Löydä",
   "skillsOnSkillsSh": "skills.sh-palvelussa",
+  "skillsBuiltinLibraries": "Sisäänrakennetut kirjastot",
+  "skillsBuiltinReinstall": "Päivitä",
   "skillsSearchHint": "Hae taitoja tai skills.sh-palvelusta",
   "skillsNoneInstalled": "Taitoja ei ole vielä asennettu. Hae yksi alta skills.sh-palvelusta, lataa taitojen zip tai kirjoita oma.",
   "skillsShelfPopular": "Suositut",

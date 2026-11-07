@@ -7162,6 +7162,8 @@
   "skillsInstalled": "Instalate",
   "skillsDiscover": "Descoperă",
   "skillsOnSkillsSh": "Pe skills.sh",
+  "skillsBuiltinLibraries": "Biblioteci integrate",
+  "skillsBuiltinReinstall": "Actualizează",
   "skillsSearchHint": "Caută abilități sau pe skills.sh",
   "skillsNoneInstalled": "Nu ai încă nicio abilitate instalată. Ia una de pe skills.sh mai jos, încarcă un zip cu abilități sau scrie-ți propria abilitate.",
   "skillsShelfPopular": "Populare",

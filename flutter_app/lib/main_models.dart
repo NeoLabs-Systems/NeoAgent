@@ -3178,6 +3178,44 @@ class SkillItem {
   );
 }
 
+/// A skill library shipped with the server, installed as one library.
+class BuiltinSkillLibrary {
+  const BuiltinSkillLibrary({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.homepage,
+    required this.license,
+    required this.skillNames,
+  });
+
+  factory BuiltinSkillLibrary.fromJson(Map<dynamic, dynamic> json) {
+    final skills = json['skills'];
+    return BuiltinSkillLibrary(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      homepage: json['homepage']?.toString() ?? '',
+      license: json['license']?.toString() ?? '',
+      skillNames: skills is List
+          ? skills
+                .whereType<Map>()
+                .map((skill) => skill['name']?.toString() ?? '')
+                .where((name) => name.isNotEmpty)
+                .toList()
+          : const <String>[],
+    );
+  }
+
+  /// Also the `library` tag its installed skills carry.
+  final String id;
+  final String title;
+  final String description;
+  final String homepage;
+  final String license;
+  final List<String> skillNames;
+}
+
 /// What uploading a skill library zip did.
 class SkillLibraryUploadResult {
   const SkillLibraryUploadResult({

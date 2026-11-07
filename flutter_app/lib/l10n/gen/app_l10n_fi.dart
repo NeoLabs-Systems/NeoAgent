@@ -12633,6 +12633,12 @@ class AppL10nFi extends AppL10n {
   String get skillsOnSkillsSh => 'skills.sh-palvelussa';
 
   @override
+  String get skillsBuiltinLibraries => 'Sisäänrakennetut kirjastot';
+
+  @override
+  String get skillsBuiltinReinstall => 'Päivitä';
+
+  @override
   String get skillsSearchHint => 'Hae taitoja tai skills.sh-palvelusta';
 
   @override

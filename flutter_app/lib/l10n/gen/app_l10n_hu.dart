@@ -12683,6 +12683,12 @@ class AppL10nHu extends AppL10n {
   String get skillsOnSkillsSh => 'A skills.sh-n';
 
   @override
+  String get skillsBuiltinLibraries => 'Beépített könyvtárak';
+
+  @override
+  String get skillsBuiltinReinstall => 'Frissítés';
+
+  @override
   String get skillsSearchHint => 'Készségek keresése vagy skills.sh';
 
   @override

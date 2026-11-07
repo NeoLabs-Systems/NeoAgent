@@ -7895,6 +7895,8 @@
   "skillsInstalled": "Installed",
   "skillsDiscover": "Discover",
   "skillsOnSkillsSh": "On skills.sh",
+  "skillsBuiltinLibraries": "Built-in libraries",
+  "skillsBuiltinReinstall": "Update",
   "skillsSearchHint": "Search skills or skills.sh",
   "skillsNoneInstalled": "No skills installed yet. Get one from skills.sh below, upload a zip of skills, or write your own.",
   "skillsShelfPopular": "Popular",
