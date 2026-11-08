@@ -107,6 +107,10 @@ class SharedRoutePlatform {
     return { adapter, chatId: link.chat_id };
   }
 
+  async conversationChatIds(chatId) {
+    return (await this.getAdapter()?.conversationChatIds?.(chatId)) || [chatId];
+  }
+
   async sendMessage(to, content, options = {}) {
     const { adapter, chatId } = this._deliveryTarget(to);
     if (!this.outboundLimiter.take('send')) {

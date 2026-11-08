@@ -390,7 +390,10 @@ async function executeQueuedMessage({
       socialMode: Boolean(msg.isGroup),
       decision: behaviorResult?.decision || null,
     });
-    const conversationId = ensureConversation(userId, msg);
+    const conversationId = await messagingManager.getOrCreateConversation(userId, msg.platform, msg.chatId, {
+      agentId,
+      title: `${msg.platform} — ${msg.senderName || msg.sender || msg.chatId}`,
+    });
     const additionalContext = (Array.isArray(behaviorResult?.promptBlocks) ? behaviorResult.promptBlocks : [])
       .filter(Boolean)
       .join('\n\n');
@@ -500,33 +503,6 @@ async function executeQueuedMessage({
   } finally {
     await stopTypingKeepalive();
   }
-}
-
-function ensureConversation(userId, msg) {
-  const agentId = msg.agentId || null;
-  let conversation = db
-    .prepare(
-      'SELECT id FROM conversations WHERE user_id = ? AND agent_id = ? AND platform = ? AND platform_chat_id = ?'
-    )
-    .get(userId, agentId, msg.platform, msg.chatId);
-
-  if (conversation) {
-    return conversation.id;
-  }
-
-  const conversationId = randomUUID();
-  db.prepare(
-    'INSERT INTO conversations (id, user_id, agent_id, platform, platform_chat_id, title) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(
-    conversationId,
-    userId,
-    agentId,
-    msg.platform,
-    msg.chatId,
-    `${msg.platform} — ${msg.senderName || msg.sender || msg.chatId}`
-  );
-
-  return conversationId;
 }
 
 // The agent's file tools only see the workspace, not the host artifact store,

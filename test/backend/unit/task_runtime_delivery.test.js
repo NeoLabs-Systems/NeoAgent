@@ -44,6 +44,12 @@ function createMessagingManager() {
       sent.push({ userId, platform, to, content, options });
       return { success: true };
     },
+    // A chat has only the one address here.
+    async findConversations(userId, platform, chatId, { agentId } = {}) {
+      const db = require('../../../server/db/database');
+      return db.prepare('SELECT id FROM conversations WHERE user_id = ? AND agent_id = ? AND platform = ? AND platform_chat_id = ?')
+        .all(userId, agentId, platform, chatId).map((row) => row.id);
+    },
   };
 }
 

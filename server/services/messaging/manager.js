@@ -1020,7 +1020,7 @@ class MessagingManager extends EventEmitter {
       .run(userId, agentId, runId, 'assistant', normalizedContent, platformName, result?.messageId || null, to, mediaReference, metadata ? JSON.stringify(metadata) : null);
 
     if (persistConversation) {
-      const conversationId = this.getOrCreateConversation(userId, platformName, to, { agentId });
+      const conversationId = await this.getOrCreateConversation(userId, platformName, to, { agentId });
       db.prepare('INSERT INTO conversation_messages (conversation_id, role, content) VALUES (?, ?, ?)')
         .run(conversationId, 'assistant', normalizedContent);
       db.prepare("UPDATE conversations SET updated_at = datetime('now') WHERE id = ?")
@@ -1055,16 +1055,38 @@ class MessagingManager extends EventEmitter {
     return { success: true, result };
   }
 
-  getOrCreateConversation(userId, platformName, chatId, options = {}) {
+  // Every address the platform knows for this chat, in the order a
+  // conversation is looked up. On WhatsApp a person writes under a LID while
+  // deliveries may go to the number; both are one chat.
+  async conversationChatIds(userId, platformName, chatId, options = {}) {
     const agentId = this._agentId(userId, options);
-    let conversation = db
-      .prepare('SELECT id FROM conversations WHERE user_id = ? AND agent_id = ? AND platform = ? AND platform_chat_id = ?')
-      .get(userId, agentId, platformName, chatId);
+    const platform = this.platforms.get(this._key(userId, agentId, platformName));
+    const aliases = await Promise.resolve(platform?.conversationChatIds?.(chatId)).catch(() => null);
+    return [...new Set([...(Array.isArray(aliases) ? aliases : []), String(chatId || '')].filter(Boolean))];
+  }
 
-    if (conversation) {
-      return conversation.id;
-    }
+  _conversationsFor(userId, agentId, platformName, chatIds) {
+    if (!chatIds.length) return [];
+    const rows = db.prepare(
+      `SELECT id, platform_chat_id FROM conversations
+       WHERE user_id = ? AND agent_id = ? AND platform = ? AND platform_chat_id IN (${chatIds.map(() => '?').join(', ')})`
+    ).all(userId, agentId, platformName, ...chatIds);
+    return chatIds.flatMap((id) => rows.filter((row) => row.platform_chat_id === id).map((row) => row.id));
+  }
 
+  // The chat's conversations, in address order.
+  async findConversations(userId, platformName, chatId, options = {}) {
+    const chatIds = await this.conversationChatIds(userId, platformName, chatId, options);
+    return this._conversationsFor(userId, this._agentId(userId, options), platformName, chatIds);
+  }
+
+  async getOrCreateConversation(userId, platformName, chatId, options = {}) {
+    const agentId = this._agentId(userId, options);
+    const chatIds = await this.conversationChatIds(userId, platformName, chatId, options);
+    const [existing] = this._conversationsFor(userId, agentId, platformName, chatIds);
+    if (existing) return existing;
+
+    const [preferredChatId] = chatIds;
     const conversationId = randomUUID();
     db.prepare(
       'INSERT INTO conversations (id, user_id, agent_id, platform, platform_chat_id, title) VALUES (?, ?, ?, ?, ?, ?)'
@@ -1073,8 +1095,8 @@ class MessagingManager extends EventEmitter {
       userId,
       agentId,
       platformName,
-      chatId,
-      `${platformName} — ${chatId}`
+      preferredChatId,
+      options.title || `${platformName} — ${chatId}`
     );
 
     return conversationId;

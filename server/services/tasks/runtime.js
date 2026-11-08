@@ -795,8 +795,9 @@ class TaskRuntime {
       const conversationId = this._getTaskConversation(userId, taskId, taskName, agentId);
       // History comes from the chat the task reports to; the task's own
       // conversation only repeats this prompt run after run.
-      const { priorMessages, priorSummary } = buildTaskChatContext({
+      const { priorMessages, priorSummary } = await buildTaskChatContext({
         taskRepository: this.taskRepository,
+        messagingManager: this.app?.locals?.messagingManager || this.agentEngine?.messagingManager || null,
         userId,
         agentId: resolveAgentId(userId, agentId),
         notifyTarget,

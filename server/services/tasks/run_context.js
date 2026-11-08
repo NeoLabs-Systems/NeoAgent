@@ -5,17 +5,16 @@ const { getConversationContext } = require('../ai/history');
 
 // A task run continues the chat it reports to, so it sees what the user
 // already got and said there.
-function buildTaskChatContext({ taskRepository, userId, agentId, notifyTarget }) {
+async function buildTaskChatContext({ taskRepository, messagingManager = null, userId, agentId, notifyTarget }) {
   if (!notifyTarget) return { priorMessages: [], priorSummary: '' };
-  const conversation = taskRepository.getTaskConversation(
-    userId,
-    agentId,
-    notifyTarget.platform,
-    notifyTarget.to,
-  );
-  if (!conversation) return { priorMessages: [], priorSummary: '' };
+  // The chat may be known under another address than the one the task
+  // delivers to (WhatsApp's LID and number); the manager knows both.
+  const [conversationId] = messagingManager
+    ? await messagingManager.findConversations(userId, notifyTarget.platform, notifyTarget.to, { agentId })
+    : [taskRepository.getTaskConversation(userId, agentId, notifyTarget.platform, notifyTarget.to)?.id];
+  if (!conversationId) return { priorMessages: [], priorSummary: '' };
   const { chat_history_window: historyWindow } = getAiSettings(userId, agentId);
-  const context = getConversationContext(conversation.id, historyWindow);
+  const context = getConversationContext(conversationId, historyWindow);
   return { priorMessages: context.recentMessages, priorSummary: context.summary };
 }
 

@@ -14,6 +14,7 @@ const SENT_MESSAGE_MEMORY = 200;
 const BAD_SESSION_RETRY_LIMIT = 5;
 const STABLE_CONNECTION_MS = 2 * 60 * 1000;
 const POLL_NAME_LIMIT = 255;
+const ALIAS_LOOKUP_MS = 3000;
 
 // Baileys reports this as a number, a numeric string, or a protobuf Long,
 // depending on how the message reached the socket.
@@ -117,6 +118,29 @@ class WhatsAppPlatform extends BasePlatform {
       || message.audioMessage?.contextInfo
       || message.conversation?.contextInfo
       || null;
+  }
+
+  // A direct chat has two addresses, the LID and the number: messages may
+  // arrive under one while deliveries go to the other. Both are listed, LID
+  // first, so the chat keeps one conversation whichever is used. A mapping
+  // WhatsApp has to be asked for is not waited on for long.
+  async conversationChatIds(chatId) {
+    const { jidNormalizedUser } = require('baileys');
+    const jid = String(chatId || '');
+    const mapping = this.sock?.signalRepository?.lidMapping;
+    const lookup = (promise) => Promise.race([
+      Promise.resolve(promise).catch(() => null),
+      new Promise((resolve) => { setTimeout(resolve, ALIAS_LOOKUP_MS, null).unref?.(); }),
+    ]);
+    if (jid.endsWith('@lid')) {
+      const pn = await lookup(mapping?.getPNForLID?.(jid));
+      return pn ? [jid, jidNormalizedUser(pn)] : [jid];
+    }
+    if (isPhoneJid(jid)) {
+      const lid = await lookup(mapping?.getLIDForPN?.(jid));
+      return lid ? [jidNormalizedUser(lid), jid] : [jid];
+    }
+    return [jid];
   }
 
   // The message a quote-reply answers. WhatsApp sends the quoted message along,

@@ -122,13 +122,16 @@ class CommandRouter {
     if (source === 'messaging') {
       const platform = String(context.platform || '').trim();
       const chatId = String(context.chatId || '').trim();
+      // A chat known under several addresses has a conversation for each.
+      const manager = this.app?.locals?.messagingManager;
       if (platform && chatId) {
-        const conversation = db
-          .prepare('SELECT id FROM conversations WHERE user_id = ? AND agent_id = ? AND platform = ? AND platform_chat_id = ?')
-          .get(userId, agentId, platform, chatId);
-        if (conversation?.id) {
-          db.prepare('DELETE FROM conversations WHERE id = ?').run(conversation.id);
-        }
+        const conversationIds = manager
+          ? await manager.findConversations(userId, platform, chatId, { agentId })
+          : [db
+            .prepare('SELECT id FROM conversations WHERE user_id = ? AND agent_id = ? AND platform = ? AND platform_chat_id = ?')
+            .get(userId, agentId, platform, chatId)?.id].filter(Boolean);
+        const remove = db.prepare('DELETE FROM conversations WHERE id = ?');
+        for (const id of conversationIds) remove.run(id);
       }
       return {
         handled: true,
