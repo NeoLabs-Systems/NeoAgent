@@ -41,6 +41,7 @@ description: One Computer provider contract, the QEMU guest, control leases, ADB
 - **Capacity.** Concurrent computers are limited by host memory after the reserve and by logical CPUs minus one.
 - **Storage.** A start is refused (`COMPUTER_STORAGE_CAPACITY`) when free space minus the reserve cannot cover unwritten sparse disks.
 - **Settings.** The `NEOAGENT_COMPUTER_*` limits are listed in [Configuration](configuration.md).
+- **Shared web pages.** `server/services/web_shares/proxy.js` serves `/<username>/<slug>/…` ahead of the other middleware. It never boots a computer: it finds the running guest with `runningGuestForUser`, relays through the guest agent's `/proxy/<port>` route, filters headers, adds the sandbox policy and puts the user-made notice into HTML documents. Shares are stored in `web_shares`; `share_web_page` is offered only while `web_sharing_enabled` is on. WebSocket upgrades are not relayed.
 
 ## Control leases
 

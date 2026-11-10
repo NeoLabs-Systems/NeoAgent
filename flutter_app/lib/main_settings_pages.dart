@@ -1138,6 +1138,7 @@ class _ComputerSettingsPageState extends State<_ComputerSettingsPage> {
             ),
           ],
         ),
+        _SharedWebPagesGroup(controller: controller),
         _SettingsGroup(
           anchor: 'socialReach',
           title: appStrings.socialReach2,

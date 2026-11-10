@@ -34,6 +34,7 @@ const {
 } = require('./http/middleware');
 const { createSocketServer, bindSocketSessions } = require('./http/socket');
 const { registerApiRoutes } = require('./http/routes');
+const { createWebShareProxy } = require('./services/web_shares/proxy');
 const { registerStaticRoutes } = require('./http/static');
 const { registerErrorHandler } = require('./http/errors');
 const { startServices, stopServices } = require('./services/manager');
@@ -142,6 +143,9 @@ const sessionMiddleware = createSessionMiddleware({
 const activeSockets = new Set();
 
 app.locals.logHistory = setupConsoleInterceptor();
+// Shared pages go first: they stream their own bodies and set their own
+// headers, and anything that is not a live share falls through.
+app.use(createWebShareProxy({ app, getRuntime: () => app.locals.runtimeManager }));
 applyHttpMiddleware(app, {
   secureCookies: SECURE_COOKIES,
   trustProxy: TRUST_PROXY,

@@ -121,6 +121,7 @@ part 'main_account_settings.dart';
 part 'main_data_sharing.dart';
 part 'main_settings.dart';
 part 'main_settings_pages.dart';
+part 'main_settings_web_shares.dart';
 part 'main_byok_settings.dart';
 part 'main_neorouter.dart';
 part 'main_security.dart';

@@ -6,6 +6,7 @@ const handlers = {
   ...require('./desktop').handlers,
   ...require('./android').handlers,
   ...require('./web').handlers,
+  ...require('./sharing').handlers,
   ...require('./memory').handlers,
   ...require('./messaging').handlers,
   ...require('./files').handlers,

@@ -21318,6 +21318,66 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'An admin granted you this model. It is switched off for everyone else.'**
   String get modelAdminGrantedHint;
+
+  /// No description provided for @sharedWebPages.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared web pages'**
+  String get sharedWebPages;
+
+  /// No description provided for @sharedWebPagesDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Web apps the agent runs on its computer, published at a public link on this server. Anyone with the link can open them while the computer and the app run. Visitors see a note that a user, not NeoAgent, made the page.'**
+  String get sharedWebPagesDescription;
+
+  /// No description provided for @allowWebPageSharing.
+  ///
+  /// In en, this message translates to:
+  /// **'Let the agent share web pages'**
+  String get allowWebPageSharing;
+
+  /// No description provided for @allowWebPageSharingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'When this is off, the agent cannot share pages and every shared link stops working. Sharing asks for your approval unless your security settings allow it.'**
+  String get allowWebPageSharingDescription;
+
+  /// No description provided for @noSharedWebPages.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing is shared right now.'**
+  String get noSharedWebPages;
+
+  /// No description provided for @stopSharing.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop sharing'**
+  String get stopSharing;
+
+  /// No description provided for @sharedWebPageStopped.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped sharing {name}'**
+  String sharedWebPageStopped(String name);
+
+  /// No description provided for @sharedWebPagePortArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Port {port}'**
+  String sharedWebPagePortArg1(Object port);
+
+  /// No description provided for @sharedWebPagesOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Your computer is off, so shared links show an offline page until it runs again.'**
+  String get sharedWebPagesOffline;
+
+  /// No description provided for @sharedWebPagesUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'This server runs tools directly on its own machine, so there is no computer to share pages from.'**
+  String get sharedWebPagesUnsupported;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

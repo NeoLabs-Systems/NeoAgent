@@ -28,6 +28,17 @@ Each account gets its own Linux computer on the NeoAgent server, where the agent
 
 See [Security and permissions](security-boundaries.md#cloud-computer-backends) for what each backend isolates.
 
+### Shared web pages {#shared-web-pages}
+
+The agent can publish a web app it runs on its computer at `https://<your server>/<username>/<name>/`, with the `share_web_page` tool, and pass you the link.
+
+- **On by default.** **Settings › Computer › Shared web pages** turns it off. While it is off, the agent has no sharing tool and every shared link stops working.
+- **Asks first.** Publishing is a `network_write` action, which needs your approval unless your [security settings](security-boundaries.md) allow it.
+- **Only while it runs.** The link works while your computer and the app on it run. A stopped computer is never started for a visitor; the link shows an offline page instead.
+- **Under a path.** The app is served under `/<username>/<name>/` and receives that path in `X-Forwarded-Prefix`, so its links and assets should be relative.
+- **Sandboxed.** Pages get no cookies or local storage. Each page carries a small notice that a user, not NeoAgent, made it; visitors can dismiss it or hide it for good.
+- **Managed in settings.** The same settings group lists what is shared, with open, copy and **Stop sharing**.
+
 ### Browser on protected sites
 
 - **Referrer modes.** `browser_navigate` accepts `referrerMode` `direct` (default), `google` or `current`.

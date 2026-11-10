@@ -149,6 +149,10 @@ function normalizeSettingsPatch(userId, patch) {
     normalized.timezone = timeZone;
   }
 
+  if ('web_sharing_enabled' in normalized && typeof normalized.web_sharing_enabled !== 'boolean') {
+    return { ok: false, error: 'web_sharing_enabled must be true or false.' };
+  }
+
   if ('ui_language' in normalized) {
     const language = normalizeUiLanguage(normalized.ui_language);
     if (!language) return { ok: false, error: 'Unknown language.' };

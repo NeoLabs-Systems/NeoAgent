@@ -26,6 +26,7 @@ const routeRegistry = [
   { basePath: '/api/git-proxy', modulePath: '../routes/git_proxy' },
   { basePath: '/api/skills', modulePath: '../routes/skills' },
   { basePath: '/api/artifacts', modulePath: '../routes/artifacts' },
+  { basePath: '/api/web-shares', modulePath: '../routes/web_shares' },
   { basePath: '/api/memory', modulePath: '../routes/memory' },
   { basePath: '/api/tasks', modulePath: '../routes/tasks' },
   { basePath: '/api/task-webhooks', modulePath: '../routes/task_webhooks' },

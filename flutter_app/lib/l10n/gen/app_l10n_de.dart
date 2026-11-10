@@ -12931,4 +12931,42 @@ class AppL10nDe extends AppL10n {
   @override
   String get modelAdminGrantedHint =>
       'Ein Admin hat dir dieses Modell freigegeben. Für alle anderen ist es ausgeschaltet.';
+
+  @override
+  String get sharedWebPages => 'Geteilte Webseiten';
+
+  @override
+  String get sharedWebPagesDescription =>
+      'Web-Apps, die der Agent auf seinem Computer betreibt, unter einem öffentlichen Link auf diesem Server. Wer den Link hat, kann sie öffnen, solange Computer und App laufen. Besucher sehen einen Hinweis, dass ein Nutzer und nicht NeoAgent die Seite erstellt hat.';
+
+  @override
+  String get allowWebPageSharing => 'Agent darf Webseiten teilen';
+
+  @override
+  String get allowWebPageSharingDescription =>
+      'Ist das aus, kann der Agent keine Seiten teilen und alle geteilten Links funktionieren nicht mehr. Vor dem Teilen fragt der Agent dich, außer deine Sicherheitseinstellungen erlauben es.';
+
+  @override
+  String get noSharedWebPages => 'Gerade ist nichts geteilt.';
+
+  @override
+  String get stopSharing => 'Nicht mehr teilen';
+
+  @override
+  String sharedWebPageStopped(String name) {
+    return '$name wird nicht mehr geteilt';
+  }
+
+  @override
+  String sharedWebPagePortArg1(Object port) {
+    return 'Port $port';
+  }
+
+  @override
+  String get sharedWebPagesOffline =>
+      'Dein Computer ist aus, daher zeigen geteilte Links eine Offline-Seite, bis er wieder läuft.';
+
+  @override
+  String get sharedWebPagesUnsupported =>
+      'Dieser Server führt Tools direkt auf seiner eigenen Maschine aus, daher gibt es keinen Computer, von dem Seiten geteilt werden können.';
 }

@@ -309,6 +309,7 @@ class NeoAgentController extends ChangeNotifier {
   Map<String, dynamic> computerBrowserRuntime = const <String, dynamic>{};
   String? computerBrowserScreenshotPath;
   Map<String, dynamic> socialReachStatus = const <String, dynamic>{};
+  Map<String, dynamic> webShares = const <String, dynamic>{};
   Map<String, dynamic> androidRuntime = const <String, dynamic>{};
   List<String> androidInstalledApps = const <String>[];
   List<Map<String, dynamic>> androidUiPreview = const <Map<String, dynamic>>[];
@@ -6972,6 +6973,21 @@ class NeoAgentController extends ChangeNotifier {
     notifyListeners();
     return socialReachStatus;
   }
+
+  /// Pages the agent shares from its computer, with whether sharing is on.
+  Future<void> refreshWebShares() async {
+    webShares = Map<String, dynamic>.from(
+      await _backendClient.fetchWebShares(backendUrl),
+    );
+    notifyListeners();
+  }
+
+  Future<void> stopWebShare(String id) async {
+    await _backendClient.deleteWebShare(backendUrl, id);
+    await refreshWebShares();
+  }
+
+  bool get webSharingEnabled => settings['web_sharing_enabled'] != false;
 
   Future<Map<String, dynamic>> importSocialReachCookies(String platform) async {
     final response = await _backendClient.importSocialReachCookies(

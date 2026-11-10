@@ -110,6 +110,7 @@ A run becomes **tainted** once it reads outside content (any tool result except 
 
 - **Guest token.** Each VM or container gets a random token; its guest agent rejects requests without it.
 - **Network reach.** Guests can still reach the NeoAgent host over the network (`10.0.2.2` or `host.docker.internal`).
+- **Shared web pages.** A page the agent [shares](devices.md#shared-web-pages) is relayed through the guest agent from the port it names, and only while that computer runs. It is served on the server's origin with a `sandbox` content security policy without `allow-same-origin`, so it runs in an opaque origin: it cannot read NeoAgent's cookies, storage or API, and the API refuses its `null` origin. Visitors' cookies and authorization headers never reach the guest, and the guest cannot set cookies, clear site data or set HSTS on the server's origin.
 
 ### This device
 

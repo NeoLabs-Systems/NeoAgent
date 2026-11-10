@@ -2,6 +2,7 @@
 
 const express = require('express');
 const crypto = require('crypto');
+const http = require('http');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -57,6 +58,47 @@ ensureAgentDirectory(WORKSPACE_ROOT);
 
 const app = express();
 const tailscale = new GuestTailscale();
+
+// A web page the agent shared runs on a port inside this computer, and this
+// agent's port is the only one the server reaches, so shared pages come through
+// here. Bodies stream both ways, so this sits before the JSON parser. The server
+// decides what is shared and filters headers; this only relays.
+const HOP_BY_HOP_HEADERS = new Set([
+  'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
+  'te', 'trailer', 'transfer-encoding', 'upgrade', 'authorization',
+]);
+
+function withoutHopByHop(headers) {
+  return Object.fromEntries(Object.entries(headers).filter(([name]) => !HOP_BY_HOP_HEADERS.has(name.toLowerCase())));
+}
+
+app.use('/proxy', requireToken, (req, res) => {
+  const match = /^\/(\d{1,5})(\/.*)?$/s.exec(req.url);
+  const port = Number(match?.[1]);
+  if (!match || port < 1 || port > 65535 || port === PORT) {
+    return res.status(400).json({ error: 'Invalid port.' });
+  }
+  const upstream = http.request({
+    host: 'localhost',
+    port,
+    method: req.method,
+    path: match[2] || '/',
+    headers: { ...withoutHopByHop(req.headers), host: `localhost:${port}` },
+  }, (upstreamRes) => {
+    res.writeHead(upstreamRes.statusCode || 502, withoutHopByHop(upstreamRes.headers));
+    upstreamRes.pipe(res);
+  });
+  upstream.on('error', (err) => {
+    if (res.headersSent) return res.destroy(err);
+    // Nothing listening is the ordinary "app not started" case, told apart so
+    // the server can say the page is offline rather than broken.
+    const unreachable = ['ECONNREFUSED', 'ECONNRESET', 'EHOSTUNREACH'].includes(err.code);
+    res.status(502).set('x-neoagent-proxy', unreachable ? 'unreachable' : 'failed').json({ error: sanitizeError(err) });
+  });
+  res.on('close', () => upstream.destroy());
+  req.pipe(upstream);
+});
+
 app.use(express.json({ limit: '100mb' }));
 
 const cliExecutor = ['cli', 'browser_cli', 'android'].includes(GUEST_PROFILE)

@@ -10,6 +10,8 @@ const TOOL_CATEGORIES = Object.fromEntries(Object.keys(DEFAULT_POLICY).map((cate
 const SAFE_TOOLS = new Set();
 const BUILT_IN_TOOLS = new Set();
 const toolToCategory = {};
+// Tools whose arguments decide whether a call needs the category at all.
+const categoryResolvers = {};
 
 for (const [name, policy] of [
   ...BUILT_IN_DEFINITIONS.map((tool) => [tool.name, tool.policy || {}]),
@@ -22,6 +24,7 @@ for (const [name, policy] of [
     TOOL_CATEGORIES[policy.category].push(name);
     toolToCategory[name] = policy.category;
   }
+  if (typeof policy.categoryFor === 'function') categoryResolvers[name] = policy.categoryFor;
 }
 
 /**
@@ -37,6 +40,14 @@ function getCategoryForTool(toolName, toolArgs = {}) {
     // throw here, or every security hook after this would fail open.
     const method = String(toolArgs?.method ?? 'GET').trim().toUpperCase() || 'GET';
     return ['GET', 'HEAD', 'OPTIONS'].includes(method) ? null : 'network_write';
+  }
+  if (categoryResolvers[toolName]) {
+    // Same rule as above: odd arguments must never make the check throw.
+    try {
+      return categoryResolvers[toolName](toolArgs && typeof toolArgs === 'object' ? toolArgs : {});
+    } catch {
+      return toolToCategory[toolName] || 'external';
+    }
   }
   if (toolToCategory[toolName]) return toolToCategory[toolName];
   if (BUILT_IN_TOOLS.has(toolName) || SAFE_TOOLS.has(toolName)) return null;

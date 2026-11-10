@@ -436,6 +436,12 @@ final List<_SettingsEntry> _settingsEntries = <_SettingsEntry>[
   ),
   _SettingsEntry(
     SettingsPage.computer,
+    'sharedWebPages',
+    () => appStrings.sharedWebPages,
+    keywords: const <String>['share', 'publish', 'link', 'website', 'host'],
+  ),
+  _SettingsEntry(
+    SettingsPage.computer,
     'socialReach',
     () => appStrings.socialReach2,
     keywords: const <String>[

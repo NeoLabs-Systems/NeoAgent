@@ -1187,6 +1187,14 @@ class BackendClient {
     return getMap(baseUrl, '/api/social-reach/status');
   }
 
+  Future<Map<String, dynamic>> fetchWebShares(String baseUrl) async {
+    return getMap(baseUrl, '/api/web-shares');
+  }
+
+  Future<void> deleteWebShare(String baseUrl, String id) async {
+    await deleteMap(baseUrl, '/api/web-shares/${Uri.encodeComponent(id)}');
+  }
+
   Future<Map<String, dynamic>> importSocialReachCookies(
     String baseUrl,
     String platform, {

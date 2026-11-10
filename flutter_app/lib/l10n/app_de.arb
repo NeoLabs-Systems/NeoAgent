@@ -7466,5 +7466,15 @@
   "adminExtraModelsSaved": "Zusätzliche Modelle für {username} gespeichert",
   "auditModelsChanged": "{actor} hat geändert, welche zusätzlichen Modelle {subject} nutzen kann",
   "modelAdminGranted": "Freigegeben",
-  "modelAdminGrantedHint": "Ein Admin hat dir dieses Modell freigegeben. Für alle anderen ist es ausgeschaltet."
+  "modelAdminGrantedHint": "Ein Admin hat dir dieses Modell freigegeben. Für alle anderen ist es ausgeschaltet.",
+  "sharedWebPages": "Geteilte Webseiten",
+  "sharedWebPagesDescription": "Web-Apps, die der Agent auf seinem Computer betreibt, unter einem öffentlichen Link auf diesem Server. Wer den Link hat, kann sie öffnen, solange Computer und App laufen. Besucher sehen einen Hinweis, dass ein Nutzer und nicht NeoAgent die Seite erstellt hat.",
+  "allowWebPageSharing": "Agent darf Webseiten teilen",
+  "allowWebPageSharingDescription": "Ist das aus, kann der Agent keine Seiten teilen und alle geteilten Links funktionieren nicht mehr. Vor dem Teilen fragt der Agent dich, außer deine Sicherheitseinstellungen erlauben es.",
+  "noSharedWebPages": "Gerade ist nichts geteilt.",
+  "stopSharing": "Nicht mehr teilen",
+  "sharedWebPageStopped": "{name} wird nicht mehr geteilt",
+  "sharedWebPagePortArg1": "Port {port}",
+  "sharedWebPagesOffline": "Dein Computer ist aus, daher zeigen geteilte Links eine Offline-Seite, bis er wieder läuft.",
+  "sharedWebPagesUnsupported": "Dieser Server führt Tools direkt auf seiner eigenen Maschine aus, daher gibt es keinen Computer, von dem Seiten geteilt werden können."
 }

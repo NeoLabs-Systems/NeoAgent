@@ -8,6 +8,7 @@ const BUILT_IN_DEFINITIONS = [
   ...require('./desktop'),
   ...require('./android'),
   ...require('./web'),
+  ...require('./sharing'),
   ...require('./memory'),
   ...require('./messaging'),
   ...require('./files'),
