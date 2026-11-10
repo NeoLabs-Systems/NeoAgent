@@ -439,6 +439,7 @@ final List<_SettingsEntry> _settingsEntries = <_SettingsEntry>[
     'sharedWebPages',
     () => appStrings.sharedWebPages,
     keywords: const <String>['share', 'publish', 'link', 'website', 'host'],
+    visible: (controller) => controller.webShares['allowed'] != false,
   ),
   _SettingsEntry(
     SettingsPage.computer,

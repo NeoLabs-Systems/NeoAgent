@@ -284,3 +284,29 @@ test('stopping a share by its name removes it', async () => {
   assert.deepEqual(listShares(user.userId), []);
   assert.match(stopSharingWebPage({ userId: user.userId, ref: 'Demo App' }).error, /No shared page/);
 });
+
+test('the admin switch takes sharing away from everyone, at once', async (t) => {
+  await share();
+  const previous = process.env.NEOAGENT_WEB_SHARING;
+  t.after(() => {
+    if (previous === undefined) delete process.env.NEOAGENT_WEB_SHARING;
+    else process.env.NEOAGENT_WEB_SHARING = previous;
+  });
+  process.env.NEOAGENT_WEB_SHARING = 'false';
+  const site = await serve();
+  try {
+    assert.equal((await fetch(`${site.base}/${encodeURIComponent(user.username)}/demo-app/`)).status, 404);
+  } finally {
+    await site.close();
+  }
+  const { isWebSharingEnabled } = require('../../../server/services/web_shares');
+  assert.equal(isWebSharingEnabled(user.userId), false);
+  const { getAvailableTools } = require('../../../server/services/ai/tools');
+  assert.equal(getAvailableTools(null, { userId: user.userId }).some((tool) => tool.name === 'share_web_page'), false);
+  assert.match((await share('Other')).error, /turned off/);
+
+  const { getVmSettings } = require('../../../server/services/admin/server_config');
+  assert.equal(getVmSettings().settings.webSharing, false);
+  delete process.env.NEOAGENT_WEB_SHARING;
+  assert.equal(getVmSettings().settings.webSharing, true);
+});

@@ -1,6 +1,7 @@
 'use strict';
 
 const http = require('http');
+const { isWebSharingAllowed } = require('./server_switch');
 const {
   isWebSharingEnabled,
   listShares,
@@ -54,6 +55,7 @@ function stopSharingWebPage({ userId, ref }) {
 }
 
 module.exports = {
+  isWebSharingAllowed,
   isWebSharingEnabled,
   listShares,
   probeGuestPort,

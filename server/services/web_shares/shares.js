@@ -3,6 +3,7 @@
 const { randomUUID } = require('crypto');
 const db = require('../../db/database');
 const { resolvePublicBaseUrl } = require('../integrations/env');
+const { isWebSharingAllowed } = require('./server_switch');
 
 const SETTING_KEY = 'web_sharing_enabled';
 const MAX_SHARES_PER_USER = 20;
@@ -16,10 +17,10 @@ const RESERVED_SEGMENTS = new Set([
   'app-build.json', 'favicon.ico', 'robots.txt', 'sitemap.xml', '.well-known',
 ]);
 
-// On unless the owner turned it off; an unreadable setting counts as off, so a
-// broken read never exposes a page.
+// On unless the server's admin or the owner turned it off; an unreadable
+// setting counts as off, so a broken read never exposes a page.
 function isWebSharingEnabled(userId) {
-  if (userId == null) return false;
+  if (userId == null || !isWebSharingAllowed()) return false;
   try {
     const row = db.prepare('SELECT value FROM user_settings WHERE user_id = ? AND key = ?').get(userId, SETTING_KEY);
     if (!row) return true;

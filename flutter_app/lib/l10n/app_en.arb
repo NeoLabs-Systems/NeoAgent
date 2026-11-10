@@ -8057,5 +8057,7 @@
     }
   },
   "sharedWebPagesOffline": "Your computer is off, so shared links show an offline page until it runs again.",
-  "sharedWebPagesUnsupported": "This server runs tools directly on its own machine, so there is no computer to share pages from."
+  "sharedWebPagesUnsupported": "This server runs tools directly on its own machine, so there is no computer to share pages from.",
+  "adminWebSharing": "Let agents share web pages",
+  "adminWebSharingDescription": "Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away."
 }

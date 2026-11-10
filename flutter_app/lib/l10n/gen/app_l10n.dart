@@ -21378,6 +21378,18 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'This server runs tools directly on its own machine, so there is no computer to share pages from.'**
   String get sharedWebPagesUnsupported;
+
+  /// No description provided for @adminWebSharing.
+  ///
+  /// In en, this message translates to:
+  /// **'Let agents share web pages'**
+  String get adminWebSharing;
+
+  /// No description provided for @adminWebSharingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.'**
+  String get adminWebSharingDescription;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

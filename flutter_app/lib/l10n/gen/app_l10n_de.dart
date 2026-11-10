@@ -12969,4 +12969,11 @@ class AppL10nDe extends AppL10n {
   @override
   String get sharedWebPagesUnsupported =>
       'Dieser Server führt Tools direkt auf seiner eigenen Maschine aus, daher gibt es keinen Computer, von dem Seiten geteilt werden können.';
+
+  @override
+  String get adminWebSharing => 'Agenten dürfen Webseiten teilen';
+
+  @override
+  String get adminWebSharingDescription =>
+      'Agenten können Web-Apps von ihren Computern unter einem öffentlichen Link auf diesem Server veröffentlichen. Ist das aus, sieht niemand die Option, das Tool fehlt und alle geteilten Links funktionieren nicht mehr. Gilt sofort.';
 }

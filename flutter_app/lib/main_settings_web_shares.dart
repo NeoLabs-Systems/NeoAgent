@@ -87,6 +87,9 @@ class _SharedWebPagesGroupState extends State<_SharedWebPagesGroup> {
   @override
   Widget build(BuildContext context) {
     final data = _controller.webShares;
+    // Nothing to show until the server answers, or when its admin turned
+    // sharing off for everyone.
+    if (data['allowed'] != true) return const SizedBox.shrink();
     final supported = data['supported'] != false;
     final enabled = _controller.webSharingEnabled;
     final computerRunning = data['computerRunning'] == true;

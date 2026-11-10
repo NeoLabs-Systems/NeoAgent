@@ -8,6 +8,7 @@ const {
 const { httpError } = require('../../utils/http_error');
 const { getComputerResourceProfile } = require('../runtime/resource_profile');
 const { getDeploymentPolicy } = require('../../utils/deployment');
+const { WEB_SHARING_ENV, isWebSharingAllowed } = require('../web_shares/server_switch');
 
 function assertOptionalUrl(value, field) {
   if (!value) return;
@@ -65,6 +66,7 @@ function getVmSettings() {
       minMemoryMb: profile.minimumGuestMemoryMb,
       maxMemoryMb: profile.maximumGuestMemoryMb,
       maxCpus: profile.maximumGuestCpus,
+      webSharing: isWebSharingAllowed(),
     },
   };
 }
@@ -78,6 +80,11 @@ function updateVmSettings(body = {}) {
   persistEnv('NEOAGENT_VM_BASE_IMAGE', vmBaseImage);
   persistEnv('NEOAGENT_COMPUTER_MAX_MEMORY_MB', maxMemoryMb);
   persistEnv('NEOAGENT_COMPUTER_MAX_CPUS', maxCpus);
+  // Applies at once: shares and the agent's tool read it on every use.
+  if (body.webSharing !== undefined) {
+    assertBoolean(body.webSharing, 'webSharing');
+    persistEnv(WEB_SHARING_ENV, body.webSharing ? 'true' : 'false');
+  }
   return { ok: true };
 }
 

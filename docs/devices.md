@@ -33,6 +33,7 @@ See [Security and permissions](security-boundaries.md#cloud-computer-backends) f
 The agent can publish a web app it runs on its computer at `https://<your server>/<username>/<name>/`, with the `share_web_page` tool, and pass you the link.
 
 - **On by default.** **Settings › Computer › Shared web pages** turns it off. While it is off, the agent has no sharing tool and every shared link stops working.
+- **Admin switch.** **Admin › Config › Cloud computers** turns sharing off for the whole server (`NEOAGENT_WEB_SHARING=false`). Users then don't see the option at all.
 - **Asks first.** Publishing is a `network_write` action, which needs your approval unless your [security settings](security-boundaries.md) allow it.
 - **Only while it runs.** The link works while your computer and the app on it run. A stopped computer is never started for a visitor; the link shows an offline page instead.
 - **Under a path.** The app is served under `/<username>/<name>/` and receives that path in `X-Forwarded-Prefix`, so its links and assets should be relative.

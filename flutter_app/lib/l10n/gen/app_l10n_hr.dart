@@ -12848,4 +12848,11 @@ class AppL10nHr extends AppL10n {
   @override
   String get sharedWebPagesUnsupported =>
       'This server runs tools directly on its own machine, so there is no computer to share pages from.';
+
+  @override
+  String get adminWebSharing => 'Let agents share web pages';
+
+  @override
+  String get adminWebSharingDescription =>
+      'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
 }
