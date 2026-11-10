@@ -1,6 +1,7 @@
 'use strict';
 
 const { getTerminalEnv, TERMINAL_ENV_HOST } = require('../../../../utils/deployment');
+const { PUBLIC_PAGE_LIMIT } = require('../../../web_shares/page_rules');
 
 // Sharing web pages from the computer. Offered only with a guest computer and
 // while the owner allows sharing, so with the setting off the model never sees it.
@@ -29,10 +30,11 @@ module.exports = [
     whenNotToUse: [
       'a file the user should receive (send it as an attachment instead)',
       'anything private: everyone with the link can open the page',
+      PUBLIC_PAGE_LIMIT,
     ],
-    description: 'Publish a web app running on your computer at a public link on this server, /<username>/<name>/, and get the link to pass on. '
-      + 'share: the app must already answer on that port inside your computer; sharing the same name again points it at the new port. '
-      + 'The link works only while your computer and the app run. stop: take a page offline. list: pages shared now.',
+    description: 'Publish a web app running on your computer at a public link, /<username>/<name>/, and get the link to pass on. '
+      + 'share: the app must already answer on that port; the same name again moves it to the new port. '
+      + 'Works only while your computer and the app run. stop: take a page offline. list: shared pages.',
     parameters: {
       type: 'object',
       properties: {

@@ -2,6 +2,7 @@
 
 const http = require('http');
 const { isWebSharingAllowed } = require('./server_switch');
+const { PUBLIC_PAGE_RULES } = require('./page_rules');
 const {
   isWebSharingEnabled,
   listShares,
@@ -31,7 +32,8 @@ function probeGuestPort(guest, port) {
 
 const PATH_NOTE = 'The page is served under that path, not at a domain root: links, scripts and styles must use relative paths '
   + '(or the base path from the X-Forwarded-Prefix header). It runs sandboxed, so it gets no cookies or local storage. '
-  + 'It is reachable only while your computer and the app on it run.';
+  + 'It is reachable only while your computer and the app on it run. '
+  + `${PUBLIC_PAGE_RULES} If anything on it breaks that, stop sharing it now.`;
 
 async function shareWebPage({ userId, agentId = null, runtime, name, port, baseUrl }) {
   if (!isWebSharingEnabled(userId)) return { error: 'Web page sharing is turned off in settings.' };

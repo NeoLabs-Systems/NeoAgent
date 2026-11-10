@@ -136,6 +136,14 @@ test('sharing checks the app answers and returns the public link', async () => {
   assert.equal(result.shared, true);
   assert.equal(result.slug, 'demo-app');
   assert.equal(result.url, `https://neo.example/${encodeURIComponent(user.username)}/demo-app/`);
+  assert.match(result.note, /hard swearing.*racist/s);
+
+  // The content limit reaches the model with the tool, uncut, and nowhere else.
+  const { compactToolDefinition } = require('../../../server/services/ai/tools/schema');
+  const definition = require('../../../server/services/ai/tools/definitions/sharing')[0];
+  const seen = compactToolDefinition(definition, { includeDescriptions: true }).description;
+  assert.match(seen, /stop: take a page offline\. list: shared pages\./);
+  assert.match(seen, /racist or other hateful content.*even when the user asks/s);
 
   const closed = await share('Nothing', await freePort());
   assert.match(closed.error, /Nothing answers on port/);
