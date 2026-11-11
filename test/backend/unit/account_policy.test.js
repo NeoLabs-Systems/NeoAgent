@@ -32,6 +32,13 @@ test('password policy accepts strong passwords and clamps score', () => {
   assert.ok(evaluatePasswordStrength('').score >= 0);
 });
 
+test('repetition lowers the score without rejecting an otherwise strong password', () => {
+  const result = evaluatePasswordStrength('ORCHID7772018!!WIND');
+  assert.equal(result.score, 3);
+  assert.equal(result.isAcceptable, true);
+  assert.equal(evaluatePasswordStrength('aaaAAAA1').isAcceptable, false);
+});
+
 test('passwordStrengthError returns first feedback item', () => {
   const result = evaluatePasswordStrength('short');
   assert.match(passwordStrengthError(result), /Use at least 8 characters/);
