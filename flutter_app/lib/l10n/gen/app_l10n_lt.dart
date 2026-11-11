@@ -5473,7 +5473,7 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'Android įrenginyje, kuriame esate prisijungę, atidarykite Nustatymai › Prisijungimas ir sauga, nuskaitykite šį kodą ir patvirtinkite prisijungimą.';
+      'Prisijungusiame telefone atidarykite Nustatymai › Prisijungimas ir sauga, palieskite Nuskaitykite prisijungimo QR kodą ir patvirtinkite prisijungimą.';
 
   @override
   String get onByDefaultForNewGroups =>
@@ -5535,7 +5535,7 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Atidarykite Nustatymai › Prisijungimas ir sauga Android įrenginyje, kuriame esate prisijungę, nuskaitykite šį kodą ir patvirtinkite prisijungimą.';
+      'Prisijungusiame telefone atidarykite Nustatymai › Prisijungimas ir sauga, palieskite Nuskaitykite prisijungimo QR kodą, nuskaitykite šį kodą ir patvirtinkite prisijungimą.';
 
   @override
   String get openComputer => 'Atidarykite kompiuterį';
@@ -12883,4 +12883,125 @@ class AppL10nLt extends AppL10n {
   @override
   String get adminWebSharingDescription =>
       'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Susieti telefoną';
+
+  @override
+  String get pairPhoneDescription =>
+      'Rodo QR kodą, kuriuo telefono programa „NeoAgent“ prisijungia prie šios paskyros neįvedant serverio adreso ar slaptažodžio.';
+
+  @override
+  String get pairTitle => 'Susieti telefoną';
+
+  @override
+  String get pairInstructions =>
+      'Atidarykite programą „NeoAgent“ telefone, prisijungimo ekrane palieskite „Nuskaityti QR kodą“ ir nukreipkite fotoaparatą į šį kodą.';
+
+  @override
+  String get pairQrSemantics => 'QR kodas telefonui susieti';
+
+  @override
+  String get pairWaiting => 'Laukiama telefono';
+
+  @override
+  String pairExpiresIn(String time) {
+    return 'Baigs galioti po $time';
+  }
+
+  @override
+  String get pairExpired => 'Kodo galiojimas baigėsi';
+
+  @override
+  String get pairNewCode => 'Naujas kodas';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Susieta su $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'jūsų telefonu';
+
+  @override
+  String get pairCantScan =>
+      'Nepavyksta nuskaityti? Atidarykite šią nuorodą telefone:';
+
+  @override
+  String get pairLandingTitle => 'Susiekite su programa „NeoAgent“';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'Ši nuoroda prijungia programą „NeoAgent“ šiame telefone. Įdiekite programą, jei dar to nepadarėte, tada atidarykite nuorodą joje. Kodas galioja penkias minutes.';
+
+  @override
+  String get pairLandingOpenApp => 'Atidaryti programoje „NeoAgent“';
+
+  @override
+  String get pairLandingGetApp => 'Gauti programą';
+
+  @override
+  String get pairLandingComputerBody =>
+      'Ši nuoroda skirta jūsų telefonui. Atidarykite ją ten arba nuskaitykite QR kodą programa „NeoAgent“.';
+
+  @override
+  String get pairLandingInvalid =>
+      'Ši susiejimo nuoroda neišsami. Naują kodą parodykite skiltyje Nustatymai › Prisijungimas ir sauga › Susieti telefoną.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'Atidaryti „NeoAgent“';
+
+  @override
+  String get signInScanQr => 'Nuskaityti QR kodą';
+
+  @override
+  String get signInScanQrHint =>
+      'Prisijungusiame kompiuteryje atidarykite Nustatymai › Prisijungimas ir sauga › Susieti telefoną.';
+
+  @override
+  String get scanTitle => 'Nuskaityti QR kodą';
+
+  @override
+  String get scanPrimeTitle => 'Nuskaitymas fotoaparatu';
+
+  @override
+  String get scanPrimeBody =>
+      '„NeoAgent“ naudoja fotoaparatą tik QR kodui nuskaityti. Niekas neįrašoma ir neįkeliama.';
+
+  @override
+  String get scanPrimeAllow => 'Leisti fotoaparatą';
+
+  @override
+  String get scanPairingHint =>
+      'Nukreipkite fotoaparatą į QR kodą skiltyje Nustatymai › Prisijungimas ir sauga › Susieti telefoną';
+
+  @override
+  String get scanWrongPairingCode => 'Tai ne „NeoAgent“ susiejimo kodas';
+
+  @override
+  String get scanTorchOn => 'Įjungti šviesą';
+
+  @override
+  String get scanTorchOff => 'Išjungti šviesą';
+
+  @override
+  String get scanDeniedTitle => 'Prieiga prie fotoaparato išjungta';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Nustatymuose leiskite „NeoAgent“ naudoti fotoaparatą arba prisijunkite slaptažodžiu.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Leiskite naudoti fotoaparatą, kai bus paklausta, arba įjunkite jį skiltyje Nustatymai › Programos › NeoAgent › Leidimai. Taip pat galite prisijungti slaptažodžiu.';
+
+  @override
+  String get scanOpenSettings => 'Atidaryti nustatymus';
+
+  @override
+  String get scanFailedTitle => 'Fotoaparatas nepasileido';
+
+  @override
+  String get scanFailedBody =>
+      'Uždarykite kitas fotoaparatą naudojančias programas ir bandykite dar kartą.';
 }

@@ -368,6 +368,12 @@ final List<_SettingsEntry> _settingsEntries = <_SettingsEntry>[
   ),
   _SettingsEntry(
     SettingsPage.security,
+    'pairPhone',
+    () => appStrings.pairPhone,
+    keywords: const <String>['qr', 'phone', 'pair', 'device'],
+  ),
+  _SettingsEntry(
+    SettingsPage.security,
     'qrLogin',
     () => appStrings.approveQrLogin,
     keywords: const <String>['scan', 'qr'],

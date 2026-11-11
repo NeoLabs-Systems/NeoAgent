@@ -98,6 +98,11 @@ class _NeoAgentAppState extends State<NeoAgentApp>
       _controller.requestVoiceCall();
       return;
     }
+    if (action == AppLaunchBridge.pairAction) {
+      final link = parsePairingLink(request.text ?? '');
+      if (link != null) unawaited(_controller.pairWithLink(link));
+      return;
+    }
     if (action == AppLaunchBridge.shareToChatAction) {
       _controller.queueSharedChatPayload(
         text: request.text,
@@ -658,6 +663,9 @@ class NeoAgentRoot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (controller.pendingPairCode != null) {
+      return PairLandingView(controller: controller);
+    }
     if (controller.isBooting) {
       return const SplashView();
     }

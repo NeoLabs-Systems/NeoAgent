@@ -5516,7 +5516,7 @@ class AppL10nIt extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'Su un dispositivo Android su cui è stato effettuato l\'accesso, apri Impostazioni › Accesso e sicurezza, scansiona questo codice e approva l\'accesso.';
+      'Su un telefono con accesso effettuato, apri Impostazioni › Accesso e sicurezza, tocca Scansiona il QR di accesso e approva l\'accesso.';
 
   @override
   String get onByDefaultForNewGroups =>
@@ -5578,7 +5578,7 @@ class AppL10nIt extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Apri Impostazioni › Accesso e sicurezza su un dispositivo Android su cui hai effettuato l\'accesso, scansiona questo codice e approva l\'accesso.';
+      'Su un telefono con accesso effettuato, apri Impostazioni › Accesso e sicurezza, tocca Scansiona il QR di accesso, scansiona questo codice e approva l\'accesso.';
 
   @override
   String get openComputer => 'Apri il computer';
@@ -12973,4 +12973,126 @@ class AppL10nIt extends AppL10n {
   @override
   String get adminWebSharingDescription =>
       'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Associa un telefono';
+
+  @override
+  String get pairPhoneDescription =>
+      'Mostra un codice QR che fa accedere a questo account l\'app NeoAgent di un telefono, senza digitare l\'indirizzo del server o una password.';
+
+  @override
+  String get pairTitle => 'Associa un telefono';
+
+  @override
+  String get pairInstructions =>
+      'Apri l\'app NeoAgent sul telefono, tocca «Scansiona codice QR» nella schermata di accesso e punta la fotocamera verso questo codice.';
+
+  @override
+  String get pairQrSemantics => 'Codice QR per associare un telefono';
+
+  @override
+  String get pairWaiting => 'In attesa del telefono';
+
+  @override
+  String pairExpiresIn(String time) {
+    return 'Scade tra $time';
+  }
+
+  @override
+  String get pairExpired => 'Codice scaduto';
+
+  @override
+  String get pairNewCode => 'Nuovo codice';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Associato a $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'il tuo telefono';
+
+  @override
+  String get pairCantScan =>
+      'Non riesci a scansionare? Apri questo link sul telefono:';
+
+  @override
+  String get pairLandingTitle => 'Associa all\'app NeoAgent';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'Questo link fa accedere l\'app NeoAgent su questo telefono. Installa l\'app se non l\'hai ancora fatto, poi apri il link al suo interno. Il codice vale cinque minuti.';
+
+  @override
+  String get pairLandingOpenApp => 'Apri nell\'app NeoAgent';
+
+  @override
+  String get pairLandingGetApp => 'Scarica l\'app';
+
+  @override
+  String get pairLandingComputerBody =>
+      'Questo link è pensato per il tuo telefono. Aprilo lì oppure scansiona il codice QR con l\'app NeoAgent.';
+
+  @override
+  String get pairLandingInvalid =>
+      'Questo link di associazione è incompleto. Mostra un nuovo codice in Impostazioni › Accesso e sicurezza › Associa un telefono.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'Apri NeoAgent';
+
+  @override
+  String get signInScanQr => 'Scansiona codice QR';
+
+  @override
+  String get signInScanQrHint =>
+      'Su un computer con accesso effettuato, apri Impostazioni › Accesso e sicurezza › Associa un telefono.';
+
+  @override
+  String get scanTitle => 'Scansiona codice QR';
+
+  @override
+  String get scanPrimeTitle => 'Usa la fotocamera per scansionare';
+
+  @override
+  String get scanPrimeBody =>
+      'NeoAgent usa la fotocamera solo per leggere il codice QR. Nulla viene registrato o caricato.';
+
+  @override
+  String get scanPrimeAllow => 'Consenti fotocamera';
+
+  @override
+  String get scanPairingHint =>
+      'Punta la fotocamera verso il codice QR in Impostazioni › Accesso e sicurezza › Associa un telefono';
+
+  @override
+  String get scanWrongPairingCode =>
+      'Questo non è un codice di associazione NeoAgent';
+
+  @override
+  String get scanTorchOn => 'Accendi la luce';
+
+  @override
+  String get scanTorchOff => 'Spegni la luce';
+
+  @override
+  String get scanDeniedTitle => 'L\'accesso alla fotocamera è disattivato';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Consenti a NeoAgent di usare la fotocamera in Impostazioni oppure accedi con la tua password.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Consenti la fotocamera quando richiesto oppure attivala in Impostazioni › App › NeoAgent › Autorizzazioni. Puoi anche accedere con la tua password.';
+
+  @override
+  String get scanOpenSettings => 'Apri Impostazioni';
+
+  @override
+  String get scanFailedTitle => 'La fotocamera non si è avviata';
+
+  @override
+  String get scanFailedBody =>
+      'Chiudi le altre app che usano la fotocamera e riprova.';
 }

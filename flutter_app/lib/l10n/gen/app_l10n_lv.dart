@@ -5472,7 +5472,7 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'Android ierīcē, kurā esat pierakstījies, atveriet sadaļu Iestatījumi › Pierakstīšanās un drošība, skenējiet šo kodu un apstipriniet pieteikšanos.';
+      'Tālrunī, kurā esat pierakstījies, atveriet Iestatījumi › Pierakstīšanās un drošība, pieskarieties Skenēt pieteikšanās QR un apstipriniet pierakstīšanos.';
 
   @override
   String get onByDefaultForNewGroups =>
@@ -5534,7 +5534,7 @@ class AppL10nLv extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Atveriet Iestatījumi › Pierakstīšanās un drošība Android ierīcē, kurā esat pierakstījies, skenējiet šo kodu un apstipriniet pieteikšanos.';
+      'Tālrunī, kurā esat pierakstījies, atveriet Iestatījumi › Pierakstīšanās un drošība, pieskarieties Skenēt pieteikšanās QR, noskenējiet šo kodu un apstipriniet pierakstīšanos.';
 
   @override
   String get openComputer => 'Atveriet datoru';
@@ -12876,4 +12876,124 @@ class AppL10nLv extends AppL10n {
   @override
   String get adminWebSharingDescription =>
       'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Savienot pārī tālruni';
+
+  @override
+  String get pairPhoneDescription =>
+      'Parāda QR kodu, ar kuru tālruņa lietotne NeoAgent pierakstās šajā kontā, neievadot servera adresi vai paroli.';
+
+  @override
+  String get pairTitle => 'Savienot pārī tālruni';
+
+  @override
+  String get pairInstructions =>
+      'Atveriet tālrunī lietotni NeoAgent, pierakstīšanās ekrānā pieskarieties “Skenēt QR kodu” un pavērsiet kameru pret šo kodu.';
+
+  @override
+  String get pairQrSemantics => 'QR kods tālruņa savienošanai pārī';
+
+  @override
+  String get pairWaiting => 'Gaida tālruni';
+
+  @override
+  String pairExpiresIn(String time) {
+    return 'Beigsies pēc $time';
+  }
+
+  @override
+  String get pairExpired => 'Koda derīgums beidzies';
+
+  @override
+  String get pairNewCode => 'Jauns kods';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Savienots pārī ar $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'jūsu tālruni';
+
+  @override
+  String get pairCantScan => 'Nevarat noskenēt? Atveriet šo saiti tālrunī:';
+
+  @override
+  String get pairLandingTitle => 'Savienot pārī ar lietotni NeoAgent';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'Šī saite pieraksta lietotni NeoAgent šajā tālrunī. Instalējiet lietotni, ja vēl neesat to izdarījis, un pēc tam atveriet saiti tajā. Kods ir derīgs piecas minūtes.';
+
+  @override
+  String get pairLandingOpenApp => 'Atvērt lietotnē NeoAgent';
+
+  @override
+  String get pairLandingGetApp => 'Iegūt lietotni';
+
+  @override
+  String get pairLandingComputerBody =>
+      'Šī saite ir paredzēta jūsu tālrunim. Atveriet to tur vai noskenējiet QR kodu ar lietotni NeoAgent.';
+
+  @override
+  String get pairLandingInvalid =>
+      'Šī savienošanas saite nav pilnīga. Parādiet jaunu kodu sadaļā Iestatījumi › Pierakstīšanās un drošība › Savienot pārī tālruni.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'Atvērt NeoAgent';
+
+  @override
+  String get signInScanQr => 'Skenēt QR kodu';
+
+  @override
+  String get signInScanQrHint =>
+      'Datorā, kurā esat pierakstījies, atveriet Iestatījumi › Pierakstīšanās un drošība › Savienot pārī tālruni.';
+
+  @override
+  String get scanTitle => 'Skenēt QR kodu';
+
+  @override
+  String get scanPrimeTitle => 'Skenēšana ar kameru';
+
+  @override
+  String get scanPrimeBody =>
+      'NeoAgent izmanto kameru tikai QR koda nolasīšanai. Nekas netiek ierakstīts vai augšupielādēts.';
+
+  @override
+  String get scanPrimeAllow => 'Atļaut kameru';
+
+  @override
+  String get scanPairingHint =>
+      'Pavērsiet kameru pret QR kodu sadaļā Iestatījumi › Pierakstīšanās un drošība › Savienot pārī tālruni';
+
+  @override
+  String get scanWrongPairingCode => 'Tas nav NeoAgent savienošanas kods';
+
+  @override
+  String get scanTorchOn => 'Ieslēgt gaismu';
+
+  @override
+  String get scanTorchOff => 'Izslēgt gaismu';
+
+  @override
+  String get scanDeniedTitle => 'Piekļuve kamerai ir izslēgta';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Iestatījumos atļaujiet NeoAgent izmantot kameru vai pierakstieties ar paroli.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Atļaujiet kameru, kad tiek prasīts, vai ieslēdziet to sadaļā Iestatījumi › Lietotnes › NeoAgent › Atļaujas. Varat arī pierakstīties ar paroli.';
+
+  @override
+  String get scanOpenSettings => 'Atvērt iestatījumus';
+
+  @override
+  String get scanFailedTitle => 'Kamera netika palaista';
+
+  @override
+  String get scanFailedBody =>
+      'Aizveriet citas lietotnes, kas izmanto kameru, un mēģiniet vēlreiz.';
 }

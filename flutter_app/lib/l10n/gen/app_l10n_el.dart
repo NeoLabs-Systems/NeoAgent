@@ -5511,7 +5511,7 @@ class AppL10nEl extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'Σε μια συνδεδεμένη συσκευή Android, ανοίξτε τις Ρυθμίσεις › Είσοδος και ασφάλεια, σαρώστε αυτόν τον κωδικό και εγκρίνετε τη σύνδεση.';
+      'Σε ένα συνδεδεμένο τηλέφωνο, ανοίξτε Ρυθμίσεις › Είσοδος και ασφάλεια, πατήστε Σάρωση QR σύνδεσης και εγκρίνετε τη σύνδεση.';
 
   @override
   String get onByDefaultForNewGroups => 'Ενεργό από προεπιλογή για νέες ομάδες';
@@ -5572,7 +5572,7 @@ class AppL10nEl extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Ανοίξτε τις Ρυθμίσεις › Είσοδος και ασφάλεια σε μια συνδεδεμένη συσκευή Android, σαρώστε αυτόν τον κωδικό και εγκρίνετε τη σύνδεση.';
+      'Σε ένα συνδεδεμένο τηλέφωνο, ανοίξτε Ρυθμίσεις › Είσοδος και ασφάλεια, πατήστε Σάρωση QR σύνδεσης, σαρώστε αυτόν τον κωδικό και εγκρίνετε τη σύνδεση.';
 
   @override
   String get openComputer => 'Ανοίξτε τον υπολογιστή';
@@ -12959,4 +12959,126 @@ class AppL10nEl extends AppL10n {
   @override
   String get adminWebSharingDescription =>
       'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Σύζευξη τηλεφώνου';
+
+  @override
+  String get pairPhoneDescription =>
+      'Εμφανίζει έναν κωδικό QR που συνδέει την εφαρμογή NeoAgent ενός τηλεφώνου σε αυτόν τον λογαριασμό, χωρίς να πληκτρολογήσετε τη διεύθυνση του διακομιστή ή κωδικό πρόσβασης.';
+
+  @override
+  String get pairTitle => 'Σύζευξη τηλεφώνου';
+
+  @override
+  String get pairInstructions =>
+      'Ανοίξτε την εφαρμογή NeoAgent στο τηλέφωνό σας, πατήστε «Σάρωση κωδικού QR» στην οθόνη σύνδεσης και στρέψτε την κάμερα σε αυτόν τον κωδικό.';
+
+  @override
+  String get pairQrSemantics => 'Κωδικός QR για σύζευξη τηλεφώνου';
+
+  @override
+  String get pairWaiting => 'Αναμονή για το τηλέφωνο';
+
+  @override
+  String pairExpiresIn(String time) {
+    return 'Λήγει σε $time';
+  }
+
+  @override
+  String get pairExpired => 'Ο κωδικός έληξε';
+
+  @override
+  String get pairNewCode => 'Νέος κωδικός';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Σε σύζευξη με $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'το τηλέφωνό σας';
+
+  @override
+  String get pairCantScan =>
+      'Δεν μπορείτε να σαρώσετε; Ανοίξτε αυτόν τον σύνδεσμο στο τηλέφωνο:';
+
+  @override
+  String get pairLandingTitle => 'Σύζευξη με την εφαρμογή NeoAgent';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'Αυτός ο σύνδεσμος συνδέει την εφαρμογή NeoAgent σε αυτό το τηλέφωνο. Εγκαταστήστε την εφαρμογή αν δεν την έχετε ήδη και, στη συνέχεια, ανοίξτε τον σύνδεσμο σε αυτήν. Ο κωδικός ισχύει για πέντε λεπτά.';
+
+  @override
+  String get pairLandingOpenApp => 'Άνοιγμα στην εφαρμογή NeoAgent';
+
+  @override
+  String get pairLandingGetApp => 'Λήψη της εφαρμογής';
+
+  @override
+  String get pairLandingComputerBody =>
+      'Αυτός ο σύνδεσμος προορίζεται για το τηλέφωνό σας. Ανοίξτε τον εκεί ή σαρώστε τον κωδικό QR με την εφαρμογή NeoAgent.';
+
+  @override
+  String get pairLandingInvalid =>
+      'Αυτός ο σύνδεσμος σύζευξης είναι ελλιπής. Εμφανίστε νέο κωδικό στις Ρυθμίσεις › Είσοδος και ασφάλεια › Σύζευξη τηλεφώνου.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'Άνοιγμα NeoAgent';
+
+  @override
+  String get signInScanQr => 'Σάρωση κωδικού QR';
+
+  @override
+  String get signInScanQrHint =>
+      'Σε έναν συνδεδεμένο υπολογιστή, ανοίξτε Ρυθμίσεις › Είσοδος και ασφάλεια › Σύζευξη τηλεφώνου.';
+
+  @override
+  String get scanTitle => 'Σάρωση κωδικού QR';
+
+  @override
+  String get scanPrimeTitle => 'Σάρωση με την κάμερα';
+
+  @override
+  String get scanPrimeBody =>
+      'Το NeoAgent χρησιμοποιεί την κάμερα μόνο για να διαβάσει τον κωδικό QR. Τίποτα δεν καταγράφεται ούτε μεταφορτώνεται.';
+
+  @override
+  String get scanPrimeAllow => 'Επιτρέψτε την κάμερα';
+
+  @override
+  String get scanPairingHint =>
+      'Στρέψτε την κάμερα στον κωδικό QR στις Ρυθμίσεις › Είσοδος και ασφάλεια › Σύζευξη τηλεφώνου';
+
+  @override
+  String get scanWrongPairingCode =>
+      'Αυτός δεν είναι κωδικός σύζευξης NeoAgent';
+
+  @override
+  String get scanTorchOn => 'Ενεργοποίηση φωτός';
+
+  @override
+  String get scanTorchOff => 'Απενεργοποίηση φωτός';
+
+  @override
+  String get scanDeniedTitle => 'Η πρόσβαση στην κάμερα είναι απενεργοποιημένη';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Επιτρέψτε στο NeoAgent να χρησιμοποιεί την κάμερα από τις Ρυθμίσεις ή συνδεθείτε με τον κωδικό πρόσβασής σας.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Επιτρέψτε την κάμερα όταν σας ζητηθεί ή ενεργοποιήστε την από Ρυθμίσεις › Εφαρμογές › NeoAgent › Άδειες. Μπορείτε επίσης να συνδεθείτε με τον κωδικό πρόσβασής σας.';
+
+  @override
+  String get scanOpenSettings => 'Άνοιγμα Ρυθμίσεων';
+
+  @override
+  String get scanFailedTitle => 'Η κάμερα δεν ξεκίνησε';
+
+  @override
+  String get scanFailedBody =>
+      'Κλείστε άλλες εφαρμογές που χρησιμοποιούν την κάμερα και δοκιμάστε ξανά.';
 }

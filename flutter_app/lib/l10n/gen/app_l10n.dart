@@ -9082,7 +9082,7 @@ abstract class AppL10n {
   /// No description provided for @onASignedInAndroidDevice.
   ///
   /// In en, this message translates to:
-  /// **'On a signed-in Android device, open Settings › Sign-in & security, scan this code, and approve the login.'**
+  /// **'On a signed-in phone, open Settings › Sign-in & security, tap Scan login QR and approve the login.'**
   String get onASignedInAndroidDevice;
 
   /// No description provided for @onByDefaultForNewGroups.
@@ -9184,7 +9184,7 @@ abstract class AppL10n {
   /// No description provided for @openAccountSettingsOnASigned.
   ///
   /// In en, this message translates to:
-  /// **'Open Settings › Sign-in & security on a signed-in Android device, scan this code, and approve the login.'**
+  /// **'On a signed-in phone, open Settings › Sign-in & security, tap Scan login QR, scan this code and approve the login.'**
   String get openAccountSettingsOnASigned;
 
   /// No description provided for @openComputer.
@@ -21390,6 +21390,216 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.'**
   String get adminWebSharingDescription;
+
+  /// No description provided for @pairPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Pair a phone'**
+  String get pairPhone;
+
+  /// No description provided for @pairPhoneDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Show a QR code that signs the NeoAgent app on a phone in to this account, without typing the server address or a password.'**
+  String get pairPhoneDescription;
+
+  /// No description provided for @pairTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pair a phone'**
+  String get pairTitle;
+
+  /// No description provided for @pairInstructions.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the NeoAgent app on your phone, tap “Scan QR code” on its sign-in screen and point the camera at this code.'**
+  String get pairInstructions;
+
+  /// No description provided for @pairQrSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'QR code to pair a phone'**
+  String get pairQrSemantics;
+
+  /// No description provided for @pairWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for the phone'**
+  String get pairWaiting;
+
+  /// No description provided for @pairExpiresIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires in {time}'**
+  String pairExpiresIn(String time);
+
+  /// No description provided for @pairExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Code expired'**
+  String get pairExpired;
+
+  /// No description provided for @pairNewCode.
+  ///
+  /// In en, this message translates to:
+  /// **'New code'**
+  String get pairNewCode;
+
+  /// No description provided for @pairPairedWith.
+  ///
+  /// In en, this message translates to:
+  /// **'Paired with {device} ✓'**
+  String pairPairedWith(String device);
+
+  /// No description provided for @pairUnknownDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'your phone'**
+  String get pairUnknownDevice;
+
+  /// No description provided for @pairCantScan.
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t scan? Open this link on the phone:'**
+  String get pairCantScan;
+
+  /// No description provided for @pairLandingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pair with the NeoAgent app'**
+  String get pairLandingTitle;
+
+  /// No description provided for @pairLandingPhoneBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This link signs in the NeoAgent app on this phone. Install the app if you haven\'t, then open the link in it. The code works for five minutes.'**
+  String get pairLandingPhoneBody;
+
+  /// No description provided for @pairLandingOpenApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Open in NeoAgent app'**
+  String get pairLandingOpenApp;
+
+  /// No description provided for @pairLandingGetApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Get the app'**
+  String get pairLandingGetApp;
+
+  /// No description provided for @pairLandingComputerBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This link is meant for your phone. Open it there, or scan the QR code with the NeoAgent app.'**
+  String get pairLandingComputerBody;
+
+  /// No description provided for @pairLandingInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'This pairing link is incomplete. Show a new code under Settings › Sign-in & security › Pair a phone.'**
+  String get pairLandingInvalid;
+
+  /// No description provided for @pairLandingOpenNeoagent.
+  ///
+  /// In en, this message translates to:
+  /// **'Open NeoAgent'**
+  String get pairLandingOpenNeoagent;
+
+  /// No description provided for @signInScanQr.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan QR code'**
+  String get signInScanQr;
+
+  /// No description provided for @signInScanQrHint.
+  ///
+  /// In en, this message translates to:
+  /// **'On a signed-in computer, open Settings › Sign-in & security › Pair a phone.'**
+  String get signInScanQrHint;
+
+  /// No description provided for @scanTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan QR code'**
+  String get scanTitle;
+
+  /// No description provided for @scanPrimeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the camera to scan'**
+  String get scanPrimeTitle;
+
+  /// No description provided for @scanPrimeBody.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent uses the camera only to read the QR code. Nothing is recorded or uploaded.'**
+  String get scanPrimeBody;
+
+  /// No description provided for @scanPrimeAllow.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow camera'**
+  String get scanPrimeAllow;
+
+  /// No description provided for @scanPairingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Point the camera at the QR code under Settings › Sign-in & security › Pair a phone'**
+  String get scanPairingHint;
+
+  /// No description provided for @scanWrongPairingCode.
+  ///
+  /// In en, this message translates to:
+  /// **'That\'s not a NeoAgent pairing code'**
+  String get scanWrongPairingCode;
+
+  /// No description provided for @scanTorchOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on the light'**
+  String get scanTorchOn;
+
+  /// No description provided for @scanTorchOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn off the light'**
+  String get scanTorchOff;
+
+  /// No description provided for @scanDeniedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera access is off'**
+  String get scanDeniedTitle;
+
+  /// No description provided for @scanDeniedBodyIos.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow NeoAgent to use the camera in Settings, or sign in with your password instead.'**
+  String get scanDeniedBodyIos;
+
+  /// No description provided for @scanDeniedBodyAndroid.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow the camera when asked, or turn it on under Settings › Apps › NeoAgent › Permissions. You can also sign in with your password.'**
+  String get scanDeniedBodyAndroid;
+
+  /// No description provided for @scanOpenSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get scanOpenSettings;
+
+  /// No description provided for @scanFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The camera didn\'t start'**
+  String get scanFailedTitle;
+
+  /// No description provided for @scanFailedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Close other apps that use the camera and try again.'**
+  String get scanFailedBody;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

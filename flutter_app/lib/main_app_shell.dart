@@ -1172,6 +1172,7 @@ class _AuthViewState extends State<AuthView> {
     required List<AuthProviderCatalogItem> availableProviders,
     required bool awaitingTwoFactor,
     required bool showQrLogin,
+    required bool showScanToPair,
     required String title,
     required String subtitle,
   }) {
@@ -1240,9 +1241,12 @@ class _AuthViewState extends State<AuthView> {
           const SizedBox(height: 16),
           _InlineSuccess(message: controller.authInfoMessage!),
         ],
-        if (showQrLogin) ...<Widget>[
+        if (showQrLogin || showScanToPair) ...<Widget>[
           const SizedBox(height: 26),
-          _buildQrLoginBlock(controller),
+          if (showQrLogin)
+            _buildQrLoginBlock(controller)
+          else
+            _ScanToPairButton(controller: controller),
           const SizedBox(height: 22),
           _orDivider(appStrings.authOrUsePassword),
           const SizedBox(height: 16),
@@ -1317,7 +1321,7 @@ class _AuthViewState extends State<AuthView> {
           ),
         ] else ...<Widget>[
           if (hasAlternatives) ...<Widget>[
-            if (showQrLogin)
+            if (showQrLogin || showScanToPair)
               const SizedBox(height: 12)
             else ...<Widget>[
               const SizedBox(height: 20),
@@ -1454,10 +1458,14 @@ class _AuthViewState extends State<AuthView> {
 
     final awaitingTwoFactor = controller.isAwaitingTwoFactor;
     final showRegisterToggle = controller.hasUser;
-    final showQrLogin =
+    final passwordStep =
         !awaitingTwoFactor &&
         !controller.isAwaitingProviderUsername &&
         !_registerMode;
+    // A phone scans a signed-in screen's code; any other screen shows one
+    // for a signed-in phone (or is approved from the wearable's side).
+    final showQrLogin = passwordStep && !qrScannerSupported;
+    final showScanToPair = passwordStep && qrScannerSupported;
     final waitingForPhone = showQrLogin && controller.qrLoginScan != null;
     if (!showQrLogin) {
       _setInlineQrVisible(false);
@@ -1517,6 +1525,7 @@ class _AuthViewState extends State<AuthView> {
                                   availableProviders: availableProviders,
                                   awaitingTwoFactor: awaitingTwoFactor,
                                   showQrLogin: showQrLogin,
+                                  showScanToPair: showScanToPair,
                                   title: title,
                                   subtitle: subtitle,
                                 ),

@@ -663,6 +663,12 @@ class MainActivity : FlutterFragmentActivity() {
             emitPendingAppLaunchIntent()
             return
         }
+        val link = intent.data
+        if (intent.action == Intent.ACTION_VIEW && link?.scheme == "neoagent" && link.host == "pair") {
+            pendingLaunchPayload = mapOf("action" to "pair", "text" to link.toString())
+            emitPendingAppLaunchIntent()
+            return
+        }
         captureShareIntent(intent)
     }
 

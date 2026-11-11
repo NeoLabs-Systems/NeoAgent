@@ -5487,7 +5487,7 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'Open op een ingelogd Android-apparaat Instellingen › Aanmelden en beveiliging, scan deze code en keur de aanmelding goed.';
+      'Open op een ingelogde telefoon Instellingen › Inloggen en beveiliging, tik op QR-aanmelding scannen en keur de aanmelding goed.';
 
   @override
   String get onByDefaultForNewGroups =>
@@ -5549,7 +5549,7 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Open Instellingen › Aanmelden en beveiliging op een ingelogd Android-apparaat, scan deze code en keur de aanmelding goed.';
+      'Open op een ingelogde telefoon Instellingen › Inloggen en beveiliging, tik op QR-aanmelding scannen, scan deze code en keur de aanmelding goed.';
 
   @override
   String get openComputer => 'Computer openen';
@@ -12913,4 +12913,125 @@ class AppL10nNl extends AppL10n {
   @override
   String get adminWebSharingDescription =>
       'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Telefoon koppelen';
+
+  @override
+  String get pairPhoneDescription =>
+      'Toon een QR-code waarmee de NeoAgent-app op een telefoon inlogt op dit account, zonder serveradres of wachtwoord te typen.';
+
+  @override
+  String get pairTitle => 'Telefoon koppelen';
+
+  @override
+  String get pairInstructions =>
+      'Open de NeoAgent-app op uw telefoon, tik op het inlogscherm op ‘QR-code scannen’ en richt de camera op deze code.';
+
+  @override
+  String get pairQrSemantics => 'QR-code om een telefoon te koppelen';
+
+  @override
+  String get pairWaiting => 'Wachten op de telefoon';
+
+  @override
+  String pairExpiresIn(String time) {
+    return 'Verloopt over $time';
+  }
+
+  @override
+  String get pairExpired => 'Code verlopen';
+
+  @override
+  String get pairNewCode => 'Nieuwe code';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Gekoppeld aan $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'uw telefoon';
+
+  @override
+  String get pairCantScan =>
+      'Lukt scannen niet? Open deze link op de telefoon:';
+
+  @override
+  String get pairLandingTitle => 'Koppelen met de NeoAgent-app';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'Met deze link logt de NeoAgent-app op deze telefoon in. Installeer de app als u dat nog niet hebt gedaan en open de link daarin. De code werkt vijf minuten.';
+
+  @override
+  String get pairLandingOpenApp => 'Openen in NeoAgent-app';
+
+  @override
+  String get pairLandingGetApp => 'App downloaden';
+
+  @override
+  String get pairLandingComputerBody =>
+      'Deze link is bedoeld voor uw telefoon. Open hem daar of scan de QR-code met de NeoAgent-app.';
+
+  @override
+  String get pairLandingInvalid =>
+      'Deze koppelingslink is onvolledig. Toon een nieuwe code via Instellingen › Inloggen en beveiliging › Telefoon koppelen.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'NeoAgent openen';
+
+  @override
+  String get signInScanQr => 'QR-code scannen';
+
+  @override
+  String get signInScanQrHint =>
+      'Open op een ingelogde computer Instellingen › Inloggen en beveiliging › Telefoon koppelen.';
+
+  @override
+  String get scanTitle => 'QR-code scannen';
+
+  @override
+  String get scanPrimeTitle => 'Scannen met de camera';
+
+  @override
+  String get scanPrimeBody =>
+      'NeoAgent gebruikt de camera alleen om de QR-code te lezen. Er wordt niets opgenomen of geüpload.';
+
+  @override
+  String get scanPrimeAllow => 'Camera toestaan';
+
+  @override
+  String get scanPairingHint =>
+      'Richt de camera op de QR-code onder Instellingen › Inloggen en beveiliging › Telefoon koppelen';
+
+  @override
+  String get scanWrongPairingCode => 'Dat is geen NeoAgent-koppelcode';
+
+  @override
+  String get scanTorchOn => 'Lamp aanzetten';
+
+  @override
+  String get scanTorchOff => 'Lamp uitzetten';
+
+  @override
+  String get scanDeniedTitle => 'Cameratoegang staat uit';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Sta NeoAgent in Instellingen toe de camera te gebruiken, of log in met uw wachtwoord.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Sta de camera toe wanneer daarom wordt gevraagd, of zet deze aan via Instellingen › Apps › NeoAgent › Rechten. U kunt ook inloggen met uw wachtwoord.';
+
+  @override
+  String get scanOpenSettings => 'Instellingen openen';
+
+  @override
+  String get scanFailedTitle => 'De camera is niet gestart';
+
+  @override
+  String get scanFailedBody =>
+      'Sluit andere apps die de camera gebruiken en probeer het opnieuw.';
 }

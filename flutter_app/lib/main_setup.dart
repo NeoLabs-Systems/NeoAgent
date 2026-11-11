@@ -29,6 +29,13 @@ class _BackendSetupViewState extends State<BackendSetupView> {
   }
 
   Future<void> _submit() async {
+    // A pasted pairing link ("Can't scan?") signs in without a password.
+    final link = parsePairingLink(_backendUrlController.text);
+    if (link != null) {
+      _backendUrlController.text = link.server.toString();
+      await widget.controller.pairWithLink(link);
+      return;
+    }
     await widget.controller.saveBackendUrl(_backendUrlController.text);
   }
 
@@ -254,6 +261,10 @@ class _BackendSetupViewState extends State<BackendSetupView> {
                               case final message?) ...<Widget>[
                             const SizedBox(height: 16),
                             _InlineError(message: message),
+                          ],
+                          if (qrScannerSupported) ...<Widget>[
+                            const SizedBox(height: 16),
+                            _ScanToPairButton(controller: controller),
                           ],
                           const SizedBox(height: 10),
                           // ListTile needs its own Material inside the card's colored box.

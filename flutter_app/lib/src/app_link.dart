@@ -1,5 +1,6 @@
 import 'app_link_location_stub.dart'
     if (dart.library.html) 'app_link_location_web.dart';
+import 'pairing/pairing_link.dart';
 
 /// A place in the app that a link opens:
 /// `<server>/app/open/<section>[/<page>][/<focus>]`. The server builds these
@@ -47,3 +48,10 @@ AppLink? takeLaunchAppLink() {
   if (link != null) resetLaunchLocation();
   return link;
 }
+
+/// The pairing code of a web app opened at `…/app/pair?code=…` (a QR pairing
+/// link opened in a browser instead of the app), if any.
+String? launchPairCode() => pairCodeFromLaunchUri(launchLocation());
+
+/// Leaves a launch address such as the pairing page for the app's root.
+void leaveLaunchLocation() => resetLaunchLocation();

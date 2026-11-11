@@ -5495,7 +5495,7 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'Ar ghléas Android sínithe isteach, oscail Socruithe › Sínigh isteach & slándáil, scanadh an cód seo, agus ceadaigh an logáil isteach.';
+      'Ar fhón atá sínithe isteach, oscail Socruithe › Síniú isteach & slándáil, tapáil Scan logáil isteach QR agus ceadaigh an logáil isteach.';
 
   @override
   String get onByDefaultForNewGroups =>
@@ -5557,7 +5557,7 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Socruithe Oscailte › Sínigh isteach & slándáil ar ghléas Android sínithe isteach, scanadh an cód seo, agus ceadaigh an logáil isteach.';
+      'Ar fhón atá sínithe isteach, oscail Socruithe › Síniú isteach & slándáil, tapáil Scan logáil isteach QR, scan an cód seo agus ceadaigh an logáil isteach.';
 
   @override
   String get openComputer => 'Oscail ríomhaire';
@@ -12929,4 +12929,125 @@ class AppL10nGa extends AppL10n {
   @override
   String get adminWebSharingDescription =>
       'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Péireáil fón';
+
+  @override
+  String get pairPhoneDescription =>
+      'Taispeáin cód QR a shíníonn aip NeoAgent ar fhón isteach sa chuntas seo, gan seoladh an fhreastalaí ná pasfhocal a chlóscríobh.';
+
+  @override
+  String get pairTitle => 'Péireáil fón';
+
+  @override
+  String get pairInstructions =>
+      'Oscail aip NeoAgent ar d\'fhón, tapáil “Scan cód QR” ar an scáileán sínithe isteach agus dírigh an ceamara ar an gcód seo.';
+
+  @override
+  String get pairQrSemantics => 'Cód QR chun fón a phéireáil';
+
+  @override
+  String get pairWaiting => 'Ag fanacht leis an bhfón';
+
+  @override
+  String pairExpiresIn(String time) {
+    return 'Rachaidh in éag i $time';
+  }
+
+  @override
+  String get pairExpired => 'Tá an cód imithe in éag';
+
+  @override
+  String get pairNewCode => 'Cód nua';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Péireáilte le $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'd\'fhón';
+
+  @override
+  String get pairCantScan =>
+      'Ní féidir scanadh? Oscail an nasc seo ar an bhfón:';
+
+  @override
+  String get pairLandingTitle => 'Péireáil le haip NeoAgent';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'Síníonn an nasc seo aip NeoAgent isteach ar an bhfón seo. Suiteáil an aip mura bhfuil sí agat, ansin oscail an nasc inti. Oibríonn an cód ar feadh cúig nóiméad.';
+
+  @override
+  String get pairLandingOpenApp => 'Oscail in aip NeoAgent';
+
+  @override
+  String get pairLandingGetApp => 'Faigh an aip';
+
+  @override
+  String get pairLandingComputerBody =>
+      'Is don fhón atá an nasc seo. Oscail ansin é, nó scan an cód QR le haip NeoAgent.';
+
+  @override
+  String get pairLandingInvalid =>
+      'Tá an nasc péireála seo neamhiomlán. Taispeáin cód nua faoi Socruithe › Síniú isteach & slándáil › Péireáil fón.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'Oscail NeoAgent';
+
+  @override
+  String get signInScanQr => 'Scan cód QR';
+
+  @override
+  String get signInScanQrHint =>
+      'Ar ríomhaire atá sínithe isteach, oscail Socruithe › Síniú isteach & slándáil › Péireáil fón.';
+
+  @override
+  String get scanTitle => 'Scan cód QR';
+
+  @override
+  String get scanPrimeTitle => 'Úsáid an ceamara chun scanadh';
+
+  @override
+  String get scanPrimeBody =>
+      'Ní úsáideann NeoAgent an ceamara ach chun an cód QR a léamh. Ní thaifeadtar ná ní uaslódáiltear aon rud.';
+
+  @override
+  String get scanPrimeAllow => 'Ceadaigh an ceamara';
+
+  @override
+  String get scanPairingHint =>
+      'Dírigh an ceamara ar an gcód QR faoi Socruithe › Síniú isteach & slándáil › Péireáil fón';
+
+  @override
+  String get scanWrongPairingCode => 'Ní cód péireála NeoAgent é sin';
+
+  @override
+  String get scanTorchOn => 'Cas air an solas';
+
+  @override
+  String get scanTorchOff => 'Múch an solas';
+
+  @override
+  String get scanDeniedTitle => 'Tá rochtain ar an gceamara múchta';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Ceadaigh do NeoAgent an ceamara a úsáid i Socruithe, nó sínigh isteach le do phasfhocal ina ionad.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Ceadaigh an ceamara nuair a iarrtar ort, nó cas air é faoi Socruithe › Aipeanna › NeoAgent › Ceadanna. Is féidir leat síniú isteach le do phasfhocal freisin.';
+
+  @override
+  String get scanOpenSettings => 'Oscail Socruithe';
+
+  @override
+  String get scanFailedTitle => 'Níor thosaigh an ceamara';
+
+  @override
+  String get scanFailedBody =>
+      'Dún aipeanna eile a úsáideann an ceamara agus bain triail eile as.';
 }

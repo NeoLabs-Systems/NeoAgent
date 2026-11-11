@@ -25,7 +25,8 @@ import UserNotifications
   }
 
   /// The call widget opens `neoagent://call`, which starts a voice call like
-  /// Android's START_CALL intent.
+  /// Android's START_CALL intent; the browser's pairing page opens
+  /// `neoagent://pair?server=…&code=…`, which signs the app in.
   override func application(
     _ app: UIApplication,
     open url: URL,
@@ -33,6 +34,10 @@ import UserNotifications
   ) -> Bool {
     if url.scheme == "neoagent", url.host == "call" {
       appLaunchEvents?.send(["action": "start_call"])
+      return true
+    }
+    if url.scheme == "neoagent", url.host == "pair" {
+      appLaunchEvents?.send(["action": "pair", "text": url.absoluteString])
       return true
     }
     return super.application(app, open: url, options: options)

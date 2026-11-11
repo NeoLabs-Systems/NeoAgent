@@ -38,7 +38,7 @@ description: The ESP32-S3 wearable firmware target shipped in the repository.
 1. Join the board's Wi-Fi hotspot, **NeoAgent Setup XXXX**. The setup page opens at `http://192.168.4.1`.
 2. Enter your NeoAgent server URL, your Wi-Fi network and password, and an optional device name.
 3. The board shows a QR code.
-4. In the Android app, open **Settings › Sign-in & security › Approve QR login** and scan it.
+4. In the Android app, open **Settings › Sign-in & security › Scan login QR** and scan it.
 
 The board stays signed in for 90 days.
 

@@ -36,6 +36,18 @@ description: Application modes, backend communication, Android bridges, and how 
 - **Discovery.** Desktop and mobile apps find servers on the LAN over mDNS (`_neoagent._tcp.local`) and confirm with `GET /api/setup/handshake`.
 - **Setup contract.** `lib/src/setup_contract.g.dart` is generated from `lib/setup/contract.json` by `scripts/generate_setup_contract.js`.
 
+## QR pairing
+
+Two directions, both ending in a normal session.
+
+| Direction | Shows the code | Scans it | Server |
+|---|---|---|---|
+| Pair a phone | A signed-in screen: **Settings › Sign-in & security › Pair a phone** | The phone app's sign-in or server screen, **Scan QR code** | `services/account/pairing.js` |
+| QR login | A signed-out screen's sign-in card, or the wearable | A signed-in phone, **Scan login QR** | `services/account/qr_login.js` |
+
+- **Pair a phone.** `POST /api/account/pairing` returns a single-use code that lives five minutes (only its hash is stored) and `neoagent://pair?server=<public URL>&code=<code>`. The server is `PUBLIC_URL` with its base path. The dialog polls `GET /api/account/pairing/:code` until the phone redeems the code at `POST /api/auth/pair`, which signs it in.
+- **No camera.** The dialog also shows `<server>/app/pair?code=…`. Opened in a phone browser, it offers to open the app (`neoagent://pair`) or download it; pasted into the server field of the setup screen, it signs in the same way.
+
 ## Android native code
 
 Kotlin lives in `android/app/src/main/kotlin/com/neoagent/flutter_app/`.

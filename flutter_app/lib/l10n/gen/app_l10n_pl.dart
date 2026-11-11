@@ -5490,7 +5490,7 @@ class AppL10nPl extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'Na zalogowanym urządzeniu z Androidem otwórz Ustawienia > Logowanie i bezpieczeństwo, zeskanuj ten kod i zatwierdź logowanie.';
+      'Na zalogowanym telefonie otwórz Ustawienia › Logowanie i bezpieczeństwo, dotknij Zeskanuj kod QR logowania i zatwierdź logowanie.';
 
   @override
   String get onByDefaultForNewGroups => 'Domyślnie włączone dla nowych grup';
@@ -5551,7 +5551,7 @@ class AppL10nPl extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Otwórz Ustawienia > Logowanie i zabezpieczenia na zalogowanym urządzeniu z Androidem, zeskanuj ten kod i zatwierdź logowanie.';
+      'Na zalogowanym telefonie otwórz Ustawienia › Logowanie i bezpieczeństwo, dotknij Zeskanuj kod QR logowania, zeskanuj ten kod i zatwierdź logowanie.';
 
   @override
   String get openComputer => 'Otwórz komputer';
@@ -12905,4 +12905,125 @@ class AppL10nPl extends AppL10n {
   @override
   String get adminWebSharingDescription =>
       'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Sparuj telefon';
+
+  @override
+  String get pairPhoneDescription =>
+      'Wyświetla kod QR, który loguje aplikację NeoAgent na telefonie do tego konta bez wpisywania adresu serwera ani hasła.';
+
+  @override
+  String get pairTitle => 'Sparuj telefon';
+
+  @override
+  String get pairInstructions =>
+      'Otwórz aplikację NeoAgent na telefonie, dotknij „Zeskanuj kod QR” na ekranie logowania i skieruj aparat na ten kod.';
+
+  @override
+  String get pairQrSemantics => 'Kod QR do sparowania telefonu';
+
+  @override
+  String get pairWaiting => 'Oczekiwanie na telefon';
+
+  @override
+  String pairExpiresIn(String time) {
+    return 'Wygasa za $time';
+  }
+
+  @override
+  String get pairExpired => 'Kod wygasł';
+
+  @override
+  String get pairNewCode => 'Nowy kod';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Sparowano z $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'twoim telefonem';
+
+  @override
+  String get pairCantScan =>
+      'Nie możesz zeskanować? Otwórz ten link na telefonie:';
+
+  @override
+  String get pairLandingTitle => 'Sparuj z aplikacją NeoAgent';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'Ten link loguje aplikację NeoAgent na tym telefonie. Zainstaluj aplikację, jeśli jeszcze jej nie masz, a potem otwórz w niej link. Kod działa przez pięć minut.';
+
+  @override
+  String get pairLandingOpenApp => 'Otwórz w aplikacji NeoAgent';
+
+  @override
+  String get pairLandingGetApp => 'Pobierz aplikację';
+
+  @override
+  String get pairLandingComputerBody =>
+      'Ten link jest przeznaczony na telefon. Otwórz go tam lub zeskanuj kod QR aplikacją NeoAgent.';
+
+  @override
+  String get pairLandingInvalid =>
+      'Ten link parowania jest niekompletny. Wyświetl nowy kod w Ustawienia › Logowanie i bezpieczeństwo › Sparuj telefon.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'Otwórz NeoAgent';
+
+  @override
+  String get signInScanQr => 'Zeskanuj kod QR';
+
+  @override
+  String get signInScanQrHint =>
+      'Na zalogowanym komputerze otwórz Ustawienia › Logowanie i bezpieczeństwo › Sparuj telefon.';
+
+  @override
+  String get scanTitle => 'Zeskanuj kod QR';
+
+  @override
+  String get scanPrimeTitle => 'Skanuj aparatem';
+
+  @override
+  String get scanPrimeBody =>
+      'NeoAgent używa aparatu tylko do odczytania kodu QR. Nic nie jest nagrywane ani przesyłane.';
+
+  @override
+  String get scanPrimeAllow => 'Zezwól na aparat';
+
+  @override
+  String get scanPairingHint =>
+      'Skieruj aparat na kod QR w Ustawienia › Logowanie i bezpieczeństwo › Sparuj telefon';
+
+  @override
+  String get scanWrongPairingCode => 'To nie jest kod parowania NeoAgent';
+
+  @override
+  String get scanTorchOn => 'Włącz światło';
+
+  @override
+  String get scanTorchOff => 'Wyłącz światło';
+
+  @override
+  String get scanDeniedTitle => 'Dostęp do aparatu jest wyłączony';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Zezwól NeoAgent na używanie aparatu w Ustawieniach albo zaloguj się hasłem.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Zezwól na aparat, gdy pojawi się pytanie, lub włącz go w Ustawienia › Aplikacje › NeoAgent › Uprawnienia. Możesz też zalogować się hasłem.';
+
+  @override
+  String get scanOpenSettings => 'Otwórz Ustawienia';
+
+  @override
+  String get scanFailedTitle => 'Aparat się nie uruchomił';
+
+  @override
+  String get scanFailedBody =>
+      'Zamknij inne aplikacje używające aparatu i spróbuj ponownie.';
 }

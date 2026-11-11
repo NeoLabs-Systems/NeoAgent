@@ -5473,7 +5473,7 @@ class AppL10nSl extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'V prijavljeni napravi Android odprite Nastavitve › Prijava in varnost, skenirajte to kodo in odobrite prijavo.';
+      'V prijavljenem telefonu odprite Nastavitve › Prijava in varnost, tapnite Skenirajte prijavni QR in odobrite prijavo.';
 
   @override
   String get onByDefaultForNewGroups => 'Privzeto vklopljeno za nove skupine';
@@ -5534,7 +5534,7 @@ class AppL10nSl extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Odprite Nastavitve › Prijava in varnost v prijavljeni napravi Android, skenirajte to kodo in odobrite prijavo.';
+      'V prijavljenem telefonu odprite Nastavitve › Prijava in varnost, tapnite Skenirajte prijavni QR, skenirajte to kodo in odobrite prijavo.';
 
   @override
   String get openComputer => 'Odprite računalnik';
@@ -12863,4 +12863,125 @@ class AppL10nSl extends AppL10n {
   @override
   String get adminWebSharingDescription =>
       'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Seznani telefon';
+
+  @override
+  String get pairPhoneDescription =>
+      'Prikaže kodo QR, s katero se aplikacija NeoAgent v telefonu prijavi v ta račun brez vnosa naslova strežnika ali gesla.';
+
+  @override
+  String get pairTitle => 'Seznani telefon';
+
+  @override
+  String get pairInstructions =>
+      'V telefonu odprite aplikacijo NeoAgent, na zaslonu za prijavo tapnite „Skeniraj kodo QR“ in kamero usmerite proti tej kodi.';
+
+  @override
+  String get pairQrSemantics => 'Koda QR za seznanitev telefona';
+
+  @override
+  String get pairWaiting => 'Čakanje na telefon';
+
+  @override
+  String pairExpiresIn(String time) {
+    return 'Poteče čez $time';
+  }
+
+  @override
+  String get pairExpired => 'Koda je potekla';
+
+  @override
+  String get pairNewCode => 'Nova koda';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Seznanjeno z $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'vašim telefonom';
+
+  @override
+  String get pairCantScan =>
+      'Skeniranje ne deluje? Odprite to povezavo v telefonu:';
+
+  @override
+  String get pairLandingTitle => 'Seznanitev z aplikacijo NeoAgent';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'Ta povezava prijavi aplikacijo NeoAgent v tem telefonu. Če aplikacije še nimate, jo namestite in nato v njej odprite povezavo. Koda velja pet minut.';
+
+  @override
+  String get pairLandingOpenApp => 'Odpri v aplikaciji NeoAgent';
+
+  @override
+  String get pairLandingGetApp => 'Prenesi aplikacijo';
+
+  @override
+  String get pairLandingComputerBody =>
+      'Ta povezava je namenjena vašemu telefonu. Odprite jo tam ali skenirajte kodo QR z aplikacijo NeoAgent.';
+
+  @override
+  String get pairLandingInvalid =>
+      'Ta povezava za seznanjanje je nepopolna. Prikažite novo kodo v Nastavitve › Prijava in varnost › Seznani telefon.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'Odpri NeoAgent';
+
+  @override
+  String get signInScanQr => 'Skeniraj kodo QR';
+
+  @override
+  String get signInScanQrHint =>
+      'V prijavljenem računalniku odprite Nastavitve › Prijava in varnost › Seznani telefon.';
+
+  @override
+  String get scanTitle => 'Skeniraj kodo QR';
+
+  @override
+  String get scanPrimeTitle => 'Skeniranje s kamero';
+
+  @override
+  String get scanPrimeBody =>
+      'NeoAgent uporablja kamero samo za branje kode QR. Nič se ne snema ali nalaga.';
+
+  @override
+  String get scanPrimeAllow => 'Dovoli kamero';
+
+  @override
+  String get scanPairingHint =>
+      'Kamero usmerite proti kodi QR v Nastavitve › Prijava in varnost › Seznani telefon';
+
+  @override
+  String get scanWrongPairingCode => 'To ni koda za seznanjanje NeoAgent';
+
+  @override
+  String get scanTorchOn => 'Vklopi luč';
+
+  @override
+  String get scanTorchOff => 'Izklopi luč';
+
+  @override
+  String get scanDeniedTitle => 'Dostop do kamere je izklopljen';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'V Nastavitvah dovolite aplikaciji NeoAgent uporabo kamere ali pa se prijavite z geslom.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Dovolite kamero, ko vas sistem vpraša, ali jo vklopite v Nastavitve › Aplikacije › NeoAgent › Dovoljenja. Prijavite se lahko tudi z geslom.';
+
+  @override
+  String get scanOpenSettings => 'Odpri Nastavitve';
+
+  @override
+  String get scanFailedTitle => 'Kamera se ni zagnala';
+
+  @override
+  String get scanFailedBody =>
+      'Zaprite druge aplikacije, ki uporabljajo kamero, in poskusite znova.';
 }

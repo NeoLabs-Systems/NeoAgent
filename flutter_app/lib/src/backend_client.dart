@@ -372,6 +372,30 @@ class BackendClient {
     );
   }
 
+  /// QR pairing: a code this signed-in screen shows for a phone to redeem.
+  Future<Map<String, dynamic>> startPairing(String baseUrl) async {
+    return postMap(baseUrl, '/api/account/pairing', const <String, dynamic>{});
+  }
+
+  Future<Map<String, dynamic>> pairingStatus(
+    String baseUrl,
+    String code,
+  ) async {
+    return getMap(baseUrl, '/api/account/pairing/${Uri.encodeComponent(code)}');
+  }
+
+  /// Signs this device in with a code another, signed-in screen showed.
+  Future<Map<String, dynamic>> redeemPairing({
+    required String baseUrl,
+    required String code,
+    required String deviceName,
+  }) async {
+    return postMap(baseUrl, '/api/auth/pair', <String, dynamic>{
+      'code': code,
+      'name': deviceName,
+    }, allowUnauthorized: true);
+  }
+
   Future<void> logout(String baseUrl) async {
     try {
       await postMap(

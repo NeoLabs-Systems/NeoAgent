@@ -5472,7 +5472,7 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'Na prihlásenom zariadení s Androidom otvorte Nastavenia › Prihlásenie a zabezpečenie, naskenujte tento kód a schváľte prihlásenie.';
+      'Na prihlásenom telefóne otvorte Nastavenia › Prihlásenie a zabezpečenie, ťuknite na Naskenujte prihlasovací QR kód a schváľte prihlásenie.';
 
   @override
   String get onByDefaultForNewGroups => 'Predvolene zapnuté pre nové skupiny';
@@ -5533,7 +5533,7 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Otvorte Nastavenia › Prihlásenie a zabezpečenie na prihlásenom zariadení so systémom Android, naskenujte tento kód a schváľte prihlásenie.';
+      'Na prihlásenom telefóne otvorte Nastavenia › Prihlásenie a zabezpečenie, ťuknite na Naskenujte prihlasovací QR kód, naskenujte tento kód a schváľte prihlásenie.';
 
   @override
   String get openComputer => 'Otvorte počítač';
@@ -12876,4 +12876,125 @@ class AppL10nSk extends AppL10n {
   @override
   String get adminWebSharingDescription =>
       'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Spárovať telefón';
+
+  @override
+  String get pairPhoneDescription =>
+      'Zobrazí QR kód, ktorý prihlási aplikáciu NeoAgent v telefóne do tohto účtu bez zadávania adresy servera alebo hesla.';
+
+  @override
+  String get pairTitle => 'Spárovať telefón';
+
+  @override
+  String get pairInstructions =>
+      'Otvorte v telefóne aplikáciu NeoAgent, na prihlasovacej obrazovke ťuknite na „Naskenovať QR kód“ a nasmerujte fotoaparát na tento kód.';
+
+  @override
+  String get pairQrSemantics => 'QR kód na spárovanie telefónu';
+
+  @override
+  String get pairWaiting => 'Čaká sa na telefón';
+
+  @override
+  String pairExpiresIn(String time) {
+    return 'Platnosť vyprší o $time';
+  }
+
+  @override
+  String get pairExpired => 'Platnosť kódu vypršala';
+
+  @override
+  String get pairNewCode => 'Nový kód';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Spárované s $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'vaším telefónom';
+
+  @override
+  String get pairCantScan =>
+      'Nedá sa naskenovať? Otvorte tento odkaz v telefóne:';
+
+  @override
+  String get pairLandingTitle => 'Spárovať s aplikáciou NeoAgent';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'Tento odkaz prihlási aplikáciu NeoAgent v tomto telefóne. Ak aplikáciu ešte nemáte, nainštalujte ju a potom v nej odkaz otvorte. Kód platí päť minút.';
+
+  @override
+  String get pairLandingOpenApp => 'Otvoriť v aplikácii NeoAgent';
+
+  @override
+  String get pairLandingGetApp => 'Získať aplikáciu';
+
+  @override
+  String get pairLandingComputerBody =>
+      'Tento odkaz je určený pre váš telefón. Otvorte ho tam alebo naskenujte QR kód aplikáciou NeoAgent.';
+
+  @override
+  String get pairLandingInvalid =>
+      'Tento odkaz na párovanie je neúplný. Zobrazte nový kód v Nastavenia › Prihlásenie a zabezpečenie › Spárovať telefón.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'Otvoriť NeoAgent';
+
+  @override
+  String get signInScanQr => 'Naskenovať QR kód';
+
+  @override
+  String get signInScanQrHint =>
+      'Na prihlásenom počítači otvorte Nastavenia › Prihlásenie a zabezpečenie › Spárovať telefón.';
+
+  @override
+  String get scanTitle => 'Naskenovať QR kód';
+
+  @override
+  String get scanPrimeTitle => 'Skenovanie fotoaparátom';
+
+  @override
+  String get scanPrimeBody =>
+      'NeoAgent používa fotoaparát len na čítanie QR kódu. Nič sa nenahráva ani neodosiela.';
+
+  @override
+  String get scanPrimeAllow => 'Povoliť fotoaparát';
+
+  @override
+  String get scanPairingHint =>
+      'Nasmerujte fotoaparát na QR kód v Nastavenia › Prihlásenie a zabezpečenie › Spárovať telefón';
+
+  @override
+  String get scanWrongPairingCode => 'Toto nie je párovací kód NeoAgent';
+
+  @override
+  String get scanTorchOn => 'Zapnúť svetlo';
+
+  @override
+  String get scanTorchOff => 'Vypnúť svetlo';
+
+  @override
+  String get scanDeniedTitle => 'Prístup k fotoaparátu je vypnutý';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Povoľte aplikácii NeoAgent používať fotoaparát v Nastaveniach alebo sa namiesto toho prihláste heslom.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Povoľte fotoaparát, keď sa zobrazí výzva, alebo ho zapnite v Nastavenia › Aplikácie › NeoAgent › Povolenia. Môžete sa tiež prihlásiť heslom.';
+
+  @override
+  String get scanOpenSettings => 'Otvoriť Nastavenia';
+
+  @override
+  String get scanFailedTitle => 'Fotoaparát sa nespustil';
+
+  @override
+  String get scanFailedBody =>
+      'Zatvorte ostatné aplikácie, ktoré používajú fotoaparát, a skúste to znova.';
 }

@@ -5455,7 +5455,7 @@ class AppL10nDa extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'På en Android-enhed, hvor du er logget ind, skal du åbne Indstillinger › Log ind og sikkerhed, scanne denne kode og godkende login.';
+      'Åbn Indstillinger › Log ind og sikkerhed på en telefon, der er logget ind, tryk på Scan login QR, og godkend login.';
 
   @override
   String get onByDefaultForNewGroups => 'Til som standard for nye grupper';
@@ -5516,7 +5516,7 @@ class AppL10nDa extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Åbn Indstillinger › Log ind og sikkerhed på en Android-enhed, der er logget ind, scan denne kode, og godkend login.';
+      'Åbn Indstillinger › Log ind og sikkerhed på en telefon, der er logget ind, tryk på Scan login QR, scan denne kode, og godkend login.';
 
   @override
   String get openComputer => 'Åbn computer';
@@ -12862,4 +12862,124 @@ class AppL10nDa extends AppL10n {
   @override
   String get adminWebSharingDescription =>
       'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Par en telefon';
+
+  @override
+  String get pairPhoneDescription =>
+      'Vis en QR-kode, der logger NeoAgent-appen på en telefon ind på denne konto, uden at du skal skrive serveradressen eller en adgangskode.';
+
+  @override
+  String get pairTitle => 'Par en telefon';
+
+  @override
+  String get pairInstructions =>
+      'Åbn NeoAgent-appen på din telefon, tryk på »Scan QR-kode« på loginskærmen, og ret kameraet mod denne kode.';
+
+  @override
+  String get pairQrSemantics => 'QR-kode til at parre en telefon';
+
+  @override
+  String get pairWaiting => 'Venter på telefonen';
+
+  @override
+  String pairExpiresIn(String time) {
+    return 'Udløber om $time';
+  }
+
+  @override
+  String get pairExpired => 'Koden er udløbet';
+
+  @override
+  String get pairNewCode => 'Ny kode';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Parret med $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'din telefon';
+
+  @override
+  String get pairCantScan => 'Kan du ikke scanne? Åbn dette link på telefonen:';
+
+  @override
+  String get pairLandingTitle => 'Par med NeoAgent-appen';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'Dette link logger NeoAgent-appen ind på denne telefon. Installer appen, hvis du ikke allerede har gjort det, og åbn derefter linket i den. Koden virker i fem minutter.';
+
+  @override
+  String get pairLandingOpenApp => 'Åbn i NeoAgent-appen';
+
+  @override
+  String get pairLandingGetApp => 'Hent appen';
+
+  @override
+  String get pairLandingComputerBody =>
+      'Dette link er beregnet til din telefon. Åbn det der, eller scan QR-koden med NeoAgent-appen.';
+
+  @override
+  String get pairLandingInvalid =>
+      'Dette parringslink er ufuldstændigt. Vis en ny kode under Indstillinger › Log ind og sikkerhed › Par en telefon.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'Åbn NeoAgent';
+
+  @override
+  String get signInScanQr => 'Scan QR-kode';
+
+  @override
+  String get signInScanQrHint =>
+      'Åbn Indstillinger › Log ind og sikkerhed › Par en telefon på en computer, der er logget ind.';
+
+  @override
+  String get scanTitle => 'Scan QR-kode';
+
+  @override
+  String get scanPrimeTitle => 'Brug kameraet til at scanne';
+
+  @override
+  String get scanPrimeBody =>
+      'NeoAgent bruger kun kameraet til at læse QR-koden. Intet bliver optaget eller uploadet.';
+
+  @override
+  String get scanPrimeAllow => 'Tillad kamera';
+
+  @override
+  String get scanPairingHint =>
+      'Ret kameraet mod QR-koden under Indstillinger › Log ind og sikkerhed › Par en telefon';
+
+  @override
+  String get scanWrongPairingCode => 'Det er ikke en NeoAgent-parringskode';
+
+  @override
+  String get scanTorchOn => 'Tænd lyset';
+
+  @override
+  String get scanTorchOff => 'Sluk lyset';
+
+  @override
+  String get scanDeniedTitle => 'Kameraadgang er slået fra';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Giv NeoAgent adgang til kameraet i Indstillinger, eller log ind med din adgangskode i stedet.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Tillad kameraet, når du bliver spurgt, eller slå det til under Indstillinger › Apps › NeoAgent › Tilladelser. Du kan også logge ind med din adgangskode.';
+
+  @override
+  String get scanOpenSettings => 'Åbn Indstillinger';
+
+  @override
+  String get scanFailedTitle => 'Kameraet startede ikke';
+
+  @override
+  String get scanFailedBody =>
+      'Luk andre apps, der bruger kameraet, og prøv igen.';
 }

@@ -5467,7 +5467,7 @@ class AppL10nFi extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'Avaa sisäänkirjautuneella Android-laitteella Asetukset › Kirjautuminen ja suojaus, skannaa tämä koodi ja hyväksy kirjautuminen.';
+      'Avaa sisäänkirjautuneella puhelimella Asetukset › Sisäänkirjautuminen ja suojaus, napauta Skannaa sisäänkirjautumis QR ja hyväksy kirjautuminen.';
 
   @override
   String get onByDefaultForNewGroups =>
@@ -5529,7 +5529,7 @@ class AppL10nFi extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Avaa Asetukset › Sisäänkirjautuminen ja suojaus sisäänkirjautuneella Android-laitteella, skannaa tämä koodi ja hyväksy kirjautuminen.';
+      'Avaa sisäänkirjautuneella puhelimella Asetukset › Sisäänkirjautuminen ja suojaus, napauta Skannaa sisäänkirjautumis QR, skannaa tämä koodi ja hyväksy kirjautuminen.';
 
   @override
   String get openComputer => 'Avaa tietokone';
@@ -12865,4 +12865,124 @@ class AppL10nFi extends AppL10n {
   @override
   String get adminWebSharingDescription =>
       'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Yhdistä puhelin';
+
+  @override
+  String get pairPhoneDescription =>
+      'Näyttää QR-koodin, jolla puhelimen NeoAgent-sovellus kirjautuu tälle tilille ilman palvelimen osoitteen tai salasanan kirjoittamista.';
+
+  @override
+  String get pairTitle => 'Yhdistä puhelin';
+
+  @override
+  String get pairInstructions =>
+      'Avaa NeoAgent-sovellus puhelimessa, napauta kirjautumisnäytössä ”Skannaa QR-koodi” ja osoita kameralla tätä koodia.';
+
+  @override
+  String get pairQrSemantics => 'QR-koodi puhelimen yhdistämiseen';
+
+  @override
+  String get pairWaiting => 'Odotetaan puhelinta';
+
+  @override
+  String pairExpiresIn(String time) {
+    return 'Vanhenee $time kuluttua';
+  }
+
+  @override
+  String get pairExpired => 'Koodi vanheni';
+
+  @override
+  String get pairNewCode => 'Uusi koodi';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Yhdistetty: $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'puhelimesi';
+
+  @override
+  String get pairCantScan => 'Etkö voi skannata? Avaa tämä linkki puhelimessa:';
+
+  @override
+  String get pairLandingTitle => 'Yhdistä NeoAgent-sovellukseen';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'Tämä linkki kirjaa tämän puhelimen NeoAgent-sovelluksen sisään. Asenna sovellus, jos et ole vielä tehnyt niin, ja avaa linkki siinä. Koodi toimii viisi minuuttia.';
+
+  @override
+  String get pairLandingOpenApp => 'Avaa NeoAgent-sovelluksessa';
+
+  @override
+  String get pairLandingGetApp => 'Hanki sovellus';
+
+  @override
+  String get pairLandingComputerBody =>
+      'Tämä linkki on tarkoitettu puhelimellesi. Avaa se siellä tai skannaa QR-koodi NeoAgent-sovelluksella.';
+
+  @override
+  String get pairLandingInvalid =>
+      'Tämä yhdistämislinkki on puutteellinen. Näytä uusi koodi kohdassa Asetukset › Sisäänkirjautuminen ja suojaus › Yhdistä puhelin.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'Avaa NeoAgent';
+
+  @override
+  String get signInScanQr => 'Skannaa QR-koodi';
+
+  @override
+  String get signInScanQrHint =>
+      'Avaa sisäänkirjautuneella tietokoneella Asetukset › Sisäänkirjautuminen ja suojaus › Yhdistä puhelin.';
+
+  @override
+  String get scanTitle => 'Skannaa QR-koodi';
+
+  @override
+  String get scanPrimeTitle => 'Skannaa kameralla';
+
+  @override
+  String get scanPrimeBody =>
+      'NeoAgent käyttää kameraa vain QR-koodin lukemiseen. Mitään ei tallenneta eikä lähetetä.';
+
+  @override
+  String get scanPrimeAllow => 'Salli kamera';
+
+  @override
+  String get scanPairingHint =>
+      'Osoita kameralla QR-koodia kohdassa Asetukset › Sisäänkirjautuminen ja suojaus › Yhdistä puhelin';
+
+  @override
+  String get scanWrongPairingCode => 'Tämä ei ole NeoAgentin yhdistämiskoodi';
+
+  @override
+  String get scanTorchOn => 'Sytytä valo';
+
+  @override
+  String get scanTorchOff => 'Sammuta valo';
+
+  @override
+  String get scanDeniedTitle => 'Kameran käyttö on estetty';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Salli NeoAgentin käyttää kameraa Asetuksissa tai kirjaudu sisään salasanalla.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Salli kamera, kun sitä pyydetään, tai ota se käyttöön kohdassa Asetukset › Sovellukset › NeoAgent › Luvat. Voit myös kirjautua sisään salasanalla.';
+
+  @override
+  String get scanOpenSettings => 'Avaa Asetukset';
+
+  @override
+  String get scanFailedTitle => 'Kamera ei käynnistynyt';
+
+  @override
+  String get scanFailedBody =>
+      'Sulje muut kameraa käyttävät sovellukset ja yritä uudelleen.';
 }

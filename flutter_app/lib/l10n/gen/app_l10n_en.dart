@@ -5435,7 +5435,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'On a signed-in Android device, open Settings › Sign-in & security, scan this code, and approve the login.';
+      'On a signed-in phone, open Settings › Sign-in & security, tap Scan login QR and approve the login.';
 
   @override
   String get onByDefaultForNewGroups => 'On by default for new groups';
@@ -5496,7 +5496,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Open Settings › Sign-in & security on a signed-in Android device, scan this code, and approve the login.';
+      'On a signed-in phone, open Settings › Sign-in & security, tap Scan login QR, scan this code and approve the login.';
 
   @override
   String get openComputer => 'Open computer';
@@ -12842,4 +12842,124 @@ class AppL10nEn extends AppL10n {
   @override
   String get adminWebSharingDescription =>
       'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Pair a phone';
+
+  @override
+  String get pairPhoneDescription =>
+      'Show a QR code that signs the NeoAgent app on a phone in to this account, without typing the server address or a password.';
+
+  @override
+  String get pairTitle => 'Pair a phone';
+
+  @override
+  String get pairInstructions =>
+      'Open the NeoAgent app on your phone, tap “Scan QR code” on its sign-in screen and point the camera at this code.';
+
+  @override
+  String get pairQrSemantics => 'QR code to pair a phone';
+
+  @override
+  String get pairWaiting => 'Waiting for the phone';
+
+  @override
+  String pairExpiresIn(String time) {
+    return 'Expires in $time';
+  }
+
+  @override
+  String get pairExpired => 'Code expired';
+
+  @override
+  String get pairNewCode => 'New code';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Paired with $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'your phone';
+
+  @override
+  String get pairCantScan => 'Can\'t scan? Open this link on the phone:';
+
+  @override
+  String get pairLandingTitle => 'Pair with the NeoAgent app';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'This link signs in the NeoAgent app on this phone. Install the app if you haven\'t, then open the link in it. The code works for five minutes.';
+
+  @override
+  String get pairLandingOpenApp => 'Open in NeoAgent app';
+
+  @override
+  String get pairLandingGetApp => 'Get the app';
+
+  @override
+  String get pairLandingComputerBody =>
+      'This link is meant for your phone. Open it there, or scan the QR code with the NeoAgent app.';
+
+  @override
+  String get pairLandingInvalid =>
+      'This pairing link is incomplete. Show a new code under Settings › Sign-in & security › Pair a phone.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'Open NeoAgent';
+
+  @override
+  String get signInScanQr => 'Scan QR code';
+
+  @override
+  String get signInScanQrHint =>
+      'On a signed-in computer, open Settings › Sign-in & security › Pair a phone.';
+
+  @override
+  String get scanTitle => 'Scan QR code';
+
+  @override
+  String get scanPrimeTitle => 'Use the camera to scan';
+
+  @override
+  String get scanPrimeBody =>
+      'NeoAgent uses the camera only to read the QR code. Nothing is recorded or uploaded.';
+
+  @override
+  String get scanPrimeAllow => 'Allow camera';
+
+  @override
+  String get scanPairingHint =>
+      'Point the camera at the QR code under Settings › Sign-in & security › Pair a phone';
+
+  @override
+  String get scanWrongPairingCode => 'That\'s not a NeoAgent pairing code';
+
+  @override
+  String get scanTorchOn => 'Turn on the light';
+
+  @override
+  String get scanTorchOff => 'Turn off the light';
+
+  @override
+  String get scanDeniedTitle => 'Camera access is off';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Allow NeoAgent to use the camera in Settings, or sign in with your password instead.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Allow the camera when asked, or turn it on under Settings › Apps › NeoAgent › Permissions. You can also sign in with your password.';
+
+  @override
+  String get scanOpenSettings => 'Open Settings';
+
+  @override
+  String get scanFailedTitle => 'The camera didn\'t start';
+
+  @override
+  String get scanFailedBody =>
+      'Close other apps that use the camera and try again.';
 }

@@ -5469,7 +5469,7 @@ class AppL10nEt extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'Avage sisselogitud Android-seadmes Seaded › Sisselogimine ja turvalisus, skannige see kood ja kinnitage sisselogimine.';
+      'Avage sisselogitud telefonis Seaded › Sisselogimine ja turvalisus, puudutage valikut Skanni sisselogimise QR ja kinnitage sisselogimine.';
 
   @override
   String get onByDefaultForNewGroups =>
@@ -5531,7 +5531,7 @@ class AppL10nEt extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Avage sisselogitud Android-seadmes Seaded › Sisselogimine ja turvalisus, skannige see kood ja kinnitage sisselogimine.';
+      'Avage sisselogitud telefonis Seaded › Sisselogimine ja turvalisus, puudutage valikut Skanni sisselogimise QR, skannige see kood ja kinnitage sisselogimine.';
 
   @override
   String get openComputer => 'Ava arvuti';
@@ -12853,4 +12853,124 @@ class AppL10nEt extends AppL10n {
   @override
   String get adminWebSharingDescription =>
       'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Sidu telefon';
+
+  @override
+  String get pairPhoneDescription =>
+      'Kuvab QR-koodi, millega telefonis olev NeoAgenti rakendus logib sellesse kontosse sisse ilma serveri aadressi või parooli sisestamata.';
+
+  @override
+  String get pairTitle => 'Sidu telefon';
+
+  @override
+  String get pairInstructions =>
+      'Avage telefonis NeoAgenti rakendus, puudutage sisselogimiskuval „Skanni QR-kood“ ja suunake kaamera sellele koodile.';
+
+  @override
+  String get pairQrSemantics => 'QR-kood telefoni sidumiseks';
+
+  @override
+  String get pairWaiting => 'Telefoni ootamine';
+
+  @override
+  String pairExpiresIn(String time) {
+    return 'Aegub $time pärast';
+  }
+
+  @override
+  String get pairExpired => 'Kood aegus';
+
+  @override
+  String get pairNewCode => 'Uus kood';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Seotud: $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'teie telefon';
+
+  @override
+  String get pairCantScan => 'Ei saa skannida? Avage see link telefonis:';
+
+  @override
+  String get pairLandingTitle => 'Sidumine NeoAgenti rakendusega';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'See link logib selle telefoni NeoAgenti rakenduse sisse. Installige rakendus, kui te pole seda veel teinud, ja avage link selles. Kood kehtib viis minutit.';
+
+  @override
+  String get pairLandingOpenApp => 'Ava NeoAgenti rakenduses';
+
+  @override
+  String get pairLandingGetApp => 'Hangi rakendus';
+
+  @override
+  String get pairLandingComputerBody =>
+      'See link on mõeldud teie telefonile. Avage see seal või skannige QR-kood NeoAgenti rakendusega.';
+
+  @override
+  String get pairLandingInvalid =>
+      'See sidumislink on puudulik. Kuvage uus kood jaotises Seaded › Sisselogimine ja turvalisus › Sidu telefon.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'Ava NeoAgent';
+
+  @override
+  String get signInScanQr => 'Skanni QR-kood';
+
+  @override
+  String get signInScanQrHint =>
+      'Avage sisselogitud arvutis Seaded › Sisselogimine ja turvalisus › Sidu telefon.';
+
+  @override
+  String get scanTitle => 'Skanni QR-kood';
+
+  @override
+  String get scanPrimeTitle => 'Skannige kaameraga';
+
+  @override
+  String get scanPrimeBody =>
+      'NeoAgent kasutab kaamerat ainult QR-koodi lugemiseks. Midagi ei salvestata ega laadita üles.';
+
+  @override
+  String get scanPrimeAllow => 'Luba kaamera';
+
+  @override
+  String get scanPairingHint =>
+      'Suunake kaamera QR-koodile jaotises Seaded › Sisselogimine ja turvalisus › Sidu telefon';
+
+  @override
+  String get scanWrongPairingCode => 'See ei ole NeoAgenti sidumiskood';
+
+  @override
+  String get scanTorchOn => 'Lülita tuli sisse';
+
+  @override
+  String get scanTorchOff => 'Lülita tuli välja';
+
+  @override
+  String get scanDeniedTitle => 'Juurdepääs kaamerale on välja lülitatud';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Lubage NeoAgentil jaotises Seaded kaamerat kasutada või logige hoopis parooliga sisse.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Lubage kaamera, kui seda küsitakse, või lülitage see sisse jaotises Seaded › Rakendused › NeoAgent › Load. Saate ka parooliga sisse logida.';
+
+  @override
+  String get scanOpenSettings => 'Ava Seaded';
+
+  @override
+  String get scanFailedTitle => 'Kaamera ei käivitunud';
+
+  @override
+  String get scanFailedBody =>
+      'Sulgege teised kaamerat kasutavad rakendused ja proovige uuesti.';
 }

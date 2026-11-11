@@ -45,9 +45,21 @@ class NeoAgentController extends ChangeNotifier {
     _diagnosticLogSubscription = AppDiagnostics.stream.listen(
       _handleDiagnosticLogEntry,
     );
+    pendingPairCode = launchPairCode();
   }
 
   final NeoAgentAppMode appMode;
+
+  /// From `/app/pair?code=…`: a pairing link opened in a browser instead of
+  /// the app. The landing page explains the app and hands the code to it.
+  String? pendingPairCode;
+
+  /// Leaves the pairing landing page for the app (or its sign-in).
+  void finishPairLanding() {
+    pendingPairCode = null;
+    leaveLaunchLocation();
+    notifyListeners();
+  }
   final BackendClient _backendClient;
   final HealthBridge _healthBridge;
   late final PhoneSync phoneSync = PhoneSync(this);
@@ -940,6 +952,7 @@ class NeoAgentController extends ChangeNotifier {
       errorMessage = null;
       notifyListeners();
       unawaited(discoverBackends());
+      _runQueuedPairLink();
       return;
     }
 
@@ -977,6 +990,7 @@ class NeoAgentController extends ChangeNotifier {
     } finally {
       isBooting = false;
       notifyListeners();
+      _runQueuedPairLink();
     }
   }
 
@@ -1546,6 +1560,69 @@ class NeoAgentController extends ChangeNotifier {
       }
     }
   }
+
+  /// Signs this device in with a pairing code a signed-in screen showed
+  /// (Settings › Sign-in & security › Pair a phone), switching to the code's
+  /// server first where this build may.
+  Future<void> pairWithLink(PairingLinkData link) async {
+    if (isBooting) {
+      // Opened from a link at launch: wait for the saved session and server.
+      _queuedPairLink = link;
+      return;
+    }
+    if (isAuthenticating || isAuthenticated) return;
+    final server = _normalizeBackendUrl(link.server.toString());
+    if (server != _normalizeBackendUrl(backendUrl)) {
+      if (backendUrl.isNotEmpty && !canChangeBackend) {
+        errorMessage = appStrings.thisCodeBelongsToADifferent(server);
+        notifyListeners();
+        return;
+      }
+      if (!await saveBackendUrl(server)) return;
+      if (isAuthenticated) return;
+    }
+    isAuthenticating = true;
+    errorMessage = null;
+    authInfoMessage = null;
+    notifyListeners();
+    try {
+      final response = await _backendClient.redeemPairing(
+        baseUrl: backendUrl,
+        code: link.code,
+        deviceName: _qrLoginClientMetadata()['deviceLabel']?.toString() ?? '',
+      );
+      await _completeAuthenticatedResponse(
+        response,
+        retentionErrorMessage: appStrings.qrLoginCompletedButNeoagentCould,
+        authMethod: 'qr',
+      );
+    } catch (error) {
+      _setAuthError(error);
+    } finally {
+      isAuthenticating = false;
+      notifyListeners();
+    }
+  }
+
+  PairingLinkData? _queuedPairLink;
+
+  void _runQueuedPairLink() {
+    final link = _queuedPairLink;
+    _queuedPairLink = null;
+    if (link != null) unawaited(pairWithLink(link));
+  }
+
+  /// [error] as the reader should see it (see error_text.dart).
+  String friendlyError(Object error) => _friendlyErrorMessage(error);
+
+  /// A pairing code for the Pair a phone dialog.
+  Future<PairingTicket> startPairing() async =>
+      PairingTicket.fromJson(await _backendClient.startPairing(backendUrl));
+
+  Future<PairingStatus> pairingStatus(String code) async =>
+      PairingStatus.fromJson(
+        await _backendClient.pairingStatus(backendUrl, code),
+      );
 
   Future<QrLoginApprovalPreview> resolveQrLoginApproval(
     QrLoginScanPayload payload,

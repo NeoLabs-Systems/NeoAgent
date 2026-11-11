@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:neoagent_flutter/main.dart';
 import 'package:neoagent_flutter/src/backend_client.dart';
 import 'package:neoagent_flutter/src/health_bridge.dart';
+import 'package:neoagent_flutter/src/pairing/pairing_link.dart';
 
 import '../support/scripted_http_client.dart';
 
@@ -63,6 +64,35 @@ void main() {
       http.requests.where((r) => r.$2.path.endsWith('/qr-login/challenge')),
       hasLength(1),
     );
+  });
+
+  testWidgets('a scanned pairing code signs this device in', (tester) async {
+    final http = ScriptedHttpClient((method, uri, body) {
+      if (uri.path == '/api/auth/pair') {
+        return jsonResponse(200, <String, dynamic>{
+          'success': true,
+          'user': <String, dynamic>{'id': 1, 'username': 'neo'},
+        });
+      }
+      return jsonResponse(200, <String, dynamic>{});
+    });
+    // Past boot; a link that arrives while booting waits for it.
+    final controller = _controller(http)..isBooting = false;
+    addTearDown(controller.dispose);
+
+    final signIn = controller.pairWithLink(
+      parsePairingLink(
+        'neoagent://pair?server=http://localhost:3333&code=Q2hhbmdlTWVQbGVhc2VJdHNBVGVzdENvZGVYeXo',
+      )!,
+    );
+    await tester.pumpAndSettle();
+    await signIn;
+
+    final pair = http.requests.where((r) => r.$2.path == '/api/auth/pair');
+    expect(pair, hasLength(1));
+    expect(pair.single.$3, contains('Q2hhbmdlTWVQbGVhc2VJdHNBVGVzdENvZGVYeXo'));
+    expect(controller.isAuthenticated, isTrue);
+    expect(controller.user?['username'], 'neo');
   });
 
   testWidgets('registration shows every field problem at once', (tester) async {

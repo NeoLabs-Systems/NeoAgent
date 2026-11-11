@@ -5483,7 +5483,7 @@ class AppL10nRo extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'Pe un dispozitiv Android conectat, deschide Setări › Conectare și securitate, scanează acest cod și aprobă autentificarea.';
+      'Pe un telefon conectat, deschideți Setări › Conectare și securitate, atingeți Scanați QR de conectare și aprobați conectarea.';
 
   @override
   String get onByDefaultForNewGroups =>
@@ -5545,7 +5545,7 @@ class AppL10nRo extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Deschide Setări › Conectare și securitate pe un dispozitiv Android conectat, scanează acest cod și aprobă autentificarea.';
+      'Pe un telefon conectat, deschideți Setări › Conectare și securitate, atingeți Scanați QR de conectare, scanați acest cod și aprobați conectarea.';
 
   @override
   String get openComputer => 'Deschide computerul';
@@ -12911,4 +12911,126 @@ class AppL10nRo extends AppL10n {
   @override
   String get adminWebSharingDescription =>
       'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Împerecheați un telefon';
+
+  @override
+  String get pairPhoneDescription =>
+      'Afișează un cod QR care conectează aplicația NeoAgent de pe un telefon la acest cont, fără a introduce adresa serverului sau o parolă.';
+
+  @override
+  String get pairTitle => 'Împerecheați un telefon';
+
+  @override
+  String get pairInstructions =>
+      'Deschideți aplicația NeoAgent pe telefon, atingeți „Scanați codul QR” pe ecranul de conectare și îndreptați camera către acest cod.';
+
+  @override
+  String get pairQrSemantics => 'Cod QR pentru împerecherea unui telefon';
+
+  @override
+  String get pairWaiting => 'Se așteaptă telefonul';
+
+  @override
+  String pairExpiresIn(String time) {
+    return 'Expiră în $time';
+  }
+
+  @override
+  String get pairExpired => 'Codul a expirat';
+
+  @override
+  String get pairNewCode => 'Cod nou';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Împerecheat cu $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'telefonul dvs.';
+
+  @override
+  String get pairCantScan =>
+      'Nu puteți scana? Deschideți acest link pe telefon:';
+
+  @override
+  String get pairLandingTitle => 'Împerecheați cu aplicația NeoAgent';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'Acest link conectează aplicația NeoAgent pe acest telefon. Instalați aplicația dacă nu ați făcut-o deja, apoi deschideți linkul în ea. Codul este valabil cinci minute.';
+
+  @override
+  String get pairLandingOpenApp => 'Deschideți în aplicația NeoAgent';
+
+  @override
+  String get pairLandingGetApp => 'Descărcați aplicația';
+
+  @override
+  String get pairLandingComputerBody =>
+      'Acest link este destinat telefonului dvs. Deschideți-l acolo sau scanați codul QR cu aplicația NeoAgent.';
+
+  @override
+  String get pairLandingInvalid =>
+      'Acest link de împerechere este incomplet. Afișați un cod nou în Setări › Conectare și securitate › Împerecheați un telefon.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'Deschideți NeoAgent';
+
+  @override
+  String get signInScanQr => 'Scanați codul QR';
+
+  @override
+  String get signInScanQrHint =>
+      'Pe un computer conectat, deschideți Setări › Conectare și securitate › Împerecheați un telefon.';
+
+  @override
+  String get scanTitle => 'Scanați codul QR';
+
+  @override
+  String get scanPrimeTitle => 'Folosiți camera pentru scanare';
+
+  @override
+  String get scanPrimeBody =>
+      'NeoAgent folosește camera doar pentru a citi codul QR. Nimic nu este înregistrat sau încărcat.';
+
+  @override
+  String get scanPrimeAllow => 'Permiteți camera';
+
+  @override
+  String get scanPairingHint =>
+      'Îndreptați camera către codul QR din Setări › Conectare și securitate › Împerecheați un telefon';
+
+  @override
+  String get scanWrongPairingCode =>
+      'Acesta nu este un cod de împerechere NeoAgent';
+
+  @override
+  String get scanTorchOn => 'Aprindeți lumina';
+
+  @override
+  String get scanTorchOff => 'Stingeți lumina';
+
+  @override
+  String get scanDeniedTitle => 'Accesul la cameră este dezactivat';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Permiteți aplicației NeoAgent să folosească camera din Setări sau conectați-vă cu parola.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Permiteți camera când vi se solicită sau activați-o din Setări › Aplicații › NeoAgent › Permisiuni. Vă puteți conecta și cu parola.';
+
+  @override
+  String get scanOpenSettings => 'Deschideți Setări';
+
+  @override
+  String get scanFailedTitle => 'Camera nu a pornit';
+
+  @override
+  String get scanFailedBody =>
+      'Închideți alte aplicații care folosesc camera și încercați din nou.';
 }

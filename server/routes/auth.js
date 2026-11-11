@@ -40,6 +40,7 @@ const {
   getChallengeStatusForPoll,
   waitForChallengeStatusChange,
 } = require('../services/account/qr_login');
+const { redeemPairing } = require('../services/account/pairing');
 const { bindOAuthState, isOAuthStateBound } = require('../services/account/oauth_handoff');
 const {
   assertSignupKeyUsable,
@@ -84,6 +85,14 @@ const qrLoginClaimLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 40,
   message: { error: 'Too many QR login completion attempts, try again shortly' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const pairLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { error: 'Too many pairing attempts, try again shortly' },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -808,6 +817,19 @@ router.post('/api/auth/qr-login/challenge/:id/claim', qrLoginClaimLimiter, requi
     return res.status(statusCode).json({
       error: error?.message || 'Could not complete QR login.',
     });
+  }
+});
+
+// QR pairing: a phone swaps the code a signed-in screen showed for a session
+// of that account (services/account/pairing.js). Codes are 256-bit, so the
+// limit keeps a misbehaving client cheap rather than stopping guesses.
+router.post('/api/auth/pair', pairLimiter, requireSessionTransport, (req, res) => {
+  try {
+    const user = redeemPairing({ code: req.body?.code, deviceLabel: req.body?.name });
+    updateLastLogin(user.id);
+    return establishSession(req, res, user);
+  } catch (error) {
+    return sendJsonError(res, error, 400);
   }
 });
 

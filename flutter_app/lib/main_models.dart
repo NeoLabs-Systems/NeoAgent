@@ -4615,6 +4615,55 @@ class QrLoginScanPayload {
   final String version;
 }
 
+/// A QR pairing code this screen shows (server/services/account/pairing.js).
+class PairingTicket {
+  const PairingTicket({
+    required this.code,
+    required this.expiresAt,
+    required this.server,
+    required this.qrPayload,
+  });
+
+  factory PairingTicket.fromJson(Map<dynamic, dynamic> json) {
+    return PairingTicket(
+      code: json['code']?.toString() ?? '',
+      expiresAt:
+          _parseOptionalTimestamp(json['expiresAt']?.toString()) ??
+          DateTime.now(),
+      server: json['server']?.toString() ?? '',
+      qrPayload: json['qrPayload']?.toString() ?? '',
+    );
+  }
+
+  final String code;
+  final DateTime expiresAt;
+  final String server;
+  final String qrPayload;
+}
+
+enum PairingState { pending, used, expired }
+
+class PairingStatus {
+  const PairingStatus({required this.state, this.deviceName});
+
+  factory PairingStatus.fromJson(Map<dynamic, dynamic> json) {
+    final device = json['device'];
+    return PairingStatus(
+      state: switch (json['status']?.toString()) {
+        'used' => PairingState.used,
+        'expired' => PairingState.expired,
+        _ => PairingState.pending,
+      },
+      deviceName: device is Map ? device['name']?.toString() : null,
+    );
+  }
+
+  final PairingState state;
+
+  /// What the phone called itself, once it redeemed the code.
+  final String? deviceName;
+}
+
 class ActiveRunState {
   const ActiveRunState({
     required this.runId,

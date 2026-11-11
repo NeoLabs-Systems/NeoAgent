@@ -5482,7 +5482,7 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'Fuq apparat Android iffirmat, iftaħ Settings › Idħol u sigurtà, skennja dan il-kodiċi, u approva l-login.';
+      'Fuq telefon fejn dħalt, iftaħ Settings › Id-dħul u s-sigurtà, agħfas Skennja login QR u approva d-dħul.';
 
   @override
   String get onByDefaultForNewGroups =>
@@ -5544,7 +5544,7 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Iftaħ Settings › Idħol u sigurtà fuq apparat Android iffirmat, skennja dan il-kodiċi, u approva l-login.';
+      'Fuq telefon fejn dħalt, iftaħ Settings › Id-dħul u s-sigurtà, agħfas Skennja login QR, skennja dan il-kodiċi u approva d-dħul.';
 
   @override
   String get openComputer => 'Kompjuter miftuħ';
@@ -12886,4 +12886,126 @@ class AppL10nMt extends AppL10n {
   @override
   String get adminWebSharingDescription =>
       'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Qabbad telefon';
+
+  @override
+  String get pairPhoneDescription =>
+      'Uri kodiċi QR li jdaħħal l-app NeoAgent fuq telefon f\'dan il-kont, mingħajr ma tittajpja l-indirizz tas-server jew password.';
+
+  @override
+  String get pairTitle => 'Qabbad telefon';
+
+  @override
+  String get pairInstructions =>
+      'Iftaħ l-app NeoAgent fuq it-telefon tiegħek, agħfas “Skennja kodiċi QR” fuq l-iskrin tad-dħul u ppunta l-kamera lejn dan il-kodiċi.';
+
+  @override
+  String get pairQrSemantics => 'Kodiċi QR biex tqabbad telefon';
+
+  @override
+  String get pairWaiting => 'Qed nistennew it-telefon';
+
+  @override
+  String pairExpiresIn(String time) {
+    return 'Jiskadi fi $time';
+  }
+
+  @override
+  String get pairExpired => 'Il-kodiċi skada';
+
+  @override
+  String get pairNewCode => 'Kodiċi ġdid';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Imqabbad ma\' $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'it-telefon tiegħek';
+
+  @override
+  String get pairCantScan =>
+      'Ma tistax tiskennja? Iftaħ din il-link fuq it-telefon:';
+
+  @override
+  String get pairLandingTitle => 'Qabbad mal-app NeoAgent';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'Din il-link iddaħħal l-app NeoAgent fuq dan it-telefon. Installa l-app jekk għadek ma għamiltx dan, imbagħad iftaħ il-link fiha. Il-kodiċi jaħdem għal ħames minuti.';
+
+  @override
+  String get pairLandingOpenApp => 'Iftaħ fl-app NeoAgent';
+
+  @override
+  String get pairLandingGetApp => 'Ikseb l-app';
+
+  @override
+  String get pairLandingComputerBody =>
+      'Din il-link hija għat-telefon tiegħek. Iftaħha hemm, jew skennja l-kodiċi QR bl-app NeoAgent.';
+
+  @override
+  String get pairLandingInvalid =>
+      'Din il-link tat-tqabbil mhijiex kompluta. Uri kodiċi ġdid taħt Settings › Id-dħul u s-sigurtà › Qabbad telefon.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'Iftaħ NeoAgent';
+
+  @override
+  String get signInScanQr => 'Skennja kodiċi QR';
+
+  @override
+  String get signInScanQrHint =>
+      'Fuq kompjuter fejn dħalt, iftaħ Settings › Id-dħul u s-sigurtà › Qabbad telefon.';
+
+  @override
+  String get scanTitle => 'Skennja kodiċi QR';
+
+  @override
+  String get scanPrimeTitle => 'Uża l-kamera biex tiskennja';
+
+  @override
+  String get scanPrimeBody =>
+      'NeoAgent juża l-kamera biss biex jaqra l-kodiċi QR. Xejn ma jiġi rreġistrat jew imtella\'.';
+
+  @override
+  String get scanPrimeAllow => 'Ippermetti l-kamera';
+
+  @override
+  String get scanPairingHint =>
+      'Ippunta l-kamera lejn il-kodiċi QR taħt Settings › Id-dħul u s-sigurtà › Qabbad telefon';
+
+  @override
+  String get scanWrongPairingCode =>
+      'Dak mhuwiex kodiċi ta\' tqabbil ta\' NeoAgent';
+
+  @override
+  String get scanTorchOn => 'Ixgħel id-dawl';
+
+  @override
+  String get scanTorchOff => 'Itfi d-dawl';
+
+  @override
+  String get scanDeniedTitle => 'L-aċċess għall-kamera mitfi';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Ippermetti lil NeoAgent juża l-kamera f\'Settings, jew idħol bil-password tiegħek minflok.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Ippermetti l-kamera meta tintalab, jew ixgħelha taħt Settings › Apps › NeoAgent › Permessi. Tista\' wkoll tidħol bil-password tiegħek.';
+
+  @override
+  String get scanOpenSettings => 'Iftaħ Settings';
+
+  @override
+  String get scanFailedTitle => 'Il-kamera ma bdietx';
+
+  @override
+  String get scanFailedBody =>
+      'Agħlaq apps oħra li jużaw il-kamera u erġa\' pprova.';
 }

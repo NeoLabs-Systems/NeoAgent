@@ -5491,7 +5491,7 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'Egy bejelentkezett Android-eszközön nyissa meg a Beállítások › Bejelentkezés és biztonság lehetőséget, olvassa be ezt a kódot, és hagyja jóvá a bejelentkezést.';
+      'Egy bejelentkezett telefonon nyissa meg ezt: Beállítások › Bejelentkezés és biztonság, koppintson a Bejelentkezési QR beolvasása gombra, és hagyja jóvá a bejelentkezést.';
 
   @override
   String get onByDefaultForNewGroups =>
@@ -5553,7 +5553,7 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Nyissa meg a Beállítások › Bejelentkezés és biztonság elemet egy bejelentkezett Android-eszközön, olvassa be ezt a kódot, és hagyja jóvá a bejelentkezést.';
+      'Egy bejelentkezett telefonon nyissa meg ezt: Beállítások › Bejelentkezés és biztonság, koppintson a Bejelentkezési QR beolvasása gombra, olvassa be ezt a kódot, és hagyja jóvá a bejelentkezést.';
 
   @override
   String get openComputer => 'Nyissa meg a számítógépet';
@@ -12914,4 +12914,125 @@ class AppL10nHu extends AppL10n {
   @override
   String get adminWebSharingDescription =>
       'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Telefon párosítása';
+
+  @override
+  String get pairPhoneDescription =>
+      'Megjelenít egy QR-kódot, amellyel egy telefonon a NeoAgent alkalmazás bejelentkezik ebbe a fiókba a szervercím vagy jelszó beírása nélkül.';
+
+  @override
+  String get pairTitle => 'Telefon párosítása';
+
+  @override
+  String get pairInstructions =>
+      'Nyissa meg a NeoAgent alkalmazást a telefonján, a bejelentkezési képernyőn koppintson a „QR-kód beolvasása” gombra, és irányítsa a kamerát erre a kódra.';
+
+  @override
+  String get pairQrSemantics => 'QR-kód telefon párosításához';
+
+  @override
+  String get pairWaiting => 'Várakozás a telefonra';
+
+  @override
+  String pairExpiresIn(String time) {
+    return '$time múlva lejár';
+  }
+
+  @override
+  String get pairExpired => 'A kód lejárt';
+
+  @override
+  String get pairNewCode => 'Új kód';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Párosítva: $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'az Ön telefonja';
+
+  @override
+  String get pairCantScan =>
+      'Nem sikerül a beolvasás? Nyissa meg ezt a linket a telefonon:';
+
+  @override
+  String get pairLandingTitle => 'Párosítás a NeoAgent alkalmazással';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'Ez a link bejelentkezteti a NeoAgent alkalmazást ezen a telefonon. Telepítse az alkalmazást, ha még nem tette meg, majd nyissa meg benne a linket. A kód öt percig érvényes.';
+
+  @override
+  String get pairLandingOpenApp => 'Megnyitás a NeoAgent alkalmazásban';
+
+  @override
+  String get pairLandingGetApp => 'Alkalmazás letöltése';
+
+  @override
+  String get pairLandingComputerBody =>
+      'Ez a link a telefonjára készült. Nyissa meg ott, vagy olvassa be a QR-kódot a NeoAgent alkalmazással.';
+
+  @override
+  String get pairLandingInvalid =>
+      'Ez a párosítási link hiányos. Jelenítsen meg új kódot itt: Beállítások › Bejelentkezés és biztonság › Telefon párosítása.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'NeoAgent megnyitása';
+
+  @override
+  String get signInScanQr => 'QR-kód beolvasása';
+
+  @override
+  String get signInScanQrHint =>
+      'Egy bejelentkezett számítógépen nyissa meg ezt: Beállítások › Bejelentkezés és biztonság › Telefon párosítása.';
+
+  @override
+  String get scanTitle => 'QR-kód beolvasása';
+
+  @override
+  String get scanPrimeTitle => 'Beolvasás a kamerával';
+
+  @override
+  String get scanPrimeBody =>
+      'A NeoAgent csak a QR-kód beolvasására használja a kamerát. Semmi sem kerül rögzítésre vagy feltöltésre.';
+
+  @override
+  String get scanPrimeAllow => 'Kamera engedélyezése';
+
+  @override
+  String get scanPairingHint =>
+      'Irányítsa a kamerát a QR-kódra itt: Beállítások › Bejelentkezés és biztonság › Telefon párosítása';
+
+  @override
+  String get scanWrongPairingCode => 'Ez nem NeoAgent párosítási kód';
+
+  @override
+  String get scanTorchOn => 'Lámpa bekapcsolása';
+
+  @override
+  String get scanTorchOff => 'Lámpa kikapcsolása';
+
+  @override
+  String get scanDeniedTitle => 'A kamera-hozzáférés ki van kapcsolva';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Engedélyezze a Beállításokban, hogy a NeoAgent használja a kamerát, vagy jelentkezzen be inkább a jelszavával.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Engedélyezze a kamerát, amikor a rendszer kéri, vagy kapcsolja be itt: Beállítások › Alkalmazások › NeoAgent › Engedélyek. A jelszavával is bejelentkezhet.';
+
+  @override
+  String get scanOpenSettings => 'Beállítások megnyitása';
+
+  @override
+  String get scanFailedTitle => 'A kamera nem indult el';
+
+  @override
+  String get scanFailedBody =>
+      'Zárja be a kamerát használó többi alkalmazást, és próbálja újra.';
 }

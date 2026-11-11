@@ -60,6 +60,7 @@ import 'src/mascot/neo_mascot.dart';
 import 'src/messaging_access_summary.dart';
 import 'src/oauth_launcher.dart';
 import 'src/page_reload.dart';
+import 'src/pairing/pairing_link.dart';
 import 'src/auth/auth_provider_icon.dart';
 import 'src/security/password_strength.dart';
 import 'src/setup_diagnostics_service.dart';
@@ -141,6 +142,9 @@ part 'main_admin_signup_keys.dart';
 part 'main_admin_import.dart';
 part 'main_unified.dart';
 part 'main_install.dart';
+part 'main_qr_scanner.dart';
+part 'main_pairing_dialog.dart';
+part 'main_pair_landing.dart';
 
 Future<void> main() async {
   await runNeoAgentApp(mode: _appModeFromEnvironment());

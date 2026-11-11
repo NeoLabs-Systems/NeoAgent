@@ -206,22 +206,8 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
   bool get _supportsQrLoginApproval => _isMobileDevice();
 
   Future<void> _startQrLoginApproval() async {
-    final scanned = await showDialog<String>(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogContext) => const _QrLoginScannerDialog(),
-    );
-    if (!mounted || scanned == null || scanned.trim().isEmpty) {
-      return;
-    }
-
-    final payload = QrLoginScanPayload.tryParse(scanned);
-    if (payload == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(appStrings.thatQrCodeIsNotA)));
-      return;
-    }
+    final payload = await scanQrLoginRequest(context);
+    if (!mounted || payload == null) return;
 
     final scannedBackend = widget.controller._normalizeBackendUrl(
       payload.backendUrl,
@@ -888,10 +874,21 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        if (_supportsQrLoginApproval)
-          _SettingsGroup(
-            title: appStrings.approveQrLogin,
-            children: <Widget>[
+        _SettingsGroup(
+          title: appStrings.qrPairing,
+          children: <Widget>[
+            _SettingsRow(
+              anchor: 'pairPhone',
+              label: appStrings.pairPhone,
+              description: appStrings.pairPhoneDescription,
+              control: OutlinedButton.icon(
+                onPressed: () =>
+                    unawaited(showPairPhoneDialog(context, controller)),
+                icon: const Icon(Icons.qr_code_2_rounded, size: 18),
+                label: Text(appStrings.showQrCode),
+              ),
+            ),
+            if (_supportsQrLoginApproval)
               _SettingsRow(
                 anchor: 'qrLogin',
                 label: appStrings.scanLoginQr,
@@ -905,12 +902,12 @@ class _AccountSettingsPanelState extends State<AccountSettingsPanel> {
                           dimension: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Icon(Icons.camera_alt_outlined, size: 18),
+                      : Icon(Icons.qr_code_scanner_rounded, size: 18),
                   label: Text(appStrings.scanLoginQr),
                 ),
               ),
-            ],
-          ),
+          ],
+        ),
         _SettingsGroup(
           anchor: 'password',
           title: appStrings.password,
@@ -1560,101 +1557,6 @@ class _SecurityKeyCard extends StatelessWidget {
                 child: Text(appStrings.remove),
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QrLoginScannerDialog extends StatefulWidget {
-  const _QrLoginScannerDialog();
-
-  @override
-  State<_QrLoginScannerDialog> createState() => _QrLoginScannerDialogState();
-}
-
-class _QrLoginScannerDialogState extends State<_QrLoginScannerDialog> {
-  bool _handled = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog.fullscreen(
-      backgroundColor: Colors.black,
-      child: Stack(
-        fit: StackFit.expand,
-        children: <Widget>[
-          MobileScanner(
-            fit: BoxFit.cover,
-            onDetect: (capture) {
-              if (_handled) return;
-              final raw = capture.barcodes
-                  .map((barcode) => barcode.rawValue?.trim() ?? '')
-                  .firstWhere((value) => value.isNotEmpty, orElse: () => '');
-              if (raw.isEmpty) return;
-              _handled = true;
-              Navigator.of(context).pop(raw);
-            },
-          ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: <Color>[
-                  Colors.black.withValues(alpha: 0.72),
-                  Colors.transparent,
-                  Colors.black.withValues(alpha: 0.78),
-                ],
-                stops: const <double>[0, 0.42, 1],
-              ),
-            ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Align(
-                    alignment: Alignment.topRight,
-                    child: IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: Icon(Icons.close_rounded, color: Colors.white),
-                    ),
-                  ),
-                  const Spacer(),
-                  Center(
-                    child: Container(
-                      width: 260,
-                      height: 260,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  Text(
-                    appStrings.scanANeoagentLoginQr,
-                    style: GoogleFonts.geist(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    appStrings.pointTheCameraAtTheCode,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.82),
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              ),
-            ),
           ),
         ],
       ),

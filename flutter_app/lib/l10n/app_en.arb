@@ -3958,7 +3958,7 @@
   "officialIntegration": "Official integration",
   "officialIntegrationDidNotReturnA": "Official integration did not return a connection URL.",
   "on": "On",
-  "onASignedInAndroidDevice": "On a signed-in Android device, open Settings › Sign-in & security, scan this code, and approve the login.",
+  "onASignedInAndroidDevice": "On a signed-in phone, open Settings › Sign-in & security, tap Scan login QR and approve the login.",
   "onByDefaultForNewGroups": "On by default for new groups",
   "onDemand": "On Demand",
   "onForArg1OfArg2Groups": "On for {arg1} of {arg2} groups",
@@ -3985,7 +3985,7 @@
   "onlyNeededIfYouWantTo": "Only needed if you want to reshape the outgoing payload.",
   "onlyTheyCanChangeIt": "Only they can change it.",
   "open": "Open",
-  "openAccountSettingsOnASigned": "Open Settings › Sign-in & security on a signed-in Android device, scan this code, and approve the login.",
+  "openAccountSettingsOnASigned": "On a signed-in phone, open Settings › Sign-in & security, tap Scan login QR, scan this code and approve the login.",
   "openComputer": "Open computer",
   "openDashboard": "Open dashboard",
   "openFolder": "Open folder…",
@@ -8059,5 +8059,54 @@
   "sharedWebPagesOffline": "Your computer is off, so shared links show an offline page until it runs again.",
   "sharedWebPagesUnsupported": "This server runs tools directly on its own machine, so there is no computer to share pages from.",
   "adminWebSharing": "Let agents share web pages",
-  "adminWebSharingDescription": "Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away."
+  "adminWebSharingDescription": "Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.",
+  "pairPhone": "Pair a phone",
+  "pairPhoneDescription": "Show a QR code that signs the NeoAgent app on a phone in to this account, without typing the server address or a password.",
+  "pairTitle": "Pair a phone",
+  "pairInstructions": "Open the NeoAgent app on your phone, tap “Scan QR code” on its sign-in screen and point the camera at this code.",
+  "pairQrSemantics": "QR code to pair a phone",
+  "pairWaiting": "Waiting for the phone",
+  "pairExpiresIn": "Expires in {time}",
+  "@pairExpiresIn": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "pairExpired": "Code expired",
+  "pairNewCode": "New code",
+  "pairPairedWith": "Paired with {device} ✓",
+  "@pairPairedWith": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "pairUnknownDevice": "your phone",
+  "pairCantScan": "Can't scan? Open this link on the phone:",
+  "pairLandingTitle": "Pair with the NeoAgent app",
+  "pairLandingPhoneBody": "This link signs in the NeoAgent app on this phone. Install the app if you haven't, then open the link in it. The code works for five minutes.",
+  "pairLandingOpenApp": "Open in NeoAgent app",
+  "pairLandingGetApp": "Get the app",
+  "pairLandingComputerBody": "This link is meant for your phone. Open it there, or scan the QR code with the NeoAgent app.",
+  "pairLandingInvalid": "This pairing link is incomplete. Show a new code under Settings › Sign-in & security › Pair a phone.",
+  "pairLandingOpenNeoagent": "Open NeoAgent",
+  "signInScanQr": "Scan QR code",
+  "signInScanQrHint": "On a signed-in computer, open Settings › Sign-in & security › Pair a phone.",
+  "scanTitle": "Scan QR code",
+  "scanPrimeTitle": "Use the camera to scan",
+  "scanPrimeBody": "NeoAgent uses the camera only to read the QR code. Nothing is recorded or uploaded.",
+  "scanPrimeAllow": "Allow camera",
+  "scanPairingHint": "Point the camera at the QR code under Settings › Sign-in & security › Pair a phone",
+  "scanWrongPairingCode": "That's not a NeoAgent pairing code",
+  "scanTorchOn": "Turn on the light",
+  "scanTorchOff": "Turn off the light",
+  "scanDeniedTitle": "Camera access is off",
+  "scanDeniedBodyIos": "Allow NeoAgent to use the camera in Settings, or sign in with your password instead.",
+  "scanDeniedBodyAndroid": "Allow the camera when asked, or turn it on under Settings › Apps › NeoAgent › Permissions. You can also sign in with your password.",
+  "scanOpenSettings": "Open Settings",
+  "scanFailedTitle": "The camera didn't start",
+  "scanFailedBody": "Close other apps that use the camera and try again."
 }

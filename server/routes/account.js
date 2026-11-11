@@ -6,6 +6,9 @@ const bcrypt = require('bcrypt');
 const router = express.Router();
 const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
+const { sendJsonError } = require('../http/errors');
+const { publicBaseUrlForRequest } = require('../utils/public_url');
+const { getPairingStatus, startPairing } = require('../services/account/pairing');
 const { sanitizeError } = require('../utils/security');
 const { requireValidEmail } = require('../services/account/email');
 const {
@@ -398,6 +401,24 @@ router.post('/qr-login/approve', accountLimiter, (req, res) => {
     }));
   } catch (err) {
     sendRouteError(res, err);
+  }
+});
+
+// QR pairing: this screen shows a code for a phone to redeem at
+// POST /api/auth/pair, and polls whether one did.
+router.post('/pairing', accountLimiter, (req, res) => {
+  try {
+    res.json(startPairing(req.session.userId, publicBaseUrlForRequest(req)));
+  } catch (err) {
+    sendJsonError(res, err);
+  }
+});
+
+router.get('/pairing/:code', (req, res) => {
+  try {
+    res.json(getPairingStatus(req.session.userId, req.params.code));
+  } catch (err) {
+    sendJsonError(res, err);
   }
 });
 
