@@ -67,6 +67,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.47.9'
           # Flutter's Windows archive is x64. The ARM runner replaces its Dart
           # SDK below so Flutter detects and builds for the native architecture.
           architecture: x64
@@ -427,6 +428,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.47.9'
           cache: true
 
       - name: Enable desktop platforms
@@ -741,6 +743,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.47.9'
           cache: true
 
       - name: Enable desktop platforms
@@ -1048,6 +1051,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.47.9'
           cache: true
 
       - name: Ensure Android runner project exists
