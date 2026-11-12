@@ -28,9 +28,13 @@ function sendJsonError(res, err, fallbackStatus = 500) {
     return res.status(status).json({ error: sanitizeError(err) });
   }
   const code = publicErrorCode(err);
+  // A throttled account (429 LOGIN_LOCKED) says how many seconds to wait.
+  const retryAfter = Number.isInteger(err?.retryAfter) ? err.retryAfter : null;
+  if (retryAfter) res.set('Retry-After', String(retryAfter));
   return res.status(status).json({
     error: err?.message || 'Request failed.',
     ...(code ? { code } : {}),
+    ...(retryAfter ? { retryAfter } : {}),
   });
 }
 

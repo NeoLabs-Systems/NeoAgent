@@ -12,6 +12,7 @@ const {
   decryptValue,
   encryptValue,
 } = require('../integrations/secrets');
+const throttle = require('./login_throttle');
 
 const TOTP_OPTIONS = {
   strategy: 'totp',
@@ -65,13 +66,37 @@ function getTwoFactorStatus(userId) {
   };
 }
 
+/**
+ * The signed-in account's password, asked again before a sensitive change.
+ * Wrong tries count per account (login_throttle), so a stolen session can't
+ * guess it from many addresses: 429 LOGIN_LOCKED with `retryAfter` once
+ * throttled.
+ */
 async function verifyCurrentPassword(userId, password) {
+  const key = throttle.confirmKey(userId);
+  throttle.assertSignInAllowed(key);
+  throttle.recordFailure(key, { kind: 'password' });
   const user = db.prepare('SELECT id, password FROM users WHERE id = ?').get(userId);
   if (!user || !(await bcrypt.compare(String(password || ''), user.password))) {
     const error = new Error('Current password is incorrect');
     error.statusCode = 401;
     throw error;
   }
+  throttle.clearFailures(key, 'password');
+}
+
+// A 2FA or recovery code asked again before a sensitive change; wrong codes
+// count per account, as wrong passwords do.
+async function verifyCurrentCode(userId, code) {
+  const key = throttle.confirmKey(userId);
+  throttle.assertSignInAllowed(key);
+  throttle.recordFailure(key, { kind: 'second_factor' });
+  if (!(await verifyLoginCode(userId, code))) {
+    const error = new Error('Invalid 2FA code');
+    error.statusCode = 401;
+    throw error;
+  }
+  throttle.clearFailures(key, 'second_factor');
 }
 
 async function beginSetup(userId, currentPassword) {
@@ -197,11 +222,7 @@ async function disable(userId, { currentPassword, code }) {
   if (!row || row.enabled !== 1) {
     return { success: true, status: getTwoFactorStatus(userId) };
   }
-  if (!(await verifyLoginCode(userId, code))) {
-    const error = new Error('Invalid 2FA code');
-    error.statusCode = 401;
-    throw error;
-  }
+  await verifyCurrentCode(userId, code);
   db.transaction(() => {
     db.prepare(`
       UPDATE user_two_factor
@@ -219,11 +240,7 @@ async function disable(userId, { currentPassword, code }) {
 
 async function regenerateRecoveryCodes(userId, { currentPassword, code }) {
   await verifyCurrentPassword(userId, currentPassword);
-  if (!(await verifyLoginCode(userId, code))) {
-    const error = new Error('Invalid 2FA code');
-    error.statusCode = 401;
-    throw error;
-  }
+  await verifyCurrentCode(userId, code);
   const recoveryCodes = await storeRecoveryCodes(userId);
   return { success: true, recoveryCodes, status: getTwoFactorStatus(userId) };
 }

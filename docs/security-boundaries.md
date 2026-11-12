@@ -127,6 +127,7 @@ A run becomes **tainted** once it reads outside content (any tool result except 
 - **Redacted responses.** The broker strips auth headers and redacts the secret from responses. Every use is audited.
 - **Messaging access.** **Who can message** on each channel accepts **Approved only**, **Anyone** or **No one**.
 - **Server-side secrets.** OAuth tokens and integration credentials stay on the server, bound to one user and agent.
+- **Password prompts.** Changing the email or password, and the 2FA settings, ask for the current password (and a code when 2FA is on). Wrong answers count per account, whatever address they come from: from the 5th in 15 minutes each next try waits longer, the 10th locks these prompts until the oldest leaves the window (`429 LOGIN_LOCKED` with `Retry-After`). Sign-in is counted apart and stays open.
 
 ## ⚠️ Known limits
 

@@ -10,6 +10,7 @@ const { sendJsonError } = require('../http/errors');
 const { publicBaseUrlForRequest } = require('../utils/public_url');
 const { getPairingStatus, startPairing } = require('../services/account/pairing');
 const { sanitizeError } = require('../utils/security');
+const { publicErrorCode } = require('../utils/http_error');
 const { requireValidEmail } = require('../services/account/email');
 const {
   evaluatePasswordStrength,
@@ -109,7 +110,15 @@ function sendRouteError(res, err) {
   if (statusCode >= 500) {
     console.error('[Account] Route error:', err);
   }
-  res.status(statusCode).json({ error: sanitizeError(err) });
+  // A throttled confirmation (429 LOGIN_LOCKED) says how many seconds to wait.
+  const retryAfter = statusCode === 429 && Number.isInteger(err?.retryAfter) ? err.retryAfter : null;
+  if (retryAfter) res.set('Retry-After', String(retryAfter));
+  const code = statusCode < 500 ? publicErrorCode(err) : null;
+  return res.status(statusCode).json({
+    error: sanitizeError(err),
+    ...(code ? { code } : {}),
+    ...(retryAfter ? { retryAfter } : {}),
+  });
 }
 
 function normalizeDisplayName(value) {
