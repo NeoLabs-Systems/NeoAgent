@@ -109,6 +109,7 @@ part 'main_mascot.dart';
 part 'main_home_widgets.dart';
 part 'main_call_screen.dart';
 part 'main_call_parts.dart';
+part 'main_permission_sheet.dart';
 part 'main_call_permissions.dart';
 part 'main_navigation.dart';
 part 'main_runtime.dart';
