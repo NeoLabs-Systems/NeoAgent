@@ -39,6 +39,52 @@ class _CallPermissionSheetState extends State<_CallPermissionSheet>
     with WidgetsBindingObserver {
   late CallPermissionStatus _status = widget.initial;
 
+  /// Set while "Allow all" walks through the missing permissions one system
+  /// screen after another; [_asked] keeps a refused one from being asked
+  /// again in the same walk.
+  bool _walking = false;
+  final Set<String> _asked = <String>{};
+
+  /// What the sheet asks for, in the order "Allow all" goes through it.
+  List<({String key, bool granted, Future<void> Function() open})> get _steps =>
+      <({String key, bool granted, Future<void> Function() open})>[
+        (
+          key: 'overlay',
+          granted: _status.overlay,
+          open: CallBridge.openOverlaySettings,
+        ),
+        (
+          key: 'fullScreenIntent',
+          granted: _status.fullScreenIntent,
+          open: CallBridge.openFullScreenIntentSettings,
+        ),
+        (
+          key: 'battery',
+          granted: _status.unrestrictedBattery,
+          open: CallBridge.requestUnrestrictedBattery,
+        ),
+      ];
+
+  int get _missing => _steps.where((step) => !step.granted).length;
+
+  void _allowAll() {
+    _walking = true;
+    _asked.clear();
+    unawaited(_askNext());
+  }
+
+  /// Opens the next missing permission's system screen; coming back from it
+  /// re-reads the status and continues here.
+  Future<void> _askNext() async {
+    for (final step in _steps) {
+      if (step.granted || _asked.contains(step.key)) continue;
+      _asked.add(step.key);
+      await step.open();
+      return;
+    }
+    _walking = false;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -65,6 +111,7 @@ class _CallPermissionSheetState extends State<_CallPermissionSheet>
       return;
     }
     setState(() => _status = status);
+    if (_walking) unawaited(_askNext());
   }
 
   @override
@@ -133,6 +180,17 @@ class _CallPermissionSheetState extends State<_CallPermissionSheet>
               onAllow: CallBridge.requestUnrestrictedBattery,
             ),
             const SizedBox(height: 12),
+            if (_missing > 1)
+              FilledButton(
+                onPressed: _walking ? null : _allowAll,
+                style: FilledButton.styleFrom(
+                  backgroundColor: _CallColors.accent,
+                  foregroundColor: _CallColors.onAccent,
+                  minimumSize: const Size.fromHeight(52),
+                  shape: const StadiumBorder(),
+                ),
+                child: Text(appStrings.allowAll),
+              ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               style: TextButton.styleFrom(
