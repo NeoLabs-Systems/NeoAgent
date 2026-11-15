@@ -877,7 +877,9 @@ test('run_tests does not call a run with no counts a pass', async () => {
 test('run_tests cut off by its timeout is an error and says the results are partial', async () => {
   const root = tempDir();
   const { shell } = shellFor(root);
-  const result = await runProjectTests(shell, { command: 'echo partial; sleep 30', timeout: 200 }, { userId: 1 });
+  // The budget has to cover the shell starting and printing before the kill;
+  // 200ms was too tight on loaded CI runners and left the output empty.
+  const result = await runProjectTests(shell, { command: 'echo partial; sleep 30', timeout: 3000 }, { userId: 1 });
   assert.equal(result.status, 'interrupted');
   assert.equal(result.timedOut, true);
   assert.match(result.error, /timed out/);
