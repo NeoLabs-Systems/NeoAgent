@@ -2472,6 +2472,46 @@ class AppL10nBg extends AppL10n {
       'Не можа да се прекъсне връзката с NeoRecall.';
 
   @override
+  String get neocloudSetup => 'Настройка на NeoCloud';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Свържете своя NeoCloud сървър. На страницата за вход на NeoCloud избирате какво може NeoAgent да прави с файловете ви и дали може да изпраща документи за подпис.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Използвайте NeoCloud URL, достъпен за сървъра на NeoAgent. PUBLIC_URL на NeoAgent също трябва да е достъпен от този браузър за OAuth обратното извикване.';
+
+  @override
+  String get connectedNeocloudUser => 'Свързан потребител на NeoCloud';
+
+  @override
+  String get neocloudServerUrl => 'URL на NeoCloud сървъра';
+
+  @override
+  String get neocloudServerUrlIsRequired =>
+      'URL на NeoCloud сървъра е задължителен.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'Настройката на NeoCloud не можа да бъде запазена.';
+
+  @override
+  String get disconnectNeocloud => 'Прекъсване на NeoCloud?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Това премахва URL на NeoCloud сървъра и всички свързани NeoCloud акаунти за този агент.';
+
+  @override
+  String get couldNotDisconnectNeocloud =>
+      'NeoCloud не можа да бъде прекъснат.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'Локални URL адреси и такива в частна мрежа работят, ако сървърът на NeoAgent ги достига. Файловете в криптирани трезори никога не са достъпни за NeoAgent.';
+
+  @override
   String get couldNotDisconnectNextcloud =>
       'Не можа да се прекъсне връзката с Nextcloud.';
 

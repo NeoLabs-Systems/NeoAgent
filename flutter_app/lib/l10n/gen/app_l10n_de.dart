@@ -2488,6 +2488,46 @@ class AppL10nDe extends AppL10n {
       'NeoRecall konnte nicht getrennt werden.';
 
   @override
+  String get neocloudSetup => 'NeoCloud-Einrichtung';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Verbinde deinen NeoCloud-Server. Auf der Anmeldeseite von NeoCloud legst du fest, was NeoAgent mit deinen Dateien tun darf und ob es Dokumente zur Unterschrift senden darf.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Verwende eine NeoCloud-URL, die der NeoAgent-Server erreichen kann. Die PUBLIC_URL von NeoAgent muss für den OAuth-Callback auch von diesem Browser aus erreichbar sein.';
+
+  @override
+  String get connectedNeocloudUser => 'Verbundener NeoCloud-Benutzer';
+
+  @override
+  String get neocloudServerUrl => 'NeoCloud-Server-URL';
+
+  @override
+  String get neocloudServerUrlIsRequired =>
+      'Die NeoCloud-Server-URL ist erforderlich.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'NeoCloud-Einrichtung konnte nicht gespeichert werden.';
+
+  @override
+  String get disconnectNeocloud => 'NeoCloud trennen?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Dadurch werden die NeoCloud-Server-URL und alle verbundenen NeoCloud-Konten für diesen Agenten entfernt.';
+
+  @override
+  String get couldNotDisconnectNeocloud =>
+      'NeoCloud konnte nicht getrennt werden.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'Lokale URLs und URLs im privaten Netzwerk funktionieren, wenn der NeoAgent-Server sie erreichen kann. Dateien in verschlüsselten Tresoren sind für NeoAgent nie zugänglich.';
+
+  @override
   String get couldNotDisconnectNextcloud =>
       'Nextcloud konnte nicht getrennt werden.';
 

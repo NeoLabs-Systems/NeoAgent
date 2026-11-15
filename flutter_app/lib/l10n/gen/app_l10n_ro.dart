@@ -2470,6 +2470,45 @@ class AppL10nRo extends AppL10n {
       'NeoRecall nu a putut fi deconectat.';
 
   @override
+  String get neocloudSetup => 'Configurare NeoCloud';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Conectează serverul tău NeoCloud. Pe pagina de autentificare NeoCloud alegi ce poate face NeoAgent cu fișierele tale și dacă poate trimite documente spre semnare.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Folosește un URL NeoCloud accesibil serverului NeoAgent. PUBLIC_URL al NeoAgent trebuie să fie accesibil și din acest browser pentru callback-ul OAuth.';
+
+  @override
+  String get connectedNeocloudUser => 'Utilizator NeoCloud conectat';
+
+  @override
+  String get neocloudServerUrl => 'URL server NeoCloud';
+
+  @override
+  String get neocloudServerUrlIsRequired =>
+      'URL-ul serverului NeoCloud este obligatoriu.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'Configurarea NeoCloud nu a putut fi salvată.';
+
+  @override
+  String get disconnectNeocloud => 'Deconectezi NeoCloud?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Aceasta elimină URL-ul serverului NeoCloud și toate conturile NeoCloud conectate pentru acest agent.';
+
+  @override
+  String get couldNotDisconnectNeocloud => 'NeoCloud nu a putut fi deconectat.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'URL-urile locale și din rețele private funcționează dacă serverul NeoAgent le poate accesa. Fișierele din seifurile criptate nu sunt niciodată expuse NeoAgent.';
+
+  @override
   String get couldNotDisconnectNextcloud => 'Nu s-a putut deconecta Nextcloud.';
 
   @override

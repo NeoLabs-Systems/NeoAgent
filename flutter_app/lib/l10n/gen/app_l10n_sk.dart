@@ -2471,6 +2471,44 @@ class AppL10nSk extends AppL10n {
   String get couldNotDisconnectNeorecall => 'NeoRecall sa nepodarilo odpojiť.';
 
   @override
+  String get neocloudSetup => 'Nastavenie NeoCloud';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Pripojte svoj server NeoCloud. Na prihlasovacej stránke NeoCloud zvolíte, čo smie NeoAgent robiť s vašimi súbormi a či smie posielať dokumenty na podpis.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Použite URL NeoCloud, ktorú server NeoAgent dosiahne. PUBLIC_URL NeoAgent musí byť pre spätné volanie OAuth dostupná aj z tohto prehliadača.';
+
+  @override
+  String get connectedNeocloudUser => 'Pripojený používateľ NeoCloud';
+
+  @override
+  String get neocloudServerUrl => 'URL servera NeoCloud';
+
+  @override
+  String get neocloudServerUrlIsRequired => 'URL servera NeoCloud je povinná.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'Nastavenie NeoCloud sa nepodarilo uložiť.';
+
+  @override
+  String get disconnectNeocloud => 'Odpojiť NeoCloud?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Tým sa odstráni URL servera NeoCloud a všetky pripojené účty NeoCloud pre tohto agenta.';
+
+  @override
+  String get couldNotDisconnectNeocloud => 'NeoCloud sa nepodarilo odpojiť.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'Lokálne adresy a adresy v súkromnej sieti fungujú, ak ich server NeoAgent dosiahne. Súbory v šifrovaných trezoroch nie sú NeoAgent nikdy sprístupnené.';
+
+  @override
   String get couldNotDisconnectNextcloud => 'Nextcloud sa nepodarilo odpojiť.';
 
   @override

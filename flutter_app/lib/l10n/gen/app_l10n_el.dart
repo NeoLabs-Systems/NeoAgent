@@ -2482,6 +2482,46 @@ class AppL10nEl extends AppL10n {
       'Δεν ήταν δυνατή η αποσύνδεση του NeoRecall.';
 
   @override
+  String get neocloudSetup => 'Ρύθμιση NeoCloud';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Συνδέστε τον διακομιστή NeoCloud σας. Στη σελίδα σύνδεσης του NeoCloud επιλέγετε τι μπορεί να κάνει το NeoAgent με τα αρχεία σας και αν μπορεί να στέλνει έγγραφα για υπογραφή.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Χρησιμοποιήστε ένα URL του NeoCloud που μπορεί να φτάσει ο διακομιστής του NeoAgent. Το PUBLIC_URL του NeoAgent πρέπει επίσης να είναι προσβάσιμο από αυτό το πρόγραμμα περιήγησης για την επιστροφή OAuth.';
+
+  @override
+  String get connectedNeocloudUser => 'Συνδεδεμένος χρήστης NeoCloud';
+
+  @override
+  String get neocloudServerUrl => 'URL διακομιστή NeoCloud';
+
+  @override
+  String get neocloudServerUrlIsRequired =>
+      'Το URL του διακομιστή NeoCloud είναι υποχρεωτικό.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'Δεν ήταν δυνατή η αποθήκευση της ρύθμισης NeoCloud.';
+
+  @override
+  String get disconnectNeocloud => 'Αποσύνδεση NeoCloud;';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Αυτό αφαιρεί το URL του διακομιστή NeoCloud και όλους τους συνδεδεμένους λογαριασμούς NeoCloud για αυτόν τον πράκτορα.';
+
+  @override
+  String get couldNotDisconnectNeocloud =>
+      'Δεν ήταν δυνατή η αποσύνδεση του NeoCloud.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'Τοπικά URL και URL ιδιωτικού δικτύου λειτουργούν όταν ο διακομιστής του NeoAgent μπορεί να τα φτάσει. Τα αρχεία σε κρυπτογραφημένα θησαυροφυλάκια δεν εκτίθενται ποτέ στο NeoAgent.';
+
+  @override
   String get couldNotDisconnectNextcloud =>
       'Δεν ήταν δυνατή η αποσύνδεση του Nextcloud.';
 

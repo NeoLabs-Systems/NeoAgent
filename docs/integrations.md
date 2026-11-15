@@ -27,6 +27,7 @@ Connect accounts under **Tools › Integrations**; each agent keeps its own conn
 | Email & Calendar | Mail over IMAP/SMTP; calendars and contacts over CalDAV/CardDAV; read-only calendars by iCal link | [App password or iCal link](#email-and-calendar) |
 | Phone calendar & contacts | Every calendar and contact on your phone | [NeoAgent phone app](#phone-calendar-and-contacts) |
 | NeoRecall | Read-only search, memories, daily summaries, conversations | Your NeoRecall URL, then NeoRecall sign-in |
+| NeoCloud | Files, Markdown-to-PDF, e-signature requests with private signing links | Your NeoCloud URL, then NeoCloud sign-in |
 | Nextcloud | Files, shares, Calendar, Contacts, other apps via OCS | Your Nextcloud URL, then Nextcloud sign-in |
 | Home Assistant | Entity states and service calls | HTTPS URL and a Long-Lived Access Token |
 | Tailscale | Peer inventory, granted HTTP operations and TCP checks | Choose Connect and sign in to Tailscale |
@@ -88,6 +89,17 @@ The NeoAgent app on Android or iOS shares the calendars and contacts already on 
 - **Seven read-only tools.** Search, memories, mini-memories, daily summaries, conversations and transcript evidence.
 - **No mutation.** No audio, recording, memory changes or NeoRecall Ask.
 - **Ready for daily questions.** Once connected, its search, daily-summary and conversation tools are active in every run.
+- **Reachable callback.** Sign-in opens the URL you entered; NeoAgent's `PUBLIC_URL` must be reachable from your browser.
+
+### NeoCloud
+
+1. Choose **NeoCloud** and enter your NeoCloud server's URL; NeoAgent checks `/api/health` and `/api/version`.
+2. Sign in on NeoCloud's own page and choose what NeoAgent may do: files read-only or read & write, and whether it may send signature requests.
+
+- **Fifteen tools.** List, search, read, create, update, move and trash files; create folders; write Markdown as a PDF; request signatures, list and check requests, remind signers, renew a signer's link, cancel.
+- **Only what you granted.** Tools whose access you didn't allow on NeoCloud aren't offered, and a read-only connection hides every write tool.
+- **Contracts in one step.** Ask for a quick contract and NeoAgent writes it, saves it as a PDF with a signature block and gives you each signer's private link to pass on.
+- **Nothing permanent.** Deleting moves files to NeoCloud's trash; updates keep version history. Encrypted vaults stay out of reach.
 - **Reachable callback.** Sign-in opens the URL you entered; NeoAgent's `PUBLIC_URL` must be reachable from your browser.
 
 ### Nextcloud

@@ -701,17 +701,17 @@ class IntegrationManager {
         agentId,
       });
       if (!env.configured) continue;
-      const connections = this.listConnections(userId, provider.key, agentId);
+      const connections = this.listConnections(userId, provider.key, agentId)
+        .filter((connection) => connection.status === 'connected');
       const connectedAppIds = Array.from(
         new Set(
           connections
-            .filter((connection) => connection.status === 'connected')
             .map((connection) => String(connection.app_key || '').trim())
             .filter(Boolean),
         ),
       );
       if (connectedAppIds.length === 0) continue;
-      definitions.push(...provider.getToolDefinitions({ connectedAppIds })
+      definitions.push(...provider.getToolDefinitions({ connectedAppIds, connections })
         .map((definition) => ({ ...definition, integration: provider.key })));
     }
     return definitions;
@@ -745,7 +745,10 @@ class IntegrationManager {
       .map((app) => app.id);
     const tools =
       env.configured && connectedAppIds.length > 0
-        ? provider.getToolDefinitions({ connectedAppIds })
+        ? provider.getToolDefinitions({
+          connectedAppIds,
+          connections: connections.filter((connection) => connection.status === 'connected'),
+        })
         : [];
     return {
       provider: provider.key,

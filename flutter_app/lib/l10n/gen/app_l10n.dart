@@ -3979,6 +3979,72 @@ abstract class AppL10n {
   /// **'Could not disconnect NeoRecall.'**
   String get couldNotDisconnectNeorecall;
 
+  /// No description provided for @neocloudSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoCloud Setup'**
+  String get neocloudSetup;
+
+  /// No description provided for @connectYourNeocloudServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect your NeoCloud server. On NeoCloud\'s sign-in page you choose what NeoAgent may do with your files and whether it may send documents for signature.'**
+  String get connectYourNeocloudServer;
+
+  /// No description provided for @useANeocloudUrlTheNeoagent.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a NeoCloud URL the NeoAgent server can reach. NeoAgent\'\'s PUBLIC_URL must also be reachable from this browser for the OAuth callback.'**
+  String get useANeocloudUrlTheNeoagent;
+
+  /// No description provided for @connectedNeocloudUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected NeoCloud User'**
+  String get connectedNeocloudUser;
+
+  /// No description provided for @neocloudServerUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoCloud Server URL'**
+  String get neocloudServerUrl;
+
+  /// No description provided for @neocloudServerUrlIsRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoCloud server URL is required.'**
+  String get neocloudServerUrlIsRequired;
+
+  /// No description provided for @couldNotSaveNeocloudSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save NeoCloud setup.'**
+  String get couldNotSaveNeocloudSetup;
+
+  /// No description provided for @disconnectNeocloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect NeoCloud?'**
+  String get disconnectNeocloud;
+
+  /// No description provided for @thisRemovesTheNeocloudServerUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'This removes the NeoCloud server URL and all connected NeoCloud accounts for this agent.'**
+  String get thisRemovesTheNeocloudServerUrl;
+
+  /// No description provided for @couldNotDisconnectNeocloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not disconnect NeoCloud.'**
+  String get couldNotDisconnectNeocloud;
+
+  /// No description provided for @neocloudUrlHelperText.
+  ///
+  /// In en, this message translates to:
+  /// **'Local and private-network URLs are supported when the NeoAgent server can reach them. Files in encrypted vaults are never exposed to NeoAgent.'**
+  String get neocloudUrlHelperText;
+
   /// No description provided for @couldNotDisconnectNextcloud.
   ///
   /// In en, this message translates to:

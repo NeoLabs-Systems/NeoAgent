@@ -2479,6 +2479,45 @@ class AppL10nPl extends AppL10n {
   String get couldNotDisconnectNeorecall => 'Nie można rozłączyć NeoRecall.';
 
   @override
+  String get neocloudSetup => 'Konfiguracja NeoCloud';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Połącz swój serwer NeoCloud. Na stronie logowania NeoCloud wybierasz, co NeoAgent może robić z Twoimi plikami i czy może wysyłać dokumenty do podpisu.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Użyj adresu URL NeoCloud dostępnego dla serwera NeoAgent. PUBLIC_URL NeoAgent musi być też dostępny z tej przeglądarki dla wywołania zwrotnego OAuth.';
+
+  @override
+  String get connectedNeocloudUser => 'Połączony użytkownik NeoCloud';
+
+  @override
+  String get neocloudServerUrl => 'Adres URL serwera NeoCloud';
+
+  @override
+  String get neocloudServerUrlIsRequired =>
+      'Adres URL serwera NeoCloud jest wymagany.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'Nie udało się zapisać konfiguracji NeoCloud.';
+
+  @override
+  String get disconnectNeocloud => 'Rozłączyć NeoCloud?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Spowoduje to usunięcie adresu URL serwera NeoCloud i wszystkich połączonych kont NeoCloud dla tego agenta.';
+
+  @override
+  String get couldNotDisconnectNeocloud => 'Nie udało się rozłączyć NeoCloud.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'Adresy lokalne i w sieci prywatnej działają, jeśli serwer NeoAgent może się z nimi połączyć. Pliki w zaszyfrowanych sejfach nigdy nie są udostępniane NeoAgent.';
+
+  @override
   String get couldNotDisconnectNextcloud => 'Nie można odłączyć Nextcloud.';
 
   @override

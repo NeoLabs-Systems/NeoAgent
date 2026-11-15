@@ -2474,6 +2474,46 @@ class AppL10nEt extends AppL10n {
       'NeoRecalli ühendust ei saanud lahti ühendada.';
 
   @override
+  String get neocloudSetup => 'NeoCloudi seadistus';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Ühenda oma NeoCloudi server. NeoCloudi sisselogimislehel valid, mida NeoAgent sinu failidega teha tohib ja kas see tohib dokumente allkirjastamiseks saata.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Kasuta NeoCloudi URL-i, millele NeoAgenti server ligi pääseb. NeoAgenti PUBLIC_URL peab OAuthi tagasikutse jaoks olema ka sellest brauserist kättesaadav.';
+
+  @override
+  String get connectedNeocloudUser => 'Ühendatud NeoCloudi kasutaja';
+
+  @override
+  String get neocloudServerUrl => 'NeoCloudi serveri URL';
+
+  @override
+  String get neocloudServerUrlIsRequired =>
+      'NeoCloudi serveri URL on kohustuslik.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'NeoCloudi seadistust ei õnnestunud salvestada.';
+
+  @override
+  String get disconnectNeocloud => 'Kas katkestada NeoCloudi ühendus?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'See eemaldab NeoCloudi serveri URL-i ja kõik selle agendi ühendatud NeoCloudi kontod.';
+
+  @override
+  String get couldNotDisconnectNeocloud =>
+      'NeoCloudi ühendust ei õnnestunud katkestada.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'Kohalikud ja privaatvõrgu URL-id töötavad, kui NeoAgenti server neile ligi pääseb. Krüptitud hoidlate faile NeoAgentile kunagi ei näidata.';
+
+  @override
   String get couldNotDisconnectNextcloud =>
       'Nextcloudiga ei saanud ühendust katkestada.';
 

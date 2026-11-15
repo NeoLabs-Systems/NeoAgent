@@ -2468,6 +2468,45 @@ class AppL10nMt extends AppL10n {
       'Ma setgħetx tiskonnettja NeoRecall.';
 
   @override
+  String get neocloudSetup => 'Konfigurazzjoni ta\' NeoCloud';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Qabbad is-server NeoCloud tiegħek. Fil-paġna tad-dħul ta\' NeoCloud tagħżel x\'jista\' jagħmel NeoAgent bil-fajls tiegħek u jekk jistax jibgħat dokumenti għall-firma.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Uża URL ta\' NeoCloud li s-server NeoAgent jista\' jilħaq. Il-PUBLIC_URL ta\' NeoAgent irid ikun aċċessibbli wkoll minn dan il-browser għall-callback OAuth.';
+
+  @override
+  String get connectedNeocloudUser => 'Utent NeoCloud konness';
+
+  @override
+  String get neocloudServerUrl => 'URL tas-server NeoCloud';
+
+  @override
+  String get neocloudServerUrlIsRequired =>
+      'Il-URL tas-server NeoCloud huwa meħtieġ.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'Ma setgħetx tiġi salvata l-konfigurazzjoni ta\' NeoCloud.';
+
+  @override
+  String get disconnectNeocloud => 'Tiskonnettja NeoCloud?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Dan ineħħi l-URL tas-server NeoCloud u l-kontijiet NeoCloud konnessi kollha għal dan l-aġent.';
+
+  @override
+  String get couldNotDisconnectNeocloud => 'Ma setgħetx tiskonnettja NeoCloud.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'URLs lokali u ta\' netwerk privat huma appoġġjati meta s-server NeoAgent jista\' jilħaqhom. Il-fajls f\'kaxxi forti kriptati qatt ma jiġu esposti lil NeoAgent.';
+
+  @override
   String get couldNotDisconnectNextcloud =>
       'Ma setgħetx tiskonnettja Nextcloud.';
 

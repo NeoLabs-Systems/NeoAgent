@@ -2485,6 +2485,45 @@ class AppL10nEs extends AppL10n {
   String get couldNotDisconnectNeorecall => 'No se pudo desconectar NeoRecall.';
 
   @override
+  String get neocloudSetup => 'Configuración de NeoCloud';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Conecta tu servidor NeoCloud. En la página de inicio de sesión de NeoCloud eliges qué puede hacer NeoAgent con tus archivos y si puede enviar documentos para firmar.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Usa una URL de NeoCloud a la que pueda acceder el servidor de NeoAgent. La PUBLIC_URL de NeoAgent también debe ser accesible desde este navegador para el callback de OAuth.';
+
+  @override
+  String get connectedNeocloudUser => 'Usuario de NeoCloud conectado';
+
+  @override
+  String get neocloudServerUrl => 'URL del servidor NeoCloud';
+
+  @override
+  String get neocloudServerUrlIsRequired =>
+      'La URL del servidor NeoCloud es obligatoria.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'No se pudo guardar la configuración de NeoCloud.';
+
+  @override
+  String get disconnectNeocloud => '¿Desconectar NeoCloud?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Esto elimina la URL del servidor NeoCloud y todas las cuentas de NeoCloud conectadas para este agente.';
+
+  @override
+  String get couldNotDisconnectNeocloud => 'No se pudo desconectar NeoCloud.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'Se admiten URL locales y de red privada si el servidor de NeoAgent puede acceder a ellas. Los archivos de las bóvedas cifradas nunca se exponen a NeoAgent.';
+
+  @override
   String get couldNotDisconnectNextcloud => 'No se pudo desconectar Nextcloud.';
 
   @override

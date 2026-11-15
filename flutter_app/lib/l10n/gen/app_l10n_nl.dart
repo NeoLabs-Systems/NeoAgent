@@ -2478,6 +2478,44 @@ class AppL10nNl extends AppL10n {
   String get couldNotDisconnectNeorecall => 'Kan NeoRecall niet loskoppelen.';
 
   @override
+  String get neocloudSetup => 'NeoCloud instellen';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Verbind je NeoCloud-server. Op de aanmeldpagina van NeoCloud kies je wat NeoAgent met je bestanden mag doen en of het documenten ter ondertekening mag versturen.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Gebruik een NeoCloud-URL die de NeoAgent-server kan bereiken. De PUBLIC_URL van NeoAgent moet voor de OAuth-callback ook vanuit deze browser bereikbaar zijn.';
+
+  @override
+  String get connectedNeocloudUser => 'Verbonden NeoCloud-gebruiker';
+
+  @override
+  String get neocloudServerUrl => 'NeoCloud-server-URL';
+
+  @override
+  String get neocloudServerUrlIsRequired => 'NeoCloud-server-URL is verplicht.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'Kan NeoCloud-instellingen niet opslaan.';
+
+  @override
+  String get disconnectNeocloud => 'NeoCloud loskoppelen?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Hiermee worden de NeoCloud-server-URL en alle verbonden NeoCloud-accounts voor deze agent verwijderd.';
+
+  @override
+  String get couldNotDisconnectNeocloud => 'Kan NeoCloud niet loskoppelen.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'Lokale URL\'\'s en URL\'\'s in een privénetwerk werken als de NeoAgent-server ze kan bereiken. Bestanden in versleutelde kluizen zijn nooit zichtbaar voor NeoAgent.';
+
+  @override
   String get couldNotDisconnectNextcloud => 'Kan Nextcloud niet ontkoppelen.';
 
   @override

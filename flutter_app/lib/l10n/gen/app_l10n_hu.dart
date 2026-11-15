@@ -2478,6 +2478,46 @@ class AppL10nHu extends AppL10n {
       'Nem sikerült leválasztani a NeoRecallt.';
 
   @override
+  String get neocloudSetup => 'NeoCloud beállítása';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Csatlakoztasd a NeoCloud-szerveredet. A NeoCloud bejelentkezési oldalán választhatod ki, mit tehet a NeoAgent a fájljaiddal, és küldhet-e dokumentumokat aláírásra.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Olyan NeoCloud URL-t használj, amelyet a NeoAgent-szerver elér. A NeoAgent PUBLIC_URL-jének az OAuth-visszahíváshoz ebből a böngészőből is elérhetőnek kell lennie.';
+
+  @override
+  String get connectedNeocloudUser => 'Csatlakoztatott NeoCloud-felhasználó';
+
+  @override
+  String get neocloudServerUrl => 'NeoCloud-szerver URL';
+
+  @override
+  String get neocloudServerUrlIsRequired =>
+      'A NeoCloud-szerver URL megadása kötelező.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'Nem sikerült menteni a NeoCloud beállítását.';
+
+  @override
+  String get disconnectNeocloud => 'Leválasztod a NeoCloudot?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Ez eltávolítja a NeoCloud-szerver URL-jét és az ügynökhöz csatlakoztatott összes NeoCloud-fiókot.';
+
+  @override
+  String get couldNotDisconnectNeocloud =>
+      'Nem sikerült leválasztani a NeoCloudot.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'A helyi és magánhálózati URL-ek működnek, ha a NeoAgent-szerver eléri őket. A titkosított széfekben lévő fájlok soha nem láthatók a NeoAgent számára.';
+
+  @override
   String get couldNotDisconnectNextcloud =>
       'Nem sikerült leválasztani a Nextcloudot.';
 

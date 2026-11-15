@@ -2469,6 +2469,46 @@ class AppL10nFi extends AppL10n {
       'NeoRecallin yhteyttä ei voitu katkaista.';
 
   @override
+  String get neocloudSetup => 'NeoCloud-asetukset';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Yhdistä NeoCloud-palvelimesi. NeoCloudin kirjautumissivulla valitset, mitä NeoAgent saa tehdä tiedostoillesi ja saako se lähettää asiakirjoja allekirjoitettavaksi.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Käytä NeoCloud-URL-osoitetta, johon NeoAgent-palvelin saa yhteyden. NeoAgentin PUBLIC_URL-osoitteen on oltava myös tämän selaimen saavutettavissa OAuth-paluukutsua varten.';
+
+  @override
+  String get connectedNeocloudUser => 'Yhdistetty NeoCloud-käyttäjä';
+
+  @override
+  String get neocloudServerUrl => 'NeoCloud-palvelimen URL';
+
+  @override
+  String get neocloudServerUrlIsRequired =>
+      'NeoCloud-palvelimen URL on pakollinen.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'NeoCloud-asetuksia ei voitu tallentaa.';
+
+  @override
+  String get disconnectNeocloud => 'Katkaistaanko NeoCloud-yhteys?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Tämä poistaa NeoCloud-palvelimen URL-osoitteen ja kaikki yhdistetyt NeoCloud-tilit tältä agentilta.';
+
+  @override
+  String get couldNotDisconnectNeocloud =>
+      'NeoCloud-yhteyttä ei voitu katkaista.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'Paikalliset ja yksityisverkon URL-osoitteet toimivat, kun NeoAgent-palvelin saa niihin yhteyden. Salattujen holvien tiedostot eivät koskaan näy NeoAgentille.';
+
+  @override
   String get couldNotDisconnectNextcloud =>
       'Nextcloud-yhteyttä ei voitu katkaista.';
 

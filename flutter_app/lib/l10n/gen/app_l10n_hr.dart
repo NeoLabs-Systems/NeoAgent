@@ -2468,6 +2468,46 @@ class AppL10nHr extends AppL10n {
   String get couldNotDisconnectNeorecall => 'Nije moguće odspojiti NeoRecall.';
 
   @override
+  String get neocloudSetup => 'Postavljanje NeoClouda';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Povežite svoj NeoCloud poslužitelj. Na stranici za prijavu u NeoCloud birate što NeoAgent smije raditi s vašim datotekama i smije li slati dokumente na potpis.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Upotrijebite NeoCloud URL koji poslužitelj NeoAgent može dosegnuti. PUBLIC_URL NeoAgenta mora biti dostupan i iz ovog preglednika za OAuth povratni poziv.';
+
+  @override
+  String get connectedNeocloudUser => 'Povezani NeoCloud korisnik';
+
+  @override
+  String get neocloudServerUrl => 'URL NeoCloud poslužitelja';
+
+  @override
+  String get neocloudServerUrlIsRequired =>
+      'URL NeoCloud poslužitelja je obavezan.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'Postavljanje NeoClouda nije moguće spremiti.';
+
+  @override
+  String get disconnectNeocloud => 'Prekinuti vezu s NeoCloudom?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Time se uklanjaju URL NeoCloud poslužitelja i svi povezani NeoCloud računi za ovog agenta.';
+
+  @override
+  String get couldNotDisconnectNeocloud =>
+      'Nije moguće prekinuti vezu s NeoCloudom.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'Lokalni URL-ovi i URL-ovi privatne mreže rade ako ih poslužitelj NeoAgent može dosegnuti. Datoteke u šifriranim trezorima nikad nisu izložene NeoAgentu.';
+
+  @override
   String get couldNotDisconnectNextcloud => 'Could not disconnect Nextcloud.';
 
   @override

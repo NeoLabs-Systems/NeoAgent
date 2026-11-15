@@ -2464,6 +2464,44 @@ class AppL10nDa extends AppL10n {
   String get couldNotDisconnectNeorecall => 'Kunne ikke afbryde NeoRecall.';
 
   @override
+  String get neocloudSetup => 'NeoCloud-opsætning';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Forbind din NeoCloud-server. På NeoClouds login-side vælger du, hvad NeoAgent må gøre med dine filer, og om den må sende dokumenter til underskrift.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Brug en NeoCloud-URL, som NeoAgent-serveren kan nå. NeoAgents PUBLIC_URL skal også kunne nås fra denne browser for OAuth-callback.';
+
+  @override
+  String get connectedNeocloudUser => 'Forbundet NeoCloud-bruger';
+
+  @override
+  String get neocloudServerUrl => 'NeoCloud-server-URL';
+
+  @override
+  String get neocloudServerUrlIsRequired => 'NeoCloud-server-URL er påkrævet.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'Kunne ikke gemme NeoCloud-opsætningen.';
+
+  @override
+  String get disconnectNeocloud => 'Afbryd NeoCloud?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Dette fjerner NeoCloud-server-URL\'\'en og alle forbundne NeoCloud-konti for denne agent.';
+
+  @override
+  String get couldNotDisconnectNeocloud => 'Kunne ikke afbryde NeoCloud.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'Lokale URL\'\'er og URL\'\'er på private netværk virker, når NeoAgent-serveren kan nå dem. Filer i krypterede bokse vises aldrig for NeoAgent.';
+
+  @override
   String get couldNotDisconnectNextcloud => 'Kunne ikke afbryde Nextcloud.';
 
   @override

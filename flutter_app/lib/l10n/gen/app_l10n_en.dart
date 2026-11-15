@@ -2461,6 +2461,43 @@ class AppL10nEn extends AppL10n {
   String get couldNotDisconnectNeorecall => 'Could not disconnect NeoRecall.';
 
   @override
+  String get neocloudSetup => 'NeoCloud Setup';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Connect your NeoCloud server. On NeoCloud\'s sign-in page you choose what NeoAgent may do with your files and whether it may send documents for signature.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Use a NeoCloud URL the NeoAgent server can reach. NeoAgent\'\'s PUBLIC_URL must also be reachable from this browser for the OAuth callback.';
+
+  @override
+  String get connectedNeocloudUser => 'Connected NeoCloud User';
+
+  @override
+  String get neocloudServerUrl => 'NeoCloud Server URL';
+
+  @override
+  String get neocloudServerUrlIsRequired => 'NeoCloud server URL is required.';
+
+  @override
+  String get couldNotSaveNeocloudSetup => 'Could not save NeoCloud setup.';
+
+  @override
+  String get disconnectNeocloud => 'Disconnect NeoCloud?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'This removes the NeoCloud server URL and all connected NeoCloud accounts for this agent.';
+
+  @override
+  String get couldNotDisconnectNeocloud => 'Could not disconnect NeoCloud.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'Local and private-network URLs are supported when the NeoAgent server can reach them. Files in encrypted vaults are never exposed to NeoAgent.';
+
+  @override
   String get couldNotDisconnectNextcloud => 'Could not disconnect Nextcloud.';
 
   @override

@@ -2465,6 +2465,45 @@ class AppL10nSv extends AppL10n {
   String get couldNotDisconnectNeorecall => 'Kunde inte koppla från NeoRecall.';
 
   @override
+  String get neocloudSetup => 'NeoCloud-inställning';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Anslut din NeoCloud-server. På NeoClouds inloggningssida väljer du vad NeoAgent får göra med dina filer och om den får skicka dokument för signering.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Använd en NeoCloud-URL som NeoAgent-servern kan nå. NeoAgents PUBLIC_URL måste också kunna nås från den här webbläsaren för OAuth-återanropet.';
+
+  @override
+  String get connectedNeocloudUser => 'Ansluten NeoCloud-användare';
+
+  @override
+  String get neocloudServerUrl => 'NeoCloud-serverns URL';
+
+  @override
+  String get neocloudServerUrlIsRequired => 'NeoCloud-serverns URL krävs.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'Det gick inte att spara NeoCloud-inställningen.';
+
+  @override
+  String get disconnectNeocloud => 'Koppla från NeoCloud?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Detta tar bort NeoCloud-serverns URL och alla anslutna NeoCloud-konton för den här agenten.';
+
+  @override
+  String get couldNotDisconnectNeocloud =>
+      'Det gick inte att koppla från NeoCloud.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'Lokala URL:er och URL:er i privata nätverk fungerar när NeoAgent-servern kan nå dem. Filer i krypterade valv visas aldrig för NeoAgent.';
+
+  @override
   String get couldNotDisconnectNextcloud => 'Kunde inte koppla från Nextcloud.';
 
   @override

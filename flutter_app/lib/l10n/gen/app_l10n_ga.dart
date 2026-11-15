@@ -2483,6 +2483,46 @@ class AppL10nGa extends AppL10n {
       'Níorbh fhéidir NeoRecall a dhínascadh.';
 
   @override
+  String get neocloudSetup => 'Socrú NeoCloud';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Ceangail do fhreastalaí NeoCloud. Ar leathanach síniú isteach NeoCloud roghnaíonn tú cad is féidir le NeoAgent a dhéanamh le do chomhaid agus an féidir leis doiciméid a sheoladh lena síniú.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Úsáid URL NeoCloud ar féidir le freastalaí NeoAgent é a bhaint amach. Ní mór PUBLIC_URL NeoAgent a bheith inrochtana ón mbrabhsálaí seo freisin don aisghlao OAuth.';
+
+  @override
+  String get connectedNeocloudUser => 'Úsáideoir NeoCloud ceangailte';
+
+  @override
+  String get neocloudServerUrl => 'URL fhreastalaí NeoCloud';
+
+  @override
+  String get neocloudServerUrlIsRequired =>
+      'Tá URL fhreastalaí NeoCloud riachtanach.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'Níorbh fhéidir socrú NeoCloud a shábháil.';
+
+  @override
+  String get disconnectNeocloud => 'Dícheangail NeoCloud?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Baineann sé seo URL fhreastalaí NeoCloud agus gach cuntas NeoCloud ceangailte don ghníomhaire seo.';
+
+  @override
+  String get couldNotDisconnectNeocloud =>
+      'Níorbh fhéidir NeoCloud a dhícheangal.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'Tacaítear le URLanna áitiúla agus líonra phríobháidigh nuair is féidir le freastalaí NeoAgent iad a bhaint amach. Ní nochtar comhaid i gcrinnte criptithe do NeoAgent riamh.';
+
+  @override
   String get couldNotDisconnectNextcloud =>
       'Níorbh fhéidir Nextcloud a dhícheangal.';
 

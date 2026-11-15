@@ -2475,6 +2475,44 @@ class AppL10nLv extends AppL10n {
   String get couldNotDisconnectNeorecall => 'Nevarēja atvienot NeoRecall.';
 
   @override
+  String get neocloudSetup => 'NeoCloud iestatīšana';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Pievienojiet savu NeoCloud serveri. NeoCloud pierakstīšanās lapā jūs izvēlaties, ko NeoAgent drīkst darīt ar jūsu failiem un vai tas drīkst sūtīt dokumentus parakstīšanai.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Izmantojiet NeoCloud URL, ko var sasniegt NeoAgent serveris. NeoAgent PUBLIC_URL jābūt sasniedzamam arī no šīs pārlūkprogrammas OAuth atzvanam.';
+
+  @override
+  String get connectedNeocloudUser => 'Pievienotais NeoCloud lietotājs';
+
+  @override
+  String get neocloudServerUrl => 'NeoCloud servera URL';
+
+  @override
+  String get neocloudServerUrlIsRequired => 'NeoCloud servera URL ir obligāts.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'Neizdevās saglabāt NeoCloud iestatījumus.';
+
+  @override
+  String get disconnectNeocloud => 'Atvienot NeoCloud?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Tiks noņemts NeoCloud servera URL un visi šim aģentam pievienotie NeoCloud konti.';
+
+  @override
+  String get couldNotDisconnectNeocloud => 'Neizdevās atvienot NeoCloud.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'Lokālie un privātā tīkla URL darbojas, ja NeoAgent serveris tos var sasniegt. Faili šifrētās glabātavās NeoAgent nekad netiek parādīti.';
+
+  @override
   String get couldNotDisconnectNextcloud => 'Nevarēja atvienot Nextcloud.';
 
   @override

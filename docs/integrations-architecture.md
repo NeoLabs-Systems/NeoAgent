@@ -31,6 +31,7 @@ description: The integration registry, tool execution path, memory ingestion, an
 | `nextcloud` | `files`, `calendar`, `contacts` |
 | `home_assistant` | `home_assistant` |
 | `neorecall` | `recall` |
+| `neocloud` | `files` |
 | `bitwarden` | `password_manager` |
 | `whatsapp_personal` | `personal` |
 | `news`, `weather` | `headlines`, `forecast` |
@@ -54,7 +55,7 @@ The shared callback also serves two other flows, told apart by the `state` prefi
 
 - **Model sign-in.** `provider_sign_in/index.js` keeps PKCE flows in memory for 10 minutes; `openrouter.js` is the only method today.
 - **Scope.** Connections belong to a user, agent, provider and account (`account_email`).
-- **Config-based providers.** Nextcloud, Home Assistant, Trello, Bitwarden, NeoRecall and news use a user-entered config instead of, or before, OAuth.
+- **Config-based providers.** Nextcloud, Home Assistant, Trello, Bitwarden, NeoRecall, NeoCloud and news use a user-entered config instead of, or before, OAuth.
 
 ## Tool execution
 
@@ -108,6 +109,18 @@ memory directory and are removed after the client exits.
 | Limits | Tools use NeoRecall's local hybrid search; none calls NeoRecall Ask or fetches audio |
 
 When NeoRecall is connected, `neorecall_list_daily_summaries`, `neorecall_search` and `neorecall_list_conversations` start active in every run.
+
+## NeoCloud
+
+| Aspect | Behavior |
+|---|---|
+| Setup | The user enters the NeoCloud URL; NeoAgent requires `/api/health` `status: ok` and `/api/version` `product: neocloud`, then OAuth bootstrap returns a client ID |
+| Auth | PKCE (`S256`), requests `files:read`, `files:write`, `signing:read`, `signing:write`; the user narrows them on NeoCloud's consent page; refresh tokens rotate |
+| Granted scopes | Stored on the connection (`scopes_json`). The provider's `filterToolDefinitions` hook offers a tool only when a connection granted its `scope` and, for writes, isn't read-only; execution re-checks the scope |
+| Tools | `neocloud_list_files`, `neocloud_search_files`, `neocloud_read_file`, `neocloud_create_file`, `neocloud_update_file`, `neocloud_create_folder`, `neocloud_move_file`, `neocloud_delete_file`, `neocloud_create_pdf`, `neocloud_request_signatures`, `neocloud_list_signature_requests`, `neocloud_get_signature_request`, `neocloud_remind_signers`, `neocloud_new_signing_link`, `neocloud_cancel_signature_request` |
+| Data | Queried on demand over `/api/v1`; never copied into NeoAgent memory |
+
+`createOAuthProvider` accepts `filterToolDefinitions(tools, connections)`; the manager passes the connected rows when it lists tools for a run, and other callers get the full set.
 
 ## Messaging platforms
 

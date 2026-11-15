@@ -772,6 +772,30 @@ void _openOfficialIntegrationSetupDialog(
         ),
       );
       return;
+    case 'neocloud':
+      _showOfficialIntegrationUrlSetupDialog(
+        context,
+        controller,
+        config: _OfficialIntegrationUrlSetupConfig(
+          providerId: 'neocloud',
+          appId: 'files',
+          title: appStrings.neocloudSetup,
+          description: appStrings.connectYourNeocloudServer,
+          extraDescription: appStrings.useANeocloudUrlTheNeoagent,
+          connectionMethodLabel: appStrings.oauthWithPkce,
+          accountLabel: appStrings.connectedNeocloudUser,
+          urlLabel: appStrings.neocloudServerUrl,
+          urlHint: 'https://cloud.example.com',
+          urlHelperText: appStrings.neocloudUrlHelperText,
+          urlRequiredMessage: appStrings.neocloudServerUrlIsRequired,
+          saveErrorFallback: appStrings.couldNotSaveNeocloudSetup,
+          disconnectTitle: appStrings.disconnectNeocloud,
+          disconnectBody: appStrings.thisRemovesTheNeocloudServerUrl,
+          disconnectErrorFallback: appStrings.couldNotDisconnectNeocloud,
+          supportsMultipleAccounts: true,
+        ),
+      );
+      return;
     case 'nextcloud':
       _showOfficialIntegrationUrlSetupDialog(
         context,
@@ -2575,6 +2599,7 @@ class _OfficialIntegrationIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = switch (icon) {
       'neorecall' => const Color(0xFFD98AA6),
+      'neocloud' => const Color(0xFFE1B052),
       'nextcloud' => const Color(0xFF0082C9),
       'google' => const Color(0xFF4285F4),
       'microsoft' => const Color(0xFF0078D4),
@@ -2596,6 +2621,7 @@ class _OfficialIntegrationIcon extends StatelessWidget {
     };
     final letter = switch (icon) {
       'neorecall' => 'R',
+      'neocloud' => 'C',
       'nextcloud' => 'N',
       'google' => 'G',
       'microsoft' => 'M',
@@ -2642,8 +2668,9 @@ int _compareOfficialIntegrationItems(
 int _officialIntegrationRank(OfficialIntegrationItem item) {
   return switch (item.id) {
     'neorecall' => 1,
-    'nextcloud' => 2,
-    'google_workspace' => 3,
+    'neocloud' => 2,
+    'nextcloud' => 3,
+    'google_workspace' => 4,
     _ => 10,
   };
 }
