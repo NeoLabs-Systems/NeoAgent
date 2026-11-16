@@ -18,6 +18,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   _HomeWidgetSync? _homeWidgetSync;
   GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   String? _navigatorScopeSignature;
+  Brightness? _paintedBrightness;
   Menu? _trayMenu;
   HotKey? _assistantHotKey;
   Timer? _assistantHotKeyHoldTimer;
@@ -452,6 +453,14 @@ class _NeoAgentAppState extends State<NeoAgentApp>
             // Widgets that resolve their palette from the platform brightness
             // follow the theme picked in Settings too.
             final mediaQuery = MediaQuery.of(context);
+            final brightness = _appBrightness;
+            if (_paintedBrightness != null &&
+                _paintedBrightness != brightness) {
+              WidgetsBinding.instance.addPostFrameCallback(
+                (_) => _repaintNavigatorTree(),
+              );
+            }
+            _paintedBrightness = brightness;
             return Stack(
               children: <Widget>[
                 if (child != null)
@@ -551,6 +560,20 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     }
     _handlingDesktopClose = true;
     unawaited(_handleDesktopWindowClose());
+  }
+
+  // The navigator keeps its GlobalKey across a theme switch, so its routes are
+  // moved, not rebuilt, and widgets that read the palette getters (rather than
+  // Theme.of) would keep the old colors. Mark every one of them dirty.
+  void _repaintNavigatorTree() {
+    final navigatorContext = _navigatorKey.currentContext;
+    if (navigatorContext is! Element) return;
+    void markDirty(Element element) {
+      element.markNeedsBuild();
+      element.visitChildren(markDirty);
+    }
+
+    navigatorContext.visitChildren(markDirty);
   }
 
   Future<void> _handleDesktopWindowClose() async {
