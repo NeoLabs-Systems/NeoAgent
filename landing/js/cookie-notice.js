@@ -1,11 +1,8 @@
-/* NeoAgent — EU storage/cookie notice.
-   Shared by the landing pages and the Flutter web client (both same origin).
-   Informational, not a consent gate: nothing non-essential is stored, so there
-   is nothing to opt out of. Acknowledgement itself is the only thing written. */
+/* NeoLabs storage and analytics notice, shared by landing and app pages. */
 (function () {
   'use strict';
 
-  var KEY = 'neoagent.storage-notice.ack';
+  var KEY = 'neolabs.storage-notice.v2.ack';
 
   function alreadyAcknowledged() {
     try {
@@ -95,24 +92,21 @@
     '--na-n-btn:#e1b052;--na-n-btn-ink:#161d18;--na-n-btn-hover:#eec276;}}'
   ].join('');
 
+  var analyticsEnabled = Boolean(document.querySelector('script[src="/_neolabs/analytics.js"]'));
   var HTML = [
     '<div class="na-n-row">',
-    '<p><strong>Essential storage only.</strong> NeoAgent keeps your sign-in session, ',
-    'server address and app settings on this device so the app works. ',
-    'No tracking, no advertising, no analytics.</p>',
+    '<p><strong>Storage and privacy.</strong> This site uses browser storage for sign-in and preferences. ',
+    analyticsEnabled ? 'It also sends coarse usage statistics without analytics cookies.</p>' : '</p>',
     '<div class="na-n-actions">',
-    '<button type="button" class="na-n-more" aria-expanded="false">What\'s stored</button>',
+    '<button type="button" class="na-n-more" aria-expanded="false">Details</button>',
     '<button type="button" class="na-n-ok">Got it</button>',
     '</div></div>',
     '<div class="na-n-detail" hidden>',
     '<ul>',
-    '<li>Your session and the backend URL you connect to, so you stay signed in.</li>',
-    '<li>App preferences such as update channel and notification settings.</li>',
-    '<li>A flag remembering that you dismissed this notice.</li>',
-    '<li>Web fonts are loaded from Google Fonts, which sees your IP address.</li>',
+    '<li>Browser storage can keep your sign-in session, app preferences, and this notice’s dismissal.</li>',
+    analyticsEnabled ? '<li>Our analytics service receives activity counts and timing bands without an individual tracking ID. The receiving service can see your IP address.</li>' : '',
+    analyticsEnabled ? '<li>Enable Do Not Track or Global Privacy Control in your browser to skip browser analytics.</li>' : '',
     '</ul>',
-    '<p style="margin-top:8px">All of this is required for the site and app to ',
-    'function, so no consent choice is offered — there is nothing optional to refuse.</p>',
     '</div>'
   ].join('');
 

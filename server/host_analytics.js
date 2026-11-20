@@ -1,7 +1,7 @@
 'use strict';
 
 const os = require('node:os');
-const { analyticsEnabled, WEBSITE_ID } = require('./analytics');
+const { analyticsConfig } = require('./analytics-config');
 const { version } = require('../package.json');
 
 const INTERVAL_MS = 60 * 60 * 1000;
@@ -35,14 +35,19 @@ function hostSnapshot() {
 }
 
 async function reportHost(fetchImpl = globalThis.fetch) {
-  if (!analyticsEnabled()) return;
+  const config = analyticsConfig();
+  if (!config) return;
   try {
-    await fetchImpl('https://data.neo.eu.com/api/send', {
+    // A stream label satisfies Countly's protocol without identifying an installation.
+    const body = new URLSearchParams({
+      app_key: config.appKey,
+      device_id: 'aggregate-server',
+      events: JSON.stringify([{ key: 'host-snapshot', count: 1, segmentation: hostSnapshot() }]),
+    });
+    await fetchImpl(config.endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'User-Agent': `Mozilla/5.0 (compatible; NeoAgent/${version})` },
-      body: JSON.stringify({ type: 'event', payload: {
-        website: WEBSITE_ID, url: '/server', name: 'host-snapshot', data: hostSnapshot(),
-      } }),
+      body,
+      redirect: 'error',
       signal: AbortSignal.timeout(5000),
     });
   } catch (_) {
@@ -51,7 +56,7 @@ async function reportHost(fetchImpl = globalThis.fetch) {
 }
 
 function startHostAnalytics(server) {
-  if (!analyticsEnabled()) return;
+  if (!analyticsConfig()) return;
   void reportHost();
   const timer = setInterval(() => { void reportHost(); }, INTERVAL_MS);
   timer.unref();

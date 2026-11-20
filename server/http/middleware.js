@@ -1,5 +1,7 @@
 'use strict';
 
+const { analyticsConfig } = require('../analytics-config');
+
 const { redactErrorsForNonAdmins } = require('./errors');
 const session = require('express-session');
 const SQLiteStore = require('better-sqlite3-session-store')(session);
@@ -83,10 +85,9 @@ function buildHelmetOptions({ secureCookies }) {
     scriptSrc.push('https://cdn.jsdelivr.net', 'https://www.gstatic.com');
   }
 
-  if (require('../analytics').analyticsEnabled()) scriptSrc.push('https://data.neo.eu.com');
-
   const connectSrc = ["'self'", ...wsConnectSrc];
-  if (require('../analytics').analyticsEnabled()) connectSrc.push('https://data.neo.eu.com');
+  const analytics = analyticsConfig();
+  if (analytics) connectSrc.push(analytics.origin);
   if (allowExternalConnect) {
     connectSrc.push('https://fonts.googleapis.com', 'https://fonts.gstatic.com', 'https://www.gstatic.com', 'https://cdn.jsdelivr.net');
   }
