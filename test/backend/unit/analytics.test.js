@@ -21,6 +21,8 @@ function recordBrowserEvents(events) {
   return (url, options) => {
     if (url === endpoint) {
       assert.equal(options.method, 'POST');
+      assert.equal(options.mode, 'cors');
+      assert.equal(options.redirect, 'error');
       assert.equal(options.credentials, 'omit');
       assert.equal(options.referrerPolicy, 'no-referrer');
       assert.equal(options.body.get('device_id'), 'aggregate-browser');

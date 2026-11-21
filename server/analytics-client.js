@@ -27,7 +27,7 @@
       originalFetch.call(window, config.endpoint, {
         method: 'POST',
         body: body,
-        mode: 'no-cors',
+        mode: 'cors',
         credentials: 'omit',
         referrerPolicy: 'no-referrer',
         redirect: 'error',
