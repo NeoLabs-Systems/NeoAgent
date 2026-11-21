@@ -27,6 +27,8 @@ function recordBrowserEvents(events) {
       assert.equal(options.referrerPolicy, 'no-referrer');
       assert.equal(options.body.get('device_id'), 'aggregate-browser');
       assert.equal(options.body.get('app_key'), countlyKey);
+      assert.equal(options.body.has('begin_session'), false);
+      assert.equal(options.body.has('metrics'), false);
       events.push(...JSON.parse(options.body.get('events')));
     }
     return Promise.resolve({ status: 200 });
@@ -60,11 +62,11 @@ test('analytics is delivered only when enabled and preserves app assets', async 
 
 test('browser analytics sends coarse data only and honors privacy preferences', () => {
   const client = loadBrowserClient();
-  function run(dnt, gpc) {
+  function run(dnt, gpc, url = 'https://example.org/app/private-id?token=secret') {
     const sent = []; const listeners = {}; const timers = [];
     const document = { readyState: 'complete', visibilityState: 'hidden', addEventListener: (name, fn) => { listeners[name] = fn; } };
     const window = { fetch: recordBrowserEvents(sent), addEventListener: (name, fn) => { listeners[name] = fn; } };
-    const context = { window, document, navigator: { doNotTrack: dnt, globalPrivacyControl: gpc }, location: new URL('https://example.org/app/?token=secret'), performance: { getEntriesByType: () => [{ loadEventEnd: 1500 }] }, URL, URLSearchParams, setInterval: (fn, ms) => timers.push({ fn, ms }), setTimeout: fn => fn(), WeakMap, Promise };
+    const context = { window, document, navigator: { doNotTrack: dnt, globalPrivacyControl: gpc }, location: new URL(url), performance: { getEntriesByType: () => [{ loadEventEnd: 1500 }] }, URL, URLSearchParams, setInterval: (fn, ms) => timers.push({ fn, ms }), setTimeout: fn => fn(), WeakMap, Promise };
     vm.runInNewContext(client, context);
     if (listeners.click) listeners.click();
     if (listeners.error) listeners.error({ message: 'secret error' });
@@ -81,6 +83,17 @@ test('browser analytics sends coarse data only and honors privacy preferences', 
   }
   const enabled = run('0');
   assert.ok(enabled.length >= 4);
+  assert.deepEqual(enabled.filter(event => event.key === '[CLY]_view'), [{
+    key: '[CLY]_view',
+    count: 1,
+    segmentation: { name: 'app', view: '/app', visit: 1 },
+  }]);
+  assert.ok(enabled.some(event => event.key === 'page-load'));
+  assert.ok(!enabled.some(event => event.key === 'page-view'));
+  const landing = run('0', false, 'https://example.org/?token=secret');
+  assert.deepEqual(landing.find(event => event.key === '[CLY]_view').segmentation, {
+    name: 'landing', view: '/', visit: 1,
+  });
   assert.doesNotMatch(JSON.stringify(enabled), /secret|private|token|referrer|hostname/);
   assert.deepEqual(run('1'), []);
   assert.deepEqual(run('0', true), []);

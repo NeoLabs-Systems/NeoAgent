@@ -36,7 +36,13 @@
     } catch (_) { /* Analytics must not affect the application. */ }
   }
 
-  send([event('page-view', {}, 1)]);
+  // Countly Views uses a reserved event key on the same write endpoint.
+  // Report the page category as its name and path without including the actual URL.
+  send([{
+    key: '[CLY]_view',
+    count: 1,
+    segmentation: { name: area, view: area === 'landing' ? '/' : '/app', visit: 1 },
+  }]);
   function reportLoad() {
     var start = performance.getEntriesByType('navigation')[0];
     if (!start) return;
